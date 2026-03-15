@@ -1,0 +1,190 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model JobApplication {
+  id          String   @id @default(uuid())
+  company     String
+  role        String
+  url         String?
+  location    String?
+  type        String   @default("remote") // remote, hybrid, onsite
+  status      String   @default("wishlist") // wishlist, applied, screening, interviewing, offer, accepted, rejected, withdrawn
+  salaryMin   Int?
+  salaryMax   Int?
+  currency    String   @default("USD")
+  appliedDate DateTime?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  interviews Interview[]
+}
+
+model Interview {
+  id              String   @id @default(uuid())
+  jobApplicationId String
+  type            String   @default("phone") // phone, technical, behavioral, onsite, panel
+  scheduledAt     DateTime
+  durationMinutes Int?     @default(60)
+  location        String?
+  interviewerName String?
+  interviewerRole String?
+  notes           String?
+  status          String   @default("scheduled") // scheduled, completed, cancelled
+  rating          Int?     // 1-5
+  createdAt       DateTime @default(now())
+
+  jobApplication JobApplication @relation(fields: [jobApplicationId], references: [id], onDelete: Cascade)
+}
+
+model Contact {
+  id              String   @id @default(uuid())
+  name            String
+  email           String?
+  phone           String?
+  company         String?
+  role            String?
+  linkedinUrl     String?
+  relationship    String   @default("other") // recruiter, referral, colleague, mentor, other
+  notes           String?
+  lastContactedAt DateTime?
+  createdAt       DateTime @default(now())
+}
+
+model Skill {
+  id          String   @id @default(uuid())
+  name        String
+  category    String   @default("technical") // technical, soft, language, tool
+  proficiency String   @default("intermediate") // beginner, intermediate, advanced, expert
+  createdAt   DateTime @default(now())
+}
+
+model Certification {
+  id            String    @id @default(uuid())
+  name          String
+  issuer        String
+  issueDate     DateTime
+  expiryDate    DateTime?
+  credentialUrl String?
+  createdAt     DateTime  @default(now())
+}
+
+model ResumeVersion {
+  id            String   @id @default(uuid())
+  name          String
+  filePath      String?
+  fileName      String?
+  fileSize      Int?
+  targetRole    String?
+  notes         String?
+  versionNumber Int      @default(1)
+  isActive      Boolean  @default(false)
+  createdAt     DateTime @default(now())
+}
+
+model CareerGoal {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  targetDate  DateTime?
+  status      String   @default("not_started") // not_started, in_progress, completed, abandoned
+  priority    String   @default("medium") // low, medium, high
+  createdAt   DateTime @default(now())
+
+  milestones Milestone[]
+}
+
+model Milestone {
+  id           String    @id @default(uuid())
+  careerGoalId String
+  title        String
+  completed    Boolean   @default(false)
+  completedAt  DateTime?
+  createdAt    DateTime  @default(now())
+
+  careerGoal CareerGoal @relation(fields: [careerGoalId], references: [id], onDelete: Cascade)
+}
+
+model Reminder {
+  id         String   @id @default(uuid())
+  entityType String   // interview, goal, certification
+  entityId   String
+  title      String
+  remindAt   DateTime
+  isDismissed Boolean @default(false)
+  snoozedUntil DateTime?
+  createdAt  DateTime @default(now())
+}
+
+model ActivityLog {
+  id          String   @id @default(uuid())
+  entityType  String   // application, interview, contact, skill, certification, resume, goal
+  entityId    String
+  action      String   // created, updated, status_changed, deleted
+  description String
+  createdAt   DateTime @default(now())
+}
+
+model UserProfile {
+  id                 String   @id @default(uuid())
+  availability       String   @default("open_to_work") // open_to_work, selectively_open, not_looking
+  bio                String?
+  preferredRoles     String?  // comma-separated
+  targetSalaryMin    Int?
+  targetSalaryMax    Int?
+  currency           String   @default("USD")
+  locationPreference String?  // e.g. "Remote, NYC, SF"
+  showSkills         Boolean  @default(true)
+  showResume         Boolean  @default(true)
+  showCertifications Boolean  @default(true)
+  showCurrentRole    Boolean  @default(true)
+  portalSlug         String   @default("portal") @unique
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model CurrentPosition {
+  id            String    @id @default(uuid())
+  company       String
+  role          String
+  department    String?
+  location      String?
+  type          String    @default("remote") // remote, hybrid, onsite
+  startDate     DateTime
+  endDate       DateTime?
+  salary        Int?
+  currency      String    @default("USD")
+  description   String?
+  responsibilities String? // comma-separated or newline-separated
+  techStack     String?   // comma-separated
+  managerName   String?
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model RecruiterSubmission {
+  id             String   @id @default(uuid())
+  recruiterName  String
+  recruiterEmail String
+  company        String?
+  linkedinUrl    String?
+  jobTitle       String
+  jobDescription String?
+  salaryMin      Int?
+  salaryMax      Int?
+  location       String?
+  jobType        String?  // remote, hybrid, onsite
+  message        String?
+  status         String   @default("new") // new, reviewed, archived
+  contactId      String?  // auto-created Contact
+  applicationId  String?  // auto-created Application
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
