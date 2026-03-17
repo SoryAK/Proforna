@@ -90,11 +90,13 @@ export const SUBMISSION_COLORS: Record<SubmissionStatus, string> = {
 export const NAV_ITEMS = [
   { label: "Dashboard", href: "/", icon: "LayoutDashboard" },
   { label: "Current Role", href: "/current-position", icon: "Building2" },
+  { label: "Experience", href: "/experience", icon: "History" },
   { label: "Applications", href: "/applications", icon: "Briefcase" },
   { label: "Contacts", href: "/contacts", icon: "Users" },
   { label: "Skills", href: "/skills", icon: "Zap" },
   { label: "Resumes", href: "/resumes", icon: "FileText" },
   { label: "Goals", href: "/goals", icon: "Target" },
+  { label: "Career Model", href: "/career-model", icon: "TrendingUp" },
   { label: "Submissions", href: "/submissions", icon: "Inbox" },
   { label: "Portal Settings", href: "/portal-settings", icon: "Globe" },
 ] as const;

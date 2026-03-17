@@ -26,6 +26,15 @@ export async function GET() {
       : null;
 
     return NextResponse.json({
+      fullName: profile.fullName,
+      headline: profile.headline,
+      avatarUrl: profile.avatarUrl,
+      email: profile.email,
+      linkedinUrl: profile.linkedinUrl,
+      githubUrl: profile.githubUrl,
+      portfolioUrl: profile.portfolioUrl,
+      city: profile.city,
+      state: profile.state,
       availability: profile.availability,
       bio: profile.bio,
       preferredRoles: profile.preferredRoles,

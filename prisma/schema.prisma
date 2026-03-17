@@ -20,6 +20,22 @@ model JobApplication {
   currency    String   @default("USD")
   appliedDate DateTime?
   notes       String?
+  // Offer details (populated when status = offer/accepted)
+  offerPayType      String?  // salary, hourly
+  offerPayRate      String?  // e.g. "$35.50" for hourly
+  offerSalary       Int?     // annual salary if salaried
+  offerPayFrequency String?  // weekly, biweekly, semimonthly, monthly
+  offerHoursPerWeek Float?
+  offerOtHours      Float?
+  offerOtRate       Float?   @default(1.5)
+  offerSigningBonus Int?
+  offerAnnualBonus  Int?     // expected annual bonus
+  offerEquity       String?  // e.g. "5000 RSUs over 4 years"
+  offer401kMatch    Float?   // employer match % (e.g. 6)
+  offerPtoDays      Int?     // PTO days per year
+  offerHealthCost   Float?   // monthly employee health insurance cost
+  offerStartDate    DateTime?
+  offerNotes        String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -133,6 +149,18 @@ model ActivityLog {
 
 model UserProfile {
   id                 String   @id @default(uuid())
+  // Identity
+  fullName           String?
+  headline           String?  // e.g. "Senior Full-Stack Engineer"
+  email              String?
+  phone              String?
+  avatarUrl          String?  // base64 data-url or file path
+  city               String?
+  state              String?
+  linkedinUrl        String?
+  githubUrl          String?
+  portfolioUrl       String?
+  // Career preferences
   availability       String   @default("open_to_work") // open_to_work, selectively_open, not_looking
   bio                String?
   preferredRoles     String?  // comma-separated
@@ -145,6 +173,11 @@ model UserProfile {
   showCertifications Boolean  @default(true)
   showCurrentRole    Boolean  @default(true)
   portalSlug         String   @default("portal") @unique
+  // Personal finance — portable across positions / job offers
+  filingStatus       String   @default("single") // single, married_joint, married_separate, head_of_household
+  federalTaxRate     Float?   // estimated federal tax %
+  stateTaxRate       Float?   // estimated state tax %
+  monthlyExpenses    String?  // JSON blob: { rent, utilities, car, insurance, phone, subscriptions, groceries, gas, studentLoans, creditCards, otherDebt, savings, otherExpenses }
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 }
@@ -177,6 +210,13 @@ model CurrentPosition {
   payType       String    @default("salary") // salary, hourly, contract
   differentials String?   // newline-separated e.g. "Night Shift +$2.00\nWeekend +$3.00"
   payFrequency  String    @default("biweekly") // weekly, biweekly, semimonthly, monthly
+  rotatingSchedule Boolean @default(false)
+  hoursPerWeek  Float?    // regular hours per week (schedule A if rotating)
+  scheduleBHours Float?   // schedule B regular hours (only if rotatingSchedule)
+  otHoursA      Float?    // OT hours per week for schedule A (or fixed schedule)
+  otHoursB      Float?    // OT hours per week for schedule B (only if rotating)
+  otRate        Float?    @default(1.5) // OT multiplier (e.g. 1.5x)
+  estimatorSettings String? // JSON blob for estimator inputs (OT, tax rates, deductions, etc.)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -264,4 +304,42 @@ model RecruiterSubmission {
   applicationId  String?  // auto-created Application
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+}
+
+// ─── Career Financial Model ──────────────────────────────────
+
+model CareerIncomeYear {
+  id          String   @id @default(uuid())
+  year        Int      @unique
+  grossIncome Float    // total gross earnings
+  netIncome   Float?   // AGI / net after taxes
+  jobCount    Int      @default(1) // number of jobs that year
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  entries     CareerIncomeEntry[]
+}
+
+model CareerIncomeEntry {
+  id          String   @id @default(uuid())
+  yearId      String
+  employer    String               // company name from W-2 or manual entry
+  grossIncome Float
+  netIncome   Float?
+  ein         String?              // employer EIN
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  incomeYear  CareerIncomeYear @relation(fields: [yearId], references: [id], onDelete: Cascade)
+}
+
+model WageTier {
+  id         String  @id @default(uuid())
+  label      String  // e.g. "Short-Term", "Long-Term", "Target"
+  hourlyRate Float
+  yearlyRate Float
+  sortOrder  Int     @default(0)
+  color      String  @default("#6366f1") // UI accent color
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }

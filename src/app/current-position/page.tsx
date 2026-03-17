@@ -43,12 +43,15 @@ import {
   ClockArrowUp,
   Target,
   Loader2,
+  RefreshCw,
 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { format, formatDistanceToNow } from "date-fns";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { CompensationTracker } from "@/components/compensation-tracker";
 import { BenefitsTracker } from "@/components/benefits-tracker";
 import { TimeOffTracker } from "@/components/timeoff-tracker";
+
 
 interface Position {
   id: string;
@@ -75,6 +78,13 @@ interface Position {
   payType: string;
   differentials: string | null;
   payFrequency: string;
+  rotatingSchedule: boolean;
+  hoursPerWeek: number | null;
+  scheduleBHours: number | null;
+  otHoursA: number | null;
+  otHoursB: number | null;
+  otRate: number | null;
+  estimatorSettings: string | null;
   createdAt: string;
 }
 
@@ -101,6 +111,12 @@ const emptyForm = {
   payType: "salary",
   differentials: "",
   payFrequency: "biweekly",
+  rotatingSchedule: false,
+  hoursPerWeek: "",
+  scheduleBHours: "",
+  otHoursA: "",
+  otHoursB: "",
+  otRate: "1.5",
 };
 
 const TYPE_ICON: Record<string, React.ElementType> = {
@@ -135,6 +151,7 @@ export default function CurrentPositionPage() {
       }).then((r) => r.json()),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["current-position"] });
+      queryClient.invalidateQueries({ queryKey: ["cfm"] });
       toast.success("Position added!");
       resetForm();
     },
@@ -149,6 +166,7 @@ export default function CurrentPositionPage() {
       }).then((r) => r.json()),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["current-position"] });
+      queryClient.invalidateQueries({ queryKey: ["cfm"] });
       toast.success("Position updated!");
       resetForm();
     },
@@ -161,6 +179,7 @@ export default function CurrentPositionPage() {
       ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["current-position"] });
+      queryClient.invalidateQueries({ queryKey: ["cfm"] });
       toast.success("Position removed");
     },
   });
@@ -195,6 +214,12 @@ export default function CurrentPositionPage() {
       payType: pos.payType || "salary",
       differentials: pos.differentials || "",
       payFrequency: pos.payFrequency || "biweekly",
+      rotatingSchedule: pos.rotatingSchedule ?? false,
+      hoursPerWeek: pos.hoursPerWeek?.toString() || "",
+      scheduleBHours: pos.scheduleBHours?.toString() || "",
+      otHoursA: pos.otHoursA?.toString() || "",
+      otHoursB: pos.otHoursB?.toString() || "",
+      otRate: pos.otRate?.toString() || "1.5",
     });
     setEditingId(pos.id);
     setShowForm(true);
@@ -205,6 +230,11 @@ export default function CurrentPositionPage() {
     const payload = {
       ...form,
       salary: form.salary ? parseInt(form.salary) : null,
+      hoursPerWeek: form.hoursPerWeek ? parseFloat(form.hoursPerWeek) : null,
+      scheduleBHours: form.scheduleBHours ? parseFloat(form.scheduleBHours) : null,
+      otHoursA: form.otHoursA ? parseFloat(form.otHoursA) : null,
+      otHoursB: form.otHoursB ? parseFloat(form.otHoursB) : null,
+      otRate: form.otRate ? parseFloat(form.otRate) : null,
     };
     if (editingId) {
       updateMutation.mutate({ id: editingId, data: payload });
@@ -391,6 +421,17 @@ export default function CurrentPositionPage() {
                 <div className="flex items-center gap-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 px-3 py-2 text-sm">
                   <ClockArrowUp className="h-4 w-4 text-orange-600" />
                   <span className="font-semibold">{active.schedule}</span>
+                </div>
+              )}
+              {active.rotatingSchedule && (
+                <div className="flex items-center gap-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 px-3 py-2 text-sm">
+                  <RefreshCw className="h-4 w-4 text-indigo-600" />
+                  <span className="font-semibold">Rotating</span>
+                  <span className="text-muted-foreground">
+                    {active.hoursPerWeek && active.scheduleBHours
+                      ? `${active.hoursPerWeek}/${active.scheduleBHours} hrs`
+                      : "schedule"}
+                  </span>
                 </div>
               )}
               {active.managerName && (
@@ -659,6 +700,13 @@ export default function CurrentPositionPage() {
               salary={active.salary}
               schedule={active.schedule}
               payFrequency={active.payFrequency}
+              rotatingSchedule={active.rotatingSchedule}
+              hoursPerWeek={active.hoursPerWeek}
+              scheduleBHours={active.scheduleBHours}
+              otHoursA={active.otHoursA}
+              otHoursB={active.otHoursB}
+              otRate={active.otRate}
+              estimatorSettings={active.estimatorSettings}
             />
           </TabsContent>
 
@@ -669,6 +717,7 @@ export default function CurrentPositionPage() {
           <TabsContent value="timeoff" className="mt-4">
             <TimeOffTracker positionId={active.id} />
           </TabsContent>
+
         </Tabs>
       )}
 
@@ -986,6 +1035,188 @@ export default function CurrentPositionPage() {
                 </Select>
               </div>
             </div>
+            {form.payType === "hourly" && (
+              <>
+                <div className="flex items-center justify-between rounded-lg border border-dashed p-3">
+                  <div>
+                    <p className="text-sm font-medium flex items-center gap-1.5">
+                      <RefreshCw className="h-3.5 w-3.5" />
+                      Rotating Schedule
+                    </p>
+                    <p className="text-xs text-muted-foreground">Alternate between two weekly schedules</p>
+                  </div>
+                  <Switch
+                    checked={form.rotatingSchedule}
+                    onCheckedChange={(v) => setForm({ ...form, rotatingSchedule: v })}
+                  />
+                </div>
+                <div className={`grid gap-4 ${form.rotatingSchedule ? "sm:grid-cols-2" : ""}`}>
+                  <div>
+                    <Label className="mb-1">{form.rotatingSchedule ? "Schedule A — Hrs / Week" : "Regular Hrs / Week"}</Label>
+                    <Input
+                      type="number"
+                      placeholder="40"
+                      value={form.hoursPerWeek}
+                      onChange={(e) => {
+                        const hrs = parseFloat(e.target.value) || 0;
+                        const updates: Record<string, string> = { hoursPerWeek: e.target.value };
+                        // Auto-detect overtime: hours over 40 are OT
+                        if (hrs > 40 && !form.otHoursA) {
+                          updates.otHoursA = (hrs - 40).toString();
+                        }
+                        setForm({ ...form, ...updates });
+                      }}
+                    />
+                  </div>
+                  {form.rotatingSchedule && (
+                    <div>
+                      <Label className="mb-1">Schedule B — Hrs / Week</Label>
+                      <Input
+                        type="number"
+                        placeholder="36"
+                        value={form.scheduleBHours}
+                        onChange={(e) => {
+                          const hrs = parseFloat(e.target.value) || 0;
+                          const updates: Record<string, string> = { scheduleBHours: e.target.value };
+                          if (hrs > 40 && !form.otHoursB) {
+                            updates.otHoursB = (hrs - 40).toString();
+                          }
+                          setForm({ ...form, ...updates });
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+                {/* OT Detection — auto-show when any schedule exceeds 40 hrs */}
+                {(() => {
+                  const hrsA = parseFloat(form.hoursPerWeek) || 0;
+                  const hrsB = parseFloat(form.scheduleBHours) || 0;
+                  const hasOT = hrsA > 40 || (form.rotatingSchedule && hrsB > 40) || parseFloat(form.otHoursA) > 0 || parseFloat(form.otHoursB) > 0;
+                  if (!hasOT) return null;
+                  return (
+                    <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20 p-3 space-y-3">
+                      <p className="text-sm font-medium flex items-center gap-1.5 text-amber-800 dark:text-amber-300">
+                        <ClockArrowUp className="h-3.5 w-3.5" />
+                        Overtime Detected
+                      </p>
+                      <div className={`grid gap-4 ${form.rotatingSchedule ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
+                        <div>
+                          <Label className="text-xs mb-1">{form.rotatingSchedule ? "Sched A OT Hrs" : "OT Hrs / Week"}</Label>
+                          <Input
+                            type="number"
+                            placeholder={hrsA > 40 ? (hrsA - 40).toString() : "0"}
+                            value={form.otHoursA}
+                            onChange={(e) => setForm({ ...form, otHoursA: e.target.value })}
+                          />
+                        </div>
+                        {form.rotatingSchedule && (
+                          <div>
+                            <Label className="text-xs mb-1">Sched B OT Hrs</Label>
+                            <Input
+                              type="number"
+                              placeholder={hrsB > 40 ? (hrsB - 40).toString() : "0"}
+                              value={form.otHoursB}
+                              onChange={(e) => setForm({ ...form, otHoursB: e.target.value })}
+                            />
+                          </div>
+                        )}
+                        <div>
+                          <Label className="text-xs mb-1">OT Multiplier</Label>
+                          <Input
+                            type="number"
+                            step="0.1"
+                            placeholder="1.5"
+                            value={form.otRate}
+                            onChange={(e) => setForm({ ...form, otRate: e.target.value })}
+                          />
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Hours over 40/week are typically overtime at {form.otRate || "1.5"}× rate
+                      </p>
+                    </div>
+                  );
+                })()}
+              </>
+            )}
+            {/* Auto-calculated annual salary estimate */}
+            {form.payType === "hourly" && form.payRate && form.hoursPerWeek && (
+              <div className="rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 p-3">
+                {(() => {
+                  const rate = parseFloat(form.payRate.replace(/[^0-9.]/g, "")) || 0;
+                  const hrsA = parseFloat(form.hoursPerWeek) || 0;
+                  const hrsB = parseFloat(form.scheduleBHours) || 0;
+                  const weeksPerYear = 52;
+
+                  // Parse differentials from the form
+                  const diffLines = form.differentials.split("\n").filter(Boolean);
+                  const parseDiff = (d: string) => {
+                    const m = d.match(/[+-]?\$?([\d.]+)/);
+                    return m ? parseFloat(m[1]) : 0;
+                  };
+                  const totalDiffPerHr = diffLines.reduce((sum, d) => sum + parseDiff(d), 0);
+
+                  // OT from form inputs
+                  const otHrsA = parseFloat(form.otHoursA) || 0;
+                  const otHrsB = parseFloat(form.otHoursB) || 0;
+                  const otMult = parseFloat(form.otRate) || 1.5;
+                  const regHrsA = Math.min(hrsA, 40);
+                  const regHrsB = Math.min(hrsB, 40);
+
+                  let basePay: number, diffPay: number, otPay: number;
+                  if (form.rotatingSchedule && hrsB > 0) {
+                    const half = weeksPerYear / 2;
+                    basePay = rate * (regHrsA * half + regHrsB * half);
+                    diffPay = totalDiffPerHr * (regHrsA * half + regHrsB * half);
+                    otPay = rate * otMult * (otHrsA * half + otHrsB * half);
+                  } else {
+                    basePay = rate * regHrsA * weeksPerYear;
+                    diffPay = totalDiffPerHr * regHrsA * weeksPerYear;
+                    otPay = rate * otMult * otHrsA * weeksPerYear;
+                  }
+                  const total = basePay + diffPay + otPay;
+
+                  return (
+                    <>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-sm">
+                          <DollarSign className="h-4 w-4 text-emerald-600" />
+                          <span className="text-muted-foreground">Estimated Annual Salary</span>
+                        </div>
+                        <span className="text-lg font-bold font-mono text-emerald-700 dark:text-emerald-400">
+                          ${total.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                          <span className="text-xs text-muted-foreground font-normal ml-1">/yr</span>
+                        </span>
+                      </div>
+                      <div className="mt-2 space-y-1 text-xs text-muted-foreground">
+                        <div className="flex justify-between">
+                          <span>Base Pay (${rate}/hr × {form.rotatingSchedule ? `avg ${((regHrsA + regHrsB) / 2).toFixed(0)}` : regHrsA} reg hrs × 52 wks)</span>
+                          <span className="font-mono">${basePay.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                        </div>
+                        {otPay > 0 && (
+                          <div className="flex justify-between text-blue-700 dark:text-blue-400">
+                            <span>Overtime ({otMult}× × {form.rotatingSchedule ? `avg ${((otHrsA + otHrsB) / 2).toFixed(1)}` : otHrsA} OT hrs/wk)</span>
+                            <span className="font-mono">+${otPay.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                          </div>
+                        )}
+                        {diffPay > 0 && (
+                          <div className="flex justify-between text-amber-700 dark:text-amber-400">
+                            <span>Differentials (+${totalDiffPerHr.toFixed(2)}/hr on reg hrs)</span>
+                            <span className="font-mono">+${diffPay.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                          </div>
+                        )}
+                      </div>
+                      {otPay === 0 && (
+                        <p className="text-xs text-muted-foreground mt-1.5">
+                          Bonuses &amp; additional OT calculated in the Compensation tab.
+                        </p>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
+            )}
+
             {form.payType === "hourly" && (
               <div>
                 <Label className="mb-1">Differentials (one per line)</Label>

@@ -42,6 +42,13 @@ export async function POST(request: Request) {
         payType: body.payType || "salary",
         differentials: body.differentials || null,
         payFrequency: body.payFrequency || "biweekly",
+        rotatingSchedule: body.rotatingSchedule ?? false,
+        hoursPerWeek: body.hoursPerWeek != null ? parseFloat(body.hoursPerWeek) : null,
+        scheduleBHours: body.scheduleBHours != null ? parseFloat(body.scheduleBHours) : null,
+        otHoursA: body.otHoursA != null ? parseFloat(body.otHoursA) : null,
+        otHoursB: body.otHoursB != null ? parseFloat(body.otHoursB) : null,
+        otRate: body.otRate != null ? parseFloat(body.otRate) : null,
+        estimatorSettings: body.estimatorSettings || null,
       },
     });
 

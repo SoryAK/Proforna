@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import Image from "next/image";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -23,7 +24,17 @@ import {
   ExternalLink,
   Copy,
   CheckCircle2,
+  Camera,
+  User,
+  Mail,
+  Phone,
+  MapPin,
+  Linkedin,
+  Github,
+  Link2,
+  Loader2,
 } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
 import {
   AVAILABILITY_LABELS,
   AVAILABILITY_COLORS,
@@ -32,6 +43,16 @@ import {
 
 interface UserProfile {
   id: string;
+  fullName: string | null;
+  headline: string | null;
+  email: string | null;
+  phone: string | null;
+  avatarUrl: string | null;
+  city: string | null;
+  state: string | null;
+  linkedinUrl: string | null;
+  githubUrl: string | null;
+  portfolioUrl: string | null;
   availability: AvailabilityStatus;
   bio: string | null;
   preferredRoles: string | null;
@@ -49,6 +70,8 @@ interface UserProfile {
 export default function PortalSettingsPage() {
   const queryClient = useQueryClient();
   const [copied, setCopied] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: profile, isLoading } = useQuery<UserProfile>({
     queryKey: ["profile"],
@@ -56,6 +79,15 @@ export default function PortalSettingsPage() {
   });
 
   const [form, setForm] = useState({
+    fullName: "",
+    headline: "",
+    email: "",
+    phone: "",
+    city: "",
+    state: "",
+    linkedinUrl: "",
+    githubUrl: "",
+    portfolioUrl: "",
     availability: "open_to_work" as string,
     bio: "",
     preferredRoles: "",
@@ -72,6 +104,15 @@ export default function PortalSettingsPage() {
   useEffect(() => {
     if (profile) {
       setForm({
+        fullName: profile.fullName || "",
+        headline: profile.headline || "",
+        email: profile.email || "",
+        phone: profile.phone || "",
+        city: profile.city || "",
+        state: profile.state || "",
+        linkedinUrl: profile.linkedinUrl || "",
+        githubUrl: profile.githubUrl || "",
+        portfolioUrl: profile.portfolioUrl || "",
         availability: profile.availability,
         bio: profile.bio || "",
         preferredRoles: profile.preferredRoles || "",
@@ -106,6 +147,15 @@ export default function PortalSettingsPage() {
 
   const handleSave = () => {
     saveMutation.mutate({
+      fullName: form.fullName || null,
+      headline: form.headline || null,
+      email: form.email || null,
+      phone: form.phone || null,
+      city: form.city || null,
+      state: form.state || null,
+      linkedinUrl: form.linkedinUrl || null,
+      githubUrl: form.githubUrl || null,
+      portfolioUrl: form.portfolioUrl || null,
       availability: form.availability,
       bio: form.bio || null,
       preferredRoles: form.preferredRoles || null,
@@ -118,6 +168,29 @@ export default function PortalSettingsPage() {
       showCertifications: form.showCertifications,
       showCurrentRole: form.showCurrentRole,
     });
+  };
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("avatar", file);
+      const res = await fetch("/api/avatar", { method: "POST", body: fd });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Upload failed");
+      }
+      queryClient.invalidateQueries({ queryKey: ["profile"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      toast.success("Profile picture updated!");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
   };
 
   const portalUrl = typeof window !== "undefined"
@@ -181,6 +254,178 @@ export default function PortalSettingsPage() {
               <ExternalLink className="h-4 w-4 mr-1" />
               Preview
             </a>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Profile Identity */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <User className="h-5 w-5" />
+            Your Profile
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Avatar */}
+          <div className="flex items-center gap-6">
+            <div className="relative group">
+              <div className="h-24 w-24 rounded-full border-2 border-muted overflow-hidden bg-muted flex items-center justify-center">
+                {profile?.avatarUrl ? (
+                  <Image
+                    src={profile.avatarUrl}
+                    alt="Profile"
+                    width={96}
+                    height={96}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <User className="h-10 w-10 text-muted-foreground" />
+                )}
+              </div>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="absolute inset-0 flex items-center justify-center rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+              >
+                {uploading ? (
+                  <Loader2 className="h-5 w-5 text-white animate-spin" />
+                ) : (
+                  <Camera className="h-5 w-5 text-white" />
+                )}
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                className="hidden"
+                onChange={handleAvatarUpload}
+              />
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-medium">Profile Picture</p>
+              <p className="text-xs text-muted-foreground">JPG, PNG, WebP or GIF. Max 2 MB.</p>
+              <Button
+                size="sm"
+                variant="outline"
+                className="mt-1"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+              >
+                {uploading ? "Uploading..." : "Upload Photo"}
+              </Button>
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Name & Headline */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <Label className="mb-1 flex items-center gap-1.5">
+                <User className="h-3.5 w-3.5" /> Full Name
+              </Label>
+              <Input
+                placeholder="John Doe"
+                value={form.fullName}
+                onChange={(e) => setForm({ ...form, fullName: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label className="mb-1">Professional Headline</Label>
+              <Input
+                placeholder="Senior Full-Stack Engineer"
+                value={form.headline}
+                onChange={(e) => setForm({ ...form, headline: e.target.value })}
+              />
+            </div>
+          </div>
+
+          {/* Contact */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <Label className="mb-1 flex items-center gap-1.5">
+                <Mail className="h-3.5 w-3.5" /> Email
+              </Label>
+              <Input
+                type="email"
+                placeholder="you@example.com"
+                value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label className="mb-1 flex items-center gap-1.5">
+                <Phone className="h-3.5 w-3.5" /> Phone
+              </Label>
+              <Input
+                type="tel"
+                placeholder="(555) 123-4567"
+                value={form.phone}
+                onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              />
+            </div>
+          </div>
+
+          {/* Location */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <Label className="mb-1 flex items-center gap-1.5">
+                <MapPin className="h-3.5 w-3.5" /> City
+              </Label>
+              <Input
+                placeholder="San Francisco"
+                value={form.city}
+                onChange={(e) => setForm({ ...form, city: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label className="mb-1">State / Region</Label>
+              <Input
+                placeholder="California"
+                value={form.state}
+                onChange={(e) => setForm({ ...form, state: e.target.value })}
+              />
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Links */}
+          <div className="space-y-4">
+            <p className="text-sm font-medium">Professional Links</p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <Label className="mb-1 flex items-center gap-1.5">
+                  <Linkedin className="h-3.5 w-3.5" /> LinkedIn
+                </Label>
+                <Input
+                  placeholder="https://linkedin.com/in/yourname"
+                  value={form.linkedinUrl}
+                  onChange={(e) => setForm({ ...form, linkedinUrl: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label className="mb-1 flex items-center gap-1.5">
+                  <Github className="h-3.5 w-3.5" /> GitHub
+                </Label>
+                <Input
+                  placeholder="https://github.com/yourname"
+                  value={form.githubUrl}
+                  onChange={(e) => setForm({ ...form, githubUrl: e.target.value })}
+                />
+              </div>
+            </div>
+            <div>
+              <Label className="mb-1 flex items-center gap-1.5">
+                <Link2 className="h-3.5 w-3.5" /> Portfolio / Website
+              </Label>
+              <Input
+                placeholder="https://yoursite.com"
+                value={form.portfolioUrl}
+                onChange={(e) => setForm({ ...form, portfolioUrl: e.target.value })}
+              />
+            </div>
           </div>
         </CardContent>
       </Card>

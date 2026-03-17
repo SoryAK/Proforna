@@ -27,7 +27,11 @@ import {
   Building2,
   Calendar,
   Code2,
+  ExternalLink,
+  Mail,
+  User,
 } from "lucide-react";
+import Image from "next/image";
 import {
   AVAILABILITY_LABELS,
   AVAILABILITY_COLORS,
@@ -36,6 +40,15 @@ import {
 } from "@/lib/constants";
 
 interface PortalData {
+  fullName: string | null;
+  headline: string | null;
+  avatarUrl: string | null;
+  email: string | null;
+  linkedinUrl: string | null;
+  githubUrl: string | null;
+  portfolioUrl: string | null;
+  city: string | null;
+  state: string | null;
   availability: AvailabilityStatus;
   bio: string | null;
   preferredRoles: string | null;
@@ -140,6 +153,12 @@ export default function PortalPage() {
   const availLabel = AVAILABILITY_LABELS[portal.availability] || portal.availability;
   const availColor = AVAILABILITY_COLORS[portal.availability] || "";
   const roles = portal.preferredRoles?.split(",").map((r) => r.trim()).filter(Boolean) || [];
+  const locationStr = portal.city && portal.state
+    ? `${portal.city}, ${portal.state}`
+    : portal.city || portal.state || portal.locationPreference || null;
+  const initials = portal.fullName
+    ? portal.fullName.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()
+    : "?";
   const skillsByCategory = portal.skills.reduce<Record<string, typeof portal.skills>>(
     (acc, s) => {
       (acc[s.category] ??= []).push(s);
@@ -153,19 +172,61 @@ export default function PortalPage() {
       {/* Header */}
       <header className="border-b bg-white/80 backdrop-blur dark:bg-gray-950/80">
         <div className="container mx-auto max-w-4xl px-6 py-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                <Briefcase className="h-6 w-6 text-blue-600" />
-                Recruiter Portal
-              </h1>
-              <p className="text-sm text-gray-500 mt-1">
-                Powered by Resumsify
-              </p>
+          <div className="flex items-center gap-5">
+            {/* Avatar */}
+            <div className="h-16 w-16 rounded-full border-2 border-muted overflow-hidden bg-muted flex items-center justify-center shrink-0">
+              {portal.avatarUrl ? (
+                <Image
+                  src={portal.avatarUrl}
+                  alt={portal.fullName || "Candidate"}
+                  width={64}
+                  height={64}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <span className="text-xl font-bold text-muted-foreground">{initials}</span>
+              )}
             </div>
-            <Badge className={`${availColor} text-sm px-3 py-1`}>
-              {availLabel}
-            </Badge>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-3">
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-white truncate">
+                  {portal.fullName || "Recruiter Portal"}
+                </h1>
+                <Badge className={`${availColor} text-sm px-3 py-1 shrink-0`}>
+                  {availLabel}
+                </Badge>
+              </div>
+              {portal.headline && (
+                <p className="text-muted-foreground mt-0.5">{portal.headline}</p>
+              )}
+              <div className="flex flex-wrap items-center gap-3 mt-1 text-sm text-muted-foreground">
+                {locationStr && (
+                  <span className="flex items-center gap-1">
+                    <MapPin className="h-3.5 w-3.5" /> {locationStr}
+                  </span>
+                )}
+                {portal.email && (
+                  <a href={`mailto:${portal.email}`} className="flex items-center gap-1 hover:text-blue-600 transition-colors">
+                    <Mail className="h-3.5 w-3.5" /> {portal.email}
+                  </a>
+                )}
+                {portal.linkedinUrl && (
+                  <a href={portal.linkedinUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:text-blue-600 transition-colors">
+                    <ExternalLink className="h-3.5 w-3.5" /> LinkedIn
+                  </a>
+                )}
+                {portal.githubUrl && (
+                  <a href={portal.githubUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:text-blue-600 transition-colors">
+                    <ExternalLink className="h-3.5 w-3.5" /> GitHub
+                  </a>
+                )}
+                {portal.portfolioUrl && (
+                  <a href={portal.portfolioUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:text-blue-600 transition-colors">
+                    <ExternalLink className="h-3.5 w-3.5" /> Portfolio
+                  </a>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </header>

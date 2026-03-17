@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { extractText } from "unpdf";
+import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 
 interface PaycheckData {
   grossPay: number | null;
@@ -185,8 +185,15 @@ export async function POST(req: Request) {
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const result = await extractText(buffer);
-    const text = Array.isArray(result.text) ? result.text.join("\n") : String(result.text);
+    const doc = await getDocument({ data: new Uint8Array(buffer), useSystemFonts: true, disableFontFace: true }).promise;
+    const textParts: string[] = [];
+    for (let p = 1; p <= doc.numPages; p++) {
+      const page = await doc.getPage(p);
+      const content = await page.getTextContent();
+      textParts.push(content.items.map((it) => ("str" in it ? it.str : "")).join(" "));
+    }
+    await doc.destroy();
+    const text = textParts.join("\n");
 
     if (!text || text.trim().length < 20) {
       return NextResponse.json(

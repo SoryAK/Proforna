@@ -22,9 +22,22 @@ export async function PATCH(request: Request) {
     if (!profile) {
       profile = await prisma.userProfile.create({ data: {} });
     }
+    // Whitelist allowed fields
+    const allowed = [
+      "fullName", "headline", "email", "phone", "city", "state",
+      "linkedinUrl", "githubUrl", "portfolioUrl", "avatarUrl",
+      "availability", "bio", "preferredRoles", "targetSalaryMin", "targetSalaryMax",
+      "currency", "locationPreference", "showSkills", "showResume", "showCertifications",
+      "showCurrentRole", "portalSlug", "filingStatus", "federalTaxRate", "stateTaxRate",
+      "monthlyExpenses",
+    ];
+    const data: Record<string, unknown> = {};
+    for (const key of allowed) {
+      if (key in body) data[key] = body[key];
+    }
     const updated = await prisma.userProfile.update({
       where: { id: profile.id },
-      data: body,
+      data,
     });
     return NextResponse.json(updated);
   } catch (error) {

@@ -63,6 +63,8 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
+import { OfferComparison } from "@/components/offer-comparison";
+import { Scale } from "lucide-react";
 
 interface InterviewDetail {
   id: string;
@@ -93,6 +95,21 @@ interface Application {
   createdAt: string;
   updatedAt: string;
   interviews: InterviewDetail[];
+  // Offer details
+  offerPayType: string | null;
+  offerPayRate: string | null;
+  offerSalary: number | null;
+  offerPayFrequency: string | null;
+  offerHoursPerWeek: number | null;
+  offerOtHours: number | null;
+  offerOtRate: number | null;
+  offerSigningBonus: number | null;
+  offerAnnualBonus: number | null;
+  offerEquity: string | null;
+  offer401kMatch: number | null;
+  offerPtoDays: number | null;
+  offerHealthCost: number | null;
+  offerNotes: string | null;
 }
 
 const emptyForm = {
@@ -143,6 +160,9 @@ export default function ApplicationsPage() {
 
   // Expanded row for table view
   const [expandedAppId, setExpandedAppId] = useState<string | null>(null);
+
+  // Offer comparison dialog
+  const [compareApp, setCompareApp] = useState<Application | null>(null);
 
   const { data: applications = [], isLoading } = useQuery<Application[]>({
     queryKey: ["applications"],
@@ -402,6 +422,7 @@ export default function ApplicationsPage() {
             onDelete={(id) => deleteMutation.mutate(id)}
             onStatusChange={(id, status) => statusMutation.mutate({ id, status })}
             onScheduleInterview={openScheduleInterview}
+            onCompare={setCompareApp}
           />
         ) : (
           <TableView
@@ -413,6 +434,7 @@ export default function ApplicationsPage() {
             onDeleteInterview={(id) => deleteInterviewMutation.mutate(id)}
             expandedAppId={expandedAppId}
             onToggleExpand={(id) => setExpandedAppId(expandedAppId === id ? null : id)}
+            onCompare={setCompareApp}
           />
         )}
       </div>
@@ -640,6 +662,15 @@ export default function ApplicationsPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Offer Comparison Dialog */}
+      {compareApp && (
+        <OfferComparison
+          application={compareApp}
+          open={!!compareApp}
+          onOpenChange={(open) => { if (!open) setCompareApp(null); }}
+        />
+      )}
     </div>
   );
 }
@@ -652,12 +683,14 @@ function KanbanView({
   onDelete,
   onStatusChange,
   onScheduleInterview,
+  onCompare,
 }: {
   grouped: Record<ApplicationStatus, Application[]>;
   onEdit: (app: Application) => void;
   onDelete: (id: string) => void;
   onStatusChange: (id: string, status: string) => void;
   onScheduleInterview: (appId: string) => void;
+  onCompare: (app: Application) => void;
 }) {
   const [dragId, setDragId] = useState<string | null>(null);
 
@@ -707,6 +740,7 @@ function KanbanView({
                 onDelete={() => onDelete(app.id)}
                 onDragStart={(e) => handleDragStart(e, app.id)}
                 onScheduleInterview={() => onScheduleInterview(app.id)}
+                onCompare={() => onCompare(app)}
               />
             ))}
           </div>
@@ -722,12 +756,14 @@ function ApplicationCard({
   onDelete,
   onDragStart,
   onScheduleInterview,
+  onCompare,
 }: {
   app: Application;
   onEdit: () => void;
   onDelete: () => void;
   onDragStart: (e: React.DragEvent) => void;
   onScheduleInterview: () => void;
+  onCompare: () => void;
 }) {
   const nextInterview = app.interviews
     .filter((i) => i.status === "scheduled" && new Date(i.scheduledAt) >= new Date())
@@ -763,6 +799,9 @@ function ApplicationCard({
               </DropdownMenuItem>
               <DropdownMenuItem onClick={onScheduleInterview}>
                 <CalendarDays className="mr-2 h-4 w-4" /> Schedule Interview
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={onCompare}>
+                <Scale className="mr-2 h-4 w-4" /> Compare Offer
               </DropdownMenuItem>
               <DropdownMenuItem onClick={onDelete} className="text-red-600">
                 <Trash2 className="mr-2 h-4 w-4" /> Delete
@@ -830,6 +869,7 @@ function TableView({
   onScheduleInterview,
   onEditInterview,
   onDeleteInterview,
+  onCompare,
   expandedAppId,
   onToggleExpand,
 }: {
@@ -839,6 +879,7 @@ function TableView({
   onScheduleInterview: (appId: string) => void;
   onEditInterview: (interview: InterviewDetail, appId: string) => void;
   onDeleteInterview: (id: string) => void;
+  onCompare: (app: Application) => void;
   expandedAppId: string | null;
   onToggleExpand: (id: string) => void;
 }) {
@@ -915,6 +956,9 @@ function TableView({
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => onScheduleInterview(app.id)}>
                           <CalendarDays className="mr-2 h-4 w-4" /> Schedule Interview
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => onCompare(app)}>
+                          <Scale className="mr-2 h-4 w-4" /> Compare Offer
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => onDelete(app.id)} className="text-red-600">
                           <Trash2 className="mr-2 h-4 w-4" /> Delete

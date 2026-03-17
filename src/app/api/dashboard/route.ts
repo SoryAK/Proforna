@@ -19,6 +19,8 @@ export async function GET() {
     topSkills,
     certifications,
     activeGoals,
+    incomeYears,
+    wageTiers,
   ] = await Promise.all([
     prisma.jobApplication.count(),
     prisma.jobApplication.count({
@@ -54,6 +56,8 @@ export async function GET() {
       orderBy: { createdAt: "desc" },
       take: 3,
     }),
+    prisma.careerIncomeYear.findMany({ orderBy: { year: "asc" } }),
+    prisma.wageTier.findMany({ orderBy: { sortOrder: "asc" } }),
   ]);
 
   const pipeline = statusCounts.map((s: { status: string; _count: { status: number } }) => ({
@@ -80,5 +84,6 @@ export async function GET() {
     topSkills,
     certifications,
     activeGoals,
+    cfm: { incomeYears, wageTiers },
   });
 }

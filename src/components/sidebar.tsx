@@ -13,9 +13,11 @@ import {
   Zap,
   FileText,
   Target,
+  TrendingUp,
   Inbox,
   Globe,
   Building2,
+  History,
   Menu,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -29,12 +31,14 @@ import {
 const iconMap: Record<string, React.ElementType> = {
   LayoutDashboard,
   Building2,
+  History,
   Briefcase,
   CalendarDays,
   Users,
   Zap,
   FileText,
   Target,
+  TrendingUp,
   Inbox,
   Globe,
 };

@@ -39,6 +39,8 @@ import {
   Cell,
 } from "recharts";
 import Link from "next/link";
+import Image from "next/image";
+import { PersonalFinance } from "@/components/personal-finance";
 
 const CHART_COLORS: Record<string, string> = {
   wishlist: "#9ca3af",
@@ -105,8 +107,29 @@ interface DashboardData {
     description: string | null;
     responsibilities: string | null;
     techStack: string | null;
+    payType: string;
+    payRate: string | null;
+    payFrequency: string;
+    hoursPerWeek: number | null;
+    scheduleBHours: number | null;
+    rotatingSchedule: boolean;
+    otHoursA: number | null;
+    otHoursB: number | null;
+    otRate: number | null;
+    differentials: string | null;
+    estimatorSettings: string | null;
   } | null;
   profile: {
+    fullName: string | null;
+    headline: string | null;
+    email: string | null;
+    phone: string | null;
+    avatarUrl: string | null;
+    city: string | null;
+    state: string | null;
+    linkedinUrl: string | null;
+    githubUrl: string | null;
+    portfolioUrl: string | null;
     availability: string;
     bio: string | null;
     preferredRoles: string | null;
@@ -138,6 +161,22 @@ interface DashboardData {
     priority: string;
     milestones: { id: string; title: string; completed: boolean }[];
   }[];
+  cfm: {
+    incomeYears: {
+      id: string;
+      year: number;
+      grossIncome: number;
+      netIncome: number | null;
+      jobCount: number;
+    }[];
+    wageTiers: {
+      id: string;
+      label: string;
+      hourlyRate: number;
+      yearlyRate: number;
+      color: string;
+    }[];
+  };
 }
 
 export default function DashboardPage() {
@@ -165,12 +204,23 @@ export default function DashboardPage() {
     );
   }
 
-  const { stats, pipeline, recentActivity, currentPosition, profile, topSkills, certifications, activeGoals } = data;
+  const { stats, pipeline, recentActivity, currentPosition, profile, topSkills, certifications, activeGoals, cfm } = data;
 
   const availability = (profile?.availability ?? "open_to_work") as AvailabilityStatus;
-  const headline = currentPosition
+  const displayName = profile?.fullName || (currentPosition
     ? `${currentPosition.role} at ${currentPosition.company}`
-    : profile?.preferredRoles?.split(",")[0]?.trim() || "Career Professional";
+    : "Career Professional");
+  const headline = profile?.headline || (currentPosition
+    ? `${currentPosition.role} at ${currentPosition.company}`
+    : profile?.preferredRoles?.split(",")[0]?.trim() || "Career Professional");
+  const locationStr = profile?.city && profile?.state
+    ? `${profile.city}, ${profile.state}`
+    : profile?.city || profile?.state || profile?.locationPreference || null;
+  const initials = profile?.fullName
+    ? profile.fullName.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()
+    : currentPosition
+      ? `${currentPosition.role[0]}${currentPosition.company[0]}`
+      : "Me";
 
   const chartData = pipeline.map((p) => ({
     name: STATUS_LABELS[p.status as ApplicationStatus] ?? p.status,
@@ -196,10 +246,18 @@ export default function DashboardPage() {
         <CardContent className="relative px-6 pb-6 pt-0">
           {/* Avatar */}
           <div className="-mt-16 mb-4 flex items-end gap-4">
-            <div className="flex h-28 w-28 items-center justify-center rounded-full border-4 border-background bg-white text-3xl font-bold text-blue-600 shadow-md">
-              {currentPosition
-                ? `${currentPosition.role[0]}${currentPosition.company[0]}`
-                : "Me"}
+            <div className="flex h-28 w-28 items-center justify-center rounded-full border-4 border-background bg-white shadow-md overflow-hidden">
+              {profile?.avatarUrl ? (
+                <Image
+                  src={profile.avatarUrl}
+                  alt={profile.fullName || "Profile"}
+                  width={112}
+                  height={112}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <span className="text-3xl font-bold text-blue-600">{initials}</span>
+              )}
             </div>
             <div className="mb-1">
               <Badge className={AVAILABILITY_COLORS[availability]}>
@@ -210,19 +268,47 @@ export default function DashboardPage() {
 
           {/* Name / Headline / Meta */}
           <div className="space-y-1">
-            <h1 className="text-2xl font-bold">{headline}</h1>
-            {currentPosition && (
+            <h1 className="text-2xl font-bold">{displayName}</h1>
+            {headline !== displayName && (
+              <p className="text-muted-foreground">{headline}</p>
+            )}
+            {currentPosition && headline === displayName && (
               <p className="text-muted-foreground">
                 {currentPosition.department && `${currentPosition.department} · `}
                 <span className="capitalize">{currentPosition.type}</span>
                 {currentPosition.location && ` · ${currentPosition.location}`}
               </p>
             )}
-            {profile?.locationPreference && (
+            {locationStr && (
               <p className="flex items-center gap-1 text-sm text-muted-foreground">
                 <MapPin className="h-3.5 w-3.5" />
-                {profile.locationPreference}
+                {locationStr}
               </p>
+            )}
+            {/* Social Links */}
+            {(profile?.linkedinUrl || profile?.githubUrl || profile?.portfolioUrl || profile?.email) && (
+              <div className="flex gap-3 pt-1">
+                {profile.email && (
+                  <a href={`mailto:${profile.email}`} className="text-muted-foreground hover:text-foreground transition-colors" title="Email">
+                    <FileText className="h-4 w-4" />
+                  </a>
+                )}
+                {profile.linkedinUrl && (
+                  <a href={profile.linkedinUrl} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-blue-600 transition-colors" title="LinkedIn">
+                    <ExternalLink className="h-4 w-4" />
+                  </a>
+                )}
+                {profile.githubUrl && (
+                  <a href={profile.githubUrl} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground transition-colors" title="GitHub">
+                    <ExternalLink className="h-4 w-4" />
+                  </a>
+                )}
+                {profile.portfolioUrl && (
+                  <a href={profile.portfolioUrl} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground transition-colors" title="Portfolio">
+                    <ExternalLink className="h-4 w-4" />
+                  </a>
+                )}
+              </div>
             )}
           </div>
 
@@ -475,6 +561,105 @@ export default function DashboardPage() {
 
         {/* Sidebar */}
         <div className="space-y-4">
+          {/* Personal Finance */}
+          {currentPosition && (
+            <PersonalFinance
+              positionId={currentPosition.id}
+              payType={currentPosition.payType}
+              payRate={currentPosition.payRate}
+              salary={currentPosition.salary}
+              payFrequency={currentPosition.payFrequency}
+              hoursPerWeek={currentPosition.hoursPerWeek}
+              scheduleBHours={currentPosition.scheduleBHours}
+              rotatingSchedule={currentPosition.rotatingSchedule}
+              otHoursA={currentPosition.otHoursA}
+              otHoursB={currentPosition.otHoursB}
+              otRate={currentPosition.otRate}
+              differentials={currentPosition.differentials}
+              estimatorSettings={currentPosition.estimatorSettings}
+            />
+          )}
+
+          {/* Career Financial Model Summary */}
+          {cfm.incomeYears.length > 0 && (() => {
+            const years = cfm.incomeYears;
+            const latest = years[years.length - 1];
+            const grossChanges = years.slice(1).map((y, i) =>
+              years[i].grossIncome > 0
+                ? ((y.grossIncome - years[i].grossIncome) / years[i].grossIncome) * 100
+                : 0
+            );
+            const avgGrowth = grossChanges.length > 0
+              ? grossChanges.reduce((a, b) => a + b, 0) / grossChanges.length
+              : 0;
+            const topTier = cfm.wageTiers.length > 0
+              ? cfm.wageTiers[cfm.wageTiers.length - 1]
+              : null;
+            const progress = topTier && latest.grossIncome > 0
+              ? Math.min(100, (latest.grossIncome / topTier.yearlyRate) * 100)
+              : null;
+
+            return (
+              <Card>
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg">Income Growth</CardTitle>
+                    <Link href="/career-model" className="text-sm text-blue-600 hover:underline flex items-center gap-0.5">
+                      Details <ChevronRight className="h-3.5 w-3.5" />
+                    </Link>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Latest Gross ({latest.year})</span>
+                    <span className="font-semibold">${latest.grossIncome.toLocaleString()}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Avg Growth</span>
+                    {grossChanges.length > 0 ? (
+                      <span className={`font-semibold flex items-center gap-1 ${avgGrowth >= 0 ? "text-green-600" : "text-red-600"}`}>
+                        {avgGrowth >= 0 ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingUp className="h-3.5 w-3.5 rotate-180" />}
+                        {avgGrowth >= 0 ? "+" : ""}{avgGrowth.toFixed(1)}%
+                      </span>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">Need 2+ years</span>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Years Tracked</span>
+                    <span className="font-semibold">{years.length}</span>
+                  </div>
+                  {latest.jobCount > 1 && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Employers ({latest.year})</span>
+                      <span className="font-semibold">{latest.jobCount}</span>
+                    </div>
+                  )}
+                  {topTier && progress !== null && (
+                    <>
+                      <Separator />
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-muted-foreground">{topTier.label} Goal</span>
+                          <span className="font-medium">{progress.toFixed(0)}%</span>
+                        </div>
+                        <div className="h-2 rounded-full bg-muted overflow-hidden">
+                          <div
+                            className="h-full rounded-full transition-all"
+                            style={{ width: `${progress}%`, backgroundColor: topTier.color }}
+                          />
+                        </div>
+                        <p className="text-xs text-muted-foreground text-right">
+                          ${latest.grossIncome.toLocaleString()} / ${topTier.yearlyRate.toLocaleString()}
+                        </p>
+                      </div>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })()}
+
           {/* Analytics Snapshot */}
           <Card>
             <CardHeader className="pb-2">

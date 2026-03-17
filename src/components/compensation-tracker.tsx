@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -23,7 +23,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
 import {
   DollarSign,
   TrendingUp,
@@ -62,6 +61,27 @@ interface Props {
   salary: number | null;
   schedule: string | null;
   payFrequency: string;
+  rotatingSchedule: boolean;
+  hoursPerWeek: number | null;
+  scheduleBHours: number | null;
+  otHoursA: number | null;
+  otHoursB: number | null;
+  otRate: number | null;
+  estimatorSettings: string | null;
+}
+
+interface EstimatorSettings {
+  estOt2Hours: string;
+  estOt2Rate: string;
+  estSchedBOt2: string;
+  estDiffPercent: string;
+  estHolidayDays: string;
+  estHolidayRate: string;
+  estFederalTax: string;
+  estStateTax: string;
+  estRetirement: string;
+  estHealthIns: string;
+  estOtherDed: string;
 }
 
 interface PaycheckData {
@@ -113,34 +133,73 @@ const emptyForm = {
   notes: "",
 };
 
-export function CompensationTracker({ positionId, payType, payRate, differentials, salary, schedule, payFrequency }: Props) {
+export function CompensationTracker({ positionId, payType, payRate, differentials, salary, schedule, payFrequency, rotatingSchedule, hoursPerWeek, scheduleBHours, otHoursA, otHoursB, otRate, estimatorSettings }: Props) {
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [showEstimator, setShowEstimator] = useState(false);
-  const [rotatingSchedule, setRotatingSchedule] = useState(false);
-  const [estHoursPerWeek, setEstHoursPerWeek] = useState("40");
-  const [estOt1Hours, setEstOt1Hours] = useState("0");
-  const [estOt1Rate, setEstOt1Rate] = useState("1.5");
-  const [estOt2Hours, setEstOt2Hours] = useState("0");
-  const [estOt2Rate, setEstOt2Rate] = useState("2");
-  const [estSchedBHours, setEstSchedBHours] = useState("40");
-  const [estSchedBOt1, setEstSchedBOt1] = useState("0");
-  const [estSchedBOt2, setEstSchedBOt2] = useState("0");
-  const [estDiffPercent, setEstDiffPercent] = useState("50");
-  const [estHolidayDays, setEstHolidayDays] = useState("0");
-  const [estHolidayRate, setEstHolidayRate] = useState("1.5");
+
+  // Parse saved estimator settings
+  const savedSettings: Partial<EstimatorSettings> = (() => {
+    try { return estimatorSettings ? JSON.parse(estimatorSettings) : {}; }
+    catch { return {}; }
+  })();
+
+  // Hours from position props (set in the position form)
+  const estHoursPerWeek = hoursPerWeek?.toString() || "40";
+  const estSchedBHours = scheduleBHours?.toString() || "40";
+
+  // Primary OT from position props; OT2 tier from estimator settings
+  const estOt1Hours = otHoursA?.toString() || "0";
+  const estOt1Rate = otRate?.toString() || "1.5";
+  const [estOt2Hours, setEstOt2Hours] = useState(savedSettings.estOt2Hours ?? "0");
+  const [estOt2Rate, setEstOt2Rate] = useState(savedSettings.estOt2Rate ?? "2");
+  const estSchedBOt1 = otHoursB?.toString() || "0";
+  const [estSchedBOt2, setEstSchedBOt2] = useState(savedSettings.estSchedBOt2 ?? "0");
+  const [estDiffPercent, setEstDiffPercent] = useState(savedSettings.estDiffPercent ?? "50");
+  const [estHolidayDays, setEstHolidayDays] = useState(savedSettings.estHolidayDays ?? "0");
+  const [estHolidayRate, setEstHolidayRate] = useState(savedSettings.estHolidayRate ?? "1.5");
   const [showTakeHome, setShowTakeHome] = useState(false);
-  const [estFederalTax, setEstFederalTax] = useState("22");
-  const [estStateTax, setEstStateTax] = useState("5");
-  const [estRetirement, setEstRetirement] = useState("0");
-  const [estHealthIns, setEstHealthIns] = useState("0");
-  const [estOtherDed, setEstOtherDed] = useState("0");
+  const [estFederalTax, setEstFederalTax] = useState(savedSettings.estFederalTax ?? "22");
+  const [estStateTax, setEstStateTax] = useState(savedSettings.estStateTax ?? "5");
+  const [estRetirement, setEstRetirement] = useState(savedSettings.estRetirement ?? "0");
+  const [estHealthIns, setEstHealthIns] = useState(savedSettings.estHealthIns ?? "0");
+  const [estOtherDed, setEstOtherDed] = useState(savedSettings.estOtherDed ?? "0");
   const [paycheckParsing, setPaycheckParsing] = useState(false);
   const [paycheckData, setPaycheckData] = useState<PaycheckData | null>(null);
   const [showPaycheckPreview, setShowPaycheckPreview] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Auto-save estimator settings to the position (debounced)
+  const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const saveEstimatorSettings = useCallback(() => {
+    const settings: EstimatorSettings = {
+      estOt2Hours, estOt2Rate,
+      estSchedBOt2, estDiffPercent,
+      estHolidayDays, estHolidayRate, estFederalTax,
+      estStateTax, estRetirement, estHealthIns, estOtherDed,
+    };
+    fetch(`/api/current-position/${positionId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ estimatorSettings: JSON.stringify(settings) }),
+    }).then(() => {
+      queryClient.invalidateQueries({ queryKey: ["current-position"] });
+      queryClient.invalidateQueries({ queryKey: ["cfm"] });
+    });
+  }, [positionId, estOt2Hours, estOt2Rate, estSchedBOt2, estDiffPercent, estHolidayDays, estHolidayRate, estFederalTax, estStateTax, estRetirement, estHealthIns, estOtherDed, queryClient]);
+
+  const hasInitialized = useRef(false);
+  useEffect(() => {
+    if (!hasInitialized.current) {
+      hasInitialized.current = true;
+      return;
+    }
+    clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(saveEstimatorSettings, 1500);
+    return () => clearTimeout(saveTimer.current);
+  }, [saveEstimatorSettings]);
 
   const { data: events = [] } = useQuery<CompEvent[]>({
     queryKey: ["compensation", positionId],
@@ -157,6 +216,7 @@ export function CompensationTracker({ positionId, payType, payRate, differential
       }).then((r) => r.json()),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["compensation", positionId] });
+      queryClient.invalidateQueries({ queryKey: ["cfm"] });
       toast.success("Compensation added");
       resetForm();
     },
@@ -171,6 +231,7 @@ export function CompensationTracker({ positionId, payType, payRate, differential
       }).then((r) => r.json()),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["compensation", positionId] });
+      queryClient.invalidateQueries({ queryKey: ["cfm"] });
       toast.success("Compensation updated");
       resetForm();
     },
@@ -181,6 +242,7 @@ export function CompensationTracker({ positionId, payType, payRate, differential
       fetch(`/api/compensation/${id}`, { method: "DELETE" }).then((r) => r.json()),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["compensation", positionId] });
+      queryClient.invalidateQueries({ queryKey: ["cfm"] });
       toast.success("Removed");
     },
   });
@@ -259,7 +321,7 @@ export function CompensationTracker({ positionId, payType, payRate, differential
   const otherDedPer = parseFloat(estOtherDed) || 0;
 
   // Effective weekly averages (rotation = 26 wks each, fixed = 52 wks)
-  const hoursPerWeek = rotatingSchedule ? (schedAHrs + schedBHrs) / 2 : schedAHrs;
+  const avgHoursPerWeek = rotatingSchedule ? (schedAHrs + schedBHrs) / 2 : schedAHrs;
   const ot1Hrs = rotatingSchedule ? (schedAOt1 + schedBOt1Hrs) / 2 : schedAOt1;
   const ot2Hrs = rotatingSchedule ? (schedAOt2 + schedBOt2Hrs) / 2 : schedAOt2;
 
@@ -357,9 +419,7 @@ export function CompensationTracker({ positionId, payType, payRate, differential
     if (!paycheckData) return;
     const d = paycheckData;
 
-    // Fill estimator hours
-    if (d.regularHours) setEstHoursPerWeek(d.regularHours.toString());
-    if (d.overtimeHours) setEstOt1Hours(d.overtimeHours.toString());
+    // Fill estimator deductions from paycheck (OT hours are set on the position form)
 
     // Compute deduction percentages from the paycheck gross
     const gross = d.grossPay || 0;
@@ -536,52 +596,21 @@ export function CompensationTracker({ positionId, payType, payRate, differential
         <CardContent>
           {payType === "hourly" && showEstimator && (
             <div className="mb-4 p-3 rounded-lg border border-dashed space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-medium">Rotating Schedule</p>
-                  <p className="text-xs text-muted-foreground">Alternate between two different weekly schedules</p>
-                </div>
-                <Switch checked={rotatingSchedule} onCheckedChange={setRotatingSchedule} />
-              </div>
-              <Separator />
               {rotatingSchedule ? (
                 <>
-                  <p className="text-xs font-medium text-muted-foreground">Schedule A (26 weeks)</p>
+                  <p className="text-xs font-medium text-muted-foreground">Schedule A (26 weeks) — {estHoursPerWeek} reg + {estOt1Hours} OT hrs/wk</p>
+                  <p className="text-xs font-medium text-muted-foreground">Schedule B (26 weeks) — {estSchedBHours} reg + {estSchedBOt1} OT hrs/wk</p>
+                  <p className="text-xs text-muted-foreground">OT Rate: {estOt1Rate}× (set in position settings)</p>
+                  <Separator />
+                  <p className="text-xs font-medium text-muted-foreground">OT2 Tier (additional)</p>
                   <div className="grid gap-3 sm:grid-cols-3">
                     <div>
-                      <Label className="text-xs mb-1">Regular Hrs</Label>
-                      <Input type="number" value={estHoursPerWeek} onChange={(e) => setEstHoursPerWeek(e.target.value)} />
-                    </div>
-                    <div>
-                      <Label className="text-xs mb-1">OT1 Hrs</Label>
-                      <Input type="number" value={estOt1Hours} onChange={(e) => setEstOt1Hours(e.target.value)} />
-                    </div>
-                    <div>
-                      <Label className="text-xs mb-1">OT2 Hrs</Label>
+                      <Label className="text-xs mb-1">Sched A OT2 Hrs</Label>
                       <Input type="number" value={estOt2Hours} onChange={(e) => setEstOt2Hours(e.target.value)} />
                     </div>
-                  </div>
-                  <Separator />
-                  <p className="text-xs font-medium text-muted-foreground">Schedule B (26 weeks)</p>
-                  <div className="grid gap-3 sm:grid-cols-3">
                     <div>
-                      <Label className="text-xs mb-1">Regular Hrs</Label>
-                      <Input type="number" value={estSchedBHours} onChange={(e) => setEstSchedBHours(e.target.value)} />
-                    </div>
-                    <div>
-                      <Label className="text-xs mb-1">OT1 Hrs</Label>
-                      <Input type="number" value={estSchedBOt1} onChange={(e) => setEstSchedBOt1(e.target.value)} />
-                    </div>
-                    <div>
-                      <Label className="text-xs mb-1">OT2 Hrs</Label>
+                      <Label className="text-xs mb-1">Sched B OT2 Hrs</Label>
                       <Input type="number" value={estSchedBOt2} onChange={(e) => setEstSchedBOt2(e.target.value)} />
-                    </div>
-                  </div>
-                  <Separator />
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div>
-                      <Label className="text-xs mb-1">OT1 Multiplier</Label>
-                      <Input type="number" step="0.1" value={estOt1Rate} onChange={(e) => setEstOt1Rate(e.target.value)} />
                     </div>
                     <div>
                       <Label className="text-xs mb-1">OT2 Multiplier</Label>
@@ -591,21 +620,14 @@ export function CompensationTracker({ positionId, payType, payRate, differential
                 </>
               ) : (
                 <>
-                  <div>
-                    <Label className="text-xs mb-1">Regular Hrs / Week</Label>
-                    <Input type="number" value={estHoursPerWeek} onChange={(e) => setEstHoursPerWeek(e.target.value)} />
-                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Regular: <span className="font-medium text-foreground">{estHoursPerWeek} hrs/wk</span>
+                    {parseFloat(estOt1Hours) > 0 && <> · OT: <span className="font-medium text-foreground">{estOt1Hours} hrs/wk @ {estOt1Rate}×</span></>}
+                    <span className="text-muted-foreground/60 ml-1">(set in position settings)</span>
+                  </p>
                   <Separator />
-                  <p className="text-xs font-medium text-muted-foreground">Overtime Tiers</p>
-                  <div className="grid gap-3 sm:grid-cols-4">
-                    <div>
-                      <Label className="text-xs mb-1">OT1 Hrs / Week</Label>
-                      <Input type="number" value={estOt1Hours} onChange={(e) => setEstOt1Hours(e.target.value)} />
-                    </div>
-                    <div>
-                      <Label className="text-xs mb-1">OT1 Multiplier</Label>
-                      <Input type="number" step="0.1" value={estOt1Rate} onChange={(e) => setEstOt1Rate(e.target.value)} />
-                    </div>
+                  <p className="text-xs font-medium text-muted-foreground">OT2 Tier (additional)</p>
+                  <div className="grid gap-3 sm:grid-cols-2">
                     <div>
                       <Label className="text-xs mb-1">OT2 Hrs / Week</Label>
                       <Input type="number" value={estOt2Hours} onChange={(e) => setEstOt2Hours(e.target.value)} />
@@ -644,7 +666,7 @@ export function CompensationTracker({ positionId, payType, payRate, differential
                 {payType === "hourly"
                   ? rotatingSchedule
                     ? `Base Pay (A: ${schedAHrs}hrs × 26wks + B: ${schedBHrs}hrs × 26wks)`
-                    : `Base Pay (${hoursPerWeek}hrs × 52wks)`
+                    : `Base Pay (${avgHoursPerWeek}hrs × 52wks)`
                   : "Base Salary"}
               </span>
               <span className="font-mono font-medium">
