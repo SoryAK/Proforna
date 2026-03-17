@@ -165,8 +165,85 @@ model CurrentPosition {
   techStack     String?   // comma-separated
   managerName   String?
   isActive      Boolean   @default(true)
+  // Company details
+  companySynopsis String?
+  industry      String?
+  website       String?
+  address       String?
+  // Job details
+  focus         String?   // primary job focus / summary
+  schedule      String?   // e.g. "Overnight 6pm-6am | 3:4 day rotating week"
+  payRate       String?   // base pay rate e.g. "$35.50"
+  payType       String    @default("salary") // salary, hourly, contract
+  differentials String?   // newline-separated e.g. "Night Shift +$2.00\nWeekend +$3.00"
+  payFrequency  String    @default("biweekly") // weekly, biweekly, semimonthly, monthly
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+
+  compensation CompensationEvent[]
+  benefits     Benefit[]
+  timeOff      TimeOffBalance[]
+}
+
+model CompensationEvent {
+  id            String   @id @default(uuid())
+  positionId    String
+  type          String   @default("base_salary") // base_salary, bonus, equity, raise, promotion, signing_bonus, stipend, other
+  title         String
+  amount        Int
+  currency      String   @default("USD")
+  effectiveDate DateTime
+  recurring     Boolean  @default(false)
+  notes         String?
+  createdAt     DateTime @default(now())
+
+  position CurrentPosition @relation(fields: [positionId], references: [id], onDelete: Cascade)
+}
+
+model Benefit {
+  id           String    @id @default(uuid())
+  positionId   String
+  category     String    @default("health") // health, dental, vision, retirement, insurance, wellness, education, other
+  name         String
+  provider     String?
+  coverage     String?
+  employerCost Int?
+  employeeCost Int?
+  notes        String?
+  enrolledAt   DateTime?
+  expiresAt    DateTime?
+  createdAt    DateTime  @default(now())
+
+  position CurrentPosition @relation(fields: [positionId], references: [id], onDelete: Cascade)
+}
+
+model TimeOffBalance {
+  id        String   @id @default(uuid())
+  positionId String
+  category  String   @default("pto") // pto, sick, personal, holiday, parental, bereavement, other
+  totalDays Float    @default(0)
+  usedDays  Float    @default(0)
+  year      Int
+  accrual   String   @default("annual") // annual, monthly, biweekly
+  carryOver Float    @default(0)
+  notes     String?
+  createdAt DateTime @default(now())
+
+  entries  TimeOffEntry[]
+  position CurrentPosition @relation(fields: [positionId], references: [id], onDelete: Cascade)
+}
+
+model TimeOffEntry {
+  id        String   @id @default(uuid())
+  balanceId String
+  startDate DateTime
+  endDate   DateTime
+  days      Float    @default(1)
+  status    String   @default("planned") // planned, approved, taken, cancelled
+  reason    String?
+  createdAt DateTime @default(now())
+
+  balance TimeOffBalance @relation(fields: [balanceId], references: [id], onDelete: Cascade)
 }
 
 model RecruiterSubmission {

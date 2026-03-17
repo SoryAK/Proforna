@@ -91,7 +91,6 @@ export const NAV_ITEMS = [
   { label: "Dashboard", href: "/", icon: "LayoutDashboard" },
   { label: "Current Role", href: "/current-position", icon: "Building2" },
   { label: "Applications", href: "/applications", icon: "Briefcase" },
-  { label: "Interviews", href: "/interviews", icon: "CalendarDays" },
   { label: "Contacts", href: "/contacts", icon: "Users" },
   { label: "Skills", href: "/skills", icon: "Zap" },
   { label: "Resumes", href: "/resumes", icon: "FileText" },

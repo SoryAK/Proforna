@@ -8,12 +8,17 @@ export async function GET() {
     interviews,
     upcomingInterviews,
     contacts,
-    skills,
+    skillCount,
     goals,
+    resumes,
     recentActivity,
     statusCounts,
     currentPosition,
     newSubmissions,
+    profile,
+    topSkills,
+    certifications,
+    activeGoals,
   ] = await Promise.all([
     prisma.jobApplication.count(),
     prisma.jobApplication.count({
@@ -26,6 +31,7 @@ export async function GET() {
     prisma.contact.count(),
     prisma.skill.count(),
     prisma.careerGoal.count({ where: { status: { not: "abandoned" } } }),
+    prisma.resumeVersion.count(),
     prisma.activityLog.findMany({
       orderBy: { createdAt: "desc" },
       take: 10,
@@ -39,6 +45,15 @@ export async function GET() {
       orderBy: { startDate: "desc" },
     }),
     prisma.recruiterSubmission.count({ where: { status: "new" } }),
+    prisma.userProfile.findFirst(),
+    prisma.skill.findMany({ orderBy: { createdAt: "desc" }, take: 12 }),
+    prisma.certification.findMany({ orderBy: { issueDate: "desc" }, take: 5 }),
+    prisma.careerGoal.findMany({
+      where: { status: { not: "abandoned" } },
+      include: { milestones: true },
+      orderBy: { createdAt: "desc" },
+      take: 3,
+    }),
   ]);
 
   const pipeline = statusCounts.map((s: { status: string; _count: { status: number } }) => ({
@@ -53,12 +68,17 @@ export async function GET() {
       interviews,
       upcomingInterviews,
       contacts,
-      skills,
+      skills: skillCount,
       goals,
+      resumes,
       newSubmissions,
     },
     pipeline,
     recentActivity,
     currentPosition,
+    profile,
+    topSkills,
+    certifications,
+    activeGoals,
   });
 }

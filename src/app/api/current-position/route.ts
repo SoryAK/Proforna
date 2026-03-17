@@ -32,6 +32,16 @@ export async function POST(request: Request) {
         techStack: body.techStack || null,
         managerName: body.managerName || null,
         isActive: body.isActive ?? true,
+        companySynopsis: body.companySynopsis || null,
+        industry: body.industry || null,
+        website: body.website || null,
+        address: body.address || null,
+        focus: body.focus || null,
+        schedule: body.schedule || null,
+        payRate: body.payRate || null,
+        payType: body.payType || "salary",
+        differentials: body.differentials || null,
+        payFrequency: body.payFrequency || "biweekly",
       },
     });
 

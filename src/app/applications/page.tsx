@@ -13,6 +13,8 @@ import {
   Trash2,
   GripVertical,
   Download,
+  CalendarDays,
+  Clock,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -20,6 +22,8 @@ import {
   STATUS_LABELS,
   STATUS_COLORS,
   JOB_TYPES,
+  INTERVIEW_TYPES,
+  INTERVIEW_STATUSES,
   type ApplicationStatus,
 } from "@/lib/constants";
 import { cn } from "@/lib/utils";
@@ -58,6 +62,20 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Separator } from "@/components/ui/separator";
+
+interface InterviewDetail {
+  id: string;
+  type: string;
+  scheduledAt: string;
+  durationMinutes: number | null;
+  location?: string | null;
+  interviewerName?: string | null;
+  interviewerRole?: string | null;
+  notes?: string | null;
+  status: string;
+  rating?: number | null;
+}
 
 interface Application {
   id: string;
@@ -74,7 +92,7 @@ interface Application {
   notes?: string | null;
   createdAt: string;
   updatedAt: string;
-  interviews: Array<{ id: string; type: string; scheduledAt: string; status: string }>;
+  interviews: InterviewDetail[];
 }
 
 const emptyForm = {
@@ -91,6 +109,25 @@ const emptyForm = {
   notes: "",
 };
 
+const emptyInterviewForm = {
+  jobApplicationId: "",
+  type: "phone",
+  scheduledAt: "",
+  durationMinutes: "60",
+  location: "",
+  interviewerName: "",
+  interviewerRole: "",
+  notes: "",
+  status: "scheduled",
+  rating: "",
+};
+
+const interviewStatusStyle: Record<string, string> = {
+  scheduled: "bg-blue-100 text-blue-700",
+  completed: "bg-green-100 text-green-700",
+  cancelled: "bg-red-100 text-red-700",
+};
+
 export default function ApplicationsPage() {
   const queryClient = useQueryClient();
   const [view, setView] = useState<"kanban" | "table">("kanban");
@@ -99,10 +136,20 @@ export default function ApplicationsPage() {
   const [form, setForm] = useState(emptyForm);
   const [search, setSearch] = useState("");
 
+  // Interview dialog state
+  const [interviewDialogOpen, setInterviewDialogOpen] = useState(false);
+  const [editingInterviewId, setEditingInterviewId] = useState<string | null>(null);
+  const [interviewForm, setInterviewForm] = useState(emptyInterviewForm);
+
+  // Expanded row for table view
+  const [expandedAppId, setExpandedAppId] = useState<string | null>(null);
+
   const { data: applications = [], isLoading } = useQuery<Application[]>({
     queryKey: ["applications"],
     queryFn: () => fetch("/api/applications").then((r) => r.json()),
   });
+
+  /* ── Application mutations ── */
 
   const saveMutation = useMutation({
     mutationFn: async (data: Record<string, unknown>) => {
@@ -150,6 +197,43 @@ export default function ApplicationsPage() {
     },
   });
 
+  /* ── Interview mutations ── */
+
+  const saveInterviewMutation = useMutation({
+    mutationFn: async (data: Record<string, unknown>) => {
+      const url = editingInterviewId
+        ? `/api/interviews/${editingInterviewId}`
+        : "/api/interviews";
+      const res = await fetch(url, {
+        method: editingInterviewId ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error("Failed to save");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["applications"] });
+      toast.success(editingInterviewId ? "Interview updated" : "Interview scheduled");
+      closeInterviewDialog();
+    },
+    onError: () => toast.error("Failed to save interview"),
+  });
+
+  const deleteInterviewMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/interviews/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["applications"] });
+      toast.success("Interview deleted");
+    },
+    onError: () => toast.error("Failed to delete interview"),
+  });
+
+  /* ── Dialog helpers ── */
+
   function closeDialog() {
     setDialogOpen(false);
     setEditingId(null);
@@ -174,6 +258,36 @@ export default function ApplicationsPage() {
     setDialogOpen(true);
   }
 
+  function closeInterviewDialog() {
+    setInterviewDialogOpen(false);
+    setEditingInterviewId(null);
+    setInterviewForm(emptyInterviewForm);
+  }
+
+  function openScheduleInterview(appId: string) {
+    setInterviewForm({ ...emptyInterviewForm, jobApplicationId: appId });
+    setInterviewDialogOpen(true);
+  }
+
+  function openEditInterview(interview: InterviewDetail, appId: string) {
+    setEditingInterviewId(interview.id);
+    setInterviewForm({
+      jobApplicationId: appId,
+      type: interview.type,
+      scheduledAt: interview.scheduledAt ? interview.scheduledAt.slice(0, 16) : "",
+      durationMinutes: interview.durationMinutes?.toString() || "60",
+      location: interview.location || "",
+      interviewerName: interview.interviewerName || "",
+      interviewerRole: interview.interviewerRole || "",
+      notes: interview.notes || "",
+      status: interview.status,
+      rating: interview.rating?.toString() || "",
+    });
+    setInterviewDialogOpen(true);
+  }
+
+  /* ── Form submit handlers ── */
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const data: Record<string, unknown> = {
@@ -192,6 +306,25 @@ export default function ApplicationsPage() {
     saveMutation.mutate(data);
   }
 
+  function handleInterviewSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const data: Record<string, unknown> = {
+      jobApplicationId: interviewForm.jobApplicationId,
+      type: interviewForm.type,
+      scheduledAt: new Date(interviewForm.scheduledAt).toISOString(),
+      durationMinutes: interviewForm.durationMinutes ? parseInt(interviewForm.durationMinutes) : 60,
+      location: interviewForm.location || null,
+      interviewerName: interviewForm.interviewerName || null,
+      interviewerRole: interviewForm.interviewerRole || null,
+      notes: interviewForm.notes || null,
+      status: interviewForm.status,
+      rating: interviewForm.rating ? parseInt(interviewForm.rating) : null,
+    };
+    saveInterviewMutation.mutate(data);
+  }
+
+  /* ── Derived data ── */
+
   const filtered = applications.filter(
     (a) =>
       a.company.toLowerCase().includes(search.toLowerCase()) ||
@@ -205,6 +338,8 @@ export default function ApplicationsPage() {
     },
     {} as Record<ApplicationStatus, Application[]>
   );
+
+  const totalInterviews = applications.reduce((sum, a) => sum + a.interviews.length, 0);
 
   if (isLoading) {
     return (
@@ -226,7 +361,7 @@ export default function ApplicationsPage() {
         <div>
           <h1 className="text-2xl font-bold">Applications</h1>
           <p className="text-sm text-muted-foreground">
-            {applications.length} total applications
+            {applications.length} applications &middot; {totalInterviews} interviews
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -266,17 +401,23 @@ export default function ApplicationsPage() {
             onEdit={openEdit}
             onDelete={(id) => deleteMutation.mutate(id)}
             onStatusChange={(id, status) => statusMutation.mutate({ id, status })}
+            onScheduleInterview={openScheduleInterview}
           />
         ) : (
           <TableView
             applications={filtered}
             onEdit={openEdit}
             onDelete={(id) => deleteMutation.mutate(id)}
+            onScheduleInterview={openScheduleInterview}
+            onEditInterview={openEditInterview}
+            onDeleteInterview={(id) => deleteInterviewMutation.mutate(id)}
+            expandedAppId={expandedAppId}
+            onToggleExpand={(id) => setExpandedAppId(expandedAppId === id ? null : id)}
           />
         )}
       </div>
 
-      {/* Create/Edit Dialog */}
+      {/* Create/Edit Application Dialog */}
       <Dialog open={dialogOpen} onOpenChange={(open) => !open && closeDialog()}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -395,6 +536,110 @@ export default function ApplicationsPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Schedule/Edit Interview Dialog */}
+      <Dialog open={interviewDialogOpen} onOpenChange={(open) => !open && closeInterviewDialog()}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editingInterviewId ? "Edit Interview" : "Schedule Interview"}</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleInterviewSubmit} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Type</Label>
+                <Select value={interviewForm.type} onValueChange={(v) => setInterviewForm({ ...interviewForm, type: v ?? interviewForm.type })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {INTERVIEW_TYPES.map((t) => (
+                      <SelectItem key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Status</Label>
+                <Select value={interviewForm.status} onValueChange={(v) => setInterviewForm({ ...interviewForm, status: v ?? interviewForm.status })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {INTERVIEW_STATUSES.map((s) => (
+                      <SelectItem key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Date & Time *</Label>
+                <Input
+                  type="datetime-local"
+                  required
+                  value={interviewForm.scheduledAt}
+                  onChange={(e) => setInterviewForm({ ...interviewForm, scheduledAt: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label>Duration (min)</Label>
+                <Input
+                  type="number"
+                  value={interviewForm.durationMinutes}
+                  onChange={(e) => setInterviewForm({ ...interviewForm, durationMinutes: e.target.value })}
+                />
+              </div>
+            </div>
+            <div>
+              <Label>Location</Label>
+              <Input
+                value={interviewForm.location}
+                onChange={(e) => setInterviewForm({ ...interviewForm, location: e.target.value })}
+                placeholder="Zoom link or address"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Interviewer Name</Label>
+                <Input
+                  value={interviewForm.interviewerName}
+                  onChange={(e) => setInterviewForm({ ...interviewForm, interviewerName: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label>Interviewer Role</Label>
+                <Input
+                  value={interviewForm.interviewerRole}
+                  onChange={(e) => setInterviewForm({ ...interviewForm, interviewerRole: e.target.value })}
+                />
+              </div>
+            </div>
+            {interviewForm.status === "completed" && (
+              <div>
+                <Label>Rating (1-5)</Label>
+                <Input
+                  type="number"
+                  min="1"
+                  max="5"
+                  value={interviewForm.rating}
+                  onChange={(e) => setInterviewForm({ ...interviewForm, rating: e.target.value })}
+                />
+              </div>
+            )}
+            <div>
+              <Label>Notes</Label>
+              <Textarea
+                value={interviewForm.notes}
+                onChange={(e) => setInterviewForm({ ...interviewForm, notes: e.target.value })}
+                rows={3}
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={closeInterviewDialog}>Cancel</Button>
+              <Button type="submit" disabled={saveInterviewMutation.isPending}>
+                {saveInterviewMutation.isPending ? "Saving..." : editingInterviewId ? "Update" : "Schedule"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -406,11 +651,13 @@ function KanbanView({
   onEdit,
   onDelete,
   onStatusChange,
+  onScheduleInterview,
 }: {
   grouped: Record<ApplicationStatus, Application[]>;
   onEdit: (app: Application) => void;
   onDelete: (id: string) => void;
   onStatusChange: (id: string, status: string) => void;
+  onScheduleInterview: (appId: string) => void;
 }) {
   const [dragId, setDragId] = useState<string | null>(null);
 
@@ -459,6 +706,7 @@ function KanbanView({
                 onEdit={() => onEdit(app)}
                 onDelete={() => onDelete(app.id)}
                 onDragStart={(e) => handleDragStart(e, app.id)}
+                onScheduleInterview={() => onScheduleInterview(app.id)}
               />
             ))}
           </div>
@@ -473,12 +721,18 @@ function ApplicationCard({
   onEdit,
   onDelete,
   onDragStart,
+  onScheduleInterview,
 }: {
   app: Application;
   onEdit: () => void;
   onDelete: () => void;
   onDragStart: (e: React.DragEvent) => void;
+  onScheduleInterview: () => void;
 }) {
+  const nextInterview = app.interviews
+    .filter((i) => i.status === "scheduled" && new Date(i.scheduledAt) >= new Date())
+    .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime())[0];
+
   return (
     <Card
       draggable
@@ -506,6 +760,9 @@ function ApplicationCard({
               )}
               <DropdownMenuItem onClick={onEdit}>
                 <Pencil className="mr-2 h-4 w-4" /> Edit
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={onScheduleInterview}>
+                <CalendarDays className="mr-2 h-4 w-4" /> Schedule Interview
               </DropdownMenuItem>
               <DropdownMenuItem onClick={onDelete} className="text-red-600">
                 <Trash2 className="mr-2 h-4 w-4" /> Delete
@@ -536,6 +793,29 @@ function ApplicationCard({
             Applied {format(new Date(app.appliedDate), "MMM d, yyyy")}
           </p>
         )}
+        {/* Interview info */}
+        {app.interviews.length > 0 && (
+          <>
+            <Separator />
+            <div className="flex items-center gap-1.5">
+              <CalendarDays className="h-3 w-3 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground">
+                {app.interviews.length} interview{app.interviews.length !== 1 ? "s" : ""}
+              </span>
+            </div>
+          </>
+        )}
+        {nextInterview && (
+          <div className="flex items-center gap-1.5 rounded bg-blue-50 dark:bg-blue-950 px-2 py-1">
+            <Clock className="h-3 w-3 text-blue-600" />
+            <span className="text-xs text-blue-700 dark:text-blue-300">
+              Next: {format(new Date(nextInterview.scheduledAt), "MMM d, h:mm a")}
+            </span>
+            <Badge variant="outline" className="text-[10px] px-1 py-0 capitalize">
+              {nextInterview.type}
+            </Badge>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
@@ -547,10 +827,20 @@ function TableView({
   applications,
   onEdit,
   onDelete,
+  onScheduleInterview,
+  onEditInterview,
+  onDeleteInterview,
+  expandedAppId,
+  onToggleExpand,
 }: {
   applications: Application[];
   onEdit: (app: Application) => void;
   onDelete: (id: string) => void;
+  onScheduleInterview: (appId: string) => void;
+  onEditInterview: (interview: InterviewDetail, appId: string) => void;
+  onDeleteInterview: (id: string) => void;
+  expandedAppId: string | null;
+  onToggleExpand: (id: string) => void;
 }) {
   return (
     <div className="rounded-md border">
@@ -576,45 +866,125 @@ function TableView({
             </TableRow>
           ) : (
             applications.map((app) => (
-              <TableRow key={app.id}>
-                <TableCell className="font-medium">{app.company}</TableCell>
-                <TableCell>{app.role}</TableCell>
-                <TableCell>
-                  <Badge className={cn("text-xs", STATUS_COLORS[app.status as ApplicationStatus])}>
-                    {STATUS_LABELS[app.status as ApplicationStatus]}
-                  </Badge>
-                </TableCell>
-                <TableCell className="capitalize">{app.type}</TableCell>
-                <TableCell>
-                  {app.salaryMin || app.salaryMax
-                    ? `${app.currency} ${app.salaryMin ? `${(app.salaryMin / 1000).toFixed(0)}k` : ""} - ${app.salaryMax ? `${(app.salaryMax / 1000).toFixed(0)}k` : ""}`
-                    : "—"}
-                </TableCell>
-                <TableCell>
-                  {app.appliedDate ? format(new Date(app.appliedDate), "MMM d, yyyy") : "—"}
-                </TableCell>
-                <TableCell>{app.interviews.length}</TableCell>
-                <TableCell>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger className="inline-flex items-center justify-center h-8 w-8 rounded-md hover:bg-accent">
-                      <MoreHorizontal className="h-4 w-4" />
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      {app.url && (
-                        <DropdownMenuItem onClick={() => window.open(app.url!, '_blank', 'noopener,noreferrer')}>
-                          <ExternalLink className="mr-2 h-4 w-4" /> Open URL
-                        </DropdownMenuItem>
+              <>
+                <TableRow
+                  key={app.id}
+                  className={cn(expandedAppId === app.id && "border-b-0 bg-muted/30")}
+                >
+                  <TableCell className="font-medium">{app.company}</TableCell>
+                  <TableCell>{app.role}</TableCell>
+                  <TableCell>
+                    <Badge className={cn("text-xs", STATUS_COLORS[app.status as ApplicationStatus])}>
+                      {STATUS_LABELS[app.status as ApplicationStatus]}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="capitalize">{app.type}</TableCell>
+                  <TableCell>
+                    {app.salaryMin || app.salaryMax
+                      ? `${app.currency} ${app.salaryMin ? `${(app.salaryMin / 1000).toFixed(0)}k` : ""} - ${app.salaryMax ? `${(app.salaryMax / 1000).toFixed(0)}k` : ""}`
+                      : "—"}
+                  </TableCell>
+                  <TableCell>
+                    {app.appliedDate ? format(new Date(app.appliedDate), "MMM d, yyyy") : "—"}
+                  </TableCell>
+                  <TableCell>
+                    <button
+                      onClick={() => onToggleExpand(app.id)}
+                      className={cn(
+                        "text-xs underline-offset-2 hover:underline",
+                        app.interviews.length > 0 ? "text-blue-600 cursor-pointer" : "text-muted-foreground cursor-default"
                       )}
-                      <DropdownMenuItem onClick={() => onEdit(app)}>
-                        <Pencil className="mr-2 h-4 w-4" /> Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => onDelete(app.id)} className="text-red-600">
-                        <Trash2 className="mr-2 h-4 w-4" /> Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
-              </TableRow>
+                      disabled={app.interviews.length === 0}
+                    >
+                      {app.interviews.length} interview{app.interviews.length !== 1 ? "s" : ""}
+                    </button>
+                  </TableCell>
+                  <TableCell>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger className="inline-flex items-center justify-center h-8 w-8 rounded-md hover:bg-accent">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {app.url && (
+                          <DropdownMenuItem onClick={() => window.open(app.url!, '_blank', 'noopener,noreferrer')}>
+                            <ExternalLink className="mr-2 h-4 w-4" /> Open URL
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuItem onClick={() => onEdit(app)}>
+                          <Pencil className="mr-2 h-4 w-4" /> Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => onScheduleInterview(app.id)}>
+                          <CalendarDays className="mr-2 h-4 w-4" /> Schedule Interview
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => onDelete(app.id)} className="text-red-600">
+                          <Trash2 className="mr-2 h-4 w-4" /> Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+                {expandedAppId === app.id && app.interviews.length > 0 && (
+                  <TableRow key={`${app.id}-interviews`} className="bg-muted/30">
+                    <TableCell colSpan={8} className="p-0">
+                      <div className="px-6 py-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                            Interviews
+                          </p>
+                          <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => onScheduleInterview(app.id)}>
+                            <Plus className="mr-1 h-3 w-3" /> Add
+                          </Button>
+                        </div>
+                        {app.interviews.map((iv) => (
+                          <div
+                            key={iv.id}
+                            className="flex items-center justify-between rounded-md border bg-background px-3 py-2"
+                          >
+                            <div className="flex items-center gap-3">
+                              <Badge className={cn("text-xs capitalize", interviewStatusStyle[iv.status])}>
+                                {iv.status}
+                              </Badge>
+                              <span className="text-sm capitalize">{iv.type}</span>
+                              <span className="text-sm text-muted-foreground">
+                                {format(new Date(iv.scheduledAt), "MMM d, yyyy h:mm a")}
+                              </span>
+                              {iv.durationMinutes && (
+                                <span className="text-xs text-muted-foreground">
+                                  {iv.durationMinutes} min
+                                </span>
+                              )}
+                              {iv.interviewerName && (
+                                <span className="text-xs text-muted-foreground">
+                                  with {iv.interviewerName}
+                                </span>
+                              )}
+                              {iv.rating && (
+                                <span className="text-xs text-muted-foreground">
+                                  {iv.rating}/5
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => onEditInterview(iv, app.id)}
+                                className="inline-flex items-center justify-center h-7 w-7 rounded-md hover:bg-accent"
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                onClick={() => onDeleteInterview(iv.id)}
+                                className="inline-flex items-center justify-center h-7 w-7 rounded-md hover:bg-accent text-red-600"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </>
             ))
           )}
         </TableBody>
