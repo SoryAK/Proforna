@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { logActivity } from "@/lib/activity";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET() {
@@ -20,5 +21,6 @@ export async function POST(req: NextRequest) {
     },
     include: { milestones: true },
   });
+  await logActivity("goal", goal.id, "created", `Created goal: ${goal.title}`);
   return NextResponse.json(goal, { status: 201 });
 }

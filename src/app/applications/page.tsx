@@ -15,6 +15,10 @@ import {
   Download,
   CalendarDays,
   Clock,
+  Mail,
+  FileText as FileTextIcon,
+  Link2,
+  BookOpen,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -64,6 +68,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { OfferComparison } from "@/components/offer-comparison";
+import { InterviewPrepDialog } from "@/components/interview-prep";
 import { Scale } from "lucide-react";
 
 interface InterviewDetail {
@@ -77,6 +82,10 @@ interface InterviewDetail {
   notes?: string | null;
   status: string;
   rating?: number | null;
+  prepNotes?: string | null;
+  questions?: string | null;
+  reflection?: string | null;
+  reflectionRating?: number | null;
 }
 
 interface Application {
@@ -95,6 +104,9 @@ interface Application {
   createdAt: string;
   updatedAt: string;
   interviews: InterviewDetail[];
+  resumeVersionId?: string | null;
+  resumeVersion?: { id: string; name: string; targetRole: string | null } | null;
+  _count?: { linkedEmails: number };
   // Offer details
   offerPayType: string | null;
   offerPayRate: string | null;
@@ -124,6 +136,7 @@ const emptyForm = {
   currency: "USD",
   appliedDate: "",
   notes: "",
+  resumeVersionId: "",
 };
 
 const emptyInterviewForm = {
@@ -164,9 +177,18 @@ export default function ApplicationsPage() {
   // Offer comparison dialog
   const [compareApp, setCompareApp] = useState<Application | null>(null);
 
+  // Interview prep dialog
+  const [prepInterview, setPrepInterview] = useState<{ interview: InterviewDetail; company: string; role: string } | null>(null);
+
   const { data: applications = [], isLoading } = useQuery<Application[]>({
     queryKey: ["applications"],
     queryFn: () => fetch("/api/applications").then((r) => r.json()),
+  });
+
+  interface ResumeOption { id: string; name: string; targetRole: string | null; isActive: boolean }
+  const { data: resumes = [] } = useQuery<ResumeOption[]>({
+    queryKey: ["resumes"],
+    queryFn: () => fetch("/api/resumes").then((r) => r.json()),
   });
 
   /* ── Application mutations ── */
@@ -215,6 +237,19 @@ export default function ApplicationsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["applications"] });
     },
+  });
+
+  const linkEmailsMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/emails/link", { method: "POST" });
+      if (!res.ok) throw new Error("Failed");
+      return res.json() as Promise<{ linked: number }>;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["applications"] });
+      toast.success(`Linked ${data.linked} email${data.linked !== 1 ? "s" : ""} to applications`);
+    },
+    onError: () => toast.error("Failed to link emails"),
   });
 
   /* ── Interview mutations ── */
@@ -274,6 +309,7 @@ export default function ApplicationsPage() {
       currency: app.currency,
       appliedDate: app.appliedDate ? app.appliedDate.slice(0, 10) : "",
       notes: app.notes || "",
+      resumeVersionId: app.resumeVersionId || "",
     });
     setDialogOpen(true);
   }
@@ -322,6 +358,7 @@ export default function ApplicationsPage() {
       currency: form.currency,
       appliedDate: form.appliedDate ? new Date(form.appliedDate).toISOString() : null,
       notes: form.notes || null,
+      resumeVersionId: form.resumeVersionId || null,
     };
     saveMutation.mutate(data);
   }
@@ -406,6 +443,13 @@ export default function ApplicationsPage() {
           </Button>
           <Button
             variant="outline"
+            onClick={() => linkEmailsMutation.mutate()}
+            disabled={linkEmailsMutation.isPending}
+          >
+            <Link2 className="mr-2 h-4 w-4" /> {linkEmailsMutation.isPending ? "Linking…" : "Link Emails"}
+          </Button>
+          <Button
+            variant="outline"
             onClick={() => window.open("/api/export?type=applications", "_blank")}
           >
             <Download className="mr-2 h-4 w-4" /> Export CSV
@@ -423,6 +467,7 @@ export default function ApplicationsPage() {
             onStatusChange={(id, status) => statusMutation.mutate({ id, status })}
             onScheduleInterview={openScheduleInterview}
             onCompare={setCompareApp}
+            onOpenPrep={(iv, app) => setPrepInterview({ interview: iv, company: app.company, role: app.role })}
           />
         ) : (
           <TableView
@@ -435,6 +480,7 @@ export default function ApplicationsPage() {
             expandedAppId={expandedAppId}
             onToggleExpand={(id) => setExpandedAppId(expandedAppId === id ? null : id)}
             onCompare={setCompareApp}
+            onOpenPrep={(iv, app) => setPrepInterview({ interview: iv, company: app.company, role: app.role })}
           />
         )}
       </div>
@@ -547,6 +593,47 @@ export default function ApplicationsPage() {
                 rows={3}
               />
             </div>
+            {resumes.length > 0 && (
+              <div>
+                <Label>Resume Version</Label>
+                {(() => {
+                  // Suggest best match based on role overlap
+                  const suggested = !form.resumeVersionId && form.role
+                    ? resumes.find((r) =>
+                        r.targetRole &&
+                        form.role.toLowerCase().includes(r.targetRole.toLowerCase().split(/\s+/)[0])
+                      ) || resumes.find((r) => r.isActive)
+                    : null;
+                  return (
+                    <>
+                      <Select
+                        value={form.resumeVersionId || "none"}
+                        onValueChange={(v) => setForm({ ...form, resumeVersionId: (v ?? "none") === "none" ? "" : v ?? "" })}
+                      >
+                        <SelectTrigger><SelectValue placeholder="Select resume..." /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">None</SelectItem>
+                          {resumes.map((r) => (
+                            <SelectItem key={r.id} value={r.id}>
+                              {r.name}{r.targetRole ? ` (${r.targetRole})` : ""}{r.isActive ? " ★" : ""}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {suggested && (
+                        <button
+                          type="button"
+                          onClick={() => setForm({ ...form, resumeVersionId: suggested.id })}
+                          className="mt-1 text-xs text-blue-600 hover:underline"
+                        >
+                          Suggested: {suggested.name}{suggested.targetRole ? ` (${suggested.targetRole})` : ""}
+                        </button>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
+            )}
             <div className="flex justify-end gap-2">
               <Button type="button" variant="outline" onClick={closeDialog}>
                 Cancel
@@ -671,6 +758,17 @@ export default function ApplicationsPage() {
           onOpenChange={(open) => { if (!open) setCompareApp(null); }}
         />
       )}
+
+      {/* Interview Prep Dialog */}
+      {prepInterview && (
+        <InterviewPrepDialog
+          interview={prepInterview.interview}
+          company={prepInterview.company}
+          role={prepInterview.role}
+          open={!!prepInterview}
+          onOpenChange={(open) => { if (!open) setPrepInterview(null); }}
+        />
+      )}
     </div>
   );
 }
@@ -684,6 +782,7 @@ function KanbanView({
   onStatusChange,
   onScheduleInterview,
   onCompare,
+  onOpenPrep,
 }: {
   grouped: Record<ApplicationStatus, Application[]>;
   onEdit: (app: Application) => void;
@@ -691,6 +790,7 @@ function KanbanView({
   onStatusChange: (id: string, status: string) => void;
   onScheduleInterview: (appId: string) => void;
   onCompare: (app: Application) => void;
+  onOpenPrep: (iv: InterviewDetail, app: Application) => void;
 }) {
   const [dragId, setDragId] = useState<string | null>(null);
 
@@ -741,6 +841,7 @@ function KanbanView({
                 onDragStart={(e) => handleDragStart(e, app.id)}
                 onScheduleInterview={() => onScheduleInterview(app.id)}
                 onCompare={() => onCompare(app)}
+                onOpenPrep={(iv) => onOpenPrep(iv, app)}
               />
             ))}
           </div>
@@ -757,6 +858,7 @@ function ApplicationCard({
   onDragStart,
   onScheduleInterview,
   onCompare,
+  onOpenPrep,
 }: {
   app: Application;
   onEdit: () => void;
@@ -764,6 +866,7 @@ function ApplicationCard({
   onDragStart: (e: React.DragEvent) => void;
   onScheduleInterview: () => void;
   onCompare: () => void;
+  onOpenPrep: (iv: InterviewDetail) => void;
 }) {
   const nextInterview = app.interviews
     .filter((i) => i.status === "scheduled" && new Date(i.scheduledAt) >= new Date())
@@ -845,7 +948,11 @@ function ApplicationCard({
           </>
         )}
         {nextInterview && (
-          <div className="flex items-center gap-1.5 rounded bg-blue-50 dark:bg-blue-950 px-2 py-1">
+          <div
+            className="flex items-center gap-1.5 rounded bg-blue-50 dark:bg-blue-950 px-2 py-1 cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900 transition-colors"
+            onClick={() => onOpenPrep(nextInterview)}
+            title="Open interview prep"
+          >
             <Clock className="h-3 w-3 text-blue-600" />
             <span className="text-xs text-blue-700 dark:text-blue-300">
               Next: {format(new Date(nextInterview.scheduledAt), "MMM d, h:mm a")}
@@ -853,8 +960,28 @@ function ApplicationCard({
             <Badge variant="outline" className="text-[10px] px-1 py-0 capitalize">
               {nextInterview.type}
             </Badge>
+            <BookOpen className="h-3 w-3 text-blue-600 dark:text-blue-400 ml-auto" />
           </div>
         )}
+        {/* Email + Resume badges */}
+        <div className="flex flex-wrap gap-1.5">
+          {(app._count?.linkedEmails ?? 0) > 0 && (
+            <div className="flex items-center gap-1 rounded bg-indigo-50 dark:bg-indigo-950 px-2 py-0.5">
+              <Mail className="h-3 w-3 text-indigo-600 dark:text-indigo-400" />
+              <span className="text-[11px] text-indigo-700 dark:text-indigo-300">
+                {app._count!.linkedEmails} email{app._count!.linkedEmails !== 1 ? "s" : ""}
+              </span>
+            </div>
+          )}
+          {app.resumeVersion && (
+            <div className="flex items-center gap-1 rounded bg-emerald-50 dark:bg-emerald-950 px-2 py-0.5">
+              <FileTextIcon className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
+              <span className="text-[11px] text-emerald-700 dark:text-emerald-300 truncate max-w-[120px]">
+                {app.resumeVersion.name}
+              </span>
+            </div>
+          )}
+        </div>
       </CardContent>
     </Card>
   );
@@ -870,6 +997,7 @@ function TableView({
   onEditInterview,
   onDeleteInterview,
   onCompare,
+  onOpenPrep,
   expandedAppId,
   onToggleExpand,
 }: {
@@ -880,6 +1008,7 @@ function TableView({
   onEditInterview: (interview: InterviewDetail, appId: string) => void;
   onDeleteInterview: (id: string) => void;
   onCompare: (app: Application) => void;
+  onOpenPrep: (iv: InterviewDetail, app: Application) => void;
   expandedAppId: string | null;
   onToggleExpand: (id: string) => void;
 }) {
@@ -1009,6 +1138,13 @@ function TableView({
                               )}
                             </div>
                             <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => onOpenPrep(iv, app)}
+                                className="inline-flex items-center justify-center h-7 w-7 rounded-md hover:bg-accent text-blue-600"
+                                title="Interview prep"
+                              >
+                                <BookOpen className="h-3.5 w-3.5" />
+                              </button>
                               <button
                                 onClick={() => onEditInterview(iv, app.id)}
                                 className="inline-flex items-center justify-center h-7 w-7 rounded-md hover:bg-accent"

@@ -88,8 +88,25 @@ export async function GET(req: NextRequest) {
       filename = "goals.csv";
       break;
     }
+    case "full-json": {
+      const [applications, interviews, contacts, skills, goals, certifications] = await Promise.all([
+        prisma.jobApplication.findMany({ orderBy: { updatedAt: "desc" } }),
+        prisma.interview.findMany({ include: { jobApplication: { select: { company: true, role: true } } }, orderBy: { scheduledAt: "desc" } }),
+        prisma.contact.findMany({ orderBy: { name: "asc" } }),
+        prisma.skill.findMany({ orderBy: { name: "asc" } }),
+        prisma.careerGoal.findMany({ include: { milestones: true }, orderBy: { createdAt: "desc" } }),
+        prisma.certification.findMany({ orderBy: { issueDate: "desc" } }),
+      ]);
+      const json = JSON.stringify({ exportedAt: new Date().toISOString(), applications, interviews, contacts, skills, goals, certifications }, null, 2);
+      return new NextResponse(json, {
+        headers: {
+          "Content-Type": "application/json",
+          "Content-Disposition": `attachment; filename="resumsify-backup-${new Date().toISOString().slice(0, 10)}.json"`,
+        },
+      });
+    }
     default:
-      return NextResponse.json({ error: "Invalid type. Use: applications, interviews, contacts, skills, goals" }, { status: 400 });
+      return NextResponse.json({ error: "Invalid type. Use: applications, interviews, contacts, skills, goals, full-json" }, { status: 400 });
   }
 
   return new NextResponse(csv, {

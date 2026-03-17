@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { logActivity } from "@/lib/activity";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET() {
@@ -15,5 +16,6 @@ export async function POST(req: NextRequest) {
     data,
     include: { jobApplication: { select: { company: true, role: true } } },
   });
+  await logActivity("interview", interview.id, "created", `Scheduled ${interview.type} interview at ${interview.jobApplication.company}`);
   return NextResponse.json(interview, { status: 201 });
 }

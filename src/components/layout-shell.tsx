@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { Sidebar, MobileHeader } from "@/components/sidebar";
+import { CommandPalette } from "@/components/command-palette";
 
 export function LayoutShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -20,6 +21,7 @@ export function LayoutShell({ children }: { children: React.ReactNode }) {
           <div className="mx-auto p-4 sm:p-6">{children}</div>
         </main>
       </div>
+      <CommandPalette />
     </div>
   );
 }

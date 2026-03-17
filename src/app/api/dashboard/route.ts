@@ -2,6 +2,9 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
 export async function GET() {
+  const now = new Date();
+  const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
   const [
     totalApplications,
     activeApplications,
@@ -21,6 +24,8 @@ export async function GET() {
     activeGoals,
     incomeYears,
     wageTiers,
+    upcomingInterviewDetails,
+    expiringCertifications,
   ] = await Promise.all([
     prisma.jobApplication.count(),
     prisma.jobApplication.count({
@@ -28,7 +33,7 @@ export async function GET() {
     }),
     prisma.interview.count(),
     prisma.interview.count({
-      where: { scheduledAt: { gte: new Date() }, status: "scheduled" },
+      where: { scheduledAt: { gte: now }, status: "scheduled" },
     }),
     prisma.contact.count(),
     prisma.skill.count(),
@@ -58,6 +63,19 @@ export async function GET() {
     }),
     prisma.careerIncomeYear.findMany({ orderBy: { year: "asc" } }),
     prisma.wageTier.findMany({ orderBy: { sortOrder: "asc" } }),
+    // Upcoming interviews with application details
+    prisma.interview.findMany({
+      where: { scheduledAt: { gte: now }, status: "scheduled" },
+      include: { jobApplication: { select: { company: true, role: true } } },
+      orderBy: { scheduledAt: "asc" },
+      take: 5,
+    }),
+    // Certifications expiring within 30 days or already expired
+    prisma.certification.findMany({
+      where: { expiryDate: { not: null, lte: thirtyDaysFromNow } },
+      orderBy: { expiryDate: "asc" },
+      take: 5,
+    }),
   ]);
 
   const pipeline = statusCounts.map((s: { status: string; _count: { status: number } }) => ({
@@ -85,5 +103,7 @@ export async function GET() {
     certifications,
     activeGoals,
     cfm: { incomeYears, wageTiers },
+    upcomingInterviewDetails,
+    expiringCertifications,
   });
 }

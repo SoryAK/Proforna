@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
 import { NAV_ITEMS } from "@/lib/constants";
 import {
@@ -14,11 +15,20 @@ import {
   FileText,
   Target,
   TrendingUp,
+  Mail,
   Inbox,
   Globe,
   Building2,
   History,
   Menu,
+  Sun,
+  Moon,
+  Monitor,
+  Search,
+  BarChart3,
+  FolderOpen,
+  Clock,
+  ArrowDownUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,6 +37,7 @@ import {
   SheetContent,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { NotificationBell } from "@/components/notification-bell";
 
 const iconMap: Record<string, React.ElementType> = {
   LayoutDashboard,
@@ -39,6 +50,11 @@ const iconMap: Record<string, React.ElementType> = {
   FileText,
   Target,
   TrendingUp,
+  BarChart3,
+  FolderOpen,
+  Clock,
+  ArrowDownUp,
+  Mail,
   Inbox,
   Globe,
 };
@@ -75,19 +91,54 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
+function ThemeToggle() {
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  const cycle = () => {
+    if (theme === "light") setTheme("dark");
+    else if (theme === "dark") setTheme("system");
+    else setTheme("light");
+  };
+
+  if (!mounted) {
+    return <Button variant="ghost" size="icon"><Sun className="h-4 w-4" /></Button>;
+  }
+
+  const Icon = theme === "dark" ? Moon : theme === "light" ? Sun : Monitor;
+  return (
+    <Button variant="ghost" size="icon" onClick={cycle} title={`Theme: ${theme}`}>
+      <Icon className="h-4 w-4" />
+    </Button>
+  );
+}
+
 /** Desktop sidebar — hidden below md */
 export function Sidebar() {
   return (
     <aside className="hidden md:flex h-full w-64 flex-col border-r bg-white dark:bg-gray-950">
-      <div className="flex h-14 items-center border-b px-4">
+      <div className="flex h-14 items-center justify-between border-b px-4">
         <Link href="/" className="flex items-center gap-2 font-semibold text-lg">
           <Briefcase className="h-5 w-5 text-blue-600" />
           <span>Resumsify</span>
         </Link>
+        <button
+          onClick={() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true }))}
+          className="flex items-center gap-1 rounded-md border px-2 py-1 text-xs text-muted-foreground hover:bg-muted transition-colors"
+          title="Search (Ctrl+K)"
+        >
+          <Search className="h-3 w-3" />
+          <kbd className="text-[10px]">Ctrl+K</kbd>
+        </button>
       </div>
       <NavLinks />
-      <div className="border-t p-3">
-        <p className="text-xs text-gray-400 text-center">
+      <div className="border-t p-3 space-y-2">
+        <div className="flex items-center gap-2">
+          <NotificationBell />
+          <ThemeToggle />
+        </div>
+        <p className="text-xs text-gray-500 dark:text-gray-500">
           Career Tracker v1.0
         </p>
       </div>
@@ -122,6 +173,10 @@ export function MobileHeader() {
         <Briefcase className="h-5 w-5 text-blue-600" />
         <span>Resumsify</span>
       </Link>
+      <div className="ml-auto flex items-center gap-1">
+        <NotificationBell />
+        <ThemeToggle />
+      </div>
     </header>
   );
 }

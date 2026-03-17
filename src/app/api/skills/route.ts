@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { logActivity } from "@/lib/activity";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET() {
@@ -9,5 +10,6 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const data = await req.json();
   const skill = await prisma.skill.create({ data });
+  await logActivity("skill", skill.id, "created", `Added skill: ${skill.name}`);
   return NextResponse.json(skill, { status: 201 });
 }

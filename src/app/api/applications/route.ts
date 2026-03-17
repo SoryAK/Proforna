@@ -3,7 +3,11 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function GET() {
   const applications = await prisma.jobApplication.findMany({
-    include: { interviews: true },
+    include: {
+      interviews: true,
+      resumeVersion: { select: { id: true, name: true, targetRole: true } },
+      _count: { select: { linkedEmails: true } },
+    },
     orderBy: { updatedAt: "desc" },
   });
   return NextResponse.json(applications);

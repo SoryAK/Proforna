@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { logActivity } from "@/lib/activity";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function PATCH(
@@ -12,6 +13,7 @@ export async function PATCH(
     data,
     include: { milestones: true },
   });
+  await logActivity("goal", id, "updated", `Updated goal: ${goal.title}`);
   return NextResponse.json(goal);
 }
 
@@ -21,5 +23,6 @@ export async function DELETE(
 ) {
   const { id } = await params;
   await prisma.careerGoal.delete({ where: { id } });
+  await logActivity("goal", id, "deleted", "Deleted goal");
   return NextResponse.json({ success: true });
 }

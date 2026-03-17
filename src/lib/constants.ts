@@ -97,6 +97,11 @@ export const NAV_ITEMS = [
   { label: "Resumes", href: "/resumes", icon: "FileText" },
   { label: "Goals", href: "/goals", icon: "Target" },
   { label: "Career Model", href: "/career-model", icon: "TrendingUp" },
+  { label: "Analytics", href: "/analytics", icon: "BarChart3" },
+  { label: "Documents", href: "/documents", icon: "FolderOpen" },
+  { label: "Activity", href: "/activity", icon: "Clock" },
+  { label: "Import / Export", href: "/import-export", icon: "ArrowDownUp" },
+  { label: "Email", href: "/email", icon: "Mail" },
   { label: "Submissions", href: "/submissions", icon: "Inbox" },
   { label: "Portal Settings", href: "/portal-settings", icon: "Globe" },
 ] as const;

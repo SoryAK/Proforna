@@ -1,8 +1,9 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { LayoutShell } from "@/components/layout-shell";
 import { Providers } from "@/components/providers";
+import { PwaRegister } from "@/components/pwa-register";
 import { Toaster } from "sonner";
 
 const geistSans = Geist({
@@ -18,6 +19,24 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Resumsify - Career Tracker",
   description: "Track your job applications, interviews, skills, and career goals",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Resumsify",
+  },
+  icons: {
+    icon: "/icon-192.svg",
+    apple: "/icon-192.svg",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#2563eb",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
 };
 
 export default function RootLayout({
@@ -26,13 +45,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <Providers>
           <LayoutShell>{children}</LayoutShell>
           <Toaster richColors position="top-right" />
+          <PwaRegister />
         </Providers>
       </body>
     </html>

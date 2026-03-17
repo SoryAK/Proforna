@@ -36,10 +36,13 @@ model JobApplication {
   offerHealthCost   Float?   // monthly employee health insurance cost
   offerStartDate    DateTime?
   offerNotes        String?
+  resumeVersionId String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   interviews Interview[]
+  linkedEmails Email[]
+  resumeVersion ResumeVersion? @relation(fields: [resumeVersionId], references: [id], onDelete: SetNull)
 }
 
 model Interview {
@@ -54,6 +57,10 @@ model Interview {
   notes           String?
   status          String   @default("scheduled") // scheduled, completed, cancelled
   rating          Int?     // 1-5
+  prepNotes       String?  // company research / prep notes
+  questions       String?  // JSON array of questions to ask / expect
+  reflection      String?  // post-interview reflection
+  reflectionRating Int?    // 1-5 self-assessment
   createdAt       DateTime @default(now())
 
   jobApplication JobApplication @relation(fields: [jobApplicationId], references: [id], onDelete: Cascade)
@@ -102,6 +109,8 @@ model ResumeVersion {
   versionNumber Int      @default(1)
   isActive      Boolean  @default(false)
   createdAt     DateTime @default(now())
+
+  applications  JobApplication[]
 }
 
 model CareerGoal {
@@ -140,11 +149,26 @@ model Reminder {
 
 model ActivityLog {
   id          String   @id @default(uuid())
-  entityType  String   // application, interview, contact, skill, certification, resume, goal
+  entityType  String   // application, interview, contact, skill, certification, resume, goal, document
   entityId    String
   action      String   // created, updated, status_changed, deleted
   description String
+  metadata    String?  // optional JSON blob for extra context
   createdAt   DateTime @default(now())
+}
+
+model Document {
+  id         String   @id @default(uuid())
+  name       String
+  fileName   String
+  fileSize   Int
+  mimeType   String
+  data       String   // base64-encoded file content
+  category   String   @default("other") // offer_letter, cover_letter, certificate, contract, pay_stub, tax_form, other
+  entityType String?  // application, position, certification — what this doc relates to
+  entityId   String?  // ID of the related entity
+  notes      String?
+  createdAt  DateTime @default(now())
 }
 
 model UserProfile {
@@ -342,4 +366,38 @@ model WageTier {
   color      String  @default("#6366f1") // UI accent color
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+}
+
+model EmailAccount {
+  id           String    @id @default(uuid())
+  provider     String    // "google" | "microsoft"
+  email        String
+  accessToken  String
+  refreshToken String?
+  tokenExpiry  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  emails       Email[]
+
+  @@unique([provider, email])
+}
+
+model Email {
+  id         String   @id @default(uuid())
+  accountId  String
+  messageId  String   // provider's unique message ID
+  subject    String?
+  sender     String   // from address
+  recipient  String?  // to address
+  date       DateTime
+  snippet    String?  // short preview text
+  body       String?  // full text body
+  isRead     Boolean  @default(false)
+  labels     String?  // comma-separated
+  applicationId String?
+  createdAt  DateTime @default(now())
+  account    EmailAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  application JobApplication? @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+
+  @@unique([accountId, messageId])
 }

@@ -16,6 +16,8 @@ import {
   Award,
   ExternalLink,
   ChevronRight,
+  AlertTriangle,
+  Bell,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -177,6 +179,22 @@ interface DashboardData {
       color: string;
     }[];
   };
+  upcomingInterviewDetails: {
+    id: string;
+    type: string;
+    scheduledAt: string;
+    durationMinutes: number | null;
+    location: string | null;
+    interviewerName: string | null;
+    interviewerRole: string | null;
+    jobApplication: { company: string; role: string };
+  }[];
+  expiringCertifications: {
+    id: string;
+    name: string;
+    issuer: string;
+    expiryDate: string | null;
+  }[];
 }
 
 export default function DashboardPage() {
@@ -204,7 +222,7 @@ export default function DashboardPage() {
     );
   }
 
-  const { stats, pipeline, recentActivity, currentPosition, profile, topSkills, certifications, activeGoals, cfm } = data;
+  const { stats, pipeline, recentActivity, currentPosition, profile, topSkills, certifications, activeGoals, cfm, upcomingInterviewDetails, expiringCertifications } = data;
 
   const availability = (profile?.availability ?? "open_to_work") as AvailabilityStatus;
   const displayName = profile?.fullName || (currentPosition
@@ -561,6 +579,80 @@ export default function DashboardPage() {
 
         {/* Sidebar */}
         <div className="space-y-4">
+          {/* Upcoming Interviews */}
+          {upcomingInterviewDetails.length > 0 && (
+            <Card className="border-purple-200 dark:border-purple-800">
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <CalendarDays className="h-4 w-4 text-purple-600" />
+                    Upcoming Interviews
+                  </CardTitle>
+                  <Badge className="bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300">
+                    {upcomingInterviewDetails.length}
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {upcomingInterviewDetails.map((iv) => (
+                    <div key={iv.id} className="flex gap-3 rounded-md border p-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-purple-50 dark:bg-purple-950">
+                        <CalendarDays className="h-5 w-5 text-purple-600" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold truncate">
+                          {iv.jobApplication.company} — {iv.jobApplication.role}
+                        </p>
+                        <p className="text-xs text-muted-foreground capitalize">
+                          {iv.type} interview
+                          {iv.interviewerName && ` with ${iv.interviewerName}`}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {format(new Date(iv.scheduledAt), "MMM d, yyyy 'at' h:mm a")}
+                          {iv.durationMinutes && ` · ${iv.durationMinutes}min`}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Expiring Certifications */}
+          {expiringCertifications.length > 0 && (
+            <Card className="border-amber-200 dark:border-amber-800">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-600" />
+                  Expiring Certifications
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {expiringCertifications.map((cert) => {
+                    const isExpired = cert.expiryDate && new Date(cert.expiryDate) < new Date();
+                    return (
+                      <div key={cert.id} className="flex items-center gap-3">
+                        <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${isExpired ? "bg-red-100 dark:bg-red-950" : "bg-amber-100 dark:bg-amber-950"}`}>
+                          <Award className={`h-4 w-4 ${isExpired ? "text-red-600" : "text-amber-600"}`} />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium truncate">{cert.name}</p>
+                          <p className="text-xs text-muted-foreground">{cert.issuer}</p>
+                        </div>
+                        <Badge className={isExpired ? "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300" : "bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300"}>
+                          {isExpired ? "Expired" : `Expires ${format(new Date(cert.expiryDate!), "MMM d")}`}
+                        </Badge>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Personal Finance */}
           {currentPosition && (
             <PersonalFinance
