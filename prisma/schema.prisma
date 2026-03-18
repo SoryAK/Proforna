@@ -634,3 +634,45 @@ model LearningItem {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
+
+// ── Industry Research (RSS Feeds) ─────────────────────
+model ResearchFeed {
+  id            String   @id @default(cuid())
+  title         String
+  url           String   @unique
+  category      String   @default("general")   // industry | tech | general | finance | career
+  isActive      Boolean  @default(true)
+  lastFetchedAt DateTime?
+  createdAt     DateTime @default(now())
+  articles      ResearchArticle[]
+}
+
+model ResearchArticle {
+  id          String   @id @default(cuid())
+  feedId      String
+  title       String
+  url         String
+  source      String?
+  summary     String?
+  publishedAt DateTime?
+  imageUrl    String?
+  isBookmarked Boolean  @default(false)
+  isRead      Boolean  @default(false)
+  tags        String?                          // JSON: string[]
+  createdAt   DateTime @default(now())
+  feed        ResearchFeed @relation(fields: [feedId], references: [id], onDelete: Cascade)
+}
+
+// ── Job Market Research (BLS) ─────────────────────────
+model MarketSearch {
+  id            String   @id @default(cuid())
+  seriesId      String                         // BLS series code
+  title         String
+  occupation    String?
+  area          String?
+  dataType      String   @default("wages")     // wages | employment | projections
+  lastData      String?                        // JSON: cached BLS response
+  lastFetchedAt DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
