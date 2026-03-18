@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import { Sidebar, MobileHeader } from "@/components/sidebar";
 import { CommandPalette } from "@/components/command-palette";
+import { AIChat } from "@/components/ai-chat";
 
 export function LayoutShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -22,6 +23,7 @@ export function LayoutShell({ children }: { children: React.ReactNode }) {
         </main>
       </div>
       <CommandPalette />
+      <AIChat />
     </div>
   );
 }

@@ -49,8 +49,13 @@ import { Switch } from "@/components/ui/switch";
 import { format, formatDistanceToNow } from "date-fns";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { CompensationTracker } from "@/components/compensation-tracker";
+import { PaycheckEstimator } from "@/components/paycheck-estimator";
 import { BenefitsTracker } from "@/components/benefits-tracker";
 import { TimeOffTracker } from "@/components/timeoff-tracker";
+import { PayPeriodCalendar } from "@/components/pay-period-calendar";
+import { EquipmentTracker } from "@/components/equipment-tracker";
+import { WorkLogTracker } from "@/components/work-log-tracker";
+import { HoursWorkedTracker } from "@/components/hours-worked-tracker";
 
 
 interface Position {
@@ -461,6 +466,9 @@ export default function CurrentPositionPage() {
             <TabsTrigger value="compensation">Compensation</TabsTrigger>
             <TabsTrigger value="benefits">Benefits</TabsTrigger>
             <TabsTrigger value="timeoff">Time Off</TabsTrigger>
+            <TabsTrigger value="equipment">Equipment</TabsTrigger>
+            <TabsTrigger value="worklog">Work Log</TabsTrigger>
+            <TabsTrigger value="hours">Hours Worked</TabsTrigger>
           </TabsList>
 
           <TabsContent value="profile" className="mt-4">
@@ -691,7 +699,7 @@ export default function CurrentPositionPage() {
             </div>
           </TabsContent>
 
-          <TabsContent value="compensation" className="mt-4">
+          <TabsContent value="compensation" className="mt-4 space-y-4">
             <CompensationTracker
               positionId={active.id}
               payType={active.payType}
@@ -708,6 +716,21 @@ export default function CurrentPositionPage() {
               otRate={active.otRate}
               estimatorSettings={active.estimatorSettings}
             />
+            <PaycheckEstimator
+              payType={active.payType}
+              payRate={active.payRate}
+              differentials={active.differentials}
+              salary={active.salary}
+              payFrequency={active.payFrequency}
+              rotatingSchedule={active.rotatingSchedule}
+              hoursPerWeek={active.hoursPerWeek}
+              scheduleBHours={active.scheduleBHours}
+              otHoursA={active.otHoursA}
+              otHoursB={active.otHoursB}
+              otRate={active.otRate}
+              estimatorSettings={active.estimatorSettings}
+            />
+            <PayPeriodCalendar positionId={active.id} />
           </TabsContent>
 
           <TabsContent value="benefits" className="mt-4">
@@ -716,6 +739,18 @@ export default function CurrentPositionPage() {
 
           <TabsContent value="timeoff" className="mt-4">
             <TimeOffTracker positionId={active.id} />
+          </TabsContent>
+
+          <TabsContent value="equipment" className="mt-4">
+            <EquipmentTracker positionId={active.id} />
+          </TabsContent>
+
+          <TabsContent value="worklog" className="mt-4">
+            <WorkLogTracker positionId={active.id} />
+          </TabsContent>
+
+          <TabsContent value="hours" className="mt-4">
+            <HoursWorkedTracker positionId={active.id} />
           </TabsContent>
 
         </Tabs>

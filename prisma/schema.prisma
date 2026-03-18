@@ -247,6 +247,65 @@ model CurrentPosition {
   compensation CompensationEvent[]
   benefits     Benefit[]
   timeOff      TimeOffBalance[]
+  paychecks    PaycheckRecord[]
+  equipment    Equipment[]
+  workLogs     WorkLog[]
+}
+
+model Equipment {
+  id            String    @id @default(uuid())
+  positionId    String
+  name          String
+  category      String    @default("hardware") // hardware, software, vehicle, safety, tool, other
+  manufacturer  String?
+  model         String?
+  serialNumber  String?
+  assetTag      String?
+  assignedDate  DateTime?
+  returnedDate  DateTime?
+  condition     String    @default("good") // new, good, fair, poor
+  licenseKey    String?
+  version       String?
+  expiresAt     DateTime?
+  notes         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  position  CurrentPosition   @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  resources EquipmentResource[]
+}
+
+model EquipmentResource {
+  id          String   @id @default(uuid())
+  equipmentId String
+  type        String   @default("manual") // manual, troubleshooting, operations, safety, maintenance, parts, training
+  title       String
+  content     String?  // text content (notes, procedures, tips)
+  fileName    String?  // original file name if attachment
+  fileData    Bytes?   // stored file data
+  fileMime    String?  // MIME type
+  url         String?  // external link
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  equipment Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+}
+
+model WorkLog {
+  id             String   @id @default(uuid())
+  positionId     String
+  date           DateTime
+  title          String
+  content        String?  // detailed notes, what you did
+  category       String   @default("task") // task, meeting, project, training, administrative, maintenance, on-call, other
+  hours          Float?   // hours spent
+  tags           String?  // comma-separated tags
+  accomplishment Boolean  @default(false) // flag for performance review items
+  impact         String?  // low, medium, high, critical
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  position CurrentPosition @relation(fields: [positionId], references: [id], onDelete: Cascade)
 }
 
 model CompensationEvent {
@@ -380,6 +439,36 @@ model EmailAccount {
   emails       Email[]
 
   @@unique([provider, email])
+}
+
+// ─── Paycheck Records (YTD tracking per position) ──────────────────
+
+model PaycheckRecord {
+  id              String    @id @default(uuid())
+  positionId      String
+  payPeriodStart  DateTime?
+  payPeriodEnd    DateTime?
+  grossPay        Float?
+  netPay          Float?
+  payRate         Float?
+  regularHours    Float?
+  overtimeHours   Float?
+  // YTD totals from paycheck
+  ytdGross        Float?
+  ytdNet          Float?
+  ytdFederalTax   Float?
+  ytdStateTax     Float?
+  ytdSocialSec    Float?
+  ytdMedicare     Float?
+  ytdRetirement   Float?
+  ytdHealthIns    Float?
+  ytdTotalDed     Float?
+  // Tax percentages extracted
+  taxPercentages  String?   // JSON blob: { federalTax, stateTax, socialSecurity, medicare, retirement, healthInsurance, totalDeductions }
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  position CurrentPosition @relation(fields: [positionId], references: [id], onDelete: Cascade)
 }
 
 model Email {

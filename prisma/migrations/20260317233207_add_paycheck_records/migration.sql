@@ -1,0 +1,25 @@
+-- CreateTable
+CREATE TABLE "PaycheckRecord" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "positionId" TEXT NOT NULL,
+    "payPeriodStart" DATETIME,
+    "payPeriodEnd" DATETIME,
+    "grossPay" REAL,
+    "netPay" REAL,
+    "payRate" REAL,
+    "regularHours" REAL,
+    "overtimeHours" REAL,
+    "ytdGross" REAL,
+    "ytdNet" REAL,
+    "ytdFederalTax" REAL,
+    "ytdStateTax" REAL,
+    "ytdSocialSec" REAL,
+    "ytdMedicare" REAL,
+    "ytdRetirement" REAL,
+    "ytdHealthIns" REAL,
+    "ytdTotalDed" REAL,
+    "taxPercentages" TEXT,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" DATETIME NOT NULL,
+    CONSTRAINT "PaycheckRecord_positionId_fkey" FOREIGN KEY ("positionId") REFERENCES "CurrentPosition" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+);

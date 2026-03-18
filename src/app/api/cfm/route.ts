@@ -135,14 +135,20 @@ function computeLiveEstimate(
   const netPerPeriod = grossPerPeriod - deductionsPerPeriod;
   const netIncome = netPerPeriod * payPeriods;
 
-  // Year-to-date: calculate how many pay periods have elapsed this year
+  // Year-to-date: count completed pay periods this year for more accurate estimate
   const now = new Date();
   const currentYear = now.getFullYear();
   const yearStart = new Date(currentYear, 0, 1);
   const posStart = position.startDate > yearStart ? position.startDate : yearStart;
-  const msElapsed = now.getTime() - posStart.getTime();
-  const msInYear = 365.25 * 24 * 60 * 60 * 1000;
-  const fractionOfYear = Math.min(1, Math.max(0, msElapsed / msInYear));
+
+  // Count how many pay periods have been completed from posStart to now
+  const periodDays = position.payFrequency === "weekly" ? 7
+    : position.payFrequency === "biweekly" ? 14
+    : position.payFrequency === "semimonthly" ? 15
+    : 30;
+  const daysSinceStart = (now.getTime() - posStart.getTime()) / (86400000);
+  const completedPeriods = Math.floor(daysSinceStart / periodDays);
+  const fractionOfYear = Math.min(1, completedPeriods / payPeriods);
   const ytdGross = grossIncome > 0 ? Math.round(grossIncome * fractionOfYear) : null;
 
   return {
@@ -166,25 +172,74 @@ function computeLiveEstimate(
 // GET — all income years + wage tiers + live estimate from current position
 export async function GET() {
   try {
-    const [incomeYears, wageTiers, activePosition] = await Promise.all([
+    const [incomeYears, wageTiers, activePositions] = await Promise.all([
       prisma.careerIncomeYear.findMany({
         orderBy: { year: "asc" },
         include: { entries: { orderBy: { createdAt: "asc" } } },
       }),
       prisma.wageTier.findMany({ orderBy: { sortOrder: "asc" } }),
-      prisma.currentPosition.findFirst({
+      prisma.currentPosition.findMany({
         where: { isActive: true },
         orderBy: { startDate: "desc" },
-        include: { compensation: true },
+        include: {
+          compensation: true,
+          paychecks: { orderBy: { createdAt: "desc" } },
+        },
       }),
     ]);
 
     let liveEstimate: LiveEstimate | null = null;
+    const activePosition = activePositions[0] ?? null;
     if (activePosition) {
       liveEstimate = computeLiveEstimate(activePosition, activePosition.compensation);
     }
 
-    return NextResponse.json({ incomeYears, wageTiers, liveEstimate });
+    // Build paycheck tracker data for all active positions
+    const paycheckTrackers = activePositions.map((pos) => {
+      const le = computeLiveEstimate(pos, pos.compensation);
+      const latest = pos.paychecks[0] ?? null;
+      return {
+        positionId: pos.id,
+        company: pos.company,
+        role: pos.role,
+        projectedGross: le.grossIncome,
+        projectedYtd: le.ytdGross,
+        actualYtd: latest?.ytdGross ?? null,
+        latestPaycheck: latest ? {
+          id: latest.id,
+          payPeriodEnd: latest.payPeriodEnd,
+          grossPay: latest.grossPay,
+          netPay: latest.netPay,
+          ytdGross: latest.ytdGross,
+          ytdNet: latest.ytdNet,
+          createdAt: latest.createdAt,
+        } : null,
+        // All paycheck records for history view
+        paycheckHistory: pos.paychecks.map((pc) => ({
+          id: pc.id,
+          payPeriodStart: pc.payPeriodStart,
+          payPeriodEnd: pc.payPeriodEnd,
+          grossPay: pc.grossPay,
+          netPay: pc.netPay,
+          payRate: pc.payRate,
+          regularHours: pc.regularHours,
+          overtimeHours: pc.overtimeHours,
+          ytdGross: pc.ytdGross,
+          ytdNet: pc.ytdNet,
+          ytdFederalTax: pc.ytdFederalTax,
+          ytdStateTax: pc.ytdStateTax,
+          ytdSocialSec: pc.ytdSocialSec,
+          ytdMedicare: pc.ytdMedicare,
+          ytdRetirement: pc.ytdRetirement,
+          ytdHealthIns: pc.ytdHealthIns,
+          ytdTotalDed: pc.ytdTotalDed,
+          taxPercentages: pc.taxPercentages,
+          createdAt: pc.createdAt,
+        })),
+      };
+    });
+
+    return NextResponse.json({ incomeYears, wageTiers, liveEstimate, paycheckTrackers });
   } catch (error) {
     return NextResponse.json({ error: String(error) }, { status: 500 });
   }

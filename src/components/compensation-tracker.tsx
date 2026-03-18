@@ -99,6 +99,15 @@ interface PaycheckData {
   otherDeductions: number | null;
   payPeriodStart: string | null;
   payPeriodEnd: string | null;
+  percentages?: {
+    federalTax: number | null;
+    stateTax: number | null;
+    socialSecurity: number | null;
+    medicare: number | null;
+    retirement: number | null;
+    healthInsurance: number | null;
+    totalDeductions: number | null;
+  };
 }
 
 const COMP_TYPES = [
@@ -418,15 +427,21 @@ export function CompensationTracker({ positionId, payType, payRate, differential
   const applyPaycheckData = () => {
     if (!paycheckData) return;
     const d = paycheckData;
+    const p = d.percentages;
 
-    // Fill estimator deductions from paycheck (OT hours are set on the position form)
-
-    // Compute deduction percentages from the paycheck gross
-    const gross = d.grossPay || 0;
-    if (gross > 0) {
-      if (d.federalTax) setEstFederalTax(((d.federalTax / gross) * 100).toFixed(1));
-      if (d.stateTax) setEstStateTax(((d.stateTax / gross) * 100).toFixed(1));
-      if (d.retirement) setEstRetirement(((d.retirement / gross) * 100).toFixed(1));
+    // Use pre-computed percentages from the API when available
+    if (p) {
+      if (p.federalTax != null) setEstFederalTax(p.federalTax.toFixed(1));
+      if (p.stateTax != null) setEstStateTax(p.stateTax.toFixed(1));
+      if (p.retirement != null) setEstRetirement(p.retirement.toFixed(1));
+    } else {
+      // Fallback: compute from amounts
+      const gross = d.grossPay || 0;
+      if (gross > 0) {
+        if (d.federalTax) setEstFederalTax(((d.federalTax / gross) * 100).toFixed(1));
+        if (d.stateTax) setEstStateTax(((d.stateTax / gross) * 100).toFixed(1));
+        if (d.retirement) setEstRetirement(((d.retirement / gross) * 100).toFixed(1));
+      }
     }
     if (d.healthInsurance) setEstHealthIns(d.healthInsurance.toFixed(2));
     const otherDed = (d.socialSecurity || 0) + (d.medicare || 0) + (d.otherDeductions || 0);
@@ -1158,43 +1173,49 @@ export function CompensationTracker({ positionId, payType, payRate, differential
                 {paycheckData.federalTax != null && (
                   <div className="flex justify-between px-3 py-2">
                     <span className="text-muted-foreground">Federal Tax</span>
-                    <span className="font-mono text-red-500">-${paycheckData.federalTax.toFixed(2)}</span>
+                    <span className="font-mono text-red-500">-${paycheckData.federalTax.toFixed(2)}{paycheckData.percentages?.federalTax != null && <span className="text-xs text-muted-foreground ml-1">({paycheckData.percentages.federalTax}%)</span>}</span>
                   </div>
                 )}
                 {paycheckData.stateTax != null && (
                   <div className="flex justify-between px-3 py-2">
                     <span className="text-muted-foreground">State Tax</span>
-                    <span className="font-mono text-red-500">-${paycheckData.stateTax.toFixed(2)}</span>
+                    <span className="font-mono text-red-500">-${paycheckData.stateTax.toFixed(2)}{paycheckData.percentages?.stateTax != null && <span className="text-xs text-muted-foreground ml-1">({paycheckData.percentages.stateTax}%)</span>}</span>
                   </div>
                 )}
                 {paycheckData.socialSecurity != null && (
                   <div className="flex justify-between px-3 py-2">
                     <span className="text-muted-foreground">Social Security</span>
-                    <span className="font-mono text-red-500">-${paycheckData.socialSecurity.toFixed(2)}</span>
+                    <span className="font-mono text-red-500">-${paycheckData.socialSecurity.toFixed(2)}{paycheckData.percentages?.socialSecurity != null && <span className="text-xs text-muted-foreground ml-1">({paycheckData.percentages.socialSecurity}%)</span>}</span>
                   </div>
                 )}
                 {paycheckData.medicare != null && (
                   <div className="flex justify-between px-3 py-2">
                     <span className="text-muted-foreground">Medicare</span>
-                    <span className="font-mono text-red-500">-${paycheckData.medicare.toFixed(2)}</span>
+                    <span className="font-mono text-red-500">-${paycheckData.medicare.toFixed(2)}{paycheckData.percentages?.medicare != null && <span className="text-xs text-muted-foreground ml-1">({paycheckData.percentages.medicare}%)</span>}</span>
                   </div>
                 )}
                 {paycheckData.retirement != null && (
                   <div className="flex justify-between px-3 py-2">
                     <span className="text-muted-foreground">Retirement / 401k</span>
-                    <span className="font-mono text-red-500">-${paycheckData.retirement.toFixed(2)}</span>
+                    <span className="font-mono text-red-500">-${paycheckData.retirement.toFixed(2)}{paycheckData.percentages?.retirement != null && <span className="text-xs text-muted-foreground ml-1">({paycheckData.percentages.retirement}%)</span>}</span>
                   </div>
                 )}
                 {paycheckData.healthInsurance != null && (
                   <div className="flex justify-between px-3 py-2">
                     <span className="text-muted-foreground">Health Insurance</span>
-                    <span className="font-mono text-red-500">-${paycheckData.healthInsurance.toFixed(2)}</span>
+                    <span className="font-mono text-red-500">-${paycheckData.healthInsurance.toFixed(2)}{paycheckData.percentages?.healthInsurance != null && <span className="text-xs text-muted-foreground ml-1">({paycheckData.percentages.healthInsurance}%)</span>}</span>
                   </div>
                 )}
                 {paycheckData.otherDeductions != null && (
                   <div className="flex justify-between px-3 py-2">
                     <span className="text-muted-foreground">Other Deductions</span>
                     <span className="font-mono text-red-500">-${paycheckData.otherDeductions.toFixed(2)}</span>
+                  </div>
+                )}
+                {paycheckData.percentages?.totalDeductions != null && (
+                  <div className="flex justify-between px-3 py-2 bg-muted/50">
+                    <span className="text-muted-foreground font-medium">Total Deduction Rate</span>
+                    <span className="font-mono font-semibold">{paycheckData.percentages.totalDeductions}%</span>
                   </div>
                 )}
                 {paycheckData.payPeriodStart && paycheckData.payPeriodEnd && (

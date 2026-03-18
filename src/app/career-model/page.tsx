@@ -42,6 +42,7 @@ import {
   CheckCircle2,
   AlertCircle,
   ChevronDown,
+  Receipt,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -109,6 +110,48 @@ interface CFMData {
   incomeYears: IncomeYear[];
   wageTiers: WageTier[];
   liveEstimate: LiveEstimate | null;
+  paycheckTrackers: PaycheckTracker[];
+}
+
+interface PaycheckTracker {
+  positionId: string;
+  company: string;
+  role: string;
+  projectedGross: number;
+  projectedYtd: number | null;
+  actualYtd: number | null;
+  latestPaycheck: {
+    id: string;
+    payPeriodEnd: string | null;
+    grossPay: number | null;
+    netPay: number | null;
+    ytdGross: number | null;
+    ytdNet: number | null;
+    createdAt: string;
+  } | null;
+  paycheckHistory: PaycheckHistoryRecord[];
+}
+
+interface PaycheckHistoryRecord {
+  id: string;
+  payPeriodStart: string | null;
+  payPeriodEnd: string | null;
+  grossPay: number | null;
+  netPay: number | null;
+  payRate: number | null;
+  regularHours: number | null;
+  overtimeHours: number | null;
+  ytdGross: number | null;
+  ytdNet: number | null;
+  ytdFederalTax: number | null;
+  ytdStateTax: number | null;
+  ytdSocialSec: number | null;
+  ytdMedicare: number | null;
+  ytdRetirement: number | null;
+  ytdHealthIns: number | null;
+  ytdTotalDed: number | null;
+  taxPercentages: string | null;
+  createdAt: string;
 }
 
 interface W2Parsed {
@@ -146,7 +189,45 @@ interface W2Parsed {
 const fmt = (n: number) =>
   n >= 1000 ? `$${(n / 1000).toFixed(n % 1000 === 0 ? 0 : 1)}k` : `$${n.toLocaleString()}`;
 const fmtFull = (n: number) => `$${n.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+const fmtDollar = (n: number) => `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const pct = (n: number) => `${n >= 0 ? "+" : ""}${n.toFixed(1)}%`;
+
+interface PaycheckParsed {
+  grossPay: number | null;
+  netPay: number | null;
+  regularHours: number | null;
+  overtimeHours: number | null;
+  payRate: number | null;
+  federalTax: number | null;
+  stateTax: number | null;
+  socialSecurity: number | null;
+  medicare: number | null;
+  retirement: number | null;
+  healthInsurance: number | null;
+  otherDeductions: number | null;
+  payPeriodStart: string | null;
+  payPeriodEnd: string | null;
+  percentages: {
+    federalTax: number | null;
+    stateTax: number | null;
+    socialSecurity: number | null;
+    medicare: number | null;
+    retirement: number | null;
+    healthInsurance: number | null;
+    totalDeductions: number | null;
+  };
+  ytd: {
+    grossPay: number | null;
+    netPay: number | null;
+    federalTax: number | null;
+    stateTax: number | null;
+    socialSecurity: number | null;
+    medicare: number | null;
+    retirement: number | null;
+    healthInsurance: number | null;
+    totalDeductions: number | null;
+  };
+}
 
 const emptyIncomeForm = { year: "", grossIncome: "", netIncome: "", jobCount: "1", notes: "" };
 const emptyTierForm = { label: "", hourlyRate: "", yearlyRate: "", color: "#6366f1" };
@@ -169,6 +250,16 @@ export default function CareerModelPage() {
   const [w2ShowRaw, setW2ShowRaw] = useState(false);
   const [expandedYears, setExpandedYears] = useState<Set<number>>(new Set());
   const w2InputRef = useRef<HTMLInputElement>(null);
+  const paycheckInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const [paycheckUploading, setPaycheckUploading] = useState<string | null>(null);
+  // Paycheck parse preview state per position
+  const [paycheckPreview, setPaycheckPreview] = useState<{
+    positionId: string;
+    data: PaycheckParsed;
+  } | null>(null);
+  // Paycheck history expand & edit state
+  const [expandedHistory, setExpandedHistory] = useState<Set<string>>(new Set());
+  const [editingPaycheck, setEditingPaycheck] = useState<PaycheckHistoryRecord | null>(null);
 
   const { data, isLoading } = useQuery<CFMData>({
     queryKey: ["cfm"],
@@ -199,6 +290,7 @@ export default function CareerModelPage() {
   const incomeYears = data?.incomeYears ?? [];
   const wageTiers = data?.wageTiers ?? [];
   const liveEstimate = data?.liveEstimate ?? null;
+  const paycheckTrackers = data?.paycheckTrackers ?? [];
 
   // Is the current year already manually entered?
   const currentYear = new Date().getFullYear();
@@ -527,6 +619,118 @@ export default function CareerModelPage() {
   };
 
   /* Hourly ↔ Yearly sync */
+
+  /* ── Paycheck Upload for YTD Tracking ── */
+
+  const handlePaycheckUpload = async (positionId: string, file: File) => {
+    setPaycheckUploading(positionId);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/paycheck-parse", { method: "POST", body: formData });
+      const json = await res.json();
+      if (!res.ok) {
+        toast.error(json.error || "Failed to parse paycheck");
+        return;
+      }
+      setPaycheckPreview({ positionId, data: json });
+    } catch {
+      toast.error("Failed to upload paycheck");
+    } finally {
+      setPaycheckUploading(null);
+      const ref = paycheckInputRefs.current[positionId];
+      if (ref) ref.value = "";
+    }
+  };
+
+  const confirmPaycheckImport = async () => {
+    if (!paycheckPreview) return;
+    const { positionId, data: d } = paycheckPreview;
+    try {
+      const res = await fetch("/api/paycheck-records", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          positionId,
+          paycheck: {
+            grossPay: d.grossPay,
+            netPay: d.netPay,
+            payRate: d.payRate,
+            regularHours: d.regularHours,
+            overtimeHours: d.overtimeHours,
+            payPeriodStart: d.payPeriodStart,
+            payPeriodEnd: d.payPeriodEnd,
+          },
+          ytd: d.ytd,
+          percentages: d.percentages,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        toast.error(err.error || "Failed to save paycheck record");
+        return;
+      }
+      queryClient.invalidateQueries({ queryKey: ["cfm"] });
+      toast.success("Paycheck imported — YTD updated");
+    } catch {
+      toast.error("Failed to save paycheck record");
+    } finally {
+      setPaycheckPreview(null);
+    }
+  };
+
+  const updatePaycheckRecord = async (record: PaycheckHistoryRecord) => {
+    try {
+      const res = await fetch(`/api/paycheck-records/${record.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          grossPay: record.grossPay,
+          netPay: record.netPay,
+          payRate: record.payRate,
+          regularHours: record.regularHours,
+          overtimeHours: record.overtimeHours,
+          ytdGross: record.ytdGross,
+          ytdNet: record.ytdNet,
+          ytdFederalTax: record.ytdFederalTax,
+          ytdStateTax: record.ytdStateTax,
+          ytdSocialSec: record.ytdSocialSec,
+          ytdMedicare: record.ytdMedicare,
+          ytdRetirement: record.ytdRetirement,
+          ytdHealthIns: record.ytdHealthIns,
+          ytdTotalDed: record.ytdTotalDed,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        toast.error(err.error || "Failed to update paycheck");
+        return;
+      }
+      queryClient.invalidateQueries({ queryKey: ["cfm"] });
+      toast.success("Paycheck record updated");
+    } catch {
+      toast.error("Failed to update paycheck");
+    } finally {
+      setEditingPaycheck(null);
+    }
+  };
+
+  const deletePaycheckRecord = async (id: string) => {
+    try {
+      const res = await fetch(`/api/paycheck-records/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const err = await res.json();
+        toast.error(err.error || "Failed to delete paycheck");
+        return;
+      }
+      queryClient.invalidateQueries({ queryKey: ["cfm"] });
+      toast.success("Paycheck record deleted");
+    } catch {
+      toast.error("Failed to delete paycheck");
+    }
+  };
+
+  /* Hourly ↔ Yearly sync */
   const syncFromHourly = (hr: string) => {
     const h = parseFloat(hr);
     setTierForm({
@@ -618,6 +822,203 @@ export default function CareerModelPage() {
                 </div>
               </div>
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ── Paycheck YTD Tracker per Active Job ── */}
+      {paycheckTrackers.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Receipt className="h-5 w-5 text-emerald-600" />
+              Paycheck YTD Tracker
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Upload a paycheck per active job to track actual YTD income vs projected.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {paycheckTrackers.map((tracker) => {
+              const pctOfYear = tracker.projectedYtd && tracker.projectedGross > 0
+                ? (tracker.projectedYtd / tracker.projectedGross) * 100
+                : 0;
+              const actualVsProjected = tracker.actualYtd && tracker.projectedYtd && tracker.projectedYtd > 0
+                ? ((tracker.actualYtd - tracker.projectedYtd) / tracker.projectedYtd) * 100
+                : null;
+              const progressPct = tracker.actualYtd && tracker.projectedGross > 0
+                ? Math.min(100, (tracker.actualYtd / tracker.projectedGross) * 100)
+                : tracker.projectedYtd && tracker.projectedGross > 0
+                  ? Math.min(100, (tracker.projectedYtd / tracker.projectedGross) * 100)
+                  : 0;
+
+              return (
+                <div key={tracker.positionId} className="rounded-lg border p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold">{tracker.company}</p>
+                      <p className="text-xs text-muted-foreground">{tracker.role}</p>
+                    </div>
+                    <div>
+                      <input
+                        ref={(el) => { paycheckInputRefs.current[tracker.positionId] = el; }}
+                        type="file"
+                        accept=".pdf"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handlePaycheckUpload(tracker.positionId, file);
+                        }}
+                      />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={paycheckUploading === tracker.positionId}
+                        onClick={() => paycheckInputRefs.current[tracker.positionId]?.click()}
+                      >
+                        {paycheckUploading === tracker.positionId ? (
+                          <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Parsing...</>
+                        ) : (
+                          <><Upload className="h-3.5 w-3.5 mr-1" /> Upload Paycheck</>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <div className="rounded-md bg-muted/40 p-2.5">
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Projected Annual</p>
+                      <p className="text-lg font-bold font-mono">{fmtFull(tracker.projectedGross)}</p>
+                    </div>
+                    <div className="rounded-md bg-muted/40 p-2.5">
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Expected YTD</p>
+                      <p className="text-lg font-bold font-mono">
+                        {tracker.projectedYtd ? fmtFull(tracker.projectedYtd) : "—"}
+                      </p>
+                      {pctOfYear > 0 && (
+                        <p className="text-[10px] text-muted-foreground">{pctOfYear.toFixed(0)}% of year elapsed</p>
+                      )}
+                    </div>
+                    <div className={`rounded-md p-2.5 ${
+                      tracker.actualYtd
+                        ? actualVsProjected !== null && actualVsProjected >= 0
+                          ? "bg-green-50 dark:bg-green-950/40"
+                          : "bg-red-50 dark:bg-red-950/40"
+                        : "bg-muted/40"
+                    }`}>
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Actual YTD</p>
+                      <p className="text-lg font-bold font-mono">
+                        {tracker.actualYtd ? fmtFull(tracker.actualYtd) : "—"}
+                      </p>
+                      {actualVsProjected !== null && (
+                        <p className={`text-[10px] font-medium ${actualVsProjected >= 0 ? "text-green-600" : "text-red-600"}`}>
+                          {actualVsProjected >= 0 ? "+" : ""}{actualVsProjected.toFixed(1)}% vs expected
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Progress bar */}
+                  <div>
+                    <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
+                      <span>Annual Progress</span>
+                      <span>{progressPct.toFixed(0)}%</span>
+                    </div>
+                    <div className="h-2 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{
+                          width: `${progressPct}%`,
+                          backgroundColor: tracker.actualYtd ? "#10b981" : "#3b82f6",
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Last paycheck info */}
+                  {tracker.latestPaycheck && (
+                    <div className="text-xs text-muted-foreground flex items-center gap-2 pt-1 border-t">
+                      <CheckCircle2 className="h-3 w-3 text-green-500" />
+                      <span>
+                        Last uploaded: {new Date(tracker.latestPaycheck.createdAt).toLocaleDateString()}
+                        {tracker.latestPaycheck.grossPay && (
+                          <> — Gross: <span className="font-mono font-medium">{fmtDollar(tracker.latestPaycheck.grossPay)}</span></>
+                        )}
+                        {tracker.latestPaycheck.netPay && (
+                          <> · Net: <span className="font-mono font-medium">{fmtDollar(tracker.latestPaycheck.netPay)}</span></>
+                        )}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Paycheck history */}
+                  {tracker.paycheckHistory.length > 0 && (
+                    <div className="pt-1 border-t">
+                      <button
+                        type="button"
+                        className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                        onClick={() => {
+                          const next = new Set(expandedHistory);
+                          next.has(tracker.positionId) ? next.delete(tracker.positionId) : next.add(tracker.positionId);
+                          setExpandedHistory(next);
+                        }}
+                      >
+                        <ChevronDown className={`h-3.5 w-3.5 transition-transform ${expandedHistory.has(tracker.positionId) ? "rotate-180" : ""}`} />
+                        Upload History ({tracker.paycheckHistory.length})
+                      </button>
+
+                      {expandedHistory.has(tracker.positionId) && (
+                        <div className="mt-2 space-y-2">
+                          {tracker.paycheckHistory.map((rec) => (
+                            <div key={rec.id} className="rounded-md border bg-muted/20 p-2.5 text-xs space-y-1.5">
+                              <div className="flex items-center justify-between">
+                                <span className="text-muted-foreground">
+                                  {rec.payPeriodEnd
+                                    ? `Pay period ending ${new Date(rec.payPeriodEnd).toLocaleDateString()}`
+                                    : `Uploaded ${new Date(rec.createdAt).toLocaleDateString()}`}
+                                </span>
+                                <div className="flex items-center gap-1">
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-6 w-6 p-0"
+                                    onClick={() => setEditingPaycheck({ ...rec })}
+                                  >
+                                    <Pencil className="h-3 w-3" />
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-6 w-6 p-0 text-red-500 hover:text-red-600"
+                                    onClick={() => deletePaycheckRecord(rec.id)}
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-3 gap-y-1">
+                                {rec.grossPay != null && (
+                                  <div><span className="text-muted-foreground">Gross:</span> <span className="font-mono">{fmtDollar(rec.grossPay)}</span></div>
+                                )}
+                                {rec.netPay != null && (
+                                  <div><span className="text-muted-foreground">Net:</span> <span className="font-mono">{fmtDollar(rec.netPay)}</span></div>
+                                )}
+                                {rec.ytdGross != null && (
+                                  <div><span className="text-muted-foreground">YTD Gross:</span> <span className="font-mono font-semibold">{fmtDollar(rec.ytdGross)}</span></div>
+                                )}
+                                {rec.ytdNet != null && (
+                                  <div><span className="text-muted-foreground">YTD Net:</span> <span className="font-mono">{fmtDollar(rec.ytdNet)}</span></div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </CardContent>
         </Card>
       )}
@@ -1425,6 +1826,184 @@ export default function CareerModelPage() {
               </div>
             </div>
           ) : null}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Paycheck Preview / Confirm Dialog ── */}
+      <Dialog open={!!paycheckPreview} onOpenChange={(open) => { if (!open) setPaycheckPreview(null); }}>
+        <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Receipt className="h-5 w-5 text-emerald-600" />
+              Review Paycheck Data
+            </DialogTitle>
+          </DialogHeader>
+          {paycheckPreview && (() => {
+            const d = paycheckPreview.data;
+            const tracker = paycheckTrackers.find((t) => t.positionId === paycheckPreview.positionId);
+
+            // Helper: update a top-level field
+            const upd = (key: keyof PaycheckParsed, raw: string) => {
+              const v = raw === "" ? null : parseFloat(raw);
+              setPaycheckPreview({ ...paycheckPreview, data: { ...d, [key]: isNaN(v as number) ? null : v } });
+            };
+            // Helper: update a YTD field
+            const updYtd = (key: keyof PaycheckParsed["ytd"], raw: string) => {
+              const v = raw === "" ? null : parseFloat(raw);
+              setPaycheckPreview({ ...paycheckPreview, data: { ...d, ytd: { ...d.ytd, [key]: isNaN(v as number) ? null : v } } });
+            };
+
+            // Editable number input row
+            const numRow = (label: string, value: number | null | undefined, onChange: (v: string) => void, prefix = "$") => (
+              <>
+                <label className="text-muted-foreground text-xs">{label}</label>
+                <div className="flex items-center gap-1">
+                  {prefix && <span className="text-xs text-muted-foreground">{prefix}</span>}
+                  <Input
+                    type="number"
+                    step="0.01"
+                    className="h-6 text-xs font-mono px-1 py-0"
+                    value={value ?? ""}
+                    onChange={(e) => onChange(e.target.value)}
+                  />
+                </div>
+              </>
+            );
+
+            return (
+              <div className="space-y-4 pt-2">
+                {tracker && (
+                  <p className="text-xs text-muted-foreground">
+                    <span className="font-medium text-foreground">{tracker.company}</span> — {tracker.role}
+                  </p>
+                )}
+                <p className="text-[10px] text-muted-foreground italic">All fields are editable — adjust any values before saving.</p>
+
+                {/* This Period */}
+                <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
+                  <p className="text-xs font-medium">This Period</p>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs items-center">
+                    {numRow("Gross Pay", d.grossPay, (v) => upd("grossPay", v))}
+                    {numRow("Net Pay", d.netPay, (v) => upd("netPay", v))}
+                    {numRow("Pay Rate", d.payRate, (v) => upd("payRate", v))}
+                    {numRow("Regular Hours", d.regularHours, (v) => upd("regularHours", v), "")}
+                    {numRow("OT Hours", d.overtimeHours, (v) => upd("overtimeHours", v), "")}
+                  </div>
+                  <Separator />
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs items-center">
+                    {numRow("Federal Tax", d.federalTax, (v) => upd("federalTax", v))}
+                    {numRow("State Tax", d.stateTax, (v) => upd("stateTax", v))}
+                    {numRow("Social Security", d.socialSecurity, (v) => upd("socialSecurity", v))}
+                    {numRow("Medicare", d.medicare, (v) => upd("medicare", v))}
+                    {numRow("Retirement", d.retirement, (v) => upd("retirement", v))}
+                    {numRow("Health Ins", d.healthInsurance, (v) => upd("healthInsurance", v))}
+                  </div>
+                </div>
+
+                {/* Year to Date */}
+                <div className="rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/50 p-3 space-y-2">
+                  <p className="text-xs font-medium text-emerald-700 dark:text-emerald-300">Year to Date</p>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs items-center">
+                    {numRow("YTD Gross", d.ytd.grossPay, (v) => updYtd("grossPay", v))}
+                    {numRow("YTD Net", d.ytd.netPay, (v) => updYtd("netPay", v))}
+                    {numRow("YTD Federal Tax", d.ytd.federalTax, (v) => updYtd("federalTax", v))}
+                    {numRow("YTD State Tax", d.ytd.stateTax, (v) => updYtd("stateTax", v))}
+                    {numRow("YTD Social Security", d.ytd.socialSecurity, (v) => updYtd("socialSecurity", v))}
+                    {numRow("YTD Medicare", d.ytd.medicare, (v) => updYtd("medicare", v))}
+                    {numRow("YTD Retirement", d.ytd.retirement, (v) => updYtd("retirement", v))}
+                    {numRow("YTD Health Ins", d.ytd.healthInsurance, (v) => updYtd("healthInsurance", v))}
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button variant="outline" onClick={() => setPaycheckPreview(null)}>Cancel</Button>
+                  <Button onClick={confirmPaycheckImport}>
+                    <CheckCircle2 className="h-4 w-4 mr-1" /> Save &amp; Track
+                  </Button>
+                </div>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Edit Existing Paycheck Record Dialog ── */}
+      <Dialog open={!!editingPaycheck} onOpenChange={(open) => { if (!open) setEditingPaycheck(null); }}>
+        <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Pencil className="h-5 w-5 text-blue-600" />
+              Edit Paycheck Record
+            </DialogTitle>
+          </DialogHeader>
+          {editingPaycheck && (() => {
+            const rec = editingPaycheck;
+
+            const updRec = (key: keyof PaycheckHistoryRecord, raw: string) => {
+              const v = raw === "" ? null : parseFloat(raw);
+              setEditingPaycheck({ ...rec, [key]: isNaN(v as number) ? null : v });
+            };
+
+            const numRow = (label: string, value: number | null | undefined, onChange: (v: string) => void, prefix = "$") => (
+              <>
+                <label className="text-muted-foreground text-xs">{label}</label>
+                <div className="flex items-center gap-1">
+                  {prefix && <span className="text-xs text-muted-foreground">{prefix}</span>}
+                  <Input
+                    type="number"
+                    step="0.01"
+                    className="h-6 text-xs font-mono px-1 py-0"
+                    value={value ?? ""}
+                    onChange={(e) => onChange(e.target.value)}
+                  />
+                </div>
+              </>
+            );
+
+            return (
+              <div className="space-y-4 pt-2">
+                <p className="text-xs text-muted-foreground">
+                  {rec.payPeriodEnd
+                    ? `Pay period ending ${new Date(rec.payPeriodEnd).toLocaleDateString()}`
+                    : `Uploaded ${new Date(rec.createdAt).toLocaleDateString()}`}
+                </p>
+
+                {/* This Period */}
+                <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
+                  <p className="text-xs font-medium">This Period</p>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs items-center">
+                    {numRow("Gross Pay", rec.grossPay, (v) => updRec("grossPay", v))}
+                    {numRow("Net Pay", rec.netPay, (v) => updRec("netPay", v))}
+                    {numRow("Pay Rate", rec.payRate, (v) => updRec("payRate", v))}
+                    {numRow("Regular Hours", rec.regularHours, (v) => updRec("regularHours", v), "")}
+                    {numRow("OT Hours", rec.overtimeHours, (v) => updRec("overtimeHours", v), "")}
+                  </div>
+                </div>
+
+                {/* Year to Date */}
+                <div className="rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/50 p-3 space-y-2">
+                  <p className="text-xs font-medium text-emerald-700 dark:text-emerald-300">Year to Date</p>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs items-center">
+                    {numRow("YTD Gross", rec.ytdGross, (v) => updRec("ytdGross", v))}
+                    {numRow("YTD Net", rec.ytdNet, (v) => updRec("ytdNet", v))}
+                    {numRow("YTD Federal Tax", rec.ytdFederalTax, (v) => updRec("ytdFederalTax", v))}
+                    {numRow("YTD State Tax", rec.ytdStateTax, (v) => updRec("ytdStateTax", v))}
+                    {numRow("YTD Social Security", rec.ytdSocialSec, (v) => updRec("ytdSocialSec", v))}
+                    {numRow("YTD Medicare", rec.ytdMedicare, (v) => updRec("ytdMedicare", v))}
+                    {numRow("YTD Retirement", rec.ytdRetirement, (v) => updRec("ytdRetirement", v))}
+                    {numRow("YTD Health Ins", rec.ytdHealthIns, (v) => updRec("ytdHealthIns", v))}
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button variant="outline" onClick={() => setEditingPaycheck(null)}>Cancel</Button>
+                  <Button onClick={() => updatePaycheckRecord(rec)}>
+                    <CheckCircle2 className="h-4 w-4 mr-1" /> Save Changes
+                  </Button>
+                </div>
+              </div>
+            );
+          })()}
         </DialogContent>
       </Dialog>
 
