@@ -38,6 +38,8 @@ import {
   Briefcase,
   Monitor,
   ChevronRight,
+  ChevronDown,
+  Receipt,
   Globe,
   Factory,
   ClockArrowUp,
@@ -89,8 +91,51 @@ interface Position {
   otHoursA: number | null;
   otHoursB: number | null;
   otRate: number | null;
+  annualRaiseMin: number | null;
+  annualRaiseMax: number | null;
   estimatorSettings: string | null;
   createdAt: string;
+}
+
+function PaycheckToolsSection({ active }: { active: Position }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between rounded-lg border bg-card px-4 py-3 text-left hover:bg-accent/50 transition-colors"
+      >
+        <div className="flex items-center gap-3">
+          <div className="rounded-lg p-2 bg-violet-50"><Receipt className="h-4 w-4 text-violet-600" /></div>
+          <div>
+            <p className="text-sm font-semibold">Paycheck Tools</p>
+            <p className="text-xs text-muted-foreground">Paycheck estimator &amp; pay period calendar</p>
+          </div>
+        </div>
+        <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${open ? "rotate-0" : "-rotate-90"}`} />
+      </button>
+      {open && (
+        <div className="space-y-4 pl-1">
+          <PaycheckEstimator
+            payType={active.payType}
+            payRate={active.payRate}
+            differentials={active.differentials}
+            salary={active.salary}
+            payFrequency={active.payFrequency}
+            rotatingSchedule={active.rotatingSchedule}
+            hoursPerWeek={active.hoursPerWeek}
+            scheduleBHours={active.scheduleBHours}
+            otHoursA={active.otHoursA}
+            otHoursB={active.otHoursB}
+            otRate={active.otRate}
+            estimatorSettings={active.estimatorSettings}
+          />
+          <PayPeriodCalendar positionId={active.id} />
+        </div>
+      )}
+    </>
+  );
 }
 
 const emptyForm = {
@@ -280,7 +325,6 @@ export default function CurrentPositionPage() {
   };
 
   const active = positions.find((p) => p.isActive);
-  const pastPositions = positions.filter((p) => !p.isActive);
 
   if (isLoading) {
     return (
@@ -714,23 +758,11 @@ export default function CurrentPositionPage() {
               otHoursA={active.otHoursA}
               otHoursB={active.otHoursB}
               otRate={active.otRate}
+              annualRaiseMin={active.annualRaiseMin}
+              annualRaiseMax={active.annualRaiseMax}
               estimatorSettings={active.estimatorSettings}
             />
-            <PaycheckEstimator
-              payType={active.payType}
-              payRate={active.payRate}
-              differentials={active.differentials}
-              salary={active.salary}
-              payFrequency={active.payFrequency}
-              rotatingSchedule={active.rotatingSchedule}
-              hoursPerWeek={active.hoursPerWeek}
-              scheduleBHours={active.scheduleBHours}
-              otHoursA={active.otHoursA}
-              otHoursB={active.otHoursB}
-              otRate={active.otRate}
-              estimatorSettings={active.estimatorSettings}
-            />
-            <PayPeriodCalendar positionId={active.id} />
+            <PaycheckToolsSection active={active} />
           </TabsContent>
 
           <TabsContent value="benefits" className="mt-4">
@@ -754,82 +786,6 @@ export default function CurrentPositionPage() {
           </TabsContent>
 
         </Tabs>
-      )}
-
-      {/* ── Past Positions Timeline ── */}
-      {pastPositions.length > 0 && (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Clock className="h-4 w-4" />
-                Previous Positions
-              </CardTitle>
-              <Button size="sm" variant="outline" onClick={() => { resetForm(); setShowForm(true); }}>
-                <Plus className="h-3.5 w-3.5 mr-1" />
-                Add
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="relative pl-6 space-y-6">
-              {/* Timeline line */}
-              <div className="absolute left-2 top-2 bottom-2 w-px bg-border" />
-              {pastPositions.map((pos) => (
-                <div key={pos.id} className="relative">
-                  {/* Timeline dot */}
-                  <div className="absolute -left-6 top-1 h-4 w-4 rounded-full border-2 border-muted-foreground/30 bg-background" />
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <p className="font-semibold">{pos.role}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {pos.company}
-                        {pos.department && ` · ${pos.department}`}
-                      </p>
-                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground mt-1">
-                        <span>{format(new Date(pos.startDate), "MMM yyyy")}</span>
-                        {pos.location && <span>· {pos.location}</span>}
-                        <span className="capitalize">· {pos.type}</span>
-                      </div>
-                      {pos.techStack && (
-                        <div className="flex flex-wrap gap-1 mt-2">
-                          {pos.techStack.split(",").slice(0, 5).map((t) => (
-                            <Badge key={t.trim()} variant="secondary" className="text-xs">
-                              {t.trim()}
-                            </Badge>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex gap-1 shrink-0">
-                      <Button size="sm" variant="ghost" onClick={() => openEdit(pos)}>
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="text-red-600 hover:text-red-700"
-                        onClick={() => deleteMutation.mutate(pos.id)}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Floating Add Button (when active position exists) */}
-      {active && pastPositions.length === 0 && (
-        <div className="flex justify-center">
-          <Button variant="outline" onClick={() => { resetForm(); setShowForm(true); }}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Previous Position
-          </Button>
-        </div>
       )}
 
       {renderDialog()}

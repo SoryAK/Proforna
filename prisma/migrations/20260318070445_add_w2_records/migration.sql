@@ -1,0 +1,25 @@
+-- CreateTable
+CREATE TABLE "W2Record" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "yearId" TEXT NOT NULL,
+    "taxYear" INTEGER NOT NULL,
+    "employerName" TEXT,
+    "employerEIN" TEXT,
+    "employerAddress" TEXT,
+    "state" TEXT,
+    "wages" REAL,
+    "federalTaxWithheld" REAL,
+    "socialSecurityWages" REAL,
+    "socialSecurityTax" REAL,
+    "medicareWages" REAL,
+    "medicareTax" REAL,
+    "stateWages" REAL,
+    "stateTaxWithheld" REAL,
+    "localWages" REAL,
+    "localTaxWithheld" REAL,
+    "netIncome" REAL,
+    "notes" TEXT,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" DATETIME NOT NULL,
+    CONSTRAINT "W2Record_yearId_fkey" FOREIGN KEY ("yearId") REFERENCES "CareerIncomeYear" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+);

@@ -175,7 +175,10 @@ export async function GET() {
     const [incomeYears, wageTiers, activePositions] = await Promise.all([
       prisma.careerIncomeYear.findMany({
         orderBy: { year: "asc" },
-        include: { entries: { orderBy: { createdAt: "asc" } } },
+        include: {
+          entries: { orderBy: { createdAt: "asc" } },
+          w2Records: { orderBy: { createdAt: "desc" } },
+        },
       }),
       prisma.wageTier.findMany({ orderBy: { sortOrder: "asc" } }),
       prisma.currentPosition.findMany({
@@ -202,6 +205,8 @@ export async function GET() {
         positionId: pos.id,
         company: pos.company,
         role: pos.role,
+        annualRaiseMin: pos.annualRaiseMin,
+        annualRaiseMax: pos.annualRaiseMax,
         projectedGross: le.grossIncome,
         projectedYtd: le.ytdGross,
         actualYtd: latest?.ytdGross ?? null,
@@ -301,12 +306,12 @@ export async function POST(request: Request) {
             ? `${existing.notes}; ${notes}`
             : notes || existing.notes,
         },
-        include: { entries: true },
+        include: { entries: true, w2Records: true },
       });
     } else {
       yearRecord = await prisma.careerIncomeYear.create({
         data: { year, grossIncome, netIncome, jobCount, notes },
-        include: { entries: true },
+        include: { entries: true, w2Records: true },
       });
     }
 
@@ -325,7 +330,7 @@ export async function POST(request: Request) {
       // Re-fetch with entries
       yearRecord = await prisma.careerIncomeYear.findUnique({
         where: { year },
-        include: { entries: true },
+        include: { entries: true, w2Records: true },
       });
     }
 

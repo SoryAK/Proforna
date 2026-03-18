@@ -84,6 +84,38 @@ Track incremental UI/UX refinements. Work through these one at a time.
 
 ---
 
+## 🔵 Rethink / Design Discussion
+
+### 11. Career Model — Income Projections are unrealistic
+- **Status:** Switched from naive avg-of-YoY% to CAGR but still produces speculative numbers
+- **Root problem:** Early career income history (e.g. $970 → $96k over 8 years) includes non-comparable life stages (part-time student work, career switches, first full-time job). CAGR treats these as one continuous growth curve, which inflates projections.
+- **Current approach:** CAGR from first year to last year → compound forward
+- **Ideas to explore:**
+  - **Recency-weighted:** Only use the last 3–5 years for projections (career has stabilized)
+  - **Median YoY%:** Use median instead of mean to resist outliers, still per-year
+  - **Exclude outlier years:** Auto-detect and exclude years with >100% or <-50% change (career pivots, part-time years)
+  - **User-selectable baseline:** Let user pick which years to include in the projection baseline
+  - **Industry benchmarks:** Use BLS/salary data for typical growth rates (3-5%/yr) as a sanity cap
+  - **Scenario modeling:** Show optimistic / realistic / conservative projections (e.g. CAGR, median, 3% floor)
+  - **Cap projections:** Hard-cap growth rate at a reasonable ceiling (e.g. 15-20%) to prevent runaway numbers
+  - **Rolling window:** Use a configurable rolling window (default 3 years) for the growth calculation
+- **File:** `src/app/career-model/page.tsx`
+
+---
+
 ## ✅ Completed
 
 _None yet — move items here as they are done._
+
+---
+
+## 💡 Future Ideas
+
+### Option B: Distributed Research Navigation
+Instead of a dedicated "Research" nav item, distribute research features into existing pages:
+- **Learning Tracker** → Career Analytics page (new tab alongside Direction, Goals, Projections)
+- **Industry Research** → Insights page (new tab)
+- **Tool/Tech Research** → Skills page (new tab or section)
+- **Job Market Research** → Job Search page (new tab)
+
+This reduces nav item count and puts research where it's contextually relevant. Consider if the standalone Research page feels too isolated.

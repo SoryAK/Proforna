@@ -70,6 +70,29 @@ interface IncomeEntry {
   notes: string | null;
 }
 
+interface W2HistoryRecord {
+  id: string;
+  yearId: string;
+  taxYear: number;
+  employerName: string | null;
+  employerEIN: string | null;
+  employerAddress: string | null;
+  state: string | null;
+  wages: number | null;
+  federalTaxWithheld: number | null;
+  socialSecurityWages: number | null;
+  socialSecurityTax: number | null;
+  medicareWages: number | null;
+  medicareTax: number | null;
+  stateWages: number | null;
+  stateTaxWithheld: number | null;
+  localWages: number | null;
+  localTaxWithheld: number | null;
+  netIncome: number | null;
+  notes: string | null;
+  createdAt: string;
+}
+
 interface IncomeYear {
   id: string;
   year: number;
@@ -78,6 +101,7 @@ interface IncomeYear {
   jobCount: number;
   notes: string | null;
   entries: IncomeEntry[];
+  w2Records: W2HistoryRecord[];
 }
 
 interface WageTier {
@@ -117,6 +141,8 @@ interface PaycheckTracker {
   positionId: string;
   company: string;
   role: string;
+  annualRaiseMin: number | null;
+  annualRaiseMax: number | null;
   projectedGross: number;
   projectedYtd: number | null;
   actualYtd: number | null;
@@ -260,6 +286,11 @@ export default function CareerModelPage() {
   // Paycheck history expand & edit state
   const [expandedHistory, setExpandedHistory] = useState<Set<string>>(new Set());
   const [editingPaycheck, setEditingPaycheck] = useState<PaycheckHistoryRecord | null>(null);
+  const [editingW2, setEditingW2] = useState<W2HistoryRecord | null>(null);
+  const [expandedW2Years, setExpandedW2Years] = useState<Set<number>>(new Set());
+  const [showProjections, setShowProjections] = useState(false);
+  const [projBaselineYears, setProjBaselineYears] = useState(3);
+  const [projCapPct, setProjCapPct] = useState(15);
 
   const { data, isLoading } = useQuery<CFMData>({
     queryKey: ["cfm"],
@@ -310,19 +341,26 @@ export default function CareerModelPage() {
     });
   }, [incomeYears]);
 
+  // CAGR — Compound Annual Growth Rate (accounts for year gaps, much more stable than avg of YoY%)
   const avgGrossGrowth = useMemo(() => {
-    const changes = yearlyChanges
-      .map((y) => y.grossChange)
-      .filter((c): c is number => c !== null);
-    return changes.length > 0 ? changes.reduce((a, b) => a + b, 0) / changes.length : 0;
-  }, [yearlyChanges]);
+    if (incomeYears.length < 2) return 0;
+    const first = incomeYears[0];
+    const last = incomeYears[incomeYears.length - 1];
+    if (first.grossIncome <= 0 || last.grossIncome <= 0) return 0;
+    const span = last.year - first.year;
+    if (span <= 0) return 0;
+    return (Math.pow(last.grossIncome / first.grossIncome, 1 / span) - 1) * 100;
+  }, [incomeYears]);
 
   const avgNetGrowth = useMemo(() => {
-    const changes = yearlyChanges
-      .map((y) => y.netChange)
-      .filter((c): c is number => c !== null);
-    return changes.length > 0 ? changes.reduce((a, b) => a + b, 0) / changes.length : 0;
-  }, [yearlyChanges]);
+    if (incomeYears.length < 2) return 0;
+    const first = incomeYears[0];
+    const last = incomeYears[incomeYears.length - 1];
+    if (!first.netIncome || !last.netIncome || first.netIncome <= 0 || last.netIncome <= 0) return 0;
+    const span = last.year - first.year;
+    if (span <= 0) return 0;
+    return (Math.pow(last.netIncome / first.netIncome, 1 / span) - 1) * 100;
+  }, [incomeYears]);
 
   const latestYear = incomeYears.length > 0 ? incomeYears[incomeYears.length - 1] : null;
 
@@ -335,22 +373,65 @@ export default function CareerModelPage() {
   }, [liveEstimate, hasManualCurrentYear, latestYear]);
 
   const projections = useMemo(() => {
-    if (!effectiveLatest || avgGrossGrowth === 0) return [];
-    const rate = avgGrossGrowth / 100;
-    // Start projections from the year after effectiveLatest
-    return [1, 3, 5, 10].map((years) => {
-      const projected = effectiveLatest.grossIncome * Math.pow(1 + rate, years);
-      return { years, year: effectiveLatest.year + years, projected };
-    });
-  }, [effectiveLatest, avgGrossGrowth]);
+    const empty = { conservative: [], realistic: [], optimistic: [], employerMin: [], employerMax: [], rates: { conservative: 4, realistic: 0, optimistic: 0, employerMin: 0, employerMax: 0 } };
+    if (!effectiveLatest || incomeYears.length < 2) return empty;
+
+    // Recent CAGR from last N years
+    const windowSize = Math.min(projBaselineYears, incomeYears.length);
+    const recentYears = incomeYears.slice(-windowSize);
+    const first = recentYears[0];
+    const last = recentYears[recentYears.length - 1];
+    const span = last.year - first.year;
+    let recentRate = 0;
+    if (span > 0 && first.grossIncome > 0 && last.grossIncome > 0) {
+      recentRate = (Math.pow(last.grossIncome / first.grossIncome, 1 / span) - 1) * 100;
+    }
+
+    const conservativeRate = 4; // National average
+    const optimisticRate = Math.max(recentRate, 0);
+    const realisticRate = Math.min(Math.max(recentRate, 0), projCapPct);
+
+    // Employer-based raise range (weighted average across active positions with data)
+    const trackersWithRaise = paycheckTrackers.filter((t) => t.annualRaiseMin != null && t.annualRaiseMax != null);
+    let employerMinRate = 0;
+    let employerMaxRate = 0;
+    if (trackersWithRaise.length > 0) {
+      const totalGross = trackersWithRaise.reduce((s, t) => s + t.projectedGross, 0);
+      if (totalGross > 0) {
+        employerMinRate = trackersWithRaise.reduce((s, t) => s + (t.annualRaiseMin! * t.projectedGross), 0) / totalGross;
+        employerMaxRate = trackersWithRaise.reduce((s, t) => s + (t.annualRaiseMax! * t.projectedGross), 0) / totalGross;
+      } else {
+        employerMinRate = trackersWithRaise.reduce((s, t) => s + t.annualRaiseMin!, 0) / trackersWithRaise.length;
+        employerMaxRate = trackersWithRaise.reduce((s, t) => s + t.annualRaiseMax!, 0) / trackersWithRaise.length;
+      }
+    }
+
+    const rates = { conservative: conservativeRate, realistic: realisticRate, optimistic: optimisticRate, employerMin: employerMinRate, employerMax: employerMaxRate };
+
+    const horizons = [1, 3, 5, 10];
+    const calc = (rate: number) => horizons.map((years) => ({
+      years,
+      year: effectiveLatest.year + years,
+      projected: effectiveLatest.grossIncome * Math.pow(1 + rate / 100, years),
+    }));
+
+    return {
+      conservative: calc(conservativeRate),
+      realistic: calc(realisticRate),
+      optimistic: calc(optimisticRate),
+      employerMin: employerMinRate > 0 ? calc(employerMinRate) : [],
+      employerMax: employerMaxRate > 0 ? calc(employerMaxRate) : [],
+      rates,
+    };
+  }, [effectiveLatest, incomeYears, projBaselineYears, projCapPct, paycheckTrackers]);
 
   const targetTier = wageTiers.length > 0 ? wageTiers[wageTiers.length - 1] : null;
   const timeToTarget = useMemo(() => {
-    if (!effectiveLatest || !targetTier || avgGrossGrowth <= 0) return null;
+    if (!effectiveLatest || !targetTier || projections.rates.realistic <= 0) return null;
     if (effectiveLatest.grossIncome >= targetTier.yearlyRate) return 0;
-    const rate = avgGrossGrowth / 100;
+    const rate = projections.rates.realistic / 100;
     return Math.ceil(Math.log(targetTier.yearlyRate / effectiveLatest.grossIncome) / Math.log(1 + rate));
-  }, [effectiveLatest, targetTier, avgGrossGrowth]);
+  }, [effectiveLatest, targetTier, projections.rates.realistic]);
 
   /* ── Chart Data ── */
 
@@ -399,12 +480,16 @@ export default function CareerModelPage() {
   }, [stackedChartData, hasAnyEntries]);
 
   const chartData = useMemo(() => {
-    type ChartPoint = { year: number; gross: number | null; net: number | null; projected: number | null; live: number | null };
+    type ChartPoint = { year: number; gross: number | null; net: number | null; conservative: number | null; realistic: number | null; optimistic: number | null; employerMin: number | null; employerMax: number | null; live: number | null };
     const actual: ChartPoint[] = incomeYears.map((y) => ({
       year: y.year,
       gross: y.grossIncome,
       net: y.netIncome,
-      projected: null,
+      conservative: null,
+      realistic: null,
+      optimistic: null,
+      employerMin: null,
+      employerMax: null,
       live: null,
     }));
 
@@ -414,34 +499,52 @@ export default function CareerModelPage() {
         year: liveEstimate.year,
         gross: null,
         net: null,
-        projected: null,
+        conservative: null,
+        realistic: null,
+        optimistic: null,
+        employerMin: null,
+        employerMax: null,
         live: liveEstimate.grossIncome,
       });
       actual.sort((a, b) => a.year - b.year);
     }
 
-    if (projections.length > 0 && effectiveLatest) {
-      const projected = [
-        { year: effectiveLatest.year, projected: effectiveLatest.grossIncome },
-        ...projections.map((p) => ({ year: p.year, projected: p.projected })),
+    if (showProjections && projections.realistic.length > 0 && effectiveLatest) {
+      const base = effectiveLatest.grossIncome;
+      const baseYear = effectiveLatest.year;
+      const hasEmployer = projections.employerMin.length > 0;
+      const scenarioPoints = [
+        { year: baseYear, conservative: base, realistic: base, optimistic: base, employerMin: hasEmployer ? base : null, employerMax: hasEmployer ? base : null },
+        ...projections.realistic.map((_, i) => ({
+          year: projections.realistic[i].year,
+          conservative: projections.conservative[i].projected,
+          realistic: projections.realistic[i].projected,
+          optimistic: projections.optimistic[i].projected,
+          employerMin: hasEmployer ? projections.employerMin[i].projected : null,
+          employerMax: hasEmployer ? projections.employerMax[i].projected : null,
+        })),
       ];
-      const allYears = new Set([...actual.map((a) => a.year), ...projected.map((p) => p.year)]);
+      const allYears = new Set([...actual.map((a) => a.year), ...scenarioPoints.map((p) => p.year)]);
       return Array.from(allYears)
         .sort((a, b) => a - b)
         .map((year) => {
           const a = actual.find((x) => x.year === year);
-          const p = projected.find((x) => x.year === year);
+          const p = scenarioPoints.find((x) => x.year === year);
           return {
             year,
             gross: a?.gross ?? null,
             net: a?.net ?? null,
-            projected: p?.projected ?? null,
+            conservative: p?.conservative ?? null,
+            realistic: p?.realistic ?? null,
+            optimistic: p?.optimistic ?? null,
+            employerMin: p?.employerMin ?? null,
+            employerMax: p?.employerMax ?? null,
             live: a?.live ?? null,
           };
         });
     }
     return actual;
-  }, [incomeYears, projections, effectiveLatest, liveEstimate, hasManualCurrentYear]);
+  }, [incomeYears, projections, effectiveLatest, liveEstimate, hasManualCurrentYear, showProjections]);
 
   /* ── Handlers ── */
 
@@ -581,8 +684,39 @@ export default function CareerModelPage() {
     mutateCfm.mutate(
       { method: "POST", url: "/api/cfm", body: cfmBody },
       {
-        onSuccess: async () => {
-          // 2. Optionally add employer to employment history
+        onSuccess: async (yearRecord: IncomeYear) => {
+          // 2. Save W-2 data as a persistent record
+          try {
+            await fetch("/api/w2-records", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                yearId: yearRecord.id,
+                taxYear: parseInt(w2Form.year),
+                employerName: w2Data?.employerName ?? null,
+                employerEIN: w2Data?.employerEIN ?? null,
+                employerAddress: w2Data?.employerAddress ?? null,
+                state: w2Data?.state ?? null,
+                wages: w2Data?.wages ?? null,
+                federalTaxWithheld: w2Data?.federalTaxWithheld ?? null,
+                socialSecurityWages: w2Data?.socialSecurityWages ?? null,
+                socialSecurityTax: w2Data?.socialSecurityTax ?? null,
+                medicareWages: w2Data?.medicareWages ?? null,
+                medicareTax: w2Data?.medicareTax ?? null,
+                stateWages: w2Data?.stateWages ?? null,
+                stateTaxWithheld: w2Data?.stateTaxWithheld ?? null,
+                localWages: w2Data?.localWages ?? null,
+                localTaxWithheld: w2Data?.localTaxWithheld ?? null,
+                netIncome: w2Form.netIncome ? parseFloat(w2Form.netIncome) : null,
+                notes: w2Form.notes || null,
+              }),
+            });
+            queryClient.invalidateQueries({ queryKey: ["cfm"] });
+          } catch {
+            // W-2 record save failed but income year was saved
+          }
+
+          // 3. Optionally add employer to employment history
           if (w2AddEmployer && w2Data?.companyData?.company) {
             try {
               const startYear = w2Data.companyData.year ?? new Date().getFullYear();
@@ -727,6 +861,59 @@ export default function CareerModelPage() {
       toast.success("Paycheck record deleted");
     } catch {
       toast.error("Failed to delete paycheck");
+    }
+  };
+
+  const updateW2Record = async (record: W2HistoryRecord) => {
+    try {
+      const res = await fetch(`/api/w2-records/${record.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employerName: record.employerName,
+          employerEIN: record.employerEIN,
+          employerAddress: record.employerAddress,
+          state: record.state,
+          wages: record.wages,
+          federalTaxWithheld: record.federalTaxWithheld,
+          socialSecurityWages: record.socialSecurityWages,
+          socialSecurityTax: record.socialSecurityTax,
+          medicareWages: record.medicareWages,
+          medicareTax: record.medicareTax,
+          stateWages: record.stateWages,
+          stateTaxWithheld: record.stateTaxWithheld,
+          localWages: record.localWages,
+          localTaxWithheld: record.localTaxWithheld,
+          netIncome: record.netIncome,
+          notes: record.notes,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        toast.error(err.error || "Failed to update W-2 record");
+        return;
+      }
+      queryClient.invalidateQueries({ queryKey: ["cfm"] });
+      toast.success("W-2 record updated");
+    } catch {
+      toast.error("Failed to update W-2 record");
+    } finally {
+      setEditingW2(null);
+    }
+  };
+
+  const deleteW2Record = async (id: string) => {
+    try {
+      const res = await fetch(`/api/w2-records/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const err = await res.json();
+        toast.error(err.error || "Failed to delete W-2 record");
+        return;
+      }
+      queryClient.invalidateQueries({ queryKey: ["cfm"] });
+      toast.success("W-2 record deleted");
+    } catch {
+      toast.error("Failed to delete W-2 record");
     }
   };
 
@@ -1041,7 +1228,7 @@ export default function CareerModelPage() {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">Avg Growth (Gross)</p>
+              <p className="text-sm text-muted-foreground">CAGR (Gross)</p>
               {avgGrossGrowth >= 0 ? (
                 <TrendingUp className="h-4 w-4 text-green-600" />
               ) : (
@@ -1051,7 +1238,7 @@ export default function CareerModelPage() {
             <p className="text-2xl font-bold mt-1">
               {incomeYears.length >= 2 ? pct(avgGrossGrowth) : "—"}
             </p>
-            <p className="text-xs text-muted-foreground">Year over year</p>
+            <p className="text-xs text-muted-foreground">Compound annual growth</p>
           </CardContent>
         </Card>
 
@@ -1105,7 +1292,7 @@ export default function CareerModelPage() {
                 <XAxis dataKey="year" fontSize={12} />
                 <YAxis fontSize={12} tickFormatter={(v) => fmt(v)} />
                 <RechartsTooltip
-                  formatter={(value, name) => [fmtFull(Number(value ?? 0)), name === "gross" ? "Gross" : name === "net" ? "Net" : name === "live" ? "Live Estimate" : "Projected"]}
+                  formatter={(value, name) => [fmtFull(Number(value ?? 0)), name === "gross" ? "Gross" : name === "net" ? "Net" : name === "live" ? "Live Estimate" : name === "conservative" ? "Conservative" : name === "realistic" ? "Realistic" : name === "optimistic" ? "Optimistic" : name === "employerMin" ? "Employer Min" : name === "employerMax" ? "Employer Max" : String(name)]}
                   labelFormatter={(label) => `Year ${label}`}
                 />
                 <Line
@@ -1140,18 +1327,65 @@ export default function CareerModelPage() {
                     name="live"
                   />
                 )}
-                {projections.length > 0 && (
-                  <Line
-                    type="monotone"
-                    dataKey="projected"
-                    stroke="#a855f7"
-                    strokeWidth={2}
-                    strokeDasharray="6 3"
-                    dot={{ r: 3, fill: "#a855f7" }}
-                    activeDot={{ r: 6 }}
-                    connectNulls
-                    name="projected"
-                  />
+                {showProjections && projections.realistic.length > 0 && (
+                  <>
+                    <Line
+                      type="monotone"
+                      dataKey="conservative"
+                      stroke="#10b981"
+                      strokeWidth={1.5}
+                      strokeDasharray="4 4"
+                      dot={false}
+                      connectNulls
+                      name="conservative"
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="realistic"
+                      stroke="#3b82f6"
+                      strokeWidth={2}
+                      strokeDasharray="6 3"
+                      dot={{ r: 3, fill: "#3b82f6" }}
+                      activeDot={{ r: 5 }}
+                      connectNulls
+                      name="realistic"
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="optimistic"
+                      stroke="#a855f7"
+                      strokeWidth={1.5}
+                      strokeDasharray="4 4"
+                      dot={false}
+                      connectNulls
+                      name="optimistic"
+                    />
+                    {projections.employerMin.length > 0 && (
+                      <>
+                        <Line
+                          type="monotone"
+                          dataKey="employerMin"
+                          stroke="#f59e0b"
+                          strokeWidth={1.5}
+                          strokeDasharray="6 2"
+                          dot={false}
+                          connectNulls
+                          name="employerMin"
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="employerMax"
+                          stroke="#f59e0b"
+                          strokeWidth={1.5}
+                          strokeDasharray="6 2"
+                          dot={{ r: 3, fill: "#f59e0b" }}
+                          activeDot={{ r: 5 }}
+                          connectNulls
+                          name="employerMax"
+                        />
+                      </>
+                    )}
+                  </>
                 )}
                 {wageTiers.map((t) => (
                   <ReferenceLine
@@ -1176,10 +1410,23 @@ export default function CareerModelPage() {
                   <span className="h-2 w-4 rounded bg-amber-500" /> Live Estimate
                 </span>
               )}
-              {projections.length > 0 && (
-                <span className="flex items-center gap-1.5">
-                  <span className="h-2 w-4 rounded bg-purple-500 opacity-60" /> Projected
-                </span>
+              {showProjections && projections.realistic.length > 0 && (
+                <>
+                  <span className="flex items-center gap-1.5">
+                    <span className="h-2 w-4 rounded bg-emerald-500 opacity-50" /> Conservative ({pct(projections.rates.conservative)})
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="h-2 w-4 rounded bg-blue-500 opacity-70" /> Realistic ({pct(projections.rates.realistic)})
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="h-2 w-4 rounded bg-purple-500 opacity-50" /> Optimistic ({pct(projections.rates.optimistic)})
+                  </span>
+                  {projections.employerMin.length > 0 && (
+                    <span className="flex items-center gap-1.5">
+                      <span className="h-2 w-4 rounded bg-amber-500 opacity-70" /> Employer-Based ({pct(projections.rates.employerMin)}–{pct(projections.rates.employerMax)})
+                    </span>
+                  )}
+                </>
               )}
             </div>
           </CardContent>
@@ -1378,6 +1625,90 @@ export default function CareerModelPage() {
                             <TableCell />
                           </TableRow>
                         ))}
+                        {/* W-2 record history */}
+                        {y.w2Records && y.w2Records.length > 0 && (
+                          <TableRow className="bg-blue-50/40 dark:bg-blue-950/20">
+                            <TableCell colSpan={7} className="py-2 px-4">
+                              <button
+                                type="button"
+                                className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 transition-colors font-medium"
+                                onClick={() => {
+                                  setExpandedW2Years((prev) => {
+                                    const next = new Set(prev);
+                                    next.has(y.year) ? next.delete(y.year) : next.add(y.year);
+                                    return next;
+                                  });
+                                }}
+                              >
+                                <ChevronDown className={`h-3.5 w-3.5 transition-transform ${expandedW2Years.has(y.year) ? "rotate-180" : ""}`} />
+                                W-2 Records ({y.w2Records.length})
+                              </button>
+                              {expandedW2Years.has(y.year) && (
+                                <div className="mt-2 space-y-2">
+                                  {y.w2Records.map((w2) => (
+                                    <div key={w2.id} className="rounded-md border border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-900 p-2.5 text-xs space-y-1.5">
+                                      <div className="flex items-center justify-between">
+                                        <span className="font-medium text-blue-700 dark:text-blue-300">
+                                          {w2.employerName || "Unknown Employer"}
+                                          {w2.employerEIN && <span className="text-muted-foreground ml-1.5">EIN: {w2.employerEIN}</span>}
+                                        </span>
+                                        <div className="flex items-center gap-1">
+                                          <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={() => setEditingW2({ ...w2 })}>
+                                            <Pencil className="h-3 w-3" />
+                                          </Button>
+                                          <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-red-500 hover:text-red-600" onClick={() => deleteW2Record(w2.id)}>
+                                            <Trash2 className="h-3 w-3" />
+                                          </Button>
+                                        </div>
+                                      </div>
+                                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-3 gap-y-1">
+                                        {w2.wages != null && (
+                                          <div><span className="text-muted-foreground">Box 1 Wages:</span> <span className="font-mono">{fmtDollar(w2.wages)}</span></div>
+                                        )}
+                                        {w2.federalTaxWithheld != null && (
+                                          <div><span className="text-muted-foreground">Box 2 Fed Tax:</span> <span className="font-mono">{fmtDollar(w2.federalTaxWithheld)}</span></div>
+                                        )}
+                                        {w2.socialSecurityWages != null && (
+                                          <div><span className="text-muted-foreground">Box 3 SS Wages:</span> <span className="font-mono">{fmtDollar(w2.socialSecurityWages)}</span></div>
+                                        )}
+                                        {w2.socialSecurityTax != null && (
+                                          <div><span className="text-muted-foreground">Box 4 SS Tax:</span> <span className="font-mono">{fmtDollar(w2.socialSecurityTax)}</span></div>
+                                        )}
+                                        {w2.medicareWages != null && (
+                                          <div><span className="text-muted-foreground">Box 5 Med Wages:</span> <span className="font-mono">{fmtDollar(w2.medicareWages)}</span></div>
+                                        )}
+                                        {w2.medicareTax != null && (
+                                          <div><span className="text-muted-foreground">Box 6 Med Tax:</span> <span className="font-mono">{fmtDollar(w2.medicareTax)}</span></div>
+                                        )}
+                                        {w2.stateWages != null && (
+                                          <div><span className="text-muted-foreground">Box 16 State Wages:</span> <span className="font-mono">{fmtDollar(w2.stateWages)}</span></div>
+                                        )}
+                                        {w2.stateTaxWithheld != null && (
+                                          <div><span className="text-muted-foreground">Box 17 State Tax:</span> <span className="font-mono">{fmtDollar(w2.stateTaxWithheld)}</span></div>
+                                        )}
+                                        {w2.localWages != null && (
+                                          <div><span className="text-muted-foreground">Box 18 Local Wages:</span> <span className="font-mono">{fmtDollar(w2.localWages)}</span></div>
+                                        )}
+                                        {w2.localTaxWithheld != null && (
+                                          <div><span className="text-muted-foreground">Box 19 Local Tax:</span> <span className="font-mono">{fmtDollar(w2.localTaxWithheld)}</span></div>
+                                        )}
+                                        {w2.netIncome != null && (
+                                          <div><span className="text-muted-foreground">Net Income:</span> <span className="font-mono font-semibold">{fmtDollar(w2.netIncome)}</span></div>
+                                        )}
+                                        {w2.state && (
+                                          <div><span className="text-muted-foreground">State:</span> <span>{w2.state}</span></div>
+                                        )}
+                                      </div>
+                                      {w2.notes && (
+                                        <p className="text-muted-foreground italic">{w2.notes}</p>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        )}
                         </>);
                       })}
                       {/* Live estimate row */}
@@ -1428,7 +1759,7 @@ export default function CareerModelPage() {
                       {/* Average row */}
                       {yearlyChanges.length >= 2 && (
                         <TableRow className="bg-muted/40 font-medium">
-                          <TableCell colSpan={4} className="text-sm">Average</TableCell>
+                          <TableCell colSpan={4} className="text-sm">CAGR</TableCell>
                           <TableCell className="text-right">
                             <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
                               {pct(avgGrossGrowth)}
@@ -1451,8 +1782,77 @@ export default function CareerModelPage() {
             </CardContent>
           </Card>
 
-          {/* Projections */}
-          {projections.length > 0 && (
+          {/* Projections toggle + explanation + controls */}
+          {incomeYears.length >= 2 && (
+            <Card className="border-amber-200 dark:border-amber-800 bg-amber-50/30 dark:bg-amber-950/20">
+              <CardContent className="p-4 space-y-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="space-y-1.5 flex-1">
+                    <p className="text-sm font-medium flex items-center gap-2">
+                      <TrendingUp className="h-4 w-4 text-purple-600" />
+                      Income Projections
+                      <Badge variant="secondary" className="text-[10px] py-0 bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300">Experimental</Badge>
+                    </p>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      Projections extrapolate future income from your history. Early career shifts, part-time
+                      years, and career changes distort growth rates. Three scenarios are shown — conservative
+                      (national avg ~4%), realistic (your recent growth, capped), and optimistic (uncapped).
+                      If you&apos;ve set annual raise ranges on your positions, an Employer-Based band is also shown.
+                      Adjust the baseline window and growth cap to explore different assumptions.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 pt-0.5 shrink-0">
+                    <Label htmlFor="projections-toggle" className="text-xs text-muted-foreground">Show</Label>
+                    <Switch id="projections-toggle" checked={showProjections} onCheckedChange={setShowProjections} />
+                  </div>
+                </div>
+
+                {showProjections && (
+                  <div className="grid gap-4 sm:grid-cols-2 pt-1 border-t border-amber-200 dark:border-amber-800">
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs">Baseline Window</Label>
+                        <span className="text-xs font-mono font-medium">
+                          {projBaselineYears >= incomeYears.length ? "All years" : `Last ${projBaselineYears} yr${projBaselineYears > 1 ? "s" : ""}`}
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min={2}
+                        max={incomeYears.length}
+                        value={projBaselineYears}
+                        onChange={(e) => setProjBaselineYears(parseInt(e.target.value))}
+                        className="w-full h-1.5 rounded-full appearance-none cursor-pointer accent-blue-600 bg-muted"
+                      />
+                      <p className="text-[10px] text-muted-foreground">
+                        How many recent years to use for growth calculation
+                      </p>
+                    </div>
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs">Realistic Growth Cap</Label>
+                        <span className="text-xs font-mono font-medium">{projCapPct}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={3}
+                        max={50}
+                        value={projCapPct}
+                        onChange={(e) => setProjCapPct(parseInt(e.target.value))}
+                        className="w-full h-1.5 rounded-full appearance-none cursor-pointer accent-blue-600 bg-muted"
+                      />
+                      <p className="text-[10px] text-muted-foreground">
+                        Max annual growth for the &quot;Realistic&quot; scenario
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Scenario Projections */}
+          {showProjections && projections.realistic.length > 0 && (
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-lg flex items-center gap-2">
@@ -1460,24 +1860,46 @@ export default function CareerModelPage() {
                   Income Projections
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <p className="text-xs text-muted-foreground mb-4 flex items-center gap-1">
+              <CardContent className="space-y-3">
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
                   <Info className="h-3 w-3" />
-                  Based on your average gross growth rate of {pct(avgGrossGrowth)}/yr
+                  Based on {projBaselineYears >= incomeYears.length ? "all" : `last ${projBaselineYears}`} years of data,
+                  capped at {projCapPct}% for realistic scenario
                 </p>
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                  {projections.map((p) => (
-                    <div
-                      key={p.years}
-                      className="rounded-lg border p-3 space-y-1"
-                    >
-                      <p className="text-xs text-muted-foreground">
-                        In {p.years} year{p.years > 1 ? "s" : ""} ({p.year})
+                <div className="space-y-2">
+                  {[1, 3, 5, 10].map((horizon, hi) => (
+                    <div key={horizon} className="rounded-lg border p-3">
+                      <p className="text-xs font-medium text-muted-foreground mb-2">
+                        In {horizon} year{horizon > 1 ? "s" : ""} ({effectiveLatest!.year + horizon})
                       </p>
-                      <p className="text-lg font-bold">{fmtFull(Math.round(p.projected))}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {fmt(Math.round(p.projected / 12))}/mo
-                      </p>
+                      <div className={`grid gap-3 ${projections.employerMin.length > 0 ? "grid-cols-4" : "grid-cols-3"}`}>
+                        {projections.employerMin.length > 0 && (
+                          <div className="space-y-0.5">
+                            <p className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">Employer ({pct(projections.rates.employerMin)}–{pct(projections.rates.employerMax)})</p>
+                            <p className="text-sm font-bold font-mono">
+                              {fmtFull(Math.round((projections.employerMin[hi].projected + projections.employerMax[hi].projected) / 2))}
+                            </p>
+                            <p className="text-[10px] text-muted-foreground">
+                              {fmtFull(Math.round(projections.employerMin[hi].projected))} – {fmtFull(Math.round(projections.employerMax[hi].projected))}
+                            </p>
+                          </div>
+                        )}
+                        <div className="space-y-0.5">
+                          <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">Conservative ({pct(projections.rates.conservative)})</p>
+                          <p className="text-sm font-bold font-mono">{fmtFull(Math.round(projections.conservative[hi].projected))}</p>
+                          <p className="text-[10px] text-muted-foreground">{fmt(Math.round(projections.conservative[hi].projected / 12))}/mo</p>
+                        </div>
+                        <div className={`space-y-0.5 ${projections.employerMin.length > 0 ? "" : "border-x px-3"}`}>
+                          <p className="text-[10px] text-blue-600 dark:text-blue-400 font-medium">Realistic ({pct(projections.rates.realistic)})</p>
+                          <p className="text-sm font-bold font-mono">{fmtFull(Math.round(projections.realistic[hi].projected))}</p>
+                          <p className="text-[10px] text-muted-foreground">{fmt(Math.round(projections.realistic[hi].projected / 12))}/mo</p>
+                        </div>
+                        <div className="space-y-0.5">
+                          <p className="text-[10px] text-purple-600 dark:text-purple-400 font-medium">Optimistic ({pct(projections.rates.optimistic)})</p>
+                          <p className="text-sm font-bold font-mono">{fmtFull(Math.round(projections.optimistic[hi].projected))}</p>
+                          <p className="text-[10px] text-muted-foreground">{fmt(Math.round(projections.optimistic[hi].projected / 12))}/mo</p>
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1565,7 +1987,7 @@ export default function CareerModelPage() {
           </Card>
 
           {/* Time-to-Target Card */}
-          {targetTier && effectiveLatest && timeToTarget !== null && timeToTarget > 0 && (
+          {showProjections && targetTier && effectiveLatest && timeToTarget !== null && timeToTarget > 0 && (
             <Card className="border-purple-200 dark:border-purple-800 bg-purple-50/50 dark:bg-purple-950/50">
               <CardContent className="p-4 space-y-2">
                 <p className="text-sm font-medium flex items-center gap-1.5">
@@ -1573,7 +1995,7 @@ export default function CareerModelPage() {
                   Time to Target
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  At your current growth rate of {pct(avgGrossGrowth)}/yr, you&apos;ll reach{" "}
+                  At {pct(projections.rates.realistic)}/yr (realistic), you&apos;ll reach{" "}
                   <span className="font-medium">{targetTier.label}</span> ({fmtFull(targetTier.yearlyRate)}/yr)
                   in approximately:
                 </p>
@@ -1668,62 +2090,105 @@ export default function CareerModelPage() {
               <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
               <p className="text-sm text-muted-foreground">Extracting W-2 data...</p>
             </div>
-          ) : w2Data ? (
+          ) : w2Data ? (() => {
+            // Helpers to update w2Data fields in-place
+            const updW2 = (key: keyof W2Parsed, raw: string) => {
+              const v = raw === "" ? null : parseFloat(raw);
+              setW2Data({ ...w2Data, [key]: isNaN(v as number) ? null : v });
+            };
+            const updW2Str = (key: keyof W2Parsed, val: string) => {
+              setW2Data({ ...w2Data, [key]: val || null });
+            };
+            const updCompany = (key: keyof W2Parsed["companyData"], val: string) => {
+              setW2Data({ ...w2Data, companyData: { ...w2Data.companyData, [key]: val || null } });
+            };
+
+            // Editable number input row (same pattern as paycheck dialog)
+            const numRow = (label: string, value: number | null | undefined, onChange: (v: string) => void, prefix = "$") => (
+              <>
+                <label className="text-muted-foreground text-xs">{label}</label>
+                <div className="flex items-center gap-1">
+                  {prefix && <span className="text-xs text-muted-foreground">{prefix}</span>}
+                  <Input
+                    type="number"
+                    step="0.01"
+                    className="h-6 text-xs font-mono px-1 py-0"
+                    value={value ?? ""}
+                    onChange={(e) => onChange(e.target.value)}
+                  />
+                </div>
+              </>
+            );
+
+            // Editable text input row
+            const textRow = (label: string, value: string | null | undefined, onChange: (v: string) => void) => (
+              <>
+                <label className="text-muted-foreground text-xs">{label}</label>
+                <Input
+                  className="h-6 text-xs px-1 py-0"
+                  value={value ?? ""}
+                  onChange={(e) => onChange(e.target.value)}
+                />
+              </>
+            );
+
+            return (
             <div className="space-y-4 pt-2">
-              {/* Extraction Summary */}
-              <div className="rounded-lg border bg-muted/30 p-3 space-y-2 text-sm">
-                <p className="font-medium flex items-center gap-1.5">
-                  <CheckCircle2 className="h-4 w-4 text-green-600" /> Extracted Data
-                </p>
-                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-                  {w2Data.employerName && (
-                    <><span className="text-muted-foreground">Employer</span><span>{w2Data.employerName}</span></>
-                  )}
-                  {w2Data.employerEIN && (
-                    <><span className="text-muted-foreground">EIN</span><span>{w2Data.employerEIN}</span></>
-                  )}
-                  {w2Data.employerAddress && (
-                    <><span className="text-muted-foreground">Address</span><span>{w2Data.employerAddress}</span></>
-                  )}
-                  {w2Data.state && (
-                    <><span className="text-muted-foreground">State</span><span>{w2Data.state}</span></>
-                  )}
-                  {w2Data.taxYear && (
-                    <><span className="text-muted-foreground">Tax Year</span><span>{w2Data.taxYear}</span></>
-                  )}
+              <p className="text-[10px] text-muted-foreground italic">All fields are editable — adjust any values before saving.</p>
+
+              {/* Employer Info */}
+              <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
+                <p className="text-xs font-medium">Employer Info</p>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs items-center">
+                  {textRow("Employer", w2Data.employerName, (v) => { updW2Str("employerName", v); updCompany("company", v); })}
+                  {textRow("EIN", w2Data.employerEIN, (v) => { updW2Str("employerEIN", v); updCompany("ein", v); })}
+                  {textRow("Address", w2Data.employerAddress, (v) => { updW2Str("employerAddress", v); updCompany("address", v); })}
+                  {textRow("State", w2Data.state, (v) => { updW2Str("state", v); updCompany("state", v); })}
+                </div>
+              </div>
+
+              {/* W-2 Box Values */}
+              <div className="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/50 p-3 space-y-2">
+                <p className="text-xs font-medium text-blue-700 dark:text-blue-300">W-2 Box Values</p>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs items-center">
+                  {numRow("Box 1 (Wages)", w2Data.wages, (v) => {
+                    updW2("wages", v);
+                    setW2Form((f) => ({ ...f, grossIncome: v }));
+                  })}
+                  {numRow("Box 2 (Fed Tax)", w2Data.federalTaxWithheld, (v) => updW2("federalTaxWithheld", v))}
+                  {numRow("Box 3 (SS Wages)", w2Data.socialSecurityWages, (v) => updW2("socialSecurityWages", v))}
+                  {numRow("Box 4 (SS Tax)", w2Data.socialSecurityTax, (v) => updW2("socialSecurityTax", v))}
+                  {numRow("Box 5 (Medicare Wages)", w2Data.medicareWages, (v) => updW2("medicareWages", v))}
+                  {numRow("Box 6 (Medicare Tax)", w2Data.medicareTax, (v) => updW2("medicareTax", v))}
                 </div>
                 <Separator className="my-1" />
-                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-                  {w2Data.wages != null && (
-                    <><span className="text-muted-foreground">Box 1 (Wages)</span><span className="font-mono">${w2Data.wages.toLocaleString()}</span></>
-                  )}
-                  {w2Data.federalTaxWithheld != null && (
-                    <><span className="text-muted-foreground">Box 2 (Fed Tax)</span><span className="font-mono">${w2Data.federalTaxWithheld.toLocaleString()}</span></>
-                  )}
-                  {w2Data.socialSecurityWages != null && (
-                    <><span className="text-muted-foreground">Box 3 (SS Wages)</span><span className="font-mono">${w2Data.socialSecurityWages.toLocaleString()}</span></>
-                  )}
-                  {w2Data.socialSecurityTax != null && (
-                    <><span className="text-muted-foreground">Box 4 (SS Tax)</span><span className="font-mono">${w2Data.socialSecurityTax.toLocaleString()}</span></>
-                  )}
-                  {w2Data.medicareWages != null && (
-                    <><span className="text-muted-foreground">Box 5 (Medicare Wages)</span><span className="font-mono">${w2Data.medicareWages.toLocaleString()}</span></>
-                  )}
-                  {w2Data.medicareTax != null && (
-                    <><span className="text-muted-foreground">Box 6 (Medicare Tax)</span><span className="font-mono">${w2Data.medicareTax.toLocaleString()}</span></>
-                  )}
-                  {w2Data.stateWages != null && (
-                    <><span className="text-muted-foreground">Box 16 (State Wages)</span><span className="font-mono">${w2Data.stateWages.toLocaleString()}</span></>
-                  )}
-                  {w2Data.stateTaxWithheld != null && (
-                    <><span className="text-muted-foreground">Box 17 (State Tax)</span><span className="font-mono">${w2Data.stateTaxWithheld.toLocaleString()}</span></>
-                  )}
-                  {w2Data.localWages != null && (
-                    <><span className="text-muted-foreground">Box 18 (Local Wages)</span><span className="font-mono">${w2Data.localWages.toLocaleString()}</span></>
-                  )}
-                  {w2Data.localTaxWithheld != null && (
-                    <><span className="text-muted-foreground">Box 19 (Local Tax)</span><span className="font-mono">${w2Data.localTaxWithheld.toLocaleString()}</span></>
-                  )}
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs items-center">
+                  {numRow("Box 16 (State Wages)", w2Data.stateWages, (v) => updW2("stateWages", v))}
+                  {numRow("Box 17 (State Tax)", w2Data.stateTaxWithheld, (v) => updW2("stateTaxWithheld", v))}
+                  {numRow("Box 18 (Local Wages)", w2Data.localWages, (v) => updW2("localWages", v))}
+                  {numRow("Box 19 (Local Tax)", w2Data.localTaxWithheld, (v) => updW2("localTaxWithheld", v))}
+                </div>
+              </div>
+
+              {/* Import Summary */}
+              <div className="rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/50 p-3 space-y-2">
+                <p className="text-xs font-medium text-emerald-700 dark:text-emerald-300">Import Summary</p>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs items-center">
+                  {numRow("Year", w2Data.taxYear, (v) => {
+                    updW2("taxYear", v);
+                    setW2Form((f) => ({ ...f, year: v }));
+                  }, "")}
+                  {numRow("# of Jobs", parseInt(w2Form.jobCount) || 1, (v) => setW2Form((f) => ({ ...f, jobCount: v || "1" })), "")}
+                  {numRow("Gross Income", parseFloat(w2Form.grossIncome) || null, (v) => setW2Form((f) => ({ ...f, grossIncome: v })))}
+                  {numRow("Net Income", parseFloat(w2Form.netIncome) || null, (v) => setW2Form((f) => ({ ...f, netIncome: v })))}
+                </div>
+                <div className="pt-1">
+                  <label className="text-muted-foreground text-xs">Notes</label>
+                  <Input
+                    className="h-6 text-xs px-1 py-0 mt-0.5"
+                    value={w2Form.notes}
+                    onChange={(e) => setW2Form({ ...w2Form, notes: e.target.value })}
+                  />
                 </div>
               </div>
 
@@ -1746,63 +2211,6 @@ export default function CareerModelPage() {
                 </div>
               )}
 
-              {/* Warn if key fields are missing */}
-              {(!w2Data.wages || !w2Data.taxYear) && (
-                <div className="rounded-lg border border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-950 p-3 text-xs flex items-start gap-2">
-                  <AlertCircle className="h-4 w-4 text-yellow-600 shrink-0 mt-0.5" />
-                  <p className="text-yellow-700 dark:text-yellow-300">
-                    Some fields couldn&apos;t be extracted automatically. Please verify and fill in the values below before importing.
-                  </p>
-                </div>
-              )}
-
-              {/* Editable Import Form */}
-              <Separator />
-              <p className="text-xs text-muted-foreground">Review and adjust before importing:</p>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <Label className="mb-1">Year</Label>
-                  <Input
-                    type="number"
-                    value={w2Form.year}
-                    onChange={(e) => setW2Form({ ...w2Form, year: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label className="mb-1"># of Jobs</Label>
-                  <Input
-                    type="number"
-                    value={w2Form.jobCount}
-                    onChange={(e) => setW2Form({ ...w2Form, jobCount: e.target.value })}
-                  />
-                </div>
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <Label className="mb-1">Gross Income (Box 1)</Label>
-                  <Input
-                    type="number"
-                    value={w2Form.grossIncome}
-                    onChange={(e) => setW2Form({ ...w2Form, grossIncome: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label className="mb-1">Net Income (after taxes)</Label>
-                  <Input
-                    type="number"
-                    value={w2Form.netIncome}
-                    onChange={(e) => setW2Form({ ...w2Form, netIncome: e.target.value })}
-                  />
-                </div>
-              </div>
-              <div>
-                <Label className="mb-1">Notes</Label>
-                <Input
-                  value={w2Form.notes}
-                  onChange={(e) => setW2Form({ ...w2Form, notes: e.target.value })}
-                />
-              </div>
-
               {/* Add Employer to Employment History */}
               {w2Data.companyData?.company && (
                 <div className="rounded-lg border p-3 space-y-2">
@@ -1824,8 +2232,8 @@ export default function CareerModelPage() {
                   {w2AddEmployer ? "Import Year & Add Employer" : "Import Year"}
                 </Button>
               </div>
-            </div>
-          ) : null}
+            </div>);
+          })() : null}
         </DialogContent>
       </Dialog>
 
@@ -1998,6 +2406,116 @@ export default function CareerModelPage() {
                 <div className="flex justify-end gap-2 pt-2">
                   <Button variant="outline" onClick={() => setEditingPaycheck(null)}>Cancel</Button>
                   <Button onClick={() => updatePaycheckRecord(rec)}>
+                    <CheckCircle2 className="h-4 w-4 mr-1" /> Save Changes
+                  </Button>
+                </div>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Edit W-2 Record Dialog ── */}
+      <Dialog open={!!editingW2} onOpenChange={(open) => { if (!open) setEditingW2(null); }}>
+        <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Pencil className="h-5 w-5 text-blue-600" />
+              Edit W-2 Record
+            </DialogTitle>
+          </DialogHeader>
+          {editingW2 && (() => {
+            const rec = editingW2;
+
+            const updNum = (key: keyof W2HistoryRecord, raw: string) => {
+              const v = raw === "" ? null : parseFloat(raw);
+              setEditingW2({ ...rec, [key]: isNaN(v as number) ? null : v } as W2HistoryRecord);
+            };
+
+            const updStr = (key: keyof W2HistoryRecord, raw: string) => {
+              setEditingW2({ ...rec, [key]: raw || null } as W2HistoryRecord);
+            };
+
+            const numRow = (label: string, value: number | null | undefined, onChange: (v: string) => void, prefix = "$") => (
+              <>
+                <label className="text-muted-foreground text-xs">{label}</label>
+                <div className="flex items-center gap-1">
+                  {prefix && <span className="text-xs text-muted-foreground">{prefix}</span>}
+                  <Input
+                    type="number"
+                    step="0.01"
+                    className="h-6 text-xs font-mono px-1 py-0"
+                    value={value ?? ""}
+                    onChange={(e) => onChange(e.target.value)}
+                  />
+                </div>
+              </>
+            );
+
+            const textRow = (label: string, value: string | null | undefined, onChange: (v: string) => void) => (
+              <>
+                <label className="text-muted-foreground text-xs">{label}</label>
+                <Input
+                  className="h-6 text-xs px-1 py-0"
+                  value={value ?? ""}
+                  onChange={(e) => onChange(e.target.value)}
+                />
+              </>
+            );
+
+            return (
+              <div className="space-y-4 pt-2">
+                <p className="text-xs text-muted-foreground">
+                  Tax Year {rec.taxYear} — Uploaded {new Date(rec.createdAt).toLocaleDateString()}
+                </p>
+
+                {/* Employer Info */}
+                <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
+                  <p className="text-xs font-medium">Employer Info</p>
+                  <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-xs items-center">
+                    {textRow("Employer Name", rec.employerName, (v) => updStr("employerName", v))}
+                    {textRow("EIN", rec.employerEIN, (v) => updStr("employerEIN", v))}
+                    {textRow("Address", rec.employerAddress, (v) => updStr("employerAddress", v))}
+                    {textRow("State", rec.state, (v) => updStr("state", v))}
+                  </div>
+                </div>
+
+                {/* W-2 Box Values */}
+                <div className="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/50 p-3 space-y-2">
+                  <p className="text-xs font-medium text-blue-700 dark:text-blue-300">W-2 Box Values</p>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs items-center">
+                    {numRow("Box 1 — Wages", rec.wages, (v) => updNum("wages", v))}
+                    {numRow("Box 2 — Fed Tax", rec.federalTaxWithheld, (v) => updNum("federalTaxWithheld", v))}
+                    {numRow("Box 3 — SS Wages", rec.socialSecurityWages, (v) => updNum("socialSecurityWages", v))}
+                    {numRow("Box 4 — SS Tax", rec.socialSecurityTax, (v) => updNum("socialSecurityTax", v))}
+                    {numRow("Box 5 — Med Wages", rec.medicareWages, (v) => updNum("medicareWages", v))}
+                    {numRow("Box 6 — Med Tax", rec.medicareTax, (v) => updNum("medicareTax", v))}
+                    {numRow("Box 16 — State Wages", rec.stateWages, (v) => updNum("stateWages", v))}
+                    {numRow("Box 17 — State Tax", rec.stateTaxWithheld, (v) => updNum("stateTaxWithheld", v))}
+                    {numRow("Box 18 — Local Wages", rec.localWages, (v) => updNum("localWages", v))}
+                    {numRow("Box 19 — Local Tax", rec.localTaxWithheld, (v) => updNum("localTaxWithheld", v))}
+                  </div>
+                </div>
+
+                {/* Summary */}
+                <div className="rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/50 p-3 space-y-2">
+                  <p className="text-xs font-medium text-emerald-700 dark:text-emerald-300">Summary</p>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs items-center">
+                    {numRow("Net Income", rec.netIncome, (v) => updNum("netIncome", v))}
+                    <>
+                      <label className="text-muted-foreground text-xs">Notes</label>
+                      <Input
+                        className="h-6 text-xs px-1 py-0"
+                        value={rec.notes ?? ""}
+                        onChange={(e) => updStr("notes", e.target.value)}
+                      />
+                    </>
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button variant="outline" onClick={() => setEditingW2(null)}>Cancel</Button>
+                  <Button onClick={() => updateW2Record(rec)}>
                     <CheckCircle2 className="h-4 w-4 mr-1" /> Save Changes
                   </Button>
                 </div>

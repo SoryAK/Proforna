@@ -48,6 +48,8 @@ export async function POST(request: Request) {
         otHoursA: body.otHoursA != null ? parseFloat(body.otHoursA) : null,
         otHoursB: body.otHoursB != null ? parseFloat(body.otHoursB) : null,
         otRate: body.otRate != null ? parseFloat(body.otRate) : null,
+        annualRaiseMin: body.annualRaiseMin != null ? parseFloat(body.annualRaiseMin) : null,
+        annualRaiseMax: body.annualRaiseMax != null ? parseFloat(body.annualRaiseMax) : null,
         estimatorSettings: body.estimatorSettings || null,
       },
     });

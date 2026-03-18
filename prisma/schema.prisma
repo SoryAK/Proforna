@@ -240,6 +240,8 @@ model CurrentPosition {
   otHoursA      Float?    // OT hours per week for schedule A (or fixed schedule)
   otHoursB      Float?    // OT hours per week for schedule B (only if rotating)
   otRate        Float?    @default(1.5) // OT multiplier (e.g. 1.5x)
+  annualRaiseMin Float?   // employer annual raise range minimum (e.g. 1 for 1%)
+  annualRaiseMax Float?   // employer annual raise range maximum (e.g. 3 for 3%)
   estimatorSettings String? // JSON blob for estimator inputs (OT, tax rates, deductions, etc.)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -401,6 +403,7 @@ model CareerIncomeYear {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   entries     CareerIncomeEntry[]
+  w2Records   W2Record[]
 }
 
 model CareerIncomeEntry {
@@ -414,6 +417,34 @@ model CareerIncomeEntry {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   incomeYear  CareerIncomeYear @relation(fields: [yearId], references: [id], onDelete: Cascade)
+}
+
+model W2Record {
+  id                  String   @id @default(uuid())
+  yearId              String
+  taxYear             Int
+  // Employer info
+  employerName        String?
+  employerEIN         String?
+  employerAddress     String?
+  state               String?
+  // W-2 Box values
+  wages               Float?   // Box 1
+  federalTaxWithheld  Float?   // Box 2
+  socialSecurityWages  Float?  // Box 3
+  socialSecurityTax   Float?   // Box 4
+  medicareWages       Float?   // Box 5
+  medicareTax         Float?   // Box 6
+  stateWages          Float?   // Box 16
+  stateTaxWithheld    Float?   // Box 17
+  localWages          Float?   // Box 18
+  localTaxWithheld    Float?   // Box 19
+  // Computed
+  netIncome           Float?
+  notes               String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  incomeYear          CareerIncomeYear @relation(fields: [yearId], references: [id], onDelete: Cascade)
 }
 
 model WageTier {
@@ -439,6 +470,34 @@ model EmailAccount {
   emails       Email[]
 
   @@unique([provider, email])
+}
+
+// ─── Interactive Resumes (Shareable Living Resumes) ────────────────
+
+model InteractiveResume {
+  id            String   @id @default(uuid())
+  slug          String   @unique
+  title         String
+  targetRole    String?
+  summary       String?
+  theme         String   @default("modern")
+  isPublished   Boolean  @default(false)
+  sections      String?  // JSON: section visibility & ordering
+  customContent String?  // JSON: per-section overrides
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  views         ResumeView[]
+}
+
+model ResumeView {
+  id              String            @id @default(uuid())
+  resumeId        String
+  referrer        String?
+  userAgent       String?
+  sectionsViewed  String?           // JSON array of section keys
+  durationSeconds Int?
+  createdAt       DateTime          @default(now())
+  resume          InteractiveResume @relation(fields: [resumeId], references: [id], onDelete: Cascade)
 }
 
 // ─── Paycheck Records (YTD tracking per position) ──────────────────
@@ -489,4 +548,89 @@ model Email {
   application JobApplication? @relation(fields: [applicationId], references: [id], onDelete: SetNull)
 
   @@unique([accountId, messageId])
+}
+
+// ─── Career Directional Model (CDM) ────────────────────────────────
+
+model CareerPath {
+  id              String   @id @default(uuid())
+  title           String                           // e.g. "Staff Engineer"
+  description     String?
+  targetRole      String?                          // role title to aim for
+  targetSalaryMin Int?
+  targetSalaryMax Int?
+  industry        String?
+  level           String   @default("mid")         // entry/mid/senior/lead/executive
+  requiredSkills  String?                          // JSON: [{name, proficiency}]
+  timelineYears   Int?                             // typical years to reach
+  isActive        Boolean  @default(true)
+  sortOrder       Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  milestones      CareerPathMilestone[]
+  scores          DirectionScore[]
+}
+
+model CareerPathMilestone {
+  id          String  @id @default(uuid())
+  pathId      String
+  title       String
+  description String?
+  sortOrder   Int     @default(0)
+  isRequired  Boolean @default(false)
+  path        CareerPath @relation(fields: [pathId], references: [id], onDelete: Cascade)
+}
+
+model CareerSnapshot {
+  id               String   @id @default(uuid())
+  capturedAt       DateTime @default(now())
+  totalSkills      Int      @default(0)
+  avgProficiency   Float    @default(0)            // 0-100 scale
+  incomeGross      Float?
+  incomeNet        Float?
+  activeGoals      Int      @default(0)
+  completedGoals   Int      @default(0)
+  certCount        Int      @default(0)
+  applicationsOpen Int      @default(0)
+  interviewsCount  Int      @default(0)
+  currentRole      String?
+  currentCompany   String?
+  overallScore     Float?                          // computed composite 0-100
+  metadata         String?                         // JSON: extra computed data
+  scores           DirectionScore[]
+}
+
+model DirectionScore {
+  id              String   @id @default(uuid())
+  snapshotId      String
+  pathId          String
+  skillMatch      Float    @default(0)             // 0-100
+  incomeAlignment Float    @default(0)             // 0-100
+  goalAlignment   Float    @default(0)             // 0-100
+  overallScore    Float    @default(0)             // 0-100 weighted composite
+  gaps            String?                          // JSON: [{type, name, detail}]
+  createdAt       DateTime @default(now())
+  snapshot        CareerSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+  path            CareerPath     @relation(fields: [pathId], references: [id], onDelete: Cascade)
+
+  @@unique([snapshotId, pathId])
+}
+
+// ── Learning Tracker ──────────────────────────────────
+model LearningItem {
+  id          String   @id @default(cuid())
+  title       String
+  provider    String?                          // Coursera, Udemy, O'Reilly, etc.
+  type        String   @default("course")      // course | certification_prep | book | tutorial | workshop | bootcamp
+  status      String   @default("not_started") // not_started | in_progress | completed | abandoned
+  progress    Int      @default(0)             // 0-100
+  url         String?
+  hoursSpent  Float    @default(0)
+  cost        Float    @default(0)
+  completedAt DateTime?
+  skills      String?                          // JSON: string[] of skill names this develops
+  notes       String?
+  tags        String?                          // JSON: string[] for categorization
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }

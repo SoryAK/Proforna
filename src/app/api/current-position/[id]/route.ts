@@ -40,6 +40,8 @@ export async function PATCH(
     if (body.otHoursA != null) body.otHoursA = parseFloat(body.otHoursA);
     if (body.otHoursB != null) body.otHoursB = parseFloat(body.otHoursB);
     if (body.otRate != null) body.otRate = parseFloat(body.otRate);
+    if (body.annualRaiseMin != null) body.annualRaiseMin = parseFloat(body.annualRaiseMin);
+    if (body.annualRaiseMax != null) body.annualRaiseMax = parseFloat(body.annualRaiseMax);
 
     const updated = await prisma.currentPosition.update({
       where: { id },

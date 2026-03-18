@@ -38,6 +38,7 @@ import {
   FileText,
   Loader2,
   Check,
+  ChevronDown,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -67,6 +68,8 @@ interface Props {
   otHoursA: number | null;
   otHoursB: number | null;
   otRate: number | null;
+  annualRaiseMin: number | null;
+  annualRaiseMax: number | null;
   estimatorSettings: string | null;
 }
 
@@ -142,7 +145,7 @@ const emptyForm = {
   notes: "",
 };
 
-export function CompensationTracker({ positionId, payType, payRate, differentials, salary, schedule, payFrequency, rotatingSchedule, hoursPerWeek, scheduleBHours, otHoursA, otHoursB, otRate, estimatorSettings }: Props) {
+export function CompensationTracker({ positionId, payType, payRate, differentials, salary, schedule, payFrequency, rotatingSchedule, hoursPerWeek, scheduleBHours, otHoursA, otHoursB, otRate, annualRaiseMin, annualRaiseMax, estimatorSettings }: Props) {
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -179,6 +182,36 @@ export function CompensationTracker({ positionId, payType, payRate, differential
   const [paycheckData, setPaycheckData] = useState<PaycheckData | null>(null);
   const [showPaycheckPreview, setShowPaycheckPreview] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Collapsible section state
+  const [sectionPay, setSectionPay] = useState(true);
+  const [sectionEstimator, setSectionEstimator] = useState(true);
+  const [sectionHistory, setSectionHistory] = useState(false);
+
+  // Annual raise range state
+  const [raiseMin, setRaiseMin] = useState(annualRaiseMin != null ? String(annualRaiseMin) : "");
+  const [raiseMax, setRaiseMax] = useState(annualRaiseMax != null ? String(annualRaiseMax) : "");
+  const raiseTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const saveRaiseRange = useCallback(() => {
+    const min = raiseMin ? parseFloat(raiseMin) : null;
+    const max = raiseMax ? parseFloat(raiseMax) : null;
+    fetch(`/api/current-position/${positionId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ annualRaiseMin: min, annualRaiseMax: max }),
+    }).then(() => {
+      queryClient.invalidateQueries({ queryKey: ["current-position"] });
+      queryClient.invalidateQueries({ queryKey: ["cfm"] });
+    });
+  }, [positionId, raiseMin, raiseMax, queryClient]);
+
+  useEffect(() => {
+    if (raiseMin === (annualRaiseMin != null ? String(annualRaiseMin) : "") &&
+        raiseMax === (annualRaiseMax != null ? String(annualRaiseMax) : "")) return;
+    clearTimeout(raiseTimer.current);
+    raiseTimer.current = setTimeout(saveRaiseRange, 800);
+    return () => clearTimeout(raiseTimer.current);
+  }, [raiseMin, raiseMax, saveRaiseRange, annualRaiseMin, annualRaiseMax]);
 
   // Auto-save estimator settings to the position (debounced)
   const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -455,7 +488,31 @@ export function CompensationTracker({ positionId, payType, payRate, differential
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
+      {/* ═══ Section: Pay Overview ═══ */}
+      <button
+        type="button"
+        onClick={() => setSectionPay(!sectionPay)}
+        className="w-full flex items-center justify-between rounded-lg border bg-card px-4 py-3 text-left hover:bg-accent/50 transition-colors"
+      >
+        <div className="flex items-center gap-3">
+          <div className="rounded-lg p-2 bg-blue-50"><DollarSign className="h-4 w-4 text-blue-600" /></div>
+          <div>
+            <p className="text-sm font-semibold">Pay Overview</p>
+            <p className="text-xs text-muted-foreground">
+              {payType === "hourly" && baseRateNum > 0
+                ? `$${totalHourly.toFixed(2)}/hr · ${events.length} event${events.length !== 1 ? "s" : ""}`
+                : salary
+                  ? `$${salary.toLocaleString()}/yr · ${events.length} event${events.length !== 1 ? "s" : ""}`
+                  : `${events.length} event${events.length !== 1 ? "s" : ""}`}
+            </p>
+          </div>
+        </div>
+        <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${sectionPay ? "rotate-0" : "-rotate-90"}`} />
+      </button>
+
+      {sectionPay && (
+        <div className="space-y-4 pl-1">
       {/* Upload Paycheck */}
       <Card>
         <CardContent className="p-4">
@@ -589,6 +646,30 @@ export function CompensationTracker({ positionId, payType, payRate, differential
         </Card>
       )}
 
+        </div>
+      )}
+
+      {/* ═══ Section: Income Estimator ═══ */}
+      <button
+        type="button"
+        onClick={() => setSectionEstimator(!sectionEstimator)}
+        className="w-full flex items-center justify-between rounded-lg border bg-card px-4 py-3 text-left hover:bg-accent/50 transition-colors"
+      >
+        <div className="flex items-center gap-3">
+          <div className="rounded-lg p-2 bg-emerald-50"><Calculator className="h-4 w-4 text-emerald-600" /></div>
+          <div>
+            <p className="text-sm font-semibold">Income Estimator</p>
+            <p className="text-xs text-muted-foreground">
+              ${est.total.toLocaleString(undefined, { maximumFractionDigits: 0 })}/yr gross
+              {totalDeductions > 0 && ` · $${(netPerPaycheck * payPeriods).toLocaleString(undefined, { maximumFractionDigits: 0 })}/yr net`}
+            </p>
+          </div>
+        </div>
+        <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${sectionEstimator ? "rotate-0" : "-rotate-90"}`} />
+      </button>
+
+      {sectionEstimator && (
+        <div className="space-y-4 pl-1">
       {/* Yearly Compensation Estimator */}
       <Card>
         <CardHeader className="pb-2">
@@ -942,7 +1023,83 @@ export function CompensationTracker({ positionId, payType, payRate, differential
         </CardContent>
       </Card>
 
-      {/* Event List */}
+      {/* Annual Raise Range */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <TrendingUp className="h-4 w-4" />
+            Annual Raise Range
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-xs text-muted-foreground mb-3">
+            What annual raise % does this employer typically offer? Used in career income projections.
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label className="text-xs">Min %</Label>
+              <Input
+                type="number"
+                step="0.1"
+                min="0"
+                max="100"
+                placeholder="e.g. 1"
+                value={raiseMin}
+                onChange={(e) => setRaiseMin(e.target.value)}
+                className="font-mono"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Max %</Label>
+              <Input
+                type="number"
+                step="0.1"
+                min="0"
+                max="100"
+                placeholder="e.g. 3"
+                value={raiseMax}
+                onChange={(e) => setRaiseMax(e.target.value)}
+                className="font-mono"
+              />
+            </div>
+          </div>
+          {raiseMin && raiseMax && (
+            <p className="text-xs text-muted-foreground mt-2">
+              Expected raise: <span className="font-medium text-foreground">{raiseMin}% – {raiseMax}%</span> per year
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+        </div>
+      )}
+
+      {/* ═══ Section: Compensation History ═══ */}
+      <button
+        type="button"
+        onClick={() => setSectionHistory(!sectionHistory)}
+        className="w-full flex items-center justify-between rounded-lg border bg-card px-4 py-3 text-left hover:bg-accent/50 transition-colors"
+      >
+        <div className="flex items-center gap-3">
+          <div className="rounded-lg p-2 bg-amber-50"><Layers className="h-4 w-4 text-amber-600" /></div>
+          <div>
+            <p className="text-sm font-semibold">Compensation History</p>
+            <p className="text-xs text-muted-foreground">
+              {events.length} event{events.length !== 1 ? "s" : ""}
+              {currentSalary && ` · Latest: ${currentSalary.currency} ${currentSalary.amount.toLocaleString()}`}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="ghost" className="h-7 px-2" onClick={(e) => { e.stopPropagation(); resetForm(); setShowForm(true); setSectionHistory(true); }}>
+            <Plus className="h-3.5 w-3.5" />
+          </Button>
+          <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${sectionHistory ? "rotate-0" : "-rotate-90"}`} />
+        </div>
+      </button>
+
+      {sectionHistory && (
+        <div className="space-y-4 pl-1">
       <Card>
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
@@ -1035,6 +1192,9 @@ export function CompensationTracker({ positionId, payType, payRate, differential
           )}
         </CardContent>
       </Card>
+
+        </div>
+      )}
 
       {/* Add/Edit Dialog */}
       <Dialog open={showForm} onOpenChange={(open) => !open && resetForm()}>

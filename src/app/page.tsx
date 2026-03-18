@@ -49,6 +49,11 @@ import Link from "next/link";
 import Image from "next/image";
 import { PersonalFinance } from "@/components/personal-finance";
 import { PayPeriodCalendar } from "@/components/pay-period-calendar";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import ExperiencePage from "./experience/page";
+import SkillsPage from "./skills/page";
+import ResumesPage from "./resumes/page";
+import { History, Zap as ZapIcon, FileText as FileTextIcon } from "lucide-react";
 
 const CHART_COLORS: Record<string, string> = {
   wishlist: "#9ca3af",
@@ -856,6 +861,31 @@ export default function DashboardPage() {
                 )}
               </CardContent>
             </Card>
+          </div>
+        )}
+      </div>
+
+      {/* ━━ Section 6: Profile Management ━━ */}
+      <div>
+        <SectionHead id="manage" icon={User} label="Profile Management" />
+        {isOpen("manage") && (
+          <div className="mt-2">
+            <Tabs defaultValue="experience">
+              <TabsList>
+                <TabsTrigger value="experience">Experience</TabsTrigger>
+                <TabsTrigger value="skills">Skills</TabsTrigger>
+                <TabsTrigger value="resumes">Resumes</TabsTrigger>
+              </TabsList>
+              <TabsContent value="experience" className="mt-4">
+                <ExperiencePage />
+              </TabsContent>
+              <TabsContent value="skills" className="mt-4">
+                <SkillsPage />
+              </TabsContent>
+              <TabsContent value="resumes" className="mt-4">
+                <ResumesPage />
+              </TabsContent>
+            </Tabs>
           </div>
         )}
       </div>

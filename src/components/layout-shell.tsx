@@ -7,7 +7,7 @@ import { AIChat } from "@/components/ai-chat";
 
 export function LayoutShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const isPortal = pathname.startsWith("/portal");
+  const isPortal = pathname.startsWith("/portal") || pathname.startsWith("/r/");
 
   if (isPortal) {
     return <>{children}</>;

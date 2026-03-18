@@ -4,31 +4,24 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import { useTheme } from "next-themes";
+import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { NAV_ITEMS } from "@/lib/constants";
 import {
-  LayoutDashboard,
+  Home,
   Briefcase,
-  CalendarDays,
-  Users,
-  Zap,
-  FileText,
-  Target,
-  TrendingUp,
-  Mail,
-  Inbox,
   Globe,
   Building2,
-  History,
   Menu,
   Sun,
   Moon,
   Monitor,
   Search,
+  TrendingUp,
   BarChart3,
   FolderOpen,
-  Clock,
-  ArrowDownUp,
+  BookOpen,
+  ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -40,36 +33,89 @@ import {
 import { NotificationBell } from "@/components/notification-bell";
 
 const iconMap: Record<string, React.ElementType> = {
-  LayoutDashboard,
+  Home,
   Building2,
-  History,
-  Briefcase,
-  CalendarDays,
-  Users,
-  Zap,
-  FileText,
-  Target,
+  Search,
   TrendingUp,
   BarChart3,
+  BookOpen,
   FolderOpen,
-  Clock,
-  ArrowDownUp,
-  Mail,
-  Inbox,
   Globe,
 };
 
 function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
+  const [jobsOpen, setJobsOpen] = useState(() => pathname.startsWith("/current-position"));
+
+  const { data: positions } = useQuery<{ id: string; company: string; role: string; isActive: boolean }[]>({
+    queryKey: ["positions"],
+    queryFn: () => fetch("/api/current-position").then((r) => r.json()),
+    staleTime: 60_000,
+  });
+  const activeJobs = positions?.filter((p) => p.isActive) ?? [];
 
   return (
-    <nav className="flex-1 space-y-1 p-3">
+    <nav className="flex-1 space-y-1 p-3 overflow-y-auto">
       {NAV_ITEMS.map((item) => {
         const Icon = iconMap[item.icon];
         const isActive =
           item.href === "/"
             ? pathname === "/"
             : pathname.startsWith(item.href);
+
+        // Jobs item gets accordion treatment
+        if (item.href === "/current-position") {
+          return (
+            <div key={item.href}>
+              <div className="flex items-center">
+                <Link
+                  href={item.href}
+                  onClick={onNavigate}
+                  className={cn(
+                    "flex flex-1 items-center gap-3 rounded-lg rounded-r-none px-3 py-2 text-sm font-medium transition-colors",
+                    isActive
+                      ? "bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300"
+                      : "text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200"
+                  )}
+                >
+                  {Icon && <Icon className="h-4 w-4" />}
+                  {item.label}
+                </Link>
+                {activeJobs.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setJobsOpen(!jobsOpen)}
+                    className={cn(
+                      "rounded-lg rounded-l-none px-2 py-2 transition-colors",
+                      isActive
+                        ? "bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300"
+                        : "text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300"
+                    )}
+                  >
+                    <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", jobsOpen ? "rotate-0" : "-rotate-90")} />
+                  </button>
+                )}
+              </div>
+              {jobsOpen && activeJobs.length > 0 && (
+                <div className="ml-7 mt-0.5 space-y-0.5 border-l pl-3">
+                  {activeJobs.map((job) => (
+                    <Link
+                      key={job.id}
+                      href="/current-position"
+                      onClick={onNavigate}
+                      className="block rounded-md px-2 py-1.5 text-xs text-muted-foreground hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-gray-800 dark:hover:text-gray-200 transition-colors truncate"
+                      title={`${job.role} at ${job.company}`}
+                    >
+                      <span className="font-medium text-foreground">{job.role}</span>
+                      <span className="text-muted-foreground"> · {job.company}</span>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        }
+
         return (
           <Link
             key={item.href}

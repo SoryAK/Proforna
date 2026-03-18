@@ -87,6 +87,8 @@ interface Position {
   otHoursA: number | null;
   otHoursB: number | null;
   otRate: number | null;
+  annualRaiseMin: number | null;
+  annualRaiseMax: number | null;
   estimatorSettings: string | null;
   createdAt: string;
 }
@@ -724,6 +726,8 @@ export default function ExperienceDetailPage({
             otHoursA={pos.otHoursA}
             otHoursB={pos.otHoursB}
             otRate={pos.otRate}
+            annualRaiseMin={pos.annualRaiseMin}
+            annualRaiseMax={pos.annualRaiseMax}
             estimatorSettings={pos.estimatorSettings}
           />
         </TabsContent>

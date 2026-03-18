@@ -4,25 +4,19 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import {
-  LayoutDashboard,
+  Home,
   Briefcase,
-  CalendarDays,
   Users,
   Zap,
-  FileText,
   Target,
   TrendingUp,
-  Mail,
-  Inbox,
   Globe,
   Building2,
-  History,
   Search,
   ArrowRight,
   BarChart3,
+  BookOpen,
   FolderOpen,
-  Clock,
-  ArrowDownUp,
 } from "lucide-react";
 import {
   CommandDialog,
@@ -36,23 +30,14 @@ import {
 } from "@/components/ui/command";
 
 const NAV_PAGES = [
-  { label: "Dashboard", href: "/", icon: LayoutDashboard },
-  { label: "Current Role", href: "/current-position", icon: Building2 },
-  { label: "Experience", href: "/experience", icon: History },
-  { label: "Applications", href: "/applications", icon: Briefcase },
-  { label: "Contacts", href: "/contacts", icon: Users },
-  { label: "Skills", href: "/skills", icon: Zap },
-  { label: "Resumes", href: "/resumes", icon: FileText },
-  { label: "Goals", href: "/goals", icon: Target },
-  { label: "Career Model", href: "/career-model", icon: TrendingUp },
-  { label: "Analytics", href: "/analytics", icon: BarChart3 },
-  { label: "Documents", href: "/documents", icon: FolderOpen },
-  { label: "Activity", href: "/activity", icon: Clock },
-  { label: "Import / Export", href: "/import-export", icon: ArrowDownUp },
-  { label: "Email", href: "/email", icon: Mail },
-  { label: "Submissions", href: "/submissions", icon: Inbox },
+  { label: "Home", href: "/", icon: Home },
+  { label: "Jobs", href: "/current-position", icon: Building2 },
+  { label: "Job Search", href: "/job-search", icon: Search },
+  { label: "Career Analytics", href: "/career-growth", icon: TrendingUp },
+  { label: "Insights", href: "/insights", icon: BarChart3 },
+  { label: "Research", href: "/research", icon: BookOpen },
+  { label: "Documents", href: "/docs", icon: FolderOpen },
   { label: "Portal Settings", href: "/portal-settings", icon: Globe },
-  { label: "Interviews", href: "/interviews", icon: CalendarDays },
 ];
 
 interface SearchResults {

@@ -3,11 +3,12 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Plus, MoreHorizontal, Pencil, Trash2, FileText, Check, Star } from "lucide-react";
+import { Plus, MoreHorizontal, Pencil, Trash2, FileText, Check, Star, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import InteractiveResumesManager from "@/components/interactive-resumes-manager";
 import {
   Dialog,
   DialogContent,
@@ -51,6 +52,7 @@ export default function ResumesPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
+  const [interactiveOpen, setInteractiveOpen] = useState(true);
 
   const { data: resumes = [], isLoading } = useQuery<Resume[]>({
     queryKey: ["resumes"],
@@ -241,6 +243,19 @@ export default function ResumesPage() {
             ))}
           </div>
         )}
+      </div>
+
+      {/* Interactive Resumes Section */}
+      <div className="border-t px-6 py-4">
+        <button
+          onClick={() => setInteractiveOpen(!interactiveOpen)}
+          className="flex items-center gap-2 w-full text-left mb-4"
+        >
+          <ChevronDown className={`h-4 w-4 transition-transform ${interactiveOpen ? "rotate-180" : ""}`} />
+          <h2 className="text-lg font-semibold">Interactive Resumes</h2>
+          <span className="text-xs text-muted-foreground">Shareable living resumes</span>
+        </button>
+        {interactiveOpen && <InteractiveResumesManager />}
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={(open) => !open && closeDialog()}>
