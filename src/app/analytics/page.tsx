@@ -92,9 +92,9 @@ export default function AnalyticsPage() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="border-b px-6 py-4">
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          <BarChart3 className="h-6 w-6" /> Analytics
+      <div className="border-b px-4 py-3">
+        <h1 className="text-xl font-bold flex items-center gap-2">
+          <BarChart3 className="h-5 w-5" /> Analytics
         </h1>
         <p className="text-sm text-muted-foreground">
           Job search performance &amp; insights
@@ -105,7 +105,7 @@ export default function AnalyticsPage() {
         {/* ── KPI Cards ── */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <StatCard
-            icon={<Target className="h-5 w-5 text-blue-600" />}
+            icon={<Target className="h-5 w-5 text-orange-600" />}
             label="Total Applications"
             value={data.total}
           />

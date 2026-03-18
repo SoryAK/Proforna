@@ -98,8 +98,8 @@ export default function ImportExportPage() {
   return (
     <div className="space-y-6 p-6">
       <div>
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          <ArrowDownToLine className="h-6 w-6 text-blue-600" />
+        <h1 className="text-xl font-bold flex items-center gap-2">
+          <ArrowDownToLine className="h-5 w-5 text-orange-600" />
           Import &amp; Export
         </h1>
         <p className="text-sm text-muted-foreground mt-1">

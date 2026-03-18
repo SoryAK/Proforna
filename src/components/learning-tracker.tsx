@@ -113,7 +113,7 @@ const STATUSES = [
 
 const STATUS_CONFIG: Record<string, { color: string; icon: typeof Play }> = {
   not_started: { color: "bg-gray-100 text-gray-700", icon: Pause },
-  in_progress: { color: "bg-blue-100 text-blue-700", icon: Play },
+  in_progress: { color: "bg-orange-100 text-orange-700", icon: Play },
   completed: { color: "bg-green-100 text-green-700", icon: CheckCircle2 },
   abandoned: { color: "bg-red-100 text-red-700", icon: XCircle },
 };
@@ -251,7 +251,7 @@ export default function LearningTracker() {
     return (
       <div className="space-y-4">
         <Skeleton className="h-24 w-full" />
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
           {[1, 2, 3].map((i) => (
             <Skeleton key={i} className="h-48 w-full" />
           ))}
@@ -272,7 +272,7 @@ export default function LearningTracker() {
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
-            <p className="text-2xl font-bold text-blue-600">{inProgress}</p>
+            <p className="text-2xl font-bold text-orange-600">{inProgress}</p>
             <p className="text-xs text-muted-foreground">In Progress</p>
           </CardContent>
         </Card>
@@ -333,7 +333,7 @@ export default function LearningTracker() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
           {filtered.map((item) => {
             const skills = parseJson<string[]>(item.skills, []);
             const tags = parseJson<string[]>(item.tags, []);
@@ -408,7 +408,7 @@ export default function LearningTracker() {
                         href={item.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center gap-1 text-blue-500 hover:underline"
+                        className="flex items-center gap-1 text-orange-500 hover:underline"
                       >
                         <ExternalLink className="h-3 w-3" /> Link
                       </a>

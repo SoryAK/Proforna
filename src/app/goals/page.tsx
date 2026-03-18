@@ -65,7 +65,7 @@ interface Goal {
 
 const statusStyle: Record<string, string> = {
   not_started: "bg-gray-100 text-gray-700",
-  in_progress: "bg-blue-100 text-blue-700",
+  in_progress: "bg-orange-100 text-orange-700",
   completed: "bg-green-100 text-green-700",
   abandoned: "bg-red-100 text-red-700",
 };
@@ -249,9 +249,9 @@ export default function GoalsPage() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b px-6 py-4">
+      <div className="flex flex-col gap-3 border-b px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Career Goals</h1>
+          <h1 className="text-xl font-bold">Career Goals</h1>
           <p className="text-sm text-muted-foreground">
             {goals.length} goals &middot;{" "}
             {goals.filter((g) => g.status === "completed").length} completed
@@ -262,7 +262,7 @@ export default function GoalsPage() {
         </Button>
       </div>
 
-      <div className="flex-1 overflow-auto p-6 space-y-4">
+      <div className="flex-1 overflow-auto p-4 space-y-4">
         {goals.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">No goals set yet</div>
         ) : (
@@ -407,7 +407,7 @@ export default function GoalsPage() {
           <DialogHeader>
             <DialogTitle>{editingId ? "Edit Goal" : "New Goal"}</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-3">
             <div>
               <Label>Title *</Label>
               <Input required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />

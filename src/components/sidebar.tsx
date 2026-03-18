@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import { useTheme } from "next-themes";
@@ -9,7 +10,6 @@ import { cn } from "@/lib/utils";
 import { NAV_ITEMS } from "@/lib/constants";
 import {
   Home,
-  Briefcase,
   Globe,
   Building2,
   Menu,
@@ -74,7 +74,7 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
                   className={cn(
                     "flex flex-1 items-center gap-3 rounded-lg rounded-r-none px-3 py-2 text-sm font-medium transition-colors",
                     isActive
-                      ? "bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300"
+                      ? "bg-orange-50 text-orange-700 dark:bg-orange-950 dark:text-orange-300"
                       : "text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200"
                   )}
                 >
@@ -88,7 +88,7 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
                     className={cn(
                       "rounded-lg rounded-l-none px-2 py-2 transition-colors",
                       isActive
-                        ? "bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300"
+                        ? "bg-orange-50 text-orange-700 dark:bg-orange-950 dark:text-orange-300"
                         : "text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300"
                     )}
                   >
@@ -124,7 +124,7 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
             className={cn(
               "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
               isActive
-                ? "bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300"
+                ? "bg-orange-50 text-orange-700 dark:bg-orange-950 dark:text-orange-300"
                 : "text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200"
             )}
           >
@@ -163,10 +163,10 @@ function ThemeToggle() {
 /** Desktop sidebar — hidden below md */
 export function Sidebar() {
   return (
-    <aside className="hidden md:flex h-full w-64 flex-col border-r bg-white dark:bg-gray-950">
-      <div className="flex h-14 items-center justify-between border-b px-4">
-        <Link href="/" className="flex items-center gap-2 font-semibold text-lg">
-          <Briefcase className="h-5 w-5 text-blue-600" />
+    <aside className="hidden md:flex h-full w-56 flex-col border-r bg-white dark:bg-gray-950">
+      <div className="flex h-16 items-center justify-between border-b px-4">
+        <Link href="/" className="flex items-center gap-2.5 font-semibold text-lg">
+          <Image src="/logo-icon.png" alt="Resumsify" width={32} height={32} className="h-8 w-8" />
           <span>Resumsify</span>
         </Link>
         <button
@@ -197,7 +197,7 @@ export function MobileHeader() {
   const [open, setOpen] = useState(false);
 
   return (
-    <header className="flex md:hidden h-14 items-center border-b bg-white dark:bg-gray-950 px-4 gap-3">
+    <header className="flex md:hidden h-16 items-center border-b bg-white dark:bg-gray-950 px-4 gap-3">
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetTrigger
           render={<Button variant="ghost" size="icon" />}
@@ -205,18 +205,18 @@ export function MobileHeader() {
           <Menu className="h-5 w-5" />
           <span className="sr-only">Open menu</span>
         </SheetTrigger>
-        <SheetContent side="left" className="w-64 p-0">
-          <div className="flex h-14 items-center border-b px-4">
-            <SheetTitle className="flex items-center gap-2 font-semibold text-lg">
-              <Briefcase className="h-5 w-5 text-blue-600" />
+        <SheetContent side="left" className="w-56 p-0">
+          <div className="flex h-16 items-center border-b px-4">
+            <SheetTitle className="flex items-center gap-2.5 font-semibold text-lg">
+              <Image src="/logo-icon.png" alt="Resumsify" width={32} height={32} className="h-8 w-8" />
               Resumsify
             </SheetTitle>
           </div>
           <NavLinks onNavigate={() => setOpen(false)} />
         </SheetContent>
       </Sheet>
-      <Link href="/" className="flex items-center gap-2 font-semibold text-lg">
-        <Briefcase className="h-5 w-5 text-blue-600" />
+      <Link href="/" className="flex items-center gap-2.5 font-semibold text-lg">
+        <Image src="/logo-icon.png" alt="Resumsify" width={32} height={32} className="h-8 w-8" />
         <span>Resumsify</span>
       </Link>
       <div className="ml-auto flex items-center gap-1">

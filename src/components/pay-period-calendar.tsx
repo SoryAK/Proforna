@@ -187,7 +187,7 @@ export function PayPeriodCalendar({
       <CardHeader className={compact ? "pb-2 px-4 pt-4" : "pb-2"}>
         <div className="flex items-center justify-between">
           <CardTitle className={compact ? "text-sm flex items-center gap-2" : "text-lg flex items-center gap-2"}>
-            <CalendarIcon className={compact ? "h-4 w-4 text-blue-600" : "h-5 w-5 text-blue-600"} />
+            <CalendarIcon className={compact ? "h-4 w-4 text-orange-600" : "h-5 w-5 text-orange-600"} />
             Pay Period Calendar
           </CardTitle>
           {!compact && data.payFrequency && (
@@ -208,10 +208,10 @@ export function PayPeriodCalendar({
           <div className={`rounded-lg border p-2.5 mb-3 flex items-center justify-between ${
             nextPaydayDays !== null && nextPaydayDays <= 3
               ? "bg-green-50 border-green-200 dark:bg-green-950/40 dark:border-green-800"
-              : "bg-blue-50 border-blue-200 dark:bg-blue-950/40 dark:border-blue-800"
+              : "bg-orange-50 border-orange-200 dark:bg-orange-950/40 dark:border-orange-800"
           }`}>
             <div className="flex items-center gap-2">
-              <DollarSign className={`h-4 w-4 ${nextPaydayDays !== null && nextPaydayDays <= 3 ? "text-green-600" : "text-blue-600"}`} />
+              <DollarSign className={`h-4 w-4 ${nextPaydayDays !== null && nextPaydayDays <= 3 ? "text-green-600" : "text-orange-600"}`} />
               <div>
                 <p className="text-xs font-medium">Next Payday</p>
                 <p className="text-sm font-bold font-mono">
@@ -221,7 +221,7 @@ export function PayPeriodCalendar({
             </div>
             <div className="text-right">
               {nextPaydayDays !== null && (
-                <p className={`text-sm font-bold ${nextPaydayDays <= 3 ? "text-green-600" : "text-blue-600"}`}>
+                <p className={`text-sm font-bold ${nextPaydayDays <= 3 ? "text-green-600" : "text-orange-600"}`}>
                   {nextPaydayDays === 0 ? "Today!" : nextPaydayDays === 1 ? "Tomorrow" : `${nextPaydayDays} days`}
                 </p>
               )}
@@ -239,7 +239,7 @@ export function PayPeriodCalendar({
           </Button>
           <button
             type="button"
-            className="text-sm font-semibold hover:text-blue-600 transition-colors"
+            className="text-sm font-semibold hover:text-orange-600 transition-colors"
             onClick={goToday}
           >
             {MONTH_NAMES[viewMonth]} {viewYear}
@@ -273,13 +273,13 @@ export function PayPeriodCalendar({
               if (isPayday) {
                 bg = "bg-emerald-500 text-white dark:bg-emerald-600";
               } else if (isCurrent && inPeriod) {
-                bg = "bg-blue-100 dark:bg-blue-900/40";
+                bg = "bg-orange-100 dark:bg-orange-900/40";
               } else if (inPeriod && hasPaycheck) {
                 bg = "bg-emerald-50 dark:bg-emerald-950/30";
               } else if (inPeriod && info?.isPast) {
                 bg = "bg-slate-100 dark:bg-slate-800/40";
               } else if (inPeriod) {
-                bg = "bg-blue-50 dark:bg-blue-950/20";
+                bg = "bg-orange-50 dark:bg-orange-950/20";
               }
 
               const cell = (
@@ -287,7 +287,7 @@ export function PayPeriodCalendar({
                   className={`
                     relative flex items-center justify-center rounded-md text-xs h-8
                     ${!inMonth ? "text-muted-foreground/30" : ""}
-                    ${isToday && !isPayday ? "ring-2 ring-blue-500 font-bold" : ""}
+                    ${isToday && !isPayday ? "ring-2 ring-orange-500 font-bold" : ""}
                     ${bg}
                     transition-colors
                   `}
@@ -309,7 +309,7 @@ export function PayPeriodCalendar({
                     <TooltipContent side="top" className="text-xs">
                       <p className="font-medium">{info.periodLabel}</p>
                       {isPayday && <p className="text-emerald-400">💰 Payday</p>}
-                      {isCurrent && <p className="text-blue-400">Current period</p>}
+                      {isCurrent && <p className="text-orange-400">Current period</p>}
                       {hasPaycheck && <p className="text-emerald-400">✓ Paycheck uploaded</p>}
                     </TooltipContent>
                   </Tooltip>
@@ -327,13 +327,13 @@ export function PayPeriodCalendar({
             <span className="inline-block h-2.5 w-2.5 rounded-sm bg-emerald-500" /> Payday
           </span>
           <span className="flex items-center gap-1">
-            <span className="inline-block h-2.5 w-2.5 rounded-sm bg-blue-100 dark:bg-blue-900/60" /> Current Period
+            <span className="inline-block h-2.5 w-2.5 rounded-sm bg-orange-100 dark:bg-orange-900/60" /> Current Period
           </span>
           <span className="flex items-center gap-1">
             <CheckCircle2 className="h-2.5 w-2.5 text-emerald-500" /> Uploaded
           </span>
           <span className="flex items-center gap-1">
-            <span className="inline-block h-2.5 w-2.5 rounded-sm ring-2 ring-blue-500" /> Today
+            <span className="inline-block h-2.5 w-2.5 rounded-sm ring-2 ring-orange-500" /> Today
           </span>
         </div>
       </CardContent>

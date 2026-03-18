@@ -51,7 +51,7 @@ const CATEGORIES = [
 
 const CATEGORY_COLORS: Record<string, string> = {
   offer_letter: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300",
-  cover_letter: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
+  cover_letter: "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300",
   certificate: "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300",
   contract: "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300",
   pay_stub: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300",
@@ -198,8 +198,8 @@ export default function DocumentsPage() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <FileText className="h-6 w-6 text-blue-600" />
+          <h1 className="text-xl font-bold flex items-center gap-2">
+            <FileText className="h-5 w-5 text-orange-600" />
             Documents
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
@@ -215,7 +215,7 @@ export default function DocumentsPage() {
       <div className="flex flex-wrap gap-2">
         <Badge
           variant="outline"
-          className={`cursor-pointer ${filterCat === "all" ? "ring-2 ring-blue-500" : ""}`}
+          className={`cursor-pointer ${filterCat === "all" ? "ring-2 ring-orange-500" : ""}`}
           onClick={() => setFilterCat("all")}
         >
           All ({stats.total})
@@ -225,7 +225,7 @@ export default function DocumentsPage() {
           .map((c) => (
             <Badge
               key={c.value}
-              className={`cursor-pointer ${CATEGORY_COLORS[c.value]} ${filterCat === c.value ? "ring-2 ring-blue-500" : ""}`}
+              className={`cursor-pointer ${CATEGORY_COLORS[c.value]} ${filterCat === c.value ? "ring-2 ring-orange-500" : ""}`}
               onClick={() => setFilterCat(c.value)}
             >
               {c.label} ({c.count})

@@ -26,13 +26,13 @@ export const metadata: Metadata = {
     title: "Resumsify",
   },
   icons: {
-    icon: "/icon-192.svg",
-    apple: "/icon-192.svg",
+    icon: "/logo-icon.png",
+    apple: "/logo-icon.png",
   },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#2563eb",
+  themeColor: "#e8740c",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,

@@ -125,7 +125,7 @@ const COMP_TYPES = [
 ];
 
 const TYPE_COLORS: Record<string, string> = {
-  base_salary: "bg-blue-100 text-blue-700",
+  base_salary: "bg-orange-100 text-orange-700",
   raise: "bg-green-100 text-green-700",
   bonus: "bg-amber-100 text-amber-700",
   signing_bonus: "bg-purple-100 text-purple-700",
@@ -493,10 +493,10 @@ export function CompensationTracker({ positionId, payType, payRate, differential
       <button
         type="button"
         onClick={() => setSectionPay(!sectionPay)}
-        className="w-full flex items-center justify-between rounded-lg border bg-card px-4 py-3 text-left hover:bg-accent/50 transition-colors"
+        className="w-full flex items-center justify-between rounded-lg border bg-card px-3 py-2 text-left hover:bg-accent/50 transition-colors"
       >
-        <div className="flex items-center gap-3">
-          <div className="rounded-lg p-2 bg-blue-50"><DollarSign className="h-4 w-4 text-blue-600" /></div>
+        <div className="flex items-center gap-2.5">
+          <div className="rounded-lg p-1.5 bg-orange-50"><DollarSign className="h-3.5 w-3.5 text-orange-600" /></div>
           <div>
             <p className="text-sm font-semibold">Pay Overview</p>
             <p className="text-xs text-muted-foreground">
@@ -512,14 +512,14 @@ export function CompensationTracker({ positionId, payType, payRate, differential
       </button>
 
       {sectionPay && (
-        <div className="space-y-4 pl-1">
+        <div className="space-y-3 pl-1">
       {/* Upload Paycheck */}
       <Card>
-        <CardContent className="p-4">
+        <CardContent className="p-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="rounded-lg p-2.5 bg-violet-50">
-                <FileText className="h-4 w-4 text-violet-600" />
+            <div className="flex items-center gap-2.5">
+              <div className="rounded-lg p-2 bg-violet-50">
+                <FileText className="h-3.5 w-3.5 text-violet-600" />
               </div>
               <div>
                 <p className="text-sm font-semibold">Upload Paycheck</p>
@@ -558,9 +558,9 @@ export function CompensationTracker({ positionId, payType, payRate, differential
       <div className="grid gap-3 sm:grid-cols-3">
         {payType === "hourly" && baseRateNum > 0 ? (
           <Card>
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="rounded-lg p-2.5 bg-blue-50">
-                <DollarSign className="h-4 w-4 text-blue-600" />
+            <CardContent className="p-3 flex items-center gap-3">
+              <div className="rounded-lg p-2 bg-orange-50">
+                <DollarSign className="h-3.5 w-3.5 text-orange-600" />
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Total Hourly Pay</p>
@@ -570,9 +570,9 @@ export function CompensationTracker({ positionId, payType, payRate, differential
           </Card>
         ) : (
           <Card>
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="rounded-lg p-2.5 bg-blue-50">
-                <DollarSign className="h-4 w-4 text-blue-600" />
+            <CardContent className="p-3 flex items-center gap-3">
+              <div className="rounded-lg p-2 bg-orange-50">
+                <DollarSign className="h-3.5 w-3.5 text-orange-600" />
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Current Salary</p>
@@ -588,9 +588,9 @@ export function CompensationTracker({ positionId, payType, payRate, differential
           </Card>
         )}
         <Card>
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="rounded-lg p-2.5 bg-amber-50">
-              <TrendingUp className="h-4 w-4 text-amber-600" />
+          <CardContent className="p-3 flex items-center gap-3">
+            <div className="rounded-lg p-2 bg-amber-50">
+              <TrendingUp className="h-3.5 w-3.5 text-amber-600" />
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Total Bonuses</p>
@@ -603,9 +603,9 @@ export function CompensationTracker({ positionId, payType, payRate, differential
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="rounded-lg p-2.5 bg-indigo-50">
-              <ArrowUpRight className="h-4 w-4 text-indigo-600" />
+          <CardContent className="p-3 flex items-center gap-3">
+            <div className="rounded-lg p-2 bg-indigo-50">
+              <ArrowUpRight className="h-3.5 w-3.5 text-indigo-600" />
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Total Events</p>
@@ -619,8 +619,8 @@ export function CompensationTracker({ positionId, payType, payRate, differential
       {payType === "hourly" && baseRateNum > 0 && (
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Layers className="h-4 w-4" />
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Layers className="h-3.5 w-3.5" />
               Rate Breakdown
             </CardTitle>
           </CardHeader>
@@ -653,10 +653,10 @@ export function CompensationTracker({ positionId, payType, payRate, differential
       <button
         type="button"
         onClick={() => setSectionEstimator(!sectionEstimator)}
-        className="w-full flex items-center justify-between rounded-lg border bg-card px-4 py-3 text-left hover:bg-accent/50 transition-colors"
+        className="w-full flex items-center justify-between rounded-lg border bg-card px-3 py-2 text-left hover:bg-accent/50 transition-colors"
       >
-        <div className="flex items-center gap-3">
-          <div className="rounded-lg p-2 bg-emerald-50"><Calculator className="h-4 w-4 text-emerald-600" /></div>
+        <div className="flex items-center gap-2.5">
+          <div className="rounded-lg p-1.5 bg-emerald-50"><Calculator className="h-3.5 w-3.5 text-emerald-600" /></div>
           <div>
             <p className="text-sm font-semibold">Income Estimator</p>
             <p className="text-xs text-muted-foreground">
@@ -669,13 +669,13 @@ export function CompensationTracker({ positionId, payType, payRate, differential
       </button>
 
       {sectionEstimator && (
-        <div className="space-y-4 pl-1">
+        <div className="space-y-3 pl-1">
       {/* Yearly Compensation Estimator */}
       <Card>
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Calculator className="h-4 w-4" />
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Calculator className="h-3.5 w-3.5" />
               Yearly Compensation Estimate
             </CardTitle>
             {payType === "hourly" && (
@@ -772,7 +772,7 @@ export function CompensationTracker({ positionId, payType, payRate, differential
             {payType === "hourly" && est.ot1Pay > 0 && (
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">OT1 ({ot1Rate}× · {ot1Hrs}hrs/wk)</span>
-                <span className="font-mono font-medium text-blue-600">
+                <span className="font-mono font-medium text-orange-600">
                   +${est.ot1Pay.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                 </span>
               </div>
@@ -780,7 +780,7 @@ export function CompensationTracker({ positionId, payType, payRate, differential
             {payType === "hourly" && est.ot2Pay > 0 && (
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">OT2 ({ot2Rate}× · {ot2Hrs}hrs/wk)</span>
-                <span className="font-mono font-medium text-blue-600">
+                <span className="font-mono font-medium text-orange-600">
                   +${est.ot2Pay.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                 </span>
               </div>
@@ -831,7 +831,7 @@ export function CompensationTracker({ positionId, payType, payRate, differential
             </div>
             {showRotatingBreakdown && payFrequency === "weekly" && (
               <>
-                <div className="flex justify-between text-sm pl-3 border-l-2 border-blue-200">
+                <div className="flex justify-between text-sm pl-3 border-l-2 border-orange-200">
                   <span className="text-muted-foreground">Schedule A Week</span>
                   <span className="font-mono font-medium">
                     ${weeklyGrossA.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -846,7 +846,7 @@ export function CompensationTracker({ positionId, payType, payRate, differential
               </>
             )}
             {showRotatingBreakdown && payFrequency === "biweekly" && (
-              <p className="text-xs text-muted-foreground pl-3 border-l-2 border-blue-200">
+              <p className="text-xs text-muted-foreground pl-3 border-l-2 border-orange-200">
                 Each paycheck covers 1 Schedule A week + 1 Schedule B week
               </p>
             )}
@@ -862,8 +862,8 @@ export function CompensationTracker({ positionId, payType, payRate, differential
       <Card>
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Receipt className="h-4 w-4" />
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Receipt className="h-3.5 w-3.5" />
               Take-Home Estimate
             </CardTitle>
             <Button size="sm" variant="outline" onClick={() => setShowTakeHome(!showTakeHome)}>
@@ -912,7 +912,7 @@ export function CompensationTracker({ positionId, payType, payRate, differential
             </div>
             {showRotatingBreakdown && payFrequency === "weekly" && (
               <>
-                <div className="flex justify-between text-sm pl-3 border-l-2 border-blue-200">
+                <div className="flex justify-between text-sm pl-3 border-l-2 border-orange-200">
                   <span className="text-muted-foreground">Schedule A Gross</span>
                   <span className="font-mono font-medium">
                     ${weeklyGrossA.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -977,7 +977,7 @@ export function CompensationTracker({ positionId, payType, payRate, differential
                         ${netPerPaycheck.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
                     </div>
-                    <div className="flex justify-between text-sm pl-3 border-l-2 border-blue-200">
+                    <div className="flex justify-between text-sm pl-3 border-l-2 border-orange-200">
                       <span className="text-muted-foreground">Schedule A Net</span>
                       <span className="font-mono font-semibold text-green-600">
                         ${computeNet(weeklyGrossA).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -1026,8 +1026,8 @@ export function CompensationTracker({ positionId, payType, payRate, differential
       {/* Annual Raise Range */}
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-lg flex items-center gap-2">
-            <TrendingUp className="h-4 w-4" />
+          <CardTitle className="text-sm flex items-center gap-2">
+            <TrendingUp className="h-3.5 w-3.5" />
             Annual Raise Range
           </CardTitle>
         </CardHeader>
@@ -1078,10 +1078,10 @@ export function CompensationTracker({ positionId, payType, payRate, differential
       <button
         type="button"
         onClick={() => setSectionHistory(!sectionHistory)}
-        className="w-full flex items-center justify-between rounded-lg border bg-card px-4 py-3 text-left hover:bg-accent/50 transition-colors"
+        className="w-full flex items-center justify-between rounded-lg border bg-card px-3 py-2 text-left hover:bg-accent/50 transition-colors"
       >
-        <div className="flex items-center gap-3">
-          <div className="rounded-lg p-2 bg-amber-50"><Layers className="h-4 w-4 text-amber-600" /></div>
+        <div className="flex items-center gap-2.5">
+          <div className="rounded-lg p-1.5 bg-amber-50"><Layers className="h-3.5 w-3.5 text-amber-600" /></div>
           <div>
             <p className="text-sm font-semibold">Compensation History</p>
             <p className="text-xs text-muted-foreground">
@@ -1099,11 +1099,11 @@ export function CompensationTracker({ positionId, payType, payRate, differential
       </button>
 
       {sectionHistory && (
-        <div className="space-y-4 pl-1">
+        <div className="space-y-3 pl-1">
       <Card>
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-lg">Compensation History</CardTitle>
+            <CardTitle className="text-sm">Compensation History</CardTitle>
             <Button size="sm" onClick={() => { resetForm(); setShowForm(true); }}>
               <Plus className="h-3.5 w-3.5 mr-1" />
               Add
@@ -1112,9 +1112,9 @@ export function CompensationTracker({ positionId, payType, payRate, differential
         </CardHeader>
         <CardContent>
           {events.length === 0 ? (
-            <div className="text-center py-8">
-              <DollarSign className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-              <p className="text-sm text-muted-foreground">No compensation events yet</p>
+            <div className="text-center py-4">
+              <DollarSign className="h-6 w-6 text-muted-foreground mx-auto mb-1.5" />
+              <p className="text-xs text-muted-foreground">No compensation events yet</p>
               <Button
                 variant="outline"
                 size="sm"

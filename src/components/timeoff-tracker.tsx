@@ -62,7 +62,7 @@ interface TimeOffBalance {
 }
 
 const CATEGORIES = [
-  { value: "pto", label: "PTO", icon: Palmtree, color: "text-blue-600", bg: "bg-blue-50" },
+  { value: "pto", label: "PTO", icon: Palmtree, color: "text-orange-600", bg: "bg-orange-50" },
   { value: "sick", label: "Sick Leave", icon: Thermometer, color: "text-red-600", bg: "bg-red-50" },
   { value: "personal", label: "Personal", icon: Clock, color: "text-purple-600", bg: "bg-purple-50" },
   { value: "holiday", label: "Holiday", icon: PartyPopper, color: "text-amber-600", bg: "bg-amber-50" },
@@ -72,7 +72,7 @@ const CATEGORIES = [
 ];
 
 const STATUS_COLORS: Record<string, string> = {
-  planned: "bg-blue-100 text-blue-700",
+  planned: "bg-orange-100 text-orange-700",
   approved: "bg-green-100 text-green-700",
   taken: "bg-gray-100 text-gray-700",
   cancelled: "bg-red-100 text-red-700",
@@ -244,8 +244,8 @@ export function TimeOffTracker({ positionId }: { positionId: string }) {
       <div className="grid gap-3 sm:grid-cols-3">
         <Card>
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="rounded-lg p-2.5 bg-blue-50">
-              <Calendar className="h-4 w-4 text-blue-600" />
+            <div className="rounded-lg p-2.5 bg-orange-50">
+              <Calendar className="h-4 w-4 text-orange-600" />
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Total Days</p>

@@ -110,11 +110,11 @@ export default function SubmissionsPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          <Inbox className="h-6 w-6" />
+        <h1 className="text-xl font-bold flex items-center gap-2">
+          <Inbox className="h-5 w-5" />
           Recruiter Submissions
           {newCount > 0 && (
-            <Badge className="bg-blue-600 text-white ml-2">{newCount} new</Badge>
+            <Badge className="bg-orange-600 text-white ml-2">{newCount} new</Badge>
           )}
         </h1>
         <p className="text-gray-500 text-sm mt-1">
@@ -163,7 +163,7 @@ export default function SubmissionsPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
           {filtered.map((sub) => (
             <Card
               key={sub.id}
@@ -256,7 +256,7 @@ export default function SubmissionsPage() {
                     href={selectedSubmission.linkedinUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-2 text-sm text-blue-600 hover:underline"
+                    className="flex items-center gap-2 text-sm text-orange-600 hover:underline"
                   >
                     <LinkIcon className="h-3.5 w-3.5" />
                     LinkedIn Profile
@@ -309,17 +309,17 @@ export default function SubmissionsPage() {
 
               {/* Auto-created links */}
               {(selectedSubmission.contactId || selectedSubmission.applicationId) && (
-                <div className="rounded-lg bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 p-4 space-y-1">
-                  <h4 className="text-sm font-semibold text-blue-800 dark:text-blue-200">
+                <div className="rounded-lg bg-orange-50 dark:bg-orange-950 border border-orange-200 dark:border-orange-800 p-4 space-y-1">
+                  <h4 className="text-sm font-semibold text-orange-800 dark:text-orange-200">
                     Auto-imported
                   </h4>
                   {selectedSubmission.contactId && (
-                    <p className="text-xs text-blue-600 dark:text-blue-400">
+                    <p className="text-xs text-orange-600 dark:text-orange-400">
                       Contact added to your contacts list
                     </p>
                   )}
                   {selectedSubmission.applicationId && (
-                    <p className="text-xs text-blue-600 dark:text-blue-400">
+                    <p className="text-xs text-orange-600 dark:text-orange-400">
                       Application added to your applications (Wishlist)
                     </p>
                   )}

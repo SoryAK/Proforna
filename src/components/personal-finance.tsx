@@ -113,7 +113,7 @@ interface Props {
 /* ── Expense categories ── */
 
 const EXPENSE_FIELDS: { key: keyof MonthlyExpenses; label: string; icon: React.ElementType; color: string }[] = [
-  { key: "rent", label: "Rent / Mortgage", icon: Home, color: "text-blue-600" },
+  { key: "rent", label: "Rent / Mortgage", icon: Home, color: "text-orange-600" },
   { key: "utilities", label: "Utilities", icon: Wifi, color: "text-cyan-600" },
   { key: "car", label: "Car Payment", icon: Car, color: "text-indigo-600" },
   { key: "carInsurance", label: "Car Insurance", icon: Car, color: "text-violet-600" },

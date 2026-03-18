@@ -84,7 +84,7 @@ const proficiencyPercent: Record<string, number> = {
 
 const proficiencyColor: Record<string, string> = {
   beginner: "bg-gray-400",
-  intermediate: "bg-blue-500",
+  intermediate: "bg-orange-500",
   advanced: "bg-indigo-500",
   expert: "bg-emerald-500",
 };

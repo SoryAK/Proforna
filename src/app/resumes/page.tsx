@@ -166,9 +166,9 @@ export default function ResumesPage() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b px-6 py-4">
+      <div className="flex flex-col gap-3 border-b px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Resumes</h1>
+          <h1 className="text-xl font-bold">Resumes</h1>
           <p className="text-sm text-muted-foreground">
             {resumes.length} versions{active && ` · Active: ${active.name}`}
           </p>
@@ -178,13 +178,13 @@ export default function ResumesPage() {
         </Button>
       </div>
 
-      <div className="flex-1 overflow-auto p-6">
+      <div className="flex-1 overflow-auto p-4">
         {resumes.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">No resume versions yet</div>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
             {resumes.map((r) => (
-              <Card key={r.id} className={r.isActive ? "ring-2 ring-blue-500" : ""}>
+              <Card key={r.id} className={r.isActive ? "ring-2 ring-orange-500" : ""}>
                 <CardHeader className="pb-2">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-2">
@@ -196,7 +196,7 @@ export default function ResumesPage() {
                     </div>
                     <div className="flex items-center gap-1">
                       {r.isActive && (
-                        <Badge className="bg-blue-100 text-blue-700 text-xs">
+                        <Badge className="bg-orange-100 text-orange-700 text-xs">
                           <Check className="mr-1 h-3 w-3" /> Active
                         </Badge>
                       )}
@@ -246,7 +246,7 @@ export default function ResumesPage() {
       </div>
 
       {/* Interactive Resumes Section */}
-      <div className="border-t px-6 py-4">
+      <div className="border-t px-4 py-3">
         <button
           onClick={() => setInteractiveOpen(!interactiveOpen)}
           className="flex items-center gap-2 w-full text-left mb-4"

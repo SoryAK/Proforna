@@ -38,49 +38,13 @@ Track incremental UI/UX refinements. Work through these one at a time.
 
 ## 🟡 Medium Priority
 
-### 4. Career Model — paycheck history takes too much space
-- **Problem:** Upload history expands inline and pushes other content down.
-- **Ideas:**
-  - Move history to a slide-out sheet or modal instead of inline expansion
-  - Limit visible rows to 3 with "View all" link
-
-### 5. Consistent card sizing across pages
-- **Problem:** No max-height or standard sizing for cards — some are 3x taller than others.
-- **Ideas:**
-  - Establish small/medium/large card height guidelines
-  - Use `max-h-[X]` with `overflow-auto` for content-heavy cards
-  - Standardize card header sizes
-
-### 6. Mobile responsiveness — cards don't adapt well to small screens
-- **Ideas:**
-  - Stack columns on mobile
-  - Hide secondary info on small screens
-  - Full-width cards with reduced padding on mobile
+*All completed — see ✅ section below.*
 
 ---
 
 ## 🟢 Low Priority / Polish
 
-### 7. Empty states are too large
-- **Problem:** Empty state placeholders (icons + text) use the same padding as populated cards.
-- **Ideas:**
-  - Reduce empty state height
-  - Use inline "Add X" prompts instead of full card bodies
-
-### 8. Sidebar visual weight
-- **Ideas:**
-  - Slim down sidebar width slightly
-  - Collapse to icons-only on medium screens
-
-### 9. Form dialogs — inputs feel spaced out
-- **Ideas:**
-  - Tighten gap between form fields
-  - Use 2-column layouts for short fields (dates, numbers)
-
-### 10. Data tables — row density
-- **Ideas:**
-  - Compact row height for applications/contacts/interviews tables
-  - Hover-reveal actions instead of always-visible buttons
+*All completed — see ✅ section below.*
 
 ---
 
@@ -105,7 +69,59 @@ Track incremental UI/UX refinements. Work through these one at a time.
 
 ## ✅ Completed
 
-_None yet — move items here as they are done._
+### 1. Dashboard layout — revisit section design
+- Tightened root spacing `space-y-6` → `space-y-4`
+- Compact profile header: banner `h-24` → `h-20`, avatar `h-20 w-20` → `h-16 w-16`, padding `px-6 pb-5` → `px-5 pb-4`
+
+### 2. Card density — reduce oversized cards across pages
+- Jobs page company header: banner `h-32` → `h-20`, logo `h-24 w-24` → `h-16 w-16`, padding `px-6 pb-6` → `px-4 pb-4`
+- Jobs page text: company `text-2xl` → `text-xl`, role `text-lg` → `text-sm`
+- Quick Facts pills: `px-3 py-2` → `px-2.5 py-1.5`, icons `h-4 w-4` → `h-3.5 w-3.5`
+- Profile tab card titles: `text-lg` → `text-sm`, padding standardized to `pb-1 pt-3 px-4` / `px-4 pb-3`
+- Details sidebar: replaced verbose Separator-heavy layout with compact `divide-y` grid (`py-1.5` rows)
+- Responsibilities: `text-sm space-y-2.5` → `text-xs space-y-1.5`
+
+### 2. Dashboard — too many full-width cards stacked vertically
+- Already compact from collapsible sections + multi-column grids; tightened further with `space-y-4`
+
+### 3. Current Position — compensation tab is very long
+- Section toggles: `px-4 py-3` → `px-3 py-2`, icon containers `p-2` → `p-1.5`
+- Inner expanded spacing: `space-y-4` → `space-y-3`
+- Summary cards: `p-4` → `p-3`, icon containers `p-2.5` → `p-2`
+- All card titles: `text-lg` → `text-sm`
+- Empty state: `py-8` → `py-4`, icon `h-8` → `h-6`
+- PaycheckTools toggle: same compaction as other toggles
+
+### 7. Empty states are too large
+- Jobs empty state: banner `h-32` → `h-20`, `py-16` → `py-10`, logo `h-20 w-20` → `h-14 w-14`
+- Compensation history empty: `py-8` → `py-4`, icon `h-8` → `h-6`
+
+### 4. Career Model — paycheck history takes too much space
+- Income History card title: `text-lg` → `text-sm`
+- Empty state: `py-12` → `py-6`, icon `h-10 w-10` → `h-6 w-6`
+- Table container: added `max-h-[420px] overflow-auto` for scroll containment
+
+### 5. Consistent card sizing across pages
+- Grid gaps: `gap-4` → `gap-3` on all card grid layouts (learning-tracker, submissions, resumes, skills, contacts)
+
+### 6. Mobile responsiveness
+- All page headers: `flex items-center justify-between` → `flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between`
+- Search inputs: `w-64` → `w-48 sm:w-64` for mobile fit
+- Action buttons: `gap-3` → `gap-2` + `flex-wrap` for overflow handling
+- Content padding: `p-6` → `p-4` on goals, resumes, applications, contacts
+
+### 8. Sidebar visual weight
+- Desktop sidebar: `w-64` (256px) → `w-56` (224px)
+- Mobile sheet: `w-64` → `w-56`
+
+### 9. Form dialogs — inputs feel spaced out
+- All form dialogs (applications, contacts, goals, skills, certifications): `space-y-4` → `space-y-3`
+- Grid gaps in forms: `gap-4` → `gap-3` (2-col and 3-col layouts)
+
+### 10. Data tables — row density
+- All page titles: `text-2xl` → `text-xl` across 13 pages
+- Page header bars: `px-6 py-4` → `px-4 py-3` on applications, contacts, skills, goals, resumes, analytics
+- Header icons: `h-6 w-6` → `h-5 w-5` on analytics, career-model, documents, activity, submissions, import-export
 
 ---
 

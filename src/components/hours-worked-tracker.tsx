@@ -104,7 +104,7 @@ function StatCard({
   accent?: "blue" | "orange" | "green" | "purple";
 }) {
   const colors = {
-    blue: "text-blue-600 dark:text-blue-400",
+    blue: "text-orange-600 dark:text-orange-400",
     orange: "text-orange-600 dark:text-orange-400",
     green: "text-green-600 dark:text-green-400",
     purple: "text-purple-600 dark:text-purple-400",

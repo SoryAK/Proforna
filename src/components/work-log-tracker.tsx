@@ -77,7 +77,7 @@ const CATEGORIES: Record<
   task: {
     label: "Task",
     icon: ClipboardList,
-    color: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
+    color: "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300",
   },
   project: {
     label: "Project",
@@ -126,7 +126,7 @@ const IMPACT_LABELS: Record<string, { label: string; color: string }> = {
   },
   medium: {
     label: "Medium",
-    color: "bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-400",
+    color: "bg-orange-100 text-orange-600 dark:bg-orange-900 dark:text-orange-400",
   },
   high: {
     label: "High",
@@ -298,7 +298,7 @@ export function WorkLogTracker({ positionId }: { positionId: string }) {
           {/* Stats row */}
           <div className="flex flex-wrap gap-3 mb-3">
             <div className="flex items-center gap-1.5 text-xs">
-              <Clock className="h-3.5 w-3.5 text-blue-500" />
+              <Clock className="h-3.5 w-3.5 text-orange-500" />
               <span className="text-muted-foreground">This week:</span>
               <span className="font-semibold">{weekHours.toFixed(1)}h</span>
               <span className="text-muted-foreground">

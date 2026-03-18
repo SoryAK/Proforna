@@ -168,7 +168,7 @@ export default function PortalPage() {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950">
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-indigo-50 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950">
       {/* Header */}
       <header className="border-b bg-white/80 backdrop-blur dark:bg-gray-950/80">
         <div className="container mx-auto max-w-4xl px-6 py-6">
@@ -206,22 +206,22 @@ export default function PortalPage() {
                   </span>
                 )}
                 {portal.email && (
-                  <a href={`mailto:${portal.email}`} className="flex items-center gap-1 hover:text-blue-600 transition-colors">
+                  <a href={`mailto:${portal.email}`} className="flex items-center gap-1 hover:text-orange-600 transition-colors">
                     <Mail className="h-3.5 w-3.5" /> {portal.email}
                   </a>
                 )}
                 {portal.linkedinUrl && (
-                  <a href={portal.linkedinUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:text-blue-600 transition-colors">
+                  <a href={portal.linkedinUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:text-orange-600 transition-colors">
                     <ExternalLink className="h-3.5 w-3.5" /> LinkedIn
                   </a>
                 )}
                 {portal.githubUrl && (
-                  <a href={portal.githubUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:text-blue-600 transition-colors">
+                  <a href={portal.githubUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:text-orange-600 transition-colors">
                     <ExternalLink className="h-3.5 w-3.5" /> GitHub
                   </a>
                 )}
                 {portal.portfolioUrl && (
-                  <a href={portal.portfolioUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:text-blue-600 transition-colors">
+                  <a href={portal.portfolioUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:text-orange-600 transition-colors">
                     <ExternalLink className="h-3.5 w-3.5" /> Portfolio
                   </a>
                 )}
@@ -237,7 +237,7 @@ export default function PortalPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-blue-600" />
+                <Sparkles className="h-5 w-5 text-orange-600" />
                 About the Candidate
               </CardTitle>
             </CardHeader>
@@ -354,7 +354,7 @@ export default function PortalPage() {
                           </span>
                           <div className="flex-1 h-2 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
                             <div
-                              className={`h-full bg-blue-500 rounded-full ${
+                              className={`h-full bg-orange-500 rounded-full ${
                                 proficiencyWidth[skill.proficiency] || "w-1/2"
                               }`}
                             />
@@ -444,7 +444,7 @@ export default function PortalPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Send className="h-5 w-5 text-blue-600" />
+                <Send className="h-5 w-5 text-orange-600" />
                 Submit an Opportunity
               </CardTitle>
               <p className="text-sm text-gray-500">

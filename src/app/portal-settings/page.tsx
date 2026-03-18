@@ -228,7 +228,7 @@ export default function PortalSettingsPage() {
       </div>
 
       {/* Portal Link */}
-      <Card className="border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/50">
+      <Card className="border-orange-200 dark:border-orange-800 bg-orange-50/50 dark:bg-orange-950/50">
         <CardContent className="py-4">
           <div className="flex items-center gap-3">
             <div className="flex-1">

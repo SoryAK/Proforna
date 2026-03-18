@@ -61,7 +61,7 @@ const emptyForm = {
 };
 
 const relationshipColors: Record<string, string> = {
-  recruiter: "bg-blue-100 text-blue-700",
+  recruiter: "bg-orange-100 text-orange-700",
   referral: "bg-purple-100 text-purple-700",
   colleague: "bg-green-100 text-green-700",
   mentor: "bg-amber-100 text-amber-700",
@@ -176,17 +176,17 @@ export default function ContactsPage() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b px-6 py-4">
+      <div className="flex flex-col gap-3 border-b px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Contacts</h1>
+          <h1 className="text-xl font-bold">Contacts</h1>
           <p className="text-sm text-muted-foreground">{contacts.length} contacts</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <Input
             placeholder="Search name or company..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-64"
+            className="w-48 sm:w-64"
           />
           <Button onClick={() => setDialogOpen(true)}>
             <Plus className="mr-2 h-4 w-4" /> Add Contact
@@ -194,11 +194,11 @@ export default function ContactsPage() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-auto p-6">
+      <div className="flex-1 overflow-auto p-4">
         {filtered.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">No contacts found</div>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
             {filtered.map((c) => (
               <Card key={c.id}>
                 <CardContent className="p-4">
@@ -280,12 +280,12 @@ export default function ContactsPage() {
           <DialogHeader>
             <DialogTitle>{editingId ? "Edit Contact" : "Add Contact"}</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-3">
             <div>
               <Label>Name *</Label>
               <Input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>Email</Label>
                 <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
@@ -295,7 +295,7 @@ export default function ContactsPage() {
                 <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>Company</Label>
                 <Input value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} />
@@ -309,7 +309,7 @@ export default function ContactsPage() {
               <Label>LinkedIn URL</Label>
               <Input type="url" value={form.linkedinUrl} onChange={(e) => setForm({ ...form, linkedinUrl: e.target.value })} />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>Relationship</Label>
                 <Select value={form.relationship} onValueChange={(v) => setForm({ ...form, relationship: v ?? form.relationship })}>

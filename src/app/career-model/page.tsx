@@ -953,8 +953,8 @@ export default function CareerModelPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <BarChart3 className="h-6 w-6 text-blue-600" />
+          <h1 className="text-xl font-bold flex items-center gap-2">
+            <BarChart3 className="h-5 w-5 text-orange-600" />
             Career Financial Model
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
@@ -965,10 +965,10 @@ export default function CareerModelPage() {
 
       {/* ── Live Current Year Card ── */}
       {liveEstimate && !hasManualCurrentYear && liveEstimate.grossIncome > 0 && (
-        <Card className="border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/50">
+        <Card className="border-orange-200 dark:border-orange-800 bg-orange-50/50 dark:bg-orange-950/50">
           <CardHeader className="pb-2">
             <CardTitle className="text-lg flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-blue-600" />
+              <TrendingUp className="h-5 w-5 text-orange-600" />
               {liveEstimate.year} Live Estimate
               <Badge variant="secondary" className="text-[10px] py-0">LIVE</Badge>
             </CardTitle>
@@ -1400,7 +1400,7 @@ export default function CareerModelPage() {
             </ResponsiveContainer>
             <div className="flex flex-wrap gap-4 mt-3 text-xs text-muted-foreground">
               <span className="flex items-center gap-1.5">
-                <span className="h-2 w-4 rounded bg-blue-500" /> Gross Income
+                <span className="h-2 w-4 rounded bg-orange-500" /> Gross Income
               </span>
               <span className="flex items-center gap-1.5">
                 <span className="h-2 w-4 rounded bg-emerald-500" /> Net Income (AGI)
@@ -1416,7 +1416,7 @@ export default function CareerModelPage() {
                     <span className="h-2 w-4 rounded bg-emerald-500 opacity-50" /> Conservative ({pct(projections.rates.conservative)})
                   </span>
                   <span className="flex items-center gap-1.5">
-                    <span className="h-2 w-4 rounded bg-blue-500 opacity-70" /> Realistic ({pct(projections.rates.realistic)})
+                    <span className="h-2 w-4 rounded bg-orange-500 opacity-70" /> Realistic ({pct(projections.rates.realistic)})
                   </span>
                   <span className="flex items-center gap-1.5">
                     <span className="h-2 w-4 rounded bg-purple-500 opacity-50" /> Optimistic ({pct(projections.rates.optimistic)})
@@ -1481,7 +1481,7 @@ export default function CareerModelPage() {
           <Card>
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-lg">Income History</CardTitle>
+                <CardTitle className="text-sm">Income History</CardTitle>
                 <div className="flex gap-2">
                   <Button size="sm" variant="outline" onClick={() => w2InputRef.current?.click()}>
                     <Upload className="h-4 w-4 mr-1" /> Import W-2
@@ -1501,8 +1501,8 @@ export default function CareerModelPage() {
             </CardHeader>
             <CardContent>
               {yearlyChanges.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground">
-                  <DollarSign className="h-10 w-10 mx-auto mb-3 opacity-40" />
+                <div className="text-center py-6 text-muted-foreground">
+                  <DollarSign className="h-6 w-6 mx-auto mb-2 opacity-40" />
                   <p className="text-sm">No income data yet.</p>
                   <p className="text-xs mt-1">Add your first year to start building your career model.</p>
                   <Button size="sm" variant="outline" className="mt-4" onClick={openAddIncome}>
@@ -1510,7 +1510,7 @@ export default function CareerModelPage() {
                   </Button>
                 </div>
               ) : (
-                <div className="rounded-md border">
+                <div className="rounded-md border max-h-[420px] overflow-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -1627,11 +1627,11 @@ export default function CareerModelPage() {
                         ))}
                         {/* W-2 record history */}
                         {y.w2Records && y.w2Records.length > 0 && (
-                          <TableRow className="bg-blue-50/40 dark:bg-blue-950/20">
+                          <TableRow className="bg-orange-50/40 dark:bg-orange-950/20">
                             <TableCell colSpan={7} className="py-2 px-4">
                               <button
                                 type="button"
-                                className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 transition-colors font-medium"
+                                className="flex items-center gap-1 text-xs text-orange-600 dark:text-orange-400 hover:text-orange-800 dark:hover:text-orange-200 transition-colors font-medium"
                                 onClick={() => {
                                   setExpandedW2Years((prev) => {
                                     const next = new Set(prev);
@@ -1646,9 +1646,9 @@ export default function CareerModelPage() {
                               {expandedW2Years.has(y.year) && (
                                 <div className="mt-2 space-y-2">
                                   {y.w2Records.map((w2) => (
-                                    <div key={w2.id} className="rounded-md border border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-900 p-2.5 text-xs space-y-1.5">
+                                    <div key={w2.id} className="rounded-md border border-orange-200 dark:border-orange-800 bg-white dark:bg-slate-900 p-2.5 text-xs space-y-1.5">
                                       <div className="flex items-center justify-between">
-                                        <span className="font-medium text-blue-700 dark:text-blue-300">
+                                        <span className="font-medium text-orange-700 dark:text-orange-300">
                                           {w2.employerName || "Unknown Employer"}
                                           {w2.employerEIN && <span className="text-muted-foreground ml-1.5">EIN: {w2.employerEIN}</span>}
                                         </span>
@@ -1761,13 +1761,13 @@ export default function CareerModelPage() {
                         <TableRow className="bg-muted/40 font-medium">
                           <TableCell colSpan={4} className="text-sm">CAGR</TableCell>
                           <TableCell className="text-right">
-                            <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+                            <Badge className="bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300">
                               {pct(avgGrossGrowth)}
                             </Badge>
                           </TableCell>
                           <TableCell className="text-right">
                             {avgNetGrowth !== 0 ? (
-                              <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+                              <Badge className="bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300">
                                 {pct(avgNetGrowth)}
                               </Badge>
                             ) : "—"}
@@ -1822,7 +1822,7 @@ export default function CareerModelPage() {
                         max={incomeYears.length}
                         value={projBaselineYears}
                         onChange={(e) => setProjBaselineYears(parseInt(e.target.value))}
-                        className="w-full h-1.5 rounded-full appearance-none cursor-pointer accent-blue-600 bg-muted"
+                        className="w-full h-1.5 rounded-full appearance-none cursor-pointer accent-orange-600 bg-muted"
                       />
                       <p className="text-[10px] text-muted-foreground">
                         How many recent years to use for growth calculation
@@ -1839,7 +1839,7 @@ export default function CareerModelPage() {
                         max={50}
                         value={projCapPct}
                         onChange={(e) => setProjCapPct(parseInt(e.target.value))}
-                        className="w-full h-1.5 rounded-full appearance-none cursor-pointer accent-blue-600 bg-muted"
+                        className="w-full h-1.5 rounded-full appearance-none cursor-pointer accent-orange-600 bg-muted"
                       />
                       <p className="text-[10px] text-muted-foreground">
                         Max annual growth for the &quot;Realistic&quot; scenario
@@ -1890,7 +1890,7 @@ export default function CareerModelPage() {
                           <p className="text-[10px] text-muted-foreground">{fmt(Math.round(projections.conservative[hi].projected / 12))}/mo</p>
                         </div>
                         <div className={`space-y-0.5 ${projections.employerMin.length > 0 ? "" : "border-x px-3"}`}>
-                          <p className="text-[10px] text-blue-600 dark:text-blue-400 font-medium">Realistic ({pct(projections.rates.realistic)})</p>
+                          <p className="text-[10px] text-orange-600 dark:text-orange-400 font-medium">Realistic ({pct(projections.rates.realistic)})</p>
                           <p className="text-sm font-bold font-mono">{fmtFull(Math.round(projections.realistic[hi].projected))}</p>
                           <p className="text-[10px] text-muted-foreground">{fmt(Math.round(projections.realistic[hi].projected / 12))}/mo</p>
                         </div>
@@ -2081,13 +2081,13 @@ export default function CareerModelPage() {
       <Dialog open={w2Dialog} onOpenChange={(open) => { if (!open) { setW2Dialog(false); setW2Data(null); setW2AddEmployer(false); setW2ShowRaw(false); } }}>        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Upload className="h-5 w-5 text-blue-600" />
+              <Upload className="h-5 w-5 text-orange-600" />
               Import W-2
             </DialogTitle>
           </DialogHeader>
           {w2Uploading ? (
             <div className="flex flex-col items-center py-10 gap-3">
-              <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+              <Loader2 className="h-8 w-8 animate-spin text-orange-600" />
               <p className="text-sm text-muted-foreground">Extracting W-2 data...</p>
             </div>
           ) : w2Data ? (() => {
@@ -2148,8 +2148,8 @@ export default function CareerModelPage() {
               </div>
 
               {/* W-2 Box Values */}
-              <div className="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/50 p-3 space-y-2">
-                <p className="text-xs font-medium text-blue-700 dark:text-blue-300">W-2 Box Values</p>
+              <div className="rounded-lg border border-orange-200 dark:border-orange-800 bg-orange-50/50 dark:bg-orange-950/50 p-3 space-y-2">
+                <p className="text-xs font-medium text-orange-700 dark:text-orange-300">W-2 Box Values</p>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs items-center">
                   {numRow("Box 1 (Wages)", w2Data.wages, (v) => {
                     updW2("wages", v);
@@ -2340,7 +2340,7 @@ export default function CareerModelPage() {
         <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Pencil className="h-5 w-5 text-blue-600" />
+              <Pencil className="h-5 w-5 text-orange-600" />
               Edit Paycheck Record
             </DialogTitle>
           </DialogHeader>
@@ -2420,7 +2420,7 @@ export default function CareerModelPage() {
         <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Pencil className="h-5 w-5 text-blue-600" />
+              <Pencil className="h-5 w-5 text-orange-600" />
               Edit W-2 Record
             </DialogTitle>
           </DialogHeader>
@@ -2481,8 +2481,8 @@ export default function CareerModelPage() {
                 </div>
 
                 {/* W-2 Box Values */}
-                <div className="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/50 p-3 space-y-2">
-                  <p className="text-xs font-medium text-blue-700 dark:text-blue-300">W-2 Box Values</p>
+                <div className="rounded-lg border border-orange-200 dark:border-orange-800 bg-orange-50/50 dark:bg-orange-950/50 p-3 space-y-2">
+                  <p className="text-xs font-medium text-orange-700 dark:text-orange-300">W-2 Box Values</p>
                   <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs items-center">
                     {numRow("Box 1 — Wages", rec.wages, (v) => updNum("wages", v))}
                     {numRow("Box 2 — Fed Tax", rec.federalTaxWithheld, (v) => updNum("federalTaxWithheld", v))}

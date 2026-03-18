@@ -95,7 +95,7 @@ interface EquipmentItem {
 }
 
 const CATEGORIES: Record<string, { label: string; icon: React.ElementType; color: string }> = {
-  hardware: { label: "Hardware", icon: Monitor, color: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300" },
+  hardware: { label: "Hardware", icon: Monitor, color: "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300" },
   software: { label: "Software", icon: AppWindow, color: "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300" },
   vehicle: { label: "Vehicle", icon: Car, color: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300" },
   safety: { label: "Safety/PPE", icon: HardHat, color: "bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300" },
@@ -112,13 +112,13 @@ const CONDITIONS: Record<string, string> = {
 
 const CONDITION_COLORS: Record<string, string> = {
   new: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300",
-  good: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
+  good: "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300",
   fair: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300",
   poor: "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300",
 };
 
 const RESOURCE_TYPES: Record<string, { label: string; icon: React.ElementType; color: string }> = {
-  manual: { label: "Manual", icon: BookOpen, color: "text-blue-600" },
+  manual: { label: "Manual", icon: BookOpen, color: "text-orange-600" },
   troubleshooting: { label: "Troubleshooting", icon: AlertTriangle, color: "text-amber-600" },
   operations: { label: "Operations", icon: Settings, color: "text-emerald-600" },
   safety: { label: "Safety", icon: Shield, color: "text-red-600" },
@@ -197,7 +197,7 @@ function ResourcesPanel({
                         href={r.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-blue-600 hover:text-blue-700"
+                        className="text-orange-600 hover:text-orange-700"
                         onClick={(e) => e.stopPropagation()}
                       >
                         <Link className="h-3 w-3" />
@@ -245,7 +245,7 @@ function ResourcesPanel({
           <button
             type="button"
             onClick={onAdd}
-            className="flex items-center gap-1 text-[10px] text-blue-600 dark:text-blue-400 hover:underline mt-1"
+            className="flex items-center gap-1 text-[10px] text-orange-600 dark:text-orange-400 hover:underline mt-1"
           >
             <Plus className="h-3 w-3" /> Add resource
           </button>
@@ -482,7 +482,7 @@ export function EquipmentTracker({ positionId }: { positionId: string }) {
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg flex items-center gap-2">
-              <Laptop className="h-5 w-5 text-blue-600" />
+              <Laptop className="h-5 w-5 text-orange-600" />
               Equipment & Software
             </CardTitle>
             <div className="flex items-center gap-2">
@@ -657,7 +657,7 @@ export function EquipmentTracker({ positionId }: { positionId: string }) {
                   <button
                     type="button"
                     onClick={() => setSearchOpen(true)}
-                    className="flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                    className="flex items-center gap-1.5 text-xs text-orange-600 dark:text-orange-400 hover:underline"
                   >
                     <Search className="h-3 w-3" />
                     Not sure what it is? Search to identify

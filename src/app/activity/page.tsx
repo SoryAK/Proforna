@@ -39,7 +39,7 @@ const ENTITY_ICONS: Record<string, React.ElementType> = {
 };
 
 const ENTITY_COLORS: Record<string, string> = {
-  application: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
+  application: "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300",
   interview: "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300",
   contact: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300",
   skill: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300",
@@ -118,8 +118,8 @@ export default function ActivityPage() {
     <div className="space-y-6 p-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Clock className="h-6 w-6 text-blue-600" />
+          <h1 className="text-xl font-bold flex items-center gap-2">
+            <Clock className="h-5 w-5 text-orange-600" />
             Activity Timeline
           </h1>
           <p className="text-sm text-muted-foreground mt-1">

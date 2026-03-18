@@ -108,7 +108,7 @@ export default function ExperiencePage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold">Experience</h1>
+        <h1 className="text-xl font-bold">Experience</h1>
         <p className="text-sm text-muted-foreground mt-1">
           Your complete work history — {positions.length} position{positions.length !== 1 ? "s" : ""} across {uniqueCompanies} company{uniqueCompanies !== 1 ? "ies" : ""}
         </p>
@@ -130,8 +130,8 @@ export default function ExperiencePage() {
           </Card>
           <Card>
             <CardContent className="p-4 flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-950">
-                <Building2 className="h-5 w-5 text-blue-600" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-100 dark:bg-orange-950">
+                <Building2 className="h-5 w-5 text-orange-600" />
               </div>
               <div>
                 <p className="text-2xl font-bold">{uniqueCompanies}</p>

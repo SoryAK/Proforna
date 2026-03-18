@@ -160,7 +160,7 @@ function EmailContent() {
   function providerColor(provider: string) {
     return provider === "google"
       ? "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300"
-      : "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300";
+      : "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300";
   }
 
   // ─── render ──────────────────────────────────────────────────
@@ -169,7 +169,7 @@ function EmailContent() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Email</h1>
+          <h1 className="text-xl font-bold">Email</h1>
           <p className="text-sm text-muted-foreground">
             Connect your accounts and view synced emails
           </p>

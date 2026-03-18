@@ -67,13 +67,13 @@ const proficiencyValue: Record<string, number> = {
 
 const proficiencyColor: Record<string, string> = {
   beginner: "bg-gray-100 text-gray-700",
-  intermediate: "bg-blue-100 text-blue-700",
+  intermediate: "bg-orange-100 text-orange-700",
   advanced: "bg-purple-100 text-purple-700",
   expert: "bg-green-100 text-green-700",
 };
 
 const categoryColor: Record<string, string> = {
-  technical: "bg-blue-100 text-blue-700",
+  technical: "bg-orange-100 text-orange-700",
   soft: "bg-pink-100 text-pink-700",
   language: "bg-amber-100 text-amber-700",
   tool: "bg-cyan-100 text-cyan-700",
@@ -233,9 +233,9 @@ export default function SkillsPage() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b px-6 py-4">
+      <div className="flex flex-col gap-3 border-b px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Skills & Certifications</h1>
+          <h1 className="text-xl font-bold">Skills & Certifications</h1>
           <p className="text-sm text-muted-foreground">
             {skills.length} skills &middot; {certifications.length} certifications
           </p>
@@ -314,7 +314,7 @@ export default function SkillsPage() {
             {certifications.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">No certifications added yet</div>
             ) : (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
                 {certifications.map((cert) => (
                   <Card key={cert.id}>
                     <CardHeader className="pb-2">
@@ -348,7 +348,7 @@ export default function SkillsPage() {
                           href={cert.credentialUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-xs text-blue-600 hover:underline"
+                          className="text-xs text-orange-600 hover:underline"
                         >
                           View Credential
                         </a>
@@ -368,12 +368,12 @@ export default function SkillsPage() {
           <DialogHeader>
             <DialogTitle>{editingSkillId ? "Edit Skill" : "Add Skill"}</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSkillSubmit} className="space-y-4">
+          <form onSubmit={handleSkillSubmit} className="space-y-3">
             <div>
               <Label>Name *</Label>
               <Input required value={skillForm.name} onChange={(e) => setSkillForm({ ...skillForm, name: e.target.value })} />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>Category</Label>
                 <Select value={skillForm.category} onValueChange={(v) => setSkillForm({ ...skillForm, category: v ?? skillForm.category })}>
@@ -413,7 +413,7 @@ export default function SkillsPage() {
           <DialogHeader>
             <DialogTitle>{editingCertId ? "Edit Certification" : "Add Certification"}</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleCertSubmit} className="space-y-4">
+          <form onSubmit={handleCertSubmit} className="space-y-3">
             <div>
               <Label>Name *</Label>
               <Input required value={certForm.name} onChange={(e) => setCertForm({ ...certForm, name: e.target.value })} />
@@ -422,7 +422,7 @@ export default function SkillsPage() {
               <Label>Issuer *</Label>
               <Input required value={certForm.issuer} onChange={(e) => setCertForm({ ...certForm, issuer: e.target.value })} />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>Issue Date *</Label>
                 <Input type="date" required value={certForm.issueDate} onChange={(e) => setCertForm({ ...certForm, issueDate: e.target.value })} />

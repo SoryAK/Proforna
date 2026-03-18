@@ -380,7 +380,7 @@ export default function ExperienceDetailPage({
                   href={pos.website.startsWith("http") ? pos.website : `https://${pos.website}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-1 text-blue-600 hover:underline"
+                  className="flex items-center gap-1 text-orange-600 hover:underline"
                 >
                   <Globe className="h-3.5 w-3.5" />
                   {pos.website.replace(/^https?:\/\//, "")}
@@ -438,7 +438,7 @@ export default function ExperienceDetailPage({
             )}
             {pos.managerName && (
               <div className="flex items-center gap-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 px-3 py-2 text-sm">
-                <User className="h-4 w-4 text-blue-600" />
+                <User className="h-4 w-4 text-orange-600" />
                 <span className="text-muted-foreground">Reports to</span>
                 <span className="font-semibold">{pos.managerName}</span>
               </div>
@@ -671,7 +671,7 @@ export default function ExperienceDetailPage({
                           href={pos.website.startsWith("http") ? pos.website : `https://${pos.website}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="font-medium text-blue-600 hover:underline truncate max-w-[180px]"
+                          className="font-medium text-orange-600 hover:underline truncate max-w-[180px]"
                         >
                           {pos.website.replace(/^https?:\/\//, "")}
                         </a>
@@ -1118,7 +1118,7 @@ export default function ExperienceDetailPage({
                           <span className="font-mono">${basePay.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
                         </div>
                         {otPay > 0 && (
-                          <div className="flex justify-between text-blue-700 dark:text-blue-400">
+                          <div className="flex justify-between text-orange-700 dark:text-orange-400">
                             <span>Overtime ({otMult}×)</span>
                             <span className="font-mono">+${otPay.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
                           </div>

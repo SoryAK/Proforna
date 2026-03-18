@@ -153,7 +153,7 @@ const emptyInterviewForm = {
 };
 
 const interviewStatusStyle: Record<string, string> = {
-  scheduled: "bg-blue-100 text-blue-700",
+  scheduled: "bg-orange-100 text-orange-700",
   completed: "bg-green-100 text-green-700",
   cancelled: "bg-red-100 text-red-700",
 };
@@ -414,19 +414,19 @@ export default function ApplicationsPage() {
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between border-b px-6 py-4">
-        <div>
-          <h1 className="text-2xl font-bold">Applications</h1>
+      <div className="flex flex-col gap-3 border-b px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-xl font-bold">Applications</h1>
           <p className="text-sm text-muted-foreground">
             {applications.length} applications &middot; {totalInterviews} interviews
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2">
           <Input
             placeholder="Search company or role..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-64"
+            className="w-48 sm:w-64"
           />
           <Tabs value={view} onValueChange={(v) => setView(v as "kanban" | "table")}>
             <TabsList>
@@ -458,7 +458,7 @@ export default function ApplicationsPage() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-auto p-6">
+      <div className="flex-1 overflow-auto p-4">
         {view === "kanban" ? (
           <KanbanView
             grouped={grouped}
@@ -491,8 +491,8 @@ export default function ApplicationsPage() {
           <DialogHeader>
             <DialogTitle>{editingId ? "Edit Application" : "New Application"}</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+          <form onSubmit={handleSubmit} className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>Company *</Label>
                 <Input
@@ -519,7 +519,7 @@ export default function ApplicationsPage() {
                 placeholder="https://..."
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>Location</Label>
                 <Input
@@ -539,7 +539,7 @@ export default function ApplicationsPage() {
                 </Select>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>Status</Label>
                 <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v ?? form.status })}>
@@ -560,7 +560,7 @@ export default function ApplicationsPage() {
                 />
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-3 gap-3">
               <div>
                 <Label>Salary Min</Label>
                 <Input
@@ -624,7 +624,7 @@ export default function ApplicationsPage() {
                         <button
                           type="button"
                           onClick={() => setForm({ ...form, resumeVersionId: suggested.id })}
-                          className="mt-1 text-xs text-blue-600 hover:underline"
+                          className="mt-1 text-xs text-orange-600 hover:underline"
                         >
                           Suggested: {suggested.name}{suggested.targetRole ? ` (${suggested.targetRole})` : ""}
                         </button>
@@ -949,18 +949,18 @@ function ApplicationCard({
         )}
         {nextInterview && (
           <div
-            className="flex items-center gap-1.5 rounded bg-blue-50 dark:bg-blue-950 px-2 py-1 cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900 transition-colors"
+            className="flex items-center gap-1.5 rounded bg-orange-50 dark:bg-orange-950 px-2 py-1 cursor-pointer hover:bg-orange-100 dark:hover:bg-orange-900 transition-colors"
             onClick={() => onOpenPrep(nextInterview)}
             title="Open interview prep"
           >
-            <Clock className="h-3 w-3 text-blue-600" />
-            <span className="text-xs text-blue-700 dark:text-blue-300">
+            <Clock className="h-3 w-3 text-orange-600" />
+            <span className="text-xs text-orange-700 dark:text-orange-300">
               Next: {format(new Date(nextInterview.scheduledAt), "MMM d, h:mm a")}
             </span>
             <Badge variant="outline" className="text-[10px] px-1 py-0 capitalize">
               {nextInterview.type}
             </Badge>
-            <BookOpen className="h-3 w-3 text-blue-600 dark:text-blue-400 ml-auto" />
+            <BookOpen className="h-3 w-3 text-orange-600 dark:text-orange-400 ml-auto" />
           </div>
         )}
         {/* Email + Resume badges */}
@@ -1062,7 +1062,7 @@ function TableView({
                       onClick={() => onToggleExpand(app.id)}
                       className={cn(
                         "text-xs underline-offset-2 hover:underline",
-                        app.interviews.length > 0 ? "text-blue-600 cursor-pointer" : "text-muted-foreground cursor-default"
+                        app.interviews.length > 0 ? "text-orange-600 cursor-pointer" : "text-muted-foreground cursor-default"
                       )}
                       disabled={app.interviews.length === 0}
                     >
@@ -1140,7 +1140,7 @@ function TableView({
                             <div className="flex items-center gap-1">
                               <button
                                 onClick={() => onOpenPrep(iv, app)}
-                                className="inline-flex items-center justify-center h-7 w-7 rounded-md hover:bg-accent text-blue-600"
+                                className="inline-flex items-center justify-center h-7 w-7 rounded-md hover:bg-accent text-orange-600"
                                 title="Interview prep"
                               >
                                 <BookOpen className="h-3.5 w-3.5" />

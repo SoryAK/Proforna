@@ -82,7 +82,7 @@ const PRESET_FEEDS = [
 const CAT_COLORS: Record<string, string> = {
   general: "bg-gray-100 text-gray-700",
   industry: "bg-orange-100 text-orange-700",
-  tech: "bg-blue-100 text-blue-700",
+  tech: "bg-orange-100 text-orange-700",
   finance: "bg-green-100 text-green-700",
   career: "bg-purple-100 text-purple-700",
 };

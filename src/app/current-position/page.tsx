@@ -104,10 +104,10 @@ function PaycheckToolsSection({ active }: { active: Position }) {
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between rounded-lg border bg-card px-4 py-3 text-left hover:bg-accent/50 transition-colors"
+        className="w-full flex items-center justify-between rounded-lg border bg-card px-3 py-2 text-left hover:bg-accent/50 transition-colors"
       >
-        <div className="flex items-center gap-3">
-          <div className="rounded-lg p-2 bg-violet-50"><Receipt className="h-4 w-4 text-violet-600" /></div>
+        <div className="flex items-center gap-2.5">
+          <div className="rounded-lg p-1.5 bg-violet-50"><Receipt className="h-3.5 w-3.5 text-violet-600" /></div>
           <div>
             <p className="text-sm font-semibold">Paycheck Tools</p>
             <p className="text-xs text-muted-foreground">Paycheck estimator &amp; pay period calendar</p>
@@ -339,11 +339,11 @@ export default function CurrentPositionPage() {
     return (
       <div className="space-y-6">
         <Card className="overflow-hidden">
-          <div className="h-32 bg-gradient-to-r from-slate-600 via-slate-500 to-slate-400" />
-          <CardContent className="py-16 text-center relative">
-            <div className="-mt-24 mb-6">
-              <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl border-4 border-background bg-white shadow-md">
-                <Building2 className="h-10 w-10 text-slate-400" />
+          <div className="h-20 bg-gradient-to-r from-slate-600 via-slate-500 to-slate-400" />
+          <CardContent className="py-10 text-center relative">
+            <div className="-mt-16 mb-4">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border-4 border-background bg-white shadow-md">
+                <Building2 className="h-7 w-7 text-slate-400" />
               </div>
             </div>
             <h2 className="text-xl font-semibold">Set Up Your Company Profile</h2>
@@ -373,7 +373,7 @@ export default function CurrentPositionPage() {
       {active && (
         <Card className="overflow-hidden">
           {/* Banner */}
-          <div className="h-32 bg-gradient-to-r from-emerald-600 via-teal-500 to-cyan-500 relative">
+          <div className="h-20 bg-gradient-to-r from-emerald-600 via-teal-500 to-cyan-500 relative">
             <div className="absolute top-3 right-3 flex gap-2">
               <Button size="sm" variant="secondary" className="bg-white/20 text-white hover:bg-white/30 backdrop-blur-sm" onClick={() => openEdit(active)}>
                 <Pencil className="h-3.5 w-3.5 mr-1" />
@@ -382,10 +382,10 @@ export default function CurrentPositionPage() {
             </div>
           </div>
 
-          <CardContent className="relative px-6 pb-6 pt-0">
+          <CardContent className="relative px-4 pb-4 pt-0">
             {/* Company Logo / Initials */}
-            <div className="-mt-14 mb-4 flex items-end gap-4">
-              <div className="flex h-24 w-24 items-center justify-center rounded-2xl border-4 border-background bg-white text-2xl font-bold text-emerald-600 shadow-md">
+            <div className="-mt-10 mb-3 flex items-end gap-4">
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl border-4 border-background bg-white text-xl font-bold text-emerald-600 shadow-md">
                 {active.company.slice(0, 2).toUpperCase()}
               </div>
               <div className="mb-1 flex flex-wrap gap-2">
@@ -398,9 +398,9 @@ export default function CurrentPositionPage() {
             </div>
 
             {/* Company + Role */}
-            <div className="space-y-1">
-              <h1 className="text-2xl font-bold">{active.company}</h1>
-              <p className="text-lg text-muted-foreground">{active.role}</p>
+            <div className="space-y-0.5">
+              <h1 className="text-xl font-bold">{active.company}</h1>
+              <p className="text-sm text-muted-foreground">{active.role}</p>
               {active.industry && (
                 <p className="text-sm text-muted-foreground flex items-center gap-1">
                   <Factory className="h-3.5 w-3.5" />
@@ -430,7 +430,7 @@ export default function CurrentPositionPage() {
                     href={active.website.startsWith("http") ? active.website : `https://${active.website}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-1 text-blue-600 hover:underline"
+                    className="flex items-center gap-1 text-orange-600 hover:underline"
                   >
                     <Globe className="h-3.5 w-3.5" />
                     {active.website.replace(/^https?:\/\//, "")}
@@ -444,37 +444,37 @@ export default function CurrentPositionPage() {
             </div>
 
             {/* Quick Facts */}
-            <div className="mt-5 flex flex-wrap gap-3">
+            <div className="mt-3 flex flex-wrap gap-2">
               {active.salary && (
-                <div className="flex items-center gap-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 px-3 py-2 text-sm">
-                  <DollarSign className="h-4 w-4 text-green-600" />
+                <div className="flex items-center gap-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 px-2.5 py-1.5 text-sm">
+                  <DollarSign className="h-3.5 w-3.5 text-green-600" />
                   <span className="font-semibold">{active.currency} {active.salary.toLocaleString()}</span>
                   <span className="text-muted-foreground">/ year</span>
                 </div>
               )}
               {active.payRate && (
-                <div className="flex items-center gap-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 px-3 py-2 text-sm">
-                  <DollarSign className="h-4 w-4 text-green-600" />
+                <div className="flex items-center gap-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 px-2.5 py-1.5 text-sm">
+                  <DollarSign className="h-3.5 w-3.5 text-green-600" />
                   <span className="font-semibold">{active.payRate}</span>
                   <span className="text-muted-foreground capitalize">/ {active.payType === "hourly" ? "hr base" : active.payType}</span>
                 </div>
               )}
               {active.payType === "hourly" && active.differentials && (
-                <div className="flex items-center gap-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 px-3 py-2 text-sm">
-                  <Layers className="h-4 w-4 text-amber-600" />
+                <div className="flex items-center gap-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 px-2.5 py-1.5 text-sm">
+                  <Layers className="h-3.5 w-3.5 text-amber-600" />
                   <span className="font-semibold">{active.differentials.split("\n").filter(Boolean).length}</span>
                   <span className="text-muted-foreground">differentials</span>
                 </div>
               )}
               {active.schedule && (
-                <div className="flex items-center gap-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 px-3 py-2 text-sm">
-                  <ClockArrowUp className="h-4 w-4 text-orange-600" />
+                <div className="flex items-center gap-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 px-2.5 py-1.5 text-sm">
+                  <ClockArrowUp className="h-3.5 w-3.5 text-orange-600" />
                   <span className="font-semibold">{active.schedule}</span>
                 </div>
               )}
               {active.rotatingSchedule && (
-                <div className="flex items-center gap-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 px-3 py-2 text-sm">
-                  <RefreshCw className="h-4 w-4 text-indigo-600" />
+                <div className="flex items-center gap-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 px-2.5 py-1.5 text-sm">
+                  <RefreshCw className="h-3.5 w-3.5 text-indigo-600" />
                   <span className="font-semibold">Rotating</span>
                   <span className="text-muted-foreground">
                     {active.hoursPerWeek && active.scheduleBHours
@@ -484,15 +484,15 @@ export default function CurrentPositionPage() {
                 </div>
               )}
               {active.managerName && (
-                <div className="flex items-center gap-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 px-3 py-2 text-sm">
-                  <User className="h-4 w-4 text-blue-600" />
+                <div className="flex items-center gap-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 px-2.5 py-1.5 text-sm">
+                  <User className="h-3.5 w-3.5 text-orange-600" />
                   <span className="text-muted-foreground">Reports to</span>
                   <span className="font-semibold">{active.managerName}</span>
                 </div>
               )}
               {techItems.length > 0 && (
-                <div className="flex items-center gap-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 px-3 py-2 text-sm">
-                  <Code2 className="h-4 w-4 text-purple-600" />
+                <div className="flex items-center gap-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 px-2.5 py-1.5 text-sm">
+                  <Code2 className="h-3.5 w-3.5 text-purple-600" />
                   <span className="font-semibold">{techItems.length}</span>
                   <span className="text-muted-foreground">tools</span>
                 </div>
@@ -522,14 +522,14 @@ export default function CurrentPositionPage() {
                 {/* Focus / Primary Role Summary */}
                 {active.focus && (
                   <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-lg flex items-center gap-2">
-                        <Target className="h-4 w-4" />
+                    <CardHeader className="pb-1 pt-3 px-4">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <Target className="h-3.5 w-3.5" />
                         Focus
                       </CardTitle>
                     </CardHeader>
-                    <CardContent>
-                      <p className="text-sm text-muted-foreground whitespace-pre-line leading-relaxed">
+                    <CardContent className="px-4 pb-3">
+                      <p className="text-xs text-muted-foreground whitespace-pre-line leading-relaxed">
                         {active.focus}
                       </p>
                     </CardContent>
@@ -539,11 +539,11 @@ export default function CurrentPositionPage() {
                 {/* About the Role */}
                 {active.description && (
                   <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-lg">About the Role</CardTitle>
+                    <CardHeader className="pb-1 pt-3 px-4">
+                      <CardTitle className="text-sm">About the Role</CardTitle>
                     </CardHeader>
-                    <CardContent>
-                      <p className="text-sm text-muted-foreground whitespace-pre-line leading-relaxed">
+                    <CardContent className="px-4 pb-3">
+                      <p className="text-xs text-muted-foreground whitespace-pre-line leading-relaxed">
                         {active.description}
                       </p>
                     </CardContent>
@@ -553,17 +553,17 @@ export default function CurrentPositionPage() {
                 {/* Key Responsibilities */}
                 {responsibilities.length > 0 && (
                   <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-lg flex items-center gap-2">
-                        <Layers className="h-4 w-4" />
+                    <CardHeader className="pb-1 pt-3 px-4">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <Layers className="h-3.5 w-3.5" />
                         Key Responsibilities
                       </CardTitle>
                     </CardHeader>
-                    <CardContent>
-                      <ul className="space-y-2.5">
+                    <CardContent className="px-4 pb-3">
+                      <ul className="space-y-1.5">
                         {responsibilities.map((r, i) => (
-                          <li key={i} className="flex items-start gap-3 text-sm">
-                            <ChevronRight className="h-4 w-4 text-emerald-500 mt-0.5 shrink-0" />
+                          <li key={i} className="flex items-start gap-2 text-xs">
+                            <ChevronRight className="h-3.5 w-3.5 text-emerald-500 mt-0.5 shrink-0" />
                             <span className="text-muted-foreground">{r.trim()}</span>
                           </li>
                         ))}
@@ -574,17 +574,17 @@ export default function CurrentPositionPage() {
               </div>
 
               {/* Sidebar */}
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {/* Tools & Technologies */}
                 {techItems.length > 0 && (
                   <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-lg flex items-center gap-2">
-                        <Code2 className="h-4 w-4" />
+                    <CardHeader className="pb-1 pt-3 px-4">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <Code2 className="h-3.5 w-3.5" />
                         Tools & Technologies
                       </CardTitle>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="px-4 pb-3">
                       <div className="flex flex-wrap gap-2">
                         {techItems.map((tech) => (
                           <Badge key={tech} variant="secondary">{tech}</Badge>
@@ -596,135 +596,71 @@ export default function CurrentPositionPage() {
 
                 {/* Role Details */}
                 <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-lg">Details</CardTitle>
+                  <CardHeader className="pb-1 pt-3 px-4">
+                    <CardTitle className="text-sm">Details</CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-3 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Company</span>
-                      <span className="font-medium">{active.company}</span>
-                    </div>
-                    <Separator />
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Title</span>
-                      <span className="font-medium">{active.role}</span>
-                    </div>
-                    {active.department && (
-                      <>
-                        <Separator />
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Department</span>
-                          <span className="font-medium">{active.department}</span>
-                        </div>
-                      </>
-                    )}
-                    <Separator />
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Work Type</span>
-                      <span className="font-medium capitalize">{active.type}</span>
-                    </div>
-                    {active.location && (
-                      <>
-                        <Separator />
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Location</span>
-                          <span className="font-medium">{active.location}</span>
-                        </div>
-                      </>
-                    )}
-                    <Separator />
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Started</span>
-                      <span className="font-medium">{format(new Date(active.startDate), "MMM d, yyyy")}</span>
-                    </div>
-                    <Separator />
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Tenure</span>
-                      <span className="font-medium">{tenure}</span>
-                    </div>
-                    {active.salary && (
-                      <>
-                        <Separator />
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Compensation</span>
-                          <span className="font-medium">{active.currency} {active.salary.toLocaleString()}/yr</span>
-                        </div>
-                      </>
-                    )}
-                    {active.payRate && (
-                      <>
-                        <Separator />
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">{active.payType === "hourly" ? "Base Rate" : "Pay Rate"}</span>
-                          <span className="font-medium">{active.payRate}{active.payType === "hourly" ? "/hr" : ""}</span>
-                        </div>
-                      </>
-                    )}
-                    {active.payType === "hourly" && active.differentials && (
-                      <>
-                        <Separator />
-                        <div>
-                          <span className="text-muted-foreground text-sm">Differentials</span>
-                          <div className="mt-1 space-y-1">
+                  <CardContent className="px-4 pb-3 space-y-2 text-xs">
+                    <div className="divide-y">
+                      {[
+                        ["Company", active.company],
+                        ["Title", active.role],
+                        active.department ? ["Department", active.department] : null,
+                        ["Work Type", <span key="type" className="capitalize">{active.type}</span>],
+                        active.location ? ["Location", active.location] : null,
+                        ["Started", format(new Date(active.startDate), "MMM d, yyyy")],
+                        ["Tenure", tenure],
+                        active.salary ? ["Compensation", `${active.currency} ${active.salary.toLocaleString()}/yr`] : null,
+                        active.payRate ? [active.payType === "hourly" ? "Base Rate" : "Pay Rate", `${active.payRate}${active.payType === "hourly" ? "/hr" : ""}`] : null,
+                        active.schedule ? ["Schedule", active.schedule] : null,
+                        active.industry ? ["Industry", active.industry] : null,
+                      ].filter(Boolean).map((item, i) => {
+                        const [label, value] = item as [string, React.ReactNode];
+                        return (
+                          <div key={i} className="flex justify-between py-1.5">
+                            <span className="text-muted-foreground">{label}</span>
+                            <span className="font-medium text-right">{value}</span>
+                          </div>
+                        );
+                      })}
+                      {active.payType === "hourly" && active.differentials && (
+                        <div className="py-1.5">
+                          <span className="text-muted-foreground">Differentials</span>
+                          <div className="mt-1 space-y-0.5">
                             {active.differentials.split("\n").filter(Boolean).map((d, i) => (
-                              <div key={i} className="flex items-center gap-1.5 text-sm">
+                              <div key={i} className="flex items-center gap-1.5">
                                 <span className="h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0" />
                                 <span className="font-medium">{d}</span>
                               </div>
                             ))}
                           </div>
                         </div>
-                      </>
-                    )}
-                    {active.schedule && (
-                      <>
-                        <Separator />
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Schedule</span>
-                          <span className="font-medium">{active.schedule}</span>
-                        </div>
-                      </>
-                    )}
-                    {active.industry && (
-                      <>
-                        <Separator />
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Industry</span>
-                          <span className="font-medium">{active.industry}</span>
-                        </div>
-                      </>
-                    )}
-                    {active.website && (
-                      <>
-                        <Separator />
-                        <div className="flex justify-between">
+                      )}
+                      {active.website && (
+                        <div className="flex justify-between py-1.5">
                           <span className="text-muted-foreground">Website</span>
                           <a
                             href={active.website.startsWith("http") ? active.website : `https://${active.website}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="font-medium text-blue-600 hover:underline truncate max-w-[180px]"
+                            className="font-medium text-orange-600 hover:underline truncate max-w-[160px]"
                           >
                             {active.website.replace(/^https?:\/\//, "")}
                           </a>
                         </div>
-                      </>
-                    )}
-                    {active.address && (
-                      <>
-                        <Separator />
-                        <div className="flex justify-between">
+                      )}
+                      {active.address && (
+                        <div className="flex justify-between py-1.5">
                           <span className="text-muted-foreground">Address</span>
-                          <span className="font-medium text-right max-w-[180px]">{active.address}</span>
+                          <span className="font-medium text-right max-w-[160px]">{active.address}</span>
                         </div>
-                      </>
-                    )}
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
 
                 {/* Actions */}
                 <Card>
-                  <CardContent className="p-4 flex flex-col gap-2">
+                  <CardContent className="p-3 flex flex-col gap-2">
                     <Button variant="outline" className="w-full justify-start" onClick={() => openEdit(active)}>
                       <Pencil className="h-4 w-4 mr-2" />
                       Edit Position
@@ -1185,7 +1121,7 @@ export default function CurrentPositionPage() {
                           <span className="font-mono">${basePay.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
                         </div>
                         {otPay > 0 && (
-                          <div className="flex justify-between text-blue-700 dark:text-blue-400">
+                          <div className="flex justify-between text-orange-700 dark:text-orange-400">
                             <span>Overtime ({otMult}× × {form.rotatingSchedule ? `avg ${((otHrsA + otHrsB) / 2).toFixed(1)}` : otHrsA} OT hrs/wk)</span>
                             <span className="font-mono">+${otPay.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
                           </div>
