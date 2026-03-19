@@ -53,6 +53,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { CompensationTracker } from "@/components/compensation-tracker";
 import { BenefitsTracker } from "@/components/benefits-tracker";
 import { TimeOffTracker } from "@/components/timeoff-tracker";
+import { CompanyIntel } from "@/components/company-intel";
 import Link from "next/link";
 
 interface Position {
@@ -71,6 +72,8 @@ interface Position {
   techStack: string | null;
   managerName: string | null;
   isActive: boolean;
+  ein: string | null;
+  legalName: string | null;
   companySynopsis: string | null;
   industry: string | null;
   website: string | null;
@@ -107,6 +110,8 @@ const emptyForm = {
   responsibilities: "",
   techStack: "",
   managerName: "",
+  ein: "",
+  legalName: "",
   companySynopsis: "",
   industry: "",
   website: "",
@@ -202,6 +207,8 @@ export default function ExperienceDetailPage({
       responsibilities: position.responsibilities || "",
       techStack: position.techStack || "",
       managerName: position.managerName || "",
+      ein: position.ein || "",
+      legalName: position.legalName || "",
       companySynopsis: position.companySynopsis || "",
       industry: position.industry || "",
       website: position.website || "",
@@ -258,8 +265,11 @@ export default function ExperienceDetailPage({
         ...prev,
         company: prev.company || data.company || "",
         companySynopsis: prev.companySynopsis || data.companySynopsis || "",
+        ein: prev.ein || data.ein || "",
+        legalName: prev.legalName || data.legalName || "",
+        industry: prev.industry || data.industry || "",
       }));
-      toast.success("Company details auto-filled!");
+      toast.success("Company details auto-filled!"  + (data.ein ? " (EIN found via SEC)" : ""));
     } catch {
       toast.error("Could not reach the website");
     } finally {
@@ -461,6 +471,7 @@ export default function ExperienceDetailPage({
           <TabsTrigger value="compensation">Compensation</TabsTrigger>
           <TabsTrigger value="benefits">Benefits</TabsTrigger>
           <TabsTrigger value="timeoff">Time Off</TabsTrigger>
+          {pos.ein && <TabsTrigger value="intel">Company Intel</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="profile" className="mt-4">
@@ -563,6 +574,15 @@ export default function ExperienceDetailPage({
                     <span className="text-muted-foreground">Company</span>
                     <span className="font-medium">{pos.company}</span>
                   </div>
+                  {pos.ein && (
+                    <>
+                      <Separator />
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">EIN</span>
+                        <span className="font-medium font-mono">{pos.ein}</span>
+                      </div>
+                    </>
+                  )}
                   <Separator />
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Title</span>
@@ -739,6 +759,12 @@ export default function ExperienceDetailPage({
         <TabsContent value="timeoff" className="mt-4">
           <TimeOffTracker positionId={pos.id} />
         </TabsContent>
+
+        {pos.ein && (
+          <TabsContent value="intel" className="mt-4">
+            <CompanyIntel ein={pos.ein} companyName={pos.company} legalName={pos.legalName || undefined} location={pos.location || undefined} />
+          </TabsContent>
+        )}
       </Tabs>
 
       {/* Edit Dialog */}
@@ -893,6 +919,22 @@ export default function ExperienceDetailPage({
                   onChange={(e) => setForm({ ...form, industry: e.target.value })}
                 />
               </div>
+              <div>
+                <Label className="mb-1">EIN (Employer ID)</Label>
+                <Input
+                  placeholder="XX-XXXXXXX"
+                  value={form.ein}
+                  onChange={(e) => setForm({ ...form, ein: e.target.value })}
+                />
+              </div>
+            </div>
+            <div>
+              <Label className="mb-1">Legal Filing Name</Label>
+              <Input
+                placeholder="e.g. BARRY CALLEBAUT USA LLC"
+                value={form.legalName}
+                onChange={(e) => setForm({ ...form, legalName: e.target.value })}
+              />
             </div>
             {(form.type === "onsite" || form.type === "hybrid") && (
               <div>

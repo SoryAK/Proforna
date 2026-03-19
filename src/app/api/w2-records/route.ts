@@ -1,13 +1,18 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-// GET — all W-2 records, optionally filtered by yearId
+// GET — all W-2 records, optionally filtered by yearId or ein
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const yearId = searchParams.get("yearId");
+  const ein = searchParams.get("ein");
+
+  const where: Record<string, unknown> = {};
+  if (yearId) where.yearId = yearId;
+  if (ein) where.employerEIN = ein.replace(/\D/g, "").replace(/^(\d{2})(\d{7})$/, "$1-$2");
 
   const records = await prisma.w2Record.findMany({
-    where: yearId ? { yearId } : undefined,
+    where: Object.keys(where).length > 0 ? where : undefined,
     orderBy: { taxYear: "desc" },
   });
 

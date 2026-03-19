@@ -32,6 +32,8 @@ export async function POST(request: Request) {
         techStack: body.techStack || null,
         managerName: body.managerName || null,
         isActive: body.isActive ?? true,
+        ein: body.ein || null,
+        legalName: body.legalName || null,
         companySynopsis: body.companySynopsis || null,
         industry: body.industry || null,
         website: body.website || null,

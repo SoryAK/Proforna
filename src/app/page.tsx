@@ -15,6 +15,9 @@ import {
   ExternalLink,
   ChevronRight,
   AlertTriangle,
+  BookOpen,
+  Compass,
+  Newspaper,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -198,6 +201,26 @@ interface DashboardData {
     issuer: string;
     expiryDate: string | null;
   }[];
+  learningSummary: {
+    total: number;
+    inProgress: number;
+    completed: number;
+    totalHours: number;
+    recentItems: {
+      id: string;
+      title: string;
+      status: string;
+      progress: number;
+      provider: string | null;
+    }[];
+  };
+  cdmSummary: {
+    overallScore: number | null;
+    capturedAt: string;
+    pathCount: number;
+    paths: { title: string; score: number; skillMatch: number }[];
+  } | null;
+  unreadArticleCount: number;
 }
 
 export default function DashboardPage() {
@@ -225,7 +248,7 @@ export default function DashboardPage() {
     );
   }
 
-  const { stats, pipeline, recentActivity, currentPosition, profile, topSkills, certifications, activeGoals, cfm, upcomingInterviewDetails, expiringCertifications } = data;
+  const { stats, pipeline, recentActivity, currentPosition, profile, topSkills, certifications, activeGoals, cfm, upcomingInterviewDetails, expiringCertifications, learningSummary, cdmSummary, unreadArticleCount } = data;
 
   const availability = (profile?.availability ?? "open_to_work") as AvailabilityStatus;
   const displayName = profile?.fullName || (currentPosition
@@ -685,6 +708,147 @@ export default function DashboardPage() {
                       </div>
                     );
                   })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Learning Progress */}
+          {learningSummary.total > 0 && (
+            <Card>
+              <CardHeader className="pb-2 pt-4 px-5">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                    <BookOpen className="h-4 w-4 text-orange-500" />
+                    Learning Progress
+                  </CardTitle>
+                  <Link href="/research" className="text-xs text-orange-600 hover:underline flex items-center gap-0.5">
+                    View <ChevronRight className="h-3 w-3" />
+                  </Link>
+                </div>
+              </CardHeader>
+              <CardContent className="px-5 pb-4 space-y-2.5">
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div>
+                    <p className="text-lg font-bold text-orange-600">{learningSummary.inProgress}</p>
+                    <p className="text-[10px] text-muted-foreground">In Progress</p>
+                  </div>
+                  <div>
+                    <p className="text-lg font-bold text-emerald-600">{learningSummary.completed}</p>
+                    <p className="text-[10px] text-muted-foreground">Completed</p>
+                  </div>
+                  <div>
+                    <p className="text-lg font-bold">{learningSummary.totalHours}</p>
+                    <p className="text-[10px] text-muted-foreground">Hours</p>
+                  </div>
+                </div>
+                {learningSummary.recentItems.length > 0 && (
+                  <>
+                    <Separator />
+                    <div className="space-y-1.5">
+                      {learningSummary.recentItems.map((item) => (
+                        <div key={item.id} className="flex items-center gap-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium truncate">{item.title}</p>
+                            {item.provider && (
+                              <p className="text-[10px] text-muted-foreground">{item.provider}</p>
+                            )}
+                          </div>
+                          <Progress value={item.progress} className="w-12 h-1.5" />
+                          <span className="text-[10px] text-muted-foreground w-6 text-right shrink-0">
+                            {item.progress}%
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* CDM Score */}
+          {cdmSummary && (
+            <Card>
+              <CardHeader className="pb-2 pt-4 px-5">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                    <Compass className="h-4 w-4 text-indigo-500" />
+                    Career Direction
+                  </CardTitle>
+                  <Link href="/career-growth" className="text-xs text-orange-600 hover:underline flex items-center gap-0.5">
+                    CDM <ChevronRight className="h-3 w-3" />
+                  </Link>
+                </div>
+              </CardHeader>
+              <CardContent className="px-5 pb-4 space-y-2.5">
+                <div className="flex items-center gap-3">
+                  <div className="text-center">
+                    <p className={`text-2xl font-bold ${
+                      (cdmSummary.overallScore ?? 0) >= 75
+                        ? "text-emerald-600"
+                        : (cdmSummary.overallScore ?? 0) >= 50
+                        ? "text-amber-600"
+                        : "text-red-500"
+                    }`}>
+                      {Math.round(cdmSummary.overallScore ?? 0)}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">Overall</p>
+                  </div>
+                  <Separator orientation="vertical" className="h-8" />
+                  <div className="text-xs text-muted-foreground space-y-0.5">
+                    <p>{cdmSummary.pathCount} career path{cdmSummary.pathCount !== 1 ? "s" : ""} tracked</p>
+                    <p>Last snapshot: {formatDistanceToNow(new Date(cdmSummary.capturedAt), { addSuffix: true })}</p>
+                  </div>
+                </div>
+                {cdmSummary.paths.length > 0 && (
+                  <>
+                    <Separator />
+                    <div className="space-y-1.5">
+                      {cdmSummary.paths.map((p) => (
+                        <div key={p.title} className="flex items-center justify-between text-xs">
+                          <span className="truncate font-medium">{p.title}</span>
+                          <span className={`font-semibold ${
+                            p.score >= 75
+                              ? "text-emerald-600"
+                              : p.score >= 50
+                              ? "text-amber-600"
+                              : "text-red-500"
+                          }`}>
+                            {Math.round(p.score)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Unread Articles */}
+          {unreadArticleCount > 0 && (
+            <Card>
+              <CardHeader className="pb-2 pt-4 px-5">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                    <Newspaper className="h-4 w-4 text-cyan-600" />
+                    Industry News
+                  </CardTitle>
+                  <Link href="/research" className="text-xs text-orange-600 hover:underline flex items-center gap-0.5">
+                    Read <ChevronRight className="h-3 w-3" />
+                  </Link>
+                </div>
+              </CardHeader>
+              <CardContent className="px-5 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-cyan-50 dark:bg-cyan-950">
+                    <Newspaper className="h-5 w-5 text-cyan-600" />
+                  </div>
+                  <div>
+                    <p className="text-lg font-bold">{unreadArticleCount}</p>
+                    <p className="text-xs text-muted-foreground">unread article{unreadArticleCount !== 1 ? "s" : ""}</p>
+                  </div>
                 </div>
               </CardContent>
             </Card>

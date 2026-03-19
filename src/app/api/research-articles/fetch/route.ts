@@ -1,12 +1,27 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
-import { fetchAndParseFeed } from "@/lib/rss";
+import { fetchAndParseFeed, stripHtml } from "@/lib/rss";
 
 /**
  * POST /api/research-articles/fetch
  * Fetches new articles from all active feeds.
+ * Also cleans any existing summaries that contain HTML tags.
  */
 export async function POST() {
+  // Clean existing records that have HTML in summaries
+  const dirtyArticles = await prisma.researchArticle.findMany({
+    where: { summary: { contains: "<" } },
+    select: { id: true, summary: true },
+  });
+  for (const art of dirtyArticles) {
+    if (art.summary) {
+      await prisma.researchArticle.update({
+        where: { id: art.id },
+        data: { summary: stripHtml(art.summary).slice(0, 500) },
+      });
+    }
+  }
+
   const feeds = await prisma.researchFeed.findMany({
     where: { isActive: true },
   });

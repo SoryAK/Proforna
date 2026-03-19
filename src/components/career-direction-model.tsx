@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -15,6 +15,9 @@ import {
   MoreHorizontal,
   TrendingUp,
   ArrowRight,
+  BookOpen,
+  Lightbulb,
+  DollarSign,
 } from "lucide-react";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
@@ -45,6 +48,7 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
+import { ResponsiveRadar } from "@nivo/radar";
 
 /* ── Types ── */
 
@@ -110,6 +114,28 @@ interface Gap {
   detail: string;
 }
 
+interface SkillSuggestionItem {
+  skill: string;
+  detail: string;
+  hasLearning: boolean;
+  inProgressCount: number;
+  completedCount: number;
+  existingItems: {
+    id: string;
+    title: string;
+    status: string;
+    progress: number;
+    provider: string | null;
+  }[];
+}
+
+interface PathSuggestion {
+  pathId: string;
+  pathTitle: string;
+  skillMatch: number;
+  items: SkillSuggestionItem[];
+}
+
 /* ── Constants ── */
 
 const LEVELS = [
@@ -147,6 +173,121 @@ const emptyPathForm = {
   milestones: [] as { title: string; description: string; isRequired: boolean }[],
 };
 
+/* ── BLS Wage Comparison Sub-Component ── */
+
+function buildBLSSeriesId(occCode: string, dataTypeCode: string, area = "0000000"): string {
+  const occ = occCode.replace("-", "");
+  return `OEUM${area}${occ}${dataTypeCode}`;
+}
+
+function BLSWageComparison({
+  targetRole,
+  targetSalaryMin,
+  targetSalaryMax,
+}: {
+  targetRole: string;
+  targetSalaryMin: number | null;
+  targetSalaryMax: number | null;
+}) {
+  const [occCode, setOccCode] = useState<string | null>(null);
+  const [occTitle, setOccTitle] = useState<string | null>(null);
+
+  // Search for occupation code matching targetRole
+  const { data: occupations } = useQuery<{ code: string; title: string; group: string }[]>({
+    queryKey: ["occ-search", targetRole],
+    queryFn: () =>
+      fetch(`/api/market-research/occupations?q=${encodeURIComponent(targetRole)}`)
+        .then((r) => r.json()),
+    enabled: targetRole.length >= 2,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Auto-select best match
+  useEffect(() => {
+    if (occupations && occupations.length > 0 && !occCode) {
+      setOccCode(occupations[0].code);
+      setOccTitle(occupations[0].title);
+    }
+  }, [occupations, occCode]);
+
+  // Fetch BLS median wage (data type 13)
+  const { data: blsData, isLoading: blsLoading } = useQuery<{
+    series: { seriesId: string; data: { year: string; period: string; value: number | null }[] }[];
+  }>({
+    queryKey: ["bls-cdm-wage", occCode],
+    queryFn: () => {
+      const seriesId = buildBLSSeriesId(occCode!, "13");
+      const year = new Date().getFullYear();
+      return fetch(
+        `/api/market-research/bls?series=${seriesId}&startyear=${year - 1}&endyear=${year}`
+      ).then((r) => r.json());
+    },
+    enabled: !!occCode,
+    staleTime: 10 * 60 * 1000,
+  });
+
+  // Extract annual median (period M13)
+  const medianWage = blsData?.series?.[0]?.data?.find(
+    (d) => d.period === "M13" && d.value !== null
+  )?.value;
+
+  if (blsLoading) {
+    return (
+      <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
+        <DollarSign className="h-3 w-3 animate-pulse" /> Loading market data...
+      </div>
+    );
+  }
+
+  if (!medianWage) return null;
+
+  const targetMid =
+    targetSalaryMin && targetSalaryMax
+      ? (targetSalaryMin + targetSalaryMax) / 2
+      : targetSalaryMin ?? targetSalaryMax ?? 0;
+
+  const diff = targetMid > 0 ? ((targetMid - medianWage) / medianWage) * 100 : 0;
+  const isAbove = diff > 5;
+  const isBelow = diff < -5;
+
+  return (
+    <div className="rounded-lg border bg-muted/30 p-2.5 space-y-1">
+      <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+        <DollarSign className="h-3 w-3" /> BLS Market Comparison
+      </div>
+      <div className="flex items-center justify-between text-sm">
+        <span className="text-muted-foreground">BLS Median</span>
+        <span className="font-semibold">${medianWage.toLocaleString()}/yr</span>
+      </div>
+      {targetMid > 0 && (
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-muted-foreground">Your Target</span>
+          <span className="font-semibold">${targetMid.toLocaleString()}/yr</span>
+        </div>
+      )}
+      {targetMid > 0 && (
+        <div className="flex items-center justify-between text-xs">
+          <span className="text-muted-foreground truncate" title={occTitle ?? undefined}>
+            SOC: {occTitle ?? occCode}
+          </span>
+          <Badge
+            className={`text-[10px] ${
+              isAbove
+                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300"
+                : isBelow
+                ? "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300"
+                : "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300"
+            }`}
+          >
+            {diff > 0 ? "+" : ""}
+            {diff.toFixed(0)}% vs market
+          </Badge>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ── Component ── */
 
 export default function CareerDirectionModel() {
@@ -165,6 +306,12 @@ export default function CareerDirectionModel() {
   const { data: snapshots = [], isLoading: snapshotsLoading } = useQuery<CareerSnapshot[]>({
     queryKey: ["career-snapshots"],
     queryFn: () => fetch("/api/career-snapshots").then((r) => r.json()),
+  });
+
+  const { data: suggestions = [] } = useQuery<PathSuggestion[]>({
+    queryKey: ["skill-gap-suggestions"],
+    queryFn: () => fetch("/api/skill-gap-suggestions").then((r) => r.json()),
+    enabled: snapshots.length > 0,
   });
 
   const latestSnapshot = snapshots[0] ?? null;
@@ -393,6 +540,89 @@ export default function CareerDirectionModel() {
 
       {/* Career Paths with Scores */}
       {paths.length > 0 && (
+        <>
+        {/* Skill Radar Chart – paths with scores */}
+        {(() => {
+          const radarData = latestSnapshot?.scores
+            .map((s) => ({
+              dimension: "Skills",
+              [s.path.title]: Math.round(s.skillMatch),
+            }))
+            .length
+            ? [
+                Object.assign(
+                  { dimension: "Skills" },
+                  ...latestSnapshot!.scores.map((s) => ({
+                    [s.path.title]: Math.round(s.skillMatch),
+                  }))
+                ),
+                Object.assign(
+                  { dimension: "Income" },
+                  ...latestSnapshot!.scores.map((s) => ({
+                    [s.path.title]: Math.round(s.incomeAlignment),
+                  }))
+                ),
+                Object.assign(
+                  { dimension: "Goals" },
+                  ...latestSnapshot!.scores.map((s) => ({
+                    [s.path.title]: Math.round(s.goalAlignment),
+                  }))
+                ),
+              ]
+            : null;
+          const radarKeys = latestSnapshot?.scores.map((s) => s.path.title) ?? [];
+
+          if (!radarData || radarKeys.length === 0) return null;
+
+          return (
+            <Card className="mb-3">
+              <CardHeader className="pb-1">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Target className="h-4 w-4 text-indigo-500" />
+                  Path Alignment Radar
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-64">
+                  <ResponsiveRadar
+                    data={radarData}
+                    keys={radarKeys}
+                    indexBy="dimension"
+                    maxValue={100}
+                    margin={{ top: 32, right: 80, bottom: 32, left: 80 }}
+                    curve="linearClosed"
+                    borderWidth={2}
+                    gridLevels={4}
+                    gridShape="circular"
+                    dotSize={6}
+                    dotBorderWidth={1}
+                    colors={["#e8740c", "#6366f1", "#10b981", "#f59e0b", "#ef4444"]}
+                    fillOpacity={0.15}
+                    blendMode="normal"
+                    legends={[
+                      {
+                        anchor: "top-left",
+                        direction: "column",
+                        translateX: -60,
+                        translateY: -20,
+                        itemWidth: 80,
+                        itemHeight: 16,
+                        itemTextColor: "#888",
+                        symbolSize: 10,
+                        symbolShape: "circle",
+                      },
+                    ]}
+                    theme={{
+                      text: { fontSize: 11, fill: "#888" },
+                      grid: { line: { stroke: "#e5e7eb", strokeWidth: 1 } },
+                    }}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })()}
+
         <div className="space-y-3">
           {paths.map((path) => {
             const score = latestSnapshot?.scores.find((s) => s.path.id === path.id);
@@ -549,6 +779,15 @@ export default function CareerDirectionModel() {
                         </div>
                       )}
 
+                      {/* BLS Wage Comparison */}
+                      {path.targetRole && (
+                        <BLSWageComparison
+                          targetRole={path.targetRole}
+                          targetSalaryMin={path.targetSalaryMin}
+                          targetSalaryMax={path.targetSalaryMax}
+                        />
+                      )}
+
                       {/* Gaps */}
                       {gaps.length > 0 && (
                         <div>
@@ -574,6 +813,74 @@ export default function CareerDirectionModel() {
                         </div>
                       )}
 
+                      {/* Learning Suggestions for Skill Gaps */}
+                      {(() => {
+                        const pathSugg = suggestions.find((s) => s.pathId === path.id);
+                        if (!pathSugg || pathSugg.items.length === 0) return null;
+                        return (
+                          <div>
+                            <h4 className="text-xs font-semibold uppercase tracking-wider text-orange-600 dark:text-orange-400 mb-2 flex items-center gap-1">
+                              <Lightbulb className="h-3 w-3" /> Suggested Learning
+                            </h4>
+                            <div className="space-y-2">
+                              {pathSugg.items.map((item) => (
+                                <div
+                                  key={item.skill}
+                                  className="rounded-lg border p-2.5 space-y-1.5"
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-sm font-medium">{item.skill}</span>
+                                    {item.completedCount > 0 ? (
+                                      <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300 text-[10px]">
+                                        {item.completedCount} completed
+                                      </Badge>
+                                    ) : item.inProgressCount > 0 ? (
+                                      <Badge className="bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300 text-[10px]">
+                                        {item.inProgressCount} in progress
+                                      </Badge>
+                                    ) : (
+                                      <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-300">
+                                        No learning yet
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  <p className="text-xs text-muted-foreground">{item.detail}</p>
+                                  {item.existingItems.length > 0 && (
+                                    <div className="space-y-1">
+                                      {item.existingItems.map((li) => (
+                                        <div
+                                          key={li.id}
+                                          className="flex items-center gap-2 text-xs"
+                                        >
+                                          <BookOpen className="h-3 w-3 text-orange-500 shrink-0" />
+                                          <span className="truncate">{li.title}</span>
+                                          {li.provider && (
+                                            <span className="text-muted-foreground shrink-0">
+                                              ({li.provider})
+                                            </span>
+                                          )}
+                                          <span className="ml-auto shrink-0 text-muted-foreground">
+                                            {li.progress}%
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                  {!item.hasLearning && (
+                                    <a
+                                      href="/research"
+                                      className="inline-flex items-center gap-1 text-xs text-orange-600 hover:underline mt-1"
+                                    >
+                                      <Plus className="h-3 w-3" /> Add learning item
+                                    </a>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })()}
+
                       {!score && (
                         <p className="text-sm text-muted-foreground italic">
                           Capture a snapshot to see your alignment score for this path.
@@ -586,6 +893,7 @@ export default function CareerDirectionModel() {
             );
           })}
         </div>
+        </>
       )}
 
       {/* Snapshot History */}

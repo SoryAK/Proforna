@@ -58,6 +58,7 @@ import { PayPeriodCalendar } from "@/components/pay-period-calendar";
 import { EquipmentTracker } from "@/components/equipment-tracker";
 import { WorkLogTracker } from "@/components/work-log-tracker";
 import { HoursWorkedTracker } from "@/components/hours-worked-tracker";
+import { CompanyIntel } from "@/components/company-intel";
 
 
 interface Position {
@@ -75,6 +76,8 @@ interface Position {
   techStack: string | null;
   managerName: string | null;
   isActive: boolean;
+  ein: string | null;
+  legalName: string | null;
   companySynopsis: string | null;
   industry: string | null;
   website: string | null;
@@ -151,6 +154,8 @@ const emptyForm = {
   responsibilities: "",
   techStack: "",
   managerName: "",
+  ein: "",
+  legalName: "",
   companySynopsis: "",
   industry: "",
   website: "",
@@ -254,6 +259,8 @@ export default function CurrentPositionPage() {
       responsibilities: pos.responsibilities || "",
       techStack: pos.techStack || "",
       managerName: pos.managerName || "",
+      ein: pos.ein || "",
+      legalName: pos.legalName || "",
       companySynopsis: pos.companySynopsis || "",
       industry: pos.industry || "",
       website: pos.website || "",
@@ -315,8 +322,11 @@ export default function CurrentPositionPage() {
         ...prev,
         company: prev.company || data.company || "",
         companySynopsis: prev.companySynopsis || data.companySynopsis || "",
+        ein: prev.ein || data.ein || "",
+        legalName: prev.legalName || data.legalName || "",
+        industry: prev.industry || data.industry || "",
       }));
-      toast.success("Company details auto-filled!");
+      toast.success("Company details auto-filled!" + (data.ein ? " (EIN found via SEC)" : ""));
     } catch {
       toast.error("Could not reach the website");
     } finally {
@@ -513,6 +523,7 @@ export default function CurrentPositionPage() {
             <TabsTrigger value="equipment">Equipment</TabsTrigger>
             <TabsTrigger value="worklog">Work Log</TabsTrigger>
             <TabsTrigger value="hours">Hours Worked</TabsTrigger>
+            {active.ein && <TabsTrigger value="intel">Company Intel</TabsTrigger>}
           </TabsList>
 
           <TabsContent value="profile" className="mt-4">
@@ -603,6 +614,7 @@ export default function CurrentPositionPage() {
                     <div className="divide-y">
                       {[
                         ["Company", active.company],
+                        active.ein ? ["EIN", <span key="ein" className="font-mono">{active.ein}</span>] : null,
                         ["Title", active.role],
                         active.department ? ["Department", active.department] : null,
                         ["Work Type", <span key="type" className="capitalize">{active.type}</span>],
@@ -720,6 +732,12 @@ export default function CurrentPositionPage() {
           <TabsContent value="hours" className="mt-4">
             <HoursWorkedTracker positionId={active.id} />
           </TabsContent>
+
+          {active.ein && (
+            <TabsContent value="intel" className="mt-4">
+              <CompanyIntel ein={active.ein} companyName={active.company} legalName={active.legalName || undefined} location={active.location || undefined} />
+            </TabsContent>
+          )}
 
         </Tabs>
       )}
@@ -883,6 +901,22 @@ export default function CurrentPositionPage() {
                   onChange={(e) => setForm({ ...form, industry: e.target.value })}
                 />
               </div>
+              <div>
+                <Label className="mb-1">EIN (Employer ID)</Label>
+                <Input
+                  placeholder="XX-XXXXXXX"
+                  value={form.ein}
+                  onChange={(e) => setForm({ ...form, ein: e.target.value })}
+                />
+              </div>
+            </div>
+            <div>
+              <Label className="mb-1">Legal Filing Name</Label>
+              <Input
+                placeholder="e.g. BARRY CALLEBAUT USA LLC"
+                value={form.legalName}
+                onChange={(e) => setForm({ ...form, legalName: e.target.value })}
+              />
             </div>
             {(form.type === "onsite" || form.type === "hybrid") && (
               <div>

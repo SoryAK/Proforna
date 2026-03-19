@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Plus, MoreHorizontal, Pencil, Trash2, FileText, Check, Star, ChevronDown } from "lucide-react";
+import { Plus, MoreHorizontal, Pencil, Trash2, FileText, Check, Star, ChevronDown, Download, FileDown } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -145,6 +145,28 @@ export default function ResumesPage() {
     saveMutation.mutate(data);
   }
 
+  async function handleExport(resumeId: string, format: "pdf" | "docx") {
+    try {
+      const res = await fetch(`/api/resume-export/${format}?resumeId=${encodeURIComponent(resumeId)}`);
+      if (!res.ok) throw new Error("Export failed");
+      const blob = await res.blob();
+      const disposition = res.headers.get("Content-Disposition") || "";
+      const match = disposition.match(/filename="?([^"]+)"?/);
+      const filename = match?.[1] || `resume.${format}`;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast.success(`${format.toUpperCase()} downloaded`);
+    } catch {
+      toast.error(`Failed to export ${format.toUpperCase()}`);
+    }
+  }
+
   function formatSize(bytes: number) {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -210,6 +232,12 @@ export default function ResumesPage() {
                               <Star className="mr-2 h-4 w-4" /> Set Active
                             </DropdownMenuItem>
                           )}
+                          <DropdownMenuItem onClick={() => handleExport(r.id, "pdf")}>
+                            <Download className="mr-2 h-4 w-4" /> Download PDF
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleExport(r.id, "docx")}>
+                            <FileDown className="mr-2 h-4 w-4" /> Download DOCX
+                          </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => openEdit(r)}>
                             <Pencil className="mr-2 h-4 w-4" /> Edit
                           </DropdownMenuItem>

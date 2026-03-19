@@ -26,6 +26,10 @@ export async function GET() {
     wageTiers,
     upcomingInterviewDetails,
     expiringCertifications,
+    // Feature integrations
+    learningItems,
+    latestSnapshot,
+    unreadArticleCount,
   ] = await Promise.all([
     prisma.jobApplication.count(),
     prisma.jobApplication.count({
@@ -76,12 +80,57 @@ export async function GET() {
       orderBy: { expiryDate: "asc" },
       take: 5,
     }),
+    // Learning items
+    prisma.learningItem.findMany(),
+    // Latest CDM snapshot with scores
+    prisma.careerSnapshot.findFirst({
+      orderBy: { capturedAt: "desc" },
+      include: {
+        scores: {
+          include: { path: { select: { id: true, title: true } } },
+        },
+      },
+    }),
+    // Unread articles count
+    prisma.researchArticle.count({ where: { isRead: false } }),
   ]);
 
   const pipeline = statusCounts.map((s: { status: string; _count: { status: number } }) => ({
     status: s.status,
     count: s._count.status,
   }));
+
+  // Compute learning summary
+  const learningSummary = {
+    total: learningItems.length,
+    inProgress: learningItems.filter((l) => l.status === "in_progress").length,
+    completed: learningItems.filter((l) => l.status === "completed").length,
+    totalHours: learningItems.reduce((s, l) => s + l.hoursSpent, 0),
+    recentItems: learningItems
+      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+      .slice(0, 3)
+      .map((l) => ({
+        id: l.id,
+        title: l.title,
+        status: l.status,
+        progress: l.progress,
+        provider: l.provider,
+      })),
+  };
+
+  // CDM summary
+  const cdmSummary = latestSnapshot
+    ? {
+        overallScore: latestSnapshot.overallScore,
+        capturedAt: latestSnapshot.capturedAt,
+        pathCount: latestSnapshot.scores.length,
+        paths: latestSnapshot.scores.map((sc) => ({
+          title: sc.path.title,
+          score: sc.overallScore,
+          skillMatch: sc.skillMatch,
+        })),
+      }
+    : null;
 
   return NextResponse.json({
     stats: {
@@ -105,5 +154,8 @@ export async function GET() {
     cfm: { incomeYears, wageTiers },
     upcomingInterviewDetails,
     expiringCertifications,
+    learningSummary,
+    cdmSummary,
+    unreadArticleCount,
   });
 }

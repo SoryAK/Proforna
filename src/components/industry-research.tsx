@@ -14,8 +14,11 @@ import {
   Search,
   Filter,
   ChevronDown,
+  FileText,
+  Loader2,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { stripHtml } from "@/lib/rss";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -55,6 +58,7 @@ interface ResearchArticle {
   url: string;
   source: string | null;
   summary: string | null;
+  content: string | null;
   publishedAt: string | null;
   imageUrl: string | null;
   isBookmarked: boolean;
@@ -74,7 +78,7 @@ const PRESET_FEEDS = [
   { url: "https://hnrss.org/frontpage", title: "Hacker News", category: "tech" },
   { url: "https://feeds.feedburner.com/TechCrunch/", title: "TechCrunch", category: "tech" },
   { url: "https://www.theverge.com/rss/index.xml", title: "The Verge", category: "tech" },
-  { url: "https://feeds.reuters.com/reuters/businessNews", title: "Reuters Business", category: "finance" },
+  { url: "https://feeds.bbci.co.uk/news/business/rss.xml", title: "BBC Business", category: "finance" },
   { url: "https://www.bls.gov/feed/bls_latest.rss", title: "BLS News", category: "industry" },
   { url: "https://hbr.org/resources/xml/rss.xml", title: "Harvard Business Review", category: "career" },
 ];
@@ -98,6 +102,8 @@ export default function IndustryResearch() {
   const [searchQ, setSearchQ] = useState("");
   const [filterFeed, setFilterFeed] = useState("all");
   const [filterType, setFilterType] = useState<"all" | "bookmarked" | "unread">("all");
+  const [expandedArticle, setExpandedArticle] = useState<string | null>(null);
+  const [extractingId, setExtractingId] = useState<string | null>(null);
 
   // ── Queries ──
   const { data: feeds = [], isLoading: feedsLoading } = useQuery<ResearchFeed[]>({
@@ -180,6 +186,32 @@ export default function IndustryResearch() {
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["research-articles"] }),
   });
+
+  async function handleExtract(article: ResearchArticle) {
+    if (expandedArticle === article.id) {
+      setExpandedArticle(null);
+      return;
+    }
+    if (article.content) {
+      setExpandedArticle(article.id);
+      if (!article.isRead) markRead.mutate(article.id);
+      return;
+    }
+    setExtractingId(article.id);
+    try {
+      const res = await fetch(`/api/research-articles/${article.id}/extract`, {
+        method: "POST",
+      });
+      if (!res.ok) throw new Error("Extraction failed");
+      qc.invalidateQueries({ queryKey: ["research-articles"] });
+      setExpandedArticle(article.id);
+      if (!article.isRead) markRead.mutate(article.id);
+    } catch {
+      toast.error("Could not extract article content");
+    } finally {
+      setExtractingId(null);
+    }
+  }
 
   if (feedsLoading) {
     return (
@@ -412,11 +444,31 @@ export default function IndustryResearch() {
 
                   {article.summary && (
                     <p className="mt-1 text-sm text-muted-foreground line-clamp-2">
-                      {article.summary}
+                      {stripHtml(article.summary)}
                     </p>
                   )}
 
+                  {/* Extracted full content */}
+                  {expandedArticle === article.id && article.content && (
+                    <div
+                      className="mt-2 max-h-64 overflow-auto rounded border bg-muted/30 p-3 text-sm prose prose-sm prose-orange max-w-none"
+                      dangerouslySetInnerHTML={{ __html: article.content }}
+                    />
+                  )}
+
                   <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                    <button
+                      className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 hover:bg-muted text-xs font-medium"
+                      onClick={() => handleExtract(article)}
+                      disabled={extractingId === article.id}
+                    >
+                      {extractingId === article.id ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <FileText className="h-3 w-3" />
+                      )}
+                      {expandedArticle === article.id ? "Collapse" : "Read Full"}
+                    </button>
                     <Badge
                       className={`text-xs ${CAT_COLORS[article.feed.category] || CAT_COLORS.general}`}
                     >

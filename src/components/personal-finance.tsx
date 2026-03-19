@@ -36,6 +36,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { format } from "date-fns";
+import { sumDollars, subtractDollars, fmtMoney } from "@/lib/money";
 
 /* ── Types ── */
 
@@ -277,15 +278,17 @@ export function PersonalFinance({
   const healthInsMonthly = healthInsPer * (payPeriods / 12);
   const otherDedMonthly = otherDedPer * (payPeriods / 12);
 
-  const netMonthly = grossMonthly - totalTaxMonthly - retMonthly - healthInsMonthly - otherDedMonthly;
+  const netMonthly = subtractDollars(
+    grossMonthly,
+    sumDollars([totalTaxMonthly, retMonthly, healthInsMonthly, otherDedMonthly])
+  );
 
   // Expenses
-  const totalExpenses = EXPENSE_FIELDS.reduce((sum, f) => {
-    const v = parseFloat(expenses[f.key]) || 0;
-    return sum + v;
-  }, 0);
+  const totalExpenses = sumDollars(
+    EXPENSE_FIELDS.map((f) => parseFloat(expenses[f.key]) || 0)
+  );
 
-  const leftOver = netMonthly - totalExpenses;
+  const leftOver = subtractDollars(netMonthly, totalExpenses);
 
   /* ── Income history from positions ── */
 
@@ -313,7 +316,7 @@ export function PersonalFinance({
       };
     });
 
-  const fmt = (n: number) => n.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  const fmt = fmtMoney;
 
   return (
     <div className="space-y-4">

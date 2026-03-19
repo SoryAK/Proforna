@@ -36,6 +36,7 @@ model JobApplication {
   offerHealthCost   Float?   // monthly employee health insurance cost
   offerStartDate    DateTime?
   offerNotes        String?
+  ein             String?  // Employer Identification Number for company research
   resumeVersionId String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -223,6 +224,8 @@ model CurrentPosition {
   managerName   String?
   isActive      Boolean   @default(true)
   // Company details
+  ein           String?   // Employer Identification Number (XX-XXXXXXX)
+  legalName     String?   // Legal filing name from W-2 / SEC (e.g. "BARRY CALLEBAUT USA LLC")
   companySynopsis String?
   industry      String?
   website       String?
@@ -654,6 +657,7 @@ model ResearchArticle {
   url         String
   source      String?
   summary     String?
+  content     String?                          // Full extracted article content
   publishedAt DateTime?
   imageUrl    String?
   isBookmarked Boolean  @default(false)
@@ -675,4 +679,28 @@ model MarketSearch {
   lastFetchedAt DateTime?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+}
+
+// ── EIN Company Intelligence ──────────────────────────
+model CompanyProfile {
+  id              String    @id @default(uuid())
+  ein             String    @unique            // XX-XXXXXXX format
+  name            String?                      // legal company name
+  address         String?
+  state           String?
+  industry        String?                      // NAICS description
+  naicsCode       String?                      // 6-digit NAICS code
+  website         String?
+  employeeCount   Int?
+  isPublic        Boolean   @default(false)
+  secCIK          String?                      // SEC Central Index Key
+  // Cached API results (JSON blobs)
+  form5500Data    String?                      // DOL Form 5500: 401k match, plan provider, participants, assets
+  oshaData        String?                      // OSHA: inspections, violations, penalties
+  secData         String?                      // SEC EDGAR: revenue, net income, filings
+  sosData         String?                      // Secretary of State: status, registration date, agent
+  researchNotes   String?                      // User-entered notes from manual state resource research
+  lastFetchedAt   DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 }

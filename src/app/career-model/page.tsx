@@ -43,6 +43,9 @@ import {
   AlertCircle,
   ChevronDown,
   Receipt,
+  FileText,
+  Check,
+  Users,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -255,6 +258,33 @@ interface PaycheckParsed {
   };
 }
 
+interface IRSEmployer {
+  employerName: string | null;
+  employerEIN: string | null;
+  wages: number | null;
+  federalTaxWithheld: number | null;
+  socialSecurityWages: number | null;
+  socialSecurityTax: number | null;
+  medicareWages: number | null;
+  medicareTax: number | null;
+  stateWages: number | null;
+  stateTaxWithheld: number | null;
+  localWages: number | null;
+  localTaxWithheld: number | null;
+  state: string | null;
+  employerAddress: string | null;
+  cfmReady: { year: number | null; grossIncome: number | null; netIncome: number | null; notes: string };
+  companyData: { company: string | null; ein: string | null; address: string | null; state: string | null };
+  _selected?: boolean; // UI toggle for import selection
+}
+
+interface IRSParseResult {
+  taxYear: number | null;
+  documentType: "irs-transcript";
+  employers: IRSEmployer[];
+  rawText: string;
+}
+
 const emptyIncomeForm = { year: "", grossIncome: "", netIncome: "", jobCount: "1", notes: "" };
 const emptyTierForm = { label: "", hourlyRate: "", yearlyRate: "", color: "#6366f1" };
 
@@ -276,6 +306,14 @@ export default function CareerModelPage() {
   const [w2ShowRaw, setW2ShowRaw] = useState(false);
   const [expandedYears, setExpandedYears] = useState<Set<number>>(new Set());
   const w2InputRef = useRef<HTMLInputElement>(null);
+  const irsInputRef = useRef<HTMLInputElement>(null);
+  // Doc-type picker + IRS transcript state
+  const [docPickerOpen, setDocPickerOpen] = useState(false);
+  const [irsDialog, setIrsDialog] = useState(false);
+  const [irsUploading, setIrsUploading] = useState(false);
+  const [irsData, setIrsData] = useState<IRSParseResult | null>(null);
+  const [irsShowRaw, setIrsShowRaw] = useState(false);
+  const [irsAddEmployers, setIrsAddEmployers] = useState(false);
   const paycheckInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const [paycheckUploading, setPaycheckUploading] = useState<string | null>(null);
   // Paycheck parse preview state per position
@@ -750,6 +788,127 @@ export default function CareerModelPage() {
         },
       }
     );
+  };
+
+  /* ── IRS Transcript Upload ── */
+
+  const handleIrsUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (irsInputRef.current) irsInputRef.current.value = "";
+
+    setIrsUploading(true);
+    setIrsData(null);
+    setIrsDialog(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/irs-return-parse", { method: "POST", body: formData });
+      const json = await res.json();
+      if (!res.ok) {
+        toast.error(json.error || "Failed to parse IRS document");
+        setIrsDialog(false);
+        return;
+      }
+      // Mark all employers as selected by default
+      json.employers = json.employers.map((emp: IRSEmployer) => ({ ...emp, _selected: true }));
+      setIrsData(json);
+    } catch {
+      toast.error("Failed to upload IRS document");
+      setIrsDialog(false);
+    } finally {
+      setIrsUploading(false);
+    }
+  };
+
+  const confirmIrsImport = async () => {
+    if (!irsData) return;
+    const selected = irsData.employers.filter((e) => e._selected !== false);
+    if (selected.length === 0) { toast.error("Select at least one employer to import"); return; }
+
+    let imported = 0;
+    for (const emp of selected) {
+      try {
+        // 1. Create/update income year + entry via CFM API
+        const cfmBody = {
+          year: String(emp.cfmReady.year ?? ""),
+          grossIncome: String(emp.cfmReady.grossIncome ?? ""),
+          netIncome: emp.cfmReady.netIncome ? String(emp.cfmReady.netIncome) : "",
+          jobCount: "1",
+          notes: emp.cfmReady.notes,
+          employer: emp.employerName ?? null,
+          ein: emp.employerEIN ?? null,
+        };
+
+        const cfmRes = await fetch("/api/cfm", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(cfmBody),
+        });
+        if (!cfmRes.ok) continue;
+        const yearRecord = await cfmRes.json();
+
+        // 2. Save W-2 record
+        await fetch("/api/w2-records", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            yearId: yearRecord.id,
+            taxYear: emp.cfmReady.year ?? 0,
+            employerName: emp.employerName ?? null,
+            employerEIN: emp.employerEIN ?? null,
+            state: emp.state ?? null,
+            wages: emp.wages ?? null,
+            federalTaxWithheld: emp.federalTaxWithheld ?? null,
+            socialSecurityWages: emp.socialSecurityWages ?? null,
+            socialSecurityTax: emp.socialSecurityTax ?? null,
+            medicareWages: emp.medicareWages ?? null,
+            medicareTax: emp.medicareTax ?? null,
+            stateWages: emp.stateWages ?? null,
+            stateTaxWithheld: emp.stateTaxWithheld ?? null,
+            localWages: emp.localWages ?? null,
+            localTaxWithheld: emp.localTaxWithheld ?? null,
+            netIncome: emp.cfmReady.netIncome ?? null,
+            notes: emp.cfmReady.notes || null,
+          }),
+        });
+
+        // 3. Optionally add employer to employment history
+        if (irsAddEmployers && emp.companyData.company) {
+          const startYear = emp.cfmReady.year ?? new Date().getFullYear();
+          await fetch("/api/current-position", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              company: emp.companyData.company,
+              role: "(from IRS Transcript)",
+              startDate: new Date(`${startYear}-01-01`).toISOString(),
+              endDate: new Date(`${startYear}-12-31`).toISOString(),
+              isActive: false,
+              salary: emp.wages ? Math.round(emp.wages) : undefined,
+              payType: "salary",
+              location: emp.companyData.state ?? undefined,
+              ein: emp.employerEIN ?? undefined,
+              legalName: emp.employerName ?? undefined,
+              description: `Imported from ${startYear} IRS Transcript`,
+            }),
+          });
+        }
+
+        imported++;
+      } catch {
+        // Continue with remaining employers
+      }
+    }
+
+    queryClient.invalidateQueries({ queryKey: ["cfm"] });
+    if (irsAddEmployers) queryClient.invalidateQueries({ queryKey: ["current-position"] });
+    setIrsDialog(false);
+    setIrsData(null);
+    setIrsAddEmployers(false);
+    setIrsShowRaw(false);
+    toast.success(`Imported ${imported} of ${selected.length} employer record${selected.length > 1 ? "s" : ""}`);
   };
 
   /* Hourly ↔ Yearly sync */
@@ -1483,8 +1642,8 @@ export default function CareerModelPage() {
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm">Income History</CardTitle>
                 <div className="flex gap-2">
-                  <Button size="sm" variant="outline" onClick={() => w2InputRef.current?.click()}>
-                    <Upload className="h-4 w-4 mr-1" /> Import W-2
+                  <Button size="sm" variant="outline" onClick={() => setDocPickerOpen(true)}>
+                    <Upload className="h-4 w-4 mr-1" /> Import Income Doc
                   </Button>
                   <Button size="sm" onClick={openAddIncome}>
                     <Plus className="h-4 w-4 mr-1" /> Add Year
@@ -1495,6 +1654,13 @@ export default function CareerModelPage() {
                     accept=".pdf"
                     className="hidden"
                     onChange={handleW2Upload}
+                  />
+                  <input
+                    ref={irsInputRef}
+                    type="file"
+                    accept=".pdf"
+                    className="hidden"
+                    onChange={handleIrsUpload}
                   />
                 </div>
               </div>
@@ -2234,6 +2400,303 @@ export default function CareerModelPage() {
               </div>
             </div>);
           })() : null}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Doc-Type Picker Dialog ── */}
+      <Dialog open={docPickerOpen} onOpenChange={setDocPickerOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Upload className="h-5 w-5 text-orange-600" />
+              Import Income Document
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-xs text-muted-foreground">What type of document are you importing?</p>
+          <div className="grid grid-cols-2 gap-3 pt-2">
+            <button
+              className="flex flex-col items-center gap-2 rounded-lg border-2 border-muted p-4 hover:border-orange-400 hover:bg-orange-50/50 dark:hover:bg-orange-950/30 transition-colors text-center"
+              onClick={() => { setDocPickerOpen(false); w2InputRef.current?.click(); }}
+            >
+              <FileText className="h-8 w-8 text-orange-600" />
+              <span className="text-sm font-medium">W-2</span>
+              <span className="text-[10px] text-muted-foreground leading-tight">Single employer wage & tax statement</span>
+            </button>
+            <button
+              className="flex flex-col items-center gap-2 rounded-lg border-2 border-muted p-4 hover:border-orange-400 hover:bg-orange-50/50 dark:hover:bg-orange-950/30 transition-colors text-center"
+              onClick={() => { setDocPickerOpen(false); irsInputRef.current?.click(); }}
+            >
+              <Users className="h-8 w-8 text-orange-600" />
+              <span className="text-sm font-medium">IRS Transcript</span>
+              <span className="text-[10px] text-muted-foreground leading-tight">Wage & Income Transcript (multi-employer)</span>
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── IRS Transcript Multi-Employer Dialog ── */}
+      <Dialog open={irsDialog} onOpenChange={(open) => { if (!open) { setIrsDialog(false); setIrsData(null); setIrsAddEmployers(false); setIrsShowRaw(false); } }}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5 text-orange-600" />
+              IRS Transcript — {irsData ? `${irsData.employers.length} Employer${irsData.employers.length > 1 ? "s" : ""} Found` : "Parsing..."}
+            </DialogTitle>
+          </DialogHeader>
+          {irsUploading ? (
+            <div className="flex flex-col items-center py-10 gap-3">
+              <Loader2 className="h-8 w-8 animate-spin text-orange-600" />
+              <p className="text-sm text-muted-foreground">Extracting employer data from IRS transcript...</p>
+            </div>
+          ) : irsData ? (
+            <div className="space-y-4 pt-2">
+              {/* Editable Tax Year */}
+              <div className="flex items-center gap-2 text-sm">
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+                <span>Tax Year:</span>
+                <Input
+                  type="number"
+                  className="h-7 w-20 text-sm font-semibold px-2 py-0"
+                  value={irsData.taxYear ?? ""}
+                  onChange={(e) => {
+                    const y = e.target.value === "" ? null : parseInt(e.target.value);
+                    const updated = { ...irsData, taxYear: y };
+                    // Propagate to each employer's cfmReady.year
+                    updated.employers = updated.employers.map((emp) => ({
+                      ...emp,
+                      cfmReady: { ...emp.cfmReady, year: y },
+                    }));
+                    setIrsData(updated);
+                  }}
+                />
+              </div>
+              <p className="text-[10px] text-muted-foreground italic">
+                Select which employers to import. Each selected record will create an income entry and W-2 record.
+              </p>
+
+              {/* Employer Cards */}
+              <div className="space-y-3">
+                {irsData.employers.map((emp, idx) => {
+                  const selected = emp._selected !== false;
+                  const toggleSelect = () => {
+                    const updated = [...irsData.employers];
+                    updated[idx] = { ...emp, _selected: !selected };
+                    setIrsData({ ...irsData, employers: updated });
+                  };
+
+                  // Helper to update any field on this employer and recalculate net income
+                  const updField = (field: keyof IRSEmployer, raw: string) => {
+                    const updated = [...irsData.employers];
+                    const e = { ...emp };
+                    // String fields
+                    if (field === "employerName" || field === "employerEIN" || field === "employerAddress" || field === "state") {
+                      (e as Record<string, unknown>)[field] = raw || null;
+                      // Keep companyData in sync
+                      if (field === "employerName") e.companyData = { ...e.companyData, company: raw || null };
+                      if (field === "employerEIN") e.companyData = { ...e.companyData, ein: raw || null };
+                      if (field === "employerAddress") e.companyData = { ...e.companyData, address: raw || null };
+                      if (field === "state") e.companyData = { ...e.companyData, state: raw || null };
+                    } else if (field !== "_selected" && field !== "cfmReady" && field !== "companyData") {
+                      // Dollar fields
+                      const v = raw === "" ? null : parseFloat(raw);
+                      (e as Record<string, unknown>)[field] = v != null && !isNaN(v) ? v : null;
+                    }
+                    // Recalculate net income
+                    const totalTaxes = (e.federalTaxWithheld ?? 0) + (e.socialSecurityTax ?? 0) + (e.medicareTax ?? 0) + (e.stateTaxWithheld ?? 0) + (e.localTaxWithheld ?? 0);
+                    const gross = e.wages;
+                    const net = gross != null ? gross - totalTaxes : null;
+                    e.cfmReady = {
+                      ...e.cfmReady,
+                      grossIncome: gross,
+                      netIncome: net != null && net > 0 ? net : null,
+                    };
+                    updated[idx] = e;
+                    setIrsData({ ...irsData, employers: updated });
+                  };
+
+                  // Editable dollar row
+                  const dollarRow = (label: string, field: keyof IRSEmployer, value: number | null) => (
+                    <div className="flex items-center justify-between px-2.5 py-1">
+                      <span className="text-muted-foreground">{label}</span>
+                      <div className="flex items-center gap-0.5">
+                        <span className="text-[10px] text-muted-foreground">$</span>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          className="h-5 w-24 text-[11px] font-mono tabular-nums px-1 py-0 text-right"
+                          value={value ?? ""}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => updField(field, e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  );
+
+                  return (
+                    <div
+                      key={idx}
+                      className={`rounded-lg border p-3 transition-colors ${
+                        selected
+                          ? "border-orange-300 bg-orange-50/50 dark:border-orange-700 dark:bg-orange-950/30"
+                          : "border-muted bg-muted/20 opacity-60"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-3 cursor-pointer" onClick={toggleSelect}>
+                        <div className="flex items-center gap-2">
+                          <div className={`h-5 w-5 rounded-md border-2 flex items-center justify-center shrink-0 ${
+                            selected ? "border-orange-500 bg-orange-500" : "border-muted-foreground/30"
+                          }`}>
+                            {selected && <Check className="h-3 w-3 text-white" />}
+                          </div>
+                          <span className="font-medium text-sm">
+                            {emp.employerName || `Employer ${idx + 1}`}
+                          </span>
+                        </div>
+                        {emp.wages != null && (
+                          <div className="text-right shrink-0">
+                            <p className="font-mono text-sm font-semibold">${emp.wages.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                            <p className="text-[10px] text-muted-foreground">Wages</p>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Detailed breakdown (visible when selected) */}
+                      {selected && (
+                        <div className="mt-2.5 ml-7 space-y-2">
+                          {/* Editable employer details */}
+                          <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px]">
+                            <div>
+                              <label className="text-muted-foreground">Employer Name</label>
+                              <Input
+                                className="h-6 text-xs px-1.5 py-0 mt-0.5"
+                                value={emp.employerName ?? ""}
+                                onClick={(e) => e.stopPropagation()}
+                                onChange={(e) => updField("employerName", e.target.value)}
+                              />
+                            </div>
+                            <div>
+                              <label className="text-muted-foreground">EIN</label>
+                              <Input
+                                className="h-6 text-xs font-mono px-1.5 py-0 mt-0.5"
+                                placeholder="XX-XXXXXXX"
+                                value={emp.employerEIN ?? ""}
+                                onClick={(e) => e.stopPropagation()}
+                                onChange={(e) => updField("employerEIN", e.target.value)}
+                              />
+                            </div>
+                            <div>
+                              <label className="text-muted-foreground">Address</label>
+                              <Input
+                                className="h-6 text-xs px-1.5 py-0 mt-0.5"
+                                value={emp.employerAddress ?? ""}
+                                onClick={(e) => e.stopPropagation()}
+                                onChange={(e) => updField("employerAddress", e.target.value)}
+                              />
+                            </div>
+                            <div>
+                              <label className="text-muted-foreground">State</label>
+                              <Input
+                                className="h-6 text-xs px-1.5 py-0 mt-0.5 uppercase"
+                                maxLength={2}
+                                placeholder="XX"
+                                value={emp.state ?? ""}
+                                onClick={(e) => e.stopPropagation()}
+                                onChange={(e) => updField("state", e.target.value.toUpperCase())}
+                              />
+                            </div>
+                          </div>
+
+                          {/* Editable tax breakdown table */}
+                          <div className="rounded border bg-muted/30 divide-y text-[11px]">
+                            {dollarRow("Wages / Tips / Other Comp", "wages", emp.wages)}
+                            {dollarRow("Federal Tax Withheld", "federalTaxWithheld", emp.federalTaxWithheld)}
+                            {dollarRow("Social Security Wages", "socialSecurityWages", emp.socialSecurityWages)}
+                            {dollarRow("Social Security Tax", "socialSecurityTax", emp.socialSecurityTax)}
+                            {dollarRow("Medicare Wages", "medicareWages", emp.medicareWages)}
+                            {dollarRow("Medicare Tax", "medicareTax", emp.medicareTax)}
+                            {dollarRow("State Wages", "stateWages", emp.stateWages)}
+                            {dollarRow("State Tax Withheld", "stateTaxWithheld", emp.stateTaxWithheld)}
+                            {dollarRow("Local Wages", "localWages", emp.localWages)}
+                            {dollarRow("Local Tax Withheld", "localTaxWithheld", emp.localTaxWithheld)}
+                            {emp.cfmReady.netIncome != null && (
+                              <div className="flex justify-between px-2.5 py-1.5 bg-emerald-50/50 dark:bg-emerald-950/30">
+                                <span className="text-emerald-700 dark:text-emerald-300 font-medium">Net Income (calculated)</span>
+                                <span className="font-mono tabular-nums text-emerald-700 dark:text-emerald-300 font-semibold">${emp.cfmReady.netIncome.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Summary */}
+              {irsData.employers.length > 1 && (() => {
+                const sel = irsData.employers.filter((e) => e._selected !== false);
+                const totalWages = sel.reduce((s, e) => s + (e.wages ?? 0), 0);
+                return (
+                  <div className="rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/50 p-3">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-emerald-700 dark:text-emerald-300 font-medium">
+                        {sel.length} of {irsData.employers.length} selected
+                      </span>
+                      <span className="font-mono font-semibold">
+                        ${totalWages.toLocaleString(undefined, { minimumFractionDigits: 2 })} total wages
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Add Employers to Employment History */}
+              {irsData.employers.some((e) => e.companyData.company) && (
+                <div className="rounded-lg border p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium">Add to Employment History?</p>
+                      <p className="text-xs text-muted-foreground">
+                        Save selected employers as past positions in your work history.
+                      </p>
+                    </div>
+                    <Switch checked={irsAddEmployers} onCheckedChange={setIrsAddEmployers} />
+                  </div>
+                </div>
+              )}
+
+              {/* Raw Text Debug */}
+              {irsData.rawText && (
+                <div className="rounded-lg border bg-muted/20 text-xs">
+                  <button
+                    type="button"
+                    className="flex items-center justify-between w-full px-3 py-2 text-muted-foreground hover:text-foreground transition-colors"
+                    onClick={() => setIrsShowRaw(!irsShowRaw)}
+                  >
+                    <span>Raw Extracted Text</span>
+                    <ChevronDown className={`h-3.5 w-3.5 transition-transform ${irsShowRaw ? "rotate-180" : ""}`} />
+                  </button>
+                  {irsShowRaw && (
+                    <pre className="px-3 pb-3 max-h-48 overflow-auto whitespace-pre-wrap break-words font-mono text-[10px] leading-relaxed text-muted-foreground border-t">
+                      {irsData.rawText}
+                    </pre>
+                  )}
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={() => { setIrsDialog(false); setIrsData(null); setIrsAddEmployers(false); setIrsShowRaw(false); }}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={confirmIrsImport}
+                  disabled={!irsData.employers.some((e) => e._selected !== false)}
+                >
+                  {irsAddEmployers ? "Import & Add Employers" : `Import ${irsData.employers.filter((e) => e._selected !== false).length} Record${irsData.employers.filter((e) => e._selected !== false).length > 1 ? "s" : ""}`}
+                </Button>
+              </div>
+            </div>
+          ) : null}
         </DialogContent>
       </Dialog>
 

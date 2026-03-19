@@ -48,7 +48,7 @@ function tag(xml: string, name: string): string | null {
   // Handle CDATA: <tag><![CDATA[content]]></tag>
   const cdataRe = new RegExp(`<${name}[^>]*>\\s*<!\\[CDATA\\[([\\s\\S]*?)\\]\\]>\\s*</${name}>`, "i");
   const cdataMatch = xml.match(cdataRe);
-  if (cdataMatch) return cdataMatch[1].trim();
+  if (cdataMatch) return stripHtml(cdataMatch[1].trim());
 
   // Handle regular: <tag>content</tag>
   const re = new RegExp(`<${name}[^>]*>([\\s\\S]*?)</${name}>`, "i");
@@ -65,8 +65,20 @@ function attr(xml: string, tagName: string, attrName: string): string | null {
 
 /** Strip HTML tags from text */
 function stripHtml(html: string): string {
-  return html.replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, " ").trim();
+  return html
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
+
+/** Exported for use in components to clean existing DB records */
+export { stripHtml };
 
 /** Try to extract an image URL from content or media tags */
 function extractImage(itemXml: string): string | null {

@@ -1,0 +1,170 @@
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+
+// Master Company Research API
+// Orchestrates DOL, SEC, and OSHA lookups in parallel
+// Caches results to CompanyProfile for future instant access
+
+export async function POST(request: Request) {
+  try {
+    const { ein, companyName, legalName, location, forceRefresh } = await request.json();
+    if (!ein && !companyName) {
+      return NextResponse.json({ error: "EIN or company name required" }, { status: 400 });
+    }
+
+    const cleanEin = ein ? ein.replace(/\D/g, "") : null;
+
+    // Check cache first (if EIN provided)
+    if (cleanEin && !forceRefresh) {
+      const cached = await prisma.companyProfile.findUnique({
+        where: { ein: cleanEin },
+      });
+      if (cached) {
+        // Return cached if fetched within last 30 days
+        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+        if (cached.lastFetchedAt && cached.lastFetchedAt > thirtyDaysAgo) {
+          return NextResponse.json({
+            ...cached,
+            form5500Data: cached.form5500Data ? JSON.parse(cached.form5500Data) : null,
+            secData: cached.secData ? JSON.parse(cached.secData) : null,
+            oshaData: cached.oshaData ? JSON.parse(cached.oshaData) : null,
+            sosData: cached.sosData ? JSON.parse(cached.sosData) : null,
+            researchNotes: cached.researchNotes || null,
+            _cached: true,
+          });
+        }
+      }
+    }
+
+    // Build the base URL from the request
+    const reqUrl = new URL(request.url);
+    const baseUrl = `${reqUrl.protocol}//${reqUrl.host}`;
+
+    // Prefer legalName (W-2/SEC filing name) for DOL/OSHA, fall back to companyName
+    const searchName = legalName || companyName;
+
+    // Fetch all sources in parallel
+    const [dolResult, secResult, oshaResult, ocResult] = await Promise.allSettled([
+      fetch(`${baseUrl}/api/company-research/dol`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ein: cleanEin, companyName: searchName }),
+      }).then((r) => r.json()),
+      fetch(`${baseUrl}/api/company-research/sec`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ein: cleanEin, companyName }),
+      }).then((r) => r.json()),
+      fetch(`${baseUrl}/api/company-research/osha`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ein: cleanEin, companyName: searchName }),
+      }).then((r) => r.json()),
+      fetch(`${baseUrl}/api/company-research/opencorporates`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ companyName: searchName || companyName, jurisdiction: location }),
+      }).then((r) => r.json()),
+    ]);
+
+    const dol = dolResult.status === "fulfilled" ? dolResult.value : null;
+    const sec = secResult.status === "fulfilled" ? secResult.value : null;
+    const osha = oshaResult.status === "fulfilled" ? oshaResult.value : null;
+    const oc = ocResult.status === "fulfilled" ? ocResult.value : null;
+
+    // Merge data into a unified profile
+    const profile = {
+      ein: cleanEin,
+      name: sec?.data?.companyName || dol?.data?.summary?.sponsorName || companyName || null,
+      address: (sec?.data as Record<string, unknown>)?.address as string | null ?? null,
+      industry: (sec?.data as Record<string, unknown>)?.sicDescription as string | null ?? null,
+      naicsCode: null as string | null,
+      website: null as string | null,
+      isPublic: sec?.data?.isPublic ?? false,
+      secCIK: sec?.data?.cik || null,
+      employeeCount: dol?.data?.summary?.estimatedEmployees || null,
+      form5500Data: dol?.data ? JSON.stringify(dol.data) : null,
+      secData: sec?.data ? JSON.stringify(sec.data) : null,
+      oshaData: osha?.data ? JSON.stringify(osha.data) : null,
+      sosData: oc?.data ? JSON.stringify(oc.data) : null,
+      lastFetchedAt: new Date(),
+    };
+
+    // Cache to CompanyProfile if we have an EIN
+    if (cleanEin) {
+      const existing = await prisma.companyProfile.findUnique({ where: { ein: cleanEin } });
+      await prisma.companyProfile.upsert({
+        where: { ein: cleanEin },
+        create: { ...profile, ein: cleanEin },
+        update: {
+          ...profile,
+          // Don't overwrite name/address if we already have them and new data is null
+          name: profile.name || undefined,
+          address: profile.address || undefined,
+          industry: profile.industry || undefined,
+          // Never overwrite user's research notes during auto-refresh
+          researchNotes: undefined,
+        },
+      });
+
+      // Include existing notes in fresh response
+      if (existing?.researchNotes) {
+        return NextResponse.json({
+          ...profile,
+          form5500Data: dol?.data || null,
+          secData: sec?.data || null,
+          oshaData: osha?.data || null,
+          sosData: oc?.data || null,
+          researchNotes: existing.researchNotes,
+          _cached: false,
+          _sources: {
+            dol: dol?.data ? "found" : dol?.error ? "error" : "not_found",
+            sec: sec?.data ? "found" : sec?.error ? "error" : "not_found",
+            osha: osha?.data ? "found" : osha?.error ? "error" : "not_found",
+            opencorporates: oc?.data ? "found" : oc?.error ? "error" : "not_found",
+          },
+        });
+      }
+    }
+
+    return NextResponse.json({
+      ...profile,
+      form5500Data: dol?.data || null,
+      secData: sec?.data || null,
+      oshaData: osha?.data || null,
+      sosData: oc?.data || null,
+      researchNotes: null,
+      _cached: false,
+      _sources: {
+        dol: dol?.data ? "found" : dol?.error ? "error" : "not_found",
+        sec: sec?.data ? "found" : sec?.error ? "error" : "not_found",
+        osha: osha?.data ? "found" : osha?.error ? "error" : "not_found",
+        opencorporates: oc?.data ? "found" : oc?.error ? "error" : "not_found",
+      },
+    });
+  } catch (error) {
+    return NextResponse.json({ error: String(error) }, { status: 500 });
+  }
+}
+
+// PATCH — Save research notes for a company profile
+export async function PATCH(request: Request) {
+  try {
+    const { ein, researchNotes } = await request.json();
+    if (!ein) {
+      return NextResponse.json({ error: "EIN required" }, { status: 400 });
+    }
+
+    const cleanEin = ein.replace(/\D/g, "");
+
+    const updated = await prisma.companyProfile.upsert({
+      where: { ein: cleanEin },
+      create: { ein: cleanEin, researchNotes },
+      update: { researchNotes },
+    });
+
+    return NextResponse.json({ success: true, researchNotes: updated.researchNotes });
+  } catch (error) {
+    return NextResponse.json({ error: String(error) }, { status: 500 });
+  }
+}

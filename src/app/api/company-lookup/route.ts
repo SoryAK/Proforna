@@ -72,7 +72,23 @@ export async function POST(request: Request) {
     // Only read first 100KB to avoid fetching huge pages
     const html = (await res.text()).slice(0, 100_000);
 
-    return NextResponse.json(extractMeta(html));
+    const meta = extractMeta(html);
+
+    // Try to find EIN + legal name from SEC EDGAR using the company name
+    if (meta.company) {
+      try {
+        const secInfo = await lookupSec(meta.company);
+        if (secInfo) {
+          meta.ein = secInfo.ein || null;
+          meta.legalName = secInfo.legalName || null;
+          meta.industry = secInfo.industry || null;
+        }
+      } catch {
+        // SEC lookup failed — continue without it
+      }
+    }
+
+    return NextResponse.json(meta);
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     if (msg.includes("abort")) {
@@ -144,7 +160,81 @@ function extractMeta(html: string) {
       ? company.split("|")[0].split("\u2013")[0].split("-")[0].trim()
       : null,
     companySynopsis: synopsis,
+    ein: null as string | null,
+    legalName: null as string | null,
+    industry: null as string | null,
   };
+}
+
+// ── SEC EDGAR lookup (EIN + legal filing name from company name) ──
+
+const SEC_USER_AGENT = "Resumsify/1.0 (personal career tracker)";
+
+async function lookupSec(
+  companyName: string
+): Promise<{ ein: string | null; legalName: string | null; industry: string | null } | null> {
+  // Search the company tickers JSON for a match
+  const tickerRes = await fetch(
+    "https://www.sec.gov/files/company_tickers.json",
+    {
+      headers: {
+        "User-Agent": SEC_USER_AGENT,
+        Accept: "application/json",
+      },
+      signal: AbortSignal.timeout(8000),
+    }
+  );
+
+  if (!tickerRes.ok) return null;
+
+  const tickers = await tickerRes.json();
+  const needle = companyName.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+  let cik: string | null = null;
+  let matchedName: string | null = null;
+
+  for (const key of Object.keys(tickers)) {
+    const entry = tickers[key];
+    const name = String(entry.title || "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, "");
+    if (name.includes(needle) || needle.includes(name)) {
+      cik = String(entry.cik_str).padStart(10, "0");
+      matchedName = entry.title || null;
+      break;
+    }
+  }
+
+  if (!cik) return null;
+
+  // Fetch full company info from EDGAR submissions
+  try {
+    const subRes = await fetch(
+      `https://data.sec.gov/submissions/CIK${cik}.json`,
+      {
+        headers: {
+          "User-Agent": SEC_USER_AGENT,
+          Accept: "application/json",
+        },
+        signal: AbortSignal.timeout(8000),
+      }
+    );
+    if (!subRes.ok) {
+      return { ein: null, legalName: matchedName, industry: null };
+    }
+
+    const sub = await subRes.json();
+    const rawEin = sub.ein || null;
+    const ein = rawEin ? rawEin.replace(/^(\d{2})(\d{7})$/, "$1-$2") : null;
+
+    return {
+      ein,
+      legalName: sub.name || matchedName,
+      industry: sub.sicDescription || null,
+    };
+  } catch {
+    return { ein: null, legalName: matchedName, industry: null };
+  }
 }
 
 function decode(s: string): string {
