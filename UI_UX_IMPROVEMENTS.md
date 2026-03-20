@@ -135,3 +135,5 @@ Instead of a dedicated "Research" nav item, distribute research features into ex
 - **Job Market Research** → Job Search page (new tab)
 
 This reduces nav item count and puts research where it's contextually relevant. Consider if the standalone Research page feels too isolated.
+
+

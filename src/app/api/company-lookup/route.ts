@@ -166,74 +166,70 @@ function extractMeta(html: string) {
   };
 }
 
-// ── SEC EDGAR lookup (EIN + legal filing name from company name) ──
+// ── SEC EDGAR lookup (lightweight — no 7MB download) ──
 
 const SEC_USER_AGENT = "Resumsify/1.0 (personal career tracker)";
 
 async function lookupSec(
   companyName: string
 ): Promise<{ ein: string | null; legalName: string | null; industry: string | null } | null> {
-  // Search the company tickers JSON for a match
-  const tickerRes = await fetch(
-    "https://www.sec.gov/files/company_tickers.json",
-    {
-      headers: {
-        "User-Agent": SEC_USER_AGENT,
-        Accept: "application/json",
-      },
-      signal: AbortSignal.timeout(8000),
-    }
-  );
+  // Search EDGAR for companies filing 10-K (~5-20KB response vs 7MB tickers JSON)
+  const url = new URL("https://www.sec.gov/cgi-bin/browse-edgar");
+  url.searchParams.set("company", companyName);
+  url.searchParams.set("CIK", "");
+  url.searchParams.set("type", "10-K");
+  url.searchParams.set("dateb", "");
+  url.searchParams.set("owner", "include");
+  url.searchParams.set("count", "5");
+  url.searchParams.set("search_text", "");
+  url.searchParams.set("action", "getcompany");
 
-  if (!tickerRes.ok) return null;
+  const res = await fetch(url.toString(), {
+    headers: { "User-Agent": SEC_USER_AGENT },
+    signal: AbortSignal.timeout(8000),
+  });
 
-  const tickers = await tickerRes.json();
-  const needle = companyName.toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (!res.ok) return null;
 
-  let cik: string | null = null;
-  let matchedName: string | null = null;
+  const html = (await res.text()).slice(0, 50_000);
 
-  for (const key of Object.keys(tickers)) {
-    const entry = tickers[key];
-    const name = String(entry.title || "")
-      .toLowerCase()
-      .replace(/[^a-z0-9]/g, "");
-    if (name.includes(needle) || needle.includes(name)) {
-      cik = String(entry.cik_str).padStart(10, "0");
-      matchedName = entry.title || null;
-      break;
-    }
-  }
+  if (html.toLowerCase().includes("no matching")) return null;
 
-  if (!cik) return null;
+  const cikMatch = html.match(/CIK=(\d+)/);
+  if (!cikMatch) return null;
 
-  // Fetch full company info from EDGAR submissions
+  const cik = cikMatch[1].padStart(10, "0");
+
+  // Fetch company details from CIK submissions
   try {
     const subRes = await fetch(
       `https://data.sec.gov/submissions/CIK${cik}.json`,
       {
-        headers: {
-          "User-Agent": SEC_USER_AGENT,
-          Accept: "application/json",
-        },
+        headers: { "User-Agent": SEC_USER_AGENT, Accept: "application/json" },
         signal: AbortSignal.timeout(8000),
       }
     );
-    if (!subRes.ok) {
-      return { ein: null, legalName: matchedName, industry: null };
-    }
+    if (!subRes.ok) return null;
 
     const sub = await subRes.json();
+
+    // Verify name match
+    const secName = (sub.name || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+    const needle = companyName.toLowerCase().replace(/[^a-z0-9]/g, "");
+    if (secName && needle && !secName.includes(needle) && !needle.includes(secName)) {
+      return null;
+    }
+
     const rawEin = sub.ein || null;
     const ein = rawEin ? rawEin.replace(/^(\d{2})(\d{7})$/, "$1-$2") : null;
 
     return {
       ein,
-      legalName: sub.name || matchedName,
+      legalName: sub.name || null,
       industry: sub.sicDescription || null,
     };
   } catch {
-    return { ein: null, legalName: matchedName, industry: null };
+    return null;
   }
 }
 

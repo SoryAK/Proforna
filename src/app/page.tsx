@@ -1,6 +1,7 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Briefcase,
   CalendarDays,
@@ -18,18 +19,30 @@ import {
   BookOpen,
   Compass,
   Newspaper,
+  Pencil,
+  Settings,
+  Camera,
+  DollarSign,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Progress, ProgressLabel, ProgressValue } from "@/components/ui/progress";
 import {
   STATUS_LABELS,
   AVAILABILITY_LABELS,
   AVAILABILITY_COLORS,
+  AVAILABILITY_STATUSES,
   type ApplicationStatus,
   type AvailabilityStatus,
 } from "@/lib/constants";
+import { cn } from "@/lib/utils";
 import { formatDistanceToNow, format } from "date-fns";
 import {
   BarChart,
@@ -224,10 +237,64 @@ interface DashboardData {
 }
 
 export default function DashboardPage() {
+  const queryClient = useQueryClient();
   const { data, isLoading } = useQuery<DashboardData>({
     queryKey: ["dashboard"],
     queryFn: () => fetch("/api/dashboard").then((r) => r.json()),
   });
+
+  const [editOpen, setEditOpen] = useState(false);
+  const [editForm, setEditForm] = useState({
+    fullName: "",
+    headline: "",
+    email: "",
+    phone: "",
+    city: "",
+    state: "",
+    linkedinUrl: "",
+    githubUrl: "",
+    portfolioUrl: "",
+    availability: "open_to_work",
+    bio: "",
+    preferredRoles: "",
+    locationPreference: "",
+    avatarUrl: "",
+  });
+
+  const profileMutation = useMutation({
+    mutationFn: (body: typeof editForm) =>
+      fetch("/api/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }).then((r) => r.json()),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      setEditOpen(false);
+    },
+  });
+
+  const openEditDialog = () => {
+    if (data?.profile) {
+      setEditForm({
+        fullName: data.profile.fullName ?? "",
+        headline: data.profile.headline ?? "",
+        email: data.profile.email ?? "",
+        phone: data.profile.phone ?? "",
+        city: data.profile.city ?? "",
+        state: data.profile.state ?? "",
+        linkedinUrl: data.profile.linkedinUrl ?? "",
+        githubUrl: data.profile.githubUrl ?? "",
+        portfolioUrl: data.profile.portfolioUrl ?? "",
+        availability: data.profile.availability ?? "open_to_work",
+        bio: data.profile.bio ?? "",
+        preferredRoles: data.profile.preferredRoles ?? "",
+        locationPreference: data.profile.locationPreference ?? "",
+        avatarUrl: data.profile.avatarUrl ?? "",
+      });
+    }
+    setEditOpen(true);
+  };
 
   if (isLoading || !data) {
     return (
@@ -297,32 +364,99 @@ export default function DashboardPage() {
     : null;
 
   return (
-    <div className="max-w-5xl mx-auto space-y-3">
-      {/* ━━ Banner row: Profile Header + Sidebar Info Cards ━━ */}
-      <div className="grid gap-3 lg:grid-cols-[1fr_300px]">
+    <div className="max-w-5xl mx-auto space-y-6">
+      {/* ━━ Profile Banner ━━ */}
+      <div>
         {/* ── Profile Banner (left) ── */}
-        <Card className="overflow-hidden">
-          <div className="relative h-48 sm:h-52 bg-gradient-to-r from-orange-600 via-orange-500 to-cyan-500" />
+        <Card className="overflow-hidden pt-0">
+          {/* Abstract wave banner inspired by MatDash */}
+          <div className="relative h-48 sm:h-56 overflow-hidden">
+            {/* Base gradient */}
+            <div className="absolute inset-0 bg-gradient-to-br from-indigo-500 via-purple-500 to-cyan-400" />
+            {/* Overlay soft light */}
+            <div className="absolute inset-0 bg-gradient-to-t from-white/10 via-transparent to-white/5" />
+            {/* SVG wave layers */}
+            <svg
+              className="absolute inset-0 w-full h-full"
+              viewBox="0 0 1200 400"
+              preserveAspectRatio="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <defs>
+                <linearGradient id="wave1" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stopColor="#7c3aed" stopOpacity="0.6" />
+                  <stop offset="100%" stopColor="#06b6d4" stopOpacity="0.3" />
+                </linearGradient>
+                <linearGradient id="wave2" x1="0" y1="0" x2="1" y2="0.5">
+                  <stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.5" />
+                  <stop offset="50%" stopColor="#a78bfa" stopOpacity="0.4" />
+                  <stop offset="100%" stopColor="#22d3ee" stopOpacity="0.3" />
+                </linearGradient>
+                <linearGradient id="wave3" x1="0" y1="0.5" x2="1" y2="1">
+                  <stop offset="0%" stopColor="#6366f1" stopOpacity="0.4" />
+                  <stop offset="100%" stopColor="#0891b2" stopOpacity="0.5" />
+                </linearGradient>
+              </defs>
+              {/* Background mountain/wave shape */}
+              <path
+                d="M0,320 C100,280 200,200 350,220 C500,240 550,160 700,140 C850,120 950,180 1050,160 C1150,140 1200,180 1200,180 L1200,400 L0,400 Z"
+                fill="url(#wave1)"
+              />
+              {/* Mid layer wave */}
+              <path
+                d="M0,350 C150,300 250,260 400,280 C550,300 600,220 750,200 C900,180 1000,240 1100,220 C1150,210 1200,240 1200,240 L1200,400 L0,400 Z"
+                fill="url(#wave2)"
+              />
+              {/* Front wave */}
+              <path
+                d="M0,380 C200,340 350,320 500,340 C650,360 700,300 850,280 C1000,260 1100,310 1200,300 L1200,400 L0,400 Z"
+                fill="url(#wave3)"
+              />
+              {/* Accent dots / circles for depth */}
+              <circle cx="200" cy="180" r="40" fill="white" fillOpacity="0.05" />
+              <circle cx="800" cy="120" r="60" fill="white" fillOpacity="0.04" />
+              <circle cx="500" cy="100" r="30" fill="white" fillOpacity="0.06" />
+              <circle cx="1000" cy="160" r="25" fill="white" fillOpacity="0.05" />
+            </svg>
+            {/* Subtle noise texture overlay */}
+            <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")" }} />
+            {/* Edit Profile & Settings buttons on banner */}
+            <div className="absolute top-3 right-3 flex gap-2">
+              <Button size="sm" variant="outline" onClick={openEditDialog} className="bg-white/95 hover:bg-white shadow-md text-xs font-semibold gap-1.5 text-gray-800 border-white/60">
+                <Pencil className="h-3.5 w-3.5" />
+                Edit Profile
+              </Button>
+              <Link href="/portal-settings">
+                <Button size="sm" variant="outline" className="bg-white/95 hover:bg-white shadow-md text-xs font-semibold gap-1.5 text-gray-800 border-white/60">
+                  <Settings className="h-3.5 w-3.5" />
+                  Settings
+                </Button>
+              </Link>
+            </div>
+          </div>
           <CardContent className="relative px-6 pb-5 pt-0">
             {/* Avatar overlapping banner */}
             <div className="-mt-20 mb-3 flex items-end gap-5">
-              <div className="flex h-36 w-36 items-center justify-center rounded-full border-4 border-background bg-white shadow-lg overflow-hidden">
-                {profile?.avatarUrl ? (
-                  <Image
-                    src={profile.avatarUrl}
-                    alt={profile.fullName || "Profile"}
-                    width={144}
-                    height={144}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <span className="text-4xl font-bold text-orange-600">{initials}</span>
-                )}
-              </div>
-              <div className="mb-2 flex items-center gap-2">
-                <Badge className={AVAILABILITY_COLORS[availability]}>
-                  {AVAILABILITY_LABELS[availability]}
-                </Badge>
+              <div className="relative">
+                <div className="flex h-36 w-36 items-center justify-center rounded-full border-[3px] border-white bg-white shadow-lg ring-2 ring-black/5 overflow-hidden">
+                  {profile?.avatarUrl ? (
+                    <Image
+                      src={profile.avatarUrl}
+                      alt={profile.fullName || "Profile"}
+                      width={144}
+                      height={144}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-4xl font-bold text-orange-600">{initials}</span>
+                  )}
+                </div>
+                {/* Availability badge overlay */}
+                <div className="absolute -bottom-1 left-1/2 -translate-x-1/2">
+                  <Badge className={cn(AVAILABILITY_COLORS[availability], "text-[10px] px-2 py-0.5 shadow-sm border border-white whitespace-nowrap")}>
+                    {AVAILABILITY_LABELS[availability]}
+                  </Badge>
+                </div>
               </div>
             </div>
 
@@ -346,62 +480,54 @@ export default function DashboardPage() {
                   )}
                 </div>
               </div>
-              {currentPosition && (
-                <div className="flex items-center gap-2 sm:mt-1">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-sm font-bold text-slate-500 border">
-                    {currentPosition.company[0]}
-                  </div>
-                  <span className="text-sm font-medium">{currentPosition.company}</span>
-                </div>
-              )}
             </div>
 
             {/* Social links row */}
             {(profile?.linkedinUrl || profile?.githubUrl || profile?.portfolioUrl || profile?.email) && (
-              <div className="flex gap-4 mt-2">
+              <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
                 {profile?.email && (
                   <a href={`mailto:${profile.email}`} className="text-xs text-orange-600 font-medium hover:underline flex items-center gap-1" title="Email">
-                    <FileText className="h-3.5 w-3.5" /> Email
+                    <FileText className="h-3.5 w-3.5" /> {profile.email}
                   </a>
                 )}
                 {profile?.linkedinUrl && (
                   <a href={profile.linkedinUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-orange-600 font-medium hover:underline flex items-center gap-1" title="LinkedIn">
-                    <ExternalLink className="h-3.5 w-3.5" /> LinkedIn
+                    <ExternalLink className="h-3.5 w-3.5" /> {profile.linkedinUrl.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "")}
                   </a>
                 )}
                 {profile?.githubUrl && (
                   <a href={profile.githubUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-orange-600 font-medium hover:underline flex items-center gap-1" title="GitHub">
-                    <ExternalLink className="h-3.5 w-3.5" /> GitHub
+                    <ExternalLink className="h-3.5 w-3.5" /> {profile.githubUrl.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "")}
                   </a>
                 )}
                 {profile?.portfolioUrl && (
                   <a href={profile.portfolioUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-orange-600 font-medium hover:underline flex items-center gap-1" title="Portfolio">
-                    <ExternalLink className="h-3.5 w-3.5" /> Portfolio
+                    <ExternalLink className="h-3.5 w-3.5" /> {profile.portfolioUrl.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "")}
                   </a>
                 )}
               </div>
             )}
 
             {/* Stats row */}
-            <Separator className="my-3" />
-            <div className="flex flex-wrap gap-5 text-sm">
-              <Link href="/applications" className="flex items-center gap-1.5 hover:underline">
+            <div className="my-3 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
+            <div className="flex flex-wrap gap-3 text-sm">
+              <Link href="/applications" className="flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-2 hover:bg-muted transition-colors">
                 <Briefcase className="h-4 w-4 text-orange-600" />
                 <span className="font-semibold">{stats.totalApplications}</span>
                 <span className="text-muted-foreground">Applications</span>
               </Link>
-              <Link href="/contacts" className="flex items-center gap-1.5 hover:underline">
+              <Link href="/contacts" className="flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-2 hover:bg-muted transition-colors">
                 <Users className="h-4 w-4 text-orange-600" />
                 <span className="font-semibold">{stats.contacts}</span>
                 <span className="text-muted-foreground">Contacts</span>
               </Link>
-              <Link href="/skills" className="flex items-center gap-1.5 hover:underline">
+              <Link href="/skills" className="flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-2 hover:bg-muted transition-colors">
                 <Zap className="h-4 w-4 text-orange-600" />
                 <span className="font-semibold">{stats.skills}</span>
                 <span className="text-muted-foreground">Skills</span>
               </Link>
               {stats.upcomingInterviews > 0 && (
-                <Link href="/applications" className="flex items-center gap-1.5 hover:underline">
+                <Link href="/applications" className="flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-2 hover:bg-muted transition-colors">
                   <CalendarDays className="h-4 w-4 text-purple-600" />
                   <span className="font-semibold">{stats.upcomingInterviews}</span>
                   <span className="text-muted-foreground">Interviews</span>
@@ -421,304 +547,260 @@ export default function DashboardPage() {
             )}
           </CardContent>
         </Card>
-
-        {/* ── Sidebar Info Cards (right of banner) ── */}
-        <div className="space-y-3">
-          {/* Current Position */}
-          {currentPosition && (
-            <Card>
-              <CardHeader className="pb-2 pt-4 px-5">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm font-semibold">Current Role</CardTitle>
-                  <Link href="/current-position" className="text-xs text-orange-600 hover:underline flex items-center gap-0.5">
-                    Manage <ChevronRight className="h-3 w-3" />
-                  </Link>
-                </div>
-              </CardHeader>
-              <CardContent className="px-5 pb-4">
-                <div className="flex gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-sm font-bold text-slate-500 border">
-                    {currentPosition.company[0]}
-                  </div>
-                  <div className="min-w-0 space-y-0.5">
-                    <p className="text-sm font-semibold truncate">{currentPosition.role}</p>
-                    <p className="text-xs text-muted-foreground truncate">
-                      {currentPosition.company}
-                      {currentPosition.department && ` · ${currentPosition.department}`}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {format(new Date(currentPosition.startDate), "MMM yyyy")} – Present
-                    </p>
-                    {currentPosition.location && (
-                      <p className="text-xs text-muted-foreground flex items-center gap-1">
-                        <MapPin className="h-3 w-3" /> {currentPosition.location}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Quick Stats */}
-          <Card>
-            <CardHeader className="pb-2 pt-4 px-5">
-              <CardTitle className="text-sm font-semibold">Quick Stats</CardTitle>
-            </CardHeader>
-            <CardContent className="px-5 pb-4">
-              <div className="space-y-2 text-sm">
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Active Pipeline</span>
-                  <span className="font-semibold">{stats.activeApplications}</span>
-                </div>
-                <Separator />
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Interviews</span>
-                  <span className="font-semibold">{stats.upcomingInterviews}</span>
-                </div>
-                <Separator />
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Submissions</span>
-                  <span className="font-semibold">{stats.newSubmissions}</span>
-                </div>
-                <Separator />
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Resumes</span>
-                  <span className="font-semibold">{stats.resumes}</span>
-                </div>
-                {profile?.targetSalaryMin && profile?.targetSalaryMax && (
-                  <>
-                    <Separator />
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Target Salary</span>
-                      <span className="text-sm font-semibold">
-                        {profile.currency} {profile.targetSalaryMin.toLocaleString()}–{profile.targetSalaryMax.toLocaleString()}
-                      </span>
-                    </div>
-                  </>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Public Links */}
-          {(profile?.linkedinUrl || profile?.githubUrl || profile?.portfolioUrl) && (
-            <Card>
-              <CardHeader className="pb-2 pt-4 px-5">
-                <CardTitle className="text-sm font-semibold">Public Profile & URLs</CardTitle>
-              </CardHeader>
-              <CardContent className="px-5 pb-4 space-y-2">
-                {profile?.linkedinUrl && (
-                  <a href={profile.linkedinUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs text-orange-600 hover:underline truncate">
-                    <ExternalLink className="h-3.5 w-3.5 shrink-0" />
-                    <span className="truncate">{profile.linkedinUrl.replace(/^https?:\/\/(www\.)?/, "")}</span>
-                  </a>
-                )}
-                {profile?.githubUrl && (
-                  <a href={profile.githubUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs text-orange-600 hover:underline truncate">
-                    <ExternalLink className="h-3.5 w-3.5 shrink-0" />
-                    <span className="truncate">{profile.githubUrl.replace(/^https?:\/\/(www\.)?/, "")}</span>
-                  </a>
-                )}
-                {profile?.portfolioUrl && (
-                  <a href={profile.portfolioUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs text-orange-600 hover:underline truncate">
-                    <ExternalLink className="h-3.5 w-3.5 shrink-0" />
-                    <span className="truncate">{profile.portfolioUrl.replace(/^https?:\/\/(www\.)?/, "")}</span>
-                  </a>
-                )}
-              </CardContent>
-            </Card>
-          )}
-        </div>
       </div>
 
-      {/* ━━ Two-column LinkedIn grid: Main (left) + Sidebar (right) ━━ */}
-      <div className="grid gap-3 lg:grid-cols-[1fr_300px]">
-        {/* ════ LEFT / MAIN COLUMN ════ */}
+      {/* ━━ ALERTS (only render section if there are alerts) ━━ */}
+      {(upcomingInterviewDetails.length > 0 || expiringCertifications.length > 0) && (
         <div className="space-y-3">
-          {/* About */}
-          {profile?.bio && (
-            <Card>
-              <CardHeader className="pb-2 pt-4 px-5">
-                <CardTitle className="text-base font-semibold">About</CardTitle>
-              </CardHeader>
-              <CardContent className="px-5 pb-4">
-                <p className="text-sm text-muted-foreground whitespace-pre-line leading-relaxed">
-                  {profile.bio}
-                </p>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Certifications */}
-          {certifications.length > 0 && (
-            <Card>
-              <CardHeader className="pb-2 pt-4 px-5">
-                <CardTitle className="text-base font-semibold">Certifications</CardTitle>
-              </CardHeader>
-              <CardContent className="px-5 pb-4">
-                <div className="space-y-3">
-                  {certifications.map((cert) => (
-                    <div key={cert.id} className="flex gap-3">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-50 dark:bg-amber-950">
-                        <Award className="h-5 w-5 text-amber-600" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold">{cert.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {cert.issuer} · Issued {format(new Date(cert.issueDate), "MMM yyyy")}
-                          {cert.expiryDate && ` · Expires ${format(new Date(cert.expiryDate), "MMM yyyy")}`}
-                        </p>
-                        {cert.credentialUrl && (
-                          <a href={cert.credentialUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-orange-600 hover:underline flex items-center gap-0.5 mt-0.5">
-                            Show credential <ExternalLink className="h-3 w-3" />
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Job Search Pipeline */}
-          {(stats.activeApplications > 0 || chartData.length > 0) && (
-            <Card>
-              <CardHeader className="pb-2 pt-4 px-5">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-base font-semibold">Application Pipeline</CardTitle>
-                  <Link href="/applications" className="text-xs text-orange-600 hover:underline flex items-center gap-0.5">
-                    View all <ChevronRight className="h-3 w-3" />
-                  </Link>
-                </div>
-              </CardHeader>
-              <CardContent className="px-5 pb-4">
-                {chartData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={200}>
-                    <BarChart data={chartData} layout="vertical">
-                      <XAxis type="number" allowDecimals={false} fontSize={11} />
-                      <YAxis type="category" dataKey="name" fontSize={11} width={80} />
-                      <Tooltip />
-                      <Bar dataKey="count" radius={[0, 4, 4, 0]}>
-                        {chartData.map((entry, index) => (
-                          <Cell key={index} fill={entry.fill} />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <p className="text-sm text-center text-muted-foreground py-8">No applications yet</p>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Profile Management Tabs */}
-          <Card>
-            <CardHeader className="pb-2 pt-4 px-5">
-              <CardTitle className="text-base font-semibold">Profile Management</CardTitle>
-            </CardHeader>
-            <CardContent className="px-5 pb-4">
-              <Tabs defaultValue="experience">
-                <TabsList>
-                  <TabsTrigger value="experience">Experience</TabsTrigger>
-                  <TabsTrigger value="skills">Skills</TabsTrigger>
-                  <TabsTrigger value="resumes">Resumes</TabsTrigger>
-                </TabsList>
-                <TabsContent value="experience" className="mt-4">
-                  <ExperiencePage />
-                </TabsContent>
-                <TabsContent value="skills" className="mt-4">
-                  <SkillsPage />
-                </TabsContent>
-                <TabsContent value="resumes" className="mt-4">
-                  <ResumesPage />
-                </TabsContent>
-              </Tabs>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* ════ RIGHT / SIDEBAR ════ */}
-        <div className="space-y-3">
-          {/* Alerts: Upcoming Interviews */}
-          {upcomingInterviewDetails.length > 0 && (
-            <Card className="border-purple-200 dark:border-purple-800">
-              <CardHeader className="pb-2 pt-4 px-5">
-                <CardTitle className="text-base font-semibold flex items-center gap-2">
-                  <CalendarDays className="h-4 w-4 text-purple-600" />
-                  Upcoming Interviews
-                  <Badge className="ml-auto bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300 text-[11px] px-2 py-0.5">
-                    {upcomingInterviewDetails.length}
-                  </Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="px-5 pb-4">
-                <div className="space-y-3">
-                  {upcomingInterviewDetails.map((iv) => (
-                    <div key={iv.id} className="flex gap-3 rounded-lg border p-3">
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-purple-50 dark:bg-purple-950">
-                        <CalendarDays className="h-4 w-4 text-purple-600" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold truncate">
-                          {iv.jobApplication.company} — {iv.jobApplication.role}
-                        </p>
-                        <p className="text-xs text-muted-foreground capitalize">
-                          {iv.type}{iv.interviewerName && ` w/ ${iv.interviewerName}`}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {format(new Date(iv.scheduledAt), "MMM d 'at' h:mm a")}
-                          {iv.durationMinutes && ` · ${iv.durationMinutes}m`}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Alerts: Expiring Certs */}
-          {expiringCertifications.length > 0 && (
-            <Card className="border-amber-200 dark:border-amber-800">
-              <CardHeader className="pb-2 pt-4 px-5">
-                <CardTitle className="text-base font-semibold flex items-center gap-2">
-                  <AlertTriangle className="h-4 w-4 text-amber-600" />
-                  Expiring Certifications
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="px-5 pb-4">
-                <div className="space-y-2.5">
-                  {expiringCertifications.map((cert) => {
-                    const isExpired = cert.expiryDate && new Date(cert.expiryDate) < new Date();
-                    return (
-                      <div key={cert.id} className="flex items-center gap-3">
-                        <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${isExpired ? "bg-red-100 dark:bg-red-950" : "bg-amber-100 dark:bg-amber-950"}`}>
-                          <Award className={`h-4 w-4 ${isExpired ? "text-red-600" : "text-amber-600"}`} />
+          <div className="grid gap-3 sm:grid-cols-2">
+            {/* Upcoming Interviews */}
+            {upcomingInterviewDetails.length > 0 && (
+              <Card className="border-purple-200 dark:border-purple-800">
+                <CardHeader className="pb-2 pt-4 px-5">
+                  <CardTitle className="text-base font-semibold flex items-center gap-2">
+                    <CalendarDays className="h-4 w-4 text-purple-600" />
+                    Upcoming Interviews
+                    <Badge className="ml-auto bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300 text-[11px] px-2 py-0.5">
+                      {upcomingInterviewDetails.length}
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="px-5 pb-4">
+                  <div className="space-y-3">
+                    {upcomingInterviewDetails.map((iv) => (
+                      <div key={iv.id} className="flex gap-3 rounded-lg border p-3">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-purple-50 dark:bg-purple-950">
+                          <CalendarDays className="h-4 w-4 text-purple-600" />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium truncate">{cert.name}</p>
-                          <p className="text-xs text-muted-foreground">{cert.issuer}</p>
+                          <p className="text-sm font-semibold truncate">
+                            {iv.jobApplication.company} — {iv.jobApplication.role}
+                          </p>
+                          <p className="text-xs text-muted-foreground capitalize">
+                            {iv.type}{iv.interviewerName && ` w/ ${iv.interviewerName}`}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {format(new Date(iv.scheduledAt), "MMM d 'at' h:mm a")}
+                            {iv.durationMinutes && ` · ${iv.durationMinutes}m`}
+                          </p>
                         </div>
-                        <Badge className={`text-xs px-2 py-0.5 ${isExpired ? "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300" : "bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300"}`}>
-                          {isExpired ? "Expired" : `${format(new Date(cert.expiryDate!), "MMM d")}`}
-                        </Badge>
                       </div>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-          )}
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
+            {/* Expiring Certs */}
+            {expiringCertifications.length > 0 && (
+              <Card className="border-amber-200 dark:border-amber-800">
+                <CardHeader className="pb-2 pt-4 px-5">
+                  <CardTitle className="text-base font-semibold flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-amber-600" />
+                    Expiring Certifications
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="px-5 pb-4">
+                  <div className="space-y-2.5">
+                    {expiringCertifications.map((cert) => {
+                      const isExpired = cert.expiryDate && new Date(cert.expiryDate) < new Date();
+                      return (
+                        <div key={cert.id} className="flex items-center gap-3">
+                          <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${isExpired ? "bg-red-100 dark:bg-red-950" : "bg-amber-100 dark:bg-amber-950"}`}>
+                            <Award className={`h-4 w-4 ${isExpired ? "text-red-600" : "text-amber-600"}`} />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium truncate">{cert.name}</p>
+                            <p className="text-xs text-muted-foreground">{cert.issuer}</p>
+                          </div>
+                          <Badge className={`text-xs px-2 py-0.5 ${isExpired ? "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300" : "bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300"}`}>
+                            {isExpired ? "Expired" : `${format(new Date(cert.expiryDate!), "MMM d")}`}
+                          </Badge>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ━━ FINANCIALS ━━ */}
+      {currentPosition && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 px-1">
+            <DollarSign className="h-4 w-4 text-orange-600" />
+            <h2 className="text-sm font-semibold tracking-wide uppercase text-muted-foreground">Financials</h2>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {/* Income Growth */}
+            {cfmLatest && (
+              <Card>
+                <CardHeader className="pb-2 pt-4 px-5">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base font-semibold">Income Growth</CardTitle>
+                    <Link href="/career-model" className="text-xs text-orange-600 hover:underline flex items-center gap-0.5">
+                      Details <ChevronRight className="h-3 w-3" />
+                    </Link>
+                  </div>
+                </CardHeader>
+                <CardContent className="px-5 pb-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Gross ({cfmLatest.year})</span>
+                    <span className="font-semibold">${cfmLatest.grossIncome.toLocaleString()}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Avg Growth</span>
+                    {grossChanges.length > 0 ? (
+                      <span className={`font-semibold flex items-center gap-1 ${avgGrowth >= 0 ? "text-green-600" : "text-red-600"}`}>
+                        {avgGrowth >= 0 ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingUp className="h-3.5 w-3.5 rotate-180" />}
+                        {avgGrowth >= 0 ? "+" : ""}{avgGrowth.toFixed(1)}%
+                      </span>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">Need 2+ years</span>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Years Tracked</span>
+                    <span className="font-semibold">{cfmYears.length}</span>
+                  </div>
+                  {topTier && tierProgress !== null && (
+                    <>
+                      <Separator />
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-muted-foreground">{topTier.label} Goal</span>
+                          <span className="font-medium">{tierProgress.toFixed(0)}%</span>
+                        </div>
+                        <div className="h-2 rounded-full bg-muted overflow-hidden">
+                          <div
+                            className="h-full rounded-full transition-all"
+                            style={{ width: `${tierProgress}%`, backgroundColor: topTier.color }}
+                          />
+                        </div>
+                        <p className="text-xs text-muted-foreground text-right">
+                          ${cfmLatest.grossIncome.toLocaleString()} / ${topTier.yearlyRate.toLocaleString()}
+                        </p>
+                      </div>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Pay Period Calendar */}
+            {currentPosition.payFrequency && (
+              <PayPeriodCalendar compact />
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ━━ JOB SEARCH ━━ */}
+      {(stats.activeApplications > 0 || chartData.length > 0 || certifications.length > 0) && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 px-1">
+            <Briefcase className="h-4 w-4 text-orange-600" />
+            <h2 className="text-sm font-semibold tracking-wide uppercase text-muted-foreground">Job Search</h2>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {/* Application Pipeline */}
+            {(stats.activeApplications > 0 || chartData.length > 0) && (
+              <Card>
+                <CardHeader className="pb-2 pt-4 px-5">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base font-semibold">Application Pipeline</CardTitle>
+                    <Link href="/applications" className="text-xs text-orange-600 hover:underline flex items-center gap-0.5">
+                      View all <ChevronRight className="h-3 w-3" />
+                    </Link>
+                  </div>
+                </CardHeader>
+                <CardContent className="px-5 pb-4">
+                  {chartData.length > 0 ? (
+                    <ResponsiveContainer width="100%" height={200}>
+                      <BarChart data={chartData} layout="vertical">
+                        <XAxis type="number" allowDecimals={false} fontSize={11} />
+                        <YAxis type="category" dataKey="name" fontSize={11} width={80} />
+                        <Tooltip />
+                        <Bar dataKey="count" radius={[0, 4, 4, 0]}>
+                          {chartData.map((entry, index) => (
+                            <Cell key={index} fill={entry.fill} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <p className="text-sm text-center text-muted-foreground py-8">No applications yet</p>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Certifications */}
+            {certifications.length > 0 && (
+              <Card>
+                <CardHeader className="pb-2 pt-4 px-5">
+                  <CardTitle className="text-base font-semibold">Certifications</CardTitle>
+                </CardHeader>
+                <CardContent className="px-5 pb-4">
+                  <div className="space-y-3">
+                    {certifications.map((cert) => (
+                      <div key={cert.id} className="flex gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-50 dark:bg-amber-950">
+                          <Award className="h-5 w-5 text-amber-600" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold">{cert.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {cert.issuer} · Issued {format(new Date(cert.issueDate), "MMM yyyy")}
+                            {cert.expiryDate && ` · Expires ${format(new Date(cert.expiryDate), "MMM yyyy")}`}
+                          </p>
+                          {cert.credentialUrl && (
+                            <a href={cert.credentialUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-orange-600 hover:underline flex items-center gap-0.5 mt-0.5">
+                              Show credential <ExternalLink className="h-3 w-3" />
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ━━ CAREER DEVELOPMENT ━━ */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2 px-1">
+          <TrendingUp className="h-4 w-4 text-orange-600" />
+          <h2 className="text-sm font-semibold tracking-wide uppercase text-muted-foreground">Career Development</h2>
+        </div>
+
+        {/* About */}
+        {profile?.bio && (
+          <Card>
+            <CardHeader className="pb-2 pt-4 px-5">
+              <CardTitle className="text-base font-semibold">About</CardTitle>
+            </CardHeader>
+            <CardContent className="px-5 pb-4">
+              <p className="text-sm text-muted-foreground whitespace-pre-line leading-relaxed">
+                {profile.bio}
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
+        <div className="grid gap-3 sm:grid-cols-2">
           {/* Learning Progress */}
           {learningSummary.total > 0 && (
             <Card>
               <CardHeader className="pb-2 pt-4 px-5">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                  <CardTitle className="text-base font-semibold flex items-center gap-2">
                     <BookOpen className="h-4 w-4 text-orange-500" />
                     Learning Progress
                   </CardTitle>
@@ -767,12 +849,12 @@ export default function DashboardPage() {
             </Card>
           )}
 
-          {/* CDM Score */}
+          {/* Career Direction */}
           {cdmSummary && (
             <Card>
               <CardHeader className="pb-2 pt-4 px-5">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                  <CardTitle className="text-base font-semibold flex items-center gap-2">
                     <Compass className="h-4 w-4 text-indigo-500" />
                     Career Direction
                   </CardTitle>
@@ -825,160 +907,89 @@ export default function DashboardPage() {
               </CardContent>
             </Card>
           )}
+        </div>
 
-          {/* Unread Articles */}
-          {unreadArticleCount > 0 && (
-            <Card>
-              <CardHeader className="pb-2 pt-4 px-5">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                    <Newspaper className="h-4 w-4 text-cyan-600" />
-                    Industry News
-                  </CardTitle>
-                  <Link href="/research" className="text-xs text-orange-600 hover:underline flex items-center gap-0.5">
-                    Read <ChevronRight className="h-3 w-3" />
-                  </Link>
-                </div>
-              </CardHeader>
-              <CardContent className="px-5 pb-4">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-cyan-50 dark:bg-cyan-950">
-                    <Newspaper className="h-5 w-5 text-cyan-600" />
-                  </div>
-                  <div>
-                    <p className="text-lg font-bold">{unreadArticleCount}</p>
-                    <p className="text-xs text-muted-foreground">unread article{unreadArticleCount !== 1 ? "s" : ""}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Career Goals */}
-          {activeGoals.length > 0 && (
-            <Card>
-              <CardHeader className="pb-2 pt-4 px-5">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-base font-semibold">Goals</CardTitle>
-                  <Link href="/goals" className="text-xs text-orange-600 hover:underline flex items-center gap-0.5">
-                    All <ChevronRight className="h-3 w-3" />
-                  </Link>
-                </div>
-              </CardHeader>
-              <CardContent className="px-5 pb-4">
-                <div className="space-y-3">
-                  {activeGoals.map((goal) => {
-                    const total = goal.milestones.length;
-                    const done = goal.milestones.filter((m) => m.completed).length;
-                    const pct = total > 0 ? Math.round((done / total) * 100) : 0;
-                    return (
-                      <div key={goal.id} className="space-y-1.5">
-                        <div className="flex items-center justify-between">
-                          <p className="text-sm font-semibold truncate">{goal.title}</p>
-                          <Badge
-                            variant="secondary"
-                            className={`text-[11px] px-2 py-0.5 ${
-                              goal.priority === "high" ? "bg-red-100 text-red-700"
-                                : goal.priority === "medium" ? "bg-yellow-100 text-yellow-700"
-                                : "bg-gray-100 text-gray-700"
-                            }`}
-                          >
-                            {goal.priority}
-                          </Badge>
-                        </div>
-                        {total > 0 && (
-                          <Progress value={pct}>
-                            <ProgressLabel className="text-xs">{done}/{total}</ProgressLabel>
-                            <ProgressValue />
-                          </Progress>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Finance: Income Growth */}
-          {currentPosition && cfmLatest && (
-            <Card>
-              <CardHeader className="pb-2 pt-4 px-5">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-base font-semibold">Income Growth</CardTitle>
-                  <Link href="/career-model" className="text-xs text-orange-600 hover:underline flex items-center gap-0.5">
-                    Details <ChevronRight className="h-3 w-3" />
-                  </Link>
-                </div>
-              </CardHeader>
-              <CardContent className="px-5 pb-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Gross ({cfmLatest.year})</span>
-                  <span className="font-semibold">${cfmLatest.grossIncome.toLocaleString()}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Avg Growth</span>
-                  {grossChanges.length > 0 ? (
-                    <span className={`font-semibold flex items-center gap-1 ${avgGrowth >= 0 ? "text-green-600" : "text-red-600"}`}>
-                      {avgGrowth >= 0 ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingUp className="h-3.5 w-3.5 rotate-180" />}
-                      {avgGrowth >= 0 ? "+" : ""}{avgGrowth.toFixed(1)}%
-                    </span>
-                  ) : (
-                    <span className="text-xs text-muted-foreground">Need 2+ years</span>
-                  )}
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Years Tracked</span>
-                  <span className="font-semibold">{cfmYears.length}</span>
-                </div>
-                {topTier && tierProgress !== null && (
-                  <>
-                    <Separator />
-                    <div className="space-y-1.5">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-muted-foreground">{topTier.label} Goal</span>
-                        <span className="font-medium">{tierProgress.toFixed(0)}%</span>
-                      </div>
-                      <div className="h-2 rounded-full bg-muted overflow-hidden">
-                        <div
-                          className="h-full rounded-full transition-all"
-                          style={{ width: `${tierProgress}%`, backgroundColor: topTier.color }}
-                        />
-                      </div>
-                      <p className="text-xs text-muted-foreground text-right">
-                        ${cfmLatest.grossIncome.toLocaleString()} / ${topTier.yearlyRate.toLocaleString()}
-                      </p>
-                    </div>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Finance widgets */}
-          {currentPosition && currentPosition.payFrequency && (
-            <PayPeriodCalendar compact />
-          )}
-          {currentPosition && (
-            <PersonalFinance
-              positionId={currentPosition.id}
-              payType={currentPosition.payType}
-              payRate={currentPosition.payRate}
-              salary={currentPosition.salary}
-              payFrequency={currentPosition.payFrequency}
-              hoursPerWeek={currentPosition.hoursPerWeek}
-              scheduleBHours={currentPosition.scheduleBHours}
-              rotatingSchedule={currentPosition.rotatingSchedule}
-              otHoursA={currentPosition.otHoursA}
-              otHoursB={currentPosition.otHoursB}
-              otRate={currentPosition.otRate}
-              differentials={currentPosition.differentials}
-              estimatorSettings={currentPosition.estimatorSettings}
-            />
-          )}
-
-          {/* Recent Activity */}
+        {/* Goals - full width */}
+        {activeGoals.length > 0 && (
           <Card>
+            <CardHeader className="pb-2 pt-4 px-5">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base font-semibold">Goals</CardTitle>
+                <Link href="/goals" className="text-xs text-orange-600 hover:underline flex items-center gap-0.5">
+                  All <ChevronRight className="h-3 w-3" />
+                </Link>
+              </div>
+            </CardHeader>
+            <CardContent className="px-5 pb-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                {activeGoals.map((goal) => {
+                  const total = goal.milestones.length;
+                  const done = goal.milestones.filter((m) => m.completed).length;
+                  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+                  return (
+                    <div key={goal.id} className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-semibold truncate">{goal.title}</p>
+                        <Badge
+                          variant="secondary"
+                          className={`text-[11px] px-2 py-0.5 ${
+                            goal.priority === "high" ? "bg-red-100 text-red-700"
+                              : goal.priority === "medium" ? "bg-yellow-100 text-yellow-700"
+                              : "bg-gray-100 text-gray-700"
+                          }`}
+                        >
+                          {goal.priority}
+                        </Badge>
+                      </div>
+                      {total > 0 && (
+                        <Progress value={pct}>
+                          <ProgressLabel className="text-xs">{done}/{total}</ProgressLabel>
+                          <ProgressValue />
+                        </Progress>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Profile Management Tabs - full width */}
+        <Card>
+          <CardHeader className="pb-2 pt-4 px-5">
+            <CardTitle className="text-base font-semibold">Profile Management</CardTitle>
+          </CardHeader>
+          <CardContent className="px-5 pb-4">
+            <Tabs defaultValue="experience">
+              <TabsList>
+                <TabsTrigger value="experience">Experience</TabsTrigger>
+                <TabsTrigger value="skills">Skills</TabsTrigger>
+                <TabsTrigger value="resumes">Resumes</TabsTrigger>
+              </TabsList>
+              <TabsContent value="experience" className="mt-4">
+                <ExperiencePage />
+              </TabsContent>
+              <TabsContent value="skills" className="mt-4">
+                <SkillsPage />
+              </TabsContent>
+              <TabsContent value="resumes" className="mt-4">
+                <ResumesPage />
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* ━━ ACTIVITY & INSIGHTS ━━ */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2 px-1">
+          <Clock className="h-4 w-4 text-orange-600" />
+          <h2 className="text-sm font-semibold tracking-wide uppercase text-muted-foreground">Activity & Insights</h2>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {/* Recent Activity */}
+          <Card className="sm:col-span-2 lg:col-span-2">
             <CardHeader className="pb-2 pt-4 px-5">
               <CardTitle className="text-base font-semibold flex items-center gap-2">
                 <Clock className="h-4 w-4 text-muted-foreground" />
@@ -1005,8 +1016,160 @@ export default function DashboardPage() {
               )}
             </CardContent>
           </Card>
+
+          {/* Industry News */}
+          {unreadArticleCount > 0 && (
+            <Card>
+              <CardHeader className="pb-2 pt-4 px-5">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base font-semibold flex items-center gap-2">
+                    <Newspaper className="h-4 w-4 text-cyan-600" />
+                    Industry News
+                  </CardTitle>
+                  <Link href="/research" className="text-xs text-orange-600 hover:underline flex items-center gap-0.5">
+                    Read <ChevronRight className="h-3 w-3" />
+                  </Link>
+                </div>
+              </CardHeader>
+              <CardContent className="px-5 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-cyan-50 dark:bg-cyan-950">
+                    <Newspaper className="h-5 w-5 text-cyan-600" />
+                  </div>
+                  <div>
+                    <p className="text-lg font-bold">{unreadArticleCount}</p>
+                    <p className="text-xs text-muted-foreground">unread article{unreadArticleCount !== 1 ? "s" : ""}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
+      {/* Edit Profile Dialog */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Profile</DialogTitle>
+          </DialogHeader>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              profileMutation.mutate(editForm);
+            }}
+            className="space-y-4"
+          >
+            {/* Profile Picture */}
+            <div className="flex flex-col items-center gap-2">
+              <div className="relative group">
+                <div className="h-24 w-24 rounded-full border-2 border-muted bg-muted/30 overflow-hidden flex items-center justify-center">
+                  {editForm.avatarUrl ? (
+                    <img src={editForm.avatarUrl} alt="Profile" className="h-full w-full object-cover" />
+                  ) : (
+                    <Camera className="h-8 w-8 text-muted-foreground" />
+                  )}
+                </div>
+                <label className="absolute inset-0 flex items-center justify-center rounded-full cursor-pointer bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Camera className="h-5 w-5 text-white" />
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="sr-only"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const reader = new FileReader();
+                      reader.onload = () => {
+                        setEditForm((f) => ({ ...f, avatarUrl: reader.result as string }));
+                      };
+                      reader.readAsDataURL(file);
+                    }}
+                  />
+                </label>
+              </div>
+              <span className="text-xs text-muted-foreground">Click to change photo</span>
+              {editForm.avatarUrl && (
+                <button type="button" className="text-xs text-red-500 hover:underline" onClick={() => setEditForm((f) => ({ ...f, avatarUrl: "" }))}>
+                  Remove photo
+                </button>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="ep-fullName">Full Name</Label>
+                <Input id="ep-fullName" value={editForm.fullName} onChange={(e) => setEditForm((f) => ({ ...f, fullName: e.target.value }))} />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="ep-headline">Headline</Label>
+                <Input id="ep-headline" value={editForm.headline} onChange={(e) => setEditForm((f) => ({ ...f, headline: e.target.value }))} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="ep-email">Email</Label>
+                <Input id="ep-email" type="email" value={editForm.email} onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))} />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="ep-phone">Phone</Label>
+                <Input id="ep-phone" value={editForm.phone} onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="ep-city">City</Label>
+                <Input id="ep-city" value={editForm.city} onChange={(e) => setEditForm((f) => ({ ...f, city: e.target.value }))} />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="ep-state">State</Label>
+                <Input id="ep-state" value={editForm.state} onChange={(e) => setEditForm((f) => ({ ...f, state: e.target.value }))} />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Availability</Label>
+              <Select value={editForm.availability} onValueChange={(v) => setEditForm((f) => ({ ...f, availability: v ?? f.availability }))}>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {AVAILABILITY_STATUSES.map((s) => (
+                    <SelectItem key={s} value={s}>{AVAILABILITY_LABELS[s]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="ep-bio">Bio</Label>
+              <Textarea id="ep-bio" rows={3} value={editForm.bio} onChange={(e) => setEditForm((f) => ({ ...f, bio: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="ep-roles">Preferred Roles</Label>
+              <Input id="ep-roles" placeholder="e.g. Frontend Engineer, Full-Stack" value={editForm.preferredRoles} onChange={(e) => setEditForm((f) => ({ ...f, preferredRoles: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="ep-locPref">Location Preference</Label>
+              <Input id="ep-locPref" placeholder="e.g. Remote, NYC, SF" value={editForm.locationPreference} onChange={(e) => setEditForm((f) => ({ ...f, locationPreference: e.target.value }))} />
+            </div>
+            <Separator />
+            <div className="space-y-1.5">
+              <Label htmlFor="ep-linkedin">LinkedIn URL</Label>
+              <Input id="ep-linkedin" value={editForm.linkedinUrl} onChange={(e) => setEditForm((f) => ({ ...f, linkedinUrl: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="ep-github">GitHub URL</Label>
+              <Input id="ep-github" value={editForm.githubUrl} onChange={(e) => setEditForm((f) => ({ ...f, githubUrl: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="ep-portfolio">Portfolio URL</Label>
+              <Input id="ep-portfolio" value={editForm.portfolioUrl} onChange={(e) => setEditForm((f) => ({ ...f, portfolioUrl: e.target.value }))} />
+            </div>
+            <DialogFooter>
+              <Button type="submit" disabled={profileMutation.isPending}>
+                {profileMutation.isPending ? "Saving..." : "Save Changes"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

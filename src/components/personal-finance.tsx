@@ -109,6 +109,7 @@ interface Props {
   otRate: number | null;
   differentials: string | null;
   estimatorSettings: string | null;
+  hideIncomeHistory?: boolean;
 }
 
 /* ── Expense categories ── */
@@ -141,6 +142,7 @@ export function PersonalFinance({
   positionId, payType, payRate, salary, payFrequency,
   hoursPerWeek, scheduleBHours, rotatingSchedule,
   otHoursA, otHoursB, otRate, differentials, estimatorSettings,
+  hideIncomeHistory,
 }: Props) {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
@@ -575,7 +577,7 @@ export function PersonalFinance({
       )}
 
       {/* ── Income History ── */}
-      {incomeHistory.length > 0 && (
+      {!hideIncomeHistory && incomeHistory.length > 0 && (
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-lg flex items-center gap-2">

@@ -13,7 +13,6 @@ import {
   Building2,
   Shield,
   FileText,
-  TrendingUp,
   Users,
   AlertTriangle,
   RefreshCw,
@@ -71,14 +70,7 @@ interface ResearchData {
     cik: string | null;
     ticker: string | null;
     companyName: string | null;
-    filings: Array<{
-      form: string;
-      filingDate: string;
-      primaryDocument: string;
-    }>;
     isPublic: boolean;
-    address?: string;
-    sic?: string;
     sicDescription?: string;
     stateOfIncorporation?: string;
   } | null;
@@ -113,6 +105,7 @@ interface ResearchData {
     companyType: string | null;
     registeredAddress: string | null;
     registryUrl: string | null;
+    parentCompany: string | null;
     officers: Array<{
       name: string;
       position: string;
@@ -281,8 +274,14 @@ export function CompanyIntel({ ein, companyName, legalName, location }: CompanyI
                 <span className="font-mono font-bold text-lg">${data.secData.ticker}</span>
               )}
             </div>
+            {data.sosData?.parentCompany && (
+              <p className="text-sm mt-2">
+                <span className="text-muted-foreground">Parent: </span>
+                <span className="font-medium">{data.sosData.parentCompany}</span>
+              </p>
+            )}
             {data.industry && (
-              <p className="text-sm text-muted-foreground mt-2">{data.industry}</p>
+              <p className="text-sm text-muted-foreground mt-1">{data.industry}</p>
             )}
           </CardContent>
         </Card>
@@ -328,48 +327,59 @@ export function CompanyIntel({ ein, companyName, legalName, location }: CompanyI
         </Card>
       </div>
 
-      {/* SEC EDGAR Section */}
-      {data.secData && (
+      {/* Corporate Structure */}
+      {(data.secData || data.sosData) && (
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
-              <TrendingUp className="h-4 w-4" />
-              SEC EDGAR
-              {data.secData.cik && (
-                <span className="text-xs text-muted-foreground font-normal">CIK: {data.secData.cik}</span>
-              )}
+              <Building2 className="h-4 w-4" />
+              Corporate Structure
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {data.secData.stateOfIncorporation && (
-                <div className="flex justify-between text-sm">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="text-sm">
+                <span className="text-muted-foreground">Company Status</span>
+                <p className="font-medium flex items-center gap-2 mt-0.5">
+                  {data.isPublic ? (
+                    <Badge className="bg-blue-100 text-blue-700">Publicly Traded</Badge>
+                  ) : (
+                    <Badge variant="outline">Private</Badge>
+                  )}
+                  {data.secData?.ticker && (
+                    <span className="font-mono font-bold">${data.secData.ticker}</span>
+                  )}
+                </p>
+              </div>
+              {data.sosData?.parentCompany && (
+                <div className="text-sm">
+                  <span className="text-muted-foreground">Parent Company</span>
+                  <p className="font-medium mt-0.5">{data.sosData.parentCompany}</p>
+                </div>
+              )}
+              {data.sosData?.companyType && (
+                <div className="text-sm">
+                  <span className="text-muted-foreground">Entity Type</span>
+                  <p className="font-medium mt-0.5">{data.sosData.companyType}</p>
+                </div>
+              )}
+              {data.secData?.stateOfIncorporation && (
+                <div className="text-sm">
                   <span className="text-muted-foreground">State of Incorporation</span>
-                  <span className="font-medium">{data.secData.stateOfIncorporation}</span>
+                  <p className="font-medium mt-0.5">{data.secData.stateOfIncorporation}</p>
                 </div>
               )}
-              {data.secData.sic && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">SIC Code</span>
-                  <span className="font-medium">{data.secData.sic} — {data.secData.sicDescription}</span>
+              {data.industry && (
+                <div className="text-sm">
+                  <span className="text-muted-foreground">Industry (SIC)</span>
+                  <p className="font-medium mt-0.5">{data.industry}</p>
                 </div>
               )}
-              {data.secData.filings.length > 0 && (
-                <>
-                  <Separator />
-                  <p className="text-sm font-semibold">Recent Filings</p>
-                  <div className="space-y-2">
-                    {data.secData.filings.map((f, i) => (
-                      <div key={i} className="flex items-center justify-between text-sm">
-                        <div className="flex items-center gap-2">
-                          <FileText className="h-3.5 w-3.5 text-muted-foreground" />
-                          <Badge variant="outline" className="text-xs">{f.form}</Badge>
-                        </div>
-                        <span className="text-muted-foreground">{f.filingDate}</span>
-                      </div>
-                    ))}
-                  </div>
-                </>
+              {data.secData?.cik && (
+                <div className="text-sm">
+                  <span className="text-muted-foreground">SEC CIK</span>
+                  <p className="font-mono text-sm mt-0.5">{data.secData.cik}</p>
+                </div>
               )}
             </div>
           </CardContent>

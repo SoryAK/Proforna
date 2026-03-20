@@ -53,7 +53,7 @@ export async function POST(request: Request) {
       fetch(`${baseUrl}/api/company-research/sec`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ein: cleanEin, companyName }),
+        body: JSON.stringify({ companyName }),
       }).then((r) => r.json()),
       fetch(`${baseUrl}/api/company-research/osha`, {
         method: "POST",
@@ -76,8 +76,8 @@ export async function POST(request: Request) {
     const profile = {
       ein: cleanEin,
       name: sec?.data?.companyName || dol?.data?.summary?.sponsorName || companyName || null,
-      address: (sec?.data as Record<string, unknown>)?.address as string | null ?? null,
-      industry: (sec?.data as Record<string, unknown>)?.sicDescription as string | null ?? null,
+      address: oc?.data?.registeredAddress || null,
+      industry: sec?.data?.sicDescription || null,
       naicsCode: null as string | null,
       website: null as string | null,
       isPublic: sec?.data?.isPublic ?? false,

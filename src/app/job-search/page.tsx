@@ -2,29 +2,36 @@
 
 import { useState } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { JobSearchDiscover } from "@/components/job-search-discover";
+import { InterviewRoomLauncher } from "@/components/interview-room-launcher";
 import ApplicationsPage from "../applications/page";
 import ContactsPage from "../contacts/page";
 import SubmissionsPage from "../submissions/page";
 import EmailPage from "../email/page";
 
 export default function JobSearchPage() {
-  const [tab, setTab] = useState("applications");
+  const [tab, setTab] = useState("discover");
 
   return (
     <div className="space-y-4">
       <div>
         <h1 className="text-2xl font-bold">Job Search</h1>
-        <p className="text-sm text-muted-foreground">Applications, contacts, submissions, and email</p>
+        <p className="text-sm text-muted-foreground">Discover openings, track applications, manage contacts, and more</p>
       </div>
 
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
+          <TabsTrigger value="discover">Discover</TabsTrigger>
           <TabsTrigger value="applications">Applications</TabsTrigger>
           <TabsTrigger value="contacts">Contacts</TabsTrigger>
           <TabsTrigger value="submissions">Submissions</TabsTrigger>
           <TabsTrigger value="email">Email</TabsTrigger>
+          <TabsTrigger value="interviews">Interviews</TabsTrigger>
         </TabsList>
 
+        <TabsContent value="discover" className="mt-4">
+          <JobSearchDiscover />
+        </TabsContent>
         <TabsContent value="applications" className="mt-4">
           <ApplicationsPage />
         </TabsContent>
@@ -36,6 +43,9 @@ export default function JobSearchPage() {
         </TabsContent>
         <TabsContent value="email" className="mt-4">
           <EmailPage />
+        </TabsContent>
+        <TabsContent value="interviews" className="mt-4">
+          <InterviewRoomLauncher />
         </TabsContent>
       </Tabs>
     </div>

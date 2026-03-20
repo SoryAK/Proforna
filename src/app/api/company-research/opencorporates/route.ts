@@ -21,7 +21,24 @@ interface OcCompany {
     position: string;
     start_date: string | null;
     end_date: string | null;
+    officer?: {
+      name: string;
+      position: string;
+      start_date: string | null;
+      end_date: string | null;
+    };
   }>;
+  corporate_groupings?: Array<{
+    corporate_grouping: {
+      name: string;
+      opencorporates_url?: string | null;
+    };
+  }>;
+  home_company?: {
+    name: string;
+    jurisdiction_code: string;
+    company_number: string;
+  } | null;
   source?: { url: string | null };
 }
 
@@ -85,13 +102,22 @@ export async function POST(request: Request) {
     const details = await getCompanyDetails(match.jurisdiction_code, match.company_number);
     const company = details || match;
 
-    // Extract officers list
-    const officers = (company.officers || []).map((o) => ({
-      name: o.name,
-      position: o.position,
-      startDate: o.start_date,
-      endDate: o.end_date,
-    }));
+    // Extract officers list (OC may wrap each entry in an "officer" key)
+    const officers = (company.officers || []).map((raw) => {
+      const o = raw.officer || raw;
+      return {
+        name: o.name,
+        position: o.position,
+        startDate: o.start_date,
+        endDate: o.end_date,
+      };
+    });
+
+    // Extract parent company from corporate groupings or home company
+    const parentCompany =
+      company.corporate_groupings?.[0]?.corporate_grouping?.name ||
+      company.home_company?.name ||
+      null;
 
     // Parse jurisdiction for display
     const jurisdictionParts = company.jurisdiction_code.split("_");
@@ -108,6 +134,7 @@ export async function POST(request: Request) {
       companyType: company.company_type,
       registeredAddress: company.registered_address_in_full,
       registryUrl: company.registry_url || company.source?.url || null,
+      parentCompany,
       officers,
     };
 
