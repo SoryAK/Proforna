@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { getUserId } from "@/lib/auth-utils";
 
 /**
  * GET /api/skill-gap-suggestions
@@ -7,6 +8,9 @@ import { NextResponse } from "next/server";
  * suggest what to learn next for each career path.
  */
 export async function GET() {
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   // Latest snapshot with scores + gaps
   const latestSnapshot = await prisma.careerSnapshot.findFirst({
     orderBy: { capturedAt: "desc" },

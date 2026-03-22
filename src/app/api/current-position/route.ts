@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getUserId } from "@/lib/auth-utils";
 
 // GET - fetch current active position(s)
 export async function GET() {
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   try {
-    const positions = await prisma.currentPosition.findMany({
+    const positions = await prisma.currentPosition.findMany({ where: { userId },
       orderBy: { startDate: "desc" },
     });
     return NextResponse.json(positions);
@@ -15,10 +19,13 @@ export async function GET() {
 
 // POST - create a new current position
 export async function POST(request: Request) {
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   try {
     const body = await request.json();
     const position = await prisma.currentPosition.create({
-      data: {
+      data: { userId,
         company: body.company,
         role: body.role,
         department: body.department || null,
@@ -57,7 +64,7 @@ export async function POST(request: Request) {
     });
 
     await prisma.activityLog.create({
-      data: {
+      data: { userId,
         entityType: "position",
         entityId: position.id,
         action: "created",

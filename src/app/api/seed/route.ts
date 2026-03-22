@@ -1,58 +1,62 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { getUserId } from "@/lib/auth-utils";
 
 export async function POST() {
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   try {
-    // Clear existing data
-    await prisma.recruiterSubmission.deleteMany();
-    await prisma.currentPosition.deleteMany();
-    await prisma.userProfile.deleteMany();
-    await prisma.activityLog.deleteMany();
-    await prisma.reminder.deleteMany();
-    await prisma.milestone.deleteMany();
-    await prisma.careerGoal.deleteMany();
-    await prisma.resumeVersion.deleteMany();
-    await prisma.certification.deleteMany();
-    await prisma.skill.deleteMany();
-    await prisma.contact.deleteMany();
-    await prisma.interview.deleteMany();
-    await prisma.jobApplication.deleteMany();
+    // Clear existing data for this user
+    await prisma.recruiterSubmission.deleteMany({ where: { userId } });
+    await prisma.currentPosition.deleteMany({ where: { userId } });
+    await prisma.userProfile.deleteMany({ where: { userId } });
+    await prisma.activityLog.deleteMany({ where: { userId } });
+    await prisma.reminder.deleteMany({ where: { userId } });
+    await prisma.milestone.deleteMany({ where: { careerGoal: { userId } } });
+    await prisma.careerGoal.deleteMany({ where: { userId } });
+    await prisma.resumeVersion.deleteMany({ where: { userId } });
+    await prisma.certification.deleteMany({ where: { userId } });
+    await prisma.skill.deleteMany({ where: { userId } });
+    await prisma.contact.deleteMany({ where: { userId } });
+    await prisma.interview.deleteMany({ where: { jobApplication: { userId } } });
+    await prisma.jobApplication.deleteMany({ where: { userId } });
 
     // Job Applications
     const app1 = await prisma.jobApplication.create({
-      data: { company: "Google", role: "Senior Frontend Engineer", url: "https://careers.google.com/jobs/123", location: "Mountain View, CA", type: "hybrid", status: "interviewing", salaryMin: 180000, salaryMax: 250000, currency: "USD", appliedDate: new Date("2026-02-15"), notes: "Referred by John from the Chrome team" },
+      data: { userId, company: "Google", role: "Senior Frontend Engineer", url: "https://careers.google.com/jobs/123", location: "Mountain View, CA", type: "hybrid", status: "interviewing", salaryMin: 180000, salaryMax: 250000, currency: "USD", appliedDate: new Date("2026-02-15"), notes: "Referred by John from the Chrome team" },
     });
     const app2 = await prisma.jobApplication.create({
-      data: { company: "Stripe", role: "Full Stack Developer", url: "https://stripe.com/jobs/456", location: "San Francisco, CA", type: "remote", status: "applied", salaryMin: 160000, salaryMax: 220000, currency: "USD", appliedDate: new Date("2026-03-01"), notes: "Applied through their website" },
+      data: { userId, company: "Stripe", role: "Full Stack Developer", url: "https://stripe.com/jobs/456", location: "San Francisco, CA", type: "remote", status: "applied", salaryMin: 160000, salaryMax: 220000, currency: "USD", appliedDate: new Date("2026-03-01"), notes: "Applied through their website" },
     });
     const app3 = await prisma.jobApplication.create({
-      data: { company: "Microsoft", role: "Software Engineer II", location: "Redmond, WA", type: "hybrid", status: "offer", salaryMin: 150000, salaryMax: 200000, currency: "USD", appliedDate: new Date("2026-01-20"), notes: "Offer received! Need to respond by March 20" },
+      data: { userId, company: "Microsoft", role: "Software Engineer II", location: "Redmond, WA", type: "hybrid", status: "offer", salaryMin: 150000, salaryMax: 200000, currency: "USD", appliedDate: new Date("2026-01-20"), notes: "Offer received! Need to respond by March 20" },
     });
     const app4 = await prisma.jobApplication.create({
-      data: { company: "Vercel", role: "Developer Experience Engineer", type: "remote", status: "screening", salaryMin: 140000, salaryMax: 190000, currency: "USD", appliedDate: new Date("2026-03-05") },
+      data: { userId, company: "Vercel", role: "Developer Experience Engineer", type: "remote", status: "screening", salaryMin: 140000, salaryMax: 190000, currency: "USD", appliedDate: new Date("2026-03-05") },
     });
     const app5 = await prisma.jobApplication.create({
-      data: { company: "Netflix", role: "UI Engineer", location: "Los Gatos, CA", type: "onsite", status: "rejected", salaryMin: 200000, salaryMax: 300000, currency: "USD", appliedDate: new Date("2026-01-10"), notes: "Rejected after technical round" },
+      data: { userId, company: "Netflix", role: "UI Engineer", location: "Los Gatos, CA", type: "onsite", status: "rejected", salaryMin: 200000, salaryMax: 300000, currency: "USD", appliedDate: new Date("2026-01-10"), notes: "Rejected after technical round" },
     });
     await prisma.jobApplication.create({
-      data: { company: "Shopify", role: "Frontend Developer", type: "remote", status: "wishlist", salaryMin: 130000, salaryMax: 180000, currency: "USD" },
+      data: { userId, company: "Shopify", role: "Frontend Developer", type: "remote", status: "wishlist", salaryMin: 130000, salaryMax: 180000, currency: "USD" },
     });
     await prisma.jobApplication.create({
-      data: { company: "Airbnb", role: "Software Engineer", location: "San Francisco, CA", type: "hybrid", status: "applied", salaryMin: 170000, salaryMax: 240000, currency: "USD", appliedDate: new Date("2026-03-10") },
+      data: { userId, company: "Airbnb", role: "Software Engineer", location: "San Francisco, CA", type: "hybrid", status: "applied", salaryMin: 170000, salaryMax: 240000, currency: "USD", appliedDate: new Date("2026-03-10") },
     });
 
     // Interviews
-    await prisma.interview.create({ data: { jobApplicationId: app1.id, type: "phone", scheduledAt: new Date("2026-03-03T10:00:00"), durationMinutes: 30, interviewerName: "Sarah Chen", interviewerRole: "Recruiter", status: "completed", rating: 4, notes: "Went well, discussed experience with React and Next.js" } });
-    await prisma.interview.create({ data: { jobApplicationId: app1.id, type: "technical", scheduledAt: new Date("2026-03-16T14:00:00"), durationMinutes: 90, interviewerName: "Mike Johnson", interviewerRole: "Senior Engineer", status: "scheduled", notes: "System design + coding challenge" } });
-    await prisma.interview.create({ data: { jobApplicationId: app2.id, type: "phone", scheduledAt: new Date("2026-03-18T11:00:00"), durationMinutes: 45, status: "scheduled" } });
-    await prisma.interview.create({ data: { jobApplicationId: app3.id, type: "onsite", scheduledAt: new Date("2026-02-25T09:00:00"), durationMinutes: 240, interviewerName: "Panel", status: "completed", rating: 5, notes: "Full loop - 4 interviews. All went great!" } });
-    await prisma.interview.create({ data: { jobApplicationId: app5.id, type: "technical", scheduledAt: new Date("2026-02-01T15:00:00"), durationMinutes: 60, interviewerName: "Alex Rivera", interviewerRole: "Staff Engineer", status: "completed", rating: 2, notes: "Struggled with the system design question" } });
+    await prisma.interview.create({ data: { userId, jobApplicationId: app1.id, type: "phone", scheduledAt: new Date("2026-03-03T10:00:00"), durationMinutes: 30, interviewerName: "Sarah Chen", interviewerRole: "Recruiter", status: "completed", rating: 4, notes: "Went well, discussed experience with React and Next.js" } });
+    await prisma.interview.create({ data: { userId, jobApplicationId: app1.id, type: "technical", scheduledAt: new Date("2026-03-16T14:00:00"), durationMinutes: 90, interviewerName: "Mike Johnson", interviewerRole: "Senior Engineer", status: "scheduled", notes: "System design + coding challenge" } });
+    await prisma.interview.create({ data: { userId, jobApplicationId: app2.id, type: "phone", scheduledAt: new Date("2026-03-18T11:00:00"), durationMinutes: 45, status: "scheduled" } });
+    await prisma.interview.create({ data: { userId, jobApplicationId: app3.id, type: "onsite", scheduledAt: new Date("2026-02-25T09:00:00"), durationMinutes: 240, interviewerName: "Panel", status: "completed", rating: 5, notes: "Full loop - 4 interviews. All went great!" } });
+    await prisma.interview.create({ data: { userId, jobApplicationId: app5.id, type: "technical", scheduledAt: new Date("2026-02-01T15:00:00"), durationMinutes: 60, interviewerName: "Alex Rivera", interviewerRole: "Staff Engineer", status: "completed", rating: 2, notes: "Struggled with the system design question" } });
 
     // Contacts
-    await prisma.contact.create({ data: { name: "John Smith", email: "john.smith@google.com", company: "Google", role: "Senior Engineer", relationship: "referral", linkedinUrl: "https://linkedin.com/in/johnsmith", notes: "Met at React Conf 2025. Referred me to the Chrome team.", lastContactedAt: new Date("2026-02-10") } });
-    await prisma.contact.create({ data: { name: "Emily Davis", email: "emily@techrecruiter.com", company: "TechRecruit Inc", role: "Senior Recruiter", relationship: "recruiter", phone: "+1-555-0123", notes: "Specializes in FAANG placements", lastContactedAt: new Date("2026-03-08") } });
-    await prisma.contact.create({ data: { name: "David Park", email: "dpark@stripe.com", company: "Stripe", role: "Engineering Manager", relationship: "colleague", linkedinUrl: "https://linkedin.com/in/davidpark", notes: "Former coworker at previous company", lastContactedAt: new Date("2026-02-28") } });
-    await prisma.contact.create({ data: { name: "Lisa Wang", email: "lisa.wang@mentor.dev", role: "CTO", company: "StartupXYZ", relationship: "mentor", notes: "Monthly mentorship calls. Great career advice.", lastContactedAt: new Date("2026-03-01") } });
+    await prisma.contact.create({ data: { userId, name: "John Smith", email: "john.smith@google.com", company: "Google", role: "Senior Engineer", relationship: "referral", linkedinUrl: "https://linkedin.com/in/johnsmith", notes: "Met at React Conf 2025. Referred me to the Chrome team.", lastContactedAt: new Date("2026-02-10") } });
+    await prisma.contact.create({ data: { userId, name: "Emily Davis", email: "emily@techrecruiter.com", company: "TechRecruit Inc", role: "Senior Recruiter", relationship: "recruiter", phone: "+1-555-0123", notes: "Specializes in FAANG placements", lastContactedAt: new Date("2026-03-08") } });
+    await prisma.contact.create({ data: { userId, name: "David Park", email: "dpark@stripe.com", company: "Stripe", role: "Engineering Manager", relationship: "colleague", linkedinUrl: "https://linkedin.com/in/davidpark", notes: "Former coworker at previous company", lastContactedAt: new Date("2026-02-28") } });
+    await prisma.contact.create({ data: { userId, name: "Lisa Wang", email: "lisa.wang@mentor.dev", role: "CTO", company: "StartupXYZ", relationship: "mentor", notes: "Monthly mentorship calls. Great career advice.", lastContactedAt: new Date("2026-03-01") } });
 
     // Skills
     const skills = [
@@ -71,21 +75,21 @@ export async function POST() {
       { name: "English", category: "language", proficiency: "expert" },
       { name: "Spanish", category: "language", proficiency: "beginner" },
     ];
-    for (const skill of skills) await prisma.skill.create({ data: skill });
+    for (const skill of skills) await prisma.skill.create({ data: { userId, ...skill } });
 
     // Certifications
-    await prisma.certification.create({ data: { name: "AWS Solutions Architect Associate", issuer: "Amazon Web Services", issueDate: new Date("2025-06-15"), expiryDate: new Date("2028-06-15"), credentialUrl: "https://aws.amazon.com/verification/123" } });
-    await prisma.certification.create({ data: { name: "Meta Front-End Developer Professional Certificate", issuer: "Meta / Coursera", issueDate: new Date("2025-03-01"), credentialUrl: "https://coursera.org/verify/456" } });
+    await prisma.certification.create({ data: { userId, name: "AWS Solutions Architect Associate", issuer: "Amazon Web Services", issueDate: new Date("2025-06-15"), expiryDate: new Date("2028-06-15"), credentialUrl: "https://aws.amazon.com/verification/123" } });
+    await prisma.certification.create({ data: { userId, name: "Meta Front-End Developer Professional Certificate", issuer: "Meta / Coursera", issueDate: new Date("2025-03-01"), credentialUrl: "https://coursera.org/verify/456" } });
 
     // Resume Versions
-    await prisma.resumeVersion.create({ data: { name: "General SWE Resume", targetRole: "Software Engineer", versionNumber: 3, isActive: true, notes: "Updated with latest project experience" } });
-    await prisma.resumeVersion.create({ data: { name: "Frontend Specialist Resume", targetRole: "Frontend Engineer", versionNumber: 2, isActive: false, notes: "Emphasizes React, Next.js, and UI/UX skills" } });
-    await prisma.resumeVersion.create({ data: { name: "Full Stack Resume", targetRole: "Full Stack Developer", versionNumber: 1, isActive: false } });
+    await prisma.resumeVersion.create({ data: { userId, name: "General SWE Resume", targetRole: "Software Engineer", versionNumber: 3, isActive: true, notes: "Updated with latest project experience" } });
+    await prisma.resumeVersion.create({ data: { userId, name: "Frontend Specialist Resume", targetRole: "Frontend Engineer", versionNumber: 2, isActive: false, notes: "Emphasizes React, Next.js, and UI/UX skills" } });
+    await prisma.resumeVersion.create({ data: { userId, name: "Full Stack Resume", targetRole: "Full Stack Developer", versionNumber: 1, isActive: false } });
 
     // Career Goals
-    const goal1 = await prisma.careerGoal.create({ data: { title: "Land a Senior Engineer role at a top tech company", description: "Secure a senior-level position with competitive compensation", targetDate: new Date("2026-06-01"), status: "in_progress", priority: "high" } });
-    const goal2 = await prisma.careerGoal.create({ data: { title: "Complete System Design course", description: "Finish the Grokking System Design course for interview prep", targetDate: new Date("2026-04-15"), status: "in_progress", priority: "high" } });
-    const goal3 = await prisma.careerGoal.create({ data: { title: "Build open source portfolio", description: "Contribute to 3 major open source projects", targetDate: new Date("2026-12-31"), status: "not_started", priority: "medium" } });
+    const goal1 = await prisma.careerGoal.create({ data: { userId, title: "Land a Senior Engineer role at a top tech company", description: "Secure a senior-level position with competitive compensation", targetDate: new Date("2026-06-01"), status: "in_progress", priority: "high" } });
+    const goal2 = await prisma.careerGoal.create({ data: { userId, title: "Complete System Design course", description: "Finish the Grokking System Design course for interview prep", targetDate: new Date("2026-04-15"), status: "in_progress", priority: "high" } });
+    const goal3 = await prisma.careerGoal.create({ data: { userId, title: "Build open source portfolio", description: "Contribute to 3 major open source projects", targetDate: new Date("2026-12-31"), status: "not_started", priority: "medium" } });
 
     // Milestones
     await prisma.milestone.createMany({
@@ -108,27 +112,28 @@ export async function POST() {
     // Activity Log
     await prisma.activityLog.createMany({
       data: [
-        { entityType: "application", entityId: app1.id, action: "created", description: "Applied to Google - Senior Frontend Engineer", createdAt: new Date("2026-02-15") },
-        { entityType: "application", entityId: app2.id, action: "created", description: "Applied to Stripe - Full Stack Developer", createdAt: new Date("2026-03-01") },
-        { entityType: "application", entityId: app3.id, action: "status_changed", description: "Microsoft - Offer received!", createdAt: new Date("2026-03-12") },
-        { entityType: "application", entityId: app4.id, action: "created", description: "Applied to Vercel - DX Engineer", createdAt: new Date("2026-03-05") },
-        { entityType: "application", entityId: app1.id, action: "status_changed", description: "Google - Moved to Interviewing", createdAt: new Date("2026-03-03") },
-        { entityType: "goal", entityId: goal2.id, action: "updated", description: "Completed Module 4-6 of System Design course", createdAt: new Date("2026-03-05") },
+        { userId, entityType: "application", entityId: app1.id, action: "created", description: "Applied to Google - Senior Frontend Engineer", createdAt: new Date("2026-02-15") },
+        { userId, entityType: "application", entityId: app2.id, action: "created", description: "Applied to Stripe - Full Stack Developer", createdAt: new Date("2026-03-01") },
+        { userId, entityType: "application", entityId: app3.id, action: "status_changed", description: "Microsoft - Offer received!", createdAt: new Date("2026-03-12") },
+        { userId, entityType: "application", entityId: app4.id, action: "created", description: "Applied to Vercel - DX Engineer", createdAt: new Date("2026-03-05") },
+        { userId, entityType: "application", entityId: app1.id, action: "status_changed", description: "Google - Moved to Interviewing", createdAt: new Date("2026-03-03") },
+        { userId, entityType: "goal", entityId: goal2.id, action: "updated", description: "Completed Module 4-6 of System Design course", createdAt: new Date("2026-03-05") },
       ],
     });
 
     // Reminders
     await prisma.reminder.createMany({
       data: [
-        { entityType: "interview", entityId: app1.id, title: "Google Technical Interview tomorrow at 2 PM", remindAt: new Date("2026-03-15T14:00:00") },
-        { entityType: "interview", entityId: app2.id, title: "Stripe Phone Screen in 4 days", remindAt: new Date("2026-03-17T11:00:00") },
-        { entityType: "goal", entityId: goal2.id, title: "System Design course deadline in 1 month", remindAt: new Date("2026-04-08T09:00:00") },
+        { userId, entityType: "interview", entityId: app1.id, title: "Google Technical Interview tomorrow at 2 PM", remindAt: new Date("2026-03-15T14:00:00") },
+        { userId, entityType: "interview", entityId: app2.id, title: "Stripe Phone Screen in 4 days", remindAt: new Date("2026-03-17T11:00:00") },
+        { userId, entityType: "goal", entityId: goal2.id, title: "System Design course deadline in 1 month", remindAt: new Date("2026-04-08T09:00:00") },
       ],
     });
 
     // User Profile (Portal Settings)
     await prisma.userProfile.create({
       data: {
+        userId,
         availability: "open_to_work",
         bio: "Full-stack engineer with 5+ years of experience building modern web applications. Passionate about developer experience, performance, and clean architecture.",
         preferredRoles: "Senior Frontend Engineer, Full Stack Developer, Tech Lead",
@@ -146,6 +151,7 @@ export async function POST() {
     // Current Position
     await prisma.currentPosition.create({
       data: {
+        userId,
         company: "TechStartup Inc",
         role: "Senior Frontend Engineer",
         department: "Engineering",
@@ -164,6 +170,7 @@ export async function POST() {
 
     await prisma.currentPosition.create({
       data: {
+        userId,
         company: "WebAgency Co",
         role: "Frontend Developer",
         department: "Development",
@@ -183,13 +190,14 @@ export async function POST() {
 
     // Sample Recruiter Submissions
     const sub1Contact = await prisma.contact.create({
-      data: { name: "Rachel Kim", email: "rachel@talentco.io", company: "TalentCo", relationship: "recruiter", notes: "Auto-imported from recruiter portal submission" },
+      data: { userId, name: "Rachel Kim", email: "rachel@talentco.io", company: "TalentCo", relationship: "recruiter", notes: "Auto-imported from recruiter portal submission" },
     });
     const sub1App = await prisma.jobApplication.create({
-      data: { company: "TalentCo", role: "Staff Frontend Engineer", type: "remote", status: "wishlist", salaryMin: 200000, salaryMax: 280000, notes: "Submitted via recruiter portal by Rachel Kim\n\nMessage: I came across your profile and think you'd be a great fit for this role at a Series C fintech startup." },
+      data: { userId, company: "TalentCo", role: "Staff Frontend Engineer", type: "remote", status: "wishlist", salaryMin: 200000, salaryMax: 280000, notes: "Submitted via recruiter portal by Rachel Kim\n\nMessage: I came across your profile and think you'd be a great fit for this role at a Series C fintech startup." },
     });
     await prisma.recruiterSubmission.create({
       data: {
+        userId,
         recruiterName: "Rachel Kim",
         recruiterEmail: "rachel@talentco.io",
         company: "TalentCo",
@@ -208,13 +216,14 @@ export async function POST() {
     });
 
     const sub2Contact = await prisma.contact.create({
-      data: { name: "Marcus Chen", email: "marcus@bigcorp.com", company: "BigCorp Inc", relationship: "recruiter", notes: "Auto-imported from recruiter portal submission" },
+      data: { userId, name: "Marcus Chen", email: "marcus@bigcorp.com", company: "BigCorp Inc", relationship: "recruiter", notes: "Auto-imported from recruiter portal submission" },
     });
     const sub2App = await prisma.jobApplication.create({
-      data: { company: "BigCorp Inc", role: "Senior Software Engineer", location: "New York, NY", type: "hybrid", status: "wishlist", salaryMin: 175000, salaryMax: 230000, notes: "Submitted via recruiter portal by Marcus Chen" },
+      data: { userId, company: "BigCorp Inc", role: "Senior Software Engineer", location: "New York, NY", type: "hybrid", status: "wishlist", salaryMin: 175000, salaryMax: 230000, notes: "Submitted via recruiter portal by Marcus Chen" },
     });
     await prisma.recruiterSubmission.create({
       data: {
+        userId,
         recruiterName: "Marcus Chen",
         recruiterEmail: "marcus@bigcorp.com",
         company: "BigCorp Inc",

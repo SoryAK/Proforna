@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getUserId } from "@/lib/auth-utils";
 
 // DOL Form 5500 API — fetches employee benefit plan data by EIN
 // Free, no API key required
@@ -22,6 +23,9 @@ async function searchDol(query: string): Promise<unknown[]> {
 }
 
 export async function POST(request: Request) {
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   try {
     const { ein, companyName } = await request.json();
     if (!ein && !companyName) {

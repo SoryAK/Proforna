@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getUserId } from "@/lib/auth-utils";
 
 /* ── Server-side annual estimate (mirrors compensation-tracker logic) ── */
 
@@ -171,6 +172,9 @@ function computeLiveEstimate(
 
 // GET — all income years + wage tiers + live estimate from current position
 export async function GET() {
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   try {
     const [incomeYears, wageTiers, activePositions] = await Promise.all([
       prisma.careerIncomeYear.findMany({
@@ -252,6 +256,9 @@ export async function GET() {
 
 // POST — create income year or wage tier
 export async function POST(request: Request) {
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   try {
     const body = await request.json();
     const { type, ...data } = body;
@@ -259,7 +266,7 @@ export async function POST(request: Request) {
     if (type === "tier") {
       const count = await prisma.wageTier.count();
       const tier = await prisma.wageTier.create({
-        data: {
+        data: { userId,
           label: data.label,
           hourlyRate: parseFloat(data.hourlyRate),
           yearlyRate: parseFloat(data.yearlyRate),
@@ -286,15 +293,15 @@ export async function POST(request: Request) {
     const employer = data.employer || null;
     const ein = data.ein || null;
 
-    const existing = await prisma.careerIncomeYear.findUnique({
-      where: { year },
+    const existing = await prisma.careerIncomeYear.findFirst({
+      where: { userId, year },
     });
 
     let yearRecord;
     if (existing) {
       // Accumulate income from multiple W-2s for the same year
       yearRecord = await prisma.careerIncomeYear.update({
-        where: { year },
+        where: { id: existing.id },
         data: {
           grossIncome: existing.grossIncome + grossIncome,
           netIncome:
@@ -310,7 +317,7 @@ export async function POST(request: Request) {
       });
     } else {
       yearRecord = await prisma.careerIncomeYear.create({
-        data: { year, grossIncome, netIncome, jobCount, notes },
+        data: { userId, year, grossIncome, netIncome, jobCount, notes },
         include: { entries: true, w2Records: true },
       });
     }
@@ -328,8 +335,8 @@ export async function POST(request: Request) {
         },
       });
       // Re-fetch with entries
-      yearRecord = await prisma.careerIncomeYear.findUnique({
-        where: { year },
+      yearRecord = await prisma.careerIncomeYear.findFirst({
+        where: { userId, year },
         include: { entries: true, w2Records: true },
       });
     }

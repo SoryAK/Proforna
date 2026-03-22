@@ -1,14 +1,18 @@
 import { prisma } from "@/lib/prisma";
 import { logActivity } from "@/lib/activity";
 import { NextRequest, NextResponse } from "next/server";
+import { getUserId } from "@/lib/auth-utils";
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  {
+ params }: { params: Promise<{ id: string }> }
 ) {
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
-  const path = await prisma.careerPath.findUnique({
-    where: { id },
+  const path = await prisma.careerPath.findFirst({
+    where: { id , userId },
     include: {
       milestones: { orderBy: { sortOrder: "asc" } },
       scores: {
@@ -24,8 +28,11 @@ export async function GET(
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  {
+ params }: { params: Promise<{ id: string }> }
 ) {
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
   const data = await req.json();
 
@@ -37,7 +44,7 @@ export async function PATCH(
   const { milestones, ...pathData } = data;
 
   const path = await prisma.careerPath.update({
-    where: { id },
+    where: { id  },
     data: pathData,
   });
 
@@ -63,10 +70,13 @@ export async function PATCH(
 
 export async function DELETE(
   _req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  {
+ params }: { params: Promise<{ id: string }> }
 ) {
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
-  await prisma.careerPath.delete({ where: { id } });
+  await prisma.careerPath.delete({ where: { id  } });
   await logActivity("career-path", id, "deleted", "Deleted career path");
   return NextResponse.json({ success: true });
 }

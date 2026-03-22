@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getUserId } from "@/lib/auth-utils";
 
 // Lightweight SEC EDGAR check — determines if company is publicly traded
 // Uses EDGAR company search (~5-20KB) instead of downloading 7MB company_tickers.json
@@ -72,6 +73,9 @@ async function checkPublicStatus(companyName: string) {
 }
 
 export async function POST(request: Request) {
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   try {
     const { companyName } = await request.json();
     if (!companyName) {

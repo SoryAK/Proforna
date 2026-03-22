@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAIConfig, ollamaIsAvailable, ollamaModels } from "@/lib/ai";
+import { getUserId } from "@/lib/auth-utils";
 
 /**
  * GET /api/ai/models
@@ -7,6 +8,9 @@ import { getAIConfig, ollamaIsAvailable, ollamaModels } from "@/lib/ai";
  * Returns available AI models and status for each provider.
  */
 export async function GET() {
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const config = getAIConfig();
 
   const ollamaUp = await ollamaIsAvailable(config.ollamaUrl);

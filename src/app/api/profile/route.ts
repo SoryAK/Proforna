@@ -1,12 +1,16 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getUserId } from "@/lib/auth-utils";
 
 // GET - fetch profile (auto-create default if none exists)
 export async function GET() {
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   try {
-    let profile = await prisma.userProfile.findFirst();
+    let profile = await prisma.userProfile.findFirst({ where: { userId } });
     if (!profile) {
-      profile = await prisma.userProfile.create({ data: {} });
+      profile = await prisma.userProfile.create({ data: { userId } });
     }
     return NextResponse.json(profile);
   } catch (error) {
@@ -16,11 +20,14 @@ export async function GET() {
 
 // PATCH - update profile settings
 export async function PATCH(request: Request) {
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   try {
     const body = await request.json();
-    let profile = await prisma.userProfile.findFirst();
+    let profile = await prisma.userProfile.findFirst({ where: { userId } });
     if (!profile) {
-      profile = await prisma.userProfile.create({ data: {} });
+      profile = await prisma.userProfile.create({ data: { userId } });
     }
     // Whitelist allowed fields
     const allowed = [

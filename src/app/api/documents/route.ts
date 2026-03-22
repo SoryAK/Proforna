@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { logActivity } from "@/lib/activity";
 import { NextRequest, NextResponse } from "next/server";
+import { getUserId } from "@/lib/auth-utils";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
@@ -16,6 +17,9 @@ const ALLOWED_MIME_TYPES = [
 ];
 
 export async function GET(req: NextRequest) {
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const { searchParams } = new URL(req.url);
   const category = searchParams.get("category");
   const entityType = searchParams.get("entityType");
@@ -47,6 +51,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   try {
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
@@ -75,7 +82,7 @@ export async function POST(req: NextRequest) {
     const base64 = buffer.toString("base64");
 
     const doc = await prisma.document.create({
-      data: {
+      data: { userId,
         name: name || file.name,
         fileName: file.name,
         fileSize: file.size,

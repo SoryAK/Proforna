@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getUserId } from "@/lib/auth-utils";
 
 // GET — all W-2 records, optionally filtered by yearId or ein
 export async function GET(request: Request) {
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const { searchParams } = new URL(request.url);
   const yearId = searchParams.get("yearId");
   const ein = searchParams.get("ein");
@@ -21,6 +25,9 @@ export async function GET(request: Request) {
 
 // POST — create a new W-2 record
 export async function POST(request: Request) {
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const body = await request.json();
 
   if (!body.yearId || !body.taxYear) {

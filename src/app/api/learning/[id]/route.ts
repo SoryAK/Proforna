@@ -1,15 +1,22 @@
 import { prisma } from "@/lib/prisma";
 import { logActivity } from "@/lib/activity";
 import { NextRequest, NextResponse } from "next/server";
+import { getUserId } from "@/lib/auth-utils";
 
-export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(_req: NextRequest, {
+ params }: { params: Promise<{ id: string }> }) {
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
-  const item = await prisma.learningItem.findUnique({ where: { id } });
+  const item = await prisma.learningItem.findFirst({ where: { id , userId } });
   if (!item) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json(item);
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function PATCH(req: NextRequest, {
+ params }: { params: Promise<{ id: string }> }) {
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
   const data = await req.json();
 
@@ -33,14 +40,17 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     update.progress = 100;
   }
 
-  const item = await prisma.learningItem.update({ where: { id }, data: update });
+  const item = await prisma.learningItem.update({ where: { id  }, data: update });
   await logActivity("learning", item.id, "updated", `Updated learning: ${item.title}`);
   return NextResponse.json(item);
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(_req: NextRequest, {
+ params }: { params: Promise<{ id: string }> }) {
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
-  const item = await prisma.learningItem.delete({ where: { id } });
+  const item = await prisma.learningItem.delete({ where: { id  } });
   await logActivity("learning", item.id, "deleted", `Removed learning: ${item.title}`);
   return NextResponse.json({ success: true });
 }

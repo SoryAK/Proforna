@@ -88,7 +88,7 @@ export const SUBMISSION_COLORS: Record<SubmissionStatus, string> = {
 };
 
 export const NAV_ITEMS = [
-  { label: "Home", href: "/", icon: "Home" },
+  { label: "Home", href: "/dashboard", icon: "Home" },
   { label: "Jobs", href: "/current-position", icon: "Building2" },
   { label: "Job Search", href: "/job-search", icon: "Search" },
   { label: "Career Analytics", href: "/career-growth", icon: "TrendingUp" },

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getUserId } from "@/lib/auth-utils";
 
 // OpenCorporates Company Search — aggregates Secretary of State data from all 50 US states
 // Free tier: 500 req/month, no API key needed for basic searches
@@ -82,6 +83,9 @@ async function getCompanyDetails(jurisdictionCode: string, companyNumber: string
 }
 
 export async function POST(request: Request) {
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   try {
     const { companyName, jurisdiction } = await request.json();
     if (!companyName) {

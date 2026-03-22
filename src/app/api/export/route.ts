@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
+import { getUserId } from "@/lib/auth-utils";
 
 function toCsv(headers: string[], rows: string[][]): string {
   const escape = (val: string) => {
@@ -16,6 +17,9 @@ function toCsv(headers: string[], rows: string[][]): string {
 }
 
 export async function GET(req: NextRequest) {
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const { searchParams } = new URL(req.url);
   const type = searchParams.get("type");
 

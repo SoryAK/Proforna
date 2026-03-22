@@ -1,11 +1,15 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getUserId } from "@/lib/auth-utils";
 
 // Master Company Research API
 // Orchestrates DOL, SEC, and OSHA lookups in parallel
 // Caches results to CompanyProfile for future instant access
 
 export async function POST(request: Request) {
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   try {
     const { ein, companyName, legalName, location, forceRefresh } = await request.json();
     if (!ein && !companyName) {
@@ -16,8 +20,8 @@ export async function POST(request: Request) {
 
     // Check cache first (if EIN provided)
     if (cleanEin && !forceRefresh) {
-      const cached = await prisma.companyProfile.findUnique({
-        where: { ein: cleanEin },
+      const cached = await prisma.companyProfile.findFirst({
+        where: { userId, ein: cleanEin },
       });
       if (cached) {
         // Return cached if fetched within last 30 days
@@ -92,10 +96,10 @@ export async function POST(request: Request) {
 
     // Cache to CompanyProfile if we have an EIN
     if (cleanEin) {
-      const existing = await prisma.companyProfile.findUnique({ where: { ein: cleanEin } });
+      const existing = await prisma.companyProfile.findFirst({ where: { userId, ein: cleanEin } });
       await prisma.companyProfile.upsert({
-        where: { ein: cleanEin },
-        create: { ...profile, ein: cleanEin },
+        where: { userId_ein: { userId, ein: cleanEin } },
+        create: { userId, ...profile, ein: cleanEin },
         update: {
           ...profile,
           // Don't overwrite name/address if we already have them and new data is null
@@ -149,6 +153,9 @@ export async function POST(request: Request) {
 
 // PATCH — Save research notes for a company profile
 export async function PATCH(request: Request) {
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   try {
     const { ein, researchNotes } = await request.json();
     if (!ein) {
@@ -158,8 +165,8 @@ export async function PATCH(request: Request) {
     const cleanEin = ein.replace(/\D/g, "");
 
     const updated = await prisma.companyProfile.upsert({
-      where: { ein: cleanEin },
-      create: { ein: cleanEin, researchNotes },
+      where: { userId_ein: { userId, ein: cleanEin } },
+      create: { userId, ein: cleanEin, researchNotes },
       update: { researchNotes },
     });
 

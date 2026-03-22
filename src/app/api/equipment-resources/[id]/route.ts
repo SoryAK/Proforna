@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getUserId } from "@/lib/auth-utils";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const VALID_TYPES = ["manual", "troubleshooting", "operations", "safety", "maintenance", "parts", "training"];
@@ -7,8 +8,11 @@ const VALID_TYPES = ["manual", "troubleshooting", "operations", "safety", "maint
 // PUT — update a resource (FormData with optional file replacement)
 export async function PUT(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  {
+ params }: { params: Promise<{ id: string }> }
 ) {
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
     const { id } = await params;
     const formData = await request.formData();
@@ -51,8 +55,11 @@ export async function PUT(
 // DELETE — remove a resource
 export async function DELETE(
   _request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  {
+ params }: { params: Promise<{ id: string }> }
 ) {
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
     const { id } = await params;
     await prisma.equipmentResource.delete({ where: { id } });

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { extract } from "@extractus/article-extractor";
+import { getUserId } from "@/lib/auth-utils";
 
 /**
  * POST /api/research-articles/[id]/extract
@@ -9,8 +10,11 @@ import { extract } from "@extractus/article-extractor";
  */
 export async function POST(
   _req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  {
+ params }: { params: Promise<{ id: string }> }
 ) {
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
 
   const article = await prisma.researchArticle.findUnique({ where: { id } });

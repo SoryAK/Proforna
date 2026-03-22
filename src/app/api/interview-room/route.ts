@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { v4 as uuid } from "uuid";
 import { createRoom, getRoomInfo } from "@/lib/interview-rooms";
+import { getUserId } from "@/lib/auth-utils";
 
 /** POST — create a new interview room */
 export async function POST(req: NextRequest) {
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const body = await req.json();
   const hostName = typeof body.hostName === "string" ? body.hostName.trim() : "Host";
   const resumeSlug = typeof body.resumeSlug === "string" ? body.resumeSlug : null;
@@ -16,6 +20,9 @@ export async function POST(req: NextRequest) {
 
 /** GET — get room info (public, no auth) */
 export async function GET(req: NextRequest) {
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const roomId = req.nextUrl.searchParams.get("roomId");
   if (!roomId) {
     return NextResponse.json({ error: "roomId required" }, { status: 400 });

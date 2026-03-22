@@ -3,11 +3,15 @@ import { prisma } from "@/lib/prisma";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import crypto from "crypto";
+import { getUserId } from "@/lib/auth-utils";
 
 const MAX_SIZE = 2 * 1024 * 1024; // 2 MB
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 
 export async function POST(request: Request) {
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   try {
     const formData = await request.formData();
     const file = formData.get("avatar") as File | null;
@@ -33,7 +37,7 @@ export async function POST(request: Request) {
 
     let profile = await prisma.userProfile.findFirst();
     if (!profile) {
-      profile = await prisma.userProfile.create({ data: { avatarUrl } });
+      profile = await prisma.userProfile.create({ data: { userId, avatarUrl } });
     } else {
       profile = await prisma.userProfile.update({
         where: { id: profile.id },

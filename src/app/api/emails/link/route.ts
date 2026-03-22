@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getUserId } from "@/lib/auth-utils";
 
 // POST — auto-link unlinked emails to applications by matching company names
 // in sender addresses and email subjects
 export async function POST() {
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const applications = await prisma.jobApplication.findMany({
     select: { id: true, company: true },
   });

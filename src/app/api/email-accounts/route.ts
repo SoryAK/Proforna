@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getUserId } from "@/lib/auth-utils";
 
 // GET — list connected email accounts (tokens omitted)
 export async function GET() {
-  const accounts = await prisma.emailAccount.findMany({
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const accounts = await prisma.emailAccount.findMany({ where: { userId },
     select: {
       id: true,
       provider: true,
@@ -19,6 +23,9 @@ export async function GET() {
 
 // DELETE — disconnect an email account (by id in body)
 export async function DELETE(req: NextRequest) {
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const { id } = (await req.json()) as { id: string };
   if (!id) {
     return NextResponse.json({ error: "Missing id" }, { status: 400 });

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { logActivity } from "@/lib/activity";
 import { NextRequest, NextResponse } from "next/server";
+import { getUserId } from "@/lib/auth-utils";
 
 interface ImportPayload {
   applications?: Record<string, unknown>[];
@@ -23,14 +24,17 @@ function parseNum(val: unknown): number | undefined {
 }
 
 export async function POST(req: NextRequest) {
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const { searchParams } = new URL(req.url);
   const format = searchParams.get("format") || "json";
 
   try {
     if (format === "json") {
-      return await importJson(req);
+      return await importJson(req, userId);
     } else if (format === "csv") {
-      return await importCsv(req);
+      return await importCsv(req, userId);
     }
     return NextResponse.json({ error: "Unsupported format" }, { status: 400 });
   } catch (e) {
@@ -39,14 +43,14 @@ export async function POST(req: NextRequest) {
   }
 }
 
-async function importJson(req: NextRequest) {
+async function importJson(req: NextRequest, userId: string) {
   const body: ImportPayload = await req.json();
   const results: Record<string, number> = {};
 
   if (body.applications?.length) {
     for (const a of body.applications) {
       const app = await prisma.jobApplication.create({
-        data: {
+        data: { userId,
           company: String(a.company || ""),
           role: String(a.role || ""),
           url: a.url ? String(a.url) : null,
@@ -68,7 +72,7 @@ async function importJson(req: NextRequest) {
   if (body.contacts?.length) {
     for (const c of body.contacts) {
       await prisma.contact.create({
-        data: {
+        data: { userId,
           name: String(c.name || ""),
           email: c.email ? String(c.email) : null,
           phone: c.phone ? String(c.phone) : null,
@@ -87,7 +91,7 @@ async function importJson(req: NextRequest) {
   if (body.skills?.length) {
     for (const s of body.skills) {
       await prisma.skill.create({
-        data: {
+        data: { userId,
           name: String(s.name || ""),
           category: String(s.category || "technical"),
           proficiency: String(s.proficiency || "intermediate"),
@@ -100,7 +104,7 @@ async function importJson(req: NextRequest) {
   if (body.goals?.length) {
     for (const g of body.goals) {
       await prisma.careerGoal.create({
-        data: {
+        data: { userId,
           title: String(g.title || ""),
           description: g.description ? String(g.description) : null,
           targetDate: parseDate(g.targetDate),
@@ -115,7 +119,7 @@ async function importJson(req: NextRequest) {
   if (body.certifications?.length) {
     for (const c of body.certifications) {
       await prisma.certification.create({
-        data: {
+        data: { userId,
           name: String(c.name || ""),
           issuer: String(c.issuer || ""),
           issueDate: parseDate(c.issueDate) || new Date(),
@@ -130,7 +134,7 @@ async function importJson(req: NextRequest) {
   return NextResponse.json({ imported: results });
 }
 
-async function importCsv(req: NextRequest) {
+async function importCsv(req: NextRequest, userId: string) {
   const text = await req.text();
   const lines = text.split("\n").filter((l) => l.trim());
   if (lines.length < 2) return NextResponse.json({ error: "CSV must have header + data rows" }, { status: 400 });
@@ -147,7 +151,7 @@ async function importCsv(req: NextRequest) {
       headers.forEach((h, idx) => (row[h] = vals[idx]?.trim() || ""));
 
       const app = await prisma.jobApplication.create({
-        data: {
+        data: { userId,
           company: row.company || "",
           role: row.role || "",
           status: row.status || "wishlist",
@@ -175,7 +179,7 @@ async function importCsv(req: NextRequest) {
       headers.forEach((h, idx) => (row[h] = vals[idx]?.trim() || ""));
 
       await prisma.contact.create({
-        data: {
+        data: { userId,
           name: row.name || "",
           email: row.email || null,
           phone: row.phone || null,

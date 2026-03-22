@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { exchangeMicrosoftCode } from "@/lib/email";
 import { prisma } from "@/lib/prisma";
+import { getUserId } from "@/lib/auth-utils";
 
 export async function GET(req: NextRequest) {
+  const userId = await getUserId();
+  if (!userId) {
+    return NextResponse.redirect(`${process.env.APP_URL}/login`);
+  }
+
   const code = req.nextUrl.searchParams.get("code");
   if (!code) {
     return NextResponse.redirect(
@@ -35,13 +41,14 @@ export async function GET(req: NextRequest) {
     const tokenExpiry = new Date(Date.now() + tokenData.expires_in * 1000);
 
     await prisma.emailAccount.upsert({
-      where: { provider_email: { provider: "microsoft", email } },
+      where: { userId_provider_email: { userId, provider: "microsoft", email } },
       update: {
         accessToken: tokenData.access_token,
         refreshToken: tokenData.refresh_token ?? undefined,
         tokenExpiry,
       },
       create: {
+        userId,
         provider: "microsoft",
         email,
         accessToken: tokenData.access_token,

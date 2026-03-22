@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getUserId } from "@/lib/auth-utils";
 
 /**
  * POST /api/company-lookup
@@ -6,6 +7,9 @@ import { NextResponse } from "next/server";
  * to auto-fill company name and synopsis.
  */
 export async function POST(request: Request) {
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   try {
     const { url } = await request.json();
     if (!url || typeof url !== "string") {

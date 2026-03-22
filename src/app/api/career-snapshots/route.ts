@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { logActivity } from "@/lib/activity";
 import { NextResponse } from "next/server";
+import { getUserId } from "@/lib/auth-utils";
 
 const PROFICIENCY_SCORE: Record<string, number> = {
   beginner: 25,
@@ -16,7 +17,10 @@ interface RequiredSkill {
 
 // GET: list all snapshots with scores
 export async function GET() {
-  const snapshots = await prisma.careerSnapshot.findMany({
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const snapshots = await prisma.careerSnapshot.findMany({ where: { userId },
     orderBy: { capturedAt: "desc" },
     include: {
       scores: {
@@ -30,6 +34,9 @@ export async function GET() {
 
 // POST: capture a new snapshot from live data + compute scores
 export async function POST() {
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   // ── Gather live data ──
   const [skills, certs, goals, activePos, applications, interviews, incomeYears] =
     await Promise.all([
@@ -64,7 +71,7 @@ export async function POST() {
 
   // Create snapshot
   const snapshot = await prisma.careerSnapshot.create({
-    data: {
+    data: { userId,
       totalSkills,
       avgProficiency,
       incomeGross: latestIncome?.grossIncome ?? (activePos?.salary ? Number(activePos.salary) : null),

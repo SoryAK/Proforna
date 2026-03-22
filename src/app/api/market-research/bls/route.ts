@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getUserId } from "@/lib/auth-utils";
 
 /**
  * GET /api/market-research/bls?series=OEUN000000000000015-1252&startyear=2022&endyear=2025
@@ -11,6 +12,9 @@ import { NextRequest, NextResponse } from "next/server";
  *   dataType: 01=employment, 04=mean wage, 13=median wage, 07=10th pct, 08=25th pct, 11=75th pct, 12=90th pct
  */
 export async function GET(req: NextRequest) {
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const sp = req.nextUrl.searchParams;
   const seriesIds = sp.get("series");
   const startYear = sp.get("startyear") || "2020";

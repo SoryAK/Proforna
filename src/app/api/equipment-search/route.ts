@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getUserId } from "@/lib/auth-utils";
 
 /**
  * GET /api/equipment-search?q=conveyor
@@ -9,6 +10,9 @@ import { NextRequest, NextResponse } from "next/server";
  * they're working with (e.g. belt conveyor vs roller conveyor).
  */
 export async function GET(req: NextRequest) {
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const q = req.nextUrl.searchParams.get("q")?.trim();
   if (!q || q.length < 2) {
     return NextResponse.json({ results: [] });

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
+import { getUserId } from "@/lib/auth-utils";
 
 /**
  * IRS Wage & Income Transcript Parser
@@ -447,6 +448,9 @@ function parseSectionToRecord(section: string): IRSEmployerRecord {
 }
 
 export async function POST(request: Request) {
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   try {
     const formData = await request.formData();
     const file = formData.get("file") as File | null;

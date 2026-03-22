@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getUserId } from "@/lib/auth-utils";
 
 // GET - public endpoint: return portal data (profile, skills, resume availability)
 export async function GET() {
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   try {
     let profile = await prisma.userProfile.findFirst();
     if (!profile) {
@@ -58,6 +62,9 @@ export async function GET() {
 
 // POST - recruiter submits contact info + job opportunity
 export async function POST(request: Request) {
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   try {
     const body = await request.json();
 
@@ -80,7 +87,7 @@ export async function POST(request: Request) {
 
     // Auto-create Contact
     const contact = await prisma.contact.create({
-      data: {
+      data: { userId,
         name: body.recruiterName,
         email: body.recruiterEmail,
         company: body.company || null,
@@ -92,7 +99,7 @@ export async function POST(request: Request) {
 
     // Auto-create Application
     const application = await prisma.jobApplication.create({
-      data: {
+      data: { userId,
         company: body.company || "Unknown Company",
         role: body.jobTitle,
         location: body.location || null,
@@ -106,7 +113,7 @@ export async function POST(request: Request) {
 
     // Create the submission record
     const submission = await prisma.recruiterSubmission.create({
-      data: {
+      data: { userId,
         recruiterName: body.recruiterName,
         recruiterEmail: body.recruiterEmail,
         company: body.company || null,
@@ -126,7 +133,7 @@ export async function POST(request: Request) {
 
     // Log activity
     await prisma.activityLog.create({
-      data: {
+      data: { userId,
         entityType: "submission",
         entityId: submission.id,
         action: "created",

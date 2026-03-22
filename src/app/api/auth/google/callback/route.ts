@@ -2,8 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { getGoogleOAuth2Client } from "@/lib/email";
 import { google } from "googleapis";
 import { prisma } from "@/lib/prisma";
+import { getUserId } from "@/lib/auth-utils";
 
 export async function GET(req: NextRequest) {
+  const userId = await getUserId();
+  if (!userId) {
+    return NextResponse.redirect(`${process.env.APP_URL}/login`);
+  }
+
   const code = req.nextUrl.searchParams.get("code");
   if (!code) {
     return NextResponse.redirect(
@@ -29,7 +35,7 @@ export async function GET(req: NextRequest) {
 
     // Upsert the email account
     await prisma.emailAccount.upsert({
-      where: { provider_email: { provider: "google", email } },
+      where: { userId_provider_email: { userId, provider: "google", email } },
       update: {
         accessToken: tokens.access_token!,
         refreshToken: tokens.refresh_token ?? undefined,
@@ -38,6 +44,7 @@ export async function GET(req: NextRequest) {
           : null,
       },
       create: {
+        userId,
         provider: "google",
         email,
         accessToken: tokens.access_token!,

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getUserId } from "@/lib/auth-utils";
 
 /**
  * Compute pay period boundaries for a calendar view.
@@ -107,6 +108,9 @@ function generatePeriods(
 }
 
 export async function GET(request: Request) {
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   try {
     const { searchParams } = new URL(request.url);
     const positionId = searchParams.get("positionId");

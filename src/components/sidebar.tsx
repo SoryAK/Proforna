@@ -59,8 +59,8 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
       {NAV_ITEMS.map((item) => {
         const Icon = iconMap[item.icon];
         const isActive =
-          item.href === "/"
-            ? pathname === "/"
+          item.href === "/dashboard"
+            ? pathname === "/dashboard"
             : pathname.startsWith(item.href);
 
         // Jobs item gets accordion treatment

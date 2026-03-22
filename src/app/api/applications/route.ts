@@ -1,8 +1,12 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
+import { getUserId } from "@/lib/auth-utils";
 
 export async function GET() {
-  const applications = await prisma.jobApplication.findMany({
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const applications = await prisma.jobApplication.findMany({ where: { userId },
     include: {
       interviews: true,
       resumeVersion: { select: { id: true, name: true, targetRole: true } },
@@ -14,10 +18,13 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const data = await req.json();
-  const application = await prisma.jobApplication.create({ data });
+  const application = await prisma.jobApplication.create({ data: { ...data, userId } });
   await prisma.activityLog.create({
-    data: {
+    data: { userId,
       entityType: "application",
       entityId: application.id,
       action: "created",

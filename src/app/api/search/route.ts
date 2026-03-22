@@ -1,8 +1,12 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { getUserId } from "@/lib/auth-utils";
 
 // GET — lightweight search data for command palette
 export async function GET() {
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const [applications, contacts, goals, skills] = await Promise.all([
     prisma.jobApplication.findMany({
       select: { id: true, company: true, role: true },

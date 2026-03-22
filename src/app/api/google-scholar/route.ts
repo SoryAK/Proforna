@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getUserId } from "@/lib/auth-utils";
 
 const SERPAPI_KEY = process.env.SERPAPI_KEY;
 
 export async function GET(req: NextRequest) {
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   if (!SERPAPI_KEY) {
     return NextResponse.json(
       { error: "SERPAPI_KEY is not configured" },

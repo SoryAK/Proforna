@@ -1,3 +1,4 @@
+import { NextResponse } from "next/server";
 import {
   getAIConfig,
   ollamaIsAvailable,
@@ -5,6 +6,7 @@ import {
   geminiChat,
   type ChatMessage,
 } from "@/lib/ai";
+import { getUserId } from "@/lib/auth-utils";
 
 /**
  * POST /api/ai/chat
@@ -15,6 +17,9 @@ import {
  * Falls back from Ollama → Gemini automatically if Ollama is unavailable.
  */
 export async function POST(request: Request) {
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const body = await request.json();
   const messages: ChatMessage[] = body.messages;
   const preferredProvider = body.provider as string | undefined;

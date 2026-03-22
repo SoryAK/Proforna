@@ -2,9 +2,13 @@ import { prisma } from "@/lib/prisma";
 import { logActivity } from "@/lib/activity";
 import { NextRequest, NextResponse } from "next/server";
 import { fetchAndParseFeed } from "@/lib/rss";
+import { getUserId } from "@/lib/auth-utils";
 
 export async function GET() {
-  const feeds = await prisma.researchFeed.findMany({
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const feeds = await prisma.researchFeed.findMany({ where: { userId },
     include: { _count: { select: { articles: true } } },
     orderBy: { createdAt: "desc" },
   });
@@ -12,6 +16,9 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const { url, category } = await req.json();
   if (!url || typeof url !== "string") {
     return NextResponse.json({ error: "URL is required" }, { status: 400 });
@@ -28,7 +35,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Check duplicate
-  const existing = await prisma.researchFeed.findUnique({ where: { url: feedUrl } });
+  const existing = await prisma.researchFeed.findFirst({ where: { userId, url: feedUrl } });
   if (existing) {
     return NextResponse.json({ error: "Feed already exists" }, { status: 409 });
   }
@@ -43,7 +50,7 @@ export async function POST(req: NextRequest) {
   }
 
   const feed = await prisma.researchFeed.create({
-    data: {
+    data: { userId,
       title: feedTitle,
       url: feedUrl,
       category: category || "general",

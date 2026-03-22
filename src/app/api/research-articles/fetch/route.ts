@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { fetchAndParseFeed, stripHtml } from "@/lib/rss";
+import { getUserId } from "@/lib/auth-utils";
 
 /**
  * POST /api/research-articles/fetch
@@ -8,6 +9,9 @@ import { fetchAndParseFeed, stripHtml } from "@/lib/rss";
  * Also cleans any existing summaries that contain HTML tags.
  */
 export async function POST() {
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   // Clean existing records that have HTML in summaries
   const dirtyArticles = await prisma.researchArticle.findMany({
     where: { summary: { contains: "<" } },

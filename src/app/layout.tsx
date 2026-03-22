@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { LayoutShell } from "@/components/layout-shell";
 import { Providers } from "@/components/providers";
 import { PwaRegister } from "@/components/pwa-register";
 import { Toaster } from "sonner";
@@ -51,7 +50,7 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         <Providers>
-          <LayoutShell>{children}</LayoutShell>
+          {children}
           <Toaster richColors position="top-right" />
           <PwaRegister />
         </Providers>

@@ -11,6 +11,7 @@ import {
   SectionType,
 } from "docx";
 import { format } from "date-fns";
+import { getUserId } from "@/lib/auth-utils";
 
 function formatDateRange(start: string, end: string | null): string {
   const s = format(new Date(start), "MMM yyyy");
@@ -37,6 +38,9 @@ function sectionHeading(text: string): Paragraph {
 }
 
 export async function GET(req: NextRequest) {
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const sp = req.nextUrl.searchParams;
   const resumeId = sp.get("resumeId");
 

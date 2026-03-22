@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
+import { getUserId } from "@/lib/auth-utils";
 
 /* ── Types ── */
 
@@ -620,6 +621,9 @@ function parsePaycheckFromItems(items: TextItem[], rawText: string): PaycheckDat
 }
 
 export async function POST(req: Request) {
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   try {
     const formData = await req.formData();
     const file = formData.get("file") as File | null;

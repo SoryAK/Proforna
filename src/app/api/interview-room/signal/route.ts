@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { joinRoom, pushSignal, drainSignals, leaveRoom } from "@/lib/interview-rooms";
+import { getUserId } from "@/lib/auth-utils";
 
 /**
  * POST — send a signal or join/leave a room
  * Body: { roomId, peerId, action: "join" | "signal" | "leave", signal? }
  */
 export async function POST(req: NextRequest) {
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const body = await req.json();
   const { roomId, peerId, action, signal } = body as {
     roomId: string;
@@ -44,6 +48,9 @@ export async function POST(req: NextRequest) {
  * Query: ?roomId=xxx&peerId=yyy
  */
 export async function GET(req: NextRequest) {
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const roomId = req.nextUrl.searchParams.get("roomId");
   const peerId = req.nextUrl.searchParams.get("peerId");
 

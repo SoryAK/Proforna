@@ -5,9 +5,13 @@ import {
   getValidGoogleToken,
   refreshMicrosoftToken,
 } from "@/lib/email";
+import { getUserId } from "@/lib/auth-utils";
 
 // GET — list synced emails (with optional account filter + pagination)
 export async function GET(req: NextRequest) {
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const accountId = req.nextUrl.searchParams.get("accountId");
   const page = Math.max(1, Number(req.nextUrl.searchParams.get("page")) || 1);
   const limit = Math.min(100, Math.max(1, Number(req.nextUrl.searchParams.get("limit")) || 50));
@@ -39,6 +43,9 @@ export async function GET(req: NextRequest) {
 
 // POST — trigger sync for an account (body: { accountId })
 export async function POST(req: NextRequest) {
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const { accountId } = (await req.json()) as { accountId: string };
   if (!accountId) {
     return NextResponse.json({ error: "Missing accountId" }, { status: 400 });

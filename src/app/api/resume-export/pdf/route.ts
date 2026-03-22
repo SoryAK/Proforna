@@ -2,8 +2,12 @@ import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import ReactPDF from "@react-pdf/renderer";
 import { ResumePdfDocument } from "@/lib/resume-pdf-template";
+import { getUserId } from "@/lib/auth-utils";
 
 export async function GET(req: NextRequest) {
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const sp = req.nextUrl.searchParams;
   const resumeId = sp.get("resumeId");
 

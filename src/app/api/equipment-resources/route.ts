@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getUserId } from "@/lib/auth-utils";
 
 // GET — list resources for an equipment item
 export async function GET(request: Request) {
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const { searchParams } = new URL(request.url);
   const equipmentId = searchParams.get("equipmentId");
 
@@ -29,6 +33,9 @@ const VALID_TYPES = ["manual", "troubleshooting", "operations", "safety", "maint
 
 // POST — create a resource (FormData with optional file upload)
 export async function POST(request: Request) {
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   try {
     const formData = await request.formData();
     const equipmentId = formData.get("equipmentId") as string | null;

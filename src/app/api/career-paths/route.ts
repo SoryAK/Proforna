@@ -1,9 +1,13 @@
 import { prisma } from "@/lib/prisma";
 import { logActivity } from "@/lib/activity";
 import { NextRequest, NextResponse } from "next/server";
+import { getUserId } from "@/lib/auth-utils";
 
 export async function GET() {
-  const paths = await prisma.careerPath.findMany({
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const paths = await prisma.careerPath.findMany({ where: { userId },
     orderBy: { sortOrder: "asc" },
     include: {
       milestones: { orderBy: { sortOrder: "asc" } },
@@ -14,6 +18,9 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const data = await req.json();
 
   // Parse requiredSkills if it's an array
@@ -24,7 +31,7 @@ export async function POST(req: NextRequest) {
   const { milestones, ...pathData } = data;
 
   const path = await prisma.careerPath.create({
-    data: {
+    data: { userId,
       ...pathData,
       milestones: milestones?.length
         ? { create: milestones.map((m: { title: string; description?: string; isRequired?: boolean }, i: number) => ({

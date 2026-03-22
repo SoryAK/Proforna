@@ -1,15 +1,19 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getUserId } from "@/lib/auth-utils";
 
 // GET - fetch a single position with related data
 export async function GET(
   _request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  {
+ params }: { params: Promise<{ id: string }> }
 ) {
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
     const { id } = await params;
-    const position = await prisma.currentPosition.findUnique({
-      where: { id },
+    const position = await prisma.currentPosition.findFirst({
+      where: { id , userId },
       include: {
         compensation: { orderBy: { effectiveDate: "desc" } },
         benefits: true,
@@ -28,8 +32,11 @@ export async function GET(
 // PATCH - update a position
 export async function PATCH(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  {
+ params }: { params: Promise<{ id: string }> }
 ) {
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
     const { id } = await params;
     const body = await request.json();
@@ -44,7 +51,7 @@ export async function PATCH(
     if (body.annualRaiseMax != null) body.annualRaiseMax = parseFloat(body.annualRaiseMax);
 
     const updated = await prisma.currentPosition.update({
-      where: { id },
+      where: { id  },
       data: body,
     });
     return NextResponse.json(updated);
@@ -56,11 +63,14 @@ export async function PATCH(
 // DELETE - remove a position
 export async function DELETE(
   _request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  {
+ params }: { params: Promise<{ id: string }> }
 ) {
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
     const { id } = await params;
-    await prisma.currentPosition.delete({ where: { id } });
+    await prisma.currentPosition.delete({ where: { id  } });
     return NextResponse.json({ success: true });
   } catch (error) {
     return NextResponse.json({ error: String(error) }, { status: 500 });

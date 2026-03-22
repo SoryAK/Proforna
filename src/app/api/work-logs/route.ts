@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getUserId } from "@/lib/auth-utils";
 
 // GET — list work logs for a position, optionally filtered
 export async function GET(request: Request) {
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const { searchParams } = new URL(request.url);
   const positionId = searchParams.get("positionId");
   const from = searchParams.get("from");
@@ -38,6 +42,9 @@ export async function GET(request: Request) {
 
 // POST — create a work log entry
 export async function POST(request: Request) {
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   try {
     const body = await request.json();
     const { positionId, date, title, content, category, hours, tags, accomplishment, impact } = body;

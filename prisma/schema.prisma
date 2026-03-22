@@ -3,104 +3,246 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
+// ─── Auth.js v5 Models ─────────────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  password      String?   // hashed — only for credentials auth
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts      Account[]
+  sessions      Session[]
+
+  // ── App data relations ──
+  profile             UserProfile?
+  applications        JobApplication[]
+  interviews          Interview[]
+  contacts            Contact[]
+  skills              Skill[]
+  certifications      Certification[]
+  resumeVersions      ResumeVersion[]
+  goals               CareerGoal[]
+  reminders           Reminder[]
+  activityLogs        ActivityLog[]
+  documents           Document[]
+  positions           CurrentPosition[]
+  submissions         RecruiterSubmission[]
+  incomeYears         CareerIncomeYear[]
+  wageTiers           WageTier[]
+  emailAccounts       EmailAccount[]
+  interactiveResumes  InteractiveResume[]
+  careerPaths         CareerPath[]
+  careerSnapshots     CareerSnapshot[]
+  learningItems       LearningItem[]
+  researchFeeds       ResearchFeed[]
+  marketSearches      MarketSearch[]
+  companyProfiles     CompanyProfile[]
+}
+
+model Account {
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([provider, providerAccountId])
+}
+
+model Session {
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@id([identifier, token])
+}
+
+// ─── Job Search & Applications ─────────────────────────────────
+
 model JobApplication {
   id          String   @id @default(uuid())
+  userId      String
   company     String
   role        String
   url         String?
   location    String?
-  type        String   @default("remote") // remote, hybrid, onsite
-  status      String   @default("wishlist") // wishlist, applied, screening, interviewing, offer, accepted, rejected, withdrawn
+  type        String   @default("remote")
+  status      String   @default("wishlist")
   salaryMin   Int?
   salaryMax   Int?
   currency    String   @default("USD")
   appliedDate DateTime?
   notes       String?
-  // Offer details (populated when status = offer/accepted)
-  offerPayType      String?  // salary, hourly
-  offerPayRate      String?  // e.g. "$35.50" for hourly
-  offerSalary       Int?     // annual salary if salaried
-  offerPayFrequency String?  // weekly, biweekly, semimonthly, monthly
+  offerPayType      String?
+  offerPayRate      String?
+  offerSalary       Int?
+  offerPayFrequency String?
   offerHoursPerWeek Float?
   offerOtHours      Float?
   offerOtRate       Float?   @default(1.5)
   offerSigningBonus Int?
-  offerAnnualBonus  Int?     // expected annual bonus
-  offerEquity       String?  // e.g. "5000 RSUs over 4 years"
-  offer401kMatch    Float?   // employer match % (e.g. 6)
-  offerPtoDays      Int?     // PTO days per year
-  offerHealthCost   Float?   // monthly employee health insurance cost
+  offerAnnualBonus  Int?
+  offerEquity       String?
+  offer401kMatch    Float?
+  offerPtoDays      Int?
+  offerHealthCost   Float?
   offerStartDate    DateTime?
   offerNotes        String?
-  ein             String?  // Employer Identification Number for company research
+  ein             String?
   resumeVersionId String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  interviews Interview[]
-  linkedEmails Email[]
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  interviews    Interview[]
+  linkedEmails  Email[]
   resumeVersion ResumeVersion? @relation(fields: [resumeVersionId], references: [id], onDelete: SetNull)
 }
 
 model Interview {
   id              String   @id @default(uuid())
+  userId          String
   jobApplicationId String
-  type            String   @default("phone") // phone, technical, behavioral, onsite, panel
+  type            String   @default("phone")
   scheduledAt     DateTime
   durationMinutes Int?     @default(60)
   location        String?
   interviewerName String?
   interviewerRole String?
   notes           String?
-  status          String   @default("scheduled") // scheduled, completed, cancelled
-  rating          Int?     // 1-5
-  prepNotes       String?  // company research / prep notes
-  questions       String?  // JSON array of questions to ask / expect
-  reflection      String?  // post-interview reflection
-  reflectionRating Int?    // 1-5 self-assessment
+  status          String   @default("scheduled")
+  rating          Int?
+  prepNotes       String?
+  questions       String?
+  reflection      String?
+  reflectionRating Int?
   createdAt       DateTime @default(now())
 
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   jobApplication JobApplication @relation(fields: [jobApplicationId], references: [id], onDelete: Cascade)
 }
 
 model Contact {
   id              String   @id @default(uuid())
+  userId          String
   name            String
   email           String?
   phone           String?
   company         String?
   role            String?
   linkedinUrl     String?
-  relationship    String   @default("other") // recruiter, referral, colleague, mentor, other
+  relationship    String   @default("other")
   notes           String?
   lastContactedAt DateTime?
   createdAt       DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
+
+model RecruiterSubmission {
+  id             String   @id @default(uuid())
+  userId         String
+  recruiterName  String
+  recruiterEmail String
+  company        String?
+  linkedinUrl    String?
+  jobTitle       String
+  jobDescription String?
+  salaryMin      Int?
+  salaryMax      Int?
+  location       String?
+  jobType        String?
+  message        String?
+  status         String   @default("new")
+  contactId      String?
+  applicationId  String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ─── Skills & Learning ─────────────────────────────────────────
 
 model Skill {
   id          String   @id @default(uuid())
+  userId      String
   name        String
-  category    String   @default("technical") // technical, soft, language, tool
-  proficiency String   @default("intermediate") // beginner, intermediate, advanced, expert
+  category    String   @default("technical")
+  proficiency String   @default("intermediate")
   createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Certification {
   id            String    @id @default(uuid())
+  userId        String
   name          String
   issuer        String
   issueDate     DateTime
   expiryDate    DateTime?
   credentialUrl String?
   createdAt     DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
+
+model LearningItem {
+  id          String   @id @default(cuid())
+  userId      String
+  title       String
+  provider    String?
+  type        String   @default("course")
+  status      String   @default("not_started")
+  progress    Int      @default(0)
+  url         String?
+  hoursSpent  Float    @default(0)
+  cost        Float    @default(0)
+  completedAt DateTime?
+  skills      String?
+  notes       String?
+  tags        String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ─── Resume & Portfolio ────────────────────────────────────────
 
 model ResumeVersion {
   id            String   @id @default(uuid())
+  userId        String
   name          String
   filePath      String?
   fileName      String?
@@ -111,144 +253,121 @@ model ResumeVersion {
   isActive      Boolean  @default(false)
   createdAt     DateTime @default(now())
 
-  applications  JobApplication[]
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  applications JobApplication[]
 }
 
-model CareerGoal {
-  id          String   @id @default(uuid())
-  title       String
-  description String?
-  targetDate  DateTime?
-  status      String   @default("not_started") // not_started, in_progress, completed, abandoned
-  priority    String   @default("medium") // low, medium, high
-  createdAt   DateTime @default(now())
+model InteractiveResume {
+  id            String   @id @default(uuid())
+  userId        String
+  slug          String   @unique
+  title         String
+  targetRole    String?
+  summary       String?
+  theme         String   @default("modern")
+  isPublished   Boolean  @default(false)
+  sections      String?
+  customContent String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  milestones Milestone[]
+  user  User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  views ResumeView[]
 }
 
-model Milestone {
-  id           String    @id @default(uuid())
-  careerGoalId String
-  title        String
-  completed    Boolean   @default(false)
-  completedAt  DateTime?
-  createdAt    DateTime  @default(now())
+model ResumeView {
+  id              String            @id @default(uuid())
+  resumeId        String
+  referrer        String?
+  userAgent       String?
+  sectionsViewed  String?
+  durationSeconds Int?
+  createdAt       DateTime          @default(now())
 
-  careerGoal CareerGoal @relation(fields: [careerGoalId], references: [id], onDelete: Cascade)
+  resume InteractiveResume @relation(fields: [resumeId], references: [id], onDelete: Cascade)
 }
 
-model Reminder {
-  id         String   @id @default(uuid())
-  entityType String   // interview, goal, certification
-  entityId   String
-  title      String
-  remindAt   DateTime
-  isDismissed Boolean @default(false)
-  snoozedUntil DateTime?
-  createdAt  DateTime @default(now())
-}
-
-model ActivityLog {
-  id          String   @id @default(uuid())
-  entityType  String   // application, interview, contact, skill, certification, resume, goal, document
-  entityId    String
-  action      String   // created, updated, status_changed, deleted
-  description String
-  metadata    String?  // optional JSON blob for extra context
-  createdAt   DateTime @default(now())
-}
-
-model Document {
-  id         String   @id @default(uuid())
-  name       String
-  fileName   String
-  fileSize   Int
-  mimeType   String
-  data       String   // base64-encoded file content
-  category   String   @default("other") // offer_letter, cover_letter, certificate, contract, pay_stub, tax_form, other
-  entityType String?  // application, position, certification — what this doc relates to
-  entityId   String?  // ID of the related entity
-  notes      String?
-  createdAt  DateTime @default(now())
-}
+// ─── Profile & Identity ────────────────────────────────────────
 
 model UserProfile {
   id                 String   @id @default(uuid())
-  // Identity
+  userId             String   @unique
   fullName           String?
-  headline           String?  // e.g. "Senior Full-Stack Engineer"
+  headline           String?
   email              String?
   phone              String?
-  avatarUrl          String?  // base64 data-url or file path
+  avatarUrl          String?
   city               String?
   state              String?
   linkedinUrl        String?
   githubUrl          String?
   portfolioUrl       String?
-  // Career preferences
-  availability       String   @default("open_to_work") // open_to_work, selectively_open, not_looking
+  availability       String   @default("open_to_work")
   bio                String?
-  preferredRoles     String?  // comma-separated
+  preferredRoles     String?
   targetSalaryMin    Int?
   targetSalaryMax    Int?
   currency           String   @default("USD")
-  locationPreference String?  // e.g. "Remote, NYC, SF"
+  locationPreference String?
   showSkills         Boolean  @default(true)
   showResume         Boolean  @default(true)
   showCertifications Boolean  @default(true)
   showCurrentRole    Boolean  @default(true)
   portalSlug         String   @default("portal") @unique
-  // Personal finance — portable across positions / job offers
-  filingStatus       String   @default("single") // single, married_joint, married_separate, head_of_household
-  federalTaxRate     Float?   // estimated federal tax %
-  stateTaxRate       Float?   // estimated state tax %
-  monthlyExpenses    String?  // JSON blob: { rent, utilities, car, insurance, phone, subscriptions, groceries, gas, studentLoans, creditCards, otherDebt, savings, otherExpenses }
+  filingStatus       String   @default("single")
+  federalTaxRate     Float?
+  stateTaxRate       Float?
+  monthlyExpenses    String?
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
+
+// ─── Current Position & Work ───────────────────────────────────
 
 model CurrentPosition {
   id            String    @id @default(uuid())
+  userId        String
   company       String
   role          String
   department    String?
   location      String?
-  type          String    @default("remote") // remote, hybrid, onsite
+  type          String    @default("remote")
   startDate     DateTime
   endDate       DateTime?
   salary        Int?
   currency      String    @default("USD")
   description   String?
-  responsibilities String? // comma-separated or newline-separated
-  techStack     String?   // comma-separated
+  responsibilities String?
+  techStack     String?
   managerName   String?
   isActive      Boolean   @default(true)
-  // Company details
-  ein           String?   // Employer Identification Number (XX-XXXXXXX)
-  legalName     String?   // Legal filing name from W-2 / SEC (e.g. "BARRY CALLEBAUT USA LLC")
+  ein           String?
+  legalName     String?
   companySynopsis String?
   industry      String?
   website       String?
   address       String?
-  // Job details
-  focus         String?   // primary job focus / summary
-  schedule      String?   // e.g. "Overnight 6pm-6am | 3:4 day rotating week"
-  payRate       String?   // base pay rate e.g. "$35.50"
-  payType       String    @default("salary") // salary, hourly, contract
-  differentials String?   // newline-separated e.g. "Night Shift +$2.00\nWeekend +$3.00"
-  payFrequency  String    @default("biweekly") // weekly, biweekly, semimonthly, monthly
+  focus         String?
+  schedule      String?
+  payRate       String?
+  payType       String    @default("salary")
+  differentials String?
+  payFrequency  String    @default("biweekly")
   rotatingSchedule Boolean @default(false)
-  hoursPerWeek  Float?    // regular hours per week (schedule A if rotating)
-  scheduleBHours Float?   // schedule B regular hours (only if rotatingSchedule)
-  otHoursA      Float?    // OT hours per week for schedule A (or fixed schedule)
-  otHoursB      Float?    // OT hours per week for schedule B (only if rotating)
-  otRate        Float?    @default(1.5) // OT multiplier (e.g. 1.5x)
-  annualRaiseMin Float?   // employer annual raise range minimum (e.g. 1 for 1%)
-  annualRaiseMax Float?   // employer annual raise range maximum (e.g. 3 for 3%)
-  estimatorSettings String? // JSON blob for estimator inputs (OT, tax rates, deductions, etc.)
+  hoursPerWeek  Float?
+  scheduleBHours Float?
+  otHoursA      Float?
+  otHoursB      Float?
+  otRate        Float?    @default(1.5)
+  annualRaiseMin Float?
+  annualRaiseMax Float?
+  estimatorSettings String?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   compensation CompensationEvent[]
   benefits     Benefit[]
   timeOff      TimeOffBalance[]
@@ -261,14 +380,14 @@ model Equipment {
   id            String    @id @default(uuid())
   positionId    String
   name          String
-  category      String    @default("hardware") // hardware, software, vehicle, safety, tool, other
+  category      String    @default("hardware")
   manufacturer  String?
   model         String?
   serialNumber  String?
   assetTag      String?
   assignedDate  DateTime?
   returnedDate  DateTime?
-  condition     String    @default("good") // new, good, fair, poor
+  condition     String    @default("good")
   licenseKey    String?
   version       String?
   expiresAt     DateTime?
@@ -283,13 +402,13 @@ model Equipment {
 model EquipmentResource {
   id          String   @id @default(uuid())
   equipmentId String
-  type        String   @default("manual") // manual, troubleshooting, operations, safety, maintenance, parts, training
+  type        String   @default("manual")
   title       String
-  content     String?  // text content (notes, procedures, tips)
-  fileName    String?  // original file name if attachment
-  fileData    Bytes?   // stored file data
-  fileMime    String?  // MIME type
-  url         String?  // external link
+  content     String?
+  fileName    String?
+  fileData    Bytes?
+  fileMime    String?
+  url         String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -301,22 +420,24 @@ model WorkLog {
   positionId     String
   date           DateTime
   title          String
-  content        String?  // detailed notes, what you did
-  category       String   @default("task") // task, meeting, project, training, administrative, maintenance, on-call, other
-  hours          Float?   // hours spent
-  tags           String?  // comma-separated tags
-  accomplishment Boolean  @default(false) // flag for performance review items
-  impact         String?  // low, medium, high, critical
+  content        String?
+  category       String   @default("task")
+  hours          Float?
+  tags           String?
+  accomplishment Boolean  @default(false)
+  impact         String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
   position CurrentPosition @relation(fields: [positionId], references: [id], onDelete: Cascade)
 }
 
+// ─── Compensation & Benefits ───────────────────────────────────
+
 model CompensationEvent {
   id            String   @id @default(uuid())
   positionId    String
-  type          String   @default("base_salary") // base_salary, bonus, equity, raise, promotion, signing_bonus, stipend, other
+  type          String   @default("base_salary")
   title         String
   amount        Int
   currency      String   @default("USD")
@@ -331,7 +452,7 @@ model CompensationEvent {
 model Benefit {
   id           String    @id @default(uuid())
   positionId   String
-  category     String    @default("health") // health, dental, vision, retirement, insurance, wellness, education, other
+  category     String    @default("health")
   name         String
   provider     String?
   coverage     String?
@@ -348,11 +469,11 @@ model Benefit {
 model TimeOffBalance {
   id        String   @id @default(uuid())
   positionId String
-  category  String   @default("pto") // pto, sick, personal, holiday, parental, bereavement, other
+  category  String   @default("pto")
   totalDays Float    @default(0)
   usedDays  Float    @default(0)
   year      Int
-  accrual   String   @default("annual") // annual, monthly, biweekly
+  accrual   String   @default("annual")
   carryOver Float    @default(0)
   notes     String?
   createdAt DateTime @default(now())
@@ -367,143 +488,12 @@ model TimeOffEntry {
   startDate DateTime
   endDate   DateTime
   days      Float    @default(1)
-  status    String   @default("planned") // planned, approved, taken, cancelled
+  status    String   @default("planned")
   reason    String?
   createdAt DateTime @default(now())
 
   balance TimeOffBalance @relation(fields: [balanceId], references: [id], onDelete: Cascade)
 }
-
-model RecruiterSubmission {
-  id             String   @id @default(uuid())
-  recruiterName  String
-  recruiterEmail String
-  company        String?
-  linkedinUrl    String?
-  jobTitle       String
-  jobDescription String?
-  salaryMin      Int?
-  salaryMax      Int?
-  location       String?
-  jobType        String?  // remote, hybrid, onsite
-  message        String?
-  status         String   @default("new") // new, reviewed, archived
-  contactId      String?  // auto-created Contact
-  applicationId  String?  // auto-created Application
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-}
-
-// ─── Career Financial Model ──────────────────────────────────
-
-model CareerIncomeYear {
-  id          String   @id @default(uuid())
-  year        Int      @unique
-  grossIncome Float    // total gross earnings
-  netIncome   Float?   // AGI / net after taxes
-  jobCount    Int      @default(1) // number of jobs that year
-  notes       String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  entries     CareerIncomeEntry[]
-  w2Records   W2Record[]
-}
-
-model CareerIncomeEntry {
-  id          String   @id @default(uuid())
-  yearId      String
-  employer    String               // company name from W-2 or manual entry
-  grossIncome Float
-  netIncome   Float?
-  ein         String?              // employer EIN
-  notes       String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  incomeYear  CareerIncomeYear @relation(fields: [yearId], references: [id], onDelete: Cascade)
-}
-
-model W2Record {
-  id                  String   @id @default(uuid())
-  yearId              String
-  taxYear             Int
-  // Employer info
-  employerName        String?
-  employerEIN         String?
-  employerAddress     String?
-  state               String?
-  // W-2 Box values
-  wages               Float?   // Box 1
-  federalTaxWithheld  Float?   // Box 2
-  socialSecurityWages  Float?  // Box 3
-  socialSecurityTax   Float?   // Box 4
-  medicareWages       Float?   // Box 5
-  medicareTax         Float?   // Box 6
-  stateWages          Float?   // Box 16
-  stateTaxWithheld    Float?   // Box 17
-  localWages          Float?   // Box 18
-  localTaxWithheld    Float?   // Box 19
-  // Computed
-  netIncome           Float?
-  notes               String?
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
-  incomeYear          CareerIncomeYear @relation(fields: [yearId], references: [id], onDelete: Cascade)
-}
-
-model WageTier {
-  id         String  @id @default(uuid())
-  label      String  // e.g. "Short-Term", "Long-Term", "Target"
-  hourlyRate Float
-  yearlyRate Float
-  sortOrder  Int     @default(0)
-  color      String  @default("#6366f1") // UI accent color
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-}
-
-model EmailAccount {
-  id           String    @id @default(uuid())
-  provider     String    // "google" | "microsoft"
-  email        String
-  accessToken  String
-  refreshToken String?
-  tokenExpiry  DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  emails       Email[]
-
-  @@unique([provider, email])
-}
-
-// ─── Interactive Resumes (Shareable Living Resumes) ────────────────
-
-model InteractiveResume {
-  id            String   @id @default(uuid())
-  slug          String   @unique
-  title         String
-  targetRole    String?
-  summary       String?
-  theme         String   @default("modern")
-  isPublished   Boolean  @default(false)
-  sections      String?  // JSON: section visibility & ordering
-  customContent String?  // JSON: per-section overrides
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  views         ResumeView[]
-}
-
-model ResumeView {
-  id              String            @id @default(uuid())
-  resumeId        String
-  referrer        String?
-  userAgent       String?
-  sectionsViewed  String?           // JSON array of section keys
-  durationSeconds Int?
-  createdAt       DateTime          @default(now())
-  resume          InteractiveResume @relation(fields: [resumeId], references: [id], onDelete: Cascade)
-}
-
-// ─── Paycheck Records (YTD tracking per position) ──────────────────
 
 model PaycheckRecord {
   id              String    @id @default(uuid())
@@ -515,7 +505,6 @@ model PaycheckRecord {
   payRate         Float?
   regularHours    Float?
   overtimeHours   Float?
-  // YTD totals from paycheck
   ytdGross        Float?
   ytdNet          Float?
   ytdFederalTax   Float?
@@ -525,53 +514,60 @@ model PaycheckRecord {
   ytdRetirement   Float?
   ytdHealthIns    Float?
   ytdTotalDed     Float?
-  // Tax percentages extracted
-  taxPercentages  String?   // JSON blob: { federalTax, stateTax, socialSecurity, medicare, retirement, healthInsurance, totalDeductions }
+  taxPercentages  String?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
   position CurrentPosition @relation(fields: [positionId], references: [id], onDelete: Cascade)
 }
 
-model Email {
-  id         String   @id @default(uuid())
-  accountId  String
-  messageId  String   // provider's unique message ID
-  subject    String?
-  sender     String   // from address
-  recipient  String?  // to address
-  date       DateTime
-  snippet    String?  // short preview text
-  body       String?  // full text body
-  isRead     Boolean  @default(false)
-  labels     String?  // comma-separated
-  applicationId String?
-  createdAt  DateTime @default(now())
-  account    EmailAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  application JobApplication? @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+// ─── Career Goals & Planning ───────────────────────────────────
 
-  @@unique([accountId, messageId])
+model CareerGoal {
+  id          String   @id @default(uuid())
+  userId      String
+  title       String
+  description String?
+  targetDate  DateTime?
+  status      String   @default("not_started")
+  priority    String   @default("medium")
+  createdAt   DateTime @default(now())
+
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  milestones Milestone[]
 }
 
-// ─── Career Directional Model (CDM) ────────────────────────────────
+model Milestone {
+  id           String    @id @default(uuid())
+  careerGoalId String
+  title        String
+  completed    Boolean   @default(false)
+  completedAt  DateTime?
+  createdAt    DateTime  @default(now())
+
+  careerGoal CareerGoal @relation(fields: [careerGoalId], references: [id], onDelete: Cascade)
+}
 
 model CareerPath {
   id              String   @id @default(uuid())
-  title           String                           // e.g. "Staff Engineer"
+  userId          String
+  title           String
   description     String?
-  targetRole      String?                          // role title to aim for
+  targetRole      String?
   targetSalaryMin Int?
   targetSalaryMax Int?
   industry        String?
-  level           String   @default("mid")         // entry/mid/senior/lead/executive
-  requiredSkills  String?                          // JSON: [{name, proficiency}]
-  timelineYears   Int?                             // typical years to reach
+  level           String   @default("mid")
+  requiredSkills  String?
+  timelineYears   Int?
   isActive        Boolean  @default(true)
   sortOrder       Int      @default(0)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
-  milestones      CareerPathMilestone[]
-  scores          DirectionScore[]
+
+  user       User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  milestones CareerPathMilestone[]
+  scores     DirectionScore[]
 }
 
 model CareerPathMilestone {
@@ -581,14 +577,16 @@ model CareerPathMilestone {
   description String?
   sortOrder   Int     @default(0)
   isRequired  Boolean @default(false)
-  path        CareerPath @relation(fields: [pathId], references: [id], onDelete: Cascade)
+
+  path CareerPath @relation(fields: [pathId], references: [id], onDelete: Cascade)
 }
 
 model CareerSnapshot {
   id               String   @id @default(uuid())
+  userId           String
   capturedAt       DateTime @default(now())
   totalSkills      Int      @default(0)
-  avgProficiency   Float    @default(0)            // 0-100 scale
+  avgProficiency   Float    @default(0)
   incomeGross      Float?
   incomeNet        Float?
   activeGoals      Int      @default(0)
@@ -598,56 +596,206 @@ model CareerSnapshot {
   interviewsCount  Int      @default(0)
   currentRole      String?
   currentCompany   String?
-  overallScore     Float?                          // computed composite 0-100
-  metadata         String?                         // JSON: extra computed data
-  scores           DirectionScore[]
+  overallScore     Float?
+  metadata         String?
+
+  user   User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  scores DirectionScore[]
 }
 
 model DirectionScore {
   id              String   @id @default(uuid())
   snapshotId      String
   pathId          String
-  skillMatch      Float    @default(0)             // 0-100
-  incomeAlignment Float    @default(0)             // 0-100
-  goalAlignment   Float    @default(0)             // 0-100
-  overallScore    Float    @default(0)             // 0-100 weighted composite
-  gaps            String?                          // JSON: [{type, name, detail}]
+  skillMatch      Float    @default(0)
+  incomeAlignment Float    @default(0)
+  goalAlignment   Float    @default(0)
+  overallScore    Float    @default(0)
+  gaps            String?
   createdAt       DateTime @default(now())
-  snapshot        CareerSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
-  path            CareerPath     @relation(fields: [pathId], references: [id], onDelete: Cascade)
+
+  snapshot CareerSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+  path     CareerPath     @relation(fields: [pathId], references: [id], onDelete: Cascade)
 
   @@unique([snapshotId, pathId])
 }
 
-// ── Learning Tracker ──────────────────────────────────
-model LearningItem {
-  id          String   @id @default(cuid())
-  title       String
-  provider    String?                          // Coursera, Udemy, O'Reilly, etc.
-  type        String   @default("course")      // course | certification_prep | book | tutorial | workshop | bootcamp
-  status      String   @default("not_started") // not_started | in_progress | completed | abandoned
-  progress    Int      @default(0)             // 0-100
-  url         String?
-  hoursSpent  Float    @default(0)
-  cost        Float    @default(0)
-  completedAt DateTime?
-  skills      String?                          // JSON: string[] of skill names this develops
+// ─── Financial & Tax ───────────────────────────────────────────
+
+model CareerIncomeYear {
+  id          String   @id @default(uuid())
+  userId      String
+  year        Int
+  grossIncome Float
+  netIncome   Float?
+  jobCount    Int      @default(1)
   notes       String?
-  tags        String?                          // JSON: string[] for categorization
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  user     User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entries  CareerIncomeEntry[]
+  w2Records W2Record[]
+
+  @@unique([userId, year])
 }
 
-// ── Industry Research (RSS Feeds) ─────────────────────
+model CareerIncomeEntry {
+  id          String   @id @default(uuid())
+  yearId      String
+  employer    String
+  grossIncome Float
+  netIncome   Float?
+  ein         String?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  incomeYear CareerIncomeYear @relation(fields: [yearId], references: [id], onDelete: Cascade)
+}
+
+model W2Record {
+  id                  String   @id @default(uuid())
+  yearId              String
+  taxYear             Int
+  employerName        String?
+  employerEIN         String?
+  employerAddress     String?
+  state               String?
+  wages               Float?
+  federalTaxWithheld  Float?
+  socialSecurityWages Float?
+  socialSecurityTax   Float?
+  medicareWages       Float?
+  medicareTax         Float?
+  stateWages          Float?
+  stateTaxWithheld    Float?
+  localWages          Float?
+  localTaxWithheld    Float?
+  netIncome           Float?
+  notes               String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  incomeYear CareerIncomeYear @relation(fields: [yearId], references: [id], onDelete: Cascade)
+}
+
+model WageTier {
+  id         String   @id @default(uuid())
+  userId     String
+  label      String
+  hourlyRate Float
+  yearlyRate Float
+  sortOrder  Int      @default(0)
+  color      String   @default("#6366f1")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ─── Email Integration ─────────────────────────────────────────
+
+model EmailAccount {
+  id           String    @id @default(uuid())
+  userId       String
+  provider     String
+  email        String
+  accessToken  String
+  refreshToken String?
+  tokenExpiry  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emails Email[]
+
+  @@unique([userId, provider, email])
+}
+
+model Email {
+  id         String   @id @default(uuid())
+  accountId  String
+  messageId  String
+  subject    String?
+  sender     String
+  recipient  String?
+  date       DateTime
+  snippet    String?
+  body       String?
+  isRead     Boolean  @default(false)
+  labels     String?
+  applicationId String?
+  createdAt  DateTime @default(now())
+
+  account    EmailAccount    @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  application JobApplication? @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+
+  @@unique([accountId, messageId])
+}
+
+// ─── Utility & Tracking ────────────────────────────────────────
+
+model Reminder {
+  id         String   @id @default(uuid())
+  userId     String
+  entityType String
+  entityId   String
+  title      String
+  remindAt   DateTime
+  isDismissed Boolean @default(false)
+  snoozedUntil DateTime?
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ActivityLog {
+  id          String   @id @default(uuid())
+  userId      String
+  entityType  String
+  entityId    String
+  action      String
+  description String
+  metadata    String?
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Document {
+  id         String   @id @default(uuid())
+  userId     String
+  name       String
+  fileName   String
+  fileSize   Int
+  mimeType   String
+  data       String
+  category   String   @default("other")
+  entityType String?
+  entityId   String?
+  notes      String?
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ─── Research & Market Data ────────────────────────────────────
+
 model ResearchFeed {
   id            String   @id @default(cuid())
+  userId        String
   title         String
-  url           String   @unique
-  category      String   @default("general")   // industry | tech | general | finance | career
+  url           String
+  category      String   @default("general")
   isActive      Boolean  @default(true)
   lastFetchedAt DateTime?
   createdAt     DateTime @default(now())
-  articles      ResearchArticle[]
+
+  user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  articles ResearchArticle[]
+
+  @@unique([userId, url])
 }
 
 model ResearchArticle {
@@ -657,50 +805,56 @@ model ResearchArticle {
   url         String
   source      String?
   summary     String?
-  content     String?                          // Full extracted article content
+  content     String?
   publishedAt DateTime?
   imageUrl    String?
   isBookmarked Boolean  @default(false)
   isRead      Boolean  @default(false)
-  tags        String?                          // JSON: string[]
+  tags        String?
   createdAt   DateTime @default(now())
-  feed        ResearchFeed @relation(fields: [feedId], references: [id], onDelete: Cascade)
+
+  feed ResearchFeed @relation(fields: [feedId], references: [id], onDelete: Cascade)
 }
 
-// ── Job Market Research (BLS) ─────────────────────────
 model MarketSearch {
   id            String   @id @default(cuid())
-  seriesId      String                         // BLS series code
+  userId        String
+  seriesId      String
   title         String
   occupation    String?
   area          String?
-  dataType      String   @default("wages")     // wages | employment | projections
-  lastData      String?                        // JSON: cached BLS response
+  dataType      String   @default("wages")
+  lastData      String?
   lastFetchedAt DateTime?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-// ── EIN Company Intelligence ──────────────────────────
 model CompanyProfile {
   id              String    @id @default(uuid())
-  ein             String    @unique            // XX-XXXXXXX format
-  name            String?                      // legal company name
+  userId          String
+  ein             String
+  name            String?
   address         String?
   state           String?
-  industry        String?                      // NAICS description
-  naicsCode       String?                      // 6-digit NAICS code
+  industry        String?
+  naicsCode       String?
   website         String?
   employeeCount   Int?
   isPublic        Boolean   @default(false)
-  secCIK          String?                      // SEC Central Index Key
-  // Cached API results (JSON blobs)
-  form5500Data    String?                      // DOL Form 5500: 401k match, plan provider, participants, assets
-  oshaData        String?                      // OSHA: inspections, violations, penalties
-  secData         String?                      // SEC EDGAR: revenue, net income, filings
-  sosData         String?                      // Secretary of State: status, registration date, agent
-  researchNotes   String?                      // User-entered notes from manual state resource research
+  secCIK          String?
+  form5500Data    String?
+  oshaData        String?
+  secData         String?
+  sosData         String?
+  researchNotes   String?
   lastFetchedAt   DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, ein])
 }
