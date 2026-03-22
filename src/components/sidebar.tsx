@@ -22,7 +22,9 @@ import {
   FolderOpen,
   BookOpen,
   ChevronDown,
+  LogOut,
 } from "lucide-react";
+import { signOut } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -183,6 +185,14 @@ export function Sidebar() {
         <div className="flex items-center gap-2">
           <NotificationBell />
           <ThemeToggle />
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => signOut({ callbackUrl: "/login" })}
+            title="Sign out"
+          >
+            <LogOut className="h-4 w-4" />
+          </Button>
         </div>
         <p className="text-xs text-gray-500 dark:text-gray-500">
           Career Tracker v1.0
@@ -222,6 +232,14 @@ export function MobileHeader() {
       <div className="ml-auto flex items-center gap-1">
         <NotificationBell />
         <ThemeToggle />
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => signOut({ callbackUrl: "/login" })}
+          title="Sign out"
+        >
+          <LogOut className="h-4 w-4" />
+        </Button>
       </div>
     </header>
   );
