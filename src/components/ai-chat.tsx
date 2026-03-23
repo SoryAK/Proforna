@@ -49,14 +49,18 @@ export function AIChat() {
   const [provider, setProvider] = useState<string>("ollama");
   const [model, setModel] = useState<string>("");
   const [systemPrompt, setSystemPrompt] = useState<string>("");
+  const [localUrl, setLocalUrl] = useState<string | null>(typeof window !== "undefined" ? localStorage.getItem("resumsify-ai-url") : null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   // Fetch available models
-  const { data: modelsData } = useQuery<ModelsData>({
-    queryKey: ["ai-models"],
-    queryFn: () => fetch("/api/ai/models").then((r) => r.json()),
+  const { data: modelsData, refetch } = useQuery<ModelsData>({
+    queryKey: ["ai-models", open, localUrl], // re-run if local URL changes before open
+    queryFn: () => {
+      const url = localUrl ? `/api/ai/models?url=${encodeURIComponent(localUrl)}` : "/api/ai/models";
+      return fetch(url).then((r) => r.json());
+    },
     staleTime: 30_000,
     enabled: open,
   });
@@ -70,9 +74,55 @@ export function AIChat() {
       .catch(() => {});
   }, [open, systemPrompt]);
 
-  // Auto-select best model when models data loads
+  // Auto-select best model when models data loads (only once)
+  const [initialized, setInitialized] = useState(false);
+
+  // Resize logic
+  const [panelWidth, setPanelWidth] = useState(400);
+  const [isDragging, setIsDragging] = useState(false);
+
   useEffect(() => {
-    if (!modelsData || model) return;
+    if (typeof window !== "undefined") {
+      const savedWidth = localStorage.getItem("resumsify-ai-width");
+      if (savedWidth) setPanelWidth(Number(savedWidth));
+    }
+  }, []);
+
+  const startResizing = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isDragging) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      let newWidth = document.documentElement.clientWidth - e.clientX;
+      if (newWidth < 300) newWidth = 300;
+      if (newWidth > 1200) newWidth = 1200; // Max width
+      setPanelWidth(newWidth);
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+      localStorage.setItem("resumsify-ai-width", panelWidth.toString());
+    };
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+    document.body.style.userSelect = "none";
+    document.body.style.cursor = "col-resize";
+
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+      document.body.style.userSelect = "";
+      document.body.style.cursor = "";
+    };
+  }, [isDragging, panelWidth]);
+
+  useEffect(() => {
+    if (!modelsData || initialized) return;
     if (modelsData.ollama.available) {
       setProvider("ollama");
       const active = modelsData.models.find((m) => m.provider === "ollama" && m.active);
@@ -81,7 +131,21 @@ export function AIChat() {
       setProvider("gemini");
       setModel(modelsData.gemini.defaultModel);
     }
-  }, [modelsData, model]);
+    setInitialized(true);
+  }, [modelsData, initialized]);
+
+  // When provider changes, ensure a valid model is selected
+  useEffect(() => {
+    if (!modelsData || !initialized) return;
+    if (!model) {
+      if (provider === "ollama" && modelsData.ollama.available) {
+        const active = modelsData.models.find((m) => m.provider === "ollama" && m.active);
+        setModel(active?.name ?? modelsData.ollama.defaultModel);
+      } else if (provider === "gemini" && modelsData.gemini.available) {
+        setModel(modelsData.gemini.defaultModel);
+      }
+    }
+  }, [provider, initialized, modelsData, model]);
 
   // Auto-scroll
   useEffect(() => {
@@ -138,6 +202,7 @@ export function AIChat() {
           messages: chatHistory,
           provider,
           model: model || undefined,
+          localUrl: provider === "ollama" ? localUrl : undefined,
         }),
         signal: controller.signal,
       });
@@ -230,25 +295,37 @@ export function AIChat() {
   const providerModels = provider === "ollama" ? ollamaModels : geminiModels;
 
   // Fab button
-  if (!open) {
-    return (
+  return (
+    <>
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-orange-600 to-purple-600 text-white shadow-lg hover:shadow-xl transition-all hover:scale-105 active:scale-95"
+        className={`fixed bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-orange-600 to-purple-600 text-white shadow-lg hover:shadow-xl transition-all hover:scale-105 active:scale-95 ${open ? 'scale-0 opacity-0 pointer-events-none' : 'scale-100 opacity-100'}`}
         aria-label="Open AI Chat"
       >
         <Sparkles className="h-6 w-6" />
       </button>
-    );
-  }
 
-  return (
-    <div className="fixed bottom-6 right-6 z-50 flex w-[420px] max-w-[calc(100vw-2rem)] flex-col rounded-2xl border bg-background shadow-2xl overflow-hidden"
-      style={{ height: "min(600px, calc(100vh - 6rem))" }}
-    >
-      {/* Header */}
-      <div className="flex items-center justify-between border-b px-4 py-3 bg-gradient-to-r from-orange-600/10 to-purple-600/10">
+      <div 
+        className={`fixed top-0 right-0 z-50 flex h-[100dvh] flex-col border-l bg-background shadow-2xl overflow-hidden
+          md:relative md:shadow-none md:translate-x-0 md:z-0
+          ${isDragging ? 'transition-none duration-0' : 'transition-all duration-300 ease-in-out'}
+          ${open ? 'translate-x-0 w-full md:w-[var(--chat-width)]' : 'translate-x-[100%] w-full md:w-0 md:border-none'}
+        `}
+        style={{ '--chat-width': `${panelWidth}px` } as React.CSSProperties}
+      >
+        {/* Resize Handle */}
+        <div
+          onMouseDown={startResizing}
+          className={`hidden md:block absolute top-0 left-0 w-1.5 h-full cursor-col-resize z-50 transition-colors
+            hover:bg-orange-500/50 
+            ${isDragging ? 'bg-orange-500/50' : 'bg-transparent'}
+          `}
+        />
+
+        <div className="flex flex-col h-full w-full md:w-[var(--chat-width)] md:min-w-[var(--chat-width)] relative">
+          {/* Header */}
+          <div className="flex items-center justify-between border-b px-4 py-3 bg-gradient-to-r from-orange-600/10 to-purple-600/10 shrink-0">
         <div className="flex items-center gap-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-orange-600 to-purple-600">
             <Bot className="h-4 w-4 text-white" />
@@ -287,7 +364,7 @@ export function AIChat() {
 
       {/* Settings panel */}
       {showSettings && (
-        <div className="border-b px-4 py-3 space-y-2 bg-muted/30">
+        <div className="border-b px-4 py-3 space-y-3 bg-muted/30">
           <div className="flex items-center gap-2">
             <div className="flex-1">
               <label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Provider</label>
@@ -303,7 +380,7 @@ export function AIChat() {
                       ) : (
                         <WifiOff className="h-3 w-3 text-red-400" />
                       )}
-                      Ollama (Local)
+                      Local AI (Ollama)
                     </span>
                   </SelectItem>
                   <SelectItem value="gemini">
@@ -313,7 +390,7 @@ export function AIChat() {
                       ) : (
                         <WifiOff className="h-3 w-3 text-red-400" />
                       )}
-                      Gemini (Cloud)
+                      Resumsify Cloud (Gemini)
                     </span>
                   </SelectItem>
                 </SelectContent>
@@ -340,9 +417,31 @@ export function AIChat() {
               </Select>
             </div>
           </div>
+          {provider === "ollama" && (
+            <div className="space-y-1">
+              <label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Localhost URL</label>
+              <input 
+                type="text" 
+                className="w-full text-xs h-8 px-2 rounded-md border bg-background" 
+                placeholder="http://127.0.0.1:11434"
+                defaultValue={typeof window !== "undefined" ? localStorage.getItem("resumsify-ai-url") || "http://127.0.0.1:11434" : "http://127.0.0.1:11434"}
+                onBlur={(e) => {
+                  const val = e.target.value.trim();
+                  if (val) {
+                    localStorage.setItem("resumsify-ai-url", val);
+                    setLocalUrl(val);
+                  } else {
+                    localStorage.removeItem("resumsify-ai-url");
+                    setLocalUrl(null);
+                  }
+                  refetch();
+                }}
+              />
+            </div>
+          )}
           {provider === "ollama" && !modelsData?.ollama.available && (
             <p className="text-[10px] text-amber-600 dark:text-amber-400">
-              Ollama not detected. Run <code className="bg-muted px-1 rounded">ollama serve</code> to start it.
+              Ollama not detected. Start Ollama and ensure the URL is correct.
             </p>
           )}
           {provider === "gemini" && !modelsData?.gemini.available && (
@@ -462,6 +561,8 @@ export function AIChat() {
           )}
         </div>
       </div>
+      </div>
     </div>
+    </>
   );
 }
