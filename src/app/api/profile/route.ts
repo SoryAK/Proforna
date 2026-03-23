@@ -2,18 +2,32 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getUserId } from "@/lib/auth-utils";
 
+// Helper: ensure user exists before profile operations
+async function ensureUser(userId: string) {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  return !!user;
+}
+
 // GET - fetch profile (auto-create default if none exists)
 export async function GET() {
   const userId = await getUserId();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
-    let profile = await prisma.userProfile.findFirst({ where: { userId } });
-    if (!profile) {
-      profile = await prisma.userProfile.create({ data: { userId } });
+    if (!(await ensureUser(userId))) {
+      return NextResponse.json(
+        { error: "User not found. Please sign out and sign back in." },
+        { status: 401 },
+      );
     }
+    const profile = await prisma.userProfile.upsert({
+      where: { userId },
+      create: { userId },
+      update: {},
+    });
     return NextResponse.json(profile);
   } catch (error) {
+    console.error("[GET /api/profile] Error:", error);
     return NextResponse.json({ error: String(error) }, { status: 500 });
   }
 }
@@ -24,11 +38,13 @@ export async function PATCH(request: Request) {
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
-    const body = await request.json();
-    let profile = await prisma.userProfile.findFirst({ where: { userId } });
-    if (!profile) {
-      profile = await prisma.userProfile.create({ data: { userId } });
+    if (!(await ensureUser(userId))) {
+      return NextResponse.json(
+        { error: "User not found. Please sign out and sign back in." },
+        { status: 401 },
+      );
     }
+    const body = await request.json();
     // Whitelist allowed fields
     const allowed = [
       "fullName", "headline", "email", "phone", "city", "state",
@@ -42,12 +58,14 @@ export async function PATCH(request: Request) {
     for (const key of allowed) {
       if (key in body) data[key] = body[key];
     }
-    const updated = await prisma.userProfile.update({
-      where: { id: profile.id },
-      data,
+    const updated = await prisma.userProfile.upsert({
+      where: { userId },
+      create: { userId, ...data },
+      update: data,
     });
     return NextResponse.json(updated);
   } catch (error) {
+    console.error("[PATCH /api/profile] Error:", error);
     return NextResponse.json({ error: String(error) }, { status: 500 });
   }
 }

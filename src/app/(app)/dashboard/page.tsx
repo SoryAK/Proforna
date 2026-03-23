@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Briefcase,
@@ -55,7 +55,9 @@ import {
 } from "recharts";
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { PersonalFinance } from "@/components/personal-finance";
+import { OnboardingFlow } from "@/components/onboarding-flow";
 import { PayPeriodCalendar } from "@/components/pay-period-calendar";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import ExperiencePage from "../experience/page";
@@ -237,11 +239,19 @@ interface DashboardData {
 }
 
 export default function DashboardPage() {
+  const router = useRouter();
   const queryClient = useQueryClient();
   const { data, isLoading } = useQuery<DashboardData>({
     queryKey: ["dashboard"],
     queryFn: () => fetch("/api/dashboard").then((r) => r.json()),
   });
+
+  // Redirect brand-new users to onboarding
+  useEffect(() => {
+    if (!isLoading && data && !data.profile?.fullName) {
+      router.replace("/onboarding");
+    }
+  }, [isLoading, data, router]);
 
   const [editOpen, setEditOpen] = useState(false);
   const [editForm, setEditForm] = useState({
@@ -295,6 +305,16 @@ export default function DashboardPage() {
     }
     setEditOpen(true);
   };
+
+  useEffect(() => {
+    if (!isLoading && data && !data.profile?.fullName) {
+      if (!sessionStorage.getItem("profileEditPrompted")) {
+        sessionStorage.setItem("profileEditPrompted", "true");
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        openEditDialog();
+      }
+    }
+  }, [isLoading, data]);
 
   if (isLoading || !data) {
     return (
@@ -363,8 +383,23 @@ export default function DashboardPage() {
     ? Math.min(100, (cfmLatest.grossIncome / topTier.yearlyRate) * 100)
     : null;
 
+  const hasProfile = Boolean(profile?.fullName);
+  const hasPosition = Boolean(currentPosition);
+  const hasResume = stats.resumes > 0;
+  const showOnboarding = !hasProfile || !hasPosition || !hasResume;
+
   return (
     <div className="max-w-5xl mx-auto space-y-6">
+      {/* ━━ Onboarding ━━ */}
+      {showOnboarding && (
+        <OnboardingFlow
+          hasProfile={hasProfile}
+          hasPosition={hasPosition}
+          hasResume={hasResume}
+          onProfileClick={openEditDialog}
+        />
+      )}
+
       {/* ━━ Profile Banner ━━ */}
       <div>
         {/* ── Profile Banner (left) ── */}

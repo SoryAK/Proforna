@@ -29,19 +29,20 @@ export async function GET(
     sections.filter((s) => s.visible).map((s) => s.type)
   );
 
-  const profile = await prisma.userProfile.findFirst();
+  const profile = await prisma.userProfile.findFirst({ where: { userId: resume.userId } });
 
-  // Fetch data based on visible sections
+  // Fetch data based on visible sections (scoped to resume owner)
   const skills = visibleTypes.has("skills")
-    ? await prisma.skill.findMany({ orderBy: { category: "asc" } })
+    ? await prisma.skill.findMany({ where: { userId: resume.userId }, orderBy: { category: "asc" } })
     : [];
 
   const certifications = visibleTypes.has("certifications")
-    ? await prisma.certification.findMany({ orderBy: { issueDate: "desc" } })
+    ? await prisma.certification.findMany({ where: { userId: resume.userId }, orderBy: { issueDate: "desc" } })
     : [];
 
   const experience = visibleTypes.has("experience")
     ? await prisma.currentPosition.findMany({
+        where: { userId: resume.userId },
         orderBy: { startDate: "desc" },
       })
     : [];

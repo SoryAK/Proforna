@@ -65,37 +65,102 @@ function LoginContent() {
       return;
     }
 
-    router.push(callbackUrl);
+    router.push(tab === "register" ? "/onboarding" : callbackUrl);
     router.refresh();
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-950 px-4">
-      <div className="w-full max-w-md">
+    <div className="flex min-h-screen items-center justify-center bg-[#0a0514] text-slate-100 font-sans selection:bg-orange-500/30 overflow-hidden relative px-4">
+      {/* Global Background Texture */}
+      <div className="fixed inset-0 pointer-events-none z-0">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.05)_1px,transparent_1px)] bg-[size:32px_32px]" />
+        <div className="absolute inset-0 opacity-[0.03] mix-blend-overlay" style={{ backgroundImage: "url('data:image/svg+xml,%3Csvg viewBox=%220 0 200 200%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22noiseFilter%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.8%22 numOctaves=%223%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23noiseFilter)%22/%3E%3C/svg%3E')" }}></div>
+      </div>
+
+      {/* Animated Folder Background */}
+      <div className="absolute inset-0 pointer-events-none z-0 flex items-center justify-center overflow-hidden">
+        {/* Glowing Orbs */}
+        <div className="absolute top-1/3 left-1/4 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-orange-500/20 rounded-full blur-[100px] opacity-50" />
+        <div className="absolute bottom-1/3 right-1/4 translate-x-1/4 w-[500px] h-[500px] bg-purple-600/20 rounded-full blur-[100px] opacity-40" />
+        
+        {/* 3D Animated Folder */}
+        <div className="relative w-[350px] h-[250px] sm:w-[700px] sm:h-[450px] md:opacity-80 transform scale-125 sm:scale-150 rotate-[-15deg]" style={{ perspective: '2000px' }}>
+          <style dangerouslySetInnerHTML={{ __html: `
+            @keyframes open-folder {
+              0%, 100% { transform: rotateX(0deg); }
+              50% { transform: rotateX(-60deg); }
+            }
+            @keyframes slide-paper-1 {
+              0%, 100% { transform: translateY(0) rotate(0deg); }
+              50% { transform: translateY(-70px) rotate(-3deg); }
+            }
+            @keyframes slide-paper-2 {
+              0%, 100% { transform: translateY(0) rotate(0deg); }
+              50% { transform: translateY(-110px) rotate(4deg); }
+            }
+            @keyframes slide-paper-3 {
+              0%, 100% { transform: translateY(0) rotate(0deg); }
+              50% { transform: translateY(-150px) rotate(-1deg); }
+            }
+            .folder-front {
+              transform-origin: bottom;
+              animation: open-folder 8s ease-in-out infinite;
+            }
+            .paper-1 { transform-origin: bottom center; animation: slide-paper-1 8s ease-in-out infinite; }
+            .paper-2 { transform-origin: bottom center; animation: slide-paper-2 8s ease-in-out infinite; }
+            .paper-3 { transform-origin: bottom center; animation: slide-paper-3 8s ease-in-out infinite; }
+          `}} />
+          
+          {/* Back Cover */}
+          <div className="absolute bottom-0 left-0 w-full h-full bg-gradient-to-tr from-orange-600 to-pink-700 rounded-xl rounded-tr-[4rem] shadow-[0_20px_60px_rgba(245,130,32,0.4)] border border-orange-400/30" />
+          {/* Folder Tab */}
+          <div className="absolute -top-10 sm:-top-12 left-8 w-[30%] h-16 bg-orange-600 rounded-t-xl" />
+          
+          {/* Documents */}
+          <div className="absolute bottom-2 left-6 right-6 h-[95%] bg-white/80 rounded-lg shadow-md paper-1 border border-white/50 backdrop-blur-sm" style={{ animationDelay: '0.1s' }} />
+          <div className="absolute bottom-3 left-5 right-5 h-[95%] bg-slate-100/90 rounded-lg shadow-md paper-2 border border-white/50 backdrop-blur-sm" style={{ animationDelay: '0.2s' }} />
+          <div className="absolute bottom-4 left-4 right-4 h-[95%] bg-gradient-to-b from-white to-slate-200 rounded-lg shadow-xl paper-3 border-2 border-white flex flex-col p-8 sm:p-12 gap-5" style={{ animationDelay: '0.3s' }}>
+             <div className="w-1/2 h-8 bg-slate-200 rounded-md" />
+             <div className="w-full h-5 bg-slate-100 rounded-md" />
+             <div className="w-5/6 h-5 bg-slate-100 rounded-md" />
+             <div className="w-4/6 h-5 bg-slate-100 rounded-md" />
+             <div className="w-full h-32 bg-gradient-to-r from-orange-100 to-pink-100 rounded-xl mt-6 border border-orange-200 flex items-end p-4">
+                <div className="w-1/3 h-1/2 bg-orange-300 rounded-t-sm mx-1 opacity-50" />
+                <div className="w-1/3 h-3/4 bg-pink-300 rounded-t-sm mx-1 opacity-50" />
+                <div className="w-1/3 h-full bg-purple-300 rounded-t-sm mx-1 opacity-50" />
+             </div>
+          </div>
+          
+          {/* Front Cover */}
+          <div className="absolute bottom-0 left-0 w-full h-[90%] bg-gradient-to-br from-orange-500/90 to-pink-600/90 rounded-xl shadow-[0_-20px_50px_rgba(0,0,0,0.5)] folder-front border-t border-r border-white/30 backdrop-blur-md" />
+        </div>
+      </div>
+
+      <div className="w-full max-w-md relative z-10">
         {/* Logo */}
-        <div className="mb-8 text-center">
+        <div className="mb-8 text-center drop-shadow-2xl">
           <Link href="/" className="inline-flex items-center gap-2">
-            <Image src="/logo-icon.png" alt="Resumsify" width={40} height={40} />
-            <span className="text-2xl font-bold text-gray-900 dark:text-white">
-              Resum<span className="text-orange-500">sify</span>
+            <Image src="/logo-icon.png" alt="Resumsify" width={48} height={48} className="rounded-xl shadow-[0_0_20px_rgba(245,130,32,0.4)]" />
+            <span className="text-3xl font-bold text-white tracking-tight">
+              Resumsify
             </span>
           </Link>
-          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+          <p className="mt-4 text-slate-300 font-medium tracking-wide">
             Your Career, In Your Hands
           </p>
         </div>
 
-        <Card>
-          <CardHeader className="pb-4">
+        <Card className="bg-[#120a24]/70 backdrop-blur-2xl border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)] text-slate-100">
+          <CardHeader className="pb-6">
             {/* Tab toggle */}
-            <div className="flex rounded-lg bg-gray-100 p-1 dark:bg-gray-800">
+            <div className="flex rounded-xl bg-[#0a0514]/80 p-1.5 border border-white/5">
               <button
                 type="button"
                 onClick={() => { setTab("signin"); setError(""); }}
-                className={`flex-1 rounded-md py-2 text-sm font-medium transition ${
+                className={`flex-1 rounded-lg py-2.5 text-sm font-semibold transition-all ${
                   tab === "signin"
-                    ? "bg-white text-gray-900 shadow dark:bg-gray-700 dark:text-white"
-                    : "text-gray-500 hover:text-gray-700 dark:text-gray-400"
+                    ? "bg-gradient-to-r from-orange-500 to-pink-600 shadow-lg text-white"
+                    : "text-slate-400 hover:text-white hover:bg-white/5"
                 }`}
               >
                 Sign In
@@ -103,10 +168,10 @@ function LoginContent() {
               <button
                 type="button"
                 onClick={() => { setTab("register"); setError(""); }}
-                className={`flex-1 rounded-md py-2 text-sm font-medium transition ${
+                className={`flex-1 rounded-lg py-2.5 text-sm font-semibold transition-all ${
                   tab === "register"
-                    ? "bg-white text-gray-900 shadow dark:bg-gray-700 dark:text-white"
-                    : "text-gray-500 hover:text-gray-700 dark:text-gray-400"
+                    ? "bg-gradient-to-r from-pink-600 to-purple-600 shadow-lg text-white"
+                    : "text-slate-400 hover:text-white hover:bg-white/5"
                 }`}
               >
                 Create Account
@@ -118,10 +183,10 @@ function LoginContent() {
             <Button
               type="button"
               variant="outline"
-              className="w-full gap-2"
+              className="w-full gap-2 bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20 text-white h-12 rounded-xl transition-all"
               onClick={() => signIn("google", { callbackUrl })}
             >
-              <svg className="h-4 w-4" viewBox="0 0 24 24">
+              <svg className="h-5 w-5" viewBox="0 0 24 24">
                 <path
                   d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"
                   fill="#4285F4"
@@ -142,29 +207,29 @@ function LoginContent() {
               Continue with Google
             </Button>
 
-            <div className="relative my-6">
-              <Separator />
-              <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-white px-3 text-xs text-gray-400 dark:bg-gray-900 dark:text-gray-500">
-                or
+            <div className="relative my-8">
+              <Separator className="bg-white/10" />
+              <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-[#120a24] px-4 text-xs font-medium text-slate-400 border border-white/5 rounded-full py-1">
+                OR
               </span>
             </div>
 
             {/* Form */}
-            <form onSubmit={handleCredentials} className="space-y-4">
+            <form onSubmit={handleCredentials} className="space-y-5">
               {tab === "register" && (
-                <div>
-                  <Label htmlFor="name">Full Name</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="name" className="text-slate-300">Full Name</Label>
                   <Input
                     id="name"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="John Doe"
-                    className="mt-1"
+                    className="bg-black/20 border-white/10 text-white placeholder-slate-500 focus:border-orange-500/50 h-12"
                   />
                 </div>
               )}
-              <div>
-                <Label htmlFor="email">Email</Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="email" className="text-slate-300">Email</Label>
                 <Input
                   id="email"
                   type="email"
@@ -172,11 +237,11 @@ function LoginContent() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@example.com"
-                  className="mt-1"
+                  className="bg-black/20 border-white/10 text-white placeholder-slate-500 focus:border-orange-500/50 h-12"
                 />
               </div>
-              <div>
-                <Label htmlFor="password">Password</Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="password" className="text-slate-300">Password</Label>
                 <Input
                   id="password"
                   type="password"
@@ -185,18 +250,18 @@ function LoginContent() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="mt-1"
+                  className="bg-black/20 border-white/10 text-white placeholder-slate-500 focus:border-orange-500/50 h-12"
                 />
                 {tab === "register" && (
-                  <p className="mt-1 text-xs text-gray-400">At least 8 characters</p>
+                  <p className="mt-1 text-xs text-slate-400">At least 8 characters</p>
                 )}
               </div>
               {error && (
-                <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+                <p className="text-sm font-medium text-red-400 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-center">{error}</p>
               )}
               <Button
                 type="submit"
-                className="w-full bg-orange-500 hover:bg-orange-600 text-white"
+                className="w-full bg-gradient-to-r from-orange-500 to-pink-600 hover:from-orange-400 hover:to-pink-500 text-white h-12 rounded-xl text-base font-semibold shadow-[0_0_20px_rgba(245,130,32,0.3)] hover:shadow-[0_0_30px_rgba(245,130,32,0.5)] border-0 transition-all mt-2"
                 disabled={loading}
               >
                 {loading
