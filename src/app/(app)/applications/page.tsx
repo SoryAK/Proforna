@@ -19,6 +19,7 @@ import {
   FileText as FileTextIcon,
   Link2,
   BookOpen,
+  Briefcase,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -1030,8 +1031,16 @@ function TableView({
         <TableBody>
           {applications.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                No applications found
+              <TableCell colSpan={8} className="h-[300px] text-center">
+                <div className="flex flex-col items-center justify-center space-y-3">
+                  <div className="bg-orange-100 dark:bg-orange-900/30 p-3 rounded-full">
+                    <Briefcase className="h-6 w-6 text-orange-600 dark:text-orange-400" />
+                  </div>
+                  <p className="font-semibold">No applications yet</p>
+                  <p className="text-sm text-muted-foreground flex flex-col gap-1 items-center max-w-[280px]">
+                    <span>Track the jobs you've applied for to monitor your progress.</span>
+                  </p>
+                </div>
               </TableCell>
             </TableRow>
           ) : (

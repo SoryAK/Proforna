@@ -7,11 +7,10 @@ import {
   Search,
   Bookmark,
   BookmarkCheck,
-  Trash2,
-  TrendingUp,
   DollarSign,
-  RefreshCw,
+  ExternalLink,
   BarChart3,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,8 +25,6 @@ import {
   YAxis,
   Tooltip,
   CartesianGrid,
-  LineChart,
-  Line,
 } from "recharts";
 
 /* ── Types ── */
@@ -38,16 +35,30 @@ interface Occupation {
   group: string;
 }
 
-interface BLSDataPoint {
-  year: string;
-  period: string;
-  periodName: string;
-  value: number | null;
+interface SalaryData {
+  median: number | null;
+  mean: number | null;
+  low: number | null;
+  high: number | null;
+  p10: number | null;
+  p25: number | null;
+  p75: number | null;
+  p90: number | null;
 }
 
-interface BLSSeries {
-  seriesId: string;
-  data: BLSDataPoint[];
+interface Source {
+  title: string;
+  url: string;
+  snippet: string;
+  score: number;
+}
+
+interface WageResponse {
+  answer: string | null;
+  salaryData: SalaryData;
+  sources: Source[];
+  cached?: boolean;
+  fetchedAt?: string;
 }
 
 interface MarketSearch {
@@ -61,28 +72,17 @@ interface MarketSearch {
   lastFetchedAt: string | null;
 }
 
-// BLS OEWS data types  
-const WAGE_TYPES = [
-  { code: "13", label: "Median", color: "#3b82f6" },
-  { code: "04", label: "Mean", color: "#10b981" },
-  { code: "07", label: "10th Pct", color: "#94a3b8" },
-  { code: "08", label: "25th Pct", color: "#64748b" },
-  { code: "11", label: "75th Pct", color: "#8b5cf6" },
-  { code: "12", label: "90th Pct", color: "#f59e0b" },
-];
-
-function buildSeriesId(occCode: string, dataTypeCode: string, area = "0000000"): string {
-  // OEWS series: OEUM{area7}{occCode6}{dataType2}
-  const occ = occCode.replace("-", "");
-  return `OEUM${area}${occ}${dataTypeCode}`;
-}
-
 function debounce<T extends (...args: Parameters<T>) => void>(fn: T, ms: number) {
   let timer: ReturnType<typeof setTimeout>;
   return (...args: Parameters<T>) => {
     clearTimeout(timer);
     timer = setTimeout(() => fn(...args), ms);
   };
+}
+
+function fmt(v: number | null): string {
+  if (v == null) return "—";
+  return `$${Math.round(v).toLocaleString()}`;
 }
 
 /* ── Component ── */
@@ -114,24 +114,15 @@ export default function JobMarketResearch() {
     enabled: debouncedSearch.length >= 2,
   });
 
-  // ── Wage data for selected occupation ──
-  const medianSeriesId = selectedOcc
-    ? buildSeriesId(selectedOcc.code, "13")
-    : null;
-
-  const allSeriesIds = selectedOcc
-    ? WAGE_TYPES.map((w) => buildSeriesId(selectedOcc.code, w.code)).join(",")
-    : null;
-
-  const { data: wageData, isLoading: wageLoading } = useQuery<{
-    series: BLSSeries[];
-  }>({
-    queryKey: ["bls-wages", selectedOcc?.code],
+  // ── Wage data via Tavily ──
+  const { data: wageData, isLoading: wageLoading } = useQuery<WageResponse>({
+    queryKey: ["tavily-wages", selectedOcc?.code],
     queryFn: () =>
       fetch(
-        `/api/market-research/bls?series=${allSeriesIds}&startyear=2020&endyear=2025`
+        `/api/market-research/bls?occupation=${encodeURIComponent(selectedOcc!.title)}&code=${encodeURIComponent(selectedOcc!.code)}`
       ).then((r) => r.json()),
-    enabled: !!allSeriesIds,
+    enabled: !!selectedOcc,
+    staleTime: 1000 * 60 * 10, // cache 10 min
   });
 
   // ── Saved searches ──
@@ -142,16 +133,16 @@ export default function JobMarketResearch() {
 
   const saveSearch = useMutation({
     mutationFn: () => {
-      if (!selectedOcc || !medianSeriesId) throw new Error("No occupation selected");
+      if (!selectedOcc) throw new Error("No occupation selected");
       return fetch("/api/market-research", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          seriesId: medianSeriesId,
+          seriesId: selectedOcc.code,
           title: selectedOcc.title,
           occupation: selectedOcc.code,
           dataType: "wages",
-          lastData: wageData?.series || null,
+          lastData: wageData ?? null,
         }),
       }).then((r) => {
         if (!r.ok) throw new Error("Failed");
@@ -174,33 +165,28 @@ export default function JobMarketResearch() {
     },
   });
 
-  // ── Parse wage data into chart-friendly format ──
-  const latestWages = wageData?.series
-    ? WAGE_TYPES.map((wt, i) => {
-        const series = wageData.series[i];
-        const annual = series?.data.find((d) => d.period === "M13");
-        return {
-          label: wt.label,
-          value: annual?.value ?? null,
-          color: wt.color,
-        };
-      }).filter((w) => w.value !== null)
+  // ── Build chart data from salary extraction ──
+  const chartData = wageData?.salaryData
+    ? [
+        { label: "10th Pct", value: wageData.salaryData.p10, color: "#94a3b8" },
+        { label: "25th Pct", value: wageData.salaryData.p25, color: "#64748b" },
+        { label: "Median", value: wageData.salaryData.median, color: "#3b82f6" },
+        { label: "Mean", value: wageData.salaryData.mean, color: "#10b981" },
+        { label: "75th Pct", value: wageData.salaryData.p75, color: "#8b5cf6" },
+        { label: "90th Pct", value: wageData.salaryData.p90, color: "#f59e0b" },
+      ].filter((d) => d.value != null)
     : [];
 
-  const trendData = wageData?.series
-    ? (() => {
-        // Use median series (index 0) for trend
-        const medianSeries = wageData.series[0];
-        if (!medianSeries) return [];
-        return medianSeries.data
-          .filter((d) => d.period === "M13")
-          .map((d) => ({
-            year: d.year,
-            median: d.value,
-          }))
-          .sort((a, b) => a.year.localeCompare(b.year));
-      })()
+  // Also build a low-median-high summary if available
+  const rangeData = wageData?.salaryData
+    ? [
+        { label: "Low", value: wageData.salaryData.low, color: "#94a3b8" },
+        { label: "Median", value: wageData.salaryData.median, color: "#3b82f6" },
+        { label: "High", value: wageData.salaryData.high, color: "#f59e0b" },
+      ].filter((d) => d.value != null)
     : [];
+
+  const displayChart = chartData.length >= 2 ? chartData : rangeData.length >= 2 ? rangeData : [];
 
   const isSaved = savedSearches.some((s) => s.occupation === selectedOcc?.code);
 
@@ -321,119 +307,186 @@ export default function JobMarketResearch() {
           </div>
 
           {wageLoading ? (
-            <div className="grid gap-4 md:grid-cols-2">
-              <Skeleton className="h-64 w-full" />
-              <Skeleton className="h-64 w-full" />
+            <div className="space-y-4">
+              <Card>
+                <CardContent className="flex items-center justify-center py-12">
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin text-muted-foreground" />
+                  <span className="text-muted-foreground">Searching salary data...</span>
+                </CardContent>
+              </Card>
+              <div className="grid gap-4 md:grid-cols-2">
+                <Skeleton className="h-64 w-full" />
+                <Skeleton className="h-64 w-full" />
+              </div>
             </div>
-          ) : (
-            <div className="grid gap-4 md:grid-cols-2">
-              {/* ── Wage Distribution ── */}
-              {latestWages.length > 0 && (
+          ) : wageData ? (
+            <div className="space-y-4">
+              {/* ── AI Summary ── */}
+              {wageData.answer && (
                 <Card>
                   <CardHeader className="pb-2">
                     <CardTitle className="flex items-center gap-2 text-base">
-                      <DollarSign className="h-4 w-4" /> Annual Wage Distribution
+                      <DollarSign className="h-4 w-4" /> Salary Overview
+                      {wageData.cached && (
+                        <Badge variant="outline" className="ml-auto text-[10px] font-normal text-muted-foreground">
+                          Cached{wageData.fetchedAt ? ` · ${new Date(wageData.fetchedAt).toLocaleDateString()}` : ""}
+                        </Badge>
+                      )}
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <ResponsiveContainer width="100%" height={240}>
-                      <BarChart data={latestWages}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="label" tick={{ fontSize: 12 }} />
-                        <YAxis
-                          tick={{ fontSize: 12 }}
-                          tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`}
-                        />
-                        <Tooltip
-                          formatter={(value) =>
-                            `$${Number(value).toLocaleString()}`
-                          }
-                        />
-                        <Bar
-                          dataKey="value"
-                          fill="#3b82f6"
-                          radius={[4, 4, 0, 0]}
-                        />
-                      </BarChart>
-                    </ResponsiveContainer>
+                    <p className="text-sm leading-relaxed text-muted-foreground whitespace-pre-line">
+                      {wageData.answer}
+                    </p>
                   </CardContent>
                 </Card>
               )}
 
-              {/* ── Trend Chart ── */}
-              {trendData.length > 1 && (
+              <div className="grid gap-4 md:grid-cols-2">
+                {/* ── Wage Chart ── */}
+                {displayChart.length >= 2 && (
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="flex items-center gap-2 text-base">
+                        <BarChart3 className="h-4 w-4" /> Annual Wage Distribution
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <ResponsiveContainer width="100%" height={240}>
+                        <BarChart data={displayChart}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="label" tick={{ fontSize: 12 }} />
+                          <YAxis
+                            tick={{ fontSize: 12 }}
+                            tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`}
+                          />
+                          <Tooltip
+                            formatter={(value) =>
+                              `$${Number(value).toLocaleString()}`
+                            }
+                          />
+                          <Bar
+                            dataKey="value"
+                            fill="#3b82f6"
+                            radius={[4, 4, 0, 0]}
+                          />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* ── Wage Stats ── */}
+                {wageData.salaryData && (
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="flex items-center gap-2 text-base">
+                        <DollarSign className="h-4 w-4" /> Key Figures
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-2 gap-4">
+                        {wageData.salaryData.median != null && (
+                          <div>
+                            <p className="text-2xl font-bold text-blue-500">
+                              {fmt(wageData.salaryData.median)}
+                            </p>
+                            <p className="text-xs text-muted-foreground">Median Annual</p>
+                          </div>
+                        )}
+                        {wageData.salaryData.mean != null && (
+                          <div>
+                            <p className="text-2xl font-bold text-emerald-500">
+                              {fmt(wageData.salaryData.mean)}
+                            </p>
+                            <p className="text-xs text-muted-foreground">Mean Annual</p>
+                          </div>
+                        )}
+                        {wageData.salaryData.low != null && (
+                          <div>
+                            <p className="text-2xl font-bold text-slate-400">
+                              {fmt(wageData.salaryData.low)}
+                            </p>
+                            <p className="text-xs text-muted-foreground">Low End</p>
+                          </div>
+                        )}
+                        {wageData.salaryData.high != null && (
+                          <div>
+                            <p className="text-2xl font-bold text-amber-500">
+                              {fmt(wageData.salaryData.high)}
+                            </p>
+                            <p className="text-xs text-muted-foreground">High End</p>
+                          </div>
+                        )}
+                        {wageData.salaryData.p10 != null && (
+                          <div>
+                            <p className="text-lg font-semibold text-slate-400">
+                              {fmt(wageData.salaryData.p10)}
+                            </p>
+                            <p className="text-xs text-muted-foreground">10th Percentile</p>
+                          </div>
+                        )}
+                        {wageData.salaryData.p25 != null && (
+                          <div>
+                            <p className="text-lg font-semibold text-slate-500">
+                              {fmt(wageData.salaryData.p25)}
+                            </p>
+                            <p className="text-xs text-muted-foreground">25th Percentile</p>
+                          </div>
+                        )}
+                        {wageData.salaryData.p75 != null && (
+                          <div>
+                            <p className="text-lg font-semibold text-violet-500">
+                              {fmt(wageData.salaryData.p75)}
+                            </p>
+                            <p className="text-xs text-muted-foreground">75th Percentile</p>
+                          </div>
+                        )}
+                        {wageData.salaryData.p90 != null && (
+                          <div>
+                            <p className="text-lg font-semibold text-amber-500">
+                              {fmt(wageData.salaryData.p90)}
+                            </p>
+                            <p className="text-xs text-muted-foreground">90th Percentile</p>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+
+              {/* ── Sources ── */}
+              {wageData.sources && wageData.sources.length > 0 && (
                 <Card>
                   <CardHeader className="pb-2">
                     <CardTitle className="flex items-center gap-2 text-base">
-                      <TrendingUp className="h-4 w-4" /> Median Wage Trend
+                      <ExternalLink className="h-4 w-4" /> Sources
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <ResponsiveContainer width="100%" height={240}>
-                      <LineChart data={trendData}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="year" tick={{ fontSize: 12 }} />
-                        <YAxis
-                          tick={{ fontSize: 12 }}
-                          tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`}
-                        />
-                        <Tooltip
-                          formatter={(value) =>
-                            `$${Number(value).toLocaleString()}`
-                          }
-                        />
-                        <Line
-                          type="monotone"
-                          dataKey="median"
-                          stroke="#3b82f6"
-                          strokeWidth={2}
-                          dot={{ r: 4 }}
-                        />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* ── Stats Summary ── */}
-              {latestWages.length > 0 && (
-                <Card className="md:col-span-2">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="flex items-center gap-2 text-base">
-                      <BarChart3 className="h-4 w-4" /> Wage Summary (Latest Year)
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
-                      {latestWages.map((w) => (
-                        <div key={w.label} className="text-center">
-                          <p className="text-lg font-bold" style={{ color: w.color }}>
-                            ${((w.value || 0) / 1000).toFixed(0)}k
+                    <div className="space-y-3">
+                      {wageData.sources.slice(0, 5).map((src, i) => (
+                        <div key={i} className="border-b pb-2 last:border-0 last:pb-0">
+                          <a
+                            href={src.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm font-medium text-blue-600 hover:underline dark:text-blue-400"
+                          >
+                            {src.title}
+                          </a>
+                          <p className="mt-0.5 text-xs text-muted-foreground line-clamp-2">
+                            {src.snippet}
                           </p>
-                          <p className="text-xs text-muted-foreground">{w.label}</p>
                         </div>
                       ))}
                     </div>
                   </CardContent>
                 </Card>
               )}
-
-              {/* ── No data state ── */}
-              {latestWages.length === 0 && !wageLoading && (
-                <Card className="md:col-span-2">
-                  <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-                    <RefreshCw className="mb-3 h-10 w-10 text-muted-foreground/50" />
-                    <p className="text-muted-foreground">
-                      No BLS wage data available for this occupation.
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      The BLS free API has a 25 request/day limit. Try again later if needed.
-                    </p>
-                  </CardContent>
-                </Card>
-              )}
             </div>
-          )}
+          ) : null}
         </div>
       )}
 
@@ -443,7 +496,7 @@ export default function JobMarketResearch() {
           <CardContent className="flex flex-col items-center justify-center py-12 text-center">
             <Search className="mb-3 h-10 w-10 text-muted-foreground/50" />
             <p className="text-muted-foreground">
-              Search for an occupation above to see wage data from the Bureau of Labor Statistics.
+              Search for an occupation above to see salary data from across the web.
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
               Covers 800+ occupations with median, mean, and percentile wages.

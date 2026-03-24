@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Plus, MoreHorizontal, Pencil, Trash2, Mail, Phone, Linkedin } from "lucide-react";
+import { Plus, MoreHorizontal, Pencil, Trash2, Mail, Phone, Linkedin, Users } from "lucide-react";
 import { toast } from "sonner";
 import { RELATIONSHIP_TYPES } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
@@ -196,7 +196,15 @@ export default function ContactsPage() {
 
       <div className="flex-1 overflow-auto p-4">
         {filtered.length === 0 ? (
-          <div className="text-center py-12 text-muted-foreground">No contacts found</div>
+          <div className="flex flex-col items-center justify-center p-12 text-center border-2 border-dashed rounded-lg bg-slate-50/50 dark:bg-slate-900/50 h-[300px]">
+            <div className="bg-orange-100 dark:bg-orange-900/30 p-3 rounded-full mb-4">
+              <Users className="h-6 w-6 text-orange-600 dark:text-orange-400" />
+            </div>
+            <h3 className="text-lg font-semibold mb-2">No contacts yet</h3>
+            <p className="text-sm text-muted-foreground max-w-md">
+              Networking represents a huge portion of career growth. Keep track of recruiters, colleagues, and connections here.
+            </p>
+          </div>
         ) : (
           <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
             {filtered.map((c) => (

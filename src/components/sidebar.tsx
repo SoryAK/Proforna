@@ -21,6 +21,7 @@ import {
   BarChart3,
   FolderOpen,
   BookOpen,
+  Shield,
   ChevronDown,
   LogOut,
 } from "lucide-react";
@@ -42,6 +43,7 @@ const iconMap: Record<string, React.ElementType> = {
   BarChart3,
   BookOpen,
   FolderOpen,
+  Shield,
   Globe,
 };
 
@@ -167,7 +169,7 @@ export function Sidebar() {
   return (
     <aside className="hidden md:flex h-full w-56 flex-col border-r bg-white dark:bg-gray-950">
       <div className="flex h-16 items-center justify-between border-b px-4">
-        <Link href="/" className="flex items-center gap-2.5 font-semibold text-lg">
+        <Link href="/dashboard" className="flex items-center gap-2.5 font-semibold text-lg">
           <Image src="/logo-icon.png" alt="Resumsify" width={32} height={32} className="h-8 w-8" />
           <span>Resumsify</span>
         </Link>
@@ -225,7 +227,7 @@ export function MobileHeader() {
           <NavLinks onNavigate={() => setOpen(false)} />
         </SheetContent>
       </Sheet>
-      <Link href="/" className="flex items-center gap-2.5 font-semibold text-lg">
+      <Link href="/dashboard" className="flex items-center gap-2.5 font-semibold text-lg">
         <Image src="/logo-icon.png" alt="Resumsify" width={32} height={32} className="h-8 w-8" />
         <span>Resumsify</span>
       </Link>

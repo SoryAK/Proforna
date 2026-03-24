@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState, useCallback } from "react";
+import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   Plus,
@@ -16,8 +16,13 @@ import {
   ChevronDown,
   FileText,
   Loader2,
+  CheckCheck,
+  Clock,
+  Eye,
+  TrendingUp,
 } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, format } from "date-fns";
+import DOMPurify from "isomorphic-dompurify";
 import { stripHtml } from "@/lib/rss";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -38,6 +43,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 /* ── Types ── */
 
@@ -84,12 +95,39 @@ const PRESET_FEEDS = [
 ];
 
 const CAT_COLORS: Record<string, string> = {
-  general: "bg-gray-100 text-gray-700",
-  industry: "bg-orange-100 text-orange-700",
-  tech: "bg-orange-100 text-orange-700",
-  finance: "bg-green-100 text-green-700",
-  career: "bg-purple-100 text-purple-700",
+  general: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
+  industry: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300",
+  tech: "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300",
+  finance: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300",
+  career: "bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-300",
 };
+
+const CAT_ICONS: Record<string, string> = {
+  general: "📰",
+  industry: "🏭",
+  tech: "💻",
+  finance: "📈",
+  career: "🎯",
+};
+
+/** Estimate reading time from summary length */
+function estimateReadTime(summary: string | null): string {
+  if (!summary) return "1 min read";
+  const words = stripHtml(summary).split(/\s+/).length;
+  // Summary is truncated, so assume full article is ~5-8x longer
+  const estimatedWords = Math.max(words * 6, 200);
+  const mins = Math.max(1, Math.round(estimatedWords / 200));
+  return `${mins} min read`;
+}
+
+/** Get domain from URL for display */
+function getDomain(url: string): string {
+  try {
+    return new URL(url).hostname.replace("www.", "");
+  } catch {
+    return "";
+  }
+}
 
 /* ── Component ── */
 
@@ -117,11 +155,29 @@ export default function IndustryResearch() {
   if (filterType === "unread") articleParams.set("unread", "true");
   if (searchQ.trim()) articleParams.set("q", searchQ.trim());
 
-  const { data: articles = [], isLoading: articlesLoading } = useQuery<ResearchArticle[]>({
-    queryKey: ["research-articles", filterFeed, filterType, searchQ],
-    queryFn: () =>
-      fetch(`/api/research-articles?${articleParams.toString()}`).then((r) => r.json()),
+  interface ArticlePage {
+    articles: ResearchArticle[];
+    nextCursor: string | null;
+  }
+
+  const {
+    data: articlePages,
+    isLoading: articlesLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
+    queryKey: ["research-articles", filterFeed, filterType, searchQ] as const,
+    queryFn: async ({ pageParam }): Promise<ArticlePage> => {
+      const p = new URLSearchParams(articleParams);
+      if (pageParam) p.set("cursor", pageParam);
+      return fetch(`/api/research-articles?${p.toString()}`).then((r) => r.json());
+    },
+    initialPageParam: "" as string,
+    getNextPageParam: (lastPage: ArticlePage) => lastPage.nextCursor ?? undefined,
   });
+
+  const articles: ResearchArticle[] = articlePages?.pages.flatMap((p) => p.articles ?? []) ?? [];
 
   // ── Mutations ──
   const addFeed = useMutation({
@@ -186,6 +242,36 @@ export default function IndustryResearch() {
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["research-articles"] }),
   });
+
+  const markAllRead = useMutation({
+    mutationFn: async () => {
+      const unread = articles.filter((a) => !a.isRead);
+      await Promise.all(
+        unread.map((a) =>
+          fetch(`/api/research-articles/${a.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ isRead: true }),
+          })
+        )
+      );
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["research-articles"] });
+      toast.success("All articles marked as read");
+    },
+  });
+
+  /** Sanitize HTML for safe rendering */
+  const sanitize = useCallback(
+    (html: string) =>
+      DOMPurify.sanitize(html, {
+        ALLOWED_TAGS: ['p', 'br', 'b', 'i', 'em', 'strong', 'a', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'pre', 'code', 'img', 'figure', 'figcaption'],
+        ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class'],
+        ALLOW_DATA_ATTR: false,
+      }),
+    []
+  );
 
   async function handleExtract(article: ResearchArticle) {
     if (expandedArticle === article.id) {
@@ -327,6 +413,16 @@ export default function IndustryResearch() {
           {fetchArticles.isPending ? "Fetching..." : "Refresh All"}
         </Button>
 
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => markAllRead.mutate()}
+          disabled={markAllRead.isPending || articles.filter((a) => !a.isRead).length === 0}
+        >
+          <CheckCheck className="mr-1 h-4 w-4" />
+          Mark All Read
+        </Button>
+
         <div className="relative flex-1 min-w-[180px] max-w-xs">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
@@ -369,126 +465,348 @@ export default function IndustryResearch() {
 
       {/* ── Articles ── */}
       {articlesLoading ? (
-        <div className="space-y-3">
-          {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-24 w-full" />
-          ))}
+        <div className="space-y-4">
+          {/* Hero skeleton */}
+          <div className="relative overflow-hidden rounded-xl border">
+            <Skeleton className="h-64 w-full" />
+            <div className="absolute bottom-0 left-0 right-0 p-6">
+              <Skeleton className="mb-2 h-4 w-24" />
+              <Skeleton className="mb-2 h-7 w-3/4" />
+              <Skeleton className="h-4 w-1/2" />
+            </div>
+          </div>
+          {/* Grid skeletons */}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className="overflow-hidden rounded-xl border">
+                <Skeleton className="h-40 w-full" />
+                <div className="space-y-2 p-4">
+                  <Skeleton className="h-3 w-20" />
+                  <Skeleton className="h-5 w-full" />
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-3 w-1/3" />
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       ) : articles.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-            <Rss className="mb-3 h-10 w-10 text-muted-foreground/50" />
-            <p className="text-muted-foreground">
+        <Card className="border-dashed">
+          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="mb-4 rounded-full bg-muted p-4">
+              <Rss className="h-8 w-8 text-muted-foreground/50" />
+            </div>
+            <h3 className="mb-1 text-lg font-semibold">
+              {feeds.length === 0 ? "No feeds configured" : "No articles yet"}
+            </h3>
+            <p className="max-w-sm text-sm text-muted-foreground">
               {feeds.length === 0
-                ? "Add some feeds above, then refresh to see articles."
-                : "No articles found. Try refreshing or adjusting filters."}
+                ? "Expand the RSS Feeds panel above and add some feeds to start reading industry news."
+                : "Hit \"Refresh All\" to fetch the latest articles from your feeds."}
             </p>
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-3">
-          {articles.map((article) => (
-            <Card
-              key={article.id}
-              className={`transition-colors ${article.isRead ? "opacity-70" : ""}`}
-            >
-              <CardContent className="flex gap-3 p-4">
-                {/* Image thumbnail */}
-                {article.imageUrl && (
-                  <div className="hidden shrink-0 sm:block">
-                    <img
-                      src={article.imageUrl}
-                      alt=""
-                      className="h-20 w-28 rounded object-cover"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = "none";
-                      }}
-                    />
-                  </div>
-                )}
+        <TooltipProvider delay={300}>
+          <div className="space-y-6">
+            {/* ── Featured Hero Card (first unread article with image, or first article) ── */}
+            {(() => {
+              const hero = articles.find((a) => a.imageUrl && !a.isRead) || articles.find((a) => a.imageUrl) || articles[0];
+              if (!hero) return null;
+              return (
+                <Card
+                  className="group relative overflow-hidden border-0 shadow-lg transition-shadow hover:shadow-xl"
+                >
+                  {/* Background image */}
+                  {hero.imageUrl ? (
+                    <div className="relative h-64 sm:h-72 md:h-80">
+                      <img
+                        src={hero.imageUrl}
+                        alt=""
+                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = "none";
+                        }}
+                      />
+                      {/* Gradient overlay */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
+                    </div>
+                  ) : (
+                    <div className="relative h-48 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent" />
+                  )}
 
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-start justify-between gap-2">
+                  {/* Content overlay */}
+                  <div className={`${hero.imageUrl ? "absolute bottom-0 left-0 right-0" : ""} p-5 sm:p-6`}>
+                    <div className="mb-2 flex items-center gap-2">
+                      <Badge className={`text-xs ${CAT_COLORS[hero.feed.category] || CAT_COLORS.general}`}>
+                        {CAT_ICONS[hero.feed.category] || "📰"} {hero.feed.title}
+                      </Badge>
+                      {!hero.isRead && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/90 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
+                          New
+                        </span>
+                      )}
+                    </div>
+                    <a
+                      href={hero.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`block text-xl font-bold leading-tight sm:text-2xl ${hero.imageUrl ? "text-white" : "text-foreground"} transition-colors hover:underline`}
+                      onClick={() => { if (!hero.isRead) markRead.mutate(hero.id); }}
+                    >
+                      {hero.title}
+                    </a>
+                    {hero.summary && (
+                      <p className={`mt-2 line-clamp-2 text-sm ${hero.imageUrl ? "text-gray-200" : "text-muted-foreground"}`}>
+                        {stripHtml(hero.summary)}
+                      </p>
+                    )}
+                    <div className={`mt-3 flex items-center gap-3 text-xs ${hero.imageUrl ? "text-gray-300" : "text-muted-foreground"}`}>
+                      <span className="flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        {estimateReadTime(hero.summary)}
+                      </span>
+                      {hero.publishedAt && (
+                        <span>
+                          {formatDistanceToNow(new Date(hero.publishedAt), { addSuffix: true })}
+                        </span>
+                      )}
+                      <span className="opacity-60">{getDomain(hero.url)}</span>
+                      <div className="ml-auto flex gap-1">
+                        <Tooltip>
+                          <TooltipTrigger
+                            className="rounded-full p-1.5 transition-colors hover:bg-white/20"
+                            onClick={() => toggleBookmark.mutate(hero)}
+                          >
+                            {hero.isBookmarked ? (
+                              <BookmarkCheck className="h-4 w-4 text-yellow-400" />
+                            ) : (
+                              <Bookmark className={`h-4 w-4 ${hero.imageUrl ? "text-gray-300" : "text-muted-foreground"}`} />
+                            )}
+                          </TooltipTrigger>
+                          <TooltipContent>{hero.isBookmarked ? "Remove Bookmark" : "Bookmark"}</TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger
+                            className="rounded-full p-1.5 transition-colors hover:bg-white/20"
+                            onClick={() => handleExtract(hero)}
+                            disabled={extractingId === hero.id}
+                          >
+                            {extractingId === hero.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <FileText className={`h-4 w-4 ${hero.imageUrl ? "text-gray-300" : "text-muted-foreground"}`} />
+                            )}
+                          </TooltipTrigger>
+                          <TooltipContent>{expandedArticle === hero.id ? "Collapse" : "Read Full Article"}</TooltipContent>
+                        </Tooltip>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Expanded content for hero */}
+                  {expandedArticle === hero.id && hero.content && (
+                    <div className="border-t px-5 py-4 sm:px-6">
+                      <div
+                        className="max-h-96 overflow-auto text-sm prose prose-sm prose-orange max-w-none dark:prose-invert"
+                        dangerouslySetInnerHTML={{ __html: sanitize(hero.content) }}
+                      />
+                    </div>
+                  )}
+                </Card>
+              );
+            })()}
+
+            {/* ── Article Grid ── */}
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {articles.slice(1).map((article) => (
+                <Card
+                  key={article.id}
+                  className={`group flex flex-col overflow-hidden transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 ${
+                    article.isRead ? "opacity-65 hover:opacity-90" : ""
+                  } ${expandedArticle === article.id ? "sm:col-span-2 lg:col-span-3" : ""}`}
+                >
+                  {/* Image / colored header */}
+                  {article.imageUrl ? (
+                    <div className="relative h-40 overflow-hidden">
+                      <img
+                        src={article.imageUrl}
+                        alt=""
+                        className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                        onError={(e) => {
+                          // Replace broken image with gradient fallback
+                          const el = e.target as HTMLImageElement;
+                          el.style.display = "none";
+                          el.parentElement!.classList.add(
+                            "bg-gradient-to-br",
+                            "from-muted",
+                            "to-muted/50"
+                          );
+                        }}
+                      />
+                      {/* Unread indicator dot */}
+                      {!article.isRead && (
+                        <div className="absolute left-3 top-3">
+                          <span className="relative flex h-2.5 w-2.5">
+                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-400 opacity-75" />
+                            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-blue-500" />
+                          </span>
+                        </div>
+                      )}
+                      {/* Bookmark in corner */}
+                      <button
+                        className="absolute right-2 top-2 rounded-full bg-black/30 p-1.5 opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100"
+                        onClick={() => toggleBookmark.mutate(article)}
+                      >
+                        {article.isBookmarked ? (
+                          <BookmarkCheck className="h-3.5 w-3.5 text-yellow-400" />
+                        ) : (
+                          <Bookmark className="h-3.5 w-3.5 text-white" />
+                        )}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="relative flex h-24 items-center justify-center bg-gradient-to-br from-muted to-muted/50">
+                      <span className="text-3xl">{CAT_ICONS[article.feed.category] || "📰"}</span>
+                      {!article.isRead && (
+                        <div className="absolute left-3 top-3">
+                          <span className="relative flex h-2.5 w-2.5">
+                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-400 opacity-75" />
+                            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-blue-500" />
+                          </span>
+                        </div>
+                      )}
+                      <button
+                        className="absolute right-2 top-2 rounded-full bg-black/20 p-1.5 opacity-0 transition-opacity group-hover:opacity-100"
+                        onClick={() => toggleBookmark.mutate(article)}
+                      >
+                        {article.isBookmarked ? (
+                          <BookmarkCheck className="h-3.5 w-3.5 text-yellow-400" />
+                        ) : (
+                          <Bookmark className="h-3.5 w-3.5 text-white" />
+                        )}
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Body */}
+                  <div className="flex flex-1 flex-col p-4">
+                    {/* Category + time */}
+                    <div className="mb-2 flex items-center gap-2 text-[11px]">
+                      <Badge variant="outline" className={`px-1.5 py-0 text-[10px] font-medium ${CAT_COLORS[article.feed.category] || CAT_COLORS.general}`}>
+                        {article.feed.title}
+                      </Badge>
+                      {article.publishedAt && (
+                        <Tooltip>
+                          <TooltipTrigger className="text-muted-foreground">
+                            {formatDistanceToNow(new Date(article.publishedAt), { addSuffix: true })}
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            {format(new Date(article.publishedAt), "PPP 'at' p")}
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                    </div>
+
+                    {/* Title */}
                     <a
                       href={article.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="font-medium leading-tight hover:underline"
-                      onClick={() => {
-                        if (!article.isRead) markRead.mutate(article.id);
-                      }}
+                      className="mb-1.5 font-semibold leading-snug tracking-tight transition-colors hover:text-primary line-clamp-2"
+                      onClick={() => { if (!article.isRead) markRead.mutate(article.id); }}
                     >
                       {article.title}
                     </a>
-                    <div className="flex shrink-0 gap-1">
-                      <button
-                        className="rounded p-1 hover:bg-muted"
-                        onClick={() => toggleBookmark.mutate(article)}
-                      >
-                        {article.isBookmarked ? (
-                          <BookmarkCheck className="h-4 w-4 text-yellow-500" />
-                        ) : (
-                          <Bookmark className="h-4 w-4 text-muted-foreground" />
+
+                    {/* Summary */}
+                    {article.summary && (
+                      <p className="mb-3 flex-1 text-[13px] leading-relaxed text-muted-foreground line-clamp-3">
+                        {stripHtml(article.summary)}
+                      </p>
+                    )}
+
+                    {/* Expanded content */}
+                    {expandedArticle === article.id && article.content && (
+                      <div
+                        className="mb-3 max-h-80 overflow-auto rounded-lg border bg-muted/20 p-3 text-sm prose prose-sm prose-orange max-w-none dark:prose-invert"
+                        dangerouslySetInnerHTML={{ __html: sanitize(article.content) }}
+                      />
+                    )}
+
+                    {/* Footer */}
+                    <div className="mt-auto flex items-center justify-between border-t pt-2.5 text-xs text-muted-foreground">
+                      <div className="flex items-center gap-2.5">
+                        <span className="flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          {estimateReadTime(article.summary)}
+                        </span>
+                        {article.source && article.source !== article.feed.title && (
+                          <span className="truncate max-w-[100px]">{article.source}</span>
                         )}
-                      </button>
-                      <a
-                        href={article.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="rounded p-1 hover:bg-muted"
-                      >
-                        <ExternalLink className="h-4 w-4 text-muted-foreground" />
-                      </a>
+                      </div>
+                      <div className="flex items-center gap-0.5">
+                        <Tooltip>
+                          <TooltipTrigger
+                            className="rounded-md p-1 transition-colors hover:bg-muted"
+                            onClick={() => handleExtract(article)}
+                            disabled={extractingId === article.id}
+                          >
+                            {extractingId === article.id ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : expandedArticle === article.id ? (
+                              <Eye className="h-3.5 w-3.5" />
+                            ) : (
+                              <FileText className="h-3.5 w-3.5" />
+                            )}
+                          </TooltipTrigger>
+                          <TooltipContent>{expandedArticle === article.id ? "Collapse" : "Read Full Article"}</TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger
+                            render={<a href={article.url} target="_blank" rel="noopener noreferrer" />}
+                            className="rounded-md p-1 transition-colors hover:bg-muted"
+                            onClick={() => { if (!article.isRead) markRead.mutate(article.id); }}
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" />
+                          </TooltipTrigger>
+                          <TooltipContent>Open in new tab</TooltipContent>
+                        </Tooltip>
+                      </div>
                     </div>
                   </div>
+                </Card>
+              ))}
+            </div>
 
-                  {article.summary && (
-                    <p className="mt-1 text-sm text-muted-foreground line-clamp-2">
-                      {stripHtml(article.summary)}
-                    </p>
-                  )}
+            {/* Stats bar */}
+            {articles.length > 0 && (
+              <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <TrendingUp className="h-3 w-3" />
+                  {articles.length} articles
+                </span>
+                <span>{articles.filter((a) => !a.isRead).length} unread</span>
+                <span>{articles.filter((a) => a.isBookmarked).length} bookmarked</span>
+              </div>
+            )}
+          </div>
+        </TooltipProvider>
+      )}
 
-                  {/* Extracted full content */}
-                  {expandedArticle === article.id && article.content && (
-                    <div
-                      className="mt-2 max-h-64 overflow-auto rounded border bg-muted/30 p-3 text-sm prose prose-sm prose-orange max-w-none"
-                      dangerouslySetInnerHTML={{ __html: article.content }}
-                    />
-                  )}
-
-                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                    <button
-                      className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 hover:bg-muted text-xs font-medium"
-                      onClick={() => handleExtract(article)}
-                      disabled={extractingId === article.id}
-                    >
-                      {extractingId === article.id ? (
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                      ) : (
-                        <FileText className="h-3 w-3" />
-                      )}
-                      {expandedArticle === article.id ? "Collapse" : "Read Full"}
-                    </button>
-                    <Badge
-                      className={`text-xs ${CAT_COLORS[article.feed.category] || CAT_COLORS.general}`}
-                    >
-                      {article.feed.title}
-                    </Badge>
-                    {article.source && article.source !== article.feed.title && (
-                      <span>{article.source}</span>
-                    )}
-                    {article.publishedAt && (
-                      <span>
-                        {formatDistanceToNow(new Date(article.publishedAt), {
-                          addSuffix: true,
-                        })}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+      {/* Load more */}
+      {hasNextPage && (
+        <div className="flex justify-center">
+          <Button
+            variant="outline"
+            onClick={() => fetchNextPage()}
+            disabled={isFetchingNextPage}
+          >
+            {isFetchingNextPage ? (
+              <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+            ) : null}
+            Load More
+          </Button>
         </div>
       )}
 

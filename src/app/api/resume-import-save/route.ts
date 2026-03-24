@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { getUserId } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
+import { writeFile, mkdir } from "fs/promises";
+import path from "path";
+import crypto from "crypto";
 
 /** Parse a date string safely — returns null if invalid */
 function safeDate(val: string | null | undefined): Date | null {
@@ -14,7 +17,26 @@ export async function POST(request: Request) {
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
-    const parsedData = await request.json();
+    const contentType = request.headers.get("content-type") || "";
+
+    let parsedData: any;
+    let resumeFile: File | null = null;
+
+    if (contentType.includes("multipart/form-data")) {
+      const formData = await request.formData();
+      const dataField = formData.get("data");
+      if (typeof dataField === "string") {
+        parsedData = JSON.parse(dataField);
+      } else {
+        return NextResponse.json({ error: "Missing data field" }, { status: 400 });
+      }
+      const fileField = formData.get("file");
+      if (fileField instanceof File) {
+        resumeFile = fileField;
+      }
+    } else {
+      parsedData = await request.json();
+    }
 
     if (!parsedData) {
       return NextResponse.json({ error: "No data provided" }, { status: 400 });
@@ -129,6 +151,41 @@ export async function POST(request: Request) {
         sections: JSON.stringify(defaultSections),
         customContent: JSON.stringify(parsedData),
       }
+    });
+
+    // 5. Create baseline ResumeVersion (and store the uploaded PDF if provided)
+    let filePath: string | null = null;
+    let fileName: string | null = null;
+    let fileSize: number | null = null;
+
+    if (resumeFile) {
+      const uploadsDir = path.join(process.cwd(), "public", "uploads", "resumes");
+      await mkdir(uploadsDir, { recursive: true });
+
+      const ext = path.extname(resumeFile.name) || ".pdf";
+      const safeName = `${userId}-${crypto.randomUUID()}${ext}`;
+      const destPath = path.join(uploadsDir, safeName);
+
+      const buffer = Buffer.from(await resumeFile.arrayBuffer());
+      await writeFile(destPath, buffer);
+
+      filePath = `/uploads/resumes/${safeName}`;
+      fileName = resumeFile.name;
+      fileSize = resumeFile.size;
+    }
+
+    await prisma.resumeVersion.create({
+      data: {
+        userId,
+        name: resumeTitle.replace(/ Resume$/, " — Baseline"),
+        targetRole: parsedData.experience?.[0]?.title || null,
+        notes: "Imported during onboarding",
+        versionNumber: 1,
+        isActive: true,
+        filePath,
+        fileName,
+        fileSize,
+      },
     });
 
     return NextResponse.json({ success: true });

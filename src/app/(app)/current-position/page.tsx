@@ -46,6 +46,7 @@ import {
   Target,
   Loader2,
   RefreshCw,
+  Sparkles,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { format, formatDistanceToNow } from "date-fns";
@@ -186,6 +187,9 @@ export default function CurrentPositionPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [isLookingUp, setIsLookingUp] = useState(false);
+  const [jdText, setJdText] = useState("");
+  const [showJDInput, setShowJDInput] = useState(false);
+  const [isParsing, setIsParsing] = useState(false);
 
   const { data: positions = [], isLoading } = useQuery<Position[]>({
     queryKey: ["current-position"],
@@ -243,6 +247,8 @@ export default function CurrentPositionPage() {
     setForm(emptyForm);
     setEditingId(null);
     setShowForm(false);
+    setJdText("");
+    setShowJDInput(false);
   };
 
   const openEdit = (pos: Position) => {
@@ -331,6 +337,48 @@ export default function CurrentPositionPage() {
       toast.error("Could not reach the website");
     } finally {
       setIsLookingUp(false);
+    }
+  };
+
+  const handleParseJD = async () => {
+    if (!jdText.trim()) {
+      toast.error("Please paste a job description or offer letter text.");
+      return;
+    }
+    setIsParsing(true);
+    try {
+      const res = await fetch("/api/job-parse", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: jdText }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Failed to parse job description");
+        return;
+      }
+      
+      setForm((prev) => ({
+        ...prev,
+        role: data.role || prev.role,
+        department: data.department || prev.department,
+        location: data.location || prev.location,
+        type: data.type || prev.type,
+        salary: data.salary ? String(data.salary) : prev.salary,
+        payType: data.payType || prev.payType,
+        payRate: data.payRate || prev.payRate,
+        hoursPerWeek: data.hoursPerWeek ? String(data.hoursPerWeek) : prev.hoursPerWeek,
+        schedule: data.schedule || prev.schedule,
+        focus: data.focus || prev.focus,
+        responsibilities: data.responsibilities || prev.responsibilities,
+        techStack: data.techStack || prev.techStack,
+      }));
+      toast.success("Job details extracted and filled!");
+      setShowJDInput(false);
+    } catch {
+      toast.error("Failed to connect to parser service");
+    } finally {
+      setIsParsing(false);
     }
   };
 
@@ -746,17 +794,56 @@ export default function CurrentPositionPage() {
     </div>
   );
 
-  function renderDialog() {
+    function renderDialog() {
     return (
       <Dialog open={showForm} onOpenChange={(open) => !open && resetForm()}>
-        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-3xl md:max-w-4xl max-h-[90vh] overflow-y-auto w-[95vw]">
+          <DialogHeader className="flex flex-row items-center justify-between space-y-0 pb-2 pr-8">
             <DialogTitle>
               {editingId ? "Edit Position" : "Add Position"}
             </DialogTitle>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setShowJDInput(!showJDInput)}
+              className="gap-2 text-primary bg-primary/5 hover:bg-primary/10 border-primary/20"
+            >
+              <Sparkles className="h-4 w-4" />
+              Auto-fill with AI
+            </Button>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2">
+
+          {showJDInput && (
+            <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-3 mb-2 animate-in fade-in slide-in-from-top-2">
+              <p className="text-sm font-medium text-primary flex items-center gap-2">
+                <Sparkles className="h-4 w-4" />
+                Smart Extraction
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Paste the job description or offer letter text below. AI will analyze the text and auto-populate the form fields.
+              </p>
+              <Textarea
+                rows={4}
+                placeholder="Paste JD or Offer text here..."
+                value={jdText}
+                onChange={(e) => setJdText(e.target.value)}
+                className="bg-background"
+              />
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="ghost" size="sm" onClick={() => setShowJDInput(false)}>Cancel</Button>
+                <Button type="button" size="sm" disabled={isParsing || !jdText.trim()} onClick={handleParseJD}>
+                  {isParsing ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Processing...</> : "Extract Details"}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="grid md:grid-cols-2 gap-8 items-start">
+              {/* Left Column */}
+              <div className="space-y-4 border-r-0 md:border-r md:pr-4 dark:border-border/50 border-border/50">
+                <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <Label className="mb-1">Company *</Label>
                 <Input
@@ -928,10 +1015,14 @@ export default function CurrentPositionPage() {
                 />
               </div>
             )}
+              </div>
 
-            {/* Job Details */}
-            <Separator />
-            <p className="text-sm font-semibold text-muted-foreground">Job Details</p>
+              {/* Right Column */}
+              <div className="space-y-4 md:pl-2">
+                {/* Job Details */}
+                <h4 className="text-sm font-semibold text-muted-foreground pb-2 border-b md:border-none md:pb-0 mb-4 md:mb-0">
+                  Job Details
+                </h4>
             <div>
               <Label className="mb-1">Focus (Primary Role Summary)</Label>
               <Textarea
@@ -1217,13 +1308,15 @@ export default function CurrentPositionPage() {
                 onChange={(e) => setForm({ ...form, responsibilities: e.target.value })}
               />
             </div>
-            <div className="flex gap-2 pt-2">
+            <div className="flex gap-2 pt-2 md:col-span-2 mt-4">
               <Button type="submit" className="flex-1">
                 {editingId ? "Save Changes" : "Add Position"}
               </Button>
               <Button type="button" variant="outline" onClick={resetForm}>
                 Cancel
               </Button>
+            </div>
+              </div>
             </div>
           </form>
         </DialogContent>

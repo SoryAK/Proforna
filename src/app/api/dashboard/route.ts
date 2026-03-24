@@ -6,6 +6,10 @@ export async function GET() {
   const userId = await getUserId();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  // Verify user still exists (handles stale JWT after DB reset)
+  const userExists = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
+  if (!userExists) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const now = new Date();
   const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
@@ -34,6 +38,7 @@ export async function GET() {
     learningItems,
     latestSnapshot,
     unreadArticleCount,
+    recentArticles,
   ] = await Promise.all([
     prisma.jobApplication.count({ where: { userId } }),
     prisma.jobApplication.count({
@@ -100,6 +105,22 @@ export async function GET() {
     }),
     // Unread articles count
     prisma.researchArticle.count({ where: { isRead: false, feed: { userId } } }),
+    // Recent unread articles for dashboard feed
+    prisma.researchArticle.findMany({
+      where: { isRead: false, feed: { userId } },
+      orderBy: { publishedAt: "desc" },
+      take: 6,
+      select: {
+        id: true,
+        title: true,
+        url: true,
+        source: true,
+        summary: true,
+        publishedAt: true,
+        imageUrl: true,
+        feed: { select: { title: true, category: true } },
+      },
+    }),
   ]);
 
   const pipeline = statusCounts.map((s: { status: string; _count: { status: number } }) => ({
@@ -164,5 +185,6 @@ export async function GET() {
     learningSummary,
     cdmSummary,
     unreadArticleCount,
+    recentArticles,
   });
 }

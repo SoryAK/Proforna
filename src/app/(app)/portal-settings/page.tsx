@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import Image from "next/image";
+
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -272,11 +272,9 @@ export default function PortalSettingsPage() {
             <div className="relative group">
               <div className="h-24 w-24 rounded-full border-2 border-muted overflow-hidden bg-muted flex items-center justify-center">
                 {profile?.avatarUrl ? (
-                  <Image
+                  <img
                     src={profile.avatarUrl}
                     alt="Profile"
-                    width={96}
-                    height={96}
                     className="h-full w-full object-cover"
                   />
                 ) : (

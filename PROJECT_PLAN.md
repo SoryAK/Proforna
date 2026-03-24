@@ -61,14 +61,14 @@ These are blockers. Nothing else matters until the app can safely serve multiple
 
 Once the app is deployed and secure, make the existing features feel production-ready.
 
-- [ ] **Onboarding flow** — Guide new users through setting up their profile, current position, and first resume. Empty states should teach, not just say "no data."
+- [x] **Onboarding flow** — Guide new users through setting up their profile, current position, and first resume. Empty states should teach, not just say "no data."
 - [ ] **Email integration completion** — Configure Google & Microsoft OAuth app credentials. Get OAuth consent screen verified. Test full Gmail/Outlook sync flow.
 - [ ] **Income projections fix** — Current CAGR approach produces unrealistic numbers from early-career data. Switch to recency-weighted (last 3-5 years) + scenario modeling (optimistic/realistic/conservative) + cap at reasonable growth ceiling.
 - [ ] **Interview video calls testing** — Test WebRTC calls with real 2-person scenarios. Verify STUN/TURN server reliability. Add error handling for camera/mic permission denials.
 - [ ] **Dashboard refinement** — Revisit card density, section layout, and information hierarchy. Make the first screen useful at a glance.
 - [ ] **Company page customization** — Notion-like layout where users can rearrange company research sections. Show public/private status in header. Support company banners/photos.
 - [ ] **Mobile experience** — PWA service worker is registered but needs offline capability, push notifications, and mobile-optimized layouts.
-- [ ] **Replace SerpAPI for News & Scholar** — Use Gemini 2.0 + Google Search Grounding (free with existing API key) for company news and academic research. Keep SerpAPI only for job discovery where structured data + apply links matter.
+- [x] **Replace SerpAPI for News & Scholar** — Use Gemini 2.0 + Google Search Grounding (free with existing API key) for company news and academic research. Keep SerpAPI only for job discovery where structured data + apply links matter.
 
 ### Phase 3 — Growth Features
 

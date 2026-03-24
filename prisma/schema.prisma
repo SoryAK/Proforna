@@ -858,3 +858,40 @@ model CompanyProfile {
 
   @@unique([userId, ein])
 }
+
+// ─── Site-Level Market Data Cache ──────────────────────────────
+
+model SiteMarketData {
+  id              String   @id @default(cuid())
+  occupation      String
+  socCode         String
+  region          String   @default("national")
+  experienceLevel String   @default("all")
+  periodLabel     String   // e.g. "2026-Q1"
+  median          Int?
+  mean            Int?
+  p10             Int?
+  p25             Int?
+  p75             Int?
+  p90             Int?
+  low             Int?
+  high            Int?
+  rawAnswer       String?  // AI summary text
+  sourcesJson     String?  // JSON array of {title,url,snippet}
+  fetchedAt       DateTime @default(now())
+  staleAfter      DateTime // fetchedAt + staleness window
+
+  @@unique([socCode, region, experienceLevel, periodLabel])
+  @@index([socCode, region])
+}
+
+// ─── Site-Level Video Feed Cache ───────────────────────────────
+
+model SiteVideoFeed {
+  id          String   @id @default(cuid())
+  searchQuery String   @unique          // normalized query string
+  category    String   @default("general") // industry, skills, tools, equipment, career
+  videosJson  String                     // JSON array of video objects
+  fetchedAt   DateTime @default(now())
+  staleAfter  DateTime                   // fetchedAt + staleness window
+}

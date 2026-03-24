@@ -31,7 +31,7 @@ import {
   Mail,
   User,
 } from "lucide-react";
-import Image from "next/image";
+
 import {
   AVAILABILITY_LABELS,
   AVAILABILITY_COLORS,
@@ -176,11 +176,9 @@ export default function PortalPage() {
             {/* Avatar */}
             <div className="h-16 w-16 rounded-full border-2 border-muted overflow-hidden bg-muted flex items-center justify-center shrink-0">
               {portal.avatarUrl ? (
-                <Image
+                <img
                   src={portal.avatarUrl}
                   alt={portal.fullName || "Candidate"}
-                  width={64}
-                  height={64}
                   className="h-full w-full object-cover"
                 />
               ) : (

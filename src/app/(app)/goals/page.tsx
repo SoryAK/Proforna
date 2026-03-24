@@ -264,7 +264,19 @@ export default function GoalsPage() {
 
       <div className="flex-1 overflow-auto p-4 space-y-4">
         {goals.length === 0 ? (
-          <div className="text-center py-12 text-muted-foreground">No goals set yet</div>
+          <div className="flex flex-col items-center justify-center p-12 text-center border-2 border-dashed rounded-lg bg-slate-50/50 dark:bg-slate-900/50 h-[300px]">
+            <div className="bg-orange-100 dark:bg-orange-900/30 p-3 rounded-full mb-4">
+              <Target className="h-6 w-6 text-orange-600 dark:text-orange-400" />
+            </div>
+            <h3 className="text-lg font-semibold mb-2">Set Your Career Goals</h3>
+            <p className="text-sm text-muted-foreground max-w-md mb-6">
+              Track milestones for unprompted promotions, learning objectives, or side projects.
+            </p>
+            <Button onClick={() => setDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add First Goal
+            </Button>
+          </div>
         ) : (
           goals.map((g) => {
             const isExpanded = expanded.has(g.id);

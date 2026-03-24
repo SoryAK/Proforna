@@ -11,9 +11,17 @@ export async function GET(req: NextRequest) {
   const bookmarked = sp.get("bookmarked");
   const unread = sp.get("unread");
   const search = sp.get("q");
+  const cursor = sp.get("cursor");
+  const limit = Math.min(Number(sp.get("limit")) || 50, 100);
 
-  const where: Record<string, unknown> = {};
-  if (feedId) where.feedId = feedId;
+  // Always scope to feeds owned by this user
+  const userFeedIds = (await prisma.researchFeed.findMany({
+    where: { userId },
+    select: { id: true },
+  })).map((f) => f.id);
+
+  const where: Record<string, unknown> = { feedId: { in: userFeedIds } };
+  if (feedId && userFeedIds.includes(feedId)) where.feedId = feedId;
   if (bookmarked === "true") where.isBookmarked = true;
   if (unread === "true") where.isRead = false;
   if (search) {
@@ -27,8 +35,15 @@ export async function GET(req: NextRequest) {
     where,
     include: { feed: { select: { title: true, category: true } } },
     orderBy: { publishedAt: "desc" },
-    take: 100,
+    take: limit + 1,
+    ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
   });
 
-  return NextResponse.json(articles);
+  const hasMore = articles.length > limit;
+  const items = hasMore ? articles.slice(0, limit) : articles;
+
+  return NextResponse.json({
+    articles: items,
+    nextCursor: hasMore ? items[items.length - 1].id : null,
+  });
 }

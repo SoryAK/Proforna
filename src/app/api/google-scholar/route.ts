@@ -1,22 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserId } from "@/lib/auth-utils";
 
-const SERPAPI_KEY = process.env.SERPAPI_KEY;
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
 export async function GET(req: NextRequest) {
   const userId = await getUserId();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  if (!SERPAPI_KEY) {
+  if (!GEMINI_API_KEY) {
     return NextResponse.json(
-      { error: "SERPAPI_KEY is not configured" },
+      { error: "GEMINI_API_KEY is not configured" },
       { status: 503 }
     );
   }
 
   const { searchParams } = req.nextUrl;
   const query = searchParams.get("q");
-  const start = searchParams.get("start") || "0";
   const yearLow = searchParams.get("year_low") || "";
   const yearHigh = searchParams.get("year_high") || "";
 
@@ -27,61 +26,72 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const url = new URL("https://serpapi.com/search.json");
-  url.searchParams.set("engine", "google_scholar");
-  url.searchParams.set("q", query);
-  url.searchParams.set("start", start);
-  url.searchParams.set("hl", "en");
-  if (yearLow) url.searchParams.set("as_ylo", yearLow);
-  if (yearHigh) url.searchParams.set("as_yhi", yearHigh);
-  url.searchParams.set("api_key", SERPAPI_KEY);
+  // We ask Gemini to search the web for academic/research articles to simulate Google Scholar.
+  const prompt = `You are an academic research assistant. Search the web for scholarly articles, academic papers, and research related to: "${query}".
+${yearLow ? `Only include papers published from ${yearLow} onwards.` : ""}
+${yearHigh ? `Only include papers published up to ${yearHigh}.` : ""}
+Return the data STRICTLY in the following JSON schema, filling in real data from your search. Do not include any commentary.
+{
+  "results": [
+    {
+      "title": "Paper Title",
+      "link": "https://example.com/paper-link",
+      "snippet": "A brief abstract or snippet from the paper.",
+      "publicationInfo": "Authors - Journal/Conference, Year",
+      "citedBy": 15,
+      "citedByLink": null,
+      "relatedLink": null,
+      "resources": [
+        {
+          "title": "[PDF] example.com",
+          "fileFormat": "PDF",
+          "link": "https://example.com/paper.pdf"
+        }
+      ],
+      "position": 1
+    }
+  ]
+}
+Include up to 10 relevant scholarly results.`;
 
-  const response = await fetch(url.toString());
+  try {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [
+          { role: "user", parts: [{ text: prompt }] }
+        ],
+        tools: [{ googleSearch: {} }],
+        generationConfig: {
+          responseMimeType: "application/json",
+        }
+      })
+    });
 
-  if (!response.ok) {
-    const text = await response.text();
+    if (!response.ok) {
+      const text = await response.text();
+      return NextResponse.json(
+        { error: "Gemini API request failed", details: text },
+        { status: response.status }
+      );
+    }
+
+    const data = await response.json();
+    const textContent = data.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+    const parsed = JSON.parse(textContent);
+
+    return NextResponse.json({
+      results: parsed.results || [],
+      searchInfo: { "source": "Gemini Search Grounding (Academic)" },
+      hasMore: false, // Since this is a generated list, we might not have reliable pagination
+    });
+  } catch (error) {
+    console.error("Error fetching scholar via Gemini:", error);
     return NextResponse.json(
-      { error: "SerpAPI request failed", details: text },
-      { status: response.status }
+      { error: "Internal server error" },
+      { status: 500 }
     );
   }
-
-  const data = await response.json();
-
-  const results = (data.organic_results ?? []).map(
-    (item: Record<string, unknown>) => ({
-      title: item.title ?? "",
-      link: item.link ?? "",
-      snippet: item.snippet ?? "",
-      publicationInfo: typeof item.publication_info === "object" && item.publication_info !== null
-        ? (item.publication_info as Record<string, unknown>).summary ?? ""
-        : "",
-      citedBy:
-        typeof item.inline_links === "object" && item.inline_links !== null
-          ? ((item.inline_links as Record<string, unknown>).cited_by as Record<string, unknown>)?.total ?? null
-          : null,
-      citedByLink:
-        typeof item.inline_links === "object" && item.inline_links !== null
-          ? ((item.inline_links as Record<string, unknown>).cited_by as Record<string, unknown>)?.link ?? null
-          : null,
-      relatedLink:
-        typeof item.inline_links === "object" && item.inline_links !== null
-          ? ((item.inline_links as Record<string, unknown>).related_pages_link as string) ?? null
-          : null,
-      resources: (
-        (item.resources as Array<Record<string, unknown>>) ?? []
-      ).map((r) => ({
-        title: r.title ?? "",
-        fileFormat: r.file_format ?? "",
-        link: r.link ?? "",
-      })),
-      position: item.position ?? 0,
-    })
-  );
-
-  return NextResponse.json({
-    results,
-    searchInfo: data.search_information ?? {},
-    hasMore: results.length >= 10,
-  });
 }

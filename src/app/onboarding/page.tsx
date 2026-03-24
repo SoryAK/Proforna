@@ -18,7 +18,6 @@ import {
   Plus,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import Image from "next/image";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -189,10 +188,16 @@ export default function OnboardingPage() {
     if (!parsedData) return;
     setSavingImport(true);
     try {
+      // Send parsed data + original PDF file as FormData
+      const formData = new FormData();
+      formData.append("data", JSON.stringify(parsedData));
+      if (file) {
+        formData.append("file", file);
+      }
+
       const saveRes = await fetch("/api/resume-import-save", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(parsedData),
+        body: formData,
       });
       if (!saveRes.ok) {
         const errData = await saveRes.json();
@@ -330,11 +335,9 @@ export default function OnboardingPage() {
                       <Loader2 className="w-6 h-6 animate-spin text-orange-400" />
                     ) : avatarPreview ? (
                       <>
-                        <Image
+                        <img
                           src={avatarPreview}
                           alt="Avatar"
-                          width={96}
-                          height={96}
                           className="w-full h-full object-cover"
                         />
                         <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">

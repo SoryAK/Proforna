@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserId } from "@/lib/auth-utils";
 
-const SERPAPI_KEY = process.env.SERPAPI_KEY;
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
 export async function GET(req: NextRequest) {
   const userId = await getUserId();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  if (!SERPAPI_KEY) {
+  if (!GEMINI_API_KEY) {
     return NextResponse.json(
-      { error: "SERPAPI_KEY is not configured" },
+      { error: "GEMINI_API_KEY is not configured" },
       { status: 503 }
     );
   }
@@ -25,51 +25,60 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const url = new URL("https://serpapi.com/search.json");
-  url.searchParams.set("engine", "google_news");
-  url.searchParams.set("q", query);
-  if (topic) url.searchParams.set("topic", topic);
-  url.searchParams.set("gl", "us");
-  url.searchParams.set("hl", "en");
-  url.searchParams.set("api_key", SERPAPI_KEY);
+  const prompt = `You are a helpful research assistant. Search the web for recent news articles related to: "${query}" ${topic ? `(Topic: ${topic})` : ""}. 
+Return the data STRICTLY in the following JSON schema, filling in real data from your search. Do not include any commentary.
+{
+  "articles": [
+    {
+      "title": "Article Title",
+      "link": "https://example.com/article",
+      "source": "Publisher Name",
+      "date": "Relative date like '2 days ago' or actual date",
+      "snippet": "A brief summary of the article.",
+      "thumbnail": null,
+      "stories": []
+    }
+  ]
+}
+Include at least 5 articles if possible. Make sure links are valid.`;
 
-  const response = await fetch(url.toString());
+  try {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [
+          { role: "user", parts: [{ text: prompt }] }
+        ],
+        tools: [{ googleSearch: {} }],
+        generationConfig: {
+          responseMimeType: "application/json",
+        }
+      })
+    });
 
-  if (!response.ok) {
-    const text = await response.text();
+    if (!response.ok) {
+      const text = await response.text();
+      return NextResponse.json(
+        { error: "Gemini API request failed", details: text },
+        { status: response.status }
+      );
+    }
+
+    const data = await response.json();
+    const textContent = data.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+    const parsed = JSON.parse(textContent);
+
+    return NextResponse.json({
+      articles: parsed.articles || [],
+      searchInfo: { "source": "Gemini Search Grounding" },
+    });
+  } catch (error) {
+    console.error("Error fetching news via Gemini:", error);
     return NextResponse.json(
-      { error: "SerpAPI request failed", details: text },
-      { status: response.status }
+      { error: "Internal server error" },
+      { status: 500 }
     );
   }
-
-  const data = await response.json();
-
-  const articles = (data.news_results ?? []).map(
-    (item: Record<string, unknown>) => ({
-      title: item.title ?? "",
-      link: item.link ?? "",
-      source: typeof item.source === "object" && item.source !== null
-        ? (item.source as Record<string, unknown>).name ?? ""
-        : item.source ?? "",
-      date: item.date ?? "",
-      snippet: item.snippet ?? "",
-      thumbnail: item.thumbnail ?? null,
-      stories: (
-        (item.stories as Array<Record<string, unknown>>) ?? []
-      ).map((s) => ({
-        title: s.title ?? "",
-        link: s.link ?? "",
-        source: typeof s.source === "object" && s.source !== null
-          ? (s.source as Record<string, unknown>).name ?? ""
-          : s.source ?? "",
-        date: s.date ?? "",
-      })),
-    })
-  );
-
-  return NextResponse.json({
-    articles,
-    searchInfo: data.search_information ?? {},
-  });
 }

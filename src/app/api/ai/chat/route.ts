@@ -24,12 +24,14 @@ export async function POST(request: Request) {
   const messages: ChatMessage[] = body.messages;
   const preferredProvider = body.provider as string | undefined;
   const preferredModel = body.model as string | undefined;
+  const customUrl = body.localUrl as string | undefined;
 
   if (!messages || !Array.isArray(messages) || messages.length === 0) {
     return new Response("messages array is required", { status: 400 });
   }
 
   const config = getAIConfig();
+  const targetUrl = customUrl || config.ollamaUrl;
 
   let stream: ReadableStream<string>;
   let usedProvider: string;
@@ -38,10 +40,10 @@ export async function POST(request: Request) {
   const wantOllama = !preferredProvider || preferredProvider === "ollama";
 
   if (wantOllama) {
-    const available = await ollamaIsAvailable(config.ollamaUrl);
+    const available = await ollamaIsAvailable(targetUrl);
     if (available) {
       const model = preferredModel ?? config.ollamaModel;
-      stream = ollamaChat(config.ollamaUrl, model, messages);
+      stream = ollamaChat(targetUrl, model, messages);
       usedProvider = "ollama";
     } else if (config.geminiApiKey) {
       // Fallback to Gemini

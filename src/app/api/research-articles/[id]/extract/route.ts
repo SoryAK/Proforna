@@ -1,12 +1,13 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { extract } from "@extractus/article-extractor";
+import DOMPurify from "isomorphic-dompurify";
 import { getUserId } from "@/lib/auth-utils";
 
 /**
  * POST /api/research-articles/[id]/extract
  * Extracts full article content from the article URL using article-extractor.
- * Returns the extracted content and saves it to the database.
+ * Sanitizes HTML before storing/returning to prevent XSS.
  */
 export async function POST(
   _req: NextRequest,
@@ -17,9 +18,13 @@ export async function POST(
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
 
-  const article = await prisma.researchArticle.findUnique({ where: { id } });
-  if (!article) {
-    return NextResponse.json({ error: "Article not found" }, { status: 404 });
+  // Verify article belongs to a feed owned by this user
+  const article = await prisma.researchArticle.findUnique({
+    where: { id },
+    include: { feed: { select: { userId: true } } },
+  });
+  if (!article || article.feed.userId !== userId) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
   // Return cached content if already extracted
@@ -36,9 +41,16 @@ export async function POST(
       );
     }
 
+    // Sanitize extracted HTML to prevent XSS
+    const sanitized = DOMPurify.sanitize(result.content, {
+      ALLOWED_TAGS: ['p', 'br', 'b', 'i', 'em', 'strong', 'a', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'pre', 'code', 'img', 'figure', 'figcaption'],
+      ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class'],
+      ALLOW_DATA_ATTR: false,
+    });
+
     const updated = await prisma.researchArticle.update({
       where: { id },
-      data: { content: result.content },
+      data: { content: sanitized },
     });
 
     return NextResponse.json({ content: updated.content });

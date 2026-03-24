@@ -7,17 +7,21 @@ import { getUserId } from "@/lib/auth-utils";
  *
  * Returns available AI models and status for each provider.
  */
-export async function GET() {
+export async function GET(request: Request) {
   const userId = await getUserId();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const config = getAIConfig();
+  const { searchParams } = new URL(request.url);
+  const customUrl = searchParams.get("url");
 
-  const ollamaUp = await ollamaIsAvailable(config.ollamaUrl);
+  const config = getAIConfig();
+  const targetUrl = customUrl || config.ollamaUrl;
+
+  const ollamaUp = await ollamaIsAvailable(targetUrl);
   const models: { provider: string; name: string; active: boolean }[] = [];
 
   if (ollamaUp) {
-    const names = await ollamaModels(config.ollamaUrl);
+    const names = await ollamaModels(targetUrl);
     for (const name of names) {
       models.push({
         provider: "ollama",

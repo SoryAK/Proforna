@@ -23,6 +23,7 @@ import {
   Settings,
   Camera,
   DollarSign,
+  Youtube,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -54,12 +55,14 @@ import {
   Cell,
 } from "recharts";
 import Link from "next/link";
-import Image from "next/image";
+
 import { useRouter } from "next/navigation";
+import { signOut } from "next-auth/react";
 import { PersonalFinance } from "@/components/personal-finance";
 import { OnboardingFlow } from "@/components/onboarding-flow";
 import { PayPeriodCalendar } from "@/components/pay-period-calendar";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { VideoFeed } from "@/components/video-feed";
 import ExperiencePage from "../experience/page";
 import SkillsPage from "../skills/page";
 import ResumesPage from "../resumes/page";
@@ -236,22 +239,46 @@ interface DashboardData {
     paths: { title: string; score: number; skillMatch: number }[];
   } | null;
   unreadArticleCount: number;
+  recentArticles: {
+    id: string;
+    title: string;
+    url: string;
+    source: string | null;
+    summary: string | null;
+    publishedAt: string | null;
+    imageUrl: string | null;
+    feed: { title: string; category: string };
+  }[];
 }
 
 export default function DashboardPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { data, isLoading } = useQuery<DashboardData>({
+  const { data, isLoading, isError, error } = useQuery<DashboardData>({
     queryKey: ["dashboard"],
-    queryFn: () => fetch("/api/dashboard").then((r) => r.json()),
+    queryFn: async () => {
+      const r = await fetch("/api/dashboard");
+      if (r.status === 401) throw new Error("UNAUTHORIZED");
+      if (!r.ok) throw new Error(`Dashboard fetch failed: ${r.status}`);
+      return r.json();
+    },
+    retry: false,
   });
 
-  // Redirect brand-new users to onboarding
+  // Stale session (e.g. DB reset while JWT cookie persists) — sign out
   useEffect(() => {
-    if (!isLoading && data && !data.profile?.fullName) {
+    if (isError && error?.message === "UNAUTHORIZED") {
+      signOut({ callbackUrl: "/login" });
+    }
+  }, [isError, error]);
+
+  // Redirect brand-new users to onboarding — only when data loaded successfully
+  // and no profile record exists at all (not due to an API error)
+  useEffect(() => {
+    if (!isLoading && !isError && data && !data.profile) {
       router.replace("/onboarding");
     }
-  }, [isLoading, data, router]);
+  }, [isLoading, isError, data, router]);
 
   const [editOpen, setEditOpen] = useState(false);
   const [editForm, setEditForm] = useState({
@@ -335,7 +362,7 @@ export default function DashboardPage() {
     );
   }
 
-  const { stats, pipeline, recentActivity, currentPosition, profile, topSkills, certifications, activeGoals, cfm, upcomingInterviewDetails, expiringCertifications, learningSummary, cdmSummary, unreadArticleCount } = data;
+  const { stats, pipeline, recentActivity, currentPosition, profile, topSkills, certifications, activeGoals, cfm, upcomingInterviewDetails, expiringCertifications, learningSummary, cdmSummary, unreadArticleCount, recentArticles } = data;
 
   const availability = (profile?.availability ?? "open_to_work") as AvailabilityStatus;
   const displayName = profile?.fullName || (currentPosition
@@ -475,11 +502,9 @@ export default function DashboardPage() {
               <div className="relative">
                 <div className="flex h-36 w-36 items-center justify-center rounded-full border-[3px] border-white bg-white shadow-lg ring-2 ring-black/5 overflow-hidden">
                   {profile?.avatarUrl ? (
-                    <Image
+                    <img
                       src={profile.avatarUrl}
                       alt={profile.fullName || "Profile"}
-                      width={144}
-                      height={144}
                       className="h-full w-full object-cover"
                     />
                   ) : (
@@ -1016,6 +1041,15 @@ export default function DashboardPage() {
         </Card>
       </div>
 
+      {/* ━━ VIDEO FEED ━━ */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2 px-1">
+          <Youtube className="h-4 w-4 text-red-600" />
+          <h2 className="text-sm font-semibold tracking-wide uppercase text-muted-foreground">Industry Videos</h2>
+        </div>
+        <VideoFeed />
+      </div>
+
       {/* ━━ ACTIVITY & INSIGHTS ━━ */}
       <div className="space-y-3">
         <div className="flex items-center gap-2 px-1">
@@ -1053,28 +1087,65 @@ export default function DashboardPage() {
           </Card>
 
           {/* Industry News */}
-          {unreadArticleCount > 0 && (
+          {recentArticles && recentArticles.length > 0 && (
             <Card>
               <CardHeader className="pb-2 pt-4 px-5">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-base font-semibold flex items-center gap-2">
                     <Newspaper className="h-4 w-4 text-cyan-600" />
                     Industry News
+                    {unreadArticleCount > 0 && (
+                      <Badge className="bg-cyan-100 text-cyan-700 dark:bg-cyan-900 dark:text-cyan-300 text-[10px] px-1.5 py-0">
+                        {unreadArticleCount}
+                      </Badge>
+                    )}
                   </CardTitle>
                   <Link href="/research" className="text-xs text-orange-600 hover:underline flex items-center gap-0.5">
-                    Read <ChevronRight className="h-3 w-3" />
+                    View all <ChevronRight className="h-3 w-3" />
                   </Link>
                 </div>
               </CardHeader>
               <CardContent className="px-5 pb-4">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-cyan-50 dark:bg-cyan-950">
-                    <Newspaper className="h-5 w-5 text-cyan-600" />
-                  </div>
-                  <div>
-                    <p className="text-lg font-bold">{unreadArticleCount}</p>
-                    <p className="text-xs text-muted-foreground">unread article{unreadArticleCount !== 1 ? "s" : ""}</p>
-                  </div>
+                <div className="space-y-1">
+                  {recentArticles.map((article) => (
+                    <a
+                      key={article.id}
+                      href={article.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="group flex gap-3 rounded-lg p-2 transition-colors hover:bg-muted/60"
+                    >
+                      {/* Thumbnail */}
+                      {article.imageUrl ? (
+                        <img
+                          src={article.imageUrl}
+                          alt=""
+                          className="h-14 w-20 shrink-0 rounded-md object-cover"
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                        />
+                      ) : (
+                        <div className="flex h-14 w-20 shrink-0 items-center justify-center rounded-md bg-muted">
+                          <Newspaper className="h-5 w-5 text-muted-foreground/50" />
+                        </div>
+                      )}
+                      {/* Text */}
+                      <div className="min-w-0 flex-1">
+                        <p className="line-clamp-2 text-sm font-medium leading-snug group-hover:text-cyan-600 transition-colors">
+                          {article.title}
+                        </p>
+                        <div className="mt-1 flex items-center gap-2 text-[11px] text-muted-foreground">
+                          <span className="truncate">{article.feed.title}</span>
+                          {article.publishedAt && (
+                            <>
+                              <span className="text-muted-foreground/40">·</span>
+                              <span className="shrink-0">{formatDistanceToNow(new Date(article.publishedAt), { addSuffix: true })}</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      <ExternalLink className="mt-1 h-3.5 w-3.5 shrink-0 text-muted-foreground/40 opacity-0 transition-opacity group-hover:opacity-100" />
+                    </a>
+                  ))}
                 </div>
               </CardContent>
             </Card>

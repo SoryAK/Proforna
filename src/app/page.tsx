@@ -10,7 +10,8 @@ import {
   ArrowRight,
   User,
   Zap,
-  Star
+  Star,
+  Activity
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,7 +20,7 @@ export default function LandingPage() {
   const { data: session } = useSession();
 
   if (session) {
-    redirect("/portal");
+    redirect("/dashboard");
   }
 
   return (
@@ -56,10 +57,10 @@ export default function LandingPage() {
               Sign In
             </Link>
             <Button
-              asChild
+              render={<Link href="/login" />}
               className="bg-white text-black hover:bg-slate-200 rounded-full px-6 transition-all shadow-[0_0_20px_rgba(255,255,255,0.1)] border-0"
             >
-              <Link href="/login">Get Started</Link>
+              Get Started
             </Button>
           </div>
         </div>
@@ -68,7 +69,7 @@ export default function LandingPage() {
       {/* Hero Section */}
       <section className="relative pt-40 pb-32 overflow-hidden flex flex-col items-center min-h-[90vh] justify-center">
         {/* Custom floating animation styles */}
-        <style dangerouslySetContent={{ __html: `
+        <style dangerouslySetInnerHTML={{ __html: `
           @keyframes float-slow {
             0%, 100% { transform: translate(0, 0) rotate(0deg); }
             33% { transform: translate(15px, -25px) rotate(2deg); }
@@ -135,14 +136,14 @@ export default function LandingPage() {
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 relative z-30">
             <Button
-              asChild
+              render={<Link href="/login" />}
               size="lg"
               className="h-14 px-8 text-base bg-gradient-to-r from-orange-500 to-pink-600 hover:from-orange-400 hover:to-pink-500 text-white rounded-full transition-all shadow-[0_0_40px_rgba(245,130,32,0.3)] hover:shadow-[0_0_60px_rgba(245,130,32,0.5)] border-0"
             >
-              <Link href="/login">
+              <>
                 Build Your Portfolio
                 <ArrowRight className="ml-2 w-5 h-5" />
-              </Link>
+              </>
             </Button>
           </div>
           
@@ -218,8 +219,117 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Professional Spotlights */}
+      <section className="py-24 relative overflow-hidden">
+        <div className="container mx-auto px-6 relative z-10">
+          
+          <div className="text-center mb-24">
+            <h2 className="text-3xl md:text-5xl font-bold mb-6">Real Careers. <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-500">Real Trajectories.</span></h2>
+            <p className="text-slate-400 text-lg max-w-2xl mx-auto">
+              See how professionals are leveraging Resumsify to optimize their career paths and financial growth.
+            </p>
+          </div>
+
+          <div className="max-w-6xl mx-auto">
+            {/* Spotlight 1 */}
+            <div className="flex flex-col lg:flex-row items-center gap-12 lg:gap-20">
+              
+              {/* Image Section (Left) */}
+              <div className="w-full lg:w-1/2 relative h-[500px] md:h-[600px]">
+                <div className="absolute inset-0 rounded-[3rem] overflow-hidden shadow-2xl border border-white/10 bg-[#120a24] flex items-end justify-center">
+                  <img 
+                    src="/UI_Content/professional-1.png" 
+                    alt="Professional utilizing Resumsify" 
+                    className="h-[125%] md:h-[135%] w-auto max-w-none translate-x-[20%] translate-y-[5%] object-contain opacity-90 hover:opacity-100 transition-all duration-700" 
+                  />
+                  {/* Subtle gradient to anchor the image */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#0a0514] via-transparent to-transparent pointer-events-none" />
+                </div>
+                
+                {/* Floating "Role" Badge */}
+                <div className="absolute bottom-8 left-8 right-8 bg-[#120a24]/80 backdrop-blur-2xl border border-white/10 px-6 py-5 rounded-2xl shadow-[0_20px_40px_rgba(0,0,0,0.6)]">
+                  <div className="flex justify-between items-end">
+                     <div>
+                       <p className="text-emerald-400 text-xs font-bold tracking-widest uppercase mb-1">Senior Data Analyst</p>
+                       <p className="text-white text-xl font-black">Sarah Jenkins</p>
+                     </div>
+                     <div className="w-10 h-10 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+                        <TrendingUp className="w-5 h-5 text-emerald-400" />
+                     </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Info / Career Card Section (Right) */}
+              <div className="w-full lg:w-1/2 flex flex-col justify-center">
+                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm font-bold tracking-wide w-max mb-6">
+                  <Activity className="w-4 h-4" />
+                  Velocity Tracking
+                </div>
+                
+                <h3 className="text-3xl md:text-5xl font-black text-white mb-6 leading-[1.1] tracking-tight">
+                  "I was leaving 20% on the table without even realizing it."
+                </h3>
+                
+                <p className="text-slate-400 text-lg leading-relaxed mb-10">
+                  By mapping her exact tech stack and years of experience into Resumsify's <strong className="text-slate-200">Career Analytics</strong>, Sarah uncovered a massive disparity between her current salary and the active market rate in her zip code. 
+                </p>
+
+                {/* The "Career Card" UI w/ App Benefits */}
+                <div className="bg-[#120a24]/60 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
+                   {/* Background Glow */}
+                   <div className="absolute -top-24 -right-24 w-48 h-48 bg-emerald-500/20 blur-[80px] rounded-full pointer-events-none" />
+                   
+                   <p className="text-white font-bold text-lg mb-6">The Financial Shift</p>
+                   
+                   <div className="space-y-6">
+                     {/* Metric 1 */}
+                     <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                           <div className="w-12 h-12 rounded-xl bg-slate-800 border border-white/5 flex items-center justify-center text-slate-400">
+                             $
+                           </div>
+                           <div>
+                             <p className="text-sm font-semibold text-slate-400">Previous Comp.</p>
+                             <p className="text-lg font-bold text-slate-300">$105,000</p>
+                           </div>
+                        </div>
+                        <div className="h-[2px] flex-1 mx-6 bg-gradient-to-r from-slate-800 to-emerald-500/50 rounded-full" />
+                     </div>
+
+                     {/* Metric 2 */}
+                     <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                           <div className="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                             <TrendingUp className="w-6 h-6" />
+                           </div>
+                           <div>
+                             <p className="text-sm font-semibold text-emerald-400">Negotiated Market Rate</p>
+                             <p className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">$128,500</p>
+                           </div>
+                        </div>
+                     </div>
+                   </div>
+
+                   <div className="mt-8 pt-6 border-t border-white/5 flex items-start gap-4">
+                      <div className="mt-1">
+                        <Star className="w-5 h-5 text-emerald-400 fill-emerald-400/20" />
+                      </div>
+                      <p className="text-sm text-slate-400 leading-relaxed text-balance">
+                        <strong>The Result:</strong> Armed with hard metrics rather than subjective performance reviews, Sarah negotiated a mid-cycle bump matched exactly to realistic market data.
+                      </p>
+                   </div>
+                </div>
+
+              </div>
+            </div>
+            
+          </div>
+        </div>
+      </section>
+
       {/* Features Section */}
-      <section className="py-32 relative border-t border-white/5 bg-[#0e081c]">
+      <section className="py-32 relative">
         <div className="container mx-auto px-6">
           <div className="text-center mb-32">
             <h2 className="text-3xl md:text-5xl font-bold mb-6">Designed for the <span className="text-orange-400">Worker</span>, not the Corporation</h2>
@@ -245,7 +355,7 @@ export default function LandingPage() {
                {/* Foreground Object */}
                <div className="relative md:absolute md:left-0 md:top-1/2 md:-translate-y-1/2 w-full md:w-[45%] h-[300px] md:h-[500px] z-20 mb-8 md:mb-0">
                   <div className="w-full h-full rounded-[2rem] overflow-hidden shadow-2xl border-[6px] border-[#0a0514] transform md:-rotate-2 md:hover:rotate-0 transition-transform duration-500 bg-slate-800">
-                     <img src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&q=80&w=800" alt="Portfolio" className="w-full h-full object-cover opacity-90 hover:opacity-100" />
+                     <img src="https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?auto=format&fit=crop&q=80&w=800" alt="Professional Woman in Career Portfolio" className="w-full h-full object-cover opacity-90 hover:opacity-100 object-top" />
                   </div>
                   
                   {/* Floating Notification */}
@@ -288,7 +398,7 @@ export default function LandingPage() {
                {/* Foreground Object */}
                <div className="relative md:absolute md:right-0 md:top-1/2 md:-translate-y-1/2 w-full md:w-[45%] h-[300px] md:h-[500px] z-20 mb-8 md:mb-0">
                   <div className="w-full h-full rounded-[2rem] overflow-hidden shadow-2xl border-[6px] border-[#0a0514] transform md:rotate-2 md:hover:rotate-0 transition-transform duration-500 bg-slate-800">
-                     <img src="https://images.unsplash.com/photo-1586281380349-632531db7ed4?auto=format&fit=crop&q=80&w=800" alt="Resume Elements" className="w-full h-full object-cover opacity-90 hover:opacity-100" />
+                     <img src="https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&q=80&w=800" alt="Professional Male reviewing Resume" className="w-full h-full object-cover opacity-90 hover:opacity-100 object-top" />
                   </div>
                   
                   {/* Floating Analytics Tag */}
@@ -313,43 +423,135 @@ export default function LandingPage() {
                </div>
             </div>
 
-            {/* Feature 3: Analytics - Left Visual, Right Backdrop */}
-            <div className="relative flex flex-col md:block items-center h-auto md:h-[500px]">
-               {/* White Offset Background Card */}
-               <div className="hidden md:flex absolute right-0 top-1/2 -translate-y-1/2 w-[75%] h-[420px] bg-slate-50 rounded-[3rem] p-16 flex-col justify-center items-start pl-[35%] z-10 shadow-[0_0_100px_rgba(255,255,255,0.02)]">
-                  <div className="w-16 h-16 rounded-2xl bg-purple-500/10 flex items-center justify-center mb-6 text-purple-600">
-                     <TrendingUp className="w-8 h-8" />
+            {/* Feature 3: Career Analytics Reimagined */}
+            <div className="relative flex flex-col md:block items-center h-auto md:h-[600px] mt-24 md:mt-40">
+               {/* Left Context: Story & Feature Grid */}
+               <div className="relative md:absolute md:left-0 md:top-1/2 md:-translate-y-1/2 w-full md:w-[45%] z-20 mb-12 md:mb-0 flex flex-col justify-center px-4 md:px-0">
+                  <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-400 text-sm font-bold tracking-wide w-max mb-6">
+                    <TrendingUp className="w-4 h-4" />
+                    Career Analytics
                   </div>
-                  <h3 className="text-4xl font-black text-slate-900 mb-4 tracking-tight">Career Analytics</h3>
-                  <p className="text-slate-500 text-lg leading-relaxed">
-                    Treat your career like a business. Track your salary trajectory, compensation benchmarks, interview conversion rates, and skill market value in real-time.
+                  <h3 className="text-4xl md:text-5xl font-black text-white mb-6 tracking-tight leading-[1.1]">
+                    Stop Guessing.<br/>
+                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500">Start Negotiating.</span>
+                  </h3>
+                  <p className="text-slate-400 text-lg leading-relaxed mb-8">
+                    Most professionals leave 15-20% of their potential earnings on the table because they lack real-time data. Resumsify turns your career history into a live financial strategy.
                   </p>
-               </div>
-               
-               {/* Foreground Object */}
-               <div className="relative md:absolute md:left-0 md:top-1/2 md:-translate-y-1/2 w-full md:w-[45%] h-[300px] md:h-[500px] z-20 mb-8 md:mb-0">
-                  <div className="w-full h-full rounded-[2rem] overflow-hidden shadow-2xl border-[6px] border-[#0a0514] transform md:-rotate-2 md:hover:rotate-0 transition-transform duration-500 bg-slate-800">
-                     <img src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&q=80&w=800" alt="Analytics Graph" className="w-full h-full object-cover opacity-90 hover:opacity-100" />
-                  </div>
-                  
-                  {/* Floating Chart Tag */}
-                  <div className="absolute bottom-12 -right-6 md:-right-12 bg-[#120a24] border border-purple-500/20 px-6 py-4 rounded-2xl shadow-xl z-30 transform md:rotate-3">
-                     <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Market Value</p>
-                     <p className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500">+24%</p>
-                     <p className="text-xs text-slate-500 mt-1">vs Industry Avg</p>
+
+                  <div className="space-y-8">
+                    {/* Item 1 */}
+                    <div className="relative pl-6">
+                      <div className="absolute left-0 top-2 w-2 h-2 rounded-full bg-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.8)]" />
+                      <div className="absolute left-[3px] top-4 bottom-[-32px] w-[2px] bg-gradient-to-b from-purple-500/30 to-transparent" />
+                      <h4 className="text-xl font-bold text-white mb-1">Market Value Pulse</h4>
+                      <p className="text-sm text-slate-400 font-medium mb-1"><span className="text-slate-300 font-bold">Audit:</span> Compares your specific stack against hiring data in your zip code.</p>
+                      <p className="text-sm text-purple-300 font-semibold italic">The Win: Know exactly when you're being underpaid before you even ask for a raise.</p>
+                    </div>
+                    {/* Item 2 */}
+                    <div className="relative pl-6">
+                      <div className="absolute left-0 top-2 w-2 h-2 rounded-full bg-pink-500 shadow-[0_0_10px_rgba(236,72,153,0.8)]" />
+                      <div className="absolute left-[3px] top-4 bottom-[-32px] w-[2px] bg-gradient-to-b from-pink-500/30 to-transparent" />
+                      <h4 className="text-xl font-bold text-white mb-1">Velocity Tracking</h4>
+                      <p className="text-sm text-slate-400 font-medium mb-1"><span className="text-slate-300 font-bold">Benchmark:</span> Measures the speed of your skill acquisition vs. industry standards.</p>
+                      <p className="text-sm text-pink-300 font-semibold italic">The Win: Identify "skill gaps" that are stalling your promotion.</p>
+                    </div>
+                    {/* Item 3 */}
+                    <div className="relative pl-6">
+                      <div className="absolute left-0 top-2 w-2 h-2 rounded-full bg-orange-500 shadow-[0_0_10px_rgba(249,115,22,0.8)]" />
+                      <h4 className="text-xl font-bold text-white mb-1">Conversion Funnel</h4>
+                      <p className="text-sm text-slate-400 font-medium mb-1"><span className="text-slate-300 font-bold">Forecast:</span> Tracks "Views to Interview" and "Interview to Offer" ratios.</p>
+                      <p className="text-sm text-orange-300 font-semibold italic">The Win: Stop guessing why you aren't getting calls; see if it's your resume or your reach.</p>
+                    </div>
                   </div>
                </div>
 
-               {/* Mobile Text Content */}
-               <div className="md:hidden flex flex-col items-center text-center px-4">
-                 <div className="w-16 h-16 rounded-2xl bg-purple-500/10 flex items-center justify-center mb-6 text-purple-400">
-                   <TrendingUp className="w-8 h-8" />
-                 </div>
-                 <h3 className="text-2xl font-bold mb-4 text-white">Career Analytics</h3>
-                 <p className="text-slate-400 leading-relaxed">
-                   Treat your career like a business. Track your salary trajectory, compensation benchmarks, interview conversion rates, and skill market value in real-time.
-                 </p>
+               {/* Right Side: Data Visualization Component */}
+               <div className="hidden md:flex absolute right-0 top-1/2 -translate-y-1/2 w-[60%] h-[550px] bg-gradient-to-br from-[#120a24] to-[#0a0514] rounded-[3rem] border border-white/5 flex-col p-10 z-10 shadow-[0_40px_100px_rgba(168,85,247,0.05)] justify-between">
+                  
+                  {/* Top Bar / Market Value */}
+                  <div className="flex justify-between items-start mb-8">
+                     <div>
+                       <p className="text-slate-400 text-sm font-bold uppercase tracking-wider mb-2">Live Market Value</p>
+                       <h5 className="text-5xl font-black text-white tracking-tight">$158,400</h5>
+                     </div>
+                     <div className="bg-emerald-500/10 border border-emerald-500/20 px-4 py-2 rounded-xl flex items-center gap-2 shadow-[0_0_20px_rgba(16,185,129,0.1)]">
+                       <TrendingUp className="w-5 h-5 text-emerald-400" />
+                       <span className="text-emerald-400 font-bold text-sm">+12% above current role</span>
+                     </div>
+                  </div>
+
+                  {/* Gauge Component */}
+                  <div className="relative w-full flex-1 flex flex-col items-center justify-center">
+                     {/* The Arc */}
+                     <div className="relative w-[300px] h-[150px] overflow-hidden">
+                       <div className="absolute w-[300px] h-[300px] rounded-full border-[24px] border-slate-800 border-t-purple-500 border-r-purple-500 transform -rotate-[135deg] shadow-[inset_0_0_20px_rgba(0,0,0,0.5)]" />
+                     </div>
+                     
+                     {/* The Needle */}
+                     <div className="absolute top-[130px] w-6 h-6 bg-white rounded-full shadow-[0_0_20px_white] z-20">
+                        {/* Needle arm */}
+                        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 w-[3px] h-[110px] bg-gradient-to-t from-white to-purple-300 origin-bottom transform rotate-[45deg] rounded-full" />
+                     </div>
+
+                     {/* Gauge Labels */}
+                     <div className="absolute top-[160px] w-[340px] flex justify-between px-4 text-sm font-bold text-slate-500">
+                        <span>$120k</span>
+                        <span>$180k</span>
+                     </div>
+                  </div>
+
+                  {/* Trending Skills Sparklines */}
+                  <div className="w-full bg-[#0a0514]/80 rounded-2xl p-6 border border-white/5 flex flex-col gap-5 mt-auto backdrop-blur-xl">
+                     <p className="text-slate-400 text-xs font-bold uppercase tracking-wider">Trending Skills (Your Hub)</p>
+                     
+                     {/* AI Integration */}
+                     <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                           <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center border border-orange-500/20">
+                             <Zap className="w-5 h-5 text-orange-400" />
+                           </div>
+                           <div>
+                             <p className="text-base font-bold text-white">AI Integration</p>
+                             <p className="text-xs text-orange-400 font-semibold tracking-wide">High Demand</p>
+                           </div>
+                        </div>
+                        {/* Sparkline Map */}
+                        <div className="flex items-end gap-1.5 h-10">
+                           <div className="w-2 h-4 bg-slate-800 rounded-sm" />
+                           <div className="w-2 h-3 bg-slate-800 rounded-sm" />
+                           <div className="w-2 h-5 bg-slate-800 rounded-sm" />
+                           <div className="w-2 h-6 bg-orange-500/40 rounded-sm" />
+                           <div className="w-2 h-8 bg-orange-500/70 rounded-sm" />
+                           <div className="w-2 h-10 bg-orange-500 rounded-sm shadow-[0_0_15px_rgba(249,115,22,0.6)]" />
+                        </div>
+                     </div>
+
+                     {/* Project Management */}
+                     <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                           <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center border border-blue-500/20">
+                             <Activity className="w-5 h-5 text-blue-400" />
+                           </div>
+                           <div>
+                             <p className="text-base font-bold text-white">Project Management</p>
+                             <p className="text-xs text-blue-400 font-semibold tracking-wide">Stable Growth</p>
+                           </div>
+                        </div>
+                        {/* Sparkline Map */}
+                        <div className="flex items-end gap-1.5 h-10">
+                           <div className="w-2 h-5 bg-slate-800 rounded-sm" />
+                           <div className="w-2 h-6 bg-blue-500/30 rounded-sm" />
+                           <div className="w-2 h-5 bg-slate-800 rounded-sm" />
+                           <div className="w-2 h-7 bg-blue-500/60 rounded-sm" />
+                           <div className="w-2 h-8 bg-slate-800 rounded-sm" />
+                           <div className="w-2 h-9 bg-blue-500 rounded-sm shadow-[0_0_15px_rgba(59,130,246,0.6)]" />
+                        </div>
+                     </div>
+
+                  </div>
                </div>
+
             </div>
           </div>
         </div>
@@ -364,20 +566,20 @@ export default function LandingPage() {
             Join the individuals who are building their personal branding infrastructure and stepping out of the corporate shadow.
           </p>
           <Button
-            asChild
+            render={<Link href="/login" />}
             size="lg"
             className="h-16 px-10 text-lg bg-white text-black hover:bg-slate-200 rounded-full transition-all shadow-xl border-0"
           >
-            <Link href="/login">
+            <>
               Start Your Journey
               <Zap className="ml-2 w-5 h-5 text-orange-500" />
-            </Link>
+            </>
           </Button>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="py-12 border-t border-white/5 bg-[#0a0514] text-center text-slate-500 text-sm">
+      <footer className="py-12 bg-transparent text-center text-slate-500 text-sm relative z-10">
         <div className="flex items-center justify-center gap-2 mb-4">
           <Image 
             src="/logo-icon.png" 

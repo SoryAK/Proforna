@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Plus, MoreHorizontal, Pencil, Trash2, Award } from "lucide-react";
+import { Plus, MoreHorizontal, Pencil, Trash2, Award, Star } from "lucide-react";
 import { toast } from "sonner";
 import {
   SKILL_CATEGORIES,
@@ -306,13 +306,37 @@ export default function SkillsPage() {
               ) : null
             )}
             {skills.length === 0 && (
-              <div className="text-center py-12 text-muted-foreground">No skills added yet</div>
+              <div className="flex flex-col items-center justify-center p-12 text-center border-2 border-dashed rounded-lg bg-slate-50/50 dark:bg-slate-900/50">
+                <div className="bg-orange-100 dark:bg-orange-900/30 p-3 rounded-full mb-4">
+                  <Star className="h-6 w-6 text-orange-600 dark:text-orange-400" />
+                </div>
+                <h3 className="text-lg font-semibold mb-2">Build your skill inventory</h3>
+                <p className="text-sm text-muted-foreground max-w-md mb-6">
+                  Add tools, languages, and competencies. These populate your interactive resumes and help analyze gaps against job descriptions.
+                </p>
+                <Button onClick={() => setSkillDialog(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Skill
+                </Button>
+              </div>
             )}
           </TabsContent>
 
           <TabsContent value="certifications">
             {certifications.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground">No certifications added yet</div>
+              <div className="flex flex-col items-center justify-center p-12 text-center border-2 border-dashed rounded-lg bg-slate-50/50 dark:bg-slate-900/50">
+                <div className="bg-orange-100 dark:bg-orange-900/30 p-3 rounded-full mb-4">
+                  <Award className="h-6 w-6 text-orange-600 dark:text-orange-400" />
+                </div>
+                <h3 className="text-lg font-semibold mb-2">Track your certs</h3>
+                <p className="text-sm text-muted-foreground max-w-md mb-6">
+                  Certifications validate your expertise. Add them here and the dashboard will remind you when they're about to expire.
+                </p>
+                <Button onClick={() => setCertDialog(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Certification
+                </Button>
+              </div>
             ) : (
               <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
                 {certifications.map((cert) => (
