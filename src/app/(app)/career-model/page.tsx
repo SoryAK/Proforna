@@ -58,7 +58,6 @@ import {
   ReferenceLine,
   Bar,
   BarChart,
-  Legend,
 } from "recharts";
 
 /* ── Types ── */
@@ -1097,12 +1096,21 @@ export default function CareerModelPage() {
 
   if (isLoading) {
     return (
-      <div className="space-y-4">
-        {[...Array(3)].map((_, i) => (
-          <Card key={i} className="animate-pulse">
-            <CardContent className="p-6"><div className="h-24 bg-gray-200 rounded" /></CardContent>
-          </Card>
-        ))}
+      <div className="space-y-6">
+        {/* Hero skeleton */}
+        <div className="rounded-xl bg-gradient-to-br from-orange-200 via-amber-200 to-yellow-200 dark:from-orange-900 dark:via-amber-900 dark:to-yellow-900 animate-pulse h-28" />
+        {/* Stat card skeletons */}
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {[...Array(4)].map((_, i) => (
+            <Card key={i} className="animate-pulse">
+              <CardContent className="p-4"><div className="h-16 bg-muted rounded-lg" /></CardContent>
+            </Card>
+          ))}
+        </div>
+        {/* Chart skeleton */}
+        <Card className="animate-pulse">
+          <CardContent className="p-6"><div className="h-72 bg-muted rounded-lg" /></CardContent>
+        </Card>
       </div>
     );
   }
@@ -1110,61 +1118,92 @@ export default function CareerModelPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold flex items-center gap-2">
-            <BarChart3 className="h-5 w-5 text-orange-600" />
-            Career Financial Model
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Track your income history, set wage goals, and project future earnings.
-          </p>
+      <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-orange-500 via-amber-500 to-yellow-500 p-6 text-white shadow-lg">
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDM0djZoLTZWMzRoNnptMC0zMHY2aC02VjRoNnptMCAxNXY2aC02VjE5aDZ6Ii8+PC9nPjwvZz48L3N2Zz4=')] opacity-30" />
+        <div className="relative flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm">
+              <BarChart3 className="h-6 w-6" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight">Career Financial Model</h1>
+              <p className="text-sm text-white/80 mt-0.5">
+                Track your income history, set wage goals, and project future earnings.
+              </p>
+            </div>
+          </div>
+          {latestYear && (
+            <div className="hidden sm:flex items-center gap-6">
+              <div className="text-right">
+                <p className="text-xs text-white/60 uppercase tracking-wider">Latest Income</p>
+                <p className="text-xl font-bold font-mono">{fmtFull(latestYear.grossIncome)}</p>
+              </div>
+              {incomeYears.length >= 2 && (
+                <div className="text-right">
+                  <p className="text-xs text-white/60 uppercase tracking-wider">CAGR</p>
+                  <p className="text-xl font-bold font-mono">{pct(avgGrossGrowth)}</p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
       {/* ── Live Current Year Card ── */}
       {liveEstimate && !hasManualCurrentYear && liveEstimate.grossIncome > 0 && (
-        <Card className="border-orange-200 dark:border-orange-800 bg-orange-50/50 dark:bg-orange-950/50">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-orange-600" />
-              {liveEstimate.year} Live Estimate
-              <Badge variant="secondary" className="text-[10px] py-0">LIVE</Badge>
-            </CardTitle>
-            <p className="text-xs text-muted-foreground">
+        <Card className="relative overflow-hidden border-orange-200 dark:border-orange-800 bg-gradient-to-r from-orange-50 via-amber-50/50 to-transparent dark:from-orange-950/60 dark:via-amber-950/30 dark:to-transparent">
+          <div className="absolute top-0 right-0 h-full w-1/3 bg-gradient-to-l from-orange-100/40 to-transparent dark:from-orange-900/20 pointer-events-none" />
+          <CardHeader className="pb-2 relative">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-100 dark:bg-orange-900/50">
+                  <TrendingUp className="h-4 w-4 text-orange-600" />
+                </div>
+                {liveEstimate.year} Live Estimate
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-orange-400 opacity-75" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-orange-500" />
+                </span>
+              </CardTitle>
+              <Badge variant="secondary" className="text-[10px] py-0.5 px-2 bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300 border border-orange-200 dark:border-orange-700">LIVE</Badge>
+            </div>
+            <p className="text-xs text-muted-foreground ml-10">
               {liveEstimate.company} — {liveEstimate.role}
             </p>
           </CardHeader>
-          <CardContent>
+          <CardContent className="relative">
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <div>
-                <p className="text-xs text-muted-foreground">Projected Gross</p>
-                <p className="text-xl font-bold">{fmtFull(liveEstimate.grossIncome)}</p>
+              <div className="rounded-lg bg-white/60 dark:bg-white/5 p-3 border border-orange-100 dark:border-orange-900/50">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Projected Gross</p>
+                <p className="text-xl font-bold font-mono text-orange-700 dark:text-orange-300">{fmtFull(liveEstimate.grossIncome)}</p>
               </div>
               {liveEstimate.netIncome !== null && (
-                <div>
-                  <p className="text-xs text-muted-foreground">Projected Net</p>
-                  <p className="text-xl font-bold">{fmtFull(liveEstimate.netIncome)}</p>
+                <div className="rounded-lg bg-white/60 dark:bg-white/5 p-3 border border-emerald-100 dark:border-emerald-900/50">
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Projected Net</p>
+                  <p className="text-xl font-bold font-mono text-emerald-700 dark:text-emerald-300">{fmtFull(liveEstimate.netIncome)}</p>
                 </div>
               )}
               {liveEstimate.ytdGross !== null && (
-                <div>
-                  <p className="text-xs text-muted-foreground">YTD Gross</p>
-                  <p className="text-xl font-bold">{fmtFull(liveEstimate.ytdGross)}</p>
-                  <p className="text-[10px] text-muted-foreground">
+                <div className="rounded-lg bg-white/60 dark:bg-white/5 p-3 border border-blue-100 dark:border-blue-900/50">
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">YTD Gross</p>
+                  <p className="text-xl font-bold font-mono">{fmtFull(liveEstimate.ytdGross)}</p>
+                  <div className="mt-1.5 h-1.5 rounded-full bg-muted overflow-hidden">
+                    <div className="h-full rounded-full bg-blue-500 transition-all" style={{ width: `${Math.min(100, Math.round((liveEstimate.ytdGross / liveEstimate.grossIncome) * 100))}%` }} />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-1">
                     {Math.round((liveEstimate.ytdGross / liveEstimate.grossIncome) * 100)}% of annual
                   </p>
                 </div>
               )}
-              <div>
-                <p className="text-xs text-muted-foreground">Breakdown</p>
-                <div className="text-[11px] space-y-0.5 mt-0.5">
-                  {liveEstimate.breakdown.basePay > 0 && <p>Base: {fmtFull(liveEstimate.breakdown.basePay)}</p>}
-                  {liveEstimate.breakdown.ot1Pay > 0 && <p>OT: {fmtFull(liveEstimate.breakdown.ot1Pay)}</p>}
-                  {liveEstimate.breakdown.ot2Pay > 0 && <p>OT2: {fmtFull(liveEstimate.breakdown.ot2Pay)}</p>}
-                  {liveEstimate.breakdown.diffPay > 0 && <p>Diff: {fmtFull(liveEstimate.breakdown.diffPay)}</p>}
-                  {liveEstimate.breakdown.holidayPay > 0 && <p>Holiday: {fmtFull(liveEstimate.breakdown.holidayPay)}</p>}
-                  {liveEstimate.breakdown.bonuses > 0 && <p>Bonuses: {fmtFull(liveEstimate.breakdown.bonuses)}</p>}
+              <div className="rounded-lg bg-white/60 dark:bg-white/5 p-3 border border-gray-100 dark:border-gray-800">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Breakdown</p>
+                <div className="text-[11px] space-y-1 mt-1.5">
+                  {liveEstimate.breakdown.basePay > 0 && <p className="flex justify-between"><span className="text-muted-foreground">Base</span> <span className="font-mono font-medium">{fmtFull(liveEstimate.breakdown.basePay)}</span></p>}
+                  {liveEstimate.breakdown.ot1Pay > 0 && <p className="flex justify-between"><span className="text-muted-foreground">OT</span> <span className="font-mono font-medium">{fmtFull(liveEstimate.breakdown.ot1Pay)}</span></p>}
+                  {liveEstimate.breakdown.ot2Pay > 0 && <p className="flex justify-between"><span className="text-muted-foreground">OT2</span> <span className="font-mono font-medium">{fmtFull(liveEstimate.breakdown.ot2Pay)}</span></p>}
+                  {liveEstimate.breakdown.diffPay > 0 && <p className="flex justify-between"><span className="text-muted-foreground">Diff</span> <span className="font-mono font-medium">{fmtFull(liveEstimate.breakdown.diffPay)}</span></p>}
+                  {liveEstimate.breakdown.holidayPay > 0 && <p className="flex justify-between"><span className="text-muted-foreground">Holiday</span> <span className="font-mono font-medium">{fmtFull(liveEstimate.breakdown.holidayPay)}</span></p>}
+                  {liveEstimate.breakdown.bonuses > 0 && <p className="flex justify-between"><span className="text-muted-foreground">Bonuses</span> <span className="font-mono font-medium">{fmtFull(liveEstimate.breakdown.bonuses)}</span></p>}
                 </div>
               </div>
             </div>
@@ -1174,15 +1213,19 @@ export default function CareerModelPage() {
 
       {/* ── Paycheck YTD Tracker per Active Job ── */}
       {paycheckTrackers.length > 0 && (
-        <Card>
+        <Card className="shadow-sm">
           <CardHeader className="pb-2">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Receipt className="h-5 w-5 text-emerald-600" />
-              Paycheck YTD Tracker
-            </CardTitle>
-            <p className="text-xs text-muted-foreground">
-              Upload a paycheck per active job to track actual YTD income vs projected.
-            </p>
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-900/40">
+                <Receipt className="h-4.5 w-4.5 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <div>
+                <CardTitle className="text-lg">Paycheck YTD Tracker</CardTitle>
+                <p className="text-xs text-muted-foreground">
+                  Upload a paycheck per active job to track actual YTD income vs projected.
+                </p>
+              </div>
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
             {paycheckTrackers.map((tracker) => {
@@ -1199,7 +1242,7 @@ export default function CareerModelPage() {
                   : 0;
 
               return (
-                <div key={tracker.positionId} className="rounded-lg border p-4 space-y-3">
+                <div key={tracker.positionId} className="rounded-xl border p-4 space-y-3 bg-gradient-to-r from-muted/20 to-transparent hover:shadow-sm transition-shadow">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-semibold">{tracker.company}</p>
@@ -1371,78 +1414,102 @@ export default function CareerModelPage() {
 
       {/* ── Overview Cards ── */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card>
+        <Card className="relative overflow-hidden border-l-4 border-l-blue-500 hover:shadow-md transition-shadow">
           <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">Latest Gross</p>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-100 dark:bg-blue-900/40">
+                <DollarSign className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">Latest Gross</p>
+                <p className="text-2xl font-bold font-mono truncate">
+                  {latestYear ? fmtFull(latestYear.grossIncome) : "—"}
+                </p>
+                {latestYear && <p className="text-xs text-muted-foreground">{latestYear.year}</p>}
+              </div>
             </div>
-            <p className="text-2xl font-bold mt-1">
-              {latestYear ? fmtFull(latestYear.grossIncome) : "—"}
-            </p>
-            {latestYear && <p className="text-xs text-muted-foreground">{latestYear.year}</p>}
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="relative overflow-hidden border-l-4 border-l-emerald-500 hover:shadow-md transition-shadow">
           <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">CAGR (Gross)</p>
-              {avgGrossGrowth >= 0 ? (
-                <TrendingUp className="h-4 w-4 text-green-600" />
-              ) : (
-                <TrendingDown className="h-4 w-4 text-red-600" />
-              )}
+            <div className="flex items-center gap-3">
+              <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${avgGrossGrowth >= 0 ? "bg-emerald-100 dark:bg-emerald-900/40" : "bg-red-100 dark:bg-red-900/40"}`}>
+                {avgGrossGrowth >= 0 ? (
+                  <TrendingUp className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                ) : (
+                  <TrendingDown className="h-5 w-5 text-red-600 dark:text-red-400" />
+                )}
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">CAGR (Gross)</p>
+                <p className="text-2xl font-bold font-mono">
+                  {incomeYears.length >= 2 ? pct(avgGrossGrowth) : "—"}
+                </p>
+                <p className="text-xs text-muted-foreground">Compound annual growth</p>
+              </div>
             </div>
-            <p className="text-2xl font-bold mt-1">
-              {incomeYears.length >= 2 ? pct(avgGrossGrowth) : "—"}
-            </p>
-            <p className="text-xs text-muted-foreground">Compound annual growth</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="relative overflow-hidden border-l-4 border-l-purple-500 hover:shadow-md transition-shadow">
           <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">Years Tracked</p>
-              <Calendar className="h-4 w-4 text-muted-foreground" />
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-purple-100 dark:bg-purple-900/40">
+                <Calendar className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">Years Tracked</p>
+                <p className="text-2xl font-bold font-mono">{incomeYears.length}</p>
+                {incomeYears.length >= 2 && (
+                  <p className="text-xs text-muted-foreground">
+                    {incomeYears[0].year} – {incomeYears[incomeYears.length - 1].year}
+                  </p>
+                )}
+              </div>
             </div>
-            <p className="text-2xl font-bold mt-1">{incomeYears.length}</p>
-            {incomeYears.length >= 2 && (
-              <p className="text-xs text-muted-foreground">
-                {incomeYears[0].year} – {incomeYears[incomeYears.length - 1].year}
-              </p>
-            )}
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="relative overflow-hidden border-l-4 border-l-amber-500 hover:shadow-md transition-shadow">
           <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">Time to Target</p>
-              <Target className="h-4 w-4 text-muted-foreground" />
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100 dark:bg-amber-900/40">
+                <Target className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">Time to Target</p>
+                <p className="text-2xl font-bold font-mono">
+                  {timeToTarget !== null
+                    ? timeToTarget === 0
+                      ? "Reached!"
+                      : `~${timeToTarget}yr`
+                    : "—"}
+                </p>
+                {targetTier && (
+                  <p className="text-xs text-muted-foreground">
+                    Target: {fmtFull(targetTier.yearlyRate)}/yr
+                  </p>
+                )}
+              </div>
             </div>
-            <p className="text-2xl font-bold mt-1">
-              {timeToTarget !== null
-                ? timeToTarget === 0
-                  ? "Reached!"
-                  : `~${timeToTarget}yr`
-                : "—"}
-            </p>
-            {targetTier && (
-              <p className="text-xs text-muted-foreground">
-                Target: {fmtFull(targetTier.yearlyRate)}/yr
-              </p>
-            )}
           </CardContent>
         </Card>
       </div>
 
       {/* ── Income Growth Chart ── */}
       {chartData.length >= 2 && (
-        <Card>
+        <Card className="shadow-sm hover:shadow-md transition-shadow">
           <CardHeader className="pb-2">
-            <CardTitle className="text-lg">Income Growth</CardTitle>
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-900/40">
+                <TrendingUp className="h-4.5 w-4.5 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div>
+                <CardTitle className="text-lg">Income Growth</CardTitle>
+                <p className="text-xs text-muted-foreground">Year-over-year gross &amp; net income</p>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -1557,32 +1624,32 @@ export default function CareerModelPage() {
                 ))}
               </LineChart>
             </ResponsiveContainer>
-            <div className="flex flex-wrap gap-4 mt-3 text-xs text-muted-foreground">
-              <span className="flex items-center gap-1.5">
-                <span className="h-2 w-4 rounded bg-orange-500" /> Gross Income
+            <div className="flex flex-wrap gap-3 mt-4 pt-3 border-t text-xs text-muted-foreground">
+              <span className="flex items-center gap-1.5 rounded-full bg-blue-50 dark:bg-blue-950/40 px-2.5 py-1">
+                <span className="h-2 w-2 rounded-full bg-blue-500" /> Gross Income
               </span>
-              <span className="flex items-center gap-1.5">
-                <span className="h-2 w-4 rounded bg-emerald-500" /> Net Income (AGI)
+              <span className="flex items-center gap-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-1">
+                <span className="h-2 w-2 rounded-full bg-emerald-500" /> Net Income (AGI)
               </span>
               {liveEstimate && !hasManualCurrentYear && (
-                <span className="flex items-center gap-1.5">
-                  <span className="h-2 w-4 rounded bg-amber-500" /> Live Estimate
+                <span className="flex items-center gap-1.5 rounded-full bg-amber-50 dark:bg-amber-950/40 px-2.5 py-1">
+                  <span className="h-2 w-2 rounded-full bg-amber-500" /> Live Estimate
                 </span>
               )}
               {showProjections && projections.realistic.length > 0 && (
                 <>
-                  <span className="flex items-center gap-1.5">
-                    <span className="h-2 w-4 rounded bg-emerald-500 opacity-50" /> Conservative ({pct(projections.rates.conservative)})
+                  <span className="flex items-center gap-1.5 rounded-full bg-emerald-50/60 dark:bg-emerald-950/30 px-2.5 py-1">
+                    <span className="h-2 w-2 rounded-full bg-emerald-500 opacity-50" /> Conservative ({pct(projections.rates.conservative)})
                   </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="h-2 w-4 rounded bg-orange-500 opacity-70" /> Realistic ({pct(projections.rates.realistic)})
+                  <span className="flex items-center gap-1.5 rounded-full bg-blue-50/60 dark:bg-blue-950/30 px-2.5 py-1">
+                    <span className="h-2 w-2 rounded-full bg-blue-500 opacity-70" /> Realistic ({pct(projections.rates.realistic)})
                   </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="h-2 w-4 rounded bg-purple-500 opacity-50" /> Optimistic ({pct(projections.rates.optimistic)})
+                  <span className="flex items-center gap-1.5 rounded-full bg-purple-50/60 dark:bg-purple-950/30 px-2.5 py-1">
+                    <span className="h-2 w-2 rounded-full bg-purple-500 opacity-50" /> Optimistic ({pct(projections.rates.optimistic)})
                   </span>
                   {projections.employerMin.length > 0 && (
-                    <span className="flex items-center gap-1.5">
-                      <span className="h-2 w-4 rounded bg-amber-500 opacity-70" /> Employer-Based ({pct(projections.rates.employerMin)}–{pct(projections.rates.employerMax)})
+                    <span className="flex items-center gap-1.5 rounded-full bg-amber-50/60 dark:bg-amber-950/30 px-2.5 py-1">
+                      <span className="h-2 w-2 rounded-full bg-amber-500 opacity-70" /> Employer-Based ({pct(projections.rates.employerMin)}–{pct(projections.rates.employerMax)})
                     </span>
                   )}
                 </>
@@ -1594,12 +1661,29 @@ export default function CareerModelPage() {
 
       {/* ── Employer Breakdown Chart (stacked bar) ── */}
       {hasAnyEntries && stackedChartData.length >= 1 && (
-        <Card>
+        <Card className="shadow-sm hover:shadow-md transition-shadow">
           <CardHeader className="pb-2">
-            <CardTitle className="text-lg">Income by Employer</CardTitle>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-100 dark:bg-violet-900/40">
+                  <Users className="h-4.5 w-4.5 text-violet-600 dark:text-violet-400" />
+                </div>
+                <div>
+                  <CardTitle className="text-lg">Income by Employer</CardTitle>
+                  <p className="text-xs text-muted-foreground">
+                    {stackedEmployers.length} employer{stackedEmployers.length !== 1 ? "s" : ""} across {stackedChartData.length} year{stackedChartData.length !== 1 ? "s" : ""}
+                  </p>
+                </div>
+              </div>
+              {stackedEmployers.length > 6 && (
+                <Badge variant="secondary" className="text-[10px]">
+                  {stackedEmployers.length} employers
+                </Badge>
+              )}
+            </div>
           </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
+          <CardContent className="space-y-4">
+            <ResponsiveContainer width="100%" height={stackedEmployers.length > 6 ? 360 : 300}>
               <BarChart data={stackedChartData}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                 <XAxis dataKey="year" fontSize={12} />
@@ -1608,7 +1692,6 @@ export default function CareerModelPage() {
                   formatter={(value) => [fmtFull(Number(value ?? 0))]}
                   labelFormatter={(label) => `Year ${label}`}
                 />
-                <Legend />
                 {stackedEmployers.map((name, i) => (
                   <Bar
                     key={name}
@@ -1629,6 +1712,36 @@ export default function CareerModelPage() {
                 ))}
               </BarChart>
             </ResponsiveContainer>
+
+            {/* Custom compact legend — replaces Recharts Legend */}
+            <div className={`grid gap-2 pt-3 border-t ${
+              stackedEmployers.length > 4 ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4" : "grid-cols-2 sm:grid-cols-4"
+            }`}>
+              {stackedEmployers.map((name, i) => {
+                const total = stackedChartData.reduce(
+                  (sum, pt) => sum + (Number(pt[name]) || 0), 0
+                );
+                return (
+                  <div
+                    key={name}
+                    className="flex items-center gap-2 rounded-lg border px-2.5 py-2 bg-muted/20 hover:bg-muted/40 transition-colors min-w-0"
+                  >
+                    <span
+                      className="h-3 w-3 shrink-0 rounded-sm"
+                      style={{ backgroundColor: EMPLOYER_COLORS[i % EMPLOYER_COLORS.length] }}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-medium truncate" title={name}>
+                        {name}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground font-mono">
+                        {fmtFull(total)}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </CardContent>
         </Card>
       )}
@@ -1637,10 +1750,18 @@ export default function CareerModelPage() {
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Income History Table */}
         <div className="lg:col-span-2 space-y-4">
-          <Card>
+          <Card className="shadow-sm">
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-sm">Income History</CardTitle>
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-orange-100 dark:bg-orange-900/40">
+                    <FileText className="h-4.5 w-4.5 text-orange-600 dark:text-orange-400" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-sm">Income History</CardTitle>
+                    <p className="text-xs text-muted-foreground">All recorded income years</p>
+                  </div>
+                </div>
                 <div className="flex gap-2">
                   <Button size="sm" variant="outline" onClick={() => setDocPickerOpen(true)}>
                     <Upload className="h-4 w-4 mr-1" /> Import Income Doc
@@ -1950,8 +2071,9 @@ export default function CareerModelPage() {
 
           {/* Projections toggle + explanation + controls */}
           {incomeYears.length >= 2 && (
-            <Card className="border-amber-200 dark:border-amber-800 bg-amber-50/30 dark:bg-amber-950/20">
-              <CardContent className="p-4 space-y-4">
+            <Card className="relative overflow-hidden border-amber-200 dark:border-amber-800 bg-gradient-to-br from-amber-50/50 via-orange-50/30 to-transparent dark:from-amber-950/30 dark:via-orange-950/20 dark:to-transparent">
+              <div className="absolute top-0 right-0 h-24 w-24 bg-gradient-to-bl from-amber-200/20 to-transparent rounded-bl-full pointer-events-none" />
+              <CardContent className="p-4 space-y-4 relative">
                 <div className="flex items-start justify-between gap-4">
                   <div className="space-y-1.5 flex-1">
                     <p className="text-sm font-medium flex items-center gap-2">
@@ -2019,12 +2141,14 @@ export default function CareerModelPage() {
 
           {/* Scenario Projections */}
           {showProjections && projections.realistic.length > 0 && (
-            <Card>
+            <Card className="shadow-sm">
               <CardHeader className="pb-2">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5 text-purple-600" />
-                  Income Projections
-                </CardTitle>
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-purple-100 dark:bg-purple-900/40">
+                    <TrendingUp className="h-4.5 w-4.5 text-purple-600 dark:text-purple-400" />
+                  </div>
+                  <CardTitle className="text-lg">Income Projections</CardTitle>
+                </div>
               </CardHeader>
               <CardContent className="space-y-3">
                 <p className="text-xs text-muted-foreground flex items-center gap-1">
@@ -2034,7 +2158,7 @@ export default function CareerModelPage() {
                 </p>
                 <div className="space-y-2">
                   {[1, 3, 5, 10].map((horizon, hi) => (
-                    <div key={horizon} className="rounded-lg border p-3">
+                    <div key={horizon} className="rounded-xl border p-4 hover:shadow-sm transition-shadow bg-gradient-to-r from-muted/10 to-transparent">
                       <p className="text-xs font-medium text-muted-foreground mb-2">
                         In {horizon} year{horizon > 1 ? "s" : ""} ({effectiveLatest!.year + horizon})
                       </p>
@@ -2076,10 +2200,15 @@ export default function CareerModelPage() {
 
         {/* Wage Tiers Sidebar */}
         <div className="space-y-4">
-          <Card>
+          <Card className="shadow-sm">
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-lg">Wage Goals</CardTitle>
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-900/40">
+                    <Target className="h-4.5 w-4.5 text-amber-600 dark:text-amber-400" />
+                  </div>
+                  <CardTitle className="text-lg">Wage Goals</CardTitle>
+                </div>
                 <Button size="sm" variant="outline" onClick={openAddTier}>
                   <Plus className="h-4 w-4 mr-1" /> Add
                 </Button>
@@ -2102,14 +2231,14 @@ export default function CareerModelPage() {
                     const reached = currentGross >= t.yearlyRate;
 
                     return (
-                      <div key={t.id} className="rounded-lg border p-3 space-y-2">
+                      <div key={t.id} className="rounded-xl border p-4 space-y-3 hover:shadow-sm transition-shadow" style={{ borderLeftWidth: '3px', borderLeftColor: t.color }}>
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2.5">
                             <div
-                              className="h-3 w-3 rounded-full"
-                              style={{ backgroundColor: t.color }}
+                              className="h-4 w-4 rounded-full ring-2 ring-offset-2 ring-offset-background"
+                              style={{ backgroundColor: t.color, ["--tw-ring-color" as string]: t.color }}
                             />
-                            <span className="text-sm font-medium">{t.label}</span>
+                            <span className="text-sm font-semibold">{t.label}</span>
                           </div>
                           <div className="flex gap-1">
                             <button onClick={() => openEditTier(t)} className="p-1 rounded hover:bg-muted">
@@ -2120,9 +2249,9 @@ export default function CareerModelPage() {
                             </button>
                           </div>
                         </div>
-                        <div className="flex justify-between text-sm">
-                          <span className="font-mono">${t.hourlyRate}/hr</span>
-                          <span className="font-mono">{fmtFull(t.yearlyRate)}/yr</span>
+                        <div className="flex justify-between text-sm bg-muted/30 rounded-lg p-2">
+                          <span className="font-mono font-medium">${t.hourlyRate}/hr</span>
+                          <span className="font-mono font-medium">{fmtFull(t.yearlyRate)}/yr</span>
                         </div>
                         {effectiveLatest && (
                           <>
@@ -2154,12 +2283,15 @@ export default function CareerModelPage() {
 
           {/* Time-to-Target Card */}
           {showProjections && targetTier && effectiveLatest && timeToTarget !== null && timeToTarget > 0 && (
-            <Card className="border-purple-200 dark:border-purple-800 bg-purple-50/50 dark:bg-purple-950/50">
-              <CardContent className="p-4 space-y-2">
-                <p className="text-sm font-medium flex items-center gap-1.5">
-                  <Target className="h-4 w-4 text-purple-600" />
-                  Time to Target
-                </p>
+            <Card className="relative overflow-hidden border-purple-200 dark:border-purple-800 bg-gradient-to-br from-purple-50 via-violet-50/50 to-transparent dark:from-purple-950/60 dark:via-violet-950/30 dark:to-transparent shadow-sm">
+              <div className="absolute top-0 right-0 h-20 w-20 bg-gradient-to-bl from-purple-200/30 to-transparent rounded-bl-full pointer-events-none" />
+              <CardContent className="p-4 space-y-3 relative">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-purple-100 dark:bg-purple-900/50">
+                    <Target className="h-4.5 w-4.5 text-purple-600 dark:text-purple-400" />
+                  </div>
+                  <p className="text-sm font-semibold">Time to Target</p>
+                </div>
                 <p className="text-xs text-muted-foreground">
                   At {pct(projections.rates.realistic)}/yr (realistic), you&apos;ll reach{" "}
                   <span className="font-medium">{targetTier.label}</span> ({fmtFull(targetTier.yearlyRate)}/yr)

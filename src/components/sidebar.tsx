@@ -21,6 +21,7 @@ import {
   BarChart3,
   FolderOpen,
   BookOpen,
+  Brain,
   Shield,
   ChevronDown,
   LogOut,
@@ -43,6 +44,7 @@ const iconMap: Record<string, React.ElementType> = {
   BarChart3,
   BookOpen,
   FolderOpen,
+  Brain,
   Shield,
   Globe,
 };

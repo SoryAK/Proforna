@@ -3,7 +3,7 @@ import { logActivity } from "@/lib/activity";
 import { NextRequest, NextResponse } from "next/server";
 import { getUserId } from "@/lib/auth-utils";
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
 
 const ALLOWED_MIME_TYPES = [
   "application/pdf",

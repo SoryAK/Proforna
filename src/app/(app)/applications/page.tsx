@@ -20,6 +20,8 @@ import {
   Link2,
   BookOpen,
   Briefcase,
+  CheckSquare,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -68,6 +70,7 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
+import { Checkbox } from "@/components/ui/checkbox";
 import { OfferComparison } from "@/components/offer-comparison";
 import { InterviewPrepDialog } from "@/components/interview-prep";
 import { Scale } from "lucide-react";
@@ -154,9 +157,9 @@ const emptyInterviewForm = {
 };
 
 const interviewStatusStyle: Record<string, string> = {
-  scheduled: "bg-orange-100 text-orange-700",
-  completed: "bg-green-100 text-green-700",
-  cancelled: "bg-red-100 text-red-700",
+  scheduled: "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300",
+  completed: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300",
+  cancelled: "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300",
 };
 
 export default function ApplicationsPage() {
@@ -180,6 +183,9 @@ export default function ApplicationsPage() {
 
   // Interview prep dialog
   const [prepInterview, setPrepInterview] = useState<{ interview: InterviewDetail; company: string; role: string } | null>(null);
+
+  // Bulk selection
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const { data: applications = [], isLoading } = useQuery<Application[]>({
     queryKey: ["applications"],
@@ -251,6 +257,40 @@ export default function ApplicationsPage() {
       toast.success(`Linked ${data.linked} email${data.linked !== 1 ? "s" : ""} to applications`);
     },
     onError: () => toast.error("Failed to link emails"),
+  });
+
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      await Promise.all(
+        ids.map((id) => fetch(`/api/applications/${id}`, { method: "DELETE" }))
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["applications"] });
+      toast.success(`Deleted ${selectedIds.size} application${selectedIds.size !== 1 ? "s" : ""}`);
+      setSelectedIds(new Set());
+    },
+    onError: () => toast.error("Failed to delete some applications"),
+  });
+
+  const bulkStatusMutation = useMutation({
+    mutationFn: async ({ ids, status }: { ids: string[]; status: string }) => {
+      await Promise.all(
+        ids.map((id) =>
+          fetch(`/api/applications/${id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status }),
+          })
+        )
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["applications"] });
+      toast.success(`Updated ${selectedIds.size} application${selectedIds.size !== 1 ? "s" : ""}`);
+      setSelectedIds(new Set());
+    },
+    onError: () => toast.error("Failed to update some applications"),
   });
 
   /* ── Interview mutations ── */
@@ -458,6 +498,50 @@ export default function ApplicationsPage() {
         </div>
       </div>
 
+      {/* Bulk action bar */}
+      {selectedIds.size > 0 && (
+        <div className="flex items-center gap-3 border-b bg-orange-50 dark:bg-orange-950/30 px-4 py-2">
+          <span className="text-sm font-medium">
+            <CheckSquare className="mr-1.5 inline h-4 w-4" />
+            {selectedIds.size} selected
+          </span>
+          <Select
+            onValueChange={(v) => {
+              const status = typeof v === "string" ? v : null;
+              if (status) bulkStatusMutation.mutate({ ids: [...selectedIds], status });
+            }}
+          >
+            <SelectTrigger className="w-40 h-8 text-xs">
+              <SelectValue placeholder="Change status…" />
+            </SelectTrigger>
+            <SelectContent>
+              {APPLICATION_STATUSES.map((s) => (
+                <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            size="sm"
+            variant="destructive"
+            className="h-8 text-xs"
+            onClick={() => bulkDeleteMutation.mutate([...selectedIds])}
+            disabled={bulkDeleteMutation.isPending}
+          >
+            <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+            Delete ({selectedIds.size})
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-8 text-xs"
+            onClick={() => setSelectedIds(new Set())}
+          >
+            <X className="mr-1.5 h-3.5 w-3.5" />
+            Clear
+          </Button>
+        </div>
+      )}
+
       {/* Content */}
       <div className="flex-1 overflow-auto p-4">
         {view === "kanban" ? (
@@ -482,6 +566,8 @@ export default function ApplicationsPage() {
             onToggleExpand={(id) => setExpandedAppId(expandedAppId === id ? null : id)}
             onCompare={setCompareApp}
             onOpenPrep={(iv, app) => setPrepInterview({ interview: iv, company: app.company, role: app.role })}
+            selectedIds={selectedIds}
+            onSelectionChange={setSelectedIds}
           />
         )}
       </div>
@@ -1001,6 +1087,8 @@ function TableView({
   onOpenPrep,
   expandedAppId,
   onToggleExpand,
+  selectedIds,
+  onSelectionChange,
 }: {
   applications: Application[];
   onEdit: (app: Application) => void;
@@ -1012,12 +1100,39 @@ function TableView({
   onOpenPrep: (iv: InterviewDetail, app: Application) => void;
   expandedAppId: string | null;
   onToggleExpand: (id: string) => void;
+  selectedIds: Set<string>;
+  onSelectionChange: (ids: Set<string>) => void;
 }) {
+  const allSelected = applications.length > 0 && applications.every((a) => selectedIds.has(a.id));
+  const someSelected = applications.some((a) => selectedIds.has(a.id));
+
+  function toggleAll() {
+    if (allSelected) {
+      onSelectionChange(new Set());
+    } else {
+      onSelectionChange(new Set(applications.map((a) => a.id)));
+    }
+  }
+
+  function toggleOne(id: string) {
+    const next = new Set(selectedIds);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    onSelectionChange(next);
+  }
+
   return (
     <div className="rounded-md border">
       <Table>
         <TableHeader>
           <TableRow>
+            <TableHead className="w-10">
+              <Checkbox
+                checked={allSelected}
+                indeterminate={someSelected && !allSelected}
+                onCheckedChange={toggleAll}
+              />
+            </TableHead>
             <TableHead>Company</TableHead>
             <TableHead>Role</TableHead>
             <TableHead>Status</TableHead>
@@ -1031,7 +1146,7 @@ function TableView({
         <TableBody>
           {applications.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={8} className="h-[300px] text-center">
+              <TableCell colSpan={9} className="h-[300px] text-center">
                 <div className="flex flex-col items-center justify-center space-y-3">
                   <div className="bg-orange-100 dark:bg-orange-900/30 p-3 rounded-full">
                     <Briefcase className="h-6 w-6 text-orange-600 dark:text-orange-400" />
@@ -1050,6 +1165,12 @@ function TableView({
                   key={app.id}
                   className={cn(expandedAppId === app.id && "border-b-0 bg-muted/30")}
                 >
+                  <TableCell>
+                    <Checkbox
+                      checked={selectedIds.has(app.id)}
+                      onCheckedChange={() => toggleOne(app.id)}
+                    />
+                  </TableCell>
                   <TableCell className="font-medium">{app.company}</TableCell>
                   <TableCell>{app.role}</TableCell>
                   <TableCell>
@@ -1107,7 +1228,7 @@ function TableView({
                 </TableRow>
                 {expandedAppId === app.id && app.interviews.length > 0 && (
                   <TableRow key={`${app.id}-interviews`} className="bg-muted/30">
-                    <TableCell colSpan={8} className="p-0">
+                    <TableCell colSpan={9} className="p-0">
                       <div className="px-6 py-3 space-y-2">
                         <div className="flex items-center justify-between">
                           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">

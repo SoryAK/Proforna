@@ -43,6 +43,8 @@ model User {
   careerPaths         CareerPath[]
   careerSnapshots     CareerSnapshot[]
   learningItems       LearningItem[]
+  learningTopics      LearningTopic[]
+  studySessions       StudySession[]
   researchFeeds       ResearchFeed[]
   marketSearches      MarketSearch[]
   companyProfiles     CompanyProfile[]
@@ -894,4 +896,46 @@ model SiteVideoFeed {
   videosJson  String                     // JSON array of video objects
   fetchedAt   DateTime @default(now())
   staleAfter  DateTime                   // fetchedAt + staleness window
+}
+
+// ─── Micro-Learning ────────────────────────────────────────────
+
+model LearningTopic {
+  id          String   @id @default(uuid())
+  userId      String
+  documentId  String?
+  title       String
+  summary     String
+  content     String
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  questions QuizQuestion[]
+  sessions  StudySession[]
+}
+
+model QuizQuestion {
+  id           String  @id @default(uuid())
+  topicId      String
+  question     String
+  type         String  @default("multiple_choice") // multiple_choice, true_false
+  optionsJson  String  // JSON array of option strings
+  answer       String
+  explanation  String?
+
+  topic LearningTopic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+}
+
+model StudySession {
+  id          String   @id @default(uuid())
+  userId      String
+  topicId     String
+  score       Int      @default(0)
+  totalQs     Int      @default(0)
+  completedAt DateTime @default(now())
+
+  user  User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  topic LearningTopic @relation(fields: [topicId], references: [id], onDelete: Cascade)
 }

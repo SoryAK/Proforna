@@ -46,6 +46,9 @@ const CATEGORIES = [
   { value: "contract", label: "Contract" },
   { value: "pay_stub", label: "Pay Stub" },
   { value: "tax_form", label: "Tax Form" },
+  { value: "manual", label: "Manual / Guide" },
+  { value: "ebook", label: "eBook" },
+  { value: "learning_material", label: "Learning Material" },
   { value: "other", label: "Other" },
 ] as const;
 
@@ -56,6 +59,9 @@ const CATEGORY_COLORS: Record<string, string> = {
   contract: "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300",
   pay_stub: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300",
   tax_form: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300",
+  manual: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300",
+  ebook: "bg-sky-100 text-sky-700 dark:bg-sky-900 dark:text-sky-300",
+  learning_material: "bg-teal-100 text-teal-700 dark:bg-teal-900 dark:text-teal-300",
   other: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
 };
 

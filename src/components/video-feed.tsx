@@ -188,7 +188,7 @@ export function VideoFeed() {
               </div>
 
               <CardContent className="p-3 space-y-1">
-                <h3 className="text-sm font-medium leading-snug line-clamp-2 group-hover:text-orange-600 transition-colors">
+                <h3 className="text-sm font-medium leading-snug line-clamp-2 group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors">
                   {decodeHtmlEntities(video.title)}
                 </h3>
                 <p className="text-xs text-muted-foreground flex items-center gap-1">

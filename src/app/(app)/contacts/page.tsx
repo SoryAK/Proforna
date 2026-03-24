@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Plus, MoreHorizontal, Pencil, Trash2, Mail, Phone, Linkedin, Users } from "lucide-react";
+import { Plus, MoreHorizontal, Pencil, Trash2, Mail, Phone, Linkedin, Users, CheckSquare, X } from "lucide-react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import { RELATIONSHIP_TYPES } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -33,6 +34,7 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface Contact {
   id: string;
@@ -61,11 +63,11 @@ const emptyForm = {
 };
 
 const relationshipColors: Record<string, string> = {
-  recruiter: "bg-orange-100 text-orange-700",
-  referral: "bg-purple-100 text-purple-700",
-  colleague: "bg-green-100 text-green-700",
-  mentor: "bg-amber-100 text-amber-700",
-  other: "bg-gray-100 text-gray-700",
+  recruiter: "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300",
+  referral: "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300",
+  colleague: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300",
+  mentor: "bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300",
+  other: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
 };
 
 export default function ContactsPage() {
@@ -74,6 +76,7 @@ export default function ContactsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [search, setSearch] = useState("");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const { data: contacts = [], isLoading } = useQuery<Contact[]>({
     queryKey: ["contacts"],
@@ -109,6 +112,25 @@ export default function ContactsPage() {
       toast.success("Contact deleted");
     },
   });
+
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      await Promise.all(ids.map((id) => fetch(`/api/contacts/${id}`, { method: "DELETE" })));
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["contacts"] });
+      toast.success(`Deleted ${selectedIds.size} contact${selectedIds.size !== 1 ? "s" : ""}`);
+      setSelectedIds(new Set());
+    },
+    onError: () => toast.error("Failed to delete some contacts"),
+  });
+
+  function toggleSelect(id: string) {
+    const next = new Set(selectedIds);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setSelectedIds(next);
+  }
 
   function closeDialog() {
     setDialogOpen(false);
@@ -194,6 +216,35 @@ export default function ContactsPage() {
         </div>
       </div>
 
+      {/* Bulk action bar */}
+      {selectedIds.size > 0 && (
+        <div className="flex items-center gap-3 border-b bg-orange-50 dark:bg-orange-950/30 px-4 py-2">
+          <span className="text-sm font-medium">
+            <CheckSquare className="mr-1.5 inline h-4 w-4" />
+            {selectedIds.size} selected
+          </span>
+          <Button
+            size="sm"
+            variant="destructive"
+            className="h-8 text-xs"
+            onClick={() => bulkDeleteMutation.mutate([...selectedIds])}
+            disabled={bulkDeleteMutation.isPending}
+          >
+            <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+            Delete ({selectedIds.size})
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-8 text-xs"
+            onClick={() => setSelectedIds(new Set())}
+          >
+            <X className="mr-1.5 h-3.5 w-3.5" />
+            Clear
+          </Button>
+        </div>
+      )}
+
       <div className="flex-1 overflow-auto p-4">
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center p-12 text-center border-2 border-dashed rounded-lg bg-slate-50/50 dark:bg-slate-900/50 h-[300px]">
@@ -208,10 +259,14 @@ export default function ContactsPage() {
         ) : (
           <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
             {filtered.map((c) => (
-              <Card key={c.id}>
+              <Card key={c.id} className={cn(selectedIds.has(c.id) && "ring-2 ring-orange-500")}>
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
+                      <Checkbox
+                        checked={selectedIds.has(c.id)}
+                        onCheckedChange={() => toggleSelect(c.id)}
+                      />
                       <Avatar>
                         <AvatarFallback>{initials(c.name)}</AvatarFallback>
                       </Avatar>

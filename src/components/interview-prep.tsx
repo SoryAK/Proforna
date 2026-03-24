@@ -20,6 +20,11 @@ import {
   MessageSquare,
   ClipboardCheck,
   Star,
+  Sparkles,
+  Loader2,
+  Lightbulb,
+  HelpCircle,
+  Building2,
 } from "lucide-react";
 
 interface Interview {
@@ -82,6 +87,19 @@ const COMMON_QUESTIONS: Record<string, string[]> = {
   ],
 };
 
+interface AIQuestion {
+  question: string;
+  tip?: string;
+  category?: string;
+}
+
+interface AIResponse {
+  questions?: AIQuestion[];
+  companyInsights?: string[];
+  talkingPoints?: string[];
+  questionsToAsk?: string[];
+}
+
 export function InterviewPrepDialog({
   interview,
   company,
@@ -103,6 +121,8 @@ export function InterviewPrepDialog({
   const [reflectionRating, setReflectionRating] = useState(
     interview.reflectionRating || 0
   );
+  const [aiData, setAiData] = useState<AIResponse | null>(null);
+  const [showTips, setShowTips] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
     setPrepNotes(interview.prepNotes || "");
@@ -131,6 +151,46 @@ export function InterviewPrepDialog({
       toast.success("Interview prep saved");
     },
     onError: () => toast.error("Failed to save"),
+  });
+
+  const aiMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/interview-prep", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          company,
+          role,
+          interviewType: interview.type,
+          interviewerRole: interview.interviewerRole,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to generate");
+      return res.json() as Promise<AIResponse>;
+    },
+    onSuccess: (data) => {
+      setAiData(data);
+      if (data.questions?.length) {
+        const existing = new Set(questions);
+        const aiQuestions = data.questions
+          .map((q) => q.question)
+          .filter((q) => !existing.has(q));
+        setQuestions([...questions, ...aiQuestions]);
+        toast.success(`Generated ${aiQuestions.length} questions`);
+      }
+      if (data.companyInsights?.length || data.talkingPoints?.length) {
+        const insightsSection = data.companyInsights?.length
+          ? `\n\n🏢 AI Company Insights:\n${data.companyInsights.map((i) => `• ${i}`).join("\n")}`
+          : "";
+        const talkingSection = data.talkingPoints?.length
+          ? `\n\n💡 Talking Points:\n${data.talkingPoints.map((t) => `• ${t}`).join("\n")}`
+          : "";
+        if (insightsSection || talkingSection) {
+          setPrepNotes((prev) => (prev ? prev + insightsSection + talkingSection : (insightsSection + talkingSection).trim()));
+        }
+      }
+    },
+    onError: () => toast.error("Failed to generate AI questions"),
   });
 
   function handleSave() {
@@ -191,8 +251,51 @@ export function InterviewPrepDialog({
 
           {/* ── Research / Prep Notes ── */}
           <TabsContent value="prep" className="space-y-4 mt-4">
-            <div>
+            <div className="flex items-center justify-between">
               <Label className="text-sm font-semibold">Company Research & Prep Notes</Label>
+              {!aiData && (
+                <Button
+                  size="sm"
+                  onClick={() => { aiMutation.mutate(); setTab("questions"); }}
+                  disabled={aiMutation.isPending}
+                  className="text-xs bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
+                >
+                  {aiMutation.isPending ? (
+                    <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> Generating…</>
+                  ) : (
+                    <><Sparkles className="mr-1.5 h-3.5 w-3.5" /> AI Research</>
+                  )}
+                </Button>
+              )}
+            </div>
+
+            {aiData?.companyInsights && aiData.companyInsights.length > 0 && (
+              <div className="rounded-md border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/50 p-3 space-y-1.5">
+                <p className="text-xs font-semibold text-blue-700 dark:text-blue-300 flex items-center gap-1.5">
+                  <Building2 className="h-3.5 w-3.5" /> AI Company Insights
+                </p>
+                {aiData.companyInsights.map((insight, i) => (
+                  <p key={i} className="text-sm text-blue-600 dark:text-blue-400 flex items-start gap-1.5">
+                    <span className="shrink-0">•</span> {insight}
+                  </p>
+                ))}
+              </div>
+            )}
+
+            {aiData?.talkingPoints && aiData.talkingPoints.length > 0 && (
+              <div className="rounded-md border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/50 p-3 space-y-1.5">
+                <p className="text-xs font-semibold text-green-700 dark:text-green-300 flex items-center gap-1.5">
+                  <Lightbulb className="h-3.5 w-3.5" /> Talking Points to Prepare
+                </p>
+                {aiData.talkingPoints.map((point, i) => (
+                  <p key={i} className="text-sm text-green-600 dark:text-green-400 flex items-start gap-1.5">
+                    <span className="shrink-0">•</span> {point}
+                  </p>
+                ))}
+              </div>
+            )}
+
+            <div>
               <p className="text-xs text-muted-foreground mb-2">
                 Company background, recent news, team info, talking points
               </p>
@@ -207,38 +310,118 @@ export function InterviewPrepDialog({
 
           {/* ── Questions ── */}
           <TabsContent value="questions" className="space-y-4 mt-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-2">
               <Label className="text-sm font-semibold">
                 Questions ({questions.length})
               </Label>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={addSuggestedQuestions}
-                className="text-xs"
-              >
-                + Add Suggested ({interview.type})
-              </Button>
-            </div>
-            <div className="space-y-2">
-              {questions.map((q, i) => (
-                <div
-                  key={i}
-                  className="flex items-start gap-2 rounded-md border px-3 py-2 bg-muted/30"
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={addSuggestedQuestions}
+                  className="text-xs"
                 >
-                  <span className="text-xs text-muted-foreground mt-0.5 font-mono w-5">
-                    {i + 1}.
-                  </span>
-                  <span className="text-sm flex-1">{q}</span>
-                  <button
-                    onClick={() => removeQuestion(i)}
-                    className="text-xs text-red-500 hover:text-red-700 shrink-0"
-                  >
-                    ✕
-                  </button>
-                </div>
-              ))}
+                  + Add Suggested ({interview.type})
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => aiMutation.mutate()}
+                  disabled={aiMutation.isPending}
+                  className="text-xs bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
+                >
+                  {aiMutation.isPending ? (
+                    <>
+                      <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                      Generating…
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+                      AI Generate
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
+
+            {aiMutation.isPending && (
+              <div className="rounded-md border border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-950/50 p-3 text-sm text-purple-700 dark:text-purple-300 flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+                Generating personalized questions for {role} at {company}…
+              </div>
+            )}
+
+            <div className="space-y-2">
+              {questions.map((q, i) => {
+                const aiQ = aiData?.questions?.find((aq) => aq.question === q);
+                return (
+                  <div
+                    key={i}
+                    className="rounded-md border px-3 py-2 bg-muted/30"
+                  >
+                    <div className="flex items-start gap-2">
+                      <span className="text-xs text-muted-foreground mt-0.5 font-mono w-5">
+                        {i + 1}.
+                      </span>
+                      <span className="text-sm flex-1">{q}</span>
+                      <div className="flex items-center gap-1 shrink-0">
+                        {aiQ?.tip && (
+                          <button
+                            onClick={() => setShowTips((prev) => ({ ...prev, [i]: !prev[i] }))}
+                            className="text-xs text-purple-500 hover:text-purple-700 dark:hover:text-purple-300"
+                            title="Show AI tip"
+                          >
+                            <Lightbulb className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                        {aiQ?.category && (
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                            {aiQ.category}
+                          </Badge>
+                        )}
+                        <button
+                          onClick={() => removeQuestion(i)}
+                          className="text-xs text-red-500 hover:text-red-700 shrink-0"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </div>
+                    {aiQ?.tip && showTips[i] && (
+                      <div className="ml-7 mt-1.5 text-xs text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/50 rounded px-2 py-1.5 flex items-start gap-1.5">
+                        <Lightbulb className="h-3 w-3 mt-0.5 shrink-0" />
+                        {aiQ.tip}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Questions to ask the interviewer */}
+            {aiData?.questionsToAsk && aiData.questionsToAsk.length > 0 && (
+              <>
+                <Separator />
+                <div>
+                  <Label className="text-sm font-semibold flex items-center gap-1.5">
+                    <HelpCircle className="h-3.5 w-3.5" />
+                    Questions to Ask the Interviewer
+                  </Label>
+                  <div className="mt-2 space-y-1.5">
+                    {aiData.questionsToAsk.map((q, i) => (
+                      <div
+                        key={i}
+                        className="text-sm text-muted-foreground flex items-start gap-2 px-2"
+                      >
+                        <span className="text-purple-500 mt-0.5">→</span>
+                        {q}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+
             <form
               onSubmit={(e) => {
                 e.preventDefault();

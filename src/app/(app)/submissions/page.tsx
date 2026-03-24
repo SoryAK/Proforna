@@ -33,6 +33,8 @@ import {
   Archive,
   Trash2,
   LinkIcon,
+  CheckSquare,
+  X,
 } from "lucide-react";
 import { format } from "date-fns";
 import {
@@ -40,6 +42,8 @@ import {
   SUBMISSION_COLORS,
   type SubmissionStatus,
 } from "@/lib/constants";
+import { Checkbox } from "@/components/ui/checkbox";
+import { cn } from "@/lib/utils";
 
 interface Submission {
   id: string;
@@ -65,6 +69,7 @@ export default function SubmissionsPage() {
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [selectedSubmission, setSelectedSubmission] = useState<Submission | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const { data: submissions = [], isLoading } = useQuery<Submission[]>({
     queryKey: ["submissions"],
@@ -94,6 +99,45 @@ export default function SubmissionsPage() {
     },
   });
 
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      await Promise.all(ids.map((id) => fetch(`/api/submissions/${id}`, { method: "DELETE" })));
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["submissions"] });
+      toast.success(`Deleted ${selectedIds.size} submission${selectedIds.size !== 1 ? "s" : ""}`);
+      setSelectedIds(new Set());
+    },
+    onError: () => toast.error("Failed to delete some submissions"),
+  });
+
+  const bulkStatusMutation = useMutation({
+    mutationFn: async ({ ids, status }: { ids: string[]; status: string }) => {
+      await Promise.all(
+        ids.map((id) =>
+          fetch(`/api/submissions/${id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status }),
+          })
+        )
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["submissions"] });
+      toast.success(`Updated ${selectedIds.size} submission${selectedIds.size !== 1 ? "s" : ""}`);
+      setSelectedIds(new Set());
+    },
+    onError: () => toast.error("Failed to update some submissions"),
+  });
+
+  function toggleSelect(id: string) {
+    const next = new Set(selectedIds);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setSelectedIds(next);
+  }
+
   const filtered = submissions.filter((s) => {
     const matchesSearch =
       !search ||
@@ -117,7 +161,7 @@ export default function SubmissionsPage() {
             <Badge className="bg-orange-600 text-white ml-2">{newCount} new</Badge>
           )}
         </h1>
-        <p className="text-gray-500 text-sm mt-1">
+        <p className="text-muted-foreground text-sm mt-1">
           Review job opportunities submitted by recruiters through your portal.
         </p>
       </div>
@@ -125,7 +169,7 @@ export default function SubmissionsPage() {
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search by name, company, or job title..."
             className="pl-9"
@@ -149,15 +193,59 @@ export default function SubmissionsPage() {
         </Select>
       </div>
 
+      {/* Bulk action bar */}
+      {selectedIds.size > 0 && (
+        <div className="flex items-center gap-3 rounded-lg bg-orange-50 dark:bg-orange-950/30 border px-4 py-2">
+          <span className="text-sm font-medium">
+            <CheckSquare className="mr-1.5 inline h-4 w-4" />
+            {selectedIds.size} selected
+          </span>
+          <Select
+            onValueChange={(v) => {
+              const status = typeof v === "string" ? v : null;
+              if (status) bulkStatusMutation.mutate({ ids: [...selectedIds], status });
+            }}
+          >
+            <SelectTrigger className="w-40 h-8 text-xs">
+              <SelectValue placeholder="Change status…" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="new">New</SelectItem>
+              <SelectItem value="reviewed">Reviewed</SelectItem>
+              <SelectItem value="archived">Archived</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button
+            size="sm"
+            variant="destructive"
+            className="h-8 text-xs"
+            onClick={() => bulkDeleteMutation.mutate([...selectedIds])}
+            disabled={bulkDeleteMutation.isPending}
+          >
+            <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+            Delete ({selectedIds.size})
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-8 text-xs"
+            onClick={() => setSelectedIds(new Set())}
+          >
+            <X className="mr-1.5 h-3.5 w-3.5" />
+            Clear
+          </Button>
+        </div>
+      )}
+
       {/* Submissions Grid */}
       {isLoading ? (
-        <div className="text-center py-12 text-gray-500">Loading submissions...</div>
+        <div className="text-center py-12 text-muted-foreground">Loading submissions...</div>
       ) : filtered.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
-            <Inbox className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-500">No submissions yet</h3>
-            <p className="text-sm text-gray-400 mt-1">
+            <Inbox className="h-12 w-12 text-muted-foreground/40 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-muted-foreground">No submissions yet</h3>
+            <p className="text-sm text-muted-foreground/70 mt-1">
               Share your portal link with recruiters to start receiving opportunities.
             </p>
           </CardContent>
@@ -167,37 +255,48 @@ export default function SubmissionsPage() {
           {filtered.map((sub) => (
             <Card
               key={sub.id}
-              className="cursor-pointer hover:shadow-md transition-shadow"
+              className={cn(
+                "cursor-pointer hover:shadow-md transition-shadow",
+                selectedIds.has(sub.id) && "ring-2 ring-orange-500"
+              )}
               onClick={() => setSelectedSubmission(sub)}
             >
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
-                  <CardTitle className="text-base">{sub.jobTitle}</CardTitle>
+                  <div className="flex items-center gap-2">
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <Checkbox
+                        checked={selectedIds.has(sub.id)}
+                        onCheckedChange={() => toggleSelect(sub.id)}
+                      />
+                    </div>
+                    <CardTitle className="text-base">{sub.jobTitle}</CardTitle>
+                  </div>
                   <Badge className={SUBMISSION_COLORS[sub.status]}>
                     {SUBMISSION_LABELS[sub.status]}
                   </Badge>
                 </div>
               </CardHeader>
               <CardContent className="space-y-2 text-sm">
-                <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                <div className="flex items-center gap-2 text-muted-foreground">
                   <Mail className="h-3.5 w-3.5" />
                   <span>{sub.recruiterName}</span>
                   {sub.company && (
                     <>
-                      <span className="text-gray-300">·</span>
+                      <span className="text-muted-foreground/40">·</span>
                       <Building2 className="h-3.5 w-3.5" />
                       <span>{sub.company}</span>
                     </>
                   )}
                 </div>
                 {sub.location && (
-                  <div className="flex items-center gap-2 text-gray-500">
+                  <div className="flex items-center gap-2 text-muted-foreground">
                     <MapPin className="h-3.5 w-3.5" />
                     <span>{sub.location}</span>
                   </div>
                 )}
                 {(sub.salaryMin || sub.salaryMax) && (
-                  <div className="flex items-center gap-2 text-gray-500">
+                  <div className="flex items-center gap-2 text-muted-foreground">
                     <DollarSign className="h-3.5 w-3.5" />
                     <span>
                       {sub.salaryMin?.toLocaleString()}
@@ -206,7 +305,7 @@ export default function SubmissionsPage() {
                     </span>
                   </div>
                 )}
-                <p className="text-xs text-gray-400 pt-1">
+                <p className="text-xs text-muted-foreground/70 pt-1">
                   {format(new Date(sub.createdAt), "MMM d, yyyy 'at' h:mm a")}
                 </p>
               </CardContent>
@@ -235,7 +334,7 @@ export default function SubmissionsPage() {
                 <Badge className={SUBMISSION_COLORS[selectedSubmission.status]}>
                   {SUBMISSION_LABELS[selectedSubmission.status]}
                 </Badge>
-                <span className="text-xs text-gray-400">
+                <span className="text-xs text-muted-foreground/70">
                   {format(new Date(selectedSubmission.createdAt), "PPP 'at' p")}
                 </span>
               </div>
@@ -244,9 +343,9 @@ export default function SubmissionsPage() {
               <div className="rounded-lg border p-4 space-y-2">
                 <h4 className="text-sm font-semibold">Recruiter</h4>
                 <p className="text-sm">{selectedSubmission.recruiterName}</p>
-                <p className="text-sm text-gray-500">{selectedSubmission.recruiterEmail}</p>
+                <p className="text-sm text-muted-foreground">{selectedSubmission.recruiterEmail}</p>
                 {selectedSubmission.company && (
-                  <div className="flex items-center gap-2 text-sm text-gray-500">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Building2 className="h-3.5 w-3.5" />
                     {selectedSubmission.company}
                   </div>
@@ -269,7 +368,7 @@ export default function SubmissionsPage() {
               <div className="rounded-lg border p-4 space-y-2">
                 <h4 className="text-sm font-semibold">Job Details</h4>
                 {selectedSubmission.location && (
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <MapPin className="h-3.5 w-3.5" />
                     {selectedSubmission.location}
                     {selectedSubmission.jobType && (
@@ -280,7 +379,7 @@ export default function SubmissionsPage() {
                   </div>
                 )}
                 {(selectedSubmission.salaryMin || selectedSubmission.salaryMax) && (
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <DollarSign className="h-3.5 w-3.5" />
                     ${selectedSubmission.salaryMin?.toLocaleString()}
                     {selectedSubmission.salaryMin && selectedSubmission.salaryMax && " - "}
@@ -289,8 +388,8 @@ export default function SubmissionsPage() {
                 )}
                 {selectedSubmission.jobDescription && (
                   <div className="mt-2">
-                    <p className="text-xs font-medium text-gray-500 mb-1">Description</p>
-                    <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Description</p>
+                    <p className="text-sm text-foreground/80 whitespace-pre-wrap">
                       {selectedSubmission.jobDescription}
                     </p>
                   </div>
@@ -301,7 +400,7 @@ export default function SubmissionsPage() {
               {selectedSubmission.message && (
                 <div className="rounded-lg border p-4">
                   <h4 className="text-sm font-semibold mb-1">Message</h4>
-                  <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                  <p className="text-sm text-foreground/80 whitespace-pre-wrap">
                     {selectedSubmission.message}
                   </p>
                 </div>

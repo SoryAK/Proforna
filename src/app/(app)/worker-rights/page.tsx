@@ -50,42 +50,42 @@ const QUICK_QUESTIONS = [
     label: "Unsafe Working Conditions",
     question:
       "My workplace has unsafe conditions. What are my OSHA rights and how do I file a complaint?",
-    color: "text-orange-600",
+    color: "text-orange-600 dark:text-orange-400",
   },
   {
     icon: DollarSign,
     label: "Wage Theft",
     question:
       "I think my employer is not paying me correctly (overtime, minimum wage, or withheld wages). What can I do?",
-    color: "text-green-600",
+    color: "text-green-600 dark:text-green-400",
   },
   {
     icon: Ban,
     label: "Discrimination",
     question:
       "I'm experiencing discrimination at work based on my race, gender, age, or disability. What protections do I have?",
-    color: "text-purple-600",
+    color: "text-purple-600 dark:text-purple-400",
   },
   {
     icon: Megaphone,
     label: "Whistleblower Protections",
     question:
       "I want to report illegal activity at my company but I'm afraid of retaliation. What protections exist for whistleblowers?",
-    color: "text-blue-600",
+    color: "text-blue-600 dark:text-blue-400",
   },
   {
     icon: Siren,
     label: "Harassment",
     question:
       "I'm being harassed at work. What are my rights and what steps should I take to document and report it?",
-    color: "text-red-600",
+    color: "text-red-600 dark:text-red-400",
   },
   {
     icon: Scale,
     label: "Wrongful Termination",
     question:
       "I was fired and I believe it was illegal (retaliation, discrimination, breach of contract). What are my options?",
-    color: "text-amber-600",
+    color: "text-amber-600 dark:text-amber-400",
   },
 ];
 
