@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserId } from "@/lib/auth-utils";
+import { cached, TTL } from "@/lib/cache";
 
 /**
  * Commute estimate via OSRM public demo server (free, no key).
@@ -63,27 +64,33 @@ export async function GET(req: NextRequest) {
       { status: 400 }
     );
 
+  const cacheKey = `commute:${fromLat}:${fromLng}:${toLat}:${toLng}`;
+
   try {
-    // OSRM uses lng,lat order — request full geometry
-    const url = `https://router.project-osrm.org/route/v1/driving/${fromLng},${fromLat};${toLng},${toLat}?overview=full&geometries=polyline6`;
-    const res = await fetch(url);
-    const data = await res.json();
+    const result = await cached(cacheKey, TTL.COMMUTE, async () => {
+      // OSRM uses lng,lat order — request full geometry
+      const url = `https://router.project-osrm.org/route/v1/driving/${fromLng},${fromLat};${toLng},${toLat}?overview=full&geometries=polyline6`;
+      const res = await fetch(url);
+      const data = await res.json();
 
-    if (data.code !== "Ok" || !data.routes?.length)
-      return NextResponse.json(
-        { error: "No route found" },
-        { status: 404 }
-      );
+      if (data.code !== "Ok" || !data.routes?.length)
+        throw { status: 404, error: "No route found" };
 
-    const route = data.routes[0];
-    const durationMin = Math.round(route.duration / 60);
-    const distanceMi = Math.round((route.distance / 1609.34) * 10) / 10;
+      const route = data.routes[0];
+      const durationMin = Math.round(route.duration / 60);
+      const distanceMi = Math.round((route.distance / 1609.34) * 10) / 10;
 
-    // Decode polyline6 geometry into [[lat, lng], ...]
-    const geometry = route.geometry ? decodePolyline6(route.geometry) : [];
+      // Decode polyline6 geometry into [[lat, lng], ...]
+      const geometry = route.geometry ? decodePolyline6(route.geometry) : [];
 
-    return NextResponse.json({ durationMin, distanceMi, geometry });
-  } catch {
+      return { durationMin, distanceMi, geometry };
+    });
+
+    return NextResponse.json(result);
+  } catch (err: unknown) {
+    const e = err as { status?: number; error?: string };
+    if (e.status === 404)
+      return NextResponse.json({ error: e.error }, { status: 404 });
     return NextResponse.json(
       { error: "Routing service unavailable" },
       { status: 502 }

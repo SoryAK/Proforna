@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserId } from "@/lib/auth-utils";
+import { cached, TTL } from "@/lib/cache";
 
 /**
  * Batch geocode location strings → lat/lng via Nominatim (free, no key).
@@ -33,25 +34,26 @@ export async function POST(req: NextRequest) {
 
   const results: Record<string, GeoResult> = {};
 
-  // Batch with 1-second gaps to respect Nominatim usage policy
   for (const loc of unique) {
     try {
-      const encoded = encodeURIComponent(loc);
-      const res = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encoded}`,
-        { headers: { "User-Agent": "Resumsify/1.0" } }
-      );
-      const data = await res.json();
-      if (data.length > 0) {
-        results[loc] = {
-          lat: parseFloat(data[0].lat),
-          lng: parseFloat(data[0].lon),
-        };
-      }
-      // Nominatim rate limit: 1 request per second
-      if (unique.indexOf(loc) < unique.length - 1) {
+      const geo = await cached<GeoResult | null>(`geo:${loc}`, TTL.GEOCODE, async () => {
+        // Rate-limit delay BEFORE the actual request (only runs on cache miss)
         await new Promise((r) => setTimeout(r, 1100));
-      }
+        const encoded = encodeURIComponent(loc);
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encoded}`,
+          { headers: { "User-Agent": "Resumsify/1.0" } }
+        );
+        const data = await res.json();
+        if (data.length > 0) {
+          return {
+            lat: parseFloat(data[0].lat),
+            lng: parseFloat(data[0].lon),
+          };
+        }
+        return null;
+      });
+      if (geo) results[loc] = geo;
     } catch {
       // Skip failed geocodes silently
     }

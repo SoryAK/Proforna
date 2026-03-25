@@ -232,6 +232,18 @@ export default function JobMapLeaflet({
         maxClusterRadius={60}
         spiderfyOnMaxZoom
         showCoverageOnHover={false}
+        iconCreateFunction={(cluster: { getChildCount: () => number }) => {
+          const count = cluster.getChildCount();
+          const size = count < 10 ? 36 : count < 50 ? 42 : count < 100 ? 48 : 54;
+          const bg = count < 10 ? "#22c55e" : count < 50 ? "#3b82f6" : count < 100 ? "#f59e0b" : "#ef4444";
+          const fontSize = count < 100 ? 14 : count < 1000 ? 12 : 11;
+          return L.divIcon({
+            html: `<div style="display:flex;align-items:center;justify-content:center;width:${size}px;height:${size}px;border-radius:50%;background:${bg};color:#fff;font-weight:700;font-size:${fontSize}px;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.35);">${count}</div>`,
+            className: "",
+            iconSize: [size, size],
+            iconAnchor: [size / 2, size / 2],
+          });
+        }}
       >
         {jobs.map((job) => {
           const color = salaryColor(job.salaryMin, job.salaryMax, meanSalary);

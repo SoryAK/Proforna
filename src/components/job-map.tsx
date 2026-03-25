@@ -19,6 +19,7 @@ import {
   CircleDot,
   Car,
   Globe,
+  Eye,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,14 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import dynamic from "next/dynamic";
 
 /* ── Types ── */
@@ -47,6 +56,11 @@ interface MapJob {
   category: string;
   description: string;
   source: "adzuna" | "google";
+}
+
+/** Strip basic HTML tags from Adzuna descriptions */
+function stripHtml(html: string) {
+  return html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 }
 
 interface SearchResponse {
@@ -115,6 +129,7 @@ export function JobMap() {
   const [source, setSource] = useState<"adzuna" | "google" | "both">("both");
   const [commuteInfo, setCommuteInfo] = useState<{ durationMin: number; distanceMi: number; geometry: [number, number][] } | null>(null);
   const [commuteLoading, setCommuteLoading] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
   const queryClient = useQueryClient();
 
   // Fetch user profile for default location
@@ -132,23 +147,52 @@ export function JobMap() {
     }
   }, [profile, where]);
 
-  // Adzuna search query
+  // Adzuna search query — fetch up to 5 pages (250 jobs) for good coverage
   const { data: adzunaData, isFetching: adzunaFetching } = useQuery<SearchResponse>({
     queryKey: ["adzuna-map", searchParams],
     queryFn: async () => {
       if (!searchParams) return { jobs: [], total: 0, mean: null, page: 1, hasMore: false };
-      const params = new URLSearchParams({
+      const baseParams = {
         q: searchParams.q,
         where: searchParams.where,
         distance: searchParams.distance,
-      });
-      const res = await fetch(`/api/adzuna?${params}`);
-      if (!res.ok) {
-        const err = await res.json();
+      };
+
+      // Fetch first page
+      const firstRes = await fetch(`/api/adzuna?${new URLSearchParams(baseParams)}`);
+      if (!firstRes.ok) {
+        const err = await firstRes.json();
         throw new Error(err.error || "Search failed");
       }
-      const d = await res.json();
-      return { ...d, jobs: d.jobs.map((j: MapJob) => ({ ...j, source: "adzuna" as const })) };
+      const firstData = await firstRes.json();
+      let allJobs = [...firstData.jobs];
+      const total = firstData.count ?? firstData.total ?? 0;
+      const mean = firstData.mean ?? null;
+
+      // Fetch additional pages in parallel (pages 2-5, up to 250 total)
+      const maxPages = Math.min(5, Math.ceil(total / 50));
+      if (maxPages > 1) {
+        const pagePromises = [];
+        for (let p = 2; p <= maxPages; p++) {
+          pagePromises.push(
+            fetch(`/api/adzuna?${new URLSearchParams({ ...baseParams, page: String(p) })}`)
+              .then((r) => (r.ok ? r.json() : null))
+              .catch(() => null)
+          );
+        }
+        const pages = await Promise.all(pagePromises);
+        for (const pg of pages) {
+          if (pg?.jobs) allJobs = [...allJobs, ...pg.jobs];
+        }
+      }
+
+      return {
+        jobs: allJobs.map((j: MapJob) => ({ ...j, source: "adzuna" as const })),
+        total,
+        mean,
+        page: 1,
+        hasMore: allJobs.length < total,
+      };
     },
     enabled: !!searchParams && source !== "google",
   });
@@ -212,7 +256,7 @@ export function JobMap() {
           contractType: null,
           created: new Date().toISOString(),
           category: "",
-          description: j.description?.slice(0, 300) || "",
+          description: j.description || "",
           source: "google" as const,
         };
       });
@@ -358,6 +402,7 @@ export function JobMap() {
     setSearchParams({ q: query.trim(), where: where.trim(), distance: radius });
     setSearched(true);
     setSelectedJob(null);
+    setShowDetails(false);
     setPage(1);
   }, [query, where, radius]);
 
@@ -455,7 +500,12 @@ export function JobMap() {
       {/* Stats bar + legend */}
       {searched && totalCount > 0 && (
         <div className="flex flex-wrap items-center gap-3 px-1 text-sm text-muted-foreground">
-          <span>{totalCount.toLocaleString()} jobs found</span>
+          <span>
+            {geoJobs.length.toLocaleString()} jobs loaded
+            {totalCount > geoJobs.length && (
+              <span className="text-xs"> of {totalCount.toLocaleString()} in area</span>
+            )}
+          </span>
           {sortedJobs.length < geoJobs.length && (
             <span>({sortedJobs.length} matching filter)</span>
           )}
@@ -484,7 +534,7 @@ export function JobMap() {
       )}
 
       {/* Map + sidebar layout */}
-      <div className="flex gap-3 h-[600px]">
+      <div className="flex gap-3 h-[calc(100vh-220px)] min-h-[500px]">
         {/* Map */}
         <div className="flex-1 rounded-xl overflow-hidden border bg-muted">
           {!searched ? (
@@ -511,7 +561,7 @@ export function JobMap() {
                   : DEFAULT_CENTER
               }
               selectedId={selectedJob?.id ?? null}
-              onSelect={(job: MapJob) => setSelectedJob(job)}
+              onSelect={(job: MapJob) => { setSelectedJob(job); setShowDetails(false); }}
               meanSalary={meanSalary}
               searchCenter={searchCenter}
               radiusMiles={Number(radius)}
@@ -566,7 +616,7 @@ export function JobMap() {
                       size="icon"
                       variant="ghost"
                       className="shrink-0"
-                      onClick={() => setSelectedJob(null)}
+                      onClick={() => { setSelectedJob(null); setShowDetails(false); }}
                     >
                       <X className="h-4 w-4" />
                     </Button>
@@ -608,9 +658,141 @@ export function JobMap() {
                     </div>
                   )}
 
-                  <p className="text-xs text-muted-foreground leading-relaxed">
-                    {selectedJob.description}
+                  <p className="text-xs text-muted-foreground leading-relaxed line-clamp-4">
+                    {stripHtml(selectedJob.description)}
                   </p>
+
+                  {/* View Full Details button */}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="w-full gap-1"
+                    onClick={() => setShowDetails(true)}
+                  >
+                    <Eye className="h-3.5 w-3.5" /> View Full Details
+                  </Button>
+
+                  {/* Full Details Dialog */}
+                  <Dialog open={showDetails} onOpenChange={setShowDetails}>
+                    <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-hidden flex flex-col">
+                      <DialogHeader>
+                        <DialogTitle>{selectedJob.title}</DialogTitle>
+                        <DialogDescription>{selectedJob.company} — {selectedJob.location}</DialogDescription>
+                      </DialogHeader>
+
+                      <div className="flex-1 overflow-y-auto -mx-4 px-4 min-h-0">
+                        <div className="space-y-4 pb-2">
+                          {/* Badges */}
+                          <div className="flex flex-wrap gap-1.5">
+                            <Badge
+                              variant="secondary"
+                              className={`text-xs ${selectedJob.source === "google" ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"}`}
+                            >
+                              {selectedJob.source === "google" ? "Google Jobs" : "Adzuna"}
+                            </Badge>
+                            {selectedJob.category && (
+                              <Badge variant="secondary" className="text-xs">{selectedJob.category}</Badge>
+                            )}
+                            {selectedJob.contractTime && (
+                              <Badge variant="outline" className="text-xs capitalize">
+                                {selectedJob.contractTime.replace("_", " ")}
+                              </Badge>
+                            )}
+                            {selectedJob.contractType && (
+                              <Badge variant="outline" className="text-xs capitalize">
+                                {selectedJob.contractType.replace("_", " ")}
+                              </Badge>
+                            )}
+                          </div>
+
+                          {/* Salary */}
+                          {(selectedJob.salaryMin || selectedJob.salaryMax) && (
+                            <div className="flex items-center gap-1.5 text-sm">
+                              <DollarSign className="h-4 w-4 text-emerald-500" />
+                              <span className="font-semibold">
+                                {selectedJob.salaryMin && formatSalary(selectedJob.salaryMin)}
+                                {selectedJob.salaryMin && selectedJob.salaryMax && " – "}
+                                {selectedJob.salaryMax && formatSalary(selectedJob.salaryMax)}
+                              </span>
+                              {selectedJob.salaryPredicted && (
+                                <span className="text-xs text-muted-foreground">(estimated)</span>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Commute */}
+                          {commuteInfo && (
+                            <div className="flex items-center gap-1.5 text-sm">
+                              <Car className="h-4 w-4 text-blue-500" />
+                              <span className="font-medium">
+                                ~{commuteInfo.durationMin} min drive ({commuteInfo.distanceMi} mi)
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Location */}
+                          <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                            <MapPin className="h-4 w-4" />
+                            {selectedJob.location}
+                            {selectedJob.area.length > 0 && (
+                              <span className="text-xs">({selectedJob.area.join(", ")})</span>
+                            )}
+                          </div>
+
+                          {/* Posted date */}
+                          {selectedJob.created && (
+                            <div className="text-xs text-muted-foreground">
+                              Posted {new Date(selectedJob.created).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}
+                            </div>
+                          )}
+
+                          {/* Description */}
+                          <div className="border-t pt-3">
+                            <h4 className="text-sm font-semibold mb-2">Job Description</h4>
+                            <div className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
+                              {stripHtml(selectedJob.description)}
+                            </div>
+                          </div>
+
+                          {/* Full listing CTA */}
+                          {selectedJob.url && (
+                            <div className="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30 p-3">
+                              <p className="text-xs text-muted-foreground mb-2">
+                                {selectedJob.source === "adzuna"
+                                  ? "Adzuna provides a summary. View the full job listing for complete details, requirements, and how to apply."
+                                  : "View the full job listing for complete details, requirements, and how to apply."}
+                              </p>
+                              <a href={selectedJob.url} target="_blank" rel="noopener noreferrer">
+                                <Button size="sm" variant="outline" className="w-full gap-1 text-blue-600 dark:text-blue-400 border-blue-300 dark:border-blue-700 hover:bg-blue-100 dark:hover:bg-blue-900/30">
+                                  <ExternalLink className="h-3.5 w-3.5" /> Read Full Job Listing
+                                </Button>
+                              </a>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <DialogFooter>
+                        {selectedJob.url && (
+                          <a href={selectedJob.url} target="_blank" rel="noopener noreferrer">
+                            <Button size="sm" className="gap-1">
+                              <ExternalLink className="h-3.5 w-3.5" /> Apply Now
+                            </Button>
+                          </a>
+                        )}
+                        <Button
+                          size="sm"
+                          variant={trackedIds.has(selectedJob.id) ? "outline" : "secondary"}
+                          disabled={trackedIds.has(selectedJob.id)}
+                          onClick={() => trackMutation.mutate(selectedJob)}
+                          className="gap-1"
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                          {trackedIds.has(selectedJob.id) ? "Tracked" : "Track"}
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
 
                   {/* Commute estimate */}
                   {searchCenter && (
@@ -662,7 +844,7 @@ export function JobMap() {
                   <Card
                     key={job.id}
                     className="cursor-pointer hover:shadow-md transition-shadow"
-                    onClick={() => setSelectedJob(job)}
+                    onClick={() => { setSelectedJob(job); setShowDetails(false); }}
                   >
                     <CardContent className="py-3 px-3">
                       <div className="flex items-start justify-between gap-1">
