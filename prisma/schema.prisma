@@ -366,6 +366,7 @@ model CurrentPosition {
   annualRaiseMin Float?
   annualRaiseMax Float?
   estimatorSettings String?
+  coverImage    String?   // base64 cover photo for job header card
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 

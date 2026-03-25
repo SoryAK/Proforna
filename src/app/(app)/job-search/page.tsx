@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { JobSearchDiscover } from "@/components/job-search-discover";
+import { JobMap } from "@/components/job-map";
 import { InterviewRoomLauncher } from "@/components/interview-room-launcher";
 import ApplicationsPage from "../applications/page";
 import ContactsPage from "../contacts/page";
@@ -22,6 +23,7 @@ export default function JobSearchPage() {
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
           <TabsTrigger value="discover">Discover</TabsTrigger>
+          <TabsTrigger value="map">Map</TabsTrigger>
           <TabsTrigger value="applications">Applications</TabsTrigger>
           <TabsTrigger value="contacts">Contacts</TabsTrigger>
           <TabsTrigger value="submissions">Submissions</TabsTrigger>
@@ -31,6 +33,9 @@ export default function JobSearchPage() {
 
         <TabsContent value="discover" className="mt-4">
           <JobSearchDiscover />
+        </TabsContent>
+        <TabsContent value="map" className="mt-4">
+          <JobMap />
         </TabsContent>
         <TabsContent value="applications" className="mt-4">
           <ApplicationsPage />

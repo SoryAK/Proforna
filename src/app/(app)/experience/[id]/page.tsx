@@ -46,6 +46,7 @@ import {
   Target,
   Loader2,
   RefreshCw,
+  ImagePlus,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { format, formatDistanceToNow } from "date-fns";
@@ -93,6 +94,7 @@ interface Position {
   annualRaiseMin: number | null;
   annualRaiseMax: number | null;
   estimatorSettings: string | null;
+  coverImage: string | null;
   createdAt: string;
 }
 
@@ -322,9 +324,51 @@ export default function ExperienceDetailPage({
       </Link>
 
       {/* ── Position Header Card ── */}
-      <Card className="overflow-hidden">
-        <div className={`h-32 bg-gradient-to-r ${bannerGradient} relative`}>
+      <Card className="overflow-hidden pt-0">
+        <div className={`h-36 ${pos.coverImage ? '' : `bg-gradient-to-r ${bannerGradient}`} relative`}>
+          {pos.coverImage && (
+            <img
+              src={pos.coverImage}
+              alt={`${pos.company} cover`}
+              className="w-full h-full object-cover"
+            />
+          )}
           <div className="absolute top-3 right-3 flex gap-2">
+            <label
+              className="inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-sm font-medium bg-white/20 text-white hover:bg-white/30 backdrop-blur-sm cursor-pointer transition-colors"
+            >
+              <ImagePlus className="h-3.5 w-3.5" />
+              {pos.coverImage ? 'Change' : 'Cover'}
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="sr-only"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  if (file.size > 2 * 1024 * 1024) {
+                    toast.error('Image must be under 2 MB');
+                    return;
+                  }
+                  const reader = new FileReader();
+                  reader.onload = () => {
+                    updateMutation.mutate({ coverImage: reader.result as string });
+                  };
+                  reader.readAsDataURL(file);
+                }}
+              />
+            </label>
+            {pos.coverImage && (
+              <Button
+                size="sm"
+                variant="secondary"
+                className="bg-white/20 text-white hover:bg-white/30 backdrop-blur-sm"
+                onClick={() => updateMutation.mutate({ coverImage: null })}
+              >
+                <Trash2 className="h-3.5 w-3.5 mr-1" />
+                Remove
+              </Button>
+            )}
             <Button
               size="sm"
               variant="secondary"
