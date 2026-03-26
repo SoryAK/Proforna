@@ -33,6 +33,14 @@ import {
   Github,
   Link2,
   Loader2,
+  ShieldCheck,
+  Eye,
+  EyeOff,
+  Lock,
+  Plus,
+  Trash2,
+  Clock,
+  UserX,
 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -65,6 +73,12 @@ interface UserProfile {
   showCertifications: boolean;
   showCurrentRole: boolean;
   portalSlug: string;
+  // Stealth mode
+  visibility: string;
+  hideCurrentEmployer: boolean;
+  anonymousTitle: string | null;
+  blockedEins: string | null;
+  blockedDomains: string | null;
 }
 
 export default function PortalSettingsPage() {
@@ -99,6 +113,11 @@ export default function PortalSettingsPage() {
     showResume: true,
     showCertifications: true,
     showCurrentRole: true,
+    // Stealth mode
+    visibility: "public",
+    hideCurrentEmployer: false,
+    anonymousTitle: "",
+    blockedDomains: "",
   });
 
   useEffect(() => {
@@ -124,6 +143,13 @@ export default function PortalSettingsPage() {
         showResume: profile.showResume,
         showCertifications: profile.showCertifications,
         showCurrentRole: profile.showCurrentRole,
+        // Stealth mode
+        visibility: profile.visibility || "public",
+        hideCurrentEmployer: profile.hideCurrentEmployer,
+        anonymousTitle: profile.anonymousTitle || "",
+        blockedDomains: profile.blockedDomains
+          ? JSON.parse(profile.blockedDomains).join(", ")
+          : "",
       });
     }
   }, [profile]);
@@ -146,6 +172,11 @@ export default function PortalSettingsPage() {
   });
 
   const handleSave = () => {
+    const blockedDomainsArray = form.blockedDomains
+      .split(",")
+      .map((d) => d.trim().toLowerCase())
+      .filter(Boolean);
+
     saveMutation.mutate({
       fullName: form.fullName || null,
       headline: form.headline || null,
@@ -167,6 +198,11 @@ export default function PortalSettingsPage() {
       showResume: form.showResume,
       showCertifications: form.showCertifications,
       showCurrentRole: form.showCurrentRole,
+      // Stealth mode
+      visibility: form.visibility,
+      hideCurrentEmployer: form.hideCurrentEmployer,
+      anonymousTitle: form.anonymousTitle || null,
+      blockedDomains: blockedDomainsArray.length > 0 ? JSON.stringify(blockedDomainsArray) : null,
     });
   };
 
@@ -576,6 +612,423 @@ export default function PortalSettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* ── Stealth Mode ── */}
+      <Card className="border-indigo-200 dark:border-indigo-800">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ShieldCheck className="h-5 w-5 text-indigo-500" />
+            Stealth Mode
+          </CardTitle>
+          <p className="text-sm text-gray-500">
+            Control your identity on public resume links. Stay anonymous until you find a recruiter you trust.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Visibility Level */}
+          <div>
+            <Label className="mb-2 block text-sm font-medium">Profile Visibility</Label>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {[
+                { value: "public", label: "Public", icon: Globe, desc: "Everything visible" },
+                { value: "stealth", label: "Stealth", icon: EyeOff, desc: "Name hidden, skills shown" },
+                { value: "anonymous", label: "Anonymous", icon: UserX, desc: "Fully redacted" },
+                { value: "private", label: "Private", icon: Lock, desc: "Link disabled" },
+              ].map(({ value, label, icon: Icon, desc }) => (
+                <button
+                  key={value}
+                  onClick={() => setForm({ ...form, visibility: value })}
+                  className={`p-3 rounded-lg border-2 text-left transition-all ${
+                    form.visibility === value
+                      ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-950/50"
+                      : "border-gray-200 dark:border-gray-700 hover:border-gray-400"
+                  }`}
+                >
+                  <Icon className={`h-5 w-5 mb-1 ${form.visibility === value ? "text-indigo-500" : "text-gray-400"}`} />
+                  <p className="text-sm font-medium">{label}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">{desc}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Anonymous Display Name */}
+          {(form.visibility === "stealth" || form.visibility === "anonymous") && (
+            <div>
+              <Label className="mb-1">Anonymous Display Name</Label>
+              <Input
+                placeholder='e.g. "Verified Electro-Mechanical Specialist #842"'
+                value={form.anonymousTitle}
+                onChange={(e) => setForm({ ...form, anonymousTitle: e.target.value })}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                This replaces your real name on stealth/anonymous profiles. Leave blank for auto-generated.
+              </p>
+            </div>
+          )}
+
+          {/* Hide Current Employer */}
+          <div className="flex items-center justify-between">
+            <div>
+              <Label>Hide Current Employer</Label>
+              <p className="text-xs text-gray-500">
+                Replace your current company name with &quot;Current Employer&quot; on public profiles
+              </p>
+            </div>
+            <Switch
+              checked={form.hideCurrentEmployer}
+              onCheckedChange={(checked) => setForm({ ...form, hideCurrentEmployer: checked })}
+            />
+          </div>
+
+          <Separator />
+
+          {/* Blocked Domains (Boss Blocking) */}
+          <div>
+            <Label className="mb-1 flex items-center gap-1.5">
+              <EyeOff className="h-3.5 w-3.5" /> Blocked Email Domains
+            </Label>
+            <Input
+              placeholder="siemens.com, abb.com, employer.com"
+              value={form.blockedDomains}
+              onChange={(e) => setForm({ ...form, blockedDomains: e.target.value })}
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Access requests from these email domains will be silently blocked. Comma-separated.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ── Single-Use Links ── */}
+      <SingleUseLinksManager />
+
+      {/* ── Access Requests ── */}
+      <AccessRequestsManager />
     </div>
+  );
+}
+
+/* ── Single-Use Links Manager ── */
+function SingleUseLinksManager() {
+  const queryClient = useQueryClient();
+  const [label, setLabel] = useState("");
+  const [expiresInDays, setExpiresInDays] = useState("7");
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  interface SingleUseLink {
+    id: string;
+    token: string;
+    label: string | null;
+    viewedAt: string | null;
+    viewedBy: string | null;
+    expiresAt: string;
+    createdAt: string;
+  }
+
+  const { data: links = [] } = useQuery<SingleUseLink[]>({
+    queryKey: ["single-use-links"],
+    queryFn: () => fetch("/api/single-use-links").then((r) => r.json()),
+  });
+
+  const createMutation = useMutation({
+    mutationFn: (data: { label: string; expiresInDays: number }) =>
+      fetch("/api/single-use-links", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      }).then((r) => r.json()),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["single-use-links"] });
+      setLabel("");
+      toast.success("Single-use link created!");
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) =>
+      fetch(`/api/single-use-links/${id}`, { method: "DELETE" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["single-use-links"] });
+      toast.success("Link revoked");
+    },
+  });
+
+  const copyLink = (token: string, id: string) => {
+    const url = `${window.location.origin}/r/portal?token=${token}`;
+    navigator.clipboard.writeText(url);
+    setCopiedId(id);
+    toast.success("Link copied!");
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Link2 className="h-5 w-5" />
+          Single-Use Links
+        </CardTitle>
+        <p className="text-sm text-gray-500">
+          Generate &quot;burn after reading&quot; links that expire after one view. Perfect for sharing with specific recruiters.
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Create new link */}
+        <div className="flex gap-2 items-end">
+          <div className="flex-1">
+            <Label className="mb-1 text-xs">Label (optional)</Label>
+            <Input
+              placeholder='e.g. "For Recruiter at ABB"'
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+            />
+          </div>
+          <div className="w-24">
+            <Label className="mb-1 text-xs">Expires</Label>
+            <Select value={expiresInDays} onValueChange={(v) => setExpiresInDays(v ?? "7")}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1">1 day</SelectItem>
+                <SelectItem value="3">3 days</SelectItem>
+                <SelectItem value="7">7 days</SelectItem>
+                <SelectItem value="14">14 days</SelectItem>
+                <SelectItem value="30">30 days</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <Button
+            onClick={() => createMutation.mutate({ label, expiresInDays: parseInt(expiresInDays) })}
+            disabled={createMutation.isPending}
+            size="sm"
+          >
+            <Plus className="h-4 w-4 mr-1" />
+            Generate
+          </Button>
+        </div>
+
+        {/* Links list */}
+        {links.length > 0 && (
+          <div className="space-y-2 mt-4">
+            {links.map((link) => {
+              const expired = new Date(link.expiresAt) < new Date();
+              const used = !!link.viewedAt;
+              return (
+                <div
+                  key={link.id}
+                  className={`flex items-center gap-3 p-3 rounded-lg border ${
+                    used || expired
+                      ? "border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50 opacity-60"
+                      : "border-gray-200 dark:border-gray-800"
+                  }`}
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">
+                      {link.label || "Untitled link"}
+                    </p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      {used ? (
+                        <Badge variant="secondary" className="text-xs">
+                          <Eye className="h-3 w-3 mr-1" /> Viewed
+                        </Badge>
+                      ) : expired ? (
+                        <Badge variant="destructive" className="text-xs">
+                          <Clock className="h-3 w-3 mr-1" /> Expired
+                        </Badge>
+                      ) : (
+                        <Badge className="text-xs bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300">
+                          <CheckCircle2 className="h-3 w-3 mr-1" /> Active
+                        </Badge>
+                      )}
+                      <span className="text-xs text-gray-400">
+                        Expires {new Date(link.expiresAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                  </div>
+                  {!used && !expired && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => copyLink(link.token, link.id)}
+                    >
+                      {copiedId === link.id ? (
+                        <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
+                      ) : (
+                        <Copy className="h-3.5 w-3.5" />
+                      )}
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => deleteMutation.mutate(link.id)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5 text-red-500" />
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {links.length === 0 && (
+          <p className="text-sm text-gray-400 text-center py-4">
+            No single-use links created yet. Generate one to share with a specific recruiter.
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+/* ── Access Requests Manager ── */
+function AccessRequestsManager() {
+  const queryClient = useQueryClient();
+
+  interface AccessReq {
+    id: string;
+    requesterName: string;
+    requesterEmail: string;
+    requesterCompany: string | null;
+    requesterLinkedin: string | null;
+    message: string | null;
+    status: string;
+    approvedAt: string | null;
+    accessToken: string | null;
+    createdAt: string;
+  }
+
+  const { data: requests = [] } = useQuery<AccessReq[]>({
+    queryKey: ["access-requests"],
+    queryFn: () => fetch("/api/access-requests").then((r) => r.json()),
+  });
+
+  const actionMutation = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: string }) =>
+      fetch(`/api/access-requests/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      }).then((r) => r.json()),
+    onSuccess: (_, { status }) => {
+      queryClient.invalidateQueries({ queryKey: ["access-requests"] });
+      toast.success(status === "approved" ? "Access approved — magic link generated!" : "Request denied");
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) =>
+      fetch(`/api/access-requests/${id}`, { method: "DELETE" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["access-requests"] });
+    },
+  });
+
+  const pending = requests.filter((r) => r.status === "pending");
+  const resolved = requests.filter((r) => r.status !== "pending");
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Mail className="h-5 w-5" />
+          Access Requests
+          {pending.length > 0 && (
+            <Badge className="bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300">
+              {pending.length} pending
+            </Badge>
+          )}
+        </CardTitle>
+        <p className="text-sm text-gray-500">
+          Recruiters who want to see your full profile. Approve to generate a magic link.
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {requests.length === 0 && (
+          <p className="text-sm text-gray-400 text-center py-4">
+            No access requests yet. Requests will appear here when recruiters ask to view your protected profile.
+          </p>
+        )}
+
+        {/* Pending first */}
+        {pending.map((req) => (
+          <div
+            key={req.id}
+            className="p-4 rounded-lg border-2 border-indigo-200 dark:border-indigo-800 bg-indigo-50/50 dark:bg-indigo-950/30"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex-1 min-w-0">
+                <p className="font-medium">{req.requesterName}</p>
+                <p className="text-sm text-gray-500">{req.requesterEmail}</p>
+                {req.requesterCompany && (
+                  <p className="text-sm text-gray-500">@ {req.requesterCompany}</p>
+                )}
+                {req.requesterLinkedin && (
+                  <a
+                    href={req.requesterLinkedin}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-indigo-500 hover:underline"
+                  >
+                    LinkedIn Profile
+                  </a>
+                )}
+                {req.message && (
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-2 italic">
+                    &quot;{req.message}&quot;
+                  </p>
+                )}
+                <p className="text-xs text-gray-400 mt-1">
+                  {new Date(req.createdAt).toLocaleDateString()}
+                </p>
+              </div>
+              <div className="flex gap-2 shrink-0">
+                <Button
+                  size="sm"
+                  onClick={() => actionMutation.mutate({ id: req.id, status: "approved" })}
+                  disabled={actionMutation.isPending}
+                >
+                  <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
+                  Approve
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => actionMutation.mutate({ id: req.id, status: "denied" })}
+                  disabled={actionMutation.isPending}
+                >
+                  Deny
+                </Button>
+              </div>
+            </div>
+          </div>
+        ))}
+
+        {/* Resolved */}
+        {resolved.map((req) => (
+          <div
+            key={req.id}
+            className="p-3 rounded-lg border border-gray-200 dark:border-gray-800 flex items-center gap-3"
+          >
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium">{req.requesterName}</p>
+              <p className="text-xs text-gray-500">{req.requesterEmail}</p>
+            </div>
+            <Badge variant={req.status === "approved" ? "default" : "secondary"}>
+              {req.status === "approved" ? "Approved" : "Denied"}
+            </Badge>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => deleteMutation.mutate(req.id)}
+            >
+              <Trash2 className="h-3.5 w-3.5 text-red-500" />
+            </Button>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
   );
 }

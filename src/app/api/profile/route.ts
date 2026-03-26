@@ -53,6 +53,8 @@ export async function PATCH(request: Request) {
       "currency", "locationPreference", "showSkills", "showResume", "showCertifications",
       "showCurrentRole", "portalSlug", "filingStatus", "federalTaxRate", "stateTaxRate",
       "monthlyExpenses",
+      // Stealth mode fields
+      "visibility", "hideCurrentEmployer", "anonymousTitle", "blockedEins", "blockedDomains",
     ];
     const data: Record<string, unknown> = {};
     for (const key of allowed) {

@@ -11,6 +11,12 @@ import {
   Code2,
   Calendar,
   Building2,
+  Lock,
+  ShieldCheck,
+  Eye,
+  Send,
+  CheckCircle2,
+  UserCircle2,
 } from "lucide-react";
 
 interface SectionConfig {
@@ -62,6 +68,8 @@ interface Position {
 }
 
 interface ResumeData {
+  visibility: "public" | "stealth" | "anonymous";
+  profileId?: string;
   resume: {
     title: string;
     targetRole: string | null;
@@ -138,6 +146,123 @@ function ExpandableSection({
   );
 }
 
+/* ── Access Request Form (shown for stealth/anonymous profiles) ── */
+function AccessRequestForm({ profileId }: { profileId: string }) {
+  const [form, setForm] = useState({ name: "", email: "", company: "", linkedin: "", message: "" });
+  const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setStatus("sending");
+    try {
+      const res = await fetch("/api/access-requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ profileId, ...form }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to submit");
+      }
+      setStatus("sent");
+    } catch {
+      setStatus("error");
+    }
+  };
+
+  if (status === "sent") {
+    return (
+      <div className="text-center py-8 px-6">
+        <CheckCircle2 className="h-12 w-12 text-emerald-500 mx-auto mb-3" />
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Request Sent!</h3>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          The candidate will review your request and you&apos;ll receive a link to view the full profile if approved.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4 px-6 py-5">
+      <div className="text-center mb-4">
+        <Lock className="h-8 w-8 text-indigo-500 mx-auto mb-2" />
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+          Request Full Profile Access
+        </h3>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          This candidate&apos;s identity is protected. Provide your details to request access.
+        </p>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <input
+          required
+          placeholder="Your Name *"
+          value={form.name}
+          onChange={(e) => setForm({ ...form, name: e.target.value })}
+          className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        />
+        <input
+          required
+          type="email"
+          placeholder="Work Email *"
+          value={form.email}
+          onChange={(e) => setForm({ ...form, email: e.target.value })}
+          className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        />
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <input
+          placeholder="Company"
+          value={form.company}
+          onChange={(e) => setForm({ ...form, company: e.target.value })}
+          className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        />
+        <input
+          placeholder="LinkedIn URL"
+          value={form.linkedin}
+          onChange={(e) => setForm({ ...form, linkedin: e.target.value })}
+          className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        />
+      </div>
+      <textarea
+        placeholder="Why would you like to connect with this candidate?"
+        rows={2}
+        value={form.message}
+        onChange={(e) => setForm({ ...form, message: e.target.value })}
+        className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+      />
+      <button
+        type="submit"
+        disabled={status === "sending"}
+        className="w-full py-2.5 rounded-lg bg-indigo-600 text-white font-medium text-sm hover:bg-indigo-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+      >
+        <Send className="h-4 w-4" />
+        {status === "sending" ? "Submitting..." : "Request Full Identity & Contact Info"}
+      </button>
+      {status === "error" && (
+        <p className="text-sm text-red-500 text-center">Failed to submit request. Please try again.</p>
+      )}
+    </form>
+  );
+}
+
+/* ── Stealth Banner ── */
+function StealthBanner({ visibility }: { visibility: string }) {
+  if (visibility === "public") return null;
+  return (
+    <div className="bg-amber-50 dark:bg-amber-950/50 border-b border-amber-200 dark:border-amber-800">
+      <div className="max-w-3xl mx-auto px-6 py-2.5 flex items-center gap-2 text-sm">
+        <ShieldCheck className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
+        <span className="text-amber-800 dark:text-amber-200">
+          {visibility === "stealth"
+            ? "This candidate's identity is protected. Request access to see full details."
+            : "This profile is anonymous. Only skills and qualifications are visible."}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 export default function InteractiveResumePage({
   params,
 }: {
@@ -150,7 +275,12 @@ export default function InteractiveResumePage({
   const startTime = useRef(Date.now());
 
   useEffect(() => {
-    fetch(`/api/interactive-resumes/public/${encodeURIComponent(slug)}`)
+    // Check for token in URL (magic link or single-use)
+    const searchParams = new URLSearchParams(window.location.search);
+    const token = searchParams.get("token");
+    const url = `/api/interactive-resumes/public/${encodeURIComponent(slug)}${token ? `?token=${encodeURIComponent(token)}` : ""}`;
+
+    fetch(url)
       .then((r) => {
         if (!r.ok) throw new Error("Not found");
         return r.json();
@@ -217,6 +347,8 @@ export default function InteractiveResumePage({
   }
 
   const { resume, profile, skills, certifications, experience } = data;
+  const visibility = data.visibility || "public";
+  const isRestricted = visibility === "stealth" || visibility === "anonymous";
   const sorted = [...resume.sections]
     .filter((s) => s.visible)
     .sort((a, b) => a.order - b.order);
@@ -234,21 +366,34 @@ export default function InteractiveResumePage({
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white dark:from-gray-950 dark:to-gray-900">
+      <StealthBanner visibility={visibility} />
       {/* Header */}
       <header className="border-b border-gray-200 dark:border-gray-800 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm sticky top-0 z-10">
         <div className="max-w-3xl mx-auto px-6 py-5">
           <div className="flex items-start gap-4">
-            {profile?.avatarUrl && (
+            {profile?.avatarUrl ? (
               <img
                 src={profile.avatarUrl}
                 alt=""
                 className="h-14 w-14 rounded-full object-cover ring-2 ring-indigo-100 dark:ring-indigo-900"
               />
-            )}
+            ) : isRestricted ? (
+              <div className="h-14 w-14 rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center ring-2 ring-indigo-200 dark:ring-indigo-800">
+                <UserCircle2 className="h-8 w-8 text-indigo-400" />
+              </div>
+            ) : null}
             <div className="flex-1 min-w-0">
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-50 truncate">
-                {profile?.fullName || resume.title}
-              </h1>
+              <div className="flex items-center gap-2">
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-50 truncate">
+                  {profile?.fullName || resume.title}
+                </h1>
+                {isRestricted && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300">
+                    <Eye className="h-3 w-3" />
+                    {visibility === "stealth" ? "Identity Protected" : "Anonymous"}
+                  </span>
+                )}
+              </div>
               {(resume.targetRole || profile?.headline) && (
                 <p className="text-indigo-600 dark:text-indigo-400 font-medium mt-0.5">
                   {resume.targetRole || profile?.headline}
@@ -484,6 +629,13 @@ export default function InteractiveResumePage({
             return null;
           })}
         </div>
+
+        {/* Access Request Form for restricted profiles */}
+        {isRestricted && data.profileId && (
+          <div className="mt-6 bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 overflow-hidden">
+            <AccessRequestForm profileId={data.profileId} />
+          </div>
+        )}
 
         {/* Footer */}
         <p className="text-center text-xs text-gray-400 dark:text-gray-600 mt-6">

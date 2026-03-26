@@ -700,7 +700,7 @@ export default function CurrentPositionPage() {
                       {[
                         ["Company", active.company],
                         active.ein ? ["EIN", <span key="ein" className="font-mono">{active.ein}</span>] : null,
-                        ["Title", active.role],
+                        ["Position", active.role],
                         active.department ? ["Department", active.department] : null,
                         ["Work Type", <span key="type" className="capitalize">{active.type}</span>],
                         active.location ? ["Location", active.location] : null,

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import {
@@ -164,6 +165,7 @@ const interviewStatusStyle: Record<string, string> = {
 
 export default function ApplicationsPage() {
   const queryClient = useQueryClient();
+  const router = useRouter();
   const [view, setView] = useState<"kanban" | "table">("kanban");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -241,8 +243,17 @@ export default function ApplicationsPage() {
       if (!res.ok) throw new Error("Failed to update status");
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["applications"] });
+      if (data.createdPositionId) {
+        queryClient.invalidateQueries({ queryKey: ["current-position"] });
+        toast.success("Position created from accepted offer!", {
+          action: {
+            label: "View Position",
+            onClick: () => router.push("/current-position"),
+          },
+        });
+      }
     },
   });
 
@@ -275,19 +286,32 @@ export default function ApplicationsPage() {
 
   const bulkStatusMutation = useMutation({
     mutationFn: async ({ ids, status }: { ids: string[]; status: string }) => {
-      await Promise.all(
-        ids.map((id) =>
-          fetch(`/api/applications/${id}`, {
+      const results = await Promise.all(
+        ids.map(async (id) => {
+          const res = await fetch(`/api/applications/${id}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ status }),
-          })
-        )
+          });
+          return res.json();
+        })
       );
+      return results;
     },
-    onSuccess: () => {
+    onSuccess: (results) => {
       queryClient.invalidateQueries({ queryKey: ["applications"] });
-      toast.success(`Updated ${selectedIds.size} application${selectedIds.size !== 1 ? "s" : ""}`);
+      const created = results.filter((r: Record<string, unknown>) => r.createdPositionId);
+      if (created.length > 0) {
+        queryClient.invalidateQueries({ queryKey: ["current-position"] });
+        toast.success(`${created.length} position${created.length !== 1 ? "s" : ""} created from accepted offers!`, {
+          action: {
+            label: "View Positions",
+            onClick: () => router.push("/current-position"),
+          },
+        });
+      } else {
+        toast.success(`Updated ${selectedIds.size} application${selectedIds.size !== 1 ? "s" : ""}`);
+      }
       setSelectedIds(new Set());
     },
     onError: () => toast.error("Failed to update some applications"),

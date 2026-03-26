@@ -48,6 +48,9 @@ model User {
   researchFeeds       ResearchFeed[]
   marketSearches      MarketSearch[]
   companyProfiles     CompanyProfile[]
+  interestGroups      InterestGroup[]
+  interestGroupItems  InterestGroupItem[]
+  jobPostings         JobPosting[]
 }
 
 model Account {
@@ -320,10 +323,54 @@ model UserProfile {
   federalTaxRate     Float?
   stateTaxRate       Float?
   monthlyExpenses    String?
+
+  // ── Stealth Mode / Privacy ──
+  visibility         String   @default("public")   // public | stealth | anonymous | private
+  hideCurrentEmployer Boolean @default(false)
+  anonymousTitle     String?                        // e.g. "Verified Electro-Mechanical Specialist #842"
+  blockedEins        String?                        // JSON array of EINs to block
+  blockedDomains     String?                        // JSON array of email domains to block
+
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessRequests AccessRequest[]
+  singleUseLinks SingleUseLink[]
+}
+
+// ─── Stealth Mode: Access Requests ─────────────────────────────
+
+model AccessRequest {
+  id            String    @id @default(uuid())
+  profileId     String
+  requesterName String
+  requesterEmail String
+  requesterCompany String?
+  requesterLinkedin String?
+  message       String?
+  status        String    @default("pending")  // pending | approved | denied
+  approvedAt    DateTime?
+  accessToken   String?   @unique              // magic link token for approved access
+  tokenExpiresAt DateTime?
+  createdAt     DateTime  @default(now())
+
+  profile UserProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+}
+
+// ─── Stealth Mode: Single-Use Links ────────────────────────────
+
+model SingleUseLink {
+  id          String    @id @default(uuid())
+  profileId   String
+  token       String    @unique
+  label       String?                           // e.g. "For Recruiter at ABB"
+  viewedAt    DateTime?
+  viewedBy    String?                           // IP or user-agent of viewer
+  expiresAt   DateTime
+  createdAt   DateTime  @default(now())
+
+  profile UserProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
 }
 
 // ─── Current Position & Work ───────────────────────────────────
@@ -939,4 +986,84 @@ model StudySession {
 
   user  User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   topic LearningTopic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+}
+
+// ─── Interest Groups (job research/comparison) ──────────────────
+
+model InterestGroup {
+  id        String   @id @default(uuid())
+  userId    String
+  name      String
+  color     String   @default("#6366f1") // indigo default
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items InterestGroupItem[]
+
+  @@unique([userId, name])
+}
+
+model InterestGroupItem {
+  id           String   @id @default(uuid())
+  groupId      String
+  userId       String
+  jobKey       String   // deterministic key like "google-xxx" or "adzuna-xxx"
+  title        String
+  company      String
+  location     String?
+  url          String?
+  salaryMin    Int?
+  salaryMax    Int?
+  source       String   // "adzuna" | "google"
+  description  String?
+  thumbnail    String?
+  scheduleType String?
+  createdAt    DateTime @default(now())
+
+  group InterestGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user  User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, jobKey])
+}
+
+// ─── Company Job Postings ──────────────────────────────────────
+
+model JobPosting {
+  id              String    @id @default(uuid())
+  userId          String
+  slug            String    @unique @default(uuid())
+  company         String
+  companyLogo     String?
+  role            String
+  department      String?
+  location        String?
+  type            String    @default("remote")  // remote, hybrid, onsite
+  employmentType  String    @default("full_time") // full_time, part_time, contract, internship, temporary
+  experienceLevel String    @default("mid")     // entry, mid, senior, lead, executive
+  salaryMin       Int?
+  salaryMax       Int?
+  currency        String    @default("USD")
+  payFrequency    String    @default("yearly")  // hourly, yearly
+  description     String
+  requirements    String?
+  niceToHave      String?
+  benefits        String?
+  techStack       String?                        // comma-separated
+  applicationUrl  String?                        // external link or null for in-app
+  contactEmail    String?
+  ein             String?
+  isPublished     Boolean   @default(false)
+  isFeatured      Boolean   @default(false)
+  expiresAt       DateTime?
+  viewCount       Int       @default(0)
+  applicationCount Int      @default(0)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([isPublished, createdAt])
+  @@index([company])
+  @@index([type, experienceLevel])
 }

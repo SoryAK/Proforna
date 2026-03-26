@@ -23,6 +23,7 @@ import {
   BookOpen,
   Brain,
   Shield,
+  Megaphone,
   ChevronDown,
   LogOut,
 } from "lucide-react";
@@ -46,6 +47,7 @@ const iconMap: Record<string, React.ElementType> = {
   FolderOpen,
   Brain,
   Shield,
+  Megaphone,
   Globe,
 };
 

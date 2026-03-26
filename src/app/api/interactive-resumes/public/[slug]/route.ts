@@ -3,15 +3,54 @@ import { NextRequest, NextResponse } from "next/server";
 
 // Public: get interactive resume data by slug
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
 ) {
   const { slug } = await params;
+  const accessToken = req.nextUrl.searchParams.get("token");
 
   const resume = await prisma.interactiveResume.findUnique({ where: { slug } });
   if (!resume || !resume.isPublished) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
+
+  const profile = await prisma.userProfile.findFirst({ where: { userId: resume.userId } });
+  const visibility = profile?.visibility || "public";
+
+  // ── Private: disabled entirely ──
+  if (visibility === "private") {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  // ── Check employer blocking by email domain ──
+  // (Only effective when a domain-based token is available from access request)
+
+  // ── Check single-use link token ──
+  let singleUseAccess = false;
+  if (accessToken && accessToken.length > 40) {
+    const link = await prisma.singleUseLink.findUnique({ where: { token: accessToken } });
+    if (link && !link.viewedAt && link.expiresAt > new Date() && link.profileId === profile?.id) {
+      singleUseAccess = true;
+      // Mark as used
+      await prisma.singleUseLink.update({
+        where: { id: link.id },
+        data: { viewedAt: new Date(), viewedBy: req.headers.get("user-agent") || "unknown" },
+      });
+    }
+  }
+
+  // ── Check approved access token ──
+  let approvedAccess = false;
+  if (accessToken && !singleUseAccess) {
+    const request = await prisma.accessRequest.findUnique({ where: { accessToken } });
+    if (request && request.status === "approved" && request.profileId === profile?.id) {
+      if (!request.tokenExpiresAt || request.tokenExpiresAt > new Date()) {
+        approvedAccess = true;
+      }
+    }
+  }
+
+  const hasFullAccess = visibility === "public" || singleUseAccess || approvedAccess;
 
   // Parse sections config
   type SectionConfig = { type: string; visible: boolean; order: number };
@@ -29,8 +68,6 @@ export async function GET(
     sections.filter((s) => s.visible).map((s) => s.type)
   );
 
-  const profile = await prisma.userProfile.findFirst({ where: { userId: resume.userId } });
-
   // Fetch data based on visible sections (scoped to resume owner)
   const skills = visibleTypes.has("skills")
     ? await prisma.skill.findMany({ where: { userId: resume.userId }, orderBy: { category: "asc" } })
@@ -47,29 +84,96 @@ export async function GET(
       })
     : [];
 
+  // ── Build response based on visibility ──
+
+  if (hasFullAccess) {
+    // Full access — return everything (but still respect hideCurrentEmployer)
+    const expData = profile?.hideCurrentEmployer
+      ? experience.map((pos) => ({
+          ...pos,
+          company: pos.isActive ? "Current Employer" : pos.company,
+        }))
+      : experience;
+
+    return NextResponse.json({
+      visibility: "public",
+      resume: { title: resume.title, targetRole: resume.targetRole, summary: resume.summary, theme: resume.theme, sections },
+      profile: profile
+        ? {
+            fullName: profile.fullName,
+            headline: profile.headline,
+            avatarUrl: profile.avatarUrl,
+            email: visibleTypes.has("contact") ? profile.email : null,
+            linkedinUrl: visibleTypes.has("contact") ? profile.linkedinUrl : null,
+            githubUrl: visibleTypes.has("contact") ? profile.githubUrl : null,
+            portfolioUrl: visibleTypes.has("contact") ? profile.portfolioUrl : null,
+            city: profile.city,
+            state: profile.state,
+          }
+        : null,
+      skills,
+      certifications,
+      experience: expData,
+    });
+  }
+
+  // ── Stealth: show value but hide identity ──
+  if (visibility === "stealth") {
+    return NextResponse.json({
+      visibility: "stealth",
+      profileId: profile?.id,
+      resume: { title: resume.title, targetRole: resume.targetRole, summary: resume.summary, theme: resume.theme, sections },
+      profile: {
+        fullName: profile?.anonymousTitle || `Verified Professional #${profile?.id?.slice(-4).toUpperCase()}`,
+        headline: profile?.headline,
+        avatarUrl: null,
+        email: null,
+        linkedinUrl: null,
+        githubUrl: null,
+        portfolioUrl: null,
+        city: profile?.city,
+        state: profile?.state,
+      },
+      skills,
+      certifications,
+      experience: experience.map((pos) => ({
+        ...pos,
+        company: pos.isActive ? "Current Employer (Hidden)" : pos.company,
+      })),
+    });
+  }
+
+  // ── Anonymous: fully redacted ──
   return NextResponse.json({
+    visibility: "anonymous",
+    profileId: profile?.id,
     resume: {
-      title: resume.title,
+      title: profile?.anonymousTitle || `Verified Professional #${profile?.id?.slice(-4).toUpperCase()}`,
       targetRole: resume.targetRole,
-      summary: resume.summary,
+      summary: null,
       theme: resume.theme,
-      sections,
+      sections: sections.filter((s) => s.type === "skills" || s.type === "certifications"),
     },
-    profile: profile
-      ? {
-          fullName: profile.fullName,
-          headline: profile.headline,
-          avatarUrl: profile.avatarUrl,
-          email: visibleTypes.has("contact") ? profile.email : null,
-          linkedinUrl: visibleTypes.has("contact") ? profile.linkedinUrl : null,
-          githubUrl: visibleTypes.has("contact") ? profile.githubUrl : null,
-          portfolioUrl: visibleTypes.has("contact") ? profile.portfolioUrl : null,
-          city: profile.city,
-          state: profile.state,
-        }
-      : null,
+    profile: {
+      fullName: profile?.anonymousTitle || `Verified Professional #${profile?.id?.slice(-4).toUpperCase()}`,
+      headline: profile?.headline,
+      avatarUrl: null,
+      email: null,
+      linkedinUrl: null,
+      githubUrl: null,
+      portfolioUrl: null,
+      city: profile?.state ? `${profile.state} area` : null,
+      state: null,
+    },
     skills,
     certifications,
-    experience,
+    experience: experience.map((pos) => ({
+      ...pos,
+      company: "Industry Employer",
+      role: pos.role,
+      location: null,
+      description: null,
+      techStack: null,
+    })),
   });
 }
