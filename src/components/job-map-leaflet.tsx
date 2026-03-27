@@ -84,6 +84,9 @@ interface Props {
   radiusMiles: number;
   onSearchArea?: (center: [number, number]) => void;
   routeGeometry: [number, number][] | null;
+  showHeatmap?: boolean;
+  tileStyle?: "osm" | "google-roadmap" | "google-satellite" | "google-hybrid";
+  resolvedCoords?: [number, number] | null;
 }
 
 /* Auto-fit bounds when jobs change */
@@ -144,6 +147,57 @@ function formatSalary(n: number) {
   return n >= 1000 ? `$${Math.round(n / 1000)}k` : `$${n}`;
 }
 
+/* ── Tile layer configs ── */
+const TILE_CONFIGS = {
+  osm: {
+    url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+  },
+  "google-roadmap": {
+    url: "https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}",
+    attribution: '&copy; Google Maps',
+  },
+  "google-satellite": {
+    url: "https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}",
+    attribution: '&copy; Google Maps',
+  },
+  "google-hybrid": {
+    url: "https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}",
+    attribution: '&copy; Google Maps',
+  },
+} as const;
+
+/* ── Heatmap layer (uses leaflet.heat) ── */
+function HeatmapLayer({ jobs }: { jobs: MapJob[] }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (jobs.length === 0) return;
+
+    // Dynamic import of leaflet.heat (side-effect plugin)
+    import("leaflet.heat").then(() => {
+      const points: [number, number, number][] = jobs.map((j) => [j.lat, j.lng, 0.6]);
+      const heat = (L as any).heatLayer(points, {
+        radius: 25,
+        blur: 20,
+        maxZoom: 14,
+        max: 1.0,
+        gradient: {
+          0.2: "#3b82f6",
+          0.4: "#06b6d4",
+          0.6: "#22c55e",
+          0.8: "#eab308",
+          1.0: "#ef4444",
+        },
+      });
+      heat.addTo(map);
+      return () => { map.removeLayer(heat); };
+    });
+  }, [jobs, map]);
+
+  return null;
+}
+
 export default function JobMapLeaflet({
   jobs,
   center,
@@ -154,6 +208,9 @@ export default function JobMapLeaflet({
   radiusMiles,
   onSearchArea,
   routeGeometry,
+  showHeatmap = false,
+  tileStyle = "osm",
+  resolvedCoords = null,
 }: Props) {
   const [panCenter, setPanCenter] = useState<[number, number] | null>(null);
   const [hasPanned, setHasPanned] = useState(false);
@@ -173,6 +230,8 @@ export default function JobMapLeaflet({
 
   const radiusMeters = radiusMiles * 1609.34;
 
+  const tileConfig = TILE_CONFIGS[tileStyle] ?? TILE_CONFIGS.osm;
+
   return (
     <MapContainer
       center={center}
@@ -181,12 +240,16 @@ export default function JobMapLeaflet({
       scrollWheelZoom
     >
       <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        key={tileStyle}
+        attribution={tileConfig.attribution}
+        url={tileConfig.url}
       />
       <FitBounds jobs={jobs} />
       <FitRoute geometry={routeGeometry} />
       <PanDetector searchCenter={searchCenter} onMoved={handleMoved} />
+
+      {/* Job density heatmap */}
+      {showHeatmap && <HeatmapLayer jobs={jobs} />}
 
       {/* Commute route path */}
       {routeGeometry && routeGeometry.length > 1 && (
@@ -248,10 +311,11 @@ export default function JobMapLeaflet({
         {jobs.map((job) => {
           const color = salaryColor(job.salaryMin, job.salaryMax, meanSalary);
           const isSelected = job.id === selectedId;
+          const pos: [number, number] = isSelected && resolvedCoords ? resolvedCoords : [job.lat, job.lng];
           return (
             <Marker
               key={job.id}
-              position={[job.lat, job.lng]}
+              position={pos}
               icon={svgIcon(color, 24, isSelected)}
               eventHandlers={{ click: () => onSelect(job as any) }}
             >

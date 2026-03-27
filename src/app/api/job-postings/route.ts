@@ -16,11 +16,11 @@ export async function GET() {
   return NextResponse.json(postings);
 }
 
-/* ── POST — create a new job posting ── */
+/* ── POST — company submits a new job posting (public, no auth required) ── */
 export async function POST(req: NextRequest) {
-  const userId = await getUserId();
-  if (!userId)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  // Companies can submit without a Resumsify account
+  // Optionally link to an authenticated user if logged in
+  const userId = await getUserId().catch(() => null);
 
   const body = await req.json();
 
@@ -45,21 +45,24 @@ export async function POST(req: NextRequest) {
     applicationUrl,
     contactEmail,
     ein,
-    isPublished,
-    isFeatured,
     expiresAt,
   } = body;
 
-  if (!company?.trim() || !role?.trim() || !description?.trim()) {
+  if (!company?.trim() || !role?.trim() || !description?.trim() || !contactEmail?.trim()) {
     return NextResponse.json(
-      { error: "Company, role, and description are required" },
+      { error: "Company, role, description, and contact email are required" },
       { status: 400 }
     );
   }
 
+  // Validate contact email format
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail.trim())) {
+    return NextResponse.json({ error: "Invalid contact email" }, { status: 400 });
+  }
+
   const posting = await prisma.jobPosting.create({
     data: {
-      userId,
+      userId: userId || undefined,
       company: company.trim(),
       companyLogo: companyLogo || null,
       role: role.trim(),
@@ -78,10 +81,10 @@ export async function POST(req: NextRequest) {
       benefits: benefits?.trim() || null,
       techStack: techStack?.trim() || null,
       applicationUrl: applicationUrl?.trim() || null,
-      contactEmail: contactEmail?.trim() || null,
+      contactEmail: contactEmail.trim(),
       ein: ein?.trim() || null,
-      isPublished: isPublished ?? false,
-      isFeatured: isFeatured ?? false,
+      isPublished: false, // Always starts unpublished — requires review
+      isFeatured: false,
       expiresAt: expiresAt ? new Date(expiresAt) : null,
     },
   });

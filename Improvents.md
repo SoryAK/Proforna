@@ -20,3 +20,7 @@ The Filing: Companies in these states are now required to include a pay range (
 35.00–
 45.00/hr) on every job posting.
 How to "look it up": While this isn't a single "state filing" database, it means you can look at the company's active job listings or use an API (like Adzuna or Google Jobs) to see what the state-mandated pay range is for that role.
+
+Here are the list of things that we can use to improve the app
+https://ai.studio/apps/bundled/research_visualization
+https://ai.studio/apps/5d253a77-8931-4188-8677-250eb94e2273

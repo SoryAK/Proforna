@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { PlacesAutocomplete } from "@/components/places-autocomplete";
 import {
   Search,
   MapPin,
@@ -33,6 +34,13 @@ import {
   Wifi,
   CalendarDays,
   Tag,
+  TrainFront,
+  Footprints,
+  Bike,
+  PersonStanding,
+  Flame,
+  Layers,
+  MapPinned,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -99,6 +107,18 @@ interface SearchResponse {
   hasMore: boolean;
 }
 
+/* ── Geocode an override address via the resolve-address API (geocode mode) ── */
+async function geocodeOverride(address: string): Promise<{ address: string; lat: number; lng: number; name: string | null; confidence: "high" | "medium" | "low"; totalResults: number } | null> {
+  try {
+    const params = new URLSearchParams({ address, mode: "geocode" });
+    const res = await fetch(`/api/resolve-address?${params}`);
+    if (!res.ok) return null;
+    return res.json();
+  } catch {
+    return null;
+  }
+}
+
 /* ── Dynamically loaded map (Leaflet needs browser) ── */
 const LeafletMap = dynamic(
   () => import("@/components/job-map-leaflet"),
@@ -134,6 +154,16 @@ const SOURCE_OPTIONS = [
 ];
 
 const PAGE_SIZE = 30;
+
+type CommuteMode = "driving" | "transit" | "walking" | "bicycling";
+const COMMUTE_MODES: { value: CommuteMode; label: string; icon: typeof Car }[] = [
+  { value: "driving", label: "Drive", icon: Car },
+  { value: "transit", label: "Transit", icon: TrainFront },
+  { value: "walking", label: "Walk", icon: Footprints },
+  { value: "bicycling", label: "Bike", icon: Bike },
+];
+
+const GOOGLE_MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
 const DATE_POSTED_OPTIONS = [
   { value: "any", label: "Any time" },
@@ -183,11 +213,15 @@ export function JobMap() {
   const [page, setPage] = useState(1);
   const [searchCenter, setSearchCenter] = useState<[number, number] | null>(null);
   const [source, setSource] = useState<"adzuna" | "google" | "both">("both");
-  const [commuteInfo, setCommuteInfo] = useState<{ durationMin: number; distanceMi: number; estimated?: boolean; geometry?: [number, number][] } | null>(null);
+  const [commuteInfo, setCommuteInfo] = useState<{ durationMin: number; distanceMi: number; mode?: CommuteMode; estimated?: boolean; geometry?: [number, number][] } | null>(null);
   const [commuteLoading, setCommuteLoading] = useState(false);
+  const [commuteMode, setCommuteMode] = useState<CommuteMode>("driving");
   const [showDetails, setShowDetails] = useState(false);
   const [viewMode, setViewMode] = useState<"map" | "list">("map");
   const [expandedDescs, setExpandedDescs] = useState<Set<string>>(new Set());
+  /* Map overlays */
+  const [showHeatmap, setShowHeatmap] = useState(false);
+  const [tileStyle, setTileStyle] = useState<"osm" | "google-roadmap" | "google-satellite" | "google-hybrid">("osm");
   /* Filters */
   const [showFilters, setShowFilters] = useState(false);
   const [datePosted, setDatePosted] = useState("any");
@@ -196,6 +230,12 @@ export function JobMap() {
   const [hoursFilter, setHoursFilter] = useState("any");
   const [categoryFilter, setCategoryFilter] = useState("any");
   const [companyFilter, setCompanyFilter] = useState("any");
+  /* Resolved company address — auto-resolved via Places API or manually overridden */
+  const [resolvedAddress, setResolvedAddress] = useState<{ address: string; lat: number; lng: number; name: string | null; confidence: "high" | "medium" | "low"; totalResults: number } | null>(null);
+  const [addressLoading, setAddressLoading] = useState(false);
+  const [addressOverride, setAddressOverride] = useState("");
+  const [addressCache, setAddressCache] = useState<Record<string, { address: string; lat: number; lng: number; name: string | null; confidence: "high" | "medium" | "low"; totalResults: number }>>({});
+  const resolveAbort = useRef<AbortController | null>(null);
   /* Pre-fetched commute times for sidebar cards: jobId → { durationMin, distanceMi, estimated? } */
   const [commuteCache, setCommuteCache] = useState<Record<string, { durationMin: number; distanceMi: number; estimated?: boolean }>>({});
   /* AbortControllers for cancelling stale commute requests */
@@ -522,19 +562,71 @@ export function JobMap() {
       });
   }, [searchParams?.where]);
 
+  // ── Auto-resolve company address via Google Places ──
+  useEffect(() => {
+    resolveAbort.current?.abort();
+    setResolvedAddress(null);
+    setAddressOverride("");
+    setAddressLoading(false);
+
+    if (!selectedJob) return;
+
+    // Check client-side cache first
+    const cacheKey = `${selectedJob.company}:${selectedJob.location}`;
+    const cached = addressCache[cacheKey];
+    if (cached) {
+      setResolvedAddress(cached);
+      return;
+    }
+
+    const ctrl = new AbortController();
+    resolveAbort.current = ctrl;
+    setAddressLoading(true);
+
+    const params = new URLSearchParams({
+      company: selectedJob.company,
+      location: selectedJob.location,
+    });
+
+    fetch(`/api/resolve-address?${params}`, { signal: ctrl.signal })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d && !ctrl.signal.aborted) {
+          setResolvedAddress(d);
+          setAddressCache((prev) => ({ ...prev, [cacheKey]: d }));
+        }
+      })
+      .catch(() => {})
+      .finally(() => { if (!ctrl.signal.aborted) setAddressLoading(false); });
+
+    return () => ctrl.abort();
+  }, [selectedJob]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Derived: effective job lat/lng — resolved address takes priority over raw Adzuna coords
+  const effectiveJobCoords = useMemo<[number, number] | null>(() => {
+    if (!selectedJob) return null;
+    if (resolvedAddress?.lat && resolvedAddress?.lng) return [resolvedAddress.lat, resolvedAddress.lng];
+    if (selectedJob.lat && selectedJob.lng) return [selectedJob.lat, selectedJob.lng];
+    return null;
+  }, [selectedJob, resolvedAddress]);
+
   // ── Two-phase commute: fast duration first, then geometry in background ──
+  // Waits for address resolution to finish so we don't compute twice
   useEffect(() => {
     // Cancel any in-flight commute requests
     commuteAbort.current?.abort();
     geometryAbort.current?.abort();
     setCommuteInfo(null);
 
-    if (!selectedJob || !searchCenter) return;
+    // Wait until address resolution is complete before computing commute
+    if (!selectedJob || !searchCenter || !effectiveJobCoords || addressLoading) return;
 
-    // Check pre-fetch cache for instant duration display
-    const cached = commuteCache[selectedJob.id];
+    // Check pre-fetch cache for instant duration display (include resolved coords in key)
+    const coordKey = `${effectiveJobCoords[0].toFixed(4)},${effectiveJobCoords[1].toFixed(4)}`;
+    const cacheKey = `${selectedJob.id}:${commuteMode}:${coordKey}`;
+    const cached = commuteCache[cacheKey];
     if (cached) {
-      setCommuteInfo({ durationMin: cached.durationMin, distanceMi: cached.distanceMi, estimated: cached.estimated });
+      setCommuteInfo({ durationMin: cached.durationMin, distanceMi: cached.distanceMi, mode: commuteMode, estimated: cached.estimated });
       setCommuteLoading(false);
     } else {
       setCommuteLoading(true);
@@ -543,8 +635,9 @@ export function JobMap() {
     const params = new URLSearchParams({
       fromLat: String(searchCenter[0]),
       fromLng: String(searchCenter[1]),
-      toLat: String(selectedJob.lat),
-      toLng: String(selectedJob.lng),
+      toLat: String(effectiveJobCoords[0]),
+      toLng: String(effectiveJobCoords[1]),
+      mode: commuteMode,
     });
 
     // Phase 1: fast duration/distance (no geometry, overview=false)
@@ -556,8 +649,8 @@ export function JobMap() {
         .then((r) => (r.ok ? r.json() : null))
         .then((d) => {
           if (d && !fastCtrl.signal.aborted) {
-            setCommuteInfo({ durationMin: d.durationMin, distanceMi: d.distanceMi, estimated: d.estimated });
-            setCommuteCache((prev) => ({ ...prev, [selectedJob.id]: d }));
+            setCommuteInfo({ durationMin: d.durationMin, distanceMi: d.distanceMi, mode: commuteMode, estimated: d.estimated });
+            setCommuteCache((prev) => ({ ...prev, [cacheKey]: d }));
           }
         })
         .catch(() => {})
@@ -581,9 +674,9 @@ export function JobMap() {
       fastCtrl.abort();
       geoCtrl.abort();
     };
-  }, [selectedJob, searchCenter]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedJob, searchCenter, commuteMode, effectiveJobCoords, addressLoading]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Pre-fetch commute times for visible sidebar cards ──
+  // ── Pre-fetch commute times for visible sidebar cards (driving only for speed) ──
   useEffect(() => {
     prefetchAbort.current?.abort();
     if (!searchCenter || pagedJobs.length === 0) return;
@@ -592,10 +685,10 @@ export function JobMap() {
     prefetchAbort.current = ctrl;
 
     // Only pre-fetch for jobs we haven't cached yet (limit to first 10)
-    const uncached = pagedJobs.filter((j) => j.lat && j.lng && !commuteCache[j.id]).slice(0, 10);
+    const uncached = pagedJobs.filter((j) => j.lat && j.lng && !commuteCache[`${j.id}:driving`]).slice(0, 10);
     if (uncached.length === 0) return;
 
-    // Fetch one at a time with a gap between requests to avoid OSRM rate-limits
+    // Fetch one at a time with a gap between requests to avoid rate-limits
     async function fetchSequential() {
       for (const job of uncached) {
         if (ctrl.signal.aborted) return;
@@ -605,6 +698,7 @@ export function JobMap() {
           fromLng: String(searchCenter![1]),
           toLat: String(job.lat),
           toLng: String(job.lng),
+          mode: "driving",
         });
 
         try {
@@ -612,11 +706,11 @@ export function JobMap() {
           if (!res.ok) continue;
           const d = await res.json();
           if (d && !ctrl.signal.aborted) {
-            setCommuteCache((prev) => ({ ...prev, [job.id]: { durationMin: d.durationMin, distanceMi: d.distanceMi, estimated: d.estimated } }));
+            setCommuteCache((prev) => ({ ...prev, [`${job.id}:driving`]: { durationMin: d.durationMin, distanceMi: d.distanceMi, estimated: d.estimated } }));
           }
         } catch { /* aborted or failed — skip */ }
 
-        // 1.5 s gap between requests to stay friendly with OSRM public server
+        // 1.5 s gap between requests to stay friendly with public server
         if (!ctrl.signal.aborted) {
           await new Promise((r) => setTimeout(r, 1500));
         }
@@ -778,15 +872,12 @@ export function JobMap() {
                 className="pl-9"
               />
             </div>
-            <div className="relative sm:w-52">
-              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="City, State"
-                value={where}
-                onChange={(e) => setWhere(e.target.value)}
-                className="pl-9"
-              />
-            </div>
+            <PlacesAutocomplete
+              value={where}
+              onChange={setWhere}
+              placeholder="City, State"
+              className="sm:w-52"
+            />
             <Select value={radius} onValueChange={(v) => setRadius(v ?? "25")}>
               <SelectTrigger className="w-28">
                 <Navigation className="h-3.5 w-3.5 mr-1" />
@@ -877,6 +968,30 @@ export function JobMap() {
               <span className="flex items-center gap-1">
                 <CircleDot className="h-3 w-3 text-blue-500" /> No data
               </span>
+              {/* ── Map overlay controls ── */}
+              <span className="mx-1 h-4 w-px bg-border" />
+              <Button
+                variant={showHeatmap ? "default" : "outline"}
+                size="sm"
+                className="h-7 gap-1 px-2 text-xs"
+                onClick={() => setShowHeatmap((v) => !v)}
+                title={showHeatmap ? "Hide heatmap" : "Show heatmap"}
+              >
+                <Flame className="h-3 w-3" />
+                Heatmap
+              </Button>
+              <Select value={tileStyle} onValueChange={(v) => setTileStyle((v ?? "osm") as typeof tileStyle)}>
+                <SelectTrigger className="h-7 w-[140px] text-xs">
+                  <Layers className="h-3 w-3 mr-1" />
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="osm">OpenStreetMap</SelectItem>
+                  <SelectItem value="google-roadmap">Google Road</SelectItem>
+                  <SelectItem value="google-satellite">Satellite</SelectItem>
+                  <SelectItem value="google-hybrid">Hybrid</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           )}
         </div>
@@ -1109,11 +1224,11 @@ export function JobMap() {
                         </div>
 
                         {/* Commute */}
-                        {commuteCache[job.id] && (
+                        {commuteCache[`${job.id}:driving`] && (
                           <div className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400">
                             <Car className="h-3 w-3" />
-                            ~{commuteCache[job.id].durationMin} min ({commuteCache[job.id].distanceMi} mi)
-                            {commuteCache[job.id].estimated && <span className="opacity-60">(est.)</span>}
+                            ~{commuteCache[`${job.id}:driving`].durationMin} min ({commuteCache[`${job.id}:driving`].distanceMi} mi)
+                            {commuteCache[`${job.id}:driving`].estimated && <span className="opacity-60">(est.)</span>}
                           </div>
                         )}
 
@@ -1259,9 +1374,102 @@ export function JobMap() {
                     <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                       <MapPin className="h-4 w-4" /> {selectedJob.location}
                     </div>
+
+                    {/* Resolved / override address */}
+                    <div className="space-y-1.5">
+                      {addressLoading && (
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <Loader2 className="h-3 w-3 animate-spin" /> Resolving exact address…
+                        </div>
+                      )}
+                      {resolvedAddress && !addressOverride && (
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-1.5 text-sm text-emerald-600 dark:text-emerald-400">
+                            <MapPinned className="h-4 w-4 shrink-0" />
+                            <span className="font-medium">{resolvedAddress.address}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <Badge
+                              variant="outline"
+                              className={`text-[10px] px-1.5 py-0 h-4 ${
+                                resolvedAddress.confidence === "high" ? "border-emerald-300 text-emerald-600 dark:border-emerald-700 dark:text-emerald-400"
+                                : resolvedAddress.confidence === "medium" ? "border-yellow-300 text-yellow-600 dark:border-yellow-700 dark:text-yellow-400"
+                                : "border-red-300 text-red-600 dark:border-red-700 dark:text-red-400"
+                              }`}
+                            >
+                              {resolvedAddress.confidence === "high" ? "Exact match" : resolvedAddress.confidence === "medium" ? "Likely match" : "Multiple offices found"}
+                            </Badge>
+                            {resolvedAddress.name && resolvedAddress.name !== resolvedAddress.address && (
+                              <span className="text-[10px] text-muted-foreground">{resolvedAddress.name}</span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      <PlacesAutocomplete
+                        value={addressOverride}
+                        onChange={(v) => {
+                          setAddressOverride(v);
+                          if (!v.trim()) return;
+                          geocodeOverride(v).then((d) => { if (d) setResolvedAddress(d); });
+                        }}
+                        placeholder={resolvedAddress ? "Override address…" : "Enter exact address…"}
+                        className="h-8 text-xs"
+                      />
+                    </div>
+
                     {selectedJob.via && (
                       <p className="text-xs text-muted-foreground">{selectedJob.via}</p>
                     )}
+
+                    {/* Commute + transport mode selector */}
+                    {searchCenter && (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          {COMMUTE_MODES.map((m) => {
+                            const Icon = m.icon;
+                            return (
+                              <Button
+                                key={m.value}
+                                type="button"
+                                size="icon"
+                                variant={commuteMode === m.value ? "default" : "outline"}
+                                className="h-7 w-7"
+                                title={m.label}
+                                onClick={() => setCommuteMode(m.value)}
+                              >
+                                <Icon className="h-3.5 w-3.5" />
+                              </Button>
+                            );
+                          })}
+                          {commuteLoading && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+                        </div>
+                        {commuteInfo && (
+                          <div className="flex items-center gap-1.5 text-sm">
+                            {(() => { const ModeIcon = COMMUTE_MODES.find((m) => m.value === (commuteInfo.mode ?? "driving"))?.icon ?? Car; return <ModeIcon className="h-4 w-4 text-blue-500" />; })()}
+                            <span className="font-medium">
+                              ~{commuteInfo.durationMin} min ({commuteInfo.distanceMi} mi)
+                              {commuteInfo.estimated && <span className="text-xs text-muted-foreground ml-1">(est.)</span>}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Street View */}
+                    {GOOGLE_MAPS_KEY && effectiveJobCoords && (
+                      <div className="rounded-lg overflow-hidden border">
+                        <div className="flex items-center gap-1.5 px-2 py-1.5 bg-muted/50 text-xs font-medium text-muted-foreground">
+                          <PersonStanding className="h-3.5 w-3.5" /> {resolvedAddress ? "Office View" : "Neighborhood View"}
+                        </div>
+                        <img
+                          src={`https://maps.googleapis.com/maps/api/streetview?size=600x250&location=${effectiveJobCoords[0]},${effectiveJobCoords[1]}&key=${GOOGLE_MAPS_KEY}`}
+                          alt={`Street view near ${resolvedAddress?.address ?? selectedJob.location}`}
+                          className="w-full h-[180px] object-cover"
+                          loading="lazy"
+                        />
+                      </div>
+                    )}
+
                     <Separator />
                     <div className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
                       {stripHtml(selectedJob.description)}
@@ -1360,7 +1568,11 @@ export function JobMap() {
               searchCenter={searchCenter}
               radiusMiles={Number(radius)}
               onSearchArea={handleSearchArea}
-              routeGeometry={commuteInfo?.geometry ?? null}            />
+              routeGeometry={commuteInfo?.geometry ?? null}
+              showHeatmap={showHeatmap}
+              tileStyle={tileStyle}
+              resolvedCoords={effectiveJobCoords}
+            />
           )}
         </div>
 
@@ -1554,6 +1766,43 @@ export function JobMap() {
                     </div>
                   )}
 
+                  {/* Resolved address (compact) */}
+                  <div className="space-y-1">
+                    {addressLoading && (
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <Loader2 className="h-3 w-3 animate-spin" /> Resolving…
+                      </div>
+                    )}
+                    {resolvedAddress && !addressOverride && (
+                      <div className="space-y-0.5">
+                        <div className="flex items-start gap-1 text-xs text-emerald-600 dark:text-emerald-400">
+                          <MapPinned className="h-3 w-3 mt-0.5 shrink-0" />
+                          <span>{resolvedAddress.address}</span>
+                        </div>
+                        <Badge
+                          variant="outline"
+                          className={`text-[10px] px-1 py-0 h-3.5 ${
+                            resolvedAddress.confidence === "high" ? "border-emerald-300 text-emerald-600 dark:border-emerald-700 dark:text-emerald-400"
+                            : resolvedAddress.confidence === "medium" ? "border-yellow-300 text-yellow-600 dark:border-yellow-700 dark:text-yellow-400"
+                            : "border-red-300 text-red-600 dark:border-red-700 dark:text-red-400"
+                          }`}
+                        >
+                          {resolvedAddress.confidence === "high" ? "Exact" : resolvedAddress.confidence === "medium" ? "Likely" : "Multiple offices"}
+                        </Badge>
+                      </div>
+                    )}
+                    <PlacesAutocomplete
+                      value={addressOverride}
+                      onChange={(v) => {
+                        setAddressOverride(v);
+                        if (!v.trim()) return;
+                        geocodeOverride(v).then((d) => { if (d) setResolvedAddress(d); });
+                      }}
+                      placeholder={resolvedAddress ? "Override address…" : "Enter exact address…"}
+                      className="h-7 text-xs"
+                    />
+                  </div>
+
                   <p className="text-xs text-muted-foreground leading-relaxed line-clamp-4">
                     {stripHtml(selectedJob.description)}
                   </p>
@@ -1616,24 +1865,102 @@ export function JobMap() {
                             </div>
                           )}
 
-                          {/* Commute */}
-                          {commuteInfo && (
-                            <div className="flex items-center gap-1.5 text-sm">
-                              <Car className="h-4 w-4 text-blue-500" />
-                              <span className="font-medium">
-                                ~{commuteInfo.durationMin} min drive ({commuteInfo.distanceMi} mi)
-                                {commuteInfo.estimated && <span className="text-xs text-muted-foreground ml-1">(est.)</span>}
-                              </span>
+                          {/* Commute + transport mode selector */}
+                          {searchCenter && (
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2">
+                                {COMMUTE_MODES.map((m) => {
+                                  const Icon = m.icon;
+                                  return (
+                                    <Button
+                                      key={m.value}
+                                      type="button"
+                                      size="icon"
+                                      variant={commuteMode === m.value ? "default" : "outline"}
+                                      className="h-7 w-7"
+                                      title={m.label}
+                                      onClick={() => setCommuteMode(m.value)}
+                                    >
+                                      <Icon className="h-3.5 w-3.5" />
+                                    </Button>
+                                  );
+                                })}
+                                {commuteLoading && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+                              </div>
+                              {commuteInfo && (
+                                <div className="flex items-center gap-1.5 text-sm">
+                                  {(() => { const ModeIcon = COMMUTE_MODES.find((m) => m.value === (commuteInfo.mode ?? "driving"))?.icon ?? Car; return <ModeIcon className="h-4 w-4 text-blue-500" />; })()}
+                                  <span className="font-medium">
+                                    ~{commuteInfo.durationMin} min ({commuteInfo.distanceMi} mi)
+                                    {commuteInfo.estimated && <span className="text-xs text-muted-foreground ml-1">(est.)</span>}
+                                  </span>
+                                </div>
+                              )}
                             </div>
                           )}
 
-                          {/* Location */}
-                          <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                            <MapPin className="h-4 w-4" />
-                            {selectedJob.location}
-                            {selectedJob.area.length > 0 && (
-                              <span className="text-xs">({selectedJob.area.join(", ")})</span>
+                          {/* Street View */}
+                          {GOOGLE_MAPS_KEY && effectiveJobCoords && (
+                            <div className="rounded-lg overflow-hidden border">
+                              <div className="flex items-center gap-1.5 px-2 py-1.5 bg-muted/50 text-xs font-medium text-muted-foreground">
+                                <PersonStanding className="h-3.5 w-3.5" /> {resolvedAddress ? "Office View" : "Neighborhood View"}
+                              </div>
+                              <img
+                                src={`https://maps.googleapis.com/maps/api/streetview?size=600x250&location=${effectiveJobCoords[0]},${effectiveJobCoords[1]}&key=${GOOGLE_MAPS_KEY}`}
+                                alt={`Street view near ${resolvedAddress?.address ?? selectedJob.location}`}
+                                className="w-full h-[180px] object-cover"
+                                loading="lazy"
+                              />
+                            </div>
+                          )}
+
+                          {/* Location + resolved address */}
+                          <div className="space-y-1.5">
+                            <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                              <MapPin className="h-4 w-4" />
+                              {selectedJob.location}
+                              {selectedJob.area.length > 0 && (
+                                <span className="text-xs">({selectedJob.area.join(", ")})</span>
+                              )}
+                            </div>
+                            {addressLoading && (
+                              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                <Loader2 className="h-3 w-3 animate-spin" /> Resolving exact address…
+                              </div>
                             )}
+                            {resolvedAddress && !addressOverride && (
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-1.5 text-sm text-emerald-600 dark:text-emerald-400">
+                                  <MapPinned className="h-4 w-4 shrink-0" />
+                                  <span className="font-medium">{resolvedAddress.address}</span>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  <Badge
+                                    variant="outline"
+                                    className={`text-[10px] px-1.5 py-0 h-4 ${
+                                      resolvedAddress.confidence === "high" ? "border-emerald-300 text-emerald-600 dark:border-emerald-700 dark:text-emerald-400"
+                                      : resolvedAddress.confidence === "medium" ? "border-yellow-300 text-yellow-600 dark:border-yellow-700 dark:text-yellow-400"
+                                      : "border-red-300 text-red-600 dark:border-red-700 dark:text-red-400"
+                                    }`}
+                                  >
+                                    {resolvedAddress.confidence === "high" ? "Exact match" : resolvedAddress.confidence === "medium" ? "Likely match" : "Multiple offices found"}
+                                  </Badge>
+                                  {resolvedAddress.name && resolvedAddress.name !== resolvedAddress.address && (
+                                    <span className="text-[10px] text-muted-foreground">{resolvedAddress.name}</span>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                            <PlacesAutocomplete
+                              value={addressOverride}
+                              onChange={(v) => {
+                                setAddressOverride(v);
+                                if (!v.trim()) return;
+                                geocodeOverride(v).then((d) => { if (d) setResolvedAddress(d); });
+                              }}
+                              placeholder={resolvedAddress ? "Override address…" : "Enter exact address…"}
+                              className="h-8 text-xs"
+                            />
                           </div>
 
                           {/* Posted date */}
@@ -1716,20 +2043,52 @@ export function JobMap() {
                     </DialogContent>
                   </Dialog>
 
-                  {/* Commute estimate */}
+                  {/* Commute estimate + mode selector */}
                   {searchCenter && (
-                    <div className="flex items-center gap-1.5 text-sm">
-                      <Car className="h-3.5 w-3.5 text-blue-500" />
-                      {commuteLoading ? (
-                        <span className="text-xs text-muted-foreground">Calculating commute...</span>
-                      ) : commuteInfo ? (
-                        <span className="text-xs font-medium">
-                          ~{commuteInfo.durationMin} min drive ({commuteInfo.distanceMi} mi)
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-1.5">
+                        {COMMUTE_MODES.map((m) => {
+                          const Icon = m.icon;
+                          return (
+                            <Button
+                              key={m.value}
+                              type="button"
+                              size="icon"
+                              variant={commuteMode === m.value ? "default" : "outline"}
+                              className="h-6 w-6"
+                              title={m.label}
+                              onClick={() => setCommuteMode(m.value)}
+                            >
+                              <Icon className="h-3 w-3" />
+                            </Button>
+                          );
+                        })}
+                        {commuteLoading && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+                      </div>
+                      {commuteInfo ? (
+                        <div className="flex items-center gap-1 text-xs font-medium">
+                          {(() => { const ModeIcon = COMMUTE_MODES.find((m) => m.value === (commuteInfo.mode ?? "driving"))?.icon ?? Car; return <ModeIcon className="h-3.5 w-3.5 text-blue-500" />; })()}
+                          ~{commuteInfo.durationMin} min ({commuteInfo.distanceMi} mi)
                           {commuteInfo.estimated && <span className="text-muted-foreground ml-0.5">(est.)</span>}
-                        </span>
-                      ) : (
+                        </div>
+                      ) : !commuteLoading && (
                         <span className="text-xs text-muted-foreground">Commute unavailable</span>
                       )}
+                    </div>
+                  )}
+
+                  {/* Street View preview */}
+                  {GOOGLE_MAPS_KEY && effectiveJobCoords && (
+                    <div className="rounded-lg overflow-hidden border">
+                      <div className="flex items-center gap-1 px-2 py-1 bg-muted/50 text-[10px] font-medium text-muted-foreground">
+                        <PersonStanding className="h-3 w-3" /> {resolvedAddress ? "Office View" : "Neighborhood"}
+                      </div>
+                      <img
+                        src={`https://maps.googleapis.com/maps/api/streetview?size=400x200&location=${effectiveJobCoords[0]},${effectiveJobCoords[1]}&key=${GOOGLE_MAPS_KEY}`}
+                        alt={`Street view near ${resolvedAddress?.address ?? selectedJob.location}`}
+                        className="w-full h-[120px] object-cover"
+                        loading="lazy"
+                      />
                     </div>
                   )}
 
@@ -1821,11 +2180,11 @@ export function JobMap() {
                           </span>
                         )}
                       </div>
-                      {commuteCache[job.id] && (
+                      {commuteCache[`${job.id}:driving`] && (
                         <div className="flex items-center gap-0.5 mt-1 text-xs text-blue-600 dark:text-blue-400">
                           <Car className="h-2.5 w-2.5" />
-                          ~{commuteCache[job.id].durationMin} min ({commuteCache[job.id].distanceMi} mi)
-                          {commuteCache[job.id].estimated && <span className="opacity-60">(est.)</span>}
+                          ~{commuteCache[`${job.id}:driving`].durationMin} min ({commuteCache[`${job.id}:driving`].distanceMi} mi)
+                          {commuteCache[`${job.id}:driving`].estimated && <span className="opacity-60">(est.)</span>}
                         </div>
                       )}
                     </CardContent>

@@ -49,7 +49,6 @@ interface JobPosting {
   applicationUrl: string | null;
   isFeatured: boolean;
   createdAt: string;
-  user?: { name: string | null };
 }
 
 const TYPE_LABELS: Record<string, string> = {
@@ -92,7 +91,7 @@ function timeAgo(date: string) {
   return `${Math.floor(days / 30)}mo ago`;
 }
 
-export default function JobBoardPage() {
+export function JobBoard() {
   const [search, setSearch] = useState("");
   const [type, setType] = useState("");
   const [level, setLevel] = useState("");
@@ -131,21 +130,18 @@ export default function JobBoardPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Header */}
-      <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-blue-600 via-cyan-600 to-teal-600 p-6 text-white shadow-lg">
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDM0djZoLTZWMzRoNnptMC0zMHY2aC02VjRoNnptMCAxNXY2aC02VjE5aDZ6Ii8+PC9nPjwvZz48L3N2Zz4=')] opacity-30" />
-        <div className="relative">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm">
-              <Briefcase className="h-5 w-5" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight">Job Board</h1>
-              <p className="text-sm text-white/80">
-                Browse {total > 0 ? `${total} open` : ""} positions from companies in the network
-              </p>
-            </div>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-blue-100 to-cyan-100 dark:from-blue-900/40 dark:to-cyan-900/40">
+            <Briefcase className="h-4.5 w-4.5 text-blue-600 dark:text-blue-400" />
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold">Community Job Board</h2>
+            <p className="text-xs text-muted-foreground">
+              {total > 0 ? `${total} open positions` : "Browse jobs posted by companies in the network"}
+            </p>
           </div>
         </div>
       </div>
@@ -220,7 +216,9 @@ export default function JobBoardPage() {
             <Briefcase className="h-12 w-12 mx-auto mb-4 text-muted-foreground/40" />
             <h3 className="text-lg font-semibold mb-1">No jobs found</h3>
             <p className="text-sm text-muted-foreground">
-              Try broadening your search or clearing filters.
+              {total === 0 && !search && !hasFilters
+                ? "No positions posted yet. Companies can submit openings via the public job posting form."
+                : "Try broadening your search or clearing filters."}
             </p>
           </CardContent>
         </Card>
@@ -238,7 +236,6 @@ export default function JobBoardPage() {
                 }`}
               >
                 <CardContent className="p-5 flex flex-col h-full">
-                  {/* Featured badge */}
                   {p.isFeatured && (
                     <div className="flex justify-end -mt-1 -mr-1 mb-2">
                       <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300 text-[10px]">
@@ -247,7 +244,6 @@ export default function JobBoardPage() {
                     </div>
                   )}
 
-                  {/* Company & Role */}
                   <div className="flex items-start gap-3 mb-3">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-blue-100 to-cyan-100 dark:from-blue-900/40 dark:to-cyan-900/40">
                       <Building2 className="h-5 w-5 text-blue-600 dark:text-blue-400" />
@@ -260,7 +256,6 @@ export default function JobBoardPage() {
                     </div>
                   </div>
 
-                  {/* Meta */}
                   <div className="flex flex-wrap gap-1.5 mb-3">
                     {p.location && (
                       <Badge variant="secondary" className="text-[10px] gap-0.5">
@@ -278,19 +273,16 @@ export default function JobBoardPage() {
                     </Badge>
                   </div>
 
-                  {/* Salary */}
                   {salary && (
                     <div className="flex items-center gap-1 text-sm font-medium text-emerald-600 dark:text-emerald-400 mb-3">
                       <DollarSign className="h-3.5 w-3.5" /> {salary}
                     </div>
                   )}
 
-                  {/* Description excerpt */}
                   <p className="text-xs text-muted-foreground line-clamp-3 mb-3 flex-1">
                     {p.description}
                   </p>
 
-                  {/* Tech stack */}
                   {tech.length > 0 && (
                     <div className="flex flex-wrap gap-1 mb-3">
                       {tech.slice(0, 5).map((t) => (
@@ -304,17 +296,12 @@ export default function JobBoardPage() {
                     </div>
                   )}
 
-                  {/* Footer */}
                   <div className="flex items-center justify-between pt-2 border-t">
                     <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
                       <Clock className="h-2.5 w-2.5" /> {timeAgo(p.createdAt)}
                     </span>
                     {p.applicationUrl ? (
-                      <a
-                        href={p.applicationUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
+                      <a href={p.applicationUrl} target="_blank" rel="noopener noreferrer">
                         <Button size="sm" className="h-7 text-xs gap-1">
                           Apply <ExternalLink className="h-3 w-3" />
                         </Button>

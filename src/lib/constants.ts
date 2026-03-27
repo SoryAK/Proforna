@@ -97,6 +97,5 @@ export const NAV_ITEMS = [
   { label: "Documents", href: "/docs", icon: "FolderOpen" },
   { label: "Learning", href: "/learning", icon: "Brain" },
   { label: "Worker Rights", href: "/worker-rights", icon: "Shield" },
-  { label: "Job Postings", href: "/job-postings", icon: "Megaphone" },
   { label: "Portal Settings", href: "/portal-settings", icon: "Globe" },
 ] as const;

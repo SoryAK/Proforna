@@ -1,3 +1,0 @@
-This is the file that list things that need to be tested
-The Interactive resume needs to be tested more 
-reset the db (npx prisma migrate reset --force)

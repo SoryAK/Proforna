@@ -1031,7 +1031,7 @@ model InterestGroupItem {
 
 model JobPosting {
   id              String    @id @default(uuid())
-  userId          String
+  userId          String?
   slug            String    @unique @default(uuid())
   company         String
   companyLogo     String?
@@ -1061,7 +1061,7 @@ model JobPosting {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([isPublished, createdAt])
   @@index([company])
