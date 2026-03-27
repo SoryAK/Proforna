@@ -6,6 +6,7 @@ import {
   TileLayer,
   Marker,
   Popup,
+  Tooltip,
   Circle,
   Polyline,
   useMap,
@@ -16,20 +17,26 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
 /* ── Salary-coloured SVG marker factory ── */
-function svgIcon(color: string, size: number, selected: boolean) {
-  const w = selected ? size + 6 : size;
-  const h = selected ? Math.round(size * 1.6) + 6 : Math.round(size * 1.6);
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 24 38">
+function svgIcon(color: string, size: number, selected: boolean, highlighted: boolean = false) {
+  const w = selected ? size + 6 : highlighted ? size + 4 : size;
+  const h = selected ? Math.round(size * 1.6) + 6 : highlighted ? Math.round(size * 1.6) + 4 : Math.round(size * 1.6);
+  const strokeColor = selected ? "#000" : highlighted ? "#6366f1" : "#fff";
+  const strokeW = selected ? 2 : highlighted ? 2 : 1;
+  const glow = highlighted && !selected
+    ? `<circle cx="12" cy="12" r="16" fill="none" stroke="#6366f1" stroke-width="2" opacity="0.5"><animate attributeName="r" from="14" to="20" dur="1.5s" repeatCount="indefinite"/><animate attributeName="opacity" from="0.6" to="0" dur="1.5s" repeatCount="indefinite"/></circle>`
+    : "";
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w + 8}" height="${h + 8}" viewBox="-4 -4 32 46">
+    ${glow}
     <path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 26 12 26s12-17 12-26C24 5.4 18.6 0 12 0z"
-          fill="${color}" stroke="${selected ? "#000" : "#fff"}" stroke-width="${selected ? 2 : 1}"/>
+          fill="${color}" stroke="${strokeColor}" stroke-width="${strokeW}"/>
     <circle cx="12" cy="12" r="5" fill="#fff" fill-opacity="0.9"/>
   </svg>`;
   return L.divIcon({
     html: svg,
     className: "",
-    iconSize: [w, h],
-    iconAnchor: [w / 2, h],
-    popupAnchor: [0, -h + 4],
+    iconSize: [w + 8, h + 8],
+    iconAnchor: [(w + 8) / 2, h + 4],
+    popupAnchor: [0, -(h + 4) + 4],
   });
 }
 
@@ -87,6 +94,7 @@ interface Props {
   showHeatmap?: boolean;
   tileStyle?: "osm" | "google-roadmap" | "google-satellite" | "google-hybrid";
   resolvedCoords?: [number, number] | null;
+  highlightedIds?: string[];
 }
 
 /* Auto-fit bounds when jobs change */
@@ -211,6 +219,7 @@ export default function JobMapLeaflet({
   showHeatmap = false,
   tileStyle = "osm",
   resolvedCoords = null,
+  highlightedIds = [],
 }: Props) {
   const [panCenter, setPanCenter] = useState<[number, number] | null>(null);
   const [hasPanned, setHasPanned] = useState(false);
@@ -311,14 +320,33 @@ export default function JobMapLeaflet({
         {jobs.map((job) => {
           const color = salaryColor(job.salaryMin, job.salaryMax, meanSalary);
           const isSelected = job.id === selectedId;
+          const isHighlighted = highlightedIds.includes(job.id);
           const pos: [number, number] = isSelected && resolvedCoords ? resolvedCoords : [job.lat, job.lng];
           return (
             <Marker
               key={job.id}
               position={pos}
-              icon={svgIcon(color, 24, isSelected)}
+              icon={svgIcon(color, 24, isSelected, isHighlighted)}
+              zIndexOffset={isSelected ? 1000 : isHighlighted ? 500 : 0}
               eventHandlers={{ click: () => onSelect(job as any) }}
             >
+              <Tooltip
+                direction="top"
+                offset={[0, -30]}
+                opacity={0.95}
+              >
+                <div style={{ fontSize: 11, maxWidth: 180, lineHeight: 1.3 }}>
+                  <div style={{ fontWeight: 600 }}>{job.title}</div>
+                  <div style={{ color: "#6b7280" }}>{job.company}</div>
+                  {(job.salaryMin || job.salaryMax) && (
+                    <div style={{ color: "#059669", fontWeight: 500 }}>
+                      {job.salaryMin ? formatSalary(job.salaryMin) : ""}
+                      {job.salaryMin && job.salaryMax ? " – " : ""}
+                      {job.salaryMax ? formatSalary(job.salaryMax) : ""}
+                    </div>
+                  )}
+                </div>
+              </Tooltip>
               <Popup>
                 <div className="text-xs max-w-[200px]">
                   <p className="font-semibold">{job.title}</p>
@@ -346,6 +374,9 @@ export default function JobMapLeaflet({
           }}
         />
       )}
+
+      {/* Locate-me button */}
+      <LocateMeButton searchCenter={searchCenter} />
     </MapContainer>
   );
 }
@@ -394,6 +425,79 @@ function SearchAreaButton({ onClick }: { onClick: () => void }) {
         </svg>
         Search this area
       </button>
+    </div>
+  );
+}
+
+/* "Locate me" / snap-back button — like Google Maps crosshair */
+function LocateMeButton({ searchCenter }: { searchCenter: [number, number] | null }) {
+  const map = useMap();
+  const ref = useRef<HTMLDivElement>(null);
+  const [locating, setLocating] = useState(false);
+
+  useEffect(() => {
+    if (!ref.current) return;
+    L.DomEvent.disableClickPropagation(ref.current);
+  }, []);
+
+  const handleLocate = useCallback(() => {
+    // If we have a search center (home), snap back to it
+    if (searchCenter) {
+      map.flyTo(searchCenter, 11, { duration: 1 });
+      return;
+    }
+    // Otherwise use browser geolocation
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        map.flyTo([pos.coords.latitude, pos.coords.longitude], 12, { duration: 1 });
+        setLocating(false);
+      },
+      () => {
+        setLocating(false);
+      },
+      { enableHighAccuracy: false, timeout: 8000 }
+    );
+  }, [map, searchCenter]);
+
+  return (
+    <div
+      ref={ref}
+      style={{
+        position: "absolute",
+        bottom: 24,
+        right: 12,
+        zIndex: 1000,
+      }}
+    >
+      <button
+        onClick={handleLocate}
+        title="Back to my location"
+        style={{
+          background: "#fff",
+          border: "1px solid #d1d5db",
+          borderRadius: 8,
+          width: 36,
+          height: 36,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          cursor: "pointer",
+          boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+        }}
+      >
+        {locating ? (
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2" style={{ animation: "spin 1s linear infinite" }}>
+            <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+          </svg>
+        ) : (
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth="2">
+            <circle cx="12" cy="12" r="3" />
+            <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
+          </svg>
+        )}
+      </button>
+      <style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
     </div>
   );
 }

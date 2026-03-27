@@ -6,6 +6,24 @@
 6. Replace SerpAPI for Company News & Scholar with Gemini 2.0 + Google Search Grounding (free with existing GEMINI_API_KEY). Keep SerpAPI only for Job Discovery (needs structured job data with apply links). This would reduce SerpAPI usage significantly and leverage the already-configured Gemini API.
 7. 
 
+## Life Anchors Feature (Job Search / Map)
+**Priority: High | Complexity: Medium-High**
+
+Workers with families/dependents don't just care about commute from home — they need to know distance to a spouse's job, kids' school, daycare, etc. No major job platform addresses this.
+
+**Concept:** Let users save labeled locations ("Life Anchors") — Home, Spouse's Work, Kids' School, Daycare, Gym, etc. When viewing a job, show commute time to ALL anchors, not just home.
+
+**Implementation plan:**
+- New `LifeAnchor` Prisma model: `id, userId, label, icon, address, lat, lng, weight (priority 1-5)`
+- Life Anchors management panel (profile/settings) with Google Places Autocomplete for each
+- Job detail view: commute breakdown card showing travel time + distance to every anchor
+- **"Life Score"** — weighted composite score summarizing how well a job fits the user's whole life
+- Map: draw multi-colored commute lines from job to each anchor
+- Sort/filter jobs by Life Score alongside salary
+- Batch estimation via OSRM for list view; Google Directions for selected job detail
+
+**Cost note:** Each anchor = 1 Directions API call per job viewed. Keep OSRM for bulk estimates, Google only for selected job.
+
 
 UI design inspiration 
 

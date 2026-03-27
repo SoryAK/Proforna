@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { importLibrary, setOptions } from "@googlemaps/js-api-loader";
 import { Input } from "@/components/ui/input";
 import { MapPin } from "lucide-react";
@@ -17,6 +18,7 @@ interface Props {
   onChange: (value: string) => void;
   placeholder?: string;
   className?: string;
+  types?: string[];
 }
 
 let optionsSet = false;
@@ -31,13 +33,22 @@ function ensureOptions() {
   }
 }
 
-export function PlacesAutocomplete({ value, onChange, placeholder = "City, State", className }: Props) {
+export function PlacesAutocomplete({ value, onChange, placeholder = "City, State", className, types = ["(cities)"] }: Props) {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [open, setOpen] = useState(false);
   const [ready, setReady] = useState(false);
   const serviceRef = useRef<google.maps.places.AutocompleteService | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number; width: number } | null>(null);
+
+  // Update dropdown position when open
+  useEffect(() => {
+    if (!open || !containerRef.current) { setDropdownPos(null); return; }
+    const rect = containerRef.current.getBoundingClientRect();
+    setDropdownPos({ top: rect.bottom + 4, left: rect.left, width: rect.width });
+  }, [open, suggestions]);
 
   // Load the Google Places library
   useEffect(() => {
@@ -73,7 +84,7 @@ export function PlacesAutocomplete({ value, onChange, placeholder = "City, State
       serviceRef.current.getPlacePredictions(
         {
           input,
-          types: ["(cities)"],
+          ...(types && types.length > 0 ? { types } : {}),
         },
         (predictions, status) => {
           if (status === google.maps.places.PlacesServiceStatus.OK && predictions) {
@@ -133,20 +144,30 @@ export function PlacesAutocomplete({ value, onChange, placeholder = "City, State
         className="pl-9"
         autoComplete="off"
       />
-      {open && suggestions.length > 0 && (
-        <div className="absolute top-full left-0 right-0 z-50 mt-1 rounded-md border bg-popover shadow-md overflow-hidden">
+      {open && suggestions.length > 0 && dropdownPos && createPortal(
+        <div
+          style={{
+            position: "fixed",
+            top: dropdownPos.top,
+            left: dropdownPos.left,
+            width: dropdownPos.width,
+            zIndex: 99999,
+          }}
+          className="rounded-md border bg-popover shadow-lg overflow-hidden max-h-64 overflow-y-auto"
+        >
           {suggestions.map((s) => (
             <button
               key={s.placeId}
               type="button"
               className="w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors flex items-center gap-2"
-              onClick={() => handleSelect(s.description)}
+              onMouseDown={(e) => { e.preventDefault(); handleSelect(s.description); }}
             >
               <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
               <span className="truncate">{s.description}</span>
             </button>
           ))}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

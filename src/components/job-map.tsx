@@ -206,7 +206,7 @@ export function JobMap() {
   const [radius, setRadius] = useState("25");
   const [selectedJob, setSelectedJob] = useState<MapJob | null>(null);
   const [searched, setSearched] = useState(false);
-  const [searchParams, setSearchParams] = useState<{ q: string; where: string; distance: string } | null>(null);
+  const [searchParams, setSearchParams] = useState<{ q: string; where: string; apiWhere: string; distance: string } | null>(null);
   const [trackedIds, setTrackedIds] = useState<Set<string>>(new Set());
   const [sortBy, setSortBy] = useState("salary-desc");
   const [minSalary, setMinSalary] = useState("");
@@ -251,13 +251,17 @@ export function JobMap() {
     staleTime: Infinity,
   });
 
-  // Set default location from profile
+  // Set default location from profile (only once on mount)
+  const profileLocationSet = useRef(false);
   useEffect(() => {
-    if (profile && !where) {
+    if (profile && !profileLocationSet.current && !where) {
       const loc = [profile.city, profile.state].filter(Boolean).join(", ");
-      if (loc) setWhere(loc);
+      if (loc) {
+        setWhere(loc);
+        profileLocationSet.current = true;
+      }
     }
-  }, [profile, where]);
+  }, [profile]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Adzuna search query — fetch up to 5 pages (250 jobs) for good coverage
   const { data: adzunaData, isFetching: adzunaFetching } = useQuery<SearchResponse>({
@@ -266,7 +270,7 @@ export function JobMap() {
       if (!searchParams) return { jobs: [], total: 0, mean: null, page: 1, hasMore: false };
       const baseParams = {
         q: searchParams.q,
-        where: searchParams.where,
+        where: searchParams.apiWhere,
         distance: searchParams.distance,
       };
 
@@ -316,7 +320,7 @@ export function JobMap() {
       if (!searchParams) return { jobs: [], total: 0 };
       const params = new URLSearchParams({
         q: searchParams.q,
-        location: searchParams.where,
+        location: searchParams.apiWhere,
       });
       const res = await fetch(`/api/job-search?${params}`);
       if (!res.ok) return { jobs: [], total: 0 }; // SerpAPI error — degrade gracefully
@@ -543,23 +547,37 @@ export function JobMap() {
     setPage(1);
   }, [searchParams, sortBy, minSalary, datePosted, remoteFilter, employmentType, hoursFilter, categoryFilter, companyFilter]);
 
-  // Geocode the search location to get lat/lng for the radius ring
+  // Geocode the search location to get lat/lng for the radius ring + commute origin
   useEffect(() => {
     if (!searchParams?.where) {
       setSearchCenter(null);
       return;
     }
-    const encoded = encodeURIComponent(searchParams.where);
-    fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encoded}`)
-      .then((r) => r.json())
-      .then((results: { lat: string; lon: string }[]) => {
-        if (results.length > 0) {
-          setSearchCenter([parseFloat(results[0].lat), parseFloat(results[0].lon)]);
-        }
-      })
-      .catch(() => {
-        // Silent fail — radius ring just won't show
-      });
+    const GKEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+    if (GKEY) {
+      // Use Google Geocoding API for precise address-level coords
+      const encoded = encodeURIComponent(searchParams.where);
+      fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=${encoded}&key=${GKEY}`)
+        .then((r) => r.json())
+        .then((data: { status: string; results: { geometry: { location: { lat: number; lng: number } } }[] }) => {
+          if (data.status === "OK" && data.results.length > 0) {
+            const loc = data.results[0].geometry.location;
+            setSearchCenter([loc.lat, loc.lng]);
+          }
+        })
+        .catch(() => {});
+    } else {
+      // Fallback to Nominatim
+      const encoded = encodeURIComponent(searchParams.where);
+      fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encoded}`)
+        .then((r) => r.json())
+        .then((results: { lat: string; lon: string }[]) => {
+          if (results.length > 0) {
+            setSearchCenter([parseFloat(results[0].lat), parseFloat(results[0].lon)]);
+          }
+        })
+        .catch(() => {});
+    }
   }, [searchParams?.where]);
 
   // ── Auto-resolve company address via Google Places ──
@@ -811,12 +829,42 @@ export function JobMap() {
     onError: () => toast.error("Failed to save to group"),
   });
 
-  const doSearch = useCallback(() => {
+  const doSearch = useCallback(async () => {
     if (!where.trim()) {
       toast.error("Enter a location to search");
       return;
     }
-    setSearchParams({ q: query.trim(), where: where.trim(), distance: radius });
+    const trimmed = where.trim();
+
+    // Extract city/state from address for job APIs (they don't understand street addresses)
+    let apiWhere = trimmed;
+    const GKEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+    if (GKEY) {
+      try {
+        const res = await fetch(
+          `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(trimmed)}&key=${GKEY}`
+        );
+        const data = await res.json();
+        if (data.status === "OK" && data.results?.length > 0) {
+          const comps = data.results[0].address_components as { long_name: string; short_name: string; types: string[] }[];
+          const city = comps.find((c) => c.types.includes("locality"))?.long_name
+            || comps.find((c) => c.types.includes("sublocality"))?.long_name
+            || comps.find((c) => c.types.includes("administrative_area_level_3"))?.long_name
+            || "";
+          const state = comps.find((c) => c.types.includes("administrative_area_level_1"))?.short_name || "";
+          if (city) {
+            apiWhere = state ? `${city}, ${state}` : city;
+          }
+          // Also set searchCenter immediately from the geocode result
+          const loc = data.results[0].geometry.location;
+          setSearchCenter([loc.lat, loc.lng]);
+        }
+      } catch {
+        // Fall through — use raw address
+      }
+    }
+
+    setSearchParams({ q: query.trim(), where: trimmed, apiWhere, distance: radius });
     setSearched(true);
     setSelectedJob(null);
     setShowDetails(false);
@@ -841,7 +889,7 @@ export function JobMap() {
         const loc = state ? `${city}, ${state}` : city;
         setWhere(loc);
         setSearchCenter(center);
-        setSearchParams({ q: query.trim(), where: loc, distance: radius });
+        setSearchParams({ q: query.trim(), where: loc, apiWhere: loc, distance: radius });
         setSelectedJob(null);
         setPage(1);
       } catch {
@@ -854,7 +902,7 @@ export function JobMap() {
   return (
     <div className="space-y-3">
       {/* Search bar */}
-      <Card>
+      <Card className="relative z-20">
         <CardContent className="pt-4">
           <form
             onSubmit={(e) => {
@@ -875,8 +923,9 @@ export function JobMap() {
             <PlacesAutocomplete
               value={where}
               onChange={setWhere}
-              placeholder="City, State"
+              placeholder="Address or city..."
               className="sm:w-52"
+              types={[]}
             />
             <Select value={radius} onValueChange={(v) => setRadius(v ?? "25")}>
               <SelectTrigger className="w-28">
@@ -1556,10 +1605,10 @@ export function JobMap() {
             </div>
           ) : (
             <LeafletMap
-              jobs={geoJobs}
+              jobs={sortedJobs}
               center={
-                geoJobs.length > 0
-                  ? [geoJobs[0].lat, geoJobs[0].lng] as [number, number]
+                sortedJobs.length > 0
+                  ? [sortedJobs[0].lat, sortedJobs[0].lng] as [number, number]
                   : DEFAULT_CENTER
               }
               selectedId={selectedJob?.id ?? null}
@@ -1572,6 +1621,7 @@ export function JobMap() {
               showHeatmap={showHeatmap}
               tileStyle={tileStyle}
               resolvedCoords={effectiveJobCoords}
+              highlightedIds={pagedJobs.map((j) => j.id)}
             />
           )}
         </div>
