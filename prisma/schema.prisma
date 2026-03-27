@@ -51,6 +51,7 @@ model User {
   interestGroups      InterestGroup[]
   interestGroupItems  InterestGroupItem[]
   jobPostings         JobPosting[]
+  lifeAnchors         LifeAnchor[]
 }
 
 model Account {
@@ -1025,6 +1026,24 @@ model InterestGroupItem {
   user  User          @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([groupId, jobKey])
+}
+
+// ─── Life Anchors (Job Search) ──────────────────────────────────
+
+model LifeAnchor {
+  id        String   @id @default(uuid())
+  userId    String
+  label     String   // e.g. "Home", "Spouse's Work", "Kids' School"
+  icon      String   @default("home") // lucide icon name
+  address   String
+  lat       Float
+  lng       Float
+  weight    Int      @default(3) // priority 1-5
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 // ─── Company Job Postings ──────────────────────────────────────

@@ -81,6 +81,43 @@ interface MapJob {
   source: "adzuna" | "google";
 }
 
+interface AnchorRoute {
+  anchorId: string;
+  geometry: [number, number][];
+  color: string;
+  label: string;
+}
+
+interface AnchorMarker {
+  id: string;
+  lat: number;
+  lng: number;
+  label: string;
+  icon: string;
+  color: string;
+}
+
+/* Emoji lookup for anchor icons */
+const ANCHOR_EMOJI: Record<string, string> = {
+  home: "🏠",
+  briefcase: "💼",
+  school: "🎓",
+  baby: "👶",
+  dumbbell: "💪",
+  heart: "❤️",
+  "map-pin": "📍",
+  church: "⛪",
+  "shopping-cart": "🛒",
+  hospital: "🏥",
+  coffee: "☕",
+  anchor: "⚓",
+};
+
+interface SweetSpotZone {
+  center: [number, number];
+  radiusMeters: number;
+}
+
 interface Props {
   jobs: MapJob[];
   center: [number, number];
@@ -95,6 +132,9 @@ interface Props {
   tileStyle?: "osm" | "google-roadmap" | "google-satellite" | "google-hybrid";
   resolvedCoords?: [number, number] | null;
   highlightedIds?: string[];
+  anchorRoutes?: AnchorRoute[];
+  anchorMarkers?: AnchorMarker[];
+  sweetSpot?: SweetSpotZone | null;
 }
 
 /* Auto-fit bounds when jobs change */
@@ -220,6 +260,9 @@ export default function JobMapLeaflet({
   tileStyle = "osm",
   resolvedCoords = null,
   highlightedIds = [],
+  anchorRoutes = [],
+  anchorMarkers = [],
+  sweetSpot = null,
 }: Props) {
   const [panCenter, setPanCenter] = useState<[number, number] | null>(null);
   const [hasPanned, setHasPanned] = useState(false);
@@ -274,6 +317,22 @@ export default function JobMapLeaflet({
         />
       )}
 
+      {/* Anchor commute route lines */}
+      {anchorRoutes.map((route) => (
+        <Polyline
+          key={route.anchorId}
+          positions={route.geometry}
+          pathOptions={{
+            color: route.color,
+            weight: 4,
+            opacity: 0.7,
+            lineCap: "round",
+            lineJoin: "round",
+            dashArray: "8 6",
+          }}
+        />
+      ))}
+
       {/* Search radius ring */}
       {searchCenter && (
         <Circle
@@ -287,6 +346,37 @@ export default function JobMapLeaflet({
             dashArray: "6 4",
           }}
         />
+      )}
+
+      {/* Sweet Spot zone — weighted centroid of Life Anchors */}
+      {sweetSpot && (
+        <Circle
+          center={sweetSpot.center}
+          radius={sweetSpot.radiusMeters}
+          pathOptions={{
+            color: "#8b5cf6",
+            fillColor: "#8b5cf6",
+            fillOpacity: 0.10,
+            weight: 2,
+            dashArray: "4 6",
+          }}
+        />
+      )}
+      {sweetSpot && (
+        <Marker
+          position={sweetSpot.center}
+          icon={L.divIcon({
+            html: `<div style="display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:#8b5cf6;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.3);font-size:12px;">⭐</div>`,
+            className: "",
+            iconSize: [24, 24],
+            iconAnchor: [12, 12],
+          })}
+          zIndexOffset={100}
+        >
+          <Tooltip direction="top" offset={[0, -12]} opacity={0.95}>
+            <div style={{ fontSize: 11, fontWeight: 600 }}>Sweet Spot</div>
+          </Tooltip>
+        </Marker>
       )}
 
       {/* "You are here" marker */}
@@ -364,6 +454,25 @@ export default function JobMapLeaflet({
           );
         })}
       </MarkerClusterGroup>
+
+      {/* Life Anchor markers — rendered AFTER cluster group so they appear on top */}
+      {anchorMarkers.map((a) => (
+        <Marker
+          key={a.id}
+          position={[a.lat, a.lng]}
+          icon={L.divIcon({
+            html: `<div style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:50%;background:${a.color};border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.4);font-size:16px;line-height:1;">${ANCHOR_EMOJI[a.icon] ?? "📍"}</div>`,
+            className: "",
+            iconSize: [32, 32],
+            iconAnchor: [16, 16],
+          })}
+          zIndexOffset={2000}
+        >
+          <Tooltip direction="top" offset={[0, -16]} opacity={0.95}>
+            <div style={{ fontSize: 11, fontWeight: 600 }}>{a.label}</div>
+          </Tooltip>
+        </Marker>
+      ))}
 
       {/* "Search this area" floating button */}
       {hasPanned && onSearchArea && panCenter && (

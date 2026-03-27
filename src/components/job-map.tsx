@@ -41,11 +41,13 @@ import {
   Flame,
   Layers,
   MapPinned,
+  Anchor,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
+import { LifeAnchorsPanel } from "@/components/life-anchors-panel";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
@@ -145,6 +147,7 @@ const SORT_OPTIONS = [
   { value: "salary-asc", label: "Salary: Low → High" },
   { value: "date", label: "Newest first" },
   { value: "company", label: "Company A → Z" },
+  { value: "life-score", label: "Life Score" },
 ];
 
 const SOURCE_OPTIONS = [
@@ -195,8 +198,20 @@ const REMOTE_OPTIONS = [
 
 const DEFAULT_CENTER: [number, number] = [39.87, -75.38]; // Eddystone, PA area
 
+const ANCHOR_COLORS = ["#6366f1", "#f59e0b", "#10b981", "#ef4444", "#8b5cf6", "#ec4899", "#06b6d4", "#f97316"];
+
 function formatSalary(n: number) {
   return n >= 1000 ? `$${Math.round(n / 1000)}k` : `$${n}`;
+}
+
+/** 2026 IRS standard mileage rate (business) */
+const IRS_MILEAGE_RATE = 0.70;
+/** Yearly roundtrip commute cost: distanceMi × 2 (roundtrip) × 250 work days × IRS rate */
+function yearlyCommuteCost(distanceMi: number) {
+  return distanceMi * 2 * 250 * IRS_MILEAGE_RATE;
+}
+function formatCost(n: number) {
+  return n >= 1000 ? `$${(n / 1000).toFixed(1)}k` : `$${Math.round(n)}`;
 }
 
 /* ── Component ── */
@@ -242,7 +257,23 @@ export function JobMap() {
   const commuteAbort = useRef<AbortController | null>(null);
   const geometryAbort = useRef<AbortController | null>(null);
   const prefetchAbort = useRef<AbortController | null>(null);
+  const anchorAbort = useRef<AbortController | null>(null);
   const queryClient = useQueryClient();
+
+  /* ── Life Anchors state ── */
+  interface LifeAnchorData { id: string; label: string; icon: string; address: string; lat: number; lng: number; weight: number }
+  const { data: lifeAnchors = [] } = useQuery<LifeAnchorData[]>({
+    queryKey: ["life-anchors"],
+    queryFn: () => fetch("/api/life-anchors").then((r) => r.json()),
+    staleTime: 60_000,
+  });
+  // Per-anchor commute for selected job: anchorId → { durationMin, distanceMi, estimated?, geometry? }
+  const [anchorCommutes, setAnchorCommutes] = useState<Record<string, { durationMin: number; distanceMi: number; estimated?: boolean; geometry?: [number, number][] }>>({});
+  // Anchor commute cache: `jobId-mode` → anchor commutes (avoids re-fetching)
+  const anchorCommuteCache = useRef<Record<string, Record<string, { durationMin: number; distanceMi: number; estimated?: boolean; geometry?: [number, number][] }>>>({});
+  // Life Score cache: jobId → score (0-100)
+  const [lifeScoreCache, setLifeScoreCache] = useState<Record<string, number>>({});
+  const [showAnchors, setShowAnchors] = useState(false);
 
   // Fetch user profile for default location
   const { data: profile } = useQuery<{ city?: string; state?: string }>({
@@ -531,9 +562,12 @@ export function JobMap() {
       case "company":
         sorted.sort((a, b) => a.company.localeCompare(b.company));
         break;
+      case "life-score":
+        sorted.sort((a, b) => (lifeScoreCache[b.id] ?? -1) - (lifeScoreCache[a.id] ?? -1));
+        break;
     }
     return sorted;
-  }, [geoJobs, sortBy, minSalary, datePosted, remoteFilter, employmentType, hoursFilter, categoryFilter, companyFilter]);
+  }, [geoJobs, sortBy, minSalary, datePosted, remoteFilter, employmentType, hoursFilter, categoryFilter, companyFilter, lifeScoreCache]);
 
   // Pagination
   const totalPages = Math.max(1, Math.ceil(sortedJobs.length / PAGE_SIZE));
@@ -742,6 +776,147 @@ export function JobMap() {
       ctrl.abort();
     };
   }, [pagedJobs, searchCenter]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Fetch commute from job to each Life Anchor when a job is selected ──
+  useEffect(() => {
+    anchorAbort.current?.abort();
+    setAnchorCommutes({});
+
+    if (!selectedJob || !effectiveJobCoords || lifeAnchors.length === 0 || addressLoading) return;
+
+    // Check cache first
+    const cacheKey = `${selectedJob.id}-${commuteMode}`;
+    const cached = anchorCommuteCache.current[cacheKey];
+    if (cached && Object.keys(cached).length === lifeAnchors.length) {
+      setAnchorCommutes(cached);
+      return;
+    }
+
+    const ctrl = new AbortController();
+    anchorAbort.current = ctrl;
+
+    async function fetchAnchorCommutes() {
+      const results: Record<string, { durationMin: number; distanceMi: number; estimated?: boolean; geometry?: [number, number][] }> = {};
+
+      for (const anchor of lifeAnchors) {
+        if (ctrl.signal.aborted) return;
+
+        const params = new URLSearchParams({
+          fromLat: String(effectiveJobCoords![0]),
+          fromLng: String(effectiveJobCoords![1]),
+          toLat: String(anchor.lat),
+          toLng: String(anchor.lng),
+          mode: commuteMode,
+        });
+
+        try {
+          // Fetch with geometry for route lines
+          const res = await fetch(`/api/commute?${params}&geometry=true`, { signal: ctrl.signal });
+          if (!res.ok) continue;
+          const d = await res.json();
+          if (d && !ctrl.signal.aborted) {
+            results[anchor.id] = { durationMin: d.durationMin, distanceMi: d.distanceMi, estimated: d.estimated, geometry: d.geometry };
+            setAnchorCommutes({ ...results });
+          }
+        } catch { /* aborted or failed */ }
+
+        // Small gap to be rate-limit friendly
+        if (!ctrl.signal.aborted) {
+          await new Promise((r) => setTimeout(r, 500));
+        }
+      }
+
+      // Store in cache
+      if (!ctrl.signal.aborted) {
+        anchorCommuteCache.current[cacheKey] = results;
+      }
+    }
+
+    const timer = setTimeout(fetchAnchorCommutes, 300);
+    return () => { clearTimeout(timer); ctrl.abort(); };
+  }, [selectedJob, effectiveJobCoords, lifeAnchors, commuteMode, addressLoading]);
+
+  // ── Compute Life Score for jobs in the commute cache ──
+  // Life Score: weighted inverse of commute time to all anchors (0-100 scale)
+  const computeLifeScore = useCallback(
+    (jobLat: number, jobLng: number, jobId: string): number | null => {
+      if (lifeAnchors.length === 0) return null;
+
+      // Use the commute cache to get driving minutes from searchCenter to job
+      // For life score we need commute from job to each anchor, but we only have
+      // search-center-to-job cached. Use haversine as a fast approximation for scoring.
+      const totalWeight = lifeAnchors.reduce((s, a) => s + a.weight, 0);
+      if (totalWeight === 0) return null;
+
+      let weightedScore = 0;
+      for (const anchor of lifeAnchors) {
+        // Haversine distance in miles
+        const R = 3958.8;
+        const dLat = ((anchor.lat - jobLat) * Math.PI) / 180;
+        const dLng = ((anchor.lng - jobLng) * Math.PI) / 180;
+        const a =
+          Math.sin(dLat / 2) ** 2 +
+          Math.cos((jobLat * Math.PI) / 180) *
+            Math.cos((anchor.lat * Math.PI) / 180) *
+            Math.sin(dLng / 2) ** 2;
+        const distMi = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+        // Score per anchor: 100 at 0 mi, ~50 at 15 mi, ~0 at 60+ mi
+        const anchorScore = Math.max(0, 100 * Math.exp(-distMi / 20));
+        weightedScore += anchorScore * (anchor.weight / totalWeight);
+      }
+
+      return Math.round(weightedScore);
+    },
+    [lifeAnchors],
+  );
+
+  // Pre-compute life scores for all geo jobs when anchors change
+  useEffect(() => {
+    if (lifeAnchors.length === 0) { setLifeScoreCache({}); return; }
+    const cache: Record<string, number> = {};
+    for (const job of geoJobs) {
+      const score = computeLifeScore(job.lat, job.lng, job.id);
+      if (score !== null) cache[job.id] = score;
+    }
+    setLifeScoreCache(cache);
+  }, [geoJobs, lifeAnchors, computeLifeScore]);
+
+  // ── Sweet Spot: weighted centroid + radius ──
+  const sweetSpot = useMemo(() => {
+    if (lifeAnchors.length < 2) return null;
+    const totalWeight = lifeAnchors.reduce((s, a) => s + a.weight, 0);
+    if (totalWeight === 0) return null;
+
+    // Weighted centroid
+    let cLat = 0, cLng = 0;
+    for (const a of lifeAnchors) {
+      cLat += a.lat * a.weight;
+      cLng += a.lng * a.weight;
+    }
+    cLat /= totalWeight;
+    cLng /= totalWeight;
+
+    // Weighted average distance from centroid (in meters)
+    let avgDist = 0;
+    for (const a of lifeAnchors) {
+      const R = 6371000; // meters
+      const dLat = ((a.lat - cLat) * Math.PI) / 180;
+      const dLng = ((a.lng - cLng) * Math.PI) / 180;
+      const hav =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos((cLat * Math.PI) / 180) *
+          Math.cos((a.lat * Math.PI) / 180) *
+          Math.sin(dLng / 2) ** 2;
+      const dist = R * 2 * Math.atan2(Math.sqrt(hav), Math.sqrt(1 - hav));
+      avgDist += dist * (a.weight / totalWeight);
+    }
+
+    // Radius = weighted avg distance, clamped 3-40 miles (in meters)
+    const radiusMeters = Math.max(4828, Math.min(64374, avgDist * 1.2));
+
+    return { center: [cLat, cLng] as [number, number], radiusMeters };
+  }, [lifeAnchors]);
 
   // Track job as application
   const trackMutation = useMutation({
@@ -1281,6 +1456,16 @@ export function JobMap() {
                           </div>
                         )}
 
+                        {/* Life Score */}
+                        {lifeScoreCache[job.id] != null && (
+                          <div className="flex items-center gap-1 text-xs">
+                            <Anchor className="h-3 w-3 text-indigo-500" />
+                            <span className={`font-semibold ${lifeScoreCache[job.id] >= 70 ? "text-emerald-600 dark:text-emerald-400" : lifeScoreCache[job.id] >= 40 ? "text-yellow-600 dark:text-yellow-400" : "text-red-500"}`}>
+                              Life Score: {lifeScoreCache[job.id]}
+                            </span>
+                          </div>
+                        )}
+
                         {/* Description */}
                         <p className={`text-xs text-muted-foreground leading-relaxed ${isExpanded ? "" : "line-clamp-3"}`}>
                           {desc}
@@ -1501,6 +1686,68 @@ export function JobMap() {
                             </span>
                           </div>
                         )}
+
+                        {/* Life Anchors commute breakdown */}
+                        {lifeAnchors.length > 0 && Object.keys(anchorCommutes).length > 0 && (() => {
+                          const totalYearlyCost = lifeAnchors.reduce((sum, a) => {
+                            const ac = anchorCommutes[a.id];
+                            return sum + (ac ? yearlyCommuteCost(ac.distanceMi) : 0);
+                          }, 0);
+                          const midSalary = selectedJob.salaryMin
+                            ? selectedJob.salaryMax ? (selectedJob.salaryMin + selectedJob.salaryMax) / 2 : selectedJob.salaryMin
+                            : null;
+                          return (
+                          <div className="space-y-1.5 pt-1">
+                            <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+                              <Anchor className="h-3.5 w-3.5 text-indigo-500" /> Life Anchors
+                            </div>
+                            {lifeAnchors.map((anchor) => {
+                              const ac = anchorCommutes[anchor.id];
+                              return (
+                                <div key={anchor.id} className="flex items-center justify-between text-xs px-1">
+                                  <span className="flex items-center gap-1.5 text-muted-foreground">
+                                    <span className="h-2 w-2 rounded-full" style={{ backgroundColor: ANCHOR_COLORS[lifeAnchors.indexOf(anchor) % ANCHOR_COLORS.length] }} />
+                                    {anchor.label}
+                                  </span>
+                                  {ac ? (
+                                    <span className="font-medium">
+                                      ~{ac.durationMin} min ({ac.distanceMi} mi)
+                                      <span className="text-muted-foreground ml-1">· {formatCost(yearlyCommuteCost(ac.distanceMi))}/yr</span>
+                                      {ac.estimated && <span className="opacity-60 ml-0.5">(est.)</span>}
+                                    </span>
+                                  ) : (
+                                    <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                                  )}
+                                </div>
+                              );
+                            })}
+                            {/* Yearly commute cost + net salary */}
+                            {totalYearlyCost > 0 && (
+                              <div className="pt-1 border-t space-y-0.5">
+                                <div className="flex items-center justify-between text-xs">
+                                  <span className="flex items-center gap-1 text-muted-foreground"><Car className="h-3 w-3" /> Total Commute Cost</span>
+                                  <span className="font-semibold text-orange-600 dark:text-orange-400">{formatCost(totalYearlyCost)}/yr</span>
+                                </div>
+                                {midSalary && (
+                                  <div className="flex items-center justify-between text-xs">
+                                    <span className="flex items-center gap-1 text-muted-foreground"><DollarSign className="h-3 w-3" /> Net Effective Salary</span>
+                                    <span className="font-bold text-emerald-600 dark:text-emerald-400">{formatSalary(midSalary - totalYearlyCost)}</span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                            {/* Life Score */}
+                            {lifeScoreCache[selectedJob.id] != null && (
+                              <div className="flex items-center justify-between pt-1 border-t text-xs">
+                                <span className="font-semibold flex items-center gap-1"><Anchor className="h-3 w-3 text-indigo-500" /> Life Score</span>
+                                <span className={`font-bold text-sm ${lifeScoreCache[selectedJob.id] >= 70 ? "text-emerald-600" : lifeScoreCache[selectedJob.id] >= 40 ? "text-yellow-600" : "text-red-500"}`}>
+                                  {lifeScoreCache[selectedJob.id]}/100
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                          );
+                        })()}
                       </div>
                     )}
 
@@ -1618,10 +1865,33 @@ export function JobMap() {
               radiusMiles={Number(radius)}
               onSearchArea={handleSearchArea}
               routeGeometry={commuteInfo?.geometry ?? null}
+              anchorRoutes={
+                selectedJob && anchorCommutes
+                  ? Object.entries(anchorCommutes).map(([aId, info], i) => ({
+                      anchorId: aId,
+                      geometry: (info as any)?.geometry ?? null,
+                      color: ANCHOR_COLORS[i % ANCHOR_COLORS.length],
+                      label: (lifeAnchors ?? []).find((a: LifeAnchorData) => a.id === aId)?.label ?? "",
+                    })).filter((r) => r.geometry)
+                  : []
+              }
+              anchorMarkers={
+                lifeAnchors && lifeAnchors.length > 0
+                  ? (lifeAnchors as LifeAnchorData[]).map((a, i) => ({
+                      id: a.id,
+                      lat: a.lat,
+                      lng: a.lng,
+                      label: a.label,
+                      icon: a.icon ?? "map-pin",
+                      color: ANCHOR_COLORS[i % ANCHOR_COLORS.length],
+                    }))
+                  : []
+              }
               showHeatmap={showHeatmap}
               tileStyle={tileStyle}
               resolvedCoords={effectiveJobCoords}
               highlightedIds={pagedJobs.map((j) => j.id)}
+              sweetSpot={sweetSpot}
             />
           )}
         </div>
@@ -1657,6 +1927,21 @@ export function JobMap() {
                   {activeFilterCount > 0 && (
                     <span className="absolute -top-1 -right-1 h-4 min-w-4 rounded-full bg-primary text-primary-foreground text-[10px] flex items-center justify-center px-1">
                       {activeFilterCount}
+                    </span>
+                  )}
+                </Button>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant={showAnchors ? "default" : "outline"}
+                  className="h-8 w-8 shrink-0 relative"
+                  onClick={() => setShowAnchors(!showAnchors)}
+                  title="Life Anchors"
+                >
+                  <Anchor className="h-3.5 w-3.5" />
+                  {(lifeAnchors ?? []).length > 0 && (
+                    <span className="absolute -top-1 -right-1 h-4 min-w-4 rounded-full bg-violet-600 text-white text-[10px] flex items-center justify-center px-1">
+                      {(lifeAnchors ?? []).length}
                     </span>
                   )}
                 </Button>
@@ -1754,6 +2039,17 @@ export function JobMap() {
                       </SelectContent>
                     </Select>
                   )}
+                </div>
+              )}
+
+              {/* Collapsible Life Anchors */}
+              {showAnchors && (
+                <div className="border border-dashed border-violet-300 rounded-lg p-2">
+                  <LifeAnchorsPanel
+                    compact
+                    defaultAddress={where}
+                    onAnchorsChange={() => queryClient.invalidateQueries({ queryKey: ["life-anchors"] })}
+                  />
                 </div>
               )}
             </div>
@@ -1949,6 +2245,67 @@ export function JobMap() {
                             </div>
                           )}
 
+                          {/* Life Anchors commute breakdown (dialog) */}
+                          {lifeAnchors.length > 0 && Object.keys(anchorCommutes).length > 0 && (() => {
+                            const totalYearlyCost = lifeAnchors.reduce((sum, a) => {
+                              const ac = anchorCommutes[a.id];
+                              return sum + (ac ? yearlyCommuteCost(ac.distanceMi) : 0);
+                            }, 0);
+                            const midSalary = selectedJob.salaryMin
+                              ? selectedJob.salaryMax ? (selectedJob.salaryMin + selectedJob.salaryMax) / 2 : selectedJob.salaryMin
+                              : null;
+                            return (
+                            <div className="space-y-1.5 p-3 rounded-lg border border-dashed border-indigo-200 dark:border-indigo-800 bg-indigo-50/50 dark:bg-indigo-950/20">
+                              <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+                                <Anchor className="h-3.5 w-3.5 text-indigo-500" /> Life Anchors
+                              </div>
+                              {lifeAnchors.map((anchor, idx) => {
+                                const ac = anchorCommutes[anchor.id];
+                                return (
+                                  <div key={anchor.id} className="flex items-center justify-between text-xs px-1">
+                                    <span className="flex items-center gap-1.5 text-muted-foreground">
+                                      <span className="h-2 w-2 rounded-full" style={{ backgroundColor: ANCHOR_COLORS[idx % ANCHOR_COLORS.length] }} />
+                                      {anchor.label}
+                                    </span>
+                                    {ac ? (
+                                      <span className="font-medium">
+                                        ~{ac.durationMin} min ({ac.distanceMi} mi)
+                                        <span className="text-muted-foreground ml-1">· {formatCost(yearlyCommuteCost(ac.distanceMi))}/yr</span>
+                                        {ac.estimated && <span className="opacity-60 ml-0.5">(est.)</span>}
+                                      </span>
+                                    ) : (
+                                      <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                                    )}
+                                  </div>
+                                );
+                              })}
+                              {/* Yearly commute cost + net salary */}
+                              {totalYearlyCost > 0 && (
+                                <div className="pt-1.5 border-t space-y-0.5">
+                                  <div className="flex items-center justify-between text-xs">
+                                    <span className="flex items-center gap-1 text-muted-foreground"><Car className="h-3 w-3" /> Total Commute Cost</span>
+                                    <span className="font-semibold text-orange-600 dark:text-orange-400">{formatCost(totalYearlyCost)}/yr</span>
+                                  </div>
+                                  {midSalary && (
+                                    <div className="flex items-center justify-between text-xs">
+                                      <span className="flex items-center gap-1 text-muted-foreground"><DollarSign className="h-3 w-3" /> Net Effective Salary</span>
+                                      <span className="font-bold text-emerald-600 dark:text-emerald-400">{formatSalary(midSalary - totalYearlyCost)}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                              {lifeScoreCache[selectedJob.id] != null && (
+                                <div className="flex items-center justify-between pt-1.5 border-t text-xs">
+                                  <span className="font-semibold flex items-center gap-1"><Anchor className="h-3 w-3 text-indigo-500" /> Life Score</span>
+                                  <span className={`font-bold text-sm ${lifeScoreCache[selectedJob.id] >= 70 ? "text-emerald-600" : lifeScoreCache[selectedJob.id] >= 40 ? "text-yellow-600" : "text-red-500"}`}>
+                                    {lifeScoreCache[selectedJob.id]}/100
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                            );
+                          })()}
+
                           {/* Street View */}
                           {GOOGLE_MAPS_KEY && effectiveJobCoords && (
                             <div className="rounded-lg overflow-hidden border">
@@ -2124,6 +2481,64 @@ export function JobMap() {
                       ) : !commuteLoading && (
                         <span className="text-xs text-muted-foreground">Commute unavailable</span>
                       )}
+
+                      {/* Life Anchors commute breakdown (sidebar) */}
+                      {lifeAnchors.length > 0 && Object.keys(anchorCommutes).length > 0 && (() => {
+                        const totalYearlyCost = lifeAnchors.reduce((sum, a) => {
+                          const ac = anchorCommutes[a.id];
+                          return sum + (ac ? yearlyCommuteCost(ac.distanceMi) : 0);
+                        }, 0);
+                        const midSalary = selectedJob.salaryMin
+                          ? selectedJob.salaryMax ? (selectedJob.salaryMin + selectedJob.salaryMax) / 2 : selectedJob.salaryMin
+                          : null;
+                        return (
+                        <div className="space-y-1 pt-1 border-t border-dashed">
+                          <div className="flex items-center gap-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                            <Anchor className="h-3 w-3 text-indigo-500" /> Anchors
+                          </div>
+                          {lifeAnchors.map((anchor, idx) => {
+                            const ac = anchorCommutes[anchor.id];
+                            return (
+                              <div key={anchor.id} className="flex items-center justify-between text-[11px] px-0.5">
+                                <span className="flex items-center gap-1 text-muted-foreground truncate">
+                                  <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ backgroundColor: ANCHOR_COLORS[idx % ANCHOR_COLORS.length] }} />
+                                  {anchor.label}
+                                </span>
+                                {ac ? (
+                                  <span className="font-medium shrink-0 ml-1">
+                                    ~{ac.durationMin}m · {formatCost(yearlyCommuteCost(ac.distanceMi))}/yr
+                                  </span>
+                                ) : (
+                                  <Loader2 className="h-2.5 w-2.5 animate-spin text-muted-foreground" />
+                                )}
+                              </div>
+                            );
+                          })}
+                          {totalYearlyCost > 0 && (
+                            <div className="pt-0.5 border-t space-y-0.5">
+                              <div className="flex items-center justify-between text-[11px]">
+                                <span className="text-muted-foreground">Commute</span>
+                                <span className="font-semibold text-orange-600 dark:text-orange-400">{formatCost(totalYearlyCost)}/yr</span>
+                              </div>
+                              {midSalary && (
+                                <div className="flex items-center justify-between text-[11px]">
+                                  <span className="text-muted-foreground">Net Salary</span>
+                                  <span className="font-bold text-emerald-600 dark:text-emerald-400">{formatSalary(midSalary - totalYearlyCost)}</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          {lifeScoreCache[selectedJob.id] != null && (
+                            <div className="flex items-center justify-between pt-0.5 border-t text-[11px]">
+                              <span className="font-semibold flex items-center gap-1"><Anchor className="h-2.5 w-2.5 text-indigo-500" /> Life Score</span>
+                              <span className={`font-bold ${lifeScoreCache[selectedJob.id] >= 70 ? "text-emerald-600" : lifeScoreCache[selectedJob.id] >= 40 ? "text-yellow-600" : "text-red-500"}`}>
+                                {lifeScoreCache[selectedJob.id]}/100
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        );
+                      })()}
                     </div>
                   )}
 
@@ -2235,6 +2650,14 @@ export function JobMap() {
                           <Car className="h-2.5 w-2.5" />
                           ~{commuteCache[`${job.id}:driving`].durationMin} min ({commuteCache[`${job.id}:driving`].distanceMi} mi)
                           {commuteCache[`${job.id}:driving`].estimated && <span className="opacity-60">(est.)</span>}
+                        </div>
+                      )}
+                      {lifeScoreCache[job.id] != null && (
+                        <div className="flex items-center gap-0.5 mt-1 text-xs">
+                          <Anchor className="h-2.5 w-2.5 text-indigo-500" />
+                          <span className={`font-semibold ${lifeScoreCache[job.id] >= 70 ? "text-emerald-600 dark:text-emerald-400" : lifeScoreCache[job.id] >= 40 ? "text-yellow-600 dark:text-yellow-400" : "text-red-500"}`}>
+                            Life Score: {lifeScoreCache[job.id]}
+                          </span>
                         </div>
                       )}
                     </CardContent>
