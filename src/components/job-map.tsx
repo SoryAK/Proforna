@@ -42,6 +42,11 @@ import {
   Layers,
   MapPinned,
   Anchor,
+  Mail,
+  Copy,
+  RefreshCw,
+  Link2,
+  Code,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -49,6 +54,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { LifeAnchorsPanel } from "@/components/life-anchors-panel";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import {
@@ -88,7 +94,7 @@ interface MapJob {
   created: string;
   category: string;
   description: string;
-  source: "adzuna" | "google";
+  source: "adzuna" | "google" | "email";
   /* Google Jobs enrichment */
   thumbnail?: string | null;
   via?: string;
@@ -214,6 +220,13 @@ function formatCost(n: number) {
   return n >= 1000 ? `$${(n / 1000).toFixed(1)}k` : `$${Math.round(n)}`;
 }
 
+/** Source badge styling + label */
+function sourceBadge(src: "adzuna" | "google" | "email") {
+  if (src === "google") return { label: "Google", labelLong: "Google Jobs", className: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" };
+  if (src === "email") return { label: "Email", labelLong: "Email Lead", className: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400" };
+  return { label: "Adzuna", labelLong: "Adzuna", className: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" };
+}
+
 /* ── Component ── */
 export function JobMap() {
   const [query, setQuery] = useState("");
@@ -274,6 +287,27 @@ export function JobMap() {
   // Life Score cache: jobId → score (0-100)
   const [lifeScoreCache, setLifeScoreCache] = useState<Record<string, number>>({});
   const [showAnchors, setShowAnchors] = useState(false);
+
+  // Email leads
+  const [showEmailImport, setShowEmailImport] = useState(false);
+  const [emailBody, setEmailBody] = useState("");
+  const [emailParsing, setEmailParsing] = useState(false);
+  const [showForwardSetup, setShowForwardSetup] = useState(false);
+  const [ingestToken, setIngestToken] = useState<string | null>(null);
+  const [showScript, setShowScript] = useState(false);
+
+  interface EmailLeadRow {
+    id: string; title: string; company: string; location: string;
+    lat: number; lng: number; salaryMin: number | null; salaryMax: number | null;
+    applyUrl: string | null; source: string; description: string; expiresAt: string;
+  }
+  const { data: emailLeadsData } = useQuery<{ leads: EmailLeadRow[]; count: number }>({
+    queryKey: ["email-leads"],
+    queryFn: () => fetch("/api/email-leads").then((r) => r.json()),
+    staleTime: 60_000,
+  });
+  const emailLeads = emailLeadsData?.leads ?? [];
+  const hasEmailLeads = emailLeads.some((l) => l.lat && l.lng);
 
   // Fetch user profile for default location
   const { data: profile } = useQuery<{ city?: string; state?: string }>({
@@ -418,14 +452,34 @@ export function JobMap() {
     enabled: !!searchParams && source !== "adzuna",
   });
 
-  // Merge results from both sources
+  // Merge results from both sources + email leads
   const isFetching = adzunaFetching || googleFetching;
   const mergedJobs = useMemo(() => {
     const a = (source !== "google" ? adzunaData?.jobs : []) ?? [];
     const g = (source !== "adzuna" ? googleData?.jobs : []) ?? [];
-    return [...a, ...g];
-  }, [adzunaData, googleData, source]);
-  const totalCount = (source !== "google" ? adzunaData?.total ?? 0 : 0) + (source !== "adzuna" ? googleData?.total ?? 0 : 0);
+    // Convert email leads to MapJob format
+    const e: MapJob[] = emailLeads.filter((l) => l.lat && l.lng).map((l) => ({
+      id: `email-${l.id}`,
+      title: l.title,
+      company: l.company,
+      location: l.location,
+      area: [],
+      lat: l.lat,
+      lng: l.lng,
+      url: l.applyUrl ?? "",
+      salaryMin: l.salaryMin,
+      salaryMax: l.salaryMax,
+      salaryPredicted: false,
+      contractTime: null,
+      contractType: null,
+      created: l.expiresAt,
+      category: "",
+      description: l.description ?? "",
+      source: "email" as const,
+    }));
+    return [...a, ...g, ...e];
+  }, [adzunaData, googleData, source, emailLeads]);
+  const totalCount = (source !== "google" ? adzunaData?.total ?? 0 : 0) + (source !== "adzuna" ? googleData?.total ?? 0 : 0) + emailLeads.filter((l) => l.lat && l.lng).length;
   const meanSalary = adzunaData?.mean ?? null;
 
   const geoJobs = useMemo(() => mergedJobs.filter((j) => j.lat && j.lng), [mergedJobs]);
@@ -486,7 +540,7 @@ export function JobMap() {
       };
       const cutoff = cutoffs[datePosted];
       if (cutoff) {
-        filtered = filtered.filter((j) => now - new Date(j.created).getTime() <= cutoff);
+        filtered = filtered.filter((j) => j.source === "email" || now - new Date(j.created).getTime() <= cutoff);
       }
     }
 
@@ -927,7 +981,7 @@ export function JobMap() {
         location: job.location,
         url: job.url || null,
         status: "wishlist",
-        notes: `Found via ${job.source === "google" ? "Google Jobs" : "Adzuna"} Job Map\n\n${job.description}...`,
+        notes: `Found via ${job.source === "google" ? "Google Jobs" : job.source === "email" ? "Email Lead" : "Adzuna"} Job Map\n\n${job.description}...`,
       };
       if (job.salaryMin) body.salaryMin = job.salaryMin;
       if (job.salaryMax) body.salaryMax = job.salaryMax;
@@ -1363,7 +1417,7 @@ export function JobMap() {
           )}
 
           {/* Empty / loading states */}
-          {!searched && (
+          {!searched && !hasEmailLeads && (
             <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-2">
               <Search className="h-10 w-10 opacity-30" />
               <p className="text-sm">Search for jobs to see results</p>
@@ -1375,7 +1429,7 @@ export function JobMap() {
               Searching...
             </div>
           )}
-          {searched && !isFetching && sortedJobs.length === 0 && (
+          {(searched || hasEmailLeads) && !isFetching && sortedJobs.length === 0 && (
             <div className="text-center py-16 text-muted-foreground">
               <Briefcase className="h-8 w-8 mx-auto mb-2 opacity-30" />
               <p className="text-sm">No jobs found in this area</p>
@@ -1383,7 +1437,7 @@ export function JobMap() {
           )}
 
           {/* Job cards grid */}
-          {searched && !isFetching && sortedJobs.length > 0 && (
+          {(searched || hasEmailLeads) && !isFetching && sortedJobs.length > 0 && (
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                 {pagedJobs.map((job) => {
@@ -1423,9 +1477,9 @@ export function JobMap() {
                           </Badge>
                           <Badge
                             variant="secondary"
-                            className={`text-[10px] px-1.5 py-0 ${job.source === "google" ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"}`}
+                            className={`text-[10px] px-1.5 py-0 ${sourceBadge(job.source).className}`}
                           >
-                            {job.source === "google" ? "Google" : "Adzuna"}
+                            {sourceBadge(job.source).label}
                           </Badge>
                           {(job.salaryMin || job.salaryMax) && (
                             <Badge variant="outline" className="text-[10px] gap-0.5 px-1.5 py-0 text-emerald-600 border-emerald-300 dark:border-emerald-700">
@@ -1589,8 +1643,8 @@ export function JobMap() {
                 <div className="flex-1 overflow-y-auto -mx-4 px-4 min-h-0">
                   <div className="space-y-4 pb-2">
                     <div className="flex flex-wrap gap-1.5">
-                      <Badge variant="secondary" className={`text-xs ${selectedJob.source === "google" ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"}`}>
-                        {selectedJob.source === "google" ? "Google Jobs" : "Adzuna"}
+                      <Badge variant="secondary" className={`text-xs ${sourceBadge(selectedJob.source).className}`}>
+                        {sourceBadge(selectedJob.source).labelLong}
                       </Badge>
                       {selectedJob.scheduleType && <Badge variant="outline" className="text-xs">{selectedJob.scheduleType}</Badge>}
                       {selectedJob.contractTime && <Badge variant="outline" className="text-xs capitalize">{selectedJob.contractTime.replace("_", " ")}</Badge>}
@@ -1835,7 +1889,7 @@ export function JobMap() {
       <div className="flex gap-3 h-[calc(100vh-220px)] min-h-[500px]">
         {/* Map */}
         <div className="flex-1 rounded-xl overflow-hidden border bg-muted">
-          {!searched ? (
+          {!searched && !hasEmailLeads ? (
             <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-2">
               <MapPin className="h-10 w-10 opacity-30" />
               <p className="text-sm">Search for jobs to see them on the map</p>
@@ -1942,6 +1996,21 @@ export function JobMap() {
                   {(lifeAnchors ?? []).length > 0 && (
                     <span className="absolute -top-1 -right-1 h-4 min-w-4 rounded-full bg-violet-600 text-white text-[10px] flex items-center justify-center px-1">
                       {(lifeAnchors ?? []).length}
+                    </span>
+                  )}
+                </Button>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="outline"
+                  className="h-8 w-8 shrink-0 relative"
+                  onClick={() => setShowEmailImport(true)}
+                  title="Import from email"
+                >
+                  <Mail className="h-3.5 w-3.5" />
+                  {emailLeads.length > 0 && (
+                    <span className="absolute -top-1 -right-1 h-4 min-w-4 rounded-full bg-purple-600 text-white text-[10px] flex items-center justify-center px-1">
+                      {emailLeads.length}
                     </span>
                   )}
                 </Button>
@@ -2082,9 +2151,9 @@ export function JobMap() {
                     </Badge>
                     <Badge
                       variant="secondary"
-                      className={`text-xs ${selectedJob.source === "google" ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"}`}
+                      className={`text-xs ${sourceBadge(selectedJob.source).className}`}
                     >
-                      {selectedJob.source === "google" ? "Google" : "Adzuna"}
+                      {sourceBadge(selectedJob.source).label}
                     </Badge>
                     {selectedJob.category && (
                       <Badge variant="secondary" className="text-xs">
@@ -2177,9 +2246,9 @@ export function JobMap() {
                           <div className="flex flex-wrap gap-1.5">
                             <Badge
                               variant="secondary"
-                              className={`text-xs ${selectedJob.source === "google" ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"}`}
+                              className={`text-xs ${sourceBadge(selectedJob.source).className}`}
                             >
-                              {selectedJob.source === "google" ? "Google Jobs" : "Adzuna"}
+                              {sourceBadge(selectedJob.source).labelLong}
                             </Badge>
                             {selectedJob.category && (
                               <Badge variant="secondary" className="text-xs">{selectedJob.category}</Badge>
@@ -2606,7 +2675,7 @@ export function JobMap() {
             ) : (
               /* ── Paginated job list ── */
               <>
-                {sortedJobs.length === 0 && searched && !isFetching && (
+                {sortedJobs.length === 0 && (searched || hasEmailLeads) && !isFetching && (
                   <div className="text-center py-8 text-muted-foreground">
                     <Briefcase className="h-8 w-8 mx-auto mb-2 opacity-30" />
                     <p className="text-sm">No jobs found in this area</p>
@@ -2727,6 +2796,225 @@ export function JobMap() {
               </Button>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Email Import Dialog ── */}
+      <Dialog open={showEmailImport} onOpenChange={setShowEmailImport}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Mail className="h-5 w-5 text-purple-600" /> Import Job Leads from Email
+            </DialogTitle>
+            <DialogDescription>
+              Paste email HTML source below, or set up auto-forwarding to import leads automatically.
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* ── Auto-Forward Setup ── */}
+          <div className="rounded-lg border border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-950/30 p-3 space-y-2">
+            <button
+              type="button"
+              className="flex items-center gap-2 text-sm font-medium text-purple-700 dark:text-purple-300 w-full"
+              onClick={async () => {
+                if (!showForwardSetup && !ingestToken) {
+                  try {
+                    const res = await fetch("/api/email-leads/token");
+                    const data = await res.json();
+                    if (data.token) setIngestToken(data.token);
+                  } catch { /* ignore */ }
+                }
+                setShowForwardSetup(!showForwardSetup);
+              }}
+            >
+              <Link2 className="h-4 w-4" />
+              Auto-Forward Setup
+              {showForwardSetup ? <ChevronUp className="h-3.5 w-3.5 ml-auto" /> : <ChevronDown className="h-3.5 w-3.5 ml-auto" />}
+            </button>
+            {showForwardSetup && ingestToken && (
+              <div className="space-y-2 text-xs">
+                <p className="text-muted-foreground">
+                  Forward your job alert emails to your unique Resumsify address. Leads are automatically parsed and added to your map.
+                </p>
+                <div className="flex items-center gap-1.5">
+                  <code className="flex-1 bg-white dark:bg-zinc-900 border rounded px-2 py-1.5 text-[10px] break-all select-all">
+                    {typeof window !== "undefined" ? `${window.location.origin}/api/email-leads/ingest?token=${ingestToken}` : ""}
+                  </code>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="shrink-0 h-7 w-7 p-0"
+                    onClick={() => {
+                      navigator.clipboard.writeText(`${window.location.origin}/api/email-leads/ingest?token=${ingestToken}`);
+                      toast.success("Webhook URL copied!");
+                    }}
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-1"
+                    onClick={async () => {
+                      try {
+                        const res = await fetch("/api/email-leads/token", { method: "POST" });
+                        const data = await res.json();
+                        if (data.token) { setIngestToken(data.token); toast.success("Token regenerated"); }
+                      } catch { toast.error("Failed to regenerate token"); }
+                    }}
+                  >
+                    <RefreshCw className="h-3 w-3" /> Regenerate token
+                  </button>
+                </div>
+                {/* ── Google Apps Script guide ── */}
+                <div className="rounded border border-dashed border-purple-300 dark:border-purple-700 bg-white dark:bg-zinc-900 p-2 space-y-2 mt-1">
+                  <button
+                    type="button"
+                    className="flex items-center gap-1.5 text-[11px] font-medium text-purple-700 dark:text-purple-300 w-full"
+                    onClick={() => setShowScript(!showScript)}
+                  >
+                    <Code className="h-3.5 w-3.5" />
+                    Gmail Auto-Forward (Apps Script)
+                    {showScript ? <ChevronUp className="h-3 w-3 ml-auto" /> : <ChevronDown className="h-3 w-3 ml-auto" />}
+                  </button>
+                  {showScript && (
+                    <div className="space-y-2">
+                      <ol className="text-[10px] text-muted-foreground space-y-1 list-decimal list-inside">
+                        <li>Go to <strong>script.google.com</strong> → New Project</li>
+                        <li>Replace the code with the snippet below</li>
+                        <li>Replace <code className="bg-zinc-100 dark:bg-zinc-800 px-0.5 rounded">WEBHOOK_URL</code> with your webhook URL above</li>
+                        <li>Click <strong>Run</strong> once to authorize Gmail access</li>
+                        <li>Set a trigger: <strong>Triggers → Add → forwardJobAlerts → Time-driven → Every 5 min</strong></li>
+                      </ol>
+                      <div className="relative">
+                        <pre className="text-[9px] leading-snug bg-zinc-100 dark:bg-zinc-800 rounded p-2 overflow-x-auto max-h-[25vh] overflow-y-auto whitespace-pre select-all">{`const WEBHOOK_URL = "${typeof window !== "undefined" ? `${window.location.origin}/api/email-leads/ingest?token=${ingestToken}` : ""}";\n\nfunction forwardJobAlerts() {\n  const senders = ["indeed.com", "linkedin.com", "glassdoor.com", "ziprecruiter.com"];\n  const label = GmailApp.getUserLabelByName("Resumsify/Processed")\n    || GmailApp.createLabel("Resumsify/Processed");\n\n  senders.forEach(sender => {\n    GmailApp.search(\`from:\${sender} newer_than:1d -label:Resumsify-Processed\`, 0, 10)\n      .forEach(thread => {\n        thread.getMessages().forEach(msg => {\n          const html = msg.getBody();\n          UrlFetchApp.fetch(WEBHOOK_URL, {\n            method: "post",\n            contentType: "application/json",\n            payload: JSON.stringify({ html }),\n            muteHttpExceptions: true,\n          });\n        });\n        thread.addLabel(label);\n      });\n  });\n}`}</pre>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="absolute top-1 right-1 h-6 w-6 p-0 bg-white dark:bg-zinc-800"
+                          onClick={() => {
+                            const script = `const WEBHOOK_URL = "${window.location.origin}/api/email-leads/ingest?token=${ingestToken}";\n\nfunction forwardJobAlerts() {\n  const senders = ["indeed.com", "linkedin.com", "glassdoor.com", "ziprecruiter.com"];\n  const label = GmailApp.getUserLabelByName("Resumsify/Processed")\n    || GmailApp.createLabel("Resumsify/Processed");\n\n  senders.forEach(sender => {\n    GmailApp.search(\`from:\${sender} newer_than:1d -label:Resumsify-Processed\`, 0, 10)\n      .forEach(thread => {\n        thread.getMessages().forEach(msg => {\n          const html = msg.getBody();\n          UrlFetchApp.fetch(WEBHOOK_URL, {\n            method: "post",\n            contentType: "application/json",\n            payload: JSON.stringify({ html }),\n            muteHttpExceptions: true,\n          });\n        });\n        thread.addLabel(label);\n      });\n  });\n}`;
+                            navigator.clipboard.writeText(script);
+                            toast.success("Apps Script copied!");
+                          }}
+                        >
+                          <Copy className="h-3 w-3" />
+                        </Button>
+                      </div>
+                      <p className="text-[9px] text-muted-foreground">
+                        Runs every 5 min, scans the last 24h of job alert emails, sends them to your webhook, and labels them so they aren&apos;t sent twice.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="text-[10px] text-muted-foreground space-y-1 mt-1">
+                  <p>Or paste email HTML below and click <strong>Test Forward</strong> to simulate an inbound email hitting the webhook.</p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="w-full gap-1 text-purple-600 dark:text-purple-400 border-purple-300 dark:border-purple-700 text-xs"
+                  disabled={emailBody.length < 20 || emailParsing}
+                  onClick={async () => {
+                    setEmailParsing(true);
+                    try {
+                      const res = await fetch(`/api/email-leads/ingest?token=${ingestToken}`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ html: emailBody }),
+                      });
+                      const data = await res.json();
+                      if (!res.ok) {
+                        toast.error(data.error || "Webhook test failed");
+                        return;
+                      }
+                      queryClient.invalidateQueries({ queryKey: ["email-leads"] });
+                      const msg = `Webhook OK — ${data.parsed} parsed, ${data.stored} new, ${data.duplicates} dupes`;
+                      data.stored > 0 ? toast.success(msg) : data.parsed === 0 ? toast.warning("No leads found") : toast.info(msg);
+                      if (data.stored > 0) { setEmailBody(""); setShowEmailImport(false); }
+                    } catch {
+                      toast.error("Webhook test failed");
+                    } finally {
+                      setEmailParsing(false);
+                    }
+                  }}
+                >
+                  {emailParsing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Link2 className="h-3.5 w-3.5" />}
+                  Test Forward {emailBody.length >= 20 ? "(using paste below)" : ""}
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {/* ── Manual Paste ── */}
+          <div className="space-y-3">
+            <p className="text-xs font-medium text-muted-foreground">Or paste email source manually:</p>
+            <Textarea
+              placeholder="Paste email HTML source here..."
+              value={emailBody}
+              onChange={(e) => setEmailBody(e.target.value)}
+              rows={6}
+              className="text-xs font-mono max-h-[30vh] overflow-y-auto resize-none"
+            />
+            {emailLeads.length > 0 && (
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>{emailLeads.length} lead{emailLeads.length !== 1 ? "s" : ""} currently imported</span>
+                <button
+                  type="button"
+                  className="text-red-500 hover:text-red-700 text-xs"
+                  onClick={async () => {
+                    await fetch("/api/email-leads?all=true", { method: "DELETE" });
+                    queryClient.invalidateQueries({ queryKey: ["email-leads"] });
+                    toast.success("All email leads cleared");
+                  }}
+                >
+                  Clear all
+                </button>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setShowEmailImport(false)}>Cancel</Button>
+            <Button
+              disabled={emailBody.length < 20 || emailParsing}
+              onClick={async () => {
+                setEmailParsing(true);
+                try {
+                  const res = await fetch("/api/email-leads/parse", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ emailBody }),
+                  });
+                  const data = await res.json();
+                  if (!res.ok) {
+                    toast.error(data.error || "Failed to parse email");
+                    return;
+                  }
+                  queryClient.invalidateQueries({ queryKey: ["email-leads"] });
+                  const msg = `Parsed ${data.parsed} lead${data.parsed !== 1 ? "s" : ""}: ${data.stored} new, ${data.duplicates} duplicate${data.duplicates !== 1 ? "s" : ""}`;
+                  if (data.stored > 0) {
+                    toast.success(msg);
+                  } else if (data.parsed === 0) {
+                    toast.warning("No job leads found in this email. Try pasting the full HTML source.");
+                  } else {
+                    toast.info(msg);
+                  }
+                  setEmailBody("");
+                  if (data.stored > 0) setShowEmailImport(false);
+                } catch {
+                  toast.error("Failed to parse email");
+                } finally {
+                  setEmailParsing(false);
+                }
+              }}
+              className="gap-1"
+            >
+              {emailParsing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />}
+              {emailParsing ? "Parsing..." : "Import Leads"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

@@ -16,6 +16,7 @@ model User {
   emailVerified DateTime?
   image         String?
   password      String?   // hashed — only for credentials auth
+  ingestToken   String?   @unique  // unique token for email forwarding webhook
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -52,6 +53,7 @@ model User {
   interestGroupItems  InterestGroupItem[]
   jobPostings         JobPosting[]
   lifeAnchors         LifeAnchor[]
+  emailLeads          EmailLead[]
 }
 
 model Account {
@@ -1044,6 +1046,32 @@ model LifeAnchor {
   updatedAt DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ─── Email Leads (Job Search) ───────────────────────────────────
+
+model EmailLead {
+  id          String   @id @default(uuid())
+  userId      String
+  title       String
+  company     String
+  location    String
+  lat         Float    @default(0)
+  lng         Float    @default(0)
+  salaryMin   Float?
+  salaryMax   Float?
+  applyUrl    String?
+  source      String   // indeed, linkedin, glassdoor, ziprecruiter, other
+  emailDate   DateTime?
+  description String   @default("")
+  dedupeHash  String   // hash of title+company+location for dedup
+  expiresAt   DateTime // TTL — auto-prune after this date
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, dedupeHash])
+  @@index([userId, expiresAt])
 }
 
 // ─── Company Job Postings ──────────────────────────────────────

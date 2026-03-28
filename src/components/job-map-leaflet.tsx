@@ -78,7 +78,7 @@ interface MapJob {
   created: string;
   category: string;
   description: string;
-  source: "adzuna" | "google";
+  source: "adzuna" | "google" | "email";
 }
 
 interface AnchorRoute {
