@@ -290,23 +290,24 @@ export function JobMap() {
   const [showAnchors, setShowAnchors] = useState(false);
   // Which anchor commutes are visible on the map (toggled per-anchor)
   const [enabledAnchors, setEnabledAnchors] = useState<Set<string>>(new Set());
+  const knownAnchorIds = useRef<Set<string>>(new Set());
 
-  // Sync enabledAnchors when lifeAnchors change — new anchors default enabled
+  // Sync enabledAnchors when lifeAnchors change — only add genuinely new anchors
   useEffect(() => {
     if (lifeAnchors.length === 0) return;
+    const currentIds = new Set(lifeAnchors.map((a) => a.id));
+    const newIds = [...currentIds].filter((id) => !knownAnchorIds.current.has(id));
+    const deletedIds = [...knownAnchorIds.current].filter((id) => !currentIds.has(id));
+
+    if (newIds.length === 0 && deletedIds.length === 0) return;
+
+    knownAnchorIds.current = currentIds;
     setEnabledAnchors((prev) => {
-      const ids = new Set(lifeAnchors.map((a) => a.id));
-      // If empty (first load), enable all
-      if (prev.size === 0) return ids;
-      // Otherwise keep existing selections, add any new anchors
       const next = new Set(prev);
-      for (const id of ids) {
-        if (!prev.has(id) && !prev.has(id)) next.add(id);
-      }
-      // Remove anchors that were deleted
-      for (const id of next) {
-        if (!ids.has(id)) next.delete(id);
-      }
+      // Enable new anchors by default
+      for (const id of newIds) next.add(id);
+      // Remove deleted anchors
+      for (const id of deletedIds) next.delete(id);
       return next;
     });
   }, [lifeAnchors]);
