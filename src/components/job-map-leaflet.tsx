@@ -135,6 +135,8 @@ interface Props {
   anchorRoutes?: AnchorRoute[];
   anchorMarkers?: AnchorMarker[];
   sweetSpot?: SweetSpotZone | null;
+  officeLocations?: { address: string; lat: number; lng: number; name: string | null }[];
+  onSelectOffice?: (office: { address: string; lat: number; lng: number; name: string | null }) => void;
 }
 
 /* Auto-fit bounds when jobs change */
@@ -218,12 +220,18 @@ const TILE_CONFIGS = {
 /* ── Heatmap layer (uses leaflet.heat) ── */
 function HeatmapLayer({ jobs }: { jobs: MapJob[] }) {
   const map = useMap();
+  const heatRef = useRef<any>(null);
 
   useEffect(() => {
     if (jobs.length === 0) return;
 
     // Dynamic import of leaflet.heat (side-effect plugin)
     import("leaflet.heat").then(() => {
+      // Remove previous layer before adding new one
+      if (heatRef.current) {
+        map.removeLayer(heatRef.current);
+        heatRef.current = null;
+      }
       const points: [number, number, number][] = jobs.map((j) => [j.lat, j.lng, 0.6]);
       const heat = (L as any).heatLayer(points, {
         radius: 25,
@@ -239,8 +247,15 @@ function HeatmapLayer({ jobs }: { jobs: MapJob[] }) {
         },
       });
       heat.addTo(map);
-      return () => { map.removeLayer(heat); };
+      heatRef.current = heat;
     });
+
+    return () => {
+      if (heatRef.current) {
+        map.removeLayer(heatRef.current);
+        heatRef.current = null;
+      }
+    };
   }, [jobs, map]);
 
   return null;
@@ -263,6 +278,8 @@ export default function JobMapLeaflet({
   anchorRoutes = [],
   anchorMarkers = [],
   sweetSpot = null,
+  officeLocations = [],
+  onSelectOffice,
 }: Props) {
   const [panCenter, setPanCenter] = useState<[number, number] | null>(null);
   const [hasPanned, setHasPanned] = useState(false);
@@ -473,6 +490,48 @@ export default function JobMapLeaflet({
           </Tooltip>
         </Marker>
       ))}
+
+      {/* Multiple office locations — shown when company has several nearby offices */}
+      {officeLocations.length > 1 && (() => {
+        // Compute bounding radius (max distance from centroid) in metres
+        const cLat = officeLocations.reduce((s, o) => s + o.lat, 0) / officeLocations.length;
+        const cLng = officeLocations.reduce((s, o) => s + o.lng, 0) / officeLocations.length;
+        const maxDist = officeLocations.reduce((max, o) => {
+          const d = Math.sqrt(Math.pow((o.lat - cLat) * 111_320, 2) + Math.pow((o.lng - cLng) * 111_320 * Math.cos(cLat * Math.PI / 180), 2));
+          return Math.max(max, d);
+        }, 0);
+        const radiusM = Math.max(maxDist * 1.3, 500); // pad 30%, min 500m
+        return (
+          <>
+            <Circle
+              center={[cLat, cLng]}
+              radius={radiusM}
+              pathOptions={{ color: "#8b5cf6", fillColor: "#8b5cf6", fillOpacity: 0.08, weight: 1.5, dashArray: "6 4" }}
+            />
+            {officeLocations.map((office, idx) => (
+              <Marker
+                key={`office-${idx}`}
+                position={[office.lat, office.lng]}
+                icon={L.divIcon({
+                  html: `<div style="display:flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:#8b5cf6;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.3);color:#fff;font-size:10px;font-weight:700;cursor:pointer;">${idx + 1}</div>`,
+                  className: "",
+                  iconSize: [22, 22],
+                  iconAnchor: [11, 11],
+                })}
+                zIndexOffset={1500}
+                eventHandlers={onSelectOffice ? { click: () => onSelectOffice(office) } : {}}
+              >
+                <Tooltip direction="top" offset={[0, -12]} opacity={0.95}>
+                  <div style={{ fontSize: 10, maxWidth: 180 }}>
+                    {office.name && <div style={{ fontWeight: 600 }}>{office.name}</div>}
+                    <div style={{ color: "#666" }}>{office.address}</div>
+                  </div>
+                </Tooltip>
+              </Marker>
+            ))}
+          </>
+        );
+      })()}
 
       {/* "Search this area" floating button */}
       {hasPanned && onSearchArea && panCenter && (

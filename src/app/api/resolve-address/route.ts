@@ -22,6 +22,7 @@ interface ResolveResult {
   name: string | null;
   confidence: "high" | "medium" | "low";
   totalResults: number;
+  allLocations?: { address: string; lat: number; lng: number; name: string | null }[];
 }
 
 export async function GET(req: NextRequest) {
@@ -113,6 +114,16 @@ export async function GET(req: NextRequest) {
       if (totalResults === 1 || nameMatch) confidence = "high";
       else if (totalResults > 5) confidence = "low";
 
+      // Include all locations when multiple offices found
+      const allLocations = totalResults > 1
+        ? data.results.slice(0, 10).map((p: any) => ({
+            address: p.formatted_address ?? "",
+            lat: p.geometry?.location?.lat ?? 0,
+            lng: p.geometry?.location?.lng ?? 0,
+            name: p.name ?? null,
+          })).filter((l: any) => l.lat && l.lng)
+        : undefined;
+
       return {
         address: place.formatted_address ?? null,
         lat: place.geometry?.location?.lat ?? null,
@@ -120,6 +131,7 @@ export async function GET(req: NextRequest) {
         name: place.name ?? null,
         confidence,
         totalResults,
+        allLocations,
       };
     });
 

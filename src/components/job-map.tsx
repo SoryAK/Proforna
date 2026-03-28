@@ -259,10 +259,11 @@ export function JobMap() {
   const [categoryFilter, setCategoryFilter] = useState("any");
   const [companyFilter, setCompanyFilter] = useState("any");
   /* Resolved company address — auto-resolved via Places API or manually overridden */
-  const [resolvedAddress, setResolvedAddress] = useState<{ address: string; lat: number; lng: number; name: string | null; confidence: "high" | "medium" | "low"; totalResults: number } | null>(null);
+  type ResolvedAddress = { address: string; lat: number; lng: number; name: string | null; confidence: "high" | "medium" | "low"; totalResults: number; allLocations?: { address: string; lat: number; lng: number; name: string | null }[] };
+  const [resolvedAddress, setResolvedAddress] = useState<ResolvedAddress | null>(null);
   const [addressLoading, setAddressLoading] = useState(false);
   const [addressOverride, setAddressOverride] = useState("");
-  const [addressCache, setAddressCache] = useState<Record<string, { address: string; lat: number; lng: number; name: string | null; confidence: "high" | "medium" | "low"; totalResults: number }>>({});
+  const [addressCache, setAddressCache] = useState<Record<string, ResolvedAddress>>({});
   const resolveAbort = useRef<AbortController | null>(null);
   /* Pre-fetched commute times for sidebar cards: jobId → { durationMin, distanceMi, estimated? } */
   const [commuteCache, setCommuteCache] = useState<Record<string, { durationMin: number; distanceMi: number; estimated?: boolean }>>({});
@@ -287,6 +288,28 @@ export function JobMap() {
   // Life Score cache: jobId → score (0-100)
   const [lifeScoreCache, setLifeScoreCache] = useState<Record<string, number>>({});
   const [showAnchors, setShowAnchors] = useState(false);
+  // Which anchor commutes are visible on the map (toggled per-anchor)
+  const [enabledAnchors, setEnabledAnchors] = useState<Set<string>>(new Set());
+
+  // Sync enabledAnchors when lifeAnchors change — new anchors default enabled
+  useEffect(() => {
+    if (lifeAnchors.length === 0) return;
+    setEnabledAnchors((prev) => {
+      const ids = new Set(lifeAnchors.map((a) => a.id));
+      // If empty (first load), enable all
+      if (prev.size === 0) return ids;
+      // Otherwise keep existing selections, add any new anchors
+      const next = new Set(prev);
+      for (const id of ids) {
+        if (!prev.has(id) && !prev.has(id)) next.add(id);
+      }
+      // Remove anchors that were deleted
+      for (const id of next) {
+        if (!ids.has(id)) next.delete(id);
+      }
+      return next;
+    });
+  }, [lifeAnchors]);
 
   // Email leads
   const [showEmailImport, setShowEmailImport] = useState(false);
@@ -1214,6 +1237,7 @@ export function JobMap() {
       </Card>
 
       {/* Stats bar + legend */}
+      {/* Stats bar — search results only */}
       {searched && totalCount > 0 && (
         <div className="flex flex-wrap items-center gap-3 px-1 text-sm text-muted-foreground">
           <span>
@@ -1231,47 +1255,48 @@ export function JobMap() {
               Avg {formatSalary(meanSalary)}
             </Badge>
           )}
-          {/* Salary colour legend — map mode only */}
-          {viewMode === "map" && (
-            <div className="flex items-center gap-2 ml-auto text-xs">
-              <span className="flex items-center gap-1">
-                <CircleDot className="h-3 w-3 text-green-500" /> Above avg
-              </span>
-              <span className="flex items-center gap-1">
-                <CircleDot className="h-3 w-3 text-yellow-500" /> Near avg
-              </span>
-              <span className="flex items-center gap-1">
-                <CircleDot className="h-3 w-3 text-red-500" /> Below avg
-              </span>
-              <span className="flex items-center gap-1">
-                <CircleDot className="h-3 w-3 text-blue-500" /> No data
-              </span>
-              {/* ── Map overlay controls ── */}
-              <span className="mx-1 h-4 w-px bg-border" />
-              <Button
-                variant={showHeatmap ? "default" : "outline"}
-                size="sm"
-                className="h-7 gap-1 px-2 text-xs"
-                onClick={() => setShowHeatmap((v) => !v)}
-                title={showHeatmap ? "Hide heatmap" : "Show heatmap"}
-              >
-                <Flame className="h-3 w-3" />
-                Heatmap
-              </Button>
-              <Select value={tileStyle} onValueChange={(v) => setTileStyle((v ?? "osm") as typeof tileStyle)}>
-                <SelectTrigger className="h-7 w-[140px] text-xs">
-                  <Layers className="h-3 w-3 mr-1" />
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="osm">OpenStreetMap</SelectItem>
-                  <SelectItem value="google-roadmap">Google Road</SelectItem>
-                  <SelectItem value="google-satellite">Satellite</SelectItem>
-                  <SelectItem value="google-hybrid">Hybrid</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+        </div>
+      )}
+
+      {/* Legend + map overlay controls — visible whenever jobs are on screen */}
+      {viewMode === "map" && sortedJobs.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 px-1 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1">
+            <CircleDot className="h-3 w-3 text-green-500" /> Above avg
+          </span>
+          <span className="flex items-center gap-1">
+            <CircleDot className="h-3 w-3 text-yellow-500" /> Near avg
+          </span>
+          <span className="flex items-center gap-1">
+            <CircleDot className="h-3 w-3 text-red-500" /> Below avg
+          </span>
+          <span className="flex items-center gap-1">
+            <CircleDot className="h-3 w-3 text-blue-500" /> No data
+          </span>
+          {/* ── Map overlay controls ── */}
+          <span className="mx-1 h-4 w-px bg-border" />
+          <Button
+            variant={showHeatmap ? "default" : "outline"}
+            size="sm"
+            className="h-7 gap-1 px-2 text-xs"
+            onClick={() => setShowHeatmap((v) => !v)}
+            title={showHeatmap ? "Hide heatmap" : "Show heatmap"}
+          >
+            <Flame className="h-3 w-3" />
+            Heatmap
+          </Button>
+          <Select value={tileStyle} onValueChange={(v) => setTileStyle((v ?? "osm") as typeof tileStyle)}>
+            <SelectTrigger className="h-7 w-[140px] text-xs">
+              <Layers className="h-3 w-3 mr-1" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="osm">OpenStreetMap</SelectItem>
+              <SelectItem value="google-roadmap">Google Road</SelectItem>
+              <SelectItem value="google-satellite">Satellite</SelectItem>
+              <SelectItem value="google-hybrid">Hybrid</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       )}
 
@@ -1691,6 +1716,36 @@ export function JobMap() {
                               <span className="text-[10px] text-muted-foreground">{resolvedAddress.name}</span>
                             )}
                           </div>
+                          {/* Clickable office list when multiple offices found */}
+                          {resolvedAddress.allLocations && resolvedAddress.allLocations.length > 1 && (
+                            <div className="space-y-0.5 max-h-28 overflow-y-auto">
+                              {resolvedAddress.allLocations.map((office, idx) => (
+                                <button
+                                  key={idx}
+                                  type="button"
+                                  className={`flex items-center gap-1.5 text-[10px] w-full text-left px-1.5 py-1 rounded hover:bg-violet-50 dark:hover:bg-violet-950/30 transition-colors ${
+                                    resolvedAddress.lat === office.lat && resolvedAddress.lng === office.lng
+                                      ? "bg-violet-50 dark:bg-violet-950/30 font-semibold"
+                                      : "text-muted-foreground"
+                                  }`}
+                                  onClick={() => {
+                                    setResolvedAddress((prev) => prev ? {
+                                      ...prev,
+                                      address: office.address,
+                                      lat: office.lat,
+                                      lng: office.lng,
+                                      name: office.name,
+                                      confidence: "high",
+                                    } : null);
+                                    toast.success(`Selected: ${office.name || office.address}`);
+                                  }}
+                                >
+                                  <span className="flex items-center justify-center h-4 w-4 rounded-full bg-violet-500 text-white text-[9px] font-bold shrink-0">{idx + 1}</span>
+                                  <span className="truncate">{office.name || office.address}</span>
+                                </button>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       )}
                       <PlacesAutocomplete
@@ -1744,6 +1799,7 @@ export function JobMap() {
                         {/* Life Anchors commute breakdown */}
                         {lifeAnchors.length > 0 && Object.keys(anchorCommutes).length > 0 && (() => {
                           const totalYearlyCost = lifeAnchors.reduce((sum, a) => {
+                            if (!enabledAnchors.has(a.id)) return sum;
                             const ac = anchorCommutes[a.id];
                             return sum + (ac ? yearlyCommuteCost(ac.distanceMi) : 0);
                           }, 0);
@@ -1757,10 +1813,21 @@ export function JobMap() {
                             </div>
                             {lifeAnchors.map((anchor) => {
                               const ac = anchorCommutes[anchor.id];
+                              const enabled = enabledAnchors.has(anchor.id);
                               return (
-                                <div key={anchor.id} className="flex items-center justify-between text-xs px-1">
+                                <button
+                                  key={anchor.id}
+                                  type="button"
+                                  className={`flex items-center justify-between text-xs px-1 w-full rounded hover:bg-muted/50 transition-colors ${!enabled ? "opacity-40" : ""}`}
+                                  onClick={() => setEnabledAnchors((prev) => {
+                                    const next = new Set(prev);
+                                    next.has(anchor.id) ? next.delete(anchor.id) : next.add(anchor.id);
+                                    return next;
+                                  })}
+                                  title={enabled ? `Hide ${anchor.label} route` : `Show ${anchor.label} route`}
+                                >
                                   <span className="flex items-center gap-1.5 text-muted-foreground">
-                                    <span className="h-2 w-2 rounded-full" style={{ backgroundColor: ANCHOR_COLORS[lifeAnchors.indexOf(anchor) % ANCHOR_COLORS.length] }} />
+                                    <span className={`h-2 w-2 rounded-full ${!enabled ? "ring-1 ring-muted-foreground" : ""}`} style={{ backgroundColor: enabled ? ANCHOR_COLORS[lifeAnchors.indexOf(anchor) % ANCHOR_COLORS.length] : "transparent" }} />
                                     {anchor.label}
                                   </span>
                                   {ac ? (
@@ -1772,7 +1839,7 @@ export function JobMap() {
                                   ) : (
                                     <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
                                   )}
-                                </div>
+                                </button>
                               );
                             })}
                             {/* Yearly commute cost + net salary */}
@@ -1921,10 +1988,12 @@ export function JobMap() {
               routeGeometry={commuteInfo?.geometry ?? null}
               anchorRoutes={
                 selectedJob && anchorCommutes
-                  ? Object.entries(anchorCommutes).map(([aId, info], i) => ({
+                  ? Object.entries(anchorCommutes)
+                    .filter(([aId]) => enabledAnchors.has(aId))
+                    .map(([aId, info], i) => ({
                       anchorId: aId,
                       geometry: (info as any)?.geometry ?? null,
-                      color: ANCHOR_COLORS[i % ANCHOR_COLORS.length],
+                      color: ANCHOR_COLORS[lifeAnchors.findIndex((a) => a.id === aId) % ANCHOR_COLORS.length],
                       label: (lifeAnchors ?? []).find((a: LifeAnchorData) => a.id === aId)?.label ?? "",
                     })).filter((r) => r.geometry)
                   : []
@@ -1946,6 +2015,18 @@ export function JobMap() {
               resolvedCoords={effectiveJobCoords}
               highlightedIds={pagedJobs.map((j) => j.id)}
               sweetSpot={sweetSpot}
+              officeLocations={resolvedAddress?.allLocations}
+              onSelectOffice={(office) => {
+                setResolvedAddress((prev) => prev ? {
+                  ...prev,
+                  address: office.address,
+                  lat: office.lat,
+                  lng: office.lng,
+                  name: office.name,
+                  confidence: "high",
+                } : null);
+                toast.success(`Selected: ${office.name || office.address}`);
+              }}
             />
           )}
         </div>
