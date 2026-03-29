@@ -111,13 +111,27 @@ function straightLineEstimate(
 
 const GOOGLE_KEY = process.env.GOOGLE_MAPS_API_KEY;
 
-/** Try Google Directions API */
+/** A single route option from the Directions API */
+interface RouteOption {
+  durationMin: number;
+  distanceMi: number;
+  summary: string; // e.g. "via I-476 N"
+  durationInTrafficMin?: number;
+  geometry?: [number, number][];
+}
+
+/** Try Google Directions API — returns primary route + alternatives */
 async function tryGoogleDirections(
   fromLat: number, fromLng: number,
   toLat: number, toLng: number,
   mode: CommuteMode,
   wantGeometry: boolean,
-): Promise<{ durationMin: number; distanceMi: number; mode: CommuteMode; geometry?: [number, number][] } | null> {
+  opts?: { alternatives?: boolean; departureTime?: number; avoidTolls?: boolean },
+): Promise<{
+  durationMin: number; distanceMi: number; mode: CommuteMode;
+  durationInTrafficMin?: number; geometry?: [number, number][];
+  routes?: RouteOption[];
+} | null> {
   if (!GOOGLE_KEY) return null;
 
   const url = new URL("https://maps.googleapis.com/maps/api/directions/json");
@@ -125,6 +139,12 @@ async function tryGoogleDirections(
   url.searchParams.set("destination", `${toLat},${toLng}`);
   url.searchParams.set("mode", mode);
   url.searchParams.set("key", GOOGLE_KEY);
+  if (opts?.alternatives) url.searchParams.set("alternatives", "true");
+  if (opts?.avoidTolls) url.searchParams.set("avoid", "tolls");
+  // departure_time: seconds since epoch (enables duration_in_traffic for driving)
+  if (opts?.departureTime && mode === "driving") {
+    url.searchParams.set("departure_time", String(opts.departureTime));
+  }
 
   try {
     const res = await fetchWithTimeout(url.toString(), 10000);
@@ -132,20 +152,34 @@ async function tryGoogleDirections(
 
     if (data.status !== "OK" || !data.routes?.length) return null;
 
-    const route = data.routes[0];
-    const leg = route.legs[0];
-    const durationMin = Math.round(leg.duration.value / 60);
-    const distanceMi = Math.round((leg.distance.value / 1609.34) * 10) / 10;
+    // Parse all routes (up to 3 alternatives from Google)
+    const allRoutes: RouteOption[] = data.routes.map((r: any) => {
+      const leg = r.legs[0];
+      const opt: RouteOption = {
+        durationMin: Math.round(leg.duration.value / 60),
+        distanceMi: Math.round((leg.distance.value / 1609.34) * 10) / 10,
+        summary: r.summary || "",
+      };
+      if (leg.duration_in_traffic) {
+        opt.durationInTrafficMin = Math.round(leg.duration_in_traffic.value / 60);
+      }
+      if (wantGeometry && r.overview_polyline?.points) {
+        opt.geometry = simplifyGeometry(decodePolyline(r.overview_polyline.points, 5));
+      }
+      return opt;
+    });
 
-    if (!wantGeometry) return { durationMin, distanceMi, mode };
+    const primary = allRoutes[0];
+    const result: any = {
+      durationMin: primary.durationMin,
+      distanceMi: primary.distanceMi,
+      mode,
+    };
+    if (primary.durationInTrafficMin) result.durationInTrafficMin = primary.durationInTrafficMin;
+    if (primary.geometry) result.geometry = primary.geometry;
+    if (allRoutes.length > 1) result.routes = allRoutes;
 
-    // Google Directions overview_polyline uses precision 5
-    const raw = route.overview_polyline?.points
-      ? decodePolyline(route.overview_polyline.points, 5)
-      : [];
-    const geometry = simplifyGeometry(raw);
-
-    return { durationMin, distanceMi, mode, geometry };
+    return result;
   } catch {
     return null;
   }
@@ -192,6 +226,9 @@ export async function GET(req: NextRequest) {
   const toLat = sp.get("toLat");
   const toLng = sp.get("toLng");
   const wantGeometry = sp.get("geometry") === "true";
+  const wantAlternatives = sp.get("alternatives") === "true";
+  const avoidTolls = sp.get("avoidTolls") === "true";
+  const departureTime = sp.get("departureTime"); // epoch seconds
   const modeParam = sp.get("mode") ?? "driving";
   const mode: CommuteMode = VALID_MODES.includes(modeParam as CommuteMode)
     ? (modeParam as CommuteMode)
@@ -211,13 +248,21 @@ export async function GET(req: NextRequest) {
       { status: 400 },
     );
 
-  // Separate cache keys for mode + geometry
-  const cacheKey = `commute:${fromLat}:${fromLng}:${toLat}:${toLng}:${mode}:${wantGeometry ? "geo" : "fast"}`;
+  // Separate cache keys for mode + geometry + options
+  const optsKey = `${avoidTolls ? "nt" : ""}${wantAlternatives ? "alt" : ""}${departureTime ?? ""}`;
+  const cacheKey = `commute:${fromLat}:${fromLng}:${toLat}:${toLng}:${mode}:${wantGeometry ? "geo" : "fast"}:${optsKey}`;
 
   try {
     const result = await cached(cacheKey, TTL.COMMUTE, async () => {
-      // 1. Try Google Directions (supports all modes)
-      const google = await tryGoogleDirections(coords[0], coords[1], coords[2], coords[3], mode, wantGeometry);
+      // 1. Try Google Directions (supports all modes, alternatives, traffic)
+      const google = await tryGoogleDirections(
+        coords[0], coords[1], coords[2], coords[3], mode, wantGeometry,
+        {
+          alternatives: wantAlternatives,
+          avoidTolls,
+          departureTime: departureTime ? Number(departureTime) : undefined,
+        },
+      );
       if (google) return google;
 
       // 2. OSRM fallback (driving only)

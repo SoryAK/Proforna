@@ -51,6 +51,9 @@ import {
   Phone,
   Flag,
   AlertTriangle,
+  Settings,
+  Fuel,
+  Route,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -61,6 +64,9 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -270,8 +276,49 @@ function formatSalary(n: number) {
 
 /** 2026 IRS standard mileage rate (business) */
 const IRS_MILEAGE_RATE = 0.70;
-/** Yearly roundtrip commute cost: distanceMi × 2 (roundtrip) × 250 work days × IRS rate */
-function yearlyCommuteCost(distanceMi: number) {
+
+/* ── Commute Profile ── */
+interface CommuteProfile {
+  gasPricePerGallon: number;
+  vehicleMpg: number;
+  daysInOffice: number;
+  avoidTolls: boolean;
+  departureHour: number; // 0-23
+}
+const DEFAULT_COMMUTE_PROFILE: CommuteProfile = {
+  gasPricePerGallon: 3.50,
+  vehicleMpg: 27.5,
+  daysInOffice: 5,
+  avoidTolls: false,
+  departureHour: 8,
+};
+const COMMUTE_PROFILE_KEY = "resumsify:commute-profile";
+function loadCommuteProfile(): CommuteProfile {
+  if (typeof window === "undefined") return DEFAULT_COMMUTE_PROFILE;
+  try {
+    const raw = localStorage.getItem(COMMUTE_PROFILE_KEY);
+    return raw ? { ...DEFAULT_COMMUTE_PROFILE, ...JSON.parse(raw) } : DEFAULT_COMMUTE_PROFILE;
+  } catch { return DEFAULT_COMMUTE_PROFILE; }
+}
+function saveCommuteProfile(p: CommuteProfile) {
+  localStorage.setItem(COMMUTE_PROFILE_KEY, JSON.stringify(p));
+}
+
+/** Route option from the API */
+interface RouteOption {
+  durationMin: number;
+  distanceMi: number;
+  summary: string;
+  durationInTrafficMin?: number;
+  geometry?: [number, number][];
+}
+
+/** Yearly roundtrip commute cost using profile or IRS fallback */
+function yearlyCommuteCost(distanceMi: number, profile?: CommuteProfile) {
+  if (profile) {
+    const costPerMile = profile.gasPricePerGallon / profile.vehicleMpg;
+    return distanceMi * 2 * profile.daysInOffice * 52 * costPerMile;
+  }
   return distanceMi * 2 * 250 * IRS_MILEAGE_RATE;
 }
 function formatCost(n: number) {
@@ -299,7 +346,14 @@ export function JobMap() {
   const [page, setPage] = useState(1);
   const [searchCenter, setSearchCenter] = useState<[number, number] | null>(null);
   const [source, setSource] = useState<"adzuna" | "google" | "both">("both");
-  const [commuteInfo, setCommuteInfo] = useState<{ durationMin: number; distanceMi: number; mode?: CommuteMode; estimated?: boolean; geometry?: [number, number][] } | null>(null);
+  const [commuteProfile, setCommuteProfile] = useState<CommuteProfile>(DEFAULT_COMMUTE_PROFILE);
+  const [showCommuteSettings, setShowCommuteSettings] = useState(false);
+  const [commuteInfo, setCommuteInfo] = useState<{
+    durationMin: number; distanceMi: number; mode?: CommuteMode; estimated?: boolean;
+    geometry?: [number, number][];
+    durationInTrafficMin?: number;
+    routes?: RouteOption[];
+  } | null>(null);
   const [commuteLoading, setCommuteLoading] = useState(false);
   const [commuteMode, setCommuteMode] = useState<CommuteMode>("driving");
   const [showDetails, setShowDetails] = useState(false);
@@ -363,6 +417,9 @@ export function JobMap() {
   // Which anchor commutes are visible on the map (toggled per-anchor)
   const [enabledAnchors, setEnabledAnchors] = useState<Set<string>>(new Set());
   const knownAnchorIds = useRef<Set<string>>(new Set());
+
+  // Load commute profile from localStorage on mount
+  useEffect(() => { setCommuteProfile(loadCommuteProfile()); }, []);
 
   // Sync enabledAnchors when lifeAnchors change — only add genuinely new anchors
   useEffect(() => {
@@ -841,17 +898,36 @@ export function JobMap() {
       toLng: String(effectiveJobCoords[1]),
       mode: commuteMode,
     });
+    if (commuteProfile.avoidTolls) params.set("avoidTolls", "true");
 
-    // Phase 1: fast duration/distance (no geometry, overview=false)
+    // Phase 1: fast duration/distance with alternatives (no geometry)
     const fastCtrl = new AbortController();
     commuteAbort.current = fastCtrl;
 
     if (!cached) {
-      fetch(`/api/commute?${params}`, { signal: fastCtrl.signal })
+      const fastParams = new URLSearchParams(params);
+      fastParams.set("alternatives", "true");
+      // Use departure_time for traffic-aware estimates (next occurrence of user's departure hour)
+      if (commuteMode === "driving") {
+        const now = new Date();
+        const dep = new Date(now);
+        dep.setHours(commuteProfile.departureHour, 0, 0, 0);
+        if (dep.getTime() <= now.getTime()) dep.setDate(dep.getDate() + 1);
+        fastParams.set("departureTime", String(Math.floor(dep.getTime() / 1000)));
+      }
+
+      fetch(`/api/commute?${fastParams}`, { signal: fastCtrl.signal })
         .then((r) => (r.ok ? r.json() : null))
         .then((d) => {
           if (d && !fastCtrl.signal.aborted) {
-            setCommuteInfo({ durationMin: d.durationMin, distanceMi: d.distanceMi, mode: commuteMode, estimated: d.estimated });
+            setCommuteInfo({
+              durationMin: d.durationMin,
+              distanceMi: d.distanceMi,
+              mode: commuteMode,
+              estimated: d.estimated,
+              durationInTrafficMin: d.durationInTrafficMin,
+              routes: d.routes,
+            });
             setCommuteCache((prev) => ({ ...prev, [cacheKey]: d }));
           }
         })
@@ -863,11 +939,20 @@ export function JobMap() {
     const geoCtrl = new AbortController();
     geometryAbort.current = geoCtrl;
 
-    fetch(`/api/commute?${params}&geometry=true`, { signal: geoCtrl.signal })
+    const geoParams = new URLSearchParams(params);
+    geoParams.set("geometry", "true");
+    geoParams.set("alternatives", "true");
+    if (commuteProfile.avoidTolls) geoParams.set("avoidTolls", "true");
+
+    fetch(`/api/commute?${geoParams}`, { signal: geoCtrl.signal })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
-        if (d?.geometry && !geoCtrl.signal.aborted) {
-          setCommuteInfo((prev) => prev ? { ...prev, geometry: d.geometry } : d);
+        if (d && !geoCtrl.signal.aborted) {
+          setCommuteInfo((prev) => prev ? {
+            ...prev,
+            geometry: d.geometry,
+            routes: d.routes ?? prev.routes,
+          } : d);
         }
       })
       .catch(() => {});
@@ -876,7 +961,7 @@ export function JobMap() {
       fastCtrl.abort();
       geoCtrl.abort();
     };
-  }, [selectedJob, searchCenter, commuteMode, effectiveJobCoords, addressLoading]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedJob, searchCenter, commuteMode, effectiveJobCoords, addressLoading, commuteProfile]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Pre-fetch commute times for visible sidebar cards (driving only for speed) ──
   useEffect(() => {
@@ -2046,12 +2131,141 @@ export function JobMap() {
                         );
                       })}
                       {commuteLoading && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+                      <Popover open={showCommuteSettings} onOpenChange={setShowCommuteSettings}>
+                        <PopoverTrigger
+                          className="inline-flex items-center justify-center h-6 w-6 ml-auto rounded-md hover:bg-accent text-muted-foreground hover:text-foreground"
+                          title="Commute settings"
+                        >
+                            <Settings className="h-3 w-3" />
+                        </PopoverTrigger>
+                        <PopoverContent className="w-64 p-3 space-y-3" align="end">
+                          <div className="text-xs font-semibold">Commute Profile</div>
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <Label className="text-[11px]">Gas $/gal</Label>
+                              <Input
+                                type="number" step="0.10" min="1" max="10"
+                                value={commuteProfile.gasPricePerGallon}
+                                onChange={(e) => {
+                                  const v = parseFloat(e.target.value) || DEFAULT_COMMUTE_PROFILE.gasPricePerGallon;
+                                  const p = { ...commuteProfile, gasPricePerGallon: v };
+                                  setCommuteProfile(p); saveCommuteProfile(p);
+                                }}
+                                className="h-7 w-20 text-xs text-right"
+                              />
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <Label className="text-[11px]">Vehicle MPG</Label>
+                              <Input
+                                type="number" step="0.5" min="5" max="150"
+                                value={commuteProfile.vehicleMpg}
+                                onChange={(e) => {
+                                  const v = parseFloat(e.target.value) || DEFAULT_COMMUTE_PROFILE.vehicleMpg;
+                                  const p = { ...commuteProfile, vehicleMpg: v };
+                                  setCommuteProfile(p); saveCommuteProfile(p);
+                                }}
+                                className="h-7 w-20 text-xs text-right"
+                              />
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <Label className="text-[11px]">Days in office/wk</Label>
+                              <Input
+                                type="number" step="1" min="1" max="7"
+                                value={commuteProfile.daysInOffice}
+                                onChange={(e) => {
+                                  const v = parseInt(e.target.value) || DEFAULT_COMMUTE_PROFILE.daysInOffice;
+                                  const p = { ...commuteProfile, daysInOffice: Math.min(7, Math.max(1, v)) };
+                                  setCommuteProfile(p); saveCommuteProfile(p);
+                                }}
+                                className="h-7 w-20 text-xs text-right"
+                              />
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <Label className="text-[11px]">Departure hour</Label>
+                              <Select
+                                value={String(commuteProfile.departureHour)}
+                                onValueChange={(v) => {
+                                  const p = { ...commuteProfile, departureHour: parseInt(v ?? "8") };
+                                  setCommuteProfile(p); saveCommuteProfile(p);
+                                }}
+                              >
+                                <SelectTrigger className="h-7 w-20 text-xs">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {Array.from({ length: 24 }, (_, i) => (
+                                    <SelectItem key={i} value={String(i)}>
+                                      {i === 0 ? "12 AM" : i < 12 ? `${i} AM` : i === 12 ? "12 PM" : `${i - 12} PM`}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <Label className="text-[11px]">Avoid tolls</Label>
+                              <Switch
+                                checked={commuteProfile.avoidTolls}
+                                onCheckedChange={(v) => {
+                                  const p = { ...commuteProfile, avoidTolls: !!v };
+                                  setCommuteProfile(p); saveCommuteProfile(p);
+                                }}
+                              />
+                            </div>
+                          </div>
+                          <p className="text-[10px] text-muted-foreground">
+                            Cost: ${(commuteProfile.gasPricePerGallon / commuteProfile.vehicleMpg).toFixed(2)}/mi · {commuteProfile.daysInOffice}d/wk · {commuteProfile.daysInOffice * 52} trips/yr
+                          </p>
+                        </PopoverContent>
+                      </Popover>
                     </div>
                     {commuteInfo ? (
-                      <div className="flex items-center gap-1 text-xs font-medium">
-                        {(() => { const ModeIcon = COMMUTE_MODES.find((m) => m.value === (commuteInfo.mode ?? "driving"))?.icon ?? Car; return <ModeIcon className="h-3.5 w-3.5 text-blue-500" />; })()}
-                        ~{commuteInfo.durationMin} min ({commuteInfo.distanceMi} mi)
-                        {commuteInfo.estimated && <span className="text-muted-foreground ml-0.5">(est.)</span>}
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-1 text-xs font-medium">
+                          {(() => { const ModeIcon = COMMUTE_MODES.find((m) => m.value === (commuteInfo.mode ?? "driving"))?.icon ?? Car; return <ModeIcon className="h-3.5 w-3.5 text-blue-500" />; })()}
+                          {commuteInfo.routes && commuteInfo.routes.length > 1 ? (
+                            <span>
+                              {Math.min(...commuteInfo.routes.map(r => r.durationMin))}–{Math.max(...commuteInfo.routes.map(r => r.durationMin))} min
+                              {" "}({Math.min(...commuteInfo.routes.map(r => r.distanceMi))}–{Math.max(...commuteInfo.routes.map(r => r.distanceMi))} mi)
+                            </span>
+                          ) : (
+                            <span>~{commuteInfo.durationMin} min ({commuteInfo.distanceMi} mi)</span>
+                          )}
+                          {commuteInfo.estimated && <span className="text-muted-foreground ml-0.5">(est.)</span>}
+                        </div>
+                        {commuteInfo.durationInTrafficMin && commuteInfo.durationInTrafficMin !== commuteInfo.durationMin && (
+                          <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                            <Clock className="h-2.5 w-2.5" />
+                            {commuteInfo.durationInTrafficMin} min in traffic
+                            ({commuteProfile.departureHour === 0 ? "12 AM" : commuteProfile.departureHour < 12 ? `${commuteProfile.departureHour} AM` : commuteProfile.departureHour === 12 ? "12 PM" : `${commuteProfile.departureHour - 12} PM`} departure)
+                          </div>
+                        )}
+                        {/* Yearly cost estimate */}
+                        <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                          <Fuel className="h-2.5 w-2.5" />
+                          {commuteInfo.routes && commuteInfo.routes.length > 1 ? (
+                            <span>
+                              {formatCost(yearlyCommuteCost(Math.min(...commuteInfo.routes.map(r => r.distanceMi)), commuteProfile))}–{formatCost(yearlyCommuteCost(Math.max(...commuteInfo.routes.map(r => r.distanceMi)), commuteProfile))}/yr
+                            </span>
+                          ) : (
+                            <span>{formatCost(yearlyCommuteCost(commuteInfo.distanceMi, commuteProfile))}/yr</span>
+                          )}
+                        </div>
+                        {/* Route alternatives */}
+                        {commuteInfo.routes && commuteInfo.routes.length > 1 && (
+                          <details className="text-[10px] text-muted-foreground">
+                            <summary className="cursor-pointer hover:text-foreground flex items-center gap-0.5">
+                              <Route className="h-2.5 w-2.5" /> {commuteInfo.routes.length} routes
+                            </summary>
+                            <div className="mt-1 space-y-0.5 pl-3">
+                              {commuteInfo.routes.map((r, i) => (
+                                <div key={i} className="flex items-center justify-between">
+                                  <span className="truncate max-w-[130px]">{r.summary || `Route ${i + 1}`}</span>
+                                  <span className="font-medium shrink-0 ml-1">{r.durationMin} min · {r.distanceMi} mi</span>
+                                </div>
+                              ))}
+                            </div>
+                          </details>
+                        )}
                       </div>
                     ) : !commuteLoading && (
                       <span className="text-xs text-muted-foreground">Commute unavailable</span>
@@ -2062,7 +2276,7 @@ export function JobMap() {
                       const totalYearlyCost = lifeAnchors.reduce((sum, a) => {
                         if (!enabledAnchors.has(a.id)) return sum;
                         const ac = anchorCommutes[a.id];
-                        return sum + (ac ? yearlyCommuteCost(ac.distanceMi) : 0);
+                        return sum + (ac ? yearlyCommuteCost(ac.distanceMi, commuteProfile) : 0);
                       }, 0);
                       const midSalary = selectedJob.salaryMin
                         ? selectedJob.salaryMax ? (selectedJob.salaryMin + selectedJob.salaryMax) / 2 : selectedJob.salaryMin
@@ -2098,7 +2312,7 @@ export function JobMap() {
                               </span>
                               {ac ? (
                                 <span className="font-medium shrink-0 ml-1">
-                                  ~{ac.durationMin}m · {formatCost(yearlyCommuteCost(ac.distanceMi))}/yr
+                                  ~{ac.durationMin}m · {formatCost(yearlyCommuteCost(ac.distanceMi, commuteProfile))}/yr
                                 </span>
                               ) : (
                                 <Loader2 className="h-2.5 w-2.5 animate-spin text-muted-foreground" />
@@ -2710,14 +2924,140 @@ export function JobMap() {
                         );
                       })}
                       {commuteLoading && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+                      <Popover>
+                        <PopoverTrigger
+                          className="inline-flex items-center justify-center h-7 w-7 ml-auto rounded-md hover:bg-accent text-muted-foreground hover:text-foreground"
+                          title="Commute settings"
+                        >
+                            <Settings className="h-3.5 w-3.5" />
+                        </PopoverTrigger>
+                        <PopoverContent className="w-64 p-3 space-y-3" align="end">
+                          <div className="text-xs font-semibold">Commute Profile</div>
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <Label className="text-[11px]">Gas $/gal</Label>
+                              <Input
+                                type="number" step="0.10" min="1" max="10"
+                                value={commuteProfile.gasPricePerGallon}
+                                onChange={(e) => {
+                                  const v = parseFloat(e.target.value) || DEFAULT_COMMUTE_PROFILE.gasPricePerGallon;
+                                  const p = { ...commuteProfile, gasPricePerGallon: v };
+                                  setCommuteProfile(p); saveCommuteProfile(p);
+                                }}
+                                className="h-7 w-20 text-xs text-right"
+                              />
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <Label className="text-[11px]">Vehicle MPG</Label>
+                              <Input
+                                type="number" step="0.5" min="5" max="150"
+                                value={commuteProfile.vehicleMpg}
+                                onChange={(e) => {
+                                  const v = parseFloat(e.target.value) || DEFAULT_COMMUTE_PROFILE.vehicleMpg;
+                                  const p = { ...commuteProfile, vehicleMpg: v };
+                                  setCommuteProfile(p); saveCommuteProfile(p);
+                                }}
+                                className="h-7 w-20 text-xs text-right"
+                              />
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <Label className="text-[11px]">Days in office/wk</Label>
+                              <Input
+                                type="number" step="1" min="1" max="7"
+                                value={commuteProfile.daysInOffice}
+                                onChange={(e) => {
+                                  const v = parseInt(e.target.value) || DEFAULT_COMMUTE_PROFILE.daysInOffice;
+                                  const p = { ...commuteProfile, daysInOffice: Math.min(7, Math.max(1, v)) };
+                                  setCommuteProfile(p); saveCommuteProfile(p);
+                                }}
+                                className="h-7 w-20 text-xs text-right"
+                              />
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <Label className="text-[11px]">Departure hour</Label>
+                              <Select
+                                value={String(commuteProfile.departureHour)}
+                                onValueChange={(v) => {
+                                  const p = { ...commuteProfile, departureHour: parseInt(v ?? "8") };
+                                  setCommuteProfile(p); saveCommuteProfile(p);
+                                }}
+                              >
+                                <SelectTrigger className="h-7 w-20 text-xs">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {Array.from({ length: 24 }, (_, i) => (
+                                    <SelectItem key={i} value={String(i)}>
+                                      {i === 0 ? "12 AM" : i < 12 ? `${i} AM` : i === 12 ? "12 PM" : `${i - 12} PM`}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <Label className="text-[11px]">Avoid tolls</Label>
+                              <Switch
+                                checked={commuteProfile.avoidTolls}
+                                onCheckedChange={(v) => {
+                                  const p = { ...commuteProfile, avoidTolls: !!v };
+                                  setCommuteProfile(p); saveCommuteProfile(p);
+                                }}
+                              />
+                            </div>
+                          </div>
+                        </PopoverContent>
+                      </Popover>
                     </div>
                     {commuteInfo && (
-                      <div className="flex items-center gap-1.5 text-sm">
-                        {(() => { const ModeIcon = COMMUTE_MODES.find((m) => m.value === (commuteInfo.mode ?? "driving"))?.icon ?? Car; return <ModeIcon className="h-4 w-4 text-blue-500" />; })()}
-                        <span className="font-medium">
-                          ~{commuteInfo.durationMin} min ({commuteInfo.distanceMi} mi)
-                          {commuteInfo.estimated && <span className="text-xs text-muted-foreground ml-1">(est.)</span>}
-                        </span>
+                      <div className="space-y-1.5">
+                        <div className="flex items-center gap-1.5 text-sm">
+                          {(() => { const ModeIcon = COMMUTE_MODES.find((m) => m.value === (commuteInfo.mode ?? "driving"))?.icon ?? Car; return <ModeIcon className="h-4 w-4 text-blue-500" />; })()}
+                          <span className="font-medium">
+                            {commuteInfo.routes && commuteInfo.routes.length > 1 ? (
+                              <>
+                                {Math.min(...commuteInfo.routes.map(r => r.durationMin))}–{Math.max(...commuteInfo.routes.map(r => r.durationMin))} min
+                                {" "}({Math.min(...commuteInfo.routes.map(r => r.distanceMi))}–{Math.max(...commuteInfo.routes.map(r => r.distanceMi))} mi)
+                              </>
+                            ) : (
+                              <>~{commuteInfo.durationMin} min ({commuteInfo.distanceMi} mi)</>
+                            )}
+                            {commuteInfo.estimated && <span className="text-xs text-muted-foreground ml-1">(est.)</span>}
+                          </span>
+                        </div>
+                        {commuteInfo.durationInTrafficMin && commuteInfo.durationInTrafficMin !== commuteInfo.durationMin && (
+                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                            <Clock className="h-3 w-3" />
+                            {commuteInfo.durationInTrafficMin} min in traffic
+                            ({commuteProfile.departureHour === 0 ? "12 AM" : commuteProfile.departureHour < 12 ? `${commuteProfile.departureHour} AM` : commuteProfile.departureHour === 12 ? "12 PM" : `${commuteProfile.departureHour - 12} PM`} departure)
+                          </div>
+                        )}
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <Fuel className="h-3 w-3" />
+                          {commuteInfo.routes && commuteInfo.routes.length > 1 ? (
+                            <span>
+                              {formatCost(yearlyCommuteCost(Math.min(...commuteInfo.routes.map(r => r.distanceMi)), commuteProfile))}–{formatCost(yearlyCommuteCost(Math.max(...commuteInfo.routes.map(r => r.distanceMi)), commuteProfile))}/yr
+                            </span>
+                          ) : (
+                            <span>{formatCost(yearlyCommuteCost(commuteInfo.distanceMi, commuteProfile))}/yr</span>
+                          )}
+                          <span className="text-[10px]">({commuteProfile.daysInOffice}d/wk · ${(commuteProfile.gasPricePerGallon / commuteProfile.vehicleMpg).toFixed(2)}/mi)</span>
+                        </div>
+                        {/* Route alternatives */}
+                        {commuteInfo.routes && commuteInfo.routes.length > 1 && (
+                          <div className="space-y-1 pt-1 border-t">
+                            <div className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                              <Route className="h-3 w-3" /> {commuteInfo.routes.length} Route Options
+                            </div>
+                            {commuteInfo.routes.map((r, i) => (
+                              <div key={i} className="flex items-center justify-between text-xs px-1.5 py-1 rounded hover:bg-muted/50">
+                                <span className="truncate max-w-[200px]">{r.summary || `Route ${i + 1}`}</span>
+                                <span className="font-medium shrink-0 ml-2">
+                                  {r.durationMin} min · {r.distanceMi} mi · {formatCost(yearlyCommuteCost(r.distanceMi, commuteProfile))}/yr
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     )}
 
@@ -2726,7 +3066,7 @@ export function JobMap() {
                       const totalYearlyCost = lifeAnchors.reduce((sum, a) => {
                         if (!enabledAnchors.has(a.id)) return sum;
                         const ac = anchorCommutes[a.id];
-                        return sum + (ac ? yearlyCommuteCost(ac.distanceMi) : 0);
+                        return sum + (ac ? yearlyCommuteCost(ac.distanceMi, commuteProfile) : 0);
                       }, 0);
                       const midSalary = selectedJob.salaryMin
                         ? selectedJob.salaryMax ? (selectedJob.salaryMin + selectedJob.salaryMax) / 2 : selectedJob.salaryMin
@@ -2766,7 +3106,7 @@ export function JobMap() {
                               {ac ? (
                                 <span className="font-medium">
                                   ~{ac.durationMin} min ({ac.distanceMi} mi)
-                                  <span className="text-muted-foreground ml-1">· {formatCost(yearlyCommuteCost(ac.distanceMi))}/yr</span>
+                                  <span className="text-muted-foreground ml-1">· {formatCost(yearlyCommuteCost(ac.distanceMi, commuteProfile))}/yr</span>
                                   {ac.estimated && <span className="opacity-60 ml-0.5">(est.)</span>}
                                 </span>
                               ) : (
