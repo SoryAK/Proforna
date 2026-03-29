@@ -2924,89 +2924,81 @@ export function JobMap() {
                         );
                       })}
                       {commuteLoading && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
-                      <Popover>
-                        <PopoverTrigger
-                          className="inline-flex items-center justify-center h-7 w-7 ml-auto rounded-md hover:bg-accent text-muted-foreground hover:text-foreground"
-                          title="Commute settings"
+                    </div>
+                    {/* Inline commute profile — visible in dialog */}
+                    <div className="grid grid-cols-5 gap-2 rounded-lg border bg-muted/30 p-2.5">
+                      <div className="space-y-0.5">
+                        <Label className="text-[10px] text-muted-foreground">Gas $/gal</Label>
+                        <Input
+                          type="number" step="0.10" min="1" max="10"
+                          value={commuteProfile.gasPricePerGallon}
+                          onChange={(e) => {
+                            const v = parseFloat(e.target.value) || DEFAULT_COMMUTE_PROFILE.gasPricePerGallon;
+                            const p = { ...commuteProfile, gasPricePerGallon: v };
+                            setCommuteProfile(p); saveCommuteProfile(p);
+                          }}
+                          className="h-7 text-xs text-right"
+                        />
+                      </div>
+                      <div className="space-y-0.5">
+                        <Label className="text-[10px] text-muted-foreground">MPG</Label>
+                        <Input
+                          type="number" step="0.5" min="5" max="150"
+                          value={commuteProfile.vehicleMpg}
+                          onChange={(e) => {
+                            const v = parseFloat(e.target.value) || DEFAULT_COMMUTE_PROFILE.vehicleMpg;
+                            const p = { ...commuteProfile, vehicleMpg: v };
+                            setCommuteProfile(p); saveCommuteProfile(p);
+                          }}
+                          className="h-7 text-xs text-right"
+                        />
+                      </div>
+                      <div className="space-y-0.5">
+                        <Label className="text-[10px] text-muted-foreground">Days/wk</Label>
+                        <Input
+                          type="number" step="1" min="1" max="7"
+                          value={commuteProfile.daysInOffice}
+                          onChange={(e) => {
+                            const v = parseInt(e.target.value) || DEFAULT_COMMUTE_PROFILE.daysInOffice;
+                            const p = { ...commuteProfile, daysInOffice: Math.min(7, Math.max(1, v)) };
+                            setCommuteProfile(p); saveCommuteProfile(p);
+                          }}
+                          className="h-7 text-xs text-right"
+                        />
+                      </div>
+                      <div className="space-y-0.5">
+                        <Label className="text-[10px] text-muted-foreground">Depart</Label>
+                        <Select
+                          value={String(commuteProfile.departureHour)}
+                          onValueChange={(v) => {
+                            const p = { ...commuteProfile, departureHour: parseInt(v ?? "8") };
+                            setCommuteProfile(p); saveCommuteProfile(p);
+                          }}
                         >
-                            <Settings className="h-3.5 w-3.5" />
-                        </PopoverTrigger>
-                        <PopoverContent className="w-64 p-3 space-y-3" align="end">
-                          <div className="text-xs font-semibold">Commute Profile</div>
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between">
-                              <Label className="text-[11px]">Gas $/gal</Label>
-                              <Input
-                                type="number" step="0.10" min="1" max="10"
-                                value={commuteProfile.gasPricePerGallon}
-                                onChange={(e) => {
-                                  const v = parseFloat(e.target.value) || DEFAULT_COMMUTE_PROFILE.gasPricePerGallon;
-                                  const p = { ...commuteProfile, gasPricePerGallon: v };
-                                  setCommuteProfile(p); saveCommuteProfile(p);
-                                }}
-                                className="h-7 w-20 text-xs text-right"
-                              />
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <Label className="text-[11px]">Vehicle MPG</Label>
-                              <Input
-                                type="number" step="0.5" min="5" max="150"
-                                value={commuteProfile.vehicleMpg}
-                                onChange={(e) => {
-                                  const v = parseFloat(e.target.value) || DEFAULT_COMMUTE_PROFILE.vehicleMpg;
-                                  const p = { ...commuteProfile, vehicleMpg: v };
-                                  setCommuteProfile(p); saveCommuteProfile(p);
-                                }}
-                                className="h-7 w-20 text-xs text-right"
-                              />
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <Label className="text-[11px]">Days in office/wk</Label>
-                              <Input
-                                type="number" step="1" min="1" max="7"
-                                value={commuteProfile.daysInOffice}
-                                onChange={(e) => {
-                                  const v = parseInt(e.target.value) || DEFAULT_COMMUTE_PROFILE.daysInOffice;
-                                  const p = { ...commuteProfile, daysInOffice: Math.min(7, Math.max(1, v)) };
-                                  setCommuteProfile(p); saveCommuteProfile(p);
-                                }}
-                                className="h-7 w-20 text-xs text-right"
-                              />
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <Label className="text-[11px]">Departure hour</Label>
-                              <Select
-                                value={String(commuteProfile.departureHour)}
-                                onValueChange={(v) => {
-                                  const p = { ...commuteProfile, departureHour: parseInt(v ?? "8") };
-                                  setCommuteProfile(p); saveCommuteProfile(p);
-                                }}
-                              >
-                                <SelectTrigger className="h-7 w-20 text-xs">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {Array.from({ length: 24 }, (_, i) => (
-                                    <SelectItem key={i} value={String(i)}>
-                                      {i === 0 ? "12 AM" : i < 12 ? `${i} AM` : i === 12 ? "12 PM" : `${i - 12} PM`}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <Label className="text-[11px]">Avoid tolls</Label>
-                              <Switch
-                                checked={commuteProfile.avoidTolls}
-                                onCheckedChange={(v) => {
-                                  const p = { ...commuteProfile, avoidTolls: !!v };
-                                  setCommuteProfile(p); saveCommuteProfile(p);
-                                }}
-                              />
-                            </div>
-                          </div>
-                        </PopoverContent>
-                      </Popover>
+                          <SelectTrigger className="h-7 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Array.from({ length: 24 }, (_, i) => (
+                              <SelectItem key={i} value={String(i)}>
+                                {i === 0 ? "12 AM" : i < 12 ? `${i} AM` : i === 12 ? "12 PM" : `${i - 12} PM`}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-0.5">
+                        <Label className="text-[10px] text-muted-foreground">No tolls</Label>
+                        <div className="flex items-center h-7">
+                          <Switch
+                            checked={commuteProfile.avoidTolls}
+                            onCheckedChange={(v) => {
+                              const p = { ...commuteProfile, avoidTolls: !!v };
+                              setCommuteProfile(p); saveCommuteProfile(p);
+                            }}
+                          />
+                        </div>
+                      </div>
                     </div>
                     {commuteInfo && (
                       <div className="space-y-1.5">
