@@ -89,6 +89,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import dynamic from "next/dynamic";
+import { CompanyDeepDive, type DeepDiveJob } from "@/components/company-deep-dive";
 
 /* ── Types ── */
 interface MapJob {
@@ -395,6 +396,9 @@ export function JobMap() {
   const [addressOverride, setAddressOverride] = useState("");
   const [addressCache, setAddressCache] = useState<Record<string, ResolvedAddress>>({});
   const resolveAbort = useRef<AbortController | null>(null);
+
+  /* ── Company Deep Dive ── */
+  const [deepDiveCompany, setDeepDiveCompany] = useState<string | null>(null);
 
   /* ── DB-backed recruiter flags (crowdsourced) ── */
   type RecruiterFlagInfo = { count: number; confirmed: boolean; flaggedByMe: boolean };
@@ -1846,7 +1850,13 @@ export function JobMap() {
                             <h4 className="font-semibold text-sm leading-tight line-clamp-2">
                               {job.title}
                             </h4>
-                            <p className="text-xs text-muted-foreground truncate">{job.company}</p>
+                            <button
+                              type="button"
+                              className="text-xs text-muted-foreground truncate hover:text-primary hover:underline transition-colors text-left"
+                              onClick={(e) => { e.stopPropagation(); setDeepDiveCompany(job.company); }}
+                            >
+                              {job.company}
+                            </button>
                             {job.via && (
                               <p className="text-[10px] text-muted-foreground">{job.via}</p>
                             )}
@@ -2112,7 +2122,13 @@ export function JobMap() {
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <h3 className="font-semibold text-sm leading-tight">{selectedJob.title}</h3>
-                    <p className="text-xs text-muted-foreground">{selectedJob.company}</p>
+                    <button
+                      type="button"
+                      className="text-xs text-muted-foreground hover:text-primary hover:underline transition-colors text-left"
+                      onClick={() => setDeepDiveCompany(selectedJob.company)}
+                    >
+                      {selectedJob.company}
+                    </button>
                   </div>
                   <Button
                     size="icon"
@@ -2959,7 +2975,16 @@ export function JobMap() {
           <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-hidden flex flex-col">
             <DialogHeader>
               <DialogTitle>{selectedJob.title}</DialogTitle>
-              <DialogDescription>{selectedJob.company} — {selectedJob.location}</DialogDescription>
+              <DialogDescription>
+                <button
+                  type="button"
+                  className="hover:text-primary hover:underline transition-colors"
+                  onClick={() => { setShowDetails(false); setDeepDiveCompany(selectedJob.company); }}
+                >
+                  {selectedJob.company}
+                </button>
+                {" — "}{selectedJob.location}
+              </DialogDescription>
             </DialogHeader>
             <div className="flex-1 overflow-y-auto -mx-4 px-4 min-h-0">
               <div className="space-y-4 pb-2">
@@ -3543,6 +3568,47 @@ export function JobMap() {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* ── Company Deep Dive Dialog ── */}
+      <Dialog open={!!deepDiveCompany} onOpenChange={(open) => { if (!open) setDeepDiveCompany(null); }}>
+        <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Building2 className="h-5 w-5" /> Company Deep Dive
+            </DialogTitle>
+            <DialogDescription>
+              Aggregated intelligence for {deepDiveCompany} across your search results
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto -mx-4 px-4 min-h-0">
+            {deepDiveCompany && (
+              <CompanyDeepDive
+                companyName={deepDiveCompany}
+                jobs={geoJobs
+                  .filter((j) => j.company === deepDiveCompany)
+                  .map((j) => ({
+                    id: j.id,
+                    title: j.title,
+                    company: j.company,
+                    location: j.location,
+                    lat: j.lat,
+                    lng: j.lng,
+                    salaryMin: j.salaryMin,
+                    salaryMax: j.salaryMax,
+                    created: j.created,
+                    source: j.source,
+                    via: j.via,
+                    scheduleType: j.scheduleType,
+                    contractTime: j.contractTime,
+                    contractType: j.contractType,
+                    category: j.category,
+                    description: j.description,
+                  }))}
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* New Interest Group dialog */}
       <Dialog open={showNewGroup} onOpenChange={setShowNewGroup}>
