@@ -137,6 +137,8 @@ interface Props {
   sweetSpot?: SweetSpotZone | null;
   officeLocations?: { address: string; lat: number; lng: number; name: string | null }[];
   onSelectOffice?: (office: { address: string; lat: number; lng: number; name: string | null }) => void;
+  enabledAnchorIds?: Set<string>;
+  onToggleAnchor?: (anchorId: string) => void;
 }
 
 /* Auto-fit bounds when jobs change */
@@ -151,6 +153,29 @@ function FitBounds({ jobs }: { jobs: MapJob[] }) {
     const bounds = L.latLngBounds(jobs.map((j) => [j.lat, j.lng]));
     map.fitBounds(bounds, { padding: [40, 40], maxZoom: 13 });
   }, [jobs, map]);
+
+  return null;
+}
+
+/* Focus-fit: zoom to show selected job + all anchor markers */
+function FocusFit({ job, anchors }: { job: MapJob; anchors: AnchorMarker[] }) {
+  const map = useMap();
+  const prevJobId = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (job.id === prevJobId.current) return;
+    prevJobId.current = job.id;
+
+    const points: [number, number][] = [[job.lat, job.lng]];
+    anchors.forEach((a) => points.push([a.lat, a.lng]));
+
+    if (points.length === 1) {
+      map.setView(points[0], 14, { animate: true });
+    } else {
+      const bounds = L.latLngBounds(points);
+      map.fitBounds(bounds, { padding: [60, 60], maxZoom: 14, animate: true });
+    }
+  }, [job.id, anchors, map]);
 
   return null;
 }
@@ -280,6 +305,8 @@ export default function JobMapLeaflet({
   sweetSpot = null,
   officeLocations = [],
   onSelectOffice,
+  enabledAnchorIds,
+  onToggleAnchor,
 }: Props) {
   const [panCenter, setPanCenter] = useState<[number, number] | null>(null);
   const [hasPanned, setHasPanned] = useState(false);
@@ -307,13 +334,16 @@ export default function JobMapLeaflet({
       zoom={10}
       className="h-full w-full z-0"
       scrollWheelZoom
+      zoomControl={false}
     >
       <TileLayer
         key={tileStyle}
         attribution={tileConfig.attribution}
         url={tileConfig.url}
       />
-      <FitBounds jobs={jobs} />
+      {jobs.length === 1 && anchorMarkers && anchorMarkers.length > 0
+        ? <FocusFit job={jobs[0]} anchors={anchorMarkers} />
+        : <FitBounds jobs={jobs} />}
       <FitRoute geometry={routeGeometry} />
       <PanDetector searchCenter={searchCenter} onMoved={handleMoved} />
 
@@ -473,23 +503,32 @@ export default function JobMapLeaflet({
       </MarkerClusterGroup>
 
       {/* Life Anchor markers — rendered AFTER cluster group so they appear on top */}
-      {anchorMarkers.map((a) => (
+      {anchorMarkers.map((a) => {
+        const isEnabled = !enabledAnchorIds || enabledAnchorIds.has(a.id);
+        return (
         <Marker
           key={a.id}
           position={[a.lat, a.lng]}
           icon={L.divIcon({
-            html: `<div style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:50%;background:${a.color};border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.4);font-size:16px;line-height:1;">${ANCHOR_EMOJI[a.icon] ?? "📍"}</div>`,
+            html: `<div style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:50%;background:${isEnabled ? a.color : '#6b7280'};border:3px solid ${isEnabled ? '#fff' : '#9ca3af'};box-shadow:0 2px 8px rgba(0,0,0,${isEnabled ? '0.4' : '0.15'});font-size:16px;line-height:1;opacity:${isEnabled ? '1' : '0.5'};cursor:context-menu;">${ANCHOR_EMOJI[a.icon] ?? "📍"}</div>`,
             className: "",
             iconSize: [32, 32],
             iconAnchor: [16, 16],
           })}
           zIndexOffset={2000}
+          eventHandlers={onToggleAnchor ? {
+            contextmenu: (e) => { e.originalEvent.preventDefault(); onToggleAnchor(a.id); },
+          } : {}}
         >
           <Tooltip direction="top" offset={[0, -16]} opacity={0.95}>
-            <div style={{ fontSize: 11, fontWeight: 600 }}>{a.label}</div>
+            <div style={{ fontSize: 11, fontWeight: 600 }}>
+              {a.label}
+              <span style={{ fontSize: 9, color: '#888', marginLeft: 4 }}>{isEnabled ? '(right-click to hide)' : '(right-click to show)'}</span>
+            </div>
           </Tooltip>
         </Marker>
-      ))}
+        );
+      })}
 
       {/* Multiple office locations — shown when company has several nearby offices */}
       {officeLocations.length > 1 && (() => {
@@ -543,8 +582,8 @@ export default function JobMapLeaflet({
         />
       )}
 
-      {/* Locate-me button */}
-      <LocateMeButton searchCenter={searchCenter} />
+      {/* Zoom + Locate controls (bottom-right, stacked like Google Maps) */}
+      <MapControls searchCenter={searchCenter} />
     </MapContainer>
   );
 }
@@ -597,8 +636,8 @@ function SearchAreaButton({ onClick }: { onClick: () => void }) {
   );
 }
 
-/* "Locate me" / snap-back button — like Google Maps crosshair */
-function LocateMeButton({ searchCenter }: { searchCenter: [number, number] | null }) {
+/* Bottom-right stacked controls: Zoom +/- and Locate (Google Maps style) */
+function MapControls({ searchCenter }: { searchCenter: [number, number] | null }) {
   const map = useMap();
   const ref = useRef<HTMLDivElement>(null);
   const [locating, setLocating] = useState(false);
@@ -606,27 +645,35 @@ function LocateMeButton({ searchCenter }: { searchCenter: [number, number] | nul
   useEffect(() => {
     if (!ref.current) return;
     L.DomEvent.disableClickPropagation(ref.current);
+    L.DomEvent.disableScrollPropagation(ref.current);
   }, []);
 
   const handleLocate = useCallback(() => {
-    // If we have a search center (home), snap back to it
     if (searchCenter) {
       map.flyTo(searchCenter, 11, { duration: 1 });
       return;
     }
-    // Otherwise use browser geolocation
     setLocating(true);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         map.flyTo([pos.coords.latitude, pos.coords.longitude], 12, { duration: 1 });
         setLocating(false);
       },
-      () => {
-        setLocating(false);
-      },
+      () => setLocating(false),
       { enableHighAccuracy: false, timeout: 8000 }
     );
   }, [map, searchCenter]);
+
+  const btnBase: React.CSSProperties = {
+    background: "#fff",
+    border: "none",
+    width: 40,
+    height: 40,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    cursor: "pointer",
+  };
 
   return (
     <div
@@ -636,35 +683,66 @@ function LocateMeButton({ searchCenter }: { searchCenter: [number, number] | nul
         bottom: 24,
         right: 12,
         zIndex: 1000,
+        display: "flex",
+        flexDirection: "column",
+        gap: 8,
       }}
     >
-      <button
-        onClick={handleLocate}
-        title="Back to my location"
+      {/* Zoom in / out */}
+      <div
         style={{
-          background: "#fff",
-          border: "1px solid #d1d5db",
           borderRadius: 8,
-          width: 36,
-          height: 36,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          cursor: "pointer",
+          overflow: "hidden",
           boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+          border: "1px solid #d1d5db",
         }}
       >
-        {locating ? (
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2" style={{ animation: "spin 1s linear infinite" }}>
-            <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-          </svg>
-        ) : (
+        <button
+          onClick={() => map.zoomIn()}
+          title="Zoom in"
+          style={{ ...btnBase, borderBottom: "1px solid #e5e7eb" }}
+        >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth="2">
-            <circle cx="12" cy="12" r="3" />
-            <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
+            <path d="M12 5v14M5 12h14" />
           </svg>
-        )}
-      </button>
+        </button>
+        <button
+          onClick={() => map.zoomOut()}
+          title="Zoom out"
+          style={btnBase}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth="2">
+            <path d="M5 12h14" />
+          </svg>
+        </button>
+      </div>
+
+      {/* Locate / snap-back */}
+      <div
+        style={{
+          borderRadius: 8,
+          overflow: "hidden",
+          boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+          border: "1px solid #d1d5db",
+        }}
+      >
+        <button
+          onClick={handleLocate}
+          title="Back to my location"
+          style={btnBase}
+        >
+          {locating ? (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2" style={{ animation: "spin 1s linear infinite" }}>
+              <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+            </svg>
+          ) : (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth="2">
+              <circle cx="12" cy="12" r="3" />
+              <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
+            </svg>
+          )}
+        </button>
+      </div>
       <style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
     </div>
   );

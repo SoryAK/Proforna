@@ -21,6 +21,7 @@ import {
   Car,
   Globe,
   Eye,
+  EyeOff,
   Map as MapIcon,
   List,
   Building2,
@@ -1125,6 +1126,25 @@ export function JobMap() {
     setCommuteCache({});
   }, [query, where, radius]);
 
+  /* Escape key to deselect */
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && selectedJob) {
+        setSelectedJob(null);
+        setShowDetails(false);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [selectedJob]);
+
+  /* Auto-scroll sidebar to selected job in map view */
+  useEffect(() => {
+    if (!selectedJob || viewMode !== "map") return;
+    const el = document.querySelector(`[data-job-id="${selectedJob.id}"]`);
+    el?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [selectedJob, viewMode]);
+
   // "Search this area" — reverse-geocode the map center and re-search
   const handleSearchArea = useCallback(
     async (center: [number, number]) => {
@@ -1154,152 +1174,149 @@ export function JobMap() {
 
   return (
     <div className="space-y-3">
-      {/* Search bar */}
-      <Card className="relative z-20">
-        <CardContent className="pt-4">
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              doSearch();
-            }}
-            className="flex flex-col sm:flex-row gap-2"
-          >
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Job title or keywords..."
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-            <PlacesAutocomplete
-              value={where}
-              onChange={setWhere}
-              placeholder="Address or city..."
-              className="sm:w-52"
-              types={[]}
-            />
-            <Select value={radius} onValueChange={(v) => setRadius(v ?? "25")}>
-              <SelectTrigger className="w-28">
-                <Navigation className="h-3.5 w-3.5 mr-1" />
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {RADIUS_OPTIONS.map((o) => (
-                  <SelectItem key={o.value} value={o.value}>
-                    {o.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={source} onValueChange={(v) => setSource((v ?? "both") as "adzuna" | "google" | "both")}>
-              <SelectTrigger className="w-32">
-                <Globe className="h-3.5 w-3.5 mr-1" />
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {SOURCE_OPTIONS.map((o) => (
-                  <SelectItem key={o.value} value={o.value}>
-                    {o.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button type="submit" disabled={isFetching}>
-              {isFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-              <span className="ml-2">Search</span>
-            </Button>
-            {/* Map / List toggle */}
-            <div className="flex border rounded-md overflow-hidden">
-              <Button
-                type="button"
-                size="icon"
-                variant={viewMode === "map" ? "default" : "ghost"}
-                className="rounded-none h-9 w-9"
-                onClick={() => setViewMode("map")}
-                title="Map view"
-              >
-                <MapIcon className="h-4 w-4" />
-              </Button>
-              <Button
-                type="button"
-                size="icon"
-                variant={viewMode === "list" ? "default" : "ghost"}
-                className="rounded-none h-9 w-9"
-                onClick={() => setViewMode("list")}
-                title="List view"
-              >
-                <List className="h-4 w-4" />
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
+      {/* ── Row 1: Search inputs ── */}
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          doSearch();
+        }}
+        className="relative z-20 flex items-center gap-2"
+      >
+        <div className="relative w-52">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <Input
+            placeholder="Job title or keywords..."
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="pl-8 h-9 text-sm"
+          />
+        </div>
+        <PlacesAutocomplete
+          value={where}
+          onChange={setWhere}
+          placeholder="Address or city..."
+          className="w-48"
+          types={[]}
+        />
+        <Select value={radius} onValueChange={(v) => setRadius(v ?? "25")}>
+          <SelectTrigger className="w-24 h-9">
+            <Navigation className="h-3.5 w-3.5 mr-1" />
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {RADIUS_OPTIONS.map((o) => (
+              <SelectItem key={o.value} value={o.value}>
+                {o.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={source} onValueChange={(v) => setSource((v ?? "both") as "adzuna" | "google" | "both")}>
+          <SelectTrigger className="w-28 h-9">
+            <Globe className="h-3.5 w-3.5 mr-1" />
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {SOURCE_OPTIONS.map((o) => (
+              <SelectItem key={o.value} value={o.value}>
+                {o.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button type="submit" disabled={isFetching} className="h-9">
+          {isFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+          <span className="ml-1.5">Search</span>
+        </Button>
+      </form>
 
-      {/* Stats bar + legend */}
-      {/* Stats bar — search results only */}
-      {searched && totalCount > 0 && (
-        <div className="flex flex-wrap items-center gap-3 px-1 text-sm text-muted-foreground">
-          <span>
-            {geoJobs.length.toLocaleString()} jobs loaded
+      {/* ── Row 2: Stats + legend + map controls + view toggle ── */}
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        {/* Result count */}
+        {searched && totalCount > 0 && (
+          <span className="whitespace-nowrap">
+            {geoJobs.length.toLocaleString()} jobs
             {totalCount > geoJobs.length && (
-              <span className="text-xs"> of {totalCount.toLocaleString()} in area</span>
+              <span> / {totalCount.toLocaleString()}</span>
+            )}
+            {sortedJobs.length < geoJobs.length && (
+              <span> ({sortedJobs.length} filtered)</span>
             )}
           </span>
-          {sortedJobs.length < geoJobs.length && (
-            <span>({sortedJobs.length} matching filter)</span>
-          )}
-          {meanSalary && (
-            <Badge variant="outline" className="gap-1">
-              <DollarSign className="h-3 w-3" />
-              Avg {formatSalary(meanSalary)}
-            </Badge>
-          )}
-        </div>
-      )}
+        )}
+        {searched && totalCount > 0 && meanSalary && (
+          <Badge variant="outline" className="gap-1 h-6 text-xs">
+            <DollarSign className="h-3 w-3" />
+            Avg {formatSalary(meanSalary)}
+          </Badge>
+        )}
 
-      {/* Legend + map overlay controls — visible whenever jobs are on screen */}
-      {viewMode === "map" && sortedJobs.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 px-1 text-xs text-muted-foreground">
-          <span className="flex items-center gap-1">
-            <CircleDot className="h-3 w-3 text-green-500" /> Above avg
-          </span>
-          <span className="flex items-center gap-1">
-            <CircleDot className="h-3 w-3 text-yellow-500" /> Near avg
-          </span>
-          <span className="flex items-center gap-1">
-            <CircleDot className="h-3 w-3 text-red-500" /> Below avg
-          </span>
-          <span className="flex items-center gap-1">
-            <CircleDot className="h-3 w-3 text-blue-500" /> No data
-          </span>
-          {/* ── Map overlay controls ── */}
-          <span className="mx-1 h-4 w-px bg-border" />
+        {/* Legend (map view only) */}
+        {viewMode === "map" && sortedJobs.length > 0 && (
+          <>
+            <span className="h-4 w-px bg-border" />
+            <span className="flex items-center gap-1 text-[10px]">
+              <CircleDot className="h-2.5 w-2.5 text-green-500" /> Above avg
+            </span>
+            <span className="flex items-center gap-1 text-[10px]">
+              <CircleDot className="h-2.5 w-2.5 text-yellow-500" /> Near avg
+            </span>
+            <span className="flex items-center gap-1 text-[10px]">
+              <CircleDot className="h-2.5 w-2.5 text-red-500" /> Below avg
+            </span>
+            <span className="flex items-center gap-1 text-[10px]">
+              <CircleDot className="h-2.5 w-2.5 text-blue-500" /> No data
+            </span>
+            <span className="h-4 w-px bg-border" />
+            <Button
+              type="button"
+              variant={showHeatmap ? "default" : "outline"}
+              size="sm"
+              className="h-6 gap-1 px-2 text-xs"
+              onClick={() => setShowHeatmap((v) => !v)}
+            >
+              <Flame className="h-3 w-3" />
+              Heatmap
+            </Button>
+            <Select value={tileStyle} onValueChange={(v) => setTileStyle((v ?? "osm") as typeof tileStyle)}>
+              <SelectTrigger className="h-6 w-28 text-xs">
+                <Layers className="h-3 w-3 mr-1" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="osm">OSM</SelectItem>
+                <SelectItem value="google-roadmap">Google Road</SelectItem>
+                <SelectItem value="google-satellite">Satellite</SelectItem>
+                <SelectItem value="google-hybrid">Hybrid</SelectItem>
+              </SelectContent>
+            </Select>
+          </>
+        )}
+
+        {/* Map / List toggle — pushed to end */}
+        <div className="flex border rounded-md overflow-hidden ml-auto">
           <Button
-            variant={showHeatmap ? "default" : "outline"}
-            size="sm"
-            className="h-7 gap-1 px-2 text-xs"
-            onClick={() => setShowHeatmap((v) => !v)}
-            title={showHeatmap ? "Hide heatmap" : "Show heatmap"}
+            type="button"
+            size="icon"
+            variant={viewMode === "map" ? "default" : "ghost"}
+            className="rounded-none h-7 w-7"
+            onClick={() => setViewMode("map")}
+            title="Map view"
           >
-            <Flame className="h-3 w-3" />
-            Heatmap
+            <MapIcon className="h-3.5 w-3.5" />
           </Button>
-          <Select value={tileStyle} onValueChange={(v) => setTileStyle((v ?? "osm") as typeof tileStyle)}>
-            <SelectTrigger className="h-7 w-[140px] text-xs">
-              <Layers className="h-3 w-3 mr-1" />
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="osm">OpenStreetMap</SelectItem>
-              <SelectItem value="google-roadmap">Google Road</SelectItem>
-              <SelectItem value="google-satellite">Satellite</SelectItem>
-              <SelectItem value="google-hybrid">Hybrid</SelectItem>
-            </SelectContent>
-          </Select>
+          <Button
+            type="button"
+            size="icon"
+            variant={viewMode === "list" ? "default" : "ghost"}
+            className="rounded-none h-7 w-7"
+            onClick={() => setViewMode("list")}
+            title="List view"
+          >
+            <List className="h-3.5 w-3.5" />
+          </Button>
         </div>
-      )}
+      </div>
 
       {/* ── LIST VIEW ── */}
       {viewMode === "list" && (
@@ -1658,297 +1675,6 @@ export function JobMap() {
             </>
           )}
 
-          {/* Details dialog (shared — list mode opens directly) */}
-          {selectedJob && (
-            <Dialog open={showDetails} onOpenChange={(open) => { setShowDetails(open); if (!open) setSelectedJob(null); }}>
-              <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-hidden flex flex-col">
-                <DialogHeader>
-                  <DialogTitle>{selectedJob.title}</DialogTitle>
-                  <DialogDescription>{selectedJob.company} — {selectedJob.location}</DialogDescription>
-                </DialogHeader>
-                <div className="flex-1 overflow-y-auto -mx-4 px-4 min-h-0">
-                  <div className="space-y-4 pb-2">
-                    <div className="flex flex-wrap gap-1.5">
-                      <Badge variant="secondary" className={`text-xs ${sourceBadge(selectedJob.source).className}`}>
-                        {sourceBadge(selectedJob.source).labelLong}
-                      </Badge>
-                      {selectedJob.scheduleType && <Badge variant="outline" className="text-xs">{selectedJob.scheduleType}</Badge>}
-                      {selectedJob.contractTime && <Badge variant="outline" className="text-xs capitalize">{selectedJob.contractTime.replace("_", " ")}</Badge>}
-                    </div>
-                    {(selectedJob.salaryMin || selectedJob.salaryMax) && (
-                      <div className="flex items-center gap-1.5 text-sm">
-                        <DollarSign className="h-4 w-4 text-emerald-500" />
-                        <span className="font-semibold">
-                          {selectedJob.salaryMin && formatSalary(selectedJob.salaryMin)}
-                          {selectedJob.salaryMin && selectedJob.salaryMax && " – "}
-                          {selectedJob.salaryMax && formatSalary(selectedJob.salaryMax)}
-                        </span>
-                      </div>
-                    )}
-                    <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                      <MapPin className="h-4 w-4" /> {selectedJob.location}
-                    </div>
-
-                    {/* Resolved / override address */}
-                    <div className="space-y-1.5">
-                      {addressLoading && (
-                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                          <Loader2 className="h-3 w-3 animate-spin" /> Resolving exact address…
-                        </div>
-                      )}
-                      {resolvedAddress && !addressOverride && (
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-1.5 text-sm text-emerald-600 dark:text-emerald-400">
-                            <MapPinned className="h-4 w-4 shrink-0" />
-                            <span className="font-medium">{resolvedAddress.address}</span>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <Badge
-                              variant="outline"
-                              className={`text-[10px] px-1.5 py-0 h-4 ${
-                                resolvedAddress.confidence === "high" ? "border-emerald-300 text-emerald-600 dark:border-emerald-700 dark:text-emerald-400"
-                                : resolvedAddress.confidence === "medium" ? "border-yellow-300 text-yellow-600 dark:border-yellow-700 dark:text-yellow-400"
-                                : "border-red-300 text-red-600 dark:border-red-700 dark:text-red-400"
-                              }`}
-                            >
-                              {resolvedAddress.confidence === "high" ? "Exact match" : resolvedAddress.confidence === "medium" ? "Likely match" : "Multiple offices found"}
-                            </Badge>
-                            {resolvedAddress.name && resolvedAddress.name !== resolvedAddress.address && (
-                              <span className="text-[10px] text-muted-foreground">{resolvedAddress.name}</span>
-                            )}
-                          </div>
-                          {/* Clickable office list when multiple offices found */}
-                          {resolvedAddress.allLocations && resolvedAddress.allLocations.length > 1 && (
-                            <div className="space-y-0.5 max-h-28 overflow-y-auto">
-                              {resolvedAddress.allLocations.map((office, idx) => (
-                                <button
-                                  key={idx}
-                                  type="button"
-                                  className={`flex items-center gap-1.5 text-[10px] w-full text-left px-1.5 py-1 rounded hover:bg-violet-50 dark:hover:bg-violet-950/30 transition-colors ${
-                                    resolvedAddress.lat === office.lat && resolvedAddress.lng === office.lng
-                                      ? "bg-violet-50 dark:bg-violet-950/30 font-semibold"
-                                      : "text-muted-foreground"
-                                  }`}
-                                  onClick={() => {
-                                    setResolvedAddress((prev) => prev ? {
-                                      ...prev,
-                                      address: office.address,
-                                      lat: office.lat,
-                                      lng: office.lng,
-                                      name: office.name,
-                                      confidence: "high",
-                                    } : null);
-                                    toast.success(`Selected: ${office.name || office.address}`);
-                                  }}
-                                >
-                                  <span className="flex items-center justify-center h-4 w-4 rounded-full bg-violet-500 text-white text-[9px] font-bold shrink-0">{idx + 1}</span>
-                                  <span className="truncate">{office.name || office.address}</span>
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      <PlacesAutocomplete
-                        value={addressOverride}
-                        onChange={(v) => {
-                          setAddressOverride(v);
-                          if (!v.trim()) return;
-                          geocodeOverride(v).then((d) => { if (d) setResolvedAddress(d); });
-                        }}
-                        placeholder={resolvedAddress ? "Override address…" : "Enter exact address…"}
-                        className="h-8 text-xs"
-                      />
-                    </div>
-
-                    {selectedJob.via && (
-                      <p className="text-xs text-muted-foreground">{selectedJob.via}</p>
-                    )}
-
-                    {/* Commute + transport mode selector */}
-                    {searchCenter && (
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2">
-                          {COMMUTE_MODES.map((m) => {
-                            const Icon = m.icon;
-                            return (
-                              <Button
-                                key={m.value}
-                                type="button"
-                                size="icon"
-                                variant={commuteMode === m.value ? "default" : "outline"}
-                                className="h-7 w-7"
-                                title={m.label}
-                                onClick={() => setCommuteMode(m.value)}
-                              >
-                                <Icon className="h-3.5 w-3.5" />
-                              </Button>
-                            );
-                          })}
-                          {commuteLoading && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
-                        </div>
-                        {commuteInfo && (
-                          <div className="flex items-center gap-1.5 text-sm">
-                            {(() => { const ModeIcon = COMMUTE_MODES.find((m) => m.value === (commuteInfo.mode ?? "driving"))?.icon ?? Car; return <ModeIcon className="h-4 w-4 text-blue-500" />; })()}
-                            <span className="font-medium">
-                              ~{commuteInfo.durationMin} min ({commuteInfo.distanceMi} mi)
-                              {commuteInfo.estimated && <span className="text-xs text-muted-foreground ml-1">(est.)</span>}
-                            </span>
-                          </div>
-                        )}
-
-                        {/* Life Anchors commute breakdown */}
-                        {lifeAnchors.length > 0 && Object.keys(anchorCommutes).length > 0 && (() => {
-                          const totalYearlyCost = lifeAnchors.reduce((sum, a) => {
-                            if (!enabledAnchors.has(a.id)) return sum;
-                            const ac = anchorCommutes[a.id];
-                            return sum + (ac ? yearlyCommuteCost(ac.distanceMi) : 0);
-                          }, 0);
-                          const midSalary = selectedJob.salaryMin
-                            ? selectedJob.salaryMax ? (selectedJob.salaryMin + selectedJob.salaryMax) / 2 : selectedJob.salaryMin
-                            : null;
-                          return (
-                          <div className="space-y-1.5 pt-1">
-                            <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
-                              <Anchor className="h-3.5 w-3.5 text-indigo-500" /> Life Anchors
-                            </div>
-                            {lifeAnchors.map((anchor) => {
-                              const ac = anchorCommutes[anchor.id];
-                              const enabled = enabledAnchors.has(anchor.id);
-                              return (
-                                <button
-                                  key={anchor.id}
-                                  type="button"
-                                  className={`flex items-center justify-between text-xs px-1 w-full rounded hover:bg-muted/50 transition-colors ${!enabled ? "opacity-40" : ""}`}
-                                  onClick={() => setEnabledAnchors((prev) => {
-                                    const next = new Set(prev);
-                                    next.has(anchor.id) ? next.delete(anchor.id) : next.add(anchor.id);
-                                    return next;
-                                  })}
-                                  title={enabled ? `Hide ${anchor.label} route` : `Show ${anchor.label} route`}
-                                >
-                                  <span className="flex items-center gap-1.5 text-muted-foreground">
-                                    <span className={`h-2 w-2 rounded-full ${!enabled ? "ring-1 ring-muted-foreground" : ""}`} style={{ backgroundColor: enabled ? ANCHOR_COLORS[lifeAnchors.indexOf(anchor) % ANCHOR_COLORS.length] : "transparent" }} />
-                                    {anchor.label}
-                                  </span>
-                                  {ac ? (
-                                    <span className="font-medium">
-                                      ~{ac.durationMin} min ({ac.distanceMi} mi)
-                                      <span className="text-muted-foreground ml-1">· {formatCost(yearlyCommuteCost(ac.distanceMi))}/yr</span>
-                                      {ac.estimated && <span className="opacity-60 ml-0.5">(est.)</span>}
-                                    </span>
-                                  ) : (
-                                    <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
-                                  )}
-                                </button>
-                              );
-                            })}
-                            {/* Yearly commute cost + net salary */}
-                            {totalYearlyCost > 0 && (
-                              <div className="pt-1 border-t space-y-0.5">
-                                <div className="flex items-center justify-between text-xs">
-                                  <span className="flex items-center gap-1 text-muted-foreground"><Car className="h-3 w-3" /> Total Commute Cost</span>
-                                  <span className="font-semibold text-orange-600 dark:text-orange-400">{formatCost(totalYearlyCost)}/yr</span>
-                                </div>
-                                {midSalary && (
-                                  <div className="flex items-center justify-between text-xs">
-                                    <span className="flex items-center gap-1 text-muted-foreground"><DollarSign className="h-3 w-3" /> Net Effective Salary</span>
-                                    <span className="font-bold text-emerald-600 dark:text-emerald-400">{formatSalary(midSalary - totalYearlyCost)}</span>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                            {/* Life Score */}
-                            {lifeScoreCache[selectedJob.id] != null && (
-                              <div className="flex items-center justify-between pt-1 border-t text-xs">
-                                <span className="font-semibold flex items-center gap-1"><Anchor className="h-3 w-3 text-indigo-500" /> Life Score</span>
-                                <span className={`font-bold text-sm ${lifeScoreCache[selectedJob.id] >= 70 ? "text-emerald-600" : lifeScoreCache[selectedJob.id] >= 40 ? "text-yellow-600" : "text-red-500"}`}>
-                                  {lifeScoreCache[selectedJob.id]}/100
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                          );
-                        })()}
-                      </div>
-                    )}
-
-                    {/* Street View */}
-                    {GOOGLE_MAPS_KEY && effectiveJobCoords && (
-                      <div className="rounded-lg overflow-hidden border">
-                        <div className="flex items-center gap-1.5 px-2 py-1.5 bg-muted/50 text-xs font-medium text-muted-foreground">
-                          <PersonStanding className="h-3.5 w-3.5" /> {resolvedAddress ? "Office View" : "Neighborhood View"}
-                        </div>
-                        <img
-                          src={`https://maps.googleapis.com/maps/api/streetview?size=600x250&location=${effectiveJobCoords[0]},${effectiveJobCoords[1]}&key=${GOOGLE_MAPS_KEY}`}
-                          alt={`Street view near ${resolvedAddress?.address ?? selectedJob.location}`}
-                          className="w-full h-[180px] object-cover"
-                          loading="lazy"
-                        />
-                      </div>
-                    )}
-
-                    <Separator />
-                    <div className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
-                      {stripHtml(selectedJob.description)}
-                    </div>
-                    {/* Apply links */}
-                    {selectedJob.applyLinks && selectedJob.applyLinks.length > 0 && (
-                      <div className="space-y-1.5 pt-2">
-                        <h4 className="text-xs font-medium">Apply on:</h4>
-                        {selectedJob.applyLinks.map((link, i) => (
-                          <a key={i} href={link.link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-sm text-blue-600 dark:text-blue-400 hover:underline">
-                            <ExternalLink className="h-3.5 w-3.5 shrink-0" /> {link.title}
-                          </a>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <DialogFooter>
-                  {selectedJob.url && (
-                    <a href={selectedJob.url} target="_blank" rel="noopener noreferrer">
-                      <Button size="sm" className="gap-1"><ExternalLink className="h-3.5 w-3.5" /> Apply Now</Button>
-                    </a>
-                  )}
-                  <Button
-                    size="sm"
-                    variant={trackedIds.has(selectedJob.id) ? "outline" : "secondary"}
-                    disabled={trackedIds.has(selectedJob.id)}
-                    onClick={() => trackMutation.mutate(selectedJob)}
-                    className="gap-1"
-                  >
-                    <Plus className="h-3.5 w-3.5" /> {trackedIds.has(selectedJob.id) ? "Tracked" : "Track"}
-                  </Button>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger className="inline-flex items-center justify-center gap-1 rounded-md border bg-background px-2.5 h-9 text-sm hover:bg-accent">
-                      <Star className="h-3.5 w-3.5" />
-                      <ChevronDown className="h-3 w-3" />
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuGroup>
-                        <DropdownMenuLabel className="text-xs">Save to Interest Group</DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        {interestGroups.map((g) => (
-                          <DropdownMenuItem key={g.id} onClick={() => addToGroupMutation.mutate({ groupId: g.id, job: selectedJob })}>
-                            <span className="h-2 w-2 rounded-full mr-2 shrink-0" style={{ background: g.color }} />
-                            {g.name}
-                          </DropdownMenuItem>
-                        ))}
-                        {interestGroups.length === 0 && (
-                          <div className="px-2 py-1.5 text-xs text-muted-foreground">No groups yet</div>
-                        )}
-                      </DropdownMenuGroup>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => setShowNewGroup(true)}>
-                        <FolderPlus className="h-3.5 w-3.5 mr-2" /> New Group…
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          )}
         </div>
       )}
 
@@ -1956,7 +1682,7 @@ export function JobMap() {
       {viewMode === "map" && (
       <div className="flex gap-3 h-[calc(100vh-220px)] min-h-[500px]">
         {/* Map */}
-        <div className="flex-1 rounded-xl overflow-hidden border bg-muted">
+        <div className="flex-1 rounded-xl overflow-hidden border bg-muted relative">
           {!searched && !hasEmailLeads ? (
             <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-2">
               <MapPin className="h-10 w-10 opacity-30" />
@@ -1974,7 +1700,7 @@ export function JobMap() {
             </div>
           ) : (
             <LeafletMap
-              jobs={sortedJobs}
+              jobs={selectedJob ? sortedJobs.filter(j => j.id === selectedJob.id) : sortedJobs}
               center={
                 sortedJobs.length > 0
                   ? [sortedJobs[0].lat, sortedJobs[0].lng] as [number, number]
@@ -2028,14 +1754,294 @@ export function JobMap() {
                 } : null);
                 toast.success(`Selected: ${office.name || office.address}`);
               }}
+              enabledAnchorIds={enabledAnchors}
+              onToggleAnchor={(anchorId) => setEnabledAnchors((prev) => {
+                const next = new Set(prev);
+                next.has(anchorId) ? next.delete(anchorId) : next.add(anchorId);
+                return next;
+              })}
             />
+          )}
+
+          {/* ── Floating job info card on map ── */}
+          {selectedJob && (
+            <div className="absolute top-3 left-3 z-[1000] w-80 max-h-[calc(100%-24px)] overflow-y-auto rounded-xl border bg-background/95 backdrop-blur-sm shadow-xl">
+              <div className="p-3 space-y-2.5">
+                {/* Header */}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <h3 className="font-semibold text-sm leading-tight">{selectedJob.title}</h3>
+                    <p className="text-xs text-muted-foreground">{selectedJob.company}</p>
+                  </div>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="shrink-0 h-6 w-6"
+                    onClick={() => { setSelectedJob(null); setShowDetails(false); }}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+
+                {/* Badges */}
+                <div className="flex flex-wrap gap-1">
+                  <Badge variant="outline" className="gap-1 text-[10px] h-5">
+                    <MapPin className="h-2.5 w-2.5" /> {selectedJob.location}
+                  </Badge>
+                  <Badge
+                    variant="secondary"
+                    className={`text-[10px] h-5 ${sourceBadge(selectedJob.source).className}`}
+                  >
+                    {sourceBadge(selectedJob.source).label}
+                  </Badge>
+                  {selectedJob.contractTime && (
+                    <Badge variant="outline" className="text-[10px] h-5 capitalize">
+                      {selectedJob.contractTime.replace("_", " ")}
+                    </Badge>
+                  )}
+                </div>
+
+                {/* Salary */}
+                {(selectedJob.salaryMin || selectedJob.salaryMax) && (
+                  <div className="flex items-center gap-1 text-sm">
+                    <DollarSign className="h-3.5 w-3.5 text-emerald-500" />
+                    <span className="font-medium">
+                      {selectedJob.salaryMin && formatSalary(selectedJob.salaryMin)}
+                      {selectedJob.salaryMin && selectedJob.salaryMax && " – "}
+                      {selectedJob.salaryMax && formatSalary(selectedJob.salaryMax)}
+                    </span>
+                    {selectedJob.salaryPredicted && (
+                      <span className="text-[10px] text-muted-foreground">(est.)</span>
+                    )}
+                  </div>
+                )}
+
+                {/* Resolved address */}
+                <div className="space-y-1">
+                  {addressLoading && (
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <Loader2 className="h-3 w-3 animate-spin" /> Resolving…
+                    </div>
+                  )}
+                  {resolvedAddress && !addressOverride && (
+                    <div className="space-y-0.5">
+                      <div className="flex items-start gap-1 text-xs text-emerald-600 dark:text-emerald-400">
+                        <MapPinned className="h-3 w-3 mt-0.5 shrink-0" />
+                        <span>{resolvedAddress.address}</span>
+                      </div>
+                      <Badge
+                        variant="outline"
+                        className={`text-[10px] px-1 py-0 h-3.5 ${
+                          resolvedAddress.confidence === "high" ? "border-emerald-300 text-emerald-600 dark:border-emerald-700 dark:text-emerald-400"
+                          : resolvedAddress.confidence === "medium" ? "border-yellow-300 text-yellow-600 dark:border-yellow-700 dark:text-yellow-400"
+                          : "border-red-300 text-red-600 dark:border-red-700 dark:text-red-400"
+                        }`}
+                      >
+                        {resolvedAddress.confidence === "high" ? "Exact" : resolvedAddress.confidence === "medium" ? "Likely" : "Multiple offices"}
+                      </Badge>
+                    </div>
+                  )}
+                  <PlacesAutocomplete
+                    value={addressOverride}
+                    onChange={(v) => {
+                      setAddressOverride(v);
+                      if (!v.trim()) return;
+                      geocodeOverride(v).then((d) => { if (d) setResolvedAddress(d); });
+                    }}
+                    placeholder={resolvedAddress ? "Override address…" : "Enter exact address…"}
+                    className="h-7 text-xs"
+                  />
+                </div>
+
+                {/* Commute + transport mode selector */}
+                {searchCenter && (
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-1.5">
+                      {COMMUTE_MODES.map((m) => {
+                        const Icon = m.icon;
+                        return (
+                          <Button
+                            key={m.value}
+                            type="button"
+                            size="icon"
+                            variant={commuteMode === m.value ? "default" : "outline"}
+                            className="h-6 w-6"
+                            title={m.label}
+                            onClick={() => setCommuteMode(m.value)}
+                          >
+                            <Icon className="h-3 w-3" />
+                          </Button>
+                        );
+                      })}
+                      {commuteLoading && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+                    </div>
+                    {commuteInfo ? (
+                      <div className="flex items-center gap-1 text-xs font-medium">
+                        {(() => { const ModeIcon = COMMUTE_MODES.find((m) => m.value === (commuteInfo.mode ?? "driving"))?.icon ?? Car; return <ModeIcon className="h-3.5 w-3.5 text-blue-500" />; })()}
+                        ~{commuteInfo.durationMin} min ({commuteInfo.distanceMi} mi)
+                        {commuteInfo.estimated && <span className="text-muted-foreground ml-0.5">(est.)</span>}
+                      </div>
+                    ) : !commuteLoading && (
+                      <span className="text-xs text-muted-foreground">Commute unavailable</span>
+                    )}
+
+                    {/* Life Anchors commute breakdown */}
+                    {lifeAnchors.length > 0 && Object.keys(anchorCommutes).length > 0 && (() => {
+                      const totalYearlyCost = lifeAnchors.reduce((sum, a) => {
+                        if (!enabledAnchors.has(a.id)) return sum;
+                        const ac = anchorCommutes[a.id];
+                        return sum + (ac ? yearlyCommuteCost(ac.distanceMi) : 0);
+                      }, 0);
+                      const midSalary = selectedJob.salaryMin
+                        ? selectedJob.salaryMax ? (selectedJob.salaryMin + selectedJob.salaryMax) / 2 : selectedJob.salaryMin
+                        : null;
+                      return (
+                      <div className="space-y-1 pt-1 border-t border-dashed">
+                        <div className="flex items-center gap-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                          <Anchor className="h-3 w-3 text-indigo-500" /> Anchors
+                        </div>
+                        {lifeAnchors.map((anchor) => {
+                          const ac = anchorCommutes[anchor.id];
+                          const enabled = enabledAnchors.has(anchor.id);
+                          return (
+                            <div key={anchor.id} className={`flex items-center justify-between text-[11px] px-0.5 ${!enabled ? "opacity-40" : ""}`}>
+                              <span className="flex items-center gap-1 text-muted-foreground truncate">
+                                <button
+                                  type="button"
+                                  className="p-0.5 rounded hover:bg-muted transition-colors"
+                                  onClick={() => setEnabledAnchors((prev) => {
+                                    const next = new Set(prev);
+                                    next.has(anchor.id) ? next.delete(anchor.id) : next.add(anchor.id);
+                                    return next;
+                                  })}
+                                  title={enabled ? `Hide ${anchor.label} route` : `Show ${anchor.label} route`}
+                                >
+                                  {enabled
+                                    ? <Eye className="h-2.5 w-2.5 text-indigo-500" />
+                                    : <EyeOff className="h-2.5 w-2.5 text-muted-foreground" />
+                                  }
+                                </button>
+                                <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ backgroundColor: enabled ? ANCHOR_COLORS[lifeAnchors.indexOf(anchor) % ANCHOR_COLORS.length] : "transparent" }} />
+                                {anchor.label}
+                              </span>
+                              {ac ? (
+                                <span className="font-medium shrink-0 ml-1">
+                                  ~{ac.durationMin}m · {formatCost(yearlyCommuteCost(ac.distanceMi))}/yr
+                                </span>
+                              ) : (
+                                <Loader2 className="h-2.5 w-2.5 animate-spin text-muted-foreground" />
+                              )}
+                            </div>
+                          );
+                        })}
+                        {totalYearlyCost > 0 && (
+                          <div className="pt-0.5 border-t space-y-0.5">
+                            <div className="flex items-center justify-between text-[11px]">
+                              <span className="text-muted-foreground">Commute</span>
+                              <span className="font-semibold text-orange-600 dark:text-orange-400">{formatCost(totalYearlyCost)}/yr</span>
+                            </div>
+                            {midSalary && (
+                              <div className="flex items-center justify-between text-[11px]">
+                                <span className="text-muted-foreground">Net Salary</span>
+                                <span className="font-bold text-emerald-600 dark:text-emerald-400">{formatSalary(midSalary - totalYearlyCost)}</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        {lifeScoreCache[selectedJob.id] != null && (
+                          <div className="flex items-center justify-between pt-0.5 border-t text-[11px]">
+                            <span className="font-semibold flex items-center gap-1"><Anchor className="h-2.5 w-2.5 text-indigo-500" /> Life Score</span>
+                            <span className={`font-bold ${lifeScoreCache[selectedJob.id] >= 70 ? "text-emerald-600" : lifeScoreCache[selectedJob.id] >= 40 ? "text-yellow-600" : "text-red-500"}`}>
+                              {lifeScoreCache[selectedJob.id]}/100
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      );
+                    })()}
+                  </div>
+                )}
+
+                {/* Street View — interactive panorama */}
+                {GOOGLE_MAPS_KEY && effectiveJobCoords && (
+                  <div className="rounded-lg overflow-hidden border">
+                    <div className="flex items-center gap-1 px-2 py-1 bg-muted/50 text-[10px] font-medium text-muted-foreground">
+                      <PersonStanding className="h-3 w-3" /> {resolvedAddress ? "Office View" : "Neighborhood"}
+                    </div>
+                    <iframe
+                      src={`https://www.google.com/maps/embed/v1/streetview?key=${GOOGLE_MAPS_KEY}&location=${effectiveJobCoords[0]},${effectiveJobCoords[1]}&heading=210&pitch=10&fov=90`}
+                      className="w-full h-[140px] border-0"
+                      loading="lazy"
+                      allowFullScreen
+                      referrerPolicy="no-referrer-when-downgrade"
+                    />
+                  </div>
+                )}
+
+                {/* Action buttons */}
+                <div className="flex gap-1.5 pt-1">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="flex-1 gap-1 h-7 text-xs"
+                    onClick={() => setShowDetails(true)}
+                  >
+                    <Eye className="h-3 w-3" /> Full Details
+                  </Button>
+                  {selectedJob.url && (
+                    <a href={selectedJob.url} target="_blank" rel="noopener noreferrer" className="flex-1">
+                      <Button size="sm" className="w-full gap-1 h-7 text-xs">
+                        <ExternalLink className="h-3 w-3" /> Apply
+                      </Button>
+                    </a>
+                  )}
+                </div>
+                <div className="flex gap-1.5">
+                  <Button
+                    size="sm"
+                    variant={trackedIds.has(selectedJob.id) ? "outline" : "secondary"}
+                    disabled={trackedIds.has(selectedJob.id)}
+                    onClick={() => trackMutation.mutate(selectedJob)}
+                    className="flex-1 gap-1 h-7 text-xs"
+                  >
+                    <Plus className="h-3 w-3" />
+                    {trackedIds.has(selectedJob.id) ? "Tracked" : "Track"}
+                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger className="inline-flex items-center justify-center gap-1 rounded-md border bg-background px-2 h-7 text-xs hover:bg-accent">
+                      <Star className="h-3 w-3" />
+                      <ChevronDown className="h-2.5 w-2.5" />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuGroup>
+                        <DropdownMenuLabel className="text-xs">Save to Interest Group</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        {interestGroups.map((g) => (
+                          <DropdownMenuItem key={g.id} onClick={() => addToGroupMutation.mutate({ groupId: g.id, job: selectedJob })}>
+                            <span className="h-2 w-2 rounded-full mr-2 shrink-0" style={{ background: g.color }} />
+                            {g.name}
+                          </DropdownMenuItem>
+                        ))}
+                        {interestGroups.length === 0 && (
+                          <div className="px-2 py-1.5 text-xs text-muted-foreground">No groups yet</div>
+                        )}
+                      </DropdownMenuGroup>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => setShowNewGroup(true)}>
+                        <FolderPlus className="h-3.5 w-3.5 mr-2" /> New Group…
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </div>
+            </div>
           )}
         </div>
 
         {/* Sidebar — sort/filter + job list / detail */}
         <div className="w-80 shrink-0 flex flex-col">
           {/* Sort & filter controls */}
-          {searched && geoJobs.length > 0 && !selectedJob && (
+          {searched && geoJobs.length > 0 && (
             <div className="space-y-2 mb-2">
               <div className="flex gap-1.5 items-center">
                 <Select value={sortBy} onValueChange={(v) => setSortBy(v ?? "salary-desc")}>
@@ -2200,563 +2206,20 @@ export function JobMap() {
                     compact
                     defaultAddress={where}
                     onAnchorsChange={() => queryClient.invalidateQueries({ queryKey: ["life-anchors"] })}
+                    enabledAnchorIds={enabledAnchors}
+                    onToggleAnchor={(id) => setEnabledAnchors((prev) => {
+                      const next = new Set(prev);
+                      next.has(id) ? next.delete(id) : next.add(id);
+                      return next;
+                    })}
                   />
                 </div>
               )}
             </div>
           )}
 
-          {/* Scrollable job list or detail */}
+          {/* Scrollable job list */}
           <div className="flex-1 overflow-y-auto space-y-2">
-            {selectedJob ? (
-              /* ── Job detail card ── */
-              <Card>
-                <CardContent className="pt-4 space-y-3">
-                  <div className="flex items-start justify-between">
-                    <div className="min-w-0">
-                      <h3 className="font-semibold leading-tight">{selectedJob.title}</h3>
-                      <p className="text-sm text-muted-foreground">{selectedJob.company}</p>
-                    </div>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="shrink-0"
-                      onClick={() => { setSelectedJob(null); setShowDetails(false); }}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-
-                  <div className="flex flex-wrap gap-1.5">
-                    <Badge variant="outline" className="gap-1 text-xs">
-                      <MapPin className="h-3 w-3" /> {selectedJob.location}
-                    </Badge>
-                    <Badge
-                      variant="secondary"
-                      className={`text-xs ${sourceBadge(selectedJob.source).className}`}
-                    >
-                      {sourceBadge(selectedJob.source).label}
-                    </Badge>
-                    {selectedJob.category && (
-                      <Badge variant="secondary" className="text-xs">
-                        {selectedJob.category}
-                      </Badge>
-                    )}
-                    {selectedJob.contractTime && (
-                      <Badge variant="outline" className="text-xs capitalize">
-                        {selectedJob.contractTime.replace("_", " ")}
-                      </Badge>
-                    )}
-                  </div>
-
-                  {(selectedJob.salaryMin || selectedJob.salaryMax) && (
-                    <div className="flex items-center gap-1 text-sm">
-                      <DollarSign className="h-3.5 w-3.5 text-emerald-500" />
-                      <span className="font-medium">
-                        {selectedJob.salaryMin && formatSalary(selectedJob.salaryMin)}
-                        {selectedJob.salaryMin && selectedJob.salaryMax && " – "}
-                        {selectedJob.salaryMax && formatSalary(selectedJob.salaryMax)}
-                      </span>
-                      {selectedJob.salaryPredicted && (
-                        <span className="text-xs text-muted-foreground">(estimated)</span>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Resolved address (compact) */}
-                  <div className="space-y-1">
-                    {addressLoading && (
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <Loader2 className="h-3 w-3 animate-spin" /> Resolving…
-                      </div>
-                    )}
-                    {resolvedAddress && !addressOverride && (
-                      <div className="space-y-0.5">
-                        <div className="flex items-start gap-1 text-xs text-emerald-600 dark:text-emerald-400">
-                          <MapPinned className="h-3 w-3 mt-0.5 shrink-0" />
-                          <span>{resolvedAddress.address}</span>
-                        </div>
-                        <Badge
-                          variant="outline"
-                          className={`text-[10px] px-1 py-0 h-3.5 ${
-                            resolvedAddress.confidence === "high" ? "border-emerald-300 text-emerald-600 dark:border-emerald-700 dark:text-emerald-400"
-                            : resolvedAddress.confidence === "medium" ? "border-yellow-300 text-yellow-600 dark:border-yellow-700 dark:text-yellow-400"
-                            : "border-red-300 text-red-600 dark:border-red-700 dark:text-red-400"
-                          }`}
-                        >
-                          {resolvedAddress.confidence === "high" ? "Exact" : resolvedAddress.confidence === "medium" ? "Likely" : "Multiple offices"}
-                        </Badge>
-                      </div>
-                    )}
-                    <PlacesAutocomplete
-                      value={addressOverride}
-                      onChange={(v) => {
-                        setAddressOverride(v);
-                        if (!v.trim()) return;
-                        geocodeOverride(v).then((d) => { if (d) setResolvedAddress(d); });
-                      }}
-                      placeholder={resolvedAddress ? "Override address…" : "Enter exact address…"}
-                      className="h-7 text-xs"
-                    />
-                  </div>
-
-                  <p className="text-xs text-muted-foreground leading-relaxed line-clamp-4">
-                    {stripHtml(selectedJob.description)}
-                  </p>
-
-                  {/* View Full Details button */}
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="w-full gap-1"
-                    onClick={() => setShowDetails(true)}
-                  >
-                    <Eye className="h-3.5 w-3.5" /> View Full Details
-                  </Button>
-
-                  {/* Full Details Dialog */}
-                  <Dialog open={showDetails} onOpenChange={setShowDetails}>
-                    <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-hidden flex flex-col">
-                      <DialogHeader>
-                        <DialogTitle>{selectedJob.title}</DialogTitle>
-                        <DialogDescription>{selectedJob.company} — {selectedJob.location}</DialogDescription>
-                      </DialogHeader>
-
-                      <div className="flex-1 overflow-y-auto -mx-4 px-4 min-h-0">
-                        <div className="space-y-4 pb-2">
-                          {/* Badges */}
-                          <div className="flex flex-wrap gap-1.5">
-                            <Badge
-                              variant="secondary"
-                              className={`text-xs ${sourceBadge(selectedJob.source).className}`}
-                            >
-                              {sourceBadge(selectedJob.source).labelLong}
-                            </Badge>
-                            {selectedJob.category && (
-                              <Badge variant="secondary" className="text-xs">{selectedJob.category}</Badge>
-                            )}
-                            {selectedJob.contractTime && (
-                              <Badge variant="outline" className="text-xs capitalize">
-                                {selectedJob.contractTime.replace("_", " ")}
-                              </Badge>
-                            )}
-                            {selectedJob.contractType && (
-                              <Badge variant="outline" className="text-xs capitalize">
-                                {selectedJob.contractType.replace("_", " ")}
-                              </Badge>
-                            )}
-                          </div>
-
-                          {/* Salary */}
-                          {(selectedJob.salaryMin || selectedJob.salaryMax) && (
-                            <div className="flex items-center gap-1.5 text-sm">
-                              <DollarSign className="h-4 w-4 text-emerald-500" />
-                              <span className="font-semibold">
-                                {selectedJob.salaryMin && formatSalary(selectedJob.salaryMin)}
-                                {selectedJob.salaryMin && selectedJob.salaryMax && " – "}
-                                {selectedJob.salaryMax && formatSalary(selectedJob.salaryMax)}
-                              </span>
-                              {selectedJob.salaryPredicted && (
-                                <span className="text-xs text-muted-foreground">(estimated)</span>
-                              )}
-                            </div>
-                          )}
-
-                          {/* Commute + transport mode selector */}
-                          {searchCenter && (
-                            <div className="space-y-2">
-                              <div className="flex items-center gap-2">
-                                {COMMUTE_MODES.map((m) => {
-                                  const Icon = m.icon;
-                                  return (
-                                    <Button
-                                      key={m.value}
-                                      type="button"
-                                      size="icon"
-                                      variant={commuteMode === m.value ? "default" : "outline"}
-                                      className="h-7 w-7"
-                                      title={m.label}
-                                      onClick={() => setCommuteMode(m.value)}
-                                    >
-                                      <Icon className="h-3.5 w-3.5" />
-                                    </Button>
-                                  );
-                                })}
-                                {commuteLoading && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
-                              </div>
-                              {commuteInfo && (
-                                <div className="flex items-center gap-1.5 text-sm">
-                                  {(() => { const ModeIcon = COMMUTE_MODES.find((m) => m.value === (commuteInfo.mode ?? "driving"))?.icon ?? Car; return <ModeIcon className="h-4 w-4 text-blue-500" />; })()}
-                                  <span className="font-medium">
-                                    ~{commuteInfo.durationMin} min ({commuteInfo.distanceMi} mi)
-                                    {commuteInfo.estimated && <span className="text-xs text-muted-foreground ml-1">(est.)</span>}
-                                  </span>
-                                </div>
-                              )}
-                            </div>
-                          )}
-
-                          {/* Life Anchors commute breakdown (dialog) */}
-                          {lifeAnchors.length > 0 && Object.keys(anchorCommutes).length > 0 && (() => {
-                            const totalYearlyCost = lifeAnchors.reduce((sum, a) => {
-                              const ac = anchorCommutes[a.id];
-                              return sum + (ac ? yearlyCommuteCost(ac.distanceMi) : 0);
-                            }, 0);
-                            const midSalary = selectedJob.salaryMin
-                              ? selectedJob.salaryMax ? (selectedJob.salaryMin + selectedJob.salaryMax) / 2 : selectedJob.salaryMin
-                              : null;
-                            return (
-                            <div className="space-y-1.5 p-3 rounded-lg border border-dashed border-indigo-200 dark:border-indigo-800 bg-indigo-50/50 dark:bg-indigo-950/20">
-                              <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
-                                <Anchor className="h-3.5 w-3.5 text-indigo-500" /> Life Anchors
-                              </div>
-                              {lifeAnchors.map((anchor, idx) => {
-                                const ac = anchorCommutes[anchor.id];
-                                return (
-                                  <div key={anchor.id} className="flex items-center justify-between text-xs px-1">
-                                    <span className="flex items-center gap-1.5 text-muted-foreground">
-                                      <span className="h-2 w-2 rounded-full" style={{ backgroundColor: ANCHOR_COLORS[idx % ANCHOR_COLORS.length] }} />
-                                      {anchor.label}
-                                    </span>
-                                    {ac ? (
-                                      <span className="font-medium">
-                                        ~{ac.durationMin} min ({ac.distanceMi} mi)
-                                        <span className="text-muted-foreground ml-1">· {formatCost(yearlyCommuteCost(ac.distanceMi))}/yr</span>
-                                        {ac.estimated && <span className="opacity-60 ml-0.5">(est.)</span>}
-                                      </span>
-                                    ) : (
-                                      <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
-                                    )}
-                                  </div>
-                                );
-                              })}
-                              {/* Yearly commute cost + net salary */}
-                              {totalYearlyCost > 0 && (
-                                <div className="pt-1.5 border-t space-y-0.5">
-                                  <div className="flex items-center justify-between text-xs">
-                                    <span className="flex items-center gap-1 text-muted-foreground"><Car className="h-3 w-3" /> Total Commute Cost</span>
-                                    <span className="font-semibold text-orange-600 dark:text-orange-400">{formatCost(totalYearlyCost)}/yr</span>
-                                  </div>
-                                  {midSalary && (
-                                    <div className="flex items-center justify-between text-xs">
-                                      <span className="flex items-center gap-1 text-muted-foreground"><DollarSign className="h-3 w-3" /> Net Effective Salary</span>
-                                      <span className="font-bold text-emerald-600 dark:text-emerald-400">{formatSalary(midSalary - totalYearlyCost)}</span>
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                              {lifeScoreCache[selectedJob.id] != null && (
-                                <div className="flex items-center justify-between pt-1.5 border-t text-xs">
-                                  <span className="font-semibold flex items-center gap-1"><Anchor className="h-3 w-3 text-indigo-500" /> Life Score</span>
-                                  <span className={`font-bold text-sm ${lifeScoreCache[selectedJob.id] >= 70 ? "text-emerald-600" : lifeScoreCache[selectedJob.id] >= 40 ? "text-yellow-600" : "text-red-500"}`}>
-                                    {lifeScoreCache[selectedJob.id]}/100
-                                  </span>
-                                </div>
-                              )}
-                            </div>
-                            );
-                          })()}
-
-                          {/* Street View */}
-                          {GOOGLE_MAPS_KEY && effectiveJobCoords && (
-                            <div className="rounded-lg overflow-hidden border">
-                              <div className="flex items-center gap-1.5 px-2 py-1.5 bg-muted/50 text-xs font-medium text-muted-foreground">
-                                <PersonStanding className="h-3.5 w-3.5" /> {resolvedAddress ? "Office View" : "Neighborhood View"}
-                              </div>
-                              <img
-                                src={`https://maps.googleapis.com/maps/api/streetview?size=600x250&location=${effectiveJobCoords[0]},${effectiveJobCoords[1]}&key=${GOOGLE_MAPS_KEY}`}
-                                alt={`Street view near ${resolvedAddress?.address ?? selectedJob.location}`}
-                                className="w-full h-[180px] object-cover"
-                                loading="lazy"
-                              />
-                            </div>
-                          )}
-
-                          {/* Location + resolved address */}
-                          <div className="space-y-1.5">
-                            <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                              <MapPin className="h-4 w-4" />
-                              {selectedJob.location}
-                              {selectedJob.area.length > 0 && (
-                                <span className="text-xs">({selectedJob.area.join(", ")})</span>
-                              )}
-                            </div>
-                            {addressLoading && (
-                              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                                <Loader2 className="h-3 w-3 animate-spin" /> Resolving exact address…
-                              </div>
-                            )}
-                            {resolvedAddress && !addressOverride && (
-                              <div className="space-y-1">
-                                <div className="flex items-center gap-1.5 text-sm text-emerald-600 dark:text-emerald-400">
-                                  <MapPinned className="h-4 w-4 shrink-0" />
-                                  <span className="font-medium">{resolvedAddress.address}</span>
-                                </div>
-                                <div className="flex items-center gap-1.5">
-                                  <Badge
-                                    variant="outline"
-                                    className={`text-[10px] px-1.5 py-0 h-4 ${
-                                      resolvedAddress.confidence === "high" ? "border-emerald-300 text-emerald-600 dark:border-emerald-700 dark:text-emerald-400"
-                                      : resolvedAddress.confidence === "medium" ? "border-yellow-300 text-yellow-600 dark:border-yellow-700 dark:text-yellow-400"
-                                      : "border-red-300 text-red-600 dark:border-red-700 dark:text-red-400"
-                                    }`}
-                                  >
-                                    {resolvedAddress.confidence === "high" ? "Exact match" : resolvedAddress.confidence === "medium" ? "Likely match" : "Multiple offices found"}
-                                  </Badge>
-                                  {resolvedAddress.name && resolvedAddress.name !== resolvedAddress.address && (
-                                    <span className="text-[10px] text-muted-foreground">{resolvedAddress.name}</span>
-                                  )}
-                                </div>
-                              </div>
-                            )}
-                            <PlacesAutocomplete
-                              value={addressOverride}
-                              onChange={(v) => {
-                                setAddressOverride(v);
-                                if (!v.trim()) return;
-                                geocodeOverride(v).then((d) => { if (d) setResolvedAddress(d); });
-                              }}
-                              placeholder={resolvedAddress ? "Override address…" : "Enter exact address…"}
-                              className="h-8 text-xs"
-                            />
-                          </div>
-
-                          {/* Posted date */}
-                          {selectedJob.created && (
-                            <div className="text-xs text-muted-foreground">
-                              Posted {new Date(selectedJob.created).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}
-                            </div>
-                          )}
-
-                          {/* Description */}
-                          <div className="border-t pt-3">
-                            <h4 className="text-sm font-semibold mb-2">Job Description</h4>
-                            <div className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
-                              {stripHtml(selectedJob.description)}
-                            </div>
-                          </div>
-
-                          {/* Full listing CTA */}
-                          {selectedJob.url && (
-                            <div className="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30 p-3">
-                              <p className="text-xs text-muted-foreground mb-2">
-                                {selectedJob.source === "adzuna"
-                                  ? "Adzuna provides a summary. View the full job listing for complete details, requirements, and how to apply."
-                                  : "View the full job listing for complete details, requirements, and how to apply."}
-                              </p>
-                              <a href={selectedJob.url} target="_blank" rel="noopener noreferrer">
-                                <Button size="sm" variant="outline" className="w-full gap-1 text-blue-600 dark:text-blue-400 border-blue-300 dark:border-blue-700 hover:bg-blue-100 dark:hover:bg-blue-900/30">
-                                  <ExternalLink className="h-3.5 w-3.5" /> Read Full Job Listing
-                                </Button>
-                              </a>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      <DialogFooter>
-                        {selectedJob.url && (
-                          <a href={selectedJob.url} target="_blank" rel="noopener noreferrer">
-                            <Button size="sm" className="gap-1">
-                              <ExternalLink className="h-3.5 w-3.5" /> Apply Now
-                            </Button>
-                          </a>
-                        )}
-                        <Button
-                          size="sm"
-                          variant={trackedIds.has(selectedJob.id) ? "outline" : "secondary"}
-                          disabled={trackedIds.has(selectedJob.id)}
-                          onClick={() => trackMutation.mutate(selectedJob)}
-                          className="gap-1"
-                        >
-                          <Plus className="h-3.5 w-3.5" />
-                          {trackedIds.has(selectedJob.id) ? "Tracked" : "Track"}
-                        </Button>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger className="inline-flex items-center justify-center gap-1 rounded-md border bg-background px-2.5 h-9 text-sm hover:bg-accent">
-                            <Star className="h-3.5 w-3.5" />
-                            <ChevronDown className="h-3 w-3" />
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuGroup>
-                              <DropdownMenuLabel className="text-xs">Save to Interest Group</DropdownMenuLabel>
-                              <DropdownMenuSeparator />
-                              {interestGroups.map((g) => (
-                                <DropdownMenuItem key={g.id} onClick={() => addToGroupMutation.mutate({ groupId: g.id, job: selectedJob })}>
-                                  <span className="h-2 w-2 rounded-full mr-2 shrink-0" style={{ background: g.color }} />
-                                  {g.name}
-                                </DropdownMenuItem>
-                              ))}
-                              {interestGroups.length === 0 && (
-                                <div className="px-2 py-1.5 text-xs text-muted-foreground">No groups yet</div>
-                              )}
-                            </DropdownMenuGroup>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => setShowNewGroup(true)}>
-                              <FolderPlus className="h-3.5 w-3.5 mr-2" /> New Group…
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
-
-                  {/* Commute estimate + mode selector */}
-                  {searchCenter && (
-                    <div className="space-y-1.5">
-                      <div className="flex items-center gap-1.5">
-                        {COMMUTE_MODES.map((m) => {
-                          const Icon = m.icon;
-                          return (
-                            <Button
-                              key={m.value}
-                              type="button"
-                              size="icon"
-                              variant={commuteMode === m.value ? "default" : "outline"}
-                              className="h-6 w-6"
-                              title={m.label}
-                              onClick={() => setCommuteMode(m.value)}
-                            >
-                              <Icon className="h-3 w-3" />
-                            </Button>
-                          );
-                        })}
-                        {commuteLoading && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
-                      </div>
-                      {commuteInfo ? (
-                        <div className="flex items-center gap-1 text-xs font-medium">
-                          {(() => { const ModeIcon = COMMUTE_MODES.find((m) => m.value === (commuteInfo.mode ?? "driving"))?.icon ?? Car; return <ModeIcon className="h-3.5 w-3.5 text-blue-500" />; })()}
-                          ~{commuteInfo.durationMin} min ({commuteInfo.distanceMi} mi)
-                          {commuteInfo.estimated && <span className="text-muted-foreground ml-0.5">(est.)</span>}
-                        </div>
-                      ) : !commuteLoading && (
-                        <span className="text-xs text-muted-foreground">Commute unavailable</span>
-                      )}
-
-                      {/* Life Anchors commute breakdown (sidebar) */}
-                      {lifeAnchors.length > 0 && Object.keys(anchorCommutes).length > 0 && (() => {
-                        const totalYearlyCost = lifeAnchors.reduce((sum, a) => {
-                          const ac = anchorCommutes[a.id];
-                          return sum + (ac ? yearlyCommuteCost(ac.distanceMi) : 0);
-                        }, 0);
-                        const midSalary = selectedJob.salaryMin
-                          ? selectedJob.salaryMax ? (selectedJob.salaryMin + selectedJob.salaryMax) / 2 : selectedJob.salaryMin
-                          : null;
-                        return (
-                        <div className="space-y-1 pt-1 border-t border-dashed">
-                          <div className="flex items-center gap-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                            <Anchor className="h-3 w-3 text-indigo-500" /> Anchors
-                          </div>
-                          {lifeAnchors.map((anchor, idx) => {
-                            const ac = anchorCommutes[anchor.id];
-                            return (
-                              <div key={anchor.id} className="flex items-center justify-between text-[11px] px-0.5">
-                                <span className="flex items-center gap-1 text-muted-foreground truncate">
-                                  <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ backgroundColor: ANCHOR_COLORS[idx % ANCHOR_COLORS.length] }} />
-                                  {anchor.label}
-                                </span>
-                                {ac ? (
-                                  <span className="font-medium shrink-0 ml-1">
-                                    ~{ac.durationMin}m · {formatCost(yearlyCommuteCost(ac.distanceMi))}/yr
-                                  </span>
-                                ) : (
-                                  <Loader2 className="h-2.5 w-2.5 animate-spin text-muted-foreground" />
-                                )}
-                              </div>
-                            );
-                          })}
-                          {totalYearlyCost > 0 && (
-                            <div className="pt-0.5 border-t space-y-0.5">
-                              <div className="flex items-center justify-between text-[11px]">
-                                <span className="text-muted-foreground">Commute</span>
-                                <span className="font-semibold text-orange-600 dark:text-orange-400">{formatCost(totalYearlyCost)}/yr</span>
-                              </div>
-                              {midSalary && (
-                                <div className="flex items-center justify-between text-[11px]">
-                                  <span className="text-muted-foreground">Net Salary</span>
-                                  <span className="font-bold text-emerald-600 dark:text-emerald-400">{formatSalary(midSalary - totalYearlyCost)}</span>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                          {lifeScoreCache[selectedJob.id] != null && (
-                            <div className="flex items-center justify-between pt-0.5 border-t text-[11px]">
-                              <span className="font-semibold flex items-center gap-1"><Anchor className="h-2.5 w-2.5 text-indigo-500" /> Life Score</span>
-                              <span className={`font-bold ${lifeScoreCache[selectedJob.id] >= 70 ? "text-emerald-600" : lifeScoreCache[selectedJob.id] >= 40 ? "text-yellow-600" : "text-red-500"}`}>
-                                {lifeScoreCache[selectedJob.id]}/100
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                        );
-                      })()}
-                    </div>
-                  )}
-
-                  {/* Street View preview */}
-                  {GOOGLE_MAPS_KEY && effectiveJobCoords && (
-                    <div className="rounded-lg overflow-hidden border">
-                      <div className="flex items-center gap-1 px-2 py-1 bg-muted/50 text-[10px] font-medium text-muted-foreground">
-                        <PersonStanding className="h-3 w-3" /> {resolvedAddress ? "Office View" : "Neighborhood"}
-                      </div>
-                      <img
-                        src={`https://maps.googleapis.com/maps/api/streetview?size=400x200&location=${effectiveJobCoords[0]},${effectiveJobCoords[1]}&key=${GOOGLE_MAPS_KEY}`}
-                        alt={`Street view near ${resolvedAddress?.address ?? selectedJob.location}`}
-                        className="w-full h-[120px] object-cover"
-                        loading="lazy"
-                      />
-                    </div>
-                  )}
-
-                  <div className="flex gap-2 pt-1">
-                    {selectedJob.url && (
-                      <a href={selectedJob.url} target="_blank" rel="noopener noreferrer" className="flex-1">
-                        <Button size="sm" className="w-full gap-1">
-                          <ExternalLink className="h-3.5 w-3.5" /> Apply
-                        </Button>
-                      </a>
-                    )}
-                    <Button
-                      size="sm"
-                      variant={trackedIds.has(selectedJob.id) ? "outline" : "secondary"}
-                      disabled={trackedIds.has(selectedJob.id)}
-                      onClick={() => trackMutation.mutate(selectedJob)}
-                      className="gap-1"
-                    >
-                      <Plus className="h-3.5 w-3.5" />
-                      {trackedIds.has(selectedJob.id) ? "Tracked" : "Track"}
-                    </Button>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger className="inline-flex items-center justify-center gap-1 rounded-md border bg-background px-2 h-8 text-xs hover:bg-accent">
-                        <Star className="h-3 w-3" />
-                        <ChevronDown className="h-3 w-3" />
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuGroup>
-                          <DropdownMenuLabel className="text-xs">Save to Interest Group</DropdownMenuLabel>
-                          <DropdownMenuSeparator />
-                          {interestGroups.map((g) => (
-                            <DropdownMenuItem key={g.id} onClick={() => addToGroupMutation.mutate({ groupId: g.id, job: selectedJob })}>
-                              <span className="h-2 w-2 rounded-full mr-2 shrink-0" style={{ background: g.color }} />
-                              {g.name}
-                            </DropdownMenuItem>
-                          ))}
-                          {interestGroups.length === 0 && (
-                            <div className="px-2 py-1.5 text-xs text-muted-foreground">No groups yet</div>
-                          )}
-                        </DropdownMenuGroup>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => setShowNewGroup(true)}>
-                          <FolderPlus className="h-3.5 w-3.5 mr-2" /> New Group…
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                </CardContent>
-              </Card>
-            ) : (
-              /* ── Paginated job list ── */
-              <>
                 {sortedJobs.length === 0 && (searched || hasEmailLeads) && !isFetching && (
                   <div className="text-center py-8 text-muted-foreground">
                     <Briefcase className="h-8 w-8 mx-auto mb-2 opacity-30" />
@@ -2766,7 +2229,8 @@ export function JobMap() {
                 {pagedJobs.map((job) => (
                   <Card
                     key={job.id}
-                    className="cursor-pointer hover:shadow-md transition-shadow"
+                    data-job-id={job.id}
+                    className={`cursor-pointer hover:shadow-md transition-shadow ${selectedJob?.id === job.id ? "ring-2 ring-primary" : ""}`}
                     onClick={() => { setSelectedJob(job); setShowDetails(false); }}
                   >
                     <CardContent className="py-3 px-3">
@@ -2814,12 +2278,10 @@ export function JobMap() {
                     </CardContent>
                   </Card>
                 ))}
-              </>
-            )}
           </div>
 
           {/* Pagination controls */}
-          {!selectedJob && sortedJobs.length > PAGE_SIZE && (
+          {sortedJobs.length > PAGE_SIZE && (
             <div className="flex items-center justify-between pt-2 border-t mt-2">
               <Button
                 size="sm"
@@ -2846,6 +2308,303 @@ export function JobMap() {
           )}
         </div>
       </div>
+      )}
+
+      {/* ── Full Details Dialog (shared across list & map views) ── */}
+      {selectedJob && (
+        <Dialog open={showDetails} onOpenChange={(open) => { setShowDetails(open); if (!open && viewMode === "list") setSelectedJob(null); }}>
+          <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-hidden flex flex-col">
+            <DialogHeader>
+              <DialogTitle>{selectedJob.title}</DialogTitle>
+              <DialogDescription>{selectedJob.company} — {selectedJob.location}</DialogDescription>
+            </DialogHeader>
+            <div className="flex-1 overflow-y-auto -mx-4 px-4 min-h-0">
+              <div className="space-y-4 pb-2">
+                <div className="flex flex-wrap gap-1.5">
+                  <Badge variant="secondary" className={`text-xs ${sourceBadge(selectedJob.source).className}`}>
+                    {sourceBadge(selectedJob.source).labelLong}
+                  </Badge>
+                  {selectedJob.scheduleType && <Badge variant="outline" className="text-xs">{selectedJob.scheduleType}</Badge>}
+                  {selectedJob.contractTime && <Badge variant="outline" className="text-xs capitalize">{selectedJob.contractTime.replace("_", " ")}</Badge>}
+                </div>
+                {(selectedJob.salaryMin || selectedJob.salaryMax) && (
+                  <div className="flex items-center gap-1.5 text-sm">
+                    <DollarSign className="h-4 w-4 text-emerald-500" />
+                    <span className="font-semibold">
+                      {selectedJob.salaryMin && formatSalary(selectedJob.salaryMin)}
+                      {selectedJob.salaryMin && selectedJob.salaryMax && " – "}
+                      {selectedJob.salaryMax && formatSalary(selectedJob.salaryMax)}
+                    </span>
+                  </div>
+                )}
+                <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                  <MapPin className="h-4 w-4" /> {selectedJob.location}
+                </div>
+
+                {/* Resolved / override address */}
+                <div className="space-y-1.5">
+                  {addressLoading && (
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <Loader2 className="h-3 w-3 animate-spin" /> Resolving exact address…
+                    </div>
+                  )}
+                  {resolvedAddress && !addressOverride && (
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-1.5 text-sm text-emerald-600 dark:text-emerald-400">
+                        <MapPinned className="h-4 w-4 shrink-0" />
+                        <span className="font-medium">{resolvedAddress.address}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <Badge
+                          variant="outline"
+                          className={`text-[10px] px-1.5 py-0 h-4 ${
+                            resolvedAddress.confidence === "high" ? "border-emerald-300 text-emerald-600 dark:border-emerald-700 dark:text-emerald-400"
+                            : resolvedAddress.confidence === "medium" ? "border-yellow-300 text-yellow-600 dark:border-yellow-700 dark:text-yellow-400"
+                            : "border-red-300 text-red-600 dark:border-red-700 dark:text-red-400"
+                          }`}
+                        >
+                          {resolvedAddress.confidence === "high" ? "Exact match" : resolvedAddress.confidence === "medium" ? "Likely match" : "Multiple offices found"}
+                        </Badge>
+                        {resolvedAddress.name && resolvedAddress.name !== resolvedAddress.address && (
+                          <span className="text-[10px] text-muted-foreground">{resolvedAddress.name}</span>
+                        )}
+                      </div>
+                      {resolvedAddress.allLocations && resolvedAddress.allLocations.length > 1 && (
+                        <div className="space-y-0.5 max-h-28 overflow-y-auto">
+                          {resolvedAddress.allLocations.map((office, idx) => (
+                            <button
+                              key={idx}
+                              type="button"
+                              className={`flex items-center gap-1.5 text-[10px] w-full text-left px-1.5 py-1 rounded hover:bg-violet-50 dark:hover:bg-violet-950/30 transition-colors ${
+                                resolvedAddress.lat === office.lat && resolvedAddress.lng === office.lng
+                                  ? "bg-violet-50 dark:bg-violet-950/30 font-semibold"
+                                  : "text-muted-foreground"
+                              }`}
+                              onClick={() => {
+                                setResolvedAddress((prev) => prev ? {
+                                  ...prev,
+                                  address: office.address,
+                                  lat: office.lat,
+                                  lng: office.lng,
+                                  name: office.name,
+                                  confidence: "high",
+                                } : null);
+                                toast.success(`Selected: ${office.name || office.address}`);
+                              }}
+                            >
+                              <span className="flex items-center justify-center h-4 w-4 rounded-full bg-violet-500 text-white text-[9px] font-bold shrink-0">{idx + 1}</span>
+                              <span className="truncate">{office.name || office.address}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  <PlacesAutocomplete
+                    value={addressOverride}
+                    onChange={(v) => {
+                      setAddressOverride(v);
+                      if (!v.trim()) return;
+                      geocodeOverride(v).then((d) => { if (d) setResolvedAddress(d); });
+                    }}
+                    placeholder={resolvedAddress ? "Override address…" : "Enter exact address…"}
+                    className="h-8 text-xs"
+                  />
+                </div>
+
+                {selectedJob.via && (
+                  <p className="text-xs text-muted-foreground">{selectedJob.via}</p>
+                )}
+
+                {/* Commute + transport mode selector */}
+                {searchCenter && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      {COMMUTE_MODES.map((m) => {
+                        const Icon = m.icon;
+                        return (
+                          <Button
+                            key={m.value}
+                            type="button"
+                            size="icon"
+                            variant={commuteMode === m.value ? "default" : "outline"}
+                            className="h-7 w-7"
+                            title={m.label}
+                            onClick={() => setCommuteMode(m.value)}
+                          >
+                            <Icon className="h-3.5 w-3.5" />
+                          </Button>
+                        );
+                      })}
+                      {commuteLoading && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+                    </div>
+                    {commuteInfo && (
+                      <div className="flex items-center gap-1.5 text-sm">
+                        {(() => { const ModeIcon = COMMUTE_MODES.find((m) => m.value === (commuteInfo.mode ?? "driving"))?.icon ?? Car; return <ModeIcon className="h-4 w-4 text-blue-500" />; })()}
+                        <span className="font-medium">
+                          ~{commuteInfo.durationMin} min ({commuteInfo.distanceMi} mi)
+                          {commuteInfo.estimated && <span className="text-xs text-muted-foreground ml-1">(est.)</span>}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Life Anchors commute breakdown */}
+                    {lifeAnchors.length > 0 && Object.keys(anchorCommutes).length > 0 && (() => {
+                      const totalYearlyCost = lifeAnchors.reduce((sum, a) => {
+                        if (!enabledAnchors.has(a.id)) return sum;
+                        const ac = anchorCommutes[a.id];
+                        return sum + (ac ? yearlyCommuteCost(ac.distanceMi) : 0);
+                      }, 0);
+                      const midSalary = selectedJob.salaryMin
+                        ? selectedJob.salaryMax ? (selectedJob.salaryMin + selectedJob.salaryMax) / 2 : selectedJob.salaryMin
+                        : null;
+                      return (
+                      <div className="space-y-1.5 pt-1">
+                        <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+                          <Anchor className="h-3.5 w-3.5 text-indigo-500" /> Life Anchors
+                        </div>
+                        {lifeAnchors.map((anchor) => {
+                          const ac = anchorCommutes[anchor.id];
+                          const enabled = enabledAnchors.has(anchor.id);
+                          return (
+                            <div
+                              key={anchor.id}
+                              className={`flex items-center justify-between text-xs px-1 w-full rounded hover:bg-muted/50 transition-colors ${!enabled ? "opacity-40" : ""}`}
+                            >
+                              <span className="flex items-center gap-1.5 text-muted-foreground">
+                                <button
+                                  type="button"
+                                  className="p-0.5 rounded hover:bg-muted transition-colors"
+                                  onClick={() => setEnabledAnchors((prev) => {
+                                    const next = new Set(prev);
+                                    next.has(anchor.id) ? next.delete(anchor.id) : next.add(anchor.id);
+                                    return next;
+                                  })}
+                                  title={enabled ? `Hide ${anchor.label} route` : `Show ${anchor.label} route`}
+                                >
+                                  {enabled
+                                    ? <Eye className="h-3 w-3 text-indigo-500" />
+                                    : <EyeOff className="h-3 w-3 text-muted-foreground" />
+                                  }
+                                </button>
+                                <span className={`h-2 w-2 rounded-full ${!enabled ? "ring-1 ring-muted-foreground" : ""}`} style={{ backgroundColor: enabled ? ANCHOR_COLORS[lifeAnchors.indexOf(anchor) % ANCHOR_COLORS.length] : "transparent" }} />
+                                {anchor.label}
+                              </span>
+                              {ac ? (
+                                <span className="font-medium">
+                                  ~{ac.durationMin} min ({ac.distanceMi} mi)
+                                  <span className="text-muted-foreground ml-1">· {formatCost(yearlyCommuteCost(ac.distanceMi))}/yr</span>
+                                  {ac.estimated && <span className="opacity-60 ml-0.5">(est.)</span>}
+                                </span>
+                              ) : (
+                                <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                              )}
+                            </div>
+                          );
+                        })}
+                        {totalYearlyCost > 0 && (
+                          <div className="pt-1 border-t space-y-0.5">
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="flex items-center gap-1 text-muted-foreground"><Car className="h-3 w-3" /> Total Commute Cost</span>
+                              <span className="font-semibold text-orange-600 dark:text-orange-400">{formatCost(totalYearlyCost)}/yr</span>
+                            </div>
+                            {midSalary && (
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="flex items-center gap-1 text-muted-foreground"><DollarSign className="h-3 w-3" /> Net Effective Salary</span>
+                                <span className="font-bold text-emerald-600 dark:text-emerald-400">{formatSalary(midSalary - totalYearlyCost)}</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        {lifeScoreCache[selectedJob.id] != null && (
+                          <div className="flex items-center justify-between pt-1 border-t text-xs">
+                            <span className="font-semibold flex items-center gap-1"><Anchor className="h-3 w-3 text-indigo-500" /> Life Score</span>
+                            <span className={`font-bold text-sm ${lifeScoreCache[selectedJob.id] >= 70 ? "text-emerald-600" : lifeScoreCache[selectedJob.id] >= 40 ? "text-yellow-600" : "text-red-500"}`}>
+                              {lifeScoreCache[selectedJob.id]}/100
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      );
+                    })()}
+                  </div>
+                )}
+
+                {/* Street View — interactive panorama */}
+                {GOOGLE_MAPS_KEY && effectiveJobCoords && (
+                  <div className="rounded-lg overflow-hidden border">
+                    <div className="flex items-center gap-1.5 px-2 py-1.5 bg-muted/50 text-xs font-medium text-muted-foreground">
+                      <PersonStanding className="h-3.5 w-3.5" /> {resolvedAddress ? "Office View" : "Neighborhood View"}
+                    </div>
+                    <iframe
+                      src={`https://www.google.com/maps/embed/v1/streetview?key=${GOOGLE_MAPS_KEY}&location=${effectiveJobCoords[0]},${effectiveJobCoords[1]}&heading=210&pitch=10&fov=90`}
+                      className="w-full h-[250px] border-0"
+                      loading="lazy"
+                      allowFullScreen
+                      referrerPolicy="no-referrer-when-downgrade"
+                    />
+                  </div>
+                )}
+
+                <Separator />
+                <div className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
+                  {stripHtml(selectedJob.description)}
+                </div>
+                {selectedJob.applyLinks && selectedJob.applyLinks.length > 0 && (
+                  <div className="space-y-1.5 pt-2">
+                    <h4 className="text-xs font-medium">Apply on:</h4>
+                    {selectedJob.applyLinks.map((link, i) => (
+                      <a key={i} href={link.link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-sm text-blue-600 dark:text-blue-400 hover:underline">
+                        <ExternalLink className="h-3.5 w-3.5 shrink-0" /> {link.title}
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+            <DialogFooter>
+              {selectedJob.url && (
+                <a href={selectedJob.url} target="_blank" rel="noopener noreferrer">
+                  <Button size="sm" className="gap-1"><ExternalLink className="h-3.5 w-3.5" /> Apply Now</Button>
+                </a>
+              )}
+              <Button
+                size="sm"
+                variant={trackedIds.has(selectedJob.id) ? "outline" : "secondary"}
+                disabled={trackedIds.has(selectedJob.id)}
+                onClick={() => trackMutation.mutate(selectedJob)}
+                className="gap-1"
+              >
+                <Plus className="h-3.5 w-3.5" /> {trackedIds.has(selectedJob.id) ? "Tracked" : "Track"}
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger className="inline-flex items-center justify-center gap-1 rounded-md border bg-background px-2.5 h-9 text-sm hover:bg-accent">
+                  <Star className="h-3.5 w-3.5" />
+                  <ChevronDown className="h-3 w-3" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuGroup>
+                    <DropdownMenuLabel className="text-xs">Save to Interest Group</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {interestGroups.map((g) => (
+                      <DropdownMenuItem key={g.id} onClick={() => addToGroupMutation.mutate({ groupId: g.id, job: selectedJob })}>
+                        <span className="h-2 w-2 rounded-full mr-2 shrink-0" style={{ background: g.color }} />
+                        {g.name}
+                      </DropdownMenuItem>
+                    ))}
+                    {interestGroups.length === 0 && (
+                      <div className="px-2 py-1.5 text-xs text-muted-foreground">No groups yet</div>
+                    )}
+                  </DropdownMenuGroup>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setShowNewGroup(true)}>
+                    <FolderPlus className="h-3.5 w-3.5 mr-2" /> New Group…
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       )}
 
       {/* New Interest Group dialog */}

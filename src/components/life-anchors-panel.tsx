@@ -6,7 +6,7 @@ import { PlacesAutocomplete } from "@/components/places-autocomplete";
 import {
   Home, Briefcase, School, Baby, Dumbbell, Heart, MapPin,
   Plus, Trash2, GripVertical, ChevronDown, ChevronUp, Anchor,
-  Church, ShoppingCart, Hospital, Coffee, Loader2,
+  Church, ShoppingCart, Hospital, Coffee, Loader2, Eye, EyeOff,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -93,9 +93,13 @@ interface Props {
   /** Pre-fill address for "Home" preset (e.g. the user's search location) */
   defaultAddress?: string;
   onAnchorsChange?: (anchors: LifeAnchor[]) => void;
+  /** Which anchors have their commute route visible */
+  enabledAnchorIds?: Set<string>;
+  /** Toggle commute visibility for an anchor */
+  onToggleAnchor?: (anchorId: string) => void;
 }
 
-export function LifeAnchorsPanel({ compact = false, defaultAddress, onAnchorsChange }: Props) {
+export function LifeAnchorsPanel({ compact = false, defaultAddress, onAnchorsChange, enabledAnchorIds, onToggleAnchor }: Props) {
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -304,6 +308,25 @@ export function LifeAnchorsPanel({ compact = false, defaultAddress, onAnchorsCha
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
+                  {/* Route visibility toggle */}
+                  {onToggleAnchor && (
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-6 w-6 shrink-0"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onToggleAnchor(a.id);
+                      }}
+                      title={enabledAnchorIds?.has(a.id) !== false ? "Hide route" : "Show route"}
+                    >
+                      {enabledAnchorIds?.has(a.id) !== false ? (
+                        <Eye className="h-3 w-3 text-indigo-500" />
+                      ) : (
+                        <EyeOff className="h-3 w-3 text-muted-foreground" />
+                      )}
+                    </Button>
+                  )}
                   {/* Weight dots */}
                   <div className="flex gap-0.5">
                     {Array.from({ length: 5 }).map((_, i) => (
