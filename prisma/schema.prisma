@@ -54,6 +54,8 @@ model User {
   jobPostings         JobPosting[]
   lifeAnchors         LifeAnchor[]
   emailLeads          EmailLead[]
+  recruiterFlags      RecruiterFlag[]
+  addressOverrides    AddressOverride[]
 }
 
 model Account {
@@ -1113,4 +1115,38 @@ model JobPosting {
   @@index([isPublished, createdAt])
   @@index([company])
   @@index([type, experienceLevel])
+}
+
+// ─── Recruiter Location Accuracy ───────────────────────────────
+
+/// Crowdsourced recruiter flags (Waze-model)
+model RecruiterFlag {
+  id              String   @id @default(uuid())
+  companyNorm     String   // lowercased, trimmed company name
+  userId          String
+  createdAt       DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([companyNorm, userId])   // one flag per user per company
+  @@index([companyNorm])
+}
+
+/// Persisted address overrides for map jobs (keyed by external job ID)
+model AddressOverride {
+  id          String   @id @default(uuid())
+  userId      String
+  jobKey      String   // external job id (Adzuna/Google)
+  address     String
+  lat         Float
+  lng         Float
+  landmarkName String?  // resolved landmark at override address
+  source      String   @default("manual") // manual | nlp | landmark-swap
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, jobKey])
+  @@index([userId])
 }

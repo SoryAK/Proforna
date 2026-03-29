@@ -54,6 +54,10 @@ import {
   Settings,
   Fuel,
   Route,
+  Repeat2,
+  Lightbulb,
+  ArrowRightLeft,
+  ShieldAlert,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -391,6 +395,23 @@ export function JobMap() {
   const [addressOverride, setAddressOverride] = useState("");
   const [addressCache, setAddressCache] = useState<Record<string, ResolvedAddress>>({});
   const resolveAbort = useRef<AbortController | null>(null);
+
+  /* ── DB-backed recruiter flags (crowdsourced) ── */
+  type RecruiterFlagInfo = { count: number; confirmed: boolean; flaggedByMe: boolean };
+  const [recruiterFlagDb, setRecruiterFlagDb] = useState<Record<string, RecruiterFlagInfo>>({});
+
+  /* ── DB-backed address overrides ── */
+  type AddressOverrideData = { address: string; lat: number; lng: number; landmarkName: string | null; source: string };
+  const [dbOverrides, setDbOverrides] = useState<Record<string, AddressOverrideData>>({});
+
+  /* ── NLP-extracted locations from job description ── */
+  const [nlpLocations, setNlpLocations] = useState<string[]>([]);
+  const [nlpConfidence, setNlpConfidence] = useState<"high" | "medium" | "none">("none");
+
+  /* ── Duplicate posting groups ── */
+  type DuplicateGroup = { canonical: string; duplicates: string[]; reason: string };
+  const [duplicateGroups, setDuplicateGroups] = useState<DuplicateGroup[]>([]);
+
   /* Pre-fetched commute times for sidebar cards: jobId → { durationMin, distanceMi, estimated? } */
   const [commuteCache, setCommuteCache] = useState<Record<string, { durationMin: number; distanceMi: number; estimated?: boolean }>>({});
   /* AbortControllers for cancelling stale commute requests */
@@ -868,6 +889,169 @@ export function JobMap() {
     if (selectedJob.lat && selectedJob.lng) return [selectedJob.lat, selectedJob.lng];
     return null;
   }, [selectedJob, resolvedAddress]);
+
+  // ── Apply DB address override when selected job changes ──
+  useEffect(() => {
+    if (!selectedJob) return;
+    const ovr = dbOverrides[selectedJob.id];
+    if (ovr) {
+      setResolvedAddress((prev) => prev ? {
+        ...prev,
+        address: ovr.address,
+        lat: ovr.lat,
+        lng: ovr.lng,
+        name: ovr.landmarkName,
+        confidence: "high",
+      } : { address: ovr.address, lat: ovr.lat, lng: ovr.lng, name: ovr.landmarkName, confidence: "high", totalResults: 1 });
+      setAddressOverride(ovr.address);
+    }
+  }, [selectedJob?.id, dbOverrides]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Fetch DB recruiter flags for visible companies ──
+  useEffect(() => {
+    if (!sortedJobs || sortedJobs.length === 0) return;
+    const companies = [...new Set(sortedJobs.map((j) => j.company.toLowerCase().trim()))];
+    if (companies.length === 0) return;
+    fetch(`/api/recruiter-flags?companies=${encodeURIComponent(companies.join(","))}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (d?.flags) setRecruiterFlagDb(d.flags); })
+      .catch(() => {});
+  }, [sortedJobs]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Fetch DB address overrides for selected job ──
+  useEffect(() => {
+    if (!selectedJob) return;
+    if (dbOverrides[selectedJob.id]) return; // already loaded
+    fetch(`/api/address-overrides?jobKeys=${encodeURIComponent(selectedJob.id)}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (d?.overrides) setDbOverrides((prev) => ({ ...prev, ...d.overrides })); })
+      .catch(() => {});
+  }, [selectedJob?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── NLP extraction of real location from job description ──
+  useEffect(() => {
+    setNlpLocations([]);
+    setNlpConfidence("none");
+    if (!selectedJob?.description) return;
+    const isRecruiter = isLikelyRecruiter(selectedJob.company) || isUserFlaggedRecruiter(selectedJob.company) || recruiterFlagDb[selectedJob.company.toLowerCase().trim()]?.confirmed;
+    // Only bother with NLP if job appears recruiter-sourced or has landmark mismatch
+    if (!isRecruiter && !hasLandmarkMismatch(selectedJob.company, resolvedAddress?.name)) return;
+    fetch("/api/extract-location", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ description: selectedJob.description, company: selectedJob.company }),
+    })
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (d) { setNlpLocations(d.locations ?? []); setNlpConfidence(d.confidence ?? "none"); } })
+      .catch(() => {});
+  }, [selectedJob?.id, selectedJob?.description, resolvedAddress?.name, recruiterFlagDb]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Detect duplicate postings across current results ──
+  useEffect(() => {
+    if (!sortedJobs || sortedJobs.length < 2) { setDuplicateGroups([]); return; }
+    const payload = sortedJobs.slice(0, 200).map((j) => ({
+      id: j.id, title: j.title, company: j.company, location: j.location,
+      description: j.description?.slice(0, 500),
+    }));
+    fetch("/api/detect-duplicates", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ jobs: payload }),
+    })
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (d?.groups) setDuplicateGroups(d.groups); })
+      .catch(() => {});
+  }, [sortedJobs]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Compute dimmed marker IDs (recruiter-flagged jobs) ──
+  const dimmedIds = useMemo(() => {
+    const set = new Set<string>();
+    for (const job of sortedJobs) {
+      const norm = job.company.toLowerCase().trim();
+      if (isLikelyRecruiter(job.company) || isUserFlaggedRecruiter(job.company) || recruiterFlagDb[norm]?.confirmed) {
+        set.add(job.id);
+      }
+    }
+    return set;
+  }, [sortedJobs, recruiterFlagDb]);
+
+  /** Check if a job is part of a duplicate group */
+  function getDuplicateInfo(jobId: string): DuplicateGroup | null {
+    for (const g of duplicateGroups) {
+      if (g.canonical === jobId || g.duplicates.includes(jobId)) return g;
+    }
+    return null;
+  }
+
+  /** Toggle recruiter flag (DB-backed) */
+  async function toggleRecruiterFlag(companyName: string) {
+    const norm = companyName.toLowerCase().trim();
+    // Optimistic local update
+    const prev = recruiterFlagDb[norm];
+    const wasFlagged = prev?.flaggedByMe ?? false;
+    setRecruiterFlagDb((p) => ({
+      ...p,
+      [norm]: {
+        count: (prev?.count ?? 0) + (wasFlagged ? -1 : 1),
+        confirmed: false,
+        flaggedByMe: !wasFlagged,
+      },
+    }));
+    // Also toggle localStorage for backwards compat
+    if (wasFlagged) unflagRecruiter(companyName); else flagRecruiter(companyName);
+    // Persist to DB
+    try {
+      const res = await fetch("/api/recruiter-flags", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ company: companyName }),
+      });
+      if (res.ok) {
+        const d = await res.json();
+        setRecruiterFlagDb((p) => ({
+          ...p,
+          [norm]: { count: d.count, confirmed: d.confirmed, flaggedByMe: d.flagged },
+        }));
+      }
+    } catch { /* keep optimistic state */ }
+    // Force re-render
+    if (selectedJob) setSelectedJob({ ...selectedJob });
+  }
+
+  /** Save address override to DB */
+  async function saveAddressOverride(jobKey: string, address: string, lat: number, lng: number, landmarkName?: string | null, source?: string) {
+    setDbOverrides((p) => ({ ...p, [jobKey]: { address, lat, lng, landmarkName: landmarkName ?? null, source: source ?? "manual" } }));
+    try {
+      await fetch("/api/address-overrides", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jobKey, address, lat, lng, landmarkName, source }),
+      });
+    } catch { /* keep optimistic state */ }
+  }
+
+  /** Use an NLP-extracted location as the override */
+  async function applyNlpLocation(location: string) {
+    const result = await geocodeOverride(location);
+    if (result) {
+      setResolvedAddress(result);
+      setAddressOverride(location);
+      if (selectedJob) {
+        await saveAddressOverride(selectedJob.id, result.address, result.lat, result.lng, result.name, "nlp");
+      }
+      toast.success(`Address updated to ${location}`);
+    } else {
+      toast.error("Could not resolve that location");
+    }
+  }
+
+  /** One-click swap: use the landmark company as the real employer's address */
+  async function swapToLandmark() {
+    if (!selectedJob || !resolvedAddress?.name) return;
+    // Already resolved to this address, just save as override
+    await saveAddressOverride(selectedJob.id, resolvedAddress.address, resolvedAddress.lat, resolvedAddress.lng, resolvedAddress.name, "landmark-swap");
+    toast.success(`Confirmed: location is ${resolvedAddress.name}`);
+  }
 
   // ── Two-phase commute: fast duration first, then geometry in background ──
   // Waits for address resolution to finish so we don't compute twice
@@ -1916,6 +2100,7 @@ export function JobMap() {
                 next.has(anchorId) ? next.delete(anchorId) : next.add(anchorId);
                 return next;
               })}
+              dimmedIds={dimmedIds}
             />
           )}
 
@@ -2002,16 +2187,51 @@ export function JobMap() {
                     onChange={(v) => {
                       setAddressOverride(v);
                       if (!v.trim()) return;
-                      geocodeOverride(v).then((d) => { if (d) setResolvedAddress(d); });
+                      geocodeOverride(v).then((d) => {
+                        if (d) {
+                          setResolvedAddress(d);
+                          if (selectedJob) saveAddressOverride(selectedJob.id, d.address, d.lat, d.lng, d.name, "manual");
+                        }
+                      });
                     }}
                     placeholder={resolvedAddress ? "Override address…" : "Enter exact address…"}
                     className="h-7 text-xs"
                   />
                 </div>
 
-                {/* Landmark mismatch alert */}
+                {/* "via recruiter" confidence badge + flag count */}
+                {selectedJob && (() => {
+                  const norm = selectedJob.company.toLowerCase().trim();
+                  const dbInfo = recruiterFlagDb[norm];
+                  const isRecruiter = isLikelyRecruiter(selectedJob.company) || isUserFlaggedRecruiter(selectedJob.company) || dbInfo?.confirmed;
+                  const dupInfo = getDuplicateInfo(selectedJob.id);
+                  if (!isRecruiter && !dupInfo) return null;
+                  return (
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {isRecruiter && (
+                          <Badge variant="outline" className="text-[10px] h-5 gap-1 border-orange-300 text-orange-600 dark:border-orange-700 dark:text-orange-400">
+                            <ShieldAlert className="h-2.5 w-2.5" /> via recruiter
+                          </Badge>
+                        )}
+                        {dbInfo && dbInfo.count > 0 && (
+                          <span className="text-[9px] text-muted-foreground">
+                            {dbInfo.count} flag{dbInfo.count !== 1 ? "s" : ""}{dbInfo.confirmed ? " · confirmed" : ""}
+                          </span>
+                        )}
+                        {dupInfo && (
+                          <Badge variant="outline" className="text-[10px] h-5 gap-1 border-violet-300 text-violet-600 dark:border-violet-700 dark:text-violet-400">
+                            <Repeat2 className="h-2.5 w-2.5" /> Duplicate posting
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Landmark mismatch alert + one-click swap */}
                 {resolvedAddress && selectedJob && hasLandmarkMismatch(selectedJob.company, resolvedAddress.name) && (
-                  <div className="rounded-md border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30 px-2.5 py-1.5 space-y-1">
+                  <div className="rounded-md border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30 px-2.5 py-1.5 space-y-1.5">
                     <div className="flex items-start gap-1.5 text-xs text-amber-700 dark:text-amber-400">
                       <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
                       <span>
@@ -2019,34 +2239,71 @@ export function JobMap() {
                         {isLikelyRecruiter(selectedJob.company) && <span> — poster may be a staffing agency</span>}
                       </span>
                     </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-6 text-[10px] gap-1 border-amber-300 text-amber-700 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950/50"
+                      onClick={swapToLandmark}
+                    >
+                      <ArrowRightLeft className="h-2.5 w-2.5" /> Confirm as {resolvedAddress.name}
+                    </Button>
                   </div>
                 )}
 
-                {/* Recruiter flag button */}
+                {/* "Where's the office?" for recruiter-flagged jobs */}
+                {selectedJob && (isLikelyRecruiter(selectedJob.company) || isUserFlaggedRecruiter(selectedJob.company) || recruiterFlagDb[selectedJob.company.toLowerCase().trim()]?.confirmed) && (
+                  <div className="rounded-md border border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/20 px-2.5 py-1.5 space-y-1.5">
+                    <p className="text-[10px] text-blue-700 dark:text-blue-400 font-medium flex items-center gap-1">
+                      <Lightbulb className="h-3 w-3" /> This job was posted by a recruiter. Know the actual office?
+                    </p>
+                    <PlacesAutocomplete
+                      value={addressOverride}
+                      onChange={(v) => {
+                        setAddressOverride(v);
+                        if (!v.trim()) return;
+                        geocodeOverride(v).then((d) => {
+                          if (d) {
+                            setResolvedAddress(d);
+                            if (selectedJob) saveAddressOverride(selectedJob.id, d.address, d.lat, d.lng, d.name, "manual");
+                          }
+                        });
+                      }}
+                      placeholder="Enter real office address…"
+                      className="h-7 text-xs"
+                      types={["address", "establishment"]}
+                    />
+                    {/* NLP-extracted suggestions */}
+                    {nlpLocations.length > 0 && (
+                      <div className="space-y-1">
+                        <p className="text-[9px] text-muted-foreground">Detected in description:</p>
+                        {nlpLocations.map((loc, i) => (
+                          <Button
+                            key={i}
+                            size="sm"
+                            variant="ghost"
+                            className="h-5 px-1.5 text-[10px] text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-950/30"
+                            onClick={() => applyNlpLocation(loc)}
+                          >
+                            <MapPin className="h-2.5 w-2.5 mr-0.5" /> {loc}
+                          </Button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Recruiter flag toggle button */}
                 {selectedJob && (
                   <div className="flex items-center gap-1.5">
-                    {(isLikelyRecruiter(selectedJob.company) || isUserFlaggedRecruiter(selectedJob.company)) ? (
-                      <Badge variant="outline" className="text-[10px] h-5 gap-1 border-orange-300 text-orange-600 dark:border-orange-700 dark:text-orange-400">
-                        <Flag className="h-2.5 w-2.5" /> Recruiter/Staffing
-                      </Badge>
-                    ) : null}
                     <Button
                       size="sm"
                       variant="ghost"
                       className="h-5 px-1.5 text-[10px] text-muted-foreground hover:text-orange-600"
-                      onClick={() => {
-                        if (isUserFlaggedRecruiter(selectedJob.company)) {
-                          unflagRecruiter(selectedJob.company);
-                        } else {
-                          flagRecruiter(selectedJob.company);
-                        }
-                        // Force re-render
-                        setSelectedJob({ ...selectedJob });
-                      }}
+                      onClick={() => toggleRecruiterFlag(selectedJob.company)}
                       title={isUserFlaggedRecruiter(selectedJob.company) ? "Unflag as recruiter" : "Flag as recruiter/staffing"}
                     >
                       <Flag className="h-2.5 w-2.5 mr-0.5" />
-                      {isUserFlaggedRecruiter(selectedJob.company) ? "Unflag" : "Flag recruiter"}
+                      {(isUserFlaggedRecruiter(selectedJob.company) || recruiterFlagDb[selectedJob.company.toLowerCase().trim()]?.flaggedByMe) ? "Unflag recruiter" : "Flag as recruiter"}
                     </Button>
                   </div>
                 )}
@@ -2791,16 +3048,49 @@ export function JobMap() {
                     onChange={(v) => {
                       setAddressOverride(v);
                       if (!v.trim()) return;
-                      geocodeOverride(v).then((d) => { if (d) setResolvedAddress(d); });
+                      geocodeOverride(v).then((d) => {
+                        if (d) {
+                          setResolvedAddress(d);
+                          if (selectedJob) saveAddressOverride(selectedJob.id, d.address, d.lat, d.lng, d.name, "manual");
+                        }
+                      });
                     }}
                     placeholder={resolvedAddress ? "Override address…" : "Enter exact address…"}
                     className="h-8 text-xs"
                   />
                 </div>
 
-                {/* Landmark mismatch alert (dialog) */}
+                {/* "via recruiter" confidence badge + flag count (dialog) */}
+                {selectedJob && (() => {
+                  const norm = selectedJob.company.toLowerCase().trim();
+                  const dbInfo = recruiterFlagDb[norm];
+                  const isRecruiter = isLikelyRecruiter(selectedJob.company) || isUserFlaggedRecruiter(selectedJob.company) || dbInfo?.confirmed;
+                  const dupInfo = getDuplicateInfo(selectedJob.id);
+                  if (!isRecruiter && !dupInfo) return null;
+                  return (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {isRecruiter && (
+                        <Badge variant="outline" className="text-xs h-6 gap-1 border-orange-300 text-orange-600 dark:border-orange-700 dark:text-orange-400">
+                          <ShieldAlert className="h-3 w-3" /> via recruiter
+                        </Badge>
+                      )}
+                      {dbInfo && dbInfo.count > 0 && (
+                        <span className="text-[10px] text-muted-foreground">
+                          {dbInfo.count} flag{dbInfo.count !== 1 ? "s" : ""}{dbInfo.confirmed ? " · confirmed" : ""}
+                        </span>
+                      )}
+                      {dupInfo && (
+                        <Badge variant="outline" className="text-xs h-6 gap-1 border-violet-300 text-violet-600 dark:border-violet-700 dark:text-violet-400">
+                          <Repeat2 className="h-3 w-3" /> Duplicate posting ({dupInfo.duplicates.length + 1} matches)
+                        </Badge>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* Landmark mismatch alert + one-click swap (dialog) */}
                 {resolvedAddress && selectedJob && hasLandmarkMismatch(selectedJob.company, resolvedAddress.name) && (
-                  <div className="rounded-md border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 space-y-1">
+                  <div className="rounded-md border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 space-y-2">
                     <div className="flex items-start gap-2 text-sm text-amber-700 dark:text-amber-400">
                       <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
                       <div>
@@ -2810,32 +3100,74 @@ export function JobMap() {
                         )}
                       </div>
                     </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-xs gap-1.5 border-amber-300 text-amber-700 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950/50"
+                      onClick={swapToLandmark}
+                    >
+                      <ArrowRightLeft className="h-3 w-3" /> Confirm this is {resolvedAddress.name}
+                    </Button>
                   </div>
                 )}
 
-                {/* Recruiter flag (dialog) */}
+                {/* "Where's the office?" for recruiter-flagged jobs (dialog) */}
+                {selectedJob && (isLikelyRecruiter(selectedJob.company) || isUserFlaggedRecruiter(selectedJob.company) || recruiterFlagDb[selectedJob.company.toLowerCase().trim()]?.confirmed) && (
+                  <div className="rounded-md border border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/20 px-3 py-2 space-y-2">
+                    <p className="text-xs text-blue-700 dark:text-blue-400 font-medium flex items-center gap-1.5">
+                      <Lightbulb className="h-3.5 w-3.5" /> This job was posted by a recruiter. Know the actual office?
+                    </p>
+                    <PlacesAutocomplete
+                      value={addressOverride}
+                      onChange={(v) => {
+                        setAddressOverride(v);
+                        if (!v.trim()) return;
+                        geocodeOverride(v).then((d) => {
+                          if (d) {
+                            setResolvedAddress(d);
+                            if (selectedJob) saveAddressOverride(selectedJob.id, d.address, d.lat, d.lng, d.name, "manual");
+                          }
+                        });
+                      }}
+                      placeholder="Enter real office address…"
+                      className="h-8 text-xs"
+                      types={["address", "establishment"]}
+                    />
+                    {/* NLP-extracted location suggestions */}
+                    {nlpLocations.length > 0 && (
+                      <div className="space-y-1">
+                        <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                          <Lightbulb className="h-3 w-3" /> Detected in job description:
+                        </p>
+                        <div className="flex flex-wrap gap-1">
+                          {nlpLocations.map((loc, i) => (
+                            <Button
+                              key={i}
+                              size="sm"
+                              variant="outline"
+                              className="h-6 px-2 text-xs text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-950/30 border-blue-200 dark:border-blue-800"
+                              onClick={() => applyNlpLocation(loc)}
+                            >
+                              <MapPin className="h-3 w-3 mr-1" /> {loc}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Recruiter flag toggle (dialog) */}
                 {selectedJob && (
                   <div className="flex items-center gap-2">
-                    {(isLikelyRecruiter(selectedJob.company) || isUserFlaggedRecruiter(selectedJob.company)) && (
-                      <Badge variant="outline" className="text-[10px] h-5 gap-1 border-orange-300 text-orange-600 dark:border-orange-700 dark:text-orange-400">
-                        <Flag className="h-2.5 w-2.5" /> Recruiter/Staffing
-                      </Badge>
-                    )}
                     <Button
                       size="sm"
                       variant="ghost"
                       className="h-6 px-2 text-xs text-muted-foreground hover:text-orange-600"
-                      onClick={() => {
-                        if (isUserFlaggedRecruiter(selectedJob.company)) {
-                          unflagRecruiter(selectedJob.company);
-                        } else {
-                          flagRecruiter(selectedJob.company);
-                        }
-                        setSelectedJob({ ...selectedJob });
-                      }}
+                      onClick={() => toggleRecruiterFlag(selectedJob.company)}
                     >
                       <Flag className="h-3 w-3 mr-1" />
-                      {isUserFlaggedRecruiter(selectedJob.company) ? "Unflag recruiter" : "Flag as recruiter"}
+                      {(isUserFlaggedRecruiter(selectedJob.company) || recruiterFlagDb[selectedJob.company.toLowerCase().trim()]?.flaggedByMe) ? "Unflag recruiter" : "Flag as recruiter"}
                     </Button>
                   </div>
                 )}

@@ -17,18 +17,20 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
 /* ── Salary-coloured SVG marker factory ── */
-function svgIcon(color: string, size: number, selected: boolean, highlighted: boolean = false) {
+function svgIcon(color: string, size: number, selected: boolean, highlighted: boolean = false, dimmed: boolean = false) {
   const w = selected ? size + 6 : highlighted ? size + 4 : size;
   const h = selected ? Math.round(size * 1.6) + 6 : highlighted ? Math.round(size * 1.6) + 4 : Math.round(size * 1.6);
   const strokeColor = selected ? "#000" : highlighted ? "#6366f1" : "#fff";
   const strokeW = selected ? 2 : highlighted ? 2 : 1;
+  const opacity = dimmed && !selected ? 0.45 : 1;
+  const dashAttr = dimmed && !selected ? ' stroke-dasharray="3 2"' : "";
   const glow = highlighted && !selected
     ? `<circle cx="12" cy="12" r="16" fill="none" stroke="#6366f1" stroke-width="2" opacity="0.5"><animate attributeName="r" from="14" to="20" dur="1.5s" repeatCount="indefinite"/><animate attributeName="opacity" from="0.6" to="0" dur="1.5s" repeatCount="indefinite"/></circle>`
     : "";
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w + 8}" height="${h + 8}" viewBox="-4 -4 32 46">
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w + 8}" height="${h + 8}" viewBox="-4 -4 32 46" opacity="${opacity}">
     ${glow}
     <path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 26 12 26s12-17 12-26C24 5.4 18.6 0 12 0z"
-          fill="${color}" stroke="${strokeColor}" stroke-width="${strokeW}"/>
+          fill="${color}" stroke="${strokeColor}" stroke-width="${strokeW}"${dashAttr}/>
     <circle cx="12" cy="12" r="5" fill="#fff" fill-opacity="0.9"/>
   </svg>`;
   return L.divIcon({
@@ -139,6 +141,7 @@ interface Props {
   onSelectOffice?: (office: { address: string; lat: number; lng: number; name: string | null }) => void;
   enabledAnchorIds?: Set<string>;
   onToggleAnchor?: (anchorId: string) => void;
+  dimmedIds?: Set<string>;
 }
 
 /* Auto-fit bounds when jobs change */
@@ -307,6 +310,7 @@ export default function JobMapLeaflet({
   onSelectOffice,
   enabledAnchorIds,
   onToggleAnchor,
+  dimmedIds,
 }: Props) {
   const [panCenter, setPanCenter] = useState<[number, number] | null>(null);
   const [hasPanned, setHasPanned] = useState(false);
@@ -458,13 +462,14 @@ export default function JobMapLeaflet({
           const color = salaryColor(job.salaryMin, job.salaryMax, meanSalary);
           const isSelected = job.id === selectedId;
           const isHighlighted = highlightedIds.includes(job.id);
+          const isDimmed = dimmedIds ? dimmedIds.has(job.id) : false;
           const pos: [number, number] = isSelected && resolvedCoords ? resolvedCoords : [job.lat, job.lng];
           return (
             <Marker
               key={job.id}
               position={pos}
-              icon={svgIcon(color, 24, isSelected, isHighlighted)}
-              zIndexOffset={isSelected ? 1000 : isHighlighted ? 500 : 0}
+              icon={svgIcon(color, 24, isSelected, isHighlighted, isDimmed)}
+              zIndexOffset={isSelected ? 1000 : isHighlighted ? 500 : isDimmed ? -100 : 0}
               eventHandlers={{ click: () => onSelect(job as any) }}
             >
               <Tooltip
