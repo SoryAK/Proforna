@@ -48,6 +48,9 @@ import {
   RefreshCw,
   Link2,
   Code,
+  Phone,
+  Flag,
+  AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -175,6 +178,60 @@ const COMMUTE_MODES: { value: CommuteMode; label: string; icon: typeof Car }[] =
 
 const GOOGLE_MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
+/* ── Known recruiting/staffing firms (seed list) ── */
+const KNOWN_RECRUITERS = new Set([
+  "robert half", "randstad", "teksystems", "insight global", "adecco",
+  "manpowergroup", "manpower", "kelly services", "hays", "kforce",
+  "aerotek", "beacon hill", "allegis group", "staffing solutions",
+  "express employment", "spherion", "modis", "volt", "apex systems",
+  "cybercoders", "jobot", "michael page", "page personnel", "talent solutions",
+  "creative circle", "aquent", "mondo", "procom", "collabera",
+  "yoh", "msp staffing", "lhh", "lancesoft", "nelson staffing",
+  "nesco resource", "cella", "ettain group", "judge group", "genesis10",
+]);
+const RECRUITER_KEYWORDS = ["staffing", "recruiting", "recruitment", "talent acquisition", "placement", "workforce solutions", "employment agency"];
+
+/** Check if a company name is likely a recruiter */
+function isLikelyRecruiter(companyName: string): boolean {
+  const lower = companyName.toLowerCase().trim();
+  if (KNOWN_RECRUITERS.has(lower)) return true;
+  return RECRUITER_KEYWORDS.some((kw) => lower.includes(kw));
+}
+
+/** Check if landmark name differs significantly from poster (mismatch = possible recruiter) */
+function hasLandmarkMismatch(posterCompany: string, landmarkName: string | null | undefined): boolean {
+  if (!landmarkName) return false;
+  const poster = posterCompany.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const landmark = landmarkName.toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (!poster || !landmark) return false;
+  // If one contains the other, no mismatch
+  if (poster.includes(landmark) || landmark.includes(poster)) return false;
+  return true;
+}
+
+/** localStorage-backed recruiter flag set (user-contributed) */
+const RECRUITER_FLAGS_KEY = "resumsify:recruiter-flags";
+function getFlaggedRecruiters(): Set<string> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const raw = localStorage.getItem(RECRUITER_FLAGS_KEY);
+    return raw ? new Set(JSON.parse(raw)) : new Set();
+  } catch { return new Set(); }
+}
+function flagRecruiter(companyName: string) {
+  const set = getFlaggedRecruiters();
+  set.add(companyName.toLowerCase().trim());
+  localStorage.setItem(RECRUITER_FLAGS_KEY, JSON.stringify([...set]));
+}
+function unflagRecruiter(companyName: string) {
+  const set = getFlaggedRecruiters();
+  set.delete(companyName.toLowerCase().trim());
+  localStorage.setItem(RECRUITER_FLAGS_KEY, JSON.stringify([...set]));
+}
+function isUserFlaggedRecruiter(companyName: string): boolean {
+  return getFlaggedRecruiters().has(companyName.toLowerCase().trim());
+}
+
 const DATE_POSTED_OPTIONS = [
   { value: "any", label: "Any time" },
   { value: "today", label: "Today" },
@@ -260,7 +317,21 @@ export function JobMap() {
   const [categoryFilter, setCategoryFilter] = useState("any");
   const [companyFilter, setCompanyFilter] = useState("any");
   /* Resolved company address — auto-resolved via Places API or manually overridden */
-  type ResolvedAddress = { address: string; lat: number; lng: number; name: string | null; confidence: "high" | "medium" | "low"; totalResults: number; allLocations?: { address: string; lat: number; lng: number; name: string | null }[] };
+  type ResolvedAddress = {
+    address: string; lat: number; lng: number; name: string | null;
+    confidence: "high" | "medium" | "low"; totalResults: number;
+    allLocations?: { address: string; lat: number; lng: number; name: string | null }[];
+    placeId?: string | null;
+    website?: string | null;
+    phone?: string | null;
+    rating?: number | null;
+    ratingCount?: number | null;
+    businessStatus?: string | null;
+    openNow?: boolean | null;
+    hours?: string[] | null;
+    editorialSummary?: string | null;
+    types?: string[] | null;
+  };
   const [resolvedAddress, setResolvedAddress] = useState<ResolvedAddress | null>(null);
   const [addressLoading, setAddressLoading] = useState(false);
   const [addressOverride, setAddressOverride] = useState("");
@@ -1853,6 +1924,107 @@ export function JobMap() {
                   />
                 </div>
 
+                {/* Landmark mismatch alert */}
+                {resolvedAddress && selectedJob && hasLandmarkMismatch(selectedJob.company, resolvedAddress.name) && (
+                  <div className="rounded-md border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30 px-2.5 py-1.5 space-y-1">
+                    <div className="flex items-start gap-1.5 text-xs text-amber-700 dark:text-amber-400">
+                      <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                      <span>
+                        Google identifies this location as <strong>{resolvedAddress.name}</strong>
+                        {isLikelyRecruiter(selectedJob.company) && <span> — poster may be a staffing agency</span>}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Recruiter flag button */}
+                {selectedJob && (
+                  <div className="flex items-center gap-1.5">
+                    {(isLikelyRecruiter(selectedJob.company) || isUserFlaggedRecruiter(selectedJob.company)) ? (
+                      <Badge variant="outline" className="text-[10px] h-5 gap-1 border-orange-300 text-orange-600 dark:border-orange-700 dark:text-orange-400">
+                        <Flag className="h-2.5 w-2.5" /> Recruiter/Staffing
+                      </Badge>
+                    ) : null}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-5 px-1.5 text-[10px] text-muted-foreground hover:text-orange-600"
+                      onClick={() => {
+                        if (isUserFlaggedRecruiter(selectedJob.company)) {
+                          unflagRecruiter(selectedJob.company);
+                        } else {
+                          flagRecruiter(selectedJob.company);
+                        }
+                        // Force re-render
+                        setSelectedJob({ ...selectedJob });
+                      }}
+                      title={isUserFlaggedRecruiter(selectedJob.company) ? "Unflag as recruiter" : "Flag as recruiter/staffing"}
+                    >
+                      <Flag className="h-2.5 w-2.5 mr-0.5" />
+                      {isUserFlaggedRecruiter(selectedJob.company) ? "Unflag" : "Flag recruiter"}
+                    </Button>
+                  </div>
+                )}
+
+                {/* Google Places enrichment */}
+                {resolvedAddress && (resolvedAddress.website || resolvedAddress.phone || resolvedAddress.rating != null || resolvedAddress.editorialSummary) && (
+                  <div className="rounded-lg border bg-muted/30 px-2.5 py-2 space-y-1.5">
+                    <div className="flex items-center gap-1 text-[10px] font-medium text-muted-foreground">
+                      <Building2 className="h-3 w-3" /> Business Info
+                    </div>
+                    {resolvedAddress.editorialSummary && (
+                      <p className="text-[11px] text-muted-foreground leading-snug">{resolvedAddress.editorialSummary}</p>
+                    )}
+                    <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs">
+                      {resolvedAddress.rating != null && (
+                        <span className="flex items-center gap-0.5">
+                          <Star className="h-3 w-3 text-yellow-500 fill-yellow-500" />
+                          <span className="font-medium">{resolvedAddress.rating}</span>
+                          {resolvedAddress.ratingCount != null && (
+                            <span className="text-muted-foreground">({resolvedAddress.ratingCount.toLocaleString()})</span>
+                          )}
+                        </span>
+                      )}
+                      {resolvedAddress.businessStatus && resolvedAddress.businessStatus !== "OPERATIONAL" && (
+                        <Badge variant="outline" className="text-[10px] h-4 px-1 border-red-300 text-red-600 dark:border-red-700 dark:text-red-400">
+                          {resolvedAddress.businessStatus.replace(/_/g, " ")}
+                        </Badge>
+                      )}
+                      {resolvedAddress.openNow !== undefined && (
+                        <Badge variant="outline" className={`text-[10px] h-4 px-1 ${resolvedAddress.openNow ? "border-emerald-300 text-emerald-600 dark:border-emerald-700 dark:text-emerald-400" : "border-red-300 text-red-600 dark:border-red-700 dark:text-red-400"}`}>
+                          {resolvedAddress.openNow ? "Open Now" : "Closed"}
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs">
+                      {resolvedAddress.website && (
+                        <a href={resolvedAddress.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-0.5 text-blue-600 dark:text-blue-400 hover:underline truncate max-w-[180px]">
+                          <Globe className="h-3 w-3 shrink-0" />
+                          {new URL(resolvedAddress.website).hostname.replace("www.", "")}
+                        </a>
+                      )}
+                      {resolvedAddress.phone && (
+                        <a href={`tel:${resolvedAddress.phone}`} className="flex items-center gap-0.5 text-muted-foreground hover:text-foreground">
+                          <Phone className="h-3 w-3 shrink-0" />
+                          {resolvedAddress.phone}
+                        </a>
+                      )}
+                    </div>
+                    {resolvedAddress.hours && resolvedAddress.hours.length > 0 && (
+                      <details className="text-[10px] text-muted-foreground">
+                        <summary className="cursor-pointer hover:text-foreground flex items-center gap-0.5">
+                          <Clock className="h-2.5 w-2.5" /> Hours
+                        </summary>
+                        <div className="mt-1 space-y-0.5 pl-3">
+                          {resolvedAddress.hours.map((h, i) => (
+                            <div key={i}>{h}</div>
+                          ))}
+                        </div>
+                      </details>
+                    )}
+                  </div>
+                )}
+
                 {/* Commute + transport mode selector */}
                 {searchCenter && (
                   <div className="space-y-1.5">
@@ -2411,6 +2583,107 @@ export function JobMap() {
                     className="h-8 text-xs"
                   />
                 </div>
+
+                {/* Landmark mismatch alert (dialog) */}
+                {resolvedAddress && selectedJob && hasLandmarkMismatch(selectedJob.company, resolvedAddress.name) && (
+                  <div className="rounded-md border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 space-y-1">
+                    <div className="flex items-start gap-2 text-sm text-amber-700 dark:text-amber-400">
+                      <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                      <div>
+                        <p>Google identifies this location as <strong>{resolvedAddress.name}</strong></p>
+                        {isLikelyRecruiter(selectedJob.company) && (
+                          <p className="text-xs mt-0.5">The job poster appears to be a staffing/recruiting agency.</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Recruiter flag (dialog) */}
+                {selectedJob && (
+                  <div className="flex items-center gap-2">
+                    {(isLikelyRecruiter(selectedJob.company) || isUserFlaggedRecruiter(selectedJob.company)) && (
+                      <Badge variant="outline" className="text-[10px] h-5 gap-1 border-orange-300 text-orange-600 dark:border-orange-700 dark:text-orange-400">
+                        <Flag className="h-2.5 w-2.5" /> Recruiter/Staffing
+                      </Badge>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 px-2 text-xs text-muted-foreground hover:text-orange-600"
+                      onClick={() => {
+                        if (isUserFlaggedRecruiter(selectedJob.company)) {
+                          unflagRecruiter(selectedJob.company);
+                        } else {
+                          flagRecruiter(selectedJob.company);
+                        }
+                        setSelectedJob({ ...selectedJob });
+                      }}
+                    >
+                      <Flag className="h-3 w-3 mr-1" />
+                      {isUserFlaggedRecruiter(selectedJob.company) ? "Unflag recruiter" : "Flag as recruiter"}
+                    </Button>
+                  </div>
+                )}
+
+                {/* Google Places enrichment (dialog) */}
+                {resolvedAddress && (resolvedAddress.website || resolvedAddress.phone || resolvedAddress.rating != null || resolvedAddress.editorialSummary) && (
+                  <div className="rounded-lg border bg-muted/30 px-3 py-2.5 space-y-2">
+                    <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                      <Building2 className="h-3.5 w-3.5" /> Business Info (Google)
+                    </div>
+                    {resolvedAddress.editorialSummary && (
+                      <p className="text-xs text-muted-foreground leading-snug">{resolvedAddress.editorialSummary}</p>
+                    )}
+                    <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-sm">
+                      {resolvedAddress.rating != null && (
+                        <span className="flex items-center gap-1">
+                          <Star className="h-3.5 w-3.5 text-yellow-500 fill-yellow-500" />
+                          <span className="font-medium">{resolvedAddress.rating}</span>
+                          {resolvedAddress.ratingCount != null && (
+                            <span className="text-xs text-muted-foreground">({resolvedAddress.ratingCount.toLocaleString()} reviews)</span>
+                          )}
+                        </span>
+                      )}
+                      {resolvedAddress.businessStatus && resolvedAddress.businessStatus !== "OPERATIONAL" && (
+                        <Badge variant="outline" className="text-[10px] h-5 px-1.5 border-red-300 text-red-600 dark:border-red-700 dark:text-red-400">
+                          {resolvedAddress.businessStatus.replace(/_/g, " ")}
+                        </Badge>
+                      )}
+                      {resolvedAddress.openNow !== undefined && (
+                        <Badge variant="outline" className={`text-[10px] h-5 px-1.5 ${resolvedAddress.openNow ? "border-emerald-300 text-emerald-600 dark:border-emerald-700 dark:text-emerald-400" : "border-red-300 text-red-600 dark:border-red-700 dark:text-red-400"}`}>
+                          {resolvedAddress.openNow ? "Open Now" : "Closed"}
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-sm">
+                      {resolvedAddress.website && (
+                        <a href={resolvedAddress.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline">
+                          <Globe className="h-3.5 w-3.5 shrink-0" />
+                          {new URL(resolvedAddress.website).hostname.replace("www.", "")}
+                        </a>
+                      )}
+                      {resolvedAddress.phone && (
+                        <a href={`tel:${resolvedAddress.phone}`} className="flex items-center gap-1 text-muted-foreground hover:text-foreground">
+                          <Phone className="h-3.5 w-3.5 shrink-0" />
+                          {resolvedAddress.phone}
+                        </a>
+                      )}
+                    </div>
+                    {resolvedAddress.hours && resolvedAddress.hours.length > 0 && (
+                      <details className="text-xs text-muted-foreground">
+                        <summary className="cursor-pointer hover:text-foreground flex items-center gap-1">
+                          <Clock className="h-3 w-3" /> Business Hours
+                        </summary>
+                        <div className="mt-1 space-y-0.5 pl-4">
+                          {resolvedAddress.hours.map((h, i) => (
+                            <div key={i}>{h}</div>
+                          ))}
+                        </div>
+                      </details>
+                    )}
+                  </div>
+                )}
 
                 {selectedJob.via && (
                   <p className="text-xs text-muted-foreground">{selectedJob.via}</p>

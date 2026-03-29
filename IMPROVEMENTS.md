@@ -20,6 +20,88 @@
 - Cross-reference duplicate postings (same role posted by recruiter AND directly by employer)
 - Crowdsource corrections across users
 
+### Landmark Association (Auto-Detect Actual Employer)
+
+**Insight:** When Google resolves a job's address, it returns the landmark/business name at that location. If the landmark name differs from the job poster, it's a strong signal that:
+- The poster may be a recruiter
+- The landmark business may be the actual employer
+
+**Example:** Job posted by "Covanta" at an address that Google resolves to "Reworld™ Delaware Valley." The mismatch reveals the actual company at that physical location.
+
+**Implementation:**
+1. When resolving a job's address via Google Geocoding/Places API, capture the `name` field from the response (the landmark/business name)
+2. Compare poster company name vs landmark name (fuzzy match)
+3. If mismatch detected:
+   - Auto-suggest: "This location is registered as [Landmark Name]. Is that the actual employer?"
+   - One-click to swap company association
+   - Use the landmark business's Google Place ID for richer data (see Google Places Enrichment below)
+4. Store mismatch patterns to improve future detection
+
+### Crowdsourced Recruiter Flagging (Waze Model)
+
+**Concept:** Let users flag companies as recruiting agencies, building a community-driven database over time — similar to how Waze crowdsources road hazards.
+
+**Implementation:**
+1. **Flag button** — On any job card or Company Deep Dive, a "Flag as recruiter" button
+2. **DB table** — `recruiter_flags`: company name (normalized), flag count, first flagged date, confirmed (boolean)
+3. **Threshold system** — After N flags (e.g., 3), auto-mark the company as a known recruiter
+4. **Seed list** — Pre-populate with known large staffing firms (Robert Half, Randstad, TEKsystems, Insight Global, Adecco, ManpowerGroup, Kelly Services, Hays, etc.)
+5. **Benefits cascade:**
+   - Flagged recruiter jobs get confidence badge automatically
+   - "Where's the office?" prompt shown by default
+   - Landmark association check triggered automatically
+   - Feeds into Company Deep Dive metadata
+
+---
+
+## Google Places Enrichment for Companies
+
+**Problem:** Users leave the app to research basic company info (website, phone, reviews, hours). Google Places API already provides all of this data at the point of address resolution.
+
+**What Google Places API returns:**
+- Business name, website URL, phone number
+- Google rating + review count
+- Business hours (open now indicator)
+- Business type/category
+- Photos
+- Price level (for relevant industries)
+- Editorial summary / "About" text
+- Permanently closed indicator (red flag for job listings)
+
+**Implementation:**
+
+1. **Place ID capture** — When resolving a job's address, store the Google `place_id` from the response
+2. **Place Details fetch** — Call Places API (New) with the place_id to get enriched data:
+   ```
+   GET https://places.googleapis.com/v1/places/{placeId}?fields=displayName,websiteUri,nationalPhoneNumber,rating,userRatingCount,regularOpeningHours,editorialSummary,businessStatus,types,photos
+   ```
+3. **Fields to surface:**
+   - Website link (clickable from floating card)
+   - Phone number (click-to-call on mobile)
+   - Google rating + review count with star display
+   - "Open now" / business hours
+   - "About" summary
+   - Business status (operational / closed / temporarily closed)
+
+**UI — Floating card "Quick Info" section:**
+```
+🌐 reworld.com  |  📞 (610) 555-1234
+⭐ 3.8 (142 reviews)  |  🕐 Open · Closes 5 PM
+"Waste-to-energy facility serving the Delaware Valley..."
+```
+
+**UI — Company Deep Dive "Overview" tab:**
+- Full business profile with photos
+- Google reviews preview (top 3-5 most relevant)
+- Hours table
+- All office locations from Google (multi-location businesses)
+
+**Cost:** Places API (New) pricing:
+- Place Details (Basic): $0.00 per call (included fields: name, address, hours, status)
+- Place Details (Advanced): ~$0.025 per call (includes reviews, website, phone)
+- Place Details (Preferred): ~$0.035 per call (includes photos, editorial summary)
+- Budget approach: fetch Basic for all jobs, Advanced/Preferred only on Company Deep Dive click
+
 ---
 
 ## Enhanced Commute Calculator with Ranges & Cost

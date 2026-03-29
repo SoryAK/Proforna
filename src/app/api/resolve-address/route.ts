@@ -5,15 +5,29 @@ import { cached, TTL } from "@/lib/cache";
 /**
  * Resolve a company name + location to a precise street address via
  * Google Places Text Search API, OR geocode a raw address string.
+ * Also returns enriched Place Details (website, phone, rating, hours, etc.)
  *
  * GET ?company=Google&location=Chicago,%20IL
- *   → { address: "320 N Morgan St...", lat: 41.88, lng: -87.65, name: "Google Chicago", confidence: "high", totalResults: 1 }
+ *   → { address, lat, lng, name, confidence, totalResults, placeId, website, phone, rating, ratingCount, businessStatus, openNow, hours, editorialSummary, types }
  *
  * GET ?address=123+Main+St,+Chicago,+IL&mode=geocode
- *   → { address: "123 Main St, Chicago, IL 60601", lat: 41.88, lng: -87.63, name: null, confidence: "high", totalResults: 1 }
+ *   → { address, lat, lng, name: null, confidence, totalResults }
  */
 
 const GOOGLE_KEY = process.env.GOOGLE_MAPS_API_KEY;
+
+interface PlaceEnrichment {
+  placeId: string | null;
+  website: string | null;
+  phone: string | null;
+  rating: number | null;
+  ratingCount: number | null;
+  businessStatus: string | null;
+  openNow: boolean | null;
+  hours: string[] | null;
+  editorialSummary: string | null;
+  types: string[] | null;
+}
 
 interface ResolveResult {
   address: string | null;
@@ -23,6 +37,51 @@ interface ResolveResult {
   confidence: "high" | "medium" | "low";
   totalResults: number;
   allLocations?: { address: string; lat: number; lng: number; name: string | null }[];
+  // Enrichment fields (present only when resolved via Places)
+  placeId?: string | null;
+  website?: string | null;
+  phone?: string | null;
+  rating?: number | null;
+  ratingCount?: number | null;
+  businessStatus?: string | null;
+  openNow?: boolean | null;
+  hours?: string[] | null;
+  editorialSummary?: string | null;
+  types?: string[] | null;
+}
+
+/** Fetch Place Details for a given place_id */
+async function fetchPlaceDetails(placeId: string): Promise<PlaceEnrichment> {
+  const empty: PlaceEnrichment = {
+    placeId, website: null, phone: null, rating: null, ratingCount: null,
+    businessStatus: null, openNow: null, hours: null, editorialSummary: null, types: null,
+  };
+
+  try {
+    const fields = "website,formatted_phone_number,rating,user_ratings_total,business_status,opening_hours,editorial_summary,types";
+    const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=${fields}&key=${GOOGLE_KEY}`;
+    const res = await fetch(url);
+    if (!res.ok) return empty;
+
+    const data = await res.json();
+    if (data.status !== "OK" || !data.result) return empty;
+
+    const r = data.result;
+    return {
+      placeId,
+      website: r.website ?? null,
+      phone: r.formatted_phone_number ?? null,
+      rating: r.rating ?? null,
+      ratingCount: r.user_ratings_total ?? null,
+      businessStatus: r.business_status ?? null,
+      openNow: r.opening_hours?.open_now ?? null,
+      hours: r.opening_hours?.weekday_text ?? null,
+      editorialSummary: r.editorial_summary?.overview ?? null,
+      types: r.types ?? null,
+    };
+  } catch {
+    return empty;
+  }
 }
 
 export async function GET(req: NextRequest) {
@@ -107,6 +166,7 @@ export async function GET(req: NextRequest) {
 
       const totalResults = data.results.length;
       const place = data.results[0];
+      const placeId = place.place_id ?? null;
 
       // Confidence: high if exact match or single result, low if many ambiguous results
       let confidence: "high" | "medium" | "low" = "medium";
@@ -124,6 +184,12 @@ export async function GET(req: NextRequest) {
           })).filter((l: any) => l.lat && l.lng)
         : undefined;
 
+      // Fetch enriched Place Details
+      const enrichment = placeId ? await fetchPlaceDetails(placeId) : {
+        placeId: null, website: null, phone: null, rating: null, ratingCount: null,
+        businessStatus: null, openNow: null, hours: null, editorialSummary: null, types: null,
+      };
+
       return {
         address: place.formatted_address ?? null,
         lat: place.geometry?.location?.lat ?? null,
@@ -132,6 +198,7 @@ export async function GET(req: NextRequest) {
         confidence,
         totalResults,
         allLocations,
+        ...enrichment,
       };
     });
 
