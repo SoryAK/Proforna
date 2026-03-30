@@ -214,7 +214,7 @@ function FitRoute({ geometry }: { geometry: [number, number][] | null }) {
   return null;
 }
 
-/* Detect pan/zoom away from original search area */
+/* Detect manual drag away from original search area (ignores programmatic pans) */
 function PanDetector({
   searchCenter,
   onMoved,
@@ -222,13 +222,23 @@ function PanDetector({
   searchCenter: [number, number] | null;
   onMoved: (center: [number, number], moved: boolean) => void;
 }) {
+  const dragged = useRef(false);
   const map = useMapEvents({
+    dragstart() {
+      dragged.current = true;
+    },
     moveend() {
       if (!searchCenter) return;
       const c = map.getCenter();
-      const dist = map.distance(searchCenter, [c.lat, c.lng]);
-      // trigger if panned > 500 m from original center
-      onMoved([c.lat, c.lng], dist > 500);
+      if (dragged.current) {
+        const dist = map.distance(searchCenter, [c.lat, c.lng]);
+        // only show after a deliberate drag > 25 km from search center
+        onMoved([c.lat, c.lng], dist > 25_000);
+        dragged.current = false;
+      } else {
+        // programmatic pan (clicking a job, etc.) — update center but don't show button
+        onMoved([c.lat, c.lng], false);
+      }
     },
   });
   return null;
