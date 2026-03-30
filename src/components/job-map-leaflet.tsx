@@ -120,6 +120,18 @@ interface SweetSpotZone {
   radiusMeters: number;
 }
 
+/** Transit step for color-coded route rendering */
+interface TransitStep {
+  mode: "WALKING" | "TRANSIT";
+  durationMin: number;
+  distanceMi: number;
+  geometry?: [number, number][];
+  lineColor?: string;
+  lineShort?: string;
+  lineName?: string;
+  vehicleType?: string;
+}
+
 interface Props {
   jobs: MapJob[];
   center: [number, number];
@@ -130,6 +142,7 @@ interface Props {
   radiusMiles: number;
   onSearchArea?: (center: [number, number]) => void;
   routeGeometry: [number, number][] | null;
+  transitSteps?: TransitStep[];
   showHeatmap?: boolean;
   tileStyle?: "osm" | "google-roadmap" | "google-satellite" | "google-hybrid";
   resolvedCoords?: [number, number] | null;
@@ -299,6 +312,7 @@ export default function JobMapLeaflet({
   radiusMiles,
   onSearchArea,
   routeGeometry,
+  transitSteps,
   showHeatmap = false,
   tileStyle = "osm",
   resolvedCoords = null,
@@ -355,7 +369,28 @@ export default function JobMapLeaflet({
       {showHeatmap && <HeatmapLayer jobs={jobs} />}
 
       {/* Commute route path */}
-      {routeGeometry && routeGeometry.length > 1 && (
+      {transitSteps && transitSteps.some((s) => s.geometry?.length) ? (
+        /* Transit mode: render each step with its own color */
+        <>
+          {transitSteps.map((step, i) =>
+            step.geometry && step.geometry.length > 1 ? (
+              <Polyline
+                key={`transit-step-${i}`}
+                positions={step.geometry}
+                pathOptions={{
+                  color: step.mode === "WALKING" ? "#9ca3af" : (step.lineColor || "#6366f1"),
+                  weight: step.mode === "WALKING" ? 3 : 5,
+                  opacity: 0.85,
+                  dashArray: step.mode === "WALKING" ? "6 8" : undefined,
+                  lineCap: "round",
+                  lineJoin: "round",
+                }}
+              />
+            ) : null,
+          )}
+        </>
+      ) : routeGeometry && routeGeometry.length > 1 ? (
+        /* Driving/walking/bicycling: single polyline */
         <Polyline
           positions={routeGeometry}
           pathOptions={{
@@ -366,7 +401,7 @@ export default function JobMapLeaflet({
             lineJoin: "round",
           }}
         />
-      )}
+      ) : null}
 
       {/* Anchor commute route lines */}
       {anchorRoutes.map((route) => (

@@ -309,6 +309,27 @@ function saveCommuteProfile(p: CommuteProfile) {
   localStorage.setItem(COMMUTE_PROFILE_KEY, JSON.stringify(p));
 }
 
+/** A single step in a transit itinerary */
+interface TransitStep {
+  mode: "WALKING" | "TRANSIT";
+  durationMin: number;
+  distanceMi: number;
+  geometry?: [number, number][];
+  instructions?: string;
+  lineName?: string;
+  lineShort?: string;
+  vehicleType?: string;
+  vehicleIcon?: string;
+  lineColor?: string;
+  lineTextColor?: string;
+  agencyName?: string;
+  departureStop?: string;
+  departureTime?: string;
+  arrivalStop?: string;
+  arrivalTime?: string;
+  numStops?: number;
+}
+
 /** Route option from the API */
 interface RouteOption {
   durationMin: number;
@@ -316,6 +337,7 @@ interface RouteOption {
   summary: string;
   durationInTrafficMin?: number;
   geometry?: [number, number][];
+  transitSteps?: TransitStep[];
 }
 
 /** Yearly roundtrip commute cost using profile or IRS fallback */
@@ -358,6 +380,7 @@ export function JobMap() {
     geometry?: [number, number][];
     durationInTrafficMin?: number;
     routes?: RouteOption[];
+    transitSteps?: TransitStep[];
   } | null>(null);
   const [commuteLoading, setCommuteLoading] = useState(false);
   const [commuteMode, setCommuteMode] = useState<CommuteMode>("driving");
@@ -1096,7 +1119,7 @@ export function JobMap() {
       const fastParams = new URLSearchParams(params);
       fastParams.set("alternatives", "true");
       // Use departure_time for traffic-aware estimates (next occurrence of user's departure hour)
-      if (commuteMode === "driving") {
+      if (commuteMode === "driving" || commuteMode === "transit") {
         const now = new Date();
         const dep = new Date(now);
         dep.setHours(commuteProfile.departureHour, 0, 0, 0);
@@ -1115,6 +1138,7 @@ export function JobMap() {
               estimated: d.estimated,
               durationInTrafficMin: d.durationInTrafficMin,
               routes: d.routes,
+              transitSteps: d.transitSteps,
             });
             setCommuteCache((prev) => ({ ...prev, [cacheKey]: d }));
           }
@@ -1131,6 +1155,13 @@ export function JobMap() {
     geoParams.set("geometry", "true");
     geoParams.set("alternatives", "true");
     if (commuteProfile.avoidTolls) geoParams.set("avoidTolls", "true");
+    if (commuteMode === "driving" || commuteMode === "transit") {
+      const now = new Date();
+      const dep = new Date(now);
+      dep.setHours(commuteProfile.departureHour, 0, 0, 0);
+      if (dep.getTime() <= now.getTime()) dep.setDate(dep.getDate() + 1);
+      geoParams.set("departureTime", String(Math.floor(dep.getTime() / 1000)));
+    }
 
     fetch(`/api/commute?${geoParams}`, { signal: geoCtrl.signal })
       .then((r) => (r.ok ? r.json() : null))
@@ -1140,6 +1171,7 @@ export function JobMap() {
             ...prev,
             geometry: d.geometry,
             routes: d.routes ?? prev.routes,
+            transitSteps: d.transitSteps ?? prev.transitSteps,
           } : d);
         }
       })
@@ -2063,6 +2095,7 @@ export function JobMap() {
               radiusMiles={Number(radius)}
               onSearchArea={handleSearchArea}
               routeGeometry={commuteInfo?.geometry ?? null}
+              transitSteps={commuteInfo?.transitSteps}
               anchorRoutes={
                 selectedJob && anchorCommutes
                   ? Object.entries(anchorCommutes)
@@ -2534,6 +2567,84 @@ export function JobMap() {
                                 <div key={i} className="flex items-center justify-between">
                                   <span className="truncate max-w-[130px]">{r.summary || `Route ${i + 1}`}</span>
                                   <span className="font-medium shrink-0 ml-1">{r.durationMin} min · {r.distanceMi} mi</span>
+                                </div>
+                              ))}
+                            </div>
+                          </details>
+                        )}
+                        {/* Transit itinerary — bus/train legs */}
+                        {commuteInfo.transitSteps && commuteInfo.transitSteps.length > 0 && (
+                          <div className="space-y-1 pt-1 border-t border-dashed">
+                            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                              <TrainFront className="h-3 w-3 text-blue-500" /> Transit Itinerary
+                            </span>
+                            <div className="flex items-center gap-0.5 flex-wrap">
+                              {commuteInfo.transitSteps.map((step, i) => (
+                                <span key={i} className="flex items-center gap-0.5">
+                                  {i > 0 && <ChevronRight className="h-2.5 w-2.5 text-muted-foreground/50" />}
+                                  {step.mode === "WALKING" ? (
+                                    <span className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground">
+                                      <Footprints className="h-3 w-3" /> {step.durationMin}m
+                                    </span>
+                                  ) : (
+                                    <span
+                                      className="inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded"
+                                      style={{
+                                        backgroundColor: step.lineColor || "#6366f1",
+                                        color: step.lineTextColor || "#fff",
+                                      }}
+                                    >
+                                      {step.vehicleType === "BUS" && <span>🚌</span>}
+                                      {(step.vehicleType === "SUBWAY" || step.vehicleType === "METRO_RAIL") && <span>🚇</span>}
+                                      {(step.vehicleType === "RAIL" || step.vehicleType === "COMMUTER_TRAIN" || step.vehicleType === "HEAVY_RAIL") && <span>🚆</span>}
+                                      {step.vehicleType === "TRAM" && <span>🚊</span>}
+                                      {!["BUS", "SUBWAY", "METRO_RAIL", "RAIL", "COMMUTER_TRAIN", "HEAVY_RAIL", "TRAM"].includes(step.vehicleType || "") && <TrainFront className="h-3 w-3" />}
+                                      {step.lineShort || step.lineName || "Transit"}
+                                    </span>
+                                  )}
+                                </span>
+                              ))}
+                            </div>
+                            {/* Departure/arrival details */}
+                            {commuteInfo.transitSteps.filter((s) => s.mode === "TRANSIT").map((step, i) => (
+                              <div key={i} className="text-[10px] text-muted-foreground pl-2 border-l-2" style={{ borderColor: step.lineColor || "#6366f1" }}>
+                                <div className="font-medium" style={{ color: step.lineColor || undefined }}>
+                                  {step.vehicleType === "BUS" ? "🚌" : "🚆"} {step.lineShort || step.lineName}{step.agencyName ? ` · ${step.agencyName}` : ""}
+                                </div>
+                                {step.departureStop && step.departureTime && (
+                                  <div>{step.departureTime} from {step.departureStop}</div>
+                                )}
+                                {step.arrivalStop && step.arrivalTime && (
+                                  <div>{step.arrivalTime} at {step.arrivalStop}</div>
+                                )}
+                                {step.numStops && <div>{step.numStops} stop{step.numStops !== 1 ? "s" : ""} · {step.durationMin} min</div>}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {/* Transit route alternatives */}
+                        {commuteInfo.mode === "transit" && commuteInfo.routes && commuteInfo.routes.length > 1 && (
+                          <details className="text-[10px] text-muted-foreground">
+                            <summary className="cursor-pointer hover:text-foreground flex items-center gap-0.5">
+                              <Route className="h-2.5 w-2.5" /> {commuteInfo.routes.length} transit options
+                            </summary>
+                            <div className="mt-1 space-y-1 pl-3">
+                              {commuteInfo.routes.map((r, i) => (
+                                <div key={i} className="space-y-0.5">
+                                  <div className="flex items-center justify-between">
+                                    <span className="flex items-center gap-0.5 flex-wrap">
+                                      {r.transitSteps ? r.transitSteps.filter((s) => s.mode === "TRANSIT").map((s, j) => (
+                                        <span
+                                          key={j}
+                                          className="inline-flex items-center gap-0.5 font-semibold px-1 py-0 rounded text-[9px]"
+                                          style={{ backgroundColor: s.lineColor || "#6366f1", color: s.lineTextColor || "#fff" }}
+                                        >
+                                          {s.lineShort || s.lineName}
+                                        </span>
+                                      )) : <span className="truncate max-w-[100px]">{r.summary || `Option ${i + 1}`}</span>}
+                                    </span>
+                                    <span className="font-medium shrink-0 ml-1">{r.durationMin} min</span>
+                                  </div>
                                 </div>
                               ))}
                             </div>

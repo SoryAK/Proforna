@@ -111,6 +111,29 @@ function straightLineEstimate(
 
 const GOOGLE_KEY = process.env.GOOGLE_MAPS_API_KEY;
 
+/** A single step in a transit itinerary (walking or transit leg) */
+interface TransitStep {
+  mode: "WALKING" | "TRANSIT";
+  durationMin: number;
+  distanceMi: number;
+  geometry?: [number, number][];
+  /* Walking-specific */
+  instructions?: string;
+  /* Transit-specific */
+  lineName?: string;       // e.g. "Route 109"
+  lineShort?: string;      // e.g. "109"
+  vehicleType?: string;    // BUS, SUBWAY, RAIL, TRAM, COMMUTER_TRAIN, etc.
+  vehicleIcon?: string;    // URL to vehicle icon
+  lineColor?: string;      // hex color e.g. "#0055A4"
+  lineTextColor?: string;  // hex color for text on the line badge
+  agencyName?: string;     // e.g. "SEPTA"
+  departureStop?: string;
+  departureTime?: string;  // "5:37 AM"
+  arrivalStop?: string;
+  arrivalTime?: string;
+  numStops?: number;
+}
+
 /** A single route option from the Directions API */
 interface RouteOption {
   durationMin: number;
@@ -118,6 +141,7 @@ interface RouteOption {
   summary: string; // e.g. "via I-476 N"
   durationInTrafficMin?: number;
   geometry?: [number, number][];
+  transitSteps?: TransitStep[];
 }
 
 /** Try Google Directions API — returns primary route + alternatives */
@@ -141,8 +165,9 @@ async function tryGoogleDirections(
   url.searchParams.set("key", GOOGLE_KEY);
   if (opts?.alternatives) url.searchParams.set("alternatives", "true");
   if (opts?.avoidTolls) url.searchParams.set("avoid", "tolls");
-  // departure_time: seconds since epoch (enables duration_in_traffic for driving)
-  if (opts?.departureTime && mode === "driving") {
+  // departure_time: seconds since epoch
+  // For driving → enables duration_in_traffic; for transit → enables schedule-based results
+  if (opts?.departureTime && (mode === "driving" || mode === "transit")) {
     url.searchParams.set("departure_time", String(opts.departureTime));
   }
 
@@ -166,6 +191,47 @@ async function tryGoogleDirections(
       if (wantGeometry && r.overview_polyline?.points) {
         opt.geometry = simplifyGeometry(decodePolyline(r.overview_polyline.points, 5));
       }
+
+      // Parse transit step details (walking + transit legs)
+      if (mode === "transit" && leg.steps?.length) {
+        opt.transitSteps = leg.steps.map((step: any) => {
+          const ts: TransitStep = {
+            mode: step.travel_mode === "TRANSIT" ? "TRANSIT" : "WALKING",
+            durationMin: Math.round(step.duration.value / 60),
+            distanceMi: Math.round((step.distance.value / 1609.34) * 10) / 10,
+          };
+          if (wantGeometry && step.polyline?.points) {
+            ts.geometry = simplifyGeometry(decodePolyline(step.polyline.points, 5), 80);
+          }
+          if (step.travel_mode === "WALKING") {
+            ts.instructions = step.html_instructions?.replace(/<[^>]*>/g, "") || "Walk";
+          }
+          if (step.travel_mode === "TRANSIT" && step.transit_details) {
+            const td = step.transit_details;
+            const line = td.line;
+            ts.lineName = line?.name || undefined;
+            ts.lineShort = line?.short_name || undefined;
+            ts.vehicleType = line?.vehicle?.type || undefined;
+            ts.vehicleIcon = line?.vehicle?.icon ? `https:${line.vehicle.icon}` : undefined;
+            ts.lineColor = line?.color || undefined;
+            ts.lineTextColor = line?.text_color || undefined;
+            ts.agencyName = line?.agencies?.[0]?.name || undefined;
+            ts.departureStop = td.departure_stop?.name || undefined;
+            ts.departureTime = td.departure_time?.text || undefined;
+            ts.arrivalStop = td.arrival_stop?.name || undefined;
+            ts.arrivalTime = td.arrival_time?.text || undefined;
+            ts.numStops = td.num_stops || undefined;
+          }
+          return ts;
+        });
+
+        // Build summary from transit line names if no route summary
+        if (!opt.summary && opt.transitSteps) {
+          const transitLegs = opt.transitSteps.filter((s) => s.mode === "TRANSIT");
+          opt.summary = transitLegs.map((s) => s.lineShort || s.lineName || "").filter(Boolean).join(" → ");
+        }
+      }
+
       return opt;
     });
 
@@ -177,6 +243,7 @@ async function tryGoogleDirections(
     };
     if (primary.durationInTrafficMin) result.durationInTrafficMin = primary.durationInTrafficMin;
     if (primary.geometry) result.geometry = primary.geometry;
+    if (primary.transitSteps) result.transitSteps = primary.transitSteps;
     if (allRoutes.length > 1) result.routes = allRoutes;
 
     return result;
