@@ -51,5 +51,19 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ pruned: count });
   }
 
-  return NextResponse.json({ error: "Specify ?expired=true or ?all=true" }, { status: 400 });
+  // Bulk delete by IDs (sent in request body)
+  try {
+    const body = await req.json();
+    if (Array.isArray(body.ids) && body.ids.length > 0) {
+      const ids = body.ids.map(String);
+      const { count } = await prisma.emailLead.deleteMany({
+        where: { userId, id: { in: ids } },
+      });
+      return NextResponse.json({ deleted: count });
+    }
+  } catch {
+    // No body or invalid JSON — fall through
+  }
+
+  return NextResponse.json({ error: "Specify ?expired=true, ?all=true, or body { ids: [...] }" }, { status: 400 });
 }

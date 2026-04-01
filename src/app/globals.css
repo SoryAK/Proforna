@@ -127,12 +127,3 @@
     @apply font-sans;
   }
 }
-
-/* Fix Leaflet tile seam lines — scale tiles up by a fraction of a pixel to overlap gaps */
-.leaflet-tile-pane {
-  will-change: transform;
-}
-.leaflet-tile {
-  transform: scale(1.002);
-  transform-origin: center center;
-}

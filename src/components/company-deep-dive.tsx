@@ -18,7 +18,17 @@ import {
   CheckCircle2,
   XCircle,
   Globe,
+  Star,
+  Newspaper,
+  Phone,
+  Clock,
+  BookmarkPlus,
+  BookmarkCheck,
+  GitCompareArrows,
+  ArrowUpRight,
 } from "lucide-react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -47,9 +57,25 @@ export interface DeepDiveJob {
   description: string;
 }
 
+export interface PlacesInfo {
+  website?: string | null;
+  phone?: string | null;
+  rating?: number | null;
+  ratingCount?: number | null;
+  openNow?: boolean | null;
+  hours?: string[] | null;
+  editorialSummary?: string | null;
+}
+
 interface CompanyDeepDiveProps {
   companyName: string;
   jobs: DeepDiveJob[];
+  placesData?: PlacesInfo | null;
+  marketMeanSalary?: number | null;
+  /** For full-page mode — hide the "open full page" link */
+  fullPage?: boolean;
+  /** All company names in current search results (for comparison picker) */
+  allCompanyNames?: string[];
 }
 
 /* ── Helpers ── */
@@ -197,8 +223,10 @@ interface FederalData {
 }
 
 /* ── Component ── */
-export function CompanyDeepDive({ companyName, jobs }: CompanyDeepDiveProps) {
+export function CompanyDeepDive({ companyName, jobs, placesData, marketMeanSalary, fullPage, allCompanyNames }: CompanyDeepDiveProps) {
   const [tab, setTab] = useState("overview");
+  const [compareCompany, setCompareCompany] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   const analytics = useMemo(() => computeAnalytics(jobs), [jobs]);
 
@@ -219,27 +247,110 @@ export function CompanyDeepDive({ companyName, jobs }: CompanyDeepDiveProps) {
 
   const { salaryRange, velocity, locations, roles, recruiterRatio, schedules, sources } = analytics;
 
+  // Company news
+  const { data: newsArticles, isLoading: newsLoading } = useQuery<{ title: string; link: string; source: string; pubDate: string }[]>({
+    queryKey: ["company-news", companyName],
+    queryFn: async () => {
+      const res = await fetch(`/api/company-research/news?company=${encodeURIComponent(companyName)}`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    staleTime: 30 * 60 * 1000,
+    enabled: tab === "news",
+  });
+
+  // Watchlist
+  const { data: watchlist } = useQuery<{ id: string; companyName: string }[]>({
+    queryKey: ["company-watchlist"],
+    queryFn: async () => { const r = await fetch("/api/company-watchlist"); return r.ok ? r.json() : []; },
+    staleTime: 60 * 1000,
+  });
+  const isWatched = watchlist?.some((w) => w.companyName.toLowerCase() === companyName.toLowerCase()) ?? false;
+  const watchMutation = useMutation({
+    mutationFn: async () => {
+      if (isWatched) {
+        await fetch("/api/company-watchlist", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ companyName }) });
+      } else {
+        await fetch("/api/company-watchlist", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ companyName }) });
+      }
+    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["company-watchlist"] }); toast.success(isWatched ? "Removed from watchlist" : "Added to watchlist"); },
+  });
+
+  // Comparison data
+  const { data: compareFederal } = useQuery<FederalData>({
+    queryKey: ["company-deep-dive-federal", compareCompany],
+    queryFn: async () => {
+      const res = await fetch("/api/company-research", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ companyName: compareCompany, ein: null }) });
+      if (!res.ok) throw new Error("Research failed");
+      return res.json();
+    },
+    staleTime: 30 * 60 * 1000,
+    enabled: !!compareCompany,
+  });
+
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-start gap-3">
         <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
           <Building2 className="h-5 w-5 text-primary" />
         </div>
-        <div className="min-w-0">
-          <h2 className="text-lg font-bold truncate">{companyName}</h2>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-bold truncate">{companyName}</h2>
+            <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => watchMutation.mutate()} disabled={watchMutation.isPending}>
+              {isWatched ? <BookmarkCheck className="h-4 w-4 text-primary" /> : <BookmarkPlus className="h-4 w-4" />}
+            </Button>
+            {!fullPage && (
+              <a href={`/company/${encodeURIComponent(companyName)}`} target="_blank" rel="noopener noreferrer" className="shrink-0">
+                <Button variant="ghost" size="icon" className="h-7 w-7"><ArrowUpRight className="h-4 w-4" /></Button>
+              </a>
+            )}
+          </div>
           <p className="text-sm text-muted-foreground">
             {jobs.length} open position{jobs.length !== 1 ? "s" : ""} in your search
           </p>
+          {/* Google Places info */}
+          {placesData && (placesData.rating || placesData.website || placesData.phone) && (
+            <div className="flex flex-wrap items-center gap-3 mt-1.5 text-xs text-muted-foreground">
+              {placesData.rating != null && (
+                <span className="flex items-center gap-1">
+                  <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                  {placesData.rating.toFixed(1)}
+                  {placesData.ratingCount != null && <span>({placesData.ratingCount.toLocaleString()})</span>}
+                </span>
+              )}
+              {placesData.website && (
+                <a href={placesData.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-primary hover:underline">
+                  <Globe className="h-3.5 w-3.5" /> Website
+                </a>
+              )}
+              {placesData.phone && (
+                <span className="flex items-center gap-1">
+                  <Phone className="h-3.5 w-3.5" /> {placesData.phone}
+                </span>
+              )}
+              {placesData.openNow != null && (
+                <Badge variant={placesData.openNow ? "default" : "secondary"} className="text-xs h-5">
+                  {placesData.openNow ? "Open Now" : "Closed"}
+                </Badge>
+              )}
+            </div>
+          )}
+          {placesData?.editorialSummary && (
+            <p className="text-xs text-muted-foreground mt-1 italic">{placesData.editorialSummary}</p>
+          )}
         </div>
       </div>
 
       <Tabs value={tab} onValueChange={setTab}>
-        <TabsList>
+        <TabsList className="flex-wrap">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="salary">Salary</TabsTrigger>
           <TabsTrigger value="roles">Roles</TabsTrigger>
           <TabsTrigger value="locations">Locations</TabsTrigger>
+          <TabsTrigger value="news">News</TabsTrigger>
           <TabsTrigger value="federal">Federal Records</TabsTrigger>
         </TabsList>
 
@@ -438,6 +549,44 @@ export function CompanyDeepDive({ companyName, jobs }: CompanyDeepDiveProps) {
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Market salary benchmark */}
+              {marketMeanSalary && salaryRange.avgMid && (
+                <Card>
+                  <CardContent className="pt-4 pb-3">
+                    <div className="text-sm font-medium mb-2">vs Market Average</div>
+                    {(() => {
+                      const diff = salaryRange.avgMid! - marketMeanSalary;
+                      const pct = Math.round((diff / marketMeanSalary) * 100);
+                      const above = pct >= 0;
+                      return (
+                        <>
+                          <div className="flex items-end gap-4 mb-3">
+                            <div className="text-center">
+                              <p className="text-xs text-muted-foreground">This Company</p>
+                              <p className="text-lg font-bold">{formatSalary(salaryRange.avgMid!)}</p>
+                            </div>
+                            <div className="text-center">
+                              <p className="text-xs text-muted-foreground">Area Average</p>
+                              <p className="text-lg font-bold text-muted-foreground">{formatSalary(marketMeanSalary)}</p>
+                            </div>
+                            <Badge className={`text-xs ${above ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
+                              {above ? "+" : ""}{pct}% {above ? "above" : "below"} market
+                            </Badge>
+                          </div>
+                          <div className="flex h-3 rounded-full overflow-hidden bg-muted">
+                            <div className={`transition-all ${above ? "bg-emerald-500" : "bg-amber-500"}`} style={{ width: `${Math.min(100, Math.max(5, (salaryRange.avgMid! / (Math.max(salaryRange.avgMid!, marketMeanSalary) * 1.2)) * 100))}%` }} />
+                          </div>
+                          <div className="flex justify-between mt-1 text-xs text-muted-foreground">
+                            <span>$0</span>
+                            <span>{formatSalary(Math.max(salaryRange.avgMid!, marketMeanSalary) * 1.2)}</span>
+                          </div>
+                        </>
+                      );
+                    })()}
+                  </CardContent>
+                </Card>
+              )}
             </>
           )}
         </TabsContent>
@@ -476,6 +625,35 @@ export function CompanyDeepDive({ companyName, jobs }: CompanyDeepDiveProps) {
               </Badge>
             </div>
           ))}
+        </TabsContent>
+
+        {/* ── News ── */}
+        <TabsContent value="news" className="mt-4 space-y-4">
+          {newsLoading ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map((i) => <Skeleton key={i} className="h-16" />)}
+            </div>
+          ) : newsArticles && newsArticles.length > 0 ? (
+            <div className="space-y-2 max-h-96 overflow-y-auto">
+              {newsArticles.map((article, i) => (
+                <a key={i} href={article.link} target="_blank" rel="noopener noreferrer" className="block rounded-lg border p-3 hover:bg-muted/50 transition-colors">
+                  <p className="text-sm font-medium line-clamp-2">{article.title}</p>
+                  <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                    {article.source && <span>{article.source}</span>}
+                    {article.pubDate && <span>• {new Date(article.pubDate).toLocaleDateString()}</span>}
+                    <ExternalLink className="h-3 w-3 ml-auto shrink-0" />
+                  </div>
+                </a>
+              ))}
+            </div>
+          ) : (
+            <Card>
+              <CardContent className="py-8 text-center">
+                <Newspaper className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                <p className="text-muted-foreground">No recent news found for {companyName}</p>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         {/* ── Federal Records ── */}
@@ -721,6 +899,97 @@ export function CompanyDeepDive({ companyName, jobs }: CompanyDeepDiveProps) {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* ── Side-by-Side Comparison ── */}
+      {allCompanyNames && allCompanyNames.length > 1 && (
+        <>
+          <Separator />
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium flex items-center gap-1.5">
+                <GitCompareArrows className="h-4 w-4" /> Compare with
+              </span>
+              <select
+                className="text-xs border rounded px-2 py-1 bg-background"
+                value={compareCompany ?? ""}
+                onChange={(e) => setCompareCompany(e.target.value || null)}
+              >
+                <option value="">Select company…</option>
+                {allCompanyNames
+                  .filter((c) => c.toLowerCase() !== companyName.toLowerCase())
+                  .slice(0, 30)
+                  .map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+            {compareCompany && (() => {
+              const compareJobs = jobs.length > 0 ? [] : []; // placeholder — jobs filtered by comparison company are passed externally
+              // We compute from the allCompanyNames parent; for now compare federal data
+              const compA = { name: companyName, salary: salaryRange, velocity, locations, recruiterRatio, federal };
+              const compB_salary = { min: null as number | null, max: null as number | null, avgMid: null as number | null, medianMid: null as number | null, count: 0 };
+              const compB = { name: compareCompany, salary: compB_salary, federal: compareFederal };
+
+              function CompareRow({ label, a, b, better }: { label: string; a: string; b: string; better?: "a" | "b" | null }) {
+                return (
+                  <div className="grid grid-cols-3 gap-2 py-1.5 border-b last:border-0 text-sm">
+                    <span className="text-muted-foreground">{label}</span>
+                    <span className={`text-center font-medium ${better === "a" ? "text-emerald-600" : ""}`}>{a}</span>
+                    <span className={`text-center font-medium ${better === "b" ? "text-emerald-600" : ""}`}>{b}</span>
+                  </div>
+                );
+              }
+
+              const oshaA = federal?.oshaData?.summary?.totalViolations ?? null;
+              const oshaB = compareFederal?.oshaData?.summary?.totalViolations ?? null;
+              const empA = federal?.employeeCount ?? null;
+              const empB = compareFederal?.employeeCount ?? null;
+
+              return (
+                <Card className="mt-2">
+                  <CardContent className="pt-4 pb-3">
+                    <div className="grid grid-cols-3 gap-2 pb-2 border-b text-xs font-medium text-muted-foreground">
+                      <span>Metric</span>
+                      <span className="text-center truncate">{companyName}</span>
+                      <span className="text-center truncate">{compareCompany}</span>
+                    </div>
+                    <CompareRow label="Open Roles" a={String(velocity.totalOpenings)} b="—" />
+                    <CompareRow
+                      label="Salary (avg)"
+                      a={salaryRange.avgMid ? formatSalary(salaryRange.avgMid) : "—"}
+                      b="—"
+                    />
+                    <CompareRow
+                      label="OSHA Violations"
+                      a={oshaA != null ? String(oshaA) : "—"}
+                      b={oshaB != null ? String(oshaB) : "—"}
+                      better={oshaA != null && oshaB != null ? (oshaA <= oshaB ? "a" : "b") : null}
+                    />
+                    <CompareRow
+                      label="Employees"
+                      a={empA != null ? empA.toLocaleString() : "—"}
+                      b={empB != null ? empB.toLocaleString() : "—"}
+                    />
+                    <CompareRow
+                      label="Recruiter %"
+                      a={`${recruiterRatio.pct}%`}
+                      b="—"
+                    />
+                    <CompareRow
+                      label="Locations"
+                      a={String(locations.length)}
+                      b="—"
+                    />
+                    <CompareRow
+                      label="Public"
+                      a={federal?.isPublic ? "Yes" : "No"}
+                      b={compareFederal?.isPublic ? "Yes" : "No"}
+                    />
+                  </CardContent>
+                </Card>
+              );
+            })()}
+          </div>
+        </>
+      )}
     </div>
   );
 }

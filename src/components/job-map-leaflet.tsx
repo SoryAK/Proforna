@@ -144,6 +144,7 @@ interface Props {
   routeGeometry: [number, number][] | null;
   transitSteps?: TransitStep[];
   showHeatmap?: boolean;
+  showTraffic?: boolean;
   tileStyle?: "osm" | "google-roadmap" | "google-satellite" | "google-hybrid";
   resolvedCoords?: [number, number] | null;
   highlightedIds?: string[];
@@ -324,6 +325,7 @@ export default function JobMapLeaflet({
   routeGeometry,
   transitSteps,
   showHeatmap = false,
+  showTraffic = false,
   tileStyle = "osm",
   resolvedCoords = null,
   highlightedIds = [],
@@ -377,6 +379,16 @@ export default function JobMapLeaflet({
         : <FitBounds jobs={jobs} />}
       <FitRoute geometry={routeGeometry} />
       <PanDetector searchCenter={searchCenter} onMoved={handleMoved} />
+
+      {/* Live traffic overlay */}
+      {showTraffic && (
+        <TileLayer
+          url="https://mt1.google.com/vt/lyrs=h,traffic&x={x}&y={y}&z={z}"
+          attribution="Traffic &copy; Google"
+          zIndex={10}
+          opacity={0.35}
+        />
+      )}
 
       {/* Job density heatmap */}
       {showHeatmap && <HeatmapLayer jobs={jobs} />}
