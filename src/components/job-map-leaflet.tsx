@@ -363,11 +363,14 @@ export default function JobMapLeaflet({
       className="h-full w-full z-0"
       scrollWheelZoom
       zoomControl={false}
+      preferCanvas
     >
       <TileLayer
         key={tileStyle}
         attribution={tileConfig.attribution}
         url={tileConfig.url}
+        updateWhenZooming={false}
+        updateWhenIdle
       />
       {jobs.length === 1 && anchorMarkers && anchorMarkers.length > 0
         ? <FocusFit job={jobs[0]} anchors={anchorMarkers} />
