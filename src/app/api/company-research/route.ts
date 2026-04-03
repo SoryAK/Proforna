@@ -33,6 +33,7 @@ export async function POST(request: Request) {
             secData: cached.secData ? JSON.parse(cached.secData) : null,
             oshaData: cached.oshaData ? JSON.parse(cached.oshaData) : null,
             sosData: cached.sosData ? JSON.parse(cached.sosData) : null,
+            kgData: cached.kgData ? JSON.parse(cached.kgData) : null,
             researchNotes: cached.researchNotes || null,
             _cached: true,
           });
@@ -48,7 +49,7 @@ export async function POST(request: Request) {
     const searchName = legalName || companyName;
 
     // Fetch all sources in parallel
-    const [dolResult, secResult, oshaResult, ocResult] = await Promise.allSettled([
+    const [dolResult, secResult, oshaResult, ocResult, kgResult] = await Promise.allSettled([
       fetch(`${baseUrl}/api/company-research/dol`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -69,12 +70,18 @@ export async function POST(request: Request) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ companyName: searchName || companyName, jurisdiction: location }),
       }).then((r) => r.json()),
+      fetch(`${baseUrl}/api/company-research/knowledge-graph`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ companyName }),
+      }).then((r) => r.json()),
     ]);
 
     const dol = dolResult.status === "fulfilled" ? dolResult.value : null;
     const sec = secResult.status === "fulfilled" ? secResult.value : null;
     const osha = oshaResult.status === "fulfilled" ? oshaResult.value : null;
     const oc = ocResult.status === "fulfilled" ? ocResult.value : null;
+    const kg = kgResult.status === "fulfilled" ? kgResult.value : null;
 
     // Merge data into a unified profile
     const profile = {
@@ -83,7 +90,7 @@ export async function POST(request: Request) {
       address: oc?.data?.registeredAddress || null,
       industry: sec?.data?.sicDescription || null,
       naicsCode: null as string | null,
-      website: null as string | null,
+      website: kg?.data?.officialUrl || null,
       isPublic: sec?.data?.isPublic ?? false,
       secCIK: sec?.data?.cik || null,
       employeeCount: dol?.data?.summary?.estimatedEmployees || null,
@@ -91,6 +98,7 @@ export async function POST(request: Request) {
       secData: sec?.data ? JSON.stringify(sec.data) : null,
       oshaData: osha?.data ? JSON.stringify(osha.data) : null,
       sosData: oc?.data ? JSON.stringify(oc.data) : null,
+      kgData: kg?.data ? JSON.stringify(kg.data) : null,
       lastFetchedAt: new Date(),
     };
 
@@ -119,6 +127,7 @@ export async function POST(request: Request) {
           secData: sec?.data || null,
           oshaData: osha?.data || null,
           sosData: oc?.data || null,
+          kgData: kg?.data || null,
           researchNotes: existing.researchNotes,
           _cached: false,
           _sources: {
@@ -126,6 +135,7 @@ export async function POST(request: Request) {
             sec: sec?.data ? "found" : sec?.error ? "error" : "not_found",
             osha: osha?.data ? "found" : osha?.error ? "error" : "not_found",
             opencorporates: oc?.data ? "found" : oc?.error ? "error" : "not_found",
+            knowledge_graph: kg?.data ? "found" : kg?.error ? "error" : "not_found",
           },
         });
       }
@@ -137,6 +147,7 @@ export async function POST(request: Request) {
       secData: sec?.data || null,
       oshaData: osha?.data || null,
       sosData: oc?.data || null,
+      kgData: kg?.data || null,
       researchNotes: null,
       _cached: false,
       _sources: {
@@ -144,6 +155,7 @@ export async function POST(request: Request) {
         sec: sec?.data ? "found" : sec?.error ? "error" : "not_found",
         osha: osha?.data ? "found" : osha?.error ? "error" : "not_found",
         opencorporates: oc?.data ? "found" : oc?.error ? "error" : "not_found",
+        knowledge_graph: kg?.data ? "found" : kg?.error ? "error" : "not_found",
       },
     });
   } catch (error) {

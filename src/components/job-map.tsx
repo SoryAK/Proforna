@@ -426,7 +426,7 @@ export function JobMap() {
 
   // Persist preferences on change
   useEffect(() => { saveJobPref("tileStyle", tileStyle); }, [tileStyle]);
-  useEffect(() => { saveJobPref("viewMode", viewMode); }, [viewMode]);
+  useEffect(() => { saveJobPref("viewMode", viewMode); setClusterPreview(null); setActiveAmenities(new Set()); setZoomTarget(null); }, [viewMode]);
   useEffect(() => { saveJobPref("source", source); }, [source]);
   useEffect(() => { saveJobPref("radius", radius); }, [radius]);
   useEffect(() => { saveJobPref("sortBy", sortBy); }, [sortBy]);
@@ -488,6 +488,7 @@ export function JobMap() {
   /* ── Cluster Preview ── */
   type ClusterPreviewData = { jobs: MapJob[]; position: { lat: number; lng: number } };
   const [clusterPreview, setClusterPreview] = useState<ClusterPreviewData | null>(null);
+  const [zoomTarget, setZoomTarget] = useState<{ lat: number; lng: number; zoom: number } | null>(null);
 
   /* ── Neighborhood Explorer ── */
   const AMENITY_CATEGORIES = [
@@ -2456,6 +2457,11 @@ export function JobMap() {
               onClusterPreview={(jobs, position) => setClusterPreview({ jobs, position })}
               amenityPins={amenityPinsForMap}
               amenityRadius={amenityRadiusForMap}
+              zoomTarget={zoomTarget}
+              amenityCategories={AMENITY_CATEGORIES}
+              activeAmenities={activeAmenities}
+              amenityLoading={amenityLoading}
+              onToggleAmenity={toggleAmenityCategory}
             />
 
           {/* ── Cluster Preview Card ── */}
@@ -2501,12 +2507,10 @@ export function JobMap() {
                 <button
                   className="flex-1 text-xs bg-primary text-primary-foreground rounded px-2 py-1 hover:bg-primary/90"
                   onClick={() => {
+                    const pos = clusterPreview.position;
                     setClusterPreview(null);
-                    // Select first job in cluster to zoom in
-                    if (clusterPreview.jobs.length > 0) {
-                      setSelectedJob(clusterPreview.jobs[0]);
-                      setShowDetails(false);
-                    }
+                    // Zoom the map into the cluster area
+                    setZoomTarget({ lat: pos.lat, lng: pos.lng, zoom: 15 });
                   }}
                 >
                   Zoom In
@@ -2518,32 +2522,6 @@ export function JobMap() {
                   Dismiss
                 </button>
               </div>
-            </div>
-          )}
-
-          {/* ── Neighborhood Explorer Pill Bar ── */}
-          {selectedJob && effectiveJobCoords && (
-            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-[1100] flex gap-1.5 bg-background/90 backdrop-blur-md border rounded-full px-3 py-1.5 shadow-lg">
-              {AMENITY_CATEGORIES.map((cat) => {
-                const isActive = activeAmenities.has(cat.key);
-                const isLoading = amenityLoading.has(cat.key);
-                return (
-                  <button
-                    key={cat.key}
-                    onClick={() => toggleAmenityCategory(cat.key)}
-                    title={cat.label}
-                    className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
-                      isActive
-                        ? "text-white shadow-sm"
-                        : "text-muted-foreground hover:bg-muted"
-                    }`}
-                    style={isActive ? { backgroundColor: cat.color } : undefined}
-                  >
-                    <span>{cat.emoji}</span>
-                    {isLoading && <span className="animate-spin text-[10px]">⏳</span>}
-                  </button>
-                );
-              })}
             </div>
           )}
 

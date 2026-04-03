@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserId } from "@/lib/auth-utils";
-import { cached, TTL } from "@/lib/cache";
+import { cached } from "@/lib/cache";
 
 const GOOGLE_KEY = process.env.GOOGLE_MAPS_API_KEY ?? "";
 

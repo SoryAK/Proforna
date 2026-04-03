@@ -188,8 +188,25 @@ async function tryGoogleDirections(
       if (leg.duration_in_traffic) {
         opt.durationInTrafficMin = Math.round(leg.duration_in_traffic.value / 60);
       }
-      if (wantGeometry && r.overview_polyline?.points) {
-        opt.geometry = simplifyGeometry(decodePolyline(r.overview_polyline.points, 5));
+      if (wantGeometry) {
+        // Prefer step-level polylines (road-accurate) over overview_polyline (simplified)
+        if (leg.steps?.length) {
+          const stepCoords: [number, number][] = [];
+          for (const step of leg.steps) {
+            if (step.polyline?.points) {
+              const decoded = decodePolyline(step.polyline.points, 5);
+              // Skip first point of subsequent steps to avoid duplicates at junctions
+              stepCoords.push(...(stepCoords.length > 0 ? decoded.slice(1) : decoded));
+            }
+          }
+          if (stepCoords.length > 1) {
+            opt.geometry = simplifyGeometry(stepCoords, 500);
+          }
+        }
+        // Fallback to overview polyline if step decoding failed
+        if (!opt.geometry && r.overview_polyline?.points) {
+          opt.geometry = simplifyGeometry(decodePolyline(r.overview_polyline.points, 5), 500);
+        }
       }
 
       // Parse transit step details (walking + transit legs)

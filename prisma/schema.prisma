@@ -905,6 +905,7 @@ model CompanyProfile {
   oshaData        String?
   secData         String?
   sosData         String?
+  kgData          String?
   researchNotes   String?
   lastFetchedAt   DateTime?
   createdAt       DateTime  @default(now())

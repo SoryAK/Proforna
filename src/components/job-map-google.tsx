@@ -107,6 +107,11 @@ interface Props {
   onClusterPreview?: (jobs: MapJob[], position: { lat: number; lng: number }) => void;
   amenityPins?: AmenityPin[];
   amenityRadius?: { lat: number; lng: number; radiusM: number } | null;
+  zoomTarget?: { lat: number; lng: number; zoom: number } | null;
+  amenityCategories?: readonly { key: string; emoji: string; label: string; color: string }[];
+  activeAmenities?: Set<string>;
+  amenityLoading?: Set<string>;
+  onToggleAmenity?: (catKey: string) => void;
 }
 
 /* ── Helpers ── */
@@ -120,6 +125,10 @@ function salaryColor(min: number | null, max: number | null, mean: number | null
 
 function formatSalary(n: number) {
   return n >= 1000 ? `$${Math.round(n / 1000)}k` : `$${n}`;
+}
+
+function escapeHtml(s: string) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
 const ANCHOR_EMOJI: Record<string, string> = {
@@ -190,6 +199,11 @@ export default function JobMapGoogle({
   onClusterPreview,
   amenityPins = [],
   amenityRadius = null,
+  zoomTarget = null,
+  amenityCategories = [],
+  activeAmenities: activeAmenitiesProp,
+  amenityLoading: amenityLoadingProp,
+  onToggleAmenity,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
@@ -232,6 +246,14 @@ export default function JobMapGoogle({
   onSelectOfficeRef.current = onSelectOffice;
   const onToggleAnchorRef = useRef(onToggleAnchor);
   onToggleAnchorRef.current = onToggleAnchor;
+  const onToggleAmenityRef = useRef(onToggleAmenity);
+  onToggleAmenityRef.current = onToggleAmenity;
+  const amenityCatsRef = useRef(amenityCategories);
+  amenityCatsRef.current = amenityCategories;
+  const activeAmenitiesRef = useRef(activeAmenitiesProp);
+  activeAmenitiesRef.current = activeAmenitiesProp;
+  const amenityLoadingRef = useRef(amenityLoadingProp);
+  amenityLoadingRef.current = amenityLoadingProp;
 
   /* ── Initialize map ── */
   useEffect(() => {
@@ -550,9 +572,79 @@ export default function JobMapGoogle({
       }
 
       const el = document.createElement("div");
-      el.innerHTML = makePinSvg(color, isSelected, isHighlighted, isDimmed);
+      el.style.position = "relative";
       el.style.cursor = "pointer";
-      el.title = `${job.title} — ${job.company}`;
+
+      // Pin SVG
+      const pinWrapper = document.createElement("div");
+      pinWrapper.innerHTML = makePinSvg(color, isSelected, isHighlighted, isDimmed);
+      el.appendChild(pinWrapper);
+
+      // Amenity radial ring — only on selected pin
+      if (isSelected && amenityCatsRef.current.length > 0) {
+        const ring = document.createElement("div");
+        ring.className = "amenity-ring";
+        Object.assign(ring.style, {
+          position: "absolute",
+          top: "50%", left: "50%",
+          width: "0px", height: "0px",
+          opacity: "0",
+          transition: "opacity 0.2s ease",
+          pointerEvents: "none",
+          zIndex: "10",
+        });
+
+        const RING_RADIUS = 38;
+        const cats = amenityCatsRef.current;
+        const angleStep = (2 * Math.PI) / cats.length;
+
+        cats.forEach((cat, i) => {
+          const angle = angleStep * i - Math.PI / 2;
+          const x = Math.cos(angle) * RING_RADIUS;
+          const y = Math.sin(angle) * RING_RADIUS;
+          const btn = document.createElement("button");
+          const isActive = activeAmenitiesRef.current?.has(cat.key) ?? false;
+          const isLoading = amenityLoadingRef.current?.has(cat.key) ?? false;
+          Object.assign(btn.style, {
+            position: "absolute",
+            left: `${x - 15}px`, top: `${y - 15}px`,
+            width: "30px", height: "30px", borderRadius: "50%",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: "15px", cursor: "pointer", pointerEvents: "auto",
+            border: isActive ? "2px solid #fff" : "2px solid rgba(255,255,255,0.6)",
+            background: isActive ? cat.color : "rgba(30,30,30,0.85)",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.5)",
+            transition: "transform 0.15s ease",
+            transform: "scale(0)",
+          });
+          btn.title = cat.label;
+          btn.textContent = isLoading ? "⏳" : cat.emoji;
+          btn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            onToggleAmenityRef.current?.(cat.key);
+          });
+          ring.appendChild(btn);
+        });
+
+        el.appendChild(ring);
+
+        // Hover: show/hide ring
+        el.addEventListener("mouseenter", () => {
+          ring.style.opacity = "1";
+          ring.style.pointerEvents = "auto";
+          const btns = ring.querySelectorAll("button");
+          btns.forEach((b, i) => {
+            setTimeout(() => { (b as HTMLElement).style.transform = "scale(1)"; }, i * 40);
+          });
+        });
+        el.addEventListener("mouseleave", () => {
+          ring.style.opacity = "0";
+          ring.style.pointerEvents = "none";
+          const btns = ring.querySelectorAll("button");
+          btns.forEach((b) => { (b as HTMLElement).style.transform = "scale(0)"; });
+        });
+      }
 
       const marker = new google.maps.marker.AdvancedMarkerElement({
         position: pos,
@@ -562,20 +654,31 @@ export default function JobMapGoogle({
 
       jobLookup.set(marker, job);
 
-      marker.addListener("click", () => {
-        onSelectRef.current(job);
+      // Build InfoWindow content once for this marker
+      const salaryStr = (job.salaryMin || job.salaryMax)
+        ? `<div style="color:#059669;font-weight:500">${job.salaryMin ? formatSalary(job.salaryMin) : ""}${job.salaryMin && job.salaryMax ? " – " : ""}${job.salaryMax ? formatSalary(job.salaryMax) : ""}</div>`
+        : "";
+      const infoContent = `<div style="font-size:11px;max-width:200px;line-height:1.4;padding:2px 0">
+        <div style="font-weight:700;font-size:12px;color:#111">${escapeHtml(job.title)}</div>
+        <div style="color:#6b7280;margin-top:1px">${escapeHtml(job.company)}</div>
+        ${salaryStr}
+      </div>`;
+
+      // Hover → show InfoWindow on any pin
+      el.addEventListener("mouseenter", () => {
         const info = infoRef.current;
         if (info && mapRef.current) {
-          const salaryStr = (job.salaryMin || job.salaryMax)
-            ? `<div style="color:#059669;font-weight:500">${job.salaryMin ? formatSalary(job.salaryMin) : ""}${job.salaryMin && job.salaryMax ? " – " : ""}${job.salaryMax ? formatSalary(job.salaryMax) : ""}</div>`
-            : "";
-          info.setContent(`<div style="font-size:11px;max-width:180px;line-height:1.3">
-            <div style="font-weight:600">${job.title}</div>
-            <div style="color:#6b7280">${job.company}</div>
-            ${salaryStr}
-          </div>`);
+          info.setContent(infoContent);
           info.open({ map: mapRef.current, anchor: marker });
         }
+      });
+      el.addEventListener("mouseleave", () => {
+        infoRef.current?.close();
+      });
+
+      // Click → select job (InfoWindow already visible via hover)
+      marker.addListener("click", () => {
+        onSelectRef.current(job);
       });
 
       markers.push(marker);
@@ -617,7 +720,7 @@ export default function JobMapGoogle({
       },
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [jobsKey, selectedId, meanSalary, resolvedCoords, highlightedKey, dimmedKey, ready]);
+  }, [jobsKey, selectedId, meanSalary, resolvedCoords, highlightedKey, dimmedKey, ready, activeAmenitiesProp, amenityLoadingProp]);
 
   /* ── Anchor markers ── */
   useEffect(() => {
@@ -701,7 +804,15 @@ export default function JobMapGoogle({
       strokeOpacity: 0.6,
       map: mapRef.current,
     });
+    return () => { amenityCircleRef.current?.setMap(null); amenityCircleRef.current = null; };
   }, [amenityRadius, ready]);
+
+  /* ── Zoom target (commanded from parent) ── */
+  useEffect(() => {
+    if (!mapRef.current || !zoomTarget) return;
+    mapRef.current.panTo({ lat: zoomTarget.lat, lng: zoomTarget.lng });
+    mapRef.current.setZoom(zoomTarget.zoom);
+  }, [zoomTarget, ready]);
 
   /* ── Amenity pin markers ── */
   useEffect(() => {
@@ -711,7 +822,11 @@ export default function JobMapGoogle({
 
     amenityPins.forEach((pin) => {
       const el = document.createElement("div");
-      el.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:${pin.color};border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,0.3);font-size:11px;line-height:1;cursor:default;" title="${pin.name}${pin.rating ? ` ★${pin.rating}` : ''}">${pin.emoji}</div>`;
+      const wrapper = document.createElement("div");
+      Object.assign(wrapper.style, { display: "flex", alignItems: "center", justifyContent: "center", width: "20px", height: "20px", borderRadius: "50%", background: pin.color, border: "2px solid #fff", boxShadow: "0 1px 3px rgba(0,0,0,0.3)", fontSize: "11px", lineHeight: "1", cursor: "default" });
+      wrapper.title = `${pin.name}${pin.rating ? ` ★${pin.rating}` : ""}`;
+      wrapper.textContent = pin.emoji;
+      el.appendChild(wrapper);
 
       const marker = new google.maps.marker.AdvancedMarkerElement({
         position: { lat: pin.lat, lng: pin.lng },
@@ -721,6 +836,7 @@ export default function JobMapGoogle({
       });
       amenityMarkersRef.current.push(marker);
     });
+    return () => { amenityMarkersRef.current.forEach((m) => (m.map = null)); amenityMarkersRef.current = []; };
   }, [amenityPins, ready]);
 
   /* ── Reset panned on new search ── */

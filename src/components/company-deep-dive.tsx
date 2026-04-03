@@ -219,6 +219,7 @@ interface FederalData {
   oshaData: { summary: { inspectionCount: number; totalViolations: number; totalPenalties: number; latestInspection: string | null }; inspections: Array<{ establishmentName: string | null; openDate: string | null; violations: number | null; totalPenalty: number | null; city: string | null; state: string | null }> } | null;
   form5500Data: { summary: { planCount: number; estimatedEmployees: number | null }; filings: Array<{ planName: string | null; planYear: string | null; participantCount: number | null; totalAssets: number | null }> } | null;
   sosData: { legalName: string | null; status: string | null; companyType: string | null; incorporationDate: string | null; officers: Array<{ name: string; position: string }> } | null;
+  kgData: { name: string; description: string | null; detailedDescription: string | null; wikipediaUrl: string | null; imageUrl: string | null; officialUrl: string | null; entityTypes: string[] } | null;
   _sources: Record<string, string>;
 }
 
@@ -482,6 +483,54 @@ export function CompanyDeepDive({ companyName, jobs, placesData, marketMeanSalar
               </Badge>
             ))}
           </div>
+
+          {/* Knowledge Graph — company description */}
+          {federal?.kgData && (federal.kgData.detailedDescription || federal.kgData.description) && (
+            <Card>
+              <CardContent className="pt-4 pb-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <Globe className="h-4 w-4 text-primary" />
+                  <span className="text-sm font-medium">About {federal.kgData.name || companyName}</span>
+                </div>
+                {federal.kgData.entityTypes.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {federal.kgData.entityTypes.map((t) => (
+                      <Badge key={t} variant="secondary" className="text-xs">
+                        {t.replace(/([A-Z])/g, " $1").trim()}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+                {federal.kgData.description && (
+                  <p className="text-xs text-muted-foreground mb-1 italic">{federal.kgData.description}</p>
+                )}
+                {federal.kgData.detailedDescription && (
+                  <p className="text-sm leading-relaxed">{federal.kgData.detailedDescription}</p>
+                )}
+                <div className="flex flex-wrap items-center gap-3 mt-2 text-xs">
+                  {federal.kgData.officialUrl && (
+                    <a href={federal.kgData.officialUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-primary hover:underline">
+                      <Globe className="h-3 w-3" /> Official Site
+                    </a>
+                  )}
+                  {federal.kgData.wikipediaUrl && (
+                    <a href={federal.kgData.wikipediaUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-primary hover:underline">
+                      <ExternalLink className="h-3 w-3" /> Wikipedia
+                    </a>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+          {federalLoading && !(federal as FederalData | undefined)?.kgData && (
+            <Card>
+              <CardContent className="pt-4 pb-3 space-y-2">
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-3 w-full" />
+                <Skeleton className="h-3 w-3/4" />
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         {/* ── Salary Intelligence ── */}
