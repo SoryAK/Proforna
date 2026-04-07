@@ -57,6 +57,9 @@ model User {
   recruiterFlags      RecruiterFlag[]
   addressOverrides    AddressOverride[]
   companyWatchlist    CompanyWatchlist[]
+  decompositionTrees DecompositionTree[]
+  titleSynonymClusters TitleSynonymCluster[]
+  savedSearches       SavedSearch[]
 }
 
 model Account {
@@ -624,6 +627,7 @@ model CareerPath {
   user       User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
   milestones CareerPathMilestone[]
   scores     DirectionScore[]
+  decompositionTrees DecompositionTree[]
 }
 
 model CareerPathMilestone {
@@ -1163,5 +1167,103 @@ model AddressOverride {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, jobKey])
+  @@index([userId])
+}
+
+// ─── Career Directional Model (CDM) ───────────────────────────
+
+/// A skill domain node in the decomposition tree (e.g. "Electrical Engineering").
+model SkillDomain {
+  id        String   @id @default(cuid())
+  name      String
+  parentId  String?  // self-referential hierarchy handled at app level
+  socCodes  String?       // JSON array of SOC codes in this domain
+  keySkills String?       // JSON array of core skill names
+  createdAt DateTime @default(now())
+
+  combinations DomainCombinationDomain[]
+}
+
+/// Join table linking a DomainCombination to its constituent SkillDomains.
+model DomainCombinationDomain {
+  id            String @id @default(cuid())
+  combinationId String
+  domainId      String
+
+  combination DomainCombination @relation(fields: [combinationId], references: [id], onDelete: Cascade)
+  domain      SkillDomain       @relation(fields: [domainId], references: [id], onDelete: Cascade)
+
+  @@unique([combinationId, domainId])
+}
+
+/// A specific combination of skill domains and the roles it unlocks.
+model DomainCombination {
+  id        String   @id @default(cuid())
+  roles     String   // JSON array of role title strings
+  socCodes  String?  // JSON array of SOC codes for those roles
+  salaryMin Int?
+  salaryMax Int?
+  level     String   @default("mid") // entry | mid | senior | lead | executive
+  treeId    String
+  tree      DecompositionTree @relation(fields: [treeId], references: [id], onDelete: Cascade)
+  domains   DomainCombinationDomain[]
+  createdAt DateTime @default(now())
+}
+
+/// Root of a skill decomposition tree for a given target role.
+model DecompositionTree {
+  id            String   @id @default(cuid())
+  targetRole    String
+  targetSocCode String?
+  userId        String
+  pathId        String?
+  combinations  DomainCombination[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  path CareerPath? @relation(fields: [pathId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([targetRole])
+}
+
+/// Cluster of synonymous job titles for a canonical role.
+model TitleSynonymCluster {
+  id             String   @id @default(cuid())
+  canonicalTitle String
+  synonyms       String   // JSON array of { title, frequency, companies, regionBias }
+  socCodes       String?  // JSON array
+  skillOverlap   Int      @default(0) // 0-100 percentage
+  userId         String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([canonicalTitle])
+  @@index([userId])
+}
+
+model SavedSearch {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  query       String   @default("")
+  location    String
+  radius      String   @default("25")
+  source      String   @default("both")
+  lat         Float?
+  lng         Float?
+  filters     String?  // JSON: { minSalary, datePosted, remoteFilter, employmentType, hoursFilter, categoryFilter }
+  lastRunAt   DateTime?
+  lastCount   Int      @default(0)
+  newCount    Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId])
 }

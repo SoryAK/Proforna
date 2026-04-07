@@ -136,6 +136,48 @@ interface PathSuggestion {
   items: SkillSuggestionItem[];
 }
 
+/* ── CDM Decomposition Types ── */
+
+interface CDMDomain {
+  id: string;
+  name: string;
+  keySkills: string[];
+  socCodes: string[];
+}
+
+interface CDMCombination {
+  id: string;
+  roles: string[];
+  socCodes: string[];
+  salaryMin: number | null;
+  salaryMax: number | null;
+  level: string;
+  domains: CDMDomain[];
+}
+
+interface CDMTree {
+  id: string;
+  targetRole: string;
+  targetSocCode: string | null;
+  pathId: string | null;
+  combinations: CDMCombination[];
+  createdAt: string;
+}
+
+interface CDMSynonym {
+  title: string;
+  frequency: string;
+  regionBias: string | null;
+}
+
+interface CDMSynonymCluster {
+  id: string;
+  canonicalTitle: string;
+  synonyms: CDMSynonym[];
+  socCodes: string[];
+  skillOverlap: number;
+}
+
 /* ── Constants ── */
 
 const LEVELS = [
@@ -296,6 +338,8 @@ export default function CareerDirectionModel() {
   const [editingPathId, setEditingPathId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyPathForm);
   const [expandedPath, setExpandedPath] = useState<string | null>(null);
+  const [decomposingPathId, setDecomposingPathId] = useState<string | null>(null);
+  const [synonymLoadingTitle, setSynonymLoadingTitle] = useState<string | null>(null);
 
   // ── Data fetching ──
   const { data: paths = [], isLoading: pathsLoading } = useQuery<CareerPath[]>({
@@ -313,6 +357,70 @@ export default function CareerDirectionModel() {
     queryFn: () => fetch("/api/skill-gap-suggestions").then((r) => r.json()),
     enabled: snapshots.length > 0,
   });
+
+  // CDM: Decomposition trees & synonym clusters
+  const { data: cdmTrees = [] } = useQuery<CDMTree[]>({
+    queryKey: ["cdm-trees"],
+    queryFn: () => fetch("/api/cdm/decompose").then((r) => r.json()),
+  });
+
+  const { data: synonymClusters = [] } = useQuery<CDMSynonymCluster[]>({
+    queryKey: ["cdm-synonyms"],
+    queryFn: () => fetch("/api/cdm/synonyms").then((r) => r.json()),
+  });
+
+  const decomposeMutation = useMutation({
+    mutationFn: async ({ targetRole, pathId }: { targetRole: string; pathId: string }) => {
+      const res = await fetch("/api/cdm/decompose", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetRole, pathId }),
+      });
+      if (!res.ok) throw new Error("Decomposition failed");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["cdm-trees"] });
+      setDecomposingPathId(null);
+      toast.success("Skill tree generated!");
+    },
+    onError: () => {
+      setDecomposingPathId(null);
+      toast.error("Failed to decompose role — try again");
+    },
+  });
+
+  const synonymMutation = useMutation({
+    mutationFn: async (title: string) => {
+      const res = await fetch("/api/cdm/synonyms", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title }),
+      });
+      if (!res.ok) throw new Error("Synonym generation failed");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["cdm-synonyms"] });
+      setSynonymLoadingTitle(null);
+      toast.success("Title synonyms found!");
+    },
+    onError: () => {
+      setSynonymLoadingTitle(null);
+      toast.error("Failed to find synonyms — try again");
+    },
+  });
+
+  function handleDecompose(path: CareerPath) {
+    if (!path.targetRole) return;
+    setDecomposingPathId(path.id);
+    decomposeMutation.mutate({ targetRole: path.targetRole, pathId: path.id });
+  }
+
+  function handleSynonyms(title: string) {
+    setSynonymLoadingTitle(title);
+    synonymMutation.mutate(title);
+  }
 
   const latestSnapshot = snapshots[0] ?? null;
 
@@ -778,6 +886,151 @@ export default function CareerDirectionModel() {
                           </div>
                         </div>
                       )}
+
+                      {/* CDM: Title Synonyms */}
+                      {(() => {
+                        const cluster = path.targetRole
+                          ? synonymClusters.find(
+                              (c) => c.canonicalTitle.toLowerCase() === path.targetRole!.toLowerCase()
+                            )
+                          : null;
+                        if (cluster) {
+                          return (
+                            <div>
+                              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1">
+                                <TrendingUp className="h-3 w-3" /> Also Known As
+                                <Badge variant="outline" className="text-[10px] ml-auto">
+                                  {cluster.skillOverlap}% skill overlap
+                                </Badge>
+                              </h4>
+                              <div className="flex flex-wrap gap-1.5">
+                                {cluster.synonyms.map((s) => (
+                                  <Badge
+                                    key={s.title}
+                                    variant="secondary"
+                                    className="text-xs"
+                                  >
+                                    {s.title}
+                                    {s.frequency !== "common" && (
+                                      <span className="ml-1 opacity-50 capitalize">({s.frequency})</span>
+                                    )}
+                                    {s.regionBias && (
+                                      <span className="ml-1 opacity-50">· {s.regionBias}</span>
+                                    )}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        }
+                        if (path.targetRole) {
+                          return (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleSynonyms(path.targetRole!)}
+                              disabled={synonymLoadingTitle === path.targetRole}
+                            >
+                              {synonymLoadingTitle === path.targetRole ? (
+                                <><Lightbulb className="mr-2 h-3 w-3 animate-pulse" /> Finding synonyms...</>
+                              ) : (
+                                <><Lightbulb className="mr-2 h-3 w-3" /> Find Title Synonyms</>
+                              )}
+                            </Button>
+                          );
+                        }
+                        return null;
+                      })()}
+
+                      {/* CDM: Skill Decomposition Tree */}
+                      {(() => {
+                        const tree = cdmTrees.find((t) => t.pathId === path.id);
+                        if (tree) {
+                          // Group combinations by number of domains for a tiered view
+                          const byTier = new Map<number, CDMCombination[]>();
+                          for (const combo of tree.combinations) {
+                            const tier = combo.domains.length;
+                            if (!byTier.has(tier)) byTier.set(tier, []);
+                            byTier.get(tier)!.push(combo);
+                          }
+                          const tiers = [...byTier.entries()].sort((a, b) => a[0] - b[0]);
+                          // Collect all unique domain names
+                          const allDomains = [...new Set(tree.combinations.flatMap((c) => c.domains.map((d) => d.name)))];
+
+                          return (
+                            <div>
+                              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1">
+                                <Target className="h-3 w-3" /> Skill Decomposition Tree
+                              </h4>
+                              <div className="flex flex-wrap gap-1.5 mb-3">
+                                {allDomains.map((d) => (
+                                  <Badge key={d} className="bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300 text-xs">
+                                    {d}
+                                  </Badge>
+                                ))}
+                              </div>
+                              <div className="space-y-3">
+                                {tiers.map(([tier, combos]) => (
+                                  <div key={tier}>
+                                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
+                                      {tier === 1 ? "Single Domain" : tier === allDomains.length ? "Full Convergence" : `${tier}-Domain Combination`}
+                                    </p>
+                                    <div className="space-y-1.5">
+                                      {combos.map((combo) => (
+                                        <div
+                                          key={combo.id}
+                                          className="rounded-lg border p-2 text-sm"
+                                        >
+                                          <div className="flex items-center gap-1.5 flex-wrap mb-1">
+                                            {combo.domains.map((d) => (
+                                              <Badge key={d.id} variant="outline" className="text-[10px]">
+                                                {d.name}
+                                              </Badge>
+                                            ))}
+                                            <Badge variant="outline" className="text-[10px] capitalize ml-auto">
+                                              {combo.level}
+                                            </Badge>
+                                          </div>
+                                          <div className="flex flex-wrap gap-1">
+                                            {combo.roles.map((r) => (
+                                              <span key={r} className="text-xs font-medium">
+                                                {r}
+                                              </span>
+                                            ))}
+                                          </div>
+                                          {(combo.salaryMin || combo.salaryMax) && (
+                                            <p className="text-[10px] text-muted-foreground mt-0.5">
+                                              ${(combo.salaryMin ?? 0).toLocaleString()}
+                                              {combo.salaryMax ? ` – $${combo.salaryMax.toLocaleString()}` : "+"}
+                                            </p>
+                                          )}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        }
+                        if (path.targetRole) {
+                          return (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleDecompose(path)}
+                              disabled={decomposingPathId === path.id}
+                            >
+                              {decomposingPathId === path.id ? (
+                                <><Target className="mr-2 h-3 w-3 animate-spin" /> Decomposing...</>
+                              ) : (
+                                <><Target className="mr-2 h-3 w-3" /> Decompose Role</>
+                              )}
+                            </Button>
+                          );
+                        }
+                        return null;
+                      })()}
 
                       {/* BLS Wage Comparison */}
                       {path.targetRole && (

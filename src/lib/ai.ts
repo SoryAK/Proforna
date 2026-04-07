@@ -188,3 +188,72 @@ export function geminiChat(
     },
   });
 }
+
+/* ── Non-streaming JSON generation ── */
+
+/**
+ * Generate a structured JSON response from the AI (non-streaming).
+ * Tries Ollama first, falls back to Gemini.
+ * The system prompt should instruct the model to respond ONLY with valid JSON.
+ */
+export async function aiGenerateJSON<T = unknown>(
+  messages: ChatMessage[]
+): Promise<T> {
+  const cfg = getAIConfig();
+
+  // Try Ollama first
+  if (await ollamaIsAvailable(cfg.ollamaUrl)) {
+    const res = await fetch(`${cfg.ollamaUrl}/api/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: cfg.ollamaModel,
+        messages,
+        stream: false,
+        format: "json",
+      }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const text = data.message?.content ?? "";
+      return JSON.parse(text) as T;
+    }
+  }
+
+  // Fall back to Gemini
+  if (cfg.geminiApiKey) {
+    const systemMsg = messages.find((m) => m.role === "system");
+    const chatMessages = messages.filter((m) => m.role !== "system");
+    const contents = chatMessages.map((m) => ({
+      role: m.role === "assistant" ? "model" : "user",
+      parts: [{ text: m.content }],
+    }));
+
+    const body: Record<string, unknown> = {
+      contents,
+      generationConfig: {
+        responseMimeType: "application/json",
+      },
+    };
+    if (systemMsg) {
+      body.systemInstruction = { parts: [{ text: systemMsg.content }] };
+    }
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${cfg.geminiModel}:generateContent?key=${cfg.geminiApiKey}`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text().catch(() => "Gemini request failed");
+      throw new Error(`Gemini error: ${errText}`);
+    }
+    const data = await res.json();
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "{}";
+    return JSON.parse(text) as T;
+  }
+
+  throw new Error("No AI provider available. Start Ollama or set GEMINI_API_KEY.");
+}

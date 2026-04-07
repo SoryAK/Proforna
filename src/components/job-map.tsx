@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef, Fragment } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { PlacesAutocomplete } from "@/components/places-autocomplete";
 import {
@@ -60,6 +60,8 @@ import {
   ShieldAlert,
   CheckSquare,
   Square,
+  Bookmark,
+  Home,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -73,6 +75,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { estimateTaxes, formatSalaryCompact, resolveState, type TaxBreakdown } from "@/lib/taxes";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -209,6 +212,19 @@ function isLikelyRecruiter(companyName: string): boolean {
   const lower = companyName.toLowerCase().trim();
   if (KNOWN_RECRUITERS.has(lower)) return true;
   return RECRUITER_KEYWORDS.some((kw) => lower.includes(kw));
+}
+
+/** Ray-casting point-in-polygon for [lng, lat] ring (ORS GeoJSON format) */
+function pointInRing(x: number, y: number, ring: [number, number][]): boolean {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const xi = ring[i][0], yi = ring[i][1];
+    const xj = ring[j][0], yj = ring[j][1];
+    if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) {
+      inside = !inside;
+    }
+  }
+  return inside;
 }
 
 /** Check if landmark name differs significantly from poster (mismatch = possible recruiter) */
@@ -370,6 +386,7 @@ interface JobSearchPrefs {
   radius?: string;
   sortBy?: string;
   showHeatmap?: boolean;
+  heatmapMode?: string;
   showTraffic?: boolean;
   showTransit?: boolean;
   commuteMode?: string;
@@ -399,6 +416,7 @@ export function JobMap() {
   const [searched, setSearched] = useState(false);
   const [searchParams, setSearchParams] = useState<{ q: string; where: string; apiWhere: string; distance: string } | null>(null);
   const [trackedIds, setTrackedIds] = useState<Set<string>>(new Set());
+  const trackedAppsRef = useRef<{ company: string; role: string; url: string | null }[]>([]);
   const [sortBy, setSortBy] = useState(() => savedPrefs.sortBy || "salary-desc");
   const [minSalary, setMinSalary] = useState("");
   const [page, setPage] = useState(1);
@@ -420,9 +438,47 @@ export function JobMap() {
   const [expandedDescs, setExpandedDescs] = useState<Set<string>>(new Set());
   /* Map overlays */
   const [showHeatmap, setShowHeatmap] = useState(() => savedPrefs.showHeatmap ?? false);
+
   const [showTraffic, setShowTraffic] = useState(() => savedPrefs.showTraffic ?? false);
   const [showTransit, setShowTransit] = useState(() => savedPrefs.showTransit ?? false);
   const [tileStyle, setTileStyle] = useState<"osm" | "google-roadmap" | "google-satellite" | "google-hybrid">(() => (savedPrefs.tileStyle as "osm" | "google-roadmap" | "google-satellite" | "google-hybrid") || "osm");
+
+  /* Area tax info — tracks map center + zoom */
+  const [mapViewCenter, setMapViewCenter] = useState<[number, number] | null>(null);
+  const [mapZoom, setMapZoom] = useState(10);
+  const [areaInfo, setAreaInfo] = useState<{ state: string | null; city: string | null; label: string } | null>(null);
+  const areaGeoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleViewChange = useCallback((center: [number, number], zoom: number) => {
+    setMapViewCenter(center);
+    setMapZoom(zoom);
+    // Debounced reverse geocode to get state/city for the area
+    if (areaGeoTimer.current) clearTimeout(areaGeoTimer.current);
+    areaGeoTimer.current = setTimeout(async () => {
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${center[0]}&lon=${center[1]}&zoom=${Math.min(zoom, 18)}&addressdetails=1`
+        );
+        const data = await res.json();
+        const addr = data.address ?? {};
+        const city = addr.city || addr.town || addr.village || null;
+        const county = addr.county || null;
+        const stateStr: string | null = addr.state || null;
+        // Build label
+        const parts: string[] = [];
+        if (zoom >= 12 && city) parts.push(city);
+        else if (county) parts.push(county);
+        if (stateStr) parts.push(stateStr);
+        setAreaInfo({
+          state: stateStr,
+          city: zoom >= 12 ? city : null,
+          label: parts.join(", ") || "Unknown Area",
+        });
+      } catch {
+        setAreaInfo(null);
+      }
+    }, 600);
+  }, []);
 
   // Persist preferences on change
   useEffect(() => { saveJobPref("tileStyle", tileStyle); }, [tileStyle]);
@@ -431,9 +487,26 @@ export function JobMap() {
   useEffect(() => { saveJobPref("radius", radius); }, [radius]);
   useEffect(() => { saveJobPref("sortBy", sortBy); }, [sortBy]);
   useEffect(() => { saveJobPref("showHeatmap", showHeatmap); }, [showHeatmap]);
+
   useEffect(() => { saveJobPref("showTraffic", showTraffic); }, [showTraffic]);
   useEffect(() => { saveJobPref("showTransit", showTransit); }, [showTransit]);
   useEffect(() => { saveJobPref("commuteMode", commuteMode); }, [commuteMode]);
+
+  // Hydrate trackedIds from existing applications
+  useEffect(() => {
+    fetch("/api/applications")
+      .then((r) => r.ok ? r.json() : [])
+      .then((apps: { company: string; role: string; url?: string | null }[]) => {
+        if (Array.isArray(apps) && apps.length > 0) {
+          trackedAppsRef.current = apps.map((a) => ({
+            company: a.company?.toLowerCase().trim() ?? "",
+            role: a.role?.toLowerCase().trim() ?? "",
+            url: a.url ?? null,
+          }));
+        }
+      })
+      .catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* Filters */
   const [showFilters, setShowFilters] = useState(false);
@@ -488,6 +561,7 @@ export function JobMap() {
   /* ── Cluster Preview ── */
   type ClusterPreviewData = { jobs: MapJob[]; position: { lat: number; lng: number } };
   const [clusterPreview, setClusterPreview] = useState<ClusterPreviewData | null>(null);
+  const clusterHoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [zoomTarget, setZoomTarget] = useState<{ lat: number; lng: number; zoom: number } | null>(null);
 
   /* ── Neighborhood Explorer ── */
@@ -560,6 +634,100 @@ export function JobMap() {
     });
   }, [lifeAnchors]);
 
+  /* ── Home anchor location info ── */
+  const homeAnchor = useMemo(
+    () => lifeAnchors.find((a) => a.icon === "home" || a.label.toLowerCase() === "home") ?? null,
+    [lifeAnchors],
+  );
+  const [homeLocation, setHomeLocation] = useState<{ label: string; stateCode: string | null } | null>(null);
+
+  // Reverse-geocode the home anchor once to get its state
+  useEffect(() => {
+    if (!homeAnchor) { setHomeLocation(null); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${homeAnchor.lat}&lon=${homeAnchor.lng}&zoom=12&addressdetails=1`
+        );
+        const data = await res.json();
+        if (cancelled) return;
+        const addr = data.address ?? {};
+        const city = addr.city || addr.town || addr.village || null;
+        const stateStr: string | null = addr.state || null;
+        const sc = stateStr ? resolveState(stateStr) : null;
+        const locStr = [city, stateStr].filter(Boolean).join(", ");
+        setHomeLocation({ label: locStr || homeAnchor.address, stateCode: sc });
+      } catch { /* ignore */ }
+    })();
+    return () => { cancelled = true; };
+  }, [homeAnchor?.id, homeAnchor?.lat, homeAnchor?.lng]);
+
+  /* ── Gas prices (EIA) ── */
+  const [gasPrice, setGasPrice] = useState<{ state: string; price: number; date: string; region?: string } | null>(null);
+  const [homeGasPrice, setHomeGasPrice] = useState<{ state: string; price: number; date: string; region?: string } | null>(null);
+  const gasFetchedState = useRef<string | null>(null);
+  const homeGasFetchedState = useRef<string | null>(null);
+
+  // Fetch gas price for the current area
+  useEffect(() => {
+    const sc = areaInfo?.state ? resolveState(areaInfo.state) : null;
+    if (!sc || sc === gasFetchedState.current) return;
+    gasFetchedState.current = sc;
+    fetch(`/api/gas-prices?state=${sc}`).then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.price) setGasPrice(d); })
+      .catch(() => {});
+  }, [areaInfo?.state]);
+
+  // Fetch gas price for home state
+  useEffect(() => {
+    const sc = homeLocation?.stateCode;
+    if (!sc || sc === homeGasFetchedState.current) return;
+    homeGasFetchedState.current = sc;
+    fetch(`/api/gas-prices?state=${sc}`).then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.price) setHomeGasPrice(d); })
+      .catch(() => {});
+  }, [homeLocation?.stateCode]);
+
+  /* ── Commute Isochrone ── */
+  const [isochroneEnabled, setIsochroneEnabled] = useState(false);
+  const [isochroneMode, setIsochroneMode] = useState<"driving-car" | "cycling-regular" | "foot-walking">("driving-car");
+  const [isochroneRings, setIsochroneRings] = useState<{ minutes: number; coordinates: [number, number][][] }[] | null>(null);
+  const [isochroneLoading, setIsochroneLoading] = useState(false);
+  const isochroneFetchKey = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!isochroneEnabled || !homeAnchor) {
+      setIsochroneRings(null);
+      isochroneFetchKey.current = null;
+      return;
+    }
+    const key = `${homeAnchor.lat.toFixed(4)},${homeAnchor.lng.toFixed(4)},${radius},${isochroneMode}`;
+    if (key === isochroneFetchKey.current) return;
+    isochroneFetchKey.current = key;
+    setIsochroneLoading(true);
+    fetch(`/api/isochrone?lat=${homeAnchor.lat}&lng=${homeAnchor.lng}&miles=${radius}&mode=${isochroneMode}&v=2`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.rings?.length) {
+          setIsochroneRings(
+            data.rings.map((r: { minutes?: number; miles?: number; geometry: { coordinates: [number, number][][] } }) => ({
+              minutes: r.minutes ?? r.miles ?? 0,
+              coordinates: r.geometry.coordinates,
+            }))
+          );
+        } else {
+          setIsochroneRings(null);
+        }
+      })
+      .catch(() => setIsochroneRings(null))
+      .finally(() => setIsochroneLoading(false));
+  }, [isochroneEnabled, homeAnchor, radius, isochroneMode]);
+
+  /* ── Commute Matrix: per-job travel times ── */
+  const [commuteTimesMap, setCommuteTimesMap] = useState<Map<string, number> | null>(null);
+  const matrixFetchKey = useRef<string | null>(null);
+
   // Email leads
   const [showEmailImport, setShowEmailImport] = useState(false);
   const [emailBody, setEmailBody] = useState("");
@@ -567,6 +735,7 @@ export function JobMap() {
   const [showForwardSetup, setShowForwardSetup] = useState(false);
   const [ingestToken, setIngestToken] = useState<string | null>(null);
   const [showScript, setShowScript] = useState(false);
+  const [gmailSyncing, setGmailSyncing] = useState(false);
   const [selectedLeads, setSelectedLeads] = useState<Set<string>>(new Set());
 
   interface EmailLeadRow {
@@ -580,7 +749,92 @@ export function JobMap() {
     staleTime: 60_000,
   });
   const emailLeads = emailLeadsData?.leads ?? [];
-  const hasEmailLeads = emailLeads.some((l) => l.lat && l.lng);
+  const hasEmailLeads = emailLeads.some((l) => l.lat && l.lng && l.location?.trim());
+
+  // Saved searches
+  interface SavedSearchRow {
+    id: string; name: string; query: string; location: string; radius: string;
+    source: string; lat: number | null; lng: number | null; filters: string | null;
+    lastRunAt: string | null; lastCount: number; newCount: number; isActive: boolean;
+  }
+  const qc = useQueryClient();
+  const { data: savedSearches = [] } = useQuery<SavedSearchRow[]>({
+    queryKey: ["saved-searches"],
+    queryFn: () => fetch("/api/saved-searches").then((r) => r.json()),
+    staleTime: 60_000,
+  });
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [saveSearchName, setSaveSearchName] = useState("");
+  const [savingSearch, setSavingSearch] = useState(false);
+
+  const handleSaveSearch = useCallback(async () => {
+    if (!saveSearchName.trim() || !where.trim()) return;
+    setSavingSearch(true);
+    try {
+      const filters = { minSalary, datePosted, remoteFilter, employmentType, hoursFilter, categoryFilter };
+      const res = await fetch("/api/saved-searches", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: saveSearchName.trim(),
+          query: query.trim(),
+          location: where.trim(),
+          radius,
+          source,
+          lat: searchCenter?.[0] ?? null,
+          lng: searchCenter?.[1] ?? null,
+          filters,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to save");
+      qc.invalidateQueries({ queryKey: ["saved-searches"] });
+      setShowSaveDialog(false);
+      setSaveSearchName("");
+      toast.success("Search saved");
+    } catch {
+      toast.error("Could not save search");
+    } finally {
+      setSavingSearch(false);
+    }
+  }, [saveSearchName, query, where, radius, source, searchCenter, minSalary, datePosted, remoteFilter, employmentType, hoursFilter, categoryFilter, qc]);
+
+  const handleLoadSearch = useCallback((s: SavedSearchRow) => {
+    setQuery(s.query);
+    setWhere(s.location);
+    setRadius(s.radius);
+    setSource(s.source as "adzuna" | "google" | "both");
+    if (s.lat && s.lng) setSearchCenter([s.lat, s.lng]);
+    if (s.filters) {
+      try {
+        const f = JSON.parse(s.filters);
+        if (f.minSalary) setMinSalary(f.minSalary);
+        if (f.datePosted) setDatePosted(f.datePosted);
+        if (f.remoteFilter) setRemoteFilter(f.remoteFilter);
+        if (f.employmentType) setEmploymentType(f.employmentType);
+        if (f.hoursFilter) setHoursFilter(f.hoursFilter);
+        if (f.categoryFilter) setCategoryFilter(f.categoryFilter);
+      } catch { /* ignore parse errors */ }
+    }
+    // Trigger the search
+    const apiWhere = s.location;
+    setSearchParams({ q: s.query, where: s.location, apiWhere, distance: s.radius });
+    setSearched(true);
+    setSelectedJob(null);
+    setShowDetails(false);
+    setPage(1);
+    // Update lastRunAt
+    fetch(`/api/saved-searches/${s.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lastRunAt: new Date().toISOString(), newCount: 0 }),
+    }).catch(() => {});
+  }, []);
+
+  const handleDeleteSearch = useCallback(async (id: string) => {
+    await fetch(`/api/saved-searches/${id}`, { method: "DELETE" });
+    qc.invalidateQueries({ queryKey: ["saved-searches"] });
+    toast.success("Search deleted");
+  }, [qc]);
 
   // Fetch user profile for default location
   const { data: profile } = useQuery<{ city?: string; state?: string }>({
@@ -651,24 +905,41 @@ export function JobMap() {
     enabled: !!searchParams && source !== "google",
   });
 
-  // Google Jobs query — SerpAPI + batch geocode
+  // Google Jobs query — SerpAPI + batch geocode (up to 5 pages)
   const { data: googleData, isFetching: googleFetching } = useQuery<{ jobs: MapJob[]; total: number }>({
     queryKey: ["google-map", searchParams],
     queryFn: async () => {
       if (!searchParams) return { jobs: [], total: 0 };
-      const params = new URLSearchParams({
-        q: searchParams.q,
-        location: searchParams.apiWhere,
-      });
-      const res = await fetch(`/api/job-search?${params}`);
-      if (!res.ok) return { jobs: [], total: 0 }; // SerpAPI error — degrade gracefully
-      const data = await res.json();
+      const baseParams = { q: searchParams.q, location: searchParams.apiWhere };
+
+      // Fetch first page
+      const firstRes = await fetch(`/api/job-search?${new URLSearchParams(baseParams)}`);
+      if (!firstRes.ok) return { jobs: [], total: 0 };
+      const firstData = await firstRes.json();
+      let allRawJobs = [...(firstData.jobs ?? [])];
+
+      // Fetch additional pages (up to 5 total) using next_page_token
+      let nextToken: string | null = firstData.nextPageToken ?? null;
+      for (let pg = 2; pg <= 5 && nextToken; pg++) {
+        try {
+          const pgRes = await fetch(
+            `/api/job-search?${new URLSearchParams({ ...baseParams, next_page_token: nextToken })}`
+          );
+          if (!pgRes.ok) break;
+          const pgData = await pgRes.json();
+          allRawJobs = [...allRawJobs, ...(pgData.jobs ?? [])];
+          nextToken = pgData.nextPageToken ?? null;
+        } catch {
+          break;
+        }
+      }
+
       const rawJobs: Array<{
         jobId: string; title: string; company: string; location: string;
         description: string; thumbnail?: string | null; via?: string;
         applyLinks: { title: string; link: string }[];
         detectedExtensions: Record<string, unknown>;
-      }> = data.jobs ?? [];
+      }> = allRawJobs;
       if (rawJobs.length === 0) return { jobs: [], total: 0 };
 
       // Batch geocode unique locations
@@ -725,34 +996,69 @@ export function JobMap() {
     enabled: !!searchParams && source !== "adzuna",
   });
 
+  // Hydrate trackedIds when jobs load — match against existing applications
+  useEffect(() => {
+    const apps = trackedAppsRef.current;
+    if (apps.length === 0) return;
+    const allJobs = [
+      ...(adzunaData?.jobs ?? []),
+      ...(googleData?.jobs ?? []),
+    ];
+    if (allJobs.length === 0) return;
+    const matched = new Set<string>();
+    for (const job of allJobs) {
+      const jCompany = job.company?.toLowerCase().trim() ?? "";
+      const jRole = job.title?.toLowerCase().trim() ?? "";
+      const jUrl = job.url ?? "";
+      for (const app of apps) {
+        if (
+          (app.url && jUrl && app.url === jUrl) ||
+          (app.company === jCompany && app.role === jRole)
+        ) {
+          matched.add(job.id);
+          break;
+        }
+      }
+    }
+    if (matched.size > 0) {
+      setTrackedIds((prev) => {
+        const next = new Set(prev);
+        for (const id of matched) next.add(id);
+        return next;
+      });
+    }
+  }, [adzunaData, googleData]);
+
   // Merge results from both sources + email leads
   const isFetching = adzunaFetching || googleFetching;
   const mergedJobs = useMemo(() => {
     const a = (source !== "google" ? adzunaData?.jobs : []) ?? [];
     const g = (source !== "adzuna" ? googleData?.jobs : []) ?? [];
-    // Convert email leads to MapJob format
-    const e: MapJob[] = emailLeads.filter((l) => l.lat && l.lng).map((l) => ({
-      id: `email-${l.id}`,
-      title: l.title,
-      company: l.company,
-      location: l.location,
-      area: [],
-      lat: l.lat,
-      lng: l.lng,
-      url: l.applyUrl ?? "",
-      salaryMin: l.salaryMin,
-      salaryMax: l.salaryMax,
-      salaryPredicted: false,
-      contractTime: null,
-      contractType: null,
-      created: l.expiresAt,
-      category: "",
-      description: l.description ?? "",
-      source: "email" as const,
-    }));
+    // Convert email leads to MapJob format — require location + coordinates
+    const e: MapJob[] = emailLeads
+      .filter((l) => l.lat && l.lng && l.location?.trim())
+      .map((l) => ({
+        id: `email-${l.id}`,
+        title: l.title,
+        company: l.company,
+        location: l.location,
+        area: [],
+        lat: l.lat,
+        lng: l.lng,
+        url: l.applyUrl ?? "",
+        salaryMin: l.salaryMin,
+        salaryMax: l.salaryMax,
+        salaryPredicted: false,
+        contractTime: null,
+        contractType: null,
+        created: l.expiresAt,
+        category: "",
+        description: l.description ?? "",
+        source: "email" as const,
+      }));
     return [...a, ...g, ...e];
   }, [adzunaData, googleData, source, emailLeads]);
-  const totalCount = (source !== "google" ? adzunaData?.total ?? 0 : 0) + (source !== "adzuna" ? googleData?.total ?? 0 : 0) + emailLeads.filter((l) => l.lat && l.lng).length;
+  const totalCount = (source !== "google" ? adzunaData?.total ?? 0 : 0) + (source !== "adzuna" ? googleData?.total ?? 0 : 0) + emailLeads.filter((l) => l.lat && l.lng && l.location?.trim()).length;
   const meanSalary = adzunaData?.mean ?? null;
 
   const geoJobs = useMemo(() => mergedJobs.filter((j) => j.lat && j.lng), [mergedJobs]);
@@ -917,6 +1223,40 @@ export function JobMap() {
     }
     return sorted;
   }, [geoJobs, sortBy, minSalary, datePosted, remoteFilter, employmentType, hoursFilter, categoryFilter, companyFilter, maxCommuteMin, commuteCache, lifeScoreCache]);
+
+  /* ── Commute Matrix: fetch per-job travel times when isochrone enabled ── */
+  useEffect(() => {
+    if (!isochroneEnabled || !homeAnchor || sortedJobs.length === 0) {
+      setCommuteTimesMap(null);
+      matrixFetchKey.current = null;
+      return;
+    }
+    const jobIds = sortedJobs.map((j) => j.id).sort().join(",");
+    const key = `${homeAnchor.lat.toFixed(4)},${homeAnchor.lng.toFixed(4)},${isochroneMode},${jobIds}`;
+    if (key === matrixFetchKey.current) return;
+    matrixFetchKey.current = key;
+
+    const destinations = sortedJobs.map((j) => ({ id: j.id, lat: j.lat, lng: j.lng }));
+    fetch("/api/commute-matrix", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        lat: homeAnchor.lat,
+        lng: homeAnchor.lng,
+        mode: isochroneMode,
+        destinations,
+      }),
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data?.times) {
+          setCommuteTimesMap(new Map(Object.entries(data.times as Record<string, number>)));
+        } else {
+          setCommuteTimesMap(null);
+        }
+      })
+      .catch(() => setCommuteTimesMap(null));
+  }, [isochroneEnabled, homeAnchor, isochroneMode, sortedJobs]);
 
   // Pagination
   const totalPages = Math.max(1, Math.ceil(sortedJobs.length / PAGE_SIZE));
@@ -1093,7 +1433,7 @@ export function JobMap() {
       .catch(() => {});
   }, [sortedJobs]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Compute dimmed marker IDs (recruiter-flagged jobs) ──
+  // ── Compute dimmed marker IDs (recruiter-flagged + outside isochrone) ──
   const prevDimmedIdsRef = useRef<Set<string>>(new Set());
   const dimmedIds = useMemo(() => {
     const set = new Set<string>();
@@ -1103,12 +1443,23 @@ export function JobMap() {
         set.add(job.id);
       }
     }
+    // Dim jobs outside isochrone outermost ring (if active)
+    if (isochroneEnabled && isochroneRings && isochroneRings.length > 0) {
+      // Use the outermost (largest minutes) ring for dimming
+      const outermost = isochroneRings.reduce((a, b) => (a.minutes > b.minutes ? a : b));
+      const ring = outermost.coordinates[0]; // outer boundary — [lng, lat] pairs from ORS
+      for (const job of sortedJobs) {
+        if (!set.has(job.id) && !pointInRing(job.lng, job.lat, ring)) {
+          set.add(job.id);
+        }
+      }
+    }
     // Return the previous Set reference if contents haven't changed (prevents marker rebuild)
     const prev = prevDimmedIdsRef.current;
     if (set.size === prev.size && [...set].every((id) => prev.has(id))) return prev;
     prevDimmedIdsRef.current = set;
     return set;
-  }, [sortedJobs, recruiterFlagDb]);
+  }, [sortedJobs, recruiterFlagDb, isochroneEnabled, isochroneRings]);
 
   /** Check if a job is part of a duplicate group */
   function getDuplicateInfo(jobId: string): DuplicateGroup | null {
@@ -1836,6 +2187,69 @@ export function JobMap() {
           {isFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
           <span className="ml-1.5">Search</span>
         </Button>
+
+        {/* Save current search */}
+        <Popover open={showSaveDialog} onOpenChange={setShowSaveDialog}>
+          <PopoverTrigger
+            className="inline-flex items-center justify-center h-9 w-9 rounded-md border bg-background hover:bg-accent text-muted-foreground hover:text-foreground disabled:opacity-50"
+            title="Save this search"
+            disabled={!where.trim()}
+          >
+            <Bookmark className="h-4 w-4" />
+          </PopoverTrigger>
+          <PopoverContent className="w-64 p-3" align="start">
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Save Search</p>
+              <Input
+                placeholder="Name this search..."
+                value={saveSearchName}
+                onChange={(e) => setSaveSearchName(e.target.value)}
+                className="h-8 text-sm"
+                onKeyDown={(e) => { if (e.key === "Enter") handleSaveSearch(); }}
+              />
+              <p className="text-xs text-muted-foreground">
+                {query.trim() ? `"${query.trim()}" in ` : ""}{where.trim()} ({radius}mi)
+              </p>
+              <Button size="sm" className="w-full h-7" onClick={handleSaveSearch} disabled={savingSearch || !saveSearchName.trim()}>
+                {savingSearch ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+                Save
+              </Button>
+            </div>
+          </PopoverContent>
+        </Popover>
+
+        {/* Load saved searches */}
+        {savedSearches.length > 0 && (
+          <DropdownMenu>
+            <DropdownMenuTrigger className="inline-flex items-center justify-center gap-1.5 rounded-md border bg-background px-2.5 h-9 text-sm hover:bg-accent">
+              <Bookmark className="h-3.5 w-3.5" />
+              Saved ({savedSearches.length})
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-64">
+              <DropdownMenuGroup>
+              <DropdownMenuLabel>Saved Searches</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {savedSearches.map((s) => (
+                <DropdownMenuItem key={s.id} className="flex items-center justify-between gap-2 cursor-pointer" onClick={() => handleLoadSearch(s)}>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{s.name}</p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {s.query ? `${s.query} · ` : ""}{s.location}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className="inline-flex items-center justify-center h-6 w-6 shrink-0 rounded-md hover:bg-accent"
+                    onClick={(e) => { e.stopPropagation(); handleDeleteSearch(s.id); }}
+                  >
+                    <Trash2 className="h-3 w-3 text-muted-foreground hover:text-red-500" />
+                  </button>
+                </DropdownMenuItem>
+              ))}
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </form>
 
       {/* ── Row 2: Stats + legend + map controls + view toggle ── */}
@@ -1906,6 +2320,78 @@ export function JobMap() {
               <TrainFront className="h-3 w-3" />
               Transit
             </Button>
+            <Popover>
+              <PopoverTrigger
+                className={`inline-flex items-center justify-center gap-1 rounded-md px-2 text-xs font-medium h-6 border ${
+                  isochroneEnabled
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-background hover:bg-muted border-input"
+                }`}
+              >
+                {isochroneLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Clock className="h-3 w-3" />}
+                Commute
+              </PopoverTrigger>
+              <PopoverContent className="w-56 p-3" align="start">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-semibold">Commute Zone</Label>
+                    <Switch checked={isochroneEnabled} onCheckedChange={(v) => {
+                      if (v && !homeAnchor) {
+                        toast.error("Set a Home anchor first (Life Anchors panel)");
+                        return;
+                      }
+                      setIsochroneEnabled(v);
+                    }} />
+                  </div>
+                  {isochroneEnabled && (
+                    <>
+                      <div>
+                        <Label className="text-[10px] text-muted-foreground">Travel mode</Label>
+                        <Select value={isochroneMode} onValueChange={(v) => setIsochroneMode(v as typeof isochroneMode)}>
+                          <SelectTrigger className="h-7 text-xs mt-1">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="driving-car">🚗 Driving</SelectItem>
+                            <SelectItem value="cycling-regular">🚲 Cycling</SelectItem>
+                            <SelectItem value="foot-walking">🚶 Walking</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground">
+                        Covers your {radius} mi search radius. Jobs outside are dimmed.
+                      </p>
+                      {isochroneRings && isochroneRings.length > 0 && (
+                        <div className="space-y-1">
+                          <Label className="text-[10px] text-muted-foreground font-semibold">Commute Time Key</Label>
+                          <div className="flex flex-col gap-0.5">
+                            {[...isochroneRings]
+                              .sort((a, b) => a.minutes - b.minutes)
+                              .map((ring, i, arr) => {
+                                const count = arr.length;
+                                // innermost (i=0) = green, outermost = red
+                                const progress = count === 1 ? 0 : i / (count - 1);
+                                const h = 120 - progress * 120;
+                                return (
+                                  <div key={ring.minutes} className="flex items-center gap-1.5">
+                                    <span
+                                      className="inline-block w-3 h-3 rounded-sm shrink-0"
+                                      style={{ backgroundColor: `hsl(${h}, 75%, 45%)`, opacity: 0.8 }}
+                                    />
+                                    <span className="text-[10px]">
+                                      {i === 0 ? `0 – ${ring.minutes}` : `${arr[i - 1].minutes} – ${ring.minutes}`} min
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              </PopoverContent>
+            </Popover>
             <Select value={tileStyle} onValueChange={(v) => setTileStyle((v ?? "osm") as typeof tileStyle)}>
               <SelectTrigger className="h-6 w-28 text-xs">
                 <Layers className="h-3 w-3 mr-1" />
@@ -2402,6 +2888,7 @@ export function JobMap() {
               searchCenter={searchCenter}
               radiusMiles={Number(radius)}
               onSearchArea={handleSearchArea}
+              onViewChange={handleViewChange}
               routeGeometry={commuteInfo?.geometry ?? null}
               transitSteps={commuteInfo?.transitSteps}
               anchorRoutes={
@@ -2454,7 +2941,15 @@ export function JobMap() {
                 return next;
               })}
               dimmedIds={dimmedIds}
-              onClusterPreview={(jobs, position) => setClusterPreview({ jobs, position })}
+              onClusterHover={(jobs, position) => {
+                if (clusterHoverTimer.current) clearTimeout(clusterHoverTimer.current);
+                setClusterPreview({ jobs, position });
+              }}
+              onClusterHoverEnd={() => {
+                clusterHoverTimer.current = setTimeout(() => setClusterPreview(null), 300);
+              }}
+              isochroneRings={isochroneEnabled ? isochroneRings : null}
+              commuteTimesMap={isochroneEnabled ? commuteTimesMap : null}
               amenityPins={amenityPinsForMap}
               amenityRadius={amenityRadiusForMap}
               zoomTarget={zoomTarget}
@@ -2464,15 +2959,44 @@ export function JobMap() {
               onToggleAmenity={toggleAmenityCategory}
             />
 
+          {/* ── Isochrone Commute Time Legend (floating on map) ── */}
+          {isochroneEnabled && isochroneRings && isochroneRings.length > 0 && (
+            <div className="absolute bottom-3 left-3 z-[1050] bg-background/90 backdrop-blur-sm border rounded-lg shadow-lg px-3 py-2 pointer-events-auto">
+              <p className="text-[10px] font-semibold text-muted-foreground mb-1">Commute Time</p>
+              <div className="flex items-end gap-0.5">
+                {[...isochroneRings]
+                  .sort((a, b) => a.minutes - b.minutes)
+                  .map((ring, i, arr) => {
+                    const count = arr.length;
+                    const progress = count === 1 ? 0 : i / (count - 1);
+                    const h = 120 - progress * 120;
+                    return (
+                      <div key={ring.minutes} className="flex flex-col items-center">
+                        <div
+                          className="w-5 rounded-sm"
+                          style={{
+                            height: `${12 + (count - 1 - i) * 2}px`,
+                            backgroundColor: `hsl(${h}, 75%, 45%)`,
+                            opacity: 0.85,
+                          }}
+                        />
+                        <span className="text-[8px] text-muted-foreground mt-0.5">{ring.minutes}</span>
+                      </div>
+                    );
+                  })}
+              </div>
+              <p className="text-[8px] text-muted-foreground mt-0.5 text-center">minutes</p>
+            </div>
+          )}
+
           {/* ── Cluster Preview Card ── */}
           {clusterPreview && (
             <div
-              className="absolute top-3 left-3 z-[1100] bg-background/95 backdrop-blur-md border rounded-xl shadow-xl p-4 w-72 max-h-64 overflow-y-auto"
+              className="absolute top-3 left-3 z-[1100] bg-background/95 backdrop-blur-md border rounded-xl shadow-xl p-4 w-72 max-h-64 overflow-y-auto pointer-events-auto"
+              onMouseEnter={() => { if (clusterHoverTimer.current) clearTimeout(clusterHoverTimer.current); }}
+              onMouseLeave={() => { clusterHoverTimer.current = setTimeout(() => setClusterPreview(null), 300); }}
             >
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-semibold">{clusterPreview.jobs.length} jobs here</span>
-                <button onClick={() => setClusterPreview(null)} className="text-muted-foreground hover:text-foreground text-xs">✕</button>
-              </div>
+              <span className="text-sm font-semibold">{clusterPreview.jobs.length} jobs here</span>
               {/* Top companies */}
               {(() => {
                 const companies = new Map<string, number>();
@@ -2486,7 +3010,7 @@ export function JobMap() {
                 const topCos = [...companies.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3);
                 return (
                   <>
-                    <div className="space-y-1 mb-2">
+                    <div className="space-y-1 mt-2">
                       {topCos.map(([co, count]) => (
                         <div key={co} className="flex justify-between text-xs">
                           <span className="truncate max-w-[180px]">{co}</span>
@@ -2496,34 +3020,125 @@ export function JobMap() {
                       {companies.size > 3 && <div className="text-xs text-muted-foreground">+{companies.size - 3} more companies</div>}
                     </div>
                     {minSal !== Infinity && (
-                      <div className="text-xs text-muted-foreground mb-2">
+                      <div className="text-xs text-muted-foreground mt-2">
                         Salary range: ${Math.round(minSal / 1000)}k – ${Math.round(maxSal / 1000)}k
                       </div>
                     )}
                   </>
                 );
               })()}
-              <div className="flex gap-2">
-                <button
-                  className="flex-1 text-xs bg-primary text-primary-foreground rounded px-2 py-1 hover:bg-primary/90"
-                  onClick={() => {
-                    const pos = clusterPreview.position;
-                    setClusterPreview(null);
-                    // Zoom the map into the cluster area
-                    setZoomTarget({ lat: pos.lat, lng: pos.lng, zoom: 15 });
-                  }}
-                >
-                  Zoom In
-                </button>
-                <button
-                  className="flex-1 text-xs border rounded px-2 py-1 hover:bg-muted"
-                  onClick={() => setClusterPreview(null)}
-                >
-                  Dismiss
-                </button>
-              </div>
+              <div className="text-[10px] text-muted-foreground mt-2">Click cluster to zoom in</div>
             </div>
           )}
+
+          {/* ── Area Tax Info Card ── */}
+          {areaInfo && searched && (() => {
+            const stateCode = areaInfo.state ? resolveState(areaInfo.state) : null;
+            const jobSalary = selectedJob
+              ? (selectedJob.salaryMin && selectedJob.salaryMax
+                  ? (selectedJob.salaryMin + selectedJob.salaryMax) / 2
+                  : selectedJob.salaryMin ?? selectedJob.salaryMax ?? null)
+              : null;
+            const baseSalary = jobSalary ?? meanSalary ?? 75_000;
+            const salaryLabel = jobSalary
+              ? `${selectedJob!.title?.slice(0, 18) ?? "Job"} @ ${formatSalaryCompact(baseSalary)}`
+              : meanSalary
+                ? `Avg salary ${formatSalaryCompact(baseSalary)}`
+                : `Est. @ ${formatSalaryCompact(baseSalary)}`;
+            const tx = estimateTaxes(baseSalary, areaInfo.city && stateCode ? `${areaInfo.city}, ${stateCode}` : stateCode ?? "");
+            const isZoomedIn = mapZoom >= 12 && areaInfo.city;
+            return (
+              <div className="absolute top-3 right-3 z-[1100] bg-background/95 backdrop-blur-md border rounded-xl shadow-xl p-3 w-64">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-1.5">
+                    <MapPin className="h-3.5 w-3.5 text-primary" />
+                    <span className="text-xs font-semibold truncate">{areaInfo.label}</span>
+                  </div>
+                </div>
+
+                {/* State Taxes */}
+                <div className="space-y-1.5">
+                  <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">State & Federal</div>
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+                    <div className="text-xs text-muted-foreground">Federal</div>
+                    <div className="text-xs font-mono text-right">{(tx.marginalFederalRate * 100).toFixed(0)}% marginal</div>
+                    <div className="text-xs text-muted-foreground">State{stateCode ? ` (${stateCode})` : ""}</div>
+                    <div className="text-xs font-mono text-right">
+                      {tx.stateIncomeTax === 0 && stateCode ? (
+                        <span className="text-emerald-600 dark:text-emerald-400 font-semibold">No income tax</span>
+                      ) : (
+                        `${(tx.marginalStateRate * 100).toFixed(1)}% marginal`
+                      )}
+                    </div>
+                    <div className="text-xs text-muted-foreground">FICA</div>
+                    <div className="text-xs font-mono text-right">7.65%</div>
+                  </div>
+
+                  {/* Local Taxes — only when zoomed in */}
+                  {isZoomedIn && tx.localTaxes.length > 0 && (
+                    <>
+                      <Separator className="my-1" />
+                      <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Local Taxes</div>
+                      <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+                        {tx.localTaxes.map((lt) => (
+                          <Fragment key={lt.name}>
+                            <div className="text-xs text-muted-foreground truncate" title={lt.name}>{lt.name}</div>
+                            <div className="text-xs font-mono text-right text-orange-600 dark:text-orange-400">{(lt.amount / baseSalary * 100).toFixed(2)}%</div>
+                          </Fragment>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                  {isZoomedIn && tx.localTaxes.length === 0 && (
+                    <>
+                      <Separator className="my-1" />
+                      <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">No local income/wage tax</div>
+                    </>
+                  )}
+
+                  <Separator className="my-1" />
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-muted-foreground truncate" title={salaryLabel}>{salaryLabel}</span>
+                    <span className="text-xs font-bold text-orange-600 dark:text-orange-400">{(tx.effectiveRate * 100).toFixed(1)}%</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-muted-foreground">≈ Take-home</span>
+                    <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">{formatSalaryCompact(tx.takeHomePay)}/yr</span>
+                  </div>
+
+                  {/* Gas Prices (EIA) */}
+                  {gasPrice && (
+                    <>
+                      <Separator className="my-1" />
+                      <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Gas (Regular)</div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground flex items-center gap-1">
+                          <Fuel className="h-3 w-3" /> {gasPrice.region && gasPrice.region !== gasPrice.state ? gasPrice.region : gasPrice.state}
+                        </span>
+                        <span className="text-xs font-mono font-bold">${gasPrice.price.toFixed(2)}/gal</span>
+                      </div>
+                      {homeGasPrice && homeGasPrice.state !== gasPrice.state && (() => {
+                        const diff = gasPrice.price - homeGasPrice.price;
+                        return (
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                              <Home className="h-3 w-3" /> {homeGasPrice.state}
+                            </span>
+                            <span className="text-xs font-mono text-right">
+                              ${homeGasPrice.price.toFixed(2)}
+                              <span className={`ml-1 text-[9px] ${diff > 0.01 ? "text-orange-500" : diff < -0.01 ? "text-emerald-500" : "text-muted-foreground"}`}>
+                                ({diff > 0 ? "+" : ""}{diff.toFixed(2)})
+                              </span>
+                            </span>
+                          </div>
+                        );
+                      })()}
+                    </>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Overlay states on top of the map */}
           {!searched && !hasEmailLeads && (
@@ -3585,6 +4200,52 @@ export function JobMap() {
                     </span>
                   </div>
                 )}
+
+                {/* Tax Breakdown */}
+                {(selectedJob.salaryMin || selectedJob.salaryMax) && (() => {
+                  const mid = selectedJob.salaryMin && selectedJob.salaryMax
+                    ? (selectedJob.salaryMin + selectedJob.salaryMax) / 2
+                    : (selectedJob.salaryMin ?? selectedJob.salaryMax)!;
+                  const tx = estimateTaxes(mid, selectedJob.location);
+                  const rows: { label: string; amount: number; color?: string }[] = [
+                    { label: "Federal Income Tax", amount: tx.federalIncomeTax },
+                    { label: `State Tax${tx.stateName ? ` (${tx.stateName})` : ""}`, amount: tx.stateIncomeTax },
+                    { label: "Social Security (6.2%)", amount: tx.socialSecurity },
+                    { label: "Medicare (1.45%)", amount: tx.medicare },
+                    ...tx.localTaxes.map((lt) => ({ label: lt.name, amount: lt.amount })),
+                  ];
+                  return (
+                    <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold">Tax Breakdown</span>
+                        <span className="text-xs text-muted-foreground">
+                          Marginal: {(tx.marginalFederalRate * 100).toFixed(0)}% fed + {(tx.marginalStateRate * 100).toFixed(1)}% state
+                        </span>
+                      </div>
+                      <div className="space-y-1">
+                        {rows.map((r) => (
+                          <div key={r.label} className="flex items-center justify-between text-xs">
+                            <span className="text-muted-foreground">{r.label}</span>
+                            <span className="text-red-500 dark:text-red-400 font-mono">−{formatSalaryCompact(r.amount)}</span>
+                          </div>
+                        ))}
+                        <Separator />
+                        <div className="flex items-center justify-between text-xs font-semibold">
+                          <span>Total Tax ({(tx.effectiveRate * 100).toFixed(1)}%)</span>
+                          <span className="text-red-600 dark:text-red-400 font-mono">−{formatSalaryCompact(tx.totalEmployeeTax)}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-sm font-bold">
+                          <span className="text-emerald-600 dark:text-emerald-400">Estimated Take-Home</span>
+                          <span className="text-emerald-600 dark:text-emerald-400 font-mono">{formatSalaryCompact(tx.takeHomePay)}/yr</span>
+                        </div>
+                        <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-1 border-t">
+                          <span>Employer Cost (FICA + FUTA)</span>
+                          <span className="font-mono">{formatSalaryCompact(tx.totalEmployerCost)}/yr</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
                 <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                   <MapPin className="h-4 w-4" /> {selectedJob.location}
                 </div>
@@ -4237,6 +4898,56 @@ export function JobMap() {
               Paste email HTML source below, or set up auto-forwarding to import leads automatically.
             </DialogDescription>
           </DialogHeader>
+
+          {/* ── Gmail Sync (pull-based) ── */}
+          <div className="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30 p-3 space-y-2">
+            <p className="text-xs font-medium text-blue-700 dark:text-blue-300 flex items-center gap-2">
+              <Mail className="h-4 w-4" /> Sync from Gmail
+            </p>
+            <p className="text-[11px] text-muted-foreground">
+              Automatically scan your Gmail for job alert emails from Indeed, LinkedIn, Glassdoor, and ZipRecruiter (last 7 days). Requires a connected Gmail account.
+            </p>
+            <Button
+              size="sm"
+              className="w-full gap-2 bg-blue-600 hover:bg-blue-700 text-white text-xs"
+              disabled={gmailSyncing}
+              onClick={async () => {
+                setGmailSyncing(true);
+                try {
+                  const res = await fetch("/api/email-leads/sync", { method: "POST" });
+                  const data = await res.json();
+                  if (!res.ok) {
+                    toast.error(data.error || "Gmail sync failed");
+                    return;
+                  }
+                  queryClient.invalidateQueries({ queryKey: ["email-leads"] });
+                  if (data.stored > 0) {
+                    toast.success(`Found ${data.parsed} leads from ${data.emails} emails — ${data.stored} new, ${data.duplicates} duplicates`);
+                    setShowEmailImport(false);
+                  } else if (data.parsed > 0) {
+                    toast.info(`${data.parsed} leads found but all duplicates (${data.emails} emails scanned)`);
+                  } else if (data.emails > 0) {
+                    toast.warning(`Scanned ${data.emails} emails but couldn't extract any leads`);
+                  } else {
+                    toast.info("No job alert emails found in the last 7 days");
+                  }
+                } catch {
+                  toast.error("Gmail sync failed");
+                } finally {
+                  setGmailSyncing(false);
+                }
+              }}
+            >
+              {gmailSyncing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+              {gmailSyncing ? "Scanning Gmail…" : "Sync Job Alerts from Gmail"}
+            </Button>
+          </div>
+
+          <div className="relative flex items-center gap-2 py-1">
+            <div className="flex-1 border-t border-muted" />
+            <span className="text-[10px] text-muted-foreground">or use manual methods</span>
+            <div className="flex-1 border-t border-muted" />
+          </div>
 
           {/* ── Auto-Forward Setup ── */}
           <div className="rounded-lg border border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-950/30 p-3 space-y-2">

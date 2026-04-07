@@ -14,6 +14,7 @@ export default auth((req) => {
     pathname.startsWith("/api/portal") ||
     pathname.startsWith("/api/interactive-resumes/public") ||
     pathname.startsWith("/api/interactive-resumes/view") ||
+    pathname.startsWith("/api/email-leads/ingest") ||
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon") ||
     pathname.startsWith("/logo") ||

@@ -4,6 +4,7 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { setOptions, importLibrary } from "@googlemaps/js-api-loader";
 import { MarkerClusterer, SuperClusterAlgorithm } from "@googlemaps/markerclusterer";
+import { estimateTaxes } from "@/lib/taxes";
 
 const GOOGLE_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
 
@@ -88,9 +89,11 @@ interface Props {
   searchCenter: [number, number] | null;
   radiusMiles: number;
   onSearchArea?: (center: [number, number]) => void;
+  onViewChange?: (center: [number, number], zoom: number) => void;
   routeGeometry: [number, number][] | null;
   transitSteps?: TransitStep[];
   showHeatmap?: boolean;
+  heatmapMode?: "density" | "salary" | "take-home";
   showTraffic?: boolean;
   showTransit?: boolean;
   tileStyle?: "osm" | "google-roadmap" | "google-satellite" | "google-hybrid";
@@ -104,7 +107,10 @@ interface Props {
   enabledAnchorIds?: Set<string>;
   onToggleAnchor?: (anchorId: string) => void;
   dimmedIds?: Set<string>;
-  onClusterPreview?: (jobs: MapJob[], position: { lat: number; lng: number }) => void;
+  onClusterHover?: (jobs: MapJob[], position: { lat: number; lng: number }) => void;
+  onClusterHoverEnd?: () => void;
+  isochroneRings?: { minutes: number; coordinates: [number, number][][] }[] | null;
+  commuteTimesMap?: Map<string, number> | null;
   amenityPins?: AmenityPin[];
   amenityRadius?: { lat: number; lng: number; radiusM: number } | null;
   zoomTarget?: { lat: number; lng: number; zoom: number } | null;
@@ -121,6 +127,14 @@ function salaryColor(min: number | null, max: number | null, mean: number | null
   if (salary >= mean * 1.2) return "#22c55e";
   if (salary >= mean * 0.8) return "#eab308";
   return "#ef4444";
+}
+
+/** Commute-time → color: green (short) → yellow → red (long). -1 = unreachable → gray */
+function commuteColor(minutes: number, maxMinutes: number): string {
+  if (minutes < 0) return "#6b7280"; // unreachable → gray
+  const progress = Math.min(minutes / Math.max(maxMinutes, 1), 1);
+  const h = 120 - progress * 120; // 120=green → 0=red
+  return `hsl(${Math.round(h)}, 75%, 45%)`;
 }
 
 function formatSalary(n: number) {
@@ -180,9 +194,11 @@ export default function JobMapGoogle({
   searchCenter,
   radiusMiles,
   onSearchArea,
+  onViewChange,
   routeGeometry,
   transitSteps,
   showHeatmap = false,
+  heatmapMode = "density",
   showTraffic = false,
   showTransit = false,
   tileStyle = "google-roadmap",
@@ -196,7 +212,10 @@ export default function JobMapGoogle({
   enabledAnchorIds,
   onToggleAnchor,
   dimmedIds,
-  onClusterPreview,
+  onClusterHover,
+  onClusterHoverEnd,
+  isochroneRings = null,
+  commuteTimesMap = null,
   amenityPins = [],
   amenityRadius = null,
   zoomTarget = null,
@@ -219,6 +238,7 @@ export default function JobMapGoogle({
   const officeCircleRef = useRef<google.maps.Circle | null>(null);
   const amenityMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
   const amenityCircleRef = useRef<google.maps.Circle | null>(null);
+  const isochronePolysRef = useRef<google.maps.Polygon[]>([]);
   const jobLookupRef = useRef<Map<google.maps.marker.AdvancedMarkerElement, MapJob>>(new Map());
   const polylinesRef = useRef<google.maps.Polyline[]>([]);
   const trafficLayerRef = useRef<google.maps.TrafficLayer | null>(null);
@@ -240,9 +260,13 @@ export default function JobMapGoogle({
   onSelectRef.current = onSelect;
   const onSearchAreaRef = useRef(onSearchArea);
   onSearchAreaRef.current = onSearchArea;
+  const onViewChangeRef = useRef(onViewChange);
+  onViewChangeRef.current = onViewChange;
   const onSelectOfficeRef = useRef(onSelectOffice);
-  const onClusterPreviewRef = useRef(onClusterPreview);
-  onClusterPreviewRef.current = onClusterPreview;
+  const onClusterHoverRef = useRef(onClusterHover);
+  onClusterHoverRef.current = onClusterHover;
+  const onClusterHoverEndRef = useRef(onClusterHoverEnd);
+  onClusterHoverEndRef.current = onClusterHoverEnd;
   onSelectOfficeRef.current = onSelectOffice;
   const onToggleAnchorRef = useRef(onToggleAnchor);
   onToggleAnchorRef.current = onToggleAnchor;
@@ -287,6 +311,7 @@ export default function JobMapGoogle({
         if (!c) return;
         const newCenter: [number, number] = [c.lat(), c.lng()];
         setPanCenter(newCenter);
+        onViewChangeRef.current?.(newCenter, map.getZoom() ?? 10);
         if (userDragRef.current && searchCenter) {
           const dist = haversine(searchCenter, newCenter);
           setHasPanned(dist > 25);
@@ -342,27 +367,69 @@ export default function JobMapGoogle({
         await importLibrary("visualization");
         if (!mapRef.current) return;
         heatmapRef.current?.setMap(null);
-        const data = jobs.map((j) => new google.maps.LatLng(j.lat, j.lng));
-        heatmapRef.current = new google.maps.visualization.HeatmapLayer({
-          data,
-          map: mapRef.current,
-          radius: 30,
-          opacity: 0.6,
-          gradient: [
+
+        let data: google.maps.visualization.WeightedLocation[] | google.maps.LatLng[];
+        let gradient: string[];
+
+        if (heatmapMode === "salary" && meanSalary && meanSalary > 0) {
+          // Salary mode: weight each point by salary relative to mean
+          data = jobs.map((j) => {
+            const sal = j.salaryMax ?? j.salaryMin ?? 0;
+            const weight = sal > 0 ? Math.min(sal / (meanSalary * 2), 1) : 0.05;
+            return { location: new google.maps.LatLng(j.lat, j.lng), weight };
+          });
+          gradient = [
+            "rgba(0,0,0,0)",
+            "rgba(239,68,68,0.6)",   // red — low salary
+            "rgba(249,115,22,0.7)",  // orange
+            "rgba(234,179,8,0.8)",   // yellow — average
+            "rgba(132,204,22,0.9)",  // lime
+            "rgba(34,197,94,1)",     // green — high salary
+          ];
+        } else if (heatmapMode === "take-home" && meanSalary && meanSalary > 0) {
+          // Take-home mode: weight by estimated net pay after taxes
+          const meanTakeHome = estimateTaxes(meanSalary, "US").takeHomePay;
+          data = jobs.map((j) => {
+            const sal = j.salaryMax ?? j.salaryMin ?? 0;
+            if (sal <= 0) return { location: new google.maps.LatLng(j.lat, j.lng), weight: 0.05 };
+            const net = estimateTaxes(sal, j.location).takeHomePay;
+            const weight = Math.min(net / (meanTakeHome * 2), 1);
+            return { location: new google.maps.LatLng(j.lat, j.lng), weight };
+          });
+          gradient = [
+            "rgba(0,0,0,0)",
+            "rgba(239,68,68,0.6)",   // red — low take-home
+            "rgba(234,88,12,0.65)",  // dark orange
+            "rgba(234,179,8,0.75)",  // yellow
+            "rgba(16,185,129,0.85)", // teal
+            "rgba(6,95,70,1)",       // dark green — high take-home
+          ];
+        } else {
+          // Density mode (default): uniform weight
+          data = jobs.map((j) => new google.maps.LatLng(j.lat, j.lng));
+          gradient = [
             "rgba(0,0,0,0)",
             "rgba(59,130,246,0.6)",
             "rgba(6,182,212,0.7)",
             "rgba(34,197,94,0.8)",
             "rgba(234,179,8,0.9)",
             "rgba(239,68,68,1)",
-          ],
+          ];
+        }
+
+        heatmapRef.current = new google.maps.visualization.HeatmapLayer({
+          data,
+          map: mapRef.current,
+          radius: 30,
+          opacity: 0.6,
+          gradient,
         });
       })();
     } else {
       heatmapRef.current?.setMap(null);
       heatmapRef.current = null;
     }
-  }, [showHeatmap, jobs, ready]);
+  }, [showHeatmap, heatmapMode, meanSalary, jobs, ready]);
 
   /* ── Fit bounds when jobs change ── */
   useEffect(() => {
@@ -474,6 +541,54 @@ export default function JobMapGoogle({
     });
   }, [searchCenter, radiusMiles, ready]);
 
+  /* ── Isochrone rings (donut polygons — no overlap) ── */
+  useEffect(() => {
+    // Clear old polygons
+    for (const p of isochronePolysRef.current) p.setMap(null);
+    isochronePolysRef.current = [];
+    if (!mapRef.current || !isochroneRings || isochroneRings.length === 0) return;
+
+    // Sort smallest → largest (innermost first)
+    const sorted = [...isochroneRings].sort((a, b) => a.minutes - b.minutes);
+    const count = sorted.length;
+
+    sorted.forEach((ring, i) => {
+      // Outer boundary of this band
+      const outerPaths = ring.coordinates.map((coordRing) =>
+        coordRing.map(([lng, lat]) => ({ lat, lng }))
+      );
+
+      // For donut: first path = outer boundary, second path = inner hole (reversed winding)
+      // Innermost band (i=0) has no hole — it's a solid polygon
+      let paths: google.maps.LatLngLiteral[][];
+      if (i === 0) {
+        paths = outerPaths;
+      } else {
+        // The inner hole is the outer boundary of the previous (smaller) ring
+        const innerCoords = sorted[i - 1].coordinates[0]; // outer boundary of smaller ring
+        const holePath = innerCoords.map(([lng, lat]) => ({ lat, lng })).reverse(); // reverse winding = hole
+        paths = [outerPaths[0], holePath];
+      }
+
+      // Color: innermost (i=0) = green, outermost = red
+      const progress = count === 1 ? 0 : i / (count - 1); // 0=innermost, 1=outermost
+      const h = 120 - progress * 120; // 120=green → 0=red
+      const color = `hsl(${h}, 75%, 45%)`;
+
+      const poly = new google.maps.Polygon({
+        paths,
+        strokeColor: color,
+        strokeWeight: 1,
+        strokeOpacity: 0.5,
+        fillColor: color,
+        fillOpacity: 0.18, // uniform opacity — no stacking so this can be higher
+        map: mapRef.current,
+        zIndex: 5 + i,
+      });
+      isochronePolysRef.current.push(poly);
+    });
+  }, [isochroneRings, ready]);
+
   /* ── Sweet Spot circle + marker ── */
   useEffect(() => {
     sweetSpotCircleRef.current?.setMap(null);
@@ -525,6 +640,7 @@ export default function JobMapGoogle({
   const jobsKey = useMemo(() => jobs.map((j) => j.id).join(","), [jobs]);
   const highlightedKey = useMemo(() => highlightedIds.join(","), [highlightedIds]);
   const dimmedKey = useMemo(() => (dimmedIds ? [...dimmedIds].sort().join(",") : ""), [dimmedIds]);
+  const commuteTimesKey = useMemo(() => commuteTimesMap ? commuteTimesMap.size.toString() : "", [commuteTimesMap]);
 
   useEffect(() => {
     if (!mapRef.current) return;
@@ -549,8 +665,17 @@ export default function JobMapGoogle({
     });
     const posIndex = new Map<string, number>();
 
+    // Max commute time for color scale (from matrix data)
+    const maxCommuteMin = commuteTimesMap
+      ? Math.max(60, ...Array.from(commuteTimesMap.values()).filter((v) => v > 0))
+      : 60;
+
     jobs.forEach((job) => {
-      const color = salaryColor(job.salaryMin, job.salaryMax, meanSalary);
+      // Use commute-time coloring when matrix data available, else salary
+      const commuteMin = commuteTimesMap?.get(job.id);
+      const color = commuteMin != null
+        ? commuteColor(commuteMin, maxCommuteMin)
+        : salaryColor(job.salaryMin, job.salaryMax, meanSalary);
       const isSelected = job.id === selectedId;
       const isHighlighted = highlightedIds.includes(job.id);
       const isDimmed = dimmedIds ? dimmedIds.has(job.id) : false;
@@ -658,10 +783,15 @@ export default function JobMapGoogle({
       const salaryStr = (job.salaryMin || job.salaryMax)
         ? `<div style="color:#059669;font-weight:500">${job.salaryMin ? formatSalary(job.salaryMin) : ""}${job.salaryMin && job.salaryMax ? " – " : ""}${job.salaryMax ? formatSalary(job.salaryMax) : ""}</div>`
         : "";
+      const commuteStr = commuteMin != null && commuteMin >= 0
+        ? `<div style="color:#6366f1;font-weight:500">🚗 ${commuteMin} min commute</div>`
+        : commuteMin === -1
+        ? `<div style="color:#9ca3af;font-weight:500">🚗 Unreachable</div>`
+        : "";
       const infoContent = `<div style="font-size:11px;max-width:200px;line-height:1.4;padding:2px 0">
         <div style="font-weight:700;font-size:12px;color:#111">${escapeHtml(job.title)}</div>
         <div style="color:#6b7280;margin-top:1px">${escapeHtml(job.company)}</div>
-        ${salaryStr}
+        ${salaryStr}${commuteStr}
       </div>`;
 
       // Hover → show InfoWindow on any pin
@@ -692,25 +822,30 @@ export default function JobMapGoogle({
       map,
       markers,
       algorithm: new SuperClusterAlgorithm({ maxZoom: 14, radius: 80 }),
-      onClusterClick: (_event, cluster, _map) => {
-        // Intercept cluster click: show preview card instead of immediate zoom
-        if (onClusterPreviewRef.current && cluster.markers) {
-          const clusterJobs: MapJob[] = [];
-          for (const m of cluster.markers) {
-            const j = jobLookupRef.current.get(m as google.maps.marker.AdvancedMarkerElement);
-            if (j) clusterJobs.push(j);
-          }
-          if (clusterJobs.length > 0) {
-            const pos = cluster.position;
-            onClusterPreviewRef.current(clusterJobs, { lat: pos.lat(), lng: pos.lng() });
-          }
-        }
-      },
+      // Default onClusterClick zooms into cluster bounds — no override needed
       renderer: {
-        render({ count, position }) {
+        render({ count, position, markers: clusterMarkers }) {
           const el = document.createElement("div");
           el.innerHTML = makeClusterSvg(count);
           el.style.cursor = "pointer";
+
+          // Show preview on hover
+          el.addEventListener("mouseenter", () => {
+            if (onClusterHoverRef.current && clusterMarkers) {
+              const clusterJobs: MapJob[] = [];
+              for (const m of clusterMarkers) {
+                const j = jobLookupRef.current.get(m as google.maps.marker.AdvancedMarkerElement);
+                if (j) clusterJobs.push(j);
+              }
+              if (clusterJobs.length > 0) {
+                onClusterHoverRef.current(clusterJobs, { lat: position.lat(), lng: position.lng() });
+              }
+            }
+          });
+          el.addEventListener("mouseleave", () => {
+            onClusterHoverEndRef.current?.();
+          });
+
           return new google.maps.marker.AdvancedMarkerElement({
             position,
             content: el,
@@ -720,7 +855,7 @@ export default function JobMapGoogle({
       },
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [jobsKey, selectedId, meanSalary, resolvedCoords, highlightedKey, dimmedKey, ready, activeAmenitiesProp, amenityLoadingProp]);
+  }, [jobsKey, selectedId, meanSalary, resolvedCoords, highlightedKey, dimmedKey, ready, activeAmenitiesProp, amenityLoadingProp, commuteTimesKey]);
 
   /* ── Anchor markers ── */
   useEffect(() => {

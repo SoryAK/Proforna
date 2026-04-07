@@ -144,6 +144,7 @@ interface Props {
   routeGeometry: [number, number][] | null;
   transitSteps?: TransitStep[];
   showHeatmap?: boolean;
+  heatmapMode?: "density" | "salary" | "take-home";
   showTraffic?: boolean;
   tileStyle?: "osm" | "google-roadmap" | "google-satellite" | "google-hybrid";
   resolvedCoords?: [number, number] | null;
@@ -270,7 +271,7 @@ const TILE_CONFIGS = {
 } as const;
 
 /* ── Heatmap layer (uses leaflet.heat) ── */
-function HeatmapLayer({ jobs }: { jobs: MapJob[] }) {
+function HeatmapLayer({ jobs, mode, meanSalary }: { jobs: MapJob[]; mode: "density" | "salary" | "take-home"; meanSalary: number | null }) {
   const map = useMap();
   const heatRef = useRef<any>(null);
 
@@ -284,19 +285,42 @@ function HeatmapLayer({ jobs }: { jobs: MapJob[] }) {
         map.removeLayer(heatRef.current);
         heatRef.current = null;
       }
-      const points: [number, number, number][] = jobs.map((j) => [j.lat, j.lng, 0.6]);
-      const heat = (L as any).heatLayer(points, {
-        radius: 25,
-        blur: 20,
-        maxZoom: 14,
-        max: 1.0,
-        gradient: {
+
+      let points: [number, number, number][];
+      let gradient: Record<number, string>;
+
+      if (mode === "salary" && meanSalary && meanSalary > 0) {
+        // Salary mode: intensity = normalized salary (0..1 relative to 2× mean)
+        points = jobs.map((j) => {
+          const sal = j.salaryMax ?? j.salaryMin ?? 0;
+          const intensity = sal > 0 ? Math.min(sal / (meanSalary * 2), 1) : 0.1;
+          return [j.lat, j.lng, intensity];
+        });
+        gradient = {
+          0.0: "#ef4444",  // red — low salary
+          0.3: "#f97316",  // orange
+          0.5: "#eab308",  // yellow — average
+          0.7: "#84cc16",  // lime
+          1.0: "#22c55e",  // green — high salary
+        };
+      } else {
+        // Density mode (default): uniform intensity
+        points = jobs.map((j) => [j.lat, j.lng, 0.6]);
+        gradient = {
           0.2: "#3b82f6",
           0.4: "#06b6d4",
           0.6: "#22c55e",
           0.8: "#eab308",
           1.0: "#ef4444",
-        },
+        };
+      }
+
+      const heat = (L as any).heatLayer(points, {
+        radius: 25,
+        blur: 20,
+        maxZoom: 14,
+        max: 1.0,
+        gradient,
       });
       heat.addTo(map);
       heatRef.current = heat;
@@ -308,7 +332,7 @@ function HeatmapLayer({ jobs }: { jobs: MapJob[] }) {
         heatRef.current = null;
       }
     };
-  }, [jobs, map]);
+  }, [jobs, map, mode, meanSalary]);
 
   return null;
 }
@@ -325,6 +349,7 @@ export default function JobMapLeaflet({
   routeGeometry,
   transitSteps,
   showHeatmap = false,
+  heatmapMode = "density",
   showTraffic = false,
   tileStyle = "osm",
   resolvedCoords = null,
@@ -390,8 +415,8 @@ export default function JobMapLeaflet({
         />
       )}
 
-      {/* Job density heatmap */}
-      {showHeatmap && <HeatmapLayer jobs={jobs} />}
+      {/* Job density / salary heatmap */}
+      {showHeatmap && <HeatmapLayer jobs={jobs} mode={heatmapMode} meanSalary={meanSalary} />}
 
       {/* Commute route path */}
       {transitSteps && transitSteps.some((s) => s.geometry?.length) ? (
