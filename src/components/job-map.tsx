@@ -1258,6 +1258,85 @@ export function JobMap() {
       .catch(() => setCommuteTimesMap(null));
   }, [isochroneEnabled, homeAnchor, isochroneMode, sortedJobs]);
 
+  /* ── Extended isochrone rings via convex hulls from matrix data ── */
+  const mergedIsochroneRings = useMemo(() => {
+    const base = isochroneRings ?? [];
+    if (!commuteTimesMap || commuteTimesMap.size === 0 || sortedJobs.length === 0) return base;
+
+    // Find max ORS ring minutes
+    const maxOrsMin = base.reduce((m, r) => Math.max(m, r.minutes), 0);
+    if (maxOrsMin === 0) return base;
+
+    // Collect jobs beyond ORS range with valid commute times
+    const beyond: { lat: number; lng: number; minutes: number }[] = [];
+    for (const job of sortedJobs) {
+      const min = commuteTimesMap.get(job.id);
+      if (min != null && min > maxOrsMin) {
+        beyond.push({ lat: job.lat, lng: job.lng, minutes: min });
+      }
+    }
+    if (beyond.length < 3) return base; // need ≥3 points for a polygon
+
+    // Group into bands (e.g. 60–75, 75–90, 90–105, 105+)
+    const BAND_SIZE = 15; // minutes per band
+    const maxMin = Math.max(...beyond.map((b) => b.minutes));
+    const bands: { upTo: number; points: [number, number][] }[] = [];
+    for (let lo = maxOrsMin; lo < maxMin; lo += BAND_SIZE) {
+      const hi = lo + BAND_SIZE;
+      // Cumulative: include ALL points up to this band's upper limit
+      // so the hull grows outward (like the ORS rings)
+      const pts: [number, number][] = beyond
+        .filter((b) => b.minutes <= hi)
+        .map((b) => [b.lng, b.lat]); // ORS coordinate order [lng, lat]
+      if (pts.length >= 3) {
+        bands.push({ upTo: Math.min(hi, maxMin), points: pts });
+      }
+    }
+    if (bands.length === 0) return base;
+
+    // Graham scan convex hull (returns points in CCW order, [lng, lat])
+    function cross(O: [number, number], A: [number, number], B: [number, number]) {
+      return (A[0] - O[0]) * (B[1] - O[1]) - (A[1] - O[1]) * (B[0] - O[0]);
+    }
+    function convexHull(points: [number, number][]): [number, number][] {
+      const pts = [...points].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+      if (pts.length <= 2) return pts;
+      const lower: [number, number][] = [];
+      for (const p of pts) {
+        while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) lower.pop();
+        lower.push(p);
+      }
+      const upper: [number, number][] = [];
+      for (const p of pts.reverse()) {
+        while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0) upper.pop();
+        upper.push(p);
+      }
+      lower.pop();
+      upper.pop();
+      return lower.concat(upper);
+    }
+
+    // Also include the outermost ORS ring's boundary points so hulls connect seamlessly
+    const orsOuterPts: [number, number][] = base.length > 0
+      ? (base.reduce((a, b) => (a.minutes > b.minutes ? a : b)).coordinates[0] ?? [])
+      : [];
+
+    const extendedRings = bands.map((band) => {
+      const allPts: [number, number][] = [...orsOuterPts, ...band.points];
+      const hull = convexHull(allPts);
+      // Close the ring
+      const closed = hull.length > 0 && (hull[0][0] !== hull[hull.length - 1][0] || hull[0][1] !== hull[hull.length - 1][1])
+        ? [...hull, hull[0]]
+        : hull;
+      return {
+        minutes: band.upTo,
+        coordinates: [closed] as [number, number][][],
+      };
+    });
+
+    return [...base, ...extendedRings];
+  }, [isochroneRings, commuteTimesMap, sortedJobs]);
+
   // Pagination
   const totalPages = Math.max(1, Math.ceil(sortedJobs.length / PAGE_SIZE));
   const pagedJobs = useMemo(
@@ -1444,9 +1523,9 @@ export function JobMap() {
       }
     }
     // Dim jobs outside isochrone outermost ring (if active)
-    if (isochroneEnabled && isochroneRings && isochroneRings.length > 0) {
+    if (isochroneEnabled && mergedIsochroneRings && mergedIsochroneRings.length > 0) {
       // Use the outermost (largest minutes) ring for dimming
-      const outermost = isochroneRings.reduce((a, b) => (a.minutes > b.minutes ? a : b));
+      const outermost = mergedIsochroneRings.reduce((a, b) => (a.minutes > b.minutes ? a : b));
       const ring = outermost.coordinates[0]; // outer boundary — [lng, lat] pairs from ORS
       for (const job of sortedJobs) {
         if (!set.has(job.id) && !pointInRing(job.lng, job.lat, ring)) {
@@ -1459,7 +1538,7 @@ export function JobMap() {
     if (set.size === prev.size && [...set].every((id) => prev.has(id))) return prev;
     prevDimmedIdsRef.current = set;
     return set;
-  }, [sortedJobs, recruiterFlagDb, isochroneEnabled, isochroneRings]);
+  }, [sortedJobs, recruiterFlagDb, isochroneEnabled, mergedIsochroneRings]);
 
   /** Check if a job is part of a duplicate group */
   function getDuplicateInfo(jobId: string): DuplicateGroup | null {
@@ -2361,11 +2440,11 @@ export function JobMap() {
                       <p className="text-[10px] text-muted-foreground">
                         Covers your {radius} mi search radius. Jobs outside are dimmed.
                       </p>
-                      {isochroneRings && isochroneRings.length > 0 && (
+                      {mergedIsochroneRings && mergedIsochroneRings.length > 0 && (
                         <div className="space-y-1">
                           <Label className="text-[10px] text-muted-foreground font-semibold">Commute Time Key</Label>
                           <div className="flex flex-col gap-0.5">
-                            {[...isochroneRings]
+                            {[...mergedIsochroneRings]
                               .sort((a, b) => a.minutes - b.minutes)
                               .map((ring, i, arr) => {
                                 const count = arr.length;
@@ -2948,7 +3027,7 @@ export function JobMap() {
               onClusterHoverEnd={() => {
                 clusterHoverTimer.current = setTimeout(() => setClusterPreview(null), 300);
               }}
-              isochroneRings={isochroneEnabled ? isochroneRings : null}
+              isochroneRings={isochroneEnabled ? mergedIsochroneRings : null}
               commuteTimesMap={isochroneEnabled ? commuteTimesMap : null}
               amenityPins={amenityPinsForMap}
               amenityRadius={amenityRadiusForMap}
@@ -2960,11 +3039,11 @@ export function JobMap() {
             />
 
           {/* ── Isochrone Commute Time Legend (floating on map) ── */}
-          {isochroneEnabled && isochroneRings && isochroneRings.length > 0 && (
+          {isochroneEnabled && mergedIsochroneRings && mergedIsochroneRings.length > 0 && (
             <div className="absolute bottom-3 left-3 z-[1050] bg-background/90 backdrop-blur-sm border rounded-lg shadow-lg px-3 py-2 pointer-events-auto">
               <p className="text-[10px] font-semibold text-muted-foreground mb-1">Commute Time</p>
               <div className="flex items-end gap-0.5">
-                {[...isochroneRings]
+                {[...mergedIsochroneRings]
                   .sort((a, b) => a.minutes - b.minutes)
                   .map((ring, i, arr) => {
                     const count = arr.length;
