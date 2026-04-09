@@ -48,13 +48,20 @@ export interface DeepDiveJob {
   salaryMin: number | null;
   salaryMax: number | null;
   created: string;
-  source: "adzuna" | "google" | "email";
+  source: "adzuna" | "google" | "email" | "usajobs";
   via?: string;
   scheduleType?: string | null;
   contractTime?: string | null;
   contractType?: string | null;
   category: string;
   description: string;
+}
+
+export interface PlaceReview {
+  authorName: string;
+  rating: number;
+  text: string;
+  relativeTime: string;
 }
 
 export interface PlacesInfo {
@@ -65,6 +72,7 @@ export interface PlacesInfo {
   openNow?: boolean | null;
   hours?: string[] | null;
   editorialSummary?: string | null;
+  reviews?: PlaceReview[] | null;
 }
 
 interface CompanyDeepDiveProps {
@@ -231,6 +239,32 @@ export function CompanyDeepDive({ companyName, jobs, placesData, marketMeanSalar
 
   const analytics = useMemo(() => computeAnalytics(jobs), [jobs]);
 
+  // Self-fetch Places data when not provided as a prop
+  const { data: fetchedPlaces } = useQuery<PlacesInfo | null>({
+    queryKey: ["company-places", companyName, jobs[0]?.location],
+    queryFn: async () => {
+      const loc = jobs[0]?.location ?? "";
+      const params = new URLSearchParams({ company: companyName, location: loc });
+      const res = await fetch(`/api/resolve-address?${params}`);
+      if (!res.ok) return null;
+      const d = await res.json();
+      return {
+        website: d.website ?? null,
+        phone: d.phone ?? null,
+        rating: d.rating ?? null,
+        ratingCount: d.ratingCount ?? null,
+        openNow: d.openNow ?? null,
+        hours: d.hours ?? null,
+        editorialSummary: d.editorialSummary ?? null,
+        reviews: d.reviews ?? null,
+      };
+    },
+    staleTime: 30 * 60 * 1000,
+    enabled: !placesData && jobs.length > 0,
+  });
+
+  const places = placesData ?? fetchedPlaces ?? null;
+
   // Federal records lookup
   const { data: federal, isLoading: federalLoading, refetch: refetchFederal } = useQuery<FederalData>({
     queryKey: ["company-deep-dive-federal", companyName],
@@ -313,34 +347,34 @@ export function CompanyDeepDive({ companyName, jobs, placesData, marketMeanSalar
             {jobs.length} open position{jobs.length !== 1 ? "s" : ""} in your search
           </p>
           {/* Google Places info */}
-          {placesData && (placesData.rating || placesData.website || placesData.phone) && (
+          {places && (places.rating || places.website || places.phone) && (
             <div className="flex flex-wrap items-center gap-3 mt-1.5 text-xs text-muted-foreground">
-              {placesData.rating != null && (
+              {places.rating != null && (
                 <span className="flex items-center gap-1">
                   <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
-                  {placesData.rating.toFixed(1)}
-                  {placesData.ratingCount != null && <span>({placesData.ratingCount.toLocaleString()})</span>}
+                  {places.rating.toFixed(1)}
+                  {places.ratingCount != null && <span>({places.ratingCount.toLocaleString()})</span>}
                 </span>
               )}
-              {placesData.website && (
-                <a href={placesData.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-primary hover:underline">
+              {places.website && (
+                <a href={places.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-primary hover:underline">
                   <Globe className="h-3.5 w-3.5" /> Website
                 </a>
               )}
-              {placesData.phone && (
+              {places.phone && (
                 <span className="flex items-center gap-1">
-                  <Phone className="h-3.5 w-3.5" /> {placesData.phone}
+                  <Phone className="h-3.5 w-3.5" /> {places.phone}
                 </span>
               )}
-              {placesData.openNow != null && (
-                <Badge variant={placesData.openNow ? "default" : "secondary"} className="text-xs h-5">
-                  {placesData.openNow ? "Open Now" : "Closed"}
+              {places.openNow != null && (
+                <Badge variant={places.openNow ? "default" : "secondary"} className="text-xs h-5">
+                  {places.openNow ? "Open Now" : "Closed"}
                 </Badge>
               )}
             </div>
           )}
-          {placesData?.editorialSummary && (
-            <p className="text-xs text-muted-foreground mt-1 italic">{placesData.editorialSummary}</p>
+          {places?.editorialSummary && (
+            <p className="text-xs text-muted-foreground mt-1 italic">{places.editorialSummary}</p>
           )}
         </div>
       </div>
@@ -352,6 +386,7 @@ export function CompanyDeepDive({ companyName, jobs, placesData, marketMeanSalar
           <TabsTrigger value="roles">Roles</TabsTrigger>
           <TabsTrigger value="locations">Locations</TabsTrigger>
           <TabsTrigger value="news">News</TabsTrigger>
+          <TabsTrigger value="reviews">Reviews</TabsTrigger>
           <TabsTrigger value="federal">Federal Records</TabsTrigger>
         </TabsList>
 
@@ -700,6 +735,79 @@ export function CompanyDeepDive({ companyName, jobs, placesData, marketMeanSalar
               <CardContent className="py-8 text-center">
                 <Newspaper className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
                 <p className="text-muted-foreground">No recent news found for {companyName}</p>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        {/* ── Google Reviews ── */}
+        <TabsContent value="reviews" className="mt-4 space-y-4">
+          {/* Rating summary */}
+          {places?.rating != null && (
+            <Card>
+              <CardContent className="pt-4 pb-3">
+                <div className="flex items-center gap-4">
+                  <div className="text-center">
+                    <p className="text-3xl font-bold">{places.rating.toFixed(1)}</p>
+                    <div className="flex items-center gap-0.5 mt-1">
+                      {[1, 2, 3, 4, 5].map((s) => (
+                        <Star
+                          key={s}
+                          className={`h-4 w-4 ${s <= Math.round(places.rating!) ? "fill-amber-400 text-amber-400" : "text-muted-foreground/30"}`}
+                        />
+                      ))}
+                    </div>
+                    {places.ratingCount != null && (
+                      <p className="text-xs text-muted-foreground mt-1">{places.ratingCount.toLocaleString()} reviews</p>
+                    )}
+                  </div>
+                  {places.hours && places.hours.length > 0 && (
+                    <div className="flex-1 ml-4 border-l pl-4">
+                      <div className="flex items-center gap-1.5 text-sm font-medium mb-1.5">
+                        <Clock className="h-4 w-4" /> Business Hours
+                      </div>
+                      <div className="space-y-0.5 text-xs text-muted-foreground">
+                        {places.hours.map((h, i) => (
+                          <p key={i}>{h}</p>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Individual reviews */}
+          {places?.reviews && places.reviews.length > 0 ? (
+            <div className="space-y-2 max-h-96 overflow-y-auto">
+              {places.reviews.map((review, i) => (
+                <Card key={i}>
+                  <CardContent className="pt-4 pb-3">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-sm font-medium">{review.authorName}</span>
+                      <span className="text-xs text-muted-foreground">{review.relativeTime}</span>
+                    </div>
+                    <div className="flex items-center gap-0.5 mb-2">
+                      {[1, 2, 3, 4, 5].map((s) => (
+                        <Star
+                          key={s}
+                          className={`h-3.5 w-3.5 ${s <= review.rating ? "fill-amber-400 text-amber-400" : "text-muted-foreground/30"}`}
+                        />
+                      ))}
+                    </div>
+                    {review.text && (
+                      <p className="text-sm text-muted-foreground leading-relaxed">{review.text}</p>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <Card>
+              <CardContent className="py-8 text-center">
+                <Star className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                <p className="text-muted-foreground">No Google reviews available for {companyName}</p>
               </CardContent>
             </Card>
           )}

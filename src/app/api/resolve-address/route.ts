@@ -16,6 +16,13 @@ import { cached, TTL } from "@/lib/cache";
 
 const GOOGLE_KEY = process.env.GOOGLE_MAPS_API_KEY;
 
+interface PlaceReview {
+  authorName: string;
+  rating: number;
+  text: string;
+  relativeTime: string;
+}
+
 interface PlaceEnrichment {
   placeId: string | null;
   website: string | null;
@@ -27,6 +34,7 @@ interface PlaceEnrichment {
   hours: string[] | null;
   editorialSummary: string | null;
   types: string[] | null;
+  reviews: PlaceReview[] | null;
 }
 
 interface ResolveResult {
@@ -54,11 +62,11 @@ interface ResolveResult {
 async function fetchPlaceDetails(placeId: string): Promise<PlaceEnrichment> {
   const empty: PlaceEnrichment = {
     placeId, website: null, phone: null, rating: null, ratingCount: null,
-    businessStatus: null, openNow: null, hours: null, editorialSummary: null, types: null,
+    businessStatus: null, openNow: null, hours: null, editorialSummary: null, types: null, reviews: null,
   };
 
   try {
-    const fields = "website,formatted_phone_number,rating,user_ratings_total,business_status,opening_hours,editorial_summary,types";
+    const fields = "website,formatted_phone_number,rating,user_ratings_total,business_status,opening_hours,editorial_summary,types,reviews";
     const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=${fields}&key=${GOOGLE_KEY}`;
     const res = await fetch(url);
     if (!res.ok) return empty;
@@ -78,6 +86,12 @@ async function fetchPlaceDetails(placeId: string): Promise<PlaceEnrichment> {
       hours: r.opening_hours?.weekday_text ?? null,
       editorialSummary: r.editorial_summary?.overview ?? null,
       types: r.types ?? null,
+      reviews: r.reviews?.map((rv: any) => ({
+        authorName: rv.author_name ?? "Anonymous",
+        rating: rv.rating ?? 0,
+        text: rv.text ?? "",
+        relativeTime: rv.relative_time_description ?? "",
+      })) ?? null,
     };
   } catch {
     return empty;
@@ -187,7 +201,7 @@ export async function GET(req: NextRequest) {
       // Fetch enriched Place Details
       const enrichment = placeId ? await fetchPlaceDetails(placeId) : {
         placeId: null, website: null, phone: null, rating: null, ratingCount: null,
-        businessStatus: null, openNow: null, hours: null, editorialSummary: null, types: null,
+        businessStatus: null, openNow: null, hours: null, editorialSummary: null, types: null, reviews: null,
       };
 
       return {

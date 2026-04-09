@@ -114,9 +114,9 @@ export default function JobMarketResearch() {
     enabled: debouncedSearch.length >= 2,
   });
 
-  // ── Wage data via Tavily ──
+  // ── Wage data via BLS OES API ──
   const { data: wageData, isLoading: wageLoading } = useQuery<WageResponse>({
-    queryKey: ["tavily-wages", selectedOcc?.code],
+    queryKey: ["bls-wages", selectedOcc?.code],
     queryFn: () =>
       fetch(
         `/api/market-research/bls?occupation=${encodeURIComponent(selectedOcc!.title)}&code=${encodeURIComponent(selectedOcc!.code)}`

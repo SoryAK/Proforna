@@ -114,12 +114,14 @@ interface MapJob {
   created: string;
   category: string;
   description: string;
-  source: "adzuna" | "google" | "email";
+  source: "adzuna" | "google" | "email" | "usajobs";
   /* Google Jobs enrichment */
   thumbnail?: string | null;
   via?: string;
   applyLinks?: { title: string; link: string }[];
   scheduleType?: string | null;
+  /* USAJobs: other duty stations for this posting */
+  dutyStations?: { location: string; city: string; state: string; lat: number; lng: number }[];
 }
 
 /** Strip basic HTML tags from Adzuna descriptions */
@@ -180,6 +182,7 @@ const SOURCE_OPTIONS = [
   { value: "both", label: "All Sources" },
   { value: "adzuna", label: "Adzuna" },
   { value: "google", label: "Google Jobs" },
+  { value: "usajobs", label: "USAJobs" },
 ];
 
 const PAGE_SIZE = 30;
@@ -307,6 +310,10 @@ interface CommuteProfile {
   daysInOffice: number;
   avoidTolls: boolean;
   departureHour: number; // 0-23
+  vehicleYear?: string;
+  vehicleMake?: string;
+  vehicleModel?: string;
+  vehicleId?: string; // FuelEconomy.gov vehicle id
 }
 const DEFAULT_COMMUTE_PROFILE: CommuteProfile = {
   gasPricePerGallon: 3.50,
@@ -371,9 +378,10 @@ function formatCost(n: number) {
 }
 
 /** Source badge styling + label */
-function sourceBadge(src: "adzuna" | "google" | "email") {
+function sourceBadge(src: "adzuna" | "google" | "email" | "usajobs") {
   if (src === "google") return { label: "Google", labelLong: "Google Jobs", className: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" };
   if (src === "email") return { label: "Email", labelLong: "Email Lead", className: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400" };
+  if (src === "usajobs") return { label: "USAJobs", labelLong: "USAJobs (Federal)", className: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" };
   return { label: "Adzuna", labelLong: "Adzuna", className: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" };
 }
 
@@ -421,9 +429,10 @@ export function JobMap() {
   const [minSalary, setMinSalary] = useState("");
   const [page, setPage] = useState(1);
   const [searchCenter, setSearchCenter] = useState<[number, number] | null>(null);
-  const [source, setSource] = useState<"adzuna" | "google" | "both">(() => (savedPrefs.source as "adzuna" | "google" | "both") || "both");
+  const [source, setSource] = useState<"adzuna" | "google" | "usajobs" | "both">(() => (savedPrefs.source as "adzuna" | "google" | "usajobs" | "both") || "both");
   const [commuteProfile, setCommuteProfile] = useState<CommuteProfile>(DEFAULT_COMMUTE_PROFILE);
   const [showCommuteSettings, setShowCommuteSettings] = useState(false);
+  const [showQuickCommuteEdit, setShowQuickCommuteEdit] = useState(false);
   const [commuteInfo, setCommuteInfo] = useState<{
     durationMin: number; distanceMi: number; mode?: CommuteMode; estimated?: boolean;
     geometry?: [number, number][];
@@ -532,6 +541,7 @@ export function JobMap() {
     hours?: string[] | null;
     editorialSummary?: string | null;
     types?: string[] | null;
+    reviews?: { authorName: string; rating: number; text: string; relativeTime: string }[] | null;
   };
   const [resolvedAddress, setResolvedAddress] = useState<ResolvedAddress | null>(null);
   const [addressLoading, setAddressLoading] = useState(false);
@@ -611,8 +621,18 @@ export function JobMap() {
   const [enabledAnchors, setEnabledAnchors] = useState<Set<string>>(new Set());
   const knownAnchorIds = useRef<Set<string>>(new Set());
 
-  // Load commute profile from localStorage on mount
-  useEffect(() => { setCommuteProfile(loadCommuteProfile()); }, []);
+  /* ── Work History (past jobs reference pins) ── */
+  interface WorkHistoryItem { id: string; company: string; title: string | null; address: string; lat: number; lng: number; startDate: string | null; endDate: string | null }
+  const { data: workHistory = [] } = useQuery<WorkHistoryItem[]>({
+    queryKey: ["work-history"],
+    queryFn: () => fetch("/api/work-history").then((r) => r.json()),
+    staleTime: 60_000,
+  });
+  const [showWorkHistory, setShowWorkHistory] = useState(false);
+
+  // Load commute profile: prefer DB profile, fallback to localStorage
+  const commuteProfileSeeded = useRef(false);
+  // (profile query is defined later — we just use the effect below after it resolves)
 
   // Sync enabledAnchors when lifeAnchors change — only add genuinely new anchors
   useEffect(() => {
@@ -836,24 +856,57 @@ export function JobMap() {
     toast.success("Search deleted");
   }, [qc]);
 
-  // Fetch user profile for default location
-  const { data: profile } = useQuery<{ city?: string; state?: string }>({
+  // Fetch user profile for default location + commute data
+  const { data: profile } = useQuery<{
+    city?: string; state?: string;
+    homeAddress?: string; homeLat?: number; homeLng?: number;
+    vehicleYear?: string; vehicleMake?: string; vehicleModel?: string;
+    vehicleId?: string; vehicleMpg?: number;
+    gasPricePerGallon?: number; daysInOffice?: number;
+  }>({
     queryKey: ["profile"],
     queryFn: () => fetch("/api/profile").then((r) => r.json()),
     staleTime: Infinity,
   });
 
-  // Set default location from profile (only once on mount)
+  // Set default location from profile (prefer homeAddress, fallback city/state)
   const profileLocationSet = useRef(false);
   useEffect(() => {
     if (profile && !profileLocationSet.current && !where) {
-      const loc = [profile.city, profile.state].filter(Boolean).join(", ");
-      if (loc) {
-        setWhere(loc);
+      // Use home lat/lng if available (skip geocoding)
+      if (profile.homeLat && profile.homeLng && profile.homeAddress) {
+        setWhere(profile.homeAddress);
+        setSearchCenter([profile.homeLat, profile.homeLng]);
         profileLocationSet.current = true;
+      } else {
+        const loc = [profile.city, profile.state].filter(Boolean).join(", ");
+        if (loc) {
+          setWhere(loc);
+          profileLocationSet.current = true;
+        }
       }
     }
   }, [profile]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Seed commute profile from DB profile (once)
+  useEffect(() => {
+    if (!profile || commuteProfileSeeded.current) return;
+    commuteProfileSeeded.current = true;
+    const local = loadCommuteProfile();
+    const merged: CommuteProfile = {
+      gasPricePerGallon: profile.gasPricePerGallon ?? local.gasPricePerGallon,
+      vehicleMpg: profile.vehicleMpg ?? local.vehicleMpg,
+      daysInOffice: profile.daysInOffice ?? local.daysInOffice,
+      avoidTolls: local.avoidTolls, // stays local
+      departureHour: local.departureHour, // stays local
+      vehicleYear: profile.vehicleYear ?? local.vehicleYear,
+      vehicleMake: profile.vehicleMake ?? local.vehicleMake,
+      vehicleModel: profile.vehicleModel ?? local.vehicleModel,
+      vehicleId: profile.vehicleId ?? local.vehicleId,
+    };
+    setCommuteProfile(merged);
+    saveCommuteProfile(merged);
+  }, [profile]);
 
   // Adzuna search query — fetch up to 5 pages (250 jobs) for good coverage
   const { data: adzunaData, isFetching: adzunaFetching } = useQuery<SearchResponse>({
@@ -902,7 +955,7 @@ export function JobMap() {
         hasMore: allJobs.length < total,
       };
     },
-    enabled: !!searchParams && source !== "google",
+    enabled: !!searchParams && (source === "both" || source === "adzuna"),
   });
 
   // Google Jobs query — SerpAPI + batch geocode (up to 5 pages)
@@ -993,7 +1046,26 @@ export function JobMap() {
 
       return { jobs, total: rawJobs.length };
     },
-    enabled: !!searchParams && source !== "adzuna",
+    enabled: !!searchParams && (source === "both" || source === "google"),
+  });
+
+  // USAJobs query — federal government job listings
+  const { data: usajobsData, isFetching: usajobsFetching } = useQuery<{ jobs: MapJob[]; total: number }>({
+    queryKey: ["usajobs-map", searchParams, searchCenter],
+    queryFn: async () => {
+      if (!searchParams) return { jobs: [], total: 0 };
+      const params = new URLSearchParams({ q: searchParams.q });
+      if (searchParams.apiWhere) params.set("location", searchParams.apiWhere);
+      if (searchParams.distance) params.set("radius", searchParams.distance);
+      if (searchCenter) {
+        params.set("lat", String(searchCenter[0]));
+        params.set("lng", String(searchCenter[1]));
+      }
+      const res = await fetch(`/api/usajobs?${params}`);
+      if (!res.ok) return { jobs: [], total: 0 };
+      return res.json();
+    },
+    enabled: !!searchParams && (source === "both" || source === "usajobs"),
   });
 
   // Hydrate trackedIds when jobs load — match against existing applications
@@ -1003,6 +1075,7 @@ export function JobMap() {
     const allJobs = [
       ...(adzunaData?.jobs ?? []),
       ...(googleData?.jobs ?? []),
+      ...(usajobsData?.jobs ?? []),
     ];
     if (allJobs.length === 0) return;
     const matched = new Set<string>();
@@ -1027,13 +1100,14 @@ export function JobMap() {
         return next;
       });
     }
-  }, [adzunaData, googleData]);
+  }, [adzunaData, googleData, usajobsData]);
 
-  // Merge results from both sources + email leads
-  const isFetching = adzunaFetching || googleFetching;
+  // Merge results from all sources + email leads
+  const isFetching = adzunaFetching || googleFetching || usajobsFetching;
   const mergedJobs = useMemo(() => {
-    const a = (source !== "google" ? adzunaData?.jobs : []) ?? [];
-    const g = (source !== "adzuna" ? googleData?.jobs : []) ?? [];
+    const a = (source === "both" || source === "adzuna" ? adzunaData?.jobs : []) ?? [];
+    const g = (source === "both" || source === "google" ? googleData?.jobs : []) ?? [];
+    const u = (source === "both" || source === "usajobs" ? usajobsData?.jobs : []) ?? [];
     // Convert email leads to MapJob format — require location + coordinates
     const e: MapJob[] = emailLeads
       .filter((l) => l.lat && l.lng && l.location?.trim())
@@ -1056,9 +1130,9 @@ export function JobMap() {
         description: l.description ?? "",
         source: "email" as const,
       }));
-    return [...a, ...g, ...e];
-  }, [adzunaData, googleData, source, emailLeads]);
-  const totalCount = (source !== "google" ? adzunaData?.total ?? 0 : 0) + (source !== "adzuna" ? googleData?.total ?? 0 : 0) + emailLeads.filter((l) => l.lat && l.lng && l.location?.trim()).length;
+    return [...a, ...g, ...u, ...e];
+  }, [adzunaData, googleData, usajobsData, source, emailLeads]);
+  const totalCount = (source === "both" || source === "adzuna" ? adzunaData?.total ?? 0 : 0) + (source === "both" || source === "google" ? googleData?.total ?? 0 : 0) + (source === "both" || source === "usajobs" ? usajobsData?.total ?? 0 : 0) + emailLeads.filter((l) => l.lat && l.lng && l.location?.trim()).length;
   const meanSalary = adzunaData?.mean ?? null;
 
   const geoJobs = useMemo(() => mergedJobs.filter((j) => j.lat && j.lng), [mergedJobs]);
@@ -1474,6 +1548,45 @@ export function JobMap() {
       .catch(() => {});
   }, [selectedJob?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Walk Score for selected job ──
+  const [walkScoreData, setWalkScoreData] = useState<{
+    walkScore: number | null;
+    transitScore: number | null;
+    bikeScore: number | null;
+    walkDescription: string | null;
+  } | null>(null);
+  const walkScoreCache = useRef<Record<string, typeof walkScoreData>>({});
+
+  useEffect(() => {
+    setWalkScoreData(null);
+    if (!selectedJob?.lat || !selectedJob?.lng) return;
+    const cacheKey = `${selectedJob.lat.toFixed(4)},${selectedJob.lng.toFixed(4)}`;
+    if (walkScoreCache.current[cacheKey]) {
+      setWalkScoreData(walkScoreCache.current[cacheKey]);
+      return;
+    }
+    const params = new URLSearchParams({
+      lat: String(selectedJob.lat),
+      lng: String(selectedJob.lng),
+      address: selectedJob.location || "",
+    });
+    fetch(`/api/walk-score?${params}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => {
+        if (d) {
+          const ws = {
+            walkScore: d.walkScore ?? null,
+            transitScore: d.transitScore ?? null,
+            bikeScore: d.bikeScore ?? null,
+            walkDescription: d.walkDescription ?? null,
+          };
+          walkScoreCache.current[cacheKey] = ws;
+          setWalkScoreData(ws);
+        }
+      })
+      .catch(() => {});
+  }, [selectedJob?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── NLP extraction of real location from job description ──
   useEffect(() => {
     setNlpLocations([]);
@@ -1604,6 +1717,62 @@ export function JobMap() {
     if (activeAmenities.size === 0 || !effectiveJobCoords) return null;
     return { lat: effectiveJobCoords[0], lng: effectiveJobCoords[1], radiusM: 800 };
   }, [activeAmenities, effectiveJobCoords]);
+
+  /** Memoized anchor routes for the map (prevents new reference on every render) */
+  const anchorRoutesForMap = useMemo(() => {
+    if (!selectedJob || !anchorCommutes) return [];
+    return Object.entries(anchorCommutes)
+      .filter(([aId]) => enabledAnchors.has(aId))
+      .map(([aId, info], i) => ({
+        anchorId: aId,
+        geometry: (info as any)?.geometry ?? null,
+        color: ANCHOR_COLORS[lifeAnchors.findIndex((a) => a.id === aId) % ANCHOR_COLORS.length],
+        label: (lifeAnchors ?? []).find((a: LifeAnchorData) => a.id === aId)?.label ?? "",
+      })).filter((r) => r.geometry);
+  }, [selectedJob, anchorCommutes, enabledAnchors, lifeAnchors]);
+
+  /** Memoized anchor markers for the map */
+  const anchorMarkersForMap = useMemo(() => {
+    if (!lifeAnchors || lifeAnchors.length === 0) return [];
+    return (lifeAnchors as LifeAnchorData[]).map((a, i) => ({
+      id: a.id,
+      lat: a.lat,
+      lng: a.lng,
+      label: a.label,
+      icon: a.icon ?? "map-pin",
+      color: ANCHOR_COLORS[i % ANCHOR_COLORS.length],
+    }));
+  }, [lifeAnchors]);
+
+  /** Memoized work-history markers for the map */
+  const workHistoryMarkersForMap = useMemo(() => {
+    if (!showWorkHistory || workHistory.length === 0) return [];
+    return workHistory.map((w) => ({
+      id: w.id,
+      lat: w.lat,
+      lng: w.lng,
+      label: w.company,
+      title: w.title,
+    }));
+  }, [showWorkHistory, workHistory]);
+
+  /** For each job, find closest work-history pin within 3 miles */
+  const nearbyWorkHistoryMap = useMemo(() => {
+    if (workHistory.length === 0) return {} as Record<string, WorkHistoryItem>;
+    const result: Record<string, WorkHistoryItem> = {};
+    for (const job of sortedJobs) {
+      let closest: WorkHistoryItem | null = null;
+      let minDist = Infinity;
+      for (const w of workHistory) {
+        const dLat = (job.lat - w.lat) * 69;
+        const dLng = (job.lng - w.lng) * 69 * Math.cos(job.lat * Math.PI / 180);
+        const dist = Math.sqrt(dLat * dLat + dLng * dLng);
+        if (dist < 3 && dist < minDist) { closest = w; minDist = dist; }
+      }
+      if (closest) result[job.id] = closest;
+    }
+    return result;
+  }, [workHistory, sortedJobs]);
 
   /** Toggle recruiter flag (DB-backed) */
   async function toggleRecruiterFlag(companyName: string) {
@@ -2368,121 +2537,6 @@ export function JobMap() {
             <span className="flex items-center gap-1 text-[10px]">
               <CircleDot className="h-2.5 w-2.5 text-blue-500" /> No data
             </span>
-            <span className="h-4 w-px bg-border" />
-            <Button
-              type="button"
-              variant={showHeatmap ? "default" : "outline"}
-              size="sm"
-              className="h-6 gap-1 px-2 text-xs"
-              onClick={() => setShowHeatmap((v) => !v)}
-            >
-              <Flame className="h-3 w-3" />
-              Heatmap
-            </Button>
-            <Button
-              type="button"
-              variant={showTraffic ? "default" : "outline"}
-              size="sm"
-              className="h-6 gap-1 px-2 text-xs"
-              onClick={() => setShowTraffic((v) => !v)}
-            >
-              <Car className="h-3 w-3" />
-              Traffic
-            </Button>
-            <Button
-              type="button"
-              variant={showTransit ? "default" : "outline"}
-              size="sm"
-              className="h-6 gap-1 px-2 text-xs"
-              onClick={() => setShowTransit((v) => !v)}
-            >
-              <TrainFront className="h-3 w-3" />
-              Transit
-            </Button>
-            <Popover>
-              <PopoverTrigger
-                className={`inline-flex items-center justify-center gap-1 rounded-md px-2 text-xs font-medium h-6 border ${
-                  isochroneEnabled
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "bg-background hover:bg-muted border-input"
-                }`}
-              >
-                {isochroneLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Clock className="h-3 w-3" />}
-                Commute
-              </PopoverTrigger>
-              <PopoverContent className="w-56 p-3" align="start">
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-xs font-semibold">Commute Zone</Label>
-                    <Switch checked={isochroneEnabled} onCheckedChange={(v) => {
-                      if (v && !homeAnchor) {
-                        toast.error("Set a Home anchor first (Life Anchors panel)");
-                        return;
-                      }
-                      setIsochroneEnabled(v);
-                    }} />
-                  </div>
-                  {isochroneEnabled && (
-                    <>
-                      <div>
-                        <Label className="text-[10px] text-muted-foreground">Travel mode</Label>
-                        <Select value={isochroneMode} onValueChange={(v) => setIsochroneMode(v as typeof isochroneMode)}>
-                          <SelectTrigger className="h-7 text-xs mt-1">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="driving-car">🚗 Driving</SelectItem>
-                            <SelectItem value="cycling-regular">🚲 Cycling</SelectItem>
-                            <SelectItem value="foot-walking">🚶 Walking</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <p className="text-[10px] text-muted-foreground">
-                        Covers your {radius} mi search radius. Jobs outside are dimmed.
-                      </p>
-                      {mergedIsochroneRings && mergedIsochroneRings.length > 0 && (
-                        <div className="space-y-1">
-                          <Label className="text-[10px] text-muted-foreground font-semibold">Commute Time Key</Label>
-                          <div className="flex flex-col gap-0.5">
-                            {[...mergedIsochroneRings]
-                              .sort((a, b) => a.minutes - b.minutes)
-                              .map((ring, i, arr) => {
-                                const count = arr.length;
-                                // innermost (i=0) = green, outermost = red
-                                const progress = count === 1 ? 0 : i / (count - 1);
-                                const h = 120 - progress * 120;
-                                return (
-                                  <div key={ring.minutes} className="flex items-center gap-1.5">
-                                    <span
-                                      className="inline-block w-3 h-3 rounded-sm shrink-0"
-                                      style={{ backgroundColor: `hsl(${h}, 75%, 45%)`, opacity: 0.8 }}
-                                    />
-                                    <span className="text-[10px]">
-                                      {i === 0 ? `0 – ${ring.minutes}` : `${arr[i - 1].minutes} – ${ring.minutes}`} min
-                                    </span>
-                                  </div>
-                                );
-                              })}
-                          </div>
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              </PopoverContent>
-            </Popover>
-            <Select value={tileStyle} onValueChange={(v) => setTileStyle((v ?? "osm") as typeof tileStyle)}>
-              <SelectTrigger className="h-6 w-28 text-xs">
-                <Layers className="h-3 w-3 mr-1" />
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="osm">OSM</SelectItem>
-                <SelectItem value="google-roadmap">Google Road</SelectItem>
-                <SelectItem value="google-satellite">Satellite</SelectItem>
-                <SelectItem value="google-hybrid">Hybrid</SelectItem>
-              </SelectContent>
-            </Select>
           </>
         )}
 
@@ -2955,7 +3009,7 @@ export function JobMap() {
         {/* Map */}
         <div className="flex-1 rounded-xl overflow-hidden border bg-muted relative">
           <LeafletMap
-              jobs={selectedJob ? sortedJobs.filter(j => j.id === selectedJob.id) : sortedJobs}
+              jobs={sortedJobs}
               center={
                 sortedJobs.length > 0
                   ? [sortedJobs[0].lat, sortedJobs[0].lng] as [number, number]
@@ -2970,30 +3024,8 @@ export function JobMap() {
               onViewChange={handleViewChange}
               routeGeometry={commuteInfo?.geometry ?? null}
               transitSteps={commuteInfo?.transitSteps}
-              anchorRoutes={
-                selectedJob && anchorCommutes
-                  ? Object.entries(anchorCommutes)
-                    .filter(([aId]) => enabledAnchors.has(aId))
-                    .map(([aId, info], i) => ({
-                      anchorId: aId,
-                      geometry: (info as any)?.geometry ?? null,
-                      color: ANCHOR_COLORS[lifeAnchors.findIndex((a) => a.id === aId) % ANCHOR_COLORS.length],
-                      label: (lifeAnchors ?? []).find((a: LifeAnchorData) => a.id === aId)?.label ?? "",
-                    })).filter((r) => r.geometry)
-                  : []
-              }
-              anchorMarkers={
-                lifeAnchors && lifeAnchors.length > 0
-                  ? (lifeAnchors as LifeAnchorData[]).map((a, i) => ({
-                      id: a.id,
-                      lat: a.lat,
-                      lng: a.lng,
-                      label: a.label,
-                      icon: a.icon ?? "map-pin",
-                      color: ANCHOR_COLORS[i % ANCHOR_COLORS.length],
-                    }))
-                  : []
-              }
+              anchorRoutes={anchorRoutesForMap}
+              anchorMarkers={anchorMarkersForMap}
               showHeatmap={showHeatmap}
               showTraffic={showTraffic}
               showTransit={showTransit}
@@ -3020,6 +3052,7 @@ export function JobMap() {
                 return next;
               })}
               dimmedIds={dimmedIds}
+              workHistoryMarkers={workHistoryMarkersForMap}
               onClusterHover={(jobs, position) => {
                 if (clusterHoverTimer.current) clearTimeout(clusterHoverTimer.current);
                 setClusterPreview({ jobs, position });
@@ -3037,6 +3070,184 @@ export function JobMap() {
               amenityLoading={amenityLoading}
               onToggleAmenity={toggleAmenityCategory}
             />
+
+          {/* ── Map layer controls (bottom-right, above zoom) ── */}
+          <div className="absolute bottom-6 right-[60px] z-[1050] flex flex-row gap-2 pointer-events-auto">
+            <div className="rounded-lg overflow-hidden shadow-md border border-gray-300 flex flex-row">
+              <button
+                type="button"
+                onClick={() => setShowHeatmap((v) => !v)}
+                title="Heatmap"
+                className={`flex items-center justify-center w-10 h-10 border-r border-gray-200 cursor-pointer transition-colors ${showHeatmap ? "bg-blue-50" : "bg-white hover:bg-gray-50"}`}
+              >
+                <Flame className={`h-[18px] w-[18px] ${showHeatmap ? "text-blue-600" : "text-gray-600"}`} />
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowTraffic((v) => !v)}
+                title="Traffic"
+                className={`flex items-center justify-center w-10 h-10 border-r border-gray-200 cursor-pointer transition-colors ${showTraffic ? "bg-blue-50" : "bg-white hover:bg-gray-50"}`}
+              >
+                <Car className={`h-[18px] w-[18px] ${showTraffic ? "text-blue-600" : "text-gray-600"}`} />
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowTransit((v) => !v)}
+                title="Transit"
+                className={`flex items-center justify-center w-10 h-10 border-r border-gray-200 cursor-pointer transition-colors ${showTransit ? "bg-blue-50" : "bg-white hover:bg-gray-50"}`}
+              >
+                <TrainFront className={`h-[18px] w-[18px] ${showTransit ? "text-blue-600" : "text-gray-600"}`} />
+              </button>
+              <Popover>
+                <PopoverTrigger
+                  title="Commute zone"
+                  className={`flex items-center justify-center w-10 h-10 border-r border-gray-200 cursor-pointer transition-colors ${isochroneEnabled ? "bg-blue-50" : "bg-white hover:bg-gray-50"}`}
+                >
+                  {isochroneLoading
+                    ? <Loader2 className="h-[18px] w-[18px] text-blue-600 animate-spin" />
+                    : <Clock className={`h-[18px] w-[18px] ${isochroneEnabled ? "text-blue-600" : "text-gray-600"}`} />
+                  }
+                </PopoverTrigger>
+                <PopoverContent className="w-56 p-3" align="end" side="left">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs font-semibold">Commute Zone</Label>
+                      <Switch checked={isochroneEnabled} onCheckedChange={(v) => {
+                        if (v && !homeAnchor) {
+                          toast.error("Set a Home anchor first (Life Anchors panel)");
+                          return;
+                        }
+                        setIsochroneEnabled(v);
+                      }} />
+                    </div>
+                    {isochroneEnabled && (
+                      <>
+                        <div>
+                          <Label className="text-[10px] text-muted-foreground">Travel mode</Label>
+                          <Select value={isochroneMode} onValueChange={(v) => setIsochroneMode(v as typeof isochroneMode)}>
+                            <SelectTrigger className="h-7 text-xs mt-1">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="driving-car">🚗 Driving</SelectItem>
+                              <SelectItem value="cycling-regular">🚲 Cycling</SelectItem>
+                              <SelectItem value="foot-walking">🚶 Walking</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground">
+                          Covers your {radius} mi search radius. Jobs outside are dimmed.
+                        </p>
+                        {mergedIsochroneRings && mergedIsochroneRings.length > 0 && (
+                          <div className="space-y-1">
+                            <Label className="text-[10px] text-muted-foreground font-semibold">Commute Time Key</Label>
+                            <div className="flex flex-col gap-0.5">
+                              {[...mergedIsochroneRings]
+                                .sort((a, b) => a.minutes - b.minutes)
+                                .map((ring, i, arr) => {
+                                  const count = arr.length;
+                                  const progress = count === 1 ? 0 : i / (count - 1);
+                                  const h = 120 - progress * 120;
+                                  return (
+                                    <div key={ring.minutes} className="flex items-center gap-1.5">
+                                      <span
+                                        className="inline-block w-3 h-3 rounded-sm shrink-0"
+                                        style={{ backgroundColor: `hsl(${h}, 75%, 45%)`, opacity: 0.8 }}
+                                      />
+                                      <span className="text-[10px]">
+                                        {i === 0 ? `0 – ${ring.minutes}` : `${arr[i - 1].minutes} – ${ring.minutes}`} min
+                                      </span>
+                                    </div>
+                                  );
+                                })}
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </PopoverContent>
+              </Popover>
+              <Popover>
+                <PopoverTrigger
+                  title="Map style"
+                  className="flex items-center justify-center w-10 h-10 bg-white cursor-pointer hover:bg-gray-50"
+                >
+                  <Layers className="h-[18px] w-[18px] text-gray-600" />
+                </PopoverTrigger>
+                <PopoverContent className="w-40 p-2" align="end" side="left">
+                  <div className="space-y-0.5">
+                    {([
+                      { value: "osm", label: "OSM" },
+                      { value: "google-roadmap", label: "Google Road" },
+                      { value: "google-satellite", label: "Satellite" },
+                      { value: "google-hybrid", label: "Hybrid" },
+                    ] as const).map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        className={`w-full text-left text-xs px-2 py-1.5 rounded-md transition-colors ${tileStyle === opt.value ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+                        onClick={() => setTileStyle(opt.value)}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+              <button
+                type="button"
+                onClick={() => setShowAnchors(!showAnchors)}
+                title="Life Anchors"
+                className={`flex items-center justify-center w-10 h-10 border-l border-gray-200 cursor-pointer transition-colors ${showAnchors ? "bg-blue-50" : "bg-white hover:bg-gray-50"}`}
+              >
+                <Anchor className={`h-[18px] w-[18px] ${showAnchors ? "text-blue-600" : "text-gray-600"}`} />
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowWorkHistory(!showWorkHistory)}
+                title="Work History"
+                className={`flex items-center justify-center w-10 h-10 border-l border-gray-200 cursor-pointer transition-colors ${showWorkHistory ? "bg-blue-50" : "bg-white hover:bg-gray-50"}`}
+              >
+                <Briefcase className={`h-[18px] w-[18px] ${showWorkHistory ? "text-blue-600" : "text-gray-600"}`} />
+              </button>
+            </div>
+          </div>
+
+          {/* ── Floating Life Anchors panel on map ── */}
+          {showAnchors && (
+            <div className="absolute top-3 left-3 z-[1100] bg-background/95 backdrop-blur-md border rounded-xl shadow-xl p-3 w-80 max-h-[50vh] overflow-y-auto pointer-events-auto">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-semibold flex items-center gap-1.5">
+                  <Anchor className="h-4 w-4 text-violet-500" /> Life Anchors
+                </span>
+                <button type="button" className="text-muted-foreground hover:text-foreground" onClick={() => setShowAnchors(false)}>
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <LifeAnchorsPanel
+                compact
+                defaultAddress={where}
+                onAnchorsChange={() => queryClient.invalidateQueries({ queryKey: ["life-anchors"] })}
+                enabledAnchorIds={enabledAnchors}
+                onToggleAnchor={(id) => setEnabledAnchors((prev) => {
+                  const next = new Set(prev);
+                  next.has(id) ? next.delete(id) : next.add(id);
+                  return next;
+                })}
+              />
+            </div>
+          )}
+
+          {/* ── Floating Work History panel on map ── */}
+          {showWorkHistory && (
+            <WorkHistoryPanel
+              items={workHistory}
+              onClose={() => setShowWorkHistory(false)}
+              onAdded={() => queryClient.invalidateQueries({ queryKey: ["work-history"] })}
+              onDeleted={() => queryClient.invalidateQueries({ queryKey: ["work-history"] })}
+            />
+          )}
 
           {/* ── Isochrone Commute Time Legend (floating on map) ── */}
           {isochroneEnabled && mergedIsochroneRings && mergedIsochroneRings.length > 0 && (
@@ -3237,22 +3448,23 @@ export function JobMap() {
             <div className="absolute inset-0 z-[500] flex items-center justify-center pointer-events-none">
               <div className="bg-background/80 backdrop-blur-sm rounded-xl px-6 py-4 flex items-center gap-2 shadow-lg text-muted-foreground">
                 <Loader2 className="h-5 w-5 animate-spin" />
-                Searching{source === "google" ? " Google Jobs" : source === "adzuna" ? " Adzuna" : ""}...
+                Searching{source === "google" ? " Google Jobs" : source === "adzuna" ? " Adzuna" : source === "usajobs" ? " USAJobs" : ""}...
               </div>
             </div>
           )}
 
           {/* ── Floating job info card on map ── */}
           {selectedJob && (
-            <div className="absolute top-3 left-3 z-[1000] w-80 max-h-[calc(100%-24px)] overflow-y-auto rounded-xl border bg-background/95 backdrop-blur-sm shadow-xl">
-              <div className="p-3 space-y-2.5">
-                {/* Header */}
+            <div className="absolute top-3 left-3 z-[1000] w-80 max-h-[calc(100%-24px)] flex flex-col rounded-xl border bg-background/95 backdrop-blur-sm shadow-xl">
+
+              {/* ═══ STICKY HEADER ═══ */}
+              <div className="shrink-0 p-3 pb-2 border-b bg-background/95 rounded-t-xl">
                 <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <h3 className="font-semibold text-sm leading-tight">{selectedJob.title}</h3>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="font-bold text-[13px] leading-tight line-clamp-2">{selectedJob.title}</h3>
                     <button
                       type="button"
-                      className="text-xs text-muted-foreground hover:text-primary hover:underline transition-colors text-left"
+                      className="text-xs text-muted-foreground hover:text-primary hover:underline transition-colors text-left mt-0.5"
                       onClick={() => setDeepDiveCompany(selectedJob.company)}
                     >
                       {selectedJob.company}
@@ -3261,145 +3473,113 @@ export function JobMap() {
                   <Button
                     size="icon"
                     variant="ghost"
-                    className="shrink-0 h-6 w-6"
-                    onClick={() => { setSelectedJob(null); setShowDetails(false); }}
+                    className="shrink-0 h-6 w-6 -mr-1 -mt-1"
+                    onClick={() => {
+                      setSelectedJob(null);
+                      setShowDetails(false);
+                      if (searchCenter) setZoomTarget({ lat: searchCenter[0], lng: searchCenter[1], zoom: 11 });
+                    }}
                   >
                     <X className="h-3.5 w-3.5" />
                   </Button>
                 </div>
 
-                {/* Badges */}
-                <div className="flex flex-wrap gap-1">
-                  <Badge variant="outline" className="gap-1 text-[10px] h-5">
+                {/* Key metrics row — always visible */}
+                <div className="flex items-center gap-2 mt-2 flex-wrap">
+                  {(selectedJob.salaryMin || selectedJob.salaryMax) && (
+                    <span className="flex items-center gap-0.5 text-sm font-semibold text-emerald-600 dark:text-emerald-400">
+                      <DollarSign className="h-3.5 w-3.5" />
+                      {selectedJob.salaryMin && formatSalary(selectedJob.salaryMin)}
+                      {selectedJob.salaryMin && selectedJob.salaryMax && "–"}
+                      {selectedJob.salaryMax && formatSalary(selectedJob.salaryMax)}
+                      {selectedJob.salaryPredicted && <span className="text-[10px] font-normal text-muted-foreground ml-0.5">(est.)</span>}
+                    </span>
+                  )}
+                  {lifeScoreCache[selectedJob.id] != null && (
+                    <span className={`text-xs font-bold px-1.5 py-0.5 rounded-md ${lifeScoreCache[selectedJob.id] >= 70 ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400" : lifeScoreCache[selectedJob.id] >= 40 ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-950/50 dark:text-yellow-400" : "bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-400"}`}>
+                      {lifeScoreCache[selectedJob.id]}/100
+                    </span>
+                  )}
+                  {commuteInfo && !commuteLoading && (
+                    <span className="flex items-center gap-0.5 text-xs text-muted-foreground">
+                      {(() => { const ModeIcon = COMMUTE_MODES.find((m) => m.value === (commuteInfo.mode ?? "driving"))?.icon ?? Car; return <ModeIcon className="h-3 w-3" />; })()}
+                      ~{commuteInfo.durationMin}m
+                    </span>
+                  )}
+                  {commuteLoading && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+                </div>
+
+                {/* Compact badges */}
+                <div className="flex flex-wrap gap-1 mt-1.5">
+                  <Badge variant="outline" className="gap-0.5 text-[10px] h-[18px] px-1.5">
                     <MapPin className="h-2.5 w-2.5" /> {selectedJob.location}
                   </Badge>
-                  <Badge
-                    variant="secondary"
-                    className={`text-[10px] h-5 ${sourceBadge(selectedJob.source).className}`}
-                  >
+                  <Badge variant="secondary" className={`text-[10px] h-[18px] px-1.5 ${sourceBadge(selectedJob.source).className}`}>
                     {sourceBadge(selectedJob.source).label}
                   </Badge>
                   {selectedJob.contractTime && (
-                    <Badge variant="outline" className="text-[10px] h-5 capitalize">
+                    <Badge variant="outline" className="text-[10px] h-[18px] px-1.5 capitalize">
                       {selectedJob.contractTime.replace("_", " ")}
                     </Badge>
                   )}
+                  {selectedJob.dutyStations && selectedJob.dutyStations.length > 0 && (
+                    <Badge variant="outline" className="text-[10px] h-[18px] px-1.5 border-green-300 text-green-600 dark:border-green-700 dark:text-green-400">
+                      +{selectedJob.dutyStations.length} loc
+                    </Badge>
+                  )}
+                  {walkScoreData?.walkScore != null && (
+                    <Badge variant="outline" className="text-[10px] h-[18px] px-1.5 gap-0.5 border-teal-300 text-teal-700 dark:border-teal-700 dark:text-teal-400">
+                      🚶{walkScoreData.walkScore}
+                    </Badge>
+                  )}
+                  {walkScoreData?.transitScore != null && (
+                    <Badge variant="outline" className="text-[10px] h-[18px] px-1.5 gap-0.5 border-sky-300 text-sky-700 dark:border-sky-700 dark:text-sky-400">
+                      🚌{walkScoreData.transitScore}
+                    </Badge>
+                  )}
+                  {walkScoreData?.bikeScore != null && (
+                    <Badge variant="outline" className="text-[10px] h-[18px] px-1.5 gap-0.5 border-lime-300 text-lime-700 dark:border-lime-700 dark:text-lime-400">
+                      🚴{walkScoreData.bikeScore}
+                    </Badge>
+                  )}
                 </div>
+              </div>
 
-                {/* Salary */}
-                {(selectedJob.salaryMin || selectedJob.salaryMax) && (
-                  <div className="flex items-center gap-1 text-sm">
-                    <DollarSign className="h-3.5 w-3.5 text-emerald-500" />
-                    <span className="font-medium">
-                      {selectedJob.salaryMin && formatSalary(selectedJob.salaryMin)}
-                      {selectedJob.salaryMin && selectedJob.salaryMax && " – "}
-                      {selectedJob.salaryMax && formatSalary(selectedJob.salaryMax)}
-                    </span>
-                    {selectedJob.salaryPredicted && (
-                      <span className="text-[10px] text-muted-foreground">(est.)</span>
+              {/* ═══ SCROLLABLE MIDDLE ═══ */}
+              <div className="flex-1 overflow-y-auto min-h-0 divide-y">
+
+                {/* ── 📍 Location Section ── */}
+                <details open className="group">
+                  <summary className="flex items-center gap-1.5 px-3 py-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider cursor-pointer hover:bg-muted/50 select-none">
+                    <MapPinned className="h-3 w-3 text-emerald-500" />
+                    Location
+                    <ChevronDown className="h-3 w-3 ml-auto transition-transform group-open:rotate-180" />
+                  </summary>
+                  <div className="px-3 pb-2.5 space-y-2">
+                    {/* Address resolution */}
+                    {addressLoading && (
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <Loader2 className="h-3 w-3 animate-spin" /> Resolving…
+                      </div>
                     )}
-                  </div>
-                )}
-
-                {/* Resolved address */}
-                <div className="space-y-1">
-                  {addressLoading && (
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <Loader2 className="h-3 w-3 animate-spin" /> Resolving…
-                    </div>
-                  )}
-                  {resolvedAddress && !addressOverride && (
-                    <div className="space-y-0.5">
-                      <div className="flex items-start gap-1 text-xs text-emerald-600 dark:text-emerald-400">
-                        <MapPinned className="h-3 w-3 mt-0.5 shrink-0" />
-                        <span>{resolvedAddress.address}</span>
+                    {resolvedAddress && !addressOverride && (
+                      <div className="space-y-1">
+                        <div className="flex items-start gap-1 text-xs text-emerald-600 dark:text-emerald-400">
+                          <MapPinned className="h-3 w-3 mt-0.5 shrink-0" />
+                          <span>{resolvedAddress.address}</span>
+                        </div>
+                        <Badge
+                          variant="outline"
+                          className={`text-[10px] px-1 py-0 h-3.5 ${
+                            resolvedAddress.confidence === "high" ? "border-emerald-300 text-emerald-600 dark:border-emerald-700 dark:text-emerald-400"
+                            : resolvedAddress.confidence === "medium" ? "border-yellow-300 text-yellow-600 dark:border-yellow-700 dark:text-yellow-400"
+                            : "border-red-300 text-red-600 dark:border-red-700 dark:text-red-400"
+                          }`}
+                        >
+                          {resolvedAddress.confidence === "high" ? "Exact" : resolvedAddress.confidence === "medium" ? "Likely" : "Multiple offices"}
+                        </Badge>
                       </div>
-                      <Badge
-                        variant="outline"
-                        className={`text-[10px] px-1 py-0 h-3.5 ${
-                          resolvedAddress.confidence === "high" ? "border-emerald-300 text-emerald-600 dark:border-emerald-700 dark:text-emerald-400"
-                          : resolvedAddress.confidence === "medium" ? "border-yellow-300 text-yellow-600 dark:border-yellow-700 dark:text-yellow-400"
-                          : "border-red-300 text-red-600 dark:border-red-700 dark:text-red-400"
-                        }`}
-                      >
-                        {resolvedAddress.confidence === "high" ? "Exact" : resolvedAddress.confidence === "medium" ? "Likely" : "Multiple offices"}
-                      </Badge>
-                    </div>
-                  )}
-                  <PlacesAutocomplete
-                    value={addressOverride}
-                    onChange={(v) => {
-                      setAddressOverride(v);
-                      if (!v.trim()) return;
-                      geocodeOverride(v).then((d) => {
-                        if (d) {
-                          setResolvedAddress(d);
-                          if (selectedJob) saveAddressOverride(selectedJob.id, d.address, d.lat, d.lng, d.name, "manual");
-                        }
-                      });
-                    }}
-                    placeholder={resolvedAddress ? "Override address…" : "Enter exact address…"}
-                    className="h-7 text-xs"
-                  />
-                </div>
-
-                {/* "via recruiter" confidence badge + flag count */}
-                {selectedJob && (() => {
-                  const norm = selectedJob.company.toLowerCase().trim();
-                  const dbInfo = recruiterFlagDb[norm];
-                  const isRecruiter = isLikelyRecruiter(selectedJob.company) || isUserFlaggedRecruiter(selectedJob.company) || dbInfo?.confirmed;
-                  const dupInfo = getDuplicateInfo(selectedJob.id);
-                  if (!isRecruiter && !dupInfo) return null;
-                  return (
-                    <div className="space-y-1.5">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        {isRecruiter && (
-                          <Badge variant="outline" className="text-[10px] h-5 gap-1 border-orange-300 text-orange-600 dark:border-orange-700 dark:text-orange-400">
-                            <ShieldAlert className="h-2.5 w-2.5" /> via recruiter
-                          </Badge>
-                        )}
-                        {dbInfo && dbInfo.count > 0 && (
-                          <span className="text-[9px] text-muted-foreground">
-                            {dbInfo.count} flag{dbInfo.count !== 1 ? "s" : ""}{dbInfo.confirmed ? " · confirmed" : ""}
-                          </span>
-                        )}
-                        {dupInfo && (
-                          <Badge variant="outline" className="text-[10px] h-5 gap-1 border-violet-300 text-violet-600 dark:border-violet-700 dark:text-violet-400">
-                            <Repeat2 className="h-2.5 w-2.5" /> Duplicate posting
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                {/* Landmark mismatch alert + one-click swap */}
-                {resolvedAddress && selectedJob && hasLandmarkMismatch(selectedJob.company, resolvedAddress.name) && (
-                  <div className="rounded-md border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30 px-2.5 py-1.5 space-y-1.5">
-                    <div className="flex items-start gap-1.5 text-xs text-amber-700 dark:text-amber-400">
-                      <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                      <span>
-                        Google identifies this location as <strong>{resolvedAddress.name}</strong>
-                        {isLikelyRecruiter(selectedJob.company) && <span> — poster may be a staffing agency</span>}
-                      </span>
-                    </div>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-6 text-[10px] gap-1 border-amber-300 text-amber-700 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950/50"
-                      onClick={swapToLandmark}
-                    >
-                      <ArrowRightLeft className="h-2.5 w-2.5" /> Confirm as {resolvedAddress.name}
-                    </Button>
-                  </div>
-                )}
-
-                {/* "Where's the office?" for recruiter-flagged jobs */}
-                {selectedJob && (isLikelyRecruiter(selectedJob.company) || isUserFlaggedRecruiter(selectedJob.company) || recruiterFlagDb[selectedJob.company.toLowerCase().trim()]?.confirmed) && (
-                  <div className="rounded-md border border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/20 px-2.5 py-1.5 space-y-1.5">
-                    <p className="text-[10px] text-blue-700 dark:text-blue-400 font-medium flex items-center gap-1">
-                      <Lightbulb className="h-3 w-3" /> This job was posted by a recruiter. Know the actual office?
-                    </p>
+                    )}
                     <PlacesAutocomplete
                       value={addressOverride}
                       onChange={(v) => {
@@ -3412,33 +3592,97 @@ export function JobMap() {
                           }
                         });
                       }}
-                      placeholder="Enter real office address…"
+                      placeholder={resolvedAddress ? "Override address…" : "Enter exact address…"}
                       className="h-7 text-xs"
-                      types={["address", "establishment"]}
                     />
-                    {/* NLP-extracted suggestions */}
-                    {nlpLocations.length > 0 && (
-                      <div className="space-y-1">
-                        <p className="text-[9px] text-muted-foreground">Detected in description:</p>
-                        {nlpLocations.map((loc, i) => (
-                          <Button
-                            key={i}
-                            size="sm"
-                            variant="ghost"
-                            className="h-5 px-1.5 text-[10px] text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-950/30"
-                            onClick={() => applyNlpLocation(loc)}
-                          >
-                            <MapPin className="h-2.5 w-2.5 mr-0.5" /> {loc}
-                          </Button>
-                        ))}
+
+                    {/* Recruiter flags */}
+                    {(() => {
+                      const norm = selectedJob.company.toLowerCase().trim();
+                      const dbInfo = recruiterFlagDb[norm];
+                      const isRecruiter = isLikelyRecruiter(selectedJob.company) || isUserFlaggedRecruiter(selectedJob.company) || dbInfo?.confirmed;
+                      const dupInfo = getDuplicateInfo(selectedJob.id);
+                      if (!isRecruiter && !dupInfo) return null;
+                      return (
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {isRecruiter && (
+                            <Badge variant="outline" className="text-[10px] h-5 gap-1 border-orange-300 text-orange-600 dark:border-orange-700 dark:text-orange-400">
+                              <ShieldAlert className="h-2.5 w-2.5" /> via recruiter
+                            </Badge>
+                          )}
+                          {dbInfo && dbInfo.count > 0 && (
+                            <span className="text-[9px] text-muted-foreground">
+                              {dbInfo.count} flag{dbInfo.count !== 1 ? "s" : ""}{dbInfo.confirmed ? " · confirmed" : ""}
+                            </span>
+                          )}
+                          {dupInfo && (
+                            <Badge variant="outline" className="text-[10px] h-5 gap-1 border-violet-300 text-violet-600 dark:border-violet-700 dark:text-violet-400">
+                              <Repeat2 className="h-2.5 w-2.5" /> Duplicate
+                            </Badge>
+                          )}
+                        </div>
+                      );
+                    })()}
+
+                    {/* Landmark mismatch alert */}
+                    {resolvedAddress && hasLandmarkMismatch(selectedJob.company, resolvedAddress.name) && (
+                      <div className="rounded-md border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30 px-2.5 py-1.5 space-y-1.5">
+                        <div className="flex items-start gap-1.5 text-xs text-amber-700 dark:text-amber-400">
+                          <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                          <span>
+                            Google identifies this location as <strong>{resolvedAddress.name}</strong>
+                            {isLikelyRecruiter(selectedJob.company) && <span> — poster may be a staffing agency</span>}
+                          </span>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-6 text-[10px] gap-1 border-amber-300 text-amber-700 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950/50"
+                          onClick={swapToLandmark}
+                        >
+                          <ArrowRightLeft className="h-2.5 w-2.5" /> Confirm as {resolvedAddress.name}
+                        </Button>
                       </div>
                     )}
-                  </div>
-                )}
 
-                {/* Recruiter flag toggle button */}
-                {selectedJob && (
-                  <div className="flex items-center gap-1.5">
+                    {/* Recruiter office override */}
+                    {(isLikelyRecruiter(selectedJob.company) || isUserFlaggedRecruiter(selectedJob.company) || recruiterFlagDb[selectedJob.company.toLowerCase().trim()]?.confirmed) && (
+                      <div className="rounded-md border border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/20 px-2.5 py-1.5 space-y-1.5">
+                        <p className="text-[10px] text-blue-700 dark:text-blue-400 font-medium flex items-center gap-1">
+                          <Lightbulb className="h-3 w-3" /> Know the actual office?
+                        </p>
+                        <PlacesAutocomplete
+                          value={addressOverride}
+                          onChange={(v) => {
+                            setAddressOverride(v);
+                            if (!v.trim()) return;
+                            geocodeOverride(v).then((d) => {
+                              if (d) {
+                                setResolvedAddress(d);
+                                if (selectedJob) saveAddressOverride(selectedJob.id, d.address, d.lat, d.lng, d.name, "manual");
+                              }
+                            });
+                          }}
+                          placeholder="Enter real office address…"
+                          className="h-7 text-xs"
+                          types={["address", "establishment"]}
+                        />
+                        {nlpLocations.length > 0 && (
+                          <div className="space-y-0.5">
+                            <p className="text-[9px] text-muted-foreground">Detected in description:</p>
+                            <div className="flex flex-wrap gap-1">
+                              {nlpLocations.map((loc, i) => (
+                                <Button key={i} size="sm" variant="ghost" className="h-5 px-1.5 text-[10px] text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-950/30" onClick={() => applyNlpLocation(loc)}>
+                                  <MapPin className="h-2.5 w-2.5 mr-0.5" /> {loc}
+                                </Button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Flag as recruiter */}
                     <Button
                       size="sm"
                       variant="ghost"
@@ -3450,362 +3694,352 @@ export function JobMap() {
                       {(isUserFlaggedRecruiter(selectedJob.company) || recruiterFlagDb[selectedJob.company.toLowerCase().trim()]?.flaggedByMe) ? "Unflag recruiter" : "Flag as recruiter"}
                     </Button>
                   </div>
-                )}
+                </details>
 
-                {/* Google Places enrichment */}
+                {/* ── 🏢 Business Info Section ── */}
                 {resolvedAddress && (resolvedAddress.website || resolvedAddress.phone || resolvedAddress.rating != null || resolvedAddress.editorialSummary) && (
-                  <div className="rounded-lg border bg-muted/30 px-2.5 py-2 space-y-1.5">
-                    <div className="flex items-center gap-1 text-[10px] font-medium text-muted-foreground">
-                      <Building2 className="h-3 w-3" /> Business Info
-                    </div>
-                    {resolvedAddress.editorialSummary && (
-                      <p className="text-[11px] text-muted-foreground leading-snug">{resolvedAddress.editorialSummary}</p>
-                    )}
-                    <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs">
+                  <details className="group">
+                    <summary className="flex items-center gap-1.5 px-3 py-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider cursor-pointer hover:bg-muted/50 select-none">
+                      <Building2 className="h-3 w-3 text-blue-500" />
+                      Business Info
                       {resolvedAddress.rating != null && (
-                        <span className="flex items-center gap-0.5">
-                          <Star className="h-3 w-3 text-yellow-500 fill-yellow-500" />
-                          <span className="font-medium">{resolvedAddress.rating}</span>
-                          {resolvedAddress.ratingCount != null && (
-                            <span className="text-muted-foreground">({resolvedAddress.ratingCount.toLocaleString()})</span>
-                          )}
+                        <span className="ml-auto mr-1 flex items-center gap-0.5 text-xs normal-case font-medium tracking-normal">
+                          <Star className="h-3 w-3 text-yellow-500 fill-yellow-500" /> {resolvedAddress.rating}
                         </span>
                       )}
-                      {resolvedAddress.businessStatus && resolvedAddress.businessStatus !== "OPERATIONAL" && (
-                        <Badge variant="outline" className="text-[10px] h-4 px-1 border-red-300 text-red-600 dark:border-red-700 dark:text-red-400">
-                          {resolvedAddress.businessStatus.replace(/_/g, " ")}
-                        </Badge>
-                      )}
-                      {resolvedAddress.openNow !== undefined && (
-                        <Badge variant="outline" className={`text-[10px] h-4 px-1 ${resolvedAddress.openNow ? "border-emerald-300 text-emerald-600 dark:border-emerald-700 dark:text-emerald-400" : "border-red-300 text-red-600 dark:border-red-700 dark:text-red-400"}`}>
-                          {resolvedAddress.openNow ? "Open Now" : "Closed"}
-                        </Badge>
-                      )}
-                    </div>
-                    <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs">
-                      {resolvedAddress.website && (
-                        <a href={resolvedAddress.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-0.5 text-blue-600 dark:text-blue-400 hover:underline truncate max-w-[180px]">
-                          <Globe className="h-3 w-3 shrink-0" />
-                          {new URL(resolvedAddress.website).hostname.replace("www.", "")}
-                        </a>
-                      )}
-                      {resolvedAddress.phone && (
-                        <a href={`tel:${resolvedAddress.phone}`} className="flex items-center gap-0.5 text-muted-foreground hover:text-foreground">
-                          <Phone className="h-3 w-3 shrink-0" />
-                          {resolvedAddress.phone}
-                        </a>
-                      )}
-                    </div>
-                    {resolvedAddress.hours && resolvedAddress.hours.length > 0 && (
-                      <details className="text-[10px] text-muted-foreground">
-                        <summary className="cursor-pointer hover:text-foreground flex items-center gap-0.5">
-                          <Clock className="h-2.5 w-2.5" /> Hours
-                        </summary>
-                        <div className="mt-1 space-y-0.5 pl-3">
-                          {resolvedAddress.hours.map((h, i) => (
-                            <div key={i}>{h}</div>
-                          ))}
-                        </div>
-                      </details>
-                    )}
-                  </div>
-                )}
-
-                {/* Street View of office location */}
-                {resolvedAddress && (
-                  <details className="rounded-lg border bg-muted/30 overflow-hidden">
-                    <summary className="px-2.5 py-1.5 text-[10px] font-medium text-muted-foreground cursor-pointer hover:text-foreground flex items-center gap-1">
-                      <Eye className="h-3 w-3" /> Street View
+                      <ChevronDown className="h-3 w-3 transition-transform group-open:rotate-180" />
                     </summary>
-                    <div className="relative">
-                      <img
-                        src={`https://maps.googleapis.com/maps/api/streetview?size=320x180&location=${resolvedAddress.lat},${resolvedAddress.lng}&fov=90&heading=0&pitch=10&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`}
-                        alt={`Street view of ${resolvedAddress.address}`}
-                        className="w-full h-[140px] object-cover"
-                        loading="lazy"
-                      />
-                      <a
-                        href={`https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${resolvedAddress.lat},${resolvedAddress.lng}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="absolute bottom-1.5 right-1.5 flex items-center gap-1 bg-black/70 text-white text-[10px] px-2 py-1 rounded hover:bg-black/90 transition-colors"
-                      >
-                        <ExternalLink className="h-2.5 w-2.5" /> Open 360°
-                      </a>
+                    <div className="px-3 pb-2.5 space-y-1.5">
+                      {resolvedAddress.editorialSummary && (
+                        <p className="text-[11px] text-muted-foreground leading-snug">{resolvedAddress.editorialSummary}</p>
+                      )}
+                      <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs">
+                        {resolvedAddress.rating != null && (
+                          <span className="flex items-center gap-0.5">
+                            <Star className="h-3 w-3 text-yellow-500 fill-yellow-500" />
+                            <span className="font-medium">{resolvedAddress.rating}</span>
+                            {resolvedAddress.ratingCount != null && (
+                              <span className="text-muted-foreground">({resolvedAddress.ratingCount.toLocaleString()})</span>
+                            )}
+                          </span>
+                        )}
+                        {resolvedAddress.businessStatus && resolvedAddress.businessStatus !== "OPERATIONAL" && (
+                          <Badge variant="outline" className="text-[10px] h-4 px-1 border-red-300 text-red-600 dark:border-red-700 dark:text-red-400">
+                            {resolvedAddress.businessStatus.replace(/_/g, " ")}
+                          </Badge>
+                        )}
+                        {resolvedAddress.openNow !== undefined && (
+                          <Badge variant="outline" className={`text-[10px] h-4 px-1 ${resolvedAddress.openNow ? "border-emerald-300 text-emerald-600 dark:border-emerald-700 dark:text-emerald-400" : "border-red-300 text-red-600 dark:border-red-700 dark:text-red-400"}`}>
+                            {resolvedAddress.openNow ? "Open Now" : "Closed"}
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs">
+                        {resolvedAddress.website && (
+                          <a href={resolvedAddress.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-0.5 text-blue-600 dark:text-blue-400 hover:underline truncate max-w-[180px]">
+                            <Globe className="h-3 w-3 shrink-0" />
+                            {new URL(resolvedAddress.website).hostname.replace("www.", "")}
+                          </a>
+                        )}
+                        {resolvedAddress.phone && (
+                          <a href={`tel:${resolvedAddress.phone}`} className="flex items-center gap-0.5 text-muted-foreground hover:text-foreground">
+                            <Phone className="h-3 w-3 shrink-0" />
+                            {resolvedAddress.phone}
+                          </a>
+                        )}
+                      </div>
+                      {resolvedAddress.hours && resolvedAddress.hours.length > 0 && (
+                        <details className="text-[10px] text-muted-foreground">
+                          <summary className="cursor-pointer hover:text-foreground flex items-center gap-0.5">
+                            <Clock className="h-2.5 w-2.5" /> Hours
+                          </summary>
+                          <div className="mt-1 space-y-0.5 pl-3">
+                            {resolvedAddress.hours.map((h, i) => (
+                              <div key={i}>{h}</div>
+                            ))}
+                          </div>
+                        </details>
+                      )}
                     </div>
                   </details>
                 )}
 
-                {/* Commute + transport mode selector */}
+                {/* ── 🚗 Commute Section ── */}
                 {searchCenter && (
-                  <div className="space-y-1.5">
-                    <div className="flex items-center gap-1.5">
-                      {COMMUTE_MODES.map((m) => {
-                        const Icon = m.icon;
-                        return (
-                          <Button
-                            key={m.value}
-                            type="button"
-                            size="icon"
-                            variant={commuteMode === m.value ? "default" : "outline"}
-                            className="h-6 w-6"
-                            title={m.label}
-                            onClick={() => setCommuteMode(m.value)}
-                          >
-                            <Icon className="h-3 w-3" />
-                          </Button>
-                        );
-                      })}
-                      {commuteLoading && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
-                      <Popover open={showCommuteSettings} onOpenChange={setShowCommuteSettings}>
-                        <PopoverTrigger
-                          className="inline-flex items-center justify-center h-6 w-6 ml-auto rounded-md hover:bg-accent text-muted-foreground hover:text-foreground"
-                          title="Commute settings"
-                        >
-                            <Settings className="h-3 w-3" />
-                        </PopoverTrigger>
-                        <PopoverContent className="w-64 p-3 space-y-3" align="end">
-                          <div className="text-xs font-semibold">Commute Profile</div>
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between">
-                              <Label className="text-[11px]">Gas $/gal</Label>
-                              <Input
-                                type="number" step="0.10" min="1" max="10"
-                                value={commuteProfile.gasPricePerGallon}
-                                onChange={(e) => {
-                                  const v = parseFloat(e.target.value) || DEFAULT_COMMUTE_PROFILE.gasPricePerGallon;
-                                  const p = { ...commuteProfile, gasPricePerGallon: v };
-                                  setCommuteProfile(p); saveCommuteProfile(p);
-                                }}
-                                className="h-7 w-20 text-xs text-right"
-                              />
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <Label className="text-[11px]">Vehicle MPG</Label>
-                              <Input
-                                type="number" step="0.5" min="5" max="150"
-                                value={commuteProfile.vehicleMpg}
-                                onChange={(e) => {
-                                  const v = parseFloat(e.target.value) || DEFAULT_COMMUTE_PROFILE.vehicleMpg;
-                                  const p = { ...commuteProfile, vehicleMpg: v };
-                                  setCommuteProfile(p); saveCommuteProfile(p);
-                                }}
-                                className="h-7 w-20 text-xs text-right"
-                              />
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <Label className="text-[11px]">Days in office/wk</Label>
-                              <Input
-                                type="number" step="1" min="1" max="7"
-                                value={commuteProfile.daysInOffice}
-                                onChange={(e) => {
-                                  const v = parseInt(e.target.value) || DEFAULT_COMMUTE_PROFILE.daysInOffice;
-                                  const p = { ...commuteProfile, daysInOffice: Math.min(7, Math.max(1, v)) };
-                                  setCommuteProfile(p); saveCommuteProfile(p);
-                                }}
-                                className="h-7 w-20 text-xs text-right"
-                              />
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <Label className="text-[11px]">Departure hour</Label>
-                              <Select
-                                value={String(commuteProfile.departureHour)}
-                                onValueChange={(v) => {
-                                  const p = { ...commuteProfile, departureHour: parseInt(v ?? "8") };
-                                  setCommuteProfile(p); saveCommuteProfile(p);
-                                }}
-                              >
-                                <SelectTrigger className="h-7 w-20 text-xs">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {Array.from({ length: 24 }, (_, i) => (
-                                    <SelectItem key={i} value={String(i)}>
-                                      {i === 0 ? "12 AM" : i < 12 ? `${i} AM` : i === 12 ? "12 PM" : `${i - 12} PM`}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <Label className="text-[11px]">Avoid tolls</Label>
-                              <Switch
-                                checked={commuteProfile.avoidTolls}
-                                onCheckedChange={(v) => {
-                                  const p = { ...commuteProfile, avoidTolls: !!v };
-                                  setCommuteProfile(p); saveCommuteProfile(p);
-                                }}
-                              />
-                            </div>
-                          </div>
-                          <p className="text-[10px] text-muted-foreground">
-                            Cost: ${(commuteProfile.gasPricePerGallon / commuteProfile.vehicleMpg).toFixed(2)}/mi · {commuteProfile.daysInOffice}d/wk · {commuteProfile.daysInOffice * 52} trips/yr
-                          </p>
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                    {commuteInfo ? (
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-1 text-xs font-medium">
-                          {(() => { const ModeIcon = COMMUTE_MODES.find((m) => m.value === (commuteInfo.mode ?? "driving"))?.icon ?? Car; return <ModeIcon className="h-3.5 w-3.5 text-blue-500" />; })()}
-                          {commuteInfo.routes && commuteInfo.routes.length > 1 ? (
-                            <span>
-                              {Math.min(...commuteInfo.routes.map(r => r.durationMin))}–{Math.max(...commuteInfo.routes.map(r => r.durationMin))} min
-                              {" "}({Math.min(...commuteInfo.routes.map(r => r.distanceMi))}–{Math.max(...commuteInfo.routes.map(r => r.distanceMi))} mi)
-                            </span>
-                          ) : (
-                            <span>~{commuteInfo.durationMin} min ({commuteInfo.distanceMi} mi)</span>
-                          )}
-                          {commuteInfo.estimated && <span className="text-muted-foreground ml-0.5">(est.)</span>}
-                        </div>
-                        {commuteInfo.durationInTrafficMin && commuteInfo.durationInTrafficMin !== commuteInfo.durationMin && (
-                          <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                            <Clock className="h-2.5 w-2.5" />
-                            {commuteInfo.durationInTrafficMin} min in traffic
-                            ({commuteProfile.departureHour === 0 ? "12 AM" : commuteProfile.departureHour < 12 ? `${commuteProfile.departureHour} AM` : commuteProfile.departureHour === 12 ? "12 PM" : `${commuteProfile.departureHour - 12} PM`} departure)
-                          </div>
-                        )}
-                        {/* Departure → Arrival ETA */}
-                        {(() => {
-                          const dur = commuteInfo.durationInTrafficMin ?? commuteInfo.durationMin;
-                          const depH = commuteProfile.departureHour;
-                          const depLabel = depH === 0 ? "12:00 AM" : depH < 12 ? `${depH}:00 AM` : depH === 12 ? "12:00 PM" : `${depH - 12}:00 PM`;
-                          const arrTotalMin = depH * 60 + dur;
-                          const arrH = Math.floor(arrTotalMin / 60) % 24;
-                          const arrM = arrTotalMin % 60;
-                          const arrLabel = `${arrH === 0 ? 12 : arrH > 12 ? arrH - 12 : arrH}:${String(arrM).padStart(2, "0")} ${arrH < 12 ? "AM" : "PM"}`;
+                  <details open className="group">
+                    <summary className="flex items-center gap-1.5 px-3 py-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider cursor-pointer hover:bg-muted/50 select-none">
+                      <Car className="h-3 w-3 text-blue-500" />
+                      Commute
+                      {commuteInfo && !commuteLoading && (
+                        <span className="ml-auto mr-1 text-xs normal-case font-medium tracking-normal">
+                          ~{commuteInfo.durationMin}m · {commuteInfo.distanceMi}mi
+                        </span>
+                      )}
+                      <ChevronDown className="h-3 w-3 transition-transform group-open:rotate-180" />
+                    </summary>
+                    <div className="px-3 pb-2.5 space-y-2">
+                      {/* Mode selector */}
+                      <div className="flex items-center gap-1.5">
+                        {COMMUTE_MODES.map((m) => {
+                          const Icon = m.icon;
                           return (
-                            <div className="flex items-center gap-1 text-[10px] font-medium text-indigo-600 dark:text-indigo-400">
-                              <Navigation className="h-2.5 w-2.5" />
-                              Leave {depLabel} → Arrive {arrLabel}
-                            </div>
+                            <Button
+                              key={m.value}
+                              type="button"
+                              size="icon"
+                              variant={commuteMode === m.value ? "default" : "outline"}
+                              className="h-6 w-6"
+                              title={m.label}
+                              onClick={() => setCommuteMode(m.value)}
+                            >
+                              <Icon className="h-3 w-3" />
+                            </Button>
                           );
-                        })()}
-                        {/* Yearly cost estimate */}
-                        <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                          <Fuel className="h-2.5 w-2.5" />
-                          {commuteInfo.routes && commuteInfo.routes.length > 1 ? (
-                            <span>
-                              {formatCost(yearlyCommuteCost(Math.min(...commuteInfo.routes.map(r => r.distanceMi)), commuteProfile))}–{formatCost(yearlyCommuteCost(Math.max(...commuteInfo.routes.map(r => r.distanceMi)), commuteProfile))}/yr
-                            </span>
-                          ) : (
-                            <span>{formatCost(yearlyCommuteCost(commuteInfo.distanceMi, commuteProfile))}/yr</span>
+                        })}
+                        {commuteLoading && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+                        <Popover open={showCommuteSettings} onOpenChange={setShowCommuteSettings}>
+                          <PopoverTrigger
+                            className="inline-flex items-center justify-center h-6 w-6 ml-auto rounded-md hover:bg-accent text-muted-foreground hover:text-foreground"
+                            title="Commute settings"
+                          >
+                            <Settings className="h-3 w-3" />
+                          </PopoverTrigger>
+                          <PopoverContent className="w-64 p-3 space-y-3" align="end">
+                            <div className="text-xs font-semibold">Commute Settings</div>
+
+                            {/* Read-only summary from profile */}
+                            <div className="rounded-md border p-2 bg-muted/30 space-y-0.5">
+                              {commuteProfile.vehicleYear && commuteProfile.vehicleMake && commuteProfile.vehicleModel ? (
+                                <p className="text-[11px] font-medium">{commuteProfile.vehicleYear} {commuteProfile.vehicleMake} {commuteProfile.vehicleModel}</p>
+                              ) : (
+                                <p className="text-[11px] text-muted-foreground italic">No vehicle set</p>
+                              )}
+                              <p className="text-[10px] text-muted-foreground">
+                                {commuteProfile.vehicleMpg} MPG · ${commuteProfile.gasPricePerGallon.toFixed(2)}/gal · {commuteProfile.daysInOffice}d/wk
+                              </p>
+                              <Button
+                                variant="link"
+                                size="sm"
+                                className="h-auto p-0 text-[10px]"
+                                onClick={() => { setShowQuickCommuteEdit(true); setShowCommuteSettings(false); }}
+                              >
+                                Edit vehicle &amp; commute →
+                              </Button>
+                            </div>
+
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between">
+                                <Label className="text-[11px]">Departure hour</Label>
+                                <Select
+                                  value={String(commuteProfile.departureHour)}
+                                  onValueChange={(v) => {
+                                    const p = { ...commuteProfile, departureHour: parseInt(v ?? "8") };
+                                    setCommuteProfile(p); saveCommuteProfile(p);
+                                  }}
+                                >
+                                  <SelectTrigger className="h-7 w-20 text-xs">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {Array.from({ length: 24 }, (_, i) => (
+                                      <SelectItem key={i} value={String(i)}>
+                                        {i === 0 ? "12 AM" : i < 12 ? `${i} AM` : i === 12 ? "12 PM" : `${i - 12} PM`}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <Label className="text-[11px]">Avoid tolls</Label>
+                                <Switch
+                                  checked={commuteProfile.avoidTolls}
+                                  onCheckedChange={(v) => {
+                                    const p = { ...commuteProfile, avoidTolls: !!v };
+                                    setCommuteProfile(p); saveCommuteProfile(p);
+                                  }}
+                                />
+                              </div>
+                            </div>
+                            <p className="text-[10px] text-muted-foreground">
+                              Cost: ${(commuteProfile.gasPricePerGallon / commuteProfile.vehicleMpg).toFixed(2)}/mi · {commuteProfile.daysInOffice}d/wk · {commuteProfile.daysInOffice * 52} trips/yr
+                            </p>
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+
+                      {/* Commute details */}
+                      {commuteInfo ? (
+                        <div className="space-y-1.5">
+                          <div className="flex items-center gap-1 text-xs font-medium">
+                            {(() => { const ModeIcon = COMMUTE_MODES.find((m) => m.value === (commuteInfo.mode ?? "driving"))?.icon ?? Car; return <ModeIcon className="h-3.5 w-3.5 text-blue-500" />; })()}
+                            {commuteInfo.routes && commuteInfo.routes.length > 1 ? (
+                              <span>
+                                {Math.min(...commuteInfo.routes.map(r => r.durationMin))}–{Math.max(...commuteInfo.routes.map(r => r.durationMin))} min
+                                {" "}({Math.min(...commuteInfo.routes.map(r => r.distanceMi))}–{Math.max(...commuteInfo.routes.map(r => r.distanceMi))} mi)
+                              </span>
+                            ) : (
+                              <span>~{commuteInfo.durationMin} min ({commuteInfo.distanceMi} mi)</span>
+                            )}
+                            {commuteInfo.estimated && <span className="text-muted-foreground ml-0.5">(est.)</span>}
+                          </div>
+                          {commuteInfo.durationInTrafficMin && commuteInfo.durationInTrafficMin !== commuteInfo.durationMin && (
+                            <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                              <Clock className="h-2.5 w-2.5" />
+                              {commuteInfo.durationInTrafficMin} min in traffic
+                              ({commuteProfile.departureHour === 0 ? "12 AM" : commuteProfile.departureHour < 12 ? `${commuteProfile.departureHour} AM` : commuteProfile.departureHour === 12 ? "12 PM" : `${commuteProfile.departureHour - 12} PM`} departure)
+                            </div>
+                          )}
+                          {/* ETA */}
+                          {(() => {
+                            const dur = commuteInfo.durationInTrafficMin ?? commuteInfo.durationMin;
+                            const depH = commuteProfile.departureHour;
+                            const depLabel = depH === 0 ? "12:00 AM" : depH < 12 ? `${depH}:00 AM` : depH === 12 ? "12:00 PM" : `${depH - 12}:00 PM`;
+                            const arrTotalMin = depH * 60 + dur;
+                            const arrH = Math.floor(arrTotalMin / 60) % 24;
+                            const arrM = arrTotalMin % 60;
+                            const arrLabel = `${arrH === 0 ? 12 : arrH > 12 ? arrH - 12 : arrH}:${String(arrM).padStart(2, "0")} ${arrH < 12 ? "AM" : "PM"}`;
+                            return (
+                              <div className="flex items-center gap-1 text-[10px] font-medium text-indigo-600 dark:text-indigo-400">
+                                <Navigation className="h-2.5 w-2.5" />
+                                Leave {depLabel} → Arrive {arrLabel}
+                              </div>
+                            );
+                          })()}
+                          {/* Yearly cost */}
+                          <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                            <Fuel className="h-2.5 w-2.5" />
+                            {commuteInfo.routes && commuteInfo.routes.length > 1 ? (
+                              <span>
+                                {formatCost(yearlyCommuteCost(Math.min(...commuteInfo.routes.map(r => r.distanceMi)), commuteProfile))}–{formatCost(yearlyCommuteCost(Math.max(...commuteInfo.routes.map(r => r.distanceMi)), commuteProfile))}/yr
+                              </span>
+                            ) : (
+                              <span>{formatCost(yearlyCommuteCost(commuteInfo.distanceMi, commuteProfile))}/yr</span>
+                            )}
+                          </div>
+                          {/* Route alternatives */}
+                          {commuteInfo.routes && commuteInfo.routes.length > 1 && (
+                            <details className="text-[10px] text-muted-foreground">
+                              <summary className="cursor-pointer hover:text-foreground flex items-center gap-0.5">
+                                <Route className="h-2.5 w-2.5" /> {commuteInfo.routes.length} routes
+                              </summary>
+                              <div className="mt-1 space-y-0.5 pl-3">
+                                {commuteInfo.routes.map((r, i) => (
+                                  <div key={i} className="flex items-center justify-between">
+                                    <span className="truncate max-w-[130px]">{r.summary || `Route ${i + 1}`}</span>
+                                    <span className="font-medium shrink-0 ml-1">{r.durationMin} min · {r.distanceMi} mi</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </details>
+                          )}
+                          {/* Transit itinerary */}
+                          {commuteInfo.transitSteps && commuteInfo.transitSteps.length > 0 && (
+                            <div className="space-y-1 pt-1 border-t border-dashed">
+                              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                                <TrainFront className="h-3 w-3 text-blue-500" /> Transit Itinerary
+                              </span>
+                              <div className="flex items-center gap-0.5 flex-wrap">
+                                {commuteInfo.transitSteps.map((step, i) => (
+                                  <span key={i} className="flex items-center gap-0.5">
+                                    {i > 0 && <ChevronRight className="h-2.5 w-2.5 text-muted-foreground/50" />}
+                                    {step.mode === "WALKING" ? (
+                                      <span className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground">
+                                        <Footprints className="h-3 w-3" /> {step.durationMin}m
+                                      </span>
+                                    ) : (
+                                      <span
+                                        className="inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded"
+                                        style={{
+                                          backgroundColor: step.lineColor || "#6366f1",
+                                          color: step.lineTextColor || "#fff",
+                                        }}
+                                      >
+                                        {step.vehicleType === "BUS" && <span>🚌</span>}
+                                        {(step.vehicleType === "SUBWAY" || step.vehicleType === "METRO_RAIL") && <span>🚇</span>}
+                                        {(step.vehicleType === "RAIL" || step.vehicleType === "COMMUTER_TRAIN" || step.vehicleType === "HEAVY_RAIL") && <span>🚆</span>}
+                                        {step.vehicleType === "TRAM" && <span>🚊</span>}
+                                        {!["BUS", "SUBWAY", "METRO_RAIL", "RAIL", "COMMUTER_TRAIN", "HEAVY_RAIL", "TRAM"].includes(step.vehicleType || "") && <TrainFront className="h-3 w-3" />}
+                                        {step.lineShort || step.lineName || "Transit"}
+                                      </span>
+                                    )}
+                                  </span>
+                                ))}
+                              </div>
+                              {commuteInfo.transitSteps.filter((s) => s.mode === "TRANSIT").map((step, i) => (
+                                <div key={i} className="text-[10px] text-muted-foreground pl-2 border-l-2" style={{ borderColor: step.lineColor || "#6366f1" }}>
+                                  <div className="font-medium" style={{ color: step.lineColor || undefined }}>
+                                    {step.vehicleType === "BUS" ? "🚌" : "🚆"} {step.lineShort || step.lineName}{step.agencyName ? ` · ${step.agencyName}` : ""}
+                                  </div>
+                                  {step.departureStop && step.departureTime && (
+                                    <div>{step.departureTime} from {step.departureStop}</div>
+                                  )}
+                                  {step.arrivalStop && step.arrivalTime && (
+                                    <div>{step.arrivalTime} at {step.arrivalStop}</div>
+                                  )}
+                                  {step.numStops && <div>{step.numStops} stop{step.numStops !== 1 ? "s" : ""} · {step.durationMin} min</div>}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {/* Transit route alternatives */}
+                          {commuteInfo.mode === "transit" && commuteInfo.routes && commuteInfo.routes.length > 1 && (
+                            <details className="text-[10px] text-muted-foreground">
+                              <summary className="cursor-pointer hover:text-foreground flex items-center gap-0.5">
+                                <Route className="h-2.5 w-2.5" /> {commuteInfo.routes.length} transit options
+                              </summary>
+                              <div className="mt-1 space-y-1 pl-3">
+                                {commuteInfo.routes.map((r, i) => (
+                                  <div key={i} className="space-y-0.5">
+                                    <div className="flex items-center justify-between">
+                                      <span className="flex items-center gap-0.5 flex-wrap">
+                                        {r.transitSteps ? r.transitSteps.filter((s) => s.mode === "TRANSIT").map((s, j) => (
+                                          <span
+                                            key={j}
+                                            className="inline-flex items-center gap-0.5 font-semibold px-1 py-0 rounded text-[9px]"
+                                            style={{ backgroundColor: s.lineColor || "#6366f1", color: s.lineTextColor || "#fff" }}
+                                          >
+                                            {s.lineShort || s.lineName}
+                                          </span>
+                                        )) : <span className="truncate max-w-[100px]">{r.summary || `Option ${i + 1}`}</span>}
+                                      </span>
+                                      <span className="font-medium shrink-0 ml-1">{r.durationMin} min</span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </details>
                           )}
                         </div>
-                        {/* Route alternatives */}
-                        {commuteInfo.routes && commuteInfo.routes.length > 1 && (
-                          <details className="text-[10px] text-muted-foreground">
-                            <summary className="cursor-pointer hover:text-foreground flex items-center gap-0.5">
-                              <Route className="h-2.5 w-2.5" /> {commuteInfo.routes.length} routes
-                            </summary>
-                            <div className="mt-1 space-y-0.5 pl-3">
-                              {commuteInfo.routes.map((r, i) => (
-                                <div key={i} className="flex items-center justify-between">
-                                  <span className="truncate max-w-[130px]">{r.summary || `Route ${i + 1}`}</span>
-                                  <span className="font-medium shrink-0 ml-1">{r.durationMin} min · {r.distanceMi} mi</span>
-                                </div>
-                              ))}
-                            </div>
-                          </details>
-                        )}
-                        {/* Transit itinerary — bus/train legs */}
-                        {commuteInfo.transitSteps && commuteInfo.transitSteps.length > 0 && (
-                          <div className="space-y-1 pt-1 border-t border-dashed">
-                            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-                              <TrainFront className="h-3 w-3 text-blue-500" /> Transit Itinerary
-                            </span>
-                            <div className="flex items-center gap-0.5 flex-wrap">
-                              {commuteInfo.transitSteps.map((step, i) => (
-                                <span key={i} className="flex items-center gap-0.5">
-                                  {i > 0 && <ChevronRight className="h-2.5 w-2.5 text-muted-foreground/50" />}
-                                  {step.mode === "WALKING" ? (
-                                    <span className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground">
-                                      <Footprints className="h-3 w-3" /> {step.durationMin}m
-                                    </span>
-                                  ) : (
-                                    <span
-                                      className="inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded"
-                                      style={{
-                                        backgroundColor: step.lineColor || "#6366f1",
-                                        color: step.lineTextColor || "#fff",
-                                      }}
-                                    >
-                                      {step.vehicleType === "BUS" && <span>🚌</span>}
-                                      {(step.vehicleType === "SUBWAY" || step.vehicleType === "METRO_RAIL") && <span>🚇</span>}
-                                      {(step.vehicleType === "RAIL" || step.vehicleType === "COMMUTER_TRAIN" || step.vehicleType === "HEAVY_RAIL") && <span>🚆</span>}
-                                      {step.vehicleType === "TRAM" && <span>🚊</span>}
-                                      {!["BUS", "SUBWAY", "METRO_RAIL", "RAIL", "COMMUTER_TRAIN", "HEAVY_RAIL", "TRAM"].includes(step.vehicleType || "") && <TrainFront className="h-3 w-3" />}
-                                      {step.lineShort || step.lineName || "Transit"}
-                                    </span>
-                                  )}
-                                </span>
-                              ))}
-                            </div>
-                            {/* Departure/arrival details */}
-                            {commuteInfo.transitSteps.filter((s) => s.mode === "TRANSIT").map((step, i) => (
-                              <div key={i} className="text-[10px] text-muted-foreground pl-2 border-l-2" style={{ borderColor: step.lineColor || "#6366f1" }}>
-                                <div className="font-medium" style={{ color: step.lineColor || undefined }}>
-                                  {step.vehicleType === "BUS" ? "🚌" : "🚆"} {step.lineShort || step.lineName}{step.agencyName ? ` · ${step.agencyName}` : ""}
-                                </div>
-                                {step.departureStop && step.departureTime && (
-                                  <div>{step.departureTime} from {step.departureStop}</div>
-                                )}
-                                {step.arrivalStop && step.arrivalTime && (
-                                  <div>{step.arrivalTime} at {step.arrivalStop}</div>
-                                )}
-                                {step.numStops && <div>{step.numStops} stop{step.numStops !== 1 ? "s" : ""} · {step.durationMin} min</div>}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                        {/* Transit route alternatives */}
-                        {commuteInfo.mode === "transit" && commuteInfo.routes && commuteInfo.routes.length > 1 && (
-                          <details className="text-[10px] text-muted-foreground">
-                            <summary className="cursor-pointer hover:text-foreground flex items-center gap-0.5">
-                              <Route className="h-2.5 w-2.5" /> {commuteInfo.routes.length} transit options
-                            </summary>
-                            <div className="mt-1 space-y-1 pl-3">
-                              {commuteInfo.routes.map((r, i) => (
-                                <div key={i} className="space-y-0.5">
-                                  <div className="flex items-center justify-between">
-                                    <span className="flex items-center gap-0.5 flex-wrap">
-                                      {r.transitSteps ? r.transitSteps.filter((s) => s.mode === "TRANSIT").map((s, j) => (
-                                        <span
-                                          key={j}
-                                          className="inline-flex items-center gap-0.5 font-semibold px-1 py-0 rounded text-[9px]"
-                                          style={{ backgroundColor: s.lineColor || "#6366f1", color: s.lineTextColor || "#fff" }}
-                                        >
-                                          {s.lineShort || s.lineName}
-                                        </span>
-                                      )) : <span className="truncate max-w-[100px]">{r.summary || `Option ${i + 1}`}</span>}
-                                    </span>
-                                    <span className="font-medium shrink-0 ml-1">{r.durationMin} min</span>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </details>
-                        )}
-                      </div>
-                    ) : !commuteLoading && (
-                      <span className="text-xs text-muted-foreground">Commute unavailable</span>
-                    )}
+                      ) : !commuteLoading && (
+                        <span className="text-xs text-muted-foreground">Commute unavailable</span>
+                      )}
+                    </div>
+                  </details>
+                )}
 
-                    {/* Life Anchors commute breakdown */}
-                    {lifeAnchors.length > 0 && Object.keys(anchorCommutes).length > 0 && (() => {
-                      const totalYearlyCost = lifeAnchors.reduce((sum, a) => {
-                        if (!enabledAnchors.has(a.id)) return sum;
-                        const ac = anchorCommutes[a.id];
-                        return sum + (ac ? yearlyCommuteCost(ac.distanceMi, commuteProfile) : 0);
-                      }, 0);
-                      const midSalary = selectedJob.salaryMin
-                        ? selectedJob.salaryMax ? (selectedJob.salaryMin + selectedJob.salaryMax) / 2 : selectedJob.salaryMin
-                        : null;
-                      return (
-                      <div className="space-y-1 pt-1 border-t border-dashed">
-                        <div className="flex items-center gap-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                          <Anchor className="h-3 w-3 text-indigo-500" /> Anchors
-                        </div>
+                {/* ── ⚓ Anchors Section ── */}
+                {lifeAnchors.length > 0 && Object.keys(anchorCommutes).length > 0 && (() => {
+                  const totalYearlyCost = lifeAnchors.reduce((sum, a) => {
+                    if (!enabledAnchors.has(a.id)) return sum;
+                    const ac = anchorCommutes[a.id];
+                    return sum + (ac ? yearlyCommuteCost(ac.distanceMi, commuteProfile) : 0);
+                  }, 0);
+                  const midSalary = selectedJob.salaryMin
+                    ? selectedJob.salaryMax ? (selectedJob.salaryMin + selectedJob.salaryMax) / 2 : selectedJob.salaryMin
+                    : null;
+                  return (
+                    <details className="group">
+                      <summary className="flex items-center gap-1.5 px-3 py-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider cursor-pointer hover:bg-muted/50 select-none">
+                        <Anchor className="h-3 w-3 text-indigo-500" />
+                        Anchors
+                        {totalYearlyCost > 0 && (
+                          <span className="ml-auto mr-1 text-xs normal-case font-medium tracking-normal text-orange-600 dark:text-orange-400">
+                            {formatCost(totalYearlyCost)}/yr
+                          </span>
+                        )}
+                        <ChevronDown className="h-3 w-3 transition-transform group-open:rotate-180" />
+                      </summary>
+                      <div className="px-3 pb-2.5 space-y-1.5">
                         {lifeAnchors.map((anchor) => {
                           const ac = anchorCommutes[anchor.id];
                           const enabled = enabledAnchors.has(anchor.id);
@@ -3841,7 +4075,7 @@ export function JobMap() {
                           );
                         })}
                         {totalYearlyCost > 0 && (
-                          <div className="pt-0.5 border-t space-y-0.5">
+                          <div className="pt-1 border-t space-y-0.5">
                             <div className="flex items-center justify-between text-[11px]">
                               <span className="text-muted-foreground">Commute</span>
                               <span className="font-semibold text-orange-600 dark:text-orange-400">{formatCost(totalYearlyCost)}/yr</span>
@@ -3854,45 +4088,43 @@ export function JobMap() {
                             )}
                           </div>
                         )}
-                        {lifeScoreCache[selectedJob.id] != null && (
-                          <div className="flex items-center justify-between pt-0.5 border-t text-[11px]">
-                            <span className="font-semibold flex items-center gap-1"><Anchor className="h-2.5 w-2.5 text-indigo-500" /> Life Score</span>
-                            <span className={`font-bold ${lifeScoreCache[selectedJob.id] >= 70 ? "text-emerald-600" : lifeScoreCache[selectedJob.id] >= 40 ? "text-yellow-600" : "text-red-500"}`}>
-                              {lifeScoreCache[selectedJob.id]}/100
-                            </span>
-                          </div>
-                        )}
                       </div>
-                      );
-                    })()}
-                  </div>
-                )}
+                    </details>
+                  );
+                })()}
 
-                {/* Street View — interactive panorama */}
+                {/* ── 🏠 Office View Section ── */}
                 {GOOGLE_MAPS_KEY && effectiveJobCoords && (
-                  <div className="rounded-lg overflow-hidden border">
-                    <div className="flex items-center gap-1 px-2 py-1 bg-muted/50 text-[10px] font-medium text-muted-foreground">
-                      <PersonStanding className="h-3 w-3" /> {resolvedAddress ? "Office View" : "Neighborhood"}
+                  <details className="group">
+                    <summary className="flex items-center gap-1.5 px-3 py-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider cursor-pointer hover:bg-muted/50 select-none">
+                      <PersonStanding className="h-3 w-3 text-violet-500" />
+                      {resolvedAddress ? "Office View" : "Neighborhood"}
+                      <ChevronDown className="h-3 w-3 ml-auto transition-transform group-open:rotate-180" />
+                    </summary>
+                    <div className="pb-0">
+                      <iframe
+                        src={`https://www.google.com/maps/embed/v1/streetview?key=${GOOGLE_MAPS_KEY}&location=${effectiveJobCoords[0]},${effectiveJobCoords[1]}&heading=210&pitch=10&fov=90`}
+                        className="w-full h-[140px] border-0"
+                        loading="lazy"
+                        allowFullScreen
+                        referrerPolicy="no-referrer-when-downgrade"
+                      />
                     </div>
-                    <iframe
-                      src={`https://www.google.com/maps/embed/v1/streetview?key=${GOOGLE_MAPS_KEY}&location=${effectiveJobCoords[0]},${effectiveJobCoords[1]}&heading=210&pitch=10&fov=90`}
-                      className="w-full h-[140px] border-0"
-                      loading="lazy"
-                      allowFullScreen
-                      referrerPolicy="no-referrer-when-downgrade"
-                    />
-                  </div>
+                  </details>
                 )}
 
-                {/* Action buttons */}
-                <div className="flex gap-1.5 pt-1">
+              </div>
+
+              {/* ═══ STICKY FOOTER ═══ */}
+              <div className="shrink-0 p-2.5 pt-2 border-t bg-background/95 rounded-b-xl space-y-1.5">
+                <div className="flex gap-1.5">
                   <Button
                     size="sm"
                     variant="outline"
                     className="flex-1 gap-1 h-7 text-xs"
                     onClick={() => setShowDetails(true)}
                   >
-                    <Eye className="h-3 w-3" /> Full Details
+                    <Eye className="h-3 w-3" /> Details
                   </Button>
                   {selectedJob.url && (
                     <a href={selectedJob.url} target="_blank" rel="noopener noreferrer" className="flex-1">
@@ -3901,20 +4133,18 @@ export function JobMap() {
                       </Button>
                     </a>
                   )}
-                </div>
-                <div className="flex gap-1.5">
                   <Button
                     size="sm"
                     variant={trackedIds.has(selectedJob.id) ? "outline" : "secondary"}
                     disabled={trackedIds.has(selectedJob.id)}
                     onClick={() => trackMutation.mutate(selectedJob)}
-                    className="flex-1 gap-1 h-7 text-xs"
+                    className="gap-1 h-7 text-xs px-2"
                   >
                     <Plus className="h-3 w-3" />
-                    {trackedIds.has(selectedJob.id) ? "Tracked" : "Track"}
+                    {trackedIds.has(selectedJob.id) ? "✓" : "Track"}
                   </Button>
                   <DropdownMenu>
-                    <DropdownMenuTrigger className="inline-flex items-center justify-center gap-1 rounded-md border bg-background px-2 h-7 text-xs hover:bg-accent">
+                    <DropdownMenuTrigger className="inline-flex items-center justify-center gap-0.5 rounded-md border bg-background px-1.5 h-7 text-xs hover:bg-accent">
                       <Star className="h-3 w-3" />
                       <ChevronDown className="h-2.5 w-2.5" />
                     </DropdownMenuTrigger>
@@ -3940,6 +4170,7 @@ export function JobMap() {
                   </DropdownMenu>
                 </div>
               </div>
+
             </div>
           )}
         </div>
@@ -3975,21 +4206,6 @@ export function JobMap() {
                   {activeFilterCount > 0 && (
                     <span className="absolute -top-1 -right-1 h-4 min-w-4 rounded-full bg-primary text-primary-foreground text-[10px] flex items-center justify-center px-1">
                       {activeFilterCount}
-                    </span>
-                  )}
-                </Button>
-                <Button
-                  type="button"
-                  size="icon"
-                  variant={showAnchors ? "default" : "outline"}
-                  className="h-8 w-8 shrink-0 relative"
-                  onClick={() => setShowAnchors(!showAnchors)}
-                  title="Life Anchors"
-                >
-                  <Anchor className="h-3.5 w-3.5" />
-                  {(lifeAnchors ?? []).length > 0 && (
-                    <span className="absolute -top-1 -right-1 h-4 min-w-4 rounded-full bg-violet-600 text-white text-[10px] flex items-center justify-center px-1">
-                      {(lifeAnchors ?? []).length}
                     </span>
                   )}
                 </Button>
@@ -4120,22 +4336,7 @@ export function JobMap() {
                 </div>
               )}
 
-              {/* Collapsible Life Anchors */}
-              {showAnchors && (
-                <div className="border border-dashed border-violet-300 rounded-lg p-2">
-                  <LifeAnchorsPanel
-                    compact
-                    defaultAddress={where}
-                    onAnchorsChange={() => queryClient.invalidateQueries({ queryKey: ["life-anchors"] })}
-                    enabledAnchorIds={enabledAnchors}
-                    onToggleAnchor={(id) => setEnabledAnchors((prev) => {
-                      const next = new Set(prev);
-                      next.has(id) ? next.delete(id) : next.add(id);
-                      return next;
-                    })}
-                  />
-                </div>
-              )}
+
             </div>
           )}
 
@@ -4208,6 +4409,12 @@ export function JobMap() {
                           </span>
                         </div>
                       )}
+                      {nearbyWorkHistoryMap[job.id] && (
+                        <div className="flex items-center gap-0.5 mt-1 text-xs text-gray-500 dark:text-gray-400">
+                          <Briefcase className="h-2.5 w-2.5" />
+                          Near your old role at {nearbyWorkHistoryMap[job.id].company}
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 ))}
@@ -4268,6 +4475,21 @@ export function JobMap() {
                   </Badge>
                   {selectedJob.scheduleType && <Badge variant="outline" className="text-xs">{selectedJob.scheduleType}</Badge>}
                   {selectedJob.contractTime && <Badge variant="outline" className="text-xs capitalize">{selectedJob.contractTime.replace("_", " ")}</Badge>}
+                  {walkScoreData?.walkScore != null && (
+                    <Badge variant="outline" className="text-xs gap-0.5 border-teal-300 text-teal-700 dark:border-teal-700 dark:text-teal-400">
+                      🚶 Walk {walkScoreData.walkScore}
+                    </Badge>
+                  )}
+                  {walkScoreData?.transitScore != null && (
+                    <Badge variant="outline" className="text-xs gap-0.5 border-sky-300 text-sky-700 dark:border-sky-700 dark:text-sky-400">
+                      🚌 Transit {walkScoreData.transitScore}
+                    </Badge>
+                  )}
+                  {walkScoreData?.bikeScore != null && (
+                    <Badge variant="outline" className="text-xs gap-0.5 border-lime-300 text-lime-700 dark:border-lime-700 dark:text-lime-400">
+                      🚴 Bike {walkScoreData.bikeScore}
+                    </Badge>
+                  )}
                 </div>
                 {(selectedJob.salaryMin || selectedJob.salaryMax) && (
                   <div className="flex items-center gap-1.5 text-sm">
@@ -4328,6 +4550,27 @@ export function JobMap() {
                 <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                   <MapPin className="h-4 w-4" /> {selectedJob.location}
                 </div>
+
+                {/* Other Duty Stations (USAJobs) */}
+                {selectedJob.dutyStations && selectedJob.dutyStations.length > 0 && (
+                  <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold">Other Duty Stations ({selectedJob.dutyStations.length})</span>
+                      <span className="text-[10px] text-muted-foreground">Same posting, different locations</span>
+                    </div>
+                    <div className="space-y-1 max-h-32 overflow-y-auto">
+                      {selectedJob.dutyStations.map((ds, idx) => (
+                        <div
+                          key={idx}
+                          className="flex items-center gap-1.5 text-[11px] px-1.5 py-1 rounded text-muted-foreground"
+                        >
+                          <MapPin className="h-3 w-3 shrink-0 text-green-500" />
+                          <span className="truncate">{ds.location || `${ds.city}, ${ds.state}`}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Resolved / override address */}
                 <div className="space-y-1.5">
@@ -4603,77 +4846,55 @@ export function JobMap() {
                       {commuteLoading && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
                     </div>
                     {/* Inline commute profile — visible in dialog */}
-                    <div className="grid grid-cols-5 gap-2 rounded-lg border bg-muted/30 p-2.5">
-                      <div className="space-y-0.5">
-                        <Label className="text-[10px] text-muted-foreground">Gas $/gal</Label>
-                        <Input
-                          type="number" step="0.10" min="1" max="10"
-                          value={commuteProfile.gasPricePerGallon}
-                          onChange={(e) => {
-                            const v = parseFloat(e.target.value) || DEFAULT_COMMUTE_PROFILE.gasPricePerGallon;
-                            const p = { ...commuteProfile, gasPricePerGallon: v };
-                            setCommuteProfile(p); saveCommuteProfile(p);
-                          }}
-                          className="h-7 text-xs text-right"
-                        />
+                    <div className="rounded-lg border bg-muted/30 p-2.5 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="text-xs">
+                          {commuteProfile.vehicleYear && commuteProfile.vehicleMake && commuteProfile.vehicleModel ? (
+                            <span className="font-medium">{commuteProfile.vehicleYear} {commuteProfile.vehicleMake} {commuteProfile.vehicleModel}</span>
+                          ) : (
+                            <span className="text-muted-foreground italic">No vehicle set</span>
+                          )}
+                          <span className="text-muted-foreground ml-2">
+                            {commuteProfile.vehicleMpg} MPG · ${commuteProfile.gasPricePerGallon.toFixed(2)}/gal · {commuteProfile.daysInOffice}d/wk
+                          </span>
+                        </div>
+                        <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px]" onClick={() => setShowQuickCommuteEdit(true)}>
+                          Edit
+                        </Button>
                       </div>
-                      <div className="space-y-0.5">
-                        <Label className="text-[10px] text-muted-foreground">MPG</Label>
-                        <Input
-                          type="number" step="0.5" min="5" max="150"
-                          value={commuteProfile.vehicleMpg}
-                          onChange={(e) => {
-                            const v = parseFloat(e.target.value) || DEFAULT_COMMUTE_PROFILE.vehicleMpg;
-                            const p = { ...commuteProfile, vehicleMpg: v };
-                            setCommuteProfile(p); saveCommuteProfile(p);
-                          }}
-                          className="h-7 text-xs text-right"
-                        />
-                      </div>
-                      <div className="space-y-0.5">
-                        <Label className="text-[10px] text-muted-foreground">Days/wk</Label>
-                        <Input
-                          type="number" step="1" min="1" max="7"
-                          value={commuteProfile.daysInOffice}
-                          onChange={(e) => {
-                            const v = parseInt(e.target.value) || DEFAULT_COMMUTE_PROFILE.daysInOffice;
-                            const p = { ...commuteProfile, daysInOffice: Math.min(7, Math.max(1, v)) };
-                            setCommuteProfile(p); saveCommuteProfile(p);
-                          }}
-                          className="h-7 text-xs text-right"
-                        />
-                      </div>
-                      <div className="space-y-0.5">
-                        <Label className="text-[10px] text-muted-foreground">Depart</Label>
-                        <Select
-                          value={String(commuteProfile.departureHour)}
-                          onValueChange={(v) => {
-                            const p = { ...commuteProfile, departureHour: parseInt(v ?? "8") };
-                            setCommuteProfile(p); saveCommuteProfile(p);
-                          }}
-                        >
-                          <SelectTrigger className="h-7 text-xs">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {Array.from({ length: 24 }, (_, i) => (
-                              <SelectItem key={i} value={String(i)}>
-                                {i === 0 ? "12 AM" : i < 12 ? `${i} AM` : i === 12 ? "12 PM" : `${i - 12} PM`}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-0.5">
-                        <Label className="text-[10px] text-muted-foreground">No tolls</Label>
-                        <div className="flex items-center h-7">
-                          <Switch
-                            checked={commuteProfile.avoidTolls}
-                            onCheckedChange={(v) => {
-                              const p = { ...commuteProfile, avoidTolls: !!v };
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-0.5">
+                          <Label className="text-[10px] text-muted-foreground">Depart</Label>
+                          <Select
+                            value={String(commuteProfile.departureHour)}
+                            onValueChange={(v) => {
+                              const p = { ...commuteProfile, departureHour: parseInt(v ?? "8") };
                               setCommuteProfile(p); saveCommuteProfile(p);
                             }}
-                          />
+                          >
+                            <SelectTrigger className="h-7 text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {Array.from({ length: 24 }, (_, i) => (
+                                <SelectItem key={i} value={String(i)}>
+                                  {i === 0 ? "12 AM" : i < 12 ? `${i} AM` : i === 12 ? "12 PM" : `${i - 12} PM`}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-0.5">
+                          <Label className="text-[10px] text-muted-foreground">No tolls</Label>
+                          <div className="flex items-center h-7">
+                            <Switch
+                              checked={commuteProfile.avoidTolls}
+                              onCheckedChange={(v) => {
+                                const p = { ...commuteProfile, avoidTolls: !!v };
+                                setCommuteProfile(p); saveCommuteProfile(p);
+                              }}
+                            />
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -5234,6 +5455,376 @@ export function JobMap() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ── Quick Commute Edit Dialog ── */}
+      <QuickCommuteEditDialog
+        open={showQuickCommuteEdit}
+        onOpenChange={setShowQuickCommuteEdit}
+        commuteProfile={commuteProfile}
+        onSaved={(updated) => {
+          setCommuteProfile(updated);
+          saveCommuteProfile(updated);
+        }}
+      />
     </div>
+  );
+}
+
+/* ── Work History Panel (floating on map) ──────────────────── */
+const GOOGLE_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+
+function WorkHistoryPanel({
+  items, onClose, onAdded, onDeleted,
+}: {
+  items: { id: string; company: string; title: string | null; address: string; lat: number; lng: number; startDate: string | null; endDate: string | null }[];
+  onClose: () => void;
+  onAdded: () => void;
+  onDeleted: () => void;
+}) {
+  const [adding, setAdding] = useState(false);
+  const [company, setCompany] = useState("");
+  const [jobTitle, setJobTitle] = useState("");
+  const [address, setAddress] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function geocode(addr: string): Promise<{ lat: number; lng: number } | null> {
+    if (!GOOGLE_KEY) return null;
+    const res = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(addr)}&key=${GOOGLE_KEY}`);
+    const data = await res.json();
+    const loc = data.results?.[0]?.geometry?.location;
+    return loc ? { lat: loc.lat, lng: loc.lng } : null;
+  }
+
+  async function handleAdd() {
+    if (!company.trim() || !address.trim()) { toast.error("Company and address are required"); return; }
+    setSaving(true);
+    try {
+      const geo = await geocode(address);
+      if (!geo) { toast.error("Could not geocode address"); return; }
+      const res = await fetch("/api/work-history", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ company: company.trim(), title: jobTitle.trim() || null, address: address.trim(), lat: geo.lat, lng: geo.lng, startDate: startDate || null, endDate: endDate || null }),
+      });
+      if (!res.ok) throw new Error("Failed to save");
+      toast.success("Work history added");
+      setCompany(""); setJobTitle(""); setAddress(""); setStartDate(""); setEndDate("");
+      setAdding(false);
+      onAdded();
+    } catch { toast.error("Failed to add work history"); } finally { setSaving(false); }
+  }
+
+  async function handleDelete(id: string) {
+    try {
+      await fetch(`/api/work-history/${id}`, { method: "DELETE" });
+      onDeleted();
+    } catch { toast.error("Failed to delete"); }
+  }
+
+  return (
+    <div className="absolute top-3 left-3 z-[1100] bg-background/95 backdrop-blur-md border rounded-xl shadow-xl p-3 w-80 max-h-[50vh] overflow-y-auto pointer-events-auto">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-sm font-semibold flex items-center gap-1.5">
+          <Briefcase className="h-4 w-4 text-gray-500" /> Work History
+        </span>
+        <div className="flex items-center gap-1">
+          <button type="button" className="text-muted-foreground hover:text-foreground" onClick={() => setAdding(!adding)}>
+            <Plus className="h-4 w-4" />
+          </button>
+          <button type="button" className="text-muted-foreground hover:text-foreground" onClick={onClose}>
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+
+      {adding && (
+        <div className="space-y-2 mb-3 p-2 border rounded-lg bg-muted/30">
+          <Input placeholder="Company *" value={company} onChange={(e) => setCompany(e.target.value)} className="h-7 text-xs" />
+          <Input placeholder="Job title (optional)" value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} className="h-7 text-xs" />
+          <PlacesAutocomplete value={address} onChange={setAddress} placeholder="Work address *" className="h-7 text-xs" />
+          <div className="grid grid-cols-2 gap-2">
+            <Input type="month" placeholder="Start" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="h-7 text-xs" />
+            <Input type="month" placeholder="End" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="h-7 text-xs" />
+          </div>
+          <Button size="sm" className="w-full h-7 text-xs" onClick={handleAdd} disabled={saving}>
+            {saving ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Plus className="h-3 w-3 mr-1" />}
+            Add
+          </Button>
+        </div>
+      )}
+
+      {items.length === 0 && !adding && (
+        <p className="text-xs text-muted-foreground text-center py-4">
+          No past jobs added yet. Click + to add one.
+        </p>
+      )}
+
+      <div className="space-y-1.5">
+        {items.map((w) => (
+          <div key={w.id} className="flex items-start justify-between gap-2 p-1.5 rounded-md hover:bg-muted/50 group">
+            <div className="min-w-0">
+              <p className="text-xs font-medium truncate">{w.company}</p>
+              {w.title && <p className="text-[10px] text-muted-foreground truncate">{w.title}</p>}
+              <p className="text-[10px] text-muted-foreground truncate">{w.address}</p>
+              {(w.startDate || w.endDate) && (
+                <p className="text-[10px] text-muted-foreground">
+                  {w.startDate ?? "?"} – {w.endDate ?? "present"}
+                </p>
+              )}
+            </div>
+            <button
+              type="button"
+              className="shrink-0 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-500 transition-opacity"
+              onClick={() => handleDelete(w.id)}
+            >
+              <Trash2 className="h-3 w-3" />
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ── Quick Commute Edit Dialog ──────────────────────────────── */
+function QuickCommuteEditDialog({
+  open, onOpenChange, commuteProfile, onSaved,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  commuteProfile: CommuteProfile;
+  onSaved: (p: CommuteProfile) => void;
+}) {
+  const qc = useQueryClient();
+  const [carYears, setCarYears] = useState<{ text: string; value: string }[]>([]);
+  const [carMakes, setCarMakes] = useState<{ text: string; value: string }[]>([]);
+  const [carModels, setCarModels] = useState<{ text: string; value: string }[]>([]);
+  const [carOptions, setCarOptions] = useState<{ text: string; value: string }[]>([]);
+  const [carLoading, setCarLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const [draft, setDraft] = useState({
+    vehicleYear: commuteProfile.vehicleYear ?? "",
+    vehicleMake: commuteProfile.vehicleMake ?? "",
+    vehicleModel: commuteProfile.vehicleModel ?? "",
+    vehicleId: commuteProfile.vehicleId ?? "",
+    vehicleMpg: commuteProfile.vehicleMpg,
+    gasPricePerGallon: commuteProfile.gasPricePerGallon,
+    daysInOffice: commuteProfile.daysInOffice,
+  });
+
+  // Reset draft when dialog opens
+  useEffect(() => {
+    if (open) {
+      setDraft({
+        vehicleYear: commuteProfile.vehicleYear ?? "",
+        vehicleMake: commuteProfile.vehicleMake ?? "",
+        vehicleModel: commuteProfile.vehicleModel ?? "",
+        vehicleId: commuteProfile.vehicleId ?? "",
+        vehicleMpg: commuteProfile.vehicleMpg,
+        gasPricePerGallon: commuteProfile.gasPricePerGallon,
+        daysInOffice: commuteProfile.daysInOffice,
+      });
+    }
+  }, [open, commuteProfile]);
+
+  const fetchMenu = useCallback(async (action: string, params?: Record<string, string>) => {
+    const sp = new URLSearchParams({ action, ...params });
+    const res = await fetch(`/api/vehicle-lookup?${sp}`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    const items = data.menuItem;
+    if (!items) return [];
+    return Array.isArray(items) ? items : [items];
+  }, []);
+
+  // Load years on open
+  useEffect(() => {
+    if (open && carYears.length === 0) fetchMenu("years").then(setCarYears);
+  }, [open, carYears.length, fetchMenu]);
+
+  const selectYear = useCallback((y: string | null) => {
+    if (!y) return;
+    setDraft((d) => ({ ...d, vehicleYear: y, vehicleMake: "", vehicleModel: "", vehicleId: "" }));
+    setCarMakes([]); setCarModels([]); setCarOptions([]);
+    if (y) fetchMenu("makes", { year: y }).then(setCarMakes);
+  }, [fetchMenu]);
+
+  const selectMake = useCallback((m: string | null) => {
+    if (!m) return;
+    setDraft((d) => ({ ...d, vehicleMake: m, vehicleModel: "", vehicleId: "" }));
+    setCarModels([]); setCarOptions([]);
+    if (m) fetchMenu("models", { year: draft.vehicleYear, make: m }).then(setCarModels);
+  }, [fetchMenu, draft.vehicleYear]);
+
+  const selectModel = useCallback((model: string | null) => {
+    if (!model) return;
+    setDraft((d) => ({ ...d, vehicleModel: model, vehicleId: "" }));
+    setCarOptions([]);
+    if (model) fetchMenu("options", { year: draft.vehicleYear, make: draft.vehicleMake, model }).then((opts) => {
+      setCarOptions(opts);
+      if (opts.length === 1) selectOption(opts[0].value);
+    });
+  }, [fetchMenu, draft.vehicleYear, draft.vehicleMake]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const selectOption = useCallback(async (optId: string | null) => {
+    if (!optId) return;
+    setDraft((d) => ({ ...d, vehicleId: optId }));
+    setCarLoading(true);
+    try {
+      const [vRes, pRes] = await Promise.all([
+        fetch(`/api/vehicle-lookup?action=vehicle&id=${optId}`),
+        fetch(`/api/vehicle-lookup?action=fuelprices`),
+      ]);
+      const veh = vRes.ok ? await vRes.json() : null;
+      const prices = pRes.ok ? await pRes.json() : null;
+      if (veh) {
+        const mpg = veh.comb08 || veh.highway08 || veh.city08 || DEFAULT_COMMUTE_PROFILE.vehicleMpg;
+        setDraft((d) => ({ ...d, vehicleMpg: mpg }));
+        if (prices?.regular) {
+          const ft = (veh.fuelType || "").toLowerCase();
+          let price = parseFloat(prices.regular);
+          if (ft.includes("premium")) price = parseFloat(prices.premium) || price;
+          else if (ft.includes("diesel")) price = parseFloat(prices.diesel) || price;
+          if (price > 0) setDraft((d) => ({ ...d, gasPricePerGallon: Math.round(price * 100) / 100 }));
+        }
+      }
+    } finally { setCarLoading(false); }
+  }, []);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      // Update local commute profile
+      const updated: CommuteProfile = {
+        ...commuteProfile,
+        vehicleYear: draft.vehicleYear || undefined,
+        vehicleMake: draft.vehicleMake || undefined,
+        vehicleModel: draft.vehicleModel || undefined,
+        vehicleId: draft.vehicleId || undefined,
+        vehicleMpg: draft.vehicleMpg,
+        gasPricePerGallon: draft.gasPricePerGallon,
+        daysInOffice: draft.daysInOffice,
+      };
+      onSaved(updated);
+      // Persist to DB profile
+      await fetch("/api/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          vehicleYear: draft.vehicleYear || null,
+          vehicleMake: draft.vehicleMake || null,
+          vehicleModel: draft.vehicleModel || null,
+          vehicleId: draft.vehicleId || null,
+          vehicleMpg: draft.vehicleMpg,
+          gasPricePerGallon: draft.gasPricePerGallon,
+          daysInOffice: draft.daysInOffice,
+        }),
+      });
+      qc.invalidateQueries({ queryKey: ["profile"] });
+      onOpenChange(false);
+    } finally { setSaving(false); }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-base">
+            <Car className="h-4 w-4" /> Edit Commute Profile
+          </DialogTitle>
+          <DialogDescription className="text-xs">
+            Update your vehicle and commute defaults. Changes apply immediately to cost calculations.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 py-2">
+          {/* Vehicle selectors */}
+          <div className="space-y-2">
+            <Label className="text-xs font-medium">Vehicle</Label>
+            <Select value={draft.vehicleYear} onValueChange={selectYear}>
+              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Year" /></SelectTrigger>
+              <SelectContent className="max-h-48">
+                {carYears.map((y) => <SelectItem key={y.value} value={y.value}>{y.text}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            {draft.vehicleYear && (
+              <Select value={draft.vehicleMake} onValueChange={selectMake}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Make" /></SelectTrigger>
+                <SelectContent className="max-h-48">
+                  {carMakes.map((m) => <SelectItem key={m.value} value={m.value}>{m.text}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            )}
+            {draft.vehicleYear && draft.vehicleMake && (
+              <Select value={draft.vehicleModel} onValueChange={selectModel}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Model" /></SelectTrigger>
+                <SelectContent className="max-h-48">
+                  {carModels.map((m) => <SelectItem key={m.value} value={m.value}>{m.text}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            )}
+            {draft.vehicleYear && draft.vehicleMake && draft.vehicleModel && carOptions.length > 1 && (
+              <Select value={draft.vehicleId} onValueChange={selectOption}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Trim / Engine" /></SelectTrigger>
+                <SelectContent className="max-h-48">
+                  {carOptions.map((o) => <SelectItem key={o.value} value={o.value}>{o.text}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            )}
+            {carLoading && (
+              <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                <Loader2 className="h-3 w-3 animate-spin" /> Loading EPA data...
+              </p>
+            )}
+          </div>
+
+          {/* Numeric fields */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="space-y-1">
+              <Label className="text-[10px] text-muted-foreground">Gas $/gal</Label>
+              <Input
+                type="number" step="0.10" min="1" max="10"
+                value={draft.gasPricePerGallon}
+                onChange={(e) => setDraft({ ...draft, gasPricePerGallon: parseFloat(e.target.value) || 3.50 })}
+                className="h-8 text-xs text-right"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[10px] text-muted-foreground">MPG</Label>
+              <Input
+                type="number" step="0.5" min="5" max="150"
+                value={draft.vehicleMpg}
+                onChange={(e) => setDraft({ ...draft, vehicleMpg: parseFloat(e.target.value) || 27.5 })}
+                className="h-8 text-xs text-right"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[10px] text-muted-foreground">Days/wk</Label>
+              <Input
+                type="number" step="1" min="1" max="7"
+                value={draft.daysInOffice}
+                onChange={(e) => setDraft({ ...draft, daysInOffice: Math.min(7, Math.max(1, parseInt(e.target.value) || 5)) })}
+                className="h-8 text-xs text-right"
+              />
+            </div>
+          </div>
+
+          <p className="text-[10px] text-muted-foreground">
+            Cost: ${(draft.gasPricePerGallon / draft.vehicleMpg).toFixed(2)}/mi · {draft.daysInOffice}d/wk · {draft.daysInOffice * 52} trips/yr
+          </p>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button size="sm" onClick={handleSave} disabled={saving}>
+            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : null}
+            Save
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

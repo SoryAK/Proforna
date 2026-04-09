@@ -55,6 +55,10 @@ export async function PATCH(request: Request) {
       "monthlyExpenses",
       // Stealth mode fields
       "visibility", "hideCurrentEmployer", "anonymousTitle", "blockedEins", "blockedDomains",
+      // Home address & commute/vehicle fields
+      "homeAddress", "homeLat", "homeLng",
+      "vehicleYear", "vehicleMake", "vehicleModel", "vehicleId", "vehicleMpg",
+      "gasPricePerGallon", "daysInOffice",
     ];
     const data: Record<string, unknown> = {};
     for (const key of allowed) {

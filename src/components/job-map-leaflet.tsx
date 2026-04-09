@@ -80,7 +80,8 @@ interface MapJob {
   created: string;
   category: string;
   description: string;
-  source: "adzuna" | "google" | "email";
+  source: "adzuna" | "google" | "email" | "usajobs";
+  dutyStations?: { location: string; city: string; state: string; lat: number; lng: number }[];
 }
 
 interface AnchorRoute {
@@ -97,6 +98,14 @@ interface AnchorMarker {
   label: string;
   icon: string;
   color: string;
+}
+
+interface WorkHistoryMarker {
+  id: string;
+  lat: number;
+  lng: number;
+  label: string;
+  title: string | null;
 }
 
 /* Emoji lookup for anchor icons */
@@ -157,6 +166,7 @@ interface Props {
   enabledAnchorIds?: Set<string>;
   onToggleAnchor?: (anchorId: string) => void;
   dimmedIds?: Set<string>;
+  workHistoryMarkers?: WorkHistoryMarker[];
 }
 
 /* Auto-fit bounds when jobs change */
@@ -175,25 +185,44 @@ function FitBounds({ jobs }: { jobs: MapJob[] }) {
   return null;
 }
 
-/* Focus-fit: zoom to show selected job + all anchor markers */
-function FocusFit({ job, anchors }: { job: MapJob; anchors: AnchorMarker[] }) {
+/* Fly to selected job once when selection changes — does NOT re-center on re-renders */
+function FlyToSelected({
+  selectedId,
+  jobs,
+  resolvedCoords,
+  anchors,
+}: {
+  selectedId: string | null;
+  jobs: MapJob[];
+  resolvedCoords?: [number, number] | null;
+  anchors?: AnchorMarker[];
+}) {
   const map = useMap();
-  const prevJobId = useRef<string | null>(null);
+  const prevId = useRef<string | null>(null);
 
   useEffect(() => {
-    if (job.id === prevJobId.current) return;
-    prevJobId.current = job.id;
+    if (!selectedId || selectedId === prevId.current) return;
+    prevId.current = selectedId;
 
-    const points: [number, number][] = [[job.lat, job.lng]];
-    anchors.forEach((a) => points.push([a.lat, a.lng]));
+    const job = jobs.find((j) => j.id === selectedId);
+    if (!job) return;
 
-    if (points.length === 1) {
-      map.setView(points[0], 14, { animate: true });
-    } else {
+    const jobPos: [number, number] = resolvedCoords ?? [job.lat, job.lng];
+
+    if (anchors && anchors.length > 0) {
+      const points: [number, number][] = [jobPos];
+      anchors.forEach((a) => points.push([a.lat, a.lng]));
       const bounds = L.latLngBounds(points);
       map.fitBounds(bounds, { padding: [60, 60], maxZoom: 14, animate: true });
+    } else {
+      map.flyTo(jobPos, Math.max(map.getZoom(), 12), { duration: 0.6 });
     }
-  }, [job.id, anchors, map]);
+  }, [selectedId, jobs, resolvedCoords, anchors, map]);
+
+  // Clear ref when deselected so re-selecting the same job still flies
+  useEffect(() => {
+    if (!selectedId) prevId.current = null;
+  }, [selectedId]);
 
   return null;
 }
@@ -362,6 +391,7 @@ export default function JobMapLeaflet({
   enabledAnchorIds,
   onToggleAnchor,
   dimmedIds,
+  workHistoryMarkers = [],
 }: Props) {
   const [panCenter, setPanCenter] = useState<[number, number] | null>(null);
   const [hasPanned, setHasPanned] = useState(false);
@@ -399,9 +429,8 @@ export default function JobMapLeaflet({
         updateWhenZooming={false}
         updateWhenIdle
       />
-      {jobs.length === 1 && anchorMarkers && anchorMarkers.length > 0
-        ? <FocusFit job={jobs[0]} anchors={anchorMarkers} />
-        : <FitBounds jobs={jobs} />}
+      <FitBounds jobs={jobs} />
+      <FlyToSelected selectedId={selectedId} jobs={jobs} resolvedCoords={resolvedCoords} anchors={anchorMarkers} />
       <FitRoute geometry={routeGeometry} />
       <PanDetector searchCenter={searchCenter} onMoved={handleMoved} />
 
@@ -619,6 +648,29 @@ export default function JobMapLeaflet({
         </Marker>
         );
       })}
+
+      {/* Work History markers — gray briefcase pins for past jobs */}
+      {workHistoryMarkers.map((w) => (
+        <Marker
+          key={`wh-${w.id}`}
+          position={[w.lat, w.lng]}
+          icon={L.divIcon({
+            html: `<div style="display:flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:#6b7280;border:2px solid #d1d5db;box-shadow:0 1px 4px rgba(0,0,0,0.2);font-size:14px;line-height:1;opacity:0.85;">💼</div>`,
+            className: "",
+            iconSize: [28, 28],
+            iconAnchor: [14, 14],
+          })}
+          zIndexOffset={1800}
+        >
+          <Tooltip direction="top" offset={[0, -14]} opacity={0.95}>
+            <div style={{ fontSize: 11, fontWeight: 600 }}>
+              {w.label}
+              {w.title && <div style={{ fontSize: 10, color: '#888', fontWeight: 400 }}>{w.title}</div>}
+              <div style={{ fontSize: 9, color: '#999' }}>Past workplace</div>
+            </div>
+          </Tooltip>
+        </Marker>
+      ))}
 
       {/* Multiple office locations — shown when company has several nearby offices */}
       {officeLocations.length > 1 && (() => {

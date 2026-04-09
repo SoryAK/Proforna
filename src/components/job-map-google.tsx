@@ -35,7 +35,8 @@ interface MapJob {
   created: string;
   category: string;
   description: string;
-  source: "adzuna" | "google" | "email";
+  source: "adzuna" | "google" | "email" | "usajobs";
+  dutyStations?: { location: string; city: string; state: string; lat: number; lng: number }[];
 }
 
 interface AnchorRoute {
@@ -52,6 +53,14 @@ interface AnchorMarker {
   label: string;
   icon: string;
   color: string;
+}
+
+interface WorkHistoryMarker {
+  id: string;
+  lat: number;
+  lng: number;
+  label: string;
+  title: string | null;
 }
 
 interface SweetSpotZone {
@@ -118,6 +127,7 @@ interface Props {
   activeAmenities?: Set<string>;
   amenityLoading?: Set<string>;
   onToggleAmenity?: (catKey: string) => void;
+  workHistoryMarkers?: WorkHistoryMarker[];
 }
 
 /* ── Helpers ── */
@@ -223,6 +233,7 @@ export default function JobMapGoogle({
   activeAmenities: activeAmenitiesProp,
   amenityLoading: amenityLoadingProp,
   onToggleAmenity,
+  workHistoryMarkers = [],
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
@@ -230,6 +241,7 @@ export default function JobMapGoogle({
   const clustererRef = useRef<MarkerClusterer | null>(null);
   const jobMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
   const anchorMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
+  const workHistoryMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
   const officeMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
   const sweetSpotMarkerRef = useRef<google.maps.marker.AdvancedMarkerElement | null>(null);
   const youAreHereMarkerRef = useRef<google.maps.marker.AdvancedMarkerElement | null>(null);
@@ -245,7 +257,9 @@ export default function JobMapGoogle({
   const transitLayerRef = useRef<google.maps.TransitLayer | null>(null);
   const heatmapRef = useRef<google.maps.visualization.HeatmapLayer | null>(null);
   const fitDoneRef = useRef(false);
-  const prevJobsLenRef = useRef(0);
+  const prevJobsKeyRef = useRef("");
+  const prevSelectedIdRef = useRef<string | null>(null);
+  const prevRouteKeyRef = useRef("");
 
   // Pan detection
   const [hasPanned, setHasPanned] = useState(false);
@@ -431,25 +445,42 @@ export default function JobMapGoogle({
     }
   }, [showHeatmap, heatmapMode, meanSalary, jobs, ready]);
 
-  /* ── Fit bounds when jobs change ── */
+  const jobsKey = useMemo(() => jobs.map((j) => j.id).join(","), [jobs]);
+
+  /* ── Fit bounds when jobs change (stable key prevents spurious re-fits) ── */
   useEffect(() => {
     const map = mapRef.current;
     if (!map || jobs.length === 0) return;
-    if (jobs.length === prevJobsLenRef.current) return;
-    prevJobsLenRef.current = jobs.length;
+    if (jobsKey === prevJobsKeyRef.current) return;
+    prevJobsKeyRef.current = jobsKey;
 
-    if (jobs.length === 1 && anchorMarkers.length > 0) {
-      // Focus-fit: show selected job + anchors
-      const bounds = new google.maps.LatLngBounds();
-      bounds.extend({ lat: jobs[0].lat, lng: jobs[0].lng });
-      anchorMarkers.forEach((a) => bounds.extend({ lat: a.lat, lng: a.lng }));
-      map.fitBounds(bounds, 60);
-    } else {
-      const bounds = new google.maps.LatLngBounds();
-      jobs.forEach((j) => bounds.extend({ lat: j.lat, lng: j.lng }));
-      map.fitBounds(bounds, 40);
-    }
-  }, [jobs, anchorMarkers, ready]);
+    const bounds = new google.maps.LatLngBounds();
+    jobs.forEach((j) => bounds.extend({ lat: j.lat, lng: j.lng }));
+    map.fitBounds(bounds, 40);
+  }, [jobsKey, jobs, ready]);
+
+  /* ── Pan to selected job (once per selection) ── */
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !selectedId || selectedId === prevSelectedIdRef.current) return;
+    prevSelectedIdRef.current = selectedId;
+
+    const job = jobs.find((j) => j.id === selectedId);
+    if (!job) return;
+
+    const pos = resolvedCoords
+      ? { lat: resolvedCoords[0], lng: resolvedCoords[1] }
+      : { lat: job.lat, lng: job.lng };
+
+    const currentZoom = map.getZoom() ?? 10;
+    map.panTo(pos);
+    if (currentZoom < 12) map.setZoom(12);
+  }, [selectedId, jobs, resolvedCoords, ready]);
+
+  /* Clear selection ref when deselected so re-selecting the same job works */
+  useEffect(() => {
+    if (!selectedId) prevSelectedIdRef.current = null;
+  }, [selectedId]);
 
   /* ── Route polylines ── */
   useEffect(() => {
@@ -460,6 +491,15 @@ export default function JobMapGoogle({
 
     const map = mapRef.current;
     const lines: google.maps.Polyline[] = [];
+
+    // Build a key for the primary route so we only fitBounds when geometry actually changes
+    const routeKey = transitSteps
+      ? `t:${transitSteps.map((s) => s.geometry?.length ?? 0).join(",")}`
+      : routeGeometry
+      ? `r:${routeGeometry.length}`
+      : "";
+    const routeChanged = routeKey !== prevRouteKeyRef.current && routeKey !== "";
+    prevRouteKeyRef.current = routeKey;
 
     // Transit steps
     if (transitSteps && transitSteps.some((s) => s.geometry?.length)) {
@@ -485,10 +525,12 @@ export default function JobMapGoogle({
         lines.push(line);
       });
 
-      // Fit to transit route
-      const bounds = new google.maps.LatLngBounds();
-      transitSteps.forEach((s) => s.geometry?.forEach(([lat, lng]) => bounds.extend({ lat, lng })));
-      map.fitBounds(bounds, 60);
+      // Only fit to transit route when geometry actually changed
+      if (routeChanged) {
+        const bounds = new google.maps.LatLngBounds();
+        transitSteps.forEach((s) => s.geometry?.forEach(([lat, lng]) => bounds.extend({ lat, lng })));
+        map.fitBounds(bounds, 60);
+      }
     } else if (routeGeometry && routeGeometry.length > 1) {
       const line = new google.maps.Polyline({
         path: routeGeometry.map(([lat, lng]) => ({ lat, lng })),
@@ -499,9 +541,12 @@ export default function JobMapGoogle({
       });
       lines.push(line);
 
-      const bounds = new google.maps.LatLngBounds();
-      routeGeometry.forEach(([lat, lng]) => bounds.extend({ lat, lng }));
-      map.fitBounds(bounds, 60);
+      // Only fit to driving route when geometry actually changed
+      if (routeChanged) {
+        const bounds = new google.maps.LatLngBounds();
+        routeGeometry.forEach(([lat, lng]) => bounds.extend({ lat, lng }));
+        map.fitBounds(bounds, 60);
+      }
     }
 
     // Anchor routes
@@ -637,7 +682,6 @@ export default function JobMapGoogle({
   }, [searchCenter, ready]);
 
   /* ── Job markers with clustering ── */
-  const jobsKey = useMemo(() => jobs.map((j) => j.id).join(","), [jobs]);
   const highlightedKey = useMemo(() => highlightedIds.join(","), [highlightedIds]);
   const dimmedKey = useMemo(() => (dimmedIds ? [...dimmedIds].sort().join(",") : ""), [dimmedIds]);
   const commuteTimesKey = useMemo(() => commuteTimesMap ? commuteTimesMap.size.toString() : "", [commuteTimesMap]);
@@ -883,6 +927,26 @@ export default function JobMapGoogle({
       anchorMarkersRef.current.push(marker);
     });
   }, [anchorMarkers, enabledAnchorIds, ready]);
+
+  /* ── Work History markers (gray briefcase pins) ── */
+  useEffect(() => {
+    workHistoryMarkersRef.current.forEach((m) => (m.map = null));
+    workHistoryMarkersRef.current = [];
+    if (!mapRef.current || workHistoryMarkers.length === 0) return;
+
+    workHistoryMarkers.forEach((w) => {
+      const el = document.createElement("div");
+      el.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:#6b7280;border:2px solid #d1d5db;box-shadow:0 1px 4px rgba(0,0,0,0.2);font-size:14px;line-height:1;opacity:0.85;cursor:default;" title="${w.label}${w.title ? ' - ' + w.title : ''} (past workplace)">💼</div>`;
+
+      const marker = new google.maps.marker.AdvancedMarkerElement({
+        position: { lat: w.lat, lng: w.lng },
+        map: mapRef.current,
+        content: el,
+        zIndex: 1800,
+      });
+      workHistoryMarkersRef.current.push(marker);
+    });
+  }, [workHistoryMarkers, ready]);
 
   /* ── Office location markers ── */
   useEffect(() => {

@@ -87,6 +87,16 @@ export async function GET(req: NextRequest) {
         description: r.description ?? "",
       }));
 
+      // Sort: jobs with search term in title come first
+      const kw = query.toLowerCase().split(/\s+/).filter(Boolean);
+      jobs.sort((a, b) => {
+        const aTitle = a.title.toLowerCase();
+        const bTitle = b.title.toLowerCase();
+        const aMatch = kw.some((w) => aTitle.includes(w)) ? 0 : 1;
+        const bMatch = kw.some((w) => bTitle.includes(w)) ? 0 : 1;
+        return aMatch - bMatch;
+      });
+
       return {
         jobs,
         total: data.count ?? 0,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -41,7 +41,12 @@ import {
   Trash2,
   Clock,
   UserX,
+  Car,
+  Home,
+  Fuel,
+  CalendarDays,
 } from "lucide-react";
+import { PlacesAutocomplete } from "@/components/places-autocomplete";
 import { Separator } from "@/components/ui/separator";
 import {
   AVAILABILITY_LABELS,
@@ -79,6 +84,18 @@ interface UserProfile {
   anonymousTitle: string | null;
   blockedEins: string | null;
   blockedDomains: string | null;
+  // Home address
+  homeAddress: string | null;
+  homeLat: number | null;
+  homeLng: number | null;
+  // Vehicle / commute
+  vehicleYear: string | null;
+  vehicleMake: string | null;
+  vehicleModel: string | null;
+  vehicleId: string | null;
+  vehicleMpg: number | null;
+  gasPricePerGallon: number | null;
+  daysInOffice: number | null;
 }
 
 export default function PortalSettingsPage() {
@@ -86,6 +103,80 @@ export default function PortalSettingsPage() {
   const [copied, setCopied] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  /* ── Vehicle picker cascading state ── */
+  const [carYears, setCarYears] = useState<{ text: string; value: string }[]>([]);
+  const [carMakes, setCarMakes] = useState<{ text: string; value: string }[]>([]);
+  const [carModels, setCarModels] = useState<{ text: string; value: string }[]>([]);
+  const [carOptions, setCarOptions] = useState<{ text: string; value: string }[]>([]);
+  const [carLoading, setCarLoading] = useState(false);
+  const [showCarPicker, setShowCarPicker] = useState(false);
+  const [geocodingAddress, setGeocodingAddress] = useState(false);
+
+  const fetchVehicleMenu = useCallback(async (action: string, params?: Record<string, string>) => {
+    const sp = new URLSearchParams({ action, ...params });
+    const res = await fetch(`/api/vehicle-lookup?${sp}`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    const items = data.menuItem;
+    if (!items) return [];
+    return Array.isArray(items) ? items : [items];
+  }, []);
+
+  // Load years when car picker opens
+  useEffect(() => {
+    if (!showCarPicker || carYears.length > 0) return;
+    fetchVehicleMenu("years").then(setCarYears);
+  }, [showCarPicker, carYears.length, fetchVehicleMenu]);
+
+  // Geocode home address
+  const geocodeHome = useCallback(async (address: string) => {
+    if (!address) return;
+    setGeocodingAddress(true);
+    try {
+      const res = await fetch(`/api/resolve-address?address=${encodeURIComponent(address)}&mode=geocode`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.lat && data.lng) {
+          setForm((f) => ({ ...f, homeAddress: address, homeLat: data.lat, homeLng: data.lng }));
+          return;
+        }
+      }
+    } finally {
+      setGeocodingAddress(false);
+    }
+  }, []);
+
+  // Auto-fill MPG when vehicle option is selected
+  const handleCarOptionSelect = useCallback(async (optionId: string) => {
+    if (!optionId) return;
+    setCarLoading(true);
+    try {
+      const [vehRes, priceRes] = await Promise.all([
+        fetch(`/api/vehicle-lookup?action=vehicle&id=${optionId}`),
+        fetch(`/api/vehicle-lookup?action=fuelprices`),
+      ]);
+      const veh = vehRes.ok ? await vehRes.json() : null;
+      const prices = priceRes.ok ? await priceRes.json() : null;
+      if (veh) {
+        const mpg = veh.comb08 || veh.highway08 || veh.city08 || 27.5;
+        setForm((f) => ({
+          ...f,
+          vehicleId: optionId,
+          vehicleMpg: String(mpg),
+        }));
+        if (prices?.regular) {
+          const fuelType = (veh.fuelType || "").toLowerCase();
+          let price = parseFloat(prices.regular);
+          if (fuelType.includes("premium")) price = parseFloat(prices.premium) || price;
+          else if (fuelType.includes("diesel")) price = parseFloat(prices.diesel) || price;
+          if (price > 0) setForm((f) => ({ ...f, gasPricePerGallon: String(Math.round(price * 100) / 100) }));
+        }
+      }
+    } finally {
+      setCarLoading(false);
+    }
+  }, []);
 
   const { data: profile, isLoading } = useQuery<UserProfile>({
     queryKey: ["profile"],
@@ -118,6 +209,18 @@ export default function PortalSettingsPage() {
     hideCurrentEmployer: false,
     anonymousTitle: "",
     blockedDomains: "",
+    // Home address
+    homeAddress: "",
+    homeLat: null as number | null,
+    homeLng: null as number | null,
+    // Vehicle / commute
+    vehicleYear: "",
+    vehicleMake: "",
+    vehicleModel: "",
+    vehicleId: "",
+    vehicleMpg: "",
+    gasPricePerGallon: "3.50",
+    daysInOffice: "5",
   });
 
   useEffect(() => {
@@ -150,6 +253,18 @@ export default function PortalSettingsPage() {
         blockedDomains: profile.blockedDomains
           ? JSON.parse(profile.blockedDomains).join(", ")
           : "",
+        // Home address
+        homeAddress: profile.homeAddress || "",
+        homeLat: profile.homeLat,
+        homeLng: profile.homeLng,
+        // Vehicle / commute
+        vehicleYear: profile.vehicleYear || "",
+        vehicleMake: profile.vehicleMake || "",
+        vehicleModel: profile.vehicleModel || "",
+        vehicleId: profile.vehicleId || "",
+        vehicleMpg: profile.vehicleMpg?.toString() || "",
+        gasPricePerGallon: profile.gasPricePerGallon?.toString() || "3.50",
+        daysInOffice: profile.daysInOffice?.toString() || "5",
       });
     }
   }, [profile]);
@@ -203,6 +318,18 @@ export default function PortalSettingsPage() {
       hideCurrentEmployer: form.hideCurrentEmployer,
       anonymousTitle: form.anonymousTitle || null,
       blockedDomains: blockedDomainsArray.length > 0 ? JSON.stringify(blockedDomainsArray) : null,
+      // Home address
+      homeAddress: form.homeAddress || null,
+      homeLat: form.homeLat,
+      homeLng: form.homeLng,
+      // Vehicle / commute
+      vehicleYear: form.vehicleYear || null,
+      vehicleMake: form.vehicleMake || null,
+      vehicleModel: form.vehicleModel || null,
+      vehicleId: form.vehicleId || null,
+      vehicleMpg: form.vehicleMpg ? parseFloat(form.vehicleMpg) : null,
+      gasPricePerGallon: form.gasPricePerGallon ? parseFloat(form.gasPricePerGallon) : null,
+      daysInOffice: form.daysInOffice ? parseInt(form.daysInOffice) : null,
     });
   };
 
@@ -698,6 +825,171 @@ export default function PortalSettingsPage() {
             <p className="text-xs text-gray-500 mt-1">
               Access requests from these email domains will be silently blocked. Comma-separated.
             </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ── My Commute & Vehicle ── */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Car className="h-5 w-5" /> My Commute
+          </CardTitle>
+          <p className="text-sm text-gray-500">
+            Set your home address, vehicle, and commute defaults. These are used automatically in the job map.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Home Address */}
+          <div>
+            <Label className="mb-1 flex items-center gap-1.5">
+              <Home className="h-3.5 w-3.5" /> Home Address
+            </Label>
+            <PlacesAutocomplete
+              value={form.homeAddress}
+              onChange={(v) => {
+                setForm({ ...form, homeAddress: v, homeLat: null, homeLng: null });
+              }}
+              onSelect={(address) => geocodeHome(address)}
+              placeholder="Enter your home address"
+              types={["address"]}
+            />
+            {geocodingAddress && (
+              <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" /> Resolving address...</p>
+            )}
+            {form.homeLat && form.homeLng && (
+              <p className="text-xs text-green-600 dark:text-green-400 mt-1 flex items-center gap-1">
+                <CheckCircle2 className="h-3 w-3" /> Location resolved ({form.homeLat.toFixed(4)}, {form.homeLng.toFixed(4)})
+              </p>
+            )}
+            <p className="text-xs text-gray-500 mt-1">
+              Used as default search center in the job map. Your address is never shared with employers.
+            </p>
+          </div>
+
+          <Separator />
+
+          {/* Vehicle */}
+          <div>
+            <Label className="mb-1 flex items-center gap-1.5">
+              <Car className="h-3.5 w-3.5" /> My Vehicle
+            </Label>
+            {form.vehicleYear && form.vehicleMake && form.vehicleModel && !showCarPicker ? (
+              <div className="flex items-center justify-between rounded-md border p-3 bg-muted/30">
+                <div>
+                  <p className="text-sm font-medium">{form.vehicleYear} {form.vehicleMake} {form.vehicleModel}</p>
+                  {form.vehicleMpg && <p className="text-xs text-muted-foreground">EPA Combined: {form.vehicleMpg} MPG</p>}
+                </div>
+                <Button variant="outline" size="sm" onClick={() => setShowCarPicker(true)}>Change</Button>
+              </div>
+            ) : (
+              <div className="space-y-2 rounded-md border p-3 bg-muted/30">
+                <Select
+                  value={form.vehicleYear}
+                  onValueChange={(v) => {
+                    setForm((f) => ({ ...f, vehicleYear: v ?? "", vehicleMake: "", vehicleModel: "", vehicleId: "" }));
+                    setCarMakes([]); setCarModels([]); setCarOptions([]);
+                    if (v) fetchVehicleMenu("makes", { year: v }).then(setCarMakes);
+                  }}
+                >
+                  <SelectTrigger><SelectValue placeholder="Year" /></SelectTrigger>
+                  <SelectContent className="max-h-48">
+                    {carYears.map((y) => <SelectItem key={y.value} value={y.value}>{y.text}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                {form.vehicleYear && (
+                  <Select
+                    value={form.vehicleMake}
+                    onValueChange={(v) => {
+                      setForm((f) => ({ ...f, vehicleMake: v ?? "", vehicleModel: "", vehicleId: "" }));
+                      setCarModels([]); setCarOptions([]);
+                      if (v) fetchVehicleMenu("models", { year: form.vehicleYear, make: v }).then(setCarModels);
+                    }}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Make" /></SelectTrigger>
+                    <SelectContent className="max-h-48">
+                      {carMakes.map((m) => <SelectItem key={m.value} value={m.value}>{m.text}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                )}
+                {form.vehicleYear && form.vehicleMake && (
+                  <Select
+                    value={form.vehicleModel}
+                    onValueChange={(v) => {
+                      setForm((f) => ({ ...f, vehicleModel: v ?? "", vehicleId: "" }));
+                      setCarOptions([]);
+                      if (v) fetchVehicleMenu("options", { year: form.vehicleYear, make: form.vehicleMake, model: v }).then((opts) => {
+                        setCarOptions(opts);
+                        if (opts.length === 1) {
+                          setForm((f) => ({ ...f, vehicleId: opts[0].value }));
+                          handleCarOptionSelect(opts[0].value);
+                        }
+                      });
+                    }}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Model" /></SelectTrigger>
+                    <SelectContent className="max-h-48">
+                      {carModels.map((m) => <SelectItem key={m.value} value={m.value}>{m.text}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                )}
+                {form.vehicleYear && form.vehicleMake && form.vehicleModel && carOptions.length > 1 && (
+                  <Select
+                    value={form.vehicleId}
+                    onValueChange={(v) => {
+                      setForm((f) => ({ ...f, vehicleId: v ?? "" }));
+                      if (v) handleCarOptionSelect(v);
+                    }}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Trim / Engine" /></SelectTrigger>
+                    <SelectContent className="max-h-48">
+                      {carOptions.map((o) => <SelectItem key={o.value} value={o.value}>{o.text}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                )}
+                {carLoading && <p className="text-xs text-muted-foreground flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" /> Loading EPA data...</p>}
+                {showCarPicker && (
+                  <Button variant="ghost" size="sm" className="text-xs" onClick={() => setShowCarPicker(false)}>Cancel</Button>
+                )}
+              </div>
+            )}
+            <p className="text-xs text-gray-500 mt-1">
+              Vehicle data powered by EPA/FuelEconomy.gov. MPG and gas prices auto-fill from EPA records.
+            </p>
+          </div>
+
+          <Separator />
+
+          {/* Commute Defaults */}
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <Label className="mb-1 flex items-center gap-1.5">
+                <Fuel className="h-3.5 w-3.5" /> Gas $/gal
+              </Label>
+              <Input
+                type="number" step="0.10" min="1" max="10"
+                value={form.gasPricePerGallon}
+                onChange={(e) => setForm({ ...form, gasPricePerGallon: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label className="mb-1">Vehicle MPG</Label>
+              <Input
+                type="number" step="0.5" min="5" max="150"
+                value={form.vehicleMpg}
+                onChange={(e) => setForm({ ...form, vehicleMpg: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label className="mb-1 flex items-center gap-1.5">
+                <CalendarDays className="h-3.5 w-3.5" /> Days/week
+              </Label>
+              <Input
+                type="number" step="1" min="1" max="7"
+                value={form.daysInOffice}
+                onChange={(e) => setForm({ ...form, daysInOffice: e.target.value })}
+              />
+            </div>
           </div>
         </CardContent>
       </Card>

@@ -54,6 +54,7 @@ model User {
   jobPostings         JobPosting[]
   lifeAnchors         LifeAnchor[]
   emailLeads          EmailLead[]
+  workHistory         WorkHistory[]
   recruiterFlags      RecruiterFlag[]
   addressOverrides    AddressOverride[]
   companyWatchlist    CompanyWatchlist[]
@@ -339,6 +340,20 @@ model UserProfile {
   anonymousTitle     String?                        // e.g. "Verified Electro-Mechanical Specialist #842"
   blockedEins        String?                        // JSON array of EINs to block
   blockedDomains     String?                        // JSON array of email domains to block
+
+  // ── Home Address ──
+  homeAddress        String?
+  homeLat            Float?
+  homeLng            Float?
+
+  // ── Vehicle / Commute ──
+  vehicleYear        String?
+  vehicleMake        String?
+  vehicleModel       String?
+  vehicleId          String?                        // FuelEconomy.gov vehicle ID
+  vehicleMpg         Float?
+  gasPricePerGallon  Float?
+  daysInOffice       Int?
 
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
@@ -1063,6 +1078,24 @@ model LifeAnchor {
   lng       Float
   weight    Int      @default(3) // priority 1-5
   sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ─── Work History (past jobs reference pins) ────────────────────
+
+model WorkHistory {
+  id        String   @id @default(uuid())
+  userId    String
+  company   String
+  title     String?  // job title held
+  address   String
+  lat       Float
+  lng       Float
+  startDate String?  // e.g. "2020-01" (year-month)
+  endDate   String?  // e.g. "2023-06" or null for "still there"
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

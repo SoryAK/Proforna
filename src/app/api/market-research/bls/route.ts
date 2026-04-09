@@ -12,11 +12,29 @@ function currentPeriod(): string {
 const STALE_DAYS = 30;
 
 /**
+ * Build BLS OES series IDs for a given SOC code (national level).
+ * Format: OE + U + N + 0000000 + 000000 + <soc6> + <dataType>
+ *   dataType 04 = annual mean, 12 = annual p10, 13 = p25,
+ *            14 = median, 15 = p75, 16 = p90
+ */
+function buildSeriesIds(socCode: string) {
+  const soc6 = socCode.replace("-", "");
+  const prefix = `OEUN0000000000000${soc6}`;
+  return {
+    mean: `${prefix}04`,
+    p10: `${prefix}12`,
+    p25: `${prefix}13`,
+    median: `${prefix}14`,
+    p75: `${prefix}15`,
+    p90: `${prefix}16`,
+  };
+}
+
+/**
  * GET /api/market-research/bls?occupation=Software+Developers&code=15-1252&region=national&level=all
  *
- * 1. Check SiteMarketData for a fresh cached row matching the query dimensions.
- * 2. If cache hit → return it immediately (zero API calls).
- * 3. If cache miss or stale → fetch from Tavily, parse numbers, upsert into SiteMarketData, return.
+ * Fetches real OES wage percentiles from the BLS Public Data API v2.
+ * Caches in SiteMarketData so subsequent hits are instant.
  */
 export async function GET(req: NextRequest) {
   const userId = await getUserId();
@@ -28,8 +46,8 @@ export async function GET(req: NextRequest) {
   const region = sp.get("region") ?? "national";
   const level = sp.get("level") ?? "all";
 
-  if (!occupation) {
-    return NextResponse.json({ error: "occupation parameter required" }, { status: 400 });
+  if (!occupation || !code) {
+    return NextResponse.json({ error: "occupation and code parameters required" }, { status: 400 });
   }
 
   const periodLabel = currentPeriod();
@@ -47,7 +65,6 @@ export async function GET(req: NextRequest) {
   });
 
   if (cached && cached.staleAfter > new Date()) {
-    // Cache hit — serve directly
     return NextResponse.json({
       answer: cached.rawAnswer,
       salaryData: {
@@ -66,45 +83,84 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  // ── 2. Cache miss / stale — fetch from Tavily ──
-  const apiKey = process.env.TAVILY_API_KEY;
-  if (!apiKey) {
-    return NextResponse.json({ error: "Tavily API key not configured" }, { status: 500 });
-  }
-
+  // ── 2. Fetch from BLS Public Data API v2 ──
   try {
-    const regionClause = region === "national" ? "United States" : region;
-    const levelClause = level === "all" ? "" : `${level} level`;
-    const query = `${occupation} (SOC ${code}) salary wages median annual pay ${regionClause} ${levelClause} 2025 2026`.trim();
+    const seriesMap = buildSeriesIds(code);
+    const seriesIds = Object.values(seriesMap);
+    const currentYear = new Date().getFullYear();
 
-    const res = await fetch("https://api.tavily.com/search", {
+    const body: Record<string, unknown> = {
+      seriesid: seriesIds,
+      startyear: String(currentYear - 2),
+      endyear: String(currentYear),
+    };
+    // Optional registration key for higher rate limits
+    const blsKey = process.env.BLS_API_KEY;
+    if (blsKey) body.registrationkey = blsKey;
+
+    const res = await fetch("https://api.bls.gov/publicAPI/v2/timeseries/data/", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        api_key: apiKey,
-        query,
-        search_depth: "advanced",
-        include_answer: true,
-        max_results: 8,
-      }),
+      body: JSON.stringify(body),
     });
 
     if (!res.ok) {
-      const text = await res.text();
       return NextResponse.json(
-        { error: `Tavily API returned ${res.status}`, detail: text },
+        { error: `BLS API returned ${res.status}` },
         { status: 502 }
       );
     }
 
     const json = await res.json();
-    const salaryData = parseSalaryFromAnswer(json.answer ?? "");
-    const sources = (json.results ?? []).map((r: TavilyResult) => ({
-      title: r.title,
-      url: r.url,
-      snippet: r.content?.slice(0, 300) ?? "",
-      score: r.score,
-    }));
+    if (json.status !== "REQUEST_SUCCEEDED") {
+      return NextResponse.json(
+        { error: "BLS API request failed", detail: json.message ?? JSON.stringify(json.message) },
+        { status: 502 }
+      );
+    }
+
+    // Extract latest annual values from each series
+    const seriesResults: Record<string, number | null> = {};
+    const seriesEntries = Object.entries(seriesMap);
+
+    for (const series of json.Results?.series ?? []) {
+      const sid: string = series.seriesID;
+      const entry = seriesEntries.find(([, id]) => id === sid);
+      if (!entry) continue;
+      const [field] = entry;
+      // Data sorted newest first; take the first period with annual value
+      const latest = (series.data ?? []).find(
+        (d: { period: string; value: string }) => d.period === "A01" && d.value !== "-"
+      );
+      seriesResults[field] = latest ? parseFloat(latest.value) : null;
+    }
+
+    const salaryData = {
+      median: seriesResults.median ?? null,
+      mean: seriesResults.mean ?? null,
+      low: seriesResults.p10 ?? null,
+      high: seriesResults.p90 ?? null,
+      p10: seriesResults.p10 ?? null,
+      p25: seriesResults.p25 ?? null,
+      p75: seriesResults.p75 ?? null,
+      p90: seriesResults.p90 ?? null,
+    };
+
+    const answer = salaryData.median
+      ? `BLS OES data for ${occupation} (${code}): Median annual wage $${Math.round(salaryData.median).toLocaleString()}. ` +
+        `Range: $${salaryData.p10 ? Math.round(salaryData.p10).toLocaleString() : "N/A"} (10th) – ` +
+        `$${salaryData.p90 ? Math.round(salaryData.p90).toLocaleString() : "N/A"} (90th percentile). ` +
+        `Mean: $${salaryData.mean ? Math.round(salaryData.mean).toLocaleString() : "N/A"}.`
+      : `No BLS OES wage data found for ${occupation} (${code}).`;
+
+    const sources = [
+      {
+        title: "Bureau of Labor Statistics — Occupational Employment and Wage Statistics",
+        url: `https://www.bls.gov/oes/current/oes${code.replace("-", "")}.htm`,
+        snippet: `Official BLS OES data for SOC ${code}.`,
+        score: 1,
+      },
+    ];
 
     // ── 3. Upsert into SiteMarketData ──
     const now = new Date();
@@ -129,7 +185,7 @@ export async function GET(req: NextRequest) {
         p25: salaryData.p25,
         p75: salaryData.p75,
         p90: salaryData.p90,
-        rawAnswer: json.answer ?? null,
+        rawAnswer: answer,
         sourcesJson: JSON.stringify(sources),
         fetchedAt: now,
         staleAfter,
@@ -148,7 +204,7 @@ export async function GET(req: NextRequest) {
         p25: salaryData.p25,
         p75: salaryData.p75,
         p90: salaryData.p90,
-        rawAnswer: json.answer ?? null,
+        rawAnswer: answer,
         sourcesJson: JSON.stringify(sources),
         fetchedAt: now,
         staleAfter,
@@ -156,7 +212,7 @@ export async function GET(req: NextRequest) {
     });
 
     return NextResponse.json({
-      answer: json.answer ?? null,
+      answer,
       salaryData,
       sources,
       cached: false,
@@ -164,87 +220,9 @@ export async function GET(req: NextRequest) {
     });
   } catch (e) {
     return NextResponse.json(
-      { error: "Failed to fetch wage data", detail: e instanceof Error ? e.message : "Unknown" },
+      { error: "Failed to fetch BLS wage data", detail: e instanceof Error ? e.message : "Unknown" },
       { status: 502 }
     );
   }
-}
-
-interface TavilyResult {
-  title: string;
-  url: string;
-  content: string;
-  score: number;
-}
-
-/**
- * Try to extract salary figures from the Tavily answer text.
- * Looks for patterns like "$XX,XXX", "$XXk", "$XX per hour", salary ranges.
- */
-function parseSalaryFromAnswer(answer: string): Record<string, number | null> {
-  const result: Record<string, number | null> = {
-    median: null,
-    mean: null,
-    low: null,
-    high: null,
-    p10: null,
-    p25: null,
-    p75: null,
-    p90: null,
-  };
-
-  // Normalize text
-  const text = answer.toLowerCase();
-
-  // Match dollar amounts, capturing the number
-  const dollarPattern = /\$\s?([\d,]+(?:\.\d+)?)\s*k?\b/g;
-  const allAmounts: number[] = [];
-  let m;
-  while ((m = dollarPattern.exec(text)) !== null) {
-    let val = parseFloat(m[1].replace(/,/g, ""));
-    // If the match had "k", multiply
-    if (m[0].toLowerCase().includes("k")) val *= 1000;
-    // Likely hourly if < 200, convert to annual (2080 hrs)
-    if (val < 200) val = Math.round(val * 2080);
-    allAmounts.push(val);
-  }
-
-  // Try to find labeled values
-  const medianMatch = text.match(/median[^$]*\$\s?([\d,]+(?:\.\d+)?)\s*k?/);
-  const meanMatch = text.match(/(?:mean|average)[^$]*\$\s?([\d,]+(?:\.\d+)?)\s*k?/);
-  const p10Match = text.match(/10th\s*percentile[^$]*\$\s?([\d,]+(?:\.\d+)?)\s*k?/);
-  const p25Match = text.match(/25th\s*percentile[^$]*\$\s?([\d,]+(?:\.\d+)?)\s*k?/);
-  const p75Match = text.match(/75th\s*percentile[^$]*\$\s?([\d,]+(?:\.\d+)?)\s*k?/);
-  const p90Match = text.match(/90th\s*percentile[^$]*\$\s?([\d,]+(?:\.\d+)?)\s*k?/);
-
-  function parseVal(match: RegExpMatchArray | null): number | null {
-    if (!match) return null;
-    let v = parseFloat(match[1].replace(/,/g, ""));
-    if (match[0].toLowerCase().includes("k")) v *= 1000;
-    if (v < 200) v = Math.round(v * 2080);
-    return v;
-  }
-
-  result.median = parseVal(medianMatch);
-  result.mean = parseVal(meanMatch);
-  result.p10 = parseVal(p10Match);
-  result.p25 = parseVal(p25Match);
-  result.p75 = parseVal(p75Match);
-  result.p90 = parseVal(p90Match);
-
-  // If we found amounts but no labeled median, use the most common / middle value
-  if (!result.median && allAmounts.length > 0) {
-    const sorted = [...allAmounts].sort((a, b) => a - b);
-    result.median = sorted[Math.floor(sorted.length / 2)];
-  }
-
-  // Try to infer low/high from range patterns
-  if (allAmounts.length >= 2) {
-    const sorted = [...allAmounts].sort((a, b) => a - b);
-    result.low = result.low ?? sorted[0];
-    result.high = result.high ?? sorted[sorted.length - 1];
-  }
-
-  return result;
 }
 

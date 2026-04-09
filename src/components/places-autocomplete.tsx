@@ -16,6 +16,7 @@ interface Suggestion {
 interface Props {
   value: string;
   onChange: (value: string) => void;
+  onSelect?: (value: string) => void;
   placeholder?: string;
   className?: string;
   types?: string[];
@@ -33,7 +34,7 @@ function ensureOptions() {
   }
 }
 
-export function PlacesAutocomplete({ value, onChange, placeholder = "City, State", className, types = ["(cities)"] }: Props) {
+export function PlacesAutocomplete({ value, onChange, onSelect, placeholder = "City, State", className, types = ["(cities)"] }: Props) {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [open, setOpen] = useState(false);
   const [ready, setReady] = useState(false);
@@ -114,6 +115,7 @@ export function PlacesAutocomplete({ value, onChange, placeholder = "City, State
 
   const handleSelect = (description: string) => {
     onChange(description);
+    onSelect?.(description);
     setSuggestions([]);
     setOpen(false);
   };
