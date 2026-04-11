@@ -17,6 +17,7 @@ interface Props {
   value: string;
   onChange: (value: string) => void;
   onSelect?: (value: string) => void;
+  onPlaceSelect?: (place: { description: string; placeId: string }) => void;
   placeholder?: string;
   className?: string;
   types?: string[];
@@ -34,7 +35,7 @@ function ensureOptions() {
   }
 }
 
-export function PlacesAutocomplete({ value, onChange, onSelect, placeholder = "City, State", className, types = ["(cities)"] }: Props) {
+export function PlacesAutocomplete({ value, onChange, onSelect, onPlaceSelect, placeholder = "City, State", className, types = ["(cities)"] }: Props) {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [open, setOpen] = useState(false);
   const [ready, setReady] = useState(false);
@@ -113,9 +114,10 @@ export function PlacesAutocomplete({ value, onChange, onSelect, placeholder = "C
     debounceRef.current = setTimeout(() => fetchSuggestions(val), 300);
   };
 
-  const handleSelect = (description: string) => {
+  const handleSelect = (description: string, placeId: string) => {
     onChange(description);
     onSelect?.(description);
+    onPlaceSelect?.({ description, placeId });
     setSuggestions([]);
     setOpen(false);
   };
@@ -162,7 +164,7 @@ export function PlacesAutocomplete({ value, onChange, onSelect, placeholder = "C
               key={s.placeId}
               type="button"
               className="w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors flex items-center gap-2"
-              onMouseDown={(e) => { e.preventDefault(); handleSelect(s.description); }}
+              onMouseDown={(e) => { e.preventDefault(); handleSelect(s.description, s.placeId); }}
             >
               <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
               <span className="truncate">{s.description}</span>

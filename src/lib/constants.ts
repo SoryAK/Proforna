@@ -92,6 +92,7 @@ export const NAV_ITEMS = [
   { label: "Jobs", href: "/current-position", icon: "Building2" },
   { label: "Job Search", href: "/job-search", icon: "Search" },
   { label: "Career Analytics", href: "/career-growth", icon: "TrendingUp" },
+  { label: "Skill Graph", href: "/skill-graph", icon: "Network" },
   { label: "Insights", href: "/insights", icon: "BarChart3" },
   { label: "Research", href: "/research", icon: "BookOpen" },
   { label: "Documents", href: "/docs", icon: "FolderOpen" },

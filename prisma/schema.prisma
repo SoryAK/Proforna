@@ -61,6 +61,11 @@ model User {
   decompositionTrees DecompositionTree[]
   titleSynonymClusters TitleSynonymCluster[]
   savedSearches       SavedSearch[]
+  skillNodes          SkillNode[]
+  skillEvidence       SkillEvidence[]
+  scaffoldMeta        ScaffoldMeta[]
+  occupations         Occupation[]
+  occupationInterests UserOccupationInterest[]
 }
 
 model Account {
@@ -324,6 +329,7 @@ model UserProfile {
   targetSalaryMax    Int?
   currency           String   @default("USD")
   locationPreference String?
+  industryGroup      String?  // SOC major group, e.g. "Computer and Mathematical" — powers scaffold suggestions
   showSkills         Boolean  @default(true)
   showResume         Boolean  @default(true)
   showCertifications Boolean  @default(true)
@@ -1076,6 +1082,7 @@ model LifeAnchor {
   address   String
   lat       Float
   lng       Float
+  placeId   String?  // Google Place ID for Feature Layer building highlight
   weight    Int      @default(3) // priority 1-5
   sortOrder Int      @default(0)
   createdAt DateTime @default(now())
@@ -1094,12 +1101,88 @@ model WorkHistory {
   address   String
   lat       Float
   lng       Float
+  placeId   String?  // Google Place ID for Feature Layer building highlight
   startDate String?  // e.g. "2020-01" (year-month)
   endDate   String?  // e.g. "2023-06" or null for "still there"
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user       User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  locations  WorkHistoryLocation[]
+  notes      WorkHistoryNote[]
+  milestones WorkHistoryMilestone[]
+  rating     WorkplaceRating?
+}
+
+// ─── Work History Locations (sub-locations per job) ─────────────
+
+model WorkHistoryLocation {
+  id            String   @id @default(uuid())
+  workHistoryId String
+  label         String   // e.g. "Downtown satellite office"
+  type          String   @default("daily-workplace") // daily-workplace | main-office | satellite | remote | client-site
+  address       String
+  lat           Float
+  lng           Float
+  placeId       String?  // Google Place ID for Feature Layer building highlight
+  isPrimary     Boolean  @default(false) // used for polyline path
+  skills        String?  // JSON array of skill names used at this location
+  startDate     String?  // optional YYYY-MM period start at this location
+  endDate       String?  // optional YYYY-MM period end at this location
+  createdAt     DateTime @default(now())
+
+  workHistory WorkHistory @relation(fields: [workHistoryId], references: [id], onDelete: Cascade)
+
+  @@index([workHistoryId])
+}
+
+// ─── Work History Notes ────────────────────────────────────────
+
+model WorkHistoryNote {
+  id            String   @id @default(uuid())
+  workHistoryId String
+  content       String
+  imageUrl      String?  // optional photo URL
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  workHistory WorkHistory @relation(fields: [workHistoryId], references: [id], onDelete: Cascade)
+
+  @@index([workHistoryId])
+}
+
+// ─── Work History Milestones ───────────────────────────────────
+
+model WorkHistoryMilestone {
+  id            String   @id @default(uuid())
+  workHistoryId String
+  title         String
+  description   String?
+  type          String   @default("achievement") // promotion | project | certification | award | achievement | other
+  date          String   // "2024-03" year-month format
+  createdAt     DateTime @default(now())
+
+  workHistory WorkHistory @relation(fields: [workHistoryId], references: [id], onDelete: Cascade)
+
+  @@index([workHistoryId])
+}
+
+// ─── Workplace Rating ──────────────────────────────────────────
+
+model WorkplaceRating {
+  id              String   @id @default(uuid())
+  workHistoryId   String   @unique
+  culture         Int      @default(0) // 0-5
+  growth          Int      @default(0) // 0-5
+  compensation    Int      @default(0) // 0-5
+  workLifeBalance Int      @default(0) // 0-5
+  management      Int      @default(0) // 0-5
+  overall         Int      @default(0) // 0-5
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  workHistory WorkHistory @relation(fields: [workHistoryId], references: [id], onDelete: Cascade)
 }
 
 // ─── Email Leads (Job Search) ───────────────────────────────────
@@ -1299,4 +1382,145 @@ model SavedSearch {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+// ─── Skill Knowledge Graph ─────────────────────────────────────
+
+/// A node in the skill graph — represents a single skill concept.
+model SkillNode {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  type      String   @default("technical") // technical | soft | domain | tool
+  source    String   @default("user")      // user | market | ai | onet
+  metadata  String?  // JSON: { socCodes, description, aliases }
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  edgesFrom SkillEdge[]     @relation("EdgeFrom")
+  edgesTo   SkillEdge[]     @relation("EdgeTo")
+  evidence  SkillEvidence[]
+  occupationRequirements OccupationSkillRequirement[]
+
+  @@unique([userId, name])
+  @@index([userId])
+  @@index([name])
+}
+
+/// An edge connecting two SkillNodes — typed and weighted.
+model SkillEdge {
+  id       String @id @default(cuid())
+  fromId   String
+  toId     String
+  type     String @default("peer")          // prerequisite | peer | bridge | child | enables
+  weight   Float  @default(1.0)             // market frequency or AI confidence 0-10
+  source   String @default("ai")            // job_posting | onet | ai | user
+  metadata String? // JSON: { jobCount, confidence, reasoning }
+  createdAt DateTime @default(now())
+
+  from SkillNode @relation("EdgeFrom", fields: [fromId], references: [id], onDelete: Cascade)
+  to   SkillNode @relation("EdgeTo", fields: [toId], references: [id], onDelete: Cascade)
+
+  @@unique([fromId, toId, type])
+  @@index([fromId])
+  @@index([toId])
+}
+
+/// Evidence linking a SkillNode to proof artifacts (work history, certs, projects, learning).
+model SkillEvidence {
+  id           String   @id @default(cuid())
+  userId       String
+  skillNodeId  String
+  artifactType String   // work_history | certification | learning_item | project | self_assessed
+  artifactId   String   @default(cuid()) // FK to source record, or auto-generated ID for self-assessed
+  strength     Float    @default(50)  // 0-100 evidence strength
+  notes        String?
+  verifiedAt   DateTime?
+  createdAt    DateTime @default(now())
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skillNode SkillNode @relation(fields: [skillNodeId], references: [id], onDelete: Cascade)
+
+  @@unique([skillNodeId, artifactType, artifactId])
+  @@index([userId])
+  @@index([skillNodeId])
+}
+
+/// Tracks which scaffold cluster was seeded for a user and when, enabling refresh detection.
+model ScaffoldMeta {
+  id           String   @id @default(cuid())
+  userId       String
+  cluster      String   // SOC group name, e.g. "Computer and Mathematical"
+  version      String   // scaffold data version, e.g. "1.0.0"
+  nodesSeeded  Int      @default(0)
+  edgesSeeded  Int      @default(0)
+  seededAt     DateTime @default(now())
+  refreshedAt  DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, cluster])
+  @@index([userId])
+}
+
+// ─── Occupations ───────────────────────────────────────────────
+
+/// An occupation (job role) aligned to SOC/O*NET, linked to required skills.
+model Occupation {
+  id          String  @id @default(cuid())
+  userId      String
+  socCode     String                       // O*NET SOC code, e.g. "15-1252.00"
+  title       String                       // "Software Developers"
+  description String?
+  cluster     String                       // scaffold cluster name, e.g. "Computer and Mathematical"
+  source      String  @default("onet")     // onet | ai | user
+  metadata    String?                      // JSON: { bright_outlook, median_wage, growth }
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user         User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  requirements OccupationSkillRequirement[]
+  interests    UserOccupationInterest[]
+
+  @@unique([userId, socCode])
+  @@index([userId])
+  @@index([cluster])
+}
+
+/// Links an Occupation to a SkillNode with importance and proficiency level.
+model OccupationSkillRequirement {
+  id           String @id @default(cuid())
+  occupationId String
+  skillNodeId  String
+  importance   Float  @default(50)   // 0-100, how critical this skill is to the occupation
+  level        Float  @default(3.5)  // 0-7, O*NET proficiency scale
+  source       String @default("onet") // onet | ai | user
+  createdAt    DateTime @default(now())
+
+  occupation Occupation @relation(fields: [occupationId], references: [id], onDelete: Cascade)
+  skillNode  SkillNode  @relation(fields: [skillNodeId], references: [id], onDelete: Cascade)
+
+  @@unique([occupationId, skillNodeId])
+  @@index([occupationId])
+  @@index([skillNodeId])
+}
+
+/// Tracks a user's interest in or relationship to a specific occupation.
+model UserOccupationInterest {
+  id           String  @id @default(cuid())
+  userId       String
+  occupationId String
+  status       String  @default("exploring") // current | target | past | exploring
+  fitScore     Float?                         // auto-calculated career fit 0-100
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  occupation Occupation @relation(fields: [occupationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, occupationId])
+  @@index([userId])
+  @@index([occupationId])
 }

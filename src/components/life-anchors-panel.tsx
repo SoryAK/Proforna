@@ -72,7 +72,7 @@ interface LifeAnchor {
 /* Geocode an address using Google Geocoding API */
 async function geocodeAddress(
   address: string,
-): Promise<{ lat: number; lng: number } | null> {
+): Promise<{ lat: number; lng: number; placeId?: string } | null> {
   if (!GOOGLE_KEY) return null;
   const res = await fetch(
     `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GOOGLE_KEY}`,
@@ -82,6 +82,7 @@ async function geocodeAddress(
     return {
       lat: data.results[0].geometry.location.lat,
       lng: data.results[0].geometry.location.lng,
+      placeId: data.results[0].place_id ?? undefined,
     };
   }
   return null;
@@ -109,6 +110,7 @@ export function LifeAnchorsPanel({ compact = false, defaultAddress, onAnchorsCha
   const [formLabel, setFormLabel] = useState("");
   const [formIcon, setFormIcon] = useState("home");
   const [formAddress, setFormAddress] = useState("");
+  const [formPlaceId, setFormPlaceId] = useState<string | null>(null);
   const [formWeight, setFormWeight] = useState(3);
   const [geocoding, setGeocoding] = useState(false);
 
@@ -171,6 +173,7 @@ export function LifeAnchorsPanel({ compact = false, defaultAddress, onAnchorsCha
     setFormLabel("");
     setFormIcon("home");
     setFormAddress("");
+    setFormPlaceId(null);
     setFormWeight(3);
   }, []);
 
@@ -195,6 +198,7 @@ export function LifeAnchorsPanel({ compact = false, defaultAddress, onAnchorsCha
       address: formAddress.trim(),
       lat: coords.lat,
       lng: coords.lng,
+      placeId: formPlaceId ?? coords.placeId ?? null,
       weight: formWeight,
       sortOrder: anchors.length,
     };
@@ -204,13 +208,14 @@ export function LifeAnchorsPanel({ compact = false, defaultAddress, onAnchorsCha
     } else {
       createMutation.mutate(payload);
     }
-  }, [formLabel, formIcon, formAddress, formWeight, editId, anchors.length, createMutation, updateMutation]);
+  }, [formLabel, formIcon, formAddress, formPlaceId, formWeight, editId, anchors.length, createMutation, updateMutation]);
 
   const startEdit = useCallback((a: LifeAnchor) => {
     setEditId(a.id);
     setFormLabel(a.label);
     setFormIcon(a.icon);
     setFormAddress(a.address);
+    setFormPlaceId((a as LifeAnchor & { placeId?: string | null }).placeId ?? null);
     setFormWeight(a.weight);
     setShowForm(true);
   }, []);
@@ -451,7 +456,8 @@ export function LifeAnchorsPanel({ compact = false, defaultAddress, onAnchorsCha
               <Label className="text-xs">Address</Label>
               <PlacesAutocomplete
                 value={formAddress}
-                onChange={setFormAddress}
+                onChange={(v) => { setFormAddress(v); setFormPlaceId(null); }}
+                onPlaceSelect={(p) => { setFormAddress(p.description); setFormPlaceId(p.placeId); }}
                 placeholder="Search for an address…"
                 className="h-8 text-sm"
                 types={[]}

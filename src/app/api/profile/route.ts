@@ -59,6 +59,8 @@ export async function PATCH(request: Request) {
       "homeAddress", "homeLat", "homeLng",
       "vehicleYear", "vehicleMake", "vehicleModel", "vehicleId", "vehicleMpg",
       "gasPricePerGallon", "daysInOffice",
+      // Skill graph
+      "industryGroup",
     ];
     const data: Record<string, unknown> = {};
     for (const key of allowed) {

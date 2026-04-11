@@ -62,6 +62,12 @@ import {
   Square,
   Bookmark,
   Home,
+  Download,
+  Pencil,
+  Check,
+  FileText,
+  ClipboardList,
+  TrendingUp,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -552,6 +558,13 @@ export function JobMap() {
   /* ── Company Deep Dive ── */
   const [deepDiveCompany, setDeepDiveCompany] = useState<string | null>(null);
 
+  /* ── Company Locations Discovery (job search) ── */
+  type CompanyLocResult = { placeId: string; name: string; address: string; lat: number; lng: number };
+  const [companyLocs, setCompanyLocs] = useState<CompanyLocResult[]>([]);
+  const [companyLocsLoading, setCompanyLocsLoading] = useState(false);
+  const [companyLocsSearched, setCompanyLocsSearched] = useState(false);
+  const [companyLocsRadius, setCompanyLocsRadius] = useState(25000); // metres
+
   /* ── DB-backed recruiter flags (crowdsourced) ── */
   type RecruiterFlagInfo = { count: number; confirmed: boolean; flaggedByMe: boolean };
   const [recruiterFlagDb, setRecruiterFlagDb] = useState<Record<string, RecruiterFlagInfo>>({});
@@ -604,7 +617,7 @@ export function JobMap() {
   const queryClient = useQueryClient();
 
   /* ── Life Anchors state ── */
-  interface LifeAnchorData { id: string; label: string; icon: string; address: string; lat: number; lng: number; weight: number }
+  interface LifeAnchorData { id: string; label: string; icon: string; address: string; lat: number; lng: number; weight: number; placeId?: string | null }
   const { data: lifeAnchors = [] } = useQuery<LifeAnchorData[]>({
     queryKey: ["life-anchors"],
     queryFn: () => fetch("/api/life-anchors").then((r) => r.json()),
@@ -622,13 +635,23 @@ export function JobMap() {
   const knownAnchorIds = useRef<Set<string>>(new Set());
 
   /* ── Work History (past jobs reference pins) ── */
-  interface WorkHistoryItem { id: string; company: string; title: string | null; address: string; lat: number; lng: number; startDate: string | null; endDate: string | null }
+  interface WorkHistoryLocationItem { id: string; label: string; type: string; address: string; lat: number; lng: number; isPrimary: boolean; placeId?: string | null; skills?: string | null; startDate?: string | null; endDate?: string | null }
+  interface WorkHistoryItem { id: string; company: string; title: string | null; address: string; lat: number; lng: number; startDate: string | null; endDate: string | null; locations: WorkHistoryLocationItem[]; placeId?: string | null }
   const { data: workHistory = [] } = useQuery<WorkHistoryItem[]>({
     queryKey: ["work-history"],
     queryFn: () => fetch("/api/work-history").then((r) => r.json()),
     staleTime: 60_000,
   });
   const [showWorkHistory, setShowWorkHistory] = useState(false);
+  const [showWorkHistoryPanel, setShowWorkHistoryPanel] = useState(false);
+  const [showCareerPath, setShowCareerPath] = useState(false);
+  const [focusedWorkHistoryId, setFocusedWorkHistoryId] = useState<string | null>(null);
+  const preWorkHistoryZoomRef = useRef<{ lat: number; lng: number; zoom: number } | null>(null);
+  const [pinDropMode, setPinDropMode] = useState(false);
+  const [pinDropCoords, setPinDropCoords] = useState<{ lat: number; lng: number; placeId?: string } | null>(null);
+  const [showBuildingHighlights, setShowBuildingHighlights] = useState(false);
+  const [buildingFootprints, setBuildingFootprints] = useState<{ coords: { lat: number; lng: number }[]; color: string }[]>([]);
+  const buildingCacheRef = useRef<Map<string, { lat: number; lng: number }[][]>>(new Map());
 
   // Load commute profile: prefer DB profile, fallback to localStorage
   const commuteProfileSeeded = useRef(false);
@@ -1465,6 +1488,10 @@ export function JobMap() {
     // Clear neighborhood explorer & cluster preview when job changes
     setActiveAmenities(new Set());
     setClusterPreview(null);
+    // Clear company locations search
+    setCompanyLocs([]);
+    setCompanyLocsSearched(false);
+    setCompanyLocsLoading(false);
 
     if (!selectedJob) return;
 
@@ -1756,6 +1783,109 @@ export function JobMap() {
     }));
   }, [showWorkHistory, workHistory]);
 
+  /** Memoized sub-location markers for the map */
+  const workHistorySubLocationsForMap = useMemo(() => {
+    if (!showWorkHistory || workHistory.length === 0) return [];
+    return workHistory.flatMap((w) =>
+      (w.locations ?? []).map((loc) => ({
+        id: loc.id,
+        parentId: w.id,
+        lat: loc.lat,
+        lng: loc.lng,
+        label: loc.label,
+        type: loc.type,
+        parentLat: w.lat,
+        parentLng: w.lng,
+      }))
+    );
+  }, [showWorkHistory, workHistory]);
+
+  /* ── Building footprints fetch ── */
+  useEffect(() => {
+    if (!showBuildingHighlights) { setBuildingFootprints([]); return; }
+
+    // Collect all geocoded marker coords with colour
+    const markers: { id: string; lat: number; lng: number; color: string }[] = [];
+
+    // Life anchors
+    if (lifeAnchors && (lifeAnchors as LifeAnchorData[]).length > 0) {
+      (lifeAnchors as LifeAnchorData[]).forEach((a, i) => {
+        markers.push({ id: `anchor-${a.id}`, lat: a.lat, lng: a.lng, color: ANCHOR_COLORS[i % ANCHOR_COLORS.length] });
+      });
+    }
+
+    // Work history
+    if (showWorkHistory) {
+      workHistory.forEach((w) => {
+        markers.push({ id: `wh-${w.id}`, lat: w.lat, lng: w.lng, color: "#6b7280" });
+        (w.locations ?? []).forEach((loc) => {
+          markers.push({ id: `whloc-${loc.id}`, lat: loc.lat, lng: loc.lng, color: "#9ca3af" });
+        });
+      });
+    }
+
+    // Office locations for selected job
+    if (resolvedAddress?.allLocations) {
+      resolvedAddress.allLocations.forEach((o, i) => {
+        markers.push({ id: `office-${i}`, lat: o.lat, lng: o.lng, color: "#3b82f6" });
+      });
+    }
+
+    if (markers.length === 0) { setBuildingFootprints([]); return; }
+
+    // Dedupe by rounded key, keep first colour
+    const seen = new Map<string, { id: string; lat: number; lng: number; color: string }>();
+    for (const m of markers) {
+      const k = `${m.lat.toFixed(5)},${m.lng.toFixed(5)}`;
+      if (!seen.has(k)) seen.set(k, m);
+    }
+    const unique = [...seen.values()];
+
+    // Check cache for already-fetched coords
+    const toFetch: typeof unique = [];
+    const cached: { coords: { lat: number; lng: number }[]; color: string }[] = [];
+    for (const m of unique) {
+      const k = `${m.lat.toFixed(5)},${m.lng.toFixed(5)}`;
+      const hit = buildingCacheRef.current.get(k);
+      if (hit) {
+        hit.forEach((ring) => cached.push({ coords: ring, color: m.color }));
+      } else {
+        toFetch.push(m);
+      }
+    }
+
+    if (toFetch.length === 0) { setBuildingFootprints(cached); return; }
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/building-footprints", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ coordinates: toFetch.map((m) => ({ id: m.id, lat: m.lat, lng: m.lng })) }),
+        });
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        const fp: { coords: { lat: number; lng: number }[]; color: string }[] = [...cached];
+        for (const item of data.footprints ?? []) {
+          const source = toFetch.find((m) => m.id === item.id);
+          if (!source) continue;
+          const k = `${source.lat.toFixed(5)},${source.lng.toFixed(5)}`;
+          buildingCacheRef.current.set(k, item.polygons ?? []);
+          for (const ring of item.polygons ?? []) {
+            fp.push({ coords: ring, color: source.color });
+          }
+        }
+        if (!cancelled) setBuildingFootprints(fp);
+      } catch (err) {
+        console.error("Building footprint fetch error:", err);
+        if (!cancelled) setBuildingFootprints(cached);
+      }
+    })();
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showBuildingHighlights, lifeAnchors, showWorkHistory, workHistory, resolvedAddress?.allLocations]);
+
   /** For each job, find closest work-history pin within 3 miles */
   const nearbyWorkHistoryMap = useMemo(() => {
     if (workHistory.length === 0) return {} as Record<string, WorkHistoryItem>;
@@ -1842,6 +1972,32 @@ export function JobMap() {
     // Already resolved to this address, just save as override
     await saveAddressOverride(selectedJob.id, resolvedAddress.address, resolvedAddress.lat, resolvedAddress.lng, resolvedAddress.name, "landmark-swap");
     toast.success(`Confirmed: location is ${resolvedAddress.name}`);
+  }
+
+  /** Search for all company locations nearby (for job search) */
+  async function searchCompanyLocations() {
+    if (!selectedJob || !resolvedAddress) return;
+    setCompanyLocsLoading(true);
+    setCompanyLocsSearched(true);
+    try {
+      const params = new URLSearchParams({
+        query: selectedJob.company,
+        lat: String(resolvedAddress.lat),
+        lng: String(resolvedAddress.lng),
+        radius: String(companyLocsRadius),
+      });
+      const res = await fetch(`/api/nearby-buildings?${params}`);
+      if (!res.ok) throw new Error("Failed");
+      const data = await res.json();
+      setCompanyLocs(data.buildings ?? []);
+      if ((data.buildings ?? []).length >= 15) {
+        toast.info(`${data.buildings.length} locations found — this may be a chain or franchise`);
+      }
+    } catch {
+      toast.error("Could not search company locations");
+    } finally {
+      setCompanyLocsLoading(false);
+    }
   }
 
   // ── Two-phase commute: fast duration first, then geometry in background ──
@@ -3053,6 +3209,27 @@ export function JobMap() {
               })}
               dimmedIds={dimmedIds}
               workHistoryMarkers={workHistoryMarkersForMap}
+              workHistorySubLocations={workHistorySubLocationsForMap}
+              showCareerPath={showCareerPath}
+              buildingFootprints={buildingFootprints}
+              pinDropMode={pinDropMode}
+              companyLocationMarkers={companyLocs}
+              onMapClick={(coords) => {
+                setPinDropCoords(coords);
+                setPinDropMode(false);
+              }}
+              onSelectWorkHistory={(marker) => {
+                // Remember current map position for snap-back
+                if (searchCenter) {
+                  preWorkHistoryZoomRef.current = { lat: searchCenter[0], lng: searchCenter[1], zoom: 11 };
+                }
+                // Determine the work history entry id
+                const whId = "parentId" in marker ? marker.parentId : marker.id;
+                setFocusedWorkHistoryId(whId);
+                setShowWorkHistoryPanel(true);
+                setShowWorkHistory(true);
+                // Zoom handled by the map component itself
+              }}
               onClusterHover={(jobs, position) => {
                 if (clusterHoverTimer.current) clearTimeout(clusterHoverTimer.current);
                 setClusterPreview({ jobs, position });
@@ -3205,11 +3382,23 @@ export function JobMap() {
               </button>
               <button
                 type="button"
-                onClick={() => setShowWorkHistory(!showWorkHistory)}
+                onClick={() => {
+                  const next = !showWorkHistory;
+                  setShowWorkHistory(next);
+                  if (next) setShowWorkHistoryPanel(true);
+                }}
                 title="Work History"
                 className={`flex items-center justify-center w-10 h-10 border-l border-gray-200 cursor-pointer transition-colors ${showWorkHistory ? "bg-blue-50" : "bg-white hover:bg-gray-50"}`}
               >
                 <Briefcase className={`h-[18px] w-[18px] ${showWorkHistory ? "text-blue-600" : "text-gray-600"}`} />
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowBuildingHighlights(!showBuildingHighlights)}
+                title="Highlight Buildings"
+                className={`flex items-center justify-center w-10 h-10 border-l border-gray-200 cursor-pointer transition-colors ${showBuildingHighlights ? "bg-blue-50" : "bg-white hover:bg-gray-50"}`}
+              >
+                <Building2 className={`h-[18px] w-[18px] ${showBuildingHighlights ? "text-blue-600" : "text-gray-600"}`} />
               </button>
             </div>
           </div>
@@ -3240,12 +3429,29 @@ export function JobMap() {
           )}
 
           {/* ── Floating Work History panel on map ── */}
-          {showWorkHistory && (
+          {showWorkHistoryPanel && (
             <WorkHistoryPanel
               items={workHistory}
-              onClose={() => setShowWorkHistory(false)}
+              onClose={() => { setShowWorkHistoryPanel(false); setFocusedWorkHistoryId(null); setPinDropMode(false); }}
               onAdded={() => queryClient.invalidateQueries({ queryKey: ["work-history"] })}
               onDeleted={() => queryClient.invalidateQueries({ queryKey: ["work-history"] })}
+              showCareerPath={showCareerPath}
+              onToggleCareerPath={() => setShowCareerPath((p) => !p)}
+              focusedId={focusedWorkHistoryId}
+              pinDropMode={pinDropMode}
+              pinDropCoords={pinDropCoords}
+              onStartPinDrop={() => setPinDropMode(true)}
+              onCancelPinDrop={() => { setPinDropMode(false); setPinDropCoords(null); }}
+              onClearPinDrop={() => setPinDropCoords(null)}
+              onExitFocus={() => {
+                setFocusedWorkHistoryId(null);
+                setPinDropMode(false);
+                setPinDropCoords(null);
+                if (preWorkHistoryZoomRef.current) {
+                  setZoomTarget(preWorkHistoryZoomRef.current);
+                  preWorkHistoryZoomRef.current = null;
+                }
+              }}
             />
           )}
 
@@ -3431,19 +3637,6 @@ export function JobMap() {
           })()}
 
           {/* Overlay states on top of the map */}
-          {!searched && !hasEmailLeads && (
-            <div className="absolute inset-0 z-[500] flex flex-col items-center justify-center text-muted-foreground gap-2 pointer-events-none">
-              <div className="bg-background/80 backdrop-blur-sm rounded-xl px-6 py-4 flex flex-col items-center gap-2 shadow-lg">
-                <MapPin className="h-8 w-8 opacity-50" />
-                <p className="text-sm font-medium">Search for jobs to see them on the map</p>
-                {profile?.city && (
-                  <p className="text-xs opacity-70">
-                    Default location: {profile.city}, {profile.state}
-                  </p>
-                )}
-              </div>
-            </div>
-          )}
           {isFetching && (
             <div className="absolute inset-0 z-[500] flex items-center justify-center pointer-events-none">
               <div className="bg-background/80 backdrop-blur-sm rounded-xl px-6 py-4 flex items-center gap-2 shadow-lg text-muted-foreground">
@@ -3693,6 +3886,74 @@ export function JobMap() {
                       <Flag className="h-2.5 w-2.5 mr-0.5" />
                       {(isUserFlaggedRecruiter(selectedJob.company) || recruiterFlagDb[selectedJob.company.toLowerCase().trim()]?.flaggedByMe) ? "Unflag recruiter" : "Flag as recruiter"}
                     </Button>
+
+                    {/* ── Company Locations Discovery ── */}
+                    {resolvedAddress && (
+                      <div className="space-y-1.5 pt-1 border-t">
+                        {!companyLocsSearched ? (
+                          <div className="space-y-1">
+                            <Button size="sm" variant="outline" className="w-full h-7 text-[10px]" disabled={companyLocsLoading} onClick={searchCompanyLocations}>
+                              {companyLocsLoading ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Building2 className="h-3 w-3 mr-1" />}
+                              See All {selectedJob.company} Locations
+                            </Button>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[9px] text-muted-foreground">Radius:</span>
+                              <Select value={String(companyLocsRadius)} onValueChange={(v) => setCompanyLocsRadius(parseInt(v ?? "25000", 10))}>
+                                <SelectTrigger className="h-5 text-[9px] w-[90px]"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="5000" className="text-xs">5 km</SelectItem>
+                                  <SelectItem value="10000" className="text-xs">10 km</SelectItem>
+                                  <SelectItem value="25000" className="text-xs">25 km</SelectItem>
+                                  <SelectItem value="50000" className="text-xs">50 km</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                        ) : companyLocsLoading ? (
+                          <div className="flex items-center justify-center py-3">
+                            <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                            <span className="text-[10px] text-muted-foreground ml-1">Searching locations…</span>
+                          </div>
+                        ) : companyLocs.length > 0 ? (
+                          <div className="rounded-lg border overflow-hidden">
+                            <div className="p-1.5 bg-muted/30 flex items-center justify-between">
+                              <span className="text-[10px] font-medium flex items-center gap-1">
+                                <Building2 className="h-3 w-3 text-blue-500" /> {selectedJob.company} Locations ({companyLocs.length})
+                                {companyLocs.length >= 15 && (
+                                  <span className="text-[8px] bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 px-1 rounded">chain?</span>
+                                )}
+                              </span>
+                              <button type="button" className="text-[8px] text-muted-foreground hover:text-foreground" onClick={() => { setCompanyLocsSearched(false); setCompanyLocs([]); }}>
+                                <RefreshCw className="h-2.5 w-2.5" />
+                              </button>
+                            </div>
+                            <div className="max-h-[180px] overflow-y-auto divide-y">
+                              {companyLocs.map((loc) => (
+                                <button
+                                  key={loc.placeId}
+                                  type="button"
+                                  className="w-full flex items-start gap-1.5 p-1.5 hover:bg-muted/30 transition-colors text-left"
+                                  onClick={() => {
+                                    setZoomTarget({ lat: loc.lat, lng: loc.lng, zoom: 15 });
+                                  }}
+                                >
+                                  <MapPin className="h-3 w-3 text-blue-500 mt-0.5 shrink-0" />
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-[10px] font-medium truncate">{loc.name}</p>
+                                    <p className="text-[8px] text-muted-foreground truncate">{loc.address}</p>
+                                  </div>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="p-2 rounded-lg border bg-muted/20 text-center">
+                            <p className="text-[10px] text-muted-foreground">No other {selectedJob.company} locations found</p>
+                            <button type="button" className="text-[9px] text-blue-500 hover:underline mt-0.5" onClick={() => { setCompanyLocsSearched(false); setCompanyLocs([]); }}>Try different radius</button>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </details>
 
@@ -5471,49 +5732,189 @@ export function JobMap() {
 }
 
 /* ── Work History Panel (floating on map) ──────────────────── */
-const GOOGLE_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
 function WorkHistoryPanel({
-  items, onClose, onAdded, onDeleted,
+  items, onClose, onAdded, onDeleted, showCareerPath, onToggleCareerPath, focusedId, onExitFocus,
+  pinDropMode, pinDropCoords, onStartPinDrop, onCancelPinDrop, onClearPinDrop,
 }: {
-  items: { id: string; company: string; title: string | null; address: string; lat: number; lng: number; startDate: string | null; endDate: string | null }[];
+  items: { id: string; company: string; title: string | null; address: string; lat: number; lng: number; startDate: string | null; endDate: string | null; locations: { id: string; label: string; type: string; address: string; lat: number; lng: number; isPrimary: boolean; placeId?: string | null; skills?: string | null; startDate?: string | null; endDate?: string | null }[] }[];
   onClose: () => void;
   onAdded: () => void;
   onDeleted: () => void;
+  showCareerPath: boolean;
+  onToggleCareerPath: () => void;
+  focusedId: string | null;
+  pinDropMode: boolean;
+  pinDropCoords: { lat: number; lng: number; placeId?: string } | null;
+  onStartPinDrop: () => void;
+  onCancelPinDrop: () => void;
+  onClearPinDrop: () => void;
+  onExitFocus: () => void;
 }) {
   const [adding, setAdding] = useState(false);
   const [company, setCompany] = useState("");
   const [jobTitle, setJobTitle] = useState("");
   const [address, setAddress] = useState("");
+  const [addCoords, setAddCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [addPlaceId, setAddPlaceId] = useState<string | null>(null);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [saving, setSaving] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editCompany, setEditCompany] = useState("");
+  const [editTitle, setEditTitle] = useState("");
+  const [editAddress, setEditAddress] = useState("");
+  const [editCoords, setEditCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [editPlaceId, setEditPlaceId] = useState<string | null>(null);
+  const [editStart, setEditStart] = useState("");
+  const [editEnd, setEditEnd] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
+  const [tab, setTab] = useState<"list" | "timeline">("list");
+  // Sub-location state
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [addingLocFor, setAddingLocFor] = useState<string | null>(null);
+  const [locLabel, setLocLabel] = useState("");
+  const [locType, setLocType] = useState("daily-workplace");
+  const [locAddress, setLocAddress] = useState("");
+  const [locCoords, setLocCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [locPlaceId, setLocPlaceId] = useState<string | null>(null);
+  const [locSaving, setLocSaving] = useState(false);
 
   async function geocode(addr: string): Promise<{ lat: number; lng: number } | null> {
-    if (!GOOGLE_KEY) return null;
-    const res = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(addr)}&key=${GOOGLE_KEY}`);
-    const data = await res.json();
-    const loc = data.results?.[0]?.geometry?.location;
-    return loc ? { lat: loc.lat, lng: loc.lng } : null;
+    try {
+      const res = await fetch(`/api/geocode?address=${encodeURIComponent(addr)}`);
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data.lat != null && data.lng != null ? { lat: data.lat, lng: data.lng } : null;
+    } catch { return null; }
+  }
+
+  /** Use Places API getDetails to get exact coords from a placeId */
+  function placeDetails(placeId: string): Promise<{ lat: number; lng: number } | null> {
+    return new Promise((resolve) => {
+      if (typeof google === "undefined" || !google.maps?.places) { resolve(null); return; }
+      const div = document.createElement("div");
+      const service = new google.maps.places.PlacesService(div);
+      service.getDetails({ placeId, fields: ["geometry"] }, (place, status) => {
+        if (status === google.maps.places.PlacesServiceStatus.OK && place?.geometry?.location) {
+          resolve({ lat: place.geometry.location.lat(), lng: place.geometry.location.lng() });
+        } else {
+          resolve(null);
+        }
+      });
+    });
+  }
+
+  /** Resolve coordinates: prefer placeId details, fallback to geocode */
+  async function resolveCoords(addr: string, placeId?: string): Promise<{ lat: number; lng: number } | null> {
+    if (placeId) {
+      const result = await placeDetails(placeId);
+      if (result) return result;
+    }
+    return geocode(addr);
+  }
+
+  async function handleImportFromExperience() {
+    setImporting(true);
+    try {
+      const res = await fetch("/api/current-position");
+      if (!res.ok) throw new Error("Failed to fetch positions");
+      const positions: { company: string; role: string | null; address: string | null; location: string | null; startDate: string | null; endDate: string | null }[] = await res.json();
+
+      const existingCompanies = new Set(items.map((i) => i.company.toLowerCase().trim()));
+      const toImport = positions.filter((p) => {
+        const addr = p.address || p.location;
+        return addr && !existingCompanies.has(p.company.toLowerCase().trim());
+      });
+
+      if (toImport.length === 0) {
+        toast.info("No new positions to import");
+        return;
+      }
+
+      let imported = 0;
+      for (const pos of toImport) {
+        const addr = pos.address || pos.location || "";
+        const geo = await geocode(addr);
+        if (!geo) continue;
+
+        const sd = pos.startDate ? new Date(pos.startDate).toISOString().slice(0, 7) : null;
+        const ed = pos.endDate ? new Date(pos.endDate).toISOString().slice(0, 7) : null;
+
+        const r = await fetch("/api/work-history", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ company: pos.company, title: pos.role || null, address: addr, lat: geo.lat, lng: geo.lng, startDate: sd, endDate: ed }),
+        });
+        if (r.ok) imported++;
+      }
+
+      if (imported > 0) {
+        toast.success(`Imported ${imported} position${imported > 1 ? "s" : ""}`);
+        onAdded();
+      } else {
+        toast.warning("Could not geocode any position addresses");
+      }
+    } catch { toast.error("Failed to import positions"); } finally { setImporting(false); }
   }
 
   async function handleAdd() {
     if (!company.trim() || !address.trim()) { toast.error("Company and address are required"); return; }
     setSaving(true);
     try {
-      const geo = await geocode(address);
-      if (!geo) { toast.error("Could not geocode address"); return; }
+      const geo = addCoords ?? await geocode(address);
+      if (!geo) { toast.error("Could not geocode address"); setSaving(false); return; }
       const res = await fetch("/api/work-history", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ company: company.trim(), title: jobTitle.trim() || null, address: address.trim(), lat: geo.lat, lng: geo.lng, startDate: startDate || null, endDate: endDate || null }),
+        body: JSON.stringify({ company: company.trim(), title: jobTitle.trim() || null, address: address.trim(), lat: geo.lat, lng: geo.lng, placeId: addPlaceId, startDate: startDate || null, endDate: endDate || null }),
       });
       if (!res.ok) throw new Error("Failed to save");
       toast.success("Work history added");
-      setCompany(""); setJobTitle(""); setAddress(""); setStartDate(""); setEndDate("");
+      setCompany(""); setJobTitle(""); setAddress(""); setAddCoords(null); setAddPlaceId(null); setStartDate(""); setEndDate("");
       setAdding(false);
       onAdded();
     } catch { toast.error("Failed to add work history"); } finally { setSaving(false); }
+  }
+
+  function startEdit(w: typeof items[0]) {
+    setEditingId(w.id);
+    setEditCompany(w.company);
+    setEditTitle(w.title ?? "");
+    setEditAddress(w.address);
+    setEditCoords(null);
+    setEditPlaceId((w as typeof items[0] & { placeId?: string | null }).placeId ?? null);
+    setEditStart(w.startDate ?? "");
+    setEditEnd(w.endDate ?? "");
+  }
+
+  async function handleSaveEdit() {
+    if (!editingId || !editCompany.trim() || !editAddress.trim()) { toast.error("Company and address are required"); return; }
+    setEditSaving(true);
+    try {
+      const original = items.find((i) => i.id === editingId);
+      const addressChanged = original && original.address !== editAddress.trim();
+      let lat = original?.lat;
+      let lng = original?.lng;
+      if (addressChanged) {
+        const geo = editCoords ?? await geocode(editAddress.trim());
+        if (!geo) { toast.error("Could not geocode new address"); setEditSaving(false); return; }
+        lat = geo.lat;
+        lng = geo.lng;
+      }
+      const res = await fetch(`/api/work-history/${editingId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ company: editCompany.trim(), title: editTitle.trim() || null, address: editAddress.trim(), lat, lng, placeId: editPlaceId, startDate: editStart || null, endDate: editEnd || null }),
+      });
+      if (!res.ok) throw new Error("Failed to update");
+      toast.success("Updated");
+      setEditingId(null);
+      setEditCoords(null);
+      setEditPlaceId(null);
+      onAdded();
+    } catch { toast.error("Failed to update"); } finally { setEditSaving(false); }
   }
 
   async function handleDelete(id: string) {
@@ -5523,13 +5924,1199 @@ function WorkHistoryPanel({
     } catch { toast.error("Failed to delete"); }
   }
 
+  const LOC_TYPES = [
+    { value: "daily-workplace", label: "Daily workplace" },
+    { value: "main-office", label: "Main office" },
+    { value: "satellite", label: "Satellite office" },
+    { value: "remote", label: "Remote / WFH" },
+    { value: "client-site", label: "Client site" },
+  ] as const;
+
+  /** Handle PlacesAutocomplete onPlaceSelect for sub-location form */
+  async function handleLocPlaceSelect(place: { description: string; placeId: string }) {
+    const coords = await resolveCoords(place.description, place.placeId);
+    if (coords) setLocCoords(coords);
+    setLocPlaceId(place.placeId);
+  }
+
+  async function handleAddLocation(workHistoryId: string) {
+    if (!locLabel.trim() || !locAddress.trim()) { toast.error("Label and address are required"); return; }
+    setLocSaving(true);
+    try {
+      const geo = locCoords ?? await geocode(locAddress.trim());
+      if (!geo) { toast.error("Could not geocode address"); setLocSaving(false); return; }
+      const res = await fetch(`/api/work-history/${workHistoryId}/locations`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label: locLabel.trim(), type: locType, address: locAddress.trim(), lat: geo.lat, lng: geo.lng, placeId: locPlaceId, isPrimary: false }),
+      });
+      if (!res.ok) throw new Error("Failed to add");
+      toast.success("Location added");
+      setLocLabel(""); setLocType("daily-workplace"); setLocAddress(""); setLocCoords(null); setLocPlaceId(null);
+      setAddingLocFor(null);
+      onAdded();
+    } catch { toast.error("Failed to add location"); } finally { setLocSaving(false); }
+  }
+
+  async function handleDeleteLocation(workHistoryId: string, locId: string) {
+    try {
+      await fetch(`/api/work-history/${workHistoryId}/locations/${locId}`, { method: "DELETE" });
+      onAdded();
+    } catch { toast.error("Failed to delete location"); }
+  }
+
+  // List view: most recent first
+  const listItems = useMemo(() => {
+    return [...items].sort((a, b) => (b.startDate ?? "9999").localeCompare(a.startDate ?? "9999"));
+  }, [items]);
+
+  // Timeline view: oldest first (chronological)
+  const sorted = useMemo(() => {
+    return [...items].sort((a, b) => (a.startDate ?? "0000").localeCompare(b.startDate ?? "0000"));
+  }, [items]);
+
+  // Career journey stats
+  const stats = useMemo(() => {
+    if (items.length === 0) return null;
+    let totalMonths = 0;
+    for (const w of items) {
+      if (!w.startDate) continue;
+      const start = new Date(w.startDate + "-01");
+      const end = w.endDate ? new Date(w.endDate + "-01") : new Date();
+      totalMonths += Math.max(0, (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth()));
+    }
+    const years = Math.floor(totalMonths / 12);
+    const months = totalMonths % 12;
+    const tenureStr = years > 0 ? `${years}y ${months}m` : `${months}m`;
+
+    let totalMiles = 0;
+    for (let i = 1; i < sorted.length; i++) {
+      const a = sorted[i - 1];
+      const b = sorted[i];
+      const dLat = (b.lat - a.lat) * 69;
+      const dLng = (b.lng - a.lng) * 69 * Math.cos(((a.lat + b.lat) / 2) * Math.PI / 180);
+      totalMiles += Math.sqrt(dLat * dLat + dLng * dLng);
+    }
+
+    const cities = new Set(items.map((w) => {
+      const parts = w.address.split(",").map((s) => s.trim());
+      return parts.length >= 2 ? parts[parts.length - 2].toLowerCase() : w.address.toLowerCase();
+    }));
+
+    return { tenureStr, totalMiles: Math.round(totalMiles), cities: cities.size, count: items.length };
+  }, [items, sorted]);
+
+  /** Handle PlacesAutocomplete onPlaceSelect for add form */
+  async function handleAddPlaceSelect(place: { description: string; placeId: string }) {
+    const coords = await resolveCoords(place.description, place.placeId);
+    if (coords) setAddCoords(coords);
+    setAddPlaceId(place.placeId);
+  }
+
+  /** Handle PlacesAutocomplete onPlaceSelect for edit form */
+  async function handleEditPlaceSelect(place: { description: string; placeId: string }) {
+    const coords = await resolveCoords(place.description, place.placeId);
+    if (coords) setEditCoords(coords);
+    setEditPlaceId(place.placeId);
+  }
+
+  // Focused work history entry
+  const focusedItem = focusedId ? items.find((w) => w.id === focusedId) : null;
+
+  // ── Enriched data from CurrentPosition for focused view ──
+  interface MatchedPosition {
+    id: string; company: string; role: string; salary: number | null; currency: string;
+    payType: string; payRate: string | null; payFrequency: string;
+    description: string | null; responsibilities: string | null; techStack: string | null;
+    companySynopsis: string | null; industry: string | null; website: string | null;
+    ein: string | null; legalName: string | null; managerName: string | null;
+    hoursPerWeek: number | null; type: string;
+  }
+  interface CompEvent { id: string; type: string; title: string; amount: number; currency: string; effectiveDate: string; recurring: boolean; notes: string | null }
+  interface WLog { id: string; title: string; content: string | null; category: string; hours: number | null; accomplishment: boolean; impact: string | null; date: string; tags: string | null }
+
+  const [matchedPosition, setMatchedPosition] = useState<MatchedPosition | null>(null);
+  const [compEvents, setCompEvents] = useState<CompEvent[]>([]);
+  const [workLogs, setWorkLogs] = useState<WLog[]>([]);
+  const [enrichLoading, setEnrichLoading] = useState(false);
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
+  const [focusTab, setFocusTab] = useState<"overview" | "edit">("overview");
+  const prevFocusedId = useRef<string | null>(null);
+
+  // Fetch enriched data when focused item changes
+  useEffect(() => {
+    if (!focusedItem || focusedId === prevFocusedId.current) return;
+    prevFocusedId.current = focusedId;
+    setMatchedPosition(null); setCompEvents([]); setWorkLogs([]); setExpandedSections(new Set());
+
+    let cancelled = false;
+    (async () => {
+      setEnrichLoading(true);
+      try {
+        // Fetch all positions, match by company name (case-insensitive)
+        const posRes = await fetch("/api/current-position");
+        if (!posRes.ok) return;
+        const positions: MatchedPosition[] = await posRes.json();
+        const match = positions.find((p) => p.company.toLowerCase().trim() === focusedItem.company.toLowerCase().trim());
+        if (cancelled || !match) { setEnrichLoading(false); return; }
+        setMatchedPosition(match);
+
+        // Fetch compensation events + work logs in parallel
+        const [ceRes, wlRes] = await Promise.all([
+          fetch(`/api/compensation?positionId=${match.id}`),
+          fetch(`/api/work-logs?positionId=${match.id}&accomplishments=true`),
+        ]);
+        if (cancelled) return;
+        if (ceRes.ok) setCompEvents(await ceRes.json());
+        if (wlRes.ok) setWorkLogs(await wlRes.json());
+      } catch { /* silent */ } finally { if (!cancelled) setEnrichLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, [focusedId, focusedItem]);
+
+  function toggleSection(key: string) {
+    setExpandedSections((prev) => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
+  }
+
+  // ── Feature A: Pin-drop sub-location ──
+  const [pinDropLabel, setPinDropLabel] = useState("");
+  const [pinDropType, setPinDropType] = useState("daily-workplace");
+  const [pinDropSaving, setPinDropSaving] = useState(false);
+  const [pinDropReversed, setPinDropReversed] = useState<string>("");
+
+  // Reverse geocode when pinDropCoords arrive (or fetch Place Details if placeId provided)
+  useEffect(() => {
+    if (!pinDropCoords) { setPinDropReversed(""); setPinDropLabel(""); return; }
+    (async () => {
+      if (pinDropCoords.placeId) {
+        // POI was clicked — fetch details from our API
+        try {
+          const res = await fetch("/api/nearby-buildings", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ placeId: pinDropCoords.placeId }),
+          });
+          if (res.ok) {
+            const d = await res.json();
+            setPinDropReversed(d.address || `${pinDropCoords.lat.toFixed(5)}, ${pinDropCoords.lng.toFixed(5)}`);
+            setPinDropLabel(d.name || "");
+            return;
+          }
+        } catch { /* fall through to geocode */ }
+      }
+      // Reverse geocode via server-side API
+      try {
+        const res = await fetch(`/api/reverse-geocode?lat=${pinDropCoords.lat}&lng=${pinDropCoords.lng}`);
+        if (res.ok) {
+          const data = await res.json();
+          setPinDropReversed(data.address ?? `${pinDropCoords.lat.toFixed(5)}, ${pinDropCoords.lng.toFixed(5)}`);
+        }
+      } catch {
+        setPinDropReversed(`${pinDropCoords.lat.toFixed(5)}, ${pinDropCoords.lng.toFixed(5)}`);
+      }
+    })();
+  }, [pinDropCoords]);
+
+  async function handlePinDropSave() {
+    if (!focusedItem || !pinDropCoords || !pinDropLabel.trim()) return;
+    setPinDropSaving(true);
+    try {
+      const res = await fetch(`/api/work-history/${focusedItem.id}/locations`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label: pinDropLabel.trim(), type: pinDropType, address: pinDropReversed, lat: pinDropCoords.lat, lng: pinDropCoords.lng, placeId: pinDropCoords.placeId ?? null }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success("Sub-location added");
+      setPinDropLabel(""); setPinDropType("daily-workplace"); onClearPinDrop();
+      onAdded();
+    } catch { toast.error("Failed to add sub-location"); } finally { setPinDropSaving(false); }
+  }
+
+  // ── Nearby Buildings Discovery ──
+  interface NearbyBuilding { placeId: string; name: string; address: string; lat: number; lng: number; types: string[] }
+  const [nearbyBuildings, setNearbyBuildings] = useState<NearbyBuilding[]>([]);
+  const [nearbyLoading, setNearbyLoading] = useState(false);
+  const [nearbySearched, setNearbySearched] = useState(false);
+  const [claimingPlaceId, setClaimingPlaceId] = useState<string | null>(null);
+
+  async function searchNearbyBuildings() {
+    if (!focusedItem) return;
+    setNearbyLoading(true);
+    setNearbySearched(true);
+    try {
+      const existingPlaceIds = new Set((focusedItem.locations ?? []).map((l) => l.placeId).filter(Boolean));
+      const res = await fetch(`/api/nearby-buildings?query=${encodeURIComponent(focusedItem.company)}&lat=${focusedItem.lat}&lng=${focusedItem.lng}&radius=2000`);
+      if (res.ok) {
+        const data = await res.json();
+        // Filter out buildings already added as sub-locations
+        setNearbyBuildings((data.buildings ?? []).filter((b: NearbyBuilding) => !existingPlaceIds.has(b.placeId)));
+      }
+    } catch { toast.error("Failed to search nearby buildings"); }
+    finally { setNearbyLoading(false); }
+  }
+
+  async function claimBuilding(building: NearbyBuilding) {
+    if (!focusedItem) return;
+    setClaimingPlaceId(building.placeId);
+    try {
+      const res = await fetch(`/api/work-history/${focusedItem.id}/locations`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          label: building.name,
+          type: "satellite",
+          address: building.address,
+          lat: building.lat,
+          lng: building.lng,
+          placeId: building.placeId,
+        }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success(`Added ${building.name}`);
+      setNearbyBuildings((prev) => prev.filter((b) => b.placeId !== building.placeId));
+      onAdded();
+    } catch { toast.error("Failed to claim building"); }
+    finally { setClaimingPlaceId(null); }
+  }
+
+  // Reset nearby search when focused item changes
+  useEffect(() => {
+    setNearbyBuildings([]);
+    setNearbySearched(false);
+  }, [focusedItem?.id]);
+
+  // ── Feature B: Commute route from life anchors ──
+  interface LifeAnchorItem { id: string; label: string; lat: number; lng: number; icon: string }
+  const [lifeAnchors, setLifeAnchors] = useState<LifeAnchorItem[]>([]);
+  const [selectedAnchorId, setSelectedAnchorId] = useState<string | null>(null);
+  const [commuteResult, setCommuteResult] = useState<{ durationMin: number; distanceMi: number; mode: string } | null>(null);
+  const [commuteLoading, setCommuteLoading] = useState(false);
+  const [commuteMode, setCommuteMode] = useState<"driving" | "transit" | "walking" | "bicycling">("driving");
+
+  // Fetch life anchors once when focus mode opens
+  useEffect(() => {
+    if (!focusedItem) return;
+    (async () => {
+      try {
+        const res = await fetch("/api/life-anchors");
+        if (res.ok) setLifeAnchors(await res.json());
+      } catch { /* silent */ }
+    })();
+  }, [focusedItem]);
+
+  async function computeCommute(anchorId: string, modeOverride?: "driving" | "transit" | "walking" | "bicycling") {
+    if (!focusedItem) return;
+    const anchor = lifeAnchors.find((a) => a.id === anchorId);
+    if (!anchor) return;
+    const mode = modeOverride ?? commuteMode;
+    setSelectedAnchorId(anchorId);
+    setCommuteLoading(true);
+    setCommuteResult(null);
+    try {
+      const res = await fetch(`/api/commute?fromLat=${anchor.lat}&fromLng=${anchor.lng}&toLat=${focusedItem.lat}&toLng=${focusedItem.lng}&mode=${mode}`);
+      if (res.ok) setCommuteResult(await res.json());
+    } catch { /* silent */ } finally { setCommuteLoading(false); }
+  }
+
+  // ── Feature D: Notes ──
+  interface WHNote { id: string; content: string; imageUrl: string | null; createdAt: string }
+  const [notes, setNotes] = useState<WHNote[]>([]);
+  const [notesLoading, setNotesLoading] = useState(false);
+  const [newNote, setNewNote] = useState("");
+  const [noteSaving, setNoteSaving] = useState(false);
+
+  useEffect(() => {
+    if (!focusedItem) return;
+    let cancelled = false;
+    (async () => {
+      setNotesLoading(true);
+      try {
+        const res = await fetch(`/api/work-history/${focusedItem.id}/notes`);
+        if (res.ok && !cancelled) setNotes(await res.json());
+      } catch { /* silent */ } finally { if (!cancelled) setNotesLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, [focusedItem]);
+
+  async function handleAddNote() {
+    if (!focusedItem || !newNote.trim()) return;
+    setNoteSaving(true);
+    try {
+      const res = await fetch(`/api/work-history/${focusedItem.id}/notes`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: newNote.trim() }),
+      });
+      if (res.ok) { const note = await res.json(); setNotes((prev) => [note, ...prev]); setNewNote(""); toast.success("Note added"); }
+    } catch { toast.error("Failed to add note"); } finally { setNoteSaving(false); }
+  }
+
+  async function handleDeleteNote(noteId: string) {
+    if (!focusedItem) return;
+    try {
+      await fetch(`/api/work-history/${focusedItem.id}/notes`, { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ noteId }) });
+      setNotes((prev) => prev.filter((n) => n.id !== noteId));
+    } catch { toast.error("Failed to delete note"); }
+  }
+
+  // ── Feature E: Milestones ──
+  interface WHMilestone { id: string; title: string; description: string | null; type: string; date: string }
+  const [milestones, setMilestones] = useState<WHMilestone[]>([]);
+  const [milestonesLoading, setMilestonesLoading] = useState(false);
+  const [newMsTitle, setNewMsTitle] = useState("");
+  const [newMsType, setNewMsType] = useState("achievement");
+  const [newMsDate, setNewMsDate] = useState("");
+  const [msSaving, setMsSaving] = useState(false);
+
+  useEffect(() => {
+    if (!focusedItem) return;
+    let cancelled = false;
+    (async () => {
+      setMilestonesLoading(true);
+      try {
+        const res = await fetch(`/api/work-history/${focusedItem.id}/milestones`);
+        if (res.ok && !cancelled) setMilestones(await res.json());
+      } catch { /* silent */ } finally { if (!cancelled) setMilestonesLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, [focusedItem]);
+
+  async function handleAddMilestone() {
+    if (!focusedItem || !newMsTitle.trim() || !newMsDate) return;
+    setMsSaving(true);
+    try {
+      const res = await fetch(`/api/work-history/${focusedItem.id}/milestones`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: newMsTitle.trim(), type: newMsType, date: newMsDate }),
+      });
+      if (res.ok) {
+        const ms = await res.json();
+        setMilestones((prev) => [...prev, ms].sort((a, b) => a.date.localeCompare(b.date)));
+        setNewMsTitle(""); setNewMsType("achievement"); setNewMsDate(""); toast.success("Milestone added");
+      }
+    } catch { toast.error("Failed to add milestone"); } finally { setMsSaving(false); }
+  }
+
+  async function handleDeleteMilestone(milestoneId: string) {
+    if (!focusedItem) return;
+    try {
+      await fetch(`/api/work-history/${focusedItem.id}/milestones`, { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ milestoneId }) });
+      setMilestones((prev) => prev.filter((m) => m.id !== milestoneId));
+    } catch { toast.error("Failed to delete milestone"); }
+  }
+
+  const MILESTONE_TYPES = [
+    { value: "promotion", label: "Promotion", icon: "🚀" },
+    { value: "project", label: "Project", icon: "📦" },
+    { value: "certification", label: "Certification", icon: "📜" },
+    { value: "award", label: "Award", icon: "🏆" },
+    { value: "achievement", label: "Achievement", icon: "⭐" },
+    { value: "other", label: "Other", icon: "📌" },
+  ] as const;
+
+  // ── Sub-location edit / delete ──
+  const [expandedLocId, setExpandedLocId] = useState<string | null>(null);
+  const [editingLocId, setEditingLocId] = useState<string | null>(null);
+  const [editLocLabel, setEditLocLabel] = useState("");
+  const [editLocType, setEditLocType] = useState("daily-workplace");
+  const [editLocStartDate, setEditLocStartDate] = useState("");
+  const [editLocEndDate, setEditLocEndDate] = useState("");
+  const [editLocSaving, setEditLocSaving] = useState(false);
+  const [deletingLocId, setDeletingLocId] = useState<string | null>(null);
+
+  function startEditLoc(loc: { id: string; label: string; type: string; startDate?: string | null; endDate?: string | null }) {
+    setEditingLocId(loc.id);
+    setEditLocLabel(loc.label);
+    setEditLocType(loc.type);
+    setEditLocStartDate(loc.startDate ?? "");
+    setEditLocEndDate(loc.endDate ?? "");
+  }
+
+  async function handleSaveEditLoc(locId: string) {
+    if (!focusedItem || !editLocLabel.trim()) return;
+    setEditLocSaving(true);
+    try {
+      const res = await fetch(`/api/work-history/${focusedItem.id}/locations/${locId}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label: editLocLabel.trim(), type: editLocType, startDate: editLocStartDate || null, endDate: editLocEndDate || null }),
+      });
+      if (res.ok) { setEditingLocId(null); onAdded(); toast.success("Location updated"); }
+      else toast.error("Failed to update location");
+    } catch { toast.error("Failed to update location"); }
+    finally { setEditLocSaving(false); }
+  }
+
+  async function handleDeleteLoc(locId: string) {
+    if (!focusedItem) return;
+    setDeletingLocId(locId);
+    try {
+      const res = await fetch(`/api/work-history/${focusedItem.id}/locations/${locId}`, { method: "DELETE" });
+      if (res.ok) { onAdded(); toast.success("Location removed"); }
+      else toast.error("Failed to delete location");
+    } catch { toast.error("Failed to delete location"); }
+    finally { setDeletingLocId(null); }
+  }
+
+  // ── Feature F: Skills per sub-location ──
+  const [editingSkillsLocId, setEditingSkillsLocId] = useState<string | null>(null);
+  const [skillInput, setSkillInput] = useState("");
+
+  async function handleAddSkill(locId: string, existingSkills: string[]) {
+    if (!focusedItem || !skillInput.trim()) return;
+    const updated = [...existingSkills, skillInput.trim()];
+    try {
+      await fetch(`/api/work-history/${focusedItem.id}/locations/${locId}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ skills: updated }),
+      });
+      setSkillInput("");
+      onAdded();
+    } catch { toast.error("Failed to update skills"); }
+  }
+
+  async function handleRemoveSkill(locId: string, existingSkills: string[], skillToRemove: string) {
+    if (!focusedItem) return;
+    const updated = existingSkills.filter((s) => s !== skillToRemove);
+    try {
+      await fetch(`/api/work-history/${focusedItem.id}/locations/${locId}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ skills: updated }),
+      });
+      onAdded();
+    } catch { toast.error("Failed to update skills"); }
+  }
+
+  // ── Feature G: Workplace Rating ──
+  interface WRating { culture: number; growth: number; compensation: number; workLifeBalance: number; management: number; overall: number; notes: string | null }
+  const [rating, setRating] = useState<WRating | null>(null);
+  const [ratingLoading, setRatingLoading] = useState(false);
+  const [ratingDraft, setRatingDraft] = useState<WRating>({ culture: 0, growth: 0, compensation: 0, workLifeBalance: 0, management: 0, overall: 0, notes: null });
+  const [ratingSaving, setRatingSaving] = useState(false);
+  const [ratingEditing, setRatingEditing] = useState(false);
+
+  useEffect(() => {
+    if (!focusedItem) return;
+    let cancelled = false;
+    (async () => {
+      setRatingLoading(true);
+      try {
+        const res = await fetch(`/api/work-history/${focusedItem.id}/rating`);
+        if (res.ok && !cancelled) {
+          const data = await res.json();
+          if (data) { setRating(data); setRatingDraft(data); }
+          else { setRating(null); setRatingDraft({ culture: 0, growth: 0, compensation: 0, workLifeBalance: 0, management: 0, overall: 0, notes: null }); }
+        }
+      } catch { /* silent */ } finally { if (!cancelled) setRatingLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, [focusedItem]);
+
+  async function handleSaveRating() {
+    if (!focusedItem) return;
+    setRatingSaving(true);
+    try {
+      const res = await fetch(`/api/work-history/${focusedItem.id}/rating`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(ratingDraft),
+      });
+      if (res.ok) { setRating(await res.json()); setRatingEditing(false); toast.success("Rating saved"); }
+    } catch { toast.error("Failed to save rating"); } finally { setRatingSaving(false); }
+  }
+
+  function StarRatingInput({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+    return (
+      <div className="flex gap-0.5">
+        {[1, 2, 3, 4, 5].map((n) => (
+          <button key={n} type="button" onClick={() => onChange(value === n ? 0 : n)} className={`text-sm transition-colors ${n <= value ? "text-amber-400" : "text-muted-foreground/30 hover:text-amber-300"}`}>
+            ★
+          </button>
+        ))}
+      </div>
+    );
+  }
+
   return (
-    <div className="absolute top-3 left-3 z-[1100] bg-background/95 backdrop-blur-md border rounded-xl shadow-xl p-3 w-80 max-h-[50vh] overflow-y-auto pointer-events-auto">
+    <div className="absolute top-3 left-3 z-[1100] bg-background/95 backdrop-blur-md border rounded-xl shadow-xl p-3 w-80 max-h-[60vh] overflow-y-auto pointer-events-auto">
+
+      {/* ── Focused Detail View ── */}
+      {focusedItem ? (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <button type="button" className="text-muted-foreground hover:text-foreground shrink-0" onClick={onExitFocus} title="Back to all">
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <span className="text-sm font-semibold truncate">{focusedItem.company}</span>
+            <button type="button" className="ml-auto text-muted-foreground hover:text-foreground shrink-0" onClick={onClose}>
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          {/* Company & Title */}
+          <div className="p-2.5 rounded-lg bg-muted/40 border space-y-1">
+            <p className="text-xs font-semibold flex items-center gap-1.5">
+              <Briefcase className="h-3.5 w-3.5 text-gray-500" /> {focusedItem.company}
+            </p>
+            {focusedItem.title && <p className="text-[11px] text-muted-foreground">{focusedItem.title}</p>}
+            <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+              <MapPin className="h-3 w-3 shrink-0" /> {focusedItem.address}
+            </p>
+          </div>
+
+          {/* Dates & Tenure */}
+          {(focusedItem.startDate || focusedItem.endDate) && (() => {
+            const isCurrent = !focusedItem.endDate;
+            let tenure = "";
+            if (focusedItem.startDate) {
+              const s = new Date(focusedItem.startDate + "-01");
+              const e = focusedItem.endDate ? new Date(focusedItem.endDate + "-01") : new Date();
+              const m = Math.max(0, (e.getFullYear() - s.getFullYear()) * 12 + (e.getMonth() - s.getMonth()));
+              tenure = m >= 12 ? `${Math.floor(m / 12)}y ${m % 12}m` : `${m}m`;
+            }
+            return (
+              <div className="p-2.5 rounded-lg bg-muted/40 border">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">Employment Period</p>
+                <div className="flex items-center gap-2">
+                  <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <div>
+                    <p className="text-xs font-medium">
+                      {focusedItem.startDate ?? "?"} – {focusedItem.endDate ?? "present"}
+                      {isCurrent && <span className="ml-1.5 text-[9px] bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 px-1 rounded">current</span>}
+                    </p>
+                    {tenure && <p className="text-[10px] text-muted-foreground">Duration: {tenure}</p>}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* ── Tab Switcher ── */}
+          <div className="flex gap-0.5 rounded-md bg-muted/40 p-0.5">
+            <button type="button"
+              className={`flex-1 py-1 rounded text-[10px] font-medium transition-colors ${focusTab === "overview" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+              onClick={() => setFocusTab("overview")}>
+              Overview
+            </button>
+            <button type="button"
+              className={`flex-1 py-1 rounded text-[10px] font-medium transition-colors ${focusTab === "edit" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+              onClick={() => setFocusTab("edit")}>
+              Edit
+            </button>
+          </div>
+
+          {/* ═══ OVERVIEW TAB ═══ */}
+          {focusTab === "overview" && (<>
+
+          {/* Sub-locations — compact rows */}
+          {(focusedItem.locations ?? []).length > 0 && (
+            <div className="space-y-1">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Locations ({focusedItem.locations.length})</p>
+              <div className="space-y-0.5">
+                {focusedItem.locations.map((loc) => {
+                  const locSkills: string[] = loc.skills ? (() => { try { return JSON.parse(loc.skills); } catch { return []; } })() : [];
+                  const isEditing = editingLocId === loc.id;
+                  const isExpanded = expandedLocId === loc.id;
+                  const isDeleting = deletingLocId === loc.id;
+                  const typeInfo = LOC_TYPES.find((t) => t.value === loc.type);
+                  const dateRange = loc.startDate ? `${loc.startDate} – ${loc.endDate ?? "present"}` : null;
+                  return (
+                    <div key={loc.id} className="rounded-md border bg-muted/20 group/loc">
+                      {isEditing ? (
+                        /* ── Inline Edit Form ── */
+                        <div className="p-2 space-y-1.5">
+                          <Input value={editLocLabel} onChange={(e) => setEditLocLabel(e.target.value)} placeholder="Label" className="h-6 text-[10px]" />
+                          <Select value={editLocType} onValueChange={(v) => setEditLocType(v ?? "daily-workplace")}>
+                            <SelectTrigger className="h-6 text-[10px]"><SelectValue /></SelectTrigger>
+                            <SelectContent>{LOC_TYPES.map((t) => <SelectItem key={t.value} value={t.value} className="text-xs">{t.label}</SelectItem>)}</SelectContent>
+                          </Select>
+                          <div className="flex gap-1">
+                            <Input type="month" value={editLocStartDate} onChange={(e) => setEditLocStartDate(e.target.value)} className="h-6 text-[10px] flex-1" placeholder="Start" />
+                            <Input type="month" value={editLocEndDate} onChange={(e) => setEditLocEndDate(e.target.value)} className="h-6 text-[10px] flex-1" placeholder="End" />
+                          </div>
+                          <div className="flex gap-1">
+                            <Button size="sm" className="flex-1 h-6 text-[10px]" disabled={editLocSaving || !editLocLabel.trim()} onClick={() => handleSaveEditLoc(loc.id)}>
+                              {editLocSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <><Check className="h-2.5 w-2.5 mr-0.5" /> Save</>}
+                            </Button>
+                            <Button size="sm" variant="ghost" className="h-6 text-[10px]" onClick={() => setEditingLocId(null)}>Cancel</Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          {/* ── Compact Row ── */}
+                          <button type="button" className="w-full flex items-center gap-1.5 px-2 py-1.5 text-left" onClick={() => setExpandedLocId(isExpanded ? null : loc.id)}>
+                            <MapPin className="h-3 w-3 shrink-0 text-blue-500" />
+                            <span className="text-[10px] font-medium truncate flex-1">{loc.label}</span>
+                            {dateRange && <span className="text-[8px] text-muted-foreground shrink-0">{dateRange}</span>}
+                            <span className="text-[8px] bg-muted px-1 rounded shrink-0">{typeInfo?.label ?? loc.type}</span>
+                            {/* Hover actions */}
+                            <span className="flex items-center gap-0.5 opacity-0 group-hover/loc:opacity-100 transition-opacity shrink-0" onClick={(e) => e.stopPropagation()}>
+                              <button type="button" className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground" title="Edit" onClick={() => startEditLoc(loc)}>
+                                <Pencil className="h-2.5 w-2.5" />
+                              </button>
+                              <button type="button" className="p-0.5 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-muted-foreground hover:text-red-500" title="Delete"
+                                disabled={isDeleting} onClick={() => handleDeleteLoc(loc.id)}>
+                                {isDeleting ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Trash2 className="h-2.5 w-2.5" />}
+                              </button>
+                            </span>
+                            <ChevronDown className={`h-2.5 w-2.5 text-muted-foreground transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+                          </button>
+                          {/* ── Expanded Details ── */}
+                          {isExpanded && (
+                            <div className="px-2 pb-2 pt-0.5 space-y-1 border-t">
+                              <p className="text-[9px] text-muted-foreground truncate">{loc.address}</p>
+                              {/* Skill chips */}
+                              {locSkills.length > 0 && (
+                                <div className="flex flex-wrap gap-0.5">
+                                  {locSkills.map((s) => (
+                                    <span key={s} className="text-[8px] bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 px-1 py-0.5 rounded flex items-center gap-0.5">
+                                      {s}
+                                      {editingSkillsLocId === loc.id && (
+                                        <button type="button" className="hover:text-red-500" onClick={() => handleRemoveSkill(loc.id, locSkills, s)}>×</button>
+                                      )}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                              {editingSkillsLocId === loc.id ? (
+                                <div className="flex gap-1">
+                                  <Input value={skillInput} onChange={(e) => setSkillInput(e.target.value)} placeholder="Add skill" className="h-5 text-[9px] flex-1"
+                                    onKeyDown={(e) => { if (e.key === "Enter") handleAddSkill(loc.id, locSkills); }} />
+                                  <button type="button" className="text-[9px] text-muted-foreground hover:text-foreground" onClick={() => setEditingSkillsLocId(null)}>Done</button>
+                                </div>
+                              ) : (
+                                <button type="button" className="text-[9px] text-muted-foreground hover:text-blue-500 flex items-center gap-0.5" onClick={() => { setEditingSkillsLocId(loc.id); setSkillInput(""); }}>
+                                  <Code className="h-2.5 w-2.5" /> {locSkills.length > 0 ? "Edit skills" : "Add skills"}
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* ── Enriched sections from CurrentPosition ── */}
+          {enrichLoading && (
+            <div className="flex items-center justify-center py-3">
+              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              <span className="text-[10px] text-muted-foreground ml-1.5">Loading details…</span>
+            </div>
+          )}
+
+          {matchedPosition && !enrichLoading && (
+            <div className="space-y-1.5">
+
+              {/* A — Compensation Snapshot */}
+              {matchedPosition.salary != null && (
+                <div className="rounded-lg border overflow-hidden">
+                  <button type="button" className="w-full flex items-center justify-between p-2 hover:bg-muted/30 transition-colors" onClick={() => toggleSection("comp")}>
+                    <span className="text-[11px] font-medium flex items-center gap-1.5">
+                      <DollarSign className="h-3.5 w-3.5 text-emerald-500" /> Compensation
+                    </span>
+                    {expandedSections.has("comp") ? <ChevronUp className="h-3 w-3 text-muted-foreground" /> : <ChevronDown className="h-3 w-3 text-muted-foreground" />}
+                  </button>
+                  {expandedSections.has("comp") && (
+                    <div className="px-2 pb-2 space-y-1.5">
+                      <div className="grid grid-cols-2 gap-1.5">
+                        <div className="p-1.5 rounded bg-muted/30">
+                          <p className="text-[9px] text-muted-foreground">Base Salary</p>
+                          <p className="text-xs font-semibold">{matchedPosition.currency === "USD" ? "$" : matchedPosition.currency}{matchedPosition.salary.toLocaleString()}</p>
+                        </div>
+                        <div className="p-1.5 rounded bg-muted/30">
+                          <p className="text-[9px] text-muted-foreground">Pay Type</p>
+                          <p className="text-xs font-medium capitalize">{matchedPosition.payType}</p>
+                        </div>
+                      </div>
+                      {matchedPosition.payFrequency && (
+                        <p className="text-[10px] text-muted-foreground">Frequency: <span className="text-foreground capitalize">{matchedPosition.payFrequency}</span></p>
+                      )}
+                      {matchedPosition.hoursPerWeek != null && (
+                        <p className="text-[10px] text-muted-foreground">Hours/week: <span className="text-foreground">{matchedPosition.hoursPerWeek}h</span></p>
+                      )}
+                      {/* Compensation Events */}
+                      {compEvents.length > 0 && (
+                        <div className="pt-1 border-t space-y-1">
+                          <p className="text-[9px] text-muted-foreground uppercase tracking-wide">Events</p>
+                          {compEvents.slice(0, 5).map((ev) => (
+                            <div key={ev.id} className="flex items-center justify-between text-[10px]">
+                              <span className="flex items-center gap-1 truncate">
+                                <TrendingUp className="h-2.5 w-2.5 text-emerald-500 shrink-0" />
+                                <span className="truncate">{ev.title}</span>
+                                {ev.recurring && <span className="text-[8px] bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300 px-0.5 rounded">recurring</span>}
+                              </span>
+                              <span className="font-medium shrink-0 ml-1">{ev.currency === "USD" ? "$" : ev.currency}{ev.amount.toLocaleString()}</span>
+                            </div>
+                          ))}
+                          {compEvents.length > 5 && <p className="text-[9px] text-muted-foreground text-center">+{compEvents.length - 5} more</p>}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* B — Role Description & Tech Stack */}
+              {(matchedPosition.description || matchedPosition.responsibilities || matchedPosition.techStack) && (
+                <div className="rounded-lg border overflow-hidden">
+                  <button type="button" className="w-full flex items-center justify-between p-2 hover:bg-muted/30 transition-colors" onClick={() => toggleSection("role")}>
+                    <span className="text-[11px] font-medium flex items-center gap-1.5">
+                      <FileText className="h-3.5 w-3.5 text-blue-500" /> Role & Tech Stack
+                    </span>
+                    {expandedSections.has("role") ? <ChevronUp className="h-3 w-3 text-muted-foreground" /> : <ChevronDown className="h-3 w-3 text-muted-foreground" />}
+                  </button>
+                  {expandedSections.has("role") && (
+                    <div className="px-2 pb-2 space-y-1.5">
+                      {matchedPosition.description && (
+                        <div>
+                          <p className="text-[9px] text-muted-foreground uppercase tracking-wide mb-0.5">Description</p>
+                          <p className="text-[10px] leading-relaxed">{matchedPosition.description}</p>
+                        </div>
+                      )}
+                      {matchedPosition.responsibilities && (
+                        <div>
+                          <p className="text-[9px] text-muted-foreground uppercase tracking-wide mb-0.5">Responsibilities</p>
+                          <p className="text-[10px] leading-relaxed whitespace-pre-line">{matchedPosition.responsibilities}</p>
+                        </div>
+                      )}
+                      {matchedPosition.techStack && (
+                        <div>
+                          <p className="text-[9px] text-muted-foreground uppercase tracking-wide mb-0.5">Tech Stack</p>
+                          <div className="flex flex-wrap gap-1">
+                            {matchedPosition.techStack.split(",").map((t, i) => (
+                              <span key={i} className="text-[9px] bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded">
+                                {t.trim()}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* D — Work Log Highlights */}
+              {workLogs.length > 0 && (
+                <div className="rounded-lg border overflow-hidden">
+                  <button type="button" className="w-full flex items-center justify-between p-2 hover:bg-muted/30 transition-colors" onClick={() => toggleSection("logs")}>
+                    <span className="text-[11px] font-medium flex items-center gap-1.5">
+                      <ClipboardList className="h-3.5 w-3.5 text-amber-500" /> Key Accomplishments
+                      <span className="text-[9px] bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 px-1 rounded">{workLogs.length}</span>
+                    </span>
+                    {expandedSections.has("logs") ? <ChevronUp className="h-3 w-3 text-muted-foreground" /> : <ChevronDown className="h-3 w-3 text-muted-foreground" />}
+                  </button>
+                  {expandedSections.has("logs") && (
+                    <div className="px-2 pb-2 space-y-1.5">
+                      {(() => {
+                        const totalHours = workLogs.reduce((s, l) => s + (l.hours ?? 0), 0);
+                        const categories = new Map<string, number>();
+                        workLogs.forEach((l) => categories.set(l.category, (categories.get(l.category) ?? 0) + 1));
+                        return (
+                          <>
+                            {totalHours > 0 && (
+                              <p className="text-[10px] text-muted-foreground">Total logged: <span className="text-foreground font-medium">{Math.round(totalHours * 10) / 10}h</span> across <span className="text-foreground font-medium">{workLogs.length}</span> entries</p>
+                            )}
+                            {categories.size > 1 && (
+                              <div className="flex flex-wrap gap-1">
+                                {[...categories.entries()].sort((a, b) => b[1] - a[1]).map(([cat, count]) => (
+                                  <span key={cat} className="text-[9px] bg-muted px-1.5 py-0.5 rounded capitalize">{cat} ({count})</span>
+                                ))}
+                              </div>
+                            )}
+                          </>
+                        );
+                      })()}
+                      <div className="space-y-1 pt-0.5">
+                        {workLogs.slice(0, 6).map((log) => (
+                          <div key={log.id} className="p-1.5 rounded bg-muted/30">
+                            <div className="flex items-start gap-1">
+                              <Star className="h-2.5 w-2.5 text-amber-500 shrink-0 mt-0.5" />
+                              <div className="min-w-0">
+                                <p className="text-[10px] font-medium truncate">{log.title}</p>
+                                {log.impact && <p className="text-[9px] text-muted-foreground truncate">Impact: {log.impact}</p>}
+                                <div className="flex items-center gap-1.5 mt-0.5">
+                                  <span className="text-[8px] text-muted-foreground">{new Date(log.date).toLocaleDateString("en-US", { month: "short", year: "numeric" })}</span>
+                                  {log.hours != null && <span className="text-[8px] text-muted-foreground">{log.hours}h</span>}
+                                  <span className="text-[8px] bg-muted px-1 rounded capitalize">{log.category}</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                        {workLogs.length > 6 && <p className="text-[9px] text-muted-foreground text-center">+{workLogs.length - 6} more accomplishments</p>}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* F — Company Intel Card */}
+              {(matchedPosition.companySynopsis || matchedPosition.industry || matchedPosition.website || matchedPosition.legalName) && (
+                <div className="rounded-lg border overflow-hidden">
+                  <button type="button" className="w-full flex items-center justify-between p-2 hover:bg-muted/30 transition-colors" onClick={() => toggleSection("intel")}>
+                    <span className="text-[11px] font-medium flex items-center gap-1.5">
+                      <Building2 className="h-3.5 w-3.5 text-violet-500" /> Company Intel
+                    </span>
+                    {expandedSections.has("intel") ? <ChevronUp className="h-3 w-3 text-muted-foreground" /> : <ChevronDown className="h-3 w-3 text-muted-foreground" />}
+                  </button>
+                  {expandedSections.has("intel") && (
+                    <div className="px-2 pb-2 space-y-1.5">
+                      {matchedPosition.companySynopsis && (
+                        <p className="text-[10px] leading-relaxed">{matchedPosition.companySynopsis}</p>
+                      )}
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {matchedPosition.industry && (
+                          <div className="p-1.5 rounded bg-muted/30">
+                            <p className="text-[9px] text-muted-foreground">Industry</p>
+                            <p className="text-[10px] font-medium">{matchedPosition.industry}</p>
+                          </div>
+                        )}
+                        {matchedPosition.type && (
+                          <div className="p-1.5 rounded bg-muted/30">
+                            <p className="text-[9px] text-muted-foreground">Work Type</p>
+                            <p className="text-[10px] font-medium capitalize">{matchedPosition.type}</p>
+                          </div>
+                        )}
+                      </div>
+                      {matchedPosition.legalName && (
+                        <p className="text-[10px] text-muted-foreground">Legal name: <span className="text-foreground">{matchedPosition.legalName}</span></p>
+                      )}
+                      {matchedPosition.ein && (
+                        <p className="text-[10px] text-muted-foreground">EIN: <span className="text-foreground">{matchedPosition.ein}</span></p>
+                      )}
+                      {matchedPosition.managerName && (
+                        <p className="text-[10px] text-muted-foreground">Manager: <span className="text-foreground">{matchedPosition.managerName}</span></p>
+                      )}
+                      {matchedPosition.website && (
+                        <a href={matchedPosition.website} target="_blank" rel="noopener noreferrer" className="text-[10px] text-blue-500 hover:underline flex items-center gap-1 truncate">
+                          <Globe className="h-3 w-3 shrink-0" /> {matchedPosition.website}
+                        </a>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {!matchedPosition && !enrichLoading && (
+            <p className="text-[10px] text-muted-foreground text-center py-1 italic">No linked position found — add this company in Experience to see more details</p>
+          )}
+
+          {/* ── Feature B: Commute from Life Anchors ── */}
+          {lifeAnchors.length > 0 && (
+            <div className="rounded-lg border overflow-hidden">
+              <button type="button" className="w-full flex items-center justify-between p-2 hover:bg-muted/30 transition-colors" onClick={() => toggleSection("commute")}>
+                <span className="text-[11px] font-medium flex items-center gap-1.5">
+                  <Navigation className="h-3.5 w-3.5 text-cyan-500" /> Commute
+                </span>
+                {expandedSections.has("commute") ? <ChevronUp className="h-3 w-3 text-muted-foreground" /> : <ChevronDown className="h-3 w-3 text-muted-foreground" />}
+              </button>
+              {expandedSections.has("commute") && (
+                <div className="px-2 pb-2 space-y-1.5">
+                  {/* Mode selector */}
+                  <div className="flex gap-1 rounded-md bg-muted/40 p-0.5">
+                    {([["driving", Car, "Drive"], ["transit", TrainFront, "Transit"], ["walking", Footprints, "Walk"], ["bicycling", Bike, "Bike"]] as const).map(([mode, Icon, label]) => (
+                      <button key={mode} type="button"
+                        className={`flex-1 flex items-center justify-center gap-1 py-1 rounded text-[9px] transition-colors ${commuteMode === mode ? "bg-background shadow-sm font-semibold" : "text-muted-foreground hover:text-foreground"}`}
+                        onClick={() => { setCommuteMode(mode); if (selectedAnchorId) computeCommute(selectedAnchorId, mode); }}>
+                        <Icon className="h-3 w-3" /> {label}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="space-y-1">
+                    {lifeAnchors.map((a) => (
+                      <button key={a.id} type="button"
+                        className={`w-full flex items-center gap-1.5 p-1.5 rounded text-[10px] transition-colors ${selectedAnchorId === a.id ? "bg-cyan-100 dark:bg-cyan-900/30 border border-cyan-300 dark:border-cyan-700" : "bg-muted/30 hover:bg-muted/50"}`}
+                        onClick={() => computeCommute(a.id)}>
+                        <Home className="h-3 w-3 shrink-0 text-cyan-500" />
+                        <span className="truncate font-medium">{a.label}</span>
+                        {selectedAnchorId === a.id && commuteLoading && <Loader2 className="h-3 w-3 animate-spin ml-auto" />}
+                      </button>
+                    ))}
+                  </div>
+                  {commuteResult && (
+                    <div className="p-1.5 rounded bg-muted/30 grid grid-cols-2 gap-1.5">
+                      <div>
+                        <p className="text-[9px] text-muted-foreground">Distance</p>
+                        <p className="text-xs font-semibold">{commuteResult.distanceMi.toFixed(1)} mi</p>
+                      </div>
+                      <div>
+                        <p className="text-[9px] text-muted-foreground">{{ driving: "Drive", transit: "Transit", walking: "Walk", bicycling: "Bike" }[commuteMode]} Time</p>
+                        <p className="text-xs font-semibold">{Math.round(commuteResult.durationMin)} min</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          </>)}
+          {/* ═══ END OVERVIEW TAB ═══ */}
+
+          {/* ═══ EDIT TAB ═══ */}
+          {focusTab === "edit" && (<>
+
+          {/* ── Add Sub-locations: Discovery + Claim + Pin Drop ── */}
+          {pinDropMode && !pinDropCoords && (
+            <div className="p-2 rounded-lg border border-dashed border-amber-500/50 bg-amber-50/10">
+              <p className="text-[10px] text-amber-600 dark:text-amber-400 font-medium flex items-center gap-1">
+                <MapPinned className="h-3 w-3" /> Click a building or any spot on the map
+              </p>
+              <p className="text-[8px] text-muted-foreground mt-0.5">Clicking a labeled building will auto-fill its name and address</p>
+              <button type="button" className="text-[9px] text-muted-foreground hover:text-foreground mt-1" onClick={onCancelPinDrop}>Cancel</button>
+            </div>
+          )}
+          {pinDropCoords && (
+            <div className="p-2 rounded-lg border border-blue-500/30 bg-blue-50/10 space-y-1.5">
+              <p className="text-[10px] font-medium flex items-center gap-1">
+                <MapPinned className="h-3 w-3 text-blue-500" />
+                {pinDropCoords.placeId ? "Claim this building" : "New sub-location pin"}
+              </p>
+              <p className="text-[9px] text-muted-foreground truncate">{pinDropReversed || "Resolving address…"}</p>
+              <Input value={pinDropLabel} onChange={(e) => setPinDropLabel(e.target.value)} placeholder="Label *" className="h-6 text-[10px]" />
+              <Select value={pinDropType} onValueChange={(v) => setPinDropType(v ?? "daily-workplace")}>
+                <SelectTrigger className="h-6 text-[10px]"><SelectValue /></SelectTrigger>
+                <SelectContent>{LOC_TYPES.map((t) => <SelectItem key={t.value} value={t.value} className="text-xs">{t.label}</SelectItem>)}</SelectContent>
+              </Select>
+              <div className="flex gap-1.5">
+                <Button size="sm" className="flex-1 h-6 text-[10px]" disabled={pinDropSaving || !pinDropLabel.trim()} onClick={handlePinDropSave}>
+                  {pinDropSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save"}
+                </Button>
+                <Button size="sm" variant="ghost" className="h-6 text-[10px]" onClick={onCancelPinDrop}>Cancel</Button>
+              </div>
+            </div>
+          )}
+          {!pinDropMode && !pinDropCoords && (
+            <div className="space-y-1.5">
+              {/* Nearby Buildings Discovery */}
+              {!nearbySearched ? (
+                <Button size="sm" variant="outline" className="w-full h-7 text-[10px]" disabled={nearbyLoading} onClick={searchNearbyBuildings}>
+                  {nearbyLoading ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Search className="h-3 w-3 mr-1" />}
+                  Find Company Buildings Nearby
+                </Button>
+              ) : nearbyBuildings.length > 0 ? (
+                <div className="rounded-lg border overflow-hidden">
+                  <div className="p-1.5 bg-muted/30 flex items-center justify-between">
+                    <span className="text-[10px] font-medium flex items-center gap-1">
+                      <Building2 className="h-3 w-3 text-blue-500" /> Nearby Buildings ({nearbyBuildings.length})
+                    </span>
+                    <button type="button" className="text-[8px] text-muted-foreground hover:text-foreground" onClick={() => { setNearbySearched(false); setNearbyBuildings([]); }}>
+                      <RefreshCw className="h-2.5 w-2.5" />
+                    </button>
+                  </div>
+                  <div className="max-h-[150px] overflow-y-auto divide-y">
+                    {nearbyBuildings.map((b) => (
+                      <div key={b.placeId} className="flex items-center gap-1.5 p-1.5 hover:bg-muted/30 transition-colors">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[10px] font-medium truncate">{b.name}</p>
+                          <p className="text-[8px] text-muted-foreground truncate">{b.address}</p>
+                        </div>
+                        <Button size="sm" variant="ghost" className="h-6 text-[9px] shrink-0 px-2" disabled={claimingPlaceId === b.placeId}
+                          onClick={() => claimBuilding(b)}>
+                          {claimingPlaceId === b.placeId ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <><Plus className="h-2.5 w-2.5 mr-0.5" /> Claim</>}
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : nearbyLoading ? (
+                <div className="flex items-center justify-center py-3">
+                  <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                  <span className="text-[10px] text-muted-foreground ml-1">Searching nearby…</span>
+                </div>
+              ) : (
+                <div className="p-2 rounded-lg border bg-muted/20 text-center">
+                  <p className="text-[10px] text-muted-foreground">No additional buildings found nearby</p>
+                  <button type="button" className="text-[9px] text-blue-500 hover:underline mt-0.5" onClick={() => { setNearbySearched(false); setNearbyBuildings([]); }}>Search again</button>
+                </div>
+              )}
+              {/* Action button */}
+              <button type="button" className="w-full text-[10px] text-muted-foreground hover:text-foreground flex items-center justify-center gap-1 py-1 rounded-md hover:bg-muted/50 border border-dashed transition-colors" onClick={onStartPinDrop}>
+                <MapPinned className="h-3 w-3" /> Add from Map
+              </button>
+            </div>
+          )}
+
+          {/* ── Feature E: Timeline Milestones ── */}
+          <div className="rounded-lg border overflow-hidden">
+            <button type="button" className="w-full flex items-center justify-between p-2 hover:bg-muted/30 transition-colors" onClick={() => toggleSection("milestones")}>
+              <span className="text-[11px] font-medium flex items-center gap-1.5">
+                <Flame className="h-3.5 w-3.5 text-orange-500" /> Milestones
+                {milestones.length > 0 && <span className="text-[9px] bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 px-1 rounded">{milestones.length}</span>}
+              </span>
+              {expandedSections.has("milestones") ? <ChevronUp className="h-3 w-3 text-muted-foreground" /> : <ChevronDown className="h-3 w-3 text-muted-foreground" />}
+            </button>
+            {expandedSections.has("milestones") && (
+              <div className="px-2 pb-2 space-y-1.5">
+                {milestonesLoading && <Loader2 className="h-3 w-3 animate-spin mx-auto" />}
+                {/* Mini timeline */}
+                {milestones.length > 0 && (
+                  <div className="relative pl-3 border-l-2 border-orange-200 dark:border-orange-800 space-y-2">
+                    {milestones.map((ms) => {
+                      const mt = MILESTONE_TYPES.find((t) => t.value === ms.type);
+                      return (
+                        <div key={ms.id} className="relative">
+                          <div className="absolute -left-[19px] top-0.5 w-3 h-3 rounded-full bg-orange-400 border-2 border-background flex items-center justify-center text-[7px]">{mt?.icon ?? "📌"}</div>
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <p className="text-[10px] font-medium">{ms.title}</p>
+                              <p className="text-[8px] text-muted-foreground">{ms.date} · {mt?.label ?? ms.type}</p>
+                            </div>
+                            <button type="button" className="text-muted-foreground hover:text-red-500 shrink-0" onClick={() => handleDeleteMilestone(ms.id)}>
+                              <X className="h-2.5 w-2.5" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                {/* Add milestone form */}
+                <div className="space-y-1 pt-1 border-t">
+                  <Input value={newMsTitle} onChange={(e) => setNewMsTitle(e.target.value)} placeholder="Milestone title" className="h-6 text-[10px]" />
+                  <div className="flex gap-1">
+                    <Select value={newMsType} onValueChange={(v) => setNewMsType(v ?? "achievement")}>
+                      <SelectTrigger className="h-6 text-[10px] flex-1"><SelectValue /></SelectTrigger>
+                      <SelectContent>{MILESTONE_TYPES.map((t) => <SelectItem key={t.value} value={t.value} className="text-xs">{t.icon} {t.label}</SelectItem>)}</SelectContent>
+                    </Select>
+                    <Input type="month" value={newMsDate} onChange={(e) => setNewMsDate(e.target.value)} className="h-6 text-[10px] flex-1" />
+                  </div>
+                  <Button size="sm" className="w-full h-6 text-[10px]" disabled={msSaving || !newMsTitle.trim() || !newMsDate} onClick={handleAddMilestone}>
+                    {msSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <><Plus className="h-2.5 w-2.5 mr-0.5" /> Add Milestone</>}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ── Feature D: Notes ── */}
+          <div className="rounded-lg border overflow-hidden">
+            <button type="button" className="w-full flex items-center justify-between p-2 hover:bg-muted/30 transition-colors" onClick={() => toggleSection("notes")}>
+              <span className="text-[11px] font-medium flex items-center gap-1.5">
+                <Lightbulb className="h-3.5 w-3.5 text-yellow-500" /> Notes
+                {notes.length > 0 && <span className="text-[9px] bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 px-1 rounded">{notes.length}</span>}
+              </span>
+              {expandedSections.has("notes") ? <ChevronUp className="h-3 w-3 text-muted-foreground" /> : <ChevronDown className="h-3 w-3 text-muted-foreground" />}
+            </button>
+            {expandedSections.has("notes") && (
+              <div className="px-2 pb-2 space-y-1.5">
+                {notesLoading && <Loader2 className="h-3 w-3 animate-spin mx-auto" />}
+                {notes.map((n) => (
+                  <div key={n.id} className="p-1.5 rounded bg-muted/30 group">
+                    <div className="flex items-start justify-between">
+                      <p className="text-[10px] leading-relaxed whitespace-pre-line flex-1">{n.content}</p>
+                      <button type="button" className="text-muted-foreground hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 ml-1" onClick={() => handleDeleteNote(n.id)}>
+                        <X className="h-2.5 w-2.5" />
+                      </button>
+                    </div>
+                    <p className="text-[8px] text-muted-foreground mt-0.5">{new Date(n.createdAt).toLocaleDateString()}</p>
+                  </div>
+                ))}
+                {/* Add note */}
+                <div className="flex gap-1 pt-1 border-t">
+                  <Textarea value={newNote} onChange={(e) => setNewNote(e.target.value)} placeholder="Write a note…" className="text-[10px] min-h-[32px] flex-1 resize-none" rows={2} />
+                  <Button size="sm" className="h-8 w-8 shrink-0 p-0" disabled={noteSaving || !newNote.trim()} onClick={handleAddNote}>
+                    {noteSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ── Feature G: Workplace Rating Card ── */}
+          <div className="rounded-lg border overflow-hidden">
+            <button type="button" className="w-full flex items-center justify-between p-2 hover:bg-muted/30 transition-colors" onClick={() => toggleSection("rating")}>
+              <span className="text-[11px] font-medium flex items-center gap-1.5">
+                <Star className="h-3.5 w-3.5 text-amber-500" /> Workplace Rating
+                {rating && <span className="text-[9px] text-amber-600">{"★".repeat(rating.overall)}{"☆".repeat(5 - rating.overall)}</span>}
+              </span>
+              {expandedSections.has("rating") ? <ChevronUp className="h-3 w-3 text-muted-foreground" /> : <ChevronDown className="h-3 w-3 text-muted-foreground" />}
+            </button>
+            {expandedSections.has("rating") && (
+              <div className="px-2 pb-2 space-y-1.5">
+                {ratingLoading && <Loader2 className="h-3 w-3 animate-spin mx-auto" />}
+                {!ratingLoading && (rating || ratingEditing) && (
+                  <div className="space-y-1">
+                    {([
+                      ["culture", "Culture"],
+                      ["growth", "Growth"],
+                      ["compensation", "Compensation"],
+                      ["workLifeBalance", "Work-Life Balance"],
+                      ["management", "Management"],
+                      ["overall", "Overall"],
+                    ] as const).map(([key, label]) => (
+                      <div key={key} className="flex items-center justify-between">
+                        <span className="text-[10px] text-muted-foreground">{label}</span>
+                        {ratingEditing ? (
+                          <StarRatingInput value={ratingDraft[key]} onChange={(v) => setRatingDraft((d) => ({ ...d, [key]: v }))} />
+                        ) : (
+                          <span className="text-[10px] text-amber-500">{"★".repeat(rating?.[key] ?? 0)}{"☆".repeat(5 - (rating?.[key] ?? 0))}</span>
+                        )}
+                      </div>
+                    ))}
+                    {ratingEditing && (
+                      <Textarea value={ratingDraft.notes ?? ""} onChange={(e) => setRatingDraft((d) => ({ ...d, notes: e.target.value }))} placeholder="Notes (optional)" className="text-[10px] min-h-[28px] resize-none" rows={2} />
+                    )}
+                    {rating?.notes && !ratingEditing && <p className="text-[9px] text-muted-foreground italic">{rating.notes}</p>}
+                  </div>
+                )}
+                <div className="flex gap-1">
+                  {ratingEditing ? (
+                    <>
+                      <Button size="sm" className="flex-1 h-6 text-[10px]" disabled={ratingSaving} onClick={handleSaveRating}>
+                        {ratingSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save Rating"}
+                      </Button>
+                      <Button size="sm" variant="ghost" className="h-6 text-[10px]" onClick={() => { setRatingEditing(false); if (rating) setRatingDraft(rating); }}>Cancel</Button>
+                    </>
+                  ) : (
+                    <Button size="sm" variant="outline" className="w-full h-6 text-[10px]" onClick={() => setRatingEditing(true)}>
+                      <Pencil className="h-2.5 w-2.5 mr-0.5" /> {rating ? "Edit Rating" : "Rate Workplace"}
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-1.5">
+            <Button size="sm" variant="outline" className="flex-1 h-7 text-xs" onClick={() => { startEdit(focusedItem); onExitFocus(); }}>
+              <Pencil className="h-3 w-3 mr-1" /> Edit
+            </Button>
+            <Button size="sm" variant="outline" className="flex-1 h-7 text-xs text-red-500 hover:text-red-600" onClick={() => { handleDelete(focusedItem.id); onExitFocus(); }}>
+              <Trash2 className="h-3 w-3 mr-1" /> Delete
+            </Button>
+          </div>
+
+          </>)}
+          {/* ═══ END EDIT TAB ═══ */}
+
+          {/* Exit button */}
+          <button type="button" className="w-full text-xs text-muted-foreground hover:text-foreground flex items-center justify-center gap-1 py-1.5 rounded-md hover:bg-muted/50 transition-colors" onClick={onExitFocus}>
+            <ChevronLeft className="h-3 w-3" /> Back to all work history
+          </button>
+        </div>
+      ) : (
+      <>
       <div className="flex items-center justify-between mb-2">
         <span className="text-sm font-semibold flex items-center gap-1.5">
           <Briefcase className="h-4 w-4 text-gray-500" /> Work History
         </span>
         <div className="flex items-center gap-1">
+          <button type="button" className={`transition-colors ${showCareerPath ? "text-blue-600" : "text-muted-foreground hover:text-foreground"}`} title="Toggle career path line" onClick={onToggleCareerPath}>
+            <Route className="h-4 w-4" />
+          </button>
+          <button type="button" className="text-muted-foreground hover:text-foreground" title="Import from experience" onClick={handleImportFromExperience} disabled={importing}>
+            {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+          </button>
           <button type="button" className="text-muted-foreground hover:text-foreground" onClick={() => setAdding(!adding)}>
             <Plus className="h-4 w-4" />
           </button>
@@ -5539,11 +7126,42 @@ function WorkHistoryPanel({
         </div>
       </div>
 
+      {/* Career Journey Stats */}
+      {stats && (
+        <div className="grid grid-cols-3 gap-1.5 mb-2.5 p-2 rounded-lg bg-muted/40 border">
+          <div className="text-center">
+            <p className="text-[10px] text-muted-foreground">Tenure</p>
+            <p className="text-xs font-semibold">{stats.tenureStr}</p>
+          </div>
+          <div className="text-center">
+            <p className="text-[10px] text-muted-foreground">Roles</p>
+            <p className="text-xs font-semibold">{stats.count}</p>
+          </div>
+          <div className="text-center">
+            <p className="text-[10px] text-muted-foreground">{stats.totalMiles > 0 ? "Miles moved" : "Cities"}</p>
+            <p className="text-xs font-semibold">{stats.totalMiles > 0 ? `${stats.totalMiles} mi` : stats.cities}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Tabs */}
+      {items.length > 0 && (
+        <div className="flex gap-1 mb-2">
+          <button type="button" className={`flex-1 text-[10px] py-1 rounded-md font-medium transition-colors ${tab === "list" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted/50"}`} onClick={() => setTab("list")}>
+            List
+          </button>
+          <button type="button" className={`flex-1 text-[10px] py-1 rounded-md font-medium transition-colors ${tab === "timeline" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted/50"}`} onClick={() => setTab("timeline")}>
+            Timeline
+          </button>
+        </div>
+      )}
+
+      {/* Add form */}
       {adding && (
         <div className="space-y-2 mb-3 p-2 border rounded-lg bg-muted/30">
           <Input placeholder="Company *" value={company} onChange={(e) => setCompany(e.target.value)} className="h-7 text-xs" />
           <Input placeholder="Job title (optional)" value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} className="h-7 text-xs" />
-          <PlacesAutocomplete value={address} onChange={setAddress} placeholder="Work address *" className="h-7 text-xs" />
+          <PlacesAutocomplete value={address} onChange={(v) => { setAddress(v); setAddCoords(null); setAddPlaceId(null); }} onPlaceSelect={handleAddPlaceSelect} placeholder="Work address *" className="h-7 text-xs" types={[]} />
           <div className="grid grid-cols-2 gap-2">
             <Input type="month" placeholder="Start" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="h-7 text-xs" />
             <Input type="month" placeholder="End" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="h-7 text-xs" />
@@ -5557,33 +7175,177 @@ function WorkHistoryPanel({
 
       {items.length === 0 && !adding && (
         <p className="text-xs text-muted-foreground text-center py-4">
-          No past jobs added yet. Click + to add one.
+          No past jobs added yet. Click + to add or <button type="button" className="underline hover:text-foreground" onClick={handleImportFromExperience}>import from experience</button>.
         </p>
       )}
 
-      <div className="space-y-1.5">
-        {items.map((w) => (
-          <div key={w.id} className="flex items-start justify-between gap-2 p-1.5 rounded-md hover:bg-muted/50 group">
-            <div className="min-w-0">
-              <p className="text-xs font-medium truncate">{w.company}</p>
-              {w.title && <p className="text-[10px] text-muted-foreground truncate">{w.title}</p>}
-              <p className="text-[10px] text-muted-foreground truncate">{w.address}</p>
-              {(w.startDate || w.endDate) && (
-                <p className="text-[10px] text-muted-foreground">
-                  {w.startDate ?? "?"} – {w.endDate ?? "present"}
-                </p>
+      {/* List view — most recent first */}
+      {tab === "list" && (
+        <div className="space-y-1.5">
+          {listItems.map((w) => editingId === w.id ? (
+            <div key={w.id} className="space-y-1.5 p-2 border rounded-lg bg-muted/30">
+              <Input placeholder="Company *" value={editCompany} onChange={(e) => setEditCompany(e.target.value)} className="h-7 text-xs" />
+              <Input placeholder="Job title" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} className="h-7 text-xs" />
+              <PlacesAutocomplete value={editAddress} onChange={(v) => { setEditAddress(v); setEditCoords(null); setEditPlaceId(null); }} onPlaceSelect={handleEditPlaceSelect} placeholder="Work address *" className="h-7 text-xs" types={[]} />
+              <div className="grid grid-cols-2 gap-2">
+                <Input type="month" value={editStart} onChange={(e) => setEditStart(e.target.value)} className="h-7 text-xs" />
+                <Input type="month" value={editEnd} onChange={(e) => setEditEnd(e.target.value)} className="h-7 text-xs" />
+              </div>
+              <div className="flex gap-1.5">
+                <Button size="sm" className="flex-1 h-7 text-xs" onClick={handleSaveEdit} disabled={editSaving}>
+                  {editSaving ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Check className="h-3 w-3 mr-1" />}
+                  Save
+                </Button>
+                <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setEditingId(null)}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div key={w.id} className="rounded-md hover:bg-muted/50 group">
+              <div className="flex items-start justify-between gap-2 p-1.5">
+                <div className="min-w-0 flex-1 cursor-pointer" onClick={() => setExpandedId(expandedId === w.id ? null : w.id)}>
+                  <div className="flex items-center gap-1">
+                    <p className="text-xs font-medium truncate">{w.company}</p>
+                    {(w.locations?.length ?? 0) > 0 && (
+                      <span className="text-[9px] bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300 px-1 rounded">{w.locations.length} loc</span>
+                    )}
+                  </div>
+                  {w.title && <p className="text-[10px] text-muted-foreground truncate">{w.title}</p>}
+                  <p className="text-[10px] text-muted-foreground truncate">{w.address}</p>
+                  {(w.startDate || w.endDate) && (
+                    <p className="text-[10px] text-muted-foreground">
+                      {w.startDate ?? "?"} – {w.endDate ?? "present"}
+                    </p>
+                  )}
+                </div>
+                <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button type="button" className="text-muted-foreground hover:text-blue-500" title="Add location" onClick={() => { setAddingLocFor(addingLocFor === w.id ? null : w.id); setExpandedId(w.id); }}>
+                    <MapPin className="h-3 w-3" />
+                  </button>
+                  <button type="button" className="text-muted-foreground hover:text-foreground" onClick={() => startEdit(w)}>
+                    <Pencil className="h-3 w-3" />
+                  </button>
+                  <button type="button" className="text-muted-foreground hover:text-red-500" onClick={() => handleDelete(w.id)}>
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Expanded sub-locations */}
+              {expandedId === w.id && (
+                <div className="px-1.5 pb-1.5 space-y-1">
+                  {(w.locations ?? []).length > 0 && (
+                    <div className="pl-2 border-l-2 border-muted space-y-1">
+                      {w.locations.map((loc) => (
+                        <div key={loc.id} className="flex items-start justify-between gap-1 group/loc">
+                          <div className="min-w-0">
+                            <p className="text-[10px] font-medium truncate">{loc.label}</p>
+                            <p className="text-[9px] text-muted-foreground truncate">{loc.address}</p>
+                            <span className="text-[9px] bg-muted px-1 rounded">{LOC_TYPES.find((t) => t.value === loc.type)?.label ?? loc.type}</span>
+                          </div>
+                          <button type="button" className="text-muted-foreground hover:text-red-500 opacity-0 group-hover/loc:opacity-100 transition-opacity shrink-0" onClick={() => handleDeleteLocation(w.id, loc.id)}>
+                            <Trash2 className="h-2.5 w-2.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Add sub-location form */}
+                  {addingLocFor === w.id && (
+                    <div className="space-y-1.5 p-1.5 border rounded bg-muted/20">
+                      <Input placeholder="Label (e.g. Downtown office) *" value={locLabel} onChange={(e) => setLocLabel(e.target.value)} className="h-6 text-[10px]" />
+                      <select value={locType} onChange={(e) => setLocType(e.target.value)} className="w-full h-6 text-[10px] rounded border bg-background px-1">
+                        {LOC_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                      </select>
+                      <PlacesAutocomplete value={locAddress} onChange={(v) => { setLocAddress(v); setLocCoords(null); setLocPlaceId(null); }} onPlaceSelect={handleLocPlaceSelect} placeholder="Address *" className="h-6 text-[10px]" types={[]} />
+                      <div className="flex gap-1">
+                        <Button size="sm" className="flex-1 h-6 text-[10px]" onClick={() => handleAddLocation(w.id)} disabled={locSaving}>
+                          {locSaving ? <Loader2 className="h-2.5 w-2.5 animate-spin mr-0.5" /> : <Plus className="h-2.5 w-2.5 mr-0.5" />}
+                          Add
+                        </Button>
+                        <Button size="sm" variant="ghost" className="h-6 text-[10px]" onClick={() => setAddingLocFor(null)}>Cancel</Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {addingLocFor !== w.id && (
+                    <button type="button" className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-0.5" onClick={() => setAddingLocFor(w.id)}>
+                      <Plus className="h-2.5 w-2.5" /> Add location
+                    </button>
+                  )}
+                </div>
               )}
             </div>
-            <button
-              type="button"
-              className="shrink-0 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-500 transition-opacity"
-              onClick={() => handleDelete(w.id)}
-            >
-              <Trash2 className="h-3 w-3" />
-            </button>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
+
+      {/* Timeline view — most recent first */}
+      {tab === "timeline" && listItems.length > 0 && (
+        <div className="relative pl-4 space-y-0">
+          {/* Vertical connecting line */}
+          <div className="absolute left-[7px] top-2 bottom-2 w-px bg-border" />
+          {listItems.map((w, i) => {
+            let tenure = "";
+            if (w.startDate) {
+              const s = new Date(w.startDate + "-01");
+              const e = w.endDate ? new Date(w.endDate + "-01") : new Date();
+              const m = Math.max(0, (e.getFullYear() - s.getFullYear()) * 12 + (e.getMonth() - s.getMonth()));
+              tenure = m >= 12 ? `${Math.floor(m / 12)}y ${m % 12}m` : `${m}m`;
+            }
+            // Distance from the chronologically-previous role (next item in reversed list)
+            let distStr = "";
+            if (i < listItems.length - 1) {
+              const prev = listItems[i + 1];
+              const dLat = (w.lat - prev.lat) * 69;
+              const dLng = (w.lng - prev.lng) * 69 * Math.cos(((w.lat + prev.lat) / 2) * Math.PI / 180);
+              const dist = Math.round(Math.sqrt(dLat * dLat + dLng * dLng));
+              if (dist > 0) distStr = `${dist} mi from prev`;
+            }
+            const isCurrent = !w.endDate;
+            return (
+              <div key={w.id} className="relative pb-3 last:pb-0">
+                <div className={`absolute -left-4 top-1 w-3.5 h-3.5 rounded-full border-2 ${isCurrent ? "bg-emerald-500 border-emerald-300" : "bg-gray-400 border-gray-300"}`} />
+                <div className="ml-1">
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-xs font-medium">{w.company}</p>
+                    {isCurrent && <span className="text-[9px] bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 px-1 rounded">current</span>}
+                  </div>
+                  {w.title && <p className="text-[10px] text-muted-foreground">{w.title}</p>}
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0">
+                    {(w.startDate || w.endDate) && (
+                      <p className="text-[10px] text-muted-foreground">
+                        {w.startDate ?? "?"} – {w.endDate ?? "present"}
+                        {tenure && <span className="ml-1 text-foreground/70">({tenure})</span>}
+                      </p>
+                    )}
+                    {distStr && (
+                      <p className="text-[10px] text-muted-foreground italic flex items-center gap-0.5">
+                        <Route className="h-2.5 w-2.5" /> {distStr}
+                      </p>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground truncate">{w.address}</p>
+                  {/* Sub-locations in timeline */}
+                  {(w.locations ?? []).length > 0 && (
+                    <div className="mt-0.5 pl-2 border-l border-dashed border-muted-foreground/30 space-y-0.5">
+                      {w.locations.map((loc) => (
+                        <p key={loc.id} className="text-[9px] text-muted-foreground flex items-center gap-0.5">
+                          <MapPin className="h-2 w-2 shrink-0" /> {loc.label} <span className="opacity-60">({LOC_TYPES.find((t) => t.value === loc.type)?.label ?? loc.type})</span>
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      </>
+      )}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, Fragment } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -1824,8 +1824,8 @@ export default function CareerModelPage() {
                           });
                         };
                         return (
-                          <>{/* Year summary row */}
-                          <TableRow key={y.id}>
+                          <Fragment key={y.id}>{/* Year summary row */}
+                          <TableRow>
                           <TableCell className="font-medium">
                             <span className="flex items-center gap-1">
                               {hasEntries && (
@@ -1996,7 +1996,7 @@ export default function CareerModelPage() {
                             </TableCell>
                           </TableRow>
                         )}
-                        </>);
+                        </Fragment>);
                       })}
                       {/* Live estimate row */}
                       {liveEstimate && !hasManualCurrentYear && liveEstimate.grossIncome > 0 && (

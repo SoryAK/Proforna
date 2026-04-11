@@ -19,7 +19,7 @@ export async function PATCH(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const body = await request.json();
-  const allowed = ["label", "icon", "address", "lat", "lng", "weight", "sortOrder"];
+  const allowed = ["label", "icon", "address", "lat", "lng", "weight", "sortOrder", "placeId"];
   const data: Record<string, unknown> = {};
   for (const key of allowed) {
     if (key in body) {

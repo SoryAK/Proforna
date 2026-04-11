@@ -1,0 +1,4159 @@
+{
+  "version": "2.0.0",
+  "generatedAt": "2025-01-01T00:00:00Z",
+  "source": "O*NET 29.1 + curated industry knowledge",
+  "clusters": {
+    "Computer and Mathematical": {
+      "socPrefix": "15",
+      "nodes": [
+        {
+          "name": "Python",
+          "type": "technical"
+        },
+        {
+          "name": "JavaScript",
+          "type": "technical"
+        },
+        {
+          "name": "TypeScript",
+          "type": "technical"
+        },
+        {
+          "name": "Java",
+          "type": "technical"
+        },
+        {
+          "name": "C#",
+          "type": "technical"
+        },
+        {
+          "name": "SQL",
+          "type": "technical"
+        },
+        {
+          "name": "Cloud Computing",
+          "type": "domain"
+        },
+        {
+          "name": "AWS",
+          "type": "tool"
+        },
+        {
+          "name": "Azure",
+          "type": "tool"
+        },
+        {
+          "name": "Docker",
+          "type": "tool"
+        },
+        {
+          "name": "Kubernetes",
+          "type": "tool"
+        },
+        {
+          "name": "Git",
+          "type": "tool"
+        },
+        {
+          "name": "CI/CD",
+          "type": "domain"
+        },
+        {
+          "name": "Machine Learning",
+          "type": "domain"
+        },
+        {
+          "name": "Data Engineering",
+          "type": "domain"
+        },
+        {
+          "name": "Database Administration",
+          "type": "domain"
+        },
+        {
+          "name": "Cybersecurity",
+          "type": "domain"
+        },
+        {
+          "name": "Networking",
+          "type": "domain"
+        },
+        {
+          "name": "Linux",
+          "type": "tool"
+        },
+        {
+          "name": "REST APIs",
+          "type": "technical"
+        },
+        {
+          "name": "React",
+          "type": "technical"
+        },
+        {
+          "name": "Node.js",
+          "type": "technical"
+        },
+        {
+          "name": "Data Structures & Algorithms",
+          "type": "domain"
+        },
+        {
+          "name": "Software Architecture",
+          "type": "domain"
+        },
+        {
+          "name": "Agile Methodology",
+          "type": "domain"
+        },
+        {
+          "name": "DevOps",
+          "type": "domain"
+        },
+        {
+          "name": "Terraform",
+          "type": "tool"
+        },
+        {
+          "name": "PostgreSQL",
+          "type": "tool"
+        },
+        {
+          "name": "MongoDB",
+          "type": "tool"
+        },
+        {
+          "name": "Redis",
+          "type": "tool"
+        }
+      ],
+      "edges": [
+        {
+          "from": "Python",
+          "to": "Machine Learning",
+          "type": "enables",
+          "weight": 8
+        },
+        {
+          "from": "Python",
+          "to": "Data Engineering",
+          "type": "enables",
+          "weight": 7
+        },
+        {
+          "from": "SQL",
+          "to": "Database Administration",
+          "type": "prerequisite",
+          "weight": 9
+        },
+        {
+          "from": "SQL",
+          "to": "Data Engineering",
+          "type": "prerequisite",
+          "weight": 8
+        },
+        {
+          "from": "JavaScript",
+          "to": "TypeScript",
+          "type": "enables",
+          "weight": 9
+        },
+        {
+          "from": "JavaScript",
+          "to": "React",
+          "type": "prerequisite",
+          "weight": 9
+        },
+        {
+          "from": "JavaScript",
+          "to": "Node.js",
+          "type": "enables",
+          "weight": 8
+        },
+        {
+          "from": "Docker",
+          "to": "Kubernetes",
+          "type": "prerequisite",
+          "weight": 8
+        },
+        {
+          "from": "Docker",
+          "to": "DevOps",
+          "type": "enables",
+          "weight": 7
+        },
+        {
+          "from": "Cloud Computing",
+          "to": "AWS",
+          "type": "enables",
+          "weight": 7
+        },
+        {
+          "from": "Cloud Computing",
+          "to": "Azure",
+          "type": "enables",
+          "weight": 7
+        },
+        {
+          "from": "Linux",
+          "to": "Cloud Computing",
+          "type": "prerequisite",
+          "weight": 6
+        },
+        {
+          "from": "Linux",
+          "to": "DevOps",
+          "type": "prerequisite",
+          "weight": 7
+        },
+        {
+          "from": "Git",
+          "to": "CI/CD",
+          "type": "prerequisite",
+          "weight": 8
+        },
+        {
+          "from": "CI/CD",
+          "to": "DevOps",
+          "type": "child",
+          "weight": 8
+        },
+        {
+          "from": "Terraform",
+          "to": "Cloud Computing",
+          "type": "child",
+          "weight": 7
+        },
+        {
+          "from": "Data Structures & Algorithms",
+          "to": "Software Architecture",
+          "type": "prerequisite",
+          "weight": 7
+        },
+        {
+          "from": "REST APIs",
+          "to": "Software Architecture",
+          "type": "child",
+          "weight": 6
+        },
+        {
+          "from": "React",
+          "to": "TypeScript",
+          "type": "peer",
+          "weight": 7
+        },
+        {
+          "from": "Node.js",
+          "to": "REST APIs",
+          "type": "peer",
+          "weight": 8
+        },
+        {
+          "from": "PostgreSQL",
+          "to": "Database Administration",
+          "type": "child",
+          "weight": 7
+        },
+        {
+          "from": "MongoDB",
+          "to": "Database Administration",
+          "type": "child",
+          "weight": 6
+        },
+        {
+          "from": "Redis",
+          "to": "Database Administration",
+          "type": "child",
+          "weight": 5
+        },
+        {
+          "from": "Networking",
+          "to": "Cybersecurity",
+          "type": "prerequisite",
+          "weight": 7
+        },
+        {
+          "from": "Linux",
+          "to": "Cybersecurity",
+          "type": "prerequisite",
+          "weight": 6
+        },
+        {
+          "from": "Kubernetes",
+          "to": "DevOps",
+          "type": "child",
+          "weight": 8
+        },
+        {
+          "from": "Agile Methodology",
+          "to": "DevOps",
+          "type": "peer",
+          "weight": 5
+        }
+      ],
+      "occupations": [
+        {
+          "socCode": "15-1252.00",
+          "title": "Software Developers",
+          "description": "Design, develop, and test software and applications.",
+          "skills": [
+            {
+              "name": "Python",
+              "importance": 80,
+              "level": 5
+            },
+            {
+              "name": "JavaScript",
+              "importance": 85,
+              "level": 5
+            },
+            {
+              "name": "TypeScript",
+              "importance": 75,
+              "level": 4.5
+            },
+            {
+              "name": "Git",
+              "importance": 90,
+              "level": 5
+            },
+            {
+              "name": "REST APIs",
+              "importance": 80,
+              "level": 5
+            },
+            {
+              "name": "Software Architecture",
+              "importance": 70,
+              "level": 4
+            },
+            {
+              "name": "Data Structures & Algorithms",
+              "importance": 75,
+              "level": 4.5
+            },
+            {
+              "name": "Agile Methodology",
+              "importance": 65,
+              "level": 4
+            },
+            {
+              "name": "SQL",
+              "importance": 60,
+              "level": 4
+            },
+            {
+              "name": "React",
+              "importance": 55,
+              "level": 4
+            }
+          ]
+        },
+        {
+          "socCode": "15-1253.00",
+          "title": "Software Quality Assurance Analysts",
+          "description": "Develop and execute test plans and automated test suites.",
+          "skills": [
+            {
+              "name": "Python",
+              "importance": 65,
+              "level": 4
+            },
+            {
+              "name": "SQL",
+              "importance": 55,
+              "level": 3.5
+            },
+            {
+              "name": "Git",
+              "importance": 80,
+              "level": 4.5
+            },
+            {
+              "name": "CI/CD",
+              "importance": 70,
+              "level": 4
+            },
+            {
+              "name": "Agile Methodology",
+              "importance": 75,
+              "level": 4.5
+            },
+            {
+              "name": "REST APIs",
+              "importance": 60,
+              "level": 3.5
+            }
+          ]
+        },
+        {
+          "socCode": "15-1211.00",
+          "title": "Computer Systems Analysts",
+          "description": "Analyze science, engineering, and business problems using IT solutions.",
+          "skills": [
+            {
+              "name": "SQL",
+              "importance": 70,
+              "level": 4
+            },
+            {
+              "name": "Software Architecture",
+              "importance": 75,
+              "level": 4.5
+            },
+            {
+              "name": "Cloud Computing",
+              "importance": 65,
+              "level": 4
+            },
+            {
+              "name": "Data Engineering",
+              "importance": 60,
+              "level": 3.5
+            },
+            {
+              "name": "Agile Methodology",
+              "importance": 70,
+              "level": 4
+            }
+          ]
+        },
+        {
+          "socCode": "15-1244.00",
+          "title": "Network and Computer Systems Administrators",
+          "description": "Install, configure, and maintain LAN, WAN, network segments, and internet systems.",
+          "skills": [
+            {
+              "name": "Linux",
+              "importance": 90,
+              "level": 5.5
+            },
+            {
+              "name": "Networking",
+              "importance": 95,
+              "level": 6
+            },
+            {
+              "name": "Cybersecurity",
+              "importance": 80,
+              "level": 5
+            },
+            {
+              "name": "Cloud Computing",
+              "importance": 70,
+              "level": 4
+            },
+            {
+              "name": "Docker",
+              "importance": 50,
+              "level": 3
+            }
+          ]
+        },
+        {
+          "socCode": "15-1212.00",
+          "title": "Information Security Analysts",
+          "description": "Plan and implement security measures to protect computer networks and systems.",
+          "skills": [
+            {
+              "name": "Cybersecurity",
+              "importance": 95,
+              "level": 6
+            },
+            {
+              "name": "Networking",
+              "importance": 85,
+              "level": 5
+            },
+            {
+              "name": "Linux",
+              "importance": 75,
+              "level": 4.5
+            },
+            {
+              "name": "Cloud Computing",
+              "importance": 70,
+              "level": 4
+            },
+            {
+              "name": "Python",
+              "importance": 55,
+              "level": 3.5
+            }
+          ]
+        },
+        {
+          "socCode": "15-2051.00",
+          "title": "Data Scientists",
+          "description": "Develop and implement data models, algorithms, predictive models, and custom analytics.",
+          "skills": [
+            {
+              "name": "Python",
+              "importance": 95,
+              "level": 6
+            },
+            {
+              "name": "Machine Learning",
+              "importance": 90,
+              "level": 5.5
+            },
+            {
+              "name": "SQL",
+              "importance": 80,
+              "level": 5
+            },
+            {
+              "name": "Data Engineering",
+              "importance": 75,
+              "level": 4.5
+            },
+            {
+              "name": "Data Structures & Algorithms",
+              "importance": 70,
+              "level": 4.5
+            }
+          ]
+        },
+        {
+          "socCode": "15-1241.00",
+          "title": "Computer Network Architects",
+          "description": "Design and implement data communication networks.",
+          "skills": [
+            {
+              "name": "Networking",
+              "importance": 95,
+              "level": 6
+            },
+            {
+              "name": "Cybersecurity",
+              "importance": 75,
+              "level": 5
+            },
+            {
+              "name": "Cloud Computing",
+              "importance": 80,
+              "level": 5
+            },
+            {
+              "name": "Linux",
+              "importance": 65,
+              "level": 4
+            }
+          ]
+        },
+        {
+          "socCode": "15-1245.00",
+          "title": "Database Administrators",
+          "description": "Administer, test, and implement databases applying knowledge of DBMS.",
+          "skills": [
+            {
+              "name": "SQL",
+              "importance": 95,
+              "level": 6
+            },
+            {
+              "name": "Database Administration",
+              "importance": 95,
+              "level": 6
+            },
+            {
+              "name": "PostgreSQL",
+              "importance": 85,
+              "level": 5.5
+            },
+            {
+              "name": "MongoDB",
+              "importance": 60,
+              "level": 4
+            },
+            {
+              "name": "Redis",
+              "importance": 50,
+              "level": 3.5
+            },
+            {
+              "name": "Linux",
+              "importance": 55,
+              "level": 3.5
+            }
+          ]
+        },
+        {
+          "socCode": "15-1232.00",
+          "title": "Computer User Support Specialists",
+          "description": "Provide technical assistance to computer users.",
+          "skills": [
+            {
+              "name": "Networking",
+              "importance": 60,
+              "level": 3.5
+            },
+            {
+              "name": "Linux",
+              "importance": 50,
+              "level": 3
+            },
+            {
+              "name": "Cybersecurity",
+              "importance": 45,
+              "level": 3
+            }
+          ]
+        },
+        {
+          "socCode": "15-1299.08",
+          "title": "DevOps Engineers",
+          "description": "Build and maintain CI/CD pipelines, infrastructure as code, and cloud platforms.",
+          "skills": [
+            {
+              "name": "Docker",
+              "importance": 90,
+              "level": 5.5
+            },
+            {
+              "name": "Kubernetes",
+              "importance": 85,
+              "level": 5
+            },
+            {
+              "name": "CI/CD",
+              "importance": 95,
+              "level": 6
+            },
+            {
+              "name": "DevOps",
+              "importance": 95,
+              "level": 6
+            },
+            {
+              "name": "Terraform",
+              "importance": 80,
+              "level": 5
+            },
+            {
+              "name": "Linux",
+              "importance": 85,
+              "level": 5.5
+            },
+            {
+              "name": "AWS",
+              "importance": 75,
+              "level": 4.5
+            },
+            {
+              "name": "Git",
+              "importance": 90,
+              "level": 5.5
+            },
+            {
+              "name": "Python",
+              "importance": 60,
+              "level": 4
+            }
+          ]
+        }
+      ]
+    },
+    "Management": {
+      "socPrefix": "11",
+      "nodes": [
+        {
+          "name": "Strategic Planning",
+          "type": "domain"
+        },
+        {
+          "name": "Financial Analysis",
+          "type": "domain"
+        },
+        {
+          "name": "Project Management",
+          "type": "domain"
+        },
+        {
+          "name": "Operations Management",
+          "type": "domain"
+        },
+        {
+          "name": "Risk Management",
+          "type": "domain"
+        },
+        {
+          "name": "Budgeting",
+          "type": "domain"
+        },
+        {
+          "name": "Performance Management",
+          "type": "domain"
+        },
+        {
+          "name": "Supply Chain Management",
+          "type": "domain"
+        },
+        {
+          "name": "Change Management",
+          "type": "domain"
+        },
+        {
+          "name": "Business Intelligence",
+          "type": "domain"
+        },
+        {
+          "name": "Excel",
+          "type": "tool"
+        },
+        {
+          "name": "SAP",
+          "type": "tool"
+        },
+        {
+          "name": "Tableau",
+          "type": "tool"
+        },
+        {
+          "name": "Power BI",
+          "type": "tool"
+        },
+        {
+          "name": "Jira",
+          "type": "tool"
+        },
+        {
+          "name": "Stakeholder Management",
+          "type": "domain"
+        }
+      ],
+      "edges": [
+        {
+          "from": "Financial Analysis",
+          "to": "Budgeting",
+          "type": "peer",
+          "weight": 8
+        },
+        {
+          "from": "Strategic Planning",
+          "to": "Risk Management",
+          "type": "peer",
+          "weight": 6
+        },
+        {
+          "from": "Project Management",
+          "to": "Jira",
+          "type": "enables",
+          "weight": 6
+        },
+        {
+          "from": "Project Management",
+          "to": "Agile Methodology",
+          "type": "peer",
+          "weight": 7
+        },
+        {
+          "from": "Business Intelligence",
+          "to": "Tableau",
+          "type": "enables",
+          "weight": 7
+        },
+        {
+          "from": "Business Intelligence",
+          "to": "Power BI",
+          "type": "enables",
+          "weight": 7
+        },
+        {
+          "from": "Financial Analysis",
+          "to": "Excel",
+          "type": "prerequisite",
+          "weight": 8
+        },
+        {
+          "from": "Operations Management",
+          "to": "Supply Chain Management",
+          "type": "peer",
+          "weight": 7
+        },
+        {
+          "from": "Change Management",
+          "to": "Stakeholder Management",
+          "type": "peer",
+          "weight": 6
+        },
+        {
+          "from": "Performance Management",
+          "to": "Strategic Planning",
+          "type": "child",
+          "weight": 5
+        },
+        {
+          "from": "Budgeting",
+          "to": "Strategic Planning",
+          "type": "child",
+          "weight": 6
+        },
+        {
+          "from": "SAP",
+          "to": "Operations Management",
+          "type": "enables",
+          "weight": 5
+        }
+      ],
+      "occupations": [
+        {
+          "socCode": "11-1021.00",
+          "title": "General and Operations Managers",
+          "description": "Plan, direct, or coordinate operations of public or private sector organizations.",
+          "skills": [
+            {
+              "name": "Strategic Planning",
+              "importance": 90,
+              "level": 5.5
+            },
+            {
+              "name": "Operations Management",
+              "importance": 95,
+              "level": 6
+            },
+            {
+              "name": "Financial Analysis",
+              "importance": 75,
+              "level": 4.5
+            },
+            {
+              "name": "Budgeting",
+              "importance": 80,
+              "level": 5
+            },
+            {
+              "name": "Performance Management",
+              "importance": 85,
+              "level": 5.5
+            }
+          ]
+        },
+        {
+          "socCode": "11-3021.00",
+          "title": "Computer and Information Systems Managers",
+          "description": "Plan, direct, or coordinate IT activities.",
+          "skills": [
+            {
+              "name": "Strategic Planning",
+              "importance": 85,
+              "level": 5
+            },
+            {
+              "name": "Project Management",
+              "importance": 90,
+              "level": 5.5
+            },
+            {
+              "name": "Risk Management",
+              "importance": 75,
+              "level": 4.5
+            },
+            {
+              "name": "Performance Management",
+              "importance": 80,
+              "level": 5
+            }
+          ]
+        },
+        {
+          "socCode": "11-2021.00",
+          "title": "Marketing Managers",
+          "description": "Plan, direct, or coordinate marketing policies and programs.",
+          "skills": [
+            {
+              "name": "Strategic Planning",
+              "importance": 85,
+              "level": 5
+            },
+            {
+              "name": "Financial Analysis",
+              "importance": 60,
+              "level": 4
+            },
+            {
+              "name": "Budgeting",
+              "importance": 70,
+              "level": 4.5
+            }
+          ]
+        },
+        {
+          "socCode": "11-3031.00",
+          "title": "Financial Managers",
+          "description": "Plan, direct, or coordinate accounting, investing, banking, insurance activities.",
+          "skills": [
+            {
+              "name": "Financial Analysis",
+              "importance": 95,
+              "level": 6
+            },
+            {
+              "name": "Budgeting",
+              "importance": 90,
+              "level": 5.5
+            },
+            {
+              "name": "Risk Management",
+              "importance": 85,
+              "level": 5.5
+            },
+            {
+              "name": "Strategic Planning",
+              "importance": 75,
+              "level": 4.5
+            }
+          ]
+        },
+        {
+          "socCode": "11-9199.00",
+          "title": "Managers, All Other",
+          "description": "Category for managers not classified separately.",
+          "skills": [
+            {
+              "name": "Project Management",
+              "importance": 80,
+              "level": 5
+            },
+            {
+              "name": "Operations Management",
+              "importance": 75,
+              "level": 4.5
+            },
+            {
+              "name": "Performance Management",
+              "importance": 70,
+              "level": 4.5
+            }
+          ]
+        }
+      ]
+    },
+    "Business and Financial": {
+      "socPrefix": "13",
+      "nodes": [
+        {
+          "name": "Accounting",
+          "type": "domain"
+        },
+        {
+          "name": "Financial Reporting",
+          "type": "domain"
+        },
+        {
+          "name": "Tax Preparation",
+          "type": "domain"
+        },
+        {
+          "name": "Auditing",
+          "type": "domain"
+        },
+        {
+          "name": "Compliance",
+          "type": "domain"
+        },
+        {
+          "name": "Market Research",
+          "type": "domain"
+        },
+        {
+          "name": "Data Analysis",
+          "type": "domain"
+        },
+        {
+          "name": "Excel",
+          "type": "tool"
+        },
+        {
+          "name": "QuickBooks",
+          "type": "tool"
+        },
+        {
+          "name": "Salesforce",
+          "type": "tool"
+        },
+        {
+          "name": "SQL",
+          "type": "technical"
+        },
+        {
+          "name": "Financial Modeling",
+          "type": "domain"
+        },
+        {
+          "name": "Cost Analysis",
+          "type": "domain"
+        },
+        {
+          "name": "Business Process Analysis",
+          "type": "domain"
+        },
+        {
+          "name": "ERP Systems",
+          "type": "domain"
+        }
+      ],
+      "edges": [
+        {
+          "from": "Accounting",
+          "to": "Financial Reporting",
+          "type": "enables",
+          "weight": 9
+        },
+        {
+          "from": "Accounting",
+          "to": "Tax Preparation",
+          "type": "enables",
+          "weight": 8
+        },
+        {
+          "from": "Accounting",
+          "to": "Auditing",
+          "type": "enables",
+          "weight": 7
+        },
+        {
+          "from": "Auditing",
+          "to": "Compliance",
+          "type": "peer",
+          "weight": 7
+        },
+        {
+          "from": "Data Analysis",
+          "to": "SQL",
+          "type": "prerequisite",
+          "weight": 6
+        },
+        {
+          "from": "Data Analysis",
+          "to": "Excel",
+          "type": "prerequisite",
+          "weight": 8
+        },
+        {
+          "from": "Market Research",
+          "to": "Data Analysis",
+          "type": "peer",
+          "weight": 7
+        },
+        {
+          "from": "Financial Modeling",
+          "to": "Excel",
+          "type": "prerequisite",
+          "weight": 9
+        },
+        {
+          "from": "Financial Modeling",
+          "to": "Financial Reporting",
+          "type": "peer",
+          "weight": 7
+        },
+        {
+          "from": "Cost Analysis",
+          "to": "Accounting",
+          "type": "child",
+          "weight": 6
+        },
+        {
+          "from": "Salesforce",
+          "to": "Market Research",
+          "type": "enables",
+          "weight": 5
+        },
+        {
+          "from": "ERP Systems",
+          "to": "Business Process Analysis",
+          "type": "enables",
+          "weight": 6
+        },
+        {
+          "from": "QuickBooks",
+          "to": "Accounting",
+          "type": "enables",
+          "weight": 7
+        }
+      ],
+      "occupations": [
+        {
+          "socCode": "13-2011.00",
+          "title": "Accountants and Auditors",
+          "description": "Examine, analyze, and prepare financial records.",
+          "skills": [
+            {
+              "name": "Financial Reporting",
+              "importance": 95,
+              "level": 6
+            },
+            {
+              "name": "Tax Compliance",
+              "importance": 85,
+              "level": 5.5
+            },
+            {
+              "name": "Auditing",
+              "importance": 90,
+              "level": 5.5
+            },
+            {
+              "name": "Excel",
+              "importance": 80,
+              "level": 5
+            },
+            {
+              "name": "Data Analysis",
+              "importance": 70,
+              "level": 4
+            }
+          ]
+        },
+        {
+          "socCode": "13-1111.00",
+          "title": "Management Analysts",
+          "description": "Conduct organizational studies to improve efficiency.",
+          "skills": [
+            {
+              "name": "Business Analysis",
+              "importance": 90,
+              "level": 5.5
+            },
+            {
+              "name": "Data Analysis",
+              "importance": 80,
+              "level": 5
+            },
+            {
+              "name": "Project Management",
+              "importance": 75,
+              "level": 4.5
+            },
+            {
+              "name": "Excel",
+              "importance": 70,
+              "level": 4
+            }
+          ]
+        },
+        {
+          "socCode": "13-2051.00",
+          "title": "Financial Analysts",
+          "description": "Conduct quantitative analyses of financial data.",
+          "skills": [
+            {
+              "name": "Financial Reporting",
+              "importance": 85,
+              "level": 5
+            },
+            {
+              "name": "Data Analysis",
+              "importance": 80,
+              "level": 5
+            },
+            {
+              "name": "Excel",
+              "importance": 85,
+              "level": 5.5
+            },
+            {
+              "name": "Risk Assessment",
+              "importance": 75,
+              "level": 4.5
+            }
+          ]
+        },
+        {
+          "socCode": "13-1071.00",
+          "title": "Human Resources Specialists",
+          "description": "Recruit, screen, interview, or place individuals.",
+          "skills": [
+            {
+              "name": "Compliance",
+              "importance": 70,
+              "level": 4
+            },
+            {
+              "name": "Business Analysis",
+              "importance": 55,
+              "level": 3.5
+            }
+          ]
+        }
+      ]
+    },
+    "Architecture and Engineering": {
+      "socPrefix": "17",
+      "nodes": [
+        {
+          "name": "CAD/CAM",
+          "type": "technical"
+        },
+        {
+          "name": "AutoCAD",
+          "type": "tool"
+        },
+        {
+          "name": "SolidWorks",
+          "type": "tool"
+        },
+        {
+          "name": "Structural Analysis",
+          "type": "domain"
+        },
+        {
+          "name": "Mechanical Design",
+          "type": "domain"
+        },
+        {
+          "name": "Electrical Engineering",
+          "type": "domain"
+        },
+        {
+          "name": "Civil Engineering",
+          "type": "domain"
+        },
+        {
+          "name": "PLC Programming",
+          "type": "technical"
+        },
+        {
+          "name": "MATLAB",
+          "type": "tool"
+        },
+        {
+          "name": "Quality Control",
+          "type": "domain"
+        },
+        {
+          "name": "GIS",
+          "type": "technical"
+        },
+        {
+          "name": "BIM",
+          "type": "technical"
+        },
+        {
+          "name": "Revit",
+          "type": "tool"
+        },
+        {
+          "name": "Process Engineering",
+          "type": "domain"
+        },
+        {
+          "name": "Thermodynamics",
+          "type": "domain"
+        },
+        {
+          "name": "Finite Element Analysis",
+          "type": "domain"
+        }
+      ],
+      "edges": [
+        {
+          "from": "CAD/CAM",
+          "to": "AutoCAD",
+          "type": "enables",
+          "weight": 9
+        },
+        {
+          "from": "CAD/CAM",
+          "to": "SolidWorks",
+          "type": "enables",
+          "weight": 8
+        },
+        {
+          "from": "CAD/CAM",
+          "to": "Mechanical Design",
+          "type": "prerequisite",
+          "weight": 7
+        },
+        {
+          "from": "Structural Analysis",
+          "to": "Civil Engineering",
+          "type": "child",
+          "weight": 8
+        },
+        {
+          "from": "Structural Analysis",
+          "to": "Finite Element Analysis",
+          "type": "peer",
+          "weight": 7
+        },
+        {
+          "from": "Electrical Engineering",
+          "to": "PLC Programming",
+          "type": "enables",
+          "weight": 8
+        },
+        {
+          "from": "BIM",
+          "to": "Revit",
+          "type": "enables",
+          "weight": 9
+        },
+        {
+          "from": "BIM",
+          "to": "Civil Engineering",
+          "type": "peer",
+          "weight": 6
+        },
+        {
+          "from": "GIS",
+          "to": "Civil Engineering",
+          "type": "peer",
+          "weight": 5
+        },
+        {
+          "from": "MATLAB",
+          "to": "Finite Element Analysis",
+          "type": "enables",
+          "weight": 7
+        },
+        {
+          "from": "MATLAB",
+          "to": "Electrical Engineering",
+          "type": "enables",
+          "weight": 6
+        },
+        {
+          "from": "Process Engineering",
+          "to": "Quality Control",
+          "type": "peer",
+          "weight": 6
+        },
+        {
+          "from": "Thermodynamics",
+          "to": "Mechanical Design",
+          "type": "prerequisite",
+          "weight": 7
+        },
+        {
+          "from": "Thermodynamics",
+          "to": "Process Engineering",
+          "type": "prerequisite",
+          "weight": 6
+        }
+      ],
+      "occupations": [
+        {
+          "socCode": "17-2051.00",
+          "title": "Civil Engineers",
+          "description": "Design, build, supervise, and maintain infrastructure projects.",
+          "skills": [
+            {
+              "name": "AutoCAD",
+              "importance": 90,
+              "level": 5.5
+            },
+            {
+              "name": "Structural Analysis",
+              "importance": 85,
+              "level": 5.5
+            },
+            {
+              "name": "Project Scheduling",
+              "importance": 80,
+              "level": 5
+            },
+            {
+              "name": "Environmental Compliance",
+              "importance": 70,
+              "level": 4.5
+            },
+            {
+              "name": "Geotechnical Engineering",
+              "importance": 65,
+              "level": 4
+            }
+          ]
+        },
+        {
+          "socCode": "17-2071.00",
+          "title": "Electrical Engineers",
+          "description": "Design, develop, test, or supervise electrical systems.",
+          "skills": [
+            {
+              "name": "Circuit Design",
+              "importance": 90,
+              "level": 5.5
+            },
+            {
+              "name": "Power Systems",
+              "importance": 85,
+              "level": 5
+            },
+            {
+              "name": "AutoCAD",
+              "importance": 70,
+              "level": 4.5
+            },
+            {
+              "name": "PLC Programming",
+              "importance": 65,
+              "level": 4
+            }
+          ]
+        },
+        {
+          "socCode": "17-2141.00",
+          "title": "Mechanical Engineers",
+          "description": "Design, develop, build, and test mechanical and thermal devices.",
+          "skills": [
+            {
+              "name": "3D Modeling",
+              "importance": 85,
+              "level": 5
+            },
+            {
+              "name": "Structural Analysis",
+              "importance": 80,
+              "level": 5
+            },
+            {
+              "name": "AutoCAD",
+              "importance": 75,
+              "level": 4.5
+            },
+            {
+              "name": "Thermodynamics",
+              "importance": 70,
+              "level": 4.5
+            }
+          ]
+        },
+        {
+          "socCode": "17-1011.00",
+          "title": "Architects",
+          "description": "Plan and design structures and buildings.",
+          "skills": [
+            {
+              "name": "AutoCAD",
+              "importance": 95,
+              "level": 6
+            },
+            {
+              "name": "3D Modeling",
+              "importance": 90,
+              "level": 5.5
+            },
+            {
+              "name": "Structural Analysis",
+              "importance": 60,
+              "level": 4
+            },
+            {
+              "name": "Environmental Compliance",
+              "importance": 65,
+              "level": 4
+            }
+          ]
+        }
+      ]
+    },
+    "Healthcare Practitioners": {
+      "socPrefix": "29",
+      "nodes": [
+        {
+          "name": "Clinical Assessment",
+          "type": "domain"
+        },
+        {
+          "name": "Patient Care",
+          "type": "domain"
+        },
+        {
+          "name": "Medical Terminology",
+          "type": "domain"
+        },
+        {
+          "name": "Pharmacology",
+          "type": "domain"
+        },
+        {
+          "name": "Electronic Health Records",
+          "type": "tool"
+        },
+        {
+          "name": "Epic",
+          "type": "tool"
+        },
+        {
+          "name": "Diagnostic Imaging",
+          "type": "domain"
+        },
+        {
+          "name": "Laboratory Analysis",
+          "type": "domain"
+        },
+        {
+          "name": "HIPAA Compliance",
+          "type": "domain"
+        },
+        {
+          "name": "Medical Coding",
+          "type": "domain"
+        },
+        {
+          "name": "CPR/BLS",
+          "type": "technical"
+        },
+        {
+          "name": "IV Therapy",
+          "type": "technical"
+        },
+        {
+          "name": "Infection Control",
+          "type": "domain"
+        },
+        {
+          "name": "Surgical Assistance",
+          "type": "domain"
+        }
+      ],
+      "edges": [
+        {
+          "from": "Medical Terminology",
+          "to": "Clinical Assessment",
+          "type": "prerequisite",
+          "weight": 9
+        },
+        {
+          "from": "Medical Terminology",
+          "to": "Medical Coding",
+          "type": "prerequisite",
+          "weight": 8
+        },
+        {
+          "from": "Clinical Assessment",
+          "to": "Patient Care",
+          "type": "peer",
+          "weight": 8
+        },
+        {
+          "from": "Pharmacology",
+          "to": "Patient Care",
+          "type": "prerequisite",
+          "weight": 7
+        },
+        {
+          "from": "Electronic Health Records",
+          "to": "Epic",
+          "type": "enables",
+          "weight": 8
+        },
+        {
+          "from": "Electronic Health Records",
+          "to": "HIPAA Compliance",
+          "type": "peer",
+          "weight": 7
+        },
+        {
+          "from": "Diagnostic Imaging",
+          "to": "Clinical Assessment",
+          "type": "peer",
+          "weight": 6
+        },
+        {
+          "from": "Laboratory Analysis",
+          "to": "Diagnostic Imaging",
+          "type": "peer",
+          "weight": 5
+        },
+        {
+          "from": "CPR/BLS",
+          "to": "Patient Care",
+          "type": "prerequisite",
+          "weight": 8
+        },
+        {
+          "from": "Infection Control",
+          "to": "Patient Care",
+          "type": "prerequisite",
+          "weight": 7
+        },
+        {
+          "from": "Infection Control",
+          "to": "Surgical Assistance",
+          "type": "prerequisite",
+          "weight": 8
+        },
+        {
+          "from": "IV Therapy",
+          "to": "Patient Care",
+          "type": "child",
+          "weight": 6
+        }
+      ],
+      "occupations": [
+        {
+          "socCode": "29-1141.00",
+          "title": "Registered Nurses",
+          "description": "Assess, plan, and provide patient care.",
+          "skills": [
+            {
+              "name": "Patient Assessment",
+              "importance": 95,
+              "level": 6
+            },
+            {
+              "name": "Clinical Documentation",
+              "importance": 85,
+              "level": 5
+            },
+            {
+              "name": "Medication Administration",
+              "importance": 90,
+              "level": 5.5
+            },
+            {
+              "name": "Infection Control",
+              "importance": 80,
+              "level": 5
+            }
+          ]
+        },
+        {
+          "socCode": "29-1071.00",
+          "title": "Physician Assistants",
+          "description": "Examine, diagnose, and treat patients under physician supervision.",
+          "skills": [
+            {
+              "name": "Patient Assessment",
+              "importance": 95,
+              "level": 6
+            },
+            {
+              "name": "Diagnostic Imaging",
+              "importance": 70,
+              "level": 4.5
+            },
+            {
+              "name": "Clinical Documentation",
+              "importance": 85,
+              "level": 5
+            },
+            {
+              "name": "Medication Administration",
+              "importance": 80,
+              "level": 5
+            }
+          ]
+        },
+        {
+          "socCode": "29-1051.00",
+          "title": "Pharmacists",
+          "description": "Dispense medications and advise on drug interactions.",
+          "skills": [
+            {
+              "name": "Medication Administration",
+              "importance": 95,
+              "level": 6
+            },
+            {
+              "name": "Patient Assessment",
+              "importance": 60,
+              "level": 4
+            }
+          ]
+        },
+        {
+          "socCode": "29-2010.00",
+          "title": "Clinical Laboratory Technologists",
+          "description": "Perform complex medical laboratory tests.",
+          "skills": [
+            {
+              "name": "Laboratory Techniques",
+              "importance": 95,
+              "level": 6
+            },
+            {
+              "name": "Infection Control",
+              "importance": 75,
+              "level": 4.5
+            },
+            {
+              "name": "Clinical Documentation",
+              "importance": 70,
+              "level": 4
+            }
+          ]
+        }
+      ]
+    },
+    "Education and Training": {
+      "socPrefix": "25",
+      "nodes": [
+        {
+          "name": "Curriculum Development",
+          "type": "domain"
+        },
+        {
+          "name": "Instructional Design",
+          "type": "domain"
+        },
+        {
+          "name": "Classroom Management",
+          "type": "domain"
+        },
+        {
+          "name": "Assessment Design",
+          "type": "domain"
+        },
+        {
+          "name": "Learning Management Systems",
+          "type": "tool"
+        },
+        {
+          "name": "Educational Technology",
+          "type": "domain"
+        },
+        {
+          "name": "Special Education",
+          "type": "domain"
+        },
+        {
+          "name": "Canvas",
+          "type": "tool"
+        },
+        {
+          "name": "Google Workspace",
+          "type": "tool"
+        },
+        {
+          "name": "Differentiated Instruction",
+          "type": "domain"
+        },
+        {
+          "name": "Student Counseling",
+          "type": "domain"
+        },
+        {
+          "name": "Research Methodology",
+          "type": "domain"
+        }
+      ],
+      "edges": [
+        {
+          "from": "Curriculum Development",
+          "to": "Assessment Design",
+          "type": "peer",
+          "weight": 8
+        },
+        {
+          "from": "Curriculum Development",
+          "to": "Instructional Design",
+          "type": "peer",
+          "weight": 8
+        },
+        {
+          "from": "Instructional Design",
+          "to": "Learning Management Systems",
+          "type": "enables",
+          "weight": 7
+        },
+        {
+          "from": "Learning Management Systems",
+          "to": "Canvas",
+          "type": "enables",
+          "weight": 7
+        },
+        {
+          "from": "Educational Technology",
+          "to": "Google Workspace",
+          "type": "enables",
+          "weight": 6
+        },
+        {
+          "from": "Educational Technology",
+          "to": "Learning Management Systems",
+          "type": "peer",
+          "weight": 7
+        },
+        {
+          "from": "Classroom Management",
+          "to": "Differentiated Instruction",
+          "type": "peer",
+          "weight": 6
+        },
+        {
+          "from": "Special Education",
+          "to": "Differentiated Instruction",
+          "type": "peer",
+          "weight": 7
+        },
+        {
+          "from": "Assessment Design",
+          "to": "Research Methodology",
+          "type": "peer",
+          "weight": 5
+        }
+      ],
+      "occupations": [
+        {
+          "socCode": "25-1099.00",
+          "title": "Postsecondary Teachers",
+          "description": "Instruct students in a wide variety of academic subjects.",
+          "skills": [
+            {
+              "name": "Curriculum Design",
+              "importance": 90,
+              "level": 5.5
+            },
+            {
+              "name": "Instructional Technology",
+              "importance": 70,
+              "level": 4
+            },
+            {
+              "name": "Assessment & Evaluation",
+              "importance": 85,
+              "level": 5
+            },
+            {
+              "name": "Research Methods",
+              "importance": 75,
+              "level": 4.5
+            }
+          ]
+        },
+        {
+          "socCode": "25-2021.00",
+          "title": "Elementary School Teachers",
+          "description": "Teach students academic, social, and motor skills.",
+          "skills": [
+            {
+              "name": "Curriculum Design",
+              "importance": 85,
+              "level": 5
+            },
+            {
+              "name": "Classroom Management",
+              "importance": 90,
+              "level": 5.5
+            },
+            {
+              "name": "Assessment & Evaluation",
+              "importance": 80,
+              "level": 5
+            },
+            {
+              "name": "Special Education",
+              "importance": 60,
+              "level": 3.5
+            }
+          ]
+        },
+        {
+          "socCode": "25-9031.00",
+          "title": "Instructional Coordinators",
+          "description": "Develop curricula, training materials, and coordinate educational content.",
+          "skills": [
+            {
+              "name": "Curriculum Design",
+              "importance": 95,
+              "level": 6
+            },
+            {
+              "name": "Assessment & Evaluation",
+              "importance": 85,
+              "level": 5.5
+            },
+            {
+              "name": "Instructional Technology",
+              "importance": 80,
+              "level": 5
+            }
+          ]
+        }
+      ]
+    },
+    "Legal": {
+      "socPrefix": "23",
+      "nodes": [
+        {
+          "name": "Legal Research",
+          "type": "domain"
+        },
+        {
+          "name": "Contract Drafting",
+          "type": "domain"
+        },
+        {
+          "name": "Litigation",
+          "type": "domain"
+        },
+        {
+          "name": "Regulatory Compliance",
+          "type": "domain"
+        },
+        {
+          "name": "Intellectual Property",
+          "type": "domain"
+        },
+        {
+          "name": "Westlaw",
+          "type": "tool"
+        },
+        {
+          "name": "LexisNexis",
+          "type": "tool"
+        },
+        {
+          "name": "E-Discovery",
+          "type": "domain"
+        },
+        {
+          "name": "Legal Writing",
+          "type": "domain"
+        },
+        {
+          "name": "Case Management",
+          "type": "domain"
+        }
+      ],
+      "edges": [
+        {
+          "from": "Legal Research",
+          "to": "Westlaw",
+          "type": "enables",
+          "weight": 8
+        },
+        {
+          "from": "Legal Research",
+          "to": "LexisNexis",
+          "type": "enables",
+          "weight": 8
+        },
+        {
+          "from": "Legal Research",
+          "to": "Legal Writing",
+          "type": "peer",
+          "weight": 8
+        },
+        {
+          "from": "Legal Writing",
+          "to": "Contract Drafting",
+          "type": "enables",
+          "weight": 7
+        },
+        {
+          "from": "Litigation",
+          "to": "E-Discovery",
+          "type": "peer",
+          "weight": 7
+        },
+        {
+          "from": "Litigation",
+          "to": "Case Management",
+          "type": "peer",
+          "weight": 7
+        },
+        {
+          "from": "Regulatory Compliance",
+          "to": "Contract Drafting",
+          "type": "peer",
+          "weight": 5
+        },
+        {
+          "from": "Legal Research",
+          "to": "Intellectual Property",
+          "type": "enables",
+          "weight": 5
+        }
+      ],
+      "occupations": [
+        {
+          "socCode": "23-1011.00",
+          "title": "Lawyers",
+          "description": "Represent clients in criminal and civil litigation.",
+          "skills": [
+            {
+              "name": "Legal Research",
+              "importance": 95,
+              "level": 6
+            },
+            {
+              "name": "Contract Law",
+              "importance": 85,
+              "level": 5.5
+            },
+            {
+              "name": "Litigation",
+              "importance": 90,
+              "level": 5.5
+            },
+            {
+              "name": "Regulatory Compliance",
+              "importance": 80,
+              "level": 5
+            }
+          ]
+        },
+        {
+          "socCode": "23-2011.00",
+          "title": "Paralegals and Legal Assistants",
+          "description": "Assist lawyers by investigating facts and preparing legal documents.",
+          "skills": [
+            {
+              "name": "Legal Research",
+              "importance": 90,
+              "level": 5.5
+            },
+            {
+              "name": "Contract Law",
+              "importance": 65,
+              "level": 4
+            },
+            {
+              "name": "Legal Writing",
+              "importance": 85,
+              "level": 5
+            }
+          ]
+        },
+        {
+          "socCode": "23-1021.00",
+          "title": "Administrative Law Judges",
+          "description": "Conduct hearings to recommend or make decisions on claims.",
+          "skills": [
+            {
+              "name": "Legal Research",
+              "importance": 85,
+              "level": 5
+            },
+            {
+              "name": "Regulatory Compliance",
+              "importance": 90,
+              "level": 5.5
+            },
+            {
+              "name": "Litigation",
+              "importance": 70,
+              "level": 4.5
+            }
+          ]
+        }
+      ]
+    },
+    "Arts, Design, Entertainment": {
+      "socPrefix": "27",
+      "nodes": [
+        {
+          "name": "Adobe Creative Suite",
+          "type": "tool"
+        },
+        {
+          "name": "Photoshop",
+          "type": "tool"
+        },
+        {
+          "name": "Illustrator",
+          "type": "tool"
+        },
+        {
+          "name": "Figma",
+          "type": "tool"
+        },
+        {
+          "name": "UI/UX Design",
+          "type": "domain"
+        },
+        {
+          "name": "Graphic Design",
+          "type": "domain"
+        },
+        {
+          "name": "Typography",
+          "type": "domain"
+        },
+        {
+          "name": "Color Theory",
+          "type": "domain"
+        },
+        {
+          "name": "Motion Graphics",
+          "type": "domain"
+        },
+        {
+          "name": "After Effects",
+          "type": "tool"
+        },
+        {
+          "name": "Video Editing",
+          "type": "domain"
+        },
+        {
+          "name": "Premiere Pro",
+          "type": "tool"
+        },
+        {
+          "name": "3D Modeling",
+          "type": "domain"
+        },
+        {
+          "name": "Blender",
+          "type": "tool"
+        },
+        {
+          "name": "Content Strategy",
+          "type": "domain"
+        },
+        {
+          "name": "Brand Design",
+          "type": "domain"
+        }
+      ],
+      "edges": [
+        {
+          "from": "Adobe Creative Suite",
+          "to": "Photoshop",
+          "type": "enables",
+          "weight": 9
+        },
+        {
+          "from": "Adobe Creative Suite",
+          "to": "Illustrator",
+          "type": "enables",
+          "weight": 9
+        },
+        {
+          "from": "Graphic Design",
+          "to": "Typography",
+          "type": "prerequisite",
+          "weight": 8
+        },
+        {
+          "from": "Graphic Design",
+          "to": "Color Theory",
+          "type": "prerequisite",
+          "weight": 8
+        },
+        {
+          "from": "Graphic Design",
+          "to": "Brand Design",
+          "type": "enables",
+          "weight": 7
+        },
+        {
+          "from": "UI/UX Design",
+          "to": "Figma",
+          "type": "enables",
+          "weight": 9
+        },
+        {
+          "from": "Color Theory",
+          "to": "UI/UX Design",
+          "type": "prerequisite",
+          "weight": 6
+        },
+        {
+          "from": "Typography",
+          "to": "UI/UX Design",
+          "type": "prerequisite",
+          "weight": 6
+        },
+        {
+          "from": "Motion Graphics",
+          "to": "After Effects",
+          "type": "enables",
+          "weight": 8
+        },
+        {
+          "from": "Video Editing",
+          "to": "Premiere Pro",
+          "type": "enables",
+          "weight": 8
+        },
+        {
+          "from": "Video Editing",
+          "to": "Motion Graphics",
+          "type": "peer",
+          "weight": 6
+        },
+        {
+          "from": "3D Modeling",
+          "to": "Blender",
+          "type": "enables",
+          "weight": 8
+        },
+        {
+          "from": "Content Strategy",
+          "to": "Brand Design",
+          "type": "peer",
+          "weight": 5
+        }
+      ],
+      "occupations": [
+        {
+          "socCode": "27-1024.00",
+          "title": "Graphic Designers",
+          "description": "Design visual content for media and experiences.",
+          "skills": [
+            {
+              "name": "Adobe Creative Suite",
+              "importance": 95,
+              "level": 6
+            },
+            {
+              "name": "UI Design",
+              "importance": 80,
+              "level": 5
+            },
+            {
+              "name": "Typography",
+              "importance": 85,
+              "level": 5
+            },
+            {
+              "name": "Color Theory",
+              "importance": 80,
+              "level": 5
+            }
+          ]
+        },
+        {
+          "socCode": "15-1255.00",
+          "title": "Web Developers",
+          "description": "Design, create, and modify websites.",
+          "skills": [
+            {
+              "name": "UI Design",
+              "importance": 75,
+              "level": 4.5
+            },
+            {
+              "name": "Adobe Creative Suite",
+              "importance": 50,
+              "level": 3
+            },
+            {
+              "name": "Motion Graphics",
+              "importance": 40,
+              "level": 2.5
+            }
+          ]
+        },
+        {
+          "socCode": "27-1014.00",
+          "title": "Special Effects Artists and Animators",
+          "description": "Create special effects, animations, or computer-generated images.",
+          "skills": [
+            {
+              "name": "3D Animation",
+              "importance": 95,
+              "level": 6
+            },
+            {
+              "name": "Motion Graphics",
+              "importance": 85,
+              "level": 5
+            },
+            {
+              "name": "Adobe Creative Suite",
+              "importance": 75,
+              "level": 4.5
+            },
+            {
+              "name": "Storyboarding",
+              "importance": 70,
+              "level": 4
+            }
+          ]
+        },
+        {
+          "socCode": "27-2012.00",
+          "title": "Producers and Directors",
+          "description": "Coordinate all aspects of media production.",
+          "skills": [
+            {
+              "name": "Storyboarding",
+              "importance": 70,
+              "level": 4
+            },
+            {
+              "name": "Sound Engineering",
+              "importance": 55,
+              "level": 3.5
+            },
+            {
+              "name": "Content Strategy",
+              "importance": 80,
+              "level": 5
+            }
+          ]
+        }
+      ]
+    },
+    "Sales and Marketing": {
+      "socPrefix": "41",
+      "nodes": [
+        {
+          "name": "CRM Management",
+          "type": "domain"
+        },
+        {
+          "name": "Salesforce",
+          "type": "tool"
+        },
+        {
+          "name": "HubSpot",
+          "type": "tool"
+        },
+        {
+          "name": "Digital Marketing",
+          "type": "domain"
+        },
+        {
+          "name": "SEO",
+          "type": "technical"
+        },
+        {
+          "name": "SEM/PPC",
+          "type": "technical"
+        },
+        {
+          "name": "Google Analytics",
+          "type": "tool"
+        },
+        {
+          "name": "Social Media Marketing",
+          "type": "domain"
+        },
+        {
+          "name": "Email Marketing",
+          "type": "domain"
+        },
+        {
+          "name": "Content Marketing",
+          "type": "domain"
+        },
+        {
+          "name": "Sales Pipeline Management",
+          "type": "domain"
+        },
+        {
+          "name": "Lead Generation",
+          "type": "domain"
+        },
+        {
+          "name": "Marketing Analytics",
+          "type": "domain"
+        },
+        {
+          "name": "A/B Testing",
+          "type": "technical"
+        }
+      ],
+      "edges": [
+        {
+          "from": "CRM Management",
+          "to": "Salesforce",
+          "type": "enables",
+          "weight": 8
+        },
+        {
+          "from": "CRM Management",
+          "to": "HubSpot",
+          "type": "enables",
+          "weight": 7
+        },
+        {
+          "from": "Digital Marketing",
+          "to": "SEO",
+          "type": "enables",
+          "weight": 8
+        },
+        {
+          "from": "Digital Marketing",
+          "to": "SEM/PPC",
+          "type": "enables",
+          "weight": 8
+        },
+        {
+          "from": "Digital Marketing",
+          "to": "Social Media Marketing",
+          "type": "child",
+          "weight": 7
+        },
+        {
+          "from": "Digital Marketing",
+          "to": "Email Marketing",
+          "type": "child",
+          "weight": 7
+        },
+        {
+          "from": "Digital Marketing",
+          "to": "Content Marketing",
+          "type": "child",
+          "weight": 7
+        },
+        {
+          "from": "Marketing Analytics",
+          "to": "Google Analytics",
+          "type": "enables",
+          "weight": 8
+        },
+        {
+          "from": "Marketing Analytics",
+          "to": "A/B Testing",
+          "type": "enables",
+          "weight": 7
+        },
+        {
+          "from": "Lead Generation",
+          "to": "Sales Pipeline Management",
+          "type": "peer",
+          "weight": 8
+        },
+        {
+          "from": "CRM Management",
+          "to": "Sales Pipeline Management",
+          "type": "peer",
+          "weight": 7
+        },
+        {
+          "from": "Content Marketing",
+          "to": "SEO",
+          "type": "peer",
+          "weight": 7
+        }
+      ],
+      "occupations": [
+        {
+          "socCode": "41-3031.00",
+          "title": "Securities, Commodities, and Financial Services Sales Agents",
+          "description": "Buy and sell securities or commodities in investment firms.",
+          "skills": [
+            {
+              "name": "Sales Strategy",
+              "importance": 90,
+              "level": 5.5
+            },
+            {
+              "name": "CRM Software",
+              "importance": 80,
+              "level": 5
+            },
+            {
+              "name": "Negotiation",
+              "importance": 85,
+              "level": 5.5
+            },
+            {
+              "name": "Market Analysis",
+              "importance": 75,
+              "level": 4.5
+            }
+          ]
+        },
+        {
+          "socCode": "13-1161.00",
+          "title": "Market Research Analysts",
+          "description": "Research market conditions to examine potential sales of a product.",
+          "skills": [
+            {
+              "name": "Market Analysis",
+              "importance": 95,
+              "level": 6
+            },
+            {
+              "name": "SEO/SEM",
+              "importance": 60,
+              "level": 4
+            },
+            {
+              "name": "Social Media Marketing",
+              "importance": 55,
+              "level": 3.5
+            },
+            {
+              "name": "Content Marketing",
+              "importance": 60,
+              "level": 4
+            }
+          ]
+        },
+        {
+          "socCode": "41-4012.00",
+          "title": "Sales Representatives, Wholesale and Manufacturing",
+          "description": "Sell goods to businesses and other organizations.",
+          "skills": [
+            {
+              "name": "Sales Strategy",
+              "importance": 90,
+              "level": 5.5
+            },
+            {
+              "name": "CRM Software",
+              "importance": 85,
+              "level": 5
+            },
+            {
+              "name": "Negotiation",
+              "importance": 80,
+              "level": 5
+            },
+            {
+              "name": "Lead Generation",
+              "importance": 75,
+              "level": 4.5
+            }
+          ]
+        }
+      ]
+    },
+    "Construction and Extraction": {
+      "socPrefix": "47",
+      "nodes": [
+        {
+          "name": "Blueprint Reading",
+          "type": "domain"
+        },
+        {
+          "name": "Building Codes",
+          "type": "domain"
+        },
+        {
+          "name": "OSHA Safety",
+          "type": "domain"
+        },
+        {
+          "name": "Heavy Equipment Operation",
+          "type": "technical"
+        },
+        {
+          "name": "Welding",
+          "type": "technical"
+        },
+        {
+          "name": "Electrical Wiring",
+          "type": "technical"
+        },
+        {
+          "name": "Plumbing",
+          "type": "technical"
+        },
+        {
+          "name": "Concrete Work",
+          "type": "technical"
+        },
+        {
+          "name": "Project Estimation",
+          "type": "domain"
+        },
+        {
+          "name": "Surveying",
+          "type": "technical"
+        },
+        {
+          "name": "HVAC",
+          "type": "technical"
+        }
+      ],
+      "edges": [
+        {
+          "from": "Blueprint Reading",
+          "to": "Building Codes",
+          "type": "peer",
+          "weight": 8
+        },
+        {
+          "from": "Blueprint Reading",
+          "to": "Project Estimation",
+          "type": "enables",
+          "weight": 7
+        },
+        {
+          "from": "OSHA Safety",
+          "to": "Heavy Equipment Operation",
+          "type": "prerequisite",
+          "weight": 8
+        },
+        {
+          "from": "OSHA Safety",
+          "to": "Welding",
+          "type": "prerequisite",
+          "weight": 7
+        },
+        {
+          "from": "Electrical Wiring",
+          "to": "Building Codes",
+          "type": "peer",
+          "weight": 7
+        },
+        {
+          "from": "Plumbing",
+          "to": "Building Codes",
+          "type": "peer",
+          "weight": 7
+        },
+        {
+          "from": "HVAC",
+          "to": "Electrical Wiring",
+          "type": "peer",
+          "weight": 5
+        },
+        {
+          "from": "Surveying",
+          "to": "Blueprint Reading",
+          "type": "peer",
+          "weight": 6
+        },
+        {
+          "from": "Concrete Work",
+          "to": "Blueprint Reading",
+          "type": "peer",
+          "weight": 5
+        }
+      ],
+      "occupations": [
+        {
+          "socCode": "47-2061.00",
+          "title": "Construction Laborers",
+          "description": "Perform tasks involving physical labor at construction sites.",
+          "skills": [
+            {
+              "name": "Blueprint Reading",
+              "importance": 80,
+              "level": 5
+            },
+            {
+              "name": "OSHA Compliance",
+              "importance": 90,
+              "level": 5.5
+            },
+            {
+              "name": "Concrete Work",
+              "importance": 75,
+              "level": 4.5
+            }
+          ]
+        },
+        {
+          "socCode": "47-1011.00",
+          "title": "First-Line Supervisors of Construction Trades",
+          "description": "Directly supervise and coordinate construction workers.",
+          "skills": [
+            {
+              "name": "Blueprint Reading",
+              "importance": 90,
+              "level": 5.5
+            },
+            {
+              "name": "OSHA Compliance",
+              "importance": 95,
+              "level": 6
+            },
+            {
+              "name": "Project Scheduling",
+              "importance": 85,
+              "level": 5
+            },
+            {
+              "name": "Heavy Equipment Operation",
+              "importance": 60,
+              "level": 4
+            }
+          ]
+        },
+        {
+          "socCode": "47-2111.00",
+          "title": "Electricians",
+          "description": "Install, maintain, and repair electrical wiring and systems.",
+          "skills": [
+            {
+              "name": "Electrical Wiring",
+              "importance": 95,
+              "level": 6
+            },
+            {
+              "name": "Blueprint Reading",
+              "importance": 80,
+              "level": 5
+            },
+            {
+              "name": "OSHA Compliance",
+              "importance": 85,
+              "level": 5.5
+            }
+          ]
+        }
+      ]
+    },
+    "Life, Physical, and Social Science": {
+      "socPrefix": "19",
+      "nodes": [
+        {
+          "name": "Research Design",
+          "type": "domain"
+        },
+        {
+          "name": "Statistical Analysis",
+          "type": "domain"
+        },
+        {
+          "name": "R",
+          "type": "tool"
+        },
+        {
+          "name": "SPSS",
+          "type": "tool"
+        },
+        {
+          "name": "Python",
+          "type": "technical"
+        },
+        {
+          "name": "Laboratory Techniques",
+          "type": "domain"
+        },
+        {
+          "name": "Data Collection",
+          "type": "domain"
+        },
+        {
+          "name": "Scientific Writing",
+          "type": "domain"
+        },
+        {
+          "name": "Peer Review",
+          "type": "domain"
+        },
+        {
+          "name": "GIS",
+          "type": "technical"
+        },
+        {
+          "name": "Environmental Assessment",
+          "type": "domain"
+        },
+        {
+          "name": "Grant Writing",
+          "type": "domain"
+        }
+      ],
+      "edges": [
+        {
+          "from": "Research Design",
+          "to": "Data Collection",
+          "type": "enables",
+          "weight": 8
+        },
+        {
+          "from": "Research Design",
+          "to": "Statistical Analysis",
+          "type": "peer",
+          "weight": 8
+        },
+        {
+          "from": "Statistical Analysis",
+          "to": "R",
+          "type": "enables",
+          "weight": 8
+        },
+        {
+          "from": "Statistical Analysis",
+          "to": "SPSS",
+          "type": "enables",
+          "weight": 7
+        },
+        {
+          "from": "Statistical Analysis",
+          "to": "Python",
+          "type": "enables",
+          "weight": 6
+        },
+        {
+          "from": "Scientific Writing",
+          "to": "Peer Review",
+          "type": "peer",
+          "weight": 7
+        },
+        {
+          "from": "Scientific Writing",
+          "to": "Grant Writing",
+          "type": "peer",
+          "weight": 6
+        },
+        {
+          "from": "Data Collection",
+          "to": "Laboratory Techniques",
+          "type": "peer",
+          "weight": 7
+        },
+        {
+          "from": "GIS",
+          "to": "Environmental Assessment",
+          "type": "enables",
+          "weight": 7
+        }
+      ],
+      "occupations": [
+        {
+          "socCode": "19-2031.00",
+          "title": "Chemists",
+          "description": "Conduct qualitative and quantitative chemical analyses.",
+          "skills": [
+            {
+              "name": "Experimental Design",
+              "importance": 90,
+              "level": 5.5
+            },
+            {
+              "name": "Statistical Analysis",
+              "importance": 80,
+              "level": 5
+            },
+            {
+              "name": "Laboratory Techniques",
+              "importance": 85,
+              "level": 5.5
+            },
+            {
+              "name": "Technical Writing",
+              "importance": 70,
+              "level": 4
+            }
+          ]
+        },
+        {
+          "socCode": "19-4021.00",
+          "title": "Biological Technicians",
+          "description": "Assist biological and medical scientists.",
+          "skills": [
+            {
+              "name": "Laboratory Techniques",
+              "importance": 95,
+              "level": 6
+            },
+            {
+              "name": "Experimental Design",
+              "importance": 65,
+              "level": 4
+            },
+            {
+              "name": "Statistical Analysis",
+              "importance": 55,
+              "level": 3.5
+            }
+          ]
+        },
+        {
+          "socCode": "19-3011.00",
+          "title": "Economists",
+          "description": "Conduct research, prepare reports, formulate plans on economic issues.",
+          "skills": [
+            {
+              "name": "Statistical Analysis",
+              "importance": 90,
+              "level": 5.5
+            },
+            {
+              "name": "Research Methodology",
+              "importance": 85,
+              "level": 5
+            },
+            {
+              "name": "Technical Writing",
+              "importance": 80,
+              "level": 5
+            }
+          ]
+        }
+      ]
+    },
+    "Production and Manufacturing": {
+      "socPrefix": "51",
+      "nodes": [
+        {
+          "name": "CNC Machining",
+          "type": "technical"
+        },
+        {
+          "name": "Lean Manufacturing",
+          "type": "domain"
+        },
+        {
+          "name": "Six Sigma",
+          "type": "domain"
+        },
+        {
+          "name": "Quality Assurance",
+          "type": "domain"
+        },
+        {
+          "name": "ISO Standards",
+          "type": "domain"
+        },
+        {
+          "name": "PLC Programming",
+          "type": "technical"
+        },
+        {
+          "name": "Robotics",
+          "type": "domain"
+        },
+        {
+          "name": "Supply Chain",
+          "type": "domain"
+        },
+        {
+          "name": "Inventory Management",
+          "type": "domain"
+        },
+        {
+          "name": "GD&T",
+          "type": "technical"
+        },
+        {
+          "name": "Process Optimization",
+          "type": "domain"
+        },
+        {
+          "name": "Safety Protocols",
+          "type": "domain"
+        }
+      ],
+      "edges": [
+        {
+          "from": "Lean Manufacturing",
+          "to": "Six Sigma",
+          "type": "peer",
+          "weight": 8
+        },
+        {
+          "from": "Lean Manufacturing",
+          "to": "Process Optimization",
+          "type": "enables",
+          "weight": 8
+        },
+        {
+          "from": "Quality Assurance",
+          "to": "ISO Standards",
+          "type": "peer",
+          "weight": 8
+        },
+        {
+          "from": "Quality Assurance",
+          "to": "Six Sigma",
+          "type": "peer",
+          "weight": 7
+        },
+        {
+          "from": "CNC Machining",
+          "to": "GD&T",
+          "type": "prerequisite",
+          "weight": 7
+        },
+        {
+          "from": "PLC Programming",
+          "to": "Robotics",
+          "type": "enables",
+          "weight": 8
+        },
+        {
+          "from": "Supply Chain",
+          "to": "Inventory Management",
+          "type": "peer",
+          "weight": 8
+        },
+        {
+          "from": "Safety Protocols",
+          "to": "ISO Standards",
+          "type": "peer",
+          "weight": 6
+        },
+        {
+          "from": "GD&T",
+          "to": "Quality Assurance",
+          "type": "peer",
+          "weight": 6
+        }
+      ],
+      "occupations": [
+        {
+          "socCode": "51-1011.00",
+          "title": "First-Line Supervisors of Production and Operating Workers",
+          "description": "Supervise workers in production and operating environments.",
+          "skills": [
+            {
+              "name": "Process Optimization",
+              "importance": 85,
+              "level": 5
+            },
+            {
+              "name": "Quality Control",
+              "importance": 90,
+              "level": 5.5
+            },
+            {
+              "name": "Supply Chain Management",
+              "importance": 70,
+              "level": 4
+            },
+            {
+              "name": "OSHA Safety",
+              "importance": 85,
+              "level": 5
+            }
+          ]
+        },
+        {
+          "socCode": "51-4041.00",
+          "title": "Machinists",
+          "description": "Operate machine tools to produce precision metal parts.",
+          "skills": [
+            {
+              "name": "CNC Machining",
+              "importance": 95,
+              "level": 6
+            },
+            {
+              "name": "Blueprint Reading",
+              "importance": 85,
+              "level": 5
+            },
+            {
+              "name": "Quality Control",
+              "importance": 80,
+              "level": 5
+            }
+          ]
+        },
+        {
+          "socCode": "17-2112.00",
+          "title": "Industrial Engineers",
+          "description": "Design efficient systems integrating workers, machines, and energy.",
+          "skills": [
+            {
+              "name": "Process Optimization",
+              "importance": 95,
+              "level": 6
+            },
+            {
+              "name": "Lean Manufacturing",
+              "importance": 90,
+              "level": 5.5
+            },
+            {
+              "name": "Quality Control",
+              "importance": 80,
+              "level": 5
+            },
+            {
+              "name": "Supply Chain Management",
+              "importance": 65,
+              "level": 4
+            }
+          ]
+        }
+      ]
+    },
+    "Transportation and Logistics": {
+      "socPrefix": "53",
+      "nodes": [
+        {
+          "name": "Fleet Management",
+          "type": "domain"
+        },
+        {
+          "name": "Route Optimization",
+          "type": "domain"
+        },
+        {
+          "name": "DOT Regulations",
+          "type": "domain"
+        },
+        {
+          "name": "Warehouse Management",
+          "type": "domain"
+        },
+        {
+          "name": "Freight Brokerage",
+          "type": "domain"
+        },
+        {
+          "name": "CDL Operations",
+          "type": "technical"
+        },
+        {
+          "name": "Logistics Software",
+          "type": "tool"
+        },
+        {
+          "name": "GPS/Telematics",
+          "type": "tool"
+        },
+        {
+          "name": "Hazmat Handling",
+          "type": "domain"
+        }
+      ],
+      "edges": [
+        {
+          "from": "Fleet Management",
+          "to": "Route Optimization",
+          "type": "peer",
+          "weight": 8
+        },
+        {
+          "from": "Fleet Management",
+          "to": "GPS/Telematics",
+          "type": "enables",
+          "weight": 7
+        },
+        {
+          "from": "DOT Regulations",
+          "to": "CDL Operations",
+          "type": "prerequisite",
+          "weight": 8
+        },
+        {
+          "from": "DOT Regulations",
+          "to": "Hazmat Handling",
+          "type": "prerequisite",
+          "weight": 7
+        },
+        {
+          "from": "Warehouse Management",
+          "to": "Logistics Software",
+          "type": "enables",
+          "weight": 7
+        },
+        {
+          "from": "Freight Brokerage",
+          "to": "Route Optimization",
+          "type": "peer",
+          "weight": 6
+        }
+      ],
+      "occupations": [
+        {
+          "socCode": "13-1081.00",
+          "title": "Logisticians",
+          "description": "Analyze and coordinate logistics operations.",
+          "skills": [
+            {
+              "name": "Logistics Coordination",
+              "importance": 95,
+              "level": 6
+            },
+            {
+              "name": "Fleet Management",
+              "importance": 70,
+              "level": 4.5
+            },
+            {
+              "name": "Route Optimization",
+              "importance": 80,
+              "level": 5
+            },
+            {
+              "name": "Inventory Management",
+              "importance": 75,
+              "level": 4.5
+            }
+          ]
+        },
+        {
+          "socCode": "53-1048.00",
+          "title": "First-Line Supervisors of Transportation Workers",
+          "description": "Directly supervise transportation and vehicle operators.",
+          "skills": [
+            {
+              "name": "Fleet Management",
+              "importance": 90,
+              "level": 5.5
+            },
+            {
+              "name": "Logistics Coordination",
+              "importance": 75,
+              "level": 4.5
+            },
+            {
+              "name": "Route Optimization",
+              "importance": 70,
+              "level": 4
+            }
+          ]
+        }
+      ]
+    },
+    "Office and Administrative": {
+      "socPrefix": "43",
+      "nodes": [
+        {
+          "name": "Microsoft Office Suite",
+          "type": "tool"
+        },
+        {
+          "name": "Data Entry",
+          "type": "technical"
+        },
+        {
+          "name": "Scheduling",
+          "type": "domain"
+        },
+        {
+          "name": "Records Management",
+          "type": "domain"
+        },
+        {
+          "name": "Bookkeeping",
+          "type": "domain"
+        },
+        {
+          "name": "Customer Service",
+          "type": "domain"
+        },
+        {
+          "name": "Office Management",
+          "type": "domain"
+        },
+        {
+          "name": "Medical Billing",
+          "type": "domain"
+        },
+        {
+          "name": "Payroll Processing",
+          "type": "domain"
+        },
+        {
+          "name": "Typing/WPM",
+          "type": "technical"
+        }
+      ],
+      "edges": [
+        {
+          "from": "Microsoft Office Suite",
+          "to": "Data Entry",
+          "type": "enables",
+          "weight": 7
+        },
+        {
+          "from": "Microsoft Office Suite",
+          "to": "Scheduling",
+          "type": "enables",
+          "weight": 6
+        },
+        {
+          "from": "Data Entry",
+          "to": "Records Management",
+          "type": "peer",
+          "weight": 7
+        },
+        {
+          "from": "Bookkeeping",
+          "to": "Payroll Processing",
+          "type": "peer",
+          "weight": 7
+        },
+        {
+          "from": "Bookkeeping",
+          "to": "Medical Billing",
+          "type": "peer",
+          "weight": 5
+        },
+        {
+          "from": "Typing/WPM",
+          "to": "Data Entry",
+          "type": "prerequisite",
+          "weight": 8
+        },
+        {
+          "from": "Office Management",
+          "to": "Scheduling",
+          "type": "peer",
+          "weight": 7
+        },
+        {
+          "from": "Customer Service",
+          "to": "Office Management",
+          "type": "peer",
+          "weight": 5
+        }
+      ],
+      "occupations": [
+        {
+          "socCode": "43-6014.00",
+          "title": "Secretaries and Administrative Assistants",
+          "description": "Perform routine clerical and organizational tasks.",
+          "skills": [
+            {
+              "name": "Data Entry",
+              "importance": 85,
+              "level": 5
+            },
+            {
+              "name": "Calendar Management",
+              "importance": 90,
+              "level": 5.5
+            },
+            {
+              "name": "Office Software",
+              "importance": 90,
+              "level": 5.5
+            },
+            {
+              "name": "Filing & Records",
+              "importance": 80,
+              "level": 5
+            }
+          ]
+        },
+        {
+          "socCode": "43-1011.00",
+          "title": "First-Line Supervisors of Office Workers",
+          "description": "Directly supervise and coordinate clerical workers.",
+          "skills": [
+            {
+              "name": "Office Software",
+              "importance": 85,
+              "level": 5
+            },
+            {
+              "name": "Calendar Management",
+              "importance": 75,
+              "level": 4.5
+            },
+            {
+              "name": "Filing & Records",
+              "importance": 70,
+              "level": 4
+            },
+            {
+              "name": "Data Entry",
+              "importance": 60,
+              "level": 4
+            }
+          ]
+        },
+        {
+          "socCode": "43-3031.00",
+          "title": "Bookkeeping, Accounting, and Auditing Clerks",
+          "description": "Compute, classify, and record numerical data to keep financial records.",
+          "skills": [
+            {
+              "name": "Data Entry",
+              "importance": 90,
+              "level": 5.5
+            },
+            {
+              "name": "Office Software",
+              "importance": 80,
+              "level": 5
+            }
+          ]
+        }
+      ]
+    },
+    "Installation, Maintenance, Repair": {
+      "socPrefix": "49",
+      "nodes": [
+        {
+          "name": "Electrical Systems",
+          "type": "domain"
+        },
+        {
+          "name": "Mechanical Systems",
+          "type": "domain"
+        },
+        {
+          "name": "Preventive Maintenance",
+          "type": "domain"
+        },
+        {
+          "name": "Troubleshooting",
+          "type": "domain"
+        },
+        {
+          "name": "HVAC Systems",
+          "type": "domain"
+        },
+        {
+          "name": "Hydraulics",
+          "type": "domain"
+        },
+        {
+          "name": "Pneumatics",
+          "type": "domain"
+        },
+        {
+          "name": "Welding",
+          "type": "technical"
+        },
+        {
+          "name": "Industrial Controls",
+          "type": "domain"
+        },
+        {
+          "name": "Schematic Reading",
+          "type": "technical"
+        },
+        {
+          "name": "CMMS",
+          "type": "tool"
+        }
+      ],
+      "edges": [
+        {
+          "from": "Electrical Systems",
+          "to": "Industrial Controls",
+          "type": "enables",
+          "weight": 7
+        },
+        {
+          "from": "Mechanical Systems",
+          "to": "Hydraulics",
+          "type": "enables",
+          "weight": 7
+        },
+        {
+          "from": "Mechanical Systems",
+          "to": "Pneumatics",
+          "type": "enables",
+          "weight": 7
+        },
+        {
+          "from": "Preventive Maintenance",
+          "to": "CMMS",
+          "type": "enables",
+          "weight": 7
+        },
+        {
+          "from": "Troubleshooting",
+          "to": "Schematic Reading",
+          "type": "prerequisite",
+          "weight": 8
+        },
+        {
+          "from": "Schematic Reading",
+          "to": "Electrical Systems",
+          "type": "prerequisite",
+          "weight": 7
+        },
+        {
+          "from": "Troubleshooting",
+          "to": "Preventive Maintenance",
+          "type": "peer",
+          "weight": 7
+        },
+        {
+          "from": "HVAC Systems",
+          "to": "Electrical Systems",
+          "type": "peer",
+          "weight": 6
+        },
+        {
+          "from": "HVAC Systems",
+          "to": "Mechanical Systems",
+          "type": "peer",
+          "weight": 6
+        }
+      ],
+      "occupations": [
+        {
+          "socCode": "49-9071.00",
+          "title": "Maintenance and Repair Workers, General",
+          "description": "Perform general maintenance work on machines, equipment, structures.",
+          "skills": [
+            {
+              "name": "Electrical Systems",
+              "importance": 80,
+              "level": 5
+            },
+            {
+              "name": "Mechanical Systems",
+              "importance": 85,
+              "level": 5
+            },
+            {
+              "name": "Plumbing",
+              "importance": 70,
+              "level": 4
+            },
+            {
+              "name": "HVAC",
+              "importance": 65,
+              "level": 4
+            }
+          ]
+        },
+        {
+          "socCode": "49-1011.00",
+          "title": "First-Line Supervisors of Mechanics, Installers, Repairers",
+          "description": "Supervise maintenance and repair teams.",
+          "skills": [
+            {
+              "name": "Electrical Systems",
+              "importance": 75,
+              "level": 4.5
+            },
+            {
+              "name": "Mechanical Systems",
+              "importance": 80,
+              "level": 5
+            },
+            {
+              "name": "Welding",
+              "importance": 55,
+              "level": 3.5
+            },
+            {
+              "name": "Diagnostics",
+              "importance": 85,
+              "level": 5
+            }
+          ]
+        },
+        {
+          "socCode": "49-9021.00",
+          "title": "Heating, AC, and Refrigeration Mechanics",
+          "description": "Install or repair heating, AC, and refrigeration systems.",
+          "skills": [
+            {
+              "name": "HVAC",
+              "importance": 95,
+              "level": 6
+            },
+            {
+              "name": "Electrical Systems",
+              "importance": 80,
+              "level": 5
+            },
+            {
+              "name": "Diagnostics",
+              "importance": 85,
+              "level": 5.5
+            }
+          ]
+        }
+      ]
+    },
+    "Food Preparation and Serving": {
+      "socPrefix": "35",
+      "nodes": [
+        {
+          "name": "Food Safety/ServSafe",
+          "type": "domain"
+        },
+        {
+          "name": "Culinary Techniques",
+          "type": "domain"
+        },
+        {
+          "name": "Menu Planning",
+          "type": "domain"
+        },
+        {
+          "name": "Inventory Control",
+          "type": "domain"
+        },
+        {
+          "name": "Cost Control",
+          "type": "domain"
+        },
+        {
+          "name": "POS Systems",
+          "type": "tool"
+        },
+        {
+          "name": "Kitchen Management",
+          "type": "domain"
+        },
+        {
+          "name": "Baking/Pastry",
+          "type": "technical"
+        }
+      ],
+      "edges": [
+        {
+          "from": "Food Safety/ServSafe",
+          "to": "Kitchen Management",
+          "type": "prerequisite",
+          "weight": 9
+        },
+        {
+          "from": "Culinary Techniques",
+          "to": "Menu Planning",
+          "type": "enables",
+          "weight": 7
+        },
+        {
+          "from": "Culinary Techniques",
+          "to": "Baking/Pastry",
+          "type": "peer",
+          "weight": 5
+        },
+        {
+          "from": "Menu Planning",
+          "to": "Cost Control",
+          "type": "peer",
+          "weight": 7
+        },
+        {
+          "from": "Inventory Control",
+          "to": "Cost Control",
+          "type": "peer",
+          "weight": 8
+        },
+        {
+          "from": "POS Systems",
+          "to": "Cost Control",
+          "type": "enables",
+          "weight": 5
+        }
+      ],
+      "occupations": [
+        {
+          "socCode": "35-1012.00",
+          "title": "First-Line Supervisors of Food Preparation Workers",
+          "description": "Supervise workers engaged in food preparation and serving.",
+          "skills": [
+            {
+              "name": "Food Safety (ServSafe)",
+              "importance": 95,
+              "level": 6
+            },
+            {
+              "name": "Menu Planning",
+              "importance": 80,
+              "level": 5
+            },
+            {
+              "name": "Inventory Control",
+              "importance": 75,
+              "level": 4.5
+            },
+            {
+              "name": "Cost Control",
+              "importance": 70,
+              "level": 4
+            }
+          ]
+        },
+        {
+          "socCode": "35-2014.00",
+          "title": "Cooks, Restaurant",
+          "description": "Prepare, season, and cook dishes in a restaurant.",
+          "skills": [
+            {
+              "name": "Culinary Techniques",
+              "importance": 95,
+              "level": 6
+            },
+            {
+              "name": "Food Safety (ServSafe)",
+              "importance": 90,
+              "level": 5.5
+            },
+            {
+              "name": "Menu Planning",
+              "importance": 55,
+              "level": 3.5
+            }
+          ]
+        }
+      ]
+    },
+    "Community and Social Service": {
+      "socPrefix": "21",
+      "nodes": [
+        {
+          "name": "Case Management",
+          "type": "domain"
+        },
+        {
+          "name": "Crisis Intervention",
+          "type": "domain"
+        },
+        {
+          "name": "Counseling Techniques",
+          "type": "domain"
+        },
+        {
+          "name": "Program Development",
+          "type": "domain"
+        },
+        {
+          "name": "Grant Writing",
+          "type": "domain"
+        },
+        {
+          "name": "Assessment Tools",
+          "type": "domain"
+        },
+        {
+          "name": "Community Outreach",
+          "type": "domain"
+        },
+        {
+          "name": "Cultural Competency",
+          "type": "domain"
+        },
+        {
+          "name": "Motivational Interviewing",
+          "type": "domain"
+        }
+      ],
+      "edges": [
+        {
+          "from": "Case Management",
+          "to": "Assessment Tools",
+          "type": "peer",
+          "weight": 8
+        },
+        {
+          "from": "Crisis Intervention",
+          "to": "Counseling Techniques",
+          "type": "peer",
+          "weight": 8
+        },
+        {
+          "from": "Counseling Techniques",
+          "to": "Motivational Interviewing",
+          "type": "enables",
+          "weight": 7
+        },
+        {
+          "from": "Program Development",
+          "to": "Grant Writing",
+          "type": "peer",
+          "weight": 7
+        },
+        {
+          "from": "Community Outreach",
+          "to": "Cultural Competency",
+          "type": "peer",
+          "weight": 7
+        },
+        {
+          "from": "Case Management",
+          "to": "Community Outreach",
+          "type": "peer",
+          "weight": 6
+        }
+      ],
+      "occupations": [
+        {
+          "socCode": "21-1021.00",
+          "title": "Child, Family, and School Social Workers",
+          "description": "Provide social services for children, families, and schools.",
+          "skills": [
+            {
+              "name": "Case Management",
+              "importance": 95,
+              "level": 6
+            },
+            {
+              "name": "Crisis Intervention",
+              "importance": 85,
+              "level": 5
+            },
+            {
+              "name": "Cultural Competency",
+              "importance": 80,
+              "level": 5
+            },
+            {
+              "name": "Counseling Skills",
+              "importance": 90,
+              "level": 5.5
+            }
+          ]
+        },
+        {
+          "socCode": "21-1093.00",
+          "title": "Social and Human Service Assistants",
+          "description": "Assist social service professionals.",
+          "skills": [
+            {
+              "name": "Case Management",
+              "importance": 80,
+              "level": 5
+            },
+            {
+              "name": "Cultural Competency",
+              "importance": 75,
+              "level": 4.5
+            },
+            {
+              "name": "Crisis Intervention",
+              "importance": 65,
+              "level": 4
+            }
+          ]
+        }
+      ]
+    },
+    "Protective Service": {
+      "socPrefix": "33",
+      "nodes": [
+        {
+          "name": "Criminal Justice",
+          "type": "domain"
+        },
+        {
+          "name": "Emergency Response",
+          "type": "domain"
+        },
+        {
+          "name": "Surveillance Systems",
+          "type": "domain"
+        },
+        {
+          "name": "Report Writing",
+          "type": "domain"
+        },
+        {
+          "name": "Firearms Proficiency",
+          "type": "technical"
+        },
+        {
+          "name": "First Aid/EMT",
+          "type": "technical"
+        },
+        {
+          "name": "Physical Security",
+          "type": "domain"
+        },
+        {
+          "name": "Fire Suppression",
+          "type": "domain"
+        },
+        {
+          "name": "Access Control Systems",
+          "type": "tool"
+        }
+      ],
+      "edges": [
+        {
+          "from": "Criminal Justice",
+          "to": "Report Writing",
+          "type": "peer",
+          "weight": 7
+        },
+        {
+          "from": "Emergency Response",
+          "to": "First Aid/EMT",
+          "type": "peer",
+          "weight": 8
+        },
+        {
+          "from": "Emergency Response",
+          "to": "Fire Suppression",
+          "type": "peer",
+          "weight": 7
+        },
+        {
+          "from": "Physical Security",
+          "to": "Surveillance Systems",
+          "type": "peer",
+          "weight": 7
+        },
+        {
+          "from": "Physical Security",
+          "to": "Access Control Systems",
+          "type": "enables",
+          "weight": 7
+        },
+        {
+          "from": "Criminal Justice",
+          "to": "Firearms Proficiency",
+          "type": "enables",
+          "weight": 5
+        }
+      ],
+      "occupations": [
+        {
+          "socCode": "33-3051.00",
+          "title": "Police and Sheriff Patrol Officers",
+          "description": "Maintain order, enforce laws, protect life and property.",
+          "skills": [
+            {
+              "name": "Criminal Law",
+              "importance": 90,
+              "level": 5.5
+            },
+            {
+              "name": "Emergency Response",
+              "importance": 85,
+              "level": 5
+            },
+            {
+              "name": "Firearms Proficiency",
+              "importance": 80,
+              "level": 5
+            },
+            {
+              "name": "Report Writing",
+              "importance": 75,
+              "level": 4.5
+            }
+          ]
+        },
+        {
+          "socCode": "33-2011.00",
+          "title": "Firefighters",
+          "description": "Control and extinguish fires, respond to emergency situations.",
+          "skills": [
+            {
+              "name": "Emergency Response",
+              "importance": 95,
+              "level": 6
+            },
+            {
+              "name": "Hazardous Materials",
+              "importance": 80,
+              "level": 5
+            },
+            {
+              "name": "Physical Fitness Standards",
+              "importance": 90,
+              "level": 5.5
+            }
+          ]
+        }
+      ]
+    },
+    "Healthcare Support": {
+      "socPrefix": "31",
+      "nodes": [
+        {
+          "name": "Vital Signs Monitoring",
+          "type": "technical"
+        },
+        {
+          "name": "Patient Mobility Assistance",
+          "type": "technical"
+        },
+        {
+          "name": "Medical Terminology",
+          "type": "domain"
+        },
+        {
+          "name": "Phlebotomy",
+          "type": "technical"
+        },
+        {
+          "name": "EHR Documentation",
+          "type": "technical"
+        },
+        {
+          "name": "Infection Control",
+          "type": "domain"
+        },
+        {
+          "name": "Physical Therapy Assistance",
+          "type": "domain"
+        },
+        {
+          "name": "Dental Assistance",
+          "type": "domain"
+        }
+      ],
+      "edges": [
+        {
+          "from": "Medical Terminology",
+          "to": "EHR Documentation",
+          "type": "prerequisite",
+          "weight": 8
+        },
+        {
+          "from": "Vital Signs Monitoring",
+          "to": "Patient Mobility Assistance",
+          "type": "peer",
+          "weight": 6
+        },
+        {
+          "from": "Infection Control",
+          "to": "Phlebotomy",
+          "type": "prerequisite",
+          "weight": 8
+        },
+        {
+          "from": "Phlebotomy",
+          "to": "Vital Signs Monitoring",
+          "type": "peer",
+          "weight": 5
+        },
+        {
+          "from": "Patient Mobility Assistance",
+          "to": "Physical Therapy Assistance",
+          "type": "peer",
+          "weight": 7
+        }
+      ],
+      "occupations": [
+        {
+          "socCode": "31-1120.00",
+          "title": "Home Health and Personal Care Aides",
+          "description": "Provide routine personal healthcare in patient homes.",
+          "skills": [
+            {
+              "name": "Patient Care",
+              "importance": 95,
+              "level": 6
+            },
+            {
+              "name": "Vital Signs Monitoring",
+              "importance": 85,
+              "level": 5
+            },
+            {
+              "name": "Mobility Assistance",
+              "importance": 80,
+              "level": 5
+            }
+          ]
+        },
+        {
+          "socCode": "31-9092.00",
+          "title": "Medical Assistants",
+          "description": "Perform clinical and administrative tasks in medical offices.",
+          "skills": [
+            {
+              "name": "Patient Care",
+              "importance": 90,
+              "level": 5.5
+            },
+            {
+              "name": "Vital Signs Monitoring",
+              "importance": 85,
+              "level": 5
+            },
+            {
+              "name": "Medical Billing",
+              "importance": 70,
+              "level": 4
+            },
+            {
+              "name": "Electronic Health Records",
+              "importance": 80,
+              "level": 5
+            }
+          ]
+        }
+      ]
+    },
+    "Farming, Fishing, Forestry": {
+      "socPrefix": "45",
+      "nodes": [
+        {
+          "name": "Crop Management",
+          "type": "domain"
+        },
+        {
+          "name": "Irrigation Systems",
+          "type": "domain"
+        },
+        {
+          "name": "Pest Management",
+          "type": "domain"
+        },
+        {
+          "name": "Soil Science",
+          "type": "domain"
+        },
+        {
+          "name": "Agricultural Equipment",
+          "type": "technical"
+        },
+        {
+          "name": "GPS/Precision Agriculture",
+          "type": "technical"
+        },
+        {
+          "name": "Forestry Management",
+          "type": "domain"
+        },
+        {
+          "name": "Animal Husbandry",
+          "type": "domain"
+        }
+      ],
+      "edges": [
+        {
+          "from": "Soil Science",
+          "to": "Crop Management",
+          "type": "prerequisite",
+          "weight": 8
+        },
+        {
+          "from": "Crop Management",
+          "to": "Irrigation Systems",
+          "type": "peer",
+          "weight": 7
+        },
+        {
+          "from": "Crop Management",
+          "to": "Pest Management",
+          "type": "peer",
+          "weight": 7
+        },
+        {
+          "from": "Agricultural Equipment",
+          "to": "GPS/Precision Agriculture",
+          "type": "enables",
+          "weight": 7
+        },
+        {
+          "from": "GPS/Precision Agriculture",
+          "to": "Crop Management",
+          "type": "enables",
+          "weight": 6
+        }
+      ],
+      "occupations": [
+        {
+          "socCode": "45-2093.00",
+          "title": "Farmworkers, Farm, Ranch, and Aquacultural Animals",
+          "description": "Attend to farm, ranch, or aquacultural animals.",
+          "skills": [
+            {
+              "name": "Crop Management",
+              "importance": 75,
+              "level": 4.5
+            },
+            {
+              "name": "Equipment Operation",
+              "importance": 80,
+              "level": 5
+            },
+            {
+              "name": "Irrigation Systems",
+              "importance": 70,
+              "level": 4
+            }
+          ]
+        },
+        {
+          "socCode": "45-1011.00",
+          "title": "First-Line Supervisors of Farming Workers",
+          "description": "Directly supervise and coordinate farming workers.",
+          "skills": [
+            {
+              "name": "Crop Management",
+              "importance": 90,
+              "level": 5.5
+            },
+            {
+              "name": "Equipment Operation",
+              "importance": 85,
+              "level": 5
+            },
+            {
+              "name": "Irrigation Systems",
+              "importance": 80,
+              "level": 5
+            },
+            {
+              "name": "Soil Science",
+              "importance": 70,
+              "level": 4
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

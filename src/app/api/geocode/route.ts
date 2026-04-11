@@ -2,6 +2,35 @@ import { NextRequest, NextResponse } from "next/server";
 import { getUserId } from "@/lib/auth-utils";
 import { cached, TTL } from "@/lib/cache";
 
+const GOOGLE_KEY = process.env.GOOGLE_MAPS_API_KEY ?? "";
+
+/**
+ * GET /api/geocode?address=123+Main+St
+ * Single-address forward geocode via Google Geocoding API (server-side key).
+ */
+export async function GET(req: NextRequest) {
+  const userId = await getUserId();
+  if (!userId)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  if (!GOOGLE_KEY)
+    return NextResponse.json({ error: "Google Maps API key not configured" }, { status: 503 });
+
+  const address = req.nextUrl.searchParams.get("address");
+  if (!address)
+    return NextResponse.json({ error: "address is required" }, { status: 400 });
+
+  const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GOOGLE_KEY}`;
+  const res = await fetch(url);
+  const data = await res.json();
+
+  const loc = data.results?.[0]?.geometry?.location;
+  if (!loc)
+    return NextResponse.json({ lat: null, lng: null });
+
+  return NextResponse.json({ lat: loc.lat, lng: loc.lng });
+}
+
 /**
  * Batch geocode location strings → lat/lng via Nominatim (free, no key).
  * POST { locations: ["Philadelphia, PA", "Trenton, NJ"] }

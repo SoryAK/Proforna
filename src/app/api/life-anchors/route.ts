@@ -22,7 +22,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await request.json();
-  const { label, icon, address, lat, lng, weight, sortOrder } = body;
+  const { label, icon, address, lat, lng, weight, sortOrder, placeId } = body;
 
   if (!label || !address || lat == null || lng == null) {
     return NextResponse.json(
@@ -39,6 +39,7 @@ export async function POST(request: Request) {
       address,
       lat: Number(lat),
       lng: Number(lng),
+      placeId: placeId ? String(placeId) : null,
       weight: Math.max(1, Math.min(5, Number(weight) || 3)),
       sortOrder: sortOrder ?? 0,
     },

@@ -63,6 +63,23 @@ interface WorkHistoryMarker {
   title: string | null;
 }
 
+interface WorkHistorySubLocation {
+  id: string;
+  parentId: string;
+  lat: number;
+  lng: number;
+  label: string;
+  type: string;
+  parentLat: number;
+  parentLng: number;
+}
+
+interface BuildingFootprint {
+  coords: { lat: number; lng: number }[];
+  color: string;
+  opacity?: number;
+}
+
 interface SweetSpotZone {
   center: [number, number];
   radiusMeters: number;
@@ -128,6 +145,13 @@ interface Props {
   amenityLoading?: Set<string>;
   onToggleAmenity?: (catKey: string) => void;
   workHistoryMarkers?: WorkHistoryMarker[];
+  workHistorySubLocations?: WorkHistorySubLocation[];
+  showCareerPath?: boolean;
+  onSelectWorkHistory?: (marker: WorkHistoryMarker | WorkHistorySubLocation) => void;
+  buildingFootprints?: BuildingFootprint[];
+  pinDropMode?: boolean;
+  onMapClick?: (coords: { lat: number; lng: number; placeId?: string }) => void;
+  companyLocationMarkers?: { placeId: string; name: string; address: string; lat: number; lng: number }[];
 }
 
 /* ── Helpers ── */
@@ -234,6 +258,13 @@ export default function JobMapGoogle({
   amenityLoading: amenityLoadingProp,
   onToggleAmenity,
   workHistoryMarkers = [],
+  workHistorySubLocations = [],
+  showCareerPath = false,
+  onSelectWorkHistory,
+  buildingFootprints = [],
+  pinDropMode = false,
+  onMapClick,
+  companyLocationMarkers = [],
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
@@ -242,6 +273,10 @@ export default function JobMapGoogle({
   const jobMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
   const anchorMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
   const workHistoryMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
+  const workHistoryPathRef = useRef<google.maps.Polyline | null>(null);
+  const subLocationMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
+  const subLocationLinesRef = useRef<google.maps.Polyline[]>([]);
+  const buildingPolygonsRef = useRef<google.maps.Polygon[]>([]);
   const officeMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
   const sweetSpotMarkerRef = useRef<google.maps.marker.AdvancedMarkerElement | null>(null);
   const youAreHereMarkerRef = useRef<google.maps.marker.AdvancedMarkerElement | null>(null);
@@ -249,6 +284,7 @@ export default function JobMapGoogle({
   const sweetSpotCircleRef = useRef<google.maps.Circle | null>(null);
   const officeCircleRef = useRef<google.maps.Circle | null>(null);
   const amenityMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
+  const companyLocMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
   const amenityCircleRef = useRef<google.maps.Circle | null>(null);
   const isochronePolysRef = useRef<google.maps.Polygon[]>([]);
   const jobLookupRef = useRef<Map<google.maps.marker.AdvancedMarkerElement, MapJob>>(new Map());
@@ -286,6 +322,12 @@ export default function JobMapGoogle({
   onToggleAnchorRef.current = onToggleAnchor;
   const onToggleAmenityRef = useRef(onToggleAmenity);
   onToggleAmenityRef.current = onToggleAmenity;
+  const onSelectWorkHistoryRef = useRef(onSelectWorkHistory);
+  onSelectWorkHistoryRef.current = onSelectWorkHistory;
+  const onMapClickRef = useRef(onMapClick);
+  onMapClickRef.current = onMapClick;
+  const pinDropModeRef = useRef(pinDropMode);
+  pinDropModeRef.current = pinDropMode;
   const amenityCatsRef = useRef(amenityCategories);
   amenityCatsRef.current = amenityCategories;
   const activeAmenitiesRef = useRef(activeAmenitiesProp);
@@ -331,6 +373,14 @@ export default function JobMapGoogle({
           setHasPanned(dist > 25);
           userDragRef.current = false;
         }
+      });
+
+      // Pin-drop / claim mode: click on map → fire onMapClick (with placeId if a POI was clicked)
+      map.addListener("click", (e: google.maps.MapMouseEvent & { placeId?: string }) => {
+        if (!pinDropModeRef.current || !e.latLng) return;
+        onMapClickRef.current?.({ lat: e.latLng.lat(), lng: e.latLng.lng(), placeId: e.placeId ?? undefined });
+        // Prevent default info window for POI clicks
+        if (e.placeId) (e as any).stop?.();
       });
 
       setReady(true);
@@ -936,7 +986,7 @@ export default function JobMapGoogle({
 
     workHistoryMarkers.forEach((w) => {
       const el = document.createElement("div");
-      el.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:#6b7280;border:2px solid #d1d5db;box-shadow:0 1px 4px rgba(0,0,0,0.2);font-size:14px;line-height:1;opacity:0.85;cursor:default;" title="${w.label}${w.title ? ' - ' + w.title : ''} (past workplace)">💼</div>`;
+      el.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:#6b7280;border:2px solid #d1d5db;box-shadow:0 1px 4px rgba(0,0,0,0.2);font-size:14px;line-height:1;opacity:0.85;cursor:pointer;transition:transform 0.15s;" title="${escapeHtml(w.label)}${w.title ? ' - ' + escapeHtml(w.title) : ''}">💼</div>`;
 
       const marker = new google.maps.marker.AdvancedMarkerElement({
         position: { lat: w.lat, lng: w.lng },
@@ -944,9 +994,169 @@ export default function JobMapGoogle({
         content: el,
         zIndex: 1800,
       });
+
+      // Hover → InfoWindow with company + title
+      const titleStr = w.title ? `<div style="color:#6b7280;margin-top:1px">${escapeHtml(w.title)}</div>` : "";
+      const infoContent = `<div style="font-size:11px;max-width:200px;line-height:1.4;padding:2px 0">
+        <div style="font-weight:700;font-size:12px;color:#111">💼 ${escapeHtml(w.label)}</div>
+        ${titleStr}
+        <div style="color:#9ca3af;margin-top:2px;font-size:10px">Past workplace • Click to focus</div>
+      </div>`;
+
+      el.addEventListener("mouseenter", () => {
+        const info = infoRef.current;
+        if (info && mapRef.current) {
+          info.setContent(infoContent);
+          info.open({ map: mapRef.current, anchor: marker });
+        }
+        (el.firstElementChild as HTMLElement).style.transform = "scale(1.2)";
+      });
+      el.addEventListener("mouseleave", () => {
+        infoRef.current?.close();
+        (el.firstElementChild as HTMLElement).style.transform = "scale(1)";
+      });
+
+      // Click → zoom/pan to marker
+      marker.addListener("click", () => {
+        const map = mapRef.current;
+        if (map) {
+          map.panTo({ lat: w.lat, lng: w.lng });
+          const z = map.getZoom() ?? 10;
+          if (z < 15) map.setZoom(15);
+        }
+        onSelectWorkHistoryRef.current?.(w);
+      });
+
       workHistoryMarkersRef.current.push(marker);
     });
-  }, [workHistoryMarkers, ready]);
+
+    // Draw career path polyline connecting markers in order
+    workHistoryPathRef.current?.setMap(null);
+    workHistoryPathRef.current = null;
+    if (showCareerPath && workHistoryMarkers.length >= 2) {
+      // Only draw lines between different companies — skip consecutive same-company markers
+      const deduped: { lat: number; lng: number }[] = [];
+      let prevLabel = "";
+      for (const w of workHistoryMarkers) {
+        if (w.label !== prevLabel) {
+          deduped.push({ lat: w.lat, lng: w.lng });
+          prevLabel = w.label;
+        }
+      }
+      if (deduped.length >= 2) {
+      workHistoryPathRef.current = new google.maps.Polyline({
+        path: deduped,
+        strokeColor: "#6b7280",
+        strokeOpacity: 0.5,
+        strokeWeight: 2,
+        geodesic: true,
+        icons: [{ icon: { path: "M 0,-1 0,1", strokeOpacity: 0.6, scale: 3 }, offset: "0", repeat: "12px" }],
+        map: mapRef.current,
+      });
+      }
+    }
+  }, [workHistoryMarkers, showCareerPath, ready]);
+
+  /* ── Work History sub-location markers (smaller pins + dashed lines to parent) ── */
+  useEffect(() => {
+    subLocationMarkersRef.current.forEach((m) => (m.map = null));
+    subLocationMarkersRef.current = [];
+    subLocationLinesRef.current.forEach((l) => l.setMap(null));
+    subLocationLinesRef.current = [];
+    if (!mapRef.current || workHistorySubLocations.length === 0) return;
+
+    const typeEmoji: Record<string, string> = {
+      "daily-workplace": "🏢",
+      "main-office": "🏛️",
+      "satellite": "📡",
+      "remote": "🏠",
+      "client-site": "👤",
+    };
+
+    workHistorySubLocations.forEach((loc) => {
+      const emoji = typeEmoji[loc.type] ?? "📍";
+      const el = document.createElement("div");
+      el.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:#9ca3af;border:2px solid #e5e7eb;box-shadow:0 1px 3px rgba(0,0,0,0.15);font-size:11px;line-height:1;opacity:0.8;cursor:pointer;transition:transform 0.15s;" title="${escapeHtml(loc.label)} (${loc.type})">${emoji}</div>`;
+
+      const marker = new google.maps.marker.AdvancedMarkerElement({
+        position: { lat: loc.lat, lng: loc.lng },
+        map: mapRef.current,
+        content: el,
+        zIndex: 1750,
+      });
+
+      // Hover → InfoWindow with location info
+      const typeLabel = loc.type.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+      const infoContent = `<div style="font-size:11px;max-width:200px;line-height:1.4;padding:2px 0">
+        <div style="font-weight:700;font-size:12px;color:#111">${emoji} ${escapeHtml(loc.label)}</div>
+        <div style="color:#6b7280;margin-top:1px">${typeLabel}</div>
+        <div style="color:#9ca3af;margin-top:2px;font-size:10px">Sub-location • Click to focus</div>
+      </div>`;
+
+      el.addEventListener("mouseenter", () => {
+        const info = infoRef.current;
+        if (info && mapRef.current) {
+          info.setContent(infoContent);
+          info.open({ map: mapRef.current, anchor: marker });
+        }
+        (el.firstElementChild as HTMLElement).style.transform = "scale(1.2)";
+      });
+      el.addEventListener("mouseleave", () => {
+        infoRef.current?.close();
+        (el.firstElementChild as HTMLElement).style.transform = "scale(1)";
+      });
+
+      // Click → zoom/pan
+      marker.addListener("click", () => {
+        const map = mapRef.current;
+        if (map) {
+          map.panTo({ lat: loc.lat, lng: loc.lng });
+          const z = map.getZoom() ?? 10;
+          if (z < 16) map.setZoom(16);
+        }
+        onSelectWorkHistoryRef.current?.(loc);
+      });
+
+      subLocationMarkersRef.current.push(marker);
+
+      // Dashed line from sub-location to parent job marker
+      const line = new google.maps.Polyline({
+        path: [
+          { lat: loc.parentLat, lng: loc.parentLng },
+          { lat: loc.lat, lng: loc.lng },
+        ],
+        strokeColor: "#9ca3af",
+        strokeOpacity: 0,
+        strokeWeight: 1,
+        icons: [{ icon: { path: "M 0,-1 0,1", strokeOpacity: 0.4, scale: 2 }, offset: "0", repeat: "8px" }],
+        map: mapRef.current,
+      });
+      subLocationLinesRef.current.push(line);
+    });
+  }, [workHistorySubLocations, ready]);
+
+  /* ── Building footprint polygons ── */
+  useEffect(() => {
+    buildingPolygonsRef.current.forEach((p) => p.setMap(null));
+    buildingPolygonsRef.current = [];
+    if (!mapRef.current || buildingFootprints.length === 0) return;
+
+    const map = mapRef.current;
+    buildingFootprints.forEach((fp) => {
+      if (fp.coords.length < 3) return;
+      const poly = new google.maps.Polygon({
+        paths: fp.coords,
+        fillColor: fp.color,
+        fillOpacity: fp.opacity ?? 0.35,
+        strokeColor: fp.color,
+        strokeOpacity: 0.8,
+        strokeWeight: 2,
+        map,
+        zIndex: 500,
+      });
+      buildingPolygonsRef.current.push(poly);
+    });
+  }, [buildingFootprints, ready]);
 
   /* ── Office location markers ── */
   useEffect(() => {
@@ -1038,6 +1248,45 @@ export default function JobMapGoogle({
     return () => { amenityMarkersRef.current.forEach((m) => (m.map = null)); amenityMarkersRef.current = []; };
   }, [amenityPins, ready]);
 
+  /* ── Company location markers (job search discovery) ── */
+  useEffect(() => {
+    companyLocMarkersRef.current.forEach((m) => (m.map = null));
+    companyLocMarkersRef.current = [];
+    if (!mapRef.current || companyLocationMarkers.length === 0) return;
+
+    companyLocationMarkers.forEach((loc) => {
+      const el = document.createElement("div");
+      const wrapper = document.createElement("div");
+      Object.assign(wrapper.style, {
+        display: "flex", alignItems: "center", justifyContent: "center",
+        width: "22px", height: "22px", borderRadius: "50%",
+        background: "#6366f1", border: "2px solid #fff",
+        boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
+        fontSize: "11px", lineHeight: "1", cursor: "pointer",
+      });
+      wrapper.title = `${loc.name}\n${loc.address}`;
+      wrapper.textContent = "🏢";
+      el.appendChild(wrapper);
+
+      const marker = new google.maps.marker.AdvancedMarkerElement({
+        position: { lat: loc.lat, lng: loc.lng },
+        map: mapRef.current,
+        content: el,
+        zIndex: 950,
+      });
+
+      marker.addListener("gmp-click", () => {
+        if (infoRef.current && mapRef.current) {
+          infoRef.current.setContent(`<div style="max-width:200px"><strong style="font-size:12px">${loc.name}</strong><p style="font-size:11px;color:#666;margin:2px 0 0">${loc.address}</p></div>`);
+          infoRef.current.open({ map: mapRef.current, anchor: marker });
+        }
+      });
+
+      companyLocMarkersRef.current.push(marker);
+    });
+    return () => { companyLocMarkersRef.current.forEach((m) => (m.map = null)); companyLocMarkersRef.current = []; };
+  }, [companyLocationMarkers, ready]);
+
   /* ── Reset panned on new search ── */
   useEffect(() => { setHasPanned(false); }, [searchCenter]);
 
@@ -1073,7 +1322,7 @@ export default function JobMapGoogle({
 
   return (
     <div className="relative h-full w-full">
-      <div ref={containerRef} className="h-full w-full" />
+      <div ref={containerRef} className="h-full w-full" style={pinDropMode ? { cursor: "crosshair" } : undefined} />
 
       {/* Pulse animation for "you are here" */}
       <style>{`@keyframes gmPulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(2.2);opacity:0}}`}</style>
