@@ -45,3 +45,8 @@ next-env.d.ts
 # Prisma
 *.db
 *.db-journal
+
+# Source floor plan images (privacy)
+BC_Building_Plan.jpg
+public/uploads/floorplans/*.jpg
+public/uploads/floorplans/*.png

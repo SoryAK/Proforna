@@ -25,6 +25,7 @@ import {
   Shield,
   Megaphone,
   Network,
+  Map,
   ChevronDown,
   LogOut,
 } from "lucide-react";
@@ -50,6 +51,7 @@ const iconMap: Record<string, React.ElementType> = {
   Shield,
   Megaphone,
   Network,
+  Map,
   Globe,
 };
 

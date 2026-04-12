@@ -17,6 +17,7 @@ import {
   BarChart3,
   BookOpen,
   FolderOpen,
+  Map,
 } from "lucide-react";
 import {
   CommandDialog,
@@ -37,6 +38,7 @@ const NAV_PAGES = [
   { label: "Insights", href: "/insights", icon: BarChart3 },
   { label: "Research", href: "/research", icon: BookOpen },
   { label: "Documents", href: "/docs", icon: FolderOpen },
+  { label: "Indoor Map", href: "/indoor-map", icon: Map },
   { label: "Portal Settings", href: "/portal-settings", icon: Globe },
 ];
 
