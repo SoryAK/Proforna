@@ -66,6 +66,8 @@ model User {
   scaffoldMeta        ScaffoldMeta[]
   occupations         Occupation[]
   occupationInterests UserOccupationInterest[]
+  mapDrawingLayers    MapDrawingLayer[]
+  mapDrawings         MapDrawing[]
 }
 
 model Account {
@@ -1523,4 +1525,43 @@ model UserOccupationInterest {
   @@unique([userId, occupationId])
   @@index([userId])
   @@index([occupationId])
+}
+
+// ─── Map Drawing & Annotation ──────────────────────────────────
+
+model MapDrawingLayer {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  visible   Boolean  @default(true)
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user     User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  drawings MapDrawing[]
+
+  @@index([userId])
+}
+
+model MapDrawing {
+  id        String   @id @default(cuid())
+  userId    String
+  layerId   String?
+  type      String   // freehand | polygon | circle | polyline | rectangle | text | note | emoji | ruler | area
+  data      Json     // Fabric.js serialized object + geo-anchor {fabricJson, anchors: [{lat,lng}]}
+  color     String   @default("#3B82F6")
+  zoneType  String?  // preferred | avoid | maybe
+  label     String?
+  scope     String   @default("global") // global | work-history | work-history:{id} | job:{id}
+  visible   Boolean  @default(true)
+  locked    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  layer MapDrawingLayer? @relation(fields: [layerId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([layerId])
 }

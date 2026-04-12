@@ -26,6 +26,10 @@ import {
   Pencil,
   ScanSearch,
   Hexagon,
+  Search,
+  Star,
+  Download,
+  ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -343,6 +347,16 @@ export default function SkillGraph() {
   const [editNodeName, setEditNodeName] = useState("");
   const [editNodeType, setEditNodeType] = useState("technical");
 
+  // O*NET search state
+  const [showOnetSearch, setShowOnetSearch] = useState(false);
+  const [onetQuery, setOnetQuery] = useState("");
+  const [onetResults, setOnetResults] = useState<{ code: string; title: string; brightOutlook: boolean }[]>([]);
+  const [onetSearching, setOnetSearching] = useState(false);
+  const [onetPreview, setOnetPreview] = useState<string | null>(null);
+  const [onetPreviewData, setOnetPreviewData] = useState<any>(null);
+  const [onetPreviewLoading, setOnetPreviewLoading] = useState(false);
+  const [onetImporting, setOnetImporting] = useState<string | null>(null);
+
   // Scaffold state
   const [showScaffold, setShowScaffold] = useState(false);
   const [refreshOccupation, setRefreshOccupation] = useState("");
@@ -450,6 +464,80 @@ export default function SkillGraph() {
     },
     onError: () => toast.error("Failed to update skill node"),
   });
+
+  // O*NET search helpers
+  const onetSearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleOnetSearch = useCallback((keyword: string) => {
+    setOnetQuery(keyword);
+    setOnetPreview(null);
+    setOnetPreviewData(null);
+    if (onetSearchTimeout.current) clearTimeout(onetSearchTimeout.current);
+    if (!keyword.trim()) {
+      setOnetResults([]);
+      setOnetSearching(false);
+      return;
+    }
+    setOnetSearching(true);
+    onetSearchTimeout.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/onet/search?keyword=${encodeURIComponent(keyword.trim())}&limit=20`);
+        if (!res.ok) throw new Error("Search failed");
+        const data = await res.json();
+        setOnetResults(data.occupations ?? []);
+      } catch {
+        toast.error("O*NET search failed");
+        setOnetResults([]);
+      } finally {
+        setOnetSearching(false);
+      }
+    }, 350);
+  }, []);
+
+  const handleOnetPreview = useCallback(async (code: string) => {
+    if (onetPreview === code) {
+      setOnetPreview(null);
+      setOnetPreviewData(null);
+      return;
+    }
+    setOnetPreview(code);
+    setOnetPreviewLoading(true);
+    setOnetPreviewData(null);
+    try {
+      const res = await fetch(`/api/onet/occupation/${code}`);
+      if (!res.ok) throw new Error("Failed to fetch details");
+      setOnetPreviewData(await res.json());
+    } catch {
+      toast.error("Failed to load occupation details");
+      setOnetPreview(null);
+    } finally {
+      setOnetPreviewLoading(false);
+    }
+  }, [onetPreview]);
+
+  const handleOnetImport = useCallback(async (code: string) => {
+    setOnetImporting(code);
+    try {
+      const res = await fetch("/api/onet/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? "Import failed");
+      }
+      const result = await res.json();
+      qc.invalidateQueries({ queryKey: ["skill-graph"] });
+      toast.success(
+        `Imported "${result.occupation.title}" with ${result.requirementsLinked} skills (${result.skillsCreated} new)`
+      );
+    } catch (err: any) {
+      toast.error(err.message ?? "O*NET import failed");
+    } finally {
+      setOnetImporting(null);
+    }
+  }, [qc]);
 
   // Build force-graph data
   const graphData = useCallback(() => {
@@ -695,6 +783,10 @@ export default function SkillGraph() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+
+          <Button size="sm" variant="outline" onClick={() => setShowOnetSearch(true)}>
+            <Search className="h-4 w-4 mr-1" /> O*NET Search
+          </Button>
 
           <Button size="sm" variant="outline" onClick={() => setShowScaffold(true)}>
             <Globe className="h-4 w-4 mr-1" /> Seed Industry
@@ -1335,6 +1427,180 @@ export default function SkillGraph() {
               Update Skill
             </Button>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── O*NET Search Dialog ── */}
+      <Dialog open={showOnetSearch} onOpenChange={(open) => {
+        setShowOnetSearch(open);
+        if (!open) {
+          setOnetQuery("");
+          setOnetResults([]);
+          setOnetPreview(null);
+          setOnetPreviewData(null);
+        }
+      }}>
+        <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Search className="h-5 w-5" />
+              O*NET Occupation Search
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Search the O*NET database for occupations and import them with their associated skills into your graph.
+          </p>
+
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              value={onetQuery}
+              onChange={(e) => handleOnetSearch(e.target.value)}
+              placeholder="Search occupations... e.g. Software Developer, Data Analyst"
+              className="pl-9"
+              autoFocus
+            />
+            {onetSearching && (
+              <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+            )}
+          </div>
+
+          <div className="flex-1 overflow-y-auto min-h-0 -mx-6 px-6 space-y-1">
+            {onetResults.length === 0 && onetQuery && !onetSearching && (
+              <p className="text-sm text-muted-foreground text-center py-8">
+                No occupations found for &ldquo;{onetQuery}&rdquo;
+              </p>
+            )}
+            {!onetQuery && (
+              <p className="text-sm text-muted-foreground text-center py-8">
+                Start typing to search O*NET occupations
+              </p>
+            )}
+            {onetResults.map((occ) => {
+              const isExpanded = onetPreview === occ.code;
+              const alreadyImported = data?.occupations?.some((o) => o.socCode === occ.code);
+              return (
+                <div key={occ.code} className="border rounded-lg overflow-hidden">
+                  <button
+                    type="button"
+                    className="w-full flex items-center gap-3 p-3 text-left hover:bg-accent/50 transition-colors"
+                    onClick={() => handleOnetPreview(occ.code)}
+                  >
+                    <ChevronRight className={`h-4 w-4 shrink-0 transition-transform ${isExpanded ? "rotate-90" : ""}`} />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-sm truncate">{occ.title}</span>
+                        {occ.brightOutlook && (
+                          <Badge variant="secondary" className="text-xs shrink-0">
+                            <Star className="h-3 w-3 mr-0.5" /> Bright Outlook
+                          </Badge>
+                        )}
+                        {alreadyImported && (
+                          <Badge variant="outline" className="text-xs shrink-0 text-green-600 border-green-600">
+                            <Check className="h-3 w-3 mr-0.5" /> Imported
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5">SOC {occ.code}</p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant={alreadyImported ? "outline" : "default"}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOnetImport(occ.code);
+                      }}
+                      disabled={onetImporting === occ.code}
+                      className="shrink-0"
+                    >
+                      {onetImporting === occ.code ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <>
+                          <Download className="h-3.5 w-3.5 mr-1" />
+                          {alreadyImported ? "Update" : "Import"}
+                        </>
+                      )}
+                    </Button>
+                  </button>
+
+                  {isExpanded && (
+                    <div className="border-t bg-muted/30 p-3">
+                      {onetPreviewLoading ? (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground py-4 justify-center">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Loading occupation details...
+                        </div>
+                      ) : onetPreviewData ? (
+                        <div className="space-y-3">
+                          {onetPreviewData.description && (
+                            <p className="text-xs text-muted-foreground leading-relaxed">
+                              {onetPreviewData.description}
+                            </p>
+                          )}
+                          <div>
+                            <h5 className="text-xs font-semibold mb-1.5 flex items-center gap-1">
+                              <Zap className="h-3 w-3" />
+                              Skills ({onetPreviewData.skills?.length ?? 0})
+                            </h5>
+                            <div className="flex flex-wrap gap-1">
+                              {onetPreviewData.skills
+                                ?.sort((a: any, b: any) => b.importance - a.importance)
+                                .slice(0, 15)
+                                .map((s: any) => (
+                                  <Badge
+                                    key={s.id}
+                                    variant="secondary"
+                                    className="text-xs"
+                                    title={`Importance: ${s.importance}`}
+                                  >
+                                    {s.name}
+                                    <span className="ml-1 opacity-50">{s.importance}</span>
+                                  </Badge>
+                                ))}
+                              {(onetPreviewData.skills?.length ?? 0) > 15 && (
+                                <Badge variant="outline" className="text-xs">
+                                  +{onetPreviewData.skills.length - 15} more
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                          {onetPreviewData.technology?.length > 0 && (
+                            <div>
+                              <h5 className="text-xs font-semibold mb-1.5 flex items-center gap-1">
+                                <Globe className="h-3 w-3" />
+                                Technology ({onetPreviewData.technology.length})
+                              </h5>
+                              <div className="flex flex-wrap gap-1">
+                                {onetPreviewData.technology.slice(0, 12).map((t: any, i: number) => (
+                                  <Badge
+                                    key={i}
+                                    variant={t.hotTechnology ? "default" : "outline"}
+                                    className="text-xs"
+                                  >
+                                    {t.name}
+                                    {t.hotTechnology && <Zap className="h-2.5 w-2.5 ml-0.5" />}
+                                  </Badge>
+                                ))}
+                                {onetPreviewData.technology.length > 12 && (
+                                  <Badge variant="outline" className="text-xs">
+                                    +{onetPreviewData.technology.length - 12} more
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                          <p className="text-xs text-muted-foreground">
+                            Cluster: <strong>{onetPreviewData.cluster}</strong>
+                          </p>
+                        </div>
+                      ) : null}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </DialogContent>
       </Dialog>
 

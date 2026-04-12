@@ -3,6 +3,7 @@
 import { useState, useMemo, useCallback, useEffect, useRef, Fragment } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { PlacesAutocomplete } from "@/components/places-autocomplete";
+import type { DrawingSettings, DrawingCanvasHandle, SerializedDrawing } from "@/components/map-drawing-canvas";
 import {
   Search,
   MapPin,
@@ -68,6 +69,7 @@ import {
   FileText,
   ClipboardList,
   TrendingUp,
+  PaintbrushVertical,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -167,6 +169,9 @@ const LeafletMap = dynamic(
     ),
   }
 );
+
+const MapDrawingCanvas = dynamic(() => import("@/components/map-drawing-canvas"), { ssr: false });
+const MapDrawingPanel = dynamic(() => import("@/components/map-drawing-panel"), { ssr: false });
 
 /* ── Constants ── */
 const RADIUS_OPTIONS = [
@@ -422,6 +427,7 @@ function saveJobPref<K extends keyof JobSearchPrefs>(key: K, value: JobSearchPre
 export function JobMap() {
   // Load saved preferences once on mount
   const [savedPrefs] = useState(() => loadJobPrefs());
+  const queryClient = useQueryClient();
 
   const [query, setQuery] = useState("");
   const [where, setWhere] = useState("");
@@ -458,7 +464,31 @@ export function JobMap() {
   const [showTransit, setShowTransit] = useState(() => savedPrefs.showTransit ?? false);
   const [tileStyle, setTileStyle] = useState<"osm" | "google-roadmap" | "google-satellite" | "google-hybrid">(() => (savedPrefs.tileStyle as "osm" | "google-roadmap" | "google-satellite" | "google-hybrid") || "osm");
 
-  /* Area tax info — tracks map center + zoom */
+  /* ── Drawing mode ── */
+  const [drawingActive, setDrawingActive] = useState(false);
+  const [drawingSettings, setDrawingSettings] = useState<DrawingSettings>({
+    tool: "freehand",
+    color: "#3B82F6",
+    strokeWidth: 3,
+    fontSize: 16,
+    emoji: "⭐",
+    zoneType: null,
+  });
+  const [drawingMeasurement, setDrawingMeasurement] = useState<{
+    distance?: number;
+    area?: number;
+    unit?: string;
+  } | null>(null);
+  const [drawingLayers, setDrawingLayers] = useState<
+    { id: string; name: string; visible: boolean; drawingCount: number }[]
+  >([]);
+  const [activeDrawingLayerId, setActiveDrawingLayerId] = useState<string | null>(null);
+  const drawingCanvasRef = useRef<DrawingCanvasHandle | null>(null);
+  const googleMapRef = useRef<google.maps.Map | null>(null);
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const [mapContainerSize, setMapContainerSize] = useState({ w: 0, h: 0 });
+
+  /* ── Area tax info — tracks map center + zoom ── */
   const [mapViewCenter, setMapViewCenter] = useState<[number, number] | null>(null);
   const [mapZoom, setMapZoom] = useState(10);
   const [areaInfo, setAreaInfo] = useState<{ state: string | null; city: string | null; label: string } | null>(null);
@@ -506,6 +536,184 @@ export function JobMap() {
   useEffect(() => { saveJobPref("showTraffic", showTraffic); }, [showTraffic]);
   useEffect(() => { saveJobPref("showTransit", showTransit); }, [showTransit]);
   useEffect(() => { saveJobPref("commuteMode", commuteMode); }, [commuteMode]);
+
+  /* ── Drawing: map ready → store ref + observe container size ── */
+  const handleMapReady = useCallback((map: google.maps.Map) => {
+    googleMapRef.current = map;
+  }, []);
+
+  useEffect(() => {
+    const el = mapContainerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([e]) => {
+      setMapContainerSize({ w: e.contentRect.width, h: e.contentRect.height });
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [viewMode]);
+
+  const latLngToPixel = useCallback((lat: number, lng: number) => {
+    const map = googleMapRef.current;
+    if (!map) return null;
+    const proj = map.getProjection();
+    if (!proj) return null;
+    const topRight = proj.fromLatLngToPoint(map.getBounds()!.getNorthEast())!;
+    const bottomLeft = proj.fromLatLngToPoint(map.getBounds()!.getSouthWest())!;
+    const scale = 2 ** (map.getZoom()! || 10);
+    const worldPoint = proj.fromLatLngToPoint(new google.maps.LatLng(lat, lng))!;
+    return {
+      x: (worldPoint.x - bottomLeft.x) * scale,
+      y: (worldPoint.y - topRight.y) * scale,
+    };
+  }, []);
+
+  const pixelToLatLng = useCallback((x: number, y: number) => {
+    const map = googleMapRef.current;
+    if (!map) return null;
+    const proj = map.getProjection();
+    if (!proj) return null;
+    const topRight = proj.fromLatLngToPoint(map.getBounds()!.getNorthEast())!;
+    const bottomLeft = proj.fromLatLngToPoint(map.getBounds()!.getSouthWest())!;
+    const scale = 2 ** (map.getZoom()! || 10);
+    const worldX = x / scale + bottomLeft.x;
+    const worldY = y / scale + topRight.y;
+    const latlng = proj.fromPointToLatLng(new google.maps.Point(worldX, worldY))!;
+    return { lat: latlng.lat(), lng: latlng.lng() };
+  }, []);
+
+  const mapBoundsForDrawing = useMemo(() => {
+    const map = googleMapRef.current;
+    if (!map) return null;
+    const b = map.getBounds();
+    if (!b) return null;
+    return {
+      north: b.getNorthEast().lat(),
+      south: b.getSouthWest().lat(),
+      east: b.getNorthEast().lng(),
+      west: b.getSouthWest().lng(),
+    };
+  }, [mapViewCenter, mapZoom]);
+
+  const hiddenDrawingLayerIds = useMemo(
+    () => new Set(drawingLayers.filter((l) => !l.visible).map((l) => l.id)),
+    [drawingLayers],
+  );
+
+  /* ── Drawing: fetch saved drawings from DB ── */
+  const { data: savedDrawingsData } = useQuery({
+    queryKey: ["map-drawings"],
+    queryFn: async () => {
+      const res = await fetch("/api/map-drawings");
+      if (!res.ok) return { layers: [], drawings: [] };
+      return res.json() as Promise<{ layers: { id: string; name: string; visible: boolean; order: number }[]; drawings: unknown[] }>;
+    },
+  });
+
+  useEffect(() => {
+    if (!savedDrawingsData?.layers) return;
+    setDrawingLayers(
+      savedDrawingsData.layers.map((l: { id: string; name: string; visible: boolean }) => ({
+        ...l,
+        drawingCount: (savedDrawingsData.drawings as { layerId?: string | null }[]).filter(
+          (d) => d.layerId === l.id,
+        ).length,
+      })),
+    );
+  }, [savedDrawingsData]);
+
+  /* ── Drawing: save new drawing to DB ── */
+  const saveDrawingMut = useMutation({
+    mutationFn: async (drawing: SerializedDrawing) => {
+      const res = await fetch("/api/map-drawings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: drawing.type,
+          data: drawing,
+          color: drawing.color,
+          zoneType: drawing.zoneType,
+          label: drawing.label,
+          layerId: drawing.layerId ?? activeDrawingLayerId,
+          scope: drawing.scope ?? activeDrawingScope,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to save drawing");
+      return res.json();
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["map-drawings"] }),
+  });
+
+  const handleDrawingComplete = useCallback(
+    (drawing: SerializedDrawing) => {
+      // Save to localStorage immediately for offline fallback
+      const saved = JSON.parse(localStorage.getItem("resumsify:map-drawings") ?? "[]");
+      saved.push(drawing);
+      localStorage.setItem("resumsify:map-drawings", JSON.stringify(saved));
+      // Persist to DB
+      saveDrawingMut.mutate(drawing);
+    },
+    [saveDrawingMut, activeDrawingLayerId],
+  );
+
+  const handleDrawingDelete = useCallback(
+    async (localId: string) => {
+      // Remove from localStorage
+      const saved = JSON.parse(localStorage.getItem("resumsify:map-drawings") ?? "[]") as SerializedDrawing[];
+      localStorage.setItem(
+        "resumsify:map-drawings",
+        JSON.stringify(saved.filter((d) => d.id !== localId)),
+      );
+      // If it has a DB id, delete from DB too
+      const dbId = localId.startsWith("db_") ? localId.slice(3) : null;
+      if (dbId) {
+        await fetch(`/api/map-drawings?id=${dbId}`, { method: "DELETE" });
+        queryClient.invalidateQueries({ queryKey: ["map-drawings"] });
+      }
+    },
+    [queryClient],
+  );
+
+  const handleCreateLayer = useCallback(
+    async (name: string) => {
+      const res = await fetch("/api/map-drawings/layers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      if (res.ok) {
+        queryClient.invalidateQueries({ queryKey: ["map-drawings"] });
+        toast.success(`Layer "${name}" created`);
+      }
+    },
+    [queryClient],
+  );
+
+  const handleDeleteLayer = useCallback(
+    async (id: string) => {
+      await fetch(`/api/map-drawings/layers?id=${id}`, { method: "DELETE" });
+      if (activeDrawingLayerId === id) setActiveDrawingLayerId(null);
+      queryClient.invalidateQueries({ queryKey: ["map-drawings"] });
+    },
+    [queryClient, activeDrawingLayerId],
+  );
+
+  const handleToggleLayerVisibility = useCallback(
+    async (id: string) => {
+      const layer = drawingLayers.find((l) => l.id === id);
+      if (!layer) return;
+      const newVisible = !layer.visible;
+      setDrawingLayers((prev) =>
+        prev.map((l) => (l.id === id ? { ...l, visible: newVisible } : l)),
+      );
+      // Persist to DB
+      fetch(`/api/map-drawings/layers?id=${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ visible: newVisible }),
+      }).catch(() => {});
+    },
+    [drawingLayers],
+  );
 
   // Hydrate trackedIds from existing applications
   useEffect(() => {
@@ -614,7 +822,6 @@ export function JobMap() {
   const geometryAbort = useRef<AbortController | null>(null);
   const prefetchAbort = useRef<AbortController | null>(null);
   const anchorAbort = useRef<AbortController | null>(null);
-  const queryClient = useQueryClient();
 
   /* ── Life Anchors state ── */
   interface LifeAnchorData { id: string; label: string; icon: string; address: string; lat: number; lng: number; weight: number; placeId?: string | null }
@@ -652,6 +859,38 @@ export function JobMap() {
   const [showBuildingHighlights, setShowBuildingHighlights] = useState(false);
   const [buildingFootprints, setBuildingFootprints] = useState<{ coords: { lat: number; lng: number }[]; color: string }[]>([]);
   const buildingCacheRef = useRef<Map<string, { lat: number; lng: number }[][]>>(new Map());
+
+  /* ── Drawing scope: derive from current map context ── */
+  const activeDrawingScope = useMemo(() => {
+    if (focusedWorkHistoryId) return `work-history:${focusedWorkHistoryId}`;
+    if (showWorkHistory) return "work-history";
+    if (selectedJob) return `job:${selectedJob.id}`;
+    return "global";
+  }, [focusedWorkHistoryId, showWorkHistory, selectedJob]);
+
+  const activeScopeLabel = useMemo(() => {
+    if (focusedWorkHistoryId) {
+      const wh = workHistory.find((w: { id: string }) => w.id === focusedWorkHistoryId);
+      return wh ? `📍 ${wh.company}` : "Focused Job";
+    }
+    if (showWorkHistory) return "🗺️ Work History";
+    if (selectedJob) return `💼 ${selectedJob.company}`;
+    return "Global";
+  }, [focusedWorkHistoryId, showWorkHistory, selectedJob, workHistory]);
+
+  /* ── Drawing: filter by scope ── */
+  const scopeFilteredDrawings = useMemo(() => {
+    const all = savedDrawingsData?.drawings as ({ scope?: string } & Record<string, unknown>)[] | undefined;
+    if (!all) return undefined;
+    return all.filter((d) => {
+      const s = d.scope ?? "global";
+      if (s === "global") return true;            // globals always visible
+      if (s === activeDrawingScope) return true;   // exact match
+      // Parent scope match: "work-history" shows all "work-history:*"
+      if (activeDrawingScope.startsWith(`${s}:`)) return true;
+      return false;
+    });
+  }, [savedDrawingsData?.drawings, activeDrawingScope]);
 
   // Load commute profile: prefer DB profile, fallback to localStorage
   const commuteProfileSeeded = useRef(false);
@@ -3163,7 +3402,7 @@ export function JobMap() {
       {viewMode === "map" && (
       <div className="flex gap-3 h-[calc(100vh-220px)] min-h-[500px]">
         {/* Map */}
-        <div className="flex-1 rounded-xl overflow-hidden border bg-muted relative">
+        <div ref={mapContainerRef} className="flex-1 rounded-xl overflow-hidden border bg-muted relative">
           <LeafletMap
               jobs={sortedJobs}
               center={
@@ -3246,7 +3485,48 @@ export function JobMap() {
               activeAmenities={activeAmenities}
               amenityLoading={amenityLoading}
               onToggleAmenity={toggleAmenityCategory}
+              onMapReady={handleMapReady}
             />
+
+          {/* ── Drawing canvas overlay (always mounted when there are drawings) ── */}
+          {(drawingActive || (scopeFilteredDrawings && scopeFilteredDrawings.length > 0)) && (
+            <MapDrawingCanvas
+              ref={drawingCanvasRef}
+              active={drawingActive}
+              settings={drawingSettings}
+              mapBounds={mapBoundsForDrawing}
+              mapZoom={mapZoom}
+              mapCenter={mapViewCenter ? { lat: mapViewCenter[0], lng: mapViewCenter[1] } : null}
+              containerWidth={mapContainerSize.w}
+              containerHeight={mapContainerSize.h}
+              savedDrawings={scopeFilteredDrawings as never}
+              activeLayerId={activeDrawingLayerId}
+              activeScope={activeDrawingScope}
+              hiddenLayerIds={hiddenDrawingLayerIds}
+              onDrawingComplete={handleDrawingComplete}
+              onDrawingDelete={handleDrawingDelete}
+              onMeasurement={setDrawingMeasurement}
+              latLngToPixel={latLngToPixel}
+              pixelToLatLng={pixelToLatLng}
+            />
+          )}
+          {drawingActive && (
+              <MapDrawingPanel
+                canvasRef={drawingCanvasRef}
+                settings={drawingSettings}
+                onSettingsChange={setDrawingSettings}
+                layers={drawingLayers}
+                activeLayerId={activeDrawingLayerId}
+                onActiveLayerChange={setActiveDrawingLayerId}
+                onCreateLayer={handleCreateLayer}
+                onDeleteLayer={handleDeleteLayer}
+                onToggleLayerVisibility={handleToggleLayerVisibility}
+                measurement={drawingMeasurement}
+                activeScope={activeDrawingScope}
+                activeScopeLabel={activeScopeLabel}
+                onClose={() => setDrawingActive(false)}
+              />
+          )}
 
           {/* ── Map layer controls (bottom-right, above zoom) ── */}
           <div className="absolute bottom-6 right-[60px] z-[1050] flex flex-row gap-2 pointer-events-auto">
@@ -3399,6 +3679,14 @@ export function JobMap() {
                 className={`flex items-center justify-center w-10 h-10 border-l border-gray-200 cursor-pointer transition-colors ${showBuildingHighlights ? "bg-blue-50" : "bg-white hover:bg-gray-50"}`}
               >
                 <Building2 className={`h-[18px] w-[18px] ${showBuildingHighlights ? "text-blue-600" : "text-gray-600"}`} />
+              </button>
+              <button
+                type="button"
+                onClick={() => setDrawingActive(!drawingActive)}
+                title="Drawing Tools"
+                className={`flex items-center justify-center w-10 h-10 border-l border-gray-200 cursor-pointer transition-colors ${drawingActive ? "bg-violet-50" : "bg-white hover:bg-gray-50"}`}
+              >
+                <PaintbrushVertical className={`h-[18px] w-[18px] ${drawingActive ? "text-violet-600" : "text-gray-600"}`} />
               </button>
             </div>
           </div>

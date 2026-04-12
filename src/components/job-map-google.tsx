@@ -152,6 +152,7 @@ interface Props {
   pinDropMode?: boolean;
   onMapClick?: (coords: { lat: number; lng: number; placeId?: string }) => void;
   companyLocationMarkers?: { placeId: string; name: string; address: string; lat: number; lng: number }[];
+  onMapReady?: (map: google.maps.Map) => void;
 }
 
 /* ── Helpers ── */
@@ -265,6 +266,7 @@ export default function JobMapGoogle({
   pinDropMode = false,
   onMapClick,
   companyLocationMarkers = [],
+  onMapReady,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
@@ -384,6 +386,7 @@ export default function JobMapGoogle({
       });
 
       setReady(true);
+      onMapReady?.(map);
     })();
 
     return () => { cancelled = true; };
