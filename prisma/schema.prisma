@@ -1098,14 +1098,64 @@ model LifeAnchor {
 model WorkHistory {
   id        String   @id @default(uuid())
   userId    String
-  company   String
-  title     String?  // job title held
+  type      String   @default("job") // "job" | "school" | "military" | "volunteer"
+  company   String   // company name or institution name
+  title     String?  // job title or degree name
   address   String
   lat       Float
   lng       Float
   placeId   String?  // Google Place ID for Feature Layer building highlight
   startDate String?  // e.g. "2020-01" (year-month)
   endDate   String?  // e.g. "2023-06" or null for "still there"
+
+  // ── Education-specific ──
+  degree    String?  // e.g. "B.S.", "M.S.", "A.A.S.", "High School Diploma"
+  major     String?  // e.g. "Computer Science", "Electrical Engineering"
+  gpa       Float?   // grade point average
+
+  // ── Compensation ──
+  salaryAmount    Float?   // annual salary or hourly rate
+  salaryType      String?  // "annual" | "hourly"
+  salaryCurrency  String?  @default("USD")
+  bonusAmount     Float?   // annual bonus
+  equityNotes     String?  // stock options / RSU notes
+
+  // ── Schedule ──
+  workMode        String?  // "on-site" | "hybrid" | "remote"
+  hybridDays      Int?     // days per week on-site (for hybrid)
+  scheduleType    String?  // "full-time" | "part-time" | "contract" | "internship" | "freelance"
+  hoursPerWeek    Float?   // typical hours per week
+  shiftNotes      String?  // shift schedule notes
+
+  // ── Benefits ──
+  benefits        String?  // JSON array: ["health","dental","vision","401k","pto","hsa","fsa","life","disability","tuition","gym","stock"]
+
+  // ── PTO / Vacation ──
+  ptoDaysOffered  Int?     // PTO days offered per year
+  ptoDaysUsed     Int?     // PTO days actually used
+  ptoNotes        String?  // unlimited PTO, sabbatical, etc.
+
+  // ── Work Environment ──
+  companySize     String?  // "startup" | "small" | "mid-market" | "enterprise"
+  department      String?  // department or division
+  teamSize        Int?     // how many people on your team
+  managerName     String?  // who you reported to
+
+  // ── Skills & Growth ──
+  skillsUsed      String?  // JSON array of skill names used
+  skillsGained    String?  // JSON array of skill names gained
+  promotions      String?  // JSON array: [{"title":"Senior Dev","date":"2022-06"}]
+
+  // ── Departure & Reflection ──
+  reasonForLeaving String? // "better-offer" | "layoff" | "relocation" | "growth" | "culture" | "personal" | "contract-end" | "other"
+  wouldReturn      String? // "yes" | "no" | "maybe"
+  accomplishments  String? // JSON array of key accomplishment strings
+
+  // ── Commute (auto-calculated or manual) ──
+  commuteMinutes  Int?     // average one-way commute time
+  commuteDistance Float?   // average one-way distance in miles
+  commuteMode     String?  // "driving" | "transit" | "walking" | "bicycling"
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1129,6 +1179,7 @@ model WorkHistoryLocation {
   placeId       String?  // Google Place ID for Feature Layer building highlight
   isPrimary     Boolean  @default(false) // used for polyline path
   skills        String?  // JSON array of skill names used at this location
+  photos        String?  // JSON array of photo URLs or base64 data URIs
   startDate     String?  // optional YYYY-MM period start at this location
   endDate       String?  // optional YYYY-MM period end at this location
   createdAt     DateTime @default(now())

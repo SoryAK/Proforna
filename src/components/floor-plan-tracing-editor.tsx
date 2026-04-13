@@ -5,6 +5,7 @@ import {
   useEffect,
   useState,
   useCallback,
+  useMemo,
   forwardRef,
   useImperativeHandle,
 } from "react";
@@ -54,7 +55,7 @@ const ROOM_TYPE_COLORS: Record<RoomType, string> = {
   electrical:  "#f43f5e",
 };
 
-export type EditorTool = "select" | "polygon" | "rectangle" | "pan" | "wall" | "opening" | "text" | "line" | "circle";
+export type EditorTool = "select" | "polygon" | "rectangle" | "pan" | "wall" | "opening" | "text" | "line" | "circle" | "measure";
 
 export interface WallSegment {
   id: string;
@@ -81,6 +82,7 @@ export interface FloorSymbol {
   rotation: number;
   scale: number;
   label?: string;
+  metadata?: Record<string, string>;
 }
 
 export interface TextAnnotation {
@@ -102,7 +104,7 @@ interface SymbolDef {
   height: number;
 }
 
-const SYMBOL_CATEGORIES = ["Doors & Windows", "Furniture", "Warehouse", "Fixtures"] as const;
+const SYMBOL_CATEGORIES = ["Doors & Windows", "Furniture", "Warehouse", "Fixtures", "Electrical", "Plumbing", "HVAC"] as const;
 
 const SYMBOL_LIBRARY: SymbolDef[] = [
   // Doors & Windows
@@ -110,19 +112,77 @@ const SYMBOL_LIBRARY: SymbolDef[] = [
   { id: "door-double", label: "Double Door", category: "Doors & Windows", path: "M2 20 L2 2 A18 18 0 0 1 20 20 Z M38 20 L38 2 A18 18 0 0 0 20 20 Z", width: 80, height: 80 },
   { id: "window-single", label: "Window", category: "Doors & Windows", path: "M4 16 L36 16 M4 24 L36 24 M4 14 L4 26 M36 14 L36 26", width: 60, height: 10 },
   { id: "sliding-door", label: "Sliding Door", category: "Doors & Windows", path: "M2 18 L20 18 M20 22 L38 22 M2 16 L2 24 M20 16 L20 24 M38 16 L38 24", width: 80, height: 10 },
+  { id: "garage-door", label: "Garage Door", category: "Doors & Windows", path: "M2 2 L38 2 L38 38 L2 38 Z M2 10 L38 10 M2 18 L38 18 M2 26 L38 26 M2 34 L38 34", width: 160, height: 10 },
+  { id: "bi-fold-door", label: "Bi-Fold Door", category: "Doors & Windows", path: "M2 38 L10 2 L18 38 M22 38 L30 2 L38 38", width: 80, height: 80 },
   // Furniture
   { id: "desk-rect", label: "Desk", category: "Furniture", path: "M2 2 L38 2 L38 22 L2 22 Z M8 22 L8 38 M32 22 L32 38", width: 120, height: 60 },
   { id: "chair", label: "Chair", category: "Furniture", path: "M10 12 L30 12 L30 30 L10 30 Z M12 30 L12 38 M28 30 L28 38 M8 4 L8 14 L32 14 L32 4", width: 50, height: 50 },
   { id: "table-round", label: "Round Table", category: "Furniture", path: "M20 4 A16 16 0 1 1 19.99 4 Z", width: 80, height: 80 },
   { id: "table-rect", label: "Rect Table", category: "Furniture", path: "M4 8 L36 8 L36 32 L4 32 Z", width: 120, height: 60 },
+  { id: "sofa", label: "Sofa", category: "Furniture", path: "M2 10 L38 10 L38 32 L2 32 Z M2 10 Q2 2 10 2 L30 2 Q38 2 38 10", width: 140, height: 60 },
+  { id: "bed-double", label: "Double Bed", category: "Furniture", path: "M2 2 L38 2 L38 38 L2 38 Z M2 6 L38 6 M20 6 L20 38", width: 120, height: 160 },
+  { id: "bookshelf", label: "Bookshelf", category: "Furniture", path: "M2 2 L38 2 L38 38 L2 38 Z M2 10 L38 10 M2 18 L38 18 M2 26 L38 26", width: 100, height: 30 },
+  { id: "filing-cabinet", label: "Filing Cabinet", category: "Furniture", path: "M6 2 L34 2 L34 38 L6 38 Z M6 14 L34 14 M6 26 L34 26 M18 4 L22 4 M18 16 L22 16 M18 28 L22 28", width: 40, height: 60 },
   // Warehouse
   { id: "pallet-rack", label: "Pallet Rack", category: "Warehouse", path: "M2 2 L38 2 L38 38 L2 38 Z M2 14 L38 14 M2 26 L38 26", width: 120, height: 40 },
   { id: "conveyor", label: "Conveyor", category: "Warehouse", path: "M2 12 L38 12 L38 28 L2 28 Z M6 12 L6 28 M12 12 L12 28 M18 12 L18 28 M24 12 L24 28 M30 12 L30 28 M36 12 L36 28", width: 200, height: 40 },
   { id: "forklift", label: "Forklift", category: "Warehouse", path: "M8 6 L32 6 L32 34 L8 34 Z M12 2 L12 6 M28 2 L28 6", width: 40, height: 60 },
+  { id: "shipping-crate", label: "Crate", category: "Warehouse", path: "M2 2 L38 2 L38 38 L2 38 Z M2 2 L38 38 M38 2 L2 38", width: 60, height: 60 },
   // Fixtures
   { id: "sink", label: "Sink", category: "Fixtures", path: "M6 4 L34 4 L34 28 Q34 36 20 36 Q6 36 6 28 Z M14 16 A6 6 0 1 1 26 16 A6 6 0 1 1 14 16", width: 50, height: 50 },
   { id: "toilet", label: "Toilet", category: "Fixtures", path: "M12 4 L28 4 L28 16 L12 16 Z M8 16 Q8 38 20 38 Q32 38 32 16 Z", width: 40, height: 60 },
   { id: "stairs", label: "Stairs", category: "Fixtures", path: "M2 2 L38 2 L38 38 L2 38 Z M2 8 L38 8 M2 14 L38 14 M2 20 L38 20 M2 26 L38 26 M2 32 L38 32", width: 80, height: 120 },
+  { id: "elevator", label: "Elevator", category: "Fixtures", path: "M2 2 L38 2 L38 38 L2 38 Z M20 8 L12 20 L28 20 Z M20 32 L12 20 L28 20 Z", width: 80, height: 80 },
+  { id: "bathtub", label: "Bathtub", category: "Fixtures", path: "M4 4 L36 4 L36 36 L4 36 Z Q4 4 20 4 Q36 4 36 20", width: 60, height: 140 },
+  // Electrical
+  { id: "outlet", label: "Outlet", category: "Electrical", path: "M10 2 L30 2 L30 38 L10 38 Z M16 14 L16 20 M24 14 L24 20 M16 26 L24 26", width: 20, height: 20 },
+  { id: "switch", label: "Switch", category: "Electrical", path: "M20 4 A16 16 0 1 1 19.99 4 Z M20 20 L32 8", width: 20, height: 20 },
+  { id: "light-ceiling", label: "Ceiling Light", category: "Electrical", path: "M20 6 A14 14 0 1 1 19.99 6 Z M14 20 L26 20 M20 14 L20 26", width: 30, height: 30 },
+  { id: "panel-box", label: "Panel Box", category: "Electrical", path: "M6 2 L34 2 L34 38 L6 38 Z M6 6 L34 6 M20 6 L20 38 M6 22 L34 22", width: 40, height: 50 },
+  // Plumbing
+  { id: "water-heater", label: "Water Heater", category: "Plumbing", path: "M12 4 A8 8 0 1 1 28 4 L28 36 A8 8 0 1 1 12 36 Z", width: 40, height: 50 },
+  { id: "drain", label: "Floor Drain", category: "Plumbing", path: "M20 4 A16 16 0 1 1 19.99 4 Z M20 12 A8 8 0 1 1 19.99 12 Z M12 20 L28 20 M20 12 L20 28", width: 20, height: 20 },
+  { id: "pipe-valve", label: "Valve", category: "Plumbing", path: "M2 20 L14 12 L14 28 Z M38 20 L26 12 L26 28 Z M14 20 L26 20", width: 30, height: 20 },
+  // HVAC
+  { id: "hvac-duct", label: "Duct", category: "HVAC", path: "M2 10 L38 10 L38 30 L2 30 Z M10 10 L10 30 M20 10 L20 30 M30 10 L30 30", width: 100, height: 20 },
+  { id: "hvac-vent", label: "Vent/Register", category: "HVAC", path: "M4 4 L36 4 L36 36 L4 36 Z M4 12 L36 12 M4 20 L36 20 M4 28 L36 28", width: 30, height: 30 },
+  { id: "hvac-unit", label: "AC Unit", category: "HVAC", path: "M4 4 L36 4 L36 36 L4 36 Z M20 10 A10 10 0 1 1 19.99 10 Z M16 20 L24 20 M20 16 L20 24", width: 60, height: 60 },
+];
+
+/* ── Architectural scale presets ──────────────────────────────── */
+interface ScalePreset {
+  label: string;
+  pxPerMeter: number;
+  gridM: number;
+}
+
+const SCALE_PRESETS: ScalePreset[] = [
+  { label: '1:25 (detail)', pxPerMeter: 160, gridM: 0.25 },
+  { label: '1:50', pxPerMeter: 80, gridM: 0.5 },
+  { label: '1:100', pxPerMeter: 40, gridM: 1 },
+  { label: '1:200', pxPerMeter: 20, gridM: 2 },
+  { label: '1:500 (site)', pxPerMeter: 8, gridM: 5 },
+  { label: '1/4" = 1\' (US)', pxPerMeter: 78, gridM: 0.3048 },
+  { label: '1/8" = 1\' (US)', pxPerMeter: 39, gridM: 0.6096 },
+];
+
+/* ── Layer definitions ───────────────────────────────────────── */
+interface LayerDef {
+  id: string;
+  label: string;
+  color: string;
+  visible: boolean;
+  locked: boolean;
+}
+
+const DEFAULT_LAYERS: LayerDef[] = [
+  { id: "walls", label: "Walls", color: "#1e293b", visible: true, locked: false },
+  { id: "rooms", label: "Rooms", color: "#3b82f6", visible: true, locked: false },
+  { id: "furniture", label: "Furniture", color: "#8b5cf6", visible: true, locked: false },
+  { id: "electrical", label: "Electrical", color: "#f59e0b", visible: true, locked: false },
+  { id: "plumbing", label: "Plumbing", color: "#06b6d4", visible: true, locked: false },
+  { id: "hvac", label: "HVAC", color: "#10b981", visible: true, locked: false },
+  { id: "annotations", label: "Annotations", color: "#64748b", visible: true, locked: false },
 ];
 
 export interface TracingEditorHandle {
@@ -177,9 +237,25 @@ const FloorPlanTracingEditor = forwardRef<TracingEditorHandle, Props>(
 
     // grid / snap / scale
     const [showGrid, setShowGrid] = useState(true);
-    const [gridSpacingM, setGridSpacingM] = useState(1);
+    const [gridSpacingM, setGridSpacingM] = useState(0.5);
     const [snapEnabled, setSnapEnabled] = useState(true);
-    const [pxPerMeter, setPxPerMeter] = useState(100);
+    const [pxPerMeter, setPxPerMeter] = useState(50);
+    const [activeScalePreset, setActiveScalePreset] = useState("1:50");
+    const [showRulers, setShowRulers] = useState(true);
+
+    // layers
+    const [layers, setLayers] = useState<LayerDef[]>(() => JSON.parse(JSON.stringify(DEFAULT_LAYERS)));
+    const [activeLayerId, setActiveLayerId] = useState("walls");
+
+    // measure tool
+    const measureStart = useRef<{ x: number; y: number } | null>(null);
+    const measurePreviewLine = useRef<FabricObject | null>(null);
+    const measureLabelRef = useRef<FabricObject | null>(null);
+    const [measurements, setMeasurements] = useState<{ id: string; start: [number, number]; end: [number, number]; distance: number }[]>([]);
+    const measureIdCounter = useRef(1);
+
+    // right-click context menu
+    const [contextMenu, setContextMenu] = useState<{ x: number; y: number; target: string | null } | null>(null);
 
     // walls
     const [walls, setWalls] = useState<WallSegment[]>([]);
@@ -196,6 +272,7 @@ const FloorPlanTracingEditor = forwardRef<TracingEditorHandle, Props>(
     const symbolIdCounter = useRef(1);
     const [symbolsExpanded, setSymbolsExpanded] = useState<string | null>(null);
     const [selectedSymbolDef, setSelectedSymbolDef] = useState<string | null>(null);
+    const [selectedSymbolId, setSelectedSymbolId] = useState<string | null>(null);
 
     // text annotations
     const [annotations, setAnnotations] = useState<TextAnnotation[]>([]);
@@ -498,8 +575,6 @@ const FloorPlanTracingEditor = forwardRef<TracingEditorHandle, Props>(
             evented: true,
             hasControls: false,
             hasBorders: true,
-            lockMovementX: true,
-            lockMovementY: true,
           },
         );
         (poly as FabricObject & { _roomId?: string })._roomId = room.id;
@@ -602,8 +677,7 @@ const FloorPlanTracingEditor = forwardRef<TracingEditorHandle, Props>(
           selectable: tool === "select",
           evented: true,
           hasControls: false,
-          lockMovementX: true,
-          lockMovementY: true,
+          hasBorders: true,
         });
         (line as FabricObject & { _wallId?: string })._wallId = wall.id;
         fc.add(line);
@@ -784,6 +858,58 @@ const FloorPlanTracingEditor = forwardRef<TracingEditorHandle, Props>(
       fc.renderAll();
     }, [annotations, imageToCanvas, tool]);
 
+    /* ── Render measurements on canvas ─────────────────────── */
+    useEffect(() => {
+      const fc = fcRef.current;
+      const fabric = fabricRef.current;
+      if (!fc || !fabric) return;
+
+      fc.getObjects().filter((o) =>
+        (o as FabricObject & { _measId?: string })._measId,
+      ).forEach((o) => fc.remove(o));
+
+      for (const m of measurements) {
+        const s = imageToCanvas(m.start[0], m.start[1]);
+        const e = imageToCanvas(m.end[0], m.end[1]);
+        const line = new fabric.Line([s.x, s.y, e.x, e.y], {
+          stroke: "#ef4444",
+          strokeWidth: 1.5,
+          strokeDashArray: [6, 4],
+          selectable: false,
+          evented: false,
+        });
+        (line as FabricObject & { _measId?: string })._measId = m.id;
+        fc.add(line);
+
+        // Endpoints
+        for (const p of [s, e]) {
+          const dot = new fabric.Circle({
+            left: p.x - 3, top: p.y - 3, radius: 3,
+            fill: "#ef4444", stroke: "#fff", strokeWidth: 1,
+            selectable: false, evented: false,
+          });
+          (dot as FabricObject & { _measId?: string })._measId = m.id;
+          fc.add(dot);
+        }
+
+        // Distance label at midpoint
+        const mx = (s.x + e.x) / 2;
+        const my = (s.y + e.y) / 2;
+        const label = new fabric.Text(`${m.distance.toFixed(2)}m`, {
+          left: mx, top: my - 10,
+          fontSize: 11,
+          fill: "#ef4444",
+          fontFamily: "Inter, monospace",
+          originX: "center", originY: "center",
+          selectable: false, evented: false,
+          shadow: new fabric.Shadow({ color: "rgba(255,255,255,0.95)", blur: 3, offsetX: 0, offsetY: 0 }),
+        });
+        (label as FabricObject & { _measId?: string })._measId = m.id;
+        fc.add(label);
+      }
+      fc.renderAll();
+    }, [measurements, imageToCanvas]);
+
     /* ── Object selection → select room ──────────────────────── */
     useEffect(() => {
       const fc = fcRef.current;
@@ -793,8 +919,12 @@ const FloorPlanTracingEditor = forwardRef<TracingEditorHandle, Props>(
         const active = fc.getActiveObject();
         if (!active) return;
         const roomId = (active as FabricObject & { _roomId?: string })._roomId;
+        const wallId = (active as FabricObject & { _wallId?: string })._wallId;
+        const symId = (active as FabricObject & { _symbolId?: string })._symbolId;
         if (roomId) {
           setSelectedRoomId(roomId);
+          setSelectedWallId(null);
+          setSelectedSymbolId(null);
           const room = rooms.find((r) => r.id === roomId);
           if (room) {
             setEditLabel(room.label);
@@ -803,11 +933,23 @@ const FloorPlanTracingEditor = forwardRef<TracingEditorHandle, Props>(
             setEditHeight(room.wallHeight ?? 3);
             setEditFloor(room.floor ?? 1);
           }
+        } else if (wallId) {
+          setSelectedWallId(wallId);
+          setSelectedRoomId(null);
+          setSelectedSymbolId(null);
+        } else if (symId) {
+          setSelectedSymbolId(symId);
+          setSelectedRoomId(null);
+          setSelectedWallId(null);
         }
       };
 
       const onDeselect = () => {
-        if (tool === "select") setSelectedRoomId(null);
+        if (tool === "select") {
+          setSelectedRoomId(null);
+          setSelectedWallId(null);
+          setSelectedSymbolId(null);
+        }
       };
 
       fc.on("selection:created", onSelect as never);
@@ -820,6 +962,90 @@ const FloorPlanTracingEditor = forwardRef<TracingEditorHandle, Props>(
         fc.off("selection:cleared", onDeselect as never);
       };
     }, [loaded, rooms, tool]);
+
+    /* ── Object moved → sync position back to state ──────────── */
+    useEffect(() => {
+      const fc = fcRef.current;
+      if (!fc || !loaded) return;
+
+      const onModified = (opt: { target?: FabricObject }) => {
+        const obj = opt.target;
+        if (!obj) return;
+
+        const ext = obj as FabricObject & {
+          _roomId?: string;
+          _wallId?: string;
+          _symbolId?: string;
+          _annotId?: string;
+          _isLabel?: boolean;
+        };
+
+        // Don't handle label-only objects
+        if (ext._isLabel) return;
+
+        // Room polygon moved
+        if (ext._roomId) {
+          const poly = obj as unknown as { points: { x: number; y: number }[]; left: number; top: number };
+          // Fabric stores the offset from original position via left/top after moving
+          const left = obj.left ?? 0;
+          const top = obj.top ?? 0;
+          // Get the polygon's transform to account for the move
+          const matrix = obj.calcTransformMatrix();
+          const points = (poly.points || []).map((pt: { x: number; y: number }) => {
+            // Transform each point through the object's transform matrix
+            const fabric = fabricRef.current!;
+            const transformed = fabric.util.transformPoint(new fabric.Point(pt.x, pt.y), matrix);
+            return canvasToImage(transformed.x, transformed.y);
+          });
+          if (points.length > 0) {
+            setRooms((prev) => prev.map((r) =>
+              r.id === ext._roomId ? { ...r, polygon: points } : r
+            ));
+          }
+          return;
+        }
+
+        // Wall line moved
+        if (ext._wallId) {
+          const lineObj = obj as unknown as { x1: number; y1: number; x2: number; y2: number };
+          const matrix = obj.calcTransformMatrix();
+          const fabric = fabricRef.current!;
+          const p1 = fabric.util.transformPoint(new fabric.Point(lineObj.x1, lineObj.y1), matrix);
+          const p2 = fabric.util.transformPoint(new fabric.Point(lineObj.x2, lineObj.y2), matrix);
+          const newStart = canvasToImage(p1.x, p1.y);
+          const newEnd = canvasToImage(p2.x, p2.y);
+          setWalls((prev) => prev.map((w) =>
+            w.id === ext._wallId ? { ...w, start: newStart, end: newEnd } : w
+          ));
+          return;
+        }
+
+        // Symbol moved
+        if (ext._symbolId) {
+          const left = obj.left ?? 0;
+          const top = obj.top ?? 0;
+          const newPos = canvasToImage(left, top);
+          setSymbols((prev) => prev.map((s) =>
+            s.id === ext._symbolId ? { ...s, position: newPos } : s
+          ));
+          return;
+        }
+
+        // Annotation moved
+        if (ext._annotId) {
+          const left = obj.left ?? 0;
+          const top = obj.top ?? 0;
+          const newPos = canvasToImage(left, top);
+          setAnnotations((prev) => prev.map((a) =>
+            a.id === ext._annotId ? { ...a, position: newPos } : a
+          ));
+          return;
+        }
+      };
+
+      fc.on("object:modified", onModified as never);
+      return () => { fc.off("object:modified", onModified as never); };
+    }, [loaded, canvasToImage]);
 
     /* ── Clear polygon drawing state ─────────────────────────── */
     const clearPolyState = useCallback(() => {
@@ -998,6 +1224,27 @@ const FloorPlanTracingEditor = forwardRef<TracingEditorHandle, Props>(
         } else if (tool === "circle" || tool === "line") {
           // handled in mouseUp for drag-based tools
           rectStart = { x, y };
+        } else if (tool === "measure") {
+          if (!measureStart.current) {
+            measureStart.current = { x, y };
+          } else {
+            // Finish measurement
+            const [sx, sy] = canvasToImage(measureStart.current.x, measureStart.current.y);
+            const [ex, ey] = canvasToImage(x, y);
+            const distPx = Math.hypot(ex - sx, ey - sy);
+            const distM = distPx / pxPerMeter;
+            setMeasurements((prev) => [...prev, {
+              id: `meas-${measureIdCounter.current++}`,
+              start: [sx, sy],
+              end: [ex, ey],
+              distance: distM,
+            }]);
+            // Clear preview
+            if (measurePreviewLine.current) { fc.remove(measurePreviewLine.current); measurePreviewLine.current = null; }
+            if (measureLabelRef.current) { fc.remove(measureLabelRef.current); measureLabelRef.current = null; }
+            measureStart.current = null;
+            fc.renderAll();
+          }
         } else if (selectedSymbolDef) {
           // Place symbol at click position
           const [imgX, imgY] = canvasToImage(x, y);
@@ -1035,6 +1282,39 @@ const FloorPlanTracingEditor = forwardRef<TracingEditorHandle, Props>(
             { stroke: "#1e293b", strokeWidth: 3, strokeDashArray: [8, 4], selectable: false, evented: false },
           );
           fc.add(wallPreviewLine.current);
+          fc.renderAll();
+          return;
+        }
+
+        // Measure tool preview
+        if (tool === "measure" && measureStart.current) {
+          let { x, y } = screenToCanvas(opt.viewportPoint.x, opt.viewportPoint.y);
+          const sn = snapPoint(x, y); x = sn.x; y = sn.y;
+          if (measurePreviewLine.current) fc.remove(measurePreviewLine.current);
+          if (measureLabelRef.current) fc.remove(measureLabelRef.current);
+          measurePreviewLine.current = new fabric.Line(
+            [measureStart.current.x, measureStart.current.y, x, y],
+            { stroke: "#ef4444", strokeWidth: 2, strokeDashArray: [6, 4], selectable: false, evented: false },
+          );
+          fc.add(measurePreviewLine.current);
+          // Show live distance
+          const [sx, sy] = canvasToImage(measureStart.current.x, measureStart.current.y);
+          const [ex, ey] = canvasToImage(x, y);
+          const distM = Math.hypot(ex - sx, ey - sy) / pxPerMeter;
+          const midX = (measureStart.current.x + x) / 2;
+          const midY = (measureStart.current.y + y) / 2;
+          measureLabelRef.current = new fabric.Text(`${distM.toFixed(2)}m`, {
+            left: midX, top: midY - 12,
+            fontSize: 11,
+            fill: "#ef4444",
+            fontFamily: "Inter, sans-serif",
+            originX: "center",
+            originY: "center",
+            selectable: false,
+            evented: false,
+            shadow: new fabric.Shadow({ color: "rgba(255,255,255,0.9)", blur: 3, offsetX: 0, offsetY: 0 }),
+          });
+          fc.add(measureLabelRef.current);
           fc.renderAll();
           return;
         }
@@ -1354,10 +1634,37 @@ const FloorPlanTracingEditor = forwardRef<TracingEditorHandle, Props>(
 
     /* ── Delete selected room ─────────────────────────────────── */
     const deleteSelected = () => {
-      if (!selectedRoomId) return;
-      pushUndo(rooms);
-      setRooms((prev) => prev.filter((r) => r.id !== selectedRoomId));
-      setSelectedRoomId(null);
+      if (selectedRoomId) {
+        pushUndo(rooms);
+        setRooms((prev) => prev.filter((r) => r.id !== selectedRoomId));
+        setSelectedRoomId(null);
+        return;
+      }
+      if (selectedWallId) {
+        setWalls((prev) => prev.filter((w) => w.id !== selectedWallId));
+        setOpenings((prev) => prev.filter((o) => o.wallId !== selectedWallId));
+        setSelectedWallId(null);
+        return;
+      }
+      if (selectedSymbolId) {
+        setSymbols((prev) => prev.filter((s) => s.id !== selectedSymbolId));
+        setSelectedSymbolId(null);
+        return;
+      }
+      // Try to delete whatever fabric object is selected
+      const fc = fcRef.current;
+      if (!fc) return;
+      const active = fc.getActiveObject();
+      if (!active) return;
+      const annotId = (active as FabricObject & { _annotId?: string })._annotId;
+      if (annotId) {
+        setAnnotations((prev) => prev.filter((a) => a.id !== annotId));
+        return;
+      }
+      const measId = (active as FabricObject & { _measId?: string })._measId;
+      if (measId) {
+        setMeasurements((prev) => prev.filter((m) => m.id !== measId));
+      }
     };
 
     /* ── SVG export modal ─────────────────────────────────────── */
@@ -1464,13 +1771,119 @@ const FloorPlanTracingEditor = forwardRef<TracingEditorHandle, Props>(
     const onPanelDragEnd = useCallback(() => { panelDragRef.current = null; }, []);
 
     /* ── Cursor style ─────────────────────────────────────────── */
-    const cursor = tool === "polygon" || tool === "rectangle" || tool === "wall" ? "crosshair" : tool === "pan" ? (isPanning.current ? "grabbing" : "grab") : "default";
+    const cursor = tool === "polygon" || tool === "rectangle" || tool === "wall" || tool === "measure" ? "crosshair" : tool === "pan" ? (isPanning.current ? "grabbing" : "grab") : "default";
+
+    /* ── Context menu handler ─────────────────────────────────── */
+    const onCanvasContextMenu = useCallback((e: React.MouseEvent) => {
+      e.preventDefault();
+      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+      setContextMenu({ x: e.clientX - rect.left, y: e.clientY - rect.top, target: selectedRoomId || selectedWallId });
+    }, [selectedRoomId, selectedWallId]);
+
+    const closeContextMenu = useCallback(() => setContextMenu(null), []);
+
+    /* ── Ruler tick generation ────────────────────────────────── */
+    const rulerTicks = useMemo(() => {
+      const fc = fcRef.current;
+      if (!fc || !loaded || !bgReady) return { h: [] as { pos: number; label: string }[], v: [] as { pos: number; label: string }[] };
+      const bgScale = (fc as unknown as Record<string, number>)._bgScale || 1;
+      const bgOffX = (fc as unknown as Record<string, number>)._bgOffsetX || 0;
+      const bgOffY = (fc as unknown as Record<string, number>)._bgOffsetY || 0;
+      const zoom = fc.getZoom();
+      const vpt = fc.viewportTransform!;
+      const panX = vpt[4];
+      const panY = vpt[5];
+      const gridSizePx = gridSpacingM * pxPerMeter;
+      if (gridSizePx < 2) return { h: [], v: [] };
+      const hTicks: { pos: number; label: string }[] = [];
+      const vTicks: { pos: number; label: string }[] = [];
+      const w = fc.width || 800;
+      const h = fc.height || 600;
+      for (let ix = 0; ix <= imageWidth; ix += gridSizePx) {
+        const screenX = (ix * bgScale + bgOffX) * zoom + panX;
+        if (screenX >= 0 && screenX <= w) {
+          hTicks.push({ pos: screenX, label: `${(ix / pxPerMeter).toFixed(1)}` });
+        }
+      }
+      for (let iy = 0; iy <= imageHeight; iy += gridSizePx) {
+        const screenY = (iy * bgScale + bgOffY) * zoom + panY;
+        if (screenY >= 0 && screenY <= h) {
+          vTicks.push({ pos: screenY, label: `${(iy / pxPerMeter).toFixed(1)}` });
+        }
+      }
+      return { h: hTicks, v: vTicks };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [loaded, bgReady, zoomLevel, showRulers, gridSpacingM, pxPerMeter, imageWidth, imageHeight]);
 
     return (
-      <div className={`flex h-full ${className ?? ""}`}>
+      <div className={`flex h-full ${className ?? ""}`} onClick={closeContextMenu}>
         {/* ── Canvas area ───────────────────────────────────── */}
-        <div className="flex-1 relative min-w-0 min-h-0" style={{ cursor }}>
-          <div ref={wrapperRef} className="absolute inset-0" />
+        <div className="flex-1 relative min-w-0 min-h-0" style={{ cursor }} onContextMenu={onCanvasContextMenu}>
+          {/* ── Rulers ──────────────────────────────────────── */}
+          {showRulers && (
+            <>
+              {/* Horizontal ruler */}
+              <div className="absolute top-0 left-6 right-0 h-5 z-10 bg-zinc-800/90 border-b border-zinc-700 overflow-hidden pointer-events-none">
+                {rulerTicks.h.map((t, i) => (
+                  <div key={i} className="absolute top-0 flex flex-col items-center" style={{ left: t.pos }}>
+                    <div className="w-px h-2 bg-zinc-500" />
+                    <span className="text-[7px] text-zinc-500 leading-none mt-0.5">{t.label}</span>
+                  </div>
+                ))}
+              </div>
+              {/* Vertical ruler */}
+              <div className="absolute top-5 left-0 w-6 bottom-0 z-10 bg-zinc-800/90 border-r border-zinc-700 overflow-hidden pointer-events-none">
+                {rulerTicks.v.map((t, i) => (
+                  <div key={i} className="absolute left-0 flex items-center" style={{ top: t.pos - 20 }}>
+                    <div className="h-px w-2 bg-zinc-500" />
+                    <span className="text-[7px] text-zinc-500 leading-none ml-0.5 whitespace-nowrap" style={{ writingMode: "vertical-lr", transform: "rotate(180deg)" }}>{t.label}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="absolute top-0 left-0 w-6 h-5 z-10 bg-zinc-900 border-b border-r border-zinc-700" />
+            </>
+          )}
+
+          <div ref={wrapperRef} className={`absolute inset-0 ${showRulers ? "top-5 left-6" : ""}`} />
+
+          {/* ── Context menu ────────────────────────────────── */}
+          {contextMenu && (
+            <div
+              className="absolute z-30 bg-white rounded-lg shadow-xl border border-gray-200 py-1 min-w-[160px] text-[11px]"
+              style={{ left: contextMenu.x, top: contextMenu.y }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {contextMenu.target && (
+                <>
+                  <button onClick={() => { deleteSelected(); closeContextMenu(); }} className="w-full text-left px-3 py-1.5 hover:bg-red-50 text-red-600">Delete</button>
+                  <div className="border-t border-gray-100 my-0.5" />
+                </>
+              )}
+              <button onClick={() => {
+                const thick = prompt("Wall thickness (px):", String(wallThickness));
+                if (thick) setWallThickness(Math.max(1, parseInt(thick) || wallThickness));
+                closeContextMenu();
+              }} className="w-full text-left px-3 py-1.5 hover:bg-gray-100 text-gray-700">Set Wall Thickness…</button>
+              <button onClick={() => {
+                setActiveLayerId(layers.find(l => l.id === activeLayerId)?.id || "walls");
+                closeContextMenu();
+              }} className="w-full text-left px-3 py-1.5 hover:bg-gray-100 text-gray-700">Active Layer: {layers.find(l => l.id === activeLayerId)?.label}</button>
+              <div className="border-t border-gray-100 my-0.5" />
+              <button onClick={() => {
+                setLayers(prev => prev.map(l => l.id === activeLayerId ? { ...l, locked: !l.locked } : l));
+                closeContextMenu();
+              }} className="w-full text-left px-3 py-1.5 hover:bg-gray-100 text-gray-700">
+                {layers.find(l => l.id === activeLayerId)?.locked ? "🔓 Unlock Layer" : "🔒 Lock Layer"}
+              </button>
+              <button onClick={() => {
+                if (measurements.length > 0) setMeasurements([]);
+                closeContextMenu();
+              }} className="w-full text-left px-3 py-1.5 hover:bg-gray-100 text-gray-700">Clear Measurements</button>
+              <div className="border-t border-gray-100 my-0.5" />
+              <button onClick={() => { setShowGrid(!showGrid); closeContextMenu(); }} className="w-full text-left px-3 py-1.5 hover:bg-gray-100 text-gray-700">{showGrid ? "Hide Grid" : "Show Grid"}</button>
+              <button onClick={() => { setShowRulers(!showRulers); closeContextMenu(); }} className="w-full text-left px-3 py-1.5 hover:bg-gray-100 text-gray-700">{showRulers ? "Hide Rulers" : "Show Rulers"}</button>
+            </div>
+          )}
 
           {/* ── Floating tool panel (matches map-drawing-panel style) ── */}
           <div
@@ -1504,11 +1917,12 @@ const FloorPlanTracingEditor = forwardRef<TracingEditorHandle, Props>(
                     { id: "line" as const, label: "Line", icon: "╲" },
                     { id: "circle" as const, label: "Circle", icon: "◯" },
                     { id: "text" as const, label: "Text", icon: "T" },
+                    { id: "measure" as const, label: "Measure", icon: "📏" },
                     { id: "pan" as const, label: "Pan", icon: "✋" },
                   ]).map((t) => (
                     <button
                       key={t.id}
-                      onClick={() => { setTool(t.id); clearPolyState(); clearWallState(); }}
+                      onClick={() => { setTool(t.id); clearPolyState(); clearWallState(); measureStart.current = null; }}
                       title={t.label}
                       className={`flex flex-col items-center gap-0.5 py-1.5 rounded-lg text-[9px] font-medium cursor-pointer transition-colors ${
                         tool === t.id
@@ -1596,6 +2010,27 @@ const FloorPlanTracingEditor = forwardRef<TracingEditorHandle, Props>(
                 </button>
                 {!collapsedSections.grid && (
                   <div className="px-2 space-y-1">
+                    {/* Scale preset dropdown */}
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[9px] text-gray-500 w-10">Preset</span>
+                      <select
+                        value={activeScalePreset}
+                        onChange={(e) => {
+                          const preset = SCALE_PRESETS.find((p) => p.label === e.target.value);
+                          if (preset) {
+                            setActiveScalePreset(preset.label);
+                            setPxPerMeter(preset.pxPerMeter);
+                            setGridSpacingM(preset.gridM);
+                          }
+                        }}
+                        className="flex-1 text-[10px] px-1 py-0.5 rounded border border-gray-300 bg-white"
+                      >
+                        {SCALE_PRESETS.map((p) => (
+                          <option key={p.label} value={p.label}>{p.label}</option>
+                        ))}
+                        <option value="custom">Custom</option>
+                      </select>
+                    </div>
                     <div className="flex items-center gap-3">
                       <label className="flex items-center gap-1 cursor-pointer">
                         <input type="checkbox" checked={showGrid} onChange={(e) => setShowGrid(e.target.checked)} className="w-3 h-3 accent-blue-500" />
@@ -1605,14 +2040,18 @@ const FloorPlanTracingEditor = forwardRef<TracingEditorHandle, Props>(
                         <input type="checkbox" checked={snapEnabled} onChange={(e) => setSnapEnabled(e.target.checked)} className="w-3 h-3 accent-blue-500" />
                         <span className="text-[10px] text-gray-600">Snap</span>
                       </label>
+                      <label className="flex items-center gap-1 cursor-pointer">
+                        <input type="checkbox" checked={showRulers} onChange={(e) => setShowRulers(e.target.checked)} className="w-3 h-3 accent-blue-500" />
+                        <span className="text-[10px] text-gray-600">Rulers</span>
+                      </label>
                     </div>
                     <div className="grid grid-cols-2 gap-x-2 gap-y-1">
                       <div className="flex items-center gap-1">
                         <span className="text-[9px] text-gray-500 w-7">Grid</span>
                         <input
-                          type="number" min={0.1} max={50} step={0.5}
+                          type="number" min={0.1} max={50} step={0.1}
                           value={gridSpacingM}
-                          onChange={(e) => setGridSpacingM(Math.max(0.1, parseFloat(e.target.value) || 1))}
+                          onChange={(e) => { setGridSpacingM(Math.max(0.1, parseFloat(e.target.value) || 0.5)); setActiveScalePreset("custom"); }}
                           className="flex-1 text-[10px] px-1 py-0.5 rounded border border-gray-300 w-10"
                         />
                         <span className="text-[9px] text-gray-400">m</span>
@@ -1620,9 +2059,9 @@ const FloorPlanTracingEditor = forwardRef<TracingEditorHandle, Props>(
                       <div className="flex items-center gap-1">
                         <span className="text-[9px] text-gray-500 w-7">Scale</span>
                         <input
-                          type="number" min={1} max={1000} step={10}
+                          type="number" min={1} max={1000} step={5}
                           value={pxPerMeter}
-                          onChange={(e) => setPxPerMeter(Math.max(1, parseInt(e.target.value) || 100))}
+                          onChange={(e) => { setPxPerMeter(Math.max(1, parseInt(e.target.value) || 50)); setActiveScalePreset("custom"); }}
                           className="flex-1 text-[10px] px-1 py-0.5 rounded border border-gray-300 w-10"
                         />
                         <span className="text-[9px] text-gray-400">px/m</span>
@@ -1638,6 +2077,45 @@ const FloorPlanTracingEditor = forwardRef<TracingEditorHandle, Props>(
                       />
                       <span className="text-[9px] text-gray-400 w-8 text-right">{wallThickness}px</span>
                     </div>
+                  </div>
+                )}
+
+                {/* ── LAYERS SECTION ────────────────────────────── */}
+                <button
+                  onClick={() => setCollapsedSections((s) => ({ ...s, layers: !s.layers }))}
+                  className="w-full flex items-center gap-1.5 px-2 py-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider hover:bg-gray-50 rounded"
+                >
+                  <span className="text-[8px]">{collapsedSections.layers ? "▸" : "▾"}</span>
+                  Layers
+                </button>
+                {!collapsedSections.layers && (
+                  <div className="px-1 space-y-0.5">
+                    {layers.map((layer) => (
+                      <div
+                        key={layer.id}
+                        onClick={() => setActiveLayerId(layer.id)}
+                        className={`flex items-center gap-1.5 px-1.5 py-1 rounded cursor-pointer text-[10px] transition-colors ${
+                          activeLayerId === layer.id ? "bg-blue-50 ring-1 ring-blue-200" : "hover:bg-gray-50"
+                        }`}
+                      >
+                        <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ backgroundColor: layer.color }} />
+                        <span className={`flex-1 truncate ${activeLayerId === layer.id ? "font-semibold text-blue-700" : "text-gray-600"}`}>{layer.label}</span>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setLayers((prev) => prev.map((l) => l.id === layer.id ? { ...l, visible: !l.visible } : l)); }}
+                          className={`text-[9px] w-5 h-5 flex items-center justify-center rounded ${layer.visible ? "text-gray-400 hover:text-gray-600" : "text-red-400 hover:text-red-600 bg-red-50"}`}
+                          title={layer.visible ? "Hide layer" : "Show layer"}
+                        >
+                          {layer.visible ? "👁" : "🚫"}
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setLayers((prev) => prev.map((l) => l.id === layer.id ? { ...l, locked: !l.locked } : l)); }}
+                          className={`text-[9px] w-5 h-5 flex items-center justify-center rounded ${layer.locked ? "text-amber-500 bg-amber-50" : "text-gray-400 hover:text-gray-600"}`}
+                          title={layer.locked ? "Unlock layer" : "Lock layer"}
+                        >
+                          {layer.locked ? "🔒" : "🔓"}
+                        </button>
+                      </div>
+                    ))}
                   </div>
                 )}
 
@@ -1755,6 +2233,11 @@ const FloorPlanTracingEditor = forwardRef<TracingEditorHandle, Props>(
               Click and drag to draw an ellipse room · <strong>Esc</strong> cancel
             </div>
           )}
+          {tool === "measure" && (
+            <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 bg-red-900/90 text-xs text-red-200 px-3 py-1.5 rounded-lg border border-red-700 backdrop-blur pointer-events-none">
+              Click start point, then click end point to measure distance · <strong>Esc</strong> cancel
+            </div>
+          )}
           {selectedSymbolDef && (
             <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 bg-blue-900/90 text-xs text-blue-200 px-3 py-1.5 rounded-lg border border-blue-700 backdrop-blur pointer-events-none">
               Click to place <strong>{SYMBOL_LIBRARY.find((s) => s.id === selectedSymbolDef)?.label}</strong> · Click symbol again to deselect
@@ -1763,9 +2246,16 @@ const FloorPlanTracingEditor = forwardRef<TracingEditorHandle, Props>(
 
           {/* Status bar */}
           <div className="absolute bottom-0 left-0 right-0 z-10 bg-zinc-900/95 border-t border-zinc-700 px-3 py-1 flex items-center gap-4 text-[10px] text-zinc-400 backdrop-blur">
-            <span>Layer-1</span>
+            <span className="px-1.5 py-0.5 rounded text-[9px] font-medium" style={{ backgroundColor: layers.find(l => l.id === activeLayerId)?.color + "33", color: layers.find(l => l.id === activeLayerId)?.color }}>
+              {layers.find(l => l.id === activeLayerId)?.label}
+              {layers.find(l => l.id === activeLayerId)?.locked ? " 🔒" : ""}
+            </span>
+            <span className="text-[9px] text-zinc-500">{activeScalePreset}</span>
             {cursorPos && (
               <span>X: {cursorPos.x}m · Y: {cursorPos.y}m</span>
+            )}
+            {measurements.length > 0 && (
+              <span className="text-red-400">📏 {measurements.length} meas.</span>
             )}
             <span className="ml-auto">{rooms.length} rooms · {walls.length} walls · {symbols.length} symbols · {openings.length} openings</span>
           </div>
@@ -1895,6 +2385,123 @@ const FloorPlanTracingEditor = forwardRef<TracingEditorHandle, Props>(
               </button>
             </div>
           )}
+
+          {/* Edit selected wall */}
+          {selectedWallId && (() => {
+            const wall = walls.find((w) => w.id === selectedWallId);
+            if (!wall) return null;
+            const dx = wall.end[0] - wall.start[0];
+            const dy = wall.end[1] - wall.start[1];
+            const lengthM = Math.sqrt(dx * dx + dy * dy) / pxPerMeter;
+            return (
+              <div className="border-t border-zinc-700 pt-3 space-y-3">
+                <h4 className="text-xs font-semibold text-zinc-400">Edit Wall</h4>
+                <div className="text-[10px] text-zinc-500">ID: {wall.id}</div>
+                <div>
+                  <label className="text-[10px] text-zinc-500 uppercase tracking-wider">Length (m)</label>
+                  <input
+                    type="number" min={0.1} step={0.1}
+                    value={+lengthM.toFixed(2)}
+                    onChange={(e) => {
+                      const newLen = parseFloat(e.target.value);
+                      if (!newLen || newLen <= 0) return;
+                      const ratio = newLen / lengthM;
+                      setWalls((prev) => prev.map((w) => {
+                        if (w.id !== selectedWallId) return w;
+                        const ndx = dx * ratio;
+                        const ndy = dy * ratio;
+                        return { ...w, end: [w.start[0] + ndx, w.start[1] + ndy] };
+                      }));
+                    }}
+                    className="w-full text-xs px-2 py-1.5 rounded border border-zinc-600 bg-zinc-800 text-white mt-0.5"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-zinc-500 uppercase tracking-wider">Thickness (px)</label>
+                  <input
+                    type="number" min={1} max={50} step={1}
+                    value={wall.thickness}
+                    onChange={(e) => {
+                      const t = parseInt(e.target.value) || wall.thickness;
+                      setWalls((prev) => prev.map((w) => w.id === selectedWallId ? { ...w, thickness: t } : w));
+                    }}
+                    className="w-full text-xs px-2 py-1.5 rounded border border-zinc-600 bg-zinc-800 text-white mt-0.5"
+                  />
+                </div>
+                <button
+                  onClick={() => {
+                    setWalls((prev) => prev.filter((w) => w.id !== selectedWallId));
+                    setOpenings((prev) => prev.filter((o) => o.wallId !== selectedWallId));
+               
+
+          {/* Edit selected symbol (shape data / tooltips) */}
+          {selectedSymbolId && (() => {
+            const sym = symbols.find((s) => s.id === selectedSymbolId);
+            if (!sym) return null;
+            const meta = sym.metadata || {};
+            return (
+              <div className="border-t border-zinc-700 pt-3 space-y-3">
+                <h4 className="text-xs font-semibold text-zinc-400">Shape Data</h4>
+                <div>
+                  <label className="text-[10px] text-zinc-500 uppercase tracking-wider">Label</label>
+                  <input
+                    value={sym.label || ""}
+                    onChange={(e) => setSymbols((prev) => prev.map((s) => s.id === selectedSymbolId ? { ...s, label: e.target.value } : s))}
+                    className="w-full text-xs px-2 py-1.5 rounded border border-zinc-600 bg-zinc-800 text-white mt-0.5"
+                    placeholder="Symbol label"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-zinc-500 uppercase tracking-wider">Model #</label>
+                  <input
+                    value={meta.model || ""}
+                    onChange={(e) => setSymbols((prev) => prev.map((s) => s.id === selectedSymbolId ? { ...s, metadata: { ...s.metadata, model: e.target.value } } : s))}
+                    className="w-full text-xs px-2 py-1.5 rounded border border-zinc-600 bg-zinc-800 text-white mt-0.5"
+                    placeholder="e.g. XYZ-123"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-zinc-500 uppercase tracking-wider">Cost</label>
+                  <input
+                    value={meta.cost || ""}
+                    onChange={(e) => setSymbols((prev) => prev.map((s) => s.id === selectedSymbolId ? { ...s, metadata: { ...s.metadata, cost: e.target.value } } : s))}
+                    className="w-full text-xs px-2 py-1.5 rounded border border-zinc-600 bg-zinc-800 text-white mt-0.5"
+                    placeholder="e.g. $500"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-zinc-500 uppercase tracking-wider">Description</label>
+                  <textarea
+                    value={meta.description || ""}
+                    onChange={(e) => setSymbols((prev) => prev.map((s) => s.id === selectedSymbolId ? { ...s, metadata: { ...s.metadata, description: e.target.value } } : s))}
+                    rows={2}
+                    className="w-full text-xs px-2 py-1.5 rounded border border-zinc-600 bg-zinc-800 text-white mt-0.5 resize-none"
+                    placeholder="Notes about this item…"
+                  />
+                </div>
+                <div className="text-[10px] text-zinc-600">
+                  Type: {sym.type} · Category: {sym.category}
+                </div>
+                <button
+                  onClick={() => {
+                    setSymbols((prev) => prev.filter((s) => s.id !== selectedSymbolId));
+                    setSelectedSymbolId(null);
+                  }}
+                  className="w-full text-xs px-2 py-1.5 rounded border border-red-600/50 text-red-400 hover:bg-red-600/20 transition-colors"
+                >
+                  Delete Symbol
+                </button>
+              </div>
+            );
+          })()}     setSelectedWallId(null);
+                  }}
+                  className="w-full text-xs px-2 py-1.5 rounded border border-red-600/50 text-red-400 hover:bg-red-600/20 transition-colors"
+                >
+                  Delete Wall
+                </button>
+              </div>
+            );
+          })()}
 
           {/* Keyboard shortcuts */}
           <div className="border-t border-zinc-700 pt-3">

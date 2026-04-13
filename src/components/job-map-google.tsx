@@ -61,6 +61,9 @@ interface WorkHistoryMarker {
   lng: number;
   label: string;
   title: string | null;
+  type?: string; // "job" | "school" | "military" | "volunteer"
+  startDate?: string | null;
+  endDate?: string | null;
 }
 
 interface WorkHistorySubLocation {
@@ -147,12 +150,15 @@ interface Props {
   workHistoryMarkers?: WorkHistoryMarker[];
   workHistorySubLocations?: WorkHistorySubLocation[];
   showCareerPath?: boolean;
+  focusedWorkHistoryId?: string | null;
+  concurrentWorkHistoryIds?: Set<string>;
   onSelectWorkHistory?: (marker: WorkHistoryMarker | WorkHistorySubLocation) => void;
   buildingFootprints?: BuildingFootprint[];
   pinDropMode?: boolean;
   onMapClick?: (coords: { lat: number; lng: number; placeId?: string }) => void;
   companyLocationMarkers?: { placeId: string; name: string; address: string; lat: number; lng: number }[];
   onMapReady?: (map: google.maps.Map) => void;
+  onCursorMove?: (coords: { lat: number; lng: number } | null) => void;
 }
 
 /* ── Helpers ── */
@@ -261,12 +267,15 @@ export default function JobMapGoogle({
   workHistoryMarkers = [],
   workHistorySubLocations = [],
   showCareerPath = false,
+  focusedWorkHistoryId = null,
+  concurrentWorkHistoryIds,
   onSelectWorkHistory,
   buildingFootprints = [],
   pinDropMode = false,
   onMapClick,
   companyLocationMarkers = [],
   onMapReady,
+  onCursorMove,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
@@ -275,6 +284,8 @@ export default function JobMapGoogle({
   const jobMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
   const anchorMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
   const workHistoryMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
+  const whMarkerElementsRef = useRef<Map<string, HTMLDivElement>>(new Map());
+  const concurrentLinesRef = useRef<google.maps.Polyline[]>([]);
   const workHistoryPathRef = useRef<google.maps.Polyline | null>(null);
   const subLocationMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
   const subLocationLinesRef = useRef<google.maps.Polyline[]>([]);
@@ -328,6 +339,8 @@ export default function JobMapGoogle({
   onSelectWorkHistoryRef.current = onSelectWorkHistory;
   const onMapClickRef = useRef(onMapClick);
   onMapClickRef.current = onMapClick;
+  const onCursorMoveRef = useRef(onCursorMove);
+  onCursorMoveRef.current = onCursorMove;
   const pinDropModeRef = useRef(pinDropMode);
   pinDropModeRef.current = pinDropMode;
   const amenityCatsRef = useRef(amenityCategories);
@@ -384,6 +397,12 @@ export default function JobMapGoogle({
         // Prevent default info window for POI clicks
         if (e.placeId) (e as any).stop?.();
       });
+
+      // Cursor coordinate tracking for dev overlay
+      map.addListener("mousemove", (e: google.maps.MapMouseEvent) => {
+        if (e.latLng) onCursorMoveRef.current?.({ lat: e.latLng.lat(), lng: e.latLng.lng() });
+      });
+      map.addListener("mouseout", () => { onCursorMoveRef.current?.(null); });
 
       setReady(true);
       onMapReady?.(map);
@@ -985,11 +1004,20 @@ export default function JobMapGoogle({
   useEffect(() => {
     workHistoryMarkersRef.current.forEach((m) => (m.map = null));
     workHistoryMarkersRef.current = [];
+    whMarkerElementsRef.current.clear();
     if (!mapRef.current || workHistoryMarkers.length === 0) return;
 
     workHistoryMarkers.forEach((w) => {
+      const isSchool = w.type === "school";
+      const isMilitary = w.type === "military";
+      const isVolunteer = w.type === "volunteer";
+      const isInternship = w.type === "internship";
+      const emoji = isSchool ? "🎓" : isMilitary ? "🎖️" : isVolunteer ? "🤝" : isInternship ? "🏢" : "💼";
+      const bg = isSchool ? "#7c3aed" : isMilitary ? "#047857" : isVolunteer ? "#d97706" : isInternship ? "#0891b2" : "#6b7280";
+      const border = isSchool ? "#c4b5fd" : isMilitary ? "#6ee7b7" : isVolunteer ? "#fbbf24" : isInternship ? "#67e8f9" : "#d1d5db";
+      const typeLabel = isSchool ? "School" : isMilitary ? "Military" : isVolunteer ? "Volunteer" : isInternship ? "Internship" : "Past workplace";
       const el = document.createElement("div");
-      el.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:#6b7280;border:2px solid #d1d5db;box-shadow:0 1px 4px rgba(0,0,0,0.2);font-size:14px;line-height:1;opacity:0.85;cursor:pointer;transition:transform 0.15s;" title="${escapeHtml(w.label)}${w.title ? ' - ' + escapeHtml(w.title) : ''}">💼</div>`;
+      el.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:${bg};border:2px solid ${border};box-shadow:0 1px 4px rgba(0,0,0,0.2);font-size:14px;line-height:1;opacity:0.85;cursor:pointer;transition:transform 0.15s;" title="${escapeHtml(w.label)}${w.title ? ' - ' + escapeHtml(w.title) : ''}">${emoji}</div>`;
 
       const marker = new google.maps.marker.AdvancedMarkerElement({
         position: { lat: w.lat, lng: w.lng },
@@ -1001,9 +1029,9 @@ export default function JobMapGoogle({
       // Hover → InfoWindow with company + title
       const titleStr = w.title ? `<div style="color:#6b7280;margin-top:1px">${escapeHtml(w.title)}</div>` : "";
       const infoContent = `<div style="font-size:11px;max-width:200px;line-height:1.4;padding:2px 0">
-        <div style="font-weight:700;font-size:12px;color:#111">💼 ${escapeHtml(w.label)}</div>
+        <div style="font-weight:700;font-size:12px;color:#111">${emoji} ${escapeHtml(w.label)}</div>
         ${titleStr}
-        <div style="color:#9ca3af;margin-top:2px;font-size:10px">Past workplace • Click to focus</div>
+        <div style="color:#9ca3af;margin-top:2px;font-size:10px">${typeLabel} • Click to focus</div>
       </div>`;
 
       el.addEventListener("mouseenter", () => {
@@ -1025,12 +1053,13 @@ export default function JobMapGoogle({
         if (map) {
           map.panTo({ lat: w.lat, lng: w.lng });
           const z = map.getZoom() ?? 10;
-          if (z < 15) map.setZoom(15);
+          if (z < 17) map.setZoom(17);
         }
         onSelectWorkHistoryRef.current?.(w);
       });
 
       workHistoryMarkersRef.current.push(marker);
+      whMarkerElementsRef.current.set(w.id, el);
     });
 
     // Draw career path polyline connecting markers in order
@@ -1059,6 +1088,59 @@ export default function JobMapGoogle({
       }
     }
   }, [workHistoryMarkers, showCareerPath, ready]);
+
+  /* ── Concurrent work-history highlight (dim others, glow concurrent, draw dashed lines) ── */
+  useEffect(() => {
+    // Clean up previous concurrent lines
+    concurrentLinesRef.current.forEach((l) => l.setMap(null));
+    concurrentLinesRef.current = [];
+
+    // Reset all marker styles to default
+    whMarkerElementsRef.current.forEach((el) => {
+      const inner = el.firstElementChild as HTMLElement;
+      if (inner) { inner.style.opacity = "0.85"; inner.style.filter = ""; inner.style.transform = "scale(1)"; }
+    });
+
+    const hasConc = concurrentWorkHistoryIds && concurrentWorkHistoryIds.size > 0;
+    if (!focusedWorkHistoryId || !hasConc || !mapRef.current) return;
+
+    // Dim non-concurrent, glow concurrent, brighten focused
+    whMarkerElementsRef.current.forEach((el, id) => {
+      const inner = el.firstElementChild as HTMLElement;
+      if (!inner) return;
+      if (id === focusedWorkHistoryId) {
+        inner.style.opacity = "1";
+        inner.style.transform = "scale(1.15)";
+      } else if (concurrentWorkHistoryIds!.has(id)) {
+        inner.style.opacity = "1";
+        inner.style.filter = "drop-shadow(0 0 6px rgba(234,179,8,0.8))";
+        inner.style.transform = "scale(1.1)";
+      } else {
+        inner.style.opacity = "0.3";
+      }
+    });
+
+    // Draw dashed lines from focused to each concurrent marker
+    const focusedMarker = workHistoryMarkers.find((w) => w.id === focusedWorkHistoryId);
+    if (!focusedMarker) return;
+    for (const cId of concurrentWorkHistoryIds!) {
+      const cMarker = workHistoryMarkers.find((w) => w.id === cId);
+      if (!cMarker) continue;
+      // Skip line if markers are at the same location (< 0.001 deg ≈ ~100m)
+      if (Math.abs(focusedMarker.lat - cMarker.lat) < 0.001 && Math.abs(focusedMarker.lng - cMarker.lng) < 0.001) continue;
+      const line = new google.maps.Polyline({
+        path: [{ lat: focusedMarker.lat, lng: focusedMarker.lng }, { lat: cMarker.lat, lng: cMarker.lng }],
+        strokeColor: "#eab308",
+        strokeOpacity: 0,
+        strokeWeight: 2,
+        geodesic: true,
+        icons: [{ icon: { path: "M 0,-1 0,1", strokeOpacity: 0.7, scale: 3 }, offset: "0", repeat: "10px" }],
+        map: mapRef.current,
+        zIndex: 1900,
+      });
+      concurrentLinesRef.current.push(line);
+    }
+  }, [focusedWorkHistoryId, concurrentWorkHistoryIds, workHistoryMarkers]);
 
   /* ── Work History sub-location markers (smaller pins + dashed lines to parent) ── */
   useEffect(() => {

@@ -70,6 +70,15 @@ import {
   ClipboardList,
   TrendingUp,
   PaintbrushVertical,
+  Users,
+  GraduationCap,
+  Heart,
+  Calendar,
+  ThumbsUp,
+  LogOut,
+  Monitor,
+  Award,
+  Zap,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -135,6 +144,14 @@ interface MapJob {
 /** Strip basic HTML tags from Adzuna descriptions */
 function stripHtml(html: string) {
   return html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+}
+
+/** Check if two date ranges (YYYY-MM format) overlap */
+function dateRangesOverlap(aStart: string | null, aEnd: string | null, bStart: string | null, bEnd: string | null): boolean {
+  if (!aStart || !bStart) return false;
+  const ae = aEnd ?? "9999-12";
+  const be = bEnd ?? "9999-12";
+  return aStart <= be && bStart <= ae;
 }
 
 interface SearchResponse {
@@ -491,6 +508,7 @@ export function JobMap() {
   /* ── Area tax info — tracks map center + zoom ── */
   const [mapViewCenter, setMapViewCenter] = useState<[number, number] | null>(null);
   const [mapZoom, setMapZoom] = useState(10);
+  const [cursorCoords, setCursorCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [areaInfo, setAreaInfo] = useState<{ state: string | null; city: string | null; label: string } | null>(null);
   const areaGeoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -843,7 +861,7 @@ export function JobMap() {
 
   /* ── Work History (past jobs reference pins) ── */
   interface WorkHistoryLocationItem { id: string; label: string; type: string; address: string; lat: number; lng: number; isPrimary: boolean; placeId?: string | null; skills?: string | null; startDate?: string | null; endDate?: string | null }
-  interface WorkHistoryItem { id: string; company: string; title: string | null; address: string; lat: number; lng: number; startDate: string | null; endDate: string | null; locations: WorkHistoryLocationItem[]; placeId?: string | null }
+  interface WorkHistoryItem { id: string; type?: string; company: string; title: string | null; address: string; lat: number; lng: number; startDate: string | null; endDate: string | null; locations: WorkHistoryLocationItem[]; placeId?: string | null; degree?: string | null; major?: string | null; gpa?: number | null }
   const { data: workHistory = [] } = useQuery<WorkHistoryItem[]>({
     queryKey: ["work-history"],
     queryFn: () => fetch("/api/work-history").then((r) => r.json()),
@@ -852,6 +870,7 @@ export function JobMap() {
   const [showWorkHistory, setShowWorkHistory] = useState(false);
   const [showWorkHistoryPanel, setShowWorkHistoryPanel] = useState(false);
   const [showCareerPath, setShowCareerPath] = useState(false);
+  const [showOverlaps, setShowOverlaps] = useState(true);
   const [focusedWorkHistoryId, setFocusedWorkHistoryId] = useState<string | null>(null);
   const preWorkHistoryZoomRef = useRef<{ lat: number; lng: number; zoom: number } | null>(null);
   const [pinDropMode, setPinDropMode] = useState(false);
@@ -2019,8 +2038,26 @@ export function JobMap() {
       lng: w.lng,
       label: w.company,
       title: w.title,
+      type: w.type ?? "job",
+      startDate: w.startDate ?? null,
+      endDate: w.endDate ?? null,
     }));
   }, [showWorkHistory, workHistory]);
+
+  /** IDs of work-history entries concurrent with the currently focused one */
+  const concurrentWorkHistoryIds = useMemo(() => {
+    if (!focusedWorkHistoryId || !showWorkHistory) return new Set<string>();
+    const focused = workHistory.find((w: { id: string }) => w.id === focusedWorkHistoryId);
+    if (!focused?.startDate) return new Set<string>();
+    const ids = new Set<string>();
+    for (const w of workHistory) {
+      if (w.id === focusedWorkHistoryId) continue;
+      if (dateRangesOverlap(focused.startDate, focused.endDate, w.startDate, w.endDate)) {
+        ids.add(w.id);
+      }
+    }
+    return ids;
+  }, [focusedWorkHistoryId, showWorkHistory, workHistory]);
 
   /** Memoized sub-location markers for the map */
   const workHistorySubLocationsForMap = useMemo(() => {
@@ -3450,6 +3487,8 @@ export function JobMap() {
               workHistoryMarkers={workHistoryMarkersForMap}
               workHistorySubLocations={workHistorySubLocationsForMap}
               showCareerPath={showCareerPath}
+              focusedWorkHistoryId={focusedWorkHistoryId}
+              concurrentWorkHistoryIds={showOverlaps ? concurrentWorkHistoryIds : undefined}
               buildingFootprints={buildingFootprints}
               pinDropMode={pinDropMode}
               companyLocationMarkers={companyLocs}
@@ -3486,6 +3525,7 @@ export function JobMap() {
               amenityLoading={amenityLoading}
               onToggleAmenity={toggleAmenityCategory}
               onMapReady={handleMapReady}
+              onCursorMove={setCursorCoords}
             />
 
           {/* ── Drawing canvas overlay (always mounted when there are drawings) ── */}
@@ -3527,6 +3567,20 @@ export function JobMap() {
                 onClose={() => setDrawingActive(false)}
               />
           )}
+
+          {/* ── Dev info overlay (bottom-left) ── */}
+          <div className="absolute bottom-2 left-2 z-[1050] bg-black/70 text-green-400 font-mono text-[10px] leading-tight rounded px-2 py-1.5 pointer-events-none select-none max-w-[260px]">
+            <div>Zoom: {mapZoom}</div>
+            {mapViewCenter && (
+              <div>Center: {mapViewCenter[0].toFixed(5)}, {mapViewCenter[1].toFixed(5)}</div>
+            )}
+            {cursorCoords && (
+              <div>Cursor: {cursorCoords.lat.toFixed(5)}, {cursorCoords.lng.toFixed(5)}</div>
+            )}
+            {searchCenter && (
+              <div>Search: {searchCenter[0].toFixed(5)}, {searchCenter[1].toFixed(5)}</div>
+            )}
+          </div>
 
           {/* ── Map layer controls (bottom-right, above zoom) ── */}
           <div className="absolute bottom-6 right-[60px] z-[1050] flex flex-row gap-2 pointer-events-auto">
@@ -3725,6 +3779,8 @@ export function JobMap() {
               onDeleted={() => queryClient.invalidateQueries({ queryKey: ["work-history"] })}
               showCareerPath={showCareerPath}
               onToggleCareerPath={() => setShowCareerPath((p) => !p)}
+              showOverlaps={showOverlaps}
+              onToggleOverlaps={() => setShowOverlaps((p) => !p)}
               focusedId={focusedWorkHistoryId}
               pinDropMode={pinDropMode}
               pinDropCoords={pinDropCoords}
@@ -3739,6 +3795,13 @@ export function JobMap() {
                   setZoomTarget(preWorkHistoryZoomRef.current);
                   preWorkHistoryZoomRef.current = null;
                 }
+              }}
+              onFocusJob={(item) => {
+                if (searchCenter) {
+                  preWorkHistoryZoomRef.current = { lat: searchCenter[0], lng: searchCenter[1], zoom: 11 };
+                }
+                setFocusedWorkHistoryId(item.id);
+                setZoomTarget({ lat: item.lat, lng: item.lng, zoom: 17 });
               }}
             />
           )}
@@ -4222,7 +4285,7 @@ export function JobMap() {
                                   type="button"
                                   className="w-full flex items-start gap-1.5 p-1.5 hover:bg-muted/30 transition-colors text-left"
                                   onClick={() => {
-                                    setZoomTarget({ lat: loc.lat, lng: loc.lng, zoom: 15 });
+                                    setZoomTarget({ lat: loc.lat, lng: loc.lng, zoom: 17 });
                                   }}
                                 >
                                   <MapPin className="h-3 w-3 text-blue-500 mt-0.5 shrink-0" />
@@ -6019,18 +6082,76 @@ export function JobMap() {
   );
 }
 
+/* ── Detail Edit Section (collapsible) ──────────────────────── */
+
+function DetailEditSection({ title, icon, sectionKey, expanded, onToggle, children }: {
+  title: string; icon: React.ReactNode; sectionKey: string; expanded: boolean; onToggle: () => void; children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-lg border overflow-hidden">
+      <button type="button" className="w-full flex items-center justify-between p-2 hover:bg-muted/30 transition-colors" onClick={onToggle}>
+        <span className="text-[11px] font-medium flex items-center gap-1.5">{icon} {title}</span>
+        {expanded ? <ChevronUp className="h-3 w-3 text-muted-foreground" /> : <ChevronDown className="h-3 w-3 text-muted-foreground" />}
+      </button>
+      {expanded && <div className="px-2 pb-2">{children}</div>}
+    </div>
+  );
+}
+
+/* ── Benefits Toggle Chips ─────────────────────────────────── */
+
+const BENEFIT_OPTIONS = ["health","dental","vision","401k","pto","hsa","fsa","life","disability","tuition","gym","stock","parental","commuter","meals"] as const;
+
+function BenefitsToggle({ current, onSave }: { current?: string | null; onSave: (val: string | null) => void }) {
+  const parsed: string[] = current ? (() => { try { return JSON.parse(current); } catch { return []; } })() : [];
+  const [selected, setSelected] = useState<Set<string>>(new Set(parsed));
+
+  function toggle(b: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.has(b) ? next.delete(b) : next.add(b);
+      const arr = [...next];
+      onSave(arr.length > 0 ? JSON.stringify(arr) : null);
+      return next;
+    });
+  }
+
+  return (
+    <div className="flex flex-wrap gap-1">
+      {BENEFIT_OPTIONS.map((b) => (
+        <button key={b} type="button"
+          className={`text-[9px] px-1.5 py-0.5 rounded border transition-colors capitalize ${selected.has(b) ? "bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300 border-pink-300 dark:border-pink-700" : "bg-muted/30 text-muted-foreground border-transparent hover:border-muted-foreground/30"}`}
+          onClick={() => toggle(b)}>
+          {b}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 /* ── Work History Panel (floating on map) ──────────────────── */
 
 function WorkHistoryPanel({
-  items, onClose, onAdded, onDeleted, showCareerPath, onToggleCareerPath, focusedId, onExitFocus,
-  pinDropMode, pinDropCoords, onStartPinDrop, onCancelPinDrop, onClearPinDrop,
+  items, onClose, onAdded, onDeleted, showCareerPath, onToggleCareerPath, showOverlaps, onToggleOverlaps, focusedId, onExitFocus,
+  pinDropMode, pinDropCoords, onStartPinDrop, onCancelPinDrop, onClearPinDrop, onFocusJob,
 }: {
-  items: { id: string; company: string; title: string | null; address: string; lat: number; lng: number; startDate: string | null; endDate: string | null; locations: { id: string; label: string; type: string; address: string; lat: number; lng: number; isPrimary: boolean; placeId?: string | null; skills?: string | null; startDate?: string | null; endDate?: string | null }[] }[];
+  items: { id: string; type?: string; company: string; title: string | null; address: string; lat: number; lng: number; startDate: string | null; endDate: string | null; locations: { id: string; label: string; type: string; address: string; lat: number; lng: number; isPrimary: boolean; placeId?: string | null; skills?: string | null; startDate?: string | null; endDate?: string | null }[];
+    degree?: string | null; major?: string | null; gpa?: number | null;
+    salaryAmount?: number | null; salaryType?: string | null; salaryCurrency?: string | null; bonusAmount?: number | null; equityNotes?: string | null;
+    workMode?: string | null; hybridDays?: number | null; scheduleType?: string | null; hoursPerWeek?: number | null; shiftNotes?: string | null;
+    benefits?: string | null; ptoDaysOffered?: number | null; ptoDaysUsed?: number | null; ptoNotes?: string | null;
+    companySize?: string | null; department?: string | null; teamSize?: number | null; managerName?: string | null;
+    skillsUsed?: string | null; skillsGained?: string | null; promotions?: string | null;
+    reasonForLeaving?: string | null; wouldReturn?: string | null; accomplishments?: string | null;
+    commuteMinutes?: number | null; commuteDistance?: number | null; commuteMode?: string | null;
+  }[];
   onClose: () => void;
   onAdded: () => void;
   onDeleted: () => void;
   showCareerPath: boolean;
   onToggleCareerPath: () => void;
+  showOverlaps: boolean;
+  onToggleOverlaps: () => void;
   focusedId: string | null;
   pinDropMode: boolean;
   pinDropCoords: { lat: number; lng: number; placeId?: string } | null;
@@ -6038,10 +6159,15 @@ function WorkHistoryPanel({
   onCancelPinDrop: () => void;
   onClearPinDrop: () => void;
   onExitFocus: () => void;
+  onFocusJob: (item: { id: string; lat: number; lng: number }) => void;
 }) {
   const [adding, setAdding] = useState(false);
+  const [addType, setAddType] = useState<"job" | "school" | "military" | "volunteer" | "internship">("job");
   const [company, setCompany] = useState("");
   const [jobTitle, setJobTitle] = useState("");
+  const [addDegree, setAddDegree] = useState("");
+  const [addMajor, setAddMajor] = useState("");
+  const [addGpa, setAddGpa] = useState("");
   const [address, setAddress] = useState("");
   const [addCoords, setAddCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [addPlaceId, setAddPlaceId] = useState<string | null>(null);
@@ -6156,11 +6282,12 @@ function WorkHistoryPanel({
       const res = await fetch("/api/work-history", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ company: company.trim(), title: jobTitle.trim() || null, address: address.trim(), lat: geo.lat, lng: geo.lng, placeId: addPlaceId, startDate: startDate || null, endDate: endDate || null }),
+        body: JSON.stringify({ company: company.trim(), title: jobTitle.trim() || null, address: address.trim(), lat: geo.lat, lng: geo.lng, placeId: addPlaceId, startDate: startDate || null, endDate: endDate || null, type: addType, degree: addDegree.trim() || null, major: addMajor.trim() || null, gpa: addGpa ? parseFloat(addGpa) : null }),
       });
       if (!res.ok) throw new Error("Failed to save");
-      toast.success("Work history added");
+      toast.success(addType === "school" ? "Education added" : addType === "internship" ? "Internship added" : "Work history added");
       setCompany(""); setJobTitle(""); setAddress(""); setAddCoords(null); setAddPlaceId(null); setStartDate(""); setEndDate("");
+      setAddType("job"); setAddDegree(""); setAddMajor(""); setAddGpa("");
       setAdding(false);
       onAdded();
     } catch { toast.error("Failed to add work history"); } finally { setSaving(false); }
@@ -6261,6 +6388,25 @@ function WorkHistoryPanel({
   // Timeline view: oldest first (chronological)
   const sorted = useMemo(() => {
     return [...items].sort((a, b) => (a.startDate ?? "0000").localeCompare(b.startDate ?? "0000"));
+  }, [items]);
+
+  // Overlap map: for each item, which other items overlap in time
+  const overlapMap = useMemo(() => {
+    const m = new Map<string, { id: string; company: string; type?: string }[]>();
+    for (let i = 0; i < items.length; i++) {
+      const a = items[i];
+      if (!a.startDate) continue;
+      const overlaps: { id: string; company: string; type?: string }[] = [];
+      for (let j = 0; j < items.length; j++) {
+        if (i === j) continue;
+        const b = items[j];
+        if (dateRangesOverlap(a.startDate, a.endDate, b.startDate, b.endDate)) {
+          overlaps.push({ id: b.id, company: b.company, type: b.type });
+        }
+      }
+      if (overlaps.length > 0) m.set(a.id, overlaps);
+    }
+    return m;
   }, [items]);
 
   // Career journey stats
@@ -6368,6 +6514,24 @@ function WorkHistoryPanel({
       next.has(key) ? next.delete(key) : next.add(key);
       return next;
     });
+  }
+
+  // ── Detail field editing ──
+  const [detailSaving, setDetailSaving] = useState(false);
+  async function saveDetail(fields: Record<string, unknown>) {
+    if (!focusedItem) return;
+    setDetailSaving(true);
+    try {
+      const res = await fetch(`/api/work-history/${focusedItem.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(fields),
+      });
+      if (!res.ok) throw new Error();
+      onAdded(); // refresh data
+      toast.success("Saved");
+    } catch { toast.error("Failed to save"); }
+    finally { setDetailSaving(false); }
   }
 
   // ── Feature A: Pin-drop sub-location ──
@@ -6742,20 +6906,11 @@ function WorkHistoryPanel({
             </button>
           </div>
 
-          {/* Company & Title */}
-          <div className="p-2.5 rounded-lg bg-muted/40 border space-y-1">
-            <p className="text-xs font-semibold flex items-center gap-1.5">
-              <Briefcase className="h-3.5 w-3.5 text-gray-500" /> {focusedItem.company}
-            </p>
-            {focusedItem.title && <p className="text-[11px] text-muted-foreground">{focusedItem.title}</p>}
-            <p className="text-[10px] text-muted-foreground flex items-center gap-1">
-              <MapPin className="h-3 w-3 shrink-0" /> {focusedItem.address}
-            </p>
-          </div>
-
-          {/* Dates & Tenure */}
-          {(focusedItem.startDate || focusedItem.endDate) && (() => {
+          {/* Company & Title + Employment Period + Key Facts */}
+          {(() => {
             const isCurrent = !focusedItem.endDate;
+            const isSchool = focusedItem.type === "school";
+            const isInternship = focusedItem.type === "internship";
             let tenure = "";
             if (focusedItem.startDate) {
               const s = new Date(focusedItem.startDate + "-01");
@@ -6764,18 +6919,88 @@ function WorkHistoryPanel({
               tenure = m >= 12 ? `${Math.floor(m / 12)}y ${m % 12}m` : `${m}m`;
             }
             return (
-              <div className="p-2.5 rounded-lg bg-muted/40 border">
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">Employment Period</p>
-                <div className="flex items-center gap-2">
-                  <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                  <div>
-                    <p className="text-xs font-medium">
-                      {focusedItem.startDate ?? "?"} – {focusedItem.endDate ?? "present"}
-                      {isCurrent && <span className="ml-1.5 text-[9px] bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 px-1 rounded">current</span>}
-                    </p>
-                    {tenure && <p className="text-[10px] text-muted-foreground">Duration: {tenure}</p>}
+              <div className="p-2.5 rounded-lg bg-muted/40 border space-y-2">
+                {/* Company/Institution + badges */}
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {isSchool ? <GraduationCap className="h-3.5 w-3.5 text-violet-500 shrink-0" /> : <Briefcase className={`h-3.5 w-3.5 shrink-0 ${isInternship ? "text-cyan-600" : "text-gray-500"}`} />}
+                    <span className="text-xs font-semibold">{focusedItem.company}</span>
+                    {focusedItem.scheduleType && <span className="text-[9px] bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded capitalize">{focusedItem.scheduleType.replace("-", " ")}</span>}
+                    {focusedItem.workMode && <span className="text-[9px] bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded capitalize">{focusedItem.workMode}{focusedItem.hybridDays != null ? ` ${focusedItem.hybridDays}d` : ""}</span>}
+                    {isSchool && <span className="text-[9px] bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 px-1.5 py-0.5 rounded">School</span>}
+                    {isInternship && <span className="text-[9px] bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300 px-1.5 py-0.5 rounded">Internship</span>}
                   </div>
+                  {/* Degree + Major for schools, or Job Title for jobs */}
+                  {isSchool ? (
+                    <>
+                      {(focusedItem.degree || focusedItem.major) && (
+                        <p className="text-[11px] text-muted-foreground">
+                          {focusedItem.degree}{focusedItem.degree && focusedItem.major ? " in " : ""}{focusedItem.major}
+                        </p>
+                      )}
+                      {focusedItem.gpa != null && <p className="text-[10px] text-muted-foreground">GPA: {focusedItem.gpa}</p>}
+                    </>
+                  ) : (
+                    focusedItem.title && <p className="text-[11px] text-muted-foreground">{focusedItem.title}</p>
+                  )}
+                  <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                    <MapPin className="h-3 w-3 shrink-0" /> {focusedItem.address}
+                  </p>
                 </div>
+
+                {/* Employment Period */}
+                {(focusedItem.startDate || focusedItem.endDate) && (
+                  <div className="flex items-center gap-2 pt-1 border-t border-border/50">
+                    <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <div className="flex-1">
+                      <p className="text-[11px] font-medium">
+                        {focusedItem.startDate ?? "?"} – {focusedItem.endDate ?? "present"}
+                        {isCurrent && <span className="ml-1.5 text-[9px] bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 px-1 rounded">current</span>}
+                      </p>
+                    </div>
+                    {tenure && <span className="text-[10px] text-muted-foreground shrink-0">{tenure}</span>}
+                  </div>
+                )}
+
+                {/* Compensation summary */}
+                {(focusedItem.salaryAmount != null || focusedItem.bonusAmount != null) && (
+                  <div className="flex items-center gap-2 pt-1 border-t border-border/50">
+                    <DollarSign className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                    <div className="flex-1 flex items-baseline gap-1.5 flex-wrap">
+                      {focusedItem.salaryAmount != null && (
+                        <span className="text-[11px] font-semibold">
+                          {focusedItem.salaryCurrency === "USD" || !focusedItem.salaryCurrency ? "$" : focusedItem.salaryCurrency}{focusedItem.salaryAmount.toLocaleString()}{focusedItem.salaryType === "hourly" ? "/hr" : "/yr"}
+                        </span>
+                      )}
+                      {focusedItem.bonusAmount != null && (
+                        <span className="text-[10px] text-muted-foreground">+ ${focusedItem.bonusAmount.toLocaleString()} bonus</span>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Schedule: hours/wk + shift notes */}
+                {(focusedItem.hoursPerWeek != null || focusedItem.shiftNotes) && (
+                  <div className="flex items-center gap-2 pt-1 border-t border-border/50">
+                    <Calendar className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+                    <div className="flex-1 flex items-center gap-1.5 flex-wrap text-[10px]">
+                      {focusedItem.hoursPerWeek != null && <span className="text-muted-foreground">{focusedItem.hoursPerWeek}h/wk</span>}
+                      {focusedItem.shiftNotes && <span className="text-muted-foreground">· {focusedItem.shiftNotes}</span>}
+                    </div>
+                  </div>
+                )}
+
+                {/* Work Environment summary */}
+                {(focusedItem.department || focusedItem.teamSize != null || focusedItem.companySize) && (
+                  <div className="flex items-center gap-2 pt-1 border-t border-border/50">
+                    <Users className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
+                    <div className="flex-1 flex items-center gap-1.5 flex-wrap text-[10px]">
+                      {focusedItem.department && <span className="font-medium">{focusedItem.department}</span>}
+                      {focusedItem.teamSize != null && <span className="text-muted-foreground">Team of {focusedItem.teamSize}</span>}
+                      {focusedItem.companySize && <span className="text-muted-foreground capitalize">({focusedItem.companySize.replace("-", " ")})</span>}
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })()}
@@ -7097,6 +7322,161 @@ function WorkHistoryPanel({
             <p className="text-[10px] text-muted-foreground text-center py-1 italic">No linked position found — add this company in Experience to see more details</p>
           )}
 
+          {/* ── Direct Work History Detail Sections ── */}
+
+          {/* Equity notes (extra detail not in header) */}
+          {focusedItem.equityNotes && (
+            <div className="px-2 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800">
+              <p className="text-[10px] text-muted-foreground">Equity: <span className="text-foreground font-medium">{focusedItem.equityNotes}</span></p>
+            </div>
+          )}
+
+
+          {/* Manager (extra detail not in header) */}
+          {focusedItem.managerName && (
+            <div className="px-2 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800">
+              <p className="text-[10px] text-muted-foreground">Manager: <span className="text-foreground font-medium">{focusedItem.managerName}</span></p>
+            </div>
+          )}
+
+          {/* Benefits & PTO */}
+          {(focusedItem.benefits || focusedItem.ptoDaysOffered != null || focusedItem.ptoNotes) && (() => {
+            const benefitsList: string[] = focusedItem.benefits ? (() => { try { return JSON.parse(focusedItem.benefits); } catch { return []; } })() : [];
+            return (
+              <div className="rounded-lg border overflow-hidden">
+                <button type="button" className="w-full flex items-center justify-between p-2 hover:bg-muted/30 transition-colors" onClick={() => toggleSection("wh-benefits")}>
+                  <span className="text-[11px] font-medium flex items-center gap-1.5">
+                    <Heart className="h-3.5 w-3.5 text-pink-500" /> Benefits & PTO
+                  </span>
+                  {expandedSections.has("wh-benefits") ? <ChevronUp className="h-3 w-3 text-muted-foreground" /> : <ChevronDown className="h-3 w-3 text-muted-foreground" />}
+                </button>
+                {expandedSections.has("wh-benefits") && (
+                  <div className="px-2 pb-2 space-y-1.5">
+                    {benefitsList.length > 0 && (
+                      <div className="flex flex-wrap gap-1">
+                        {benefitsList.map((b) => (
+                          <span key={b} className="text-[9px] bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300 px-1.5 py-0.5 rounded capitalize">{b}</span>
+                        ))}
+                      </div>
+                    )}
+                    {(focusedItem.ptoDaysOffered != null || focusedItem.ptoDaysUsed != null) && (
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {focusedItem.ptoDaysOffered != null && (
+                          <div className="p-1.5 rounded bg-muted/30">
+                            <p className="text-[9px] text-muted-foreground">PTO Offered</p>
+                            <p className="text-[10px] font-medium">{focusedItem.ptoDaysOffered} days/yr</p>
+                          </div>
+                        )}
+                        {focusedItem.ptoDaysUsed != null && (
+                          <div className="p-1.5 rounded bg-muted/30">
+                            <p className="text-[9px] text-muted-foreground">PTO Used</p>
+                            <p className="text-[10px] font-medium">{focusedItem.ptoDaysUsed} days</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {focusedItem.ptoNotes && <p className="text-[10px] text-muted-foreground">{focusedItem.ptoNotes}</p>}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
+          {/* Skills & Growth */}
+          {(focusedItem.skillsUsed || focusedItem.skillsGained || focusedItem.promotions) && (() => {
+            const used: string[] = focusedItem.skillsUsed ? (() => { try { return JSON.parse(focusedItem.skillsUsed); } catch { return []; } })() : [];
+            const gained: string[] = focusedItem.skillsGained ? (() => { try { return JSON.parse(focusedItem.skillsGained); } catch { return []; } })() : [];
+            const promos: { title: string; date: string }[] = focusedItem.promotions ? (() => { try { return JSON.parse(focusedItem.promotions); } catch { return []; } })() : [];
+            return (
+              <div className="rounded-lg border overflow-hidden">
+                <button type="button" className="w-full flex items-center justify-between p-2 hover:bg-muted/30 transition-colors" onClick={() => toggleSection("wh-skills")}>
+                  <span className="text-[11px] font-medium flex items-center gap-1.5">
+                    <GraduationCap className="h-3.5 w-3.5 text-purple-500" /> Skills & Growth
+                  </span>
+                  {expandedSections.has("wh-skills") ? <ChevronUp className="h-3 w-3 text-muted-foreground" /> : <ChevronDown className="h-3 w-3 text-muted-foreground" />}
+                </button>
+                {expandedSections.has("wh-skills") && (
+                  <div className="px-2 pb-2 space-y-1.5">
+                    {used.length > 0 && (
+                      <div>
+                        <p className="text-[9px] text-muted-foreground uppercase tracking-wide mb-0.5">Skills Used</p>
+                        <div className="flex flex-wrap gap-1">{used.map((s) => <span key={s} className="text-[9px] bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 px-1.5 py-0.5 rounded">{s}</span>)}</div>
+                      </div>
+                    )}
+                    {gained.length > 0 && (
+                      <div>
+                        <p className="text-[9px] text-muted-foreground uppercase tracking-wide mb-0.5">Skills Gained</p>
+                        <div className="flex flex-wrap gap-1">{gained.map((s) => <span key={s} className="text-[9px] bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 rounded">{s}</span>)}</div>
+                      </div>
+                    )}
+                    {promos.length > 0 && (
+                      <div>
+                        <p className="text-[9px] text-muted-foreground uppercase tracking-wide mb-0.5">Promotions</p>
+                        {promos.map((p, i) => (
+                          <div key={i} className="flex items-center gap-1.5 text-[10px]">
+                            <Award className="h-3 w-3 text-amber-500 shrink-0" />
+                            <span className="font-medium">{p.title}</span>
+                            <span className="text-muted-foreground">{p.date}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
+          {/* Departure & Reflection */}
+          {(focusedItem.reasonForLeaving || focusedItem.wouldReturn || focusedItem.accomplishments) && (() => {
+            const accs: string[] = focusedItem.accomplishments ? (() => { try { return JSON.parse(focusedItem.accomplishments); } catch { return []; } })() : [];
+            const leaveLabels: Record<string, string> = { "better-offer": "Better Offer", layoff: "Layoff", relocation: "Relocation", growth: "Growth", culture: "Culture", personal: "Personal", "contract-end": "Contract End", other: "Other" };
+            return (
+              <div className="rounded-lg border overflow-hidden">
+                <button type="button" className="w-full flex items-center justify-between p-2 hover:bg-muted/30 transition-colors" onClick={() => toggleSection("wh-depart")}>
+                  <span className="text-[11px] font-medium flex items-center gap-1.5">
+                    <LogOut className="h-3.5 w-3.5 text-orange-500" /> Departure & Reflection
+                  </span>
+                  {expandedSections.has("wh-depart") ? <ChevronUp className="h-3 w-3 text-muted-foreground" /> : <ChevronDown className="h-3 w-3 text-muted-foreground" />}
+                </button>
+                {expandedSections.has("wh-depart") && (
+                  <div className="px-2 pb-2 space-y-1.5">
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {focusedItem.reasonForLeaving && (
+                        <div className="p-1.5 rounded bg-muted/30">
+                          <p className="text-[9px] text-muted-foreground">Reason for Leaving</p>
+                          <p className="text-[10px] font-medium">{leaveLabels[focusedItem.reasonForLeaving] ?? focusedItem.reasonForLeaving}</p>
+                        </div>
+                      )}
+                      {focusedItem.wouldReturn && (
+                        <div className="p-1.5 rounded bg-muted/30">
+                          <p className="text-[9px] text-muted-foreground">Would Return?</p>
+                          <p className="text-[10px] font-medium flex items-center gap-1">
+                            <ThumbsUp className={`h-3 w-3 ${focusedItem.wouldReturn === "yes" ? "text-emerald-500" : focusedItem.wouldReturn === "no" ? "text-red-500" : "text-amber-500"}`} />
+                            <span className="capitalize">{focusedItem.wouldReturn}</span>
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                    {accs.length > 0 && (
+                      <div>
+                        <p className="text-[9px] text-muted-foreground uppercase tracking-wide mb-0.5">Key Accomplishments</p>
+                        <ul className="space-y-0.5">
+                          {accs.map((a, i) => (
+                            <li key={i} className="text-[10px] flex items-start gap-1">
+                              <Star className="h-3 w-3 text-amber-500 shrink-0 mt-0.5" />
+                              <span>{a}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
           {/* ── Feature B: Commute from Life Anchors ── */}
           {lifeAnchors.length > 0 && (
             <div className="rounded-lg border overflow-hidden">
@@ -7374,6 +7754,232 @@ function WorkHistoryPanel({
             )}
           </div>
 
+          {/* ── Edit Detail Fields ── */}
+          <DetailEditSection
+            title="Compensation"
+            icon={<DollarSign className="h-3.5 w-3.5 text-emerald-500" />}
+            sectionKey="edit-comp"
+            expanded={expandedSections.has("edit-comp")}
+            onToggle={() => toggleSection("edit-comp")}
+          >
+            <div className="space-y-1.5">
+              <div className="grid grid-cols-2 gap-1.5">
+                <div>
+                  <p className="text-[9px] text-muted-foreground mb-0.5">Salary</p>
+                  <Input type="number" defaultValue={focusedItem.salaryAmount ?? ""} className="h-6 text-[10px]"
+                    onBlur={(e) => saveDetail({ salaryAmount: e.target.value ? Number(e.target.value) : null })} placeholder="Amount" />
+                </div>
+                <div>
+                  <p className="text-[9px] text-muted-foreground mb-0.5">Type</p>
+                  <Select defaultValue={focusedItem.salaryType ?? ""} onValueChange={(v) => saveDetail({ salaryType: v || null })}>
+                    <SelectTrigger className="h-6 text-[10px]"><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="annual" className="text-xs">Annual</SelectItem>
+                      <SelectItem value="hourly" className="text-xs">Hourly</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-1.5">
+                <div>
+                  <p className="text-[9px] text-muted-foreground mb-0.5">Annual Bonus</p>
+                  <Input type="number" defaultValue={focusedItem.bonusAmount ?? ""} className="h-6 text-[10px]"
+                    onBlur={(e) => saveDetail({ bonusAmount: e.target.value ? Number(e.target.value) : null })} placeholder="Bonus" />
+                </div>
+                <div>
+                  <p className="text-[9px] text-muted-foreground mb-0.5">Currency</p>
+                  <Input defaultValue={focusedItem.salaryCurrency ?? "USD"} className="h-6 text-[10px]"
+                    onBlur={(e) => saveDetail({ salaryCurrency: e.target.value || null })} placeholder="USD" />
+                </div>
+              </div>
+              <div>
+                <p className="text-[9px] text-muted-foreground mb-0.5">Equity Notes</p>
+                <Input defaultValue={focusedItem.equityNotes ?? ""} className="h-6 text-[10px]"
+                  onBlur={(e) => saveDetail({ equityNotes: e.target.value || null })} placeholder="Stock options, RSUs…" />
+              </div>
+            </div>
+          </DetailEditSection>
+
+          <DetailEditSection
+            title="Schedule"
+            icon={<Calendar className="h-3.5 w-3.5 text-blue-500" />}
+            sectionKey="edit-sched"
+            expanded={expandedSections.has("edit-sched")}
+            onToggle={() => toggleSection("edit-sched")}
+          >
+            <div className="space-y-1.5">
+              <div className="grid grid-cols-2 gap-1.5">
+                <div>
+                  <p className="text-[9px] text-muted-foreground mb-0.5">Employment Type</p>
+                  <Select defaultValue={focusedItem.scheduleType ?? ""} onValueChange={(v) => saveDetail({ scheduleType: v || null })}>
+                    <SelectTrigger className="h-6 text-[10px]"><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectContent>
+                      {["full-time","part-time","contract","internship","freelance"].map((v) => <SelectItem key={v} value={v} className="text-xs capitalize">{v.replace("-"," ")}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <p className="text-[9px] text-muted-foreground mb-0.5">Work Mode</p>
+                  <Select defaultValue={focusedItem.workMode ?? ""} onValueChange={(v) => saveDetail({ workMode: v || null })}>
+                    <SelectTrigger className="h-6 text-[10px]"><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectContent>
+                      {["on-site","hybrid","remote"].map((v) => <SelectItem key={v} value={v} className="text-xs capitalize">{v.replace("-"," ")}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-1.5">
+                <div>
+                  <p className="text-[9px] text-muted-foreground mb-0.5">Days On-Site (hybrid)</p>
+                  <Input type="number" min={0} max={7} defaultValue={focusedItem.hybridDays ?? ""} className="h-6 text-[10px]"
+                    onBlur={(e) => saveDetail({ hybridDays: e.target.value ? Number(e.target.value) : null })} />
+                </div>
+                <div>
+                  <p className="text-[9px] text-muted-foreground mb-0.5">Hours/Week</p>
+                  <Input type="number" defaultValue={focusedItem.hoursPerWeek ?? ""} className="h-6 text-[10px]"
+                    onBlur={(e) => saveDetail({ hoursPerWeek: e.target.value ? Number(e.target.value) : null })} />
+                </div>
+              </div>
+              <div>
+                <p className="text-[9px] text-muted-foreground mb-0.5">Shift Notes</p>
+                <Input defaultValue={focusedItem.shiftNotes ?? ""} className="h-6 text-[10px]"
+                  onBlur={(e) => saveDetail({ shiftNotes: e.target.value || null })} placeholder="Night shift, 4x10, etc." />
+              </div>
+            </div>
+          </DetailEditSection>
+
+          <DetailEditSection
+            title="Benefits & PTO"
+            icon={<Heart className="h-3.5 w-3.5 text-pink-500" />}
+            sectionKey="edit-benefits"
+            expanded={expandedSections.has("edit-benefits")}
+            onToggle={() => toggleSection("edit-benefits")}
+          >
+            <div className="space-y-1.5">
+              <div>
+                <p className="text-[9px] text-muted-foreground mb-0.5">Benefits (click to toggle)</p>
+                <BenefitsToggle current={focusedItem.benefits} onSave={(val) => saveDetail({ benefits: val })} />
+              </div>
+              <div className="grid grid-cols-2 gap-1.5">
+                <div>
+                  <p className="text-[9px] text-muted-foreground mb-0.5">PTO Days Offered</p>
+                  <Input type="number" defaultValue={focusedItem.ptoDaysOffered ?? ""} className="h-6 text-[10px]"
+                    onBlur={(e) => saveDetail({ ptoDaysOffered: e.target.value ? Number(e.target.value) : null })} />
+                </div>
+                <div>
+                  <p className="text-[9px] text-muted-foreground mb-0.5">PTO Days Used</p>
+                  <Input type="number" defaultValue={focusedItem.ptoDaysUsed ?? ""} className="h-6 text-[10px]"
+                    onBlur={(e) => saveDetail({ ptoDaysUsed: e.target.value ? Number(e.target.value) : null })} />
+                </div>
+              </div>
+              <div>
+                <p className="text-[9px] text-muted-foreground mb-0.5">PTO Notes</p>
+                <Input defaultValue={focusedItem.ptoNotes ?? ""} className="h-6 text-[10px]"
+                  onBlur={(e) => saveDetail({ ptoNotes: e.target.value || null })} placeholder="Unlimited, sabbatical…" />
+              </div>
+            </div>
+          </DetailEditSection>
+
+          <DetailEditSection
+            title="Work Environment"
+            icon={<Monitor className="h-3.5 w-3.5 text-indigo-500" />}
+            sectionKey="edit-env"
+            expanded={expandedSections.has("edit-env")}
+            onToggle={() => toggleSection("edit-env")}
+          >
+            <div className="space-y-1.5">
+              <div className="grid grid-cols-2 gap-1.5">
+                <div>
+                  <p className="text-[9px] text-muted-foreground mb-0.5">Company Size</p>
+                  <Select defaultValue={focusedItem.companySize ?? ""} onValueChange={(v) => saveDetail({ companySize: v || null })}>
+                    <SelectTrigger className="h-6 text-[10px]"><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectContent>
+                      {["startup","small","mid-market","enterprise"].map((v) => <SelectItem key={v} value={v} className="text-xs capitalize">{v.replace("-"," ")}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <p className="text-[9px] text-muted-foreground mb-0.5">Team Size</p>
+                  <Input type="number" defaultValue={focusedItem.teamSize ?? ""} className="h-6 text-[10px]"
+                    onBlur={(e) => saveDetail({ teamSize: e.target.value ? Number(e.target.value) : null })} />
+                </div>
+              </div>
+              <div>
+                <p className="text-[9px] text-muted-foreground mb-0.5">Department</p>
+                <Input defaultValue={focusedItem.department ?? ""} className="h-6 text-[10px]"
+                  onBlur={(e) => saveDetail({ department: e.target.value || null })} placeholder="Engineering, Sales…" />
+              </div>
+              <div>
+                <p className="text-[9px] text-muted-foreground mb-0.5">Manager</p>
+                <Input defaultValue={focusedItem.managerName ?? ""} className="h-6 text-[10px]"
+                  onBlur={(e) => saveDetail({ managerName: e.target.value || null })} placeholder="Manager name" />
+              </div>
+            </div>
+          </DetailEditSection>
+
+          <DetailEditSection
+            title="Skills & Growth"
+            icon={<GraduationCap className="h-3.5 w-3.5 text-purple-500" />}
+            sectionKey="edit-skills"
+            expanded={expandedSections.has("edit-skills")}
+            onToggle={() => toggleSection("edit-skills")}
+          >
+            <div className="space-y-1.5">
+              <div>
+                <p className="text-[9px] text-muted-foreground mb-0.5">Skills Used (comma-separated)</p>
+                <Input defaultValue={(() => { try { return JSON.parse(focusedItem.skillsUsed ?? "[]").join(", "); } catch { return ""; } })()}
+                  className="h-6 text-[10px]"
+                  onBlur={(e) => { const v = e.target.value.split(",").map((s: string) => s.trim()).filter(Boolean); saveDetail({ skillsUsed: v.length ? JSON.stringify(v) : null }); }}
+                  placeholder="React, Python, SQL…" />
+              </div>
+              <div>
+                <p className="text-[9px] text-muted-foreground mb-0.5">Skills Gained (comma-separated)</p>
+                <Input defaultValue={(() => { try { return JSON.parse(focusedItem.skillsGained ?? "[]").join(", "); } catch { return ""; } })()}
+                  className="h-6 text-[10px]"
+                  onBlur={(e) => { const v = e.target.value.split(",").map((s: string) => s.trim()).filter(Boolean); saveDetail({ skillsGained: v.length ? JSON.stringify(v) : null }); }}
+                  placeholder="Docker, K8s…" />
+              </div>
+            </div>
+          </DetailEditSection>
+
+          <DetailEditSection
+            title="Departure & Reflection"
+            icon={<LogOut className="h-3.5 w-3.5 text-orange-500" />}
+            sectionKey="edit-depart"
+            expanded={expandedSections.has("edit-depart")}
+            onToggle={() => toggleSection("edit-depart")}
+          >
+            <div className="space-y-1.5">
+              <div className="grid grid-cols-2 gap-1.5">
+                <div>
+                  <p className="text-[9px] text-muted-foreground mb-0.5">Reason for Leaving</p>
+                  <Select defaultValue={focusedItem.reasonForLeaving ?? ""} onValueChange={(v) => saveDetail({ reasonForLeaving: v || null })}>
+                    <SelectTrigger className="h-6 text-[10px]"><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectContent>
+                      {[["better-offer","Better Offer"],["layoff","Layoff"],["relocation","Relocation"],["growth","Growth"],["culture","Culture"],["personal","Personal"],["contract-end","Contract End"],["other","Other"]].map(([v,l]) => <SelectItem key={v} value={v} className="text-xs">{l}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <p className="text-[9px] text-muted-foreground mb-0.5">Would Return?</p>
+                  <Select defaultValue={focusedItem.wouldReturn ?? ""} onValueChange={(v) => saveDetail({ wouldReturn: v || null })}>
+                    <SelectTrigger className="h-6 text-[10px]"><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectContent>
+                      {["yes","no","maybe"].map((v) => <SelectItem key={v} value={v} className="text-xs capitalize">{v}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div>
+                <p className="text-[9px] text-muted-foreground mb-0.5">Key Accomplishments (one per line)</p>
+                <Textarea defaultValue={(() => { try { return JSON.parse(focusedItem.accomplishments ?? "[]").join("\n"); } catch { return ""; } })()}
+                  className="text-[10px] min-h-[60px]"
+                  onBlur={(e) => { const v = e.target.value.split("\n").map((s: string) => s.trim()).filter(Boolean); saveDetail({ accomplishments: v.length ? JSON.stringify(v) : null }); }}
+                  placeholder="Led migration to microservices&#10;Reduced build time by 60%" />
+              </div>
+            </div>
+          </DetailEditSection>
+
           {/* Actions */}
           <div className="flex gap-1.5">
             <Button size="sm" variant="outline" className="flex-1 h-7 text-xs" onClick={() => { startEdit(focusedItem); onExitFocus(); }}>
@@ -7401,6 +8007,9 @@ function WorkHistoryPanel({
         <div className="flex items-center gap-1">
           <button type="button" className={`transition-colors ${showCareerPath ? "text-blue-600" : "text-muted-foreground hover:text-foreground"}`} title="Toggle career path line" onClick={onToggleCareerPath}>
             <Route className="h-4 w-4" />
+          </button>
+          <button type="button" className={`transition-colors ${showOverlaps ? "text-amber-500" : "text-muted-foreground hover:text-foreground"}`} title="Toggle concurrent overlap badges" onClick={onToggleOverlaps}>
+            <Zap className="h-4 w-4" />
           </button>
           <button type="button" className="text-muted-foreground hover:text-foreground" title="Import from experience" onClick={handleImportFromExperience} disabled={importing}>
             {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
@@ -7447,9 +8056,29 @@ function WorkHistoryPanel({
       {/* Add form */}
       {adding && (
         <div className="space-y-2 mb-3 p-2 border rounded-lg bg-muted/30">
-          <Input placeholder="Company *" value={company} onChange={(e) => setCompany(e.target.value)} className="h-7 text-xs" />
-          <Input placeholder="Job title (optional)" value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} className="h-7 text-xs" />
-          <PlacesAutocomplete value={address} onChange={(v) => { setAddress(v); setAddCoords(null); setAddPlaceId(null); }} onPlaceSelect={handleAddPlaceSelect} placeholder="Work address *" className="h-7 text-xs" types={[]} />
+          <Select value={addType} onValueChange={(v) => setAddType(v as typeof addType)}>
+            <SelectTrigger className="h-7 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="job">💼 Job</SelectItem>
+              <SelectItem value="school">🎓 School</SelectItem>
+              <SelectItem value="internship">🏢 Internship</SelectItem>
+              <SelectItem value="military">🎖️ Military</SelectItem>
+              <SelectItem value="volunteer">🤝 Volunteer</SelectItem>
+            </SelectContent>
+          </Select>
+          <Input placeholder={addType === "school" ? "Institution *" : "Company *"} value={company} onChange={(e) => setCompany(e.target.value)} className="h-7 text-xs" />
+          {addType === "school" ? (
+            <>
+              <Input placeholder="Degree (e.g. B.S., M.A.)" value={addDegree} onChange={(e) => setAddDegree(e.target.value)} className="h-7 text-xs" />
+              <Input placeholder="Major / Field of study" value={addMajor} onChange={(e) => setAddMajor(e.target.value)} className="h-7 text-xs" />
+              <Input placeholder="GPA (optional)" type="number" step="0.01" min="0" max="5" value={addGpa} onChange={(e) => setAddGpa(e.target.value)} className="h-7 text-xs" />
+            </>
+          ) : (
+            <Input placeholder={addType === "military" ? "Rank / Role (optional)" : addType === "volunteer" ? "Role (optional)" : addType === "internship" ? "Internship role (optional)" : "Job title (optional)"} value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} className="h-7 text-xs" />
+          )}
+          <PlacesAutocomplete value={address} onChange={(v) => { setAddress(v); setAddCoords(null); setAddPlaceId(null); }} onPlaceSelect={handleAddPlaceSelect} placeholder={addType === "school" ? "Campus address *" : "Work address *"} className="h-7 text-xs" types={[]} />
           <div className="grid grid-cols-2 gap-2">
             <Input type="month" placeholder="Start" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="h-7 text-xs" />
             <Input type="month" placeholder="End" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="h-7 text-xs" />
@@ -7492,19 +8121,33 @@ function WorkHistoryPanel({
           ) : (
             <div key={w.id} className="rounded-md hover:bg-muted/50 group">
               <div className="flex items-start justify-between gap-2 p-1.5">
-                <div className="min-w-0 flex-1 cursor-pointer" onClick={() => setExpandedId(expandedId === w.id ? null : w.id)}>
+                <div className="min-w-0 flex-1 cursor-pointer" onClick={() => { setExpandedId(expandedId === w.id ? null : w.id); onFocusJob(w); }}>
                   <div className="flex items-center gap-1">
+                    {w.type === "school" ? <GraduationCap className="h-3 w-3 text-violet-500 shrink-0" /> : <Briefcase className={`h-3 w-3 shrink-0 ${w.type === "internship" ? "text-cyan-600" : "text-gray-500"}`} />}
                     <p className="text-xs font-medium truncate">{w.company}</p>
                     {(w.locations?.length ?? 0) > 0 && (
                       <span className="text-[9px] bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300 px-1 rounded">{w.locations.length} loc</span>
                     )}
                   </div>
-                  {w.title && <p className="text-[10px] text-muted-foreground truncate">{w.title}</p>}
+                  {w.type === "school" ? (
+                    (w.degree || w.major) && <p className="text-[10px] text-muted-foreground truncate">{w.degree}{w.degree && w.major ? " in " : ""}{w.major}</p>
+                  ) : (
+                    w.title && <p className="text-[10px] text-muted-foreground truncate">{w.title}</p>
+                  )}
                   <p className="text-[10px] text-muted-foreground truncate">{w.address}</p>
                   {(w.startDate || w.endDate) && (
                     <p className="text-[10px] text-muted-foreground">
                       {w.startDate ?? "?"} – {w.endDate ?? "present"}
                     </p>
+                  )}
+                  {showOverlaps && overlapMap.has(w.id) && (
+                    <div className="flex flex-wrap gap-0.5 mt-0.5">
+                      {overlapMap.get(w.id)!.map((o) => (
+                        <span key={o.id} className="inline-flex items-center gap-0.5 text-[9px] bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 px-1 rounded cursor-pointer hover:bg-amber-200 dark:hover:bg-amber-900/60" onClick={(e) => { e.stopPropagation(); onFocusJob(items.find((i) => i.id === o.id)!); }}>
+                          <Zap className="h-2 w-2" /> {o.type === "school" ? "🎓" : o.type === "military" ? "🎖️" : o.type === "volunteer" ? "🤝" : o.type === "internship" ? "🏢" : "💼"} {o.company}
+                        </span>
+                      ))}
+                    </div>
                   )}
                 </div>
                 <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -7616,6 +8259,15 @@ function WorkHistoryPanel({
                     )}
                   </div>
                   <p className="text-[10px] text-muted-foreground truncate">{w.address}</p>
+                  {showOverlaps && overlapMap.has(w.id) && (
+                    <div className="flex flex-wrap gap-0.5 mt-0.5">
+                      {overlapMap.get(w.id)!.map((o) => (
+                        <span key={o.id} className="inline-flex items-center gap-0.5 text-[9px] bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 px-1 rounded">
+                          <Zap className="h-2 w-2" /> {o.type === "school" ? "🎓" : o.type === "military" ? "🎖️" : o.type === "volunteer" ? "🤝" : o.type === "internship" ? "🏢" : "💼"} {o.company}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                   {/* Sub-locations in timeline */}
                   {(w.locations ?? []).length > 0 && (
                     <div className="mt-0.5 pl-2 border-l border-dashed border-muted-foreground/30 space-y-0.5">

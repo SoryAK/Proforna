@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getUserId } from "@/lib/auth-utils";
+import { syncPositionToWorkHistory } from "@/lib/position-sync";
 
 // GET - fetch a single position with related data
 export async function GET(
@@ -54,6 +55,10 @@ export async function PATCH(
       where: { id  },
       data: body,
     });
+
+    // Best-effort sync overlapping fields to matching WorkHistory records
+    syncPositionToWorkHistory(userId, updated.company, body);
+
     return NextResponse.json(updated);
   } catch (error) {
     return NextResponse.json({ error: String(error) }, { status: 500 });
