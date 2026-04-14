@@ -79,6 +79,8 @@ import {
   Monitor,
   Award,
   Zap,
+  Camera,
+  ImageIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -855,22 +857,39 @@ export function JobMap() {
   // Life Score cache: jobId → score (0-100)
   const [lifeScoreCache, setLifeScoreCache] = useState<Record<string, number>>({});
   const [showAnchors, setShowAnchors] = useState(false);
+  const [showAnchorsPanel, setShowAnchorsPanel] = useState(false);
   // Which anchor commutes are visible on the map (toggled per-anchor)
   const [enabledAnchors, setEnabledAnchors] = useState<Set<string>>(new Set());
   const knownAnchorIds = useRef<Set<string>>(new Set());
 
   /* ── Work History (past jobs reference pins) ── */
-  interface WorkHistoryLocationItem { id: string; label: string; type: string; address: string; lat: number; lng: number; isPrimary: boolean; placeId?: string | null; skills?: string | null; startDate?: string | null; endDate?: string | null }
+  interface WorkHistoryLocationItem { id: string; label: string; type: string; address: string; lat: number; lng: number; isPrimary: boolean; placeId?: string | null; skills?: string | null; startDate?: string | null; endDate?: string | null; photos?: string | null }
   interface WorkHistoryItem { id: string; type?: string; company: string; title: string | null; address: string; lat: number; lng: number; startDate: string | null; endDate: string | null; locations: WorkHistoryLocationItem[]; placeId?: string | null; degree?: string | null; major?: string | null; gpa?: number | null }
   const { data: workHistory = [] } = useQuery<WorkHistoryItem[]>({
     queryKey: ["work-history"],
     queryFn: () => fetch("/api/work-history").then((r) => r.json()),
     staleTime: 60_000,
   });
+
+  /* ── Residence History ── */
+  interface ResidenceItem { id: string; label: string; address: string; lat: number; lng: number; placeId?: string | null; startDate: string | null; endDate: string | null; isCurrent: boolean }
+  const { data: residences = [] } = useQuery<ResidenceItem[]>({
+    queryKey: ["residences"],
+    queryFn: () => fetch("/api/residences").then((r) => r.json()),
+    staleTime: 60_000,
+  });
+
+  /* ── Type Filters ── */
+  const ALL_WORK_TYPES = ["job", "school", "military", "volunteer", "internship", "self-employed"] as const;
+  const [hiddenTypes, setHiddenTypes] = useState<Set<string>>(new Set());
+
+  /* ── Time Filter (year-month slider) ── */
+  const [timeFilter, setTimeFilter] = useState<string | null>(null); // e.g. "2022-06" or null for "all time"
   const [showWorkHistory, setShowWorkHistory] = useState(false);
   const [showWorkHistoryPanel, setShowWorkHistoryPanel] = useState(false);
   const [showCareerPath, setShowCareerPath] = useState(false);
   const [showOverlaps, setShowOverlaps] = useState(true);
+  const [showSweetSpot, setShowSweetSpot] = useState(true);
   const [focusedWorkHistoryId, setFocusedWorkHistoryId] = useState<string | null>(null);
   const preWorkHistoryZoomRef = useRef<{ lat: number; lng: number; zoom: number } | null>(null);
   const [pinDropMode, setPinDropMode] = useState(false);
@@ -2032,17 +2051,67 @@ export function JobMap() {
   /** Memoized work-history markers for the map */
   const workHistoryMarkersForMap = useMemo(() => {
     if (!showWorkHistory || workHistory.length === 0) return [];
-    return workHistory.map((w) => ({
-      id: w.id,
-      lat: w.lat,
-      lng: w.lng,
-      label: w.company,
-      title: w.title,
-      type: w.type ?? "job",
-      startDate: w.startDate ?? null,
-      endDate: w.endDate ?? null,
-    }));
-  }, [showWorkHistory, workHistory]);
+    return workHistory
+      .filter((w) => (w.type ?? "job") !== "unemployed")
+      .filter((w) => !hiddenTypes.has(w.type ?? "job"))
+      .filter((w) => {
+        if (!timeFilter) return true;
+        // Show entry if timeFilter falls within its [startDate, endDate] range
+        const start = w.startDate ?? "0000-01";
+        const end = w.endDate ?? "9999-12";
+        return timeFilter >= start && timeFilter <= end;
+      })
+      .map((w) => ({
+        id: w.id,
+        lat: w.lat,
+        lng: w.lng,
+        label: w.company,
+        title: w.title,
+        type: w.type ?? "job",
+        startDate: w.startDate ?? null,
+        endDate: w.endDate ?? null,
+      }));
+  }, [showWorkHistory, workHistory, timeFilter, hiddenTypes]);
+
+  /** Active residence for the selected time period */
+  const activeResidence = useMemo(() => {
+    if (residences.length === 0) return null;
+    if (!timeFilter) {
+      // No time filter → use current residence or the most recent one
+      return residences.find((r) => r.isCurrent) ?? residences[residences.length - 1] ?? null;
+    }
+    // Find the residence active during timeFilter
+    for (const r of residences) {
+      const start = r.startDate ?? "0000-01";
+      const end = r.endDate ?? "9999-12";
+      if (timeFilter >= start && timeFilter <= end) return r;
+    }
+    return null;
+  }, [residences, timeFilter]);
+
+  /** Residence marker for the Google Map */
+  const residenceMarkerForMap = useMemo(() => {
+    if (!showWorkHistory || !activeResidence) return null;
+    return { id: activeResidence.id, lat: activeResidence.lat, lng: activeResidence.lng, label: activeResidence.label, address: activeResidence.address };
+  }, [showWorkHistory, activeResidence]);
+
+  /** Time range bounds from all work history + residences */
+  const timeRange = useMemo(() => {
+    const dates: string[] = [];
+    for (const w of workHistory) {
+      if (w.startDate) dates.push(w.startDate);
+      if (w.endDate) dates.push(w.endDate);
+    }
+    for (const r of residences) {
+      if (r.startDate) dates.push(r.startDate);
+      if (r.endDate) dates.push(r.endDate);
+    }
+    if (dates.length === 0) return null;
+    dates.sort();
+    const now = new Date();
+    const nowStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    return { min: dates[0], max: dates[dates.length - 1] > nowStr ? dates[dates.length - 1] : nowStr };
+  }, [workHistory, residences]);
 
   /** IDs of work-history entries concurrent with the currently focused one */
   const concurrentWorkHistoryIds = useMemo(() => {
@@ -2063,16 +2132,21 @@ export function JobMap() {
   const workHistorySubLocationsForMap = useMemo(() => {
     if (!showWorkHistory || workHistory.length === 0) return [];
     return workHistory.flatMap((w) =>
-      (w.locations ?? []).map((loc) => ({
-        id: loc.id,
-        parentId: w.id,
-        lat: loc.lat,
-        lng: loc.lng,
-        label: loc.label,
-        type: loc.type,
-        parentLat: w.lat,
-        parentLng: w.lng,
-      }))
+      (w.locations ?? []).map((loc) => {
+        let photos: string[] = [];
+        try { photos = loc.photos ? JSON.parse(loc.photos) : []; } catch { photos = []; }
+        return {
+          id: loc.id,
+          parentId: w.id,
+          lat: loc.lat,
+          lng: loc.lng,
+          label: loc.label,
+          type: loc.type,
+          parentLat: w.lat,
+          parentLng: w.lng,
+          photos,
+        };
+      })
     );
   }, [showWorkHistory, workHistory]);
 
@@ -3456,15 +3530,15 @@ export function JobMap() {
               onViewChange={handleViewChange}
               routeGeometry={commuteInfo?.geometry ?? null}
               transitSteps={commuteInfo?.transitSteps}
-              anchorRoutes={anchorRoutesForMap}
-              anchorMarkers={anchorMarkersForMap}
+              anchorRoutes={showAnchors ? anchorRoutesForMap : []}
+              anchorMarkers={showAnchors ? anchorMarkersForMap : []}
               showHeatmap={showHeatmap}
               showTraffic={showTraffic}
               showTransit={showTransit}
               tileStyle={tileStyle}
               resolvedCoords={effectiveJobCoords}
               highlightedIds={pagedJobs.map((j) => j.id)}
-              sweetSpot={sweetSpot}
+              sweetSpot={showAnchors && showSweetSpot ? sweetSpot : null}
               officeLocations={resolvedAddress?.allLocations}
               onSelectOffice={(office) => {
                 setResolvedAddress((prev) => prev ? {
@@ -3489,6 +3563,7 @@ export function JobMap() {
               showCareerPath={showCareerPath}
               focusedWorkHistoryId={focusedWorkHistoryId}
               concurrentWorkHistoryIds={showOverlaps ? concurrentWorkHistoryIds : undefined}
+              residenceMarker={residenceMarkerForMap}
               buildingFootprints={buildingFootprints}
               pinDropMode={pinDropMode}
               companyLocationMarkers={companyLocs}
@@ -3708,7 +3783,20 @@ export function JobMap() {
               </Popover>
               <button
                 type="button"
-                onClick={() => setShowAnchors(!showAnchors)}
+                onClick={() => {
+                  if (showAnchors && !showAnchorsPanel) {
+                    // Feature on but panel closed → reopen panel
+                    setShowAnchorsPanel(true);
+                  } else if (showAnchors && showAnchorsPanel) {
+                    // Both on → turn everything off
+                    setShowAnchors(false);
+                    setShowAnchorsPanel(false);
+                  } else {
+                    // Feature off → turn on + open panel
+                    setShowAnchors(true);
+                    setShowAnchorsPanel(true);
+                  }
+                }}
                 title="Life Anchors"
                 className={`flex items-center justify-center w-10 h-10 border-l border-gray-200 cursor-pointer transition-colors ${showAnchors ? "bg-blue-50" : "bg-white hover:bg-gray-50"}`}
               >
@@ -3717,9 +3805,18 @@ export function JobMap() {
               <button
                 type="button"
                 onClick={() => {
-                  const next = !showWorkHistory;
-                  setShowWorkHistory(next);
-                  if (next) setShowWorkHistoryPanel(true);
+                  if (showWorkHistory && !showWorkHistoryPanel) {
+                    // Feature on but panel closed → reopen panel
+                    setShowWorkHistoryPanel(true);
+                  } else if (showWorkHistory && showWorkHistoryPanel) {
+                    // Both on → turn everything off
+                    setShowWorkHistory(false);
+                    setShowWorkHistoryPanel(false);
+                  } else {
+                    // Feature off → turn on + open panel
+                    setShowWorkHistory(true);
+                    setShowWorkHistoryPanel(true);
+                  }
                 }}
                 title="Work History"
                 className={`flex items-center justify-center w-10 h-10 border-l border-gray-200 cursor-pointer transition-colors ${showWorkHistory ? "bg-blue-50" : "bg-white hover:bg-gray-50"}`}
@@ -3746,16 +3843,29 @@ export function JobMap() {
           </div>
 
           {/* ── Floating Life Anchors panel on map ── */}
-          {showAnchors && (
+          {showAnchorsPanel && (
             <div className="absolute top-3 left-3 z-[1100] bg-background/95 backdrop-blur-md border rounded-xl shadow-xl p-3 w-80 max-h-[50vh] overflow-y-auto pointer-events-auto">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-semibold flex items-center gap-1.5">
                   <Anchor className="h-4 w-4 text-violet-500" /> Life Anchors
                 </span>
-                <button type="button" className="text-muted-foreground hover:text-foreground" onClick={() => setShowAnchors(false)}>
+                <button type="button" className="text-muted-foreground hover:text-foreground" onClick={() => setShowAnchorsPanel(false)}>
                   <X className="h-4 w-4" />
                 </button>
               </div>
+              {/* Sweet Spot toggle */}
+              <label className="flex items-center justify-between gap-2 mb-2 px-0.5">
+                <span className="text-xs text-muted-foreground">Show Sweet Spot radius</span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={showSweetSpot}
+                  onClick={() => setShowSweetSpot((p) => !p)}
+                  className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${showSweetSpot ? 'bg-violet-500' : 'bg-muted'}`}
+                >
+                  <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm transform transition-transform ${showSweetSpot ? 'translate-x-4' : 'translate-x-0'}`} />
+                </button>
+              </label>
               <LifeAnchorsPanel
                 compact
                 defaultAddress={where}
@@ -3787,14 +3897,35 @@ export function JobMap() {
               onStartPinDrop={() => setPinDropMode(true)}
               onCancelPinDrop={() => { setPinDropMode(false); setPinDropCoords(null); }}
               onClearPinDrop={() => setPinDropCoords(null)}
+              residences={residences}
+              activeResidence={activeResidence}
+              timeFilter={timeFilter}
+              timeRange={timeRange}
+              onTimeFilterChange={setTimeFilter}
+              onResidenceAdded={() => queryClient.invalidateQueries({ queryKey: ["residences"] })}
+              onResidenceDeleted={() => queryClient.invalidateQueries({ queryKey: ["residences"] })}
+              hiddenTypes={hiddenTypes}
+              onToggleType={(type) => setHiddenTypes((prev) => { const s = new Set(prev); if (s.has(type)) s.delete(type); else s.add(type); return s; })}
               onExitFocus={() => {
                 setFocusedWorkHistoryId(null);
                 setPinDropMode(false);
                 setPinDropCoords(null);
-                if (preWorkHistoryZoomRef.current) {
+                // Fit map to all work history markers
+                if (workHistoryMarkersForMap.length > 0) {
+                  const lats = workHistoryMarkersForMap.map((m) => m.lat);
+                  const lngs = workHistoryMarkersForMap.map((m) => m.lng);
+                  const minLat = Math.min(...lats), maxLat = Math.max(...lats);
+                  const minLng = Math.min(...lngs), maxLng = Math.max(...lngs);
+                  const cLat = (minLat + maxLat) / 2;
+                  const cLng = (minLng + maxLng) / 2;
+                  // Estimate zoom: larger spread → lower zoom
+                  const spread = Math.max(maxLat - minLat, maxLng - minLng);
+                  const zoom = spread < 0.01 ? 15 : spread < 0.05 ? 13 : spread < 0.2 ? 11 : spread < 1 ? 9 : 7;
+                  setZoomTarget({ lat: cLat, lng: cLng, zoom });
+                } else if (preWorkHistoryZoomRef.current) {
                   setZoomTarget(preWorkHistoryZoomRef.current);
-                  preWorkHistoryZoomRef.current = null;
                 }
+                preWorkHistoryZoomRef.current = null;
               }}
               onFocusJob={(item) => {
                 if (searchCenter) {
@@ -6134,8 +6265,10 @@ function BenefitsToggle({ current, onSave }: { current?: string | null; onSave: 
 function WorkHistoryPanel({
   items, onClose, onAdded, onDeleted, showCareerPath, onToggleCareerPath, showOverlaps, onToggleOverlaps, focusedId, onExitFocus,
   pinDropMode, pinDropCoords, onStartPinDrop, onCancelPinDrop, onClearPinDrop, onFocusJob,
+  residences, activeResidence, timeFilter, timeRange, onTimeFilterChange, onResidenceAdded, onResidenceDeleted,
+  hiddenTypes, onToggleType,
 }: {
-  items: { id: string; type?: string; company: string; title: string | null; address: string; lat: number; lng: number; startDate: string | null; endDate: string | null; locations: { id: string; label: string; type: string; address: string; lat: number; lng: number; isPrimary: boolean; placeId?: string | null; skills?: string | null; startDate?: string | null; endDate?: string | null }[];
+  items: { id: string; type?: string; company: string; title: string | null; address: string; lat: number; lng: number; startDate: string | null; endDate: string | null; locations: { id: string; label: string; type: string; address: string; lat: number; lng: number; isPrimary: boolean; placeId?: string | null; skills?: string | null; startDate?: string | null; endDate?: string | null; photos?: string | null }[];
     degree?: string | null; major?: string | null; gpa?: number | null;
     salaryAmount?: number | null; salaryType?: string | null; salaryCurrency?: string | null; bonusAmount?: number | null; equityNotes?: string | null;
     workMode?: string | null; hybridDays?: number | null; scheduleType?: string | null; hoursPerWeek?: number | null; shiftNotes?: string | null;
@@ -6160,9 +6293,18 @@ function WorkHistoryPanel({
   onClearPinDrop: () => void;
   onExitFocus: () => void;
   onFocusJob: (item: { id: string; lat: number; lng: number }) => void;
+  residences: { id: string; label: string; address: string; lat: number; lng: number; placeId?: string | null; startDate: string | null; endDate: string | null; isCurrent: boolean }[];
+  activeResidence: { id: string; label: string; address: string; lat: number; lng: number; startDate: string | null; endDate: string | null; isCurrent: boolean } | null;
+  timeFilter: string | null;
+  timeRange: { min: string; max: string } | null;
+  onTimeFilterChange: (val: string | null) => void;
+  onResidenceAdded: () => void;
+  onResidenceDeleted: () => void;
+  hiddenTypes: Set<string>;
+  onToggleType: (type: string) => void;
 }) {
   const [adding, setAdding] = useState(false);
-  const [addType, setAddType] = useState<"job" | "school" | "military" | "volunteer" | "internship">("job");
+  const [addType, setAddType] = useState<"job" | "school" | "military" | "volunteer" | "internship" | "self-employed" | "unemployed">("job");
   const [company, setCompany] = useState("");
   const [jobTitle, setJobTitle] = useState("");
   const [addDegree, setAddDegree] = useState("");
@@ -6184,7 +6326,59 @@ function WorkHistoryPanel({
   const [editStart, setEditStart] = useState("");
   const [editEnd, setEditEnd] = useState("");
   const [editSaving, setEditSaving] = useState(false);
-  const [tab, setTab] = useState<"list" | "timeline">("list");
+  const [tab, setTab] = useState<"list" | "timeline" | "compare">("list");
+  // Collapsible sections in list view
+  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
+  const toggleListSection = (key: string) => setCollapsedSections((prev) => { const s = new Set(prev); if (s.has(key)) s.delete(key); else s.add(key); return s; });
+  // Compare mode state
+  const [compareIds, setCompareIds] = useState<[string | null, string | null]>([null, null]);
+  // Residence add state
+  const [addingResidence, setAddingResidence] = useState(false);
+  const [resLabel, setResLabel] = useState("");
+  const [resAddress, setResAddress] = useState("");
+  const [resCoords, setResCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [resPlaceId, setResPlaceId] = useState<string | null>(null);
+  const [resStart, setResStart] = useState("");
+  const [resEnd, setResEnd] = useState("");
+  const [resSaving, setResSaving] = useState(false);
+  const [showResidences, setShowResidences] = useState(false);
+  // Commute time cache: workHistoryId → { durationMin, distanceMi }
+  const [commuteTimes, setCommuteTimes] = useState<Map<string, { durationMin: number; distanceMi: number }>>(new Map());
+  const commuteAbortRef = useRef<AbortController | null>(null);
+
+  // Fetch commute times from activeResidence to visible items
+  useEffect(() => {
+    commuteAbortRef.current?.abort();
+    if (!activeResidence || !timeFilter) { setCommuteTimes(new Map()); return; }
+    const validItems = items.filter((w) => (w.type ?? "job") !== "unemployed" && w.lat !== 0 && w.lng !== 0);
+    if (validItems.length === 0) { setCommuteTimes(new Map()); return; }
+    const ctrl = new AbortController();
+    commuteAbortRef.current = ctrl;
+    const fetchAll = async () => {
+      const results = new Map<string, { durationMin: number; distanceMi: number }>();
+      // Fetch in parallel with a small batch
+      const batches = [];
+      for (let i = 0; i < validItems.length; i += 3) batches.push(validItems.slice(i, i + 3));
+      for (const batch of batches) {
+        if (ctrl.signal.aborted) return;
+        const promises = batch.map(async (w) => {
+          try {
+            const url = `/api/commute?fromLat=${activeResidence.lat}&fromLng=${activeResidence.lng}&toLat=${w.lat}&toLng=${w.lng}&mode=driving`;
+            const res = await fetch(url, { signal: ctrl.signal });
+            if (res.ok) {
+              const d = await res.json();
+              if (d.durationMin != null) results.set(w.id, { durationMin: Math.round(d.durationMin), distanceMi: Math.round(d.distanceMi ?? 0) });
+            }
+          } catch { /* aborted or network error */ }
+        });
+        await Promise.all(promises);
+      }
+      if (!ctrl.signal.aborted) setCommuteTimes(results);
+    };
+    fetchAll();
+    return () => ctrl.abort();
+  }, [activeResidence, timeFilter, items]);
+
   // Sub-location state
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [addingLocFor, setAddingLocFor] = useState<string | null>(null);
@@ -6194,6 +6388,78 @@ function WorkHistoryPanel({
   const [locCoords, setLocCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [locPlaceId, setLocPlaceId] = useState<string | null>(null);
   const [locSaving, setLocSaving] = useState(false);
+
+  // Photo upload state
+  const [uploadingPhotoFor, setUploadingPhotoFor] = useState<string | null>(null);
+  const photoInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+
+  // Skill autocomplete from knowledge graph
+  const [skillSuggestions, setSkillSuggestions] = useState<string[]>([]);
+  useEffect(() => {
+    fetch("/api/skills").then((r) => r.ok ? r.json() : []).then((skills: { name: string }[]) => setSkillSuggestions(skills.map((s) => s.name))).catch(() => {});
+  }, []);
+
+  async function handlePhotoUpload(workHistoryId: string, locId: string, file: File) {
+    setUploadingPhotoFor(locId);
+    try {
+      const fd = new FormData();
+      fd.append("photo", file);
+      const res = await fetch(`/api/work-history/${workHistoryId}/locations/${locId}/photos`, { method: "POST", body: fd });
+      if (!res.ok) { const d = await res.json().catch(() => ({})); toast.error(d.error ?? "Upload failed"); return; }
+      onAdded();
+    } catch { toast.error("Upload failed"); }
+    finally { setUploadingPhotoFor(null); }
+  }
+
+  async function handlePhotoDelete(workHistoryId: string, locId: string, url: string) {
+    try {
+      const res = await fetch(`/api/work-history/${workHistoryId}/locations/${locId}/photos`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url }),
+      });
+      if (!res.ok) { toast.error("Failed to remove photo"); return; }
+      onAdded();
+    } catch { toast.error("Failed to remove photo"); }
+  }
+
+  async function handleAddResidence() {
+    if (!resLabel.trim() || !resAddress.trim() || !resStart) { toast.error("Label, address and start date are required"); return; }
+    setResSaving(true);
+    try {
+      let coords = resCoords;
+      if (!coords) {
+        coords = await geocode(resAddress);
+        if (!coords) { toast.error("Could not geocode address"); setResSaving(false); return; }
+      }
+      const body: Record<string, unknown> = {
+        label: resLabel.trim(),
+        address: resAddress.trim(),
+        lat: coords.lat,
+        lng: coords.lng,
+        placeId: resPlaceId,
+        startDate: new Date(resStart + "-01").toISOString(),
+        isCurrent: !resEnd,
+      };
+      if (resEnd) body.endDate = new Date(resEnd + "-01").toISOString();
+      const res = await fetch("/api/residences", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      if (!res.ok) { const d = await res.json().catch(() => ({})); toast.error(d.error ?? "Failed to add residence"); return; }
+      toast.success("Residence added");
+      onResidenceAdded();
+      setAddingResidence(false);
+      setResLabel(""); setResAddress(""); setResCoords(null); setResPlaceId(null); setResStart(""); setResEnd("");
+    } catch { toast.error("Failed to add residence"); }
+    finally { setResSaving(false); }
+  }
+
+  async function handleDeleteResidence(id: string) {
+    try {
+      const res = await fetch(`/api/residences/${id}`, { method: "DELETE" });
+      if (!res.ok) { toast.error("Failed to delete residence"); return; }
+      toast.success("Residence deleted");
+      onResidenceDeleted();
+    } catch { toast.error("Failed to delete residence"); }
+  }
 
   async function geocode(addr: string): Promise<{ lat: number; lng: number } | null> {
     try {
@@ -6274,18 +6540,22 @@ function WorkHistoryPanel({
   }
 
   async function handleAdd() {
-    if (!company.trim() || !address.trim()) { toast.error("Company and address are required"); return; }
+    const isUnemployedType = addType === "unemployed";
+    if (!company.trim() || (!isUnemployedType && !address.trim())) { toast.error(isUnemployedType ? "Period label is required" : "Company and address are required"); return; }
+    // Duplicate detection
+    const dup = items.find((w) => w.company.toLowerCase() === company.trim().toLowerCase());
+    if (dup && !confirm(`"${dup.company}" already exists in your work history. Add anyway?`)) return;
     setSaving(true);
     try {
-      const geo = addCoords ?? await geocode(address);
+      const geo = isUnemployedType ? { lat: 0, lng: 0 } : (addCoords ?? await geocode(address));
       if (!geo) { toast.error("Could not geocode address"); setSaving(false); return; }
       const res = await fetch("/api/work-history", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ company: company.trim(), title: jobTitle.trim() || null, address: address.trim(), lat: geo.lat, lng: geo.lng, placeId: addPlaceId, startDate: startDate || null, endDate: endDate || null, type: addType, degree: addDegree.trim() || null, major: addMajor.trim() || null, gpa: addGpa ? parseFloat(addGpa) : null }),
+        body: JSON.stringify({ company: company.trim(), title: jobTitle.trim() || null, address: isUnemployedType ? "N/A" : address.trim(), lat: geo.lat, lng: geo.lng, placeId: isUnemployedType ? null : addPlaceId, startDate: startDate || null, endDate: endDate || null, type: addType, degree: addDegree.trim() || null, major: addMajor.trim() || null, gpa: addGpa ? parseFloat(addGpa) : null }),
       });
       if (!res.ok) throw new Error("Failed to save");
-      toast.success(addType === "school" ? "Education added" : addType === "internship" ? "Internship added" : "Work history added");
+      toast.success(addType === "school" ? "Education added" : addType === "internship" ? "Internship added" : addType === "self-employed" ? "Self-employment added" : addType === "unemployed" ? "Gap period added" : "Work history added");
       setCompany(""); setJobTitle(""); setAddress(""); setAddCoords(null); setAddPlaceId(null); setStartDate(""); setEndDate("");
       setAddType("job"); setAddDegree(""); setAddMajor(""); setAddGpa("");
       setAdding(false);
@@ -6518,8 +6788,10 @@ function WorkHistoryPanel({
 
   // ── Detail field editing ──
   const [detailSaving, setDetailSaving] = useState(false);
+  const [detailSavedField, setDetailSavedField] = useState<string | null>(null);
   async function saveDetail(fields: Record<string, unknown>) {
     if (!focusedItem) return;
+    const fieldKey = Object.keys(fields)[0] ?? null;
     setDetailSaving(true);
     try {
       const res = await fetch(`/api/work-history/${focusedItem.id}`, {
@@ -6529,7 +6801,8 @@ function WorkHistoryPanel({
       });
       if (!res.ok) throw new Error();
       onAdded(); // refresh data
-      toast.success("Saved");
+      // Flash checkmark on the saved field
+      if (fieldKey) { setDetailSavedField(fieldKey); setTimeout(() => setDetailSavedField(null), 1500); }
     } catch { toast.error("Failed to save"); }
     finally { setDetailSaving(false); }
   }
@@ -6911,6 +7184,8 @@ function WorkHistoryPanel({
             const isCurrent = !focusedItem.endDate;
             const isSchool = focusedItem.type === "school";
             const isInternship = focusedItem.type === "internship";
+            const isSelfEmployed = focusedItem.type === "self-employed";
+            const isUnemployed = focusedItem.type === "unemployed";
             let tenure = "";
             if (focusedItem.startDate) {
               const s = new Date(focusedItem.startDate + "-01");
@@ -6923,12 +7198,14 @@ function WorkHistoryPanel({
                 {/* Company/Institution + badges */}
                 <div className="space-y-1">
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    {isSchool ? <GraduationCap className="h-3.5 w-3.5 text-violet-500 shrink-0" /> : <Briefcase className={`h-3.5 w-3.5 shrink-0 ${isInternship ? "text-cyan-600" : "text-gray-500"}`} />}
+                    {isSchool ? <GraduationCap className="h-3.5 w-3.5 text-violet-500 shrink-0" /> : isSelfEmployed ? <span className="text-xs shrink-0">🧑‍💻</span> : isUnemployed ? <Search className="h-3.5 w-3.5 text-red-500 shrink-0" /> : <Briefcase className={`h-3.5 w-3.5 shrink-0 ${isInternship ? "text-cyan-600" : "text-gray-500"}`} />}
                     <span className="text-xs font-semibold">{focusedItem.company}</span>
                     {focusedItem.scheduleType && <span className="text-[9px] bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded capitalize">{focusedItem.scheduleType.replace("-", " ")}</span>}
                     {focusedItem.workMode && <span className="text-[9px] bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded capitalize">{focusedItem.workMode}{focusedItem.hybridDays != null ? ` ${focusedItem.hybridDays}d` : ""}</span>}
                     {isSchool && <span className="text-[9px] bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 px-1.5 py-0.5 rounded">School</span>}
                     {isInternship && <span className="text-[9px] bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300 px-1.5 py-0.5 rounded">Internship</span>}
+                    {isSelfEmployed && <span className="text-[9px] bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 rounded">Self-Employed</span>}
+                    {isUnemployed && <span className="text-[9px] bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 px-1.5 py-0.5 rounded">Unemployed</span>}
                   </div>
                   {/* Degree + Major for schools, or Job Title for jobs */}
                   {isSchool ? (
@@ -6943,9 +7220,9 @@ function WorkHistoryPanel({
                   ) : (
                     focusedItem.title && <p className="text-[11px] text-muted-foreground">{focusedItem.title}</p>
                   )}
-                  <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                  {!isUnemployed && <p className="text-[10px] text-muted-foreground flex items-center gap-1">
                     <MapPin className="h-3 w-3 shrink-0" /> {focusedItem.address}
-                  </p>
+                  </p>}
                 </div>
 
                 {/* Employment Period */}
@@ -7058,7 +7335,7 @@ function WorkHistoryPanel({
                       ) : (
                         <>
                           {/* ── Compact Row ── */}
-                          <button type="button" className="w-full flex items-center gap-1.5 px-2 py-1.5 text-left" onClick={() => setExpandedLocId(isExpanded ? null : loc.id)}>
+                          <div role="button" tabIndex={0} className="w-full flex items-center gap-1.5 px-2 py-1.5 text-left cursor-pointer" onClick={() => setExpandedLocId(isExpanded ? null : loc.id)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setExpandedLocId(isExpanded ? null : loc.id); }}>
                             <MapPin className="h-3 w-3 shrink-0 text-blue-500" />
                             <span className="text-[10px] font-medium truncate flex-1">{loc.label}</span>
                             {dateRange && <span className="text-[8px] text-muted-foreground shrink-0">{dateRange}</span>}
@@ -7074,7 +7351,7 @@ function WorkHistoryPanel({
                               </button>
                             </span>
                             <ChevronDown className={`h-2.5 w-2.5 text-muted-foreground transition-transform ${isExpanded ? "rotate-180" : ""}`} />
-                          </button>
+                          </div>
                           {/* ── Expanded Details ── */}
                           {isExpanded && (
                             <div className="px-2 pb-2 pt-0.5 space-y-1 border-t">
@@ -7749,6 +8026,7 @@ function WorkHistoryPanel({
                       <Pencil className="h-2.5 w-2.5 mr-0.5" /> {rating ? "Edit Rating" : "Rate Workplace"}
                     </Button>
                   )}
+                  {!ratingEditing && !rating && <p className="text-[8px] text-muted-foreground text-center italic">Click above to rate this workplace</p>}
                 </div>
               </div>
             )}
@@ -7771,7 +8049,7 @@ function WorkHistoryPanel({
                 </div>
                 <div>
                   <p className="text-[9px] text-muted-foreground mb-0.5">Type</p>
-                  <Select defaultValue={focusedItem.salaryType ?? ""} onValueChange={(v) => saveDetail({ salaryType: v || null })}>
+                  <Select value={focusedItem.salaryType ?? ""} onValueChange={(v) => saveDetail({ salaryType: v || null })}>
                     <SelectTrigger className="h-6 text-[10px]"><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="annual" className="text-xs">Annual</SelectItem>
@@ -7811,7 +8089,7 @@ function WorkHistoryPanel({
               <div className="grid grid-cols-2 gap-1.5">
                 <div>
                   <p className="text-[9px] text-muted-foreground mb-0.5">Employment Type</p>
-                  <Select defaultValue={focusedItem.scheduleType ?? ""} onValueChange={(v) => saveDetail({ scheduleType: v || null })}>
+                  <Select value={focusedItem.scheduleType ?? ""} onValueChange={(v) => saveDetail({ scheduleType: v || null })}>
                     <SelectTrigger className="h-6 text-[10px]"><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>
                       {["full-time","part-time","contract","internship","freelance"].map((v) => <SelectItem key={v} value={v} className="text-xs capitalize">{v.replace("-"," ")}</SelectItem>)}
@@ -7820,7 +8098,7 @@ function WorkHistoryPanel({
                 </div>
                 <div>
                   <p className="text-[9px] text-muted-foreground mb-0.5">Work Mode</p>
-                  <Select defaultValue={focusedItem.workMode ?? ""} onValueChange={(v) => saveDetail({ workMode: v || null })}>
+                  <Select value={focusedItem.workMode ?? ""} onValueChange={(v) => saveDetail({ workMode: v || null })}>
                     <SelectTrigger className="h-6 text-[10px]"><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>
                       {["on-site","hybrid","remote"].map((v) => <SelectItem key={v} value={v} className="text-xs capitalize">{v.replace("-"," ")}</SelectItem>)}
@@ -7891,7 +8169,7 @@ function WorkHistoryPanel({
               <div className="grid grid-cols-2 gap-1.5">
                 <div>
                   <p className="text-[9px] text-muted-foreground mb-0.5">Company Size</p>
-                  <Select defaultValue={focusedItem.companySize ?? ""} onValueChange={(v) => saveDetail({ companySize: v || null })}>
+                  <Select value={focusedItem.companySize ?? ""} onValueChange={(v) => saveDetail({ companySize: v || null })}>
                     <SelectTrigger className="h-6 text-[10px]"><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>
                       {["startup","small","mid-market","enterprise"].map((v) => <SelectItem key={v} value={v} className="text-xs capitalize">{v.replace("-"," ")}</SelectItem>)}
@@ -7928,17 +8206,59 @@ function WorkHistoryPanel({
               <div>
                 <p className="text-[9px] text-muted-foreground mb-0.5">Skills Used (comma-separated)</p>
                 <Input defaultValue={(() => { try { return JSON.parse(focusedItem.skillsUsed ?? "[]").join(", "); } catch { return ""; } })()}
-                  className="h-6 text-[10px]"
+                  className="h-6 text-[10px]" list="wh-skill-suggestions"
                   onBlur={(e) => { const v = e.target.value.split(",").map((s: string) => s.trim()).filter(Boolean); saveDetail({ skillsUsed: v.length ? JSON.stringify(v) : null }); }}
                   placeholder="React, Python, SQL…" />
               </div>
               <div>
                 <p className="text-[9px] text-muted-foreground mb-0.5">Skills Gained (comma-separated)</p>
                 <Input defaultValue={(() => { try { return JSON.parse(focusedItem.skillsGained ?? "[]").join(", "); } catch { return ""; } })()}
-                  className="h-6 text-[10px]"
+                  className="h-6 text-[10px]" list="wh-skill-suggestions"
                   onBlur={(e) => { const v = e.target.value.split(",").map((s: string) => s.trim()).filter(Boolean); saveDetail({ skillsGained: v.length ? JSON.stringify(v) : null }); }}
                   placeholder="Docker, K8s…" />
+                <datalist id="wh-skill-suggestions">
+                  {skillSuggestions.map((s) => <option key={s} value={s} />)}
+                </datalist>
               </div>
+              {/* Promotions inline editor */}
+              {(() => {
+                const promos: { title: string; date: string }[] = (() => { try { return JSON.parse(focusedItem.promotions ?? "[]"); } catch { return []; } })();
+                return (
+                  <div>
+                    <p className="text-[9px] text-muted-foreground mb-0.5">Promotions</p>
+                    {promos.length > 0 && (
+                      <div className="space-y-0.5 mb-1">
+                        {promos.map((p, i) => (
+                          <div key={i} className="flex items-center gap-1 text-[10px]">
+                            <Award className="h-2.5 w-2.5 text-amber-500 shrink-0" />
+                            <span className="font-medium truncate">{p.title}</span>
+                            <span className="text-muted-foreground shrink-0">{p.date}</span>
+                            <button type="button" className="text-muted-foreground hover:text-red-500 ml-auto shrink-0"
+                              onClick={() => { const next = promos.filter((_, j) => j !== i); saveDetail({ promotions: next.length ? JSON.stringify(next) : null }); }}>
+                              <X className="h-2.5 w-2.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <div className="flex gap-1">
+                      <Input placeholder="Title (e.g. Senior Dev)" className="h-6 text-[10px] flex-1" id="promo-title-input" />
+                      <Input type="month" className="h-6 text-[10px] w-[110px]" id="promo-date-input" />
+                      <Button size="sm" variant="ghost" className="h-6 px-1.5 text-[10px]"
+                        onClick={() => {
+                          const titleEl = document.getElementById("promo-title-input") as HTMLInputElement;
+                          const dateEl = document.getElementById("promo-date-input") as HTMLInputElement;
+                          if (!titleEl?.value.trim()) return;
+                          const next = [...promos, { title: titleEl.value.trim(), date: dateEl?.value || "" }];
+                          saveDetail({ promotions: JSON.stringify(next) });
+                          titleEl.value = ""; if (dateEl) dateEl.value = "";
+                        }}>
+                        <Plus className="h-2.5 w-2.5" />
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           </DetailEditSection>
 
@@ -7953,7 +8273,7 @@ function WorkHistoryPanel({
               <div className="grid grid-cols-2 gap-1.5">
                 <div>
                   <p className="text-[9px] text-muted-foreground mb-0.5">Reason for Leaving</p>
-                  <Select defaultValue={focusedItem.reasonForLeaving ?? ""} onValueChange={(v) => saveDetail({ reasonForLeaving: v || null })}>
+                  <Select value={focusedItem.reasonForLeaving ?? ""} onValueChange={(v) => saveDetail({ reasonForLeaving: v || null })}>
                     <SelectTrigger className="h-6 text-[10px]"><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>
                       {[["better-offer","Better Offer"],["layoff","Layoff"],["relocation","Relocation"],["growth","Growth"],["culture","Culture"],["personal","Personal"],["contract-end","Contract End"],["other","Other"]].map(([v,l]) => <SelectItem key={v} value={v} className="text-xs">{l}</SelectItem>)}
@@ -7962,7 +8282,7 @@ function WorkHistoryPanel({
                 </div>
                 <div>
                   <p className="text-[9px] text-muted-foreground mb-0.5">Would Return?</p>
-                  <Select defaultValue={focusedItem.wouldReturn ?? ""} onValueChange={(v) => saveDetail({ wouldReturn: v || null })}>
+                  <Select value={focusedItem.wouldReturn ?? ""} onValueChange={(v) => saveDetail({ wouldReturn: v || null })}>
                     <SelectTrigger className="h-6 text-[10px]"><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>
                       {["yes","no","maybe"].map((v) => <SelectItem key={v} value={v} className="text-xs capitalize">{v}</SelectItem>)}
@@ -8008,7 +8328,7 @@ function WorkHistoryPanel({
           <button type="button" className={`transition-colors ${showCareerPath ? "text-blue-600" : "text-muted-foreground hover:text-foreground"}`} title="Toggle career path line" onClick={onToggleCareerPath}>
             <Route className="h-4 w-4" />
           </button>
-          <button type="button" className={`transition-colors ${showOverlaps ? "text-amber-500" : "text-muted-foreground hover:text-foreground"}`} title="Toggle concurrent overlap badges" onClick={onToggleOverlaps}>
+          <button type="button" className={`transition-colors ${showOverlaps ? "text-cyan-500" : "text-muted-foreground hover:text-foreground"}`} title="Toggle concurrent overlap badges" onClick={onToggleOverlaps}>
             <Zap className="h-4 w-4" />
           </button>
           <button type="button" className="text-muted-foreground hover:text-foreground" title="Import from experience" onClick={handleImportFromExperience} disabled={importing}>
@@ -8025,7 +8345,7 @@ function WorkHistoryPanel({
 
       {/* Career Journey Stats */}
       {stats && (
-        <div className="grid grid-cols-3 gap-1.5 mb-2.5 p-2 rounded-lg bg-muted/40 border">
+        <div className="grid grid-cols-4 gap-1 mb-2.5 p-2 rounded-lg bg-muted/40 border">
           <div className="text-center">
             <p className="text-[10px] text-muted-foreground">Tenure</p>
             <p className="text-xs font-semibold">{stats.tenureStr}</p>
@@ -8035,8 +8355,12 @@ function WorkHistoryPanel({
             <p className="text-xs font-semibold">{stats.count}</p>
           </div>
           <div className="text-center">
-            <p className="text-[10px] text-muted-foreground">{stats.totalMiles > 0 ? "Miles moved" : "Cities"}</p>
-            <p className="text-xs font-semibold">{stats.totalMiles > 0 ? `${stats.totalMiles} mi` : stats.cities}</p>
+            <p className="text-[10px] text-muted-foreground">Miles</p>
+            <p className="text-xs font-semibold">{stats.totalMiles > 0 ? `${stats.totalMiles}` : "—"}</p>
+          </div>
+          <div className="text-center">
+            <p className="text-[10px] text-muted-foreground">Cities</p>
+            <p className="text-xs font-semibold">{stats.cities}</p>
           </div>
         </div>
       )}
@@ -8050,8 +8374,180 @@ function WorkHistoryPanel({
           <button type="button" className={`flex-1 text-[10px] py-1 rounded-md font-medium transition-colors ${tab === "timeline" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted/50"}`} onClick={() => setTab("timeline")}>
             Timeline
           </button>
+          {items.length >= 2 && (
+            <button type="button" className={`flex-1 text-[10px] py-1 rounded-md font-medium transition-colors ${tab === "compare" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted/50"}`} onClick={() => setTab("compare")}>
+              Compare
+            </button>
+          )}
         </div>
       )}
+
+      {/* Time Slider */}
+      {timeRange && timeRange.min && timeRange.max && (() => {
+        const minD = new Date(timeRange.min);
+        const maxD = new Date(timeRange.max);
+        const minMonth = minD.getFullYear() * 12 + minD.getMonth();
+        const maxMonth = maxD.getFullYear() * 12 + maxD.getMonth();
+        const steps = maxMonth - minMonth;
+        if (steps <= 0) return null;
+        const currentVal = timeFilter
+          ? new Date(timeFilter + "-01").getFullYear() * 12 + new Date(timeFilter + "-01").getMonth() - minMonth
+          : steps;
+        const formatMonth = (val: number) => {
+          const totalMonths = minMonth + val;
+          const y = Math.floor(totalMonths / 12);
+          const m = (totalMonths % 12) + 1;
+          return `${y}-${String(m).padStart(2, "0")}`;
+        };
+        return (
+          <div className="mb-2.5 p-2 rounded-lg bg-muted/40 border space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-medium flex items-center gap-1">
+                <Clock className="h-3 w-3" /> Time Filter
+              </span>
+              {timeFilter ? (
+                <button type="button" className="text-[9px] text-primary hover:underline" onClick={() => onTimeFilterChange(null)}>
+                  Clear (all time)
+                </button>
+              ) : (
+                <span className="text-[9px] text-muted-foreground">All time</span>
+              )}
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={steps}
+              step={1}
+              value={currentVal > steps ? steps : currentVal}
+              onChange={(e) => {
+                const v = Number(e.target.value);
+                if (v >= steps) { onTimeFilterChange(null); }
+                else { onTimeFilterChange(formatMonth(v)); }
+              }}
+              className="w-full h-1.5 accent-primary cursor-pointer"
+            />
+            <div className="flex justify-between text-[9px] text-muted-foreground">
+              <span>{formatMonth(0)}</span>
+              {timeFilter && <span className="font-semibold text-foreground">{timeFilter}</span>}
+              <span>Now</span>
+            </div>
+            {timeFilter && activeResidence && (
+              <div className="flex items-center gap-1 text-[9px] bg-blue-500/10 text-blue-700 dark:text-blue-300 rounded px-1.5 py-0.5">
+                <span>🏠</span>
+                <span className="font-medium truncate">{activeResidence.label}</span>
+                <span className="text-muted-foreground">·</span>
+                <span className="truncate">{activeResidence.address}</span>
+              </div>
+            )}
+            {timeFilter && !activeResidence && residences.length === 0 && (
+              <p className="text-[9px] text-amber-600 dark:text-amber-400">Add a residence to see your home marker on the map</p>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* Type Filters */}
+      {items.length > 0 && (() => {
+        const typeCounts = new Map<string, number>();
+        for (const w of items) { const t = w.type ?? "job"; if (t !== "unemployed") typeCounts.set(t, (typeCounts.get(t) ?? 0) + 1); }
+        if (typeCounts.size <= 1) return null;
+        const chips: { key: string; emoji: string; label: string }[] = [
+          { key: "job", emoji: "💼", label: "Jobs" },
+          { key: "school", emoji: "🎓", label: "Schools" },
+          { key: "military", emoji: "🎖️", label: "Military" },
+          { key: "volunteer", emoji: "🤝", label: "Volunteer" },
+          { key: "internship", emoji: "🏢", label: "Internships" },
+          { key: "self-employed", emoji: "🧑‍💻", label: "Self-Emp" },
+        ].filter((c) => typeCounts.has(c.key));
+        return (
+          <div className="flex flex-wrap gap-1 mb-2.5">
+            {chips.map((c) => {
+              const hidden = hiddenTypes.has(c.key);
+              return (
+                <button
+                  key={c.key}
+                  type="button"
+                  onClick={() => onToggleType(c.key)}
+                  className={`flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded-full border transition-colors ${hidden ? "opacity-40 bg-muted/20 border-muted" : "bg-primary/10 border-primary/30 text-foreground"}`}
+                >
+                  <span>{c.emoji}</span>
+                  <span>{c.label}</span>
+                  <span className="text-muted-foreground">({typeCounts.get(c.key)})</span>
+                </button>
+              );
+            })}
+          </div>
+        );
+      })()}
+
+      {/* Residences */}
+      <div className="mb-2.5">
+        <button
+          type="button"
+          className="flex items-center gap-1 text-[10px] font-medium text-muted-foreground hover:text-foreground w-full"
+          onClick={() => setShowResidences(!showResidences)}
+        >
+          <Home className="h-3 w-3" />
+          Residences ({residences.length})
+          {showResidences ? <ChevronUp className="h-3 w-3 ml-auto" /> : <ChevronDown className="h-3 w-3 ml-auto" />}
+        </button>
+        {showResidences && (
+          <div className="mt-1.5 space-y-1.5">
+            {residences.map((r) => (
+              <div key={r.id} className={`flex items-center gap-1.5 p-1.5 rounded border text-[10px] ${activeResidence?.id === r.id ? "border-blue-400 bg-blue-500/10" : "bg-muted/30"}`}>
+                <span>🏠</span>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium truncate">{r.label}{r.isCurrent && <span className="text-blue-500 ml-1">(current)</span>}</p>
+                  <p className="text-muted-foreground truncate">{r.address}</p>
+                  <p className="text-muted-foreground">
+                    {r.startDate ? new Date(r.startDate).toLocaleDateString("en-US", { month: "short", year: "numeric" }) : "?"}
+                    {" — "}
+                    {r.endDate ? new Date(r.endDate).toLocaleDateString("en-US", { month: "short", year: "numeric" }) : "Present"}
+                  </p>
+                </div>
+                <button type="button" className="text-destructive/60 hover:text-destructive p-0.5" onClick={() => handleDeleteResidence(r.id)}>
+                  <Trash2 className="h-3 w-3" />
+                </button>
+              </div>
+            ))}
+            {!addingResidence ? (
+              <button type="button" className="text-[10px] text-primary hover:underline flex items-center gap-1" onClick={() => setAddingResidence(true)}>
+                <Plus className="h-3 w-3" /> Add residence
+              </button>
+            ) : (
+              <div className="space-y-1.5 p-2 border rounded-lg bg-muted/30">
+                <Input placeholder="Label (e.g. College dorm)" className="h-7 text-xs" value={resLabel} onChange={(e) => setResLabel(e.target.value)} />
+                <PlacesAutocomplete
+                  value={resAddress}
+                  onChange={(v) => { setResAddress(v); setResCoords(null); setResPlaceId(null); }}
+                  onPlaceSelect={async (place) => { setResAddress(place.description); setResPlaceId(place.placeId); const c = await resolveCoords(place.description, place.placeId); if (c) setResCoords(c); }}
+                  placeholder="Address"
+                  className="h-7 text-xs"
+                  types={[]}
+                />
+                <div className="grid grid-cols-2 gap-1.5">
+                  <div>
+                    <label className="text-[9px] text-muted-foreground block mb-0.5">Start</label>
+                    <Input type="month" className="h-7 text-xs w-full" value={resStart} onChange={(e) => setResStart(e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="text-[9px] text-muted-foreground block mb-0.5">End (blank = current)</label>
+                    <Input type="month" className="h-7 text-xs w-full" value={resEnd} onChange={(e) => setResEnd(e.target.value)} />
+                  </div>
+                </div>
+                <div className="flex gap-1.5">
+                  <Button size="sm" className="h-6 text-[10px] flex-1" disabled={resSaving} onClick={handleAddResidence}>
+                    {resSaving ? "Saving…" : "Save"}
+                  </Button>
+                  <Button size="sm" variant="ghost" className="h-6 text-[10px]" onClick={() => { setAddingResidence(false); setResLabel(""); setResAddress(""); setResCoords(null); setResPlaceId(null); setResStart(""); setResEnd(""); }}>
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Add form */}
       {adding && (
@@ -8066,9 +8562,11 @@ function WorkHistoryPanel({
               <SelectItem value="internship">🏢 Internship</SelectItem>
               <SelectItem value="military">🎖️ Military</SelectItem>
               <SelectItem value="volunteer">🤝 Volunteer</SelectItem>
+              <SelectItem value="self-employed">🧑‍💻 Self-Employed</SelectItem>
+              <SelectItem value="unemployed">🔍 Unemployed</SelectItem>
             </SelectContent>
           </Select>
-          <Input placeholder={addType === "school" ? "Institution *" : "Company *"} value={company} onChange={(e) => setCompany(e.target.value)} className="h-7 text-xs" />
+          <Input placeholder={addType === "school" ? "Institution *" : addType === "self-employed" ? "Business name *" : addType === "unemployed" ? "Period label *" : "Company *"} value={company} onChange={(e) => setCompany(e.target.value)} className="h-7 text-xs" />
           {addType === "school" ? (
             <>
               <Input placeholder="Degree (e.g. B.S., M.A.)" value={addDegree} onChange={(e) => setAddDegree(e.target.value)} className="h-7 text-xs" />
@@ -8076,9 +8574,9 @@ function WorkHistoryPanel({
               <Input placeholder="GPA (optional)" type="number" step="0.01" min="0" max="5" value={addGpa} onChange={(e) => setAddGpa(e.target.value)} className="h-7 text-xs" />
             </>
           ) : (
-            <Input placeholder={addType === "military" ? "Rank / Role (optional)" : addType === "volunteer" ? "Role (optional)" : addType === "internship" ? "Internship role (optional)" : "Job title (optional)"} value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} className="h-7 text-xs" />
+            <Input placeholder={addType === "military" ? "Rank / Role (optional)" : addType === "volunteer" ? "Role (optional)" : addType === "internship" ? "Internship role (optional)" : addType === "self-employed" ? "Business description (optional)" : addType === "unemployed" ? "Notes (optional)" : "Job title (optional)"} value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} className="h-7 text-xs" />
           )}
-          <PlacesAutocomplete value={address} onChange={(v) => { setAddress(v); setAddCoords(null); setAddPlaceId(null); }} onPlaceSelect={handleAddPlaceSelect} placeholder={addType === "school" ? "Campus address *" : "Work address *"} className="h-7 text-xs" types={[]} />
+          {addType !== "unemployed" && <PlacesAutocomplete value={address} onChange={(v) => { setAddress(v); setAddCoords(null); setAddPlaceId(null); }} onPlaceSelect={handleAddPlaceSelect} placeholder={addType === "school" ? "Campus address *" : addType === "self-employed" ? "Business address *" : "Work address *"} className="h-7 text-xs" types={[]} />}
           <div className="grid grid-cols-2 gap-2">
             <Input type="month" placeholder="Start" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="h-7 text-xs" />
             <Input type="month" placeholder="End" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="h-7 text-xs" />
@@ -8097,9 +8595,49 @@ function WorkHistoryPanel({
       )}
 
       {/* List view — most recent first */}
-      {tab === "list" && (
-        <div className="space-y-1.5">
-          {listItems.map((w) => editingId === w.id ? (
+      {tab === "list" && (() => {
+        // Group items by category
+        const sections: { key: string; label: string; emoji: string; icon: React.ReactNode; items: typeof listItems }[] = [];
+        const groups = new Map<string, typeof listItems>();
+        for (const w of listItems) {
+          const t = w.type ?? "job";
+          if (!groups.has(t)) groups.set(t, []);
+          groups.get(t)!.push(w);
+        }
+        const sectionDefs: { key: string; label: string; emoji: string; icon: React.ReactNode }[] = [
+          { key: "job", label: "Jobs", emoji: "💼", icon: <Briefcase className="h-3 w-3 text-gray-500" /> },
+          { key: "school", label: "Education", emoji: "🎓", icon: <GraduationCap className="h-3 w-3 text-violet-500" /> },
+          { key: "internship", label: "Internships", emoji: "🏢", icon: <Briefcase className="h-3 w-3 text-cyan-600" /> },
+          { key: "volunteer", label: "Volunteering", emoji: "🤝", icon: <Heart className="h-3 w-3 text-amber-500" /> },
+          { key: "military", label: "Military", emoji: "🎖️", icon: <Award className="h-3 w-3 text-emerald-600" /> },
+          { key: "self-employed", label: "Self-Employed", emoji: "🧑‍💻", icon: <Monitor className="h-3 w-3 text-amber-700" /> },
+          { key: "unemployed", label: "Gaps", emoji: "🔍", icon: <Search className="h-3 w-3 text-red-500" /> },
+        ];
+        for (const def of sectionDefs) {
+          const g = groups.get(def.key);
+          if (g && g.length > 0) sections.push({ ...def, items: g });
+        }
+        // If only one section, don't show headers
+        const singleSection = sections.length === 1;
+        return (
+          <div className="space-y-1">
+            {sections.map((sec) => (
+              <div key={sec.key}>
+                {!singleSection && (
+                  <button
+                    type="button"
+                    className="flex items-center gap-1.5 w-full py-1 px-1 rounded hover:bg-muted/50 transition-colors"
+                    onClick={() => toggleListSection(sec.key)}
+                  >
+                    <span className="text-xs">{sec.emoji}</span>
+                    <span className="text-[11px] font-semibold">{sec.label}</span>
+                    <span className="text-[9px] text-muted-foreground">({sec.items.length})</span>
+                    <ChevronDown className={`h-3 w-3 ml-auto text-muted-foreground transition-transform ${collapsedSections.has(sec.key) ? "-rotate-90" : ""}`} />
+                  </button>
+                )}
+                {!collapsedSections.has(sec.key) && (
+                  <div className="space-y-1.5">
+                    {sec.items.map((w) => editingId === w.id ? (
             <div key={w.id} className="space-y-1.5 p-2 border rounded-lg bg-muted/30">
               <Input placeholder="Company *" value={editCompany} onChange={(e) => setEditCompany(e.target.value)} className="h-7 text-xs" />
               <Input placeholder="Job title" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} className="h-7 text-xs" />
@@ -8123,7 +8661,7 @@ function WorkHistoryPanel({
               <div className="flex items-start justify-between gap-2 p-1.5">
                 <div className="min-w-0 flex-1 cursor-pointer" onClick={() => { setExpandedId(expandedId === w.id ? null : w.id); onFocusJob(w); }}>
                   <div className="flex items-center gap-1">
-                    {w.type === "school" ? <GraduationCap className="h-3 w-3 text-violet-500 shrink-0" /> : <Briefcase className={`h-3 w-3 shrink-0 ${w.type === "internship" ? "text-cyan-600" : "text-gray-500"}`} />}
+                    {w.type === "school" ? <GraduationCap className="h-3 w-3 text-violet-500 shrink-0" /> : w.type === "self-employed" ? <span className="text-[10px] shrink-0">🧑‍💻</span> : w.type === "unemployed" ? <Search className="h-3 w-3 text-red-500 shrink-0" /> : <Briefcase className={`h-3 w-3 shrink-0 ${w.type === "internship" ? "text-cyan-600" : "text-gray-500"}`} />}
                     <p className="text-xs font-medium truncate">{w.company}</p>
                     {(w.locations?.length ?? 0) > 0 && (
                       <span className="text-[9px] bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300 px-1 rounded">{w.locations.length} loc</span>
@@ -8134,17 +8672,25 @@ function WorkHistoryPanel({
                   ) : (
                     w.title && <p className="text-[10px] text-muted-foreground truncate">{w.title}</p>
                   )}
-                  <p className="text-[10px] text-muted-foreground truncate">{w.address}</p>
+                  {w.type !== "unemployed" && <p className="text-[10px] text-muted-foreground truncate">{w.address}</p>}
                   {(w.startDate || w.endDate) && (
                     <p className="text-[10px] text-muted-foreground">
                       {w.startDate ?? "?"} – {w.endDate ?? "present"}
                     </p>
                   )}
+                  {activeResidence && timeFilter && w.type !== "unemployed" && (() => {
+                    const ct = commuteTimes.get(w.id);
+                    if (ct) return <p className="text-[9px] text-blue-600 dark:text-blue-400">🏠 {ct.durationMin} min · {ct.distanceMi} mi</p>;
+                    const dLat = (w.lat - activeResidence.lat) * 69;
+                    const dLng = (w.lng - activeResidence.lng) * 69 * Math.cos(((w.lat + activeResidence.lat) / 2) * Math.PI / 180);
+                    const dist = Math.round(Math.sqrt(dLat * dLat + dLng * dLng));
+                    return dist > 1 ? <p className="text-[9px] text-muted-foreground">🏠 ~{dist} mi</p> : null;
+                  })()}
                   {showOverlaps && overlapMap.has(w.id) && (
                     <div className="flex flex-wrap gap-0.5 mt-0.5">
                       {overlapMap.get(w.id)!.map((o) => (
-                        <span key={o.id} className="inline-flex items-center gap-0.5 text-[9px] bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 px-1 rounded cursor-pointer hover:bg-amber-200 dark:hover:bg-amber-900/60" onClick={(e) => { e.stopPropagation(); onFocusJob(items.find((i) => i.id === o.id)!); }}>
-                          <Zap className="h-2 w-2" /> {o.type === "school" ? "🎓" : o.type === "military" ? "🎖️" : o.type === "volunteer" ? "🤝" : o.type === "internship" ? "🏢" : "💼"} {o.company}
+                        <span key={o.id} className="inline-flex items-center gap-0.5 text-[9px] bg-cyan-100 dark:bg-cyan-900/40 text-cyan-700 dark:text-cyan-300 px-1 rounded cursor-pointer hover:bg-cyan-200 dark:hover:bg-cyan-900/60" onClick={(e) => { e.stopPropagation(); onFocusJob(items.find((i) => i.id === o.id)!); }}>
+                          <Zap className="h-2 w-2" /> {o.type === "school" ? "🎓" : o.type === "military" ? "🎖️" : o.type === "volunteer" ? "🤝" : o.type === "internship" ? "🏢" : o.type === "self-employed" ? "🧑‍💻" : o.type === "unemployed" ? "🔍" : "💼"} {o.company}
                         </span>
                       ))}
                     </div>
@@ -8164,22 +8710,71 @@ function WorkHistoryPanel({
               </div>
 
               {/* Expanded sub-locations */}
-              {expandedId === w.id && (
-                <div className="px-1.5 pb-1.5 space-y-1">
+              <div className={`grid transition-all duration-200 ease-in-out ${expandedId === w.id ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
+                <div className="overflow-hidden">
+                {expandedId === w.id && (
+                <div className="px-1.5 pb-1.5 space-y-1" ref={(el) => { if (el && expandedId === w.id) el.scrollIntoView({ behavior: "smooth", block: "nearest" }); }}>
                   {(w.locations ?? []).length > 0 && (
                     <div className="pl-2 border-l-2 border-muted space-y-1">
-                      {w.locations.map((loc) => (
-                        <div key={loc.id} className="flex items-start justify-between gap-1 group/loc">
-                          <div className="min-w-0">
-                            <p className="text-[10px] font-medium truncate">{loc.label}</p>
-                            <p className="text-[9px] text-muted-foreground truncate">{loc.address}</p>
-                            <span className="text-[9px] bg-muted px-1 rounded">{LOC_TYPES.find((t) => t.value === loc.type)?.label ?? loc.type}</span>
+                      {w.locations.map((loc) => {
+                        const photos: string[] = (() => { try { return loc.photos ? JSON.parse(loc.photos) : []; } catch { return []; } })();
+                        return (
+                        <div key={loc.id} className="space-y-1 group/loc">
+                          <div className="flex items-start justify-between gap-1">
+                            <div className="min-w-0">
+                              <p className="text-[10px] font-medium truncate">{loc.label}</p>
+                              <p className="text-[9px] text-muted-foreground truncate">{loc.address}</p>
+                              <span className="text-[9px] bg-muted px-1 rounded">{LOC_TYPES.find((t) => t.value === loc.type)?.label ?? loc.type}</span>
+                            </div>
+                            <button type="button" className="text-muted-foreground hover:text-red-500 opacity-0 group-hover/loc:opacity-100 transition-opacity shrink-0" onClick={() => handleDeleteLocation(w.id, loc.id)}>
+                              <Trash2 className="h-2.5 w-2.5" />
+                            </button>
                           </div>
-                          <button type="button" className="text-muted-foreground hover:text-red-500 opacity-0 group-hover/loc:opacity-100 transition-opacity shrink-0" onClick={() => handleDeleteLocation(w.id, loc.id)}>
-                            <Trash2 className="h-2.5 w-2.5" />
-                          </button>
+
+                          {/* Photo gallery */}
+                          <div className="flex flex-wrap gap-1 items-center">
+                            {photos.map((url) => (
+                              <div key={url} className="relative group/photo w-10 h-10 rounded overflow-hidden border">
+                                <img src={url} alt="" className="w-full h-full object-cover" />
+                                <button
+                                  type="button"
+                                  className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover/photo:opacity-100 transition-opacity"
+                                  onClick={() => handlePhotoDelete(w.id, loc.id, url)}
+                                >
+                                  <X className="h-3 w-3 text-white" />
+                                </button>
+                              </div>
+                            ))}
+                            {photos.length < 5 && (
+                              <>
+                                <input
+                                  type="file"
+                                  accept="image/jpeg,image/png,image/webp,image/gif"
+                                  className="hidden"
+                                  ref={(el) => { photoInputRefs.current[loc.id] = el; }}
+                                  onChange={(e) => {
+                                    const f = e.target.files?.[0];
+                                    if (f) handlePhotoUpload(w.id, loc.id, f);
+                                    e.target.value = "";
+                                  }}
+                                />
+                                <button
+                                  type="button"
+                                  className="w-10 h-10 rounded border border-dashed border-muted-foreground/40 flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-foreground transition-colors"
+                                  onClick={() => photoInputRefs.current[loc.id]?.click()}
+                                  disabled={uploadingPhotoFor === loc.id}
+                                >
+                                  {uploadingPhotoFor === loc.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Camera className="h-3 w-3" />}
+                                </button>
+                              </>
+                            )}
+                            {photos.length > 0 && (
+                              <span className="text-[8px] text-muted-foreground">📷 {photos.length}/5</span>
+                            )}
+                          </div>
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
 
@@ -8208,10 +8803,17 @@ function WorkHistoryPanel({
                   )}
                 </div>
               )}
+                </div>
+              </div>
             </div>
           ))}
-        </div>
-      )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        );
+      })()}
 
       {/* Timeline view — most recent first */}
       {tab === "timeline" && listItems.length > 0 && (
@@ -8226,14 +8828,25 @@ function WorkHistoryPanel({
               const m = Math.max(0, (e.getFullYear() - s.getFullYear()) * 12 + (e.getMonth() - s.getMonth()));
               tenure = m >= 12 ? `${Math.floor(m / 12)}y ${m % 12}m` : `${m}m`;
             }
-            // Distance from the chronologically-previous role (next item in reversed list)
+            // Distance / commute from home (if time filter active) or chronologically-previous role
             let distStr = "";
-            if (i < listItems.length - 1) {
+            if (activeResidence && timeFilter) {
+              const ct = commuteTimes.get(w.id);
+              if (ct) {
+                distStr = `${ct.durationMin} min · ${ct.distanceMi} mi from 🏠`;
+              } else {
+                // Fallback while loading
+                const dLat = (w.lat - activeResidence.lat) * 69;
+                const dLng = (w.lng - activeResidence.lng) * 69 * Math.cos(((w.lat + activeResidence.lat) / 2) * Math.PI / 180);
+                const dist = Math.round(Math.sqrt(dLat * dLat + dLng * dLng));
+                if (dist > 1) distStr = `~${dist} mi from 🏠`;
+              }
+            } else if (i < listItems.length - 1) {
               const prev = listItems[i + 1];
               const dLat = (w.lat - prev.lat) * 69;
               const dLng = (w.lng - prev.lng) * 69 * Math.cos(((w.lat + prev.lat) / 2) * Math.PI / 180);
               const dist = Math.round(Math.sqrt(dLat * dLat + dLng * dLng));
-              if (dist > 0) distStr = `${dist} mi from prev`;
+              if (dist > 1) distStr = `${dist} mi from prev`;
             }
             const isCurrent = !w.endDate;
             return (
@@ -8258,12 +8871,12 @@ function WorkHistoryPanel({
                       </p>
                     )}
                   </div>
-                  <p className="text-[10px] text-muted-foreground truncate">{w.address}</p>
+                  {w.type !== "unemployed" && <p className="text-[10px] text-muted-foreground truncate">{w.address}</p>}
                   {showOverlaps && overlapMap.has(w.id) && (
                     <div className="flex flex-wrap gap-0.5 mt-0.5">
                       {overlapMap.get(w.id)!.map((o) => (
-                        <span key={o.id} className="inline-flex items-center gap-0.5 text-[9px] bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 px-1 rounded">
-                          <Zap className="h-2 w-2" /> {o.type === "school" ? "🎓" : o.type === "military" ? "🎖️" : o.type === "volunteer" ? "🤝" : o.type === "internship" ? "🏢" : "💼"} {o.company}
+                        <span key={o.id} className="inline-flex items-center gap-0.5 text-[9px] bg-cyan-100 dark:bg-cyan-900/40 text-cyan-700 dark:text-cyan-300 px-1 rounded">
+                          <Zap className="h-2 w-2" /> {o.type === "school" ? "🎓" : o.type === "military" ? "🎖️" : o.type === "volunteer" ? "🤝" : o.type === "internship" ? "🏢" : o.type === "self-employed" ? "🧑‍💻" : o.type === "unemployed" ? "🔍" : "💼"} {o.company}
                         </span>
                       ))}
                     </div>
@@ -8282,6 +8895,73 @@ function WorkHistoryPanel({
               </div>
             );
           })}
+        </div>
+      )}
+      {/* Compare view — side-by-side role comparison */}
+      {tab === "compare" && (
+        <div className="space-y-2">
+          <div className="grid grid-cols-2 gap-1.5">
+            {([0, 1] as const).map((slot) => (
+              <select key={slot} value={compareIds[slot] ?? ""} onChange={(e) => setCompareIds((prev) => { const next = [...prev] as [string | null, string | null]; next[slot] = e.target.value || null; return next; })} className="w-full h-7 text-[10px] rounded border bg-background px-1">
+                <option value="">Select role…</option>
+                {listItems.map((w) => (
+                  <option key={w.id} value={w.id} disabled={compareIds[1 - slot] === w.id}>
+                    {w.company}{w.title ? ` — ${w.title}` : ""}
+                  </option>
+                ))}
+              </select>
+            ))}
+          </div>
+          {(() => {
+            const a = compareIds[0] ? items.find((w) => w.id === compareIds[0]) : null;
+            const b = compareIds[1] ? items.find((w) => w.id === compareIds[1]) : null;
+            if (!a || !b) return <p className="text-[10px] text-muted-foreground text-center py-4">Select two roles above to compare.</p>;
+
+            function tenure(item: { startDate: string | null; endDate: string | null }) {
+              if (!item.startDate) return "—";
+              const s = new Date(item.startDate + "-01");
+              const e = item.endDate ? new Date(item.endDate + "-01") : new Date();
+              const m = Math.max(0, (e.getFullYear() - s.getFullYear()) * 12 + (e.getMonth() - s.getMonth()));
+              return m >= 12 ? `${Math.floor(m / 12)}y ${m % 12}m` : `${m}m`;
+            }
+
+            function salaryStr(item: { salaryAmount?: number | null; salaryType?: string | null; salaryCurrency?: string | null }) {
+              if (!item.salaryAmount) return "—";
+              const c = item.salaryCurrency ?? "USD";
+              return `${c} ${item.salaryAmount.toLocaleString()}${item.salaryType === "hourly" ? "/hr" : "/yr"}`;
+            }
+
+            const rows: { label: string; aVal: string; bVal: string }[] = [
+              { label: "Company", aVal: a.company, bVal: b.company },
+              { label: "Title", aVal: a.title ?? "—", bVal: b.title ?? "—" },
+              { label: "Tenure", aVal: tenure(a), bVal: tenure(b) },
+              { label: "Salary", aVal: salaryStr(a), bVal: salaryStr(b) },
+              { label: "Bonus", aVal: a.bonusAmount ? `${a.salaryCurrency ?? "USD"} ${a.bonusAmount.toLocaleString()}` : "—", bVal: b.bonusAmount ? `${b.salaryCurrency ?? "USD"} ${b.bonusAmount.toLocaleString()}` : "—" },
+              { label: "Work Mode", aVal: a.workMode?.replace("-", " ") ?? "—", bVal: b.workMode?.replace("-", " ") ?? "—" },
+              { label: "Team Size", aVal: a.teamSize?.toString() ?? "—", bVal: b.teamSize?.toString() ?? "—" },
+              { label: "Company Size", aVal: a.companySize?.replace("-", " ") ?? "—", bVal: b.companySize?.replace("-", " ") ?? "—" },
+              { label: "Commute", aVal: a.commuteMinutes ? `${a.commuteMinutes} min` : "—", bVal: b.commuteMinutes ? `${b.commuteMinutes} min` : "—" },
+              { label: "PTO", aVal: a.ptoDaysOffered ? `${a.ptoDaysOffered} days` : "—", bVal: b.ptoDaysOffered ? `${b.ptoDaysOffered} days` : "—" },
+              { label: "Locations", aVal: (a.locations?.length ?? 0).toString(), bVal: (b.locations?.length ?? 0).toString() },
+            ];
+
+            return (
+              <div className="rounded-lg border overflow-hidden">
+                <div className="grid grid-cols-[auto_1fr_1fr] text-[10px]">
+                  <div className="p-1.5 bg-muted/40 font-medium border-b" />
+                  <div className="p-1.5 bg-muted/40 font-medium border-b border-l truncate">{a.company}</div>
+                  <div className="p-1.5 bg-muted/40 font-medium border-b border-l truncate">{b.company}</div>
+                  {rows.map((r) => (
+                    <Fragment key={r.label}>
+                      <div className="p-1.5 text-muted-foreground border-b">{r.label}</div>
+                      <div className="p-1.5 border-b border-l truncate">{r.aVal}</div>
+                      <div className="p-1.5 border-b border-l truncate">{r.bVal}</div>
+                    </Fragment>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
       </>

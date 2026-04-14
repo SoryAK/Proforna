@@ -21,7 +21,7 @@ export async function POST(request: Request) {
   const body = await request.json();
   const { company, title, address, lat, lng, startDate, endDate, placeId, type, degree, major, gpa } = body;
 
-  if (!company || !address || lat == null || lng == null) {
+  if (!company || (type !== "unemployed" && (!address || lat == null || lng == null))) {
     return NextResponse.json({ error: "company, address, lat, lng are required" }, { status: 400 });
   }
 
@@ -31,9 +31,9 @@ export async function POST(request: Request) {
       type: type ? String(type).slice(0, 20) : "job",
       company: String(company).slice(0, 200),
       title: title ? String(title).slice(0, 200) : null,
-      address: String(address).slice(0, 500),
-      lat: Number(lat),
-      lng: Number(lng),
+      address: address ? String(address).slice(0, 500) : "N/A",
+      lat: lat != null ? Number(lat) : 0,
+      lng: lng != null ? Number(lng) : 0,
       placeId: placeId ? String(placeId) : null,
       startDate: startDate ? String(startDate).slice(0, 7) : null,
       endDate: endDate ? String(endDate).slice(0, 7) : null,
