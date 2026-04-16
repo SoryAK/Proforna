@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { setOptions, importLibrary } from "@googlemaps/js-api-loader";
 import { MarkerClusterer, SuperClusterAlgorithm } from "@googlemaps/markerclusterer";
 import { estimateTaxes } from "@/lib/taxes";
+import { STATE_TAX_BY_NAME, CITY_TAX_MARKERS, COUNTY_PROP_TAX_MARKERS, REF_HOME_VALUE, getTaxZoneColor, formatTaxRate, getTaxTierLabel, getPropTaxColor, formatPropTaxAnnual } from "@/data/state-tax-zones";
 
 const GOOGLE_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
 
@@ -73,6 +74,7 @@ interface WorkHistorySubLocation {
   lng: number;
   label: string;
   type: string;
+  address?: string;
   parentLat: number;
   parentLng: number;
   photos?: string[];
@@ -126,6 +128,10 @@ interface Props {
   heatmapMode?: "density" | "salary" | "take-home";
   showTraffic?: boolean;
   showTransit?: boolean;
+  showTaxZones?: boolean;
+  showStateTax?: boolean;
+  showCityTax?: boolean;
+  showCountyPropTax?: boolean;
   tileStyle?: "osm" | "google-roadmap" | "google-satellite" | "google-hybrid";
   resolvedCoords?: [number, number] | null;
   highlightedIds?: string[];
@@ -244,6 +250,10 @@ export default function JobMapGoogle({
   heatmapMode = "density",
   showTraffic = false,
   showTransit = false,
+  showTaxZones = false,
+  showStateTax = true,
+  showCityTax = true,
+  showCountyPropTax = true,
   tileStyle = "google-roadmap",
   resolvedCoords = null,
   highlightedIds = [],
@@ -310,6 +320,13 @@ export default function JobMapGoogle({
   const polylinesRef = useRef<google.maps.Polyline[]>([]);
   const trafficLayerRef = useRef<google.maps.TrafficLayer | null>(null);
   const transitLayerRef = useRef<google.maps.TransitLayer | null>(null);
+  const taxZoneFeaturesRef = useRef<google.maps.Data.Feature[]>([]);
+  const taxZoneListenerRef = useRef<google.maps.MapsEventListener | null>(null);
+  const taxZoneLabelsRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
+  const taxZoneCityMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
+  const taxZoneCountyMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
+  const taxZoneGeoJsonRef = useRef<object | null>(null);
+  const taxZoneZoomListenerRef = useRef<google.maps.MapsEventListener | null>(null);
   const heatmapRef = useRef<google.maps.visualization.HeatmapLayer | null>(null);
   const fitDoneRef = useRef(false);
   const prevJobsKeyRef = useRef("");
@@ -450,6 +467,323 @@ export default function JobMapGoogle({
       transitLayerRef.current?.setMap(null);
     }
   }, [showTransit, ready]);
+
+  /* ── Tax zone overlay ── */
+  useEffect(() => {
+    if (!mapRef.current) return;
+    const map = mapRef.current;
+    const info = infoRef.current;
+    let cancelled = false;
+
+    if (showTaxZones) {
+      (async () => {
+        // Fetch real state boundary GeoJSON (cached after first load)
+        if (!taxZoneGeoJsonRef.current) {
+          try {
+            const res = await fetch("/data/us-states.json");
+            if (!res.ok) throw new Error("Failed to load state boundaries");
+            taxZoneGeoJsonRef.current = await res.json();
+          } catch {
+            console.warn("Tax zones: could not load state boundary data");
+            return;
+          }
+        }
+        if (cancelled || !mapRef.current) return;
+
+        // Inject tax rate data into each feature's properties
+        const geoJson = taxZoneGeoJsonRef.current as {
+          type: string;
+          features: { type: string; properties: Record<string, unknown>; geometry: unknown }[];
+        };
+        const enriched = {
+          ...geoJson,
+          features: geoJson.features
+            .filter((f) => STATE_TAX_BY_NAME[f.properties.name as string])
+            .map((f) => {
+              const info = STATE_TAX_BY_NAME[f.properties.name as string];
+              return {
+                ...f,
+                properties: { ...f.properties, abbr: info.abbr, rate: info.rate, propTaxRate: info.propTaxRate },
+              };
+            }),
+        };
+
+        const added = map.data.addGeoJson(enriched);
+        taxZoneFeaturesRef.current = added;
+
+        // Style each state by tax rate
+        if (showStateTax) {
+          map.data.setStyle((feature) => {
+            const rate = (feature.getProperty("rate") as number) ?? 0;
+            const color = getTaxZoneColor(rate);
+            return {
+              fillColor: color,
+              fillOpacity: 0.22,
+              strokeColor: color,
+              strokeWeight: 1.5,
+              strokeOpacity: 0.6,
+            };
+          });
+        } else {
+          map.data.setStyle({ visible: false });
+        }
+
+        // Click state → show tax details in InfoWindow
+        taxZoneListenerRef.current = map.data.addListener(
+          "click",
+          (e: google.maps.Data.MouseEvent) => {
+            if (!infoRef.current) return;
+            const abbr = e.feature.getProperty("abbr") as string;
+            const name = e.feature.getProperty("name") as string;
+            const rate = (e.feature.getProperty("rate") as number) ?? 0;
+            const propRate = (e.feature.getProperty("propTaxRate") as number) ?? 0;
+            const tier = getTaxTierLabel(rate);
+            const pct = formatTaxRate(rate);
+            const color = getTaxZoneColor(rate);
+            const propColor = getPropTaxColor(propRate);
+            const propAnnual = formatPropTaxAnnual(propRate);
+
+            // Find any local taxes in this state
+            const localCities = CITY_TAX_MARKERS.filter((c) => c.state === abbr);
+            const localHtml = localCities.length > 0
+              ? `<div style="margin-top:6px;padding-top:5px;border-top:1px solid #e5e7eb">` +
+                `<div style="font-size:11px;font-weight:600;margin-bottom:3px;color:#7c3aed">Local/City Taxes:</div>` +
+                localCities.map((c) =>
+                  `<div style="font-size:12px;color:#555;padding:1px 0">` +
+                    `${c.city}: ${c.taxes.map((t) => `${t.name} ${(t.rate * 100).toFixed(1)}%`).join(", ")}` +
+                  `</div>`
+                ).join("") +
+                `</div>`
+              : "";
+
+            infoRef.current.setContent(
+              `<div style="font-family:system-ui,sans-serif;min-width:200px;padding:2px">` +
+                `<div style="font-weight:700;font-size:14px;margin-bottom:4px">${name} (${abbr})</div>` +
+                `<div style="display:flex;align-items:center;gap:6px;margin-bottom:2px">` +
+                  `<span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:${color}"></span>` +
+                  `<span style="font-size:13px">${tier}</span>` +
+                `</div>` +
+                `<div style="font-size:13px;color:#555">State Income Tax: <strong>${pct}</strong></div>` +
+                (rate === 0
+                  ? `<div style="font-size:12px;color:#16a34a;margin-top:4px">No state income tax \u2014 100% of salary kept at state level</div>`
+                  : `<div style="font-size:12px;color:#666;margin-top:4px">Effective rate at ~$80k income (single filer)</div>`) +
+                `<div style="margin-top:6px;padding-top:5px;border-top:1px solid #e5e7eb">` +
+                  `<div style="display:flex;align-items:center;gap:6px;margin-bottom:2px">` +
+                    `<span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:${propColor}"></span>` +
+                    `<span style="font-size:12px;font-weight:600">\ud83c\udfe0 Property Tax</span>` +
+                  `</div>` +
+                  `<div style="font-size:13px;color:#555">Median Rate: <strong>${(propRate * 100).toFixed(2)}%</strong></div>` +
+                  `<div style="font-size:12px;color:#666">~${propAnnual} on $${(REF_HOME_VALUE / 1000).toFixed(0)}k home</div>` +
+                `</div>` +
+                localHtml +
+              `</div>`
+            );
+            infoRef.current.setPosition(e.latLng!);
+            infoRef.current.open(map);
+          }
+        );
+
+        // State abbreviation labels at centroids (only at low–mid zoom)
+        await importLibrary("marker");
+        if (cancelled || !mapRef.current) return;
+
+        const buildStateLabels = () => {
+          // Remove old labels
+          for (const m of taxZoneLabelsRef.current) m.map = null;
+          taxZoneLabelsRef.current = [];
+
+          const zoom = mapRef.current?.getZoom() ?? 5;
+          if (zoom > 8 || !showStateTax) return; // hide state labels at high zoom or if toggled off
+
+          for (const feat of taxZoneFeaturesRef.current) {
+            const abbr = feat.getProperty("abbr") as string;
+            const rate = (feat.getProperty("rate") as number) ?? 0;
+            const color = getTaxZoneColor(rate);
+            const pct = formatTaxRate(rate);
+
+            // Calculate centroid from geometry bounds
+            let lat = 0, lng = 0;
+            const geom = feat.getGeometry();
+            if (geom) {
+              const arr: google.maps.LatLng[] = [];
+              geom.forEachLatLng((ll) => arr.push(ll));
+              if (arr.length > 0) {
+                lat = arr.reduce((s, l) => s + l.lat(), 0) / arr.length;
+                lng = arr.reduce((s, l) => s + l.lng(), 0) / arr.length;
+              }
+            }
+            if (lat === 0 && lng === 0) continue;
+
+            const el = document.createElement("div");
+            el.style.cssText = `
+              font-family:system-ui,sans-serif;font-size:${zoom < 6 ? 10 : 11}px;font-weight:700;
+              background:${color};color:#fff;padding:2px 5px;border-radius:4px;
+              border:1px solid rgba(255,255,255,0.8);
+              text-shadow:0 1px 2px rgba(0,0,0,0.4);white-space:nowrap;
+              pointer-events:none;line-height:1.2;
+            `;
+            el.textContent = `${abbr} ${pct}`;
+
+            const marker = new google.maps.marker.AdvancedMarkerElement({
+              map: mapRef.current!,
+              position: { lat, lng },
+              content: el,
+              zIndex: 900,
+            });
+            taxZoneLabelsRef.current.push(marker);
+          }
+        };
+
+        // Build city tax markers (only visible at zoom >= 7)
+        const buildCityMarkers = () => {
+          for (const m of taxZoneCityMarkersRef.current) m.map = null;
+          taxZoneCityMarkersRef.current = [];
+
+          const zoom = mapRef.current?.getZoom() ?? 5;
+          if (zoom < 7 || !showCityTax) return; // hide city markers at country-level zoom or if toggled off
+
+          for (const city of CITY_TAX_MARKERS) {
+            const totalRate = city.taxes.reduce((s, t) => s + t.rate, 0);
+            const label = `${city.city}: +${(totalRate * 100).toFixed(1)}%`;
+
+            const el = document.createElement("div");
+            el.style.cssText = `
+              font-family:system-ui,sans-serif;font-size:10px;font-weight:600;
+              background:#7c3aed;color:#fff;padding:2px 6px;border-radius:10px;
+              border:1.5px solid rgba(255,255,255,0.9);
+              text-shadow:0 1px 1px rgba(0,0,0,0.3);white-space:nowrap;
+              cursor:pointer;line-height:1.3;
+            `;
+            el.textContent = label;
+
+            // Click → show city tax detail
+            el.addEventListener("click", () => {
+              if (!infoRef.current || !mapRef.current) return;
+              const taxLines = city.taxes.map((t) =>
+                `<div style="font-size:12px;padding:1px 0">${t.name}: <strong>${(t.rate * 100).toFixed(2)}%</strong></div>`
+              ).join("");
+              infoRef.current.setContent(
+                `<div style="font-family:system-ui,sans-serif;min-width:160px;padding:2px">` +
+                  `<div style="font-weight:700;font-size:14px;margin-bottom:2px;color:#7c3aed">${city.city}, ${city.state}</div>` +
+                  `<div style="font-size:12px;color:#666;margin-bottom:4px">Local Tax Zone</div>` +
+                  taxLines +
+                  `<div style="font-size:11px;color:#888;margin-top:4px;border-top:1px solid #e5e7eb;padding-top:4px">` +
+                    `These taxes are <em>in addition</em> to state & federal taxes` +
+                  `</div>` +
+                `</div>`
+              );
+              infoRef.current.setPosition({ lat: city.lat, lng: city.lng });
+              infoRef.current.open(mapRef.current);
+            });
+
+            const marker = new google.maps.marker.AdvancedMarkerElement({
+              map: mapRef.current!,
+              position: { lat: city.lat, lng: city.lng },
+              content: el,
+              zIndex: 950,
+            });
+            taxZoneCityMarkersRef.current.push(marker);
+          }
+        };
+
+        // Build county property tax markers (only visible at zoom >= 9)
+        const buildCountyMarkers = () => {
+          for (const m of taxZoneCountyMarkersRef.current) m.map = null;
+          taxZoneCountyMarkersRef.current = [];
+
+          const zoom = mapRef.current?.getZoom() ?? 5;
+          if (zoom < 9 || !showCountyPropTax) return;
+
+          for (const cty of COUNTY_PROP_TAX_MARKERS) {
+            const propColor = getPropTaxColor(cty.rate);
+            const pctStr = `${(cty.rate * 100).toFixed(2)}%`;
+            const annual = Math.round(cty.rate * cty.medianHome);
+
+            const el = document.createElement("div");
+            el.style.cssText = `
+              font-family:system-ui,sans-serif;font-size:10px;font-weight:600;
+              background:#0ea5e9;color:#fff;padding:2px 6px;border-radius:10px;
+              border:1.5px solid rgba(255,255,255,0.9);
+              text-shadow:0 1px 1px rgba(0,0,0,0.3);white-space:nowrap;
+              cursor:pointer;line-height:1.3;
+            `;
+            el.textContent = `\ud83c\udfe0 ${cty.county}: ${pctStr}`;
+
+            el.addEventListener("click", () => {
+              if (!infoRef.current || !mapRef.current) return;
+              infoRef.current.setContent(
+                `<div style="font-family:system-ui,sans-serif;min-width:180px;padding:2px">` +
+                  `<div style="font-weight:700;font-size:14px;margin-bottom:2px;color:#0ea5e9">${cty.county}, ${cty.state}</div>` +
+                  `<div style="font-size:12px;color:#666;margin-bottom:4px">County Property Tax</div>` +
+                  `<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">` +
+                    `<span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:${propColor}"></span>` +
+                    `<span style="font-size:13px">Effective Rate: <strong>${pctStr}</strong></span>` +
+                  `</div>` +
+                  `<div style="font-size:12px;color:#555">Median Home: $${cty.medianHome.toLocaleString()}</div>` +
+                  `<div style="font-size:12px;color:#555">Est. Annual: <strong>$${annual.toLocaleString()}/yr</strong></div>` +
+                  `<div style="font-size:11px;color:#888;margin-top:4px;border-top:1px solid #e5e7eb;padding-top:4px">` +
+                    `Based on county median effective rate` +
+                  `</div>` +
+                `</div>`
+              );
+              infoRef.current.setPosition({ lat: cty.lat, lng: cty.lng });
+              infoRef.current.open(mapRef.current);
+            });
+
+            const marker = new google.maps.marker.AdvancedMarkerElement({
+              map: mapRef.current!,
+              position: { lat: cty.lat, lng: cty.lng },
+              content: el,
+              zIndex: 940,
+            });
+            taxZoneCountyMarkersRef.current.push(marker);
+          }
+        };
+
+        // Initial build
+        buildStateLabels();
+        buildCityMarkers();
+        buildCountyMarkers();
+
+        // Rebuild on zoom change (show/hide labels + cities + counties based on zoom)
+        taxZoneZoomListenerRef.current = map.addListener("zoom_changed", () => {
+          buildStateLabels();
+          buildCityMarkers();
+          buildCountyMarkers();
+        });
+      })();
+    } else {
+      cancelled = true;
+      // Remove state polygon features
+      for (const f of taxZoneFeaturesRef.current) {
+        try { map.data.remove(f); } catch { /* already removed */ }
+      }
+      taxZoneFeaturesRef.current = [];
+
+      // Remove click listener
+      taxZoneListenerRef.current?.remove();
+      taxZoneListenerRef.current = null;
+
+      // Remove zoom listener
+      taxZoneZoomListenerRef.current?.remove();
+      taxZoneZoomListenerRef.current = null;
+
+      // Remove state labels
+      for (const m of taxZoneLabelsRef.current) m.map = null;
+      taxZoneLabelsRef.current = [];
+
+      // Remove city markers
+      for (const m of taxZoneCityMarkersRef.current) m.map = null;
+      taxZoneCityMarkersRef.current = [];
+
+      // Remove county property tax markers
+      for (const m of taxZoneCountyMarkersRef.current) m.map = null;
+      taxZoneCountyMarkersRef.current = [];
+
+      // Reset data layer style
+      map.data.setStyle({});
+    }
+  }, [showTaxZones, showStateTax, showCityTax, showCountyPropTax, ready]);
 
   /* ── Heatmap layer ── */
   useEffect(() => {
@@ -1285,6 +1619,10 @@ export default function JobMapGoogle({
       const infoContent = `<div style="font-size:11px;max-width:220px;line-height:1.4;padding:2px 0">
         <div style="font-weight:700;font-size:12px;color:#111">${emoji} ${escapeHtml(loc.label)}</div>
         <div style="color:#6b7280;margin-top:1px">${typeLabel}</div>
+        <div style="display:flex;align-items:center;gap:4px;margin-top:2px">
+          <span style="color:#9ca3af;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(loc.address ?? "")}</span>
+          <button onclick="navigator.clipboard.writeText('${escapeHtml(loc.address ?? "")}')" style="background:none;border:1px solid #d1d5db;border-radius:4px;padding:1px 4px;font-size:9px;color:#6b7280;cursor:pointer;white-space:nowrap" title="Copy address">📋 Copy</button>
+        </div>
         ${photosHtml}
         <div style="color:#9ca3af;margin-top:2px;font-size:10px">Sub-location • Click to focus</div>
       </div>`;

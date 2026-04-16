@@ -21,8 +21,7 @@ export async function POST(
     return NextResponse.json({ error: "label, address, lat, lng are required" }, { status: 400 });
   }
 
-  const validTypes = ["daily-workplace", "main-office", "satellite", "remote", "client-site"];
-  const locationType = validTypes.includes(type) ? type : "daily-workplace";
+  const locationType = (typeof type === "string" && type.trim()) ? type.trim().slice(0, 50) : "daily-workplace";
 
   // Validate skills is a JSON array of strings if provided
   let skillsJson: string | null = null;

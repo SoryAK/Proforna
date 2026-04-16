@@ -69,6 +69,7 @@ model User {
   mapDrawingLayers    MapDrawingLayer[]
   mapDrawings         MapDrawing[]
   residences          Residence[]
+  diffusionExposures  DiffusionExposure[]
 }
 
 model Account {
@@ -1165,6 +1166,7 @@ model WorkHistory {
   notes      WorkHistoryNote[]
   milestones WorkHistoryMilestone[]
   rating     WorkplaceRating?
+  diffusionExposures DiffusionExposure[]
 }
 
 // ─── Residence History (where the user lived over time) ─────────
@@ -1475,6 +1477,7 @@ model SkillNode {
   edgesTo   SkillEdge[]     @relation("EdgeTo")
   evidence  SkillEvidence[]
   occupationRequirements OccupationSkillRequirement[]
+  diffusionExposures DiffusionExposure[]
 
   @@unique([userId, name])
   @@index([userId])
@@ -1635,4 +1638,33 @@ model MapDrawing {
 
   @@index([userId])
   @@index([layerId])
+}
+
+// ─── Experience Diffusion Model (EDM) ──────────────────────────
+
+/// Maps exposure intensity from a work-history role (diffusion source) to a skill/concept node.
+/// Zone controls Gaussian falloff: CORE → NEAR → MID → FAR.
+/// Intensity is the raw weight (0.0–1.0) before tenure scaling.
+model DiffusionExposure {
+  id              String   @id @default(cuid())
+  userId          String
+  workHistoryId   String   // the diffusion SOURCE (role)
+  skillNodeId     String   // the exposure TARGET (concept/skill)
+
+  zone            String   // CORE | NEAR | MID | FAR
+  intensity       Float    // 0.0–1.0 base Gaussian weight before tenure scaling
+  category        String   // skill | process | role_exposure | equipment | domain_concept | industry
+  exposureType    String   // direct | observed | collaborated | ambient
+
+  createdAt       DateTime @default(now())
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workHistory WorkHistory @relation(fields: [workHistoryId], references: [id], onDelete: Cascade)
+  skillNode   SkillNode   @relation(fields: [skillNodeId], references: [id], onDelete: Cascade)
+
+  @@unique([workHistoryId, skillNodeId])
+  @@index([userId])
+  @@index([workHistoryId])
+  @@index([skillNodeId])
+  @@index([zone])
 }

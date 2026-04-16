@@ -81,6 +81,7 @@ import {
   Zap,
   Camera,
   ImageIcon,
+  Landmark,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -95,6 +96,7 @@ import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { estimateTaxes, formatSalaryCompact, resolveState, type TaxBreakdown } from "@/lib/taxes";
+import { TAX_ZONE_LEGEND } from "@/data/state-tax-zones";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -427,6 +429,10 @@ interface JobSearchPrefs {
   heatmapMode?: string;
   showTraffic?: boolean;
   showTransit?: boolean;
+  showTaxZones?: boolean;
+  showStateTax?: boolean;
+  showCityTax?: boolean;
+  showCountyPropTax?: boolean;
   commuteMode?: string;
 }
 function loadJobPrefs(): JobSearchPrefs {
@@ -481,6 +487,10 @@ export function JobMap() {
 
   const [showTraffic, setShowTraffic] = useState(() => savedPrefs.showTraffic ?? false);
   const [showTransit, setShowTransit] = useState(() => savedPrefs.showTransit ?? false);
+  const [showTaxZones, setShowTaxZones] = useState(() => savedPrefs.showTaxZones ?? false);
+  const [showStateTax, setShowStateTax] = useState(() => savedPrefs.showStateTax ?? true);
+  const [showCityTax, setShowCityTax] = useState(() => savedPrefs.showCityTax ?? true);
+  const [showCountyPropTax, setShowCountyPropTax] = useState(() => savedPrefs.showCountyPropTax ?? true);
   const [tileStyle, setTileStyle] = useState<"osm" | "google-roadmap" | "google-satellite" | "google-hybrid">(() => (savedPrefs.tileStyle as "osm" | "google-roadmap" | "google-satellite" | "google-hybrid") || "osm");
 
   /* ── Drawing mode ── */
@@ -555,6 +565,10 @@ export function JobMap() {
 
   useEffect(() => { saveJobPref("showTraffic", showTraffic); }, [showTraffic]);
   useEffect(() => { saveJobPref("showTransit", showTransit); }, [showTransit]);
+  useEffect(() => { saveJobPref("showTaxZones", showTaxZones); }, [showTaxZones]);
+  useEffect(() => { saveJobPref("showStateTax", showStateTax); }, [showStateTax]);
+  useEffect(() => { saveJobPref("showCityTax", showCityTax); }, [showCityTax]);
+  useEffect(() => { saveJobPref("showCountyPropTax", showCountyPropTax); }, [showCountyPropTax]);
   useEffect(() => { saveJobPref("commuteMode", commuteMode); }, [commuteMode]);
 
   /* ── Drawing: map ready → store ref + observe container size ── */
@@ -1346,7 +1360,7 @@ export function JobMap() {
 
       return { jobs, total: rawJobs.length };
     },
-    enabled: !!searchParams && (source === "both" || source === "google"),
+    enabled: !!searchParams && !!searchParams.q && (source === "both" || source === "google"),
   });
 
   // USAJobs query — federal government job listings
@@ -1365,7 +1379,7 @@ export function JobMap() {
       if (!res.ok) return { jobs: [], total: 0 };
       return res.json();
     },
-    enabled: !!searchParams && (source === "both" || source === "usajobs"),
+    enabled: !!searchParams && !!searchParams.q && (source === "both" || source === "usajobs"),
   });
 
   // Hydrate trackedIds when jobs load — match against existing applications
@@ -2142,6 +2156,7 @@ export function JobMap() {
           lng: loc.lng,
           label: loc.label,
           type: loc.type,
+          address: loc.address,
           parentLat: w.lat,
           parentLng: w.lng,
           photos,
@@ -2793,6 +2808,10 @@ export function JobMap() {
   }, []);
 
   const doSearch = useCallback(async () => {
+    if (!query.trim()) {
+      toast.error("Enter a job title or keyword to search");
+      return;
+    }
     if (!where.trim()) {
       toast.error("Enter a location to search");
       return;
@@ -2901,8 +2920,25 @@ export function JobMap() {
             placeholder="Job title or keywords..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="pl-8 h-9 text-sm"
+            className="pl-8 pr-7 h-9 text-sm"
           />
+          {query.trim() && (
+            <button
+              type="button"
+              onClick={() => {
+                setQuery("");
+                setSearchParams(null);
+                setSearched(false);
+                setSelectedJob(null);
+                setShowDetails(false);
+                setPage(1);
+              }}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              title="Clear search"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
         <PlacesAutocomplete
           value={where}
@@ -3535,6 +3571,10 @@ export function JobMap() {
               showHeatmap={showHeatmap}
               showTraffic={showTraffic}
               showTransit={showTransit}
+              showTaxZones={showTaxZones}
+              showStateTax={showStateTax}
+              showCityTax={showCityTax}
+              showCountyPropTax={showCountyPropTax}
               tileStyle={tileStyle}
               resolvedCoords={effectiveJobCoords}
               highlightedIds={pagedJobs.map((j) => j.id)}
@@ -3684,6 +3724,39 @@ export function JobMap() {
               >
                 <TrainFront className={`h-[18px] w-[18px] ${showTransit ? "text-blue-600" : "text-gray-600"}`} />
               </button>
+              <Popover>
+                <PopoverTrigger
+                  title="Tax Zones"
+                  className={`flex items-center justify-center w-10 h-10 border-r border-gray-200 cursor-pointer transition-colors ${showTaxZones ? "bg-emerald-50" : "bg-white hover:bg-gray-50"}`}
+                >
+                  <Landmark className={`h-[18px] w-[18px] ${showTaxZones ? "text-emerald-600" : "text-gray-600"}`} />
+                </PopoverTrigger>
+                <PopoverContent className="w-56 p-3" align="end" side="left">
+                  <div className="space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs font-semibold">Tax Zones</Label>
+                      <Switch checked={showTaxZones} onCheckedChange={setShowTaxZones} />
+                    </div>
+                    {showTaxZones && (
+                      <>
+                        <Separator />
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] text-muted-foreground">State Income Tax</span>
+                          <Switch checked={showStateTax} onCheckedChange={setShowStateTax} className="scale-90" />
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] text-muted-foreground">City/Local Tax</span>
+                          <Switch checked={showCityTax} onCheckedChange={setShowCityTax} className="scale-90" />
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] text-muted-foreground">County Property Tax</span>
+                          <Switch checked={showCountyPropTax} onCheckedChange={setShowCountyPropTax} className="scale-90" />
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </PopoverContent>
+              </Popover>
               <Popover>
                 <PopoverTrigger
                   title="Commute zone"
@@ -3841,6 +3914,25 @@ export function JobMap() {
               </button>
             </div>
           </div>
+
+          {/* ── Tax Zone Legend ── */}
+          {showTaxZones && (
+            <div className="absolute bottom-20 right-[60px] z-[1050] bg-white/95 backdrop-blur-sm rounded-lg shadow-lg border border-gray-200 p-2.5 text-xs" style={{ minWidth: 170 }}>
+              <div className="font-semibold text-gray-700 mb-1.5 flex items-center gap-1.5">
+                <Landmark className="h-3.5 w-3.5 text-emerald-600" />
+                State Income Tax
+              </div>
+              {TAX_ZONE_LEGEND.map((tier) => (
+                <div key={tier.label} className="flex items-center gap-2 py-0.5">
+                  <span className="inline-block w-3 h-3 rounded-sm shrink-0" style={{ background: tier.color }} />
+                  <span className="text-gray-600">{tier.label}</span>
+                </div>
+              ))}
+              <div className="mt-1.5 text-[10px] text-gray-400 leading-tight">
+                Effective rates at ~$80k income · Click a zone for details
+              </div>
+            </div>
+          )}
 
           {/* ── Floating Life Anchors panel on map ── */}
           {showAnchorsPanel && (
@@ -6384,6 +6476,7 @@ function WorkHistoryPanel({
   const [addingLocFor, setAddingLocFor] = useState<string | null>(null);
   const [locLabel, setLocLabel] = useState("");
   const [locType, setLocType] = useState("daily-workplace");
+  const [customLocType, setCustomLocType] = useState("");
   const [locAddress, setLocAddress] = useState("");
   const [locCoords, setLocCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [locPlaceId, setLocPlaceId] = useState<string | null>(null);
@@ -6615,6 +6708,7 @@ function WorkHistoryPanel({
     { value: "satellite", label: "Satellite office" },
     { value: "remote", label: "Remote / WFH" },
     { value: "client-site", label: "Client site" },
+    { value: "custom", label: "Custom…" },
   ] as const;
 
   /** Handle PlacesAutocomplete onPlaceSelect for sub-location form */
@@ -6633,11 +6727,11 @@ function WorkHistoryPanel({
       const res = await fetch(`/api/work-history/${workHistoryId}/locations`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ label: locLabel.trim(), type: locType, address: locAddress.trim(), lat: geo.lat, lng: geo.lng, placeId: locPlaceId, isPrimary: false }),
+        body: JSON.stringify({ label: locLabel.trim(), type: locType === "custom" ? customLocType.trim() : locType, address: locAddress.trim(), lat: geo.lat, lng: geo.lng, placeId: locPlaceId, isPrimary: false }),
       });
       if (!res.ok) throw new Error("Failed to add");
       toast.success("Location added");
-      setLocLabel(""); setLocType("daily-workplace"); setLocAddress(""); setLocCoords(null); setLocPlaceId(null);
+      setLocLabel(""); setLocType("daily-workplace"); setCustomLocType(""); setLocAddress(""); setLocCoords(null); setLocPlaceId(null);
       setAddingLocFor(null);
       onAdded();
     } catch { toast.error("Failed to add location"); } finally { setLocSaving(false); }
@@ -6810,6 +6904,7 @@ function WorkHistoryPanel({
   // ── Feature A: Pin-drop sub-location ──
   const [pinDropLabel, setPinDropLabel] = useState("");
   const [pinDropType, setPinDropType] = useState("daily-workplace");
+  const [pinDropCustomType, setPinDropCustomType] = useState("");
   const [pinDropSaving, setPinDropSaving] = useState(false);
   const [pinDropReversed, setPinDropReversed] = useState<string>("");
 
@@ -6852,11 +6947,11 @@ function WorkHistoryPanel({
       const res = await fetch(`/api/work-history/${focusedItem.id}/locations`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ label: pinDropLabel.trim(), type: pinDropType, address: pinDropReversed, lat: pinDropCoords.lat, lng: pinDropCoords.lng, placeId: pinDropCoords.placeId ?? null }),
+        body: JSON.stringify({ label: pinDropLabel.trim(), type: pinDropType === "custom" ? pinDropCustomType.trim() : pinDropType, address: pinDropReversed, lat: pinDropCoords.lat, lng: pinDropCoords.lng, placeId: pinDropCoords.placeId ?? null }),
       });
       if (!res.ok) throw new Error();
       toast.success("Sub-location added");
-      setPinDropLabel(""); setPinDropType("daily-workplace"); onClearPinDrop();
+      setPinDropLabel(""); setPinDropType("daily-workplace"); setPinDropCustomType(""); onClearPinDrop();
       onAdded();
     } catch { toast.error("Failed to add sub-location"); } finally { setPinDropSaving(false); }
   }
@@ -7047,6 +7142,7 @@ function WorkHistoryPanel({
   const [editingLocId, setEditingLocId] = useState<string | null>(null);
   const [editLocLabel, setEditLocLabel] = useState("");
   const [editLocType, setEditLocType] = useState("daily-workplace");
+  const [editCustomLocType, setEditCustomLocType] = useState("");
   const [editLocStartDate, setEditLocStartDate] = useState("");
   const [editLocEndDate, setEditLocEndDate] = useState("");
   const [editLocSaving, setEditLocSaving] = useState(false);
@@ -7055,7 +7151,9 @@ function WorkHistoryPanel({
   function startEditLoc(loc: { id: string; label: string; type: string; startDate?: string | null; endDate?: string | null }) {
     setEditingLocId(loc.id);
     setEditLocLabel(loc.label);
-    setEditLocType(loc.type);
+    const isPreset = LOC_TYPES.some((t) => t.value === loc.type && t.value !== "custom");
+    setEditLocType(isPreset ? loc.type : "custom");
+    setEditCustomLocType(isPreset ? "" : loc.type);
     setEditLocStartDate(loc.startDate ?? "");
     setEditLocEndDate(loc.endDate ?? "");
   }
@@ -7066,7 +7164,7 @@ function WorkHistoryPanel({
     try {
       const res = await fetch(`/api/work-history/${focusedItem.id}/locations/${locId}`, {
         method: "PATCH", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ label: editLocLabel.trim(), type: editLocType, startDate: editLocStartDate || null, endDate: editLocEndDate || null }),
+        body: JSON.stringify({ label: editLocLabel.trim(), type: editLocType === "custom" ? editCustomLocType.trim() : editLocType, startDate: editLocStartDate || null, endDate: editLocEndDate || null }),
       });
       if (res.ok) { setEditingLocId(null); onAdded(); toast.success("Location updated"); }
       else toast.error("Failed to update location");
@@ -7317,10 +7415,13 @@ function WorkHistoryPanel({
                         /* ── Inline Edit Form ── */
                         <div className="p-2 space-y-1.5">
                           <Input value={editLocLabel} onChange={(e) => setEditLocLabel(e.target.value)} placeholder="Label" className="h-6 text-[10px]" />
-                          <Select value={editLocType} onValueChange={(v) => setEditLocType(v ?? "daily-workplace")}>
+                          <Select value={editLocType} onValueChange={(v) => { setEditLocType(v ?? "daily-workplace"); if (v !== "custom") setEditCustomLocType(""); }}>
                             <SelectTrigger className="h-6 text-[10px]"><SelectValue /></SelectTrigger>
                             <SelectContent>{LOC_TYPES.map((t) => <SelectItem key={t.value} value={t.value} className="text-xs">{t.label}</SelectItem>)}</SelectContent>
                           </Select>
+                          {editLocType === "custom" && (
+                            <Input value={editCustomLocType} onChange={(e) => setEditCustomLocType(e.target.value)} placeholder="Type name (e.g. Warehouse)" className="h-6 text-[10px]" />
+                          )}
                           <div className="flex gap-1">
                             <Input type="month" value={editLocStartDate} onChange={(e) => setEditLocStartDate(e.target.value)} className="h-6 text-[10px] flex-1" placeholder="Start" />
                             <Input type="month" value={editLocEndDate} onChange={(e) => setEditLocEndDate(e.target.value)} className="h-6 text-[10px] flex-1" placeholder="End" />
@@ -7355,7 +7456,20 @@ function WorkHistoryPanel({
                           {/* ── Expanded Details ── */}
                           {isExpanded && (
                             <div className="px-2 pb-2 pt-0.5 space-y-1 border-t">
-                              <p className="text-[9px] text-muted-foreground truncate">{loc.address}</p>
+                              <div className="flex items-center gap-1">
+                                <p className="text-[9px] text-muted-foreground truncate flex-1">{loc.address}</p>
+                                <button type="button" className="shrink-0 p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground" title="Copy address" onClick={() => { navigator.clipboard.writeText(loc.address); toast.success("Address copied"); }}>
+                                  <Copy className="h-2.5 w-2.5" />
+                                </button>
+                              </div>
+                              {loc.lat != null && loc.lng != null && (
+                                <div className="flex items-center gap-1">
+                                  <p className="text-[8px] text-muted-foreground font-mono">📍 {Number(loc.lat).toFixed(5)}, {Number(loc.lng).toFixed(5)}</p>
+                                  <button type="button" className="shrink-0 p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground" title="Copy coordinates" onClick={() => { navigator.clipboard.writeText(`${Number(loc.lat).toFixed(5)}, ${Number(loc.lng).toFixed(5)}`); toast.success("Coordinates copied"); }}>
+                                    <Copy className="h-2 w-2" />
+                                  </button>
+                                </div>
+                              )}
                               {/* Skill chips */}
                               {locSkills.length > 0 && (
                                 <div className="flex flex-wrap gap-0.5">
@@ -7827,12 +7941,15 @@ function WorkHistoryPanel({
               </p>
               <p className="text-[9px] text-muted-foreground truncate">{pinDropReversed || "Resolving address…"}</p>
               <Input value={pinDropLabel} onChange={(e) => setPinDropLabel(e.target.value)} placeholder="Label *" className="h-6 text-[10px]" />
-              <Select value={pinDropType} onValueChange={(v) => setPinDropType(v ?? "daily-workplace")}>
+              <Select value={pinDropType} onValueChange={(v) => { setPinDropType(v ?? "daily-workplace"); if (v !== "custom") setPinDropCustomType(""); }}>
                 <SelectTrigger className="h-6 text-[10px]"><SelectValue /></SelectTrigger>
                 <SelectContent>{LOC_TYPES.map((t) => <SelectItem key={t.value} value={t.value} className="text-xs">{t.label}</SelectItem>)}</SelectContent>
               </Select>
+              {pinDropType === "custom" && (
+                <Input value={pinDropCustomType} onChange={(e) => setPinDropCustomType(e.target.value)} placeholder="Type name (e.g. Warehouse)" className="h-6 text-[10px]" />
+              )}
               <div className="flex gap-1.5">
-                <Button size="sm" className="flex-1 h-6 text-[10px]" disabled={pinDropSaving || !pinDropLabel.trim()} onClick={handlePinDropSave}>
+                <Button size="sm" className="flex-1 h-6 text-[10px]" disabled={pinDropSaving || !pinDropLabel.trim() || (pinDropType === "custom" && !pinDropCustomType.trim())} onClick={handlePinDropSave}>
                   {pinDropSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save"}
                 </Button>
                 <Button size="sm" variant="ghost" className="h-6 text-[10px]" onClick={onCancelPinDrop}>Cancel</Button>
@@ -8723,7 +8840,20 @@ function WorkHistoryPanel({
                           <div className="flex items-start justify-between gap-1">
                             <div className="min-w-0">
                               <p className="text-[10px] font-medium truncate">{loc.label}</p>
-                              <p className="text-[9px] text-muted-foreground truncate">{loc.address}</p>
+                              <div className="flex items-center gap-1">
+                                <p className="text-[9px] text-muted-foreground truncate">{loc.address}</p>
+                                <button type="button" className="shrink-0 p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground opacity-0 group-hover/loc:opacity-100 transition-opacity" title="Copy address" onClick={() => { navigator.clipboard.writeText(loc.address); toast.success("Address copied"); }}>
+                                  <Copy className="h-2.5 w-2.5" />
+                                </button>
+                              </div>
+                              {loc.lat != null && loc.lng != null && (
+                                <div className="flex items-center gap-1">
+                                  <p className="text-[8px] text-muted-foreground font-mono">📍 {Number(loc.lat).toFixed(5)}, {Number(loc.lng).toFixed(5)}</p>
+                                  <button type="button" className="shrink-0 p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground opacity-0 group-hover/loc:opacity-100 transition-opacity" title="Copy coordinates" onClick={() => { navigator.clipboard.writeText(`${Number(loc.lat).toFixed(5)}, ${Number(loc.lng).toFixed(5)}`); toast.success("Coordinates copied"); }}>
+                                    <Copy className="h-2 w-2" />
+                                  </button>
+                                </div>
+                              )}
                               <span className="text-[9px] bg-muted px-1 rounded">{LOC_TYPES.find((t) => t.value === loc.type)?.label ?? loc.type}</span>
                             </div>
                             <button type="button" className="text-muted-foreground hover:text-red-500 opacity-0 group-hover/loc:opacity-100 transition-opacity shrink-0" onClick={() => handleDeleteLocation(w.id, loc.id)}>
@@ -8782,12 +8912,15 @@ function WorkHistoryPanel({
                   {addingLocFor === w.id && (
                     <div className="space-y-1.5 p-1.5 border rounded bg-muted/20">
                       <Input placeholder="Label (e.g. Downtown office) *" value={locLabel} onChange={(e) => setLocLabel(e.target.value)} className="h-6 text-[10px]" />
-                      <select value={locType} onChange={(e) => setLocType(e.target.value)} className="w-full h-6 text-[10px] rounded border bg-background px-1">
+                      <select value={locType} onChange={(e) => { setLocType(e.target.value); if (e.target.value !== "custom") setCustomLocType(""); }} className="w-full h-6 text-[10px] rounded border bg-background px-1">
                         {LOC_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
                       </select>
+                      {locType === "custom" && (
+                        <Input value={customLocType} onChange={(e) => setCustomLocType(e.target.value)} placeholder="Type name (e.g. Warehouse)" className="h-6 text-[10px]" />
+                      )}
                       <PlacesAutocomplete value={locAddress} onChange={(v) => { setLocAddress(v); setLocCoords(null); setLocPlaceId(null); }} onPlaceSelect={handleLocPlaceSelect} placeholder="Address *" className="h-6 text-[10px]" types={[]} />
                       <div className="flex gap-1">
-                        <Button size="sm" className="flex-1 h-6 text-[10px]" onClick={() => handleAddLocation(w.id)} disabled={locSaving}>
+                        <Button size="sm" className="flex-1 h-6 text-[10px]" onClick={() => handleAddLocation(w.id)} disabled={locSaving || (locType === "custom" && !customLocType.trim())}>
                           {locSaving ? <Loader2 className="h-2.5 w-2.5 animate-spin mr-0.5" /> : <Plus className="h-2.5 w-2.5 mr-0.5" />}
                           Add
                         </Button>
@@ -8885,8 +9018,9 @@ function WorkHistoryPanel({
                   {(w.locations ?? []).length > 0 && (
                     <div className="mt-0.5 pl-2 border-l border-dashed border-muted-foreground/30 space-y-0.5">
                       {w.locations.map((loc) => (
-                        <p key={loc.id} className="text-[9px] text-muted-foreground flex items-center gap-0.5">
+                        <p key={loc.id} className="text-[9px] text-muted-foreground flex items-center gap-0.5 flex-wrap">
                           <MapPin className="h-2 w-2 shrink-0" /> {loc.label} <span className="opacity-60">({LOC_TYPES.find((t) => t.value === loc.type)?.label ?? loc.type})</span>
+                          {loc.lat != null && loc.lng != null && <span className="font-mono text-[8px] opacity-50">📍 {Number(loc.lat).toFixed(5)}, {Number(loc.lng).toFixed(5)}</span>}
                         </p>
                       ))}
                     </div>

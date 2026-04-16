@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import dynamic from "next/dynamic";
@@ -30,7 +30,19 @@ import {
   Star,
   Download,
   ChevronRight,
+  ChevronDown,
+  ChevronLeft,
+  BarChart3,
+  User,
+  Layers,
+  Flame,
+  ArrowUpRight,
+  Calendar,
+  Building2,
+  Focus,
+  GraduationCap,
 } from "lucide-react";
+import SkillGraphAnalytics from "@/components/skill-graph-analytics";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -101,6 +113,25 @@ interface GraphData {
   edges: SkillEdge[];
   evidence: SkillEvidence[];
   occupations: OccupationData[];
+  workHistories: WorkHistoryEntry[];
+}
+
+interface WorkHistoryEntry {
+  id: string;
+  title: string | null;
+  company: string;
+  type: string;
+  startDate: string | null;
+  endDate: string | null;
+  degree?: string | null;
+  major?: string | null;
+}
+
+interface RoleGroup {
+  key: string;        // normalized title (lowercase)
+  title: string;      // display title (first occurrence's casing)
+  instances: WorkHistoryEntry[];
+  matchingOccupationId?: string; // real occupation DB id (not occ- prefixed)
 }
 
 interface OccupationData {
@@ -110,6 +141,7 @@ interface OccupationData {
   description: string | null;
   cluster: string;
   source: string;
+  metadata: string | null;
   requirements: { skillNodeId: string; importance: number; level: number }[];
   interests: { status: string; fitScore: number | null }[];
 }
@@ -141,6 +173,16 @@ interface GraphNode {
   evidenceStrength: number;
   isOccupation: boolean;
   occupationStatus?: string;
+  company?: string; // company grouping for visual hulls
+  // Role instance topology fields
+  isRoleGroup?: boolean;
+  isRoleInstance?: boolean;
+  isEducation?: boolean;
+  roleGroupKey?: string;   // for instances: which group they belong to
+  instanceCount?: number;  // for groups: how many instances
+  workHistoryId?: string;  // for instances: the work history ID
+  startDate?: string;
+  endDate?: string;
   val: number; // node size for force graph
   color: string;
   x?: number;
@@ -182,10 +224,75 @@ const EDGE_TYPE_LABELS: Record<string, string> = {
   child: "Sub-skill",
   enables: "Enables",
   requires: "Requires",
+  contains: "Contains",
+  maps_to: "Maps to",
 };
+
+const COMPANY_HULL_COLORS = [
+  "rgba(59,130,246,0.08)",   // blue
+  "rgba(139,92,246,0.08)",   // purple
+  "rgba(245,158,11,0.08)",   // amber
+  "rgba(16,185,129,0.08)",   // green
+  "rgba(244,63,94,0.08)",    // rose
+  "rgba(14,165,233,0.08)",   // sky
+  "rgba(168,85,247,0.08)",   // violet
+  "rgba(234,179,8,0.08)",    // yellow
+];
+
+const COMPANY_BORDER_COLORS = [
+  "rgba(59,130,246,0.35)",
+  "rgba(139,92,246,0.35)",
+  "rgba(245,158,11,0.35)",
+  "rgba(16,185,129,0.35)",
+  "rgba(244,63,94,0.35)",
+  "rgba(14,165,233,0.35)",
+  "rgba(168,85,247,0.35)",
+  "rgba(234,179,8,0.35)",
+];
 
 const NODE_TYPES = ["technical", "domain", "tool", "soft"] as const;
 const EDGE_TYPES = ["prerequisite", "peer", "bridge", "child", "enables"] as const;
+
+// ── EDM zone colors for splat view ──
+const EDM_ZONE_COLORS: Record<string, string> = {
+  CORE: "#f59e0b",  // amber — direct daily use
+  NEAR: "#3b82f6",  // blue — adjacent/observed
+  MID:  "#8b5cf6",  // purple — interacted with
+  FAR:  "#6b7280",  // gray — ambient/osmosis
+};
+const EDM_ZONE_LABELS: Record<string, string> = {
+  CORE: "Core — Direct daily use",
+  NEAR: "Near — Observed / adjacent",
+  MID:  "Mid — Interacted with",
+  FAR:  "Far — Ambient knowledge",
+};
+
+// EDM field entry type from the API
+interface EDMFieldEntry {
+  nodeId: string;
+  nodeName: string;
+  nodeType?: string;
+  accumulatedIntensity: number;
+  sourceCount: number;
+  zones: string[];
+  categories: string[];
+  transferable: boolean;
+}
+
+interface EDMSplatEntry {
+  nodeId: string;
+  nodeName: string;
+  nodeType?: string;
+  intensity: number;
+  zone: string;
+  category: string;
+}
+
+interface EDMSplatSource {
+  workHistoryId: string;
+  label: string;
+}
+
 const EVIDENCE_TYPES = [
   { value: "work_history", label: "Work History", icon: Briefcase },
   { value: "certification", label: "Certification", icon: Award },
@@ -209,7 +316,21 @@ export default function SkillGraph() {
   const [showMarketView, setShowMarketView] = useState(true);
   const [showEvidenceView, setShowEvidenceView] = useState(true);
   const [showOccupationView, setShowOccupationView] = useState(true);
+  const [showAnalytics, setShowAnalytics] = useState(false);
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
+
+  // EDM state
+  const [showDiffusion, setShowDiffusion] = useState(false); // toggle EDM intensity view
+  const [showTransferable, setShowTransferable] = useState(false); // highlight transferable skills
+  const [edmSplatSource, setEdmSplatSource] = useState<string | null>(null); // workHistoryId for splat view
+
+  // Role Instance Topology state
+  const [showRoleInstances, setShowRoleInstances] = useState(true); // toggle role instance layer
+  const [expandedRoleGroups, setExpandedRoleGroups] = useState<Set<string>>(new Set());
+
+  // Focus mode state — drill into a node's neighborhood
+  const [focusNodeId, setFocusNodeId] = useState<string | null>(null);
+  const [focusBreadcrumb, setFocusBreadcrumb] = useState<{ id: string; label: string }[]>([]);
 
   // Form state
   const [newNodeName, setNewNodeName] = useState("");
@@ -260,6 +381,20 @@ export default function SkillGraph() {
       setSelectedNode(null);
     },
     onError: () => toast.error("Failed to remove node"),
+  });
+
+  const deleteOccupation = useMutation({
+    mutationFn: (id: string) =>
+      fetch(`/api/skill-graph/occupations/${id}`, { method: "DELETE" }).then((r) => {
+        if (!r.ok) throw new Error("Failed to delete");
+        return r.json();
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["skill-graph"] });
+      toast.success("Occupation removed");
+      setSelectedNode(null);
+    },
+    onError: () => toast.error("Failed to remove occupation"),
   });
 
   const addEdge = useMutation({
@@ -341,6 +476,175 @@ export default function SkillGraph() {
     },
     onError: () => toast.error("AI extraction failed"),
   });
+
+  const syncProfile = useMutation({
+    mutationFn: () =>
+      fetch("/api/skill-graph/sync-profile", { method: "POST" }).then((r) => {
+        if (!r.ok) return r.json().then((b) => { throw new Error(b.error || "Sync failed"); });
+        return r.json();
+      }),
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ["skill-graph"] });
+      // Auto-enable Roles toggle after sync so role topology is visible
+      setShowRoleInstances(true);
+      const newParts = [];
+      if (res.nodesNew) newParts.push(`${res.nodesNew} skills`);
+      if (res.occupationsNew) newParts.push(`${res.occupationsNew} occupations`);
+      if (res.edgesNew) newParts.push(`${res.edgesNew} connections`);
+      if (res.occSkillLinksNew) newParts.push(`${res.occSkillLinksNew} occ→skill links`);
+      if (res.evidenceNew) newParts.push(`${res.evidenceNew} evidence`);
+
+      const existingTotal = (res.nodesExisted ?? 0) + (res.occupationsExisted ?? 0) + (res.edgesExisted ?? 0) + (res.evidenceExisted ?? 0);
+      const existingNote = existingTotal > 0 ? ` (${existingTotal} already existed)` : "";
+
+      if (newParts.length > 0) {
+        toast.success(`Synced ${newParts.join(", ")}${existingNote}`);
+      } else if (existingTotal > 0) {
+        toast.info(`Everything already synced (${existingTotal} items up to date)`);
+      } else {
+        toast.info("No new data found to sync");
+      }
+    },
+    onError: (err) => toast.error(err instanceof Error ? err.message : "Profile sync failed"),
+  });
+
+  // ── EDM (Experience Diffusion Model) ──────────────────────────
+  const { data: edmData } = useQuery<{ field: EDMFieldEntry[]; totalSources: number; transferableCount: number }>({
+    queryKey: ["edm-field"],
+    queryFn: () => fetch("/api/skill-graph/edm").then((r) => r.json()),
+    enabled: showDiffusion || showTransferable,
+  });
+
+  const generateEDM = useMutation({
+    mutationFn: () =>
+      fetch("/api/skill-graph/edm", { method: "POST" }).then((r) => {
+        if (!r.ok) return r.json().then((b) => { throw new Error(b.error || "EDM generation failed"); });
+        return r.json();
+      }),
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ["edm-field"] });
+      qc.invalidateQueries({ queryKey: ["skill-graph"] });
+      const msg = `Diffusion map: ${res.nodesCreated} new nodes, ${res.exposuresCreated} exposures across ${res.totalSources} roles`;
+      if (res.transferableCount > 0) {
+        toast.success(`${msg} — ${res.transferableCount} transferable skills found!`);
+      } else {
+        toast.success(msg);
+      }
+      setShowDiffusion(true);
+    },
+    onError: (err) => toast.error(err instanceof Error ? err.message : "EDM generation failed"),
+  });
+
+  // Build EDM lookup maps for fast access in rendering
+  const edmByNodeId = useMemo(() => {
+    const map = new Map<string, EDMFieldEntry>();
+    if (edmData?.field) {
+      for (const entry of edmData.field) map.set(entry.nodeId, entry);
+    }
+    return map;
+  }, [edmData?.field]);
+
+  // Splat sources — available work histories that have diffusion data
+  const { data: splatSources } = useQuery<{ sources: EDMSplatSource[] }>({
+    queryKey: ["edm-splat-sources"],
+    queryFn: () => fetch("/api/skill-graph/edm?sources=1").then((r) => r.json()),
+    enabled: showDiffusion,
+  });
+
+  // Per-role splat data — when a specific role is selected
+  const { data: splatData } = useQuery<{ field: EDMSplatEntry[]; workHistoryId: string }>({
+    queryKey: ["edm-splat", edmSplatSource],
+    queryFn: () => fetch(`/api/skill-graph/edm?workHistoryId=${edmSplatSource}`).then((r) => r.json()),
+    enabled: !!edmSplatSource,
+  });
+
+  // Per-role splat lookup: nodeId → zone color
+  const splatByNodeId = useMemo(() => {
+    const map = new Map<string, EDMSplatEntry>();
+    if (splatData?.field) {
+      for (const entry of splatData.field) map.set(entry.nodeId, entry);
+    }
+    return map;
+  }, [splatData?.field]);
+
+  // ── Role Instance Topology: group work histories by title ──
+  // Schools are excluded — they get their own education nodes
+  const roleGroups = useMemo<RoleGroup[]>(() => {
+    const whs = data?.workHistories?.filter((w) => w.type !== "school");
+    if (!whs?.length) return [];
+
+    // Tier 2: normalize title for fuzzy grouping
+    const normalize = (t: string) =>
+      t.toLowerCase()
+        .replace(/\b(sr\.?|senior|jr\.?|junior|lead|principal|staff|chief|head)\b/gi, "")
+        .replace(/\b(i{1,3}|iv|v|1|2|3|4|5)\b/gi, "") // roman numerals / levels
+        .replace(/[^a-z0-9 ]/g, "")
+        .replace(/\s+/g, " ")
+        .trim();
+
+    // Token overlap: returns fraction of shared tokens (Jaccard)
+    const tokenOverlap = (a: string, b: string) => {
+      const ta = new Set(a.split(" ").filter(Boolean));
+      const tb = new Set(b.split(" ").filter(Boolean));
+      if (ta.size === 0 || tb.size === 0) return 0;
+      let inter = 0;
+      for (const t of ta) if (tb.has(t)) inter++;
+      return inter / Math.max(ta.size, tb.size);
+    };
+
+    const groupMap = new Map<string, RoleGroup>();
+
+    // Find or create a group for a given title, using fuzzy matching
+    const findGroup = (rawTitle: string): string => {
+      const norm = normalize(rawTitle);
+      // Exact normalized match
+      if (groupMap.has(norm)) return norm;
+      // Token overlap match (≥ 0.7)
+      for (const [key] of groupMap) {
+        if (tokenOverlap(norm, key) >= 0.7) return key;
+      }
+      return norm;
+    };
+
+    for (const wh of whs) {
+      const rawTitle = wh.title?.trim() || wh.company;
+      const key = findGroup(rawTitle);
+      if (!groupMap.has(key)) {
+        // Try to match to an existing occupation by title (case-insensitive)
+        const matchOcc = data?.occupations?.find(
+          (o) => o.title.toLowerCase() === rawTitle.toLowerCase()
+            || normalize(o.title) === key
+        );
+        groupMap.set(key, {
+          key,
+          title: rawTitle,
+          instances: [],
+          matchingOccupationId: matchOcc?.id,
+        });
+      }
+      groupMap.get(key)!.instances.push(wh);
+    }
+    // Sort groups by earliest start date
+    return Array.from(groupMap.values()).sort((a, b) => {
+      const aDate = a.instances.at(-1)?.startDate ?? "";
+      const bDate = b.instances.at(-1)?.startDate ?? "";
+      return bDate.localeCompare(aDate);
+    });
+  }, [data?.workHistories, data?.occupations]);
+
+  // Lookup: workHistoryId → RoleGroup for quick access
+  const whToRoleGroup = useMemo(() => {
+    const map = new Map<string, RoleGroup>();
+    for (const g of roleGroups) {
+      for (const inst of g.instances) map.set(inst.id, g);
+    }
+    return map;
+  }, [roleGroups]);
+
+  // Education entries (type === "school") — separate from roles
+  const educationEntries = useMemo(() => {
+    return data?.workHistories?.filter((w) => w.type === "school") ?? [];
+  }, [data?.workHistories]);
 
   // Edit node state
   const [showEditNode, setShowEditNode] = useState(false);
@@ -446,6 +750,31 @@ export default function SkillGraph() {
     onError: (err: Error) => toast.error(err.message ?? "Auto-evidence failed"),
   });
 
+  // Clear entire graph
+  const clearGraph = useMutation({
+    mutationFn: () =>
+      fetch("/api/skill-graph", { method: "DELETE" }).then((r) => {
+        if (!r.ok) return r.json().then((d) => { throw new Error(d.error ?? "Clear failed"); });
+        return r.json();
+      }),
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ["skill-graph"] });
+      qc.invalidateQueries({ queryKey: ["edm-field"] });
+      qc.invalidateQueries({ queryKey: ["edm-splat-sources"] });
+      setSelectedNode(null);
+      setEdmSplatSource(null);
+      setShowDiffusion(false);
+      setShowTransferable(false);
+      setShowRoleInstances(false);
+      setExpandedRoleGroups(new Set());
+      setFocusNodeId(null);
+      setFocusBreadcrumb([]);
+      const c = res.cleared;
+      toast.success(`Cleared ${c.nodes} nodes, ${c.edges} edges, ${c.occupations} occupations, ${c.exposures} exposures`);
+    },
+    onError: (err: Error) => toast.error(err.message ?? "Clear failed"),
+  });
+
   // Edit node mutation
   const editNode = useMutation({
     mutationFn: (body: { id: string; name: string; type: string }) =>
@@ -540,7 +869,7 @@ export default function SkillGraph() {
   }, [qc]);
 
   // Build force-graph data
-  const graphData = useCallback(() => {
+  const gd = useMemo(() => {
     if (!data?.nodes) return { nodes: [], links: [] };
 
     const nodes: GraphNode[] = data.nodes.map((n) => {
@@ -555,6 +884,40 @@ export default function SkillGraph() {
       if (!showMarketView && isMarketNode && !hasEvidence) return null;
       if (!showEvidenceView && hasEvidence && !isMarketNode) return null;
 
+      // EDM intensity scaling
+      const edmEntry = edmByNodeId.get(n.id);
+      const edmIntensity = edmEntry?.accumulatedIntensity ?? 0;
+      const isTransferable = edmEntry?.transferable ?? false;
+      const splatEntry = splatByNodeId.get(n.id);
+
+      // Node size: base + evidence + EDM intensity boost
+      let nodeVal = Math.max(3, 3 + evidenceItems.length * 2 + avgStrength / 20);
+      if (edmSplatSource && splatEntry) {
+        nodeVal = Math.max(4, 4 + splatEntry.intensity * 14); // 4–18 range per zone
+      } else if (showDiffusion && edmIntensity > 0) {
+        nodeVal = Math.max(4, 4 + edmIntensity * 12); // 4–16 range based on intensity
+      }
+
+      // Node color: splat view > EDM accumulated > transferable > normal
+      let nodeColor: string;
+      if (edmSplatSource && splatEntry) {
+        nodeColor = EDM_ZONE_COLORS[splatEntry.zone as keyof typeof EDM_ZONE_COLORS] ?? "#6b7280";
+      } else if (edmSplatSource) {
+        // Node not in this role's splat — dim it
+        nodeColor = "#374151";
+      } else if (showDiffusion && edmIntensity > 0) {
+        // Warm gradient: low intensity = cool blue, high = bright amber
+        const hue = 30 + (1 - edmIntensity) * 180; // 30 (amber) to 210 (blue)
+        const lightness = Math.max(35, 65 - edmIntensity * 30);
+        nodeColor = `hsl(${hue}, 90%, ${lightness}%)`;
+      } else if (showTransferable && isTransferable) {
+        nodeColor = "#f59e0b"; // amber for transferable
+      } else if (hasEvidence) {
+        nodeColor = `hsl(210, 100%, ${Math.max(30, 70 - avgStrength * 0.4)}%)`;
+      } else {
+        nodeColor = NODE_TYPE_COLORS[n.type] ?? "#6b7280";
+      }
+
       return {
         id: n.id,
         name: n.name,
@@ -563,17 +926,32 @@ export default function SkillGraph() {
         evidenceCount: evidenceItems.length,
         evidenceStrength: avgStrength,
         isOccupation: false,
-        val: Math.max(3, 3 + evidenceItems.length * 2 + avgStrength / 20),
-        color: hasEvidence
-          ? `hsl(210, 100%, ${Math.max(30, 70 - avgStrength * 0.4)}%)`
-          : NODE_TYPE_COLORS[n.type] ?? "#6b7280",
+        val: nodeVal,
+        color: nodeColor,
       };
     }).filter(Boolean) as GraphNode[];
 
-    // Add occupation nodes
+    // Build a set of occupation IDs that have matching role groups
+    const occIdsWithRoles = new Set<string>();
+    if (showRoleInstances) {
+      for (const group of roleGroups) {
+        if (group.matchingOccupationId) occIdsWithRoles.add(group.matchingOccupationId);
+      }
+    }
+
+    // Add occupation nodes (with company parsed from metadata)
+    // If a role group matches, mark the occupation as expandable
     if (showOccupationView && data.occupations) {
       for (const occ of data.occupations) {
         const interest = occ.interests?.[0];
+        let company: string | undefined;
+        try {
+          const meta = occ.metadata ? JSON.parse(occ.metadata) : null;
+          if (meta?.company) company = meta.company;
+        } catch { /* ignore */ }
+        const matchedGroup = showRoleInstances
+          ? roleGroups.find((g) => g.matchingOccupationId === occ.id)
+          : undefined;
         nodes.push({
           id: `occ-${occ.id}`,
           name: occ.title,
@@ -582,9 +960,108 @@ export default function SkillGraph() {
           evidenceCount: 0,
           evidenceStrength: 0,
           isOccupation: true,
+          isRoleGroup: !!matchedGroup,
+          instanceCount: matchedGroup?.instances.length,
+          roleGroupKey: matchedGroup?.key,
           occupationStatus: interest?.status,
-          val: 10,
+          company,
+          val: matchedGroup ? 10 + matchedGroup.instances.length * 2 : 10,
           color: NODE_TYPE_COLORS.occupation,
+        });
+        // If expanded, add instance children
+        if (matchedGroup && expandedRoleGroups.has(matchedGroup.key)) {
+          for (const inst of matchedGroup.instances) {
+            const label = `${inst.company}${inst.startDate ? ` (${inst.startDate}${inst.endDate ? `–${inst.endDate}` : "–now"})` : ""}`;
+            nodes.push({
+              id: `ri-${inst.id}`,
+              name: label,
+              type: "role-instance",
+              source: "work_history",
+              evidenceCount: 0,
+              evidenceStrength: 0,
+              isOccupation: false,
+              isRoleInstance: true,
+              roleGroupKey: matchedGroup.key,
+              workHistoryId: inst.id,
+              company: inst.company,
+              startDate: inst.startDate ?? undefined,
+              endDate: inst.endDate ?? undefined,
+              val: 7,
+              color: "#38bdf8",
+            });
+          }
+        }
+      }
+    }
+
+    // ── Role Instance Topology (standalone groups — no matching occupation) ──
+    if (showRoleInstances && roleGroups.length > 0) {
+      for (const group of roleGroups) {
+        // Skip groups already merged into an occupation node
+        if (group.matchingOccupationId && occIdsWithRoles.has(group.matchingOccupationId)) continue;
+        const isExpanded = expandedRoleGroups.has(group.key);
+
+        // Always show the group header (title only, no company)
+        nodes.push({
+          id: `rg-${group.key}`,
+          name: group.title,
+          type: "role-group",
+          source: "work_history",
+          evidenceCount: 0,
+          evidenceStrength: 0,
+          isOccupation: false,
+          isRoleGroup: true,
+          instanceCount: group.instances.length,
+          val: 8 + group.instances.length * 2,
+          color: "#0ea5e9",
+        });
+
+        // When expanded: show individual instance nodes
+        if (isExpanded) {
+          for (const inst of group.instances) {
+            const label = `${inst.company}${inst.startDate ? ` (${inst.startDate}${inst.endDate ? `–${inst.endDate}` : "–now"})` : ""}`;
+            nodes.push({
+              id: `ri-${inst.id}`,
+              name: label,
+              type: "role-instance",
+              source: "work_history",
+              evidenceCount: 0,
+              evidenceStrength: 0,
+              isOccupation: false,
+              isRoleInstance: true,
+              roleGroupKey: group.key,
+              workHistoryId: inst.id,
+              company: inst.company,
+              startDate: inst.startDate ?? undefined,
+              endDate: inst.endDate ?? undefined,
+              val: 7,
+              color: "#38bdf8",
+            });
+          }
+        }
+      }
+    }
+
+    // ── Education nodes (type === "school") ──
+    if (showRoleInstances) {
+      for (const edu of educationEntries) {
+        const eduId = `edu-${edu.id}`;
+        const label = edu.company || edu.title || "School";
+        nodes.push({
+          id: eduId,
+          name: label,
+          type: "education",
+          source: "work_history",
+          evidenceCount: 0,
+          evidenceStrength: 0,
+          isOccupation: false,
+          isEducation: true,
+          workHistoryId: edu.id,
+          company: edu.company,
+          startDate: edu.startDate ?? undefined,
+          endDate: edu.endDate ?? undefined,
+          val: 12,
+          color: "#a78bfa", // violet
         });
       }
     }
@@ -621,21 +1098,270 @@ export default function SkillGraph() {
       }
     }
 
-    return { nodes, links };
-  }, [data, showMarketView, showEvidenceView, showOccupationView]);
+    // ── Role Instance Topology edges ──
+    if (showRoleInstances && roleGroups.length > 0) {
+      // Edges from occupation nodes → their instances (merged groups)
+      if (showOccupationView && data.occupations) {
+        for (const occ of data.occupations) {
+          const matchedGroup = roleGroups.find((g) => g.matchingOccupationId === occ.id);
+          if (!matchedGroup || !expandedRoleGroups.has(matchedGroup.key)) continue;
+          const occNodeId = `occ-${occ.id}`;
+          if (!nodeIds.has(occNodeId)) continue;
+          for (const inst of matchedGroup.instances) {
+            const riId = `ri-${inst.id}`;
+            if (!nodeIds.has(riId)) continue;
+            links.push({
+              id: `occ-ri-${inst.id}`,
+              source: occNodeId,
+              target: riId,
+              type: "contains",
+              weight: 2,
+              color: "rgba(14, 165, 233, 0.4)",
+            });
+          }
+        }
+      }
+      // Edges from standalone role groups → their instances
+      for (const group of roleGroups) {
+        if (group.matchingOccupationId) continue; // already handled above
+        const rgId = `rg-${group.key}`;
+        if (!nodeIds.has(rgId)) continue;
+
+        if (expandedRoleGroups.has(group.key)) {
+          for (const inst of group.instances) {
+            const riId = `ri-${inst.id}`;
+            if (!nodeIds.has(riId)) continue;
+            links.push({
+              id: `rg-ri-${inst.id}`,
+              source: rgId,
+              target: riId,
+              type: "contains",
+              weight: 2,
+              color: "rgba(14, 165, 233, 0.4)",
+            });
+          }
+        }
+      }
+    }
+
+    let result = { nodes, links };
+
+    // ── Focus mode filtering ──
+    if (focusNodeId) {
+      const focusIds = new Set<string>([focusNodeId]);
+      // Include children (contains edges)
+      for (const l of links) {
+        if (l.source === focusNodeId || (typeof l.source === "object" && (l.source as GraphNode).id === focusNodeId)) {
+          const targetId = typeof l.target === "string" ? l.target : (l.target as GraphNode).id;
+          focusIds.add(targetId);
+        }
+        if (l.target === focusNodeId || (typeof l.target === "object" && (l.target as GraphNode).id === focusNodeId)) {
+          const sourceId = typeof l.source === "string" ? l.source : (l.source as GraphNode).id;
+          focusIds.add(sourceId);
+        }
+      }
+      // Also include skills connected to focused node or its children via requires edges
+      for (const l of links) {
+        const srcId = typeof l.source === "string" ? l.source : (l.source as GraphNode).id;
+        const tgtId = typeof l.target === "string" ? l.target : (l.target as GraphNode).id;
+        if (focusIds.has(srcId)) focusIds.add(tgtId);
+        if (focusIds.has(tgtId)) focusIds.add(srcId);
+      }
+      result = {
+        nodes: nodes.filter((n) => focusIds.has(n.id)),
+        links: links.filter((l) => {
+          const srcId = typeof l.source === "string" ? l.source : (l.source as GraphNode).id;
+          const tgtId = typeof l.target === "string" ? l.target : (l.target as GraphNode).id;
+          return focusIds.has(srcId) && focusIds.has(tgtId);
+        }),
+      };
+    }
+
+    return result;
+  }, [data, showMarketView, showEvidenceView, showOccupationView, showDiffusion, showTransferable, edmByNodeId, edmSplatSource, splatByNodeId, showRoleInstances, roleGroups, expandedRoleGroups, focusNodeId, educationEntries]);
+
+  // ── Company hull groupings (maps company name → color index) ──
+  const companyColorMap = useMemo(() => {
+    const map = new Map<string, number>();
+    let idx = 0;
+    for (const n of gd.nodes) {
+      if (n.company && !map.has(n.company)) {
+        map.set(n.company, idx % COMPANY_HULL_COLORS.length);
+        idx++;
+      }
+    }
+    return map;
+  }, [gd.nodes]);
+
+  // Draw convex-hull backgrounds behind company-grouped nodes
+  const drawCompanyHulls = useCallback(
+    (ctx: CanvasRenderingContext2D) => {
+      if (companyColorMap.size === 0) return;
+
+      // Group positioned occupation nodes (+ their linked skill nodes) by company
+      const groups = new Map<string, { x: number; y: number }[]>();
+
+      // First pass: occupation nodes with company
+      const occNodesByCompany = new Map<string, Set<string>>();
+      for (const n of gd.nodes) {
+        if (!n.company || n.x == null || n.y == null) continue;
+        if (!groups.has(n.company)) groups.set(n.company, []);
+        groups.get(n.company)!.push({ x: n.x, y: n.y });
+        if (!occNodesByCompany.has(n.company)) occNodesByCompany.set(n.company, new Set());
+        occNodesByCompany.get(n.company)!.add(n.id);
+      }
+
+      // Second pass: include skill nodes linked to this company's occupations via "requires" edges
+      for (const [company, occIds] of occNodesByCompany) {
+        for (const link of gd.links) {
+          const srcId = typeof link.source === "object" ? (link.source as GraphNode).id : link.source;
+          const tgtId = typeof link.target === "object" ? (link.target as GraphNode).id : link.target;
+          if (link.type !== "requires") continue;
+          const skillId = occIds.has(srcId) ? tgtId : occIds.has(tgtId) ? srcId : null;
+          if (!skillId) continue;
+          const skillNode = gd.nodes.find((n) => n.id === skillId);
+          if (skillNode?.x != null && skillNode?.y != null) {
+            groups.get(company)!.push({ x: skillNode.x, y: skillNode.y });
+          }
+        }
+      }
+
+      // Draw a rounded hull for each company group
+      for (const [company, points] of groups) {
+        if (points.length < 1) continue;
+        const colorIdx = companyColorMap.get(company) ?? 0;
+
+        if (points.length === 1) {
+          // Single node: draw a circle
+          ctx.beginPath();
+          ctx.arc(points[0].x, points[0].y, 30, 0, 2 * Math.PI);
+          ctx.fillStyle = COMPANY_HULL_COLORS[colorIdx];
+          ctx.fill();
+          ctx.strokeStyle = COMPANY_BORDER_COLORS[colorIdx];
+          ctx.lineWidth = 1;
+          ctx.stroke();
+          continue;
+        }
+
+        // Compute bounding box with padding
+        const pad = 25;
+        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+        for (const p of points) {
+          if (p.x < minX) minX = p.x;
+          if (p.x > maxX) maxX = p.x;
+          if (p.y < minY) minY = p.y;
+          if (p.y > maxY) maxY = p.y;
+        }
+
+        const r = 12; // corner radius
+        const x = minX - pad;
+        const y = minY - pad;
+        const w = maxX - minX + pad * 2;
+        const h = maxY - minY + pad * 2;
+
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.lineTo(x + w - r, y);
+        ctx.arcTo(x + w, y, x + w, y + r, r);
+        ctx.lineTo(x + w, y + h - r);
+        ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+        ctx.lineTo(x + r, y + h);
+        ctx.arcTo(x, y + h, x, y + h - r, r);
+        ctx.lineTo(x, y + r);
+        ctx.arcTo(x, y, x + r, y, r);
+        ctx.closePath();
+
+        ctx.fillStyle = COMPANY_HULL_COLORS[colorIdx];
+        ctx.fill();
+        ctx.strokeStyle = COMPANY_BORDER_COLORS[colorIdx];
+        ctx.lineWidth = 1;
+        ctx.setLineDash([4, 3]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Company label at top-left of hull
+        ctx.font = "bold 11px Sans-Serif";
+        ctx.fillStyle = COMPANY_BORDER_COLORS[colorIdx].replace("0.35", "0.7");
+        ctx.textAlign = "left";
+        ctx.textBaseline = "bottom";
+        ctx.fillText(company, x + 6, y - 2);
+      }
+    },
+    [gd.nodes, gd.links, companyColorMap]
+  );
 
   // Node click handler — show local graph (selected node + neighbors)
   const handleNodeClick = useCallback(
     (node: GraphNode) => {
+      // Expandable node (role group or occupation with work history instances)
+      if (node.isRoleGroup && (node.instanceCount ?? 0) > 0) {
+        const key = node.roleGroupKey ?? node.id.replace("rg-", "");
+        setExpandedRoleGroups((prev) => {
+          const next = new Set(prev);
+          if (next.has(key)) next.delete(key); else next.add(key);
+          return next;
+        });
+        setSelectedNode(node.id === selectedNode ? null : node.id);
+        return;
+      }
       setSelectedNode(node.id === selectedNode ? null : node.id);
     },
     [selectedNode]
   );
 
+  // Enter focus mode — drills into a node showing only its neighborhood
+  const enterFocus = useCallback(
+    (nodeId: string, label: string) => {
+      // Expand the node so instances are visible in focus
+      const node = gd.nodes.find((n) => n.id === nodeId);
+      if (node?.isRoleGroup || (node?.isOccupation && node.instanceCount)) {
+        const key = node.roleGroupKey ?? nodeId.replace("rg-", "");
+        setExpandedRoleGroups((prev) => new Set(prev).add(key));
+      }
+      setFocusBreadcrumb((prev) => [...prev, { id: nodeId, label }]);
+      setFocusNodeId(nodeId);
+      setSelectedNode(nodeId);
+    },
+    [gd.nodes]
+  );
+
+  const exitFocus = useCallback(() => {
+    setFocusNodeId(null);
+    setFocusBreadcrumb([]);
+  }, []);
+
+  const focusBack = useCallback(() => {
+    setFocusBreadcrumb((prev) => {
+      if (prev.length <= 1) {
+        setFocusNodeId(null);
+        return [];
+      }
+      const next = prev.slice(0, -1);
+      setFocusNodeId(next[next.length - 1].id);
+      return next;
+    });
+  }, []);
+
   // Selected node detail
   const selectedNodeData = data?.nodes.find((n) => n.id === selectedNode);
   const selectedOccupation = selectedNode?.startsWith("occ-")
     ? data?.occupations?.find((o) => `occ-${o.id}` === selectedNode)
+    : null;
+  const selectedRoleGroup = selectedNode?.startsWith("rg-")
+    ? roleGroups.find((g) => `rg-${g.key}` === selectedNode)
+    : null;
+  const selectedRoleInstance = selectedNode?.startsWith("ri-")
+    ? (() => {
+        const whId = selectedNode.replace("ri-", "");
+        const wh = data?.workHistories?.find((w) => w.id === whId);
+        return wh ?? null;
+      })()
+    : null;
+  const selectedEducation = selectedNode?.startsWith("edu-")
+    ? (() => {
+        const whId = selectedNode.replace("edu-", "");
+        return educationEntries.find((w) => w.id === whId) ?? null;
+      })()
     : null;
   const selectedNodeEdges = data?.edges.filter(
     (e) => e.fromId === selectedNode || e.toId === selectedNode
@@ -707,8 +1433,6 @@ export default function SkillGraph() {
     );
   }
 
-  const gd = graphData();
-
   return (
     <div className="space-y-4">
       {/* ── Header ── */}
@@ -719,7 +1443,7 @@ export default function SkillGraph() {
             Skill Knowledge Graph
           </h2>
           <p className="text-sm text-muted-foreground mt-0.5">
-            {totalNodes} skills · {totalEdges} connections · {provenNodes} with evidence{totalOccupations > 0 ? ` · ${totalOccupations} occupations` : ""}
+            {totalNodes} skills · {totalEdges} connections · {provenNodes} with evidence{totalOccupations > 0 ? ` · ${totalOccupations} occupations` : ""}{(data?.workHistories?.length ?? 0) > 0 ? ` · ${data!.workHistories.length} roles` : ""}
           </p>
         </div>
 
@@ -751,6 +1475,26 @@ export default function SkillGraph() {
             Occupations
           </Button>
 
+          <Button
+            variant={showRoleInstances ? "default" : "outline"}
+            size="sm"
+            onClick={() => setShowRoleInstances(!showRoleInstances)}
+            disabled={(data?.workHistories?.length ?? 0) === 0}
+            title="Show work history role instances in the graph"
+          >
+            {showRoleInstances ? <Building2 className="h-4 w-4 mr-1" /> : <EyeOff className="h-4 w-4 mr-1" />}
+            Roles
+          </Button>
+
+          <Button
+            variant={showAnalytics ? "default" : "outline"}
+            size="sm"
+            onClick={() => setShowAnalytics(!showAnalytics)}
+          >
+            <BarChart3 className="h-4 w-4 mr-1" />
+            Analytics
+          </Button>
+
           <div className="w-px h-6 bg-border" />
 
           {/* Actions */}
@@ -760,6 +1504,91 @@ export default function SkillGraph() {
           <Button size="sm" variant="outline" onClick={() => setShowAddEdge(true)} disabled={totalNodes < 2}>
             <Link2 className="h-4 w-4 mr-1" /> Connect
           </Button>
+
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => syncProfile.mutate()}
+            disabled={syncProfile.isPending}
+          >
+            {syncProfile.isPending ? (
+              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+            ) : (
+              <User className="h-4 w-4 mr-1" />
+            )}
+            Sync Profile
+          </Button>
+
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => generateEDM.mutate()}
+            disabled={generateEDM.isPending}
+            title="Generate Experience Diffusion Map from your work history"
+          >
+            {generateEDM.isPending ? (
+              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+            ) : (
+              <Flame className="h-4 w-4 mr-1" />
+            )}
+            Diffusion Map
+          </Button>
+
+          <div className="w-px h-6 bg-border" />
+
+          {/* EDM view toggles */}
+          <Button
+            size="sm"
+            variant={showDiffusion ? "default" : "outline"}
+            onClick={() => {
+              const next = !showDiffusion;
+              setShowDiffusion(next);
+              if (!next) setEdmSplatSource(null); // clear splat when turning off diffusion
+            }}
+            title="Toggle intensity heatmap view"
+          >
+            <Layers className="h-4 w-4 mr-1" />
+            Intensity
+          </Button>
+
+          <Button
+            size="sm"
+            variant={showTransferable ? "default" : "outline"}
+            onClick={() => setShowTransferable(!showTransferable)}
+            title="Highlight transferable skills (used across 2+ roles)"
+          >
+            <ArrowUpRight className="h-4 w-4 mr-1" />
+            Transferable
+          </Button>
+
+          {/* Per-role splat selector */}
+          {showDiffusion && splatSources?.sources && splatSources.sources.length > 0 && (
+            <DropdownMenu>
+              <DropdownMenuTrigger className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-3">
+                <Flame className="h-4 w-4 mr-1" />
+                {edmSplatSource
+                  ? splatSources.sources.find((s) => s.workHistoryId === edmSplatSource)?.label ?? "Role Splat"
+                  : "Role Splat"}
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {edmSplatSource && (
+                  <DropdownMenuItem onClick={() => setEdmSplatSource(null)}>
+                    <Layers className="h-4 w-4 mr-2" />
+                    Show All (Accumulated)
+                  </DropdownMenuItem>
+                )}
+                {splatSources.sources.map((src) => (
+                  <DropdownMenuItem
+                    key={src.workHistoryId}
+                    onClick={() => setEdmSplatSource(src.workHistoryId)}
+                  >
+                    <Briefcase className="h-4 w-4 mr-2" />
+                    {src.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
 
           <DropdownMenu>
             <DropdownMenuTrigger className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-3">
@@ -805,32 +1634,144 @@ export default function SkillGraph() {
             )}
             Auto-Link Evidence
           </Button>
+
+          <div className="w-px h-6 bg-border" />
+
+          <Button
+            size="sm"
+            variant="destructive"
+            onClick={() => {
+              if (!confirm("Clear the entire skill graph? This removes all skills, connections, occupations, evidence, and diffusion data. This cannot be undone.")) return;
+              clearGraph.mutate();
+            }}
+            disabled={clearGraph.isPending || (totalNodes === 0 && totalOccupations === 0 && roleGroups.length === 0)}
+          >
+            {clearGraph.isPending ? (
+              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+            ) : (
+              <Trash2 className="h-4 w-4 mr-1" />
+            )}
+            Clear Graph
+          </Button>
         </div>
       </div>
 
+      {/* ── Analytics Dashboard ── */}
+      {showAnalytics && data && (
+        <SkillGraphAnalytics data={data} />
+      )}
+
       {/* ── Graph + Detail Panel ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+      {!showAnalytics && <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
         {/* Graph Canvas */}
         <Card className="lg:col-span-3 !py-0">
           <CardContent className="p-0">
             <div ref={containerRef} className="w-full h-[calc(100vh-11rem)] min-h-[500px] relative">
+              {/* Focus mode breadcrumb */}
+              {focusNodeId && (
+                <div className="absolute top-2 left-2 z-10 flex items-center gap-1 bg-background/90 backdrop-blur rounded-md px-2 py-1 border shadow-sm">
+                  <Button size="sm" variant="ghost" className="h-6 px-1" onClick={exitFocus}>
+                    <ChevronLeft className="h-3.5 w-3.5" />
+                  </Button>
+                  <button className="text-xs text-muted-foreground hover:text-foreground" onClick={exitFocus}>
+                    All Nodes
+                  </button>
+                  {focusBreadcrumb.map((crumb, i) => (
+                    <span key={crumb.id} className="flex items-center gap-1">
+                      <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                      <button
+                        className={`text-xs ${i === focusBreadcrumb.length - 1 ? "font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                        onClick={() => {
+                          if (i < focusBreadcrumb.length - 1) {
+                            setFocusBreadcrumb((prev) => prev.slice(0, i + 1));
+                            setFocusNodeId(crumb.id);
+                          }
+                        }}
+                      >
+                        {crumb.label}
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
               {gd.nodes.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-3">
+                <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-4">
                   <Network className="h-12 w-12 opacity-30" />
+                  <p className="text-base font-medium text-foreground">Build your skill graph</p>
+                  <p className="text-sm text-center max-w-sm">
+                    Pull skills from your work history, equipment, certifications, and more.
+                  </p>
+
+                  {/* Primary CTA: Sync from Profile (no AI needed) */}
+                  <Button
+                    size="sm"
+                    onClick={() => syncProfile.mutate()}
+                    disabled={syncProfile.isPending}
+                  >
+                    {syncProfile.isPending ? (
+                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                    ) : (
+                      <User className="h-4 w-4 mr-1" />
+                    )}
+                    Sync from Profile
+                  </Button>
+                  <p className="text-xs text-muted-foreground max-w-xs text-center">
+                    Imports job titles as occupations, skills used &amp; gained, tech stack, equipment, certifications, and learning items.
+                  </p>
+
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                    <span className="w-8 h-px bg-border" />
+                    or
+                    <span className="w-8 h-px bg-border" />
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => ingest.mutate({ source: "resume" })}
+                      disabled={ingest.isPending}
+                    >
+                      {ingest.isPending ? (
+                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                      ) : (
+                        <Sparkles className="h-4 w-4 mr-1" />
+                      )}
+                      AI Extract from Resume
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => ingest.mutate({ source: "job_postings" })}
+                      disabled={ingest.isPending}
+                    >
+                      {ingest.isPending ? (
+                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                      ) : (
+                        <Sparkles className="h-4 w-4 mr-1" />
+                      )}
+                      AI Extract from Jobs
+                    </Button>
+                  </div>
+
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                    <span className="w-8 h-px bg-border" />
+                    or
+                    <span className="w-8 h-px bg-border" />
+                  </div>
+
                   {profileData?.industryGroup ? (
                     <>
-                      <p className="text-sm text-center max-w-xs">
-                        Your profile industry is <strong className="text-foreground">{profileData.industryGroup}</strong>.
-                      </p>
                       <Button
                         size="sm"
+                        variant="outline"
                         onClick={() => seedScaffold.mutate(profileData.industryGroup!)}
                         disabled={seedScaffold.isPending}
                       >
                         {seedScaffold.isPending ? (
                           <Loader2 className="h-4 w-4 mr-1 animate-spin" />
                         ) : (
-                          <Sparkles className="h-4 w-4 mr-1" />
+                          <Globe className="h-4 w-4 mr-1" />
                         )}
                         Seed {profileData.industryGroup} Skills
                       </Button>
@@ -839,9 +1780,9 @@ export default function SkillGraph() {
                       </p>
                     </>
                   ) : (
-                    <p className="text-sm text-center max-w-xs">
-                      No skills yet. <button className="text-primary underline" onClick={() => setShowScaffold(true)}>Seed an industry scaffold</button> or use AI Extract to scan your job postings.
-                    </p>
+                    <Button size="sm" variant="outline" onClick={() => setShowScaffold(true)}>
+                      <Globe className="h-4 w-4 mr-1" /> Seed an Industry Scaffold
+                    </Button>
                   )}
                 </div>
               ) : (
@@ -850,10 +1791,31 @@ export default function SkillGraph() {
                   graphData={gd}
                   width={dimensions.width}
                   height={dimensions.height}
+                  onRenderFramePre={(ctx: CanvasRenderingContext2D) => drawCompanyHulls(ctx)}
                   nodeLabel={(node: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
                     const n = node as GraphNode;
+                    if (n.isRoleGroup) {
+                      const key = n.roleGroupKey ?? n.id.replace("rg-", "");
+                      const isExp = expandedRoleGroups.has(key);
+                      return `${n.name}${n.instanceCount ? ` (${n.instanceCount})` : ""} — Click to ${isExp ? "collapse" : "expand"}`;
+                    }
+                    if (n.isRoleInstance) {
+                      return `${n.name} [Role Instance]${n.startDate ? ` — ${n.startDate} to ${n.endDate ?? "Present"}` : ""}`;
+                    }
+                    if (n.isEducation) {
+                      return `${n.name} [Education]${n.startDate ? ` — ${n.startDate} to ${n.endDate ?? "Present"}` : ""}`;
+                    }
                     const ev = n.evidenceCount > 0 ? ` (${n.evidenceCount} evidence, ${Math.round(n.evidenceStrength)}% strength)` : "";
-                    return `${n.name} [${n.type}]${ev}`;
+                    const edmEntry = edmByNodeId.get(n.id);
+                    const splatEntry = splatByNodeId.get(n.id);
+                    let edmInfo = "";
+                    if (splatEntry) {
+                      const zoneName = EDM_ZONE_LABELS[splatEntry.zone as keyof typeof EDM_ZONE_LABELS] ?? splatEntry.zone;
+                      edmInfo = ` | Zone: ${zoneName} (${Math.round(splatEntry.intensity * 100)}%)`;
+                    } else if (edmEntry) {
+                      edmInfo = ` | Intensity: ${Math.round(edmEntry.accumulatedIntensity * 100)}%${edmEntry.transferable ? " ★ Transferable" : ""} (${edmEntry.sourceCount} role${edmEntry.sourceCount !== 1 ? "s" : ""})`;
+                    }
+                    return `${n.name} [${n.type}]${ev}${edmInfo}`;
                   }}
                   nodeColor={(node: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
                     const n = node as GraphNode;
@@ -872,24 +1834,156 @@ export default function SkillGraph() {
                     const x = n.x ?? 0;
                     const y = n.y ?? 0;
 
-                    if (n.isOccupation) {
+                    if (n.isRoleGroup && !n.isOccupation) {
+                      // ── Rounded rectangle for standalone role group nodes ──
+                      const textWidth = ctx.measureText(label).width;
+                      const w = Math.max(radius * 3, textWidth + 12);
+                      const h = radius * 2;
+                      const r = 5; // corner radius
+                      const rx = x - w / 2;
+                      const ry = y - h / 2;
+                      ctx.beginPath();
+                      ctx.moveTo(rx + r, ry);
+                      ctx.lineTo(rx + w - r, ry);
+                      ctx.arcTo(rx + w, ry, rx + w, ry + r, r);
+                      ctx.lineTo(rx + w, ry + h - r);
+                      ctx.arcTo(rx + w, ry + h, rx + w - r, ry + h, r);
+                      ctx.lineTo(rx + r, ry + h);
+                      ctx.arcTo(rx, ry + h, rx, ry + h - r, r);
+                      ctx.lineTo(rx, ry + r);
+                      ctx.arcTo(rx, ry, rx + r, ry, r);
+                      ctx.closePath();
+                      ctx.fillStyle = n.id === selectedNode ? "#0284c7" : n.color;
+                      ctx.fill();
+                      ctx.strokeStyle = n.id === selectedNode ? "#ffffff" : "rgba(255,255,255,0.4)";
+                      ctx.lineWidth = 1.5 / globalScale;
+                      ctx.stroke();
+                      // Expand indicator
+                      const key = n.roleGroupKey ?? n.id.replace("rg-", "");
+                      const isExp = expandedRoleGroups.has(key);
+                      ctx.fillStyle = "rgba(255,255,255,0.7)";
+                      ctx.font = `${Math.max(8, 10 / globalScale)}px Sans-Serif`;
+                      ctx.textAlign = "left";
+                      ctx.textBaseline = "middle";
+                      ctx.fillText(isExp ? "▾" : "▸", rx + 3, y);
+                      // Label inside
+                      ctx.fillStyle = "rgba(255,255,255,0.95)";
+                      ctx.font = `${fontSize}px Sans-Serif`;
+                      ctx.textAlign = "center";
+                      ctx.textBaseline = "middle";
+                      ctx.fillText(label, x, y);
+                    } else if (n.isRoleInstance) {
+                      // ── Diamond shape for role instance nodes ──
+                      const s = radius * 1.2;
+                      ctx.beginPath();
+                      ctx.moveTo(x, y - s);
+                      ctx.lineTo(x + s, y);
+                      ctx.lineTo(x, y + s);
+                      ctx.lineTo(x - s, y);
+                      ctx.closePath();
+                      ctx.fillStyle = n.id === selectedNode ? "#0284c7" : n.color;
+                      ctx.fill();
+                      ctx.strokeStyle = n.id === selectedNode ? "#ffffff" : "rgba(255,255,255,0.5)";
+                      ctx.lineWidth = 1.5 / globalScale;
+                      ctx.stroke();
+                      // Label below
+                      if (globalScale > 0.5 || n.id === selectedNode || n.id === hoveredNode) {
+                        ctx.fillStyle = "rgba(255,255,255,0.9)";
+                        ctx.textAlign = "center";
+                        ctx.textBaseline = "top";
+                        ctx.fillText(label, x, y + s + 2);
+                      }
+                    } else if (n.isEducation) {
+                      // ── Book/square shape for education nodes ──
+                      const sz = radius * 1.3;
+                      const rx = x - sz;
+                      const ry = y - sz;
+                      ctx.beginPath();
+                      ctx.rect(rx, ry, sz * 2, sz * 2);
+                      ctx.fillStyle = n.id === selectedNode ? "#7c3aed" : "#a78bfa";
+                      ctx.fill();
+                      ctx.strokeStyle = n.id === selectedNode ? "#ffffff" : "rgba(255,255,255,0.5)";
+                      ctx.lineWidth = 1.5 / globalScale;
+                      ctx.stroke();
+                      // Small "cap" triangle on top to hint at graduation cap
+                      ctx.beginPath();
+                      ctx.moveTo(x - sz * 0.6, ry);
+                      ctx.lineTo(x, ry - sz * 0.5);
+                      ctx.lineTo(x + sz * 0.6, ry);
+                      ctx.closePath();
+                      ctx.fillStyle = n.id === selectedNode ? "#7c3aed" : "#a78bfa";
+                      ctx.fill();
+                      ctx.strokeStyle = n.id === selectedNode ? "#ffffff" : "rgba(255,255,255,0.5)";
+                      ctx.stroke();
+                      // Label below
+                      if (globalScale > 0.4 || n.id === selectedNode || n.id === hoveredNode) {
+                        ctx.fillStyle = "rgba(255,255,255,0.9)";
+                        ctx.textAlign = "center";
+                        ctx.textBaseline = "top";
+                        ctx.fillText(label, x, y + sz + 2);
+                      }
+                    } else if (n.isOccupation) {
                       // Draw hexagon for occupation nodes
+                      const hexR = radius * 1.3;
                       ctx.beginPath();
                       for (let i = 0; i < 6; i++) {
                         const angle = (Math.PI / 3) * i - Math.PI / 6;
-                        const hx = x + radius * 1.3 * Math.cos(angle);
-                        const hy = y + radius * 1.3 * Math.sin(angle);
+                        const hx = x + hexR * Math.cos(angle);
+                        const hy = y + hexR * Math.sin(angle);
                         if (i === 0) ctx.moveTo(hx, hy);
                         else ctx.lineTo(hx, hy);
                       }
                       ctx.closePath();
                       ctx.fillStyle = n.id === selectedNode ? "#e11d48" : NODE_TYPE_COLORS.occupation;
                       ctx.fill();
-                      ctx.strokeStyle = "rgba(255,255,255,0.6)";
+                      ctx.strokeStyle = n.id === selectedNode ? "#ffffff" : "rgba(255,255,255,0.6)";
                       ctx.lineWidth = 1.5 / globalScale;
                       ctx.stroke();
+                      // Expand indicator if this occupation has work history instances
+                      if (n.isRoleGroup && (n.instanceCount ?? 0) > 0) {
+                        const key = n.roleGroupKey ?? "";
+                        const isExp = expandedRoleGroups.has(key);
+                        ctx.fillStyle = "rgba(255,255,255,0.85)";
+                        ctx.font = `bold ${Math.max(8, 10 / globalScale)}px Sans-Serif`;
+                        ctx.textAlign = "center";
+                        ctx.textBaseline = "middle";
+                        ctx.fillText(isExp ? "▾" : "▸", x, y);
+                      }
                     } else {
                       // Draw circle for skill nodes
+                      const edmEntry = edmByNodeId.get(n.id);
+                      const isTransferable = edmEntry?.transferable ?? false;
+                      const edmIntensity = edmEntry?.accumulatedIntensity ?? 0;
+                      const splatEntry = splatByNodeId.get(n.id);
+
+                      // Per-role splat zone ring
+                      if (edmSplatSource && splatEntry) {
+                        const zoneColor = EDM_ZONE_COLORS[splatEntry.zone as keyof typeof EDM_ZONE_COLORS] ?? "#6b7280";
+                        ctx.beginPath();
+                        ctx.arc(x, y, radius + 4 / globalScale, 0, 2 * Math.PI);
+                        ctx.strokeStyle = zoneColor;
+                        ctx.lineWidth = 2.5 / globalScale;
+                        ctx.stroke();
+                      }
+
+                      // Transferable glow ring (outer ring before main circle)
+                      if (showTransferable && isTransferable) {
+                        ctx.beginPath();
+                        ctx.arc(x, y, radius + 3 / globalScale, 0, 2 * Math.PI);
+                        ctx.strokeStyle = `rgba(245, 158, 11, ${0.4 + edmIntensity * 0.4})`;
+                        ctx.lineWidth = (2 + edmEntry!.sourceCount) / globalScale;
+                        ctx.stroke();
+                      }
+
+                      // EDM intensity outer ring
+                      if (showDiffusion && edmIntensity > 0) {
+                        ctx.beginPath();
+                        ctx.arc(x, y, radius + 2 / globalScale, 0, 2 * Math.PI);
+                        ctx.strokeStyle = `rgba(245, 158, 11, ${edmIntensity * 0.6})`;
+                        ctx.lineWidth = 1.5 / globalScale;
+                        ctx.stroke();
+                      }
+
                       ctx.beginPath();
                       ctx.arc(x, y, radius, 0, 2 * Math.PI);
 
@@ -899,9 +1993,18 @@ export default function SkillGraph() {
                         ctx.shadowBlur = 8 + n.evidenceStrength / 10;
                       }
 
+                      // Dim nodes in transferable mode that aren't transferable
+                      // or in splat mode that aren't part of the selected role
+                      if (showTransferable && !isTransferable && !n.isOccupation) {
+                        ctx.globalAlpha = 0.25;
+                      } else if (edmSplatSource && !splatByNodeId.has(n.id) && !n.isOccupation) {
+                        ctx.globalAlpha = 0.15;
+                      }
+
                       ctx.fillStyle = n.id === selectedNode ? "#3b82f6" : n.color;
                       ctx.fill();
                       ctx.shadowBlur = 0;
+                      ctx.globalAlpha = 1;
 
                       // Selected ring
                       if (n.id === selectedNode) {
@@ -928,7 +2031,7 @@ export default function SkillGraph() {
                   linkDirectionalArrowRelPos={0.9}
                   linkLineDash={(link: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
                     const l = link as GraphLink;
-                    return l.type === "requires" ? [4, 2] : null;
+                    return l.type === "requires" || l.type === "contains" || l.type === "maps_to" ? [4, 2] : null;
                   }}
                   onNodeClick={(node: any) => handleNodeClick(node as GraphNode)} // eslint-disable-line @typescript-eslint/no-explicit-any
                   onNodeHover={(node: any) => setHoveredNode(node?.id ?? null)} // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -954,6 +2057,15 @@ export default function SkillGraph() {
                   </div>
                 </div>
               )}
+
+              {generateEDM.isPending && (
+                <div className="absolute inset-0 bg-background/70 flex items-center justify-center rounded-lg">
+                  <div className="flex items-center gap-2 text-sm">
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    Generating diffusion map from your work history...
+                  </div>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -961,12 +2073,234 @@ export default function SkillGraph() {
         {/* Detail Panel */}
         <Card className="lg:max-h-[calc(100vh-11rem)] lg:overflow-y-auto">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">
-              {selectedNodeData ? selectedNodeData.name : "Node Details"}
+            <CardTitle className="text-lg">
+              {selectedRoleGroup
+                ? selectedRoleGroup.title
+                : selectedRoleInstance
+                  ? `${selectedRoleInstance.title ?? selectedRoleInstance.company}`
+                  : selectedEducation
+                    ? `${selectedEducation.company || selectedEducation.title || "School"}`
+                    : selectedOccupation
+                      ? selectedOccupation.title
+                      : selectedNodeData
+                        ? selectedNodeData.name
+                        : "Node Details"}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {selectedOccupation ? (
+            {selectedRoleGroup ? (
+              <>
+                {/* ── Role Group detail panel ── */}
+                <div className="flex flex-wrap gap-1.5">
+                  <Badge className="bg-sky-500/20 text-sky-400 border-sky-500/30">
+                    <Building2 className="h-3 w-3 mr-1" /> Role Group
+                  </Badge>
+                  <Badge variant="secondary">{selectedRoleGroup.instances.length} instance{selectedRoleGroup.instances.length !== 1 ? "s" : ""}</Badge>
+                </div>
+
+                {/* Instances list */}
+                <div>
+                  <h4 className="text-base font-medium mb-2 flex items-center gap-1.5">
+                    <Briefcase className="h-4 w-4" /> Work History
+                  </h4>
+                  <div className="space-y-2 max-h-60 overflow-y-auto">
+                    {selectedRoleGroup.instances.map((inst) => {
+                      const months = inst.startDate ? (() => {
+                        const [sy, sm] = inst.startDate.split("-").map(Number);
+                        const end = inst.endDate ? inst.endDate.split("-").map(Number) : [new Date().getFullYear(), new Date().getMonth() + 1];
+                        return (end[0] - sy) * 12 + (end[1] - sm);
+                      })() : null;
+                      const tenure = months != null ? (months >= 12 ? `${Math.floor(months / 12)}yr ${months % 12}mo` : `${months}mo`) : null;
+                      const hasSplat = splatSources?.sources?.some((s) => s.workHistoryId === inst.id);
+                      return (
+                        <div key={inst.id} className="p-2 rounded border bg-muted/30 space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="font-medium text-sm">{inst.company}</span>
+                            {tenure && <span className="text-xs text-muted-foreground">{tenure}</span>}
+                          </div>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <Calendar className="h-3 w-3" />
+                            {inst.startDate ?? "?"} — {inst.endDate ?? "Present"}
+                          </div>
+                          {hasSplat && (
+                            <Button
+                              size="sm"
+                              variant={edmSplatSource === inst.id ? "default" : "outline"}
+                              className="mt-1 h-7 text-xs"
+                              onClick={() => {
+                                setEdmSplatSource(edmSplatSource === inst.id ? null : inst.id);
+                                setShowDiffusion(true);
+                              }}
+                            >
+                              <Flame className="h-3 w-3 mr-1" />
+                              {edmSplatSource === inst.id ? "Hide Splat" : "View Splat"}
+                            </Button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Matching occupation link */}
+                {selectedRoleGroup.matchingOccupationId && (
+                  <div className="pt-2 border-t">
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Hexagon className="h-3 w-3" />
+                      Linked to O*NET occupation
+                    </p>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="mt-1 h-7 text-xs"
+                      onClick={() => setSelectedNode(`occ-${selectedRoleGroup.matchingOccupationId}`)}
+                    >
+                      View Occupation →
+                    </Button>
+                  </div>
+                )}
+
+                {/* Focus mode */}
+                <div className="pt-2 border-t">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => enterFocus(`rg-${selectedRoleGroup.key}`, selectedRoleGroup.title)}
+                  >
+                    <Focus className="h-3.5 w-3.5 mr-1" /> Focus on Role
+                  </Button>
+                </div>
+              </>
+            ) : selectedRoleInstance ? (
+              <>
+                {/* ── Role Instance detail panel ── */}
+                <div className="flex flex-wrap gap-1.5">
+                  <Badge className="bg-sky-500/20 text-sky-400 border-sky-500/30">
+                    <Building2 className="h-3 w-3 mr-1" /> Role Instance
+                  </Badge>
+                  <Badge variant="outline">
+                    <Briefcase className="h-3 w-3 mr-1" /> {selectedRoleInstance.company}
+                  </Badge>
+                  <Badge variant="secondary" className="capitalize">{selectedRoleInstance.type}</Badge>
+                </div>
+
+                {/* Timeline */}
+                <div className="space-y-2">
+                  <h4 className="text-base font-medium flex items-center gap-1.5">
+                    <Calendar className="h-4 w-4" /> Timeline
+                  </h4>
+                  <div className="flex items-center gap-2 text-sm">
+                    <span>{selectedRoleInstance.startDate ?? "Unknown"}</span>
+                    <span className="flex-1 h-px bg-border" />
+                    <span>{selectedRoleInstance.endDate ?? "Present"}</span>
+                  </div>
+                  {selectedRoleInstance.startDate && (() => {
+                    const [sy, sm] = selectedRoleInstance.startDate!.split("-").map(Number);
+                    const end = selectedRoleInstance.endDate ? selectedRoleInstance.endDate.split("-").map(Number) : [new Date().getFullYear(), new Date().getMonth() + 1];
+                    const months = (end[0] - sy) * 12 + (end[1] - sm);
+                    const tenureFactor = Math.min(1, months / 24);
+                    return (
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-xs text-muted-foreground">
+                          <span>{months >= 12 ? `${Math.floor(months / 12)}yr ${months % 12}mo` : `${months}mo`}</span>
+                          <span>Tenure factor: {(tenureFactor * 100).toFixed(0)}%</span>
+                        </div>
+                        <div className="w-full bg-muted rounded-full h-1.5">
+                          <div className="h-1.5 rounded-full bg-sky-500" style={{ width: `${tenureFactor * 100}%` }} />
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                {/* Zone breakdown from splat data */}
+                {(() => {
+                  const whSplat = splatSources?.sources?.find((s) => s.workHistoryId === selectedRoleInstance.id);
+                  if (!whSplat) return null;
+                  // If this instance's splat is currently loaded, show zone breakdown
+                  if (edmSplatSource === selectedRoleInstance.id && splatData?.field) {
+                    const zones: Record<string, number> = {};
+                    for (const entry of splatData.field) {
+                      zones[entry.zone] = (zones[entry.zone] ?? 0) + 1;
+                    }
+                    return (
+                      <div className="space-y-2">
+                        <h4 className="text-base font-medium flex items-center gap-1.5">
+                          <Flame className="h-4 w-4 text-amber-500" /> Zone Breakdown
+                        </h4>
+                        <div className="grid grid-cols-2 gap-2">
+                          {Object.entries(EDM_ZONE_COLORS).map(([zone, color]) => (
+                            <div key={zone} className="flex items-center gap-2 text-sm">
+                              <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                              <span>{zone}</span>
+                              <span className="ml-auto text-muted-foreground">{zones[zone] ?? 0}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+
+                {/* Actions */}
+                <div className="flex flex-wrap gap-2 pt-2 border-t">
+                  {splatSources?.sources?.some((s) => s.workHistoryId === selectedRoleInstance.id) && (
+                    <Button
+                      size="sm"
+                      variant={edmSplatSource === selectedRoleInstance.id ? "default" : "outline"}
+                      onClick={() => {
+                        setEdmSplatSource(edmSplatSource === selectedRoleInstance.id ? null : selectedRoleInstance.id);
+                        setShowDiffusion(true);
+                      }}
+                    >
+                      <Flame className="h-3.5 w-3.5 mr-1" />
+                      {edmSplatSource === selectedRoleInstance.id ? "Hide Splat" : "View Splat"}
+                    </Button>
+                  )}
+                  {/* Navigate to parent group */}
+                  {(() => {
+                    const group = whToRoleGroup.get(selectedRoleInstance.id);
+                    if (!group || group.instances.length <= 1) return null;
+                    return (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setSelectedNode(`rg-${group.key}`)}
+                      >
+                        <Layers className="h-3.5 w-3.5 mr-1" /> View Group
+                      </Button>
+                    );
+                  })()}
+                </div>
+              </>
+            ) : selectedEducation ? (
+              <>
+                {/* ── Education detail panel ── */}
+                <div className="flex flex-wrap gap-1.5">
+                  <Badge className="bg-violet-500/20 text-violet-400 border-violet-500/30">
+                    <GraduationCap className="h-3 w-3 mr-1" /> Education
+                  </Badge>
+                  {selectedEducation.degree && (
+                    <Badge variant="outline">
+                      <Award className="h-3 w-3 mr-1" /> {selectedEducation.degree}
+                    </Badge>
+                  )}
+                  {selectedEducation.major && (
+                    <Badge variant="secondary">{selectedEducation.major}</Badge>
+                  )}
+                </div>
+                <div className="text-sm text-muted-foreground flex items-center gap-2">
+                  <Calendar className="h-3.5 w-3.5" />
+                  <span>{selectedEducation.startDate ?? "Unknown"}</span>
+                  <ArrowRight className="h-3 w-3" />
+                  <span>{selectedEducation.endDate ?? "Present"}</span>
+                </div>
+                {selectedEducation.title && (
+                  <p className="text-sm text-muted-foreground">{selectedEducation.title}</p>
+                )}
+              </>
+            ) : selectedOccupation ? (
               <>
                 {/* Occupation detail panel */}
                 <div className="flex flex-wrap gap-1.5">
@@ -974,6 +2308,13 @@ export default function SkillGraph() {
                     <Hexagon className="h-3 w-3 mr-1" /> Occupation
                   </Badge>
                   <Badge variant="secondary">{selectedOccupation.socCode}</Badge>
+                  {(() => {
+                    try {
+                      const meta = selectedOccupation.metadata ? JSON.parse(selectedOccupation.metadata) : null;
+                      if (meta?.company) return <Badge variant="outline"><Briefcase className="h-3 w-3 mr-1" />{meta.company}</Badge>;
+                    } catch { /* ignore */ }
+                    return null;
+                  })()}
                   {selectedOccupation.interests?.[0]?.status && (
                     <Badge variant="outline" className="capitalize">
                       {selectedOccupation.interests[0].status}
@@ -982,13 +2323,48 @@ export default function SkillGraph() {
                 </div>
 
                 {selectedOccupation.description && (
-                  <p className="text-xs text-muted-foreground">{selectedOccupation.description}</p>
+                  <p className="text-sm text-muted-foreground leading-relaxed">{selectedOccupation.description}</p>
                 )}
+
+                {/* Work history instances (merged role group) */}
+                {(() => {
+                  const matchedGroup = roleGroups.find((g) => g.matchingOccupationId === selectedOccupation.id);
+                  if (!matchedGroup) return null;
+                  return (
+                    <div>
+                      <h4 className="text-base font-medium mb-2 flex items-center gap-1.5">
+                        <Briefcase className="h-4 w-4" /> Work History ({matchedGroup.instances.length})
+                      </h4>
+                      <div className="space-y-2 max-h-40 overflow-y-auto">
+                        {matchedGroup.instances.map((inst) => {
+                          const months = inst.startDate ? (() => {
+                            const [sy, sm] = inst.startDate.split("-").map(Number);
+                            const end = inst.endDate ? inst.endDate.split("-").map(Number) : [new Date().getFullYear(), new Date().getMonth() + 1];
+                            return (end[0] - sy) * 12 + (end[1] - sm);
+                          })() : null;
+                          const tenure = months != null ? (months >= 12 ? `${Math.floor(months / 12)}yr ${months % 12}mo` : `${months}mo`) : null;
+                          return (
+                            <div key={inst.id} className="p-2 rounded border bg-muted/30 space-y-1">
+                              <div className="flex items-center justify-between">
+                                <span className="font-medium text-sm">{inst.company}</span>
+                                {tenure && <span className="text-xs text-muted-foreground">{tenure}</span>}
+                              </div>
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                <Calendar className="h-3 w-3" />
+                                {inst.startDate ?? "?"} — {inst.endDate ?? "Present"}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* Required skills */}
                 <div>
-                  <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5">
-                    <Target className="h-3.5 w-3.5" /> Required Skills ({selectedOccupation.requirements.length})
+                  <h4 className="text-base font-medium mb-2 flex items-center gap-1.5">
+                    <Target className="h-4 w-4" /> Required Skills ({selectedOccupation.requirements.length})
                   </h4>
                   <div className="space-y-1.5 max-h-52 overflow-y-auto">
                     {selectedOccupation.requirements
@@ -1021,7 +2397,7 @@ export default function SkillGraph() {
 
                 {/* Status selector */}
                 <div className="pt-2 border-t">
-                  <Label className="text-xs">Track as</Label>
+                  <Label className="text-sm">Track as</Label>
                   <Select
                     value={selectedOccupation.interests?.[0]?.status ?? ""}
                     onValueChange={(v) => {
@@ -1047,6 +2423,61 @@ export default function SkillGraph() {
                     </SelectContent>
                   </Select>
                 </div>
+
+                {/* Actions */}
+                <div className="flex flex-wrap gap-2 pt-2 border-t">
+                  {/* View Diffusion Splat — match occupation to work history */}
+                  {(() => {
+                    if (!splatSources?.sources?.length) return null;
+                    let company: string | undefined;
+                    try {
+                      const meta = selectedOccupation.metadata ? JSON.parse(selectedOccupation.metadata) : null;
+                      if (meta?.company) company = meta.company;
+                    } catch { /* ignore */ }
+                    // Find matching work history by title/company substring
+                    const match = splatSources.sources.find((s) => {
+                      const lbl = s.label.toLowerCase();
+                      const titleMatch = lbl.includes(selectedOccupation.title.toLowerCase());
+                      const companyMatch = company ? lbl.includes(company.toLowerCase()) : false;
+                      return titleMatch || companyMatch;
+                    });
+                    if (!match) return null;
+                    const isActive = edmSplatSource === match.workHistoryId;
+                    return (
+                      <Button
+                        size="sm"
+                        variant={isActive ? "default" : "outline"}
+                        onClick={() => {
+                          setEdmSplatSource(isActive ? null : match.workHistoryId);
+                          setShowDiffusion(true);
+                        }}
+                      >
+                        <Flame className="h-3.5 w-3.5 mr-1" />
+                        {isActive ? "Hide Splat" : "View Splat"}
+                      </Button>
+                    );
+                  })()}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => enterFocus(`occ-${selectedOccupation.id}`, selectedOccupation.title)}
+                  >
+                    <Focus className="h-3.5 w-3.5 mr-1" /> Focus
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => deleteOccupation.mutate(selectedOccupation.id)}
+                    disabled={deleteOccupation.isPending}
+                  >
+                    {deleteOccupation.isPending ? (
+                      <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-3.5 w-3.5 mr-1" />
+                    )}
+                    Remove
+                  </Button>
+                </div>
               </>
             ) : selectedNodeData ? (
               <>
@@ -1058,12 +2489,61 @@ export default function SkillGraph() {
                   <Badge variant="secondary" className="capitalize">
                     {selectedNodeData.source}
                   </Badge>
+                  {(() => {
+                    const edm = edmByNodeId.get(selectedNodeData.id);
+                    if (!edm) return null;
+                    return (
+                      <>
+                        {edm.transferable && (
+                          <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30">
+                            <ArrowUpRight className="h-3 w-3 mr-1" /> Transferable
+                          </Badge>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
+
+                {/* EDM Diffusion Info */}
+                {(() => {
+                  const edm = edmByNodeId.get(selectedNodeData.id);
+                  if (!edm) return null;
+                  return (
+                    <div className="space-y-2">
+                      <h4 className="text-base font-medium flex items-center gap-1.5">
+                        <Flame className="h-4 w-4 text-amber-500" /> Diffusion Intensity
+                      </h4>
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1">
+                          <div className="w-full bg-muted rounded-full h-2">
+                            <div
+                              className="h-2 rounded-full bg-gradient-to-r from-blue-500 via-amber-500 to-amber-300"
+                              style={{ width: `${Math.round(edm.accumulatedIntensity * 100)}%` }}
+                            />
+                          </div>
+                        </div>
+                        <span className="text-sm font-medium tabular-nums">
+                          {Math.round(edm.accumulatedIntensity * 100)}%
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5 text-xs">
+                        <span className="text-muted-foreground">
+                          From {edm.sourceCount} role{edm.sourceCount !== 1 ? "s" : ""}
+                        </span>
+                        {edm.zones.map((z) => (
+                          <Badge key={z} variant="outline" className="text-xs py-0">
+                            {z}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* Connections */}
                 <div>
-                  <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5">
-                    <Link2 className="h-3.5 w-3.5" /> Connections ({selectedNodeEdges?.length ?? 0})
+                  <h4 className="text-base font-medium mb-2 flex items-center gap-1.5">
+                    <Link2 className="h-4 w-4" /> Connections ({selectedNodeEdges?.length ?? 0})
                   </h4>
                   <div className="space-y-1.5 max-h-40 overflow-y-auto">
                     {selectedNodeEdges?.map((edge) => {
@@ -1095,8 +2575,8 @@ export default function SkillGraph() {
 
                 {/* Evidence (Layer 2) */}
                 <div>
-                  <h4 className="text-sm font-medium mb-2 flex items-center gap-1.5">
-                    <Zap className="h-3.5 w-3.5" /> Evidence ({selectedNodeEvidence?.length ?? 0})
+                  <h4 className="text-base font-medium mb-2 flex items-center gap-1.5">
+                    <Zap className="h-4 w-4" /> Evidence ({selectedNodeEvidence?.length ?? 0})
                   </h4>
                   <div className="space-y-1.5 max-h-40 overflow-y-auto">
                     {selectedNodeEvidence?.map((ev) => {
@@ -1188,12 +2668,93 @@ export default function SkillGraph() {
                       </div>
                     ))}
                   </div>
+
+                  {/* EDM summary when data exists */}
+                  {edmData && edmData.field.length > 0 && (
+                    <>
+                      <h4 className="font-medium text-foreground mt-3 flex items-center gap-1.5">
+                        <Flame className="h-3.5 w-3.5 text-amber-500" /> Diffusion Zones
+                      </h4>
+                      <div className="grid grid-cols-2 gap-1.5 text-xs">
+                        {Object.entries(EDM_ZONE_COLORS).map(([zone, color]) => (
+                          <div key={zone} className="flex items-center gap-1.5">
+                            <span className="w-3 h-3 rounded-full" style={{ backgroundColor: color }} />
+                            <span>{zone}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="mt-2 p-2 rounded bg-muted/50 text-xs space-y-1">
+                        <div className="flex justify-between">
+                          <span>Total exposure nodes</span>
+                          <span className="font-medium">{edmData.field.length}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Transferable skills</span>
+                          <span className="font-medium text-amber-500">{edmData.transferableCount}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>From roles</span>
+                          <span className="font-medium">{edmData.totalSources}</span>
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {/* Role Instance Topology summary */}
+                  {roleGroups.length > 0 && (
+                    <>
+                      <h4 className="font-medium text-foreground mt-3 flex items-center gap-1.5">
+                        <Building2 className="h-3.5 w-3.5 text-sky-500" /> Role Topology
+                      </h4>
+                      <div className="grid grid-cols-1 gap-1.5 text-xs">
+                        <div className="flex items-center gap-1.5">
+                          <span className="w-4 h-3 rounded-sm" style={{ backgroundColor: "#0ea5e9" }} />
+                          <span>Role group (click to expand)</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="w-3 h-3 rotate-45" style={{ backgroundColor: "#38bdf8" }} />
+                          <span>Role instance (company)</span>
+                        </div>
+                      </div>
+                      <div className="mt-2 p-2 rounded bg-muted/50 text-xs space-y-1">
+                        <div className="flex justify-between">
+                          <span>Role groups</span>
+                          <span className="font-medium">{roleGroups.length}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Total instances</span>
+                          <span className="font-medium">{roleGroups.reduce((sum, g) => sum + g.instances.length, 0)}</span>
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {/* Education summary */}
+                  {educationEntries.length > 0 && (
+                    <>
+                      <h4 className="font-medium text-foreground mt-3 flex items-center gap-1.5">
+                        <GraduationCap className="h-3.5 w-3.5 text-violet-400" /> Education
+                      </h4>
+                      <div className="grid grid-cols-1 gap-1.5 text-xs">
+                        <div className="flex items-center gap-1.5">
+                          <span className="w-3 h-3" style={{ backgroundColor: "#a78bfa" }} />
+                          <span>Education (school)</span>
+                        </div>
+                      </div>
+                      <div className="mt-2 p-2 rounded bg-muted/50 text-xs">
+                        <div className="flex justify-between">
+                          <span>Schools</span>
+                          <span className="font-medium">{educationEntries.length}</span>
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             )}
           </CardContent>
         </Card>
-      </div>
+      </div>}
 
       {/* ── Add Node Dialog ── */}
       <Dialog open={showAddNode} onOpenChange={setShowAddNode}>
