@@ -15,12 +15,12 @@ export async function GET(request: Request) {
   }
 
   const [position, paychecks, workLogs] = await Promise.all([
-    prisma.currentPosition.findUnique({
+    prisma.workHistory.findFirst({
       where: { id: positionId },
       select: {
         id: true,
         company: true,
-        role: true,
+        title: true,
         startDate: true,
         endDate: true,
         isActive: true,
@@ -123,9 +123,10 @@ export async function GET(request: Request) {
 
   // ── Schedule-based estimate (gap fill) ──
   const now = new Date();
-  const effectiveEnd = position.endDate ?? now;
+  const startDateObj = position.startDate ? new Date(position.startDate + "-01") : now;
+  const endDateObj = position.endDate ? new Date(position.endDate + "-01") : now;
   const tenureDays =
-    (effectiveEnd.getTime() - position.startDate.getTime()) / 86400000;
+    (endDateObj.getTime() - startDateObj.getTime()) / 86400000;
   const tenureWeeks = tenureDays / 7;
 
   const schedHoursPerWeek = position.rotatingSchedule
@@ -219,7 +220,7 @@ export async function GET(request: Request) {
   return NextResponse.json({
     positionId: position.id,
     company: position.company,
-    role: position.role,
+    role: position.title,
     tenure: {
       startDate: position.startDate,
       endDate: position.endDate,

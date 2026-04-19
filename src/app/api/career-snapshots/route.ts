@@ -43,9 +43,9 @@ export async function POST() {
       prisma.skill.findMany(),
       prisma.certification.findMany(),
       prisma.careerGoal.findMany(),
-      prisma.currentPosition.findFirst({
+      prisma.workHistory.findFirst({
         where: { isActive: true },
-        orderBy: { startDate: "desc" },
+        orderBy: { createdAt: "desc" },
       }),
       prisma.jobApplication.findMany({
         where: { status: { notIn: ["rejected", "withdrawn", "accepted"] } },
@@ -74,14 +74,14 @@ export async function POST() {
     data: { userId,
       totalSkills,
       avgProficiency,
-      incomeGross: latestIncome?.grossIncome ?? (activePos?.salary ? Number(activePos.salary) : null),
+      incomeGross: latestIncome?.grossIncome ?? (activePos?.salaryAmount ? Number(activePos.salaryAmount) : null),
       incomeNet: latestIncome?.netIncome ?? null,
       activeGoals,
       completedGoals,
       certCount: certs.length,
       applicationsOpen: applications.length,
       interviewsCount: interviews.length,
-      currentRole: activePos?.role ?? null,
+      currentRole: activePos?.title ?? null,
       currentCompany: activePos?.company ?? null,
     },
   });

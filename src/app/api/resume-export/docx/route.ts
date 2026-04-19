@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
 
   const [profile, positions, skills, certifications, resume] = await Promise.all([
     prisma.userProfile.findFirst(),
-    prisma.currentPosition.findMany({ orderBy: { startDate: "desc" } }),
+    prisma.workHistory.findMany({ orderBy: { createdAt: "desc" } }),
     prisma.skill.findMany({ orderBy: [{ category: "asc" }, { name: "asc" }] }),
     prisma.certification.findMany({ orderBy: { issueDate: "desc" } }),
     resumeId ? prisma.resumeVersion.findUnique({ where: { id: resumeId } }) : null,
@@ -143,13 +143,13 @@ export async function GET(req: NextRequest) {
         new Paragraph({
           children: [
             new TextRun({
-              text: pos.role,
+              text: pos.title || pos.company,
               bold: true,
               size: 22,
               font: "Calibri",
             }),
             new TextRun({
-              text: `    ${formatDateRange(pos.startDate.toISOString(), pos.endDate?.toISOString() || null)}`,
+              text: `    ${formatDateRange(pos.startDate || "", pos.endDate || null)}`,
               size: 18,
               color: "6b7280",
               font: "Calibri",

@@ -62,9 +62,9 @@ export async function GET() {
       where: { userId },
       _count: { status: true },
     }),
-    prisma.currentPosition.findFirst({
+    prisma.workHistory.findFirst({
       where: { userId, isActive: true },
-      orderBy: { startDate: "desc" },
+      orderBy: { createdAt: "desc" },
     }),
     prisma.recruiterSubmission.count({ where: { userId, status: "new" } }),
     prisma.userProfile.findFirst({ where: { userId } }),
@@ -174,7 +174,7 @@ export async function GET() {
     },
     pipeline,
     recentActivity,
-    currentPosition,
+    currentPosition: currentPosition ? { ...currentPosition, role: currentPosition.title, type: currentPosition.workMode, salary: currentPosition.salaryAmount, currency: currentPosition.salaryCurrency } : null,
     profile,
     topSkills,
     certifications,

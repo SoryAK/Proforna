@@ -22,7 +22,7 @@ export async function GET() {
     interviews,
   ] = await Promise.all([
     prisma.userProfile.findFirst(),
-    prisma.currentPosition.findFirst({ where: { isActive: true } }),
+    prisma.workHistory.findFirst({ where: { isActive: true } }),
     prisma.jobApplication.findMany({
       orderBy: { updatedAt: "desc" },
       take: 20,
@@ -71,12 +71,12 @@ export async function GET() {
 
   if (position) {
     const lines = [`\n## Current Position`];
-    lines.push(`- Role: ${position.role} at ${position.company}`);
+    lines.push(`- Role: ${position.title} at ${position.company}`);
     if (position.department) lines.push(`- Department: ${position.department}`);
     if (position.location) lines.push(`- Location: ${position.location}`);
-    lines.push(`- Type: ${position.type}`);
-    lines.push(`- Start Date: ${position.startDate.toISOString().split("T")[0]}`);
-    if (position.salary) lines.push(`- Salary: ${position.currency} ${position.salary.toLocaleString()}`);
+    lines.push(`- Type: ${position.workMode}`);
+    lines.push(`- Start Date: ${position.startDate}`);
+    if (position.salaryAmount) lines.push(`- Salary: ${position.salaryCurrency} ${position.salaryAmount.toLocaleString()}`);
     if (position.payType && position.payRate) lines.push(`- Pay: ${position.payType} @ $${position.payRate}/hr, ${position.payFrequency}`);
     if (position.techStack) lines.push(`- Tech Stack: ${position.techStack}`);
     parts.push(lines.join("\n"));

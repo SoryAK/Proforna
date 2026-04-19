@@ -59,11 +59,11 @@ export async function POST() {
         milestones: { select: { title: true, type: true } },
       },
     }),
-    prisma.currentPosition.findMany({
+    prisma.workHistory.findMany({
       where: { userId },
       select: {
         id: true,
-        role: true,
+        title: true,
         company: true,
         department: true,
         industry: true,
@@ -232,7 +232,7 @@ export async function POST() {
     });
   }
 
-  // ── 3. Process CurrentPosition entries ────────────────────────
+  // ── 3. Process WorkHistory position entries ────────────────────────
   for (const pos of positions) {
     const exposures: ExposureDescriptor[] = [];
 
@@ -291,14 +291,15 @@ export async function POST() {
       });
     }
 
-    // CurrentPosition → use as a work-history-like source
-    // We need a workHistoryId — find matching WH by company+role
+    // WorkHistory position → use as a work-history-like source
+    // We need a workHistoryId — find matching WH by company+title
     // If not found, we'll skip DiffusionExposure (no WH link) but still create nodes
     const matchingWh = workHistories.find(
       (wh) =>
         wh.company === pos.company &&
         wh.title &&
-        normKey(wh.title) === normKey(pos.role)
+        pos.title &&
+        normKey(wh.title) === normKey(pos.title)
     );
 
     if (matchingWh) {

@@ -9,7 +9,7 @@ export async function POST() {
   try {
     // Clear existing data for this user
     await prisma.recruiterSubmission.deleteMany({ where: { userId } });
-    await prisma.currentPosition.deleteMany({ where: { userId } });
+    await prisma.workHistory.deleteMany({ where: { userId } });
     await prisma.userProfile.deleteMany({ where: { userId } });
     await prisma.activityLog.deleteMany({ where: { userId } });
     await prisma.reminder.deleteMany({ where: { userId } });
@@ -148,18 +148,21 @@ export async function POST() {
       },
     });
 
-    // Current Position
-    await prisma.currentPosition.create({
+    // Work History
+    await prisma.workHistory.create({
       data: {
         userId,
         company: "TechStartup Inc",
-        role: "Senior Frontend Engineer",
+        title: "Senior Frontend Engineer",
         department: "Engineering",
         location: "San Francisco, CA",
-        type: "remote",
-        startDate: new Date("2024-09-01"),
-        salary: 175000,
-        currency: "USD",
+        address: "San Francisco, CA",
+        lat: 37.7749,
+        lng: -122.4194,
+        workMode: "remote",
+        startDate: "2024-09",
+        salaryAmount: 175000,
+        salaryCurrency: "USD",
         description: "Leading frontend development for the core product platform, building performant React-based UIs serving 50k+ daily active users.",
         responsibilities: "Lead frontend architecture and technical decisions\nMentor 3 junior engineers on the team\nConduct code reviews and define best practices\nCollaborate with design and product on new features\nOptimize bundle size and Core Web Vitals",
         techStack: "React, TypeScript, Next.js, TailwindCSS, GraphQL, PostgreSQL",
@@ -168,18 +171,21 @@ export async function POST() {
       },
     });
 
-    await prisma.currentPosition.create({
+    await prisma.workHistory.create({
       data: {
         userId,
         company: "WebAgency Co",
-        role: "Frontend Developer",
+        title: "Frontend Developer",
         department: "Development",
         location: "Austin, TX",
-        type: "hybrid",
-        startDate: new Date("2022-03-15"),
-        endDate: new Date("2024-08-31"),
-        salary: 120000,
-        currency: "USD",
+        address: "Austin, TX",
+        lat: 30.2672,
+        lng: -97.7431,
+        workMode: "hybrid",
+        startDate: "2022-03",
+        endDate: "2024-08",
+        salaryAmount: 120000,
+        salaryCurrency: "USD",
         description: "Built client-facing web applications for Fortune 500 companies.",
         responsibilities: "Developed responsive web applications\nIntegrated REST APIs\nImplemented automated testing",
         techStack: "React, JavaScript, SASS, Node.js, Jest",

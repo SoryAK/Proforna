@@ -141,9 +141,9 @@ export async function GET(req: NextRequest) {
   // Build queries from user profile
   const [profile, position, skills] = await Promise.all([
     prisma.userProfile.findFirst({ where: { userId } }),
-    prisma.currentPosition.findFirst({
+    prisma.workHistory.findFirst({
       where: { userId, isActive: true },
-      orderBy: { startDate: "desc" },
+      orderBy: { createdAt: "desc" },
     }),
     prisma.skill.findMany({
       where: { userId },
@@ -155,7 +155,7 @@ export async function GET(req: NextRequest) {
   const queries: { query: string; category: string }[] = [];
 
   // Industry / role query
-  const role = position?.role ?? profile?.preferredRoles?.split(",")[0]?.trim();
+  const role = position?.title ?? profile?.preferredRoles?.split(",")[0]?.trim();
   const company = position?.company;
   if (role) {
     queries.push({

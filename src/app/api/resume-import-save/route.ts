@@ -80,19 +80,23 @@ export async function POST(request: Request) {
       });
     }
 
-    // 2. Update Experience (CurrentPositions)
+    // 2. Update Experience (WorkHistory)
     if (parsedData.experience && Array.isArray(parsedData.experience)) {
       for (const exp of parsedData.experience) {
         if (!exp.company || !exp.title) continue;
-        
-        await prisma.currentPosition.create({
+        const sd = safeDate(exp.startDate);
+        const ed = safeDate(exp.endDate);
+        await prisma.workHistory.create({
           data: {
             userId,
-            role: exp.title,
+            title: exp.title,
             company: exp.company,
             location: exp.location,
-            startDate: safeDate(exp.startDate) ?? new Date(),
-            endDate: safeDate(exp.endDate),
+            address: exp.location || "N/A",
+            lat: 0,
+            lng: 0,
+            startDate: sd ? `${sd.getFullYear()}-${String(sd.getMonth() + 1).padStart(2, "0")}` : null,
+            endDate: ed ? `${ed.getFullYear()}-${String(ed.getMonth() + 1).padStart(2, "0")}` : null,
             isActive: exp.isCurrent ?? (!exp.endDate),
             description: exp.description,
             responsibilities: JSON.stringify(exp.achievements || []),

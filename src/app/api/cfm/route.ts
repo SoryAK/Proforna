@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getUserId } from "@/lib/auth-utils";
+import { buildAliasResolver } from "@/lib/employer-alias";
 
 /* ── Server-side annual estimate (mirrors compensation-tracker logic) ── */
 
@@ -37,12 +38,12 @@ interface LiveEstimate {
 
 function computeLiveEstimate(
   position: {
-    payType: string;
+    payType: string | null;
     payRate: string | null;
-    salary: number | null;
+    salaryAmount: number | null;
     differentials: string | null;
-    payFrequency: string;
-    rotatingSchedule: boolean;
+    payFrequency: string | null;
+    rotatingSchedule: boolean | null;
     hoursPerWeek: number | null;
     scheduleBHours: number | null;
     otHoursA: number | null;
@@ -50,8 +51,8 @@ function computeLiveEstimate(
     otRate: number | null;
     estimatorSettings: string | null;
     company: string;
-    role: string;
-    startDate: Date;
+    title: string | null;
+    startDate: string | null;
   },
   compensationEvents: { type: string; amount: number; recurring: boolean; effectiveDate: Date }[]
 ): LiveEstimate {
@@ -121,7 +122,7 @@ function computeLiveEstimate(
       diffPay = avgDiff * schedAHrs * diffPct * weeksPerYear;
     }
   } else {
-    basePay = position.salary || (currentSalaryEvent?.amount ?? 0);
+    basePay = position.salaryAmount || (currentSalaryEvent?.amount ?? 0);
     ot1Pay = 0;
     ot2Pay = 0;
     diffPay = 0;
@@ -140,14 +141,15 @@ function computeLiveEstimate(
   const now = new Date();
   const currentYear = now.getFullYear();
   const yearStart = new Date(currentYear, 0, 1);
-  const posStart = position.startDate > yearStart ? position.startDate : yearStart;
+  const posStart = position.startDate ? new Date(position.startDate + "-01") : yearStart;
+  const posStartCmp = posStart > yearStart ? posStart : yearStart;
 
   // Count how many pay periods have been completed from posStart to now
   const periodDays = position.payFrequency === "weekly" ? 7
     : position.payFrequency === "biweekly" ? 14
     : position.payFrequency === "semimonthly" ? 15
     : 30;
-  const daysSinceStart = (now.getTime() - posStart.getTime()) / (86400000);
+  const daysSinceStart = (now.getTime() - posStartCmp.getTime()) / (86400000);
   const completedPeriods = Math.floor(daysSinceStart / periodDays);
   const fractionOfYear = Math.min(1, completedPeriods / payPeriods);
   const ytdGross = grossIncome > 0 ? Math.round(grossIncome * fractionOfYear) : null;
@@ -157,7 +159,7 @@ function computeLiveEstimate(
     grossIncome: Math.round(grossIncome),
     netIncome: netIncome > 0 ? Math.round(netIncome) : null,
     company: position.company,
-    role: position.role,
+    role: position.title || position.company,
     breakdown: {
       basePay: Math.round(basePay),
       ot1Pay: Math.round(ot1Pay),
@@ -178,16 +180,17 @@ export async function GET() {
   try {
     const [incomeYears, wageTiers, activePositions] = await Promise.all([
       prisma.careerIncomeYear.findMany({
+        where: { userId },
         orderBy: { year: "asc" },
         include: {
           entries: { orderBy: { createdAt: "asc" } },
           w2Records: { orderBy: { createdAt: "desc" } },
         },
       }),
-      prisma.wageTier.findMany({ orderBy: { sortOrder: "asc" } }),
-      prisma.currentPosition.findMany({
-        where: { isActive: true },
-        orderBy: { startDate: "desc" },
+      prisma.wageTier.findMany({ where: { userId }, orderBy: { sortOrder: "asc" } }),
+      prisma.workHistory.findMany({
+        where: { userId, isActive: true, type: "job" },
+        orderBy: { createdAt: "desc" },
         include: {
           compensation: true,
           paychecks: { orderBy: { createdAt: "desc" } },
@@ -208,7 +211,7 @@ export async function GET() {
       return {
         positionId: pos.id,
         company: pos.company,
-        role: pos.role,
+        role: pos.title,
         annualRaiseMin: pos.annualRaiseMin,
         annualRaiseMax: pos.annualRaiseMax,
         projectedGross: le.grossIncome,
@@ -248,7 +251,44 @@ export async function GET() {
       };
     });
 
-    return NextResponse.json({ incomeYears, wageTiers, liveEstimate, paycheckTrackers });
+    // Resolve employer aliases so chart groups correctly
+    const resolve = await buildAliasResolver(userId);
+    const resolvedYears = incomeYears.map((y) => {
+      const resolvedEntries = y.entries.map((e) => ({ ...e, employer: resolve(e.employer) }));
+      const resolvedW2s = y.w2Records.map((w) => ({ ...w, employerName: w.employerName ? resolve(w.employerName) : w.employerName }));
+
+      // Re-aggregate year totals from resolved entries (within this year only).
+      // After alias resolution, entries that map to the same canonical name
+      // may have been separate — recompute the year total so it matches.
+      const entryGross = resolvedEntries.reduce((s, e) => s + e.grossIncome, 0);
+      const entryNet = resolvedEntries.reduce((s, e) => s + (e.netIncome ?? 0), 0);
+
+      return {
+        ...y,
+        // Use re-aggregated totals when entries exist; keep DB value otherwise
+        grossIncome: resolvedEntries.length > 0 ? entryGross : y.grossIncome,
+        netIncome: resolvedEntries.length > 0 ? (entryNet || y.netIncome) : y.netIncome,
+        entries: resolvedEntries,
+        w2Records: resolvedW2s,
+      };
+    });
+
+    // Compute Recorded Total Gross (RTG) & Recorded Total Net (RTN) from all income years
+    const rtg = resolvedYears.reduce((s, y) => s + y.grossIncome, 0);
+    const rtn = resolvedYears.reduce((s, y) => s + (y.netIncome ?? 0), 0);
+    const yearSpan = resolvedYears.length > 0
+      ? { from: resolvedYears[0].year, to: resolvedYears[resolvedYears.length - 1].year }
+      : null;
+
+    return NextResponse.json({
+      incomeYears: resolvedYears,
+      wageTiers,
+      liveEstimate,
+      paycheckTrackers,
+      rtg,
+      rtn: rtn > 0 ? rtn : null,
+      yearSpan,
+    });
   } catch (error) {
     return NextResponse.json({ error: String(error) }, { status: 500 });
   }

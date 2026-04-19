@@ -21,7 +21,7 @@ export async function GET(request: Request) {
     }
 
     // All records for active positions
-    const activePositions = await prisma.currentPosition.findMany({
+    const activePositions = await prisma.workHistory.findMany({
       where: { isActive: true },
       include: {
         paychecks: { orderBy: { createdAt: "desc" }, take: 1 },
@@ -48,7 +48,7 @@ export async function POST(request: Request) {
     }
 
     // Validate position exists
-    const position = await prisma.currentPosition.findUnique({ where: { id: positionId } });
+    const position = await prisma.workHistory.findFirst({ where: { id: positionId } });
     if (!position) {
       return NextResponse.json({ error: "Position not found" }, { status: 404 });
     }

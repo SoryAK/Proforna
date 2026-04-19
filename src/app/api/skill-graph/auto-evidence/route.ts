@@ -20,7 +20,7 @@ export async function POST() {
   }
 
   // Fetch user's skill nodes and existing data in parallel
-  const [skillNodes, workHistory, certifications, learningItems, currentPositions, existingEvidence] =
+  const [skillNodes, workHistory, certifications, learningItems, activePositions, existingEvidence] =
     await Promise.all([
       prisma.skillNode.findMany({
         where: { userId },
@@ -38,9 +38,9 @@ export async function POST() {
         where: { userId },
         select: { id: true, title: true, provider: true, skills: true, status: true, progress: true },
       }),
-      prisma.currentPosition.findMany({
+      prisma.workHistory.findMany({
         where: { userId },
-        select: { id: true, company: true, role: true, techStack: true, responsibilities: true },
+        select: { id: true, company: true, title: true, techStack: true, responsibilities: true },
       }),
       prisma.skillEvidence.findMany({
         where: { userId },
@@ -56,7 +56,7 @@ export async function POST() {
   }
 
   const totalArtifacts =
-    workHistory.length + certifications.length + learningItems.length + currentPositions.length;
+    workHistory.length + certifications.length + learningItems.length + activePositions.length;
 
   if (totalArtifacts === 0) {
     return NextResponse.json(
@@ -92,11 +92,11 @@ export async function POST() {
     );
   }
 
-  for (const cp of currentPositions) {
+  for (const cp of activePositions) {
     const techStr = cp.techStack ? ` | Tech: ${cp.techStack}` : "";
     const respStr = cp.responsibilities ? ` | Resp: ${cp.responsibilities.slice(0, 200)}` : "";
     artifactDescriptions.push(
-      `[CURRENT_POSITION id="${cp.id}"] ${cp.role} at ${cp.company}${techStr}${respStr}`
+      `[CURRENT_POSITION id="${cp.id}"] ${cp.title} at ${cp.company}${techStr}${respStr}`
     );
   }
 

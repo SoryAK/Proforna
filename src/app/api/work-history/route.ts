@@ -11,6 +11,7 @@ export async function GET() {
     orderBy: { createdAt: "desc" },
     include: { locations: true },
   });
+
   return NextResponse.json(items);
 }
 

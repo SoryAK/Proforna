@@ -8,7 +8,7 @@ export async function GET() {
   const userId = await getUserId();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const [nodes, edges, evidence, occupations, workHistories] = await Promise.all([
+  const [nodes, edges, evidence, occupations, workHistories, careerEvents] = await Promise.all([
     prisma.skillNode.findMany({
       where: { userId },
       include: { evidence: true },
@@ -47,9 +47,16 @@ export async function GET() {
       },
       orderBy: { startDate: "desc" },
     }),
+    prisma.careerEvent.findMany({
+      where: { userId },
+      include: {
+        skills: { select: { skillNodeId: true } },
+      },
+      orderBy: { startDate: "asc" },
+    }),
   ]);
 
-  return NextResponse.json({ nodes, edges, evidence, occupations, workHistories });
+  return NextResponse.json({ nodes, edges, evidence, occupations, workHistories, careerEvents });
 }
 
 /** POST — create a new skill node */
@@ -86,8 +93,10 @@ export async function DELETE() {
   // DiffusionExposure must go first (references SkillNode)
   // Edges, evidence, occupation requirements cascade from their parents,
   // but deleting explicitly avoids ordering issues with cross-references.
-  const [exposures, edges, evidence, requirements, interests, occupations, nodes] =
+  const [eventSkills, events, exposures, edges, evidence, requirements, interests, occupations, nodes] =
     await prisma.$transaction([
+      prisma.careerEventSkill.deleteMany({ where: { careerEvent: { userId } } }),
+      prisma.careerEvent.deleteMany({ where: { userId } }),
       prisma.diffusionExposure.deleteMany({ where: { userId } }),
       prisma.skillEdge.deleteMany({ where: { from: { userId } } }),
       prisma.skillEvidence.deleteMany({ where: { userId } }),
@@ -108,6 +117,8 @@ export async function DELETE() {
       requirements: requirements.count,
       interests: interests.count,
       exposures: exposures.count,
+      events: events.count,
+      eventSkills: eventSkills.count,
     },
   });
 }

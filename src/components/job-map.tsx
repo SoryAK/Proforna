@@ -82,6 +82,7 @@ import {
   Camera,
   ImageIcon,
   Landmark,
+  BarChart3,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -3936,7 +3937,7 @@ export function JobMap() {
 
           {/* ── Floating Life Anchors panel on map ── */}
           {showAnchorsPanel && (
-            <div className="absolute top-3 left-3 z-[1100] bg-background/95 backdrop-blur-md border rounded-xl shadow-xl p-3 w-80 max-h-[50vh] overflow-y-auto pointer-events-auto">
+            <div className="absolute top-3 left-3 z-[1100] bg-background/95 backdrop-blur-md border rounded-xl shadow-xl p-3 w-80 max-h-[50vh] overflow-y-auto scrollbar-thin pointer-events-auto">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-semibold flex items-center gap-1.5">
                   <Anchor className="h-4 w-4 text-violet-500" /> Life Anchors
@@ -4313,7 +4314,7 @@ export function JobMap() {
               </div>
 
               {/* ═══ SCROLLABLE MIDDLE ═══ */}
-              <div className="flex-1 overflow-y-auto min-h-0 divide-y">
+              <div className="flex-1 overflow-y-auto scrollbar-thin min-h-0 divide-y">
 
                 {/* ── 📍 Location Section ── */}
                 <details open className="group">
@@ -6405,6 +6406,17 @@ function WorkHistoryPanel({
   const [address, setAddress] = useState("");
   const [addCoords, setAddCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [addPlaceId, setAddPlaceId] = useState<string | null>(null);
+
+  // CFM summary for RTG/RTN in stats header
+  const { data: cfmSummary } = useQuery<{ rtg: number; rtn: number | null; yearSpan: { from: number; to: number } | null }>({
+    queryKey: ["cfm-summary"],
+    queryFn: async () => {
+      const r = await fetch("/api/cfm");
+      const d = await r.json();
+      return { rtg: d.rtg ?? 0, rtn: d.rtn ?? null, yearSpan: d.yearSpan ?? null };
+    },
+    staleTime: 120_000,
+  });
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [saving, setSaving] = useState(false);
@@ -6832,10 +6844,12 @@ function WorkHistoryPanel({
   }
   interface CompEvent { id: string; type: string; title: string; amount: number; currency: string; effectiveDate: string; recurring: boolean; notes: string | null }
   interface WLog { id: string; title: string; content: string | null; category: string; hours: number | null; accomplishment: boolean; impact: string | null; date: string; tags: string | null }
+  interface IncomeHistory { employer: string; years: { year: number; grossIncome: number; netIncome: number | null }[]; totalGross: number; totalNet: number | null; yearCount: number }
 
   const [matchedPosition, setMatchedPosition] = useState<MatchedPosition | null>(null);
   const [compEvents, setCompEvents] = useState<CompEvent[]>([]);
   const [workLogs, setWorkLogs] = useState<WLog[]>([]);
+  const [incomeHistory, setIncomeHistory] = useState<IncomeHistory | null>(null);
   const [enrichLoading, setEnrichLoading] = useState(false);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   const [focusTab, setFocusTab] = useState<"overview" | "edit">("overview");
@@ -6845,28 +6859,32 @@ function WorkHistoryPanel({
   useEffect(() => {
     if (!focusedItem || focusedId === prevFocusedId.current) return;
     prevFocusedId.current = focusedId;
-    setMatchedPosition(null); setCompEvents([]); setWorkLogs([]); setExpandedSections(new Set());
+    setMatchedPosition(null); setCompEvents([]); setWorkLogs([]); setIncomeHistory(null); setExpandedSections(new Set());
 
     let cancelled = false;
     (async () => {
       setEnrichLoading(true);
       try {
-        // Fetch all positions, match by company name (case-insensitive)
-        const posRes = await fetch("/api/current-position");
-        if (!posRes.ok) return;
-        const positions: MatchedPosition[] = await posRes.json();
-        const match = positions.find((p) => p.company.toLowerCase().trim() === focusedItem.company.toLowerCase().trim());
-        if (cancelled || !match) { setEnrichLoading(false); return; }
-        setMatchedPosition(match);
-
-        // Fetch compensation events + work logs in parallel
-        const [ceRes, wlRes] = await Promise.all([
-          fetch(`/api/compensation?positionId=${match.id}`),
-          fetch(`/api/work-logs?positionId=${match.id}&accomplishments=true`),
-        ]);
+        // Fetch position data for enrichment (all positions are WorkHistory now)
+        const posRes = await fetch(`/api/current-position/${focusedItem.id}`);
         if (cancelled) return;
-        if (ceRes.ok) setCompEvents(await ceRes.json());
-        if (wlRes.ok) setWorkLogs(await wlRes.json());
+
+        if (posRes.ok) {
+          const match: MatchedPosition = await posRes.json();
+          if (cancelled) return;
+          setMatchedPosition(match);
+          // Fetch compensation events + work logs in parallel
+          const [ceRes, wlRes, ihRes] = await Promise.all([
+            fetch(`/api/compensation?positionId=${match.id}`),
+            fetch(`/api/work-logs?positionId=${match.id}&accomplishments=true`),
+            fetch(`/api/income-history?employer=${encodeURIComponent(match.company)}`),
+          ]);
+          if (cancelled) return;
+          if (ceRes.ok) setCompEvents(await ceRes.json());
+          if (wlRes.ok) setWorkLogs(await wlRes.json());
+          if (ihRes.ok) { const ih = await ihRes.json(); if (ih.yearCount > 0) setIncomeHistory(ih); }
+        }
+        // No match = no enrichment. WorkHistory's own detail sections will render below.
       } catch { /* silent */ } finally { if (!cancelled) setEnrichLoading(false); }
     })();
     return () => { cancelled = true; };
@@ -7262,7 +7280,7 @@ function WorkHistoryPanel({
   }
 
   return (
-    <div className="absolute top-3 left-3 z-[1100] bg-background/95 backdrop-blur-md border rounded-xl shadow-xl p-3 w-80 max-h-[60vh] overflow-y-auto pointer-events-auto">
+    <div className="absolute top-3 left-3 z-[1100] bg-background/95 backdrop-blur-md border rounded-xl shadow-xl p-3 w-96 max-h-[60vh] overflow-y-auto scrollbar-thin pointer-events-auto">
 
       {/* ── Focused Detail View ── */}
       {focusedItem ? (
@@ -7272,9 +7290,14 @@ function WorkHistoryPanel({
               <ChevronLeft className="h-4 w-4" />
             </button>
             <span className="text-sm font-semibold truncate">{focusedItem.company}</span>
-            <button type="button" className="ml-auto text-muted-foreground hover:text-foreground shrink-0" onClick={onClose}>
-              <X className="h-4 w-4" />
-            </button>
+            <div className="ml-auto flex items-center gap-1 shrink-0">
+              <button type="button" className={`p-1 rounded transition-colors ${focusTab === "edit" ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground"}`} onClick={() => setFocusTab(focusTab === "edit" ? "overview" : "edit")} title={focusTab === "edit" ? "Back to overview" : "Edit"}>
+                <Pencil className="h-3.5 w-3.5" />
+              </button>
+              <button type="button" className="p-1 text-muted-foreground hover:text-foreground" onClick={onClose}>
+                <X className="h-4 w-4" />
+              </button>
+            </div>
           </div>
 
           {/* Company & Title + Employment Period + Key Facts */}
@@ -7297,28 +7320,28 @@ function WorkHistoryPanel({
                 <div className="space-y-1">
                   <div className="flex items-center gap-1.5 flex-wrap">
                     {isSchool ? <GraduationCap className="h-3.5 w-3.5 text-violet-500 shrink-0" /> : isSelfEmployed ? <span className="text-xs shrink-0">🧑‍💻</span> : isUnemployed ? <Search className="h-3.5 w-3.5 text-red-500 shrink-0" /> : <Briefcase className={`h-3.5 w-3.5 shrink-0 ${isInternship ? "text-cyan-600" : "text-gray-500"}`} />}
-                    <span className="text-xs font-semibold">{focusedItem.company}</span>
-                    {focusedItem.scheduleType && <span className="text-[9px] bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded capitalize">{focusedItem.scheduleType.replace("-", " ")}</span>}
-                    {focusedItem.workMode && <span className="text-[9px] bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded capitalize">{focusedItem.workMode}{focusedItem.hybridDays != null ? ` ${focusedItem.hybridDays}d` : ""}</span>}
-                    {isSchool && <span className="text-[9px] bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 px-1.5 py-0.5 rounded">School</span>}
-                    {isInternship && <span className="text-[9px] bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300 px-1.5 py-0.5 rounded">Internship</span>}
-                    {isSelfEmployed && <span className="text-[9px] bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 rounded">Self-Employed</span>}
-                    {isUnemployed && <span className="text-[9px] bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 px-1.5 py-0.5 rounded">Unemployed</span>}
+                    <span className="text-sm font-semibold">{focusedItem.company}</span>
+                    {focusedItem.scheduleType && <span className="text-[13px] bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded capitalize">{focusedItem.scheduleType.replace("-", " ")}</span>}
+                    {focusedItem.workMode && <span className="text-[13px] bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded capitalize">{focusedItem.workMode}{focusedItem.hybridDays != null ? ` ${focusedItem.hybridDays}d` : ""}</span>}
+                    {isSchool && <span className="text-[13px] bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 px-1.5 py-0.5 rounded">School</span>}
+                    {isInternship && <span className="text-[13px] bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300 px-1.5 py-0.5 rounded">Internship</span>}
+                    {isSelfEmployed && <span className="text-[13px] bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 rounded">Self-Employed</span>}
+                    {isUnemployed && <span className="text-[13px] bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 px-1.5 py-0.5 rounded">Unemployed</span>}
                   </div>
                   {/* Degree + Major for schools, or Job Title for jobs */}
                   {isSchool ? (
                     <>
                       {(focusedItem.degree || focusedItem.major) && (
-                        <p className="text-[11px] text-muted-foreground">
+                        <p className="text-[13px] text-muted-foreground">
                           {focusedItem.degree}{focusedItem.degree && focusedItem.major ? " in " : ""}{focusedItem.major}
                         </p>
                       )}
-                      {focusedItem.gpa != null && <p className="text-[10px] text-muted-foreground">GPA: {focusedItem.gpa}</p>}
+                      {focusedItem.gpa != null && <p className="text-xs text-muted-foreground">GPA: {focusedItem.gpa}</p>}
                     </>
                   ) : (
-                    focusedItem.title && <p className="text-[11px] text-muted-foreground">{focusedItem.title}</p>
+                    focusedItem.title && <p className="text-[13px] text-muted-foreground">{focusedItem.title}</p>
                   )}
-                  {!isUnemployed && <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                  {!isUnemployed && <p className="text-xs text-muted-foreground flex items-center gap-1">
                     <MapPin className="h-3 w-3 shrink-0" /> {focusedItem.address}
                   </p>}
                 </div>
@@ -7328,12 +7351,12 @@ function WorkHistoryPanel({
                   <div className="flex items-center gap-2 pt-1 border-t border-border/50">
                     <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                     <div className="flex-1">
-                      <p className="text-[11px] font-medium">
+                      <p className="text-[13px] font-medium">
                         {focusedItem.startDate ?? "?"} – {focusedItem.endDate ?? "present"}
-                        {isCurrent && <span className="ml-1.5 text-[9px] bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 px-1 rounded">current</span>}
+                        {isCurrent && <span className="ml-1.5 text-[13px] bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 px-1 rounded">current</span>}
                       </p>
                     </div>
-                    {tenure && <span className="text-[10px] text-muted-foreground shrink-0">{tenure}</span>}
+                    {tenure && <span className="text-xs text-muted-foreground shrink-0">{tenure}</span>}
                   </div>
                 )}
 
@@ -7343,12 +7366,12 @@ function WorkHistoryPanel({
                     <DollarSign className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
                     <div className="flex-1 flex items-baseline gap-1.5 flex-wrap">
                       {focusedItem.salaryAmount != null && (
-                        <span className="text-[11px] font-semibold">
+                        <span className="text-[13px] font-semibold">
                           {focusedItem.salaryCurrency === "USD" || !focusedItem.salaryCurrency ? "$" : focusedItem.salaryCurrency}{focusedItem.salaryAmount.toLocaleString()}{focusedItem.salaryType === "hourly" ? "/hr" : "/yr"}
                         </span>
                       )}
                       {focusedItem.bonusAmount != null && (
-                        <span className="text-[10px] text-muted-foreground">+ ${focusedItem.bonusAmount.toLocaleString()} bonus</span>
+                        <span className="text-xs text-muted-foreground">+ ${focusedItem.bonusAmount.toLocaleString()} bonus</span>
                       )}
                     </div>
                   </div>
@@ -7358,7 +7381,7 @@ function WorkHistoryPanel({
                 {(focusedItem.hoursPerWeek != null || focusedItem.shiftNotes) && (
                   <div className="flex items-center gap-2 pt-1 border-t border-border/50">
                     <Calendar className="h-3.5 w-3.5 text-blue-500 shrink-0" />
-                    <div className="flex-1 flex items-center gap-1.5 flex-wrap text-[10px]">
+                    <div className="flex-1 flex items-center gap-1.5 flex-wrap text-xs">
                       {focusedItem.hoursPerWeek != null && <span className="text-muted-foreground">{focusedItem.hoursPerWeek}h/wk</span>}
                       {focusedItem.shiftNotes && <span className="text-muted-foreground">· {focusedItem.shiftNotes}</span>}
                     </div>
@@ -7369,7 +7392,7 @@ function WorkHistoryPanel({
                 {(focusedItem.department || focusedItem.teamSize != null || focusedItem.companySize) && (
                   <div className="flex items-center gap-2 pt-1 border-t border-border/50">
                     <Users className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
-                    <div className="flex-1 flex items-center gap-1.5 flex-wrap text-[10px]">
+                    <div className="flex-1 flex items-center gap-1.5 flex-wrap text-xs">
                       {focusedItem.department && <span className="font-medium">{focusedItem.department}</span>}
                       {focusedItem.teamSize != null && <span className="text-muted-foreground">Team of {focusedItem.teamSize}</span>}
                       {focusedItem.companySize && <span className="text-muted-foreground capitalize">({focusedItem.companySize.replace("-", " ")})</span>}
@@ -7380,27 +7403,13 @@ function WorkHistoryPanel({
             );
           })()}
 
-          {/* ── Tab Switcher ── */}
-          <div className="flex gap-0.5 rounded-md bg-muted/40 p-0.5">
-            <button type="button"
-              className={`flex-1 py-1 rounded text-[10px] font-medium transition-colors ${focusTab === "overview" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-              onClick={() => setFocusTab("overview")}>
-              Overview
-            </button>
-            <button type="button"
-              className={`flex-1 py-1 rounded text-[10px] font-medium transition-colors ${focusTab === "edit" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-              onClick={() => setFocusTab("edit")}>
-              Edit
-            </button>
-          </div>
-
           {/* ═══ OVERVIEW TAB ═══ */}
           {focusTab === "overview" && (<>
 
           {/* Sub-locations — compact rows */}
           {(focusedItem.locations ?? []).length > 0 && (
             <div className="space-y-1">
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Locations ({focusedItem.locations.length})</p>
+              <p className="text-xs text-muted-foreground uppercase tracking-wide">Locations ({focusedItem.locations.length})</p>
               <div className="space-y-0.5">
                 {focusedItem.locations.map((loc) => {
                   const locSkills: string[] = loc.skills ? (() => { try { return JSON.parse(loc.skills); } catch { return []; } })() : [];
@@ -7414,23 +7423,23 @@ function WorkHistoryPanel({
                       {isEditing ? (
                         /* ── Inline Edit Form ── */
                         <div className="p-2 space-y-1.5">
-                          <Input value={editLocLabel} onChange={(e) => setEditLocLabel(e.target.value)} placeholder="Label" className="h-6 text-[10px]" />
+                          <Input value={editLocLabel} onChange={(e) => setEditLocLabel(e.target.value)} placeholder="Label" className="h-6 text-xs" />
                           <Select value={editLocType} onValueChange={(v) => { setEditLocType(v ?? "daily-workplace"); if (v !== "custom") setEditCustomLocType(""); }}>
-                            <SelectTrigger className="h-6 text-[10px]"><SelectValue /></SelectTrigger>
+                            <SelectTrigger className="h-6 text-xs"><SelectValue /></SelectTrigger>
                             <SelectContent>{LOC_TYPES.map((t) => <SelectItem key={t.value} value={t.value} className="text-xs">{t.label}</SelectItem>)}</SelectContent>
                           </Select>
                           {editLocType === "custom" && (
-                            <Input value={editCustomLocType} onChange={(e) => setEditCustomLocType(e.target.value)} placeholder="Type name (e.g. Warehouse)" className="h-6 text-[10px]" />
+                            <Input value={editCustomLocType} onChange={(e) => setEditCustomLocType(e.target.value)} placeholder="Type name (e.g. Warehouse)" className="h-6 text-xs" />
                           )}
                           <div className="flex gap-1">
-                            <Input type="month" value={editLocStartDate} onChange={(e) => setEditLocStartDate(e.target.value)} className="h-6 text-[10px] flex-1" placeholder="Start" />
-                            <Input type="month" value={editLocEndDate} onChange={(e) => setEditLocEndDate(e.target.value)} className="h-6 text-[10px] flex-1" placeholder="End" />
+                            <Input type="month" value={editLocStartDate} onChange={(e) => setEditLocStartDate(e.target.value)} className="h-6 text-xs flex-1" placeholder="Start" />
+                            <Input type="month" value={editLocEndDate} onChange={(e) => setEditLocEndDate(e.target.value)} className="h-6 text-xs flex-1" placeholder="End" />
                           </div>
                           <div className="flex gap-1">
-                            <Button size="sm" className="flex-1 h-6 text-[10px]" disabled={editLocSaving || !editLocLabel.trim()} onClick={() => handleSaveEditLoc(loc.id)}>
+                            <Button size="sm" className="flex-1 h-6 text-xs" disabled={editLocSaving || !editLocLabel.trim()} onClick={() => handleSaveEditLoc(loc.id)}>
                               {editLocSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <><Check className="h-2.5 w-2.5 mr-0.5" /> Save</>}
                             </Button>
-                            <Button size="sm" variant="ghost" className="h-6 text-[10px]" onClick={() => setEditingLocId(null)}>Cancel</Button>
+                            <Button size="sm" variant="ghost" className="h-6 text-xs" onClick={() => setEditingLocId(null)}>Cancel</Button>
                           </div>
                         </div>
                       ) : (
@@ -7438,9 +7447,9 @@ function WorkHistoryPanel({
                           {/* ── Compact Row ── */}
                           <div role="button" tabIndex={0} className="w-full flex items-center gap-1.5 px-2 py-1.5 text-left cursor-pointer" onClick={() => setExpandedLocId(isExpanded ? null : loc.id)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setExpandedLocId(isExpanded ? null : loc.id); }}>
                             <MapPin className="h-3 w-3 shrink-0 text-blue-500" />
-                            <span className="text-[10px] font-medium truncate flex-1">{loc.label}</span>
-                            {dateRange && <span className="text-[8px] text-muted-foreground shrink-0">{dateRange}</span>}
-                            <span className="text-[8px] bg-muted px-1 rounded shrink-0">{typeInfo?.label ?? loc.type}</span>
+                            <span className="text-xs font-medium truncate flex-1">{loc.label}</span>
+                            {dateRange && <span className="text-xs text-muted-foreground shrink-0">{dateRange}</span>}
+                            <span className="text-xs bg-muted px-1 rounded shrink-0">{typeInfo?.label ?? loc.type}</span>
                             {/* Hover actions */}
                             <span className="flex items-center gap-0.5 opacity-0 group-hover/loc:opacity-100 transition-opacity shrink-0" onClick={(e) => e.stopPropagation()}>
                               <button type="button" className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground" title="Edit" onClick={() => startEditLoc(loc)}>
@@ -7457,14 +7466,14 @@ function WorkHistoryPanel({
                           {isExpanded && (
                             <div className="px-2 pb-2 pt-0.5 space-y-1 border-t">
                               <div className="flex items-center gap-1">
-                                <p className="text-[9px] text-muted-foreground truncate flex-1">{loc.address}</p>
+                                <p className="text-[13px] text-muted-foreground truncate flex-1">{loc.address}</p>
                                 <button type="button" className="shrink-0 p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground" title="Copy address" onClick={() => { navigator.clipboard.writeText(loc.address); toast.success("Address copied"); }}>
                                   <Copy className="h-2.5 w-2.5" />
                                 </button>
                               </div>
                               {loc.lat != null && loc.lng != null && (
                                 <div className="flex items-center gap-1">
-                                  <p className="text-[8px] text-muted-foreground font-mono">📍 {Number(loc.lat).toFixed(5)}, {Number(loc.lng).toFixed(5)}</p>
+                                  <p className="text-xs text-muted-foreground font-mono">📍 {Number(loc.lat).toFixed(5)}, {Number(loc.lng).toFixed(5)}</p>
                                   <button type="button" className="shrink-0 p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground" title="Copy coordinates" onClick={() => { navigator.clipboard.writeText(`${Number(loc.lat).toFixed(5)}, ${Number(loc.lng).toFixed(5)}`); toast.success("Coordinates copied"); }}>
                                     <Copy className="h-2 w-2" />
                                   </button>
@@ -7474,7 +7483,7 @@ function WorkHistoryPanel({
                               {locSkills.length > 0 && (
                                 <div className="flex flex-wrap gap-0.5">
                                   {locSkills.map((s) => (
-                                    <span key={s} className="text-[8px] bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 px-1 py-0.5 rounded flex items-center gap-0.5">
+                                    <span key={s} className="text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 px-1 py-0.5 rounded flex items-center gap-0.5">
                                       {s}
                                       {editingSkillsLocId === loc.id && (
                                         <button type="button" className="hover:text-red-500" onClick={() => handleRemoveSkill(loc.id, locSkills, s)}>×</button>
@@ -7485,12 +7494,12 @@ function WorkHistoryPanel({
                               )}
                               {editingSkillsLocId === loc.id ? (
                                 <div className="flex gap-1">
-                                  <Input value={skillInput} onChange={(e) => setSkillInput(e.target.value)} placeholder="Add skill" className="h-5 text-[9px] flex-1"
+                                  <Input value={skillInput} onChange={(e) => setSkillInput(e.target.value)} placeholder="Add skill" className="h-5 text-[13px] flex-1"
                                     onKeyDown={(e) => { if (e.key === "Enter") handleAddSkill(loc.id, locSkills); }} />
-                                  <button type="button" className="text-[9px] text-muted-foreground hover:text-foreground" onClick={() => setEditingSkillsLocId(null)}>Done</button>
+                                  <button type="button" className="text-[13px] text-muted-foreground hover:text-foreground" onClick={() => setEditingSkillsLocId(null)}>Done</button>
                                 </div>
                               ) : (
-                                <button type="button" className="text-[9px] text-muted-foreground hover:text-blue-500 flex items-center gap-0.5" onClick={() => { setEditingSkillsLocId(loc.id); setSkillInput(""); }}>
+                                <button type="button" className="text-[13px] text-muted-foreground hover:text-blue-500 flex items-center gap-0.5" onClick={() => { setEditingSkillsLocId(loc.id); setSkillInput(""); }}>
                                   <Code className="h-2.5 w-2.5" /> {locSkills.length > 0 ? "Edit skills" : "Add skills"}
                                 </button>
                               )}
@@ -7509,7 +7518,7 @@ function WorkHistoryPanel({
           {enrichLoading && (
             <div className="flex items-center justify-center py-3">
               <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-              <span className="text-[10px] text-muted-foreground ml-1.5">Loading details…</span>
+              <span className="text-xs text-muted-foreground ml-1.5">Loading details…</span>
             </div>
           )}
 
@@ -7520,7 +7529,7 @@ function WorkHistoryPanel({
               {matchedPosition.salary != null && (
                 <div className="rounded-lg border overflow-hidden">
                   <button type="button" className="w-full flex items-center justify-between p-2 hover:bg-muted/30 transition-colors" onClick={() => toggleSection("comp")}>
-                    <span className="text-[11px] font-medium flex items-center gap-1.5">
+                    <span className="text-[13px] font-medium flex items-center gap-1.5">
                       <DollarSign className="h-3.5 w-3.5 text-emerald-500" /> Compensation
                     </span>
                     {expandedSections.has("comp") ? <ChevronUp className="h-3 w-3 text-muted-foreground" /> : <ChevronDown className="h-3 w-3 text-muted-foreground" />}
@@ -7529,35 +7538,35 @@ function WorkHistoryPanel({
                     <div className="px-2 pb-2 space-y-1.5">
                       <div className="grid grid-cols-2 gap-1.5">
                         <div className="p-1.5 rounded bg-muted/30">
-                          <p className="text-[9px] text-muted-foreground">Base Salary</p>
+                          <p className="text-[13px] text-muted-foreground">Base Salary</p>
                           <p className="text-xs font-semibold">{matchedPosition.currency === "USD" ? "$" : matchedPosition.currency}{matchedPosition.salary.toLocaleString()}</p>
                         </div>
                         <div className="p-1.5 rounded bg-muted/30">
-                          <p className="text-[9px] text-muted-foreground">Pay Type</p>
+                          <p className="text-[13px] text-muted-foreground">Pay Type</p>
                           <p className="text-xs font-medium capitalize">{matchedPosition.payType}</p>
                         </div>
                       </div>
                       {matchedPosition.payFrequency && (
-                        <p className="text-[10px] text-muted-foreground">Frequency: <span className="text-foreground capitalize">{matchedPosition.payFrequency}</span></p>
+                        <p className="text-xs text-muted-foreground">Frequency: <span className="text-foreground capitalize">{matchedPosition.payFrequency}</span></p>
                       )}
                       {matchedPosition.hoursPerWeek != null && (
-                        <p className="text-[10px] text-muted-foreground">Hours/week: <span className="text-foreground">{matchedPosition.hoursPerWeek}h</span></p>
+                        <p className="text-xs text-muted-foreground">Hours/week: <span className="text-foreground">{matchedPosition.hoursPerWeek}h</span></p>
                       )}
                       {/* Compensation Events */}
                       {compEvents.length > 0 && (
                         <div className="pt-1 border-t space-y-1">
-                          <p className="text-[9px] text-muted-foreground uppercase tracking-wide">Events</p>
+                          <p className="text-[13px] text-muted-foreground uppercase tracking-wide">Events</p>
                           {compEvents.slice(0, 5).map((ev) => (
-                            <div key={ev.id} className="flex items-center justify-between text-[10px]">
+                            <div key={ev.id} className="flex items-center justify-between text-xs">
                               <span className="flex items-center gap-1 truncate">
                                 <TrendingUp className="h-2.5 w-2.5 text-emerald-500 shrink-0" />
                                 <span className="truncate">{ev.title}</span>
-                                {ev.recurring && <span className="text-[8px] bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300 px-0.5 rounded">recurring</span>}
+                                {ev.recurring && <span className="text-xs bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300 px-0.5 rounded">recurring</span>}
                               </span>
                               <span className="font-medium shrink-0 ml-1">{ev.currency === "USD" ? "$" : ev.currency}{ev.amount.toLocaleString()}</span>
                             </div>
                           ))}
-                          {compEvents.length > 5 && <p className="text-[9px] text-muted-foreground text-center">+{compEvents.length - 5} more</p>}
+                          {compEvents.length > 5 && <p className="text-[13px] text-muted-foreground text-center">+{compEvents.length - 5} more</p>}
                         </div>
                       )}
                     </div>
@@ -7569,7 +7578,7 @@ function WorkHistoryPanel({
               {(matchedPosition.description || matchedPosition.responsibilities || matchedPosition.techStack) && (
                 <div className="rounded-lg border overflow-hidden">
                   <button type="button" className="w-full flex items-center justify-between p-2 hover:bg-muted/30 transition-colors" onClick={() => toggleSection("role")}>
-                    <span className="text-[11px] font-medium flex items-center gap-1.5">
+                    <span className="text-[13px] font-medium flex items-center gap-1.5">
                       <FileText className="h-3.5 w-3.5 text-blue-500" /> Role & Tech Stack
                     </span>
                     {expandedSections.has("role") ? <ChevronUp className="h-3 w-3 text-muted-foreground" /> : <ChevronDown className="h-3 w-3 text-muted-foreground" />}
@@ -7578,22 +7587,22 @@ function WorkHistoryPanel({
                     <div className="px-2 pb-2 space-y-1.5">
                       {matchedPosition.description && (
                         <div>
-                          <p className="text-[9px] text-muted-foreground uppercase tracking-wide mb-0.5">Description</p>
-                          <p className="text-[10px] leading-relaxed">{matchedPosition.description}</p>
+                          <p className="text-[13px] text-muted-foreground uppercase tracking-wide mb-0.5">Description</p>
+                          <p className="text-xs leading-relaxed">{matchedPosition.description}</p>
                         </div>
                       )}
                       {matchedPosition.responsibilities && (
                         <div>
-                          <p className="text-[9px] text-muted-foreground uppercase tracking-wide mb-0.5">Responsibilities</p>
-                          <p className="text-[10px] leading-relaxed whitespace-pre-line">{matchedPosition.responsibilities}</p>
+                          <p className="text-[13px] text-muted-foreground uppercase tracking-wide mb-0.5">Responsibilities</p>
+                          <p className="text-xs leading-relaxed whitespace-pre-line">{matchedPosition.responsibilities}</p>
                         </div>
                       )}
                       {matchedPosition.techStack && (
                         <div>
-                          <p className="text-[9px] text-muted-foreground uppercase tracking-wide mb-0.5">Tech Stack</p>
+                          <p className="text-[13px] text-muted-foreground uppercase tracking-wide mb-0.5">Tech Stack</p>
                           <div className="flex flex-wrap gap-1">
                             {matchedPosition.techStack.split(",").map((t, i) => (
-                              <span key={i} className="text-[9px] bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded">
+                              <span key={i} className="text-[13px] bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded">
                                 {t.trim()}
                               </span>
                             ))}
@@ -7609,9 +7618,9 @@ function WorkHistoryPanel({
               {workLogs.length > 0 && (
                 <div className="rounded-lg border overflow-hidden">
                   <button type="button" className="w-full flex items-center justify-between p-2 hover:bg-muted/30 transition-colors" onClick={() => toggleSection("logs")}>
-                    <span className="text-[11px] font-medium flex items-center gap-1.5">
+                    <span className="text-[13px] font-medium flex items-center gap-1.5">
                       <ClipboardList className="h-3.5 w-3.5 text-amber-500" /> Key Accomplishments
-                      <span className="text-[9px] bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 px-1 rounded">{workLogs.length}</span>
+                      <span className="text-[13px] bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 px-1 rounded">{workLogs.length}</span>
                     </span>
                     {expandedSections.has("logs") ? <ChevronUp className="h-3 w-3 text-muted-foreground" /> : <ChevronDown className="h-3 w-3 text-muted-foreground" />}
                   </button>
@@ -7624,12 +7633,12 @@ function WorkHistoryPanel({
                         return (
                           <>
                             {totalHours > 0 && (
-                              <p className="text-[10px] text-muted-foreground">Total logged: <span className="text-foreground font-medium">{Math.round(totalHours * 10) / 10}h</span> across <span className="text-foreground font-medium">{workLogs.length}</span> entries</p>
+                              <p className="text-xs text-muted-foreground">Total logged: <span className="text-foreground font-medium">{Math.round(totalHours * 10) / 10}h</span> across <span className="text-foreground font-medium">{workLogs.length}</span> entries</p>
                             )}
                             {categories.size > 1 && (
                               <div className="flex flex-wrap gap-1">
                                 {[...categories.entries()].sort((a, b) => b[1] - a[1]).map(([cat, count]) => (
-                                  <span key={cat} className="text-[9px] bg-muted px-1.5 py-0.5 rounded capitalize">{cat} ({count})</span>
+                                  <span key={cat} className="text-[13px] bg-muted px-1.5 py-0.5 rounded capitalize">{cat} ({count})</span>
                                 ))}
                               </div>
                             )}
@@ -7642,18 +7651,58 @@ function WorkHistoryPanel({
                             <div className="flex items-start gap-1">
                               <Star className="h-2.5 w-2.5 text-amber-500 shrink-0 mt-0.5" />
                               <div className="min-w-0">
-                                <p className="text-[10px] font-medium truncate">{log.title}</p>
-                                {log.impact && <p className="text-[9px] text-muted-foreground truncate">Impact: {log.impact}</p>}
+                                <p className="text-xs font-medium truncate">{log.title}</p>
+                                {log.impact && <p className="text-[13px] text-muted-foreground truncate">Impact: {log.impact}</p>}
                                 <div className="flex items-center gap-1.5 mt-0.5">
-                                  <span className="text-[8px] text-muted-foreground">{new Date(log.date).toLocaleDateString("en-US", { month: "short", year: "numeric" })}</span>
-                                  {log.hours != null && <span className="text-[8px] text-muted-foreground">{log.hours}h</span>}
-                                  <span className="text-[8px] bg-muted px-1 rounded capitalize">{log.category}</span>
+                                  <span className="text-xs text-muted-foreground">{new Date(log.date).toLocaleDateString("en-US", { month: "short", year: "numeric" })}</span>
+                                  {log.hours != null && <span className="text-xs text-muted-foreground">{log.hours}h</span>}
+                                  <span className="text-xs bg-muted px-1 rounded capitalize">{log.category}</span>
                                 </div>
                               </div>
                             </div>
                           </div>
                         ))}
-                        {workLogs.length > 6 && <p className="text-[9px] text-muted-foreground text-center">+{workLogs.length - 6} more accomplishments</p>}
+                        {workLogs.length > 6 && <p className="text-[13px] text-muted-foreground text-center">+{workLogs.length - 6} more accomplishments</p>}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* E — Income History (from Equifax / Career Model) */}
+              {incomeHistory && incomeHistory.yearCount > 0 && (
+                <div className="rounded-lg border overflow-hidden">
+                  <button type="button" className="w-full flex items-center justify-between p-2 hover:bg-muted/30 transition-colors" onClick={() => toggleSection("income")}>
+                    <span className="text-[13px] font-medium flex items-center gap-1.5">
+                      <BarChart3 className="h-3.5 w-3.5 text-teal-500" /> Income History
+                      <span className="text-[13px] bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 px-1 rounded">{incomeHistory.yearCount}y</span>
+                    </span>
+                    {expandedSections.has("income") ? <ChevronUp className="h-3 w-3 text-muted-foreground" /> : <ChevronDown className="h-3 w-3 text-muted-foreground" />}
+                  </button>
+                  {expandedSections.has("income") && (
+                    <div className="px-2 pb-2 space-y-1.5">
+                      {/* Total earned */}
+                      <div className="p-2 rounded bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800">
+                        <p className="text-[11px] text-muted-foreground uppercase tracking-wide">Total Earned at {incomeHistory.employer}</p>
+                        <p className="text-sm font-bold text-teal-700 dark:text-teal-300">${incomeHistory.totalGross.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
+                        {incomeHistory.totalNet != null && incomeHistory.totalNet > 0 && (
+                          <p className="text-[11px] text-muted-foreground">Net: ${incomeHistory.totalNet.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
+                        )}
+                      </div>
+                      {/* Year-by-year bars */}
+                      <div className="space-y-1">
+                        {incomeHistory.years.map((y) => {
+                          const pct = incomeHistory.totalGross > 0 ? (y.grossIncome / Math.max(...incomeHistory.years.map(yy => yy.grossIncome))) * 100 : 0;
+                          return (
+                            <div key={y.year} className="flex items-center gap-2">
+                              <span className="text-xs text-muted-foreground w-8 shrink-0">{y.year}</span>
+                              <div className="flex-1 h-4 bg-muted/40 rounded overflow-hidden">
+                                <div className="h-full bg-teal-500/70 dark:bg-teal-400/60 rounded" style={{ width: `${Math.max(pct, 4)}%` }} />
+                              </div>
+                              <span className="text-xs font-medium w-16 text-right shrink-0">${y.grossIncome.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
@@ -7664,7 +7713,7 @@ function WorkHistoryPanel({
               {(matchedPosition.companySynopsis || matchedPosition.industry || matchedPosition.website || matchedPosition.legalName) && (
                 <div className="rounded-lg border overflow-hidden">
                   <button type="button" className="w-full flex items-center justify-between p-2 hover:bg-muted/30 transition-colors" onClick={() => toggleSection("intel")}>
-                    <span className="text-[11px] font-medium flex items-center gap-1.5">
+                    <span className="text-[13px] font-medium flex items-center gap-1.5">
                       <Building2 className="h-3.5 w-3.5 text-violet-500" /> Company Intel
                     </span>
                     {expandedSections.has("intel") ? <ChevronUp className="h-3 w-3 text-muted-foreground" /> : <ChevronDown className="h-3 w-3 text-muted-foreground" />}
@@ -7672,33 +7721,33 @@ function WorkHistoryPanel({
                   {expandedSections.has("intel") && (
                     <div className="px-2 pb-2 space-y-1.5">
                       {matchedPosition.companySynopsis && (
-                        <p className="text-[10px] leading-relaxed">{matchedPosition.companySynopsis}</p>
+                        <p className="text-xs leading-relaxed">{matchedPosition.companySynopsis}</p>
                       )}
                       <div className="grid grid-cols-2 gap-1.5">
                         {matchedPosition.industry && (
                           <div className="p-1.5 rounded bg-muted/30">
-                            <p className="text-[9px] text-muted-foreground">Industry</p>
-                            <p className="text-[10px] font-medium">{matchedPosition.industry}</p>
+                            <p className="text-[13px] text-muted-foreground">Industry</p>
+                            <p className="text-xs font-medium">{matchedPosition.industry}</p>
                           </div>
                         )}
                         {matchedPosition.type && (
                           <div className="p-1.5 rounded bg-muted/30">
-                            <p className="text-[9px] text-muted-foreground">Work Type</p>
-                            <p className="text-[10px] font-medium capitalize">{matchedPosition.type}</p>
+                            <p className="text-[13px] text-muted-foreground">Work Type</p>
+                            <p className="text-xs font-medium capitalize">{matchedPosition.type}</p>
                           </div>
                         )}
                       </div>
                       {matchedPosition.legalName && (
-                        <p className="text-[10px] text-muted-foreground">Legal name: <span className="text-foreground">{matchedPosition.legalName}</span></p>
+                        <p className="text-xs text-muted-foreground">Legal name: <span className="text-foreground">{matchedPosition.legalName}</span></p>
                       )}
                       {matchedPosition.ein && (
-                        <p className="text-[10px] text-muted-foreground">EIN: <span className="text-foreground">{matchedPosition.ein}</span></p>
+                        <p className="text-xs text-muted-foreground">EIN: <span className="text-foreground">{matchedPosition.ein}</span></p>
                       )}
                       {matchedPosition.managerName && (
-                        <p className="text-[10px] text-muted-foreground">Manager: <span className="text-foreground">{matchedPosition.managerName}</span></p>
+                        <p className="text-xs text-muted-foreground">Manager: <span className="text-foreground">{matchedPosition.managerName}</span></p>
                       )}
                       {matchedPosition.website && (
-                        <a href={matchedPosition.website} target="_blank" rel="noopener noreferrer" className="text-[10px] text-blue-500 hover:underline flex items-center gap-1 truncate">
+                        <a href={matchedPosition.website} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-500 hover:underline flex items-center gap-1 truncate">
                           <Globe className="h-3 w-3 shrink-0" /> {matchedPosition.website}
                         </a>
                       )}
@@ -7709,16 +7758,12 @@ function WorkHistoryPanel({
             </div>
           )}
 
-          {!matchedPosition && !enrichLoading && (
-            <p className="text-[10px] text-muted-foreground text-center py-1 italic">No linked position found — add this company in Experience to see more details</p>
-          )}
-
           {/* ── Direct Work History Detail Sections ── */}
 
           {/* Equity notes (extra detail not in header) */}
           {focusedItem.equityNotes && (
             <div className="px-2 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800">
-              <p className="text-[10px] text-muted-foreground">Equity: <span className="text-foreground font-medium">{focusedItem.equityNotes}</span></p>
+              <p className="text-xs text-muted-foreground">Equity: <span className="text-foreground font-medium">{focusedItem.equityNotes}</span></p>
             </div>
           )}
 
@@ -7726,7 +7771,7 @@ function WorkHistoryPanel({
           {/* Manager (extra detail not in header) */}
           {focusedItem.managerName && (
             <div className="px-2 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800">
-              <p className="text-[10px] text-muted-foreground">Manager: <span className="text-foreground font-medium">{focusedItem.managerName}</span></p>
+              <p className="text-xs text-muted-foreground">Manager: <span className="text-foreground font-medium">{focusedItem.managerName}</span></p>
             </div>
           )}
 
@@ -7736,7 +7781,7 @@ function WorkHistoryPanel({
             return (
               <div className="rounded-lg border overflow-hidden">
                 <button type="button" className="w-full flex items-center justify-between p-2 hover:bg-muted/30 transition-colors" onClick={() => toggleSection("wh-benefits")}>
-                  <span className="text-[11px] font-medium flex items-center gap-1.5">
+                  <span className="text-[13px] font-medium flex items-center gap-1.5">
                     <Heart className="h-3.5 w-3.5 text-pink-500" /> Benefits & PTO
                   </span>
                   {expandedSections.has("wh-benefits") ? <ChevronUp className="h-3 w-3 text-muted-foreground" /> : <ChevronDown className="h-3 w-3 text-muted-foreground" />}
@@ -7746,7 +7791,7 @@ function WorkHistoryPanel({
                     {benefitsList.length > 0 && (
                       <div className="flex flex-wrap gap-1">
                         {benefitsList.map((b) => (
-                          <span key={b} className="text-[9px] bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300 px-1.5 py-0.5 rounded capitalize">{b}</span>
+                          <span key={b} className="text-[13px] bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300 px-1.5 py-0.5 rounded capitalize">{b}</span>
                         ))}
                       </div>
                     )}
@@ -7754,19 +7799,19 @@ function WorkHistoryPanel({
                       <div className="grid grid-cols-2 gap-1.5">
                         {focusedItem.ptoDaysOffered != null && (
                           <div className="p-1.5 rounded bg-muted/30">
-                            <p className="text-[9px] text-muted-foreground">PTO Offered</p>
-                            <p className="text-[10px] font-medium">{focusedItem.ptoDaysOffered} days/yr</p>
+                            <p className="text-[13px] text-muted-foreground">PTO Offered</p>
+                            <p className="text-xs font-medium">{focusedItem.ptoDaysOffered} days/yr</p>
                           </div>
                         )}
                         {focusedItem.ptoDaysUsed != null && (
                           <div className="p-1.5 rounded bg-muted/30">
-                            <p className="text-[9px] text-muted-foreground">PTO Used</p>
-                            <p className="text-[10px] font-medium">{focusedItem.ptoDaysUsed} days</p>
+                            <p className="text-[13px] text-muted-foreground">PTO Used</p>
+                            <p className="text-xs font-medium">{focusedItem.ptoDaysUsed} days</p>
                           </div>
                         )}
                       </div>
                     )}
-                    {focusedItem.ptoNotes && <p className="text-[10px] text-muted-foreground">{focusedItem.ptoNotes}</p>}
+                    {focusedItem.ptoNotes && <p className="text-xs text-muted-foreground">{focusedItem.ptoNotes}</p>}
                   </div>
                 )}
               </div>
@@ -7781,7 +7826,7 @@ function WorkHistoryPanel({
             return (
               <div className="rounded-lg border overflow-hidden">
                 <button type="button" className="w-full flex items-center justify-between p-2 hover:bg-muted/30 transition-colors" onClick={() => toggleSection("wh-skills")}>
-                  <span className="text-[11px] font-medium flex items-center gap-1.5">
+                  <span className="text-[13px] font-medium flex items-center gap-1.5">
                     <GraduationCap className="h-3.5 w-3.5 text-purple-500" /> Skills & Growth
                   </span>
                   {expandedSections.has("wh-skills") ? <ChevronUp className="h-3 w-3 text-muted-foreground" /> : <ChevronDown className="h-3 w-3 text-muted-foreground" />}
@@ -7790,21 +7835,21 @@ function WorkHistoryPanel({
                   <div className="px-2 pb-2 space-y-1.5">
                     {used.length > 0 && (
                       <div>
-                        <p className="text-[9px] text-muted-foreground uppercase tracking-wide mb-0.5">Skills Used</p>
-                        <div className="flex flex-wrap gap-1">{used.map((s) => <span key={s} className="text-[9px] bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 px-1.5 py-0.5 rounded">{s}</span>)}</div>
+                        <p className="text-[13px] text-muted-foreground uppercase tracking-wide mb-0.5">Skills Used</p>
+                        <div className="flex flex-wrap gap-1">{used.map((s) => <span key={s} className="text-[13px] bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 px-1.5 py-0.5 rounded">{s}</span>)}</div>
                       </div>
                     )}
                     {gained.length > 0 && (
                       <div>
-                        <p className="text-[9px] text-muted-foreground uppercase tracking-wide mb-0.5">Skills Gained</p>
-                        <div className="flex flex-wrap gap-1">{gained.map((s) => <span key={s} className="text-[9px] bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 rounded">{s}</span>)}</div>
+                        <p className="text-[13px] text-muted-foreground uppercase tracking-wide mb-0.5">Skills Gained</p>
+                        <div className="flex flex-wrap gap-1">{gained.map((s) => <span key={s} className="text-[13px] bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 rounded">{s}</span>)}</div>
                       </div>
                     )}
                     {promos.length > 0 && (
                       <div>
-                        <p className="text-[9px] text-muted-foreground uppercase tracking-wide mb-0.5">Promotions</p>
+                        <p className="text-[13px] text-muted-foreground uppercase tracking-wide mb-0.5">Promotions</p>
                         {promos.map((p, i) => (
-                          <div key={i} className="flex items-center gap-1.5 text-[10px]">
+                          <div key={i} className="flex items-center gap-1.5 text-xs">
                             <Award className="h-3 w-3 text-amber-500 shrink-0" />
                             <span className="font-medium">{p.title}</span>
                             <span className="text-muted-foreground">{p.date}</span>
@@ -7825,7 +7870,7 @@ function WorkHistoryPanel({
             return (
               <div className="rounded-lg border overflow-hidden">
                 <button type="button" className="w-full flex items-center justify-between p-2 hover:bg-muted/30 transition-colors" onClick={() => toggleSection("wh-depart")}>
-                  <span className="text-[11px] font-medium flex items-center gap-1.5">
+                  <span className="text-[13px] font-medium flex items-center gap-1.5">
                     <LogOut className="h-3.5 w-3.5 text-orange-500" /> Departure & Reflection
                   </span>
                   {expandedSections.has("wh-depart") ? <ChevronUp className="h-3 w-3 text-muted-foreground" /> : <ChevronDown className="h-3 w-3 text-muted-foreground" />}
@@ -7835,14 +7880,14 @@ function WorkHistoryPanel({
                     <div className="grid grid-cols-2 gap-1.5">
                       {focusedItem.reasonForLeaving && (
                         <div className="p-1.5 rounded bg-muted/30">
-                          <p className="text-[9px] text-muted-foreground">Reason for Leaving</p>
-                          <p className="text-[10px] font-medium">{leaveLabels[focusedItem.reasonForLeaving] ?? focusedItem.reasonForLeaving}</p>
+                          <p className="text-[13px] text-muted-foreground">Reason for Leaving</p>
+                          <p className="text-xs font-medium">{leaveLabels[focusedItem.reasonForLeaving] ?? focusedItem.reasonForLeaving}</p>
                         </div>
                       )}
                       {focusedItem.wouldReturn && (
                         <div className="p-1.5 rounded bg-muted/30">
-                          <p className="text-[9px] text-muted-foreground">Would Return?</p>
-                          <p className="text-[10px] font-medium flex items-center gap-1">
+                          <p className="text-[13px] text-muted-foreground">Would Return?</p>
+                          <p className="text-xs font-medium flex items-center gap-1">
                             <ThumbsUp className={`h-3 w-3 ${focusedItem.wouldReturn === "yes" ? "text-emerald-500" : focusedItem.wouldReturn === "no" ? "text-red-500" : "text-amber-500"}`} />
                             <span className="capitalize">{focusedItem.wouldReturn}</span>
                           </p>
@@ -7851,10 +7896,10 @@ function WorkHistoryPanel({
                     </div>
                     {accs.length > 0 && (
                       <div>
-                        <p className="text-[9px] text-muted-foreground uppercase tracking-wide mb-0.5">Key Accomplishments</p>
+                        <p className="text-[13px] text-muted-foreground uppercase tracking-wide mb-0.5">Key Accomplishments</p>
                         <ul className="space-y-0.5">
                           {accs.map((a, i) => (
-                            <li key={i} className="text-[10px] flex items-start gap-1">
+                            <li key={i} className="text-xs flex items-start gap-1">
                               <Star className="h-3 w-3 text-amber-500 shrink-0 mt-0.5" />
                               <span>{a}</span>
                             </li>
@@ -7872,7 +7917,7 @@ function WorkHistoryPanel({
           {lifeAnchors.length > 0 && (
             <div className="rounded-lg border overflow-hidden">
               <button type="button" className="w-full flex items-center justify-between p-2 hover:bg-muted/30 transition-colors" onClick={() => toggleSection("commute")}>
-                <span className="text-[11px] font-medium flex items-center gap-1.5">
+                <span className="text-[13px] font-medium flex items-center gap-1.5">
                   <Navigation className="h-3.5 w-3.5 text-cyan-500" /> Commute
                 </span>
                 {expandedSections.has("commute") ? <ChevronUp className="h-3 w-3 text-muted-foreground" /> : <ChevronDown className="h-3 w-3 text-muted-foreground" />}
@@ -7883,7 +7928,7 @@ function WorkHistoryPanel({
                   <div className="flex gap-1 rounded-md bg-muted/40 p-0.5">
                     {([["driving", Car, "Drive"], ["transit", TrainFront, "Transit"], ["walking", Footprints, "Walk"], ["bicycling", Bike, "Bike"]] as const).map(([mode, Icon, label]) => (
                       <button key={mode} type="button"
-                        className={`flex-1 flex items-center justify-center gap-1 py-1 rounded text-[9px] transition-colors ${commuteMode === mode ? "bg-background shadow-sm font-semibold" : "text-muted-foreground hover:text-foreground"}`}
+                        className={`flex-1 flex items-center justify-center gap-1 py-1 rounded text-[13px] transition-colors ${commuteMode === mode ? "bg-background shadow-sm font-semibold" : "text-muted-foreground hover:text-foreground"}`}
                         onClick={() => { setCommuteMode(mode); if (selectedAnchorId) computeCommute(selectedAnchorId, mode); }}>
                         <Icon className="h-3 w-3" /> {label}
                       </button>
@@ -7892,7 +7937,7 @@ function WorkHistoryPanel({
                   <div className="space-y-1">
                     {lifeAnchors.map((a) => (
                       <button key={a.id} type="button"
-                        className={`w-full flex items-center gap-1.5 p-1.5 rounded text-[10px] transition-colors ${selectedAnchorId === a.id ? "bg-cyan-100 dark:bg-cyan-900/30 border border-cyan-300 dark:border-cyan-700" : "bg-muted/30 hover:bg-muted/50"}`}
+                        className={`w-full flex items-center gap-1.5 p-1.5 rounded text-xs transition-colors ${selectedAnchorId === a.id ? "bg-cyan-100 dark:bg-cyan-900/30 border border-cyan-300 dark:border-cyan-700" : "bg-muted/30 hover:bg-muted/50"}`}
                         onClick={() => computeCommute(a.id)}>
                         <Home className="h-3 w-3 shrink-0 text-cyan-500" />
                         <span className="truncate font-medium">{a.label}</span>
@@ -7903,11 +7948,11 @@ function WorkHistoryPanel({
                   {commuteResult && (
                     <div className="p-1.5 rounded bg-muted/30 grid grid-cols-2 gap-1.5">
                       <div>
-                        <p className="text-[9px] text-muted-foreground">Distance</p>
+                        <p className="text-[13px] text-muted-foreground">Distance</p>
                         <p className="text-xs font-semibold">{commuteResult.distanceMi.toFixed(1)} mi</p>
                       </div>
                       <div>
-                        <p className="text-[9px] text-muted-foreground">{{ driving: "Drive", transit: "Transit", walking: "Walk", bicycling: "Bike" }[commuteMode]} Time</p>
+                        <p className="text-[13px] text-muted-foreground">{{ driving: "Drive", transit: "Transit", walking: "Walk", bicycling: "Bike" }[commuteMode]} Time</p>
                         <p className="text-xs font-semibold">{Math.round(commuteResult.durationMin)} min</p>
                       </div>
                     </div>
@@ -7926,33 +7971,33 @@ function WorkHistoryPanel({
           {/* ── Add Sub-locations: Discovery + Claim + Pin Drop ── */}
           {pinDropMode && !pinDropCoords && (
             <div className="p-2 rounded-lg border border-dashed border-amber-500/50 bg-amber-50/10">
-              <p className="text-[10px] text-amber-600 dark:text-amber-400 font-medium flex items-center gap-1">
+              <p className="text-xs text-amber-600 dark:text-amber-400 font-medium flex items-center gap-1">
                 <MapPinned className="h-3 w-3" /> Click a building or any spot on the map
               </p>
-              <p className="text-[8px] text-muted-foreground mt-0.5">Clicking a labeled building will auto-fill its name and address</p>
-              <button type="button" className="text-[9px] text-muted-foreground hover:text-foreground mt-1" onClick={onCancelPinDrop}>Cancel</button>
+              <p className="text-xs text-muted-foreground mt-0.5">Clicking a labeled building will auto-fill its name and address</p>
+              <button type="button" className="text-[13px] text-muted-foreground hover:text-foreground mt-1" onClick={onCancelPinDrop}>Cancel</button>
             </div>
           )}
           {pinDropCoords && (
             <div className="p-2 rounded-lg border border-blue-500/30 bg-blue-50/10 space-y-1.5">
-              <p className="text-[10px] font-medium flex items-center gap-1">
+              <p className="text-xs font-medium flex items-center gap-1">
                 <MapPinned className="h-3 w-3 text-blue-500" />
                 {pinDropCoords.placeId ? "Claim this building" : "New sub-location pin"}
               </p>
-              <p className="text-[9px] text-muted-foreground truncate">{pinDropReversed || "Resolving address…"}</p>
-              <Input value={pinDropLabel} onChange={(e) => setPinDropLabel(e.target.value)} placeholder="Label *" className="h-6 text-[10px]" />
+              <p className="text-[13px] text-muted-foreground truncate">{pinDropReversed || "Resolving address…"}</p>
+              <Input value={pinDropLabel} onChange={(e) => setPinDropLabel(e.target.value)} placeholder="Label *" className="h-6 text-xs" />
               <Select value={pinDropType} onValueChange={(v) => { setPinDropType(v ?? "daily-workplace"); if (v !== "custom") setPinDropCustomType(""); }}>
-                <SelectTrigger className="h-6 text-[10px]"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-6 text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>{LOC_TYPES.map((t) => <SelectItem key={t.value} value={t.value} className="text-xs">{t.label}</SelectItem>)}</SelectContent>
               </Select>
               {pinDropType === "custom" && (
-                <Input value={pinDropCustomType} onChange={(e) => setPinDropCustomType(e.target.value)} placeholder="Type name (e.g. Warehouse)" className="h-6 text-[10px]" />
+                <Input value={pinDropCustomType} onChange={(e) => setPinDropCustomType(e.target.value)} placeholder="Type name (e.g. Warehouse)" className="h-6 text-xs" />
               )}
               <div className="flex gap-1.5">
-                <Button size="sm" className="flex-1 h-6 text-[10px]" disabled={pinDropSaving || !pinDropLabel.trim() || (pinDropType === "custom" && !pinDropCustomType.trim())} onClick={handlePinDropSave}>
+                <Button size="sm" className="flex-1 h-6 text-xs" disabled={pinDropSaving || !pinDropLabel.trim() || (pinDropType === "custom" && !pinDropCustomType.trim())} onClick={handlePinDropSave}>
                   {pinDropSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save"}
                 </Button>
-                <Button size="sm" variant="ghost" className="h-6 text-[10px]" onClick={onCancelPinDrop}>Cancel</Button>
+                <Button size="sm" variant="ghost" className="h-6 text-xs" onClick={onCancelPinDrop}>Cancel</Button>
               </div>
             </div>
           )}
@@ -7960,17 +8005,17 @@ function WorkHistoryPanel({
             <div className="space-y-1.5">
               {/* Nearby Buildings Discovery */}
               {!nearbySearched ? (
-                <Button size="sm" variant="outline" className="w-full h-7 text-[10px]" disabled={nearbyLoading} onClick={searchNearbyBuildings}>
+                <Button size="sm" variant="outline" className="w-full h-7 text-xs" disabled={nearbyLoading} onClick={searchNearbyBuildings}>
                   {nearbyLoading ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Search className="h-3 w-3 mr-1" />}
                   Find Company Buildings Nearby
                 </Button>
               ) : nearbyBuildings.length > 0 ? (
                 <div className="rounded-lg border overflow-hidden">
                   <div className="p-1.5 bg-muted/30 flex items-center justify-between">
-                    <span className="text-[10px] font-medium flex items-center gap-1">
+                    <span className="text-xs font-medium flex items-center gap-1">
                       <Building2 className="h-3 w-3 text-blue-500" /> Nearby Buildings ({nearbyBuildings.length})
                     </span>
-                    <button type="button" className="text-[8px] text-muted-foreground hover:text-foreground" onClick={() => { setNearbySearched(false); setNearbyBuildings([]); }}>
+                    <button type="button" className="text-xs text-muted-foreground hover:text-foreground" onClick={() => { setNearbySearched(false); setNearbyBuildings([]); }}>
                       <RefreshCw className="h-2.5 w-2.5" />
                     </button>
                   </div>
@@ -7978,10 +8023,10 @@ function WorkHistoryPanel({
                     {nearbyBuildings.map((b) => (
                       <div key={b.placeId} className="flex items-center gap-1.5 p-1.5 hover:bg-muted/30 transition-colors">
                         <div className="flex-1 min-w-0">
-                          <p className="text-[10px] font-medium truncate">{b.name}</p>
-                          <p className="text-[8px] text-muted-foreground truncate">{b.address}</p>
+                          <p className="text-xs font-medium truncate">{b.name}</p>
+                          <p className="text-xs text-muted-foreground truncate">{b.address}</p>
                         </div>
-                        <Button size="sm" variant="ghost" className="h-6 text-[9px] shrink-0 px-2" disabled={claimingPlaceId === b.placeId}
+                        <Button size="sm" variant="ghost" className="h-6 text-[13px] shrink-0 px-2" disabled={claimingPlaceId === b.placeId}
                           onClick={() => claimBuilding(b)}>
                           {claimingPlaceId === b.placeId ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <><Plus className="h-2.5 w-2.5 mr-0.5" /> Claim</>}
                         </Button>
@@ -7992,16 +8037,16 @@ function WorkHistoryPanel({
               ) : nearbyLoading ? (
                 <div className="flex items-center justify-center py-3">
                   <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
-                  <span className="text-[10px] text-muted-foreground ml-1">Searching nearby…</span>
+                  <span className="text-xs text-muted-foreground ml-1">Searching nearby…</span>
                 </div>
               ) : (
                 <div className="p-2 rounded-lg border bg-muted/20 text-center">
-                  <p className="text-[10px] text-muted-foreground">No additional buildings found nearby</p>
-                  <button type="button" className="text-[9px] text-blue-500 hover:underline mt-0.5" onClick={() => { setNearbySearched(false); setNearbyBuildings([]); }}>Search again</button>
+                  <p className="text-xs text-muted-foreground">No additional buildings found nearby</p>
+                  <button type="button" className="text-[13px] text-blue-500 hover:underline mt-0.5" onClick={() => { setNearbySearched(false); setNearbyBuildings([]); }}>Search again</button>
                 </div>
               )}
               {/* Action button */}
-              <button type="button" className="w-full text-[10px] text-muted-foreground hover:text-foreground flex items-center justify-center gap-1 py-1 rounded-md hover:bg-muted/50 border border-dashed transition-colors" onClick={onStartPinDrop}>
+              <button type="button" className="w-full text-xs text-muted-foreground hover:text-foreground flex items-center justify-center gap-1 py-1 rounded-md hover:bg-muted/50 border border-dashed transition-colors" onClick={onStartPinDrop}>
                 <MapPinned className="h-3 w-3" /> Add from Map
               </button>
             </div>
@@ -8010,9 +8055,9 @@ function WorkHistoryPanel({
           {/* ── Feature E: Timeline Milestones ── */}
           <div className="rounded-lg border overflow-hidden">
             <button type="button" className="w-full flex items-center justify-between p-2 hover:bg-muted/30 transition-colors" onClick={() => toggleSection("milestones")}>
-              <span className="text-[11px] font-medium flex items-center gap-1.5">
+              <span className="text-[13px] font-medium flex items-center gap-1.5">
                 <Flame className="h-3.5 w-3.5 text-orange-500" /> Milestones
-                {milestones.length > 0 && <span className="text-[9px] bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 px-1 rounded">{milestones.length}</span>}
+                {milestones.length > 0 && <span className="text-[13px] bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 px-1 rounded">{milestones.length}</span>}
               </span>
               {expandedSections.has("milestones") ? <ChevronUp className="h-3 w-3 text-muted-foreground" /> : <ChevronDown className="h-3 w-3 text-muted-foreground" />}
             </button>
@@ -8029,8 +8074,8 @@ function WorkHistoryPanel({
                           <div className="absolute -left-[19px] top-0.5 w-3 h-3 rounded-full bg-orange-400 border-2 border-background flex items-center justify-center text-[7px]">{mt?.icon ?? "📌"}</div>
                           <div className="flex items-start justify-between">
                             <div>
-                              <p className="text-[10px] font-medium">{ms.title}</p>
-                              <p className="text-[8px] text-muted-foreground">{ms.date} · {mt?.label ?? ms.type}</p>
+                              <p className="text-xs font-medium">{ms.title}</p>
+                              <p className="text-xs text-muted-foreground">{ms.date} · {mt?.label ?? ms.type}</p>
                             </div>
                             <button type="button" className="text-muted-foreground hover:text-red-500 shrink-0" onClick={() => handleDeleteMilestone(ms.id)}>
                               <X className="h-2.5 w-2.5" />
@@ -8043,15 +8088,15 @@ function WorkHistoryPanel({
                 )}
                 {/* Add milestone form */}
                 <div className="space-y-1 pt-1 border-t">
-                  <Input value={newMsTitle} onChange={(e) => setNewMsTitle(e.target.value)} placeholder="Milestone title" className="h-6 text-[10px]" />
+                  <Input value={newMsTitle} onChange={(e) => setNewMsTitle(e.target.value)} placeholder="Milestone title" className="h-6 text-xs" />
                   <div className="flex gap-1">
                     <Select value={newMsType} onValueChange={(v) => setNewMsType(v ?? "achievement")}>
-                      <SelectTrigger className="h-6 text-[10px] flex-1"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="h-6 text-xs flex-1"><SelectValue /></SelectTrigger>
                       <SelectContent>{MILESTONE_TYPES.map((t) => <SelectItem key={t.value} value={t.value} className="text-xs">{t.icon} {t.label}</SelectItem>)}</SelectContent>
                     </Select>
-                    <Input type="month" value={newMsDate} onChange={(e) => setNewMsDate(e.target.value)} className="h-6 text-[10px] flex-1" />
+                    <Input type="month" value={newMsDate} onChange={(e) => setNewMsDate(e.target.value)} className="h-6 text-xs flex-1" />
                   </div>
-                  <Button size="sm" className="w-full h-6 text-[10px]" disabled={msSaving || !newMsTitle.trim() || !newMsDate} onClick={handleAddMilestone}>
+                  <Button size="sm" className="w-full h-6 text-xs" disabled={msSaving || !newMsTitle.trim() || !newMsDate} onClick={handleAddMilestone}>
                     {msSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <><Plus className="h-2.5 w-2.5 mr-0.5" /> Add Milestone</>}
                   </Button>
                 </div>
@@ -8062,9 +8107,9 @@ function WorkHistoryPanel({
           {/* ── Feature D: Notes ── */}
           <div className="rounded-lg border overflow-hidden">
             <button type="button" className="w-full flex items-center justify-between p-2 hover:bg-muted/30 transition-colors" onClick={() => toggleSection("notes")}>
-              <span className="text-[11px] font-medium flex items-center gap-1.5">
+              <span className="text-[13px] font-medium flex items-center gap-1.5">
                 <Lightbulb className="h-3.5 w-3.5 text-yellow-500" /> Notes
-                {notes.length > 0 && <span className="text-[9px] bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 px-1 rounded">{notes.length}</span>}
+                {notes.length > 0 && <span className="text-[13px] bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 px-1 rounded">{notes.length}</span>}
               </span>
               {expandedSections.has("notes") ? <ChevronUp className="h-3 w-3 text-muted-foreground" /> : <ChevronDown className="h-3 w-3 text-muted-foreground" />}
             </button>
@@ -8074,17 +8119,17 @@ function WorkHistoryPanel({
                 {notes.map((n) => (
                   <div key={n.id} className="p-1.5 rounded bg-muted/30 group">
                     <div className="flex items-start justify-between">
-                      <p className="text-[10px] leading-relaxed whitespace-pre-line flex-1">{n.content}</p>
+                      <p className="text-xs leading-relaxed whitespace-pre-line flex-1">{n.content}</p>
                       <button type="button" className="text-muted-foreground hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 ml-1" onClick={() => handleDeleteNote(n.id)}>
                         <X className="h-2.5 w-2.5" />
                       </button>
                     </div>
-                    <p className="text-[8px] text-muted-foreground mt-0.5">{new Date(n.createdAt).toLocaleDateString()}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{new Date(n.createdAt).toLocaleDateString()}</p>
                   </div>
                 ))}
                 {/* Add note */}
                 <div className="flex gap-1 pt-1 border-t">
-                  <Textarea value={newNote} onChange={(e) => setNewNote(e.target.value)} placeholder="Write a note…" className="text-[10px] min-h-[32px] flex-1 resize-none" rows={2} />
+                  <Textarea value={newNote} onChange={(e) => setNewNote(e.target.value)} placeholder="Write a note…" className="text-xs min-h-[32px] flex-1 resize-none" rows={2} />
                   <Button size="sm" className="h-8 w-8 shrink-0 p-0" disabled={noteSaving || !newNote.trim()} onClick={handleAddNote}>
                     {noteSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
                   </Button>
@@ -8096,9 +8141,9 @@ function WorkHistoryPanel({
           {/* ── Feature G: Workplace Rating Card ── */}
           <div className="rounded-lg border overflow-hidden">
             <button type="button" className="w-full flex items-center justify-between p-2 hover:bg-muted/30 transition-colors" onClick={() => toggleSection("rating")}>
-              <span className="text-[11px] font-medium flex items-center gap-1.5">
+              <span className="text-[13px] font-medium flex items-center gap-1.5">
                 <Star className="h-3.5 w-3.5 text-amber-500" /> Workplace Rating
-                {rating && <span className="text-[9px] text-amber-600">{"★".repeat(rating.overall)}{"☆".repeat(5 - rating.overall)}</span>}
+                {rating && <span className="text-[13px] text-amber-600">{"★".repeat(rating.overall)}{"☆".repeat(5 - rating.overall)}</span>}
               </span>
               {expandedSections.has("rating") ? <ChevronUp className="h-3 w-3 text-muted-foreground" /> : <ChevronDown className="h-3 w-3 text-muted-foreground" />}
             </button>
@@ -8116,34 +8161,34 @@ function WorkHistoryPanel({
                       ["overall", "Overall"],
                     ] as const).map(([key, label]) => (
                       <div key={key} className="flex items-center justify-between">
-                        <span className="text-[10px] text-muted-foreground">{label}</span>
+                        <span className="text-xs text-muted-foreground">{label}</span>
                         {ratingEditing ? (
                           <StarRatingInput value={ratingDraft[key]} onChange={(v) => setRatingDraft((d) => ({ ...d, [key]: v }))} />
                         ) : (
-                          <span className="text-[10px] text-amber-500">{"★".repeat(rating?.[key] ?? 0)}{"☆".repeat(5 - (rating?.[key] ?? 0))}</span>
+                          <span className="text-xs text-amber-500">{"★".repeat(rating?.[key] ?? 0)}{"☆".repeat(5 - (rating?.[key] ?? 0))}</span>
                         )}
                       </div>
                     ))}
                     {ratingEditing && (
-                      <Textarea value={ratingDraft.notes ?? ""} onChange={(e) => setRatingDraft((d) => ({ ...d, notes: e.target.value }))} placeholder="Notes (optional)" className="text-[10px] min-h-[28px] resize-none" rows={2} />
+                      <Textarea value={ratingDraft.notes ?? ""} onChange={(e) => setRatingDraft((d) => ({ ...d, notes: e.target.value }))} placeholder="Notes (optional)" className="text-xs min-h-[28px] resize-none" rows={2} />
                     )}
-                    {rating?.notes && !ratingEditing && <p className="text-[9px] text-muted-foreground italic">{rating.notes}</p>}
+                    {rating?.notes && !ratingEditing && <p className="text-[13px] text-muted-foreground italic">{rating.notes}</p>}
                   </div>
                 )}
                 <div className="flex gap-1">
                   {ratingEditing ? (
                     <>
-                      <Button size="sm" className="flex-1 h-6 text-[10px]" disabled={ratingSaving} onClick={handleSaveRating}>
+                      <Button size="sm" className="flex-1 h-6 text-xs" disabled={ratingSaving} onClick={handleSaveRating}>
                         {ratingSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save Rating"}
                       </Button>
-                      <Button size="sm" variant="ghost" className="h-6 text-[10px]" onClick={() => { setRatingEditing(false); if (rating) setRatingDraft(rating); }}>Cancel</Button>
+                      <Button size="sm" variant="ghost" className="h-6 text-xs" onClick={() => { setRatingEditing(false); if (rating) setRatingDraft(rating); }}>Cancel</Button>
                     </>
                   ) : (
-                    <Button size="sm" variant="outline" className="w-full h-6 text-[10px]" onClick={() => setRatingEditing(true)}>
+                    <Button size="sm" variant="outline" className="w-full h-6 text-xs" onClick={() => setRatingEditing(true)}>
                       <Pencil className="h-2.5 w-2.5 mr-0.5" /> {rating ? "Edit Rating" : "Rate Workplace"}
                     </Button>
                   )}
-                  {!ratingEditing && !rating && <p className="text-[8px] text-muted-foreground text-center italic">Click above to rate this workplace</p>}
+                  {!ratingEditing && !rating && <p className="text-xs text-muted-foreground text-center italic">Click above to rate this workplace</p>}
                 </div>
               </div>
             )}
@@ -8160,14 +8205,14 @@ function WorkHistoryPanel({
             <div className="space-y-1.5">
               <div className="grid grid-cols-2 gap-1.5">
                 <div>
-                  <p className="text-[9px] text-muted-foreground mb-0.5">Salary</p>
-                  <Input type="number" defaultValue={focusedItem.salaryAmount ?? ""} className="h-6 text-[10px]"
+                  <p className="text-[13px] text-muted-foreground mb-0.5">Salary</p>
+                  <Input type="number" defaultValue={focusedItem.salaryAmount ?? ""} className="h-6 text-xs"
                     onBlur={(e) => saveDetail({ salaryAmount: e.target.value ? Number(e.target.value) : null })} placeholder="Amount" />
                 </div>
                 <div>
-                  <p className="text-[9px] text-muted-foreground mb-0.5">Type</p>
+                  <p className="text-[13px] text-muted-foreground mb-0.5">Type</p>
                   <Select value={focusedItem.salaryType ?? ""} onValueChange={(v) => saveDetail({ salaryType: v || null })}>
-                    <SelectTrigger className="h-6 text-[10px]"><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectTrigger className="h-6 text-xs"><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="annual" className="text-xs">Annual</SelectItem>
                       <SelectItem value="hourly" className="text-xs">Hourly</SelectItem>
@@ -8177,19 +8222,19 @@ function WorkHistoryPanel({
               </div>
               <div className="grid grid-cols-2 gap-1.5">
                 <div>
-                  <p className="text-[9px] text-muted-foreground mb-0.5">Annual Bonus</p>
-                  <Input type="number" defaultValue={focusedItem.bonusAmount ?? ""} className="h-6 text-[10px]"
+                  <p className="text-[13px] text-muted-foreground mb-0.5">Annual Bonus</p>
+                  <Input type="number" defaultValue={focusedItem.bonusAmount ?? ""} className="h-6 text-xs"
                     onBlur={(e) => saveDetail({ bonusAmount: e.target.value ? Number(e.target.value) : null })} placeholder="Bonus" />
                 </div>
                 <div>
-                  <p className="text-[9px] text-muted-foreground mb-0.5">Currency</p>
-                  <Input defaultValue={focusedItem.salaryCurrency ?? "USD"} className="h-6 text-[10px]"
+                  <p className="text-[13px] text-muted-foreground mb-0.5">Currency</p>
+                  <Input defaultValue={focusedItem.salaryCurrency ?? "USD"} className="h-6 text-xs"
                     onBlur={(e) => saveDetail({ salaryCurrency: e.target.value || null })} placeholder="USD" />
                 </div>
               </div>
               <div>
-                <p className="text-[9px] text-muted-foreground mb-0.5">Equity Notes</p>
-                <Input defaultValue={focusedItem.equityNotes ?? ""} className="h-6 text-[10px]"
+                <p className="text-[13px] text-muted-foreground mb-0.5">Equity Notes</p>
+                <Input defaultValue={focusedItem.equityNotes ?? ""} className="h-6 text-xs"
                   onBlur={(e) => saveDetail({ equityNotes: e.target.value || null })} placeholder="Stock options, RSUs…" />
               </div>
             </div>
@@ -8205,18 +8250,18 @@ function WorkHistoryPanel({
             <div className="space-y-1.5">
               <div className="grid grid-cols-2 gap-1.5">
                 <div>
-                  <p className="text-[9px] text-muted-foreground mb-0.5">Employment Type</p>
+                  <p className="text-[13px] text-muted-foreground mb-0.5">Employment Type</p>
                   <Select value={focusedItem.scheduleType ?? ""} onValueChange={(v) => saveDetail({ scheduleType: v || null })}>
-                    <SelectTrigger className="h-6 text-[10px]"><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectTrigger className="h-6 text-xs"><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>
                       {["full-time","part-time","contract","internship","freelance"].map((v) => <SelectItem key={v} value={v} className="text-xs capitalize">{v.replace("-"," ")}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
                 <div>
-                  <p className="text-[9px] text-muted-foreground mb-0.5">Work Mode</p>
+                  <p className="text-[13px] text-muted-foreground mb-0.5">Work Mode</p>
                   <Select value={focusedItem.workMode ?? ""} onValueChange={(v) => saveDetail({ workMode: v || null })}>
-                    <SelectTrigger className="h-6 text-[10px]"><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectTrigger className="h-6 text-xs"><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>
                       {["on-site","hybrid","remote"].map((v) => <SelectItem key={v} value={v} className="text-xs capitalize">{v.replace("-"," ")}</SelectItem>)}
                     </SelectContent>
@@ -8225,19 +8270,19 @@ function WorkHistoryPanel({
               </div>
               <div className="grid grid-cols-2 gap-1.5">
                 <div>
-                  <p className="text-[9px] text-muted-foreground mb-0.5">Days On-Site (hybrid)</p>
-                  <Input type="number" min={0} max={7} defaultValue={focusedItem.hybridDays ?? ""} className="h-6 text-[10px]"
+                  <p className="text-[13px] text-muted-foreground mb-0.5">Days On-Site (hybrid)</p>
+                  <Input type="number" min={0} max={7} defaultValue={focusedItem.hybridDays ?? ""} className="h-6 text-xs"
                     onBlur={(e) => saveDetail({ hybridDays: e.target.value ? Number(e.target.value) : null })} />
                 </div>
                 <div>
-                  <p className="text-[9px] text-muted-foreground mb-0.5">Hours/Week</p>
-                  <Input type="number" defaultValue={focusedItem.hoursPerWeek ?? ""} className="h-6 text-[10px]"
+                  <p className="text-[13px] text-muted-foreground mb-0.5">Hours/Week</p>
+                  <Input type="number" defaultValue={focusedItem.hoursPerWeek ?? ""} className="h-6 text-xs"
                     onBlur={(e) => saveDetail({ hoursPerWeek: e.target.value ? Number(e.target.value) : null })} />
                 </div>
               </div>
               <div>
-                <p className="text-[9px] text-muted-foreground mb-0.5">Shift Notes</p>
-                <Input defaultValue={focusedItem.shiftNotes ?? ""} className="h-6 text-[10px]"
+                <p className="text-[13px] text-muted-foreground mb-0.5">Shift Notes</p>
+                <Input defaultValue={focusedItem.shiftNotes ?? ""} className="h-6 text-xs"
                   onBlur={(e) => saveDetail({ shiftNotes: e.target.value || null })} placeholder="Night shift, 4x10, etc." />
               </div>
             </div>
@@ -8252,24 +8297,24 @@ function WorkHistoryPanel({
           >
             <div className="space-y-1.5">
               <div>
-                <p className="text-[9px] text-muted-foreground mb-0.5">Benefits (click to toggle)</p>
+                <p className="text-[13px] text-muted-foreground mb-0.5">Benefits (click to toggle)</p>
                 <BenefitsToggle current={focusedItem.benefits} onSave={(val) => saveDetail({ benefits: val })} />
               </div>
               <div className="grid grid-cols-2 gap-1.5">
                 <div>
-                  <p className="text-[9px] text-muted-foreground mb-0.5">PTO Days Offered</p>
-                  <Input type="number" defaultValue={focusedItem.ptoDaysOffered ?? ""} className="h-6 text-[10px]"
+                  <p className="text-[13px] text-muted-foreground mb-0.5">PTO Days Offered</p>
+                  <Input type="number" defaultValue={focusedItem.ptoDaysOffered ?? ""} className="h-6 text-xs"
                     onBlur={(e) => saveDetail({ ptoDaysOffered: e.target.value ? Number(e.target.value) : null })} />
                 </div>
                 <div>
-                  <p className="text-[9px] text-muted-foreground mb-0.5">PTO Days Used</p>
-                  <Input type="number" defaultValue={focusedItem.ptoDaysUsed ?? ""} className="h-6 text-[10px]"
+                  <p className="text-[13px] text-muted-foreground mb-0.5">PTO Days Used</p>
+                  <Input type="number" defaultValue={focusedItem.ptoDaysUsed ?? ""} className="h-6 text-xs"
                     onBlur={(e) => saveDetail({ ptoDaysUsed: e.target.value ? Number(e.target.value) : null })} />
                 </div>
               </div>
               <div>
-                <p className="text-[9px] text-muted-foreground mb-0.5">PTO Notes</p>
-                <Input defaultValue={focusedItem.ptoNotes ?? ""} className="h-6 text-[10px]"
+                <p className="text-[13px] text-muted-foreground mb-0.5">PTO Notes</p>
+                <Input defaultValue={focusedItem.ptoNotes ?? ""} className="h-6 text-xs"
                   onBlur={(e) => saveDetail({ ptoNotes: e.target.value || null })} placeholder="Unlimited, sabbatical…" />
               </div>
             </div>
@@ -8285,28 +8330,28 @@ function WorkHistoryPanel({
             <div className="space-y-1.5">
               <div className="grid grid-cols-2 gap-1.5">
                 <div>
-                  <p className="text-[9px] text-muted-foreground mb-0.5">Company Size</p>
+                  <p className="text-[13px] text-muted-foreground mb-0.5">Company Size</p>
                   <Select value={focusedItem.companySize ?? ""} onValueChange={(v) => saveDetail({ companySize: v || null })}>
-                    <SelectTrigger className="h-6 text-[10px]"><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectTrigger className="h-6 text-xs"><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>
                       {["startup","small","mid-market","enterprise"].map((v) => <SelectItem key={v} value={v} className="text-xs capitalize">{v.replace("-"," ")}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
                 <div>
-                  <p className="text-[9px] text-muted-foreground mb-0.5">Team Size</p>
-                  <Input type="number" defaultValue={focusedItem.teamSize ?? ""} className="h-6 text-[10px]"
+                  <p className="text-[13px] text-muted-foreground mb-0.5">Team Size</p>
+                  <Input type="number" defaultValue={focusedItem.teamSize ?? ""} className="h-6 text-xs"
                     onBlur={(e) => saveDetail({ teamSize: e.target.value ? Number(e.target.value) : null })} />
                 </div>
               </div>
               <div>
-                <p className="text-[9px] text-muted-foreground mb-0.5">Department</p>
-                <Input defaultValue={focusedItem.department ?? ""} className="h-6 text-[10px]"
+                <p className="text-[13px] text-muted-foreground mb-0.5">Department</p>
+                <Input defaultValue={focusedItem.department ?? ""} className="h-6 text-xs"
                   onBlur={(e) => saveDetail({ department: e.target.value || null })} placeholder="Engineering, Sales…" />
               </div>
               <div>
-                <p className="text-[9px] text-muted-foreground mb-0.5">Manager</p>
-                <Input defaultValue={focusedItem.managerName ?? ""} className="h-6 text-[10px]"
+                <p className="text-[13px] text-muted-foreground mb-0.5">Manager</p>
+                <Input defaultValue={focusedItem.managerName ?? ""} className="h-6 text-xs"
                   onBlur={(e) => saveDetail({ managerName: e.target.value || null })} placeholder="Manager name" />
               </div>
             </div>
@@ -8321,16 +8366,16 @@ function WorkHistoryPanel({
           >
             <div className="space-y-1.5">
               <div>
-                <p className="text-[9px] text-muted-foreground mb-0.5">Skills Used (comma-separated)</p>
+                <p className="text-[13px] text-muted-foreground mb-0.5">Skills Used (comma-separated)</p>
                 <Input defaultValue={(() => { try { return JSON.parse(focusedItem.skillsUsed ?? "[]").join(", "); } catch { return ""; } })()}
-                  className="h-6 text-[10px]" list="wh-skill-suggestions"
+                  className="h-6 text-xs" list="wh-skill-suggestions"
                   onBlur={(e) => { const v = e.target.value.split(",").map((s: string) => s.trim()).filter(Boolean); saveDetail({ skillsUsed: v.length ? JSON.stringify(v) : null }); }}
                   placeholder="React, Python, SQL…" />
               </div>
               <div>
-                <p className="text-[9px] text-muted-foreground mb-0.5">Skills Gained (comma-separated)</p>
+                <p className="text-[13px] text-muted-foreground mb-0.5">Skills Gained (comma-separated)</p>
                 <Input defaultValue={(() => { try { return JSON.parse(focusedItem.skillsGained ?? "[]").join(", "); } catch { return ""; } })()}
-                  className="h-6 text-[10px]" list="wh-skill-suggestions"
+                  className="h-6 text-xs" list="wh-skill-suggestions"
                   onBlur={(e) => { const v = e.target.value.split(",").map((s: string) => s.trim()).filter(Boolean); saveDetail({ skillsGained: v.length ? JSON.stringify(v) : null }); }}
                   placeholder="Docker, K8s…" />
                 <datalist id="wh-skill-suggestions">
@@ -8342,11 +8387,11 @@ function WorkHistoryPanel({
                 const promos: { title: string; date: string }[] = (() => { try { return JSON.parse(focusedItem.promotions ?? "[]"); } catch { return []; } })();
                 return (
                   <div>
-                    <p className="text-[9px] text-muted-foreground mb-0.5">Promotions</p>
+                    <p className="text-[13px] text-muted-foreground mb-0.5">Promotions</p>
                     {promos.length > 0 && (
                       <div className="space-y-0.5 mb-1">
                         {promos.map((p, i) => (
-                          <div key={i} className="flex items-center gap-1 text-[10px]">
+                          <div key={i} className="flex items-center gap-1 text-xs">
                             <Award className="h-2.5 w-2.5 text-amber-500 shrink-0" />
                             <span className="font-medium truncate">{p.title}</span>
                             <span className="text-muted-foreground shrink-0">{p.date}</span>
@@ -8359,9 +8404,9 @@ function WorkHistoryPanel({
                       </div>
                     )}
                     <div className="flex gap-1">
-                      <Input placeholder="Title (e.g. Senior Dev)" className="h-6 text-[10px] flex-1" id="promo-title-input" />
-                      <Input type="month" className="h-6 text-[10px] w-[110px]" id="promo-date-input" />
-                      <Button size="sm" variant="ghost" className="h-6 px-1.5 text-[10px]"
+                      <Input placeholder="Title (e.g. Senior Dev)" className="h-6 text-xs flex-1" id="promo-title-input" />
+                      <Input type="month" className="h-6 text-xs w-[110px]" id="promo-date-input" />
+                      <Button size="sm" variant="ghost" className="h-6 px-1.5 text-xs"
                         onClick={() => {
                           const titleEl = document.getElementById("promo-title-input") as HTMLInputElement;
                           const dateEl = document.getElementById("promo-date-input") as HTMLInputElement;
@@ -8389,18 +8434,18 @@ function WorkHistoryPanel({
             <div className="space-y-1.5">
               <div className="grid grid-cols-2 gap-1.5">
                 <div>
-                  <p className="text-[9px] text-muted-foreground mb-0.5">Reason for Leaving</p>
+                  <p className="text-[13px] text-muted-foreground mb-0.5">Reason for Leaving</p>
                   <Select value={focusedItem.reasonForLeaving ?? ""} onValueChange={(v) => saveDetail({ reasonForLeaving: v || null })}>
-                    <SelectTrigger className="h-6 text-[10px]"><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectTrigger className="h-6 text-xs"><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>
                       {[["better-offer","Better Offer"],["layoff","Layoff"],["relocation","Relocation"],["growth","Growth"],["culture","Culture"],["personal","Personal"],["contract-end","Contract End"],["other","Other"]].map(([v,l]) => <SelectItem key={v} value={v} className="text-xs">{l}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
                 <div>
-                  <p className="text-[9px] text-muted-foreground mb-0.5">Would Return?</p>
+                  <p className="text-[13px] text-muted-foreground mb-0.5">Would Return?</p>
                   <Select value={focusedItem.wouldReturn ?? ""} onValueChange={(v) => saveDetail({ wouldReturn: v || null })}>
-                    <SelectTrigger className="h-6 text-[10px]"><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectTrigger className="h-6 text-xs"><SelectValue placeholder="Select" /></SelectTrigger>
                     <SelectContent>
                       {["yes","no","maybe"].map((v) => <SelectItem key={v} value={v} className="text-xs capitalize">{v}</SelectItem>)}
                     </SelectContent>
@@ -8408,9 +8453,9 @@ function WorkHistoryPanel({
                 </div>
               </div>
               <div>
-                <p className="text-[9px] text-muted-foreground mb-0.5">Key Accomplishments (one per line)</p>
+                <p className="text-[13px] text-muted-foreground mb-0.5">Key Accomplishments (one per line)</p>
                 <Textarea defaultValue={(() => { try { return JSON.parse(focusedItem.accomplishments ?? "[]").join("\n"); } catch { return ""; } })()}
-                  className="text-[10px] min-h-[60px]"
+                  className="text-xs min-h-[60px]"
                   onBlur={(e) => { const v = e.target.value.split("\n").map((s: string) => s.trim()).filter(Boolean); saveDetail({ accomplishments: v.length ? JSON.stringify(v) : null }); }}
                   placeholder="Led migration to microservices&#10;Reduced build time by 60%" />
               </div>
@@ -8462,37 +8507,55 @@ function WorkHistoryPanel({
 
       {/* Career Journey Stats */}
       {stats && (
-        <div className="grid grid-cols-4 gap-1 mb-2.5 p-2 rounded-lg bg-muted/40 border">
-          <div className="text-center">
-            <p className="text-[10px] text-muted-foreground">Tenure</p>
-            <p className="text-xs font-semibold">{stats.tenureStr}</p>
+        <div className="mb-2.5 p-2 rounded-lg bg-muted/40 border space-y-1.5">
+          <div className="grid grid-cols-4 gap-1">
+            <div className="text-center">
+              <p className="text-[10px] text-muted-foreground">Tenure</p>
+              <p className="text-sm font-semibold">{stats.tenureStr}</p>
+            </div>
+            <div className="text-center">
+              <p className="text-[10px] text-muted-foreground">Roles</p>
+              <p className="text-sm font-semibold">{stats.count}</p>
+            </div>
+            <div className="text-center">
+              <p className="text-[10px] text-muted-foreground">Miles</p>
+              <p className="text-sm font-semibold">{stats.totalMiles > 0 ? `${stats.totalMiles}` : "—"}</p>
+            </div>
+            <div className="text-center">
+              <p className="text-[10px] text-muted-foreground">Cities</p>
+              <p className="text-sm font-semibold">{stats.cities}</p>
+            </div>
           </div>
-          <div className="text-center">
-            <p className="text-[10px] text-muted-foreground">Roles</p>
-            <p className="text-xs font-semibold">{stats.count}</p>
-          </div>
-          <div className="text-center">
-            <p className="text-[10px] text-muted-foreground">Miles</p>
-            <p className="text-xs font-semibold">{stats.totalMiles > 0 ? `${stats.totalMiles}` : "—"}</p>
-          </div>
-          <div className="text-center">
-            <p className="text-[10px] text-muted-foreground">Cities</p>
-            <p className="text-xs font-semibold">{stats.cities}</p>
-          </div>
+          {cfmSummary && cfmSummary.rtg > 0 && (
+            <div className="grid grid-cols-2 gap-1 pt-1.5 border-t border-border/50">
+              <div className="text-center">
+                <p className="text-[10px] text-muted-foreground">RTG</p>
+                <p className="text-sm font-semibold text-orange-600 dark:text-orange-400">${cfmSummary.rtg >= 1000 ? `${(cfmSummary.rtg / 1000).toFixed(cfmSummary.rtg >= 100000 ? 0 : 1)}k` : cfmSummary.rtg.toLocaleString()}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-[10px] text-muted-foreground">RTN</p>
+                <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">
+                  {cfmSummary.rtn && cfmSummary.rtn > 0
+                    ? `$${cfmSummary.rtn >= 1000 ? `${(cfmSummary.rtn / 1000).toFixed(cfmSummary.rtn >= 100000 ? 0 : 1)}k` : cfmSummary.rtn.toLocaleString()}`
+                    : "—"}
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
       {/* Tabs */}
       {items.length > 0 && (
         <div className="flex gap-1 mb-2">
-          <button type="button" className={`flex-1 text-[10px] py-1 rounded-md font-medium transition-colors ${tab === "list" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted/50"}`} onClick={() => setTab("list")}>
+          <button type="button" className={`flex-1 text-xs py-1 rounded-md font-medium transition-colors ${tab === "list" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted/50"}`} onClick={() => setTab("list")}>
             List
           </button>
-          <button type="button" className={`flex-1 text-[10px] py-1 rounded-md font-medium transition-colors ${tab === "timeline" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted/50"}`} onClick={() => setTab("timeline")}>
+          <button type="button" className={`flex-1 text-xs py-1 rounded-md font-medium transition-colors ${tab === "timeline" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted/50"}`} onClick={() => setTab("timeline")}>
             Timeline
           </button>
           {items.length >= 2 && (
-            <button type="button" className={`flex-1 text-[10px] py-1 rounded-md font-medium transition-colors ${tab === "compare" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted/50"}`} onClick={() => setTab("compare")}>
+            <button type="button" className={`flex-1 text-xs py-1 rounded-md font-medium transition-colors ${tab === "compare" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted/50"}`} onClick={() => setTab("compare")}>
               Compare
             </button>
           )}
@@ -8519,15 +8582,15 @@ function WorkHistoryPanel({
         return (
           <div className="mb-2.5 p-2 rounded-lg bg-muted/40 border space-y-1.5">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-medium flex items-center gap-1">
+              <span className="text-xs font-medium flex items-center gap-1">
                 <Clock className="h-3 w-3" /> Time Filter
               </span>
               {timeFilter ? (
-                <button type="button" className="text-[9px] text-primary hover:underline" onClick={() => onTimeFilterChange(null)}>
+                <button type="button" className="text-[13px] text-primary hover:underline" onClick={() => onTimeFilterChange(null)}>
                   Clear (all time)
                 </button>
               ) : (
-                <span className="text-[9px] text-muted-foreground">All time</span>
+                <span className="text-[13px] text-muted-foreground">All time</span>
               )}
             </div>
             <input
@@ -8543,13 +8606,13 @@ function WorkHistoryPanel({
               }}
               className="w-full h-1.5 accent-primary cursor-pointer"
             />
-            <div className="flex justify-between text-[9px] text-muted-foreground">
+            <div className="flex justify-between text-[13px] text-muted-foreground">
               <span>{formatMonth(0)}</span>
               {timeFilter && <span className="font-semibold text-foreground">{timeFilter}</span>}
               <span>Now</span>
             </div>
             {timeFilter && activeResidence && (
-              <div className="flex items-center gap-1 text-[9px] bg-blue-500/10 text-blue-700 dark:text-blue-300 rounded px-1.5 py-0.5">
+              <div className="flex items-center gap-1 text-[13px] bg-blue-500/10 text-blue-700 dark:text-blue-300 rounded px-1.5 py-0.5">
                 <span>🏠</span>
                 <span className="font-medium truncate">{activeResidence.label}</span>
                 <span className="text-muted-foreground">·</span>
@@ -8557,7 +8620,7 @@ function WorkHistoryPanel({
               </div>
             )}
             {timeFilter && !activeResidence && residences.length === 0 && (
-              <p className="text-[9px] text-amber-600 dark:text-amber-400">Add a residence to see your home marker on the map</p>
+              <p className="text-[13px] text-amber-600 dark:text-amber-400">Add a residence to see your home marker on the map</p>
             )}
           </div>
         );
@@ -8585,7 +8648,7 @@ function WorkHistoryPanel({
                   key={c.key}
                   type="button"
                   onClick={() => onToggleType(c.key)}
-                  className={`flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded-full border transition-colors ${hidden ? "opacity-40 bg-muted/20 border-muted" : "bg-primary/10 border-primary/30 text-foreground"}`}
+                  className={`flex items-center gap-0.5 text-[13px] px-1.5 py-0.5 rounded-full border transition-colors ${hidden ? "opacity-40 bg-muted/20 border-muted" : "bg-primary/10 border-primary/30 text-foreground"}`}
                 >
                   <span>{c.emoji}</span>
                   <span>{c.label}</span>
@@ -8601,7 +8664,7 @@ function WorkHistoryPanel({
       <div className="mb-2.5">
         <button
           type="button"
-          className="flex items-center gap-1 text-[10px] font-medium text-muted-foreground hover:text-foreground w-full"
+          className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground w-full"
           onClick={() => setShowResidences(!showResidences)}
         >
           <Home className="h-3 w-3" />
@@ -8611,7 +8674,7 @@ function WorkHistoryPanel({
         {showResidences && (
           <div className="mt-1.5 space-y-1.5">
             {residences.map((r) => (
-              <div key={r.id} className={`flex items-center gap-1.5 p-1.5 rounded border text-[10px] ${activeResidence?.id === r.id ? "border-blue-400 bg-blue-500/10" : "bg-muted/30"}`}>
+              <div key={r.id} className={`flex items-center gap-1.5 p-1.5 rounded border text-xs ${activeResidence?.id === r.id ? "border-blue-400 bg-blue-500/10" : "bg-muted/30"}`}>
                 <span>🏠</span>
                 <div className="flex-1 min-w-0">
                   <p className="font-medium truncate">{r.label}{r.isCurrent && <span className="text-blue-500 ml-1">(current)</span>}</p>
@@ -8628,7 +8691,7 @@ function WorkHistoryPanel({
               </div>
             ))}
             {!addingResidence ? (
-              <button type="button" className="text-[10px] text-primary hover:underline flex items-center gap-1" onClick={() => setAddingResidence(true)}>
+              <button type="button" className="text-xs text-primary hover:underline flex items-center gap-1" onClick={() => setAddingResidence(true)}>
                 <Plus className="h-3 w-3" /> Add residence
               </button>
             ) : (
@@ -8644,19 +8707,19 @@ function WorkHistoryPanel({
                 />
                 <div className="grid grid-cols-2 gap-1.5">
                   <div>
-                    <label className="text-[9px] text-muted-foreground block mb-0.5">Start</label>
+                    <label className="text-[13px] text-muted-foreground block mb-0.5">Start</label>
                     <Input type="month" className="h-7 text-xs w-full" value={resStart} onChange={(e) => setResStart(e.target.value)} />
                   </div>
                   <div>
-                    <label className="text-[9px] text-muted-foreground block mb-0.5">End (blank = current)</label>
+                    <label className="text-[13px] text-muted-foreground block mb-0.5">End (blank = current)</label>
                     <Input type="month" className="h-7 text-xs w-full" value={resEnd} onChange={(e) => setResEnd(e.target.value)} />
                   </div>
                 </div>
                 <div className="flex gap-1.5">
-                  <Button size="sm" className="h-6 text-[10px] flex-1" disabled={resSaving} onClick={handleAddResidence}>
+                  <Button size="sm" className="h-6 text-xs flex-1" disabled={resSaving} onClick={handleAddResidence}>
                     {resSaving ? "Saving…" : "Save"}
                   </Button>
-                  <Button size="sm" variant="ghost" className="h-6 text-[10px]" onClick={() => { setAddingResidence(false); setResLabel(""); setResAddress(""); setResCoords(null); setResPlaceId(null); setResStart(""); setResEnd(""); }}>
+                  <Button size="sm" variant="ghost" className="h-6 text-xs" onClick={() => { setAddingResidence(false); setResLabel(""); setResAddress(""); setResCoords(null); setResPlaceId(null); setResStart(""); setResEnd(""); }}>
                     Cancel
                   </Button>
                 </div>
@@ -8747,8 +8810,8 @@ function WorkHistoryPanel({
                     onClick={() => toggleListSection(sec.key)}
                   >
                     <span className="text-xs">{sec.emoji}</span>
-                    <span className="text-[11px] font-semibold">{sec.label}</span>
-                    <span className="text-[9px] text-muted-foreground">({sec.items.length})</span>
+                    <span className="text-sm font-semibold">{sec.label}</span>
+                    <span className="text-[13px] text-muted-foreground">({sec.items.length})</span>
                     <ChevronDown className={`h-3 w-3 ml-auto text-muted-foreground transition-transform ${collapsedSections.has(sec.key) ? "-rotate-90" : ""}`} />
                   </button>
                 )}
@@ -8776,37 +8839,42 @@ function WorkHistoryPanel({
           ) : (
             <div key={w.id} className="rounded-md hover:bg-muted/50 group">
               <div className="flex items-start justify-between gap-2 p-1.5">
-                <div className="min-w-0 flex-1 cursor-pointer" onClick={() => { setExpandedId(expandedId === w.id ? null : w.id); onFocusJob(w); }}>
+                <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1">
-                    {w.type === "school" ? <GraduationCap className="h-3 w-3 text-violet-500 shrink-0" /> : w.type === "self-employed" ? <span className="text-[10px] shrink-0">🧑‍💻</span> : w.type === "unemployed" ? <Search className="h-3 w-3 text-red-500 shrink-0" /> : <Briefcase className={`h-3 w-3 shrink-0 ${w.type === "internship" ? "text-cyan-600" : "text-gray-500"}`} />}
-                    <p className="text-xs font-medium truncate">{w.company}</p>
                     {(w.locations?.length ?? 0) > 0 && (
-                      <span className="text-[9px] bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300 px-1 rounded">{w.locations.length} loc</span>
+                      <button type="button" className="shrink-0 text-muted-foreground hover:text-foreground transition-transform" onClick={() => setExpandedId(expandedId === w.id ? null : w.id)}>
+                        <ChevronDown className={`h-3 w-3 transition-transform ${expandedId === w.id ? "" : "-rotate-90"}`} />
+                      </button>
+                    )}
+                    {w.type === "school" ? <GraduationCap className="h-3 w-3 text-violet-500 shrink-0" /> : w.type === "self-employed" ? <span className="text-xs shrink-0">🧑‍💻</span> : w.type === "unemployed" ? <Search className="h-3 w-3 text-red-500 shrink-0" /> : <Briefcase className={`h-3 w-3 shrink-0 ${w.type === "internship" ? "text-cyan-600" : "text-gray-500"}`} />}
+                    <p className="text-sm font-medium truncate cursor-pointer hover:underline" onClick={() => onFocusJob(w)}>{w.company}</p>
+                    {(w.locations?.length ?? 0) > 0 && (
+                      <span className="text-[13px] bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300 px-1 rounded">{w.locations.length} loc</span>
                     )}
                   </div>
                   {w.type === "school" ? (
-                    (w.degree || w.major) && <p className="text-[10px] text-muted-foreground truncate">{w.degree}{w.degree && w.major ? " in " : ""}{w.major}</p>
+                    (w.degree || w.major) && <p className="text-xs text-muted-foreground truncate">{w.degree}{w.degree && w.major ? " in " : ""}{w.major}</p>
                   ) : (
-                    w.title && <p className="text-[10px] text-muted-foreground truncate">{w.title}</p>
+                    w.title && <p className="text-xs text-muted-foreground truncate">{w.title}</p>
                   )}
-                  {w.type !== "unemployed" && <p className="text-[10px] text-muted-foreground truncate">{w.address}</p>}
+                  {w.type !== "unemployed" && <p className="text-xs text-muted-foreground truncate">{w.address}</p>}
                   {(w.startDate || w.endDate) && (
-                    <p className="text-[10px] text-muted-foreground">
+                    <p className="text-xs text-muted-foreground">
                       {w.startDate ?? "?"} – {w.endDate ?? "present"}
                     </p>
                   )}
                   {activeResidence && timeFilter && w.type !== "unemployed" && (() => {
                     const ct = commuteTimes.get(w.id);
-                    if (ct) return <p className="text-[9px] text-blue-600 dark:text-blue-400">🏠 {ct.durationMin} min · {ct.distanceMi} mi</p>;
+                    if (ct) return <p className="text-[13px] text-blue-600 dark:text-blue-400">🏠 {ct.durationMin} min · {ct.distanceMi} mi</p>;
                     const dLat = (w.lat - activeResidence.lat) * 69;
                     const dLng = (w.lng - activeResidence.lng) * 69 * Math.cos(((w.lat + activeResidence.lat) / 2) * Math.PI / 180);
                     const dist = Math.round(Math.sqrt(dLat * dLat + dLng * dLng));
-                    return dist > 1 ? <p className="text-[9px] text-muted-foreground">🏠 ~{dist} mi</p> : null;
+                    return dist > 1 ? <p className="text-[13px] text-muted-foreground">🏠 ~{dist} mi</p> : null;
                   })()}
                   {showOverlaps && overlapMap.has(w.id) && (
                     <div className="flex flex-wrap gap-0.5 mt-0.5">
                       {overlapMap.get(w.id)!.map((o) => (
-                        <span key={o.id} className="inline-flex items-center gap-0.5 text-[9px] bg-cyan-100 dark:bg-cyan-900/40 text-cyan-700 dark:text-cyan-300 px-1 rounded cursor-pointer hover:bg-cyan-200 dark:hover:bg-cyan-900/60" onClick={(e) => { e.stopPropagation(); onFocusJob(items.find((i) => i.id === o.id)!); }}>
+                        <span key={o.id} className="inline-flex items-center gap-0.5 text-[13px] bg-cyan-100 dark:bg-cyan-900/40 text-cyan-700 dark:text-cyan-300 px-1 rounded cursor-pointer hover:bg-cyan-200 dark:hover:bg-cyan-900/60" onClick={(e) => { e.stopPropagation(); onFocusJob(items.find((i) => i.id === o.id)!); }}>
                           <Zap className="h-2 w-2" /> {o.type === "school" ? "🎓" : o.type === "military" ? "🎖️" : o.type === "volunteer" ? "🤝" : o.type === "internship" ? "🏢" : o.type === "self-employed" ? "🧑‍💻" : o.type === "unemployed" ? "🔍" : "💼"} {o.company}
                         </span>
                       ))}
@@ -8839,22 +8907,22 @@ function WorkHistoryPanel({
                         <div key={loc.id} className="space-y-1 group/loc">
                           <div className="flex items-start justify-between gap-1">
                             <div className="min-w-0">
-                              <p className="text-[10px] font-medium truncate">{loc.label}</p>
+                              <p className="text-xs font-medium truncate">{loc.label}</p>
                               <div className="flex items-center gap-1">
-                                <p className="text-[9px] text-muted-foreground truncate">{loc.address}</p>
+                                <p className="text-[13px] text-muted-foreground truncate">{loc.address}</p>
                                 <button type="button" className="shrink-0 p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground opacity-0 group-hover/loc:opacity-100 transition-opacity" title="Copy address" onClick={() => { navigator.clipboard.writeText(loc.address); toast.success("Address copied"); }}>
                                   <Copy className="h-2.5 w-2.5" />
                                 </button>
                               </div>
                               {loc.lat != null && loc.lng != null && (
                                 <div className="flex items-center gap-1">
-                                  <p className="text-[8px] text-muted-foreground font-mono">📍 {Number(loc.lat).toFixed(5)}, {Number(loc.lng).toFixed(5)}</p>
+                                  <p className="text-xs text-muted-foreground font-mono">📍 {Number(loc.lat).toFixed(5)}, {Number(loc.lng).toFixed(5)}</p>
                                   <button type="button" className="shrink-0 p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground opacity-0 group-hover/loc:opacity-100 transition-opacity" title="Copy coordinates" onClick={() => { navigator.clipboard.writeText(`${Number(loc.lat).toFixed(5)}, ${Number(loc.lng).toFixed(5)}`); toast.success("Coordinates copied"); }}>
                                     <Copy className="h-2 w-2" />
                                   </button>
                                 </div>
                               )}
-                              <span className="text-[9px] bg-muted px-1 rounded">{LOC_TYPES.find((t) => t.value === loc.type)?.label ?? loc.type}</span>
+                              <span className="text-[13px] bg-muted px-1 rounded">{LOC_TYPES.find((t) => t.value === loc.type)?.label ?? loc.type}</span>
                             </div>
                             <button type="button" className="text-muted-foreground hover:text-red-500 opacity-0 group-hover/loc:opacity-100 transition-opacity shrink-0" onClick={() => handleDeleteLocation(w.id, loc.id)}>
                               <Trash2 className="h-2.5 w-2.5" />
@@ -8899,7 +8967,7 @@ function WorkHistoryPanel({
                               </>
                             )}
                             {photos.length > 0 && (
-                              <span className="text-[8px] text-muted-foreground">📷 {photos.length}/5</span>
+                              <span className="text-xs text-muted-foreground">📷 {photos.length}/5</span>
                             )}
                           </div>
                         </div>
@@ -8911,26 +8979,26 @@ function WorkHistoryPanel({
                   {/* Add sub-location form */}
                   {addingLocFor === w.id && (
                     <div className="space-y-1.5 p-1.5 border rounded bg-muted/20">
-                      <Input placeholder="Label (e.g. Downtown office) *" value={locLabel} onChange={(e) => setLocLabel(e.target.value)} className="h-6 text-[10px]" />
-                      <select value={locType} onChange={(e) => { setLocType(e.target.value); if (e.target.value !== "custom") setCustomLocType(""); }} className="w-full h-6 text-[10px] rounded border bg-background px-1">
+                      <Input placeholder="Label (e.g. Downtown office) *" value={locLabel} onChange={(e) => setLocLabel(e.target.value)} className="h-6 text-xs" />
+                      <select value={locType} onChange={(e) => { setLocType(e.target.value); if (e.target.value !== "custom") setCustomLocType(""); }} className="w-full h-6 text-xs rounded border bg-background px-1">
                         {LOC_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
                       </select>
                       {locType === "custom" && (
-                        <Input value={customLocType} onChange={(e) => setCustomLocType(e.target.value)} placeholder="Type name (e.g. Warehouse)" className="h-6 text-[10px]" />
+                        <Input value={customLocType} onChange={(e) => setCustomLocType(e.target.value)} placeholder="Type name (e.g. Warehouse)" className="h-6 text-xs" />
                       )}
-                      <PlacesAutocomplete value={locAddress} onChange={(v) => { setLocAddress(v); setLocCoords(null); setLocPlaceId(null); }} onPlaceSelect={handleLocPlaceSelect} placeholder="Address *" className="h-6 text-[10px]" types={[]} />
+                      <PlacesAutocomplete value={locAddress} onChange={(v) => { setLocAddress(v); setLocCoords(null); setLocPlaceId(null); }} onPlaceSelect={handleLocPlaceSelect} placeholder="Address *" className="h-6 text-xs" types={[]} />
                       <div className="flex gap-1">
-                        <Button size="sm" className="flex-1 h-6 text-[10px]" onClick={() => handleAddLocation(w.id)} disabled={locSaving || (locType === "custom" && !customLocType.trim())}>
+                        <Button size="sm" className="flex-1 h-6 text-xs" onClick={() => handleAddLocation(w.id)} disabled={locSaving || (locType === "custom" && !customLocType.trim())}>
                           {locSaving ? <Loader2 className="h-2.5 w-2.5 animate-spin mr-0.5" /> : <Plus className="h-2.5 w-2.5 mr-0.5" />}
                           Add
                         </Button>
-                        <Button size="sm" variant="ghost" className="h-6 text-[10px]" onClick={() => setAddingLocFor(null)}>Cancel</Button>
+                        <Button size="sm" variant="ghost" className="h-6 text-xs" onClick={() => setAddingLocFor(null)}>Cancel</Button>
                       </div>
                     </div>
                   )}
 
                   {addingLocFor !== w.id && (
-                    <button type="button" className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-0.5" onClick={() => setAddingLocFor(w.id)}>
+                    <button type="button" className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-0.5" onClick={() => setAddingLocFor(w.id)}>
                       <Plus className="h-2.5 w-2.5" /> Add location
                     </button>
                   )}
@@ -8988,27 +9056,27 @@ function WorkHistoryPanel({
                 <div className="ml-1">
                   <div className="flex items-center gap-1.5">
                     <p className="text-xs font-medium">{w.company}</p>
-                    {isCurrent && <span className="text-[9px] bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 px-1 rounded">current</span>}
+                    {isCurrent && <span className="text-[13px] bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 px-1 rounded">current</span>}
                   </div>
-                  {w.title && <p className="text-[10px] text-muted-foreground">{w.title}</p>}
+                  {w.title && <p className="text-xs text-muted-foreground">{w.title}</p>}
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-0">
                     {(w.startDate || w.endDate) && (
-                      <p className="text-[10px] text-muted-foreground">
+                      <p className="text-xs text-muted-foreground">
                         {w.startDate ?? "?"} – {w.endDate ?? "present"}
                         {tenure && <span className="ml-1 text-foreground/70">({tenure})</span>}
                       </p>
                     )}
                     {distStr && (
-                      <p className="text-[10px] text-muted-foreground italic flex items-center gap-0.5">
+                      <p className="text-xs text-muted-foreground italic flex items-center gap-0.5">
                         <Route className="h-2.5 w-2.5" /> {distStr}
                       </p>
                     )}
                   </div>
-                  {w.type !== "unemployed" && <p className="text-[10px] text-muted-foreground truncate">{w.address}</p>}
+                  {w.type !== "unemployed" && <p className="text-xs text-muted-foreground truncate">{w.address}</p>}
                   {showOverlaps && overlapMap.has(w.id) && (
                     <div className="flex flex-wrap gap-0.5 mt-0.5">
                       {overlapMap.get(w.id)!.map((o) => (
-                        <span key={o.id} className="inline-flex items-center gap-0.5 text-[9px] bg-cyan-100 dark:bg-cyan-900/40 text-cyan-700 dark:text-cyan-300 px-1 rounded">
+                        <span key={o.id} className="inline-flex items-center gap-0.5 text-[13px] bg-cyan-100 dark:bg-cyan-900/40 text-cyan-700 dark:text-cyan-300 px-1 rounded">
                           <Zap className="h-2 w-2" /> {o.type === "school" ? "🎓" : o.type === "military" ? "🎖️" : o.type === "volunteer" ? "🤝" : o.type === "internship" ? "🏢" : o.type === "self-employed" ? "🧑‍💻" : o.type === "unemployed" ? "🔍" : "💼"} {o.company}
                         </span>
                       ))}
@@ -9018,9 +9086,9 @@ function WorkHistoryPanel({
                   {(w.locations ?? []).length > 0 && (
                     <div className="mt-0.5 pl-2 border-l border-dashed border-muted-foreground/30 space-y-0.5">
                       {w.locations.map((loc) => (
-                        <p key={loc.id} className="text-[9px] text-muted-foreground flex items-center gap-0.5 flex-wrap">
+                        <p key={loc.id} className="text-[13px] text-muted-foreground flex items-center gap-0.5 flex-wrap">
                           <MapPin className="h-2 w-2 shrink-0" /> {loc.label} <span className="opacity-60">({LOC_TYPES.find((t) => t.value === loc.type)?.label ?? loc.type})</span>
-                          {loc.lat != null && loc.lng != null && <span className="font-mono text-[8px] opacity-50">📍 {Number(loc.lat).toFixed(5)}, {Number(loc.lng).toFixed(5)}</span>}
+                          {loc.lat != null && loc.lng != null && <span className="font-mono text-xs opacity-50">📍 {Number(loc.lat).toFixed(5)}, {Number(loc.lng).toFixed(5)}</span>}
                         </p>
                       ))}
                     </div>
@@ -9036,7 +9104,7 @@ function WorkHistoryPanel({
         <div className="space-y-2">
           <div className="grid grid-cols-2 gap-1.5">
             {([0, 1] as const).map((slot) => (
-              <select key={slot} value={compareIds[slot] ?? ""} onChange={(e) => setCompareIds((prev) => { const next = [...prev] as [string | null, string | null]; next[slot] = e.target.value || null; return next; })} className="w-full h-7 text-[10px] rounded border bg-background px-1">
+              <select key={slot} value={compareIds[slot] ?? ""} onChange={(e) => setCompareIds((prev) => { const next = [...prev] as [string | null, string | null]; next[slot] = e.target.value || null; return next; })} className="w-full h-7 text-xs rounded border bg-background px-1">
                 <option value="">Select role…</option>
                 {listItems.map((w) => (
                   <option key={w.id} value={w.id} disabled={compareIds[1 - slot] === w.id}>
@@ -9049,7 +9117,7 @@ function WorkHistoryPanel({
           {(() => {
             const a = compareIds[0] ? items.find((w) => w.id === compareIds[0]) : null;
             const b = compareIds[1] ? items.find((w) => w.id === compareIds[1]) : null;
-            if (!a || !b) return <p className="text-[10px] text-muted-foreground text-center py-4">Select two roles above to compare.</p>;
+            if (!a || !b) return <p className="text-xs text-muted-foreground text-center py-4">Select two roles above to compare.</p>;
 
             function tenure(item: { startDate: string | null; endDate: string | null }) {
               if (!item.startDate) return "—";
@@ -9081,7 +9149,7 @@ function WorkHistoryPanel({
 
             return (
               <div className="rounded-lg border overflow-hidden">
-                <div className="grid grid-cols-[auto_1fr_1fr] text-[10px]">
+                <div className="grid grid-cols-[auto_1fr_1fr] text-xs">
                   <div className="p-1.5 bg-muted/40 font-medium border-b" />
                   <div className="p-1.5 bg-muted/40 font-medium border-b border-l truncate">{a.company}</div>
                   <div className="p-1.5 bg-muted/40 font-medium border-b border-l truncate">{b.company}</div>

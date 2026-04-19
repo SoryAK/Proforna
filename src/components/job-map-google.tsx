@@ -754,6 +754,9 @@ export default function JobMapGoogle({
       })();
     } else {
       cancelled = true;
+      // Close any open tax info popup
+      info?.close();
+
       // Remove state polygon features
       for (const f of taxZoneFeaturesRef.current) {
         try { map.data.remove(f); } catch { /* already removed */ }

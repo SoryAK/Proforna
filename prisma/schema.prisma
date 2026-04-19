@@ -35,7 +35,6 @@ model User {
   reminders           Reminder[]
   activityLogs        ActivityLog[]
   documents           Document[]
-  positions           CurrentPosition[]
   submissions         RecruiterSubmission[]
   incomeYears         CareerIncomeYear[]
   wageTiers           WageTier[]
@@ -70,6 +69,8 @@ model User {
   mapDrawings         MapDrawing[]
   residences          Residence[]
   diffusionExposures  DiffusionExposure[]
+  careerEvents        CareerEvent[]
+  employerAliases     EmployerAlias[]
 }
 
 model Account {
@@ -407,58 +408,7 @@ model SingleUseLink {
   profile UserProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
 }
 
-// ─── Current Position & Work ───────────────────────────────────
-
-model CurrentPosition {
-  id            String    @id @default(uuid())
-  userId        String
-  company       String
-  role          String
-  department    String?
-  location      String?
-  type          String    @default("remote")
-  startDate     DateTime
-  endDate       DateTime?
-  salary        Int?
-  currency      String    @default("USD")
-  description   String?
-  responsibilities String?
-  techStack     String?
-  managerName   String?
-  isActive      Boolean   @default(true)
-  ein           String?
-  legalName     String?
-  companySynopsis String?
-  industry      String?
-  website       String?
-  address       String?
-  focus         String?
-  schedule      String?
-  payRate       String?
-  payType       String    @default("salary")
-  differentials String?
-  payFrequency  String    @default("biweekly")
-  rotatingSchedule Boolean @default(false)
-  hoursPerWeek  Float?
-  scheduleBHours Float?
-  otHoursA      Float?
-  otHoursB      Float?
-  otRate        Float?    @default(1.5)
-  annualRaiseMin Float?
-  annualRaiseMax Float?
-  estimatorSettings String?
-  coverImage    String?   // base64 cover photo for job header card
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  compensation CompensationEvent[]
-  benefits     Benefit[]
-  timeOff      TimeOffBalance[]
-  paychecks    PaycheckRecord[]
-  equipment    Equipment[]
-  workLogs     WorkLog[]
-}
+// ─── Equipment & Work Logs ─────────────────────────────────────
 
 model Equipment {
   id            String    @id @default(uuid())
@@ -479,7 +429,7 @@ model Equipment {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  position  CurrentPosition   @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  position  WorkHistory   @relation("WorkHistoryEquipment", fields: [positionId], references: [id], onDelete: Cascade)
   resources EquipmentResource[]
 }
 
@@ -513,7 +463,7 @@ model WorkLog {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  position CurrentPosition @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  position WorkHistory @relation("WorkHistoryWorkLogs", fields: [positionId], references: [id], onDelete: Cascade)
 }
 
 // ─── Compensation & Benefits ───────────────────────────────────
@@ -530,7 +480,7 @@ model CompensationEvent {
   notes         String?
   createdAt     DateTime @default(now())
 
-  position CurrentPosition @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  position WorkHistory @relation("WorkHistoryCompensation", fields: [positionId], references: [id], onDelete: Cascade)
 }
 
 model Benefit {
@@ -547,7 +497,7 @@ model Benefit {
   expiresAt    DateTime?
   createdAt    DateTime  @default(now())
 
-  position CurrentPosition @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  position WorkHistory @relation("WorkHistoryBenefits", fields: [positionId], references: [id], onDelete: Cascade)
 }
 
 model TimeOffBalance {
@@ -563,7 +513,7 @@ model TimeOffBalance {
   createdAt DateTime @default(now())
 
   entries  TimeOffEntry[]
-  position CurrentPosition @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  position WorkHistory @relation("WorkHistoryTimeOff", fields: [positionId], references: [id], onDelete: Cascade)
 }
 
 model TimeOffEntry {
@@ -602,7 +552,7 @@ model PaycheckRecord {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
-  position CurrentPosition @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  position WorkHistory @relation("WorkHistoryPaychecks", fields: [positionId], references: [id], onDelete: Cascade)
 }
 
 // ─── Career Goals & Planning ───────────────────────────────────
@@ -1158,15 +1108,49 @@ model WorkHistory {
   commuteDistance Float?   // average one-way distance in miles
   commuteMode     String?  // "driving" | "transit" | "walking" | "bicycling"
 
+  // ── Payroll / Employer Detail (absorbed from CurrentPosition) ──
+  isActive        Boolean  @default(false)   // currently employed here
+  location        String?                    // city-level location string
+  description     String?                    // role description
+  responsibilities String?                   // line-separated responsibilities
+  techStack       String?                    // comma-separated tools/tech
+  ein             String?                    // employer identification number
+  legalName       String?                    // legal filing name
+  companySynopsis String?                    // brief company description
+  industry        String?                    // industry sector
+  website         String?                    // company website URL
+  focus           String?                    // primary role summary
+  schedule        String?                    // free-text schedule (e.g. "Overnight 6pm-6am")
+  payRate         String?                    // base rate string (e.g. "$35.50/hr")
+  payType         String?  @default("salary") // "salary" | "hourly" | "contract"
+  differentials   String?                    // newline-separated pay differentials
+  payFrequency    String?  @default("biweekly") // "weekly" | "biweekly" | "semimonthly" | "monthly"
+  rotatingSchedule Boolean @default(false)   // alternating weekly schedules
+  scheduleBHours  Float?                     // schedule B hours per week
+  otHoursA        Float?                     // overtime hours schedule A
+  otHoursB        Float?                     // overtime hours schedule B
+  otRate          Float?   @default(1.5)     // overtime multiplier
+  annualRaiseMin  Float?                     // min annual raise %
+  annualRaiseMax  Float?                     // max annual raise %
+  estimatorSettings String?                  // JSON blob for paycheck estimator
+  coverImage      String?                    // base64 cover photo
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user       User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  locations  WorkHistoryLocation[]
-  notes      WorkHistoryNote[]
-  milestones WorkHistoryMilestone[]
-  rating     WorkplaceRating?
+  user               User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  locations          WorkHistoryLocation[]
+  notes              WorkHistoryNote[]
+  milestones         WorkHistoryMilestone[]
+  rating             WorkplaceRating?
   diffusionExposures DiffusionExposure[]
+  careerEvents       CareerEvent[]
+  compensation       CompensationEvent[]     @relation("WorkHistoryCompensation")
+  benefitRecords     Benefit[]               @relation("WorkHistoryBenefits")
+  timeOff            TimeOffBalance[]        @relation("WorkHistoryTimeOff")
+  paychecks          PaycheckRecord[]        @relation("WorkHistoryPaychecks")
+  equipment          Equipment[]             @relation("WorkHistoryEquipment")
+  workLogs           WorkLog[]               @relation("WorkHistoryWorkLogs")
 }
 
 // ─── Residence History (where the user lived over time) ─────────
@@ -1478,6 +1462,7 @@ model SkillNode {
   evidence  SkillEvidence[]
   occupationRequirements OccupationSkillRequirement[]
   diffusionExposures DiffusionExposure[]
+  careerEventSkills CareerEventSkill[]
 
   @@unique([userId, name])
   @@index([userId])
@@ -1667,4 +1652,58 @@ model DiffusionExposure {
   @@index([workHistoryId])
   @@index([skillNodeId])
   @@index([zone])
+}
+
+// ─── Career Events (projects, milestones, responsibilities, etc.) ───
+
+/// A significant event within a work history role — projects, promotions,
+/// incidents, launches, training, etc. Connected to skills via join table.
+model CareerEvent {
+  id              String   @id @default(cuid())
+  userId          String
+  workHistoryId   String
+  title           String   // "Led GCP Migration", "Series B Launch"
+  description     String?  // Full narrative / STAR story
+  category        String   @default("project") // project | milestone | responsibility | training | outcome | context_shift
+  startDate       String?  // "2022-03"
+  endDate         String?  // "2022-09" or null for point-in-time events
+  metrics         String?  // Freeform quantified impact: "200 services", "$2M ARR"
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workHistory WorkHistory @relation(fields: [workHistoryId], references: [id], onDelete: Cascade)
+  skills      CareerEventSkill[]
+
+  @@index([userId])
+  @@index([workHistoryId])
+}
+
+/// Join table: which skills were involved in a career event.
+model CareerEventSkill {
+  id            String @id @default(cuid())
+  careerEventId String
+  skillNodeId   String
+
+  careerEvent CareerEvent @relation(fields: [careerEventId], references: [id], onDelete: Cascade)
+  skillNode   SkillNode   @relation(fields: [skillNodeId], references: [id], onDelete: Cascade)
+
+  @@unique([careerEventId, skillNodeId])
+  @@index([careerEventId])
+  @@index([skillNodeId])
+}
+
+// ─── Employer Alias (fuzzy name resolution) ────────────────────
+
+model EmployerAlias {
+  id            String   @id @default(uuid())
+  userId        String
+  canonicalName String   // the "real" display name the user chose
+  variantName   String   // an alternate spelling/abbreviation that maps to canonical
+  createdAt     DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, variantName])
+  @@index([userId, canonicalName])
 }

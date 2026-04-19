@@ -78,9 +78,9 @@ export async function GET(
     : [];
 
   const experience = visibleTypes.has("experience")
-    ? await prisma.currentPosition.findMany({
+    ? await prisma.workHistory.findMany({
         where: { userId: resume.userId },
-        orderBy: { startDate: "desc" },
+        orderBy: { createdAt: "desc" },
       })
     : [];
 
@@ -170,7 +170,7 @@ export async function GET(
     experience: experience.map((pos) => ({
       ...pos,
       company: "Industry Employer",
-      role: pos.role,
+      role: pos.title,
       location: null,
       description: null,
       techStack: null,

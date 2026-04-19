@@ -25,9 +25,10 @@ export async function GET() {
       ? (await prisma.resumeVersion.count({ where: { isActive: true } })) > 0
       : false;
 
-    const currentPosition = profile.showCurrentRole
-      ? await prisma.currentPosition.findFirst({ where: { isActive: true }, orderBy: { startDate: "desc" } })
+    const pos = profile.showCurrentRole
+      ? await prisma.workHistory.findFirst({ where: { isActive: true }, orderBy: { createdAt: "desc" } })
       : null;
+    const currentPosition = pos ? { ...pos, role: pos.title, type: pos.workMode, salary: pos.salaryAmount, currency: pos.salaryCurrency } : null;
 
     return NextResponse.json({
       fullName: profile.fullName,

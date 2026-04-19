@@ -46,6 +46,8 @@ import {
   FileText,
   Check,
   Users,
+  Link2,
+  X,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -137,6 +139,9 @@ interface CFMData {
   wageTiers: WageTier[];
   liveEstimate: LiveEstimate | null;
   paycheckTrackers: PaycheckTracker[];
+  rtg: number;
+  rtn: number | null;
+  yearSpan: { from: number; to: number } | null;
 }
 
 interface PaycheckTracker {
@@ -329,9 +334,26 @@ export default function CareerModelPage() {
   const [projBaselineYears, setProjBaselineYears] = useState(3);
   const [projCapPct, setProjCapPct] = useState(15);
 
+  // Employer merge state
+  const [mergeOpen, setMergeOpen] = useState(false);
+  const [mergeCanonical, setMergeCanonical] = useState("");
+  const [mergeVariants, setMergeVariants] = useState<Set<string>>(new Set());
+  const [mergeSaving, setMergeSaving] = useState(false);
+
   const { data, isLoading } = useQuery<CFMData>({
     queryKey: ["cfm"],
     queryFn: () => fetch("/api/cfm").then((r) => r.json()),
+  });
+
+  // Employer alias suggestions
+  const { data: aliasSuggestions, refetch: refetchAliases } = useQuery<{
+    allNames: string[];
+    existingGroups: Record<string, string[]>;
+    suggestions: { names: string[]; similarity: number }[];
+  }>({
+    queryKey: ["employer-alias-suggestions"],
+    queryFn: () => fetch("/api/employer-alias?mode=suggestions").then((r) => r.json()),
+    enabled: mergeOpen,
   });
 
   const mutateCfm = useMutation({
@@ -359,6 +381,9 @@ export default function CareerModelPage() {
   const wageTiers = data?.wageTiers ?? [];
   const liveEstimate = data?.liveEstimate ?? null;
   const paycheckTrackers = data?.paycheckTrackers ?? [];
+  const rtg = data?.rtg ?? 0;
+  const rtn = data?.rtn ?? null;
+  const yearSpan = data?.yearSpan ?? null;
 
   // Is the current year already manually entered?
   const currentYear = new Date().getFullYear();
@@ -1149,6 +1174,53 @@ export default function CareerModelPage() {
         </div>
       </div>
 
+      {/* ── RTG / RTN Lifetime Totals ── */}
+      {rtg > 0 && (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-xl border bg-card p-4 shadow-sm">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">RTG — Recorded Total Gross</p>
+            <p className="text-2xl font-bold font-mono text-orange-600 dark:text-orange-400 mt-1">{fmtFull(rtg)}</p>
+            {yearSpan && (
+              <p className="text-[10px] text-muted-foreground mt-1">{yearSpan.from} – {yearSpan.to} ({yearSpan.to - yearSpan.from + 1} years)</p>
+            )}
+          </div>
+          {rtn && (
+            <div className="rounded-xl border bg-card p-4 shadow-sm">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">RTN — Recorded Total Net</p>
+              <p className="text-2xl font-bold font-mono text-emerald-600 dark:text-emerald-400 mt-1">{fmtFull(rtn)}</p>
+              {rtg > 0 && (
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  {Math.round((rtn / rtg) * 100)}% take-home rate
+                </p>
+              )}
+            </div>
+          )}
+          {incomeYears.length >= 2 && (
+            <div className="rounded-xl border bg-card p-4 shadow-sm">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Avg Gross / Year</p>
+              <p className="text-2xl font-bold font-mono mt-1">{fmtFull(rtg / incomeYears.length)}</p>
+              <p className="text-[10px] text-muted-foreground mt-1">across {incomeYears.length} recorded years</p>
+            </div>
+          )}
+          {latestYear && rtg > 0 && (
+            <div className="rounded-xl border bg-card p-4 shadow-sm">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Latest vs Average</p>
+              <p className={`text-2xl font-bold font-mono mt-1 ${
+                latestYear.grossIncome >= rtg / incomeYears.length
+                  ? "text-green-600 dark:text-green-400"
+                  : "text-red-600 dark:text-red-400"
+              }`}>
+                {latestYear.grossIncome >= rtg / incomeYears.length ? "+" : ""}
+                {pct(((latestYear.grossIncome - (rtg / incomeYears.length)) / (rtg / incomeYears.length)) * 100)}
+              </p>
+              <p className="text-[10px] text-muted-foreground mt-1">
+                {latestYear.grossIncome >= rtg / incomeYears.length ? "above" : "below"} career average
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ── Live Current Year Card ── */}
       {liveEstimate && !hasManualCurrentYear && liveEstimate.grossIncome > 0 && (
         <Card className="relative overflow-hidden border-orange-200 dark:border-orange-800 bg-gradient-to-r from-orange-50 via-amber-50/50 to-transparent dark:from-orange-950/60 dark:via-amber-950/30 dark:to-transparent">
@@ -1675,11 +1747,16 @@ export default function CareerModelPage() {
                   </p>
                 </div>
               </div>
-              {stackedEmployers.length > 6 && (
-                <Badge variant="secondary" className="text-[10px]">
-                  {stackedEmployers.length} employers
-                </Badge>
-              )}
+              <div className="flex items-center gap-2">
+                {stackedEmployers.length > 6 && (
+                  <Badge variant="secondary" className="text-[10px]">
+                    {stackedEmployers.length} employers
+                  </Badge>
+                )}
+                <Button size="sm" variant="outline" onClick={() => setMergeOpen(true)}>
+                  <Link2 className="h-3.5 w-3.5 mr-1" /> Merge Names
+                </Button>
+              </div>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -3182,6 +3259,196 @@ export default function CareerModelPage() {
               <Button onClick={saveTier} disabled={!tierForm.label || !tierForm.hourlyRate || !tierForm.yearlyRate}>
                 {editingTier ? "Update" : "Add Tier"}
               </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Employer Name Merge Dialog ── */}
+      <Dialog open={mergeOpen} onOpenChange={(o) => { setMergeOpen(o); if (!o) { setMergeCanonical(""); setMergeVariants(new Set()); } }}>
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Link2 className="h-5 w-5 text-violet-500" /> Merge Employer Names
+            </DialogTitle>
+            <p className="text-xs text-muted-foreground">
+              Different sources may spell the same company differently. Select names that belong to the same employer and choose a canonical (display) name.
+            </p>
+          </DialogHeader>
+
+          <div className="space-y-4 pt-2">
+            {/* Auto-detected suggestions */}
+            {aliasSuggestions?.suggestions && aliasSuggestions.suggestions.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                  <AlertCircle className="h-3.5 w-3.5" /> Possible duplicates detected
+                </p>
+                {aliasSuggestions.suggestions.map((sg, i) => (
+                  <div key={i} className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-900/20 p-2.5 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs text-muted-foreground">{Math.round(sg.similarity * 100)}% match</p>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-6 text-xs"
+                        onClick={() => {
+                          setMergeVariants(new Set(sg.names));
+                          // Pick the longest name as default canonical
+                          const longest = sg.names.reduce((a, b) => a.length >= b.length ? a : b, "");
+                          setMergeCanonical(longest);
+                        }}
+                      >
+                        Select for merge
+                      </Button>
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {sg.names.map((n) => (
+                        <span key={n} className="text-xs bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200 px-2 py-0.5 rounded-full">
+                          {n}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Existing alias groups */}
+            {aliasSuggestions?.existingGroups && Object.keys(aliasSuggestions.existingGroups).length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                  <CheckCircle2 className="h-3.5 w-3.5" /> Already merged
+                </p>
+                {Object.entries(aliasSuggestions.existingGroups).map(([canonical, variants]) => (
+                  <div key={canonical} className="rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-900/20 p-2 flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">{canonical}</span>
+                    <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />
+                    {variants.filter((v) => v !== canonical).map((v) => (
+                      <span key={v} className="text-xs bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 rounded">
+                        {v}
+                      </span>
+                    ))}
+                    <button
+                      type="button"
+                      className="ml-auto text-[10px] text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 flex items-center gap-0.5 shrink-0"
+                      onClick={async () => {
+                        await fetch(`/api/employer-alias?canonical=${encodeURIComponent(canonical)}`, { method: "DELETE" });
+                        queryClient.invalidateQueries({ queryKey: ["employer-alias-suggestions"] });
+                        queryClient.invalidateQueries({ queryKey: ["cfm"] });
+                      }}
+                    >
+                      <Trash2 className="h-3 w-3" /> Unmerge
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Manual merge form */}
+            <div className="rounded-lg border p-3 space-y-3">
+              <p className="text-xs font-medium">Manual Merge</p>
+
+              {/* All employer names as toggleable chips */}
+              <div>
+                <p className="text-[11px] text-muted-foreground mb-1.5">Select names to merge (click to toggle):</p>
+                <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto">
+                  {(aliasSuggestions?.allNames ?? allEmployers).map((name) => {
+                    const selected = mergeVariants.has(name);
+                    return (
+                      <button
+                        key={name}
+                        type="button"
+                        className={`text-xs px-2 py-1 rounded-full border transition-colors ${
+                          selected
+                            ? "bg-violet-100 dark:bg-violet-900/40 border-violet-400 dark:border-violet-600 text-violet-800 dark:text-violet-200 font-medium"
+                            : "bg-muted/30 border-transparent hover:border-muted-foreground/30"
+                        }`}
+                        onClick={() => {
+                          setMergeVariants((prev) => {
+                            const next = new Set(prev);
+                            next.has(name) ? next.delete(name) : next.add(name);
+                            return next;
+                          });
+                        }}
+                      >
+                        {selected && <Check className="h-2.5 w-2.5 inline mr-0.5" />}
+                        {name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Canonical name input */}
+              {mergeVariants.size >= 2 && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Display name (canonical):</Label>
+                  <div className="flex gap-1.5 flex-wrap">
+                    {Array.from(mergeVariants).map((v) => (
+                      <button
+                        key={v}
+                        type="button"
+                        className={`text-xs px-2 py-0.5 rounded border transition-colors ${
+                          mergeCanonical === v
+                            ? "bg-violet-600 text-white border-violet-600"
+                            : "bg-muted/40 hover:bg-muted/60 border-transparent"
+                        }`}
+                        onClick={() => setMergeCanonical(v)}
+                      >
+                        {v}
+                      </button>
+                    ))}
+                  </div>
+                  <Input
+                    placeholder="Or type a custom display name…"
+                    value={mergeCanonical}
+                    onChange={(e) => setMergeCanonical(e.target.value)}
+                    className="h-8 text-xs"
+                  />
+                </div>
+              )}
+
+              {/* Save */}
+              <div className="flex justify-end gap-2 pt-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => { setMergeVariants(new Set()); setMergeCanonical(""); }}
+                  disabled={mergeVariants.size === 0}
+                >
+                  Clear
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={mergeVariants.size < 2 || !mergeCanonical.trim() || mergeSaving}
+                  onClick={async () => {
+                    setMergeSaving(true);
+                    try {
+                      const res = await fetch("/api/employer-alias", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          canonicalName: mergeCanonical.trim(),
+                          variants: Array.from(mergeVariants),
+                        }),
+                      });
+                      if (!res.ok) throw new Error("Failed to save");
+                      toast.success(`Merged ${mergeVariants.size} names → "${mergeCanonical.trim()}"`);
+                      setMergeVariants(new Set());
+                      setMergeCanonical("");
+                      refetchAliases();
+                      queryClient.invalidateQueries({ queryKey: ["cfm"] });
+                    } catch {
+                      toast.error("Failed to merge employer names");
+                    } finally {
+                      setMergeSaving(false);
+                    }
+                  }}
+                >
+                  {mergeSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Link2 className="h-3.5 w-3.5 mr-1" />}
+                  Merge {mergeVariants.size} Names
+                </Button>
+              </div>
             </div>
           </div>
         </DialogContent>

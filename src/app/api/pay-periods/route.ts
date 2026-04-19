@@ -117,13 +117,13 @@ export async function GET(request: Request) {
 
     // Find position
     const position = positionId
-      ? await prisma.currentPosition.findUnique({
+      ? await prisma.workHistory.findFirst({
           where: { id: positionId },
           include: { paychecks: { orderBy: { payPeriodEnd: "desc" } } },
         })
-      : await prisma.currentPosition.findFirst({
+      : await prisma.workHistory.findFirst({
           where: { isActive: true },
-          orderBy: { startDate: "desc" },
+          orderBy: { createdAt: "desc" },
           include: { paychecks: { orderBy: { payPeriodEnd: "desc" } } },
         });
 
@@ -138,7 +138,7 @@ export async function GET(request: Request) {
     const latestWithEnd = position.paychecks.find((p) => p.payPeriodEnd);
     const anchorEnd = latestWithEnd?.payPeriodEnd
       ? new Date(latestWithEnd.payPeriodEnd)
-      : addDays(new Date(position.startDate), len - 1);
+      : addDays(new Date(position.startDate ? position.startDate + "-01" : Date.now()), len - 1);
 
     // Set of paycheck period-end dates for marking
     const paycheckEndDates = new Set<string>();
@@ -166,7 +166,7 @@ export async function GET(request: Request) {
     return NextResponse.json({
       positionId: position.id,
       company: position.company,
-      role: position.role,
+      role: position.title,
       payFrequency: freq,
       periods,
       nextPayday,

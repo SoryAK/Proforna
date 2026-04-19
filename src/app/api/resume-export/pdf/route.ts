@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
   // Gather all resume data in parallel
   const [profile, positions, skills, certifications, resume] = await Promise.all([
     prisma.userProfile.findFirst(),
-    prisma.currentPosition.findMany({ orderBy: { startDate: "desc" } }),
+    prisma.workHistory.findMany({ orderBy: { createdAt: "desc" } }),
     prisma.skill.findMany({ orderBy: [{ category: "asc" }, { name: "asc" }] }),
     prisma.certification.findMany({ orderBy: { issueDate: "desc" } }),
     resumeId ? prisma.resumeVersion.findUnique({ where: { id: resumeId } }) : null,
@@ -42,12 +42,12 @@ export async function GET(req: NextRequest) {
     },
     experience: positions.map((p) => ({
       company: p.company,
-      role: p.role,
+      role: p.title || p.company,
       department: p.department,
       location: p.location,
-      type: p.type,
-      startDate: p.startDate.toISOString(),
-      endDate: p.endDate?.toISOString() || null,
+      type: p.workMode || "onsite",
+      startDate: p.startDate || "",
+      endDate: p.endDate || null,
       isActive: p.isActive,
       techStack: p.techStack,
       description: p.description,

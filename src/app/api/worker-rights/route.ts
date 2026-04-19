@@ -32,14 +32,14 @@ export async function POST(req: NextRequest) {
   try {
     const [profile, position] = await Promise.all([
       prisma.userProfile.findUnique({ where: { userId }, select: { state: true } }),
-      prisma.currentPosition.findFirst({
+      prisma.workHistory.findFirst({
         where: { userId, isActive: true },
-        select: { role: true, company: true, department: true },
-        orderBy: { startDate: "desc" },
+        select: { title: true, company: true, department: true },
+        orderBy: { createdAt: "desc" },
       }),
     ]);
     userState = profile?.state || "";
-    userRole = position?.role || "";
+    userRole = position?.title || "";
     userIndustry = position?.department || "";
   } catch {
     // Non-critical — proceed without context

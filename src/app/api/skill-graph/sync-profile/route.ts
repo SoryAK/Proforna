@@ -42,11 +42,11 @@ export async function POST() {
           major: true,
         },
       }),
-      prisma.currentPosition.findMany({
+      prisma.workHistory.findMany({
         where: { userId },
         select: {
           id: true,
-          role: true,
+          title: true,
           company: true,
           techStack: true,
           equipment: { select: { id: true, name: true, category: true } },
@@ -126,10 +126,10 @@ export async function POST() {
     }
   }
 
-  // ── 3. Current position → occupation + techStack + equipment ──
+  // ── 3. Position → occupation + techStack + equipment ──
   for (const pos of positions) {
-    if (pos.role) {
-      pendingOccupations.push({ title: pos.role, company: pos.company, sourceId: pos.id });
+    if (pos.title) {
+      pendingOccupations.push({ title: pos.title, company: pos.company, sourceId: pos.id });
     }
 
     // techStack is a comma- or newline-separated string

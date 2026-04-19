@@ -108,12 +108,25 @@ interface SkillEvidence {
   createdAt: string;
 }
 
+interface CareerEventEntry {
+  id: string;
+  workHistoryId: string;
+  title: string;
+  description: string | null;
+  category: string;
+  startDate: string | null;
+  endDate: string | null;
+  metrics: string | null;
+  skills: { skillNodeId: string }[];
+}
+
 interface GraphData {
   nodes: SkillNode[];
   edges: SkillEdge[];
   evidence: SkillEvidence[];
   occupations: OccupationData[];
   workHistories: WorkHistoryEntry[];
+  careerEvents: CareerEventEntry[];
 }
 
 interface WorkHistoryEntry {
@@ -178,6 +191,8 @@ interface GraphNode {
   isRoleGroup?: boolean;
   isRoleInstance?: boolean;
   isEducation?: boolean;
+  isCareerEvent?: boolean;
+  careerEventId?: string;
   roleGroupKey?: string;   // for instances: which group they belong to
   instanceCount?: number;  // for groups: how many instances
   workHistoryId?: string;  // for instances: the work history ID
@@ -327,6 +342,7 @@ export default function SkillGraph() {
   // Role Instance Topology state
   const [showRoleInstances, setShowRoleInstances] = useState(true); // toggle role instance layer
   const [expandedRoleGroups, setExpandedRoleGroups] = useState<Set<string>>(new Set());
+  const [expandedInstances, setExpandedInstances] = useState<Set<string>>(new Set()); // instance IDs with visible events
 
   // Focus mode state — drill into a node's neighborhood
   const [focusNodeId, setFocusNodeId] = useState<string | null>(null);
@@ -868,6 +884,9 @@ export default function SkillGraph() {
     }
   }, [qc]);
 
+  // Track previous node positions to prevent simulation reheat on expand/collapse
+  const prevNodePositions = useRef<Map<string, { x: number; y: number; vx: number; vy: number }>>(new Map());
+
   // Build force-graph data
   const gd = useMemo(() => {
     if (!data?.nodes) return { nodes: [], links: [] };
@@ -933,6 +952,8 @@ export default function SkillGraph() {
 
     // Build a set of occupation IDs that have matching role groups
     const occIdsWithRoles = new Set<string>();
+    // Map roleGroupKey → the parent node ID that owns it (for position seeding)
+    const roleGroupParentNodeId = new Map<string, string>();
     if (showRoleInstances) {
       for (const group of roleGroups) {
         if (group.matchingOccupationId) occIdsWithRoles.add(group.matchingOccupationId);
@@ -968,6 +989,7 @@ export default function SkillGraph() {
           val: matchedGroup ? 10 + matchedGroup.instances.length * 2 : 10,
           color: NODE_TYPE_COLORS.occupation,
         });
+        if (matchedGroup) roleGroupParentNodeId.set(matchedGroup.key, `occ-${occ.id}`);
         // If expanded, add instance children
         if (matchedGroup && expandedRoleGroups.has(matchedGroup.key)) {
           for (const inst of matchedGroup.instances) {
@@ -1015,6 +1037,7 @@ export default function SkillGraph() {
           val: 8 + group.instances.length * 2,
           color: "#0ea5e9",
         });
+        roleGroupParentNodeId.set(group.key, `rg-${group.key}`);
 
         // When expanded: show individual instance nodes
         if (isExpanded) {
@@ -1062,6 +1085,33 @@ export default function SkillGraph() {
           endDate: edu.endDate ?? undefined,
           val: 12,
           color: "#a78bfa", // violet
+        });
+      }
+    }
+
+    // ── Career Event nodes (expand from role instances) ──
+    if (showRoleInstances && data.careerEvents?.length > 0) {
+      for (const evt of data.careerEvents) {
+        const instanceId = `ri-${evt.workHistoryId}`;
+        // Only show events for expanded instances
+        if (!expandedInstances.has(evt.workHistoryId)) continue;
+        // Make sure the parent instance node actually exists in the graph
+        if (!nodes.some((n) => n.id === instanceId)) continue;
+        nodes.push({
+          id: `evt-${evt.id}`,
+          name: evt.title,
+          type: "career-event",
+          source: "career_event",
+          evidenceCount: evt.skills.length,
+          evidenceStrength: 0,
+          isOccupation: false,
+          isCareerEvent: true,
+          careerEventId: evt.id,
+          workHistoryId: evt.workHistoryId,
+          startDate: evt.startDate ?? undefined,
+          endDate: evt.endDate ?? undefined,
+          val: 5,
+          color: "#f59e0b", // amber
         });
       }
     }
@@ -1144,6 +1194,39 @@ export default function SkillGraph() {
       }
     }
 
+    // ── Career Event edges (instance → event, event → skill) ──
+    if (showRoleInstances && data.careerEvents?.length > 0) {
+      for (const evt of data.careerEvents) {
+        const evtNodeId = `evt-${evt.id}`;
+        if (!nodeIds.has(evtNodeId)) continue;
+        const instanceId = `ri-${evt.workHistoryId}`;
+        // Edge from role instance → event
+        if (nodeIds.has(instanceId)) {
+          links.push({
+            id: `ri-evt-${evt.id}`,
+            source: instanceId,
+            target: evtNodeId,
+            type: "contains",
+            weight: 1.5,
+            color: "rgba(245, 158, 11, 0.5)",
+          });
+        }
+        // Edges from event → tagged skill nodes
+        for (const skill of evt.skills) {
+          if (nodeIds.has(skill.skillNodeId)) {
+            links.push({
+              id: `evt-sk-${evt.id}-${skill.skillNodeId}`,
+              source: evtNodeId,
+              target: skill.skillNodeId,
+              type: "event_skill",
+              weight: 1,
+              color: "rgba(245, 158, 11, 0.35)",
+            });
+          }
+        }
+      }
+    }
+
     let result = { nodes, links };
 
     // ── Focus mode filtering ──
@@ -1177,8 +1260,57 @@ export default function SkillGraph() {
       };
     }
 
+    // Preserve positions from previous render to prevent simulation reheat scatter.
+    // For NEW nodes (e.g. expanded instances), seed them near their parent so they
+    // don't spawn at (0,0) and push everything apart via charge force.
+    const prev = prevNodePositions.current;
+    for (const node of result.nodes) {
+      const n = node as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+      const cached = prev.get(node.id);
+      if (cached) {
+        n.x = cached.x;
+        n.y = cached.y;
+        n.vx = cached.vx;
+        n.vy = cached.vy;
+      } else if (node.isRoleInstance && node.roleGroupKey) {
+        // New instance node — place near its parent role group / occupation node
+        const parentNodeId = roleGroupParentNodeId.get(node.roleGroupKey);
+        const parentPos = parentNodeId ? prev.get(parentNodeId) : undefined;
+        if (parentPos) {
+          n.x = parentPos.x + (Math.random() - 0.5) * 40;
+          n.y = parentPos.y + (Math.random() - 0.5) * 40;
+          n.vx = 0;
+          n.vy = 0;
+        }
+      } else if (node.isCareerEvent && node.workHistoryId) {
+        // New event node — place near its parent role instance
+        const parentPos = prev.get(`ri-${node.workHistoryId}`);
+        if (parentPos) {
+          n.x = parentPos.x + (Math.random() - 0.5) * 30;
+          n.y = parentPos.y + (Math.random() - 0.5) * 30;
+          n.vx = 0;
+          n.vy = 0;
+        }
+      }
+    }
+
     return result;
-  }, [data, showMarketView, showEvidenceView, showOccupationView, showDiffusion, showTransferable, edmByNodeId, edmSplatSource, splatByNodeId, showRoleInstances, roleGroups, expandedRoleGroups, focusNodeId, educationEntries]);
+  }, [data, showMarketView, showEvidenceView, showOccupationView, showDiffusion, showTransferable, edmByNodeId, edmSplatSource, splatByNodeId, showRoleInstances, roleGroups, expandedRoleGroups, expandedInstances, focusNodeId, educationEntries]);
+
+  // Snapshot node positions after each tick so the next gd recompute can restore them
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const map = new Map<string, { x: number; y: number; vx: number; vy: number }>();
+      for (const node of gd.nodes) {
+        const n = node as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+        if (n.x != null && n.y != null) {
+          map.set(node.id, { x: n.x, y: n.y, vx: n.vx ?? 0, vy: n.vy ?? 0 });
+        }
+      }
+      if (map.size > 0) prevNodePositions.current = map;
+    }, 500);
+    return () => clearInterval(interval);
+  }, [gd.nodes]);
 
   // ── Company hull groupings (maps company name → color index) ──
   const companyColorMap = useMemo(() => {
@@ -1304,6 +1436,16 @@ export default function SkillGraph() {
         setSelectedNode(node.id === selectedNode ? null : node.id);
         return;
       }
+      // Role instance — expand/collapse its career events
+      if (node.isRoleInstance && node.workHistoryId) {
+        setExpandedInstances((prev) => {
+          const next = new Set(prev);
+          if (next.has(node.workHistoryId!)) next.delete(node.workHistoryId!); else next.add(node.workHistoryId!);
+          return next;
+        });
+        setSelectedNode(node.id === selectedNode ? null : node.id);
+        return;
+      }
       setSelectedNode(node.id === selectedNode ? null : node.id);
     },
     [selectedNode]
@@ -1405,8 +1547,8 @@ export default function SkillGraph() {
   // Zoom to fit when data loads or dimensions change
   useEffect(() => {
     if (graphRef.current && data && dimensions.width > 0) {
-      // Increase charge repulsion so nodes spread to fill the space
-      graphRef.current.d3Force("charge")?.strength(-120);
+      // Moderate charge — enough to spread nodes but not scatter on expand
+      graphRef.current.d3Force("charge")?.strength(-80);
       graphRef.current.d3Force("center")?.x(dimensions.width / 2).y(dimensions.height / 2);
       graphRef.current.d3ReheatSimulation();
       // Zoom to fit after simulation settles
@@ -1827,12 +1969,12 @@ export default function SkillGraph() {
                   nodeCanvasObject={(node: any, ctx, globalScale) => { // eslint-disable-line @typescript-eslint/no-explicit-any
                     const n = node as GraphNode;
                     const label = n.name;
-                    const fontSize = Math.max(10, 12 / globalScale);
+                    const fontSize = Math.round(Math.max(10, 12 / globalScale));
                     ctx.font = `${fontSize}px Sans-Serif`;
 
                     const radius = Math.max(4, n.val);
-                    const x = n.x ?? 0;
-                    const y = n.y ?? 0;
+                    const x = Math.round(n.x ?? 0);
+                    const y = Math.round(n.y ?? 0);
 
                     if (n.isRoleGroup && !n.isOccupation) {
                       // ── Rounded rectangle for standalone role group nodes ──
@@ -1862,7 +2004,7 @@ export default function SkillGraph() {
                       const key = n.roleGroupKey ?? n.id.replace("rg-", "");
                       const isExp = expandedRoleGroups.has(key);
                       ctx.fillStyle = "rgba(255,255,255,0.7)";
-                      ctx.font = `${Math.max(8, 10 / globalScale)}px Sans-Serif`;
+                      ctx.font = `${Math.round(Math.max(8, 10 / globalScale))}px Sans-Serif`;
                       ctx.textAlign = "left";
                       ctx.textBaseline = "middle";
                       ctx.fillText(isExp ? "▾" : "▸", rx + 3, y);
@@ -1891,7 +2033,10 @@ export default function SkillGraph() {
                         ctx.fillStyle = "rgba(255,255,255,0.9)";
                         ctx.textAlign = "center";
                         ctx.textBaseline = "top";
-                        ctx.fillText(label, x, y + s + 2);
+                        const hasEvents = n.workHistoryId && data?.careerEvents?.some((e: CareerEventEntry) => e.workHistoryId === n.workHistoryId);
+                        const isExp = n.workHistoryId ? expandedInstances.has(n.workHistoryId) : false;
+                        const indicator = hasEvents ? (isExp ? " ▾" : " ▸") : "";
+                        ctx.fillText(label + indicator, x, y + s + 2);
                       }
                     } else if (n.isEducation) {
                       // ── Book/square shape for education nodes ──
@@ -1944,13 +2089,40 @@ export default function SkillGraph() {
                         const key = n.roleGroupKey ?? "";
                         const isExp = expandedRoleGroups.has(key);
                         ctx.fillStyle = "rgba(255,255,255,0.85)";
-                        ctx.font = `bold ${Math.max(8, 10 / globalScale)}px Sans-Serif`;
+                        ctx.font = `bold ${Math.round(Math.max(8, 10 / globalScale))}px Sans-Serif`;
                         ctx.textAlign = "center";
                         ctx.textBaseline = "middle";
                         ctx.fillText(isExp ? "▾" : "▸", x, y);
                       }
+                    } else if (n.isCareerEvent) {
+                      // ── Amber pill/capsule shape for career event nodes ──
+                      const pillW = Math.max(radius * 2.5, ctx.measureText(label).width + 10);
+                      const pillH = radius * 1.6;
+                      const pillR = pillH / 2;
+                      const px = x - pillW / 2;
+                      const py = y - pillH / 2;
+                      ctx.beginPath();
+                      ctx.moveTo(px + pillR, py);
+                      ctx.lineTo(px + pillW - pillR, py);
+                      ctx.arc(px + pillW - pillR, py + pillR, pillR, -Math.PI / 2, Math.PI / 2);
+                      ctx.lineTo(px + pillR, py + pillH);
+                      ctx.arc(px + pillR, py + pillR, pillR, Math.PI / 2, -Math.PI / 2);
+                      ctx.closePath();
+                      ctx.fillStyle = n.id === selectedNode ? "#d97706" : "#f59e0b";
+                      ctx.fill();
+                      ctx.strokeStyle = n.id === selectedNode ? "#ffffff" : "rgba(255,255,255,0.5)";
+                      ctx.lineWidth = 1.5 / globalScale;
+                      ctx.stroke();
+                      // Label inside pill
+                      if (globalScale > 0.5 || n.id === selectedNode || n.id === hoveredNode) {
+                        ctx.fillStyle = "rgba(0,0,0,0.85)";
+                        ctx.textAlign = "center";
+                        ctx.textBaseline = "middle";
+                        const maxChars = Math.floor(pillW / (fontSize * 0.55));
+                        const truncated = label.length > maxChars ? label.slice(0, maxChars - 1) + "…" : label;
+                        ctx.fillText(truncated, x, y);
+                      }
                     } else {
-                      // Draw circle for skill nodes
                       const edmEntry = edmByNodeId.get(n.id);
                       const isTransferable = edmEntry?.transferable ?? false;
                       const edmIntensity = edmEntry?.accumulatedIntensity ?? 0;
@@ -2014,12 +2186,14 @@ export default function SkillGraph() {
                       }
                     }
 
-                    // Label
-                    if (globalScale > 0.6 || n.id === selectedNode || n.id === hoveredNode || n.isOccupation) {
-                      ctx.fillStyle = "rgba(255,255,255,0.9)";
-                      ctx.textAlign = "center";
-                      ctx.textBaseline = "top";
-                      ctx.fillText(label, x, y + radius + 2);
+                    // Label (only for nodes that don't render their own — skip role groups, instances, education)
+                    if (!n.isRoleGroup && !n.isRoleInstance && !n.isEducation && !n.isCareerEvent) {
+                      if (globalScale > 0.6 || n.id === selectedNode || n.id === hoveredNode || n.isOccupation) {
+                        ctx.fillStyle = "rgba(255,255,255,0.9)";
+                        ctx.textAlign = "center";
+                        ctx.textBaseline = "top";
+                        ctx.fillText(label, x, y + radius + 2);
+                      }
                     }
                   }}
                   linkColor={(link: any) => (link as GraphLink).color} // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -2035,7 +2209,9 @@ export default function SkillGraph() {
                   }}
                   onNodeClick={(node: any) => handleNodeClick(node as GraphNode)} // eslint-disable-line @typescript-eslint/no-explicit-any
                   onNodeHover={(node: any) => setHoveredNode(node?.id ?? null)} // eslint-disable-line @typescript-eslint/no-explicit-any
-                  cooldownTicks={100}
+                  cooldownTicks={200}
+                  d3AlphaDecay={0.03}
+                  d3VelocityDecay={0.4}
                   backgroundColor="transparent"
                 />
               )}

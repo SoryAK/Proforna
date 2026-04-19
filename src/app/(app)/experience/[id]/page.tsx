@@ -154,7 +154,7 @@ export default function ExperienceDetailPage({
     queryKey: ["position", id],
     queryFn: async () => {
       const res = await fetch(`/api/current-position/${id}`);
-      if (!res.ok) throw new Error("Failed to fetch position");
+      if (!res.ok) throw new Error("Position not found");
       return res.json();
     },
   });

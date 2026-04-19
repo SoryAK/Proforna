@@ -1,7 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getUserId } from "@/lib/auth-utils";
-import { syncWorkHistoryToPosition } from "@/lib/position-sync";
+
+export async function GET(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { id } = await params;
+  const item = await prisma.workHistory.findFirst({
+    where: { id, userId },
+    include: {
+      locations: true,
+      notes: { orderBy: { createdAt: "desc" } },
+      milestones: { orderBy: { date: "desc" } },
+      rating: true,
+    },
+  });
+  if (!item) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  return NextResponse.json(item);
+}
 
 export async function PATCH(
   request: NextRequest,
@@ -72,11 +93,34 @@ export async function PATCH(
   if (body.commuteDistance !== undefined) data.commuteDistance = body.commuteDistance != null ? Number(body.commuteDistance) : null;
   if (body.commuteMode !== undefined) data.commuteMode = body.commuteMode ? String(body.commuteMode).slice(0, 20) : null;
 
+  // Payroll/employer fields (from unified model)
+  if (body.isActive !== undefined) data.isActive = Boolean(body.isActive);
+  if (body.location !== undefined) data.location = body.location ? String(body.location).slice(0, 200) : null;
+  if (body.description !== undefined) data.description = body.description ? String(body.description) : null;
+  if (body.responsibilities !== undefined) data.responsibilities = body.responsibilities ? String(body.responsibilities) : null;
+  if (body.techStack !== undefined) data.techStack = body.techStack ? String(body.techStack) : null;
+  if (body.ein !== undefined) data.ein = body.ein ? String(body.ein).slice(0, 20) : null;
+  if (body.legalName !== undefined) data.legalName = body.legalName ? String(body.legalName).slice(0, 200) : null;
+  if (body.companySynopsis !== undefined) data.companySynopsis = body.companySynopsis ? String(body.companySynopsis) : null;
+  if (body.industry !== undefined) data.industry = body.industry ? String(body.industry).slice(0, 100) : null;
+  if (body.website !== undefined) data.website = body.website ? String(body.website).slice(0, 300) : null;
+  if (body.focus !== undefined) data.focus = body.focus ? String(body.focus) : null;
+  if (body.schedule !== undefined) data.schedule = body.schedule ? String(body.schedule) : null;
+  if (body.payRate !== undefined) data.payRate = body.payRate ? String(body.payRate) : null;
+  if (body.payType !== undefined) data.payType = body.payType ? String(body.payType).slice(0, 20) : null;
+  if (body.differentials !== undefined) data.differentials = body.differentials ? String(body.differentials) : null;
+  if (body.payFrequency !== undefined) data.payFrequency = body.payFrequency ? String(body.payFrequency).slice(0, 20) : null;
+  if (body.rotatingSchedule !== undefined) data.rotatingSchedule = Boolean(body.rotatingSchedule);
+  if (body.scheduleBHours !== undefined) data.scheduleBHours = body.scheduleBHours != null ? Number(body.scheduleBHours) : null;
+  if (body.otHoursA !== undefined) data.otHoursA = body.otHoursA != null ? Number(body.otHoursA) : null;
+  if (body.otHoursB !== undefined) data.otHoursB = body.otHoursB != null ? Number(body.otHoursB) : null;
+  if (body.otRate !== undefined) data.otRate = body.otRate != null ? Number(body.otRate) : null;
+  if (body.annualRaiseMin !== undefined) data.annualRaiseMin = body.annualRaiseMin != null ? Number(body.annualRaiseMin) : null;
+  if (body.annualRaiseMax !== undefined) data.annualRaiseMax = body.annualRaiseMax != null ? Number(body.annualRaiseMax) : null;
+  if (body.estimatorSettings !== undefined) data.estimatorSettings = body.estimatorSettings ? String(body.estimatorSettings) : null;
+  if (body.coverImage !== undefined) data.coverImage = body.coverImage ? String(body.coverImage) : null;
+
   const updated = await prisma.workHistory.update({ where: { id }, data });
-
-  // Best-effort sync overlapping fields to the matching CurrentPosition
-  syncWorkHistoryToPosition(userId, updated.company, data);
-
   return NextResponse.json(updated);
 }
 

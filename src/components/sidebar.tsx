@@ -57,14 +57,14 @@ const iconMap: Record<string, React.ElementType> = {
 
 function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
-  const [jobsOpen, setJobsOpen] = useState(() => pathname.startsWith("/current-position"));
+  const [jobsOpen, setJobsOpen] = useState(() => pathname.startsWith("/current-position") || pathname.startsWith("/experience"));
 
-  const { data: positions } = useQuery<{ id: string; company: string; role: string; isActive: boolean }[]>({
-    queryKey: ["positions"],
-    queryFn: () => fetch("/api/current-position").then((r) => r.json()),
+  const { data: workHistory } = useQuery<{ id: string; company: string; title: string | null; endDate: string | null; type: string }[]>({
+    queryKey: ["work-history"],
+    queryFn: () => fetch("/api/work-history").then((r) => r.json()),
     staleTime: 60_000,
   });
-  const activeJobs = positions?.filter((p) => p.isActive) ?? [];
+  const activeJobs = workHistory?.filter((p) => !p.endDate && p.type === "job") ?? [];
 
   return (
     <nav className="flex-1 space-y-1 p-3 overflow-y-auto">
@@ -113,12 +113,12 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
                   {activeJobs.map((job) => (
                     <Link
                       key={job.id}
-                      href="/current-position"
+                      href={`/experience/${job.id}`}
                       onClick={onNavigate}
                       className="block rounded-md px-2 py-1.5 text-xs text-muted-foreground hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-gray-800 dark:hover:text-gray-200 transition-colors truncate"
-                      title={`${job.role} at ${job.company}`}
+                      title={`${job.title || job.company} at ${job.company}`}
                     >
-                      <span className="font-medium text-foreground">{job.role}</span>
+                      <span className="font-medium text-foreground">{job.title || job.company}</span>
                       <span className="text-muted-foreground"> · {job.company}</span>
                     </Link>
                   ))}

@@ -43,18 +43,22 @@ export async function PATCH(
       },
     });
 
-    // Auto-create CurrentPosition when status changes to "accepted"
+    // Auto-create WorkHistory entry when status changes to "accepted"
     if (application.status === "accepted" && old.status !== "accepted") {
-      const position = await prisma.currentPosition.create({
+      const startD = application.offerStartDate ?? new Date();
+      const position = await prisma.workHistory.create({
         data: {
           userId,
           company: application.company,
-          role: application.role,
+          title: application.role,
           location: application.location || null,
-          type: application.type || "remote",
-          startDate: application.offerStartDate ?? new Date(),
-          salary: application.offerSalary || null,
-          currency: application.currency || "USD",
+          address: application.location || "N/A",
+          lat: 0,
+          lng: 0,
+          workMode: application.type || "remote",
+          startDate: `${startD.getFullYear()}-${String(startD.getMonth() + 1).padStart(2, "0")}`,
+          salaryAmount: application.offerSalary || null,
+          salaryCurrency: application.currency || "USD",
           payType: application.offerPayType || "salary",
           payRate: application.offerPayRate || null,
           payFrequency: application.offerPayFrequency || "biweekly",
