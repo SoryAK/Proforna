@@ -1,19 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserId } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
+import { callGemini, geminiErrorMessage } from "@/lib/gemini";
 
 export async function POST(req: NextRequest) {
   const userId = await getUserId();
   if (!userId)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-  if (!GEMINI_API_KEY) {
-    return NextResponse.json(
-      { error: "GEMINI_API_KEY is not configured" },
-      { status: 503 }
-    );
-  }
 
   const body = await req.json();
   const question = body.question?.trim();
@@ -90,26 +83,20 @@ GUIDELINES:
 - When relevant, mention that many agencies accept anonymous complaints.${userState ? `\n- Include ${userState}-specific laws and agencies when applicable.` : ""}`;
 
   try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
-    const response = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [
-          { role: "user", parts: [{ text: `${systemPrompt}\n\nWORKER'S QUESTION: ${question}` }] },
-        ],
-        tools: [{ googleSearch: {} }],
-        generationConfig: {
-          responseMimeType: "application/json",
-        },
-      }),
+    const { res: response, model } = await callGemini({
+      contents: [
+        { role: "user", parts: [{ text: `${systemPrompt}\n\nWORKER'S QUESTION: ${question}` }] },
+      ],
+      generationConfig: {
+        responseMimeType: "application/json",
+      },
     });
 
     if (!response.ok) {
-      const text = await response.text();
-      console.error("[worker-rights] Gemini error:", text);
+      const { message, retryAfter } = await geminiErrorMessage(response);
+      console.error(`[worker-rights] ${model} error:`, message);
       return NextResponse.json(
-        { error: "AI service request failed" },
+        { error: message, retryAfter },
         { status: response.status }
       );
     }

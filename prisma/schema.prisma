@@ -415,6 +415,7 @@ model Equipment {
   positionId    String
   name          String
   category      String    @default("hardware")
+  usage         String    @default("used")     // "used" = assigned to you | "worked-on" = you maintained/operated
   manufacturer  String?
   model         String?
   serialNumber  String?
@@ -464,6 +465,23 @@ model WorkLog {
   updatedAt      DateTime @updatedAt
 
   position WorkHistory @relation("WorkHistoryWorkLogs", fields: [positionId], references: [id], onDelete: Cascade)
+}
+
+// ─── Attachments (files linked to a work history entry) ────────
+
+model Attachment {
+  id          String   @id @default(uuid())
+  positionId  String
+  label       String                         // user-facing name, e.g. "Offer Letter"
+  category    String   @default("other")     // "offer-letter" | "w2" | "pay-stub" | "contract" | "cert" | "review" | "other"
+  fileName    String                         // original file name
+  filePath    String                         // server path under /uploads/attachments/
+  fileMime    String                         // e.g. "application/pdf"
+  fileSize    Int                            // bytes
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  position WorkHistory @relation("WorkHistoryAttachments", fields: [positionId], references: [id], onDelete: Cascade)
 }
 
 // ─── Compensation & Benefits ───────────────────────────────────
@@ -1151,6 +1169,7 @@ model WorkHistory {
   paychecks          PaycheckRecord[]        @relation("WorkHistoryPaychecks")
   equipment          Equipment[]             @relation("WorkHistoryEquipment")
   workLogs           WorkLog[]               @relation("WorkHistoryWorkLogs")
+  attachments        Attachment[]            @relation("WorkHistoryAttachments")
 }
 
 // ─── Residence History (where the user lived over time) ─────────

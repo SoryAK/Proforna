@@ -1,17 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserId } from "@/lib/auth-utils";
+import { callGemini, geminiErrorMessage } from "@/lib/gemini";
 
 export async function POST(req: NextRequest) {
   const userId = await getUserId();
   if (!userId)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-  if (!GEMINI_API_KEY)
-    return NextResponse.json(
-      { error: "GEMINI_API_KEY is not configured" },
-      { status: 503 }
-    );
 
   const body = await req.json();
   const { company, role, interviewType, interviewerRole } = body;
@@ -62,22 +56,16 @@ GUIDELINES:
 - Make questions specific to the company and role, not generic.`;
 
   try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
-    const response = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-        tools: [{ googleSearch: {} }],
-        generationConfig: { responseMimeType: "application/json" },
-      }),
+    const { res: response, model } = await callGemini({
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: { responseMimeType: "application/json" },
     });
 
     if (!response.ok) {
-      const text = await response.text();
-      console.error("[interview-prep] Gemini error:", text);
+      const { message, retryAfter } = await geminiErrorMessage(response);
+      console.error(`[interview-prep] ${model} error:`, message);
       return NextResponse.json(
-        { error: "AI service request failed" },
+        { error: message, retryAfter },
         { status: response.status }
       );
     }

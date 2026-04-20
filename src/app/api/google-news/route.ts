@@ -1,18 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserId } from "@/lib/auth-utils";
-
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+import { callGemini, geminiErrorMessage } from "@/lib/gemini";
 
 export async function GET(req: NextRequest) {
   const userId = await getUserId();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  if (!GEMINI_API_KEY) {
-    return NextResponse.json(
-      { error: "GEMINI_API_KEY is not configured" },
-      { status: 503 }
-    );
-  }
 
   const { searchParams } = req.nextUrl;
   const query = searchParams.get("q");
@@ -43,25 +35,20 @@ Return the data STRICTLY in the following JSON schema, filling in real data from
 Include at least 5 articles if possible. Make sure links are valid.`;
 
   try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
-    const response = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [
-          { role: "user", parts: [{ text: prompt }] }
-        ],
-        tools: [{ googleSearch: {} }],
-        generationConfig: {
-          responseMimeType: "application/json",
-        }
-      })
+    const { res: response, model } = await callGemini({
+      contents: [
+        { role: "user", parts: [{ text: prompt }] }
+      ],
+      generationConfig: {
+        responseMimeType: "application/json",
+      }
     });
 
     if (!response.ok) {
-      const text = await response.text();
+      const { message, retryAfter } = await geminiErrorMessage(response);
+      console.error(`[google-news] ${model} error:`, message);
       return NextResponse.json(
-        { error: "Gemini API request failed", details: text },
+        { error: message, retryAfter },
         { status: response.status }
       );
     }

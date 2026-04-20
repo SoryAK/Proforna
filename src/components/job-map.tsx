@@ -83,6 +83,10 @@ import {
   ImageIcon,
   Landmark,
   BarChart3,
+  Images,
+  Paperclip,
+  Wrench,
+  Brain,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -3608,6 +3612,18 @@ export function JobMap() {
               buildingFootprints={buildingFootprints}
               pinDropMode={pinDropMode}
               companyLocationMarkers={companyLocs}
+              showWorkHistory={showWorkHistory}
+              onToggleWorkHistory={() => {
+                if (showWorkHistory && !showWorkHistoryPanel) {
+                  setShowWorkHistoryPanel(true);
+                } else if (showWorkHistory && showWorkHistoryPanel) {
+                  setShowWorkHistory(false);
+                  setShowWorkHistoryPanel(false);
+                } else {
+                  setShowWorkHistory(true);
+                  setShowWorkHistoryPanel(true);
+                }
+              }}
               onMapClick={(coords) => {
                 setPinDropCoords(coords);
                 setPinDropMode(false);
@@ -3875,27 +3891,6 @@ export function JobMap() {
                 className={`flex items-center justify-center w-10 h-10 border-l border-gray-200 cursor-pointer transition-colors ${showAnchors ? "bg-blue-50" : "bg-white hover:bg-gray-50"}`}
               >
                 <Anchor className={`h-[18px] w-[18px] ${showAnchors ? "text-blue-600" : "text-gray-600"}`} />
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (showWorkHistory && !showWorkHistoryPanel) {
-                    // Feature on but panel closed → reopen panel
-                    setShowWorkHistoryPanel(true);
-                  } else if (showWorkHistory && showWorkHistoryPanel) {
-                    // Both on → turn everything off
-                    setShowWorkHistory(false);
-                    setShowWorkHistoryPanel(false);
-                  } else {
-                    // Feature off → turn on + open panel
-                    setShowWorkHistory(true);
-                    setShowWorkHistoryPanel(true);
-                  }
-                }}
-                title="Work History"
-                className={`flex items-center justify-center w-10 h-10 border-l border-gray-200 cursor-pointer transition-colors ${showWorkHistory ? "bg-blue-50" : "bg-white hover:bg-gray-50"}`}
-              >
-                <Briefcase className={`h-[18px] w-[18px] ${showWorkHistory ? "text-blue-600" : "text-gray-600"}`} />
               </button>
               <button
                 type="button"
@@ -6370,6 +6365,10 @@ function WorkHistoryPanel({
     skillsUsed?: string | null; skillsGained?: string | null; promotions?: string | null;
     reasonForLeaving?: string | null; wouldReturn?: string | null; accomplishments?: string | null;
     commuteMinutes?: number | null; commuteDistance?: number | null; commuteMode?: string | null;
+    schedule?: string | null; rotatingSchedule?: boolean; scheduleBHours?: number | null;
+    otHoursA?: number | null; otHoursB?: number | null; otRate?: number | null;
+    differentials?: string | null; payFrequency?: string | null; payType?: string | null;
+    coverImage?: string | null;
   }[];
   onClose: () => void;
   onAdded: () => void;
@@ -6768,16 +6767,16 @@ function WorkHistoryPanel({
 
   // Overlap map: for each item, which other items overlap in time
   const overlapMap = useMemo(() => {
-    const m = new Map<string, { id: string; company: string; type?: string }[]>();
+    const m = new Map<string, { id: string; company: string; type?: string; title?: string | null; schedule?: string | null; hoursPerWeek?: number | null; scheduleType?: string | null; shiftNotes?: string | null; startDate?: string | null; endDate?: string | null }[]>();
     for (let i = 0; i < items.length; i++) {
       const a = items[i];
       if (!a.startDate) continue;
-      const overlaps: { id: string; company: string; type?: string }[] = [];
+      const overlaps: { id: string; company: string; type?: string; title?: string | null; schedule?: string | null; hoursPerWeek?: number | null; scheduleType?: string | null; shiftNotes?: string | null; startDate?: string | null; endDate?: string | null }[] = [];
       for (let j = 0; j < items.length; j++) {
         if (i === j) continue;
         const b = items[j];
         if (dateRangesOverlap(a.startDate, a.endDate, b.startDate, b.endDate)) {
-          overlaps.push({ id: b.id, company: b.company, type: b.type });
+          overlaps.push({ id: b.id, company: b.company, type: b.type, title: b.title, schedule: b.schedule, hoursPerWeek: b.hoursPerWeek, scheduleType: b.scheduleType, shiftNotes: b.shiftNotes, startDate: b.startDate, endDate: b.endDate });
         }
       }
       if (overlaps.length > 0) m.set(a.id, overlaps);
@@ -6831,6 +6830,7 @@ function WorkHistoryPanel({
   }
 
   // Focused work history entry
+  const queryClient = useQueryClient();
   const focusedItem = focusedId ? items.find((w) => w.id === focusedId) : null;
 
   // ── Enriched data from CurrentPosition for focused view ──
@@ -6841,6 +6841,8 @@ function WorkHistoryPanel({
     companySynopsis: string | null; industry: string | null; website: string | null;
     ein: string | null; legalName: string | null; managerName: string | null;
     hoursPerWeek: number | null; type: string;
+    equipment?: { id: string; name: string; category: string; usage: string; manufacturer?: string | null; model?: string | null; condition: string; notes?: string | null }[];
+    attachments?: { id: string; label: string; category: string; fileName: string; filePath: string; fileMime: string; fileSize: number; createdAt: string }[];
   }
   interface CompEvent { id: string; type: string; title: string; amount: number; currency: string; effectiveDate: string; recurring: boolean; notes: string | null }
   interface WLog { id: string; title: string; content: string | null; category: string; hours: number | null; accomplishment: boolean; impact: string | null; date: string; tags: string | null }
@@ -6853,13 +6855,17 @@ function WorkHistoryPanel({
   const [enrichLoading, setEnrichLoading] = useState(false);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   const [focusTab, setFocusTab] = useState<"overview" | "edit">("overview");
+  const [sidePanel, setSidePanel] = useState<"gallery" | "attachments" | "skills" | "equipment" | null>(null);
+  const [panelBusy, setPanelBusy] = useState(false);
+  const [showConcurrentSchedule, setShowConcurrentSchedule] = useState(false);
+  const [showLocationsPopover, setShowLocationsPopover] = useState(false);
   const prevFocusedId = useRef<string | null>(null);
 
   // Fetch enriched data when focused item changes
   useEffect(() => {
     if (!focusedItem || focusedId === prevFocusedId.current) return;
     prevFocusedId.current = focusedId;
-    setMatchedPosition(null); setCompEvents([]); setWorkLogs([]); setIncomeHistory(null); setExpandedSections(new Set());
+    setMatchedPosition(null); setCompEvents([]); setWorkLogs([]); setIncomeHistory(null); setExpandedSections(new Set()); setSidePanel(null);
 
     let cancelled = false;
     (async () => {
@@ -7280,6 +7286,8 @@ function WorkHistoryPanel({
   }
 
   return (
+    <>
+    {/* ── Main Card ── */}
     <div className="absolute top-3 left-3 z-[1100] bg-background/95 backdrop-blur-md border rounded-xl shadow-xl p-3 w-96 max-h-[60vh] overflow-y-auto scrollbar-thin pointer-events-auto">
 
       {/* ── Focused Detail View ── */}
@@ -7291,6 +7299,13 @@ function WorkHistoryPanel({
             </button>
             <span className="text-sm font-semibold truncate">{focusedItem.company}</span>
             <div className="ml-auto flex items-center gap-1 shrink-0">
+              {(focusedItem.locations ?? []).length > 0 && (
+                <button type="button" className={`p-1 rounded transition-colors relative ${showLocationsPopover ? "text-blue-500 bg-blue-500/10" : "text-muted-foreground hover:text-foreground"}`}
+                  onClick={() => setShowLocationsPopover((p) => !p)} title={`Locations (${focusedItem.locations.length})`}>
+                  <MapPin className="h-3.5 w-3.5" />
+                  <span className="absolute -top-1 -right-1 text-[8px] font-bold bg-blue-500 text-white rounded-full w-3.5 h-3.5 flex items-center justify-center">{focusedItem.locations.length}</span>
+                </button>
+              )}
               <button type="button" className={`p-1 rounded transition-colors ${focusTab === "edit" ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground"}`} onClick={() => setFocusTab(focusTab === "edit" ? "overview" : "edit")} title={focusTab === "edit" ? "Back to overview" : "Edit"}>
                 <Pencil className="h-3.5 w-3.5" />
               </button>
@@ -7314,88 +7329,138 @@ function WorkHistoryPanel({
               const m = Math.max(0, (e.getFullYear() - s.getFullYear()) * 12 + (e.getMonth() - s.getMonth()));
               tenure = m >= 12 ? `${Math.floor(m / 12)}y ${m % 12}m` : `${m}m`;
             }
+            // Shorten address to city, state
+            const shortAddr = (() => {
+              const parts = focusedItem.address.split(",").map((p) => p.trim());
+              if (parts.length >= 3) return `${parts[parts.length - 3]}, ${parts[parts.length - 2]}`;
+              if (parts.length === 2) return parts.join(", ");
+              return focusedItem.address;
+            })();
+            // Parse differentials
+            const diffs: string[] = focusedItem.differentials ? focusedItem.differentials.split("\n").filter(Boolean) : [];
+            const firstDiff = diffs.length > 0 ? diffs[0] : null;
+            // Currency symbol
+            const cSym = focusedItem.salaryCurrency === "USD" || !focusedItem.salaryCurrency ? "$" : focusedItem.salaryCurrency;
+            // Format "YYYY-MM" → "Mon YYYY"
+            const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+            const fmtDate = (d: string | null) => {
+              if (!d) return null;
+              const [y, m] = d.split("-");
+              const mi = parseInt(m, 10) - 1;
+              return mi >= 0 && mi < 12 ? `${MONTHS[mi]} ${y}` : d;
+            };
+            const startStr = fmtDate(focusedItem.startDate);
+            const endStr = focusedItem.endDate ? fmtDate(focusedItem.endDate) : "Present";
             return (
-              <div className="p-2.5 rounded-lg bg-muted/40 border space-y-2">
-                {/* Company/Institution + badges */}
-                <div className="space-y-1">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    {isSchool ? <GraduationCap className="h-3.5 w-3.5 text-violet-500 shrink-0" /> : isSelfEmployed ? <span className="text-xs shrink-0">🧑‍💻</span> : isUnemployed ? <Search className="h-3.5 w-3.5 text-red-500 shrink-0" /> : <Briefcase className={`h-3.5 w-3.5 shrink-0 ${isInternship ? "text-cyan-600" : "text-gray-500"}`} />}
-                    <span className="text-sm font-semibold">{focusedItem.company}</span>
-                    {focusedItem.scheduleType && <span className="text-[13px] bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded capitalize">{focusedItem.scheduleType.replace("-", " ")}</span>}
-                    {focusedItem.workMode && <span className="text-[13px] bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded capitalize">{focusedItem.workMode}{focusedItem.hybridDays != null ? ` ${focusedItem.hybridDays}d` : ""}</span>}
-                    {isSchool && <span className="text-[13px] bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 px-1.5 py-0.5 rounded">School</span>}
-                    {isInternship && <span className="text-[13px] bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300 px-1.5 py-0.5 rounded">Internship</span>}
-                    {isSelfEmployed && <span className="text-[13px] bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 rounded">Self-Employed</span>}
-                    {isUnemployed && <span className="text-[13px] bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 px-1.5 py-0.5 rounded">Unemployed</span>}
-                  </div>
-                  {/* Degree + Major for schools, or Job Title for jobs */}
-                  {isSchool ? (
-                    <>
-                      {(focusedItem.degree || focusedItem.major) && (
-                        <p className="text-[13px] text-muted-foreground">
-                          {focusedItem.degree}{focusedItem.degree && focusedItem.major ? " in " : ""}{focusedItem.major}
-                        </p>
-                      )}
-                      {focusedItem.gpa != null && <p className="text-xs text-muted-foreground">GPA: {focusedItem.gpa}</p>}
-                    </>
-                  ) : (
-                    focusedItem.title && <p className="text-[13px] text-muted-foreground">{focusedItem.title}</p>
-                  )}
-                  {!isUnemployed && <p className="text-xs text-muted-foreground flex items-center gap-1">
-                    <MapPin className="h-3 w-3 shrink-0" /> {focusedItem.address}
-                  </p>}
+              <div className="p-2.5 rounded-lg bg-muted/40 border space-y-1.5">
+                {/* Row 1 — Company + type badges + company size */}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {isSchool ? <GraduationCap className="h-3.5 w-3.5 text-violet-500 shrink-0" /> : isSelfEmployed ? <span className="text-xs shrink-0">🧑‍💻</span> : isUnemployed ? <Search className="h-3.5 w-3.5 text-red-500 shrink-0" /> : <Briefcase className={`h-3.5 w-3.5 shrink-0 ${isInternship ? "text-cyan-600" : "text-gray-500"}`} />}
+                  <span className="text-sm font-semibold">{focusedItem.company}</span>
+                  {focusedItem.scheduleType && <span className="text-[10px] bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded capitalize">{focusedItem.scheduleType.replace("-", " ")}</span>}
+                  {focusedItem.workMode && <span className="text-[10px] bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded capitalize">{focusedItem.workMode}{focusedItem.hybridDays != null ? ` ${focusedItem.hybridDays}d` : ""}</span>}
+                  {isSchool && <span className="text-[10px] bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 px-1.5 py-0.5 rounded">School</span>}
+                  {isInternship && <span className="text-[10px] bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300 px-1.5 py-0.5 rounded">Internship</span>}
+                  {isSelfEmployed && <span className="text-[10px] bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 rounded">Self-Employed</span>}
+                  {isUnemployed && <span className="text-[10px] bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 px-1.5 py-0.5 rounded">Unemployed</span>}
+                  {(focusedItem.schedule || focusedItem.shiftNotes) && <span className="text-[10px] bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 px-1.5 py-0.5 rounded shrink-0">{focusedItem.schedule ?? focusedItem.shiftNotes}</span>}
+                  {matchedPosition?.industry && <span className="text-[10px] bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-1.5 py-0.5 rounded shrink-0">{matchedPosition.industry}</span>}
+                  {focusedItem.companySize && <span className="ml-auto text-[10px] bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-1.5 py-0.5 rounded capitalize shrink-0">{focusedItem.companySize.replace("-", " ")}</span>}
                 </div>
 
-                {/* Employment Period */}
-                {(focusedItem.startDate || focusedItem.endDate) && (
-                  <div className="flex items-center gap-2 pt-1 border-t border-border/50">
-                    <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                    <div className="flex-1">
-                      <p className="text-[13px] font-medium">
-                        {focusedItem.startDate ?? "?"} – {focusedItem.endDate ?? "present"}
-                        {isCurrent && <span className="ml-1.5 text-[13px] bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 px-1 rounded">current</span>}
+                {/* Row 2 — Position / Degree */}
+                {isSchool ? (
+                  <div className="space-y-0.5">
+                    {(focusedItem.degree || focusedItem.major) && (
+                      <p className="text-xs text-muted-foreground">
+                        {focusedItem.degree}{focusedItem.degree && focusedItem.major ? " in " : ""}{focusedItem.major}
                       </p>
-                    </div>
-                    {tenure && <span className="text-xs text-muted-foreground shrink-0">{tenure}</span>}
+                    )}
+                    {focusedItem.gpa != null && <p className="text-[10px] text-muted-foreground">GPA: {focusedItem.gpa}</p>}
+                  </div>
+                ) : (
+                  focusedItem.title && <p className="text-xs text-muted-foreground">{focusedItem.title}</p>
+                )}
+
+                {/* Row 3 — Address + Date range (merged) */}
+                {!isUnemployed && (
+                  <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                    <MapPin className="h-3 w-3 shrink-0" />
+                    <span className="truncate">{shortAddr}</span>
+                    {(focusedItem.startDate || focusedItem.endDate) && (
+                      <>
+                        <span className="shrink-0">·</span>
+                        <Clock className="h-2.5 w-2.5 shrink-0" />
+                        <span className="shrink-0">{startStr ?? "?"} – {endStr}</span>
+                        {isCurrent && <span className="text-[9px] bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 px-1 rounded shrink-0">current</span>}
+                        {tenure && <span className="text-muted-foreground/70 shrink-0">({tenure})</span>}
+                      </>
+                    )}
                   </div>
                 )}
 
-                {/* Compensation summary */}
-                {(focusedItem.salaryAmount != null || focusedItem.bonusAmount != null) && (
-                  <div className="flex items-center gap-2 pt-1 border-t border-border/50">
+                {/* Row 4 — Work Environment accordion */}
+                {(focusedItem.department || focusedItem.teamSize != null || focusedItem.managerName) && (() => {
+                  const mgrAbbrev = (name: string) => {
+                    const n = name.toLowerCase();
+                    if (n.includes("supervisor") || n.includes("supv")) return "Supv.";
+                    if (n.includes("director") || n.includes("dir")) return "Dir.";
+                    if (n.includes("lead")) return "Lead";
+                    if (n.includes("vp") || n.includes("vice president")) return "VP";
+                    if (n.includes("chief")) return "Chief";
+                    return "Mgr.";
+                  };
+                  const hasExpandedContent = focusedItem.rotatingSchedule || focusedItem.scheduleBHours != null || focusedItem.otHoursA != null || focusedItem.otHoursB != null || focusedItem.otRate != null;
+                  return (
+                    <div className="pt-1 border-t border-border/50">
+                      <button type="button" className="w-full flex items-center gap-1.5" onClick={() => hasExpandedContent && toggleSection("work-env")}>
+                        <Users className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
+                        <div className="flex-1 flex items-center gap-1 flex-wrap text-xs">
+                          {focusedItem.department && <span className="font-medium">{focusedItem.department}</span>}
+                          {focusedItem.teamSize != null && <><span className="text-muted-foreground">·</span><span className="text-muted-foreground">Team of {focusedItem.teamSize}</span></>}
+                          {focusedItem.managerName && <><span className="text-muted-foreground">·</span><span className="text-muted-foreground">{mgrAbbrev(focusedItem.managerName)} {focusedItem.managerName}</span></>}
+                        </div>
+                        {hasExpandedContent && (
+                          expandedSections.has("work-env") ? <ChevronUp className="h-3 w-3 text-muted-foreground shrink-0" /> : <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
+                        )}
+                      </button>
+                      {expandedSections.has("work-env") && hasExpandedContent && (
+                        <div className="mt-1.5 ml-5 space-y-1 text-xs">
+                          {focusedItem.rotatingSchedule && (
+                            <div className="flex justify-between"><span className="text-muted-foreground">Rotating Schedule</span><span className="font-medium">Yes (A/B weeks)</span></div>
+                          )}
+                          {focusedItem.scheduleBHours != null && (
+                            <div className="flex justify-between"><span className="text-muted-foreground">Schedule B Hours</span><span className="font-medium">{focusedItem.scheduleBHours}h/wk</span></div>
+                          )}
+                          {(focusedItem.otHoursA != null || focusedItem.otHoursB != null) && (
+                            <div className="flex justify-between"><span className="text-muted-foreground">OT Hours{focusedItem.otHoursA != null && focusedItem.otHoursB != null ? " (A / B)" : ""}</span><span className="font-medium">{focusedItem.otHoursA != null ? `${focusedItem.otHoursA}h` : "—"}{focusedItem.otHoursB != null ? ` / ${focusedItem.otHoursB}h` : ""}</span></div>
+                          )}
+                          {focusedItem.otRate != null && focusedItem.otRate !== 1.5 && (
+                            <div className="flex justify-between"><span className="text-muted-foreground">OT Rate</span><span className="font-medium">{focusedItem.otRate}×</span></div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* Row 5 — Compensation line (salary + differential + frequency + hours) */}
+                {(focusedItem.salaryAmount != null || focusedItem.bonusAmount != null || focusedItem.hoursPerWeek != null) && (
+                  <div className="flex items-center gap-1.5 pt-1 border-t border-border/50">
                     <DollarSign className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
-                    <div className="flex-1 flex items-baseline gap-1.5 flex-wrap">
+                    <div className="flex-1 flex items-baseline gap-1 flex-wrap text-xs">
                       {focusedItem.salaryAmount != null && (
-                        <span className="text-[13px] font-semibold">
-                          {focusedItem.salaryCurrency === "USD" || !focusedItem.salaryCurrency ? "$" : focusedItem.salaryCurrency}{focusedItem.salaryAmount.toLocaleString()}{focusedItem.salaryType === "hourly" ? "/hr" : "/yr"}
+                        <span className="font-semibold">
+                          {cSym}{focusedItem.salaryAmount.toLocaleString()}{focusedItem.salaryType === "hourly" ? "/hr" : "/yr"}
                         </span>
                       )}
+                      {firstDiff && <span className="text-emerald-600 dark:text-emerald-400 text-[10px]">({firstDiff})</span>}
+                      {diffs.length > 1 && <span className="text-[10px] text-muted-foreground">+{diffs.length - 1} more</span>}
                       {focusedItem.bonusAmount != null && (
-                        <span className="text-xs text-muted-foreground">+ ${focusedItem.bonusAmount.toLocaleString()} bonus</span>
+                        <span className="text-muted-foreground">+ {cSym}{focusedItem.bonusAmount.toLocaleString()} bonus</span>
                       )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Schedule: hours/wk + shift notes */}
-                {(focusedItem.hoursPerWeek != null || focusedItem.shiftNotes) && (
-                  <div className="flex items-center gap-2 pt-1 border-t border-border/50">
-                    <Calendar className="h-3.5 w-3.5 text-blue-500 shrink-0" />
-                    <div className="flex-1 flex items-center gap-1.5 flex-wrap text-xs">
-                      {focusedItem.hoursPerWeek != null && <span className="text-muted-foreground">{focusedItem.hoursPerWeek}h/wk</span>}
-                      {focusedItem.shiftNotes && <span className="text-muted-foreground">· {focusedItem.shiftNotes}</span>}
-                    </div>
-                  </div>
-                )}
-
-                {/* Work Environment summary */}
-                {(focusedItem.department || focusedItem.teamSize != null || focusedItem.companySize) && (
-                  <div className="flex items-center gap-2 pt-1 border-t border-border/50">
-                    <Users className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
-                    <div className="flex-1 flex items-center gap-1.5 flex-wrap text-xs">
-                      {focusedItem.department && <span className="font-medium">{focusedItem.department}</span>}
-                      {focusedItem.teamSize != null && <span className="text-muted-foreground">Team of {focusedItem.teamSize}</span>}
-                      {focusedItem.companySize && <span className="text-muted-foreground capitalize">({focusedItem.companySize.replace("-", " ")})</span>}
+                      {focusedItem.payFrequency && <span className="text-muted-foreground capitalize">· {focusedItem.payFrequency}</span>}
+                      {focusedItem.hoursPerWeek != null && <span className="text-muted-foreground">· {focusedItem.hoursPerWeek}h/wk</span>}
                     </div>
                   </div>
                 )}
@@ -7403,116 +7468,460 @@ function WorkHistoryPanel({
             );
           })()}
 
-          {/* ═══ OVERVIEW TAB ═══ */}
-          {focusTab === "overview" && (<>
+          {/* ── Quick-access toolbar (horizontal icon strip) ── */}
+          <div className="flex items-center gap-1 px-1">
+            {([
+              { key: "gallery" as const, icon: Images, label: "Gallery", color: "text-pink-500", activeColor: "bg-pink-500/10 text-pink-500" },
+              { key: "attachments" as const, icon: Paperclip, label: "Attachments", color: "text-amber-500", activeColor: "bg-amber-500/10 text-amber-500" },
+              { key: "skills" as const, icon: Brain, label: "Skills", color: "text-violet-500", activeColor: "bg-violet-500/10 text-violet-500" },
+              { key: "equipment" as const, icon: Wrench, label: "Equipment", color: "text-cyan-500", activeColor: "bg-cyan-500/10 text-cyan-500" },
+            ] as const).map(({ key, icon: Icon, label, activeColor }) => (
+              <button
+                key={key}
+                type="button"
+                title={label}
+                className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] transition-colors ${sidePanel === key ? activeColor : "text-muted-foreground hover:text-foreground hover:bg-muted/50"}`}
+                onClick={() => setSidePanel(sidePanel === key ? null : key)}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">{label}</span>
+              </button>
+            ))}
+          </div>
 
-          {/* Sub-locations — compact rows */}
-          {(focusedItem.locations ?? []).length > 0 && (
-            <div className="space-y-1">
-              <p className="text-xs text-muted-foreground uppercase tracking-wide">Locations ({focusedItem.locations.length})</p>
-              <div className="space-y-0.5">
-                {focusedItem.locations.map((loc) => {
-                  const locSkills: string[] = loc.skills ? (() => { try { return JSON.parse(loc.skills); } catch { return []; } })() : [];
-                  const isEditing = editingLocId === loc.id;
-                  const isExpanded = expandedLocId === loc.id;
-                  const isDeleting = deletingLocId === loc.id;
-                  const typeInfo = LOC_TYPES.find((t) => t.value === loc.type);
-                  const dateRange = loc.startDate ? `${loc.startDate} – ${loc.endDate ?? "present"}` : null;
-                  return (
-                    <div key={loc.id} className="rounded-md border bg-muted/20 group/loc">
-                      {isEditing ? (
-                        /* ── Inline Edit Form ── */
-                        <div className="p-2 space-y-1.5">
-                          <Input value={editLocLabel} onChange={(e) => setEditLocLabel(e.target.value)} placeholder="Label" className="h-6 text-xs" />
-                          <Select value={editLocType} onValueChange={(v) => { setEditLocType(v ?? "daily-workplace"); if (v !== "custom") setEditCustomLocType(""); }}>
-                            <SelectTrigger className="h-6 text-xs"><SelectValue /></SelectTrigger>
-                            <SelectContent>{LOC_TYPES.map((t) => <SelectItem key={t.value} value={t.value} className="text-xs">{t.label}</SelectItem>)}</SelectContent>
-                          </Select>
-                          {editLocType === "custom" && (
-                            <Input value={editCustomLocType} onChange={(e) => setEditCustomLocType(e.target.value)} placeholder="Type name (e.g. Warehouse)" className="h-6 text-xs" />
-                          )}
-                          <div className="flex gap-1">
-                            <Input type="month" value={editLocStartDate} onChange={(e) => setEditLocStartDate(e.target.value)} className="h-6 text-xs flex-1" placeholder="Start" />
-                            <Input type="month" value={editLocEndDate} onChange={(e) => setEditLocEndDate(e.target.value)} className="h-6 text-xs flex-1" placeholder="End" />
-                          </div>
-                          <div className="flex gap-1">
-                            <Button size="sm" className="flex-1 h-6 text-xs" disabled={editLocSaving || !editLocLabel.trim()} onClick={() => handleSaveEditLoc(loc.id)}>
-                              {editLocSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <><Check className="h-2.5 w-2.5 mr-0.5" /> Save</>}
-                            </Button>
-                            <Button size="sm" variant="ghost" className="h-6 text-xs" onClick={() => setEditingLocId(null)}>Cancel</Button>
-                          </div>
-                        </div>
-                      ) : (
-                        <>
-                          {/* ── Compact Row ── */}
-                          <div role="button" tabIndex={0} className="w-full flex items-center gap-1.5 px-2 py-1.5 text-left cursor-pointer" onClick={() => setExpandedLocId(isExpanded ? null : loc.id)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setExpandedLocId(isExpanded ? null : loc.id); }}>
-                            <MapPin className="h-3 w-3 shrink-0 text-blue-500" />
-                            <span className="text-xs font-medium truncate flex-1">{loc.label}</span>
-                            {dateRange && <span className="text-xs text-muted-foreground shrink-0">{dateRange}</span>}
-                            <span className="text-xs bg-muted px-1 rounded shrink-0">{typeInfo?.label ?? loc.type}</span>
-                            {/* Hover actions */}
-                            <span className="flex items-center gap-0.5 opacity-0 group-hover/loc:opacity-100 transition-opacity shrink-0" onClick={(e) => e.stopPropagation()}>
-                              <button type="button" className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground" title="Edit" onClick={() => startEditLoc(loc)}>
-                                <Pencil className="h-2.5 w-2.5" />
+          {/* ── Inline panel (expands below toolbar) ── */}
+          {sidePanel && (
+            <div className="relative rounded-lg border bg-muted/30 p-2.5 animate-in fade-in-0 slide-in-from-top-1 duration-150">
+              {panelBusy && (
+                <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-background/60 backdrop-blur-[1px]">
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                </div>
+              )}
+              {sidePanel === "gallery" && (() => {
+                const allPhotos: { src: string; label: string; locId?: string; photoUrl?: string }[] = [];
+                if (focusedItem.coverImage) allPhotos.push({ src: focusedItem.coverImage, label: "Cover" });
+                for (const loc of focusedItem.locations ?? []) {
+                  if (loc.photos) {
+                    try {
+                      const photos: string[] = JSON.parse(loc.photos);
+                      photos.forEach((p, i) => allPhotos.push({ src: p, label: `${loc.label} #${i + 1}`, locId: loc.id, photoUrl: p }));
+                    } catch { /* skip */ }
+                  }
+                }
+                return (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Images className="h-3.5 w-3.5 text-pink-500" />
+                      <span className="text-xs font-semibold">Gallery</span>
+                      <span className="ml-auto text-[10px] text-muted-foreground">{allPhotos.length} photo{allPhotos.length !== 1 ? "s" : ""}</span>
+                      <label className="cursor-pointer p-0.5 rounded hover:bg-pink-500/10 text-pink-500 transition-colors" title="Add cover photo">
+                        <Plus className="h-3.5 w-3.5" />
+                        <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file || !focusedItem) return;
+                          setPanelBusy(true);
+                          try {
+                            const fd = new FormData();
+                            fd.append("file", file);
+                            fd.append("positionId", focusedItem.id);
+                            const res = await fetch("/api/gallery", { method: "POST", body: fd });
+                            if (res.ok) {
+                              const posRes = await fetch(`/api/current-position/${focusedItem.id}`);
+                              if (posRes.ok) setMatchedPosition(await posRes.json());
+                              queryClient.invalidateQueries({ queryKey: ["work-history"] });
+                            }
+                          } finally { setPanelBusy(false); }
+                          e.target.value = "";
+                        }} />
+                      </label>
+                    </div>
+                    {allPhotos.length === 0 ? (
+                      <p className="text-[11px] text-muted-foreground text-center py-4">No photos yet. Click + to add a cover image.</p>
+                    ) : (
+                      <div className="grid grid-cols-3 gap-1.5">
+                        {allPhotos.map((p, i) => (
+                          <div key={i} className="group/photo relative rounded-md overflow-hidden aspect-square bg-muted">
+                            <img src={p.src} alt={p.label} className="w-full h-full object-cover" />
+                            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-0.5 flex items-end justify-between">
+                              <span className="text-[9px] text-white">{p.label}</span>
+                              <button type="button" className="opacity-0 group-hover/photo:opacity-100 transition-opacity p-0.5 rounded hover:bg-red-500/30" title="Remove photo" onClick={async () => {
+                                if (!focusedItem || !confirm("Remove this photo?")) return;
+                                if (p.label === "Cover") {
+                                  await fetch(`/api/gallery?positionId=${focusedItem.id}`, { method: "DELETE" });
+                                } else if (p.locId && p.photoUrl) {
+                                  await fetch(`/api/work-history/${focusedItem.id}/locations/${p.locId}/photos`, {
+                                    method: "DELETE",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ url: p.photoUrl }),
+                                  });
+                                }
+                                const res = await fetch(`/api/current-position/${focusedItem.id}`);
+                                if (res.ok) setMatchedPosition(await res.json());
+                                queryClient.invalidateQueries({ queryKey: ["work-history"] });
+                              }}>
+                                <X className="h-3 w-3 text-white" />
                               </button>
-                              <button type="button" className="p-0.5 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-muted-foreground hover:text-red-500" title="Delete"
-                                disabled={isDeleting} onClick={() => handleDeleteLoc(loc.id)}>
-                                {isDeleting ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Trash2 className="h-2.5 w-2.5" />}
-                              </button>
-                            </span>
-                            <ChevronDown className={`h-2.5 w-2.5 text-muted-foreground transition-transform ${isExpanded ? "rotate-180" : ""}`} />
-                          </div>
-                          {/* ── Expanded Details ── */}
-                          {isExpanded && (
-                            <div className="px-2 pb-2 pt-0.5 space-y-1 border-t">
-                              <div className="flex items-center gap-1">
-                                <p className="text-[13px] text-muted-foreground truncate flex-1">{loc.address}</p>
-                                <button type="button" className="shrink-0 p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground" title="Copy address" onClick={() => { navigator.clipboard.writeText(loc.address); toast.success("Address copied"); }}>
-                                  <Copy className="h-2.5 w-2.5" />
-                                </button>
-                              </div>
-                              {loc.lat != null && loc.lng != null && (
-                                <div className="flex items-center gap-1">
-                                  <p className="text-xs text-muted-foreground font-mono">📍 {Number(loc.lat).toFixed(5)}, {Number(loc.lng).toFixed(5)}</p>
-                                  <button type="button" className="shrink-0 p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground" title="Copy coordinates" onClick={() => { navigator.clipboard.writeText(`${Number(loc.lat).toFixed(5)}, ${Number(loc.lng).toFixed(5)}`); toast.success("Coordinates copied"); }}>
-                                    <Copy className="h-2 w-2" />
-                                  </button>
-                                </div>
-                              )}
-                              {/* Skill chips */}
-                              {locSkills.length > 0 && (
-                                <div className="flex flex-wrap gap-0.5">
-                                  {locSkills.map((s) => (
-                                    <span key={s} className="text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 px-1 py-0.5 rounded flex items-center gap-0.5">
-                                      {s}
-                                      {editingSkillsLocId === loc.id && (
-                                        <button type="button" className="hover:text-red-500" onClick={() => handleRemoveSkill(loc.id, locSkills, s)}>×</button>
-                                      )}
-                                    </span>
-                                  ))}
-                                </div>
-                              )}
-                              {editingSkillsLocId === loc.id ? (
-                                <div className="flex gap-1">
-                                  <Input value={skillInput} onChange={(e) => setSkillInput(e.target.value)} placeholder="Add skill" className="h-5 text-[13px] flex-1"
-                                    onKeyDown={(e) => { if (e.key === "Enter") handleAddSkill(loc.id, locSkills); }} />
-                                  <button type="button" className="text-[13px] text-muted-foreground hover:text-foreground" onClick={() => setEditingSkillsLocId(null)}>Done</button>
-                                </div>
-                              ) : (
-                                <button type="button" className="text-[13px] text-muted-foreground hover:text-blue-500 flex items-center gap-0.5" onClick={() => { setEditingSkillsLocId(loc.id); setSkillInput(""); }}>
-                                  <Code className="h-2.5 w-2.5" /> {locSkills.length > 0 ? "Edit skills" : "Add skills"}
-                                </button>
-                              )}
                             </div>
-                          )}
-                        </>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {sidePanel === "attachments" && (() => {
+                const atts = matchedPosition?.attachments ?? [];
+                const catLabels: Record<string, string> = { "offer-letter": "Offer Letter", w2: "W-2", "pay-stub": "Pay Stub", contract: "Contract", cert: "Certificate", review: "Review", other: "Other" };
+                const fmtSize = (b: number) => b < 1024 ? `${b} B` : b < 1024 * 1024 ? `${(b / 1024).toFixed(1)} KB` : `${(b / (1024 * 1024)).toFixed(1)} MB`;
+                const uploadAtt = async (file: File) => {
+                  if (!focusedItem) return;
+                  const label = prompt("Label for this file:", file.name.replace(/\.[^.]+$/, ""));
+                  if (!label?.trim()) return;
+                  const cat = prompt("Category (offer-letter, w2, pay-stub, contract, cert, review, other):", "other") || "other";
+                  setPanelBusy(true);
+                  try {
+                    const fd = new FormData();
+                    fd.append("file", file);
+                    fd.append("positionId", focusedItem.id);
+                    fd.append("label", label.trim());
+                    fd.append("category", cat.trim());
+                    const res = await fetch("/api/attachments", { method: "POST", body: fd });
+                    if (res.ok) {
+                      const posRes = await fetch(`/api/current-position/${focusedItem.id}`);
+                      if (posRes.ok) setMatchedPosition(await posRes.json());
+                      queryClient.invalidateQueries({ queryKey: ["work-history"] });
+                    }
+                  } finally { setPanelBusy(false); }
+                };
+                const deleteAtt = async (id: string) => {
+                  if (!confirm("Delete this attachment?")) return;
+                  setPanelBusy(true);
+                  try {
+                    const res = await fetch(`/api/attachments?id=${id}`, { method: "DELETE" });
+                    if (res.ok && focusedItem) {
+                      const posRes = await fetch(`/api/current-position/${focusedItem.id}`);
+                      if (posRes.ok) setMatchedPosition(await posRes.json());
+                      queryClient.invalidateQueries({ queryKey: ["work-history"] });
+                    }
+                  } finally { setPanelBusy(false); }
+                };
+                const editAtt = async (a: { id: string; label: string; category: string }) => {
+                  if (!focusedItem) return;
+                  const label = prompt("Label:", a.label);
+                  if (label === null) return;
+                  const category = prompt("Category (offer-letter, w2, pay-stub, contract, cert, review, other):", a.category) || a.category;
+                  await fetch("/api/attachments", {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ id: a.id, label: label.trim() || a.label, category: category.trim() }),
+                  });
+                  const posRes = await fetch(`/api/current-position/${focusedItem.id}`);
+                  if (posRes.ok) setMatchedPosition(await posRes.json());
+                  queryClient.invalidateQueries({ queryKey: ["work-history"] });
+                };
+                return (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Paperclip className="h-3.5 w-3.5 text-amber-500" />
+                      <span className="text-xs font-semibold">Attachments</span>
+                      <span className="ml-auto text-[10px] text-muted-foreground">{atts.length} file{atts.length !== 1 ? "s" : ""}</span>
+                      <label className="cursor-pointer p-0.5 rounded hover:bg-amber-500/10 text-amber-500 transition-colors" title="Upload file">
+                        <Plus className="h-3.5 w-3.5" />
+                        <input type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.jpg,.jpeg,.png,.webp" className="hidden" onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (file) await uploadAtt(file);
+                          e.target.value = "";
+                        }} />
+                      </label>
+                    </div>
+                    {atts.length === 0 ? (
+                      <p className="text-[11px] text-muted-foreground text-center py-4">No attachments yet. Click + to upload offer letters, W-2s, pay stubs, and more.</p>
+                    ) : (
+                      <div className="space-y-1">
+                        {atts.map((a) => (
+                          <div key={a.id} className="group flex items-center gap-2 rounded-md border bg-background/60 px-2 py-1.5">
+                            <FileText className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[11px] font-medium truncate">{a.label}</p>
+                              <p className="text-[10px] text-muted-foreground">{catLabels[a.category] ?? a.category} · {fmtSize(a.fileSize)}</p>
+                            </div>
+                            <button type="button" className="p-0.5 rounded hover:bg-muted opacity-0 group-hover:opacity-100 transition-opacity" title="Edit" onClick={() => editAtt(a)}>
+                              <Pencil className="h-3 w-3 text-muted-foreground" />
+                            </button>
+                            <a href={a.filePath} target="_blank" rel="noopener noreferrer" download className="p-0.5 rounded hover:bg-muted opacity-0 group-hover:opacity-100 transition-opacity" title="Download">
+                              <Download className="h-3 w-3 text-muted-foreground" />
+                            </a>
+                            <button type="button" className="p-0.5 rounded hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-opacity" title="Delete" onClick={() => deleteAtt(a.id)}>
+                              <Trash2 className="h-3 w-3 text-red-500" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {sidePanel === "skills" && (() => {
+                const used: string[] = focusedItem.skillsUsed ? (() => { try { return JSON.parse(focusedItem.skillsUsed); } catch { return []; } })() : [];
+                const gained: string[] = focusedItem.skillsGained ? (() => { try { return JSON.parse(focusedItem.skillsGained); } catch { return []; } })() : [];
+                const tech = matchedPosition?.techStack?.split(",").map((t: string) => t.trim()).filter(Boolean) ?? [];
+                const hasContent = used.length > 0 || gained.length > 0 || tech.length > 0;
+
+                const addSkill = async (field: "skillsUsed" | "skillsGained", current: string[]) => {
+                  const name = prompt(field === "skillsUsed" ? "Skill used:" : "Skill gained:");
+                  if (!name?.trim() || !focusedItem) return;
+                  const updated = [...current, name.trim()];
+                  await fetch(`/api/current-position/${focusedItem.id}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ [field]: JSON.stringify(updated) }),
+                  });
+                  queryClient.invalidateQueries({ queryKey: ["work-history"] });
+                  const res = await fetch(`/api/current-position/${focusedItem.id}`);
+                  if (res.ok) setMatchedPosition(await res.json());
+                };
+
+                const removeSkill = async (field: "skillsUsed" | "skillsGained", current: string[], index: number) => {
+                  const updated = current.filter((_, i) => i !== index);
+                  await fetch(`/api/current-position/${focusedItem.id}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ [field]: JSON.stringify(updated) }),
+                  });
+                  queryClient.invalidateQueries({ queryKey: ["work-history"] });
+                  const res = await fetch(`/api/current-position/${focusedItem.id}`);
+                  if (res.ok) setMatchedPosition(await res.json());
+                };
+
+                const addTech = async () => {
+                  const name = prompt("Tech stack item:");
+                  if (!name?.trim() || !focusedItem) return;
+                  const updated = [...tech, name.trim()].join(", ");
+                  await fetch(`/api/current-position/${focusedItem.id}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ techStack: updated }),
+                  });
+                  const res = await fetch(`/api/current-position/${focusedItem.id}`);
+                  if (res.ok) setMatchedPosition(await res.json());
+                };
+
+                return (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Brain className="h-3.5 w-3.5 text-violet-500" />
+                      <span className="text-xs font-semibold">Skills</span>
+                      <span className="ml-auto text-[10px] text-muted-foreground">{used.length + gained.length + tech.length}</span>
+                    </div>
+                    {!hasContent ? (
+                      <p className="text-[11px] text-muted-foreground text-center py-4">No skills logged yet. Use the buttons below to add.</p>
+                    ) : null}
+                    <div className="space-y-2">
+                      <div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Tech Stack</span>
+                          <button type="button" className="p-0.5 rounded hover:bg-cyan-500/10 text-cyan-500 transition-colors" title="Add tech" onClick={addTech}><Plus className="h-3 w-3" /></button>
+                        </div>
+                        {tech.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-0.5">
+                            {tech.map((t: string, i: number) => (
+                              <span key={i} className="group/pill px-1.5 py-0.5 rounded-md bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 text-[10px] inline-flex items-center gap-0.5">
+                                {t}
+                                <button type="button" className="opacity-0 group-hover/pill:opacity-100 transition-opacity" onClick={async () => {
+                                  const newName = prompt("Edit tech:", t);
+                                  if (newName === null) return;
+                                  const updated = newName.trim() ? tech.map((x: string, j: number) => j === i ? newName.trim() : x) : tech.filter((_: string, j: number) => j !== i);
+                                  await fetch(`/api/current-position/${focusedItem.id}`, {
+                                    method: "PATCH", headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ techStack: updated.join(", ") }),
+                                  });
+                                  const res = await fetch(`/api/current-position/${focusedItem.id}`);
+                                  if (res.ok) setMatchedPosition(await res.json());
+                                  queryClient.invalidateQueries({ queryKey: ["work-history"] });
+                                }} title="Edit (clear to remove)"><Pencil className="h-2.5 w-2.5" /></button>
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Skills Used</span>
+                          <button type="button" className="p-0.5 rounded hover:bg-violet-500/10 text-violet-500 transition-colors" title="Add skill used" onClick={() => addSkill("skillsUsed", used)}><Plus className="h-3 w-3" /></button>
+                        </div>
+                        {used.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-0.5">
+                            {used.map((s, i) => (
+                              <span key={i} className="group px-1.5 py-0.5 rounded-md bg-violet-500/10 text-violet-600 dark:text-violet-400 text-[10px] inline-flex items-center gap-0.5">
+                                {s}
+                                <button type="button" className="opacity-0 group-hover:opacity-100 transition-opacity" onClick={async () => {
+                                  const newName = prompt("Edit skill:", s);
+                                  if (newName === null) return;
+                                  const updated = newName.trim() ? used.map((x, j) => j === i ? newName.trim() : x) : used.filter((_, j) => j !== i);
+                                  await fetch(`/api/current-position/${focusedItem.id}`, {
+                                    method: "PATCH", headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ skillsUsed: JSON.stringify(updated) }),
+                                  });
+                                  queryClient.invalidateQueries({ queryKey: ["work-history"] });
+                                  const res = await fetch(`/api/current-position/${focusedItem.id}`);
+                                  if (res.ok) setMatchedPosition(await res.json());
+                                }} title="Edit (clear to remove)"><Pencil className="h-2.5 w-2.5" /></button>
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Skills Gained</span>
+                          <button type="button" className="p-0.5 rounded hover:bg-emerald-500/10 text-emerald-500 transition-colors" title="Add skill gained" onClick={() => addSkill("skillsGained", gained)}><Plus className="h-3 w-3" /></button>
+                        </div>
+                        {gained.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-0.5">
+                            {gained.map((s, i) => (
+                              <span key={i} className="group px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] inline-flex items-center gap-0.5">
+                                {s}
+                                <button type="button" className="opacity-0 group-hover:opacity-100 transition-opacity" onClick={async () => {
+                                  const newName = prompt("Edit skill:", s);
+                                  if (newName === null) return;
+                                  const updated = newName.trim() ? gained.map((x, j) => j === i ? newName.trim() : x) : gained.filter((_, j) => j !== i);
+                                  await fetch(`/api/current-position/${focusedItem.id}`, {
+                                    method: "PATCH", headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ skillsGained: JSON.stringify(updated) }),
+                                  });
+                                  queryClient.invalidateQueries({ queryKey: ["work-history"] });
+                                  const res = await fetch(`/api/current-position/${focusedItem.id}`);
+                                  if (res.ok) setMatchedPosition(await res.json());
+                                }} title="Edit (clear to remove)"><Pencil className="h-2.5 w-2.5" /></button>
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {sidePanel === "equipment" && (() => {
+                const allEquip = matchedPosition?.equipment ?? [];
+                const used = allEquip.filter(e => e.usage !== "worked-on");
+                const workedOn = allEquip.filter(e => e.usage === "worked-on");
+
+                const addEquipment = async (usage: "used" | "worked-on") => {
+                  const name = prompt(usage === "used" ? "Equipment/tool name (assigned to you):" : "Equipment/tool name (you worked on):");
+                  if (!name?.trim() || !focusedItem) return;
+                  await fetch("/api/equipment", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ positionId: focusedItem.id, name: name.trim(), usage }),
+                  });
+                  const res = await fetch(`/api/current-position/${focusedItem.id}`);
+                  if (res.ok) setMatchedPosition(await res.json());
+                };
+
+                const deleteEquip = async (id: string) => {
+                  if (!focusedItem || !confirm("Delete this equipment?")) return;
+                  setPanelBusy(true);
+                  try {
+                    const res = await fetch(`/api/equipment?id=${id}`, { method: "DELETE" });
+                    if (res.ok) {
+                      const posRes = await fetch(`/api/current-position/${focusedItem.id}`);
+                      if (posRes.ok) setMatchedPosition(await posRes.json());
+                      queryClient.invalidateQueries({ queryKey: ["work-history"] });
+                    }
+                  } finally { setPanelBusy(false); }
+                };
+
+                const editEquip = async (e: { id: string; name: string; category: string; condition: string; manufacturer?: string | null; model?: string | null; notes?: string | null }) => {
+                  if (!focusedItem) return;
+                  const name = prompt("Name:", e.name);
+                  if (name === null) return;
+                  const category = prompt("Category (hardware, software, vehicle, tool, other):", e.category) || e.category;
+                  const manufacturer = prompt("Manufacturer:", e.manufacturer ?? "") ?? "";
+                  const model = prompt("Model:", e.model ?? "") ?? "";
+                  const condition = prompt("Condition (good, fair, poor):", e.condition) || e.condition;
+                  const notes = prompt("Notes:", e.notes ?? "") ?? "";
+                  await fetch("/api/equipment", {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ id: e.id, name: name.trim() || e.name, category, manufacturer, model, condition, notes }),
+                  });
+                  const res = await fetch(`/api/current-position/${focusedItem.id}`);
+                  if (res.ok) setMatchedPosition(await res.json());
+                  queryClient.invalidateQueries({ queryKey: ["work-history"] });
+                };
+
+                const EquipCard = ({ e }: { e: { id: string; name: string; category: string; usage: string; manufacturer?: string | null; model?: string | null; condition: string; notes?: string | null } }) => (
+                  <div className="group rounded-md border p-1.5 text-[11px] space-y-0.5">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">{e.name}</span>
+                      <div className="flex items-center gap-0.5">
+                        <span className={`px-1 py-0.5 rounded text-[9px] ${e.condition === "good" ? "bg-emerald-500/10 text-emerald-600" : e.condition === "fair" ? "bg-amber-500/10 text-amber-600" : "bg-red-500/10 text-red-600"}`}>
+                          {e.condition}
+                        </span>
+                        <button type="button" className="p-0.5 rounded hover:bg-muted opacity-0 group-hover:opacity-100 transition-opacity" title="Edit" onClick={() => editEquip(e)}>
+                          <Pencil className="h-2.5 w-2.5 text-muted-foreground" />
+                        </button>
+                        <button type="button" className="p-0.5 rounded hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-opacity" title="Delete" onClick={() => deleteEquip(e.id)}>
+                          <Trash2 className="h-2.5 w-2.5 text-red-500" />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="text-muted-foreground">
+                      {e.category}{e.manufacturer ? ` · ${e.manufacturer}` : ""}{e.model ? ` ${e.model}` : ""}
+                    </div>
+                    {e.notes && <div className="text-muted-foreground italic">{e.notes}</div>}
+                  </div>
+                );
+
+                return (
+                  <div className="space-y-3">
+                    {/* Assigned / Used */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <Wrench className="h-3.5 w-3.5 text-cyan-500" />
+                        <span className="text-xs font-semibold">Assigned to Me</span>
+                        <span className="ml-auto text-[10px] text-muted-foreground">{used.length}</span>
+                        <button type="button" className="p-0.5 rounded hover:bg-cyan-500/10 text-cyan-500 transition-colors" title="Add equipment you used" onClick={() => addEquipment("used")}><Plus className="h-3 w-3" /></button>
+                      </div>
+                      {used.length === 0 ? (
+                        <p className="text-[11px] text-muted-foreground text-center py-2">No tools assigned. Click + to add.</p>
+                      ) : (
+                        <div className="space-y-1">
+                          {used.map(e => <EquipCard key={e.id} e={e} />)}
+                        </div>
                       )}
                     </div>
-                  );
-                })}
-              </div>
+
+                    <div className="border-t" />
+
+                    {/* Worked On / Maintained */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <Settings className="h-3.5 w-3.5 text-orange-500" />
+                        <span className="text-xs font-semibold">Worked On</span>
+                        <span className="ml-auto text-[10px] text-muted-foreground">{workedOn.length}</span>
+                        <button type="button" className="p-0.5 rounded hover:bg-orange-500/10 text-orange-500 transition-colors" title="Add equipment you worked on" onClick={() => addEquipment("worked-on")}><Plus className="h-3 w-3" /></button>
+                      </div>
+                      {workedOn.length === 0 ? (
+                        <p className="text-[11px] text-muted-foreground text-center py-2">No equipment logged. Click + to add.</p>
+                      ) : (
+                        <div className="space-y-1">
+                          {workedOn.map(e => <EquipCard key={e.id} e={e} />)}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           )}
+
+          {/* ═══ OVERVIEW TAB ═══ */}
+          {focusTab === "overview" && (<>
 
           {/* ── Enriched sections from CurrentPosition ── */}
           {enrichLoading && (
@@ -7525,48 +7934,48 @@ function WorkHistoryPanel({
           {matchedPosition && !enrichLoading && (
             <div className="space-y-1.5">
 
-              {/* A — Compensation Snapshot */}
-              {matchedPosition.salary != null && (
+              {/* A — Compensation Details (only extras not in header) */}
+              {(compEvents.length > 0 || focusedItem?.equityNotes || focusedItem?.differentials) && (
                 <div className="rounded-lg border overflow-hidden">
                   <button type="button" className="w-full flex items-center justify-between p-2 hover:bg-muted/30 transition-colors" onClick={() => toggleSection("comp")}>
                     <span className="text-[13px] font-medium flex items-center gap-1.5">
-                      <DollarSign className="h-3.5 w-3.5 text-emerald-500" /> Compensation
+                      <DollarSign className="h-3.5 w-3.5 text-emerald-500" /> Compensation Details
                     </span>
                     {expandedSections.has("comp") ? <ChevronUp className="h-3 w-3 text-muted-foreground" /> : <ChevronDown className="h-3 w-3 text-muted-foreground" />}
                   </button>
                   {expandedSections.has("comp") && (
                     <div className="px-2 pb-2 space-y-1.5">
-                      <div className="grid grid-cols-2 gap-1.5">
-                        <div className="p-1.5 rounded bg-muted/30">
-                          <p className="text-[13px] text-muted-foreground">Base Salary</p>
-                          <p className="text-xs font-semibold">{matchedPosition.currency === "USD" ? "$" : matchedPosition.currency}{matchedPosition.salary.toLocaleString()}</p>
+                      {/* Differentials breakdown */}
+                      {focusedItem?.differentials && (
+                        <div className="space-y-0.5">
+                          <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Differentials</p>
+                          {focusedItem.differentials.split("\n").filter(Boolean).map((d, i) => (
+                            <p key={i} className="text-xs text-emerald-600 dark:text-emerald-400">{d}</p>
+                          ))}
                         </div>
-                        <div className="p-1.5 rounded bg-muted/30">
-                          <p className="text-[13px] text-muted-foreground">Pay Type</p>
-                          <p className="text-xs font-medium capitalize">{matchedPosition.payType}</p>
-                        </div>
-                      </div>
-                      {matchedPosition.payFrequency && (
-                        <p className="text-xs text-muted-foreground">Frequency: <span className="text-foreground capitalize">{matchedPosition.payFrequency}</span></p>
                       )}
-                      {matchedPosition.hoursPerWeek != null && (
-                        <p className="text-xs text-muted-foreground">Hours/week: <span className="text-foreground">{matchedPosition.hoursPerWeek}h</span></p>
+                      {/* Equity notes */}
+                      {focusedItem?.equityNotes && (
+                        <div>
+                          <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Equity</p>
+                          <p className="text-xs">{focusedItem.equityNotes}</p>
+                        </div>
                       )}
                       {/* Compensation Events */}
                       {compEvents.length > 0 && (
                         <div className="pt-1 border-t space-y-1">
-                          <p className="text-[13px] text-muted-foreground uppercase tracking-wide">Events</p>
+                          <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Events</p>
                           {compEvents.slice(0, 5).map((ev) => (
                             <div key={ev.id} className="flex items-center justify-between text-xs">
                               <span className="flex items-center gap-1 truncate">
                                 <TrendingUp className="h-2.5 w-2.5 text-emerald-500 shrink-0" />
                                 <span className="truncate">{ev.title}</span>
-                                {ev.recurring && <span className="text-xs bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300 px-0.5 rounded">recurring</span>}
+                                {ev.recurring && <span className="text-[10px] bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300 px-0.5 rounded">recurring</span>}
                               </span>
                               <span className="font-medium shrink-0 ml-1">{ev.currency === "USD" ? "$" : ev.currency}{ev.amount.toLocaleString()}</span>
                             </div>
                           ))}
-                          {compEvents.length > 5 && <p className="text-[13px] text-muted-foreground text-center">+{compEvents.length - 5} more</p>}
+                          {compEvents.length > 5 && <p className="text-[10px] text-muted-foreground text-center">+{compEvents.length - 5} more</p>}
                         </div>
                       )}
                     </div>
@@ -7768,12 +8177,7 @@ function WorkHistoryPanel({
           )}
 
 
-          {/* Manager (extra detail not in header) */}
-          {focusedItem.managerName && (
-            <div className="px-2 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800">
-              <p className="text-xs text-muted-foreground">Manager: <span className="text-foreground font-medium">{focusedItem.managerName}</span></p>
-            </div>
-          )}
+
 
           {/* Benefits & PTO */}
           {(focusedItem.benefits || focusedItem.ptoDaysOffered != null || focusedItem.ptoNotes) && (() => {
@@ -8281,9 +8685,84 @@ function WorkHistoryPanel({
                 </div>
               </div>
               <div>
+                <p className="text-[13px] text-muted-foreground mb-0.5">Shift</p>
+                <div className="grid grid-cols-3 gap-1">
+                  <Select
+                    value={(() => {
+                      const s = (focusedItem.schedule ?? "").toLowerCase();
+                      if (s.includes("1st") || s.includes("day")) return "1st";
+                      if (s.includes("2nd") || s.includes("swing") || s.includes("afternoon")) return "2nd";
+                      if (s.includes("3rd") || s.includes("night") || s.includes("overnight")) return "3rd";
+                      if (s) return "custom";
+                      return "";
+                    })()}
+                    onValueChange={(v) => {
+                      if (!v) return;
+                      const defaults: Record<string, string> = { "1st": "1st Shift (7am - 3pm)", "2nd": "2nd Shift (3pm - 11pm)", "3rd": "3rd Shift (11pm - 7am)" };
+                      saveDetail({ schedule: defaults[v] || (v === "custom" ? focusedItem.schedule || "Custom Shift" : null) });
+                    }}
+                  >
+                    <SelectTrigger className="h-6 text-xs"><SelectValue placeholder="Shift" /></SelectTrigger>
+                    <SelectContent>
+                      {[{v:"1st",l:"1st (Day)"},{v:"2nd",l:"2nd (Swing)"},{v:"3rd",l:"3rd (Night)"},{v:"custom",l:"Custom"}].map((o) => <SelectItem key={o.v} value={o.v} className="text-xs">{o.l}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    type="time"
+                    className="h-6 text-xs"
+                    defaultValue={(() => {
+                      const m = (focusedItem.schedule ?? "").match(/\((\d{1,2}(?::\d{2})?\s*(?:am|pm))/i);
+                      if (!m) return "";
+                      const t = m[1].trim().toLowerCase();
+                      const [hm, ap] = [t.replace(/(am|pm)/, "").trim(), t.match(/(am|pm)/)?.[1]];
+                      const [h, mn] = hm.split(":").map(Number);
+                      const h24 = ap === "pm" && h !== 12 ? h + 12 : ap === "am" && h === 12 ? 0 : h;
+                      return `${String(h24).padStart(2,"0")}:${String(mn || 0).padStart(2,"0")}`;
+                    })()}
+                    onBlur={(e) => {
+                      if (!e.target.value) return;
+                      const [h, m] = e.target.value.split(":").map(Number);
+                      const ap = h >= 12 ? "pm" : "am";
+                      const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+                      const startStr = `${h12}${m ? `:${String(m).padStart(2,"0")}` : ""}${ap}`;
+                      const cur = focusedItem.schedule ?? "";
+                      const endMatch = cur.match(/-\s*(\d{1,2}(?::\d{2})?\s*(?:am|pm))\s*\)/i);
+                      const endPart = endMatch ? endMatch[1] : "?";
+                      const prefix = cur.replace(/\(.*\)/, "").trim() || "Shift";
+                      saveDetail({ schedule: `${prefix} (${startStr} - ${endPart})` });
+                    }}
+                  />
+                  <Input
+                    type="time"
+                    className="h-6 text-xs"
+                    defaultValue={(() => {
+                      const m = (focusedItem.schedule ?? "").match(/-\s*(\d{1,2}(?::\d{2})?\s*(?:am|pm))\s*\)/i);
+                      if (!m) return "";
+                      const t = m[1].trim().toLowerCase();
+                      const [hm, ap] = [t.replace(/(am|pm)/, "").trim(), t.match(/(am|pm)/)?.[1]];
+                      const [h, mn] = hm.split(":").map(Number);
+                      const h24 = ap === "pm" && h !== 12 ? h + 12 : ap === "am" && h === 12 ? 0 : h;
+                      return `${String(h24).padStart(2,"0")}:${String(mn || 0).padStart(2,"0")}`;
+                    })()}
+                    onBlur={(e) => {
+                      if (!e.target.value) return;
+                      const [h, m] = e.target.value.split(":").map(Number);
+                      const ap = h >= 12 ? "pm" : "am";
+                      const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+                      const endStr = `${h12}${m ? `:${String(m).padStart(2,"0")}` : ""}${ap}`;
+                      const cur = focusedItem.schedule ?? "";
+                      const startMatch = cur.match(/\((\d{1,2}(?::\d{2})?\s*(?:am|pm))\s*-/i);
+                      const startPart = startMatch ? startMatch[1] : "?";
+                      const prefix = cur.replace(/\(.*\)/, "").trim() || "Shift";
+                      saveDetail({ schedule: `${prefix} (${startPart} - ${endStr})` });
+                    }}
+                  />
+                </div>
+              </div>
+              <div>
                 <p className="text-[13px] text-muted-foreground mb-0.5">Shift Notes</p>
                 <Input defaultValue={focusedItem.shiftNotes ?? ""} className="h-6 text-xs"
-                  onBlur={(e) => saveDetail({ shiftNotes: e.target.value || null })} placeholder="Night shift, 4x10, etc." />
+                  onBlur={(e) => saveDetail({ shiftNotes: e.target.value || null })} placeholder="4x10, rotating days off, etc." />
               </div>
             </div>
           </DetailEditSection>
@@ -9169,6 +9648,194 @@ function WorkHistoryPanel({
       </>
       )}
     </div>
+
+    {/* ── Locations Popover (floating below header) ── */}
+    {focusedItem && showLocationsPopover && (focusedItem.locations ?? []).length > 0 && (
+      <div className="absolute top-[52px] left-[calc(0.75rem+24rem-12rem)] z-[1150] bg-background/95 backdrop-blur-md border rounded-xl shadow-xl p-2.5 w-72 max-h-[40vh] overflow-y-auto scrollbar-thin pointer-events-auto">
+        <div className="flex items-center justify-between mb-1.5">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Locations ({focusedItem.locations.length})</p>
+          <button type="button" className="p-0.5 text-muted-foreground hover:text-foreground" onClick={() => setShowLocationsPopover(false)}>
+            <X className="h-3 w-3" />
+          </button>
+        </div>
+        <div className="space-y-0.5">
+          {focusedItem.locations.map((loc) => {
+            const locSkills: string[] = loc.skills ? (() => { try { return JSON.parse(loc.skills); } catch { return []; } })() : [];
+            const isEditing = editingLocId === loc.id;
+            const isExpanded = expandedLocId === loc.id;
+            const isDeleting = deletingLocId === loc.id;
+            const typeInfo = LOC_TYPES.find((t) => t.value === loc.type);
+            const dateRange = loc.startDate ? `${loc.startDate} – ${loc.endDate ?? "present"}` : null;
+            return (
+              <div key={loc.id} className="rounded-md border bg-muted/20 group/loc">
+                {isEditing ? (
+                  <div className="p-2 space-y-1.5">
+                    <Input value={editLocLabel} onChange={(e) => setEditLocLabel(e.target.value)} placeholder="Label" className="h-6 text-xs" />
+                    <Select value={editLocType} onValueChange={(v) => { setEditLocType(v ?? "daily-workplace"); if (v !== "custom") setEditCustomLocType(""); }}>
+                      <SelectTrigger className="h-6 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>{LOC_TYPES.map((t) => <SelectItem key={t.value} value={t.value} className="text-xs">{t.label}</SelectItem>)}</SelectContent>
+                    </Select>
+                    {editLocType === "custom" && (
+                      <Input value={editCustomLocType} onChange={(e) => setEditCustomLocType(e.target.value)} placeholder="Type name (e.g. Warehouse)" className="h-6 text-xs" />
+                    )}
+                    <div className="flex gap-1">
+                      <Input type="month" value={editLocStartDate} onChange={(e) => setEditLocStartDate(e.target.value)} className="h-6 text-xs flex-1" placeholder="Start" />
+                      <Input type="month" value={editLocEndDate} onChange={(e) => setEditLocEndDate(e.target.value)} className="h-6 text-xs flex-1" placeholder="End" />
+                    </div>
+                    <div className="flex gap-1">
+                      <Button size="sm" className="flex-1 h-6 text-xs" disabled={editLocSaving || !editLocLabel.trim()} onClick={() => handleSaveEditLoc(loc.id)}>
+                        {editLocSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <><Check className="h-2.5 w-2.5 mr-0.5" /> Save</>}
+                      </Button>
+                      <Button size="sm" variant="ghost" className="h-6 text-xs" onClick={() => setEditingLocId(null)}>Cancel</Button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div role="button" tabIndex={0} className="w-full flex items-center gap-1.5 px-2 py-1.5 text-left cursor-pointer" onClick={() => setExpandedLocId(isExpanded ? null : loc.id)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setExpandedLocId(isExpanded ? null : loc.id); }}>
+                      <MapPin className="h-3 w-3 shrink-0 text-blue-500" />
+                      <span className="text-xs font-medium truncate flex-1">{loc.label}</span>
+                      <span className="text-[10px] bg-muted px-1 rounded shrink-0">{typeInfo?.label ?? loc.type}</span>
+                      <span className="flex items-center gap-0.5 opacity-0 group-hover/loc:opacity-100 transition-opacity shrink-0" onClick={(e) => e.stopPropagation()}>
+                        <button type="button" className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground" title="Edit" onClick={() => startEditLoc(loc)}>
+                          <Pencil className="h-2.5 w-2.5" />
+                        </button>
+                        <button type="button" className="p-0.5 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-muted-foreground hover:text-red-500" title="Delete"
+                          disabled={isDeleting} onClick={() => handleDeleteLoc(loc.id)}>
+                          {isDeleting ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Trash2 className="h-2.5 w-2.5" />}
+                        </button>
+                      </span>
+                      <ChevronDown className={`h-2.5 w-2.5 text-muted-foreground transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+                    </div>
+                    {isExpanded && (
+                      <div className="px-2 pb-2 pt-0.5 space-y-1 border-t">
+                        <div className="flex items-center gap-1">
+                          <p className="text-[11px] text-muted-foreground truncate flex-1">{loc.address}</p>
+                          <button type="button" className="shrink-0 p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground" title="Copy address" onClick={() => { navigator.clipboard.writeText(loc.address); toast.success("Address copied"); }}>
+                            <Copy className="h-2.5 w-2.5" />
+                          </button>
+                        </div>
+                        {dateRange && <p className="text-[10px] text-muted-foreground">{dateRange}</p>}
+                        {locSkills.length > 0 && (
+                          <div className="flex flex-wrap gap-0.5">
+                            {locSkills.map((s) => (
+                              <span key={s} className="text-[10px] bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 px-1 py-0.5 rounded">{s}</span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    )}
+
+    {/* ── Concurrent Jobs Pop-out ── */}
+    {focusedItem && focusTab === "overview" && overlapMap.has(focusedItem.id) && (() => {
+      const concJobs = overlapMap.get(focusedItem.id)!;
+      const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+      const parseSchedule = (sched: string | null | undefined, shiftNotes: string | null | undefined) => {
+        const raw = sched || shiftNotes || "";
+        if (!raw) return null;
+        const dayMatch = raw.match(/(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s*[-–]\s*(Mon|Tue|Wed|Thu|Fri|Sat|Sun)/i);
+        const timeMatch = raw.match(/(\d{1,2}(?::\d{2})?\s*(?:am|pm|AM|PM)?)\s*[-–]\s*(\d{1,2}(?::\d{2})?\s*(?:am|pm|AM|PM)?)/);
+        let startDay = 0, endDay = 4;
+        if (dayMatch) {
+          const s = DAYS.findIndex((d) => d.toLowerCase() === dayMatch[1].slice(0, 3).toLowerCase());
+          const e = DAYS.findIndex((d) => d.toLowerCase() === dayMatch[2].slice(0, 3).toLowerCase());
+          if (s >= 0) startDay = s;
+          if (e >= 0) endDay = e;
+        }
+        const timeStr = timeMatch ? `${timeMatch[1]} – ${timeMatch[2]}` : null;
+        return { startDay, endDay, timeStr, raw };
+      };
+      const focusedSched = parseSchedule(focusedItem.schedule, focusedItem.shiftNotes);
+      return (
+        <div className="absolute top-3 left-[calc(0.75rem+24rem+0.75rem)] z-[1100] bg-background/95 backdrop-blur-md border border-cyan-500/30 rounded-xl shadow-xl p-2.5 w-64 pointer-events-auto">
+          <button type="button" className="w-full flex items-center gap-2 text-left mb-1.5"
+            onClick={() => setShowConcurrentSchedule((p) => !p)}>
+            <Layers className="h-3.5 w-3.5 text-cyan-500 shrink-0" />
+            <span className="text-xs font-semibold flex-1">
+              {concJobs.length} concurrent {concJobs.length === 1 ? "job" : "jobs"}
+            </span>
+            <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
+            <ChevronDown className={`h-3 w-3 text-muted-foreground transition-transform ${showConcurrentSchedule ? "rotate-180" : ""}`} />
+          </button>
+
+          {/* Collapsed: compact list */}
+          {!showConcurrentSchedule && (
+            <div className="space-y-1">
+              {concJobs.map((c) => (
+                <div key={c.id} className="flex items-center gap-1.5 text-xs cursor-pointer hover:bg-muted/30 rounded px-1 py-0.5"
+                  onClick={() => { const it = items.find((i) => i.id === c.id); if (it) onFocusJob(it); }}>
+                  <Briefcase className="h-3 w-3 text-cyan-500 shrink-0" />
+                  <span className="font-medium truncate">{c.company}</span>
+                  {c.title && <span className="text-muted-foreground truncate">· {c.title}</span>}
+                  {(c.schedule || c.shiftNotes) && (
+                    <span className="ml-auto text-[10px] text-muted-foreground shrink-0">{c.schedule || c.shiftNotes}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Expanded: mini weekly schedule */}
+          {showConcurrentSchedule && (
+            <div className="space-y-2">
+              <div className="grid grid-cols-7 gap-px text-center">
+                {DAYS.map((d) => (
+                  <div key={d} className="text-[9px] font-semibold text-muted-foreground py-0.5">{d}</div>
+                ))}
+                {DAYS.map((_, di) => {
+                  const s = focusedSched;
+                  const active = s ? (s.endDay >= s.startDay ? di >= s.startDay && di <= s.endDay : di >= s.startDay || di <= s.endDay) : false;
+                  return (
+                    <div key={`f-${di}`} className={`h-5 rounded-sm text-[8px] flex items-center justify-center ${active ? "bg-blue-500/20 text-blue-600 dark:text-blue-400 font-medium" : "bg-muted/20 text-muted-foreground/40"}`}>
+                      {active ? "●" : ""}
+                    </div>
+                  );
+                })}
+                {concJobs.map((c) => {
+                  const s = parseSchedule(c.schedule, c.shiftNotes);
+                  return DAYS.map((_, di) => {
+                    const active = s ? (s.endDay >= s.startDay ? di >= s.startDay && di <= s.endDay : di >= s.startDay || di <= s.endDay) : false;
+                    return (
+                      <div key={`${c.id}-${di}`} className={`h-5 rounded-sm text-[8px] flex items-center justify-center ${active ? "bg-cyan-500/20 text-cyan-600 dark:text-cyan-400 font-medium" : "bg-muted/20 text-muted-foreground/40"}`}>
+                        {active ? "●" : ""}
+                      </div>
+                    );
+                  });
+                })}
+              </div>
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-1.5 text-[10px]">
+                  <div className="w-2.5 h-2.5 rounded-sm bg-blue-500/30 shrink-0" />
+                  <span className="font-medium truncate">{focusedItem.company}</span>
+                  {focusedSched?.timeStr && <span className="text-muted-foreground ml-auto shrink-0">{focusedSched.timeStr}</span>}
+                  {!focusedSched && focusedItem.hoursPerWeek && <span className="text-muted-foreground ml-auto shrink-0">{focusedItem.hoursPerWeek}h/wk</span>}
+                </div>
+                {concJobs.map((c) => {
+                  const s = parseSchedule(c.schedule, c.shiftNotes);
+                  return (
+                    <div key={c.id} className="flex items-center gap-1.5 text-[10px] cursor-pointer hover:bg-muted/30 rounded px-0.5"
+                      onClick={() => { const it = items.find((i) => i.id === c.id); if (it) onFocusJob(it); }}>
+                      <div className="w-2.5 h-2.5 rounded-sm bg-cyan-500/30 shrink-0" />
+                      <span className="font-medium truncate">{c.company}</span>
+                      {s?.timeStr && <span className="text-muted-foreground ml-auto shrink-0">{s.timeStr}</span>}
+                      {!s && c.hoursPerWeek && <span className="text-muted-foreground ml-auto shrink-0">{c.hoursPerWeek}h/wk</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    })()}
+    </>
   );
 }
 

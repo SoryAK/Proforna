@@ -1,18 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getUserId } from "@/lib/auth-utils";
+import { callGemini, geminiErrorMessage } from "@/lib/gemini";
 
 export async function POST(req: NextRequest) {
   const userId = await getUserId();
   if (!userId)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-  if (!GEMINI_API_KEY)
-    return NextResponse.json(
-      { error: "GEMINI_API_KEY is not configured" },
-      { status: 503 }
-    );
 
   const body = await req.json();
   const { documentIds } = body as { documentIds?: string[] };
@@ -116,43 +110,16 @@ GUIDELINES:
 - Make content clear and accessible`;
 
   try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
-    const response = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: { responseMimeType: "application/json" },
-      }),
+    const { res: response, model } = await callGemini({
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: { responseMimeType: "application/json" },
     });
 
     if (!response.ok) {
-      const text = await response.text();
-      console.error("[learning/generate] Gemini error:", text);
-
-      // Parse 429 rate-limit for a user-friendly message
-      if (response.status === 429) {
-        let retrySeconds = 60;
-        try {
-          const errJson = JSON.parse(text);
-          const retryInfo = errJson.error?.details?.find(
-            (d: Record<string, string>) => d["@type"]?.includes("RetryInfo"),
-          );
-          if (retryInfo?.retryDelay) {
-            retrySeconds = Math.ceil(parseFloat(retryInfo.retryDelay));
-          }
-        } catch { /* ignore parse errors */ }
-        return NextResponse.json(
-          {
-            error: `AI rate limit reached. Please wait ~${retrySeconds}s and try again. If this persists, the daily free-tier quota may be exhausted — it resets at midnight Pacific time.`,
-            retryAfter: retrySeconds,
-          },
-          { status: 429 },
-        );
-      }
-
+      const { message, retryAfter } = await geminiErrorMessage(response);
+      console.error(`[learning/generate] ${model} error:`, message);
       return NextResponse.json(
-        { error: "AI service request failed" },
+        { error: message, retryAfter },
         { status: response.status },
       );
     }

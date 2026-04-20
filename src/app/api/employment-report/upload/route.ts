@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 import { getUserId } from "@/lib/auth-utils";
+import { callGemini, geminiErrorMessage } from "@/lib/gemini";
 
 /**
  * POST /api/employment-report/upload
@@ -77,11 +78,6 @@ export async function POST(request: Request) {
   const userId = await getUserId();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-  if (!GEMINI_API_KEY) {
-    return NextResponse.json({ error: "GEMINI_API_KEY is not configured" }, { status: 503 });
-  }
-
   try {
     const formData = await request.formData();
     const file = formData.get("file") as File | null;
@@ -116,56 +112,22 @@ export async function POST(request: Request) {
       );
     }
 
-    // Send to Gemini for structured extraction
-    const geminiModel = process.env.GEMINI_MODEL || "gemini-2.0-flash";
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${GEMINI_API_KEY}`;
-
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: EXTRACTION_PROMPT }] },
-        contents: [{ role: "user", parts: [{ text: rawText }] }],
-        generationConfig: {
-          temperature: 0,
-          responseMimeType: "application/json",
-        },
-      }),
+    // Use shared Gemini helper with automatic model fallback
+    const { res, model: usedModel } = await callGemini({
+      systemInstruction: { parts: [{ text: EXTRACTION_PROMPT }] },
+      contents: [{ role: "user", parts: [{ text: rawText }] }],
+      generationConfig: {
+        temperature: 0,
+        responseMimeType: "application/json",
+      },
     });
 
     if (!res.ok) {
-      const errText = await res.text().catch(() => "Gemini request failed");
-      console.error("[employment-report/upload] Gemini error:", errText);
-
-      if (res.status === 429) {
-        // Parse retry info from Gemini error
-        let retrySeconds = 60;
-        let isDailyQuota = false;
-        try {
-          const errJson = JSON.parse(errText);
-          const violations = errJson.error?.details?.find(
-            (d: Record<string, unknown>) => d["@type"]?.toString().includes("QuotaFailure")
-          )?.violations || [];
-          isDailyQuota = violations.some((v: Record<string, string>) =>
-            v.quotaId?.includes("PerDay")
-          );
-          const retryInfo = errJson.error?.details?.find(
-            (d: Record<string, unknown>) => d["@type"]?.toString().includes("RetryInfo")
-          );
-          if (retryInfo?.retryDelay) {
-            retrySeconds = Math.ceil(parseFloat(retryInfo.retryDelay));
-          }
-        } catch { /* ignore parse errors */ }
-
-        const message = isDailyQuota
-          ? "Gemini free tier daily quota exhausted. It resets at midnight Pacific time. You can either wait or add billing at https://aistudio.google.com to continue."
-          : `AI rate limit reached. Please wait ~${retrySeconds}s and try again.`;
-
-        return NextResponse.json({ error: message, retryAfter: retrySeconds }, { status: 429 });
-      }
-
-      return NextResponse.json({ error: "AI extraction failed" }, { status: 502 });
+      const { message, retryAfter } = await geminiErrorMessage(res);
+      return NextResponse.json({ error: message, retryAfter }, { status: 429 });
     }
+
+    console.log(`[employment-report/upload] Used model: ${usedModel}`);
 
     const geminiData = await res.json();
     const rawResponse = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text;

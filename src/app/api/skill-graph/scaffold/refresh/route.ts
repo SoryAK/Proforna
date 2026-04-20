@@ -2,8 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { logActivity } from "@/lib/activity";
 import { NextRequest, NextResponse } from "next/server";
 import { getUserId } from "@/lib/auth-utils";
-
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+import { callGemini, geminiErrorMessage } from "@/lib/gemini";
 
 /**
  * POST /api/skill-graph/scaffold/refresh
@@ -18,10 +17,6 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 export async function POST(req: NextRequest) {
   const userId = await getUserId();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  if (!GEMINI_API_KEY) {
-    return NextResponse.json({ error: "GEMINI_API_KEY is not configured" }, { status: 503 });
-  }
 
   const body = await req.json();
   const { occupation, cluster: clusterName } = body;
@@ -74,24 +69,18 @@ Respond ONLY with valid JSON:
   ]
 }`;
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
-
-  const geminiRes = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: {
-        temperature: 0.2,
-        responseMimeType: "application/json",
-      },
-    }),
+  const { res: geminiRes, model } = await callGemini({
+    contents: [{ parts: [{ text: prompt }] }],
+    generationConfig: {
+      temperature: 0.2,
+      responseMimeType: "application/json",
+    },
   });
 
   if (!geminiRes.ok) {
-    const errText = await geminiRes.text().catch(() => "Gemini request failed");
-    console.error("[scaffold/refresh] Gemini error:", errText);
-    return NextResponse.json({ error: "AI generation failed" }, { status: 502 });
+    const { message } = await geminiErrorMessage(geminiRes);
+    console.error(`[scaffold/refresh] ${model} error:`, message);
+    return NextResponse.json({ error: message }, { status: geminiRes.status });
   }
 
   const geminiData = await geminiRes.json();

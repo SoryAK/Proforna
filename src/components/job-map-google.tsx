@@ -167,6 +167,8 @@ interface Props {
   companyLocationMarkers?: { placeId: string; name: string; address: string; lat: number; lng: number }[];
   onMapReady?: (map: google.maps.Map) => void;
   onCursorMove?: (coords: { lat: number; lng: number } | null) => void;
+  showWorkHistory?: boolean;
+  onToggleWorkHistory?: () => void;
 }
 
 /* ── Helpers ── */
@@ -289,6 +291,8 @@ export default function JobMapGoogle({
   companyLocationMarkers = [],
   onMapReady,
   onCursorMove,
+  showWorkHistory = false,
+  onToggleWorkHistory,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
@@ -1522,22 +1526,23 @@ export default function JobMapGoogle({
     residenceMarkerRef.current = marker;
   }, [residenceMarker, ready]);
 
-  /* ── Concurrent work-history highlight (dim others, glow concurrent, draw dashed lines) ── */
+  /* ── Concurrent work-history highlight (dim others, glow concurrent, pulsing halos) ── */
   useEffect(() => {
-    // Clean up previous concurrent lines
+    // Clean up previous concurrent lines (legacy) and halo elements
     concurrentLinesRef.current.forEach((l) => l.setMap(null));
     concurrentLinesRef.current = [];
 
-    // Reset all marker styles to default
+    // Reset all marker styles to default + remove halos
     whMarkerElementsRef.current.forEach((el) => {
       const inner = el.firstElementChild as HTMLElement;
-      if (inner) { inner.style.opacity = "0.85"; inner.style.filter = ""; inner.style.transform = "scale(1)"; }
+      if (inner) { inner.style.opacity = "0.85"; inner.style.filter = ""; inner.style.transform = "scale(1)"; inner.style.position = ""; }
+      el.querySelectorAll(".concurrent-halo").forEach((h) => h.remove());
     });
 
     const hasConc = concurrentWorkHistoryIds && concurrentWorkHistoryIds.size > 0;
     if (!focusedWorkHistoryId || !hasConc || !mapRef.current) return;
 
-    // Dim non-concurrent, glow concurrent, brighten focused
+    // Dim non-concurrent, glow concurrent with pulsing halo, brighten focused
     whMarkerElementsRef.current.forEach((el, id) => {
       const inner = el.firstElementChild as HTMLElement;
       if (!inner) return;
@@ -1546,33 +1551,17 @@ export default function JobMapGoogle({
         inner.style.transform = "scale(1.15)";
       } else if (concurrentWorkHistoryIds!.has(id)) {
         inner.style.opacity = "1";
+        inner.style.position = "relative";
         inner.style.filter = "drop-shadow(0 0 6px rgba(6,182,212,0.8))";
         inner.style.transform = "scale(1.1)";
+        // Add pulsing halo ring
+        const halo = document.createElement("div");
+        halo.className = "concurrent-halo";
+        inner.appendChild(halo);
       } else {
         inner.style.opacity = "0.3";
       }
     });
-
-    // Draw dashed lines from focused to each concurrent marker
-    const focusedMarker = workHistoryMarkers.find((w) => w.id === focusedWorkHistoryId);
-    if (!focusedMarker) return;
-    for (const cId of concurrentWorkHistoryIds!) {
-      const cMarker = workHistoryMarkers.find((w) => w.id === cId);
-      if (!cMarker) continue;
-      // Skip line if markers are at the same location (< 0.001 deg ≈ ~100m)
-      if (Math.abs(focusedMarker.lat - cMarker.lat) < 0.001 && Math.abs(focusedMarker.lng - cMarker.lng) < 0.001) continue;
-      const line = new google.maps.Polyline({
-        path: [{ lat: focusedMarker.lat, lng: focusedMarker.lng }, { lat: cMarker.lat, lng: cMarker.lng }],
-        strokeColor: "#06b6d4",
-        strokeOpacity: 0,
-        strokeWeight: 2,
-        geodesic: true,
-        icons: [{ icon: { path: "M 0,-1 0,1", strokeOpacity: 0.7, scale: 3 }, offset: "0", repeat: "10px" }],
-        map: mapRef.current,
-        zIndex: 1900,
-      });
-      concurrentLinesRef.current.push(line);
-    }
   }, [focusedWorkHistoryId, concurrentWorkHistoryIds, workHistoryMarkers]);
 
   /* ── Work History sub-location markers (smaller pins + dashed lines to parent) ── */
@@ -1596,15 +1585,25 @@ export default function JobMapGoogle({
       const photos = loc.photos ?? [];
       const hasPhotos = photos.length > 0;
       const el = document.createElement("div");
+      el.style.overflow = "visible";
       if (hasPhotos) {
-        // Photo pin: show first photo as circular marker
-        el.innerHTML = `<div style="position:relative;width:30px;height:30px;cursor:pointer;transition:transform 0.15s;" title="${escapeHtml(loc.label)} (${loc.type}) — ${photos.length} photo${photos.length > 1 ? 's' : ''}">
+        // Photo pin: show first photo as circular marker + pulse halo
+        el.innerHTML = `<div style="position:relative;width:30px;height:30px;cursor:pointer;transition:transform 0.15s;overflow:visible;" title="${escapeHtml(loc.label)} (${loc.type}) — ${photos.length} photo${photos.length > 1 ? 's' : ''}">
+          <div class="sub-loc-halo"></div>
           <img src="${escapeHtml(photos[0])}" style="width:30px;height:30px;border-radius:50%;object-fit:cover;border:2px solid #f59e0b;box-shadow:0 1px 4px rgba(0,0,0,0.25);" />
           <div style="position:absolute;bottom:-2px;right:-2px;background:#f59e0b;color:#fff;border-radius:50%;width:14px;height:14px;font-size:8px;display:flex;align-items:center;justify-content:center;font-weight:700;border:1px solid #fff;">${photos.length}</div>
         </div>`;
       } else {
-        el.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:#9ca3af;border:2px solid #e5e7eb;box-shadow:0 1px 3px rgba(0,0,0,0.15);font-size:11px;line-height:1;opacity:0.8;cursor:pointer;transition:transform 0.15s;" title="${escapeHtml(loc.label)} (${loc.type})">${emoji}</div>`;
+        el.innerHTML = `<div style="position:relative;display:flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:#9ca3af;border:2px solid #e5e7eb;box-shadow:0 1px 3px rgba(0,0,0,0.15);font-size:11px;line-height:1;cursor:pointer;transition:transform 0.15s;overflow:visible;" title="${escapeHtml(loc.label)} (${loc.type})"><div class="sub-loc-halo"></div>${emoji}</div>`;
       }
+      // Ensure Google Maps marker container doesn't clip the halo
+      requestAnimationFrame(() => {
+        let parent = el.parentElement;
+        for (let i = 0; i < 5 && parent; i++) {
+          (parent as HTMLElement).style.overflow = "visible";
+          parent = parent.parentElement;
+        }
+      });
 
       const marker = new google.maps.marker.AdvancedMarkerElement({
         position: { lat: loc.lat, lng: loc.lng },
@@ -1655,20 +1654,6 @@ export default function JobMapGoogle({
       });
 
       subLocationMarkersRef.current.push(marker);
-
-      // Dashed line from sub-location to parent job marker
-      const line = new google.maps.Polyline({
-        path: [
-          { lat: loc.parentLat, lng: loc.parentLng },
-          { lat: loc.lat, lng: loc.lng },
-        ],
-        strokeColor: "#9ca3af",
-        strokeOpacity: 0,
-        strokeWeight: 1,
-        icons: [{ icon: { path: "M 0,-1 0,1", strokeOpacity: 0.4, scale: 2 }, offset: "0", repeat: "8px" }],
-        map: mapRef.current,
-      });
-      subLocationLinesRef.current.push(line);
     });
   }, [workHistorySubLocations, ready]);
 
@@ -1880,7 +1865,7 @@ export default function JobMapGoogle({
         </div>
       )}
 
-      {/* Zoom + Locate controls (bottom-right) */}
+      {/* Zoom + Mode Toggle + Locate controls (bottom-right) */}
       <div className="absolute bottom-6 right-3 z-[1000] flex flex-col gap-2">
         <div className="rounded-lg overflow-hidden shadow-md border border-gray-300">
           <button
@@ -1896,6 +1881,29 @@ export default function JobMapGoogle({
             className="flex items-center justify-center w-10 h-10 bg-white cursor-pointer hover:bg-gray-50"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth="2"><path d="M5 12h14" /></svg>
+          </button>
+        </div>
+        {/* Mode toggle: Work History ↔ Job Search */}
+        <div className="rounded-lg overflow-hidden shadow-md border border-gray-300">
+          <button
+            onClick={onToggleWorkHistory}
+            title={showWorkHistory ? "Switch to Job Search" : "Switch to Work History"}
+            className={`flex items-center justify-center w-10 h-10 cursor-pointer transition-colors ${
+              showWorkHistory ? "bg-blue-50 hover:bg-blue-100" : "bg-white hover:bg-gray-50"
+            }`}
+          >
+            {showWorkHistory ? (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={showWorkHistory ? "#2563eb" : "#374151"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
+                <path d="M16 7V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v3" />
+              </svg>
+            ) : (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <circle cx="11" cy="11" r="6" stroke="#374151" strokeWidth="2" />
+                <path d="M20 20l-3-3" stroke="#374151" strokeWidth="2" strokeLinecap="round" />
+                <text x="8" y="14" fontSize="8" fontWeight="bold" fill="#374151" fontFamily="system-ui">JS</text>
+              </svg>
+            )}
           </button>
         </div>
         <div className="rounded-lg overflow-hidden shadow-md border border-gray-300">

@@ -49,6 +49,8 @@ export async function GET(
         compensation: { orderBy: { effectiveDate: "desc" } },
         benefitRecords: true,
         timeOff: true,
+        equipment: true,
+        attachments: { orderBy: { createdAt: "desc" } },
       },
     });
     if (!position) {
