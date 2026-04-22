@@ -87,8 +87,14 @@ import {
   Paperclip,
   Wrench,
   Brain,
+  Maximize2,
+  LayoutGrid,
+  FolderOpen,
+  Info,
 } from "lucide-react";
 import { toast } from "sonner";
+import { GalleryModal } from "@/components/gallery-modal";
+import type { GalleryPhoto as GalleryPhotoType } from "@/components/gallery-modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -424,6 +430,29 @@ function sourceBadge(src: "adzuna" | "google" | "email" | "usajobs") {
 
 /* ── Persistent preferences helper ── */
 const JOB_PREFS_KEY = "resumsify-job-search-prefs";
+const PANEL_GALLERY_VIEW_KEY = "resumsify:panel-gallery-view";
+const WORK_HISTORY_PANEL_PREFS_KEY = "resumsify:work-history-panel-prefs";
+const WORK_HISTORY_OVERLAPS_KEY = "resumsify:work-history-overlaps";
+
+function loadWorkHistoryPanelPrefs(): { tab?: "list" | "timeline" | "compare"; lastMainTab?: "list" | "timeline"; showTimeFilterPanel?: boolean } {
+  if (typeof window === "undefined") return {};
+  try {
+    return JSON.parse(localStorage.getItem(WORK_HISTORY_PANEL_PREFS_KEY) || "{}");
+  } catch {
+    return {};
+  }
+}
+
+function loadWorkHistoryOverlapsDefault(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    const raw = localStorage.getItem(WORK_HISTORY_OVERLAPS_KEY);
+    if (raw == null) return false;
+    return raw === "1";
+  } catch {
+    return false;
+  }
+}
 interface JobSearchPrefs {
   tileStyle?: string;
   viewMode?: string;
@@ -907,7 +936,15 @@ export function JobMap() {
   const [showWorkHistory, setShowWorkHistory] = useState(false);
   const [showWorkHistoryPanel, setShowWorkHistoryPanel] = useState(false);
   const [showCareerPath, setShowCareerPath] = useState(false);
-  const [showOverlaps, setShowOverlaps] = useState(true);
+  const [showOverlaps, setShowOverlaps] = useState(() => loadWorkHistoryOverlapsDefault());
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      localStorage.setItem(WORK_HISTORY_OVERLAPS_KEY, showOverlaps ? "1" : "0");
+    } catch {
+      // ignore quota/permission issues
+    }
+  }, [showOverlaps]);
   const [showSweetSpot, setShowSweetSpot] = useState(true);
   const [focusedWorkHistoryId, setFocusedWorkHistoryId] = useState<string | null>(null);
   const preWorkHistoryZoomRef = useRef<{ lat: number; lng: number; zoom: number } | null>(null);
@@ -4022,6 +4059,7 @@ export function JobMap() {
                 setFocusedWorkHistoryId(item.id);
                 setZoomTarget({ lat: item.lat, lng: item.lng, zoom: 17 });
               }}
+              mapContainer={mapContainerRef.current}
             />
           )}
 
@@ -6354,7 +6392,7 @@ function WorkHistoryPanel({
   items, onClose, onAdded, onDeleted, showCareerPath, onToggleCareerPath, showOverlaps, onToggleOverlaps, focusedId, onExitFocus,
   pinDropMode, pinDropCoords, onStartPinDrop, onCancelPinDrop, onClearPinDrop, onFocusJob,
   residences, activeResidence, timeFilter, timeRange, onTimeFilterChange, onResidenceAdded, onResidenceDeleted,
-  hiddenTypes, onToggleType,
+  hiddenTypes, onToggleType, mapContainer,
 }: {
   items: { id: string; type?: string; company: string; title: string | null; address: string; lat: number; lng: number; startDate: string | null; endDate: string | null; locations: { id: string; label: string; type: string; address: string; lat: number; lng: number; isPrimary: boolean; placeId?: string | null; skills?: string | null; startDate?: string | null; endDate?: string | null; photos?: string | null }[];
     degree?: string | null; major?: string | null; gpa?: number | null;
@@ -6362,6 +6400,7 @@ function WorkHistoryPanel({
     workMode?: string | null; hybridDays?: number | null; scheduleType?: string | null; hoursPerWeek?: number | null; shiftNotes?: string | null;
     benefits?: string | null; ptoDaysOffered?: number | null; ptoDaysUsed?: number | null; ptoNotes?: string | null;
     companySize?: string | null; department?: string | null; teamSize?: number | null; managerName?: string | null;
+    industry?: string | null;
     skillsUsed?: string | null; skillsGained?: string | null; promotions?: string | null;
     reasonForLeaving?: string | null; wouldReturn?: string | null; accomplishments?: string | null;
     commuteMinutes?: number | null; commuteDistance?: number | null; commuteMode?: string | null;
@@ -6394,6 +6433,7 @@ function WorkHistoryPanel({
   onResidenceDeleted: () => void;
   hiddenTypes: Set<string>;
   onToggleType: (type: string) => void;
+  mapContainer: HTMLElement | null;
 }) {
   const [adding, setAdding] = useState(false);
   const [addType, setAddType] = useState<"job" | "school" | "military" | "volunteer" | "internship" | "self-employed" | "unemployed">("job");
@@ -6429,10 +6469,22 @@ function WorkHistoryPanel({
   const [editStart, setEditStart] = useState("");
   const [editEnd, setEditEnd] = useState("");
   const [editSaving, setEditSaving] = useState(false);
-  const [tab, setTab] = useState<"list" | "timeline" | "compare">("list");
+  const [tab, setTab] = useState<"list" | "timeline" | "compare">(() => {
+    const saved = loadWorkHistoryPanelPrefs().tab;
+    return saved === "timeline" || saved === "compare" ? saved : "list";
+  });
+  const [showTypeFilterPanel, setShowTypeFilterPanel] = useState(false);
+  const [showPanelSettings, setShowPanelSettings] = useState(false);
+  const [lastMainTab, setLastMainTab] = useState<"list" | "timeline">(() => {
+    return loadWorkHistoryPanelPrefs().lastMainTab === "timeline" ? "timeline" : "list";
+  });
+  const [showTimeFilterPanel, setShowTimeFilterPanel] = useState(() => !!loadWorkHistoryPanelPrefs().showTimeFilterPanel);
   // Collapsible sections in list view
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
   const toggleListSection = (key: string) => setCollapsedSections((prev) => { const s = new Set(prev); if (s.has(key)) s.delete(key); else s.add(key); return s; });
+  // List search + sort
+  const [listSearch, setListSearch] = useState("");
+  const [listSort, setListSort] = useState<"newest" | "oldest" | "tenure">("newest");
   // Compare mode state
   const [compareIds, setCompareIds] = useState<[string | null, string | null]>([null, null]);
   // Residence add state
@@ -6448,6 +6500,49 @@ function WorkHistoryPanel({
   // Commute time cache: workHistoryId → { durationMin, distanceMi }
   const [commuteTimes, setCommuteTimes] = useState<Map<string, { durationMin: number; distanceMi: number }>>(new Map());
   const commuteAbortRef = useRef<AbortController | null>(null);
+
+  const formatYearMonth = useCallback((value: string | null) => {
+    if (!value) return null;
+    const [y, m] = value.split("-");
+    const mi = Number(m) - 1;
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    return Number.isFinite(mi) && mi >= 0 && mi < 12 ? `${months[mi]} ${y}` : value;
+  }, []);
+
+  const shortAddress = useCallback((address: string) => {
+    const parts = address.split(",").map((p) => p.trim()).filter(Boolean);
+    if (parts.length >= 3) return `${parts[parts.length - 3]}, ${parts[parts.length - 2]}`;
+    if (parts.length >= 2) return `${parts[parts.length - 2]}, ${parts[parts.length - 1]}`;
+    return address;
+  }, []);
+
+  const applyHiddenTypes = useCallback((nextHidden: Set<string>) => {
+    for (const type of ALL_WORK_TYPES) {
+      const isHiddenNow = hiddenTypes.has(type);
+      const shouldBeHidden = nextHidden.has(type);
+      if (isHiddenNow !== shouldBeHidden) onToggleType(type);
+    }
+  }, [hiddenTypes, onToggleType]);
+
+  useEffect(() => {
+    if (timeFilter) setShowTimeFilterPanel(true);
+  }, [timeFilter]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      localStorage.setItem(
+        WORK_HISTORY_PANEL_PREFS_KEY,
+        JSON.stringify({ tab, lastMainTab, showTimeFilterPanel }),
+      );
+    } catch {
+      // ignore quota/permission issues
+    }
+  }, [tab, lastMainTab, showTimeFilterPanel]);
+
+  useEffect(() => {
+    if (tab !== "compare") setLastMainTab(tab);
+  }, [tab]);
 
   // Fetch commute times from activeResidence to visible items
   useEffect(() => {
@@ -6755,10 +6850,27 @@ function WorkHistoryPanel({
     } catch { toast.error("Failed to delete location"); }
   }
 
-  // List view: most recent first
+  // Tenure helper
+  const calcTenureMonths = (startDate: string | null, endDate: string | null) => {
+    if (!startDate) return 0;
+    const s = new Date(startDate + "-01");
+    const e = endDate ? new Date(endDate + "-01") : new Date();
+    return Math.max(0, (e.getFullYear() - s.getFullYear()) * 12 + (e.getMonth() - s.getMonth()));
+  };
+  const formatTenure = (months: number) => months >= 12 ? `${Math.floor(months / 12)}y ${months % 12}m` : `${months}m`;
+
+  // List view: sorted + filtered
   const listItems = useMemo(() => {
-    return [...items].sort((a, b) => (b.startDate ?? "9999").localeCompare(a.startDate ?? "9999"));
-  }, [items]);
+    let arr = [...items];
+    if (listSort === "newest") arr.sort((a, b) => (b.startDate ?? "9999").localeCompare(a.startDate ?? "9999"));
+    else if (listSort === "oldest") arr.sort((a, b) => (a.startDate ?? "0000").localeCompare(b.startDate ?? "0000"));
+    else if (listSort === "tenure") arr.sort((a, b) => calcTenureMonths(b.startDate, b.endDate) - calcTenureMonths(a.startDate, a.endDate));
+    if (listSearch.trim()) {
+      const q = listSearch.trim().toLowerCase();
+      arr = arr.filter((w) => w.company.toLowerCase().includes(q) || (w.title ?? "").toLowerCase().includes(q));
+    }
+    return arr;
+  }, [items, listSort, listSearch]);
 
   // Timeline view: oldest first (chronological)
   const sorted = useMemo(() => {
@@ -6832,6 +6944,10 @@ function WorkHistoryPanel({
   // Focused work history entry
   const queryClient = useQueryClient();
   const focusedItem = focusedId ? items.find((w) => w.id === focusedId) : null;
+  const focusedConcurrentJobs = useMemo(() => {
+    if (!focusedItem || !showOverlaps) return [];
+    return overlapMap.get(focusedItem.id) ?? [];
+  }, [focusedItem, showOverlaps, overlapMap]);
 
   // ── Enriched data from CurrentPosition for focused view ──
   interface MatchedPosition {
@@ -6841,8 +6957,47 @@ function WorkHistoryPanel({
     companySynopsis: string | null; industry: string | null; website: string | null;
     ein: string | null; legalName: string | null; managerName: string | null;
     hoursPerWeek: number | null; type: string;
-    equipment?: { id: string; name: string; category: string; usage: string; manufacturer?: string | null; model?: string | null; condition: string; notes?: string | null }[];
+    equipment?: {
+      id: string;
+      name: string;
+      category: string;
+      usage: string;
+      manufacturer?: string | null;
+      model?: string | null;
+      condition: string;
+      notes?: string | null;
+      photos?: {
+        id: string;
+        filePath: string;
+        fileName: string;
+        fileMime: string;
+        fileSize: number;
+        caption?: string | null;
+        isCover: boolean;
+        createdAt: string;
+      }[];
+    }[];
     attachments?: { id: string; label: string; category: string; fileName: string; filePath: string; fileMime: string; fileSize: number; createdAt: string }[];
+    galleryPhotos?: {
+      id: string;
+      filePath: string;
+      fileName: string;
+      fileMime: string;
+      fileSize: number;
+      caption?: string | null;
+      isCover: boolean;
+      isFavorite?: boolean;
+      isPrivate?: boolean;
+      tags?: string | null;
+      markers?: string | null;
+      dateTaken?: string | null;
+      rotation?: number;
+      sortOrder?: number | null;
+      albumId?: string | null;
+      album?: { id: string; name: string } | null;
+      createdAt: string;
+    }[];
+    galleryAlbums?: { id: string; name: string; sortOrder?: number | null; createdAt: string }[];
   }
   interface CompEvent { id: string; type: string; title: string; amount: number; currency: string; effectiveDate: string; recurring: boolean; notes: string | null }
   interface WLog { id: string; title: string; content: string | null; category: string; hours: number | null; accomplishment: boolean; impact: string | null; date: string; tags: string | null }
@@ -6856,16 +7011,149 @@ function WorkHistoryPanel({
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   const [focusTab, setFocusTab] = useState<"overview" | "edit">("overview");
   const [sidePanel, setSidePanel] = useState<"gallery" | "attachments" | "skills" | "equipment" | null>(null);
+  const [panelGalleryView, setPanelGalleryView] = useState<"photos" | "albums">(() => {
+    if (typeof window === "undefined") return "photos";
+    const saved = localStorage.getItem(PANEL_GALLERY_VIEW_KEY);
+    return saved === "albums" ? "albums" : "photos";
+  });
   const [panelBusy, setPanelBusy] = useState(false);
-  const [showConcurrentSchedule, setShowConcurrentSchedule] = useState(false);
+  const [galleryModalIdx, setGalleryModalIdx] = useState<number | null>(null);
+  const [equipmentPhotoViewer, setEquipmentPhotoViewer] = useState<{ equipmentId: string; index: number } | null>(null);
+  const [showFocusInfo, setShowFocusInfo] = useState(false);
+  const [showInfoLabel, setShowInfoLabel] = useState(false);
+  const [isFocusInfoHovered, setIsFocusInfoHovered] = useState(false);
   const [showLocationsPopover, setShowLocationsPopover] = useState(false);
   const prevFocusedId = useRef<string | null>(null);
+  const focusInfoAutoCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    localStorage.setItem(PANEL_GALLERY_VIEW_KEY, panelGalleryView);
+  }, [panelGalleryView]);
+
+  /* Gallery refresh helper – hoisted so modal survives tab switches */
+  const refreshGallery = useCallback(async () => {
+    if (!focusedItem) return;
+    const posRes = await fetch(`/api/current-position/${focusedItem.id}`);
+    if (posRes.ok) setMatchedPosition(await posRes.json());
+    queryClient.invalidateQueries({ queryKey: ["work-history"] });
+  }, [focusedItem, queryClient]);
+
+  const equipmentViewerEquipment = equipmentPhotoViewer
+    ? matchedPosition?.equipment?.find((item) => item.id === equipmentPhotoViewer.equipmentId) ?? null
+    : null;
+  const equipmentViewerPhotos = equipmentViewerEquipment?.photos ?? [];
+  const equipmentViewerIndex = equipmentPhotoViewer
+    ? Math.min(equipmentPhotoViewer.index, Math.max(0, equipmentViewerPhotos.length - 1))
+    : 0;
+  const equipmentViewerPhoto = equipmentViewerPhotos[equipmentViewerIndex] ?? null;
+
+  const confirmMediaUpload = useCallback((surface: "gallery" | "equipment") => {
+    const target = surface === "gallery" ? "gallery" : "equipment";
+    return confirm(
+      `Before uploading to ${target}, make sure the image does not expose private faces, serial numbers, customer information, proprietary dashboards, or other sensitive details.`
+    );
+  }, []);
+
+  const refreshFocusedPosition = useCallback(async () => {
+    if (!focusedItem) return;
+    const res = await fetch(`/api/current-position/${focusedItem.id}`);
+    if (res.ok) setMatchedPosition(await res.json());
+    queryClient.invalidateQueries({ queryKey: ["work-history"] });
+  }, [focusedItem, queryClient]);
+
+  const handleEquipmentPhotoUpload = useCallback(async (equipmentId: string, file: File, isFirst: boolean) => {
+    if (!confirmMediaUpload("equipment")) return false;
+    setPanelBusy(true);
+    try {
+      const fd = new FormData();
+      fd.append("equipmentId", equipmentId);
+      fd.append("file", file);
+      if (isFirst) fd.append("isCover", "true");
+      const res = await fetch("/api/equipment/photos", { method: "POST", body: fd });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        toast.error(j?.error || "Failed to upload equipment photo");
+        return false;
+      }
+      await refreshFocusedPosition();
+      toast.success("Equipment photo uploaded");
+      return true;
+    } finally {
+      setPanelBusy(false);
+    }
+  }, [confirmMediaUpload, refreshFocusedPosition]);
+
+  const handleEquipmentPhotoDelete = useCallback(async (photoId: string) => {
+    if (!confirm("Delete this equipment photo?")) return false;
+    setPanelBusy(true);
+    try {
+      const res = await fetch(`/api/equipment/photos?id=${photoId}`, { method: "DELETE" });
+      if (!res.ok) {
+        toast.error("Failed to delete equipment photo");
+        return false;
+      }
+      await refreshFocusedPosition();
+      toast.success("Equipment photo deleted");
+      return true;
+    } finally {
+      setPanelBusy(false);
+    }
+  }, [refreshFocusedPosition]);
+
+  const handleEquipmentPhotoSetCover = useCallback(async (photoId: string) => {
+    setPanelBusy(true);
+    try {
+      const res = await fetch("/api/equipment/photos", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: photoId, isCover: true }),
+      });
+      if (!res.ok) {
+        toast.error("Failed to set equipment cover");
+        return false;
+      }
+      await refreshFocusedPosition();
+      toast.success("Equipment cover updated");
+      return true;
+    } finally {
+      setPanelBusy(false);
+    }
+  }, [refreshFocusedPosition]);
+
+  const handleEquipmentPhotoCaption = useCallback(async (photoId: string, currentCaption?: string | null) => {
+    const caption = prompt("Photo caption:", currentCaption ?? "");
+    if (caption === null) return false;
+    setPanelBusy(true);
+    try {
+      const res = await fetch("/api/equipment/photos", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: photoId, caption: caption.trim() || null }),
+      });
+      if (!res.ok) {
+        toast.error("Failed to update equipment photo caption");
+        return false;
+      }
+      await refreshFocusedPosition();
+      toast.success("Equipment photo caption saved");
+      return true;
+    } finally {
+      setPanelBusy(false);
+    }
+  }, [refreshFocusedPosition]);
+
+  useEffect(() => {
+    if (equipmentPhotoViewer && !equipmentViewerPhoto) {
+      setEquipmentPhotoViewer(null);
+    }
+  }, [equipmentPhotoViewer, equipmentViewerPhoto]);
 
   // Fetch enriched data when focused item changes
   useEffect(() => {
     if (!focusedItem || focusedId === prevFocusedId.current) return;
     prevFocusedId.current = focusedId;
     setMatchedPosition(null); setCompEvents([]); setWorkLogs([]); setIncomeHistory(null); setExpandedSections(new Set()); setSidePanel(null);
+    setShowFocusInfo(false);
 
     let cancelled = false;
     (async () => {
@@ -6895,6 +7183,35 @@ function WorkHistoryPanel({
     })();
     return () => { cancelled = true; };
   }, [focusedId, focusedItem]);
+
+  useEffect(() => {
+    if (!focusedItem || focusTab !== "overview") return;
+    setShowInfoLabel(true);
+    const timer = setTimeout(() => setShowInfoLabel(false), 2200);
+    return () => clearTimeout(timer);
+  }, [focusedItem?.id, focusTab]);
+
+  useEffect(() => {
+    if (!showFocusInfo || isFocusInfoHovered) {
+      if (focusInfoAutoCloseTimerRef.current) {
+        clearTimeout(focusInfoAutoCloseTimerRef.current);
+        focusInfoAutoCloseTimerRef.current = null;
+      }
+      return;
+    }
+
+    focusInfoAutoCloseTimerRef.current = setTimeout(() => {
+      setShowFocusInfo(false);
+      focusInfoAutoCloseTimerRef.current = null;
+    }, 3200);
+
+    return () => {
+      if (focusInfoAutoCloseTimerRef.current) {
+        clearTimeout(focusInfoAutoCloseTimerRef.current);
+        focusInfoAutoCloseTimerRef.current = null;
+      }
+    };
+  }, [showFocusInfo, isFocusInfoHovered]);
 
   function toggleSection(key: string) {
     setExpandedSections((prev) => {
@@ -7299,6 +7616,17 @@ function WorkHistoryPanel({
             </button>
             <span className="text-sm font-semibold truncate">{focusedItem.company}</span>
             <div className="ml-auto flex items-center gap-1 shrink-0">
+              {focusTab === "overview" && (
+                <button
+                  type="button"
+                  className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold transition-all ${showFocusInfo ? "bg-cyan-500/20 text-cyan-700 dark:text-cyan-300" : "bg-muted/60 text-muted-foreground hover:text-foreground"}`}
+                  onClick={() => setShowFocusInfo((p) => !p)}
+                  title="Quick info"
+                >
+                  <Info className="h-3 w-3" />
+                  {showInfoLabel && <span className="whitespace-nowrap">Quick info</span>}
+                </button>
+              )}
               {(focusedItem.locations ?? []).length > 0 && (
                 <button type="button" className={`p-1 rounded transition-colors relative ${showLocationsPopover ? "text-blue-500 bg-blue-500/10" : "text-muted-foreground hover:text-foreground"}`}
                   onClick={() => setShowLocationsPopover((p) => !p)} title={`Locations (${focusedItem.locations.length})`}>
@@ -7314,6 +7642,63 @@ function WorkHistoryPanel({
               </button>
             </div>
           </div>
+
+          {focusTab === "overview" && showFocusInfo && (
+            <div
+              className="rounded-lg border border-cyan-500/20 bg-cyan-500/5 px-2 py-1.5 space-y-1"
+              onMouseEnter={() => setIsFocusInfoHovered(true)}
+              onMouseLeave={() => setIsFocusInfoHovered(false)}
+            >
+              <div className="flex items-center justify-between">
+                <p className="text-[11px] font-semibold text-cyan-700 dark:text-cyan-300">Quick info</p>
+                <button
+                  type="button"
+                  className="text-[10px] text-muted-foreground hover:text-foreground"
+                  onClick={() => setShowFocusInfo(false)}
+                >
+                  Hide
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-[11px]">
+                <div className="text-muted-foreground">Role</div>
+                <div className="truncate">{focusedItem.title ?? "Not set"}</div>
+                <div className="text-muted-foreground">Period</div>
+                <div className="truncate">{focusedItem.startDate ?? "?"} – {focusedItem.endDate ?? "present"}</div>
+                <div className="text-muted-foreground">Schedule</div>
+                <div className="truncate">{focusedItem.schedule ?? focusedItem.shiftNotes ?? "Not set"}</div>
+                <div className="text-muted-foreground">Locations</div>
+                <div>{focusedItem.locations?.length ?? 0}</div>
+              </div>
+
+              <div className="pt-1 border-t border-cyan-500/20">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-cyan-700 dark:text-cyan-300 mb-0.5">
+                  Concurrent jobs ({focusedConcurrentJobs.length})
+                </p>
+                {focusedConcurrentJobs.length === 0 ? (
+                  <p className="text-[11px] text-muted-foreground">No overlapping jobs in this period.</p>
+                ) : (
+                  <div className="space-y-0.5">
+                    {focusedConcurrentJobs.map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        className="w-full flex items-center gap-1.5 rounded px-1 py-0.5 text-left hover:bg-cyan-500/10"
+                        onClick={() => {
+                          const it = items.find((i) => i.id === c.id);
+                          if (it) onFocusJob(it);
+                        }}
+                      >
+                        <Briefcase className="h-3 w-3 text-cyan-500 shrink-0" />
+                        <span className="text-xs font-medium truncate">{c.company}</span>
+                        {c.title && <span className="text-[11px] text-muted-foreground truncate">· {c.title}</span>}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Company & Title + Employment Period + Key Facts */}
           {(() => {
@@ -7498,72 +7883,183 @@ function WorkHistoryPanel({
                 </div>
               )}
               {sidePanel === "gallery" && (() => {
-                const allPhotos: { src: string; label: string; locId?: string; photoUrl?: string }[] = [];
-                if (focusedItem.coverImage) allPhotos.push({ src: focusedItem.coverImage, label: "Cover" });
+                const galleryPhotos = matchedPosition?.galleryPhotos ?? [];
+                const galleryAlbums = matchedPosition?.galleryAlbums ?? [];
+                const locPhotos: { src: string; label: string; locId: string; photoUrl: string }[] = [];
                 for (const loc of focusedItem.locations ?? []) {
                   if (loc.photos) {
                     try {
                       const photos: string[] = JSON.parse(loc.photos);
-                      photos.forEach((p, i) => allPhotos.push({ src: p, label: `${loc.label} #${i + 1}`, locId: loc.id, photoUrl: p }));
+                      photos.forEach((p, i) => locPhotos.push({ src: p, label: `${loc.label} #${i + 1}`, locId: loc.id, photoUrl: p }));
                     } catch { /* skip */ }
                   }
                 }
+                const totalCount = galleryPhotos.length + locPhotos.length;
+
+                const uploadPhoto = async (file: File) => {
+                  if (!focusedItem) return;
+                  setPanelBusy(true);
+                  try {
+                    const fd = new FormData();
+                    fd.append("file", file);
+                    fd.append("positionId", focusedItem.id);
+                    if (galleryPhotos.length === 0) fd.append("isCover", "true");
+                    const res = await fetch("/api/gallery", { method: "POST", body: fd });
+                    if (res.ok) {
+                      const posRes = await fetch(`/api/current-position/${focusedItem.id}`);
+                      if (posRes.ok) setMatchedPosition(await posRes.json());
+                      queryClient.invalidateQueries({ queryKey: ["work-history"] });
+                      toast.success("Gallery photo uploaded");
+                    } else {
+                      const data = await res.json().catch(() => ({}));
+                      toast.error(data?.error || "Failed to upload gallery photo");
+                    }
+                  } finally { setPanelBusy(false); }
+                };
+
+                const deleteLocPhoto = async (locId: string, photoUrl: string) => {
+                  if (!focusedItem || !confirm("Remove this location photo?")) return;
+                  setPanelBusy(true);
+                  try {
+                    await fetch(`/api/work-history/${focusedItem.id}/locations/${locId}/photos`, {
+                      method: "DELETE",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ url: photoUrl }),
+                    });
+                    const posRes = await fetch(`/api/current-position/${focusedItem.id}`);
+                    if (posRes.ok) setMatchedPosition(await posRes.json());
+                    queryClient.invalidateQueries({ queryKey: ["work-history"] });
+                  } finally { setPanelBusy(false); }
+                };
+
+
+
+                const parseTags = (raw?: string | null): string[] => { if (!raw) return []; try { return JSON.parse(raw); } catch { return []; } };
+                const parseMarkers = (raw?: string | null): unknown[] => { if (!raw) return []; try { return JSON.parse(raw); } catch { return []; } };
+                const getAlbumCount = (albumId: string | null) => galleryPhotos.filter((p) => (p.albumId ?? null) === albumId).length;
+                const getAlbumCover = (albumId: string | null) => galleryPhotos.find((p) => (p.albumId ?? null) === albumId) ?? null;
+
                 return (
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">
                       <Images className="h-3.5 w-3.5 text-pink-500" />
                       <span className="text-xs font-semibold">Gallery</span>
-                      <span className="ml-auto text-[10px] text-muted-foreground">{allPhotos.length} photo{allPhotos.length !== 1 ? "s" : ""}</span>
-                      <label className="cursor-pointer p-0.5 rounded hover:bg-pink-500/10 text-pink-500 transition-colors" title="Add cover photo">
+                      <div className="ml-auto flex items-center gap-1 rounded-md border border-border/60 bg-background/40 p-0.5">
+                        <button
+                          type="button"
+                          title="Photos view"
+                          onClick={() => setPanelGalleryView("photos")}
+                          className={`p-0.5 rounded ${panelGalleryView === "photos" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                        >
+                          <LayoutGrid className="h-3 w-3" />
+                        </button>
+                        <button
+                          type="button"
+                          title="Albums view"
+                          onClick={() => setPanelGalleryView("albums")}
+                          className={`p-0.5 rounded ${panelGalleryView === "albums" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                        >
+                          <FolderOpen className="h-3 w-3" />
+                        </button>
+                      </div>
+                      <span className="text-[10px] text-muted-foreground">{totalCount} photo{totalCount !== 1 ? "s" : ""}</span>
+                      {galleryPhotos.length > 0 && (
+                        <button type="button" className="p-0.5 rounded hover:bg-pink-500/10 text-pink-500 transition-colors" title="Expand gallery" onClick={() => setGalleryModalIdx(0)}>
+                          <Maximize2 className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                      <label className="cursor-pointer p-0.5 rounded hover:bg-pink-500/10 text-pink-500 transition-colors" title="Add photo">
                         <Plus className="h-3.5 w-3.5" />
-                        <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
-                          const file = e.target.files?.[0];
-                          if (!file || !focusedItem) return;
-                          setPanelBusy(true);
-                          try {
-                            const fd = new FormData();
-                            fd.append("file", file);
-                            fd.append("positionId", focusedItem.id);
-                            const res = await fetch("/api/gallery", { method: "POST", body: fd });
-                            if (res.ok) {
-                              const posRes = await fetch(`/api/current-position/${focusedItem.id}`);
-                              if (posRes.ok) setMatchedPosition(await posRes.json());
-                              queryClient.invalidateQueries({ queryKey: ["work-history"] });
-                            }
-                          } finally { setPanelBusy(false); }
+                        <input type="file" accept="image/*" multiple className="hidden" onChange={async (e) => {
+                          const files = e.target.files;
+                          if (!files?.length) return;
+                          if (!confirmMediaUpload("gallery")) { e.target.value = ""; return; }
+                          for (const file of Array.from(files)) {
+                            await uploadPhoto(file);
+                          }
                           e.target.value = "";
                         }} />
                       </label>
                     </div>
-                    {allPhotos.length === 0 ? (
-                      <p className="text-[11px] text-muted-foreground text-center py-4">No photos yet. Click + to add a cover image.</p>
-                    ) : (
+                    <p className="text-[10px] text-muted-foreground/80">
+                      Avoid uploading faces, serial numbers, proprietary screens, or customer-sensitive images.
+                    </p>
+                    {totalCount === 0 ? (
+                      <p className="text-[11px] text-muted-foreground text-center py-4">No photos yet. Click + to add photos.</p>
+                    ) : panelGalleryView === "photos" ? (
                       <div className="grid grid-cols-3 gap-1.5">
-                        {allPhotos.map((p, i) => (
-                          <div key={i} className="group/photo relative rounded-md overflow-hidden aspect-square bg-muted">
+                        {galleryPhotos.map((p, i) => {
+                          const tagCount = parseTags(p.tags).length;
+                          const markerCount = parseMarkers(p.markers).length;
+                          return (
+                            <div key={p.id} className="group/photo relative rounded-md overflow-hidden aspect-square bg-muted cursor-pointer" onClick={() => setGalleryModalIdx(i)}>
+                              <img src={p.filePath} alt={p.caption || p.fileName} className="w-full h-full object-cover" />
+                              {p.isCover && (
+                                <div className="absolute top-0.5 left-0.5">
+                                  <Star className="h-3 w-3 text-yellow-400 fill-yellow-400 drop-shadow" />
+                                </div>
+                              )}
+                              {/* Tag/marker badges */}
+                              {(tagCount > 0 || markerCount > 0) && (
+                                <div className="absolute top-0.5 right-0.5 flex gap-0.5">
+                                  {tagCount > 0 && <span className="px-1 py-0.5 rounded-full bg-pink-500/80 text-white text-[8px] font-bold leading-none">{tagCount}</span>}
+                                  {markerCount > 0 && <span className="px-1 py-0.5 rounded-full bg-blue-500/80 text-white text-[8px] font-bold leading-none">{markerCount}</span>}
+                                </div>
+                              )}
+                              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-0.5">
+                                <span className="text-[9px] text-white truncate block">{p.caption || (p.isCover ? "Cover" : p.fileName)}</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                        {locPhotos.map((p, i) => (
+                          <div key={`loc-${i}`} className="group/photo relative rounded-md overflow-hidden aspect-square bg-muted">
                             <img src={p.src} alt={p.label} className="w-full h-full object-cover" />
-                            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-0.5 flex items-end justify-between">
-                              <span className="text-[9px] text-white">{p.label}</span>
-                              <button type="button" className="opacity-0 group-hover/photo:opacity-100 transition-opacity p-0.5 rounded hover:bg-red-500/30" title="Remove photo" onClick={async () => {
-                                if (!focusedItem || !confirm("Remove this photo?")) return;
-                                if (p.label === "Cover") {
-                                  await fetch(`/api/gallery?positionId=${focusedItem.id}`, { method: "DELETE" });
-                                } else if (p.locId && p.photoUrl) {
-                                  await fetch(`/api/work-history/${focusedItem.id}/locations/${p.locId}/photos`, {
-                                    method: "DELETE",
-                                    headers: { "Content-Type": "application/json" },
-                                    body: JSON.stringify({ url: p.photoUrl }),
-                                  });
-                                }
-                                const res = await fetch(`/api/current-position/${focusedItem.id}`);
-                                if (res.ok) setMatchedPosition(await res.json());
-                                queryClient.invalidateQueries({ queryKey: ["work-history"] });
-                              }}>
-                                <X className="h-3 w-3 text-white" />
+                            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-0.5">
+                              <span className="text-[9px] text-white truncate block">{p.label}</span>
+                            </div>
+                            <div className="absolute top-0.5 right-0.5 opacity-0 group-hover/photo:opacity-100 transition-opacity">
+                              <button type="button" className="p-0.5 rounded bg-black/40 hover:bg-red-500/40" title="Remove" onClick={() => deleteLocPhoto(p.locId, p.photoUrl)}>
+                                <X className="h-2.5 w-2.5 text-white" />
                               </button>
                             </div>
                           </div>
                         ))}
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {[{ id: "__all", name: "All Photos", count: totalCount }, { id: "__unassigned", name: "Unassigned", count: getAlbumCount(null) }, ...galleryAlbums.map((a) => ({ id: a.id, name: a.name, count: getAlbumCount(a.id) }))].map((album) => {
+                          const cover = album.id === "__all" ? (galleryPhotos[0]?.filePath ?? locPhotos[0]?.src ?? null) : album.id === "__unassigned" ? (getAlbumCover(null)?.filePath ?? null) : (getAlbumCover(album.id)?.filePath ?? null);
+                          return (
+                            <button
+                              key={album.id}
+                              type="button"
+                              className="group relative rounded-md overflow-hidden bg-muted border border-border/60 hover:border-pink-500/40 text-left"
+                              onClick={() => {
+                                if (album.id === "__all") {
+                                  if (galleryPhotos.length > 0) setGalleryModalIdx(0);
+                                  return;
+                                }
+                                const idx = album.id === "__unassigned"
+                                  ? galleryPhotos.findIndex((p) => !p.albumId)
+                                  : galleryPhotos.findIndex((p) => p.albumId === album.id);
+                                if (idx >= 0) setGalleryModalIdx(idx);
+                              }}
+                            >
+                              <div className="aspect-video bg-muted/60">
+                                {cover ? (
+                                  <img src={cover} alt={album.name} className="w-full h-full object-cover" />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center text-[10px] text-muted-foreground">No cover</div>
+                                )}
+                              </div>
+                              <div className="p-1">
+                                <p className="text-[10px] font-semibold truncate">{album.name}</p>
+                                <p className="text-[9px] text-muted-foreground">{album.count} photo{album.count !== 1 ? "s" : ""}</p>
+                              </div>
+                            </button>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -7822,6 +8318,22 @@ function WorkHistoryPanel({
                   if (res.ok) setMatchedPosition(await res.json());
                 };
 
+                const uploadEquipmentPhoto = async (equipmentId: string, file: File, isFirst: boolean) => {
+                  await handleEquipmentPhotoUpload(equipmentId, file, isFirst);
+                };
+
+                const deleteEquipmentPhoto = async (photoId: string) => {
+                  await handleEquipmentPhotoDelete(photoId);
+                };
+
+                const setEquipmentCover = async (photoId: string) => {
+                  await handleEquipmentPhotoSetCover(photoId);
+                };
+
+                const editEquipmentPhotoCaption = async (photo: { id: string; caption?: string | null }) => {
+                  await handleEquipmentPhotoCaption(photo.id, photo.caption);
+                };
+
                 const deleteEquip = async (id: string) => {
                   if (!focusedItem || !confirm("Delete this equipment?")) return;
                   setPanelBusy(true);
@@ -7854,7 +8366,7 @@ function WorkHistoryPanel({
                   queryClient.invalidateQueries({ queryKey: ["work-history"] });
                 };
 
-                const EquipCard = ({ e }: { e: { id: string; name: string; category: string; usage: string; manufacturer?: string | null; model?: string | null; condition: string; notes?: string | null } }) => (
+                const EquipCard = ({ e }: { e: { id: string; name: string; category: string; usage: string; manufacturer?: string | null; model?: string | null; condition: string; notes?: string | null; photos?: { id: string; filePath: string; caption?: string | null; isCover: boolean }[] } }) => (
                   <div className="group rounded-md border p-1.5 text-[11px] space-y-0.5">
                     <div className="flex items-center justify-between">
                       <span className="font-medium">{e.name}</span>
@@ -7874,6 +8386,57 @@ function WorkHistoryPanel({
                       {e.category}{e.manufacturer ? ` · ${e.manufacturer}` : ""}{e.model ? ` ${e.model}` : ""}
                     </div>
                     {e.notes && <div className="text-muted-foreground italic">{e.notes}</div>}
+                    <div className="pt-1">
+                      <div className="flex items-center gap-1 mb-1">
+                        <Camera className="h-3 w-3 text-cyan-500" />
+                        <span className="text-[10px] text-muted-foreground">Photos {(e.photos?.length ?? 0)}/3</span>
+                        {(e.photos?.length ?? 0) < 3 && (
+                          <label className="ml-auto cursor-pointer p-0.5 rounded hover:bg-cyan-500/10 text-cyan-500" title="Add photo">
+                            <Plus className="h-3 w-3" />
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={async (ev) => {
+                                const file = ev.target.files?.[0];
+                                if (!file) return;
+                                await uploadEquipmentPhoto(e.id, file, (e.photos?.length ?? 0) === 0);
+                                ev.target.value = "";
+                              }}
+                            />
+                          </label>
+                        )}
+                      </div>
+                      {(e.photos?.length ?? 0) > 0 ? (
+                        <div className="grid grid-cols-3 gap-1">
+                          {e.photos!.map((p) => (
+                            <button key={p.id} type="button" className="group/p relative aspect-square rounded overflow-hidden bg-muted" onClick={() => setEquipmentPhotoViewer({ equipmentId: e.id, index: e.photos!.findIndex((photo) => photo.id === p.id) })}>
+                              <img src={p.filePath} alt={p.caption ?? e.name} className="w-full h-full object-cover" />
+                              {p.isCover && <Star className="absolute top-0.5 left-0.5 h-2.5 w-2.5 text-yellow-400 fill-yellow-400" />}
+                              <div className="absolute inset-x-0 bottom-0 bg-black/50 px-0.5 py-0.5 text-[8px] text-white truncate">
+                                {p.caption || "photo"}
+                              </div>
+                              <div className="absolute top-0.5 right-0.5 flex gap-0.5 opacity-0 group-hover/p:opacity-100 transition-opacity">
+                                <button type="button" className="p-0.5 rounded bg-black/50 hover:bg-yellow-500/30" title="Set cover" onClick={(ev) => { ev.stopPropagation(); setEquipmentCover(p.id); }}>
+                                  <Star className="h-2 w-2 text-yellow-300" />
+                                </button>
+                                <button type="button" className="p-0.5 rounded bg-black/50 hover:bg-blue-500/30" title="Edit caption" onClick={(ev) => { ev.stopPropagation(); editEquipmentPhotoCaption(p); }}>
+                                  <Pencil className="h-2 w-2 text-blue-300" />
+                                </button>
+                                <button type="button" className="p-0.5 rounded bg-black/50 hover:bg-red-500/30" title="Delete photo" onClick={(ev) => { ev.stopPropagation(); deleteEquipmentPhoto(p.id); }}>
+                                  <Trash2 className="h-2 w-2 text-red-300" />
+                                </button>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-[10px] text-muted-foreground">No photos added yet.</p>
+                      )}
+                      <p className="pt-1 text-[10px] text-muted-foreground/80">
+                        Keep equipment visuals clean of faces, serial numbers, customer info, and proprietary displays.
+                      </p>
+                    </div>
                   </div>
                 );
 
@@ -7919,6 +8482,91 @@ function WorkHistoryPanel({
               })()}
             </div>
           )}
+
+          {/* Gallery pop-out modal – rendered outside sidePanel so it persists across tab switches */}
+          {galleryModalIdx !== null && (matchedPosition?.galleryPhotos ?? []).length > 0 && (
+            <GalleryModal
+              photos={(matchedPosition?.galleryPhotos ?? []) as GalleryPhotoType[]}
+              albums={matchedPosition?.galleryAlbums ?? []}
+              initialIndex={galleryModalIdx}
+              positionId={focusedItem.id}
+              container={mapContainer}
+              onClose={() => setGalleryModalIdx(null)}
+              onRefresh={refreshGallery}
+            />
+          )}
+
+          <Dialog open={!!equipmentPhotoViewer} onOpenChange={(open) => { if (!open) setEquipmentPhotoViewer(null); }}>
+            <DialogContent className="sm:max-w-3xl max-h-[85vh] overflow-hidden flex flex-col p-0">
+              {equipmentViewerEquipment && equipmentViewerPhoto ? (
+                <>
+                  <DialogHeader className="px-4 py-3 border-b">
+                    <DialogTitle className="flex items-center gap-2 text-sm">
+                      <Camera className="h-4 w-4 text-cyan-500" />
+                      {equipmentViewerEquipment.name}
+                    </DialogTitle>
+                    <DialogDescription className="text-xs">
+                      {equipmentViewerIndex + 1} / {equipmentViewerPhotos.length} photo{equipmentViewerPhotos.length !== 1 ? "s" : ""}
+                    </DialogDescription>
+                  </DialogHeader>
+
+                  <div className="relative flex-1 min-h-0 bg-black/80 flex items-center justify-center">
+                    {equipmentViewerPhotos.length > 1 && (
+                      <>
+                        <button
+                          type="button"
+                          className="absolute left-3 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full bg-black/50 hover:bg-black/70 text-white"
+                          onClick={() => setEquipmentPhotoViewer((prev) => prev ? { ...prev, index: prev.index > 0 ? prev.index - 1 : equipmentViewerPhotos.length - 1 } : prev)}
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          className="absolute right-3 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full bg-black/50 hover:bg-black/70 text-white"
+                          onClick={() => setEquipmentPhotoViewer((prev) => prev ? { ...prev, index: prev.index < equipmentViewerPhotos.length - 1 ? prev.index + 1 : 0 } : prev)}
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </button>
+                      </>
+                    )}
+                    <img src={equipmentViewerPhoto.filePath} alt={equipmentViewerPhoto.caption ?? equipmentViewerEquipment.name} className="max-w-full max-h-[60vh] object-contain" />
+                    {equipmentViewerPhoto.isCover && (
+                      <div className="absolute top-3 left-3 px-2 py-1 rounded-full bg-yellow-500/90 text-black text-[10px] font-medium inline-flex items-center gap-1">
+                        <Star className="h-3 w-3 fill-current" /> Cover
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="px-4 py-3 border-t bg-background space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate">{equipmentViewerPhoto.caption || equipmentViewerPhoto.fileName}</p>
+                        <p className="text-[11px] text-muted-foreground truncate">{equipmentViewerPhoto.fileName}</p>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {!equipmentViewerPhoto.isCover && (
+                          <button type="button" className="px-2 py-1 rounded-md bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-600 text-[11px] inline-flex items-center gap-1" onClick={() => void handleEquipmentPhotoSetCover(equipmentViewerPhoto.id)}>
+                            <Star className="h-3 w-3" /> Cover
+                          </button>
+                        )}
+                        <button type="button" className="px-2 py-1 rounded-md bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 text-[11px] inline-flex items-center gap-1" onClick={() => void handleEquipmentPhotoCaption(equipmentViewerPhoto.id, equipmentViewerPhoto.caption)}>
+                          <Pencil className="h-3 w-3" /> Caption
+                        </button>
+                        <button type="button" className="px-2 py-1 rounded-md bg-red-500/10 hover:bg-red-500/20 text-red-600 text-[11px] inline-flex items-center gap-1" onClick={async () => {
+                          await handleEquipmentPhotoDelete(equipmentViewerPhoto.id);
+                        }}>
+                          <Trash2 className="h-3 w-3" /> Delete
+                        </button>
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">
+                      Keep equipment visuals free of faces, serial numbers, customer information, and proprietary screens.
+                    </p>
+                  </div>
+                </>
+              ) : null}
+            </DialogContent>
+          </Dialog>
 
           {/* ═══ OVERVIEW TAB ═══ */}
           {focusTab === "overview" && (<>
@@ -8965,12 +9613,38 @@ function WorkHistoryPanel({
         <span className="text-sm font-semibold flex items-center gap-1.5">
           <Briefcase className="h-4 w-4 text-gray-500" /> Work History
         </span>
-        <div className="flex items-center gap-1">
-          <button type="button" className={`transition-colors ${showCareerPath ? "text-blue-600" : "text-muted-foreground hover:text-foreground"}`} title="Toggle career path line" onClick={onToggleCareerPath}>
-            <Route className="h-4 w-4" />
+        <div className="relative flex items-center gap-1">
+          {items.length >= 2 && (
+            <button
+              type="button"
+              className={`transition-colors ${tab === "compare" ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
+              title="Compare roles"
+              onClick={() => setTab((prev) => (prev === "compare" ? lastMainTab : "compare"))}
+            >
+              <ArrowRightLeft className="h-4 w-4" />
+            </button>
+          )}
+          <button
+            type="button"
+            className={`transition-colors ${showTypeFilterPanel ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
+            title="Filter work history"
+            onClick={() => {
+              setShowTypeFilterPanel((p) => !p);
+              setShowPanelSettings(false);
+            }}
+          >
+            <Filter className="h-4 w-4" />
           </button>
-          <button type="button" className={`transition-colors ${showOverlaps ? "text-cyan-500" : "text-muted-foreground hover:text-foreground"}`} title="Toggle concurrent overlap badges" onClick={onToggleOverlaps}>
-            <Zap className="h-4 w-4" />
+          <button
+            type="button"
+            className={`transition-colors ${showPanelSettings ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
+            title="Panel settings"
+            onClick={() => {
+              setShowPanelSettings((p) => !p);
+              setShowTypeFilterPanel(false);
+            }}
+          >
+            <Settings className="h-4 w-4" />
           </button>
           <button type="button" className="text-muted-foreground hover:text-foreground" title="Import from experience" onClick={handleImportFromExperience} disabled={importing}>
             {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
@@ -8981,6 +9655,102 @@ function WorkHistoryPanel({
           <button type="button" className="text-muted-foreground hover:text-foreground" onClick={onClose}>
             <X className="h-4 w-4" />
           </button>
+
+          {showTypeFilterPanel && (() => {
+            const typeMeta: { key: string; label: string; emoji: string }[] = [
+              { key: "job", label: "Jobs", emoji: "💼" },
+              { key: "school", label: "Schools", emoji: "🎓" },
+              { key: "internship", label: "Internships", emoji: "🏢" },
+              { key: "military", label: "Military", emoji: "🎖️" },
+              { key: "volunteer", label: "Volunteer", emoji: "🤝" },
+              { key: "self-employed", label: "Self-Employed", emoji: "🧑‍💻" },
+            ];
+            const counts = new Map<string, number>();
+            for (const w of items) {
+              const t = w.type ?? "job";
+              if (t === "unemployed") continue;
+              counts.set(t, (counts.get(t) ?? 0) + 1);
+            }
+            const visibleMeta = typeMeta.filter((m) => (counts.get(m.key) ?? 0) > 0);
+
+            return (
+              <div className="absolute right-0 top-7 z-[1200] w-64 rounded-lg border bg-background/95 backdrop-blur-md shadow-xl p-2 space-y-2">
+                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide px-1">History Filters</p>
+
+                <div className="space-y-1">
+                  <p className="text-[10px] text-muted-foreground px-1">Quick Presets</p>
+                  <div className="grid grid-cols-2 gap-1">
+                    <button type="button" className="text-[11px] rounded-md border px-1.5 py-1 hover:bg-muted/40" onClick={() => applyHiddenTypes(new Set())}>All</button>
+                    <button
+                      type="button"
+                      className="text-[11px] rounded-md border px-1.5 py-1 hover:bg-muted/40"
+                      onClick={() => applyHiddenTypes(new Set<string>(["school", "military", "volunteer"]))}
+                    >
+                      Work Map
+                    </button>
+                    <button
+                      type="button"
+                      className="text-[11px] rounded-md border px-1.5 py-1 hover:bg-muted/40"
+                      onClick={() => applyHiddenTypes(new Set<string>(["job", "internship", "military", "volunteer", "self-employed"]))}
+                    >
+                      School Only
+                    </button>
+                    <button
+                      type="button"
+                      className="text-[11px] rounded-md border px-1.5 py-1 hover:bg-muted/40"
+                      onClick={() => applyHiddenTypes(new Set<string>(["military", "volunteer", "self-employed"]))}
+                    >
+                      Core
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <p className="text-[10px] text-muted-foreground px-1">Entry Types</p>
+                  {visibleMeta.map((m) => {
+                    const hidden = hiddenTypes.has(m.key);
+                    const count = counts.get(m.key) ?? 0;
+                    return (
+                      <button
+                        key={m.key}
+                        type="button"
+                        className="w-full flex items-center justify-between rounded-md px-2 py-1 text-xs hover:bg-muted/40"
+                        onClick={() => onToggleType(m.key)}
+                      >
+                        <span className="flex items-center gap-1.5">
+                          <span>{m.emoji}</span>
+                          <span>{m.label}</span>
+                        </span>
+                        <span className={`text-[11px] ${hidden ? "text-muted-foreground" : "text-primary"}`}>{hidden ? "Off" : "On"} · {count}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+
+          {showPanelSettings && (
+            <div className="absolute right-0 top-7 z-[1200] w-56 rounded-lg border bg-background/95 backdrop-blur-md shadow-xl p-2 space-y-1.5">
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide px-1">Panel Settings</p>
+              <button
+                type="button"
+                className="w-full flex items-center justify-between rounded-md px-2 py-1 text-xs hover:bg-muted/40"
+                onClick={onToggleCareerPath}
+              >
+                <span className="flex items-center gap-1.5"><Route className="h-3.5 w-3.5" /> Career Path Line</span>
+                <span className={`text-[11px] ${showCareerPath ? "text-blue-600" : "text-muted-foreground"}`}>{showCareerPath ? "On" : "Off"}</span>
+              </button>
+              <button
+                type="button"
+                className="w-full flex items-center justify-between rounded-md px-2 py-1 text-xs hover:bg-muted/40"
+                onClick={onToggleOverlaps}
+              >
+                <span className="flex items-center gap-1.5"><Zap className="h-3.5 w-3.5" /> Concurrent Badges</span>
+                <span className={`text-[11px] ${showOverlaps ? "text-cyan-600" : "text-muted-foreground"}`}>{showOverlaps ? "On" : "Off"}</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -9008,11 +9778,11 @@ function WorkHistoryPanel({
           {cfmSummary && cfmSummary.rtg > 0 && (
             <div className="grid grid-cols-2 gap-1 pt-1.5 border-t border-border/50">
               <div className="text-center">
-                <p className="text-[10px] text-muted-foreground">RTG</p>
+                <p className="text-[10px] text-muted-foreground">Recorded Total Gross</p>
                 <p className="text-sm font-semibold text-orange-600 dark:text-orange-400">${cfmSummary.rtg >= 1000 ? `${(cfmSummary.rtg / 1000).toFixed(cfmSummary.rtg >= 100000 ? 0 : 1)}k` : cfmSummary.rtg.toLocaleString()}</p>
               </div>
               <div className="text-center">
-                <p className="text-[10px] text-muted-foreground">RTN</p>
+                <p className="text-[10px] text-muted-foreground">Recorded Total Net</p>
                 <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">
                   {cfmSummary.rtn && cfmSummary.rtn > 0
                     ? `$${cfmSummary.rtn >= 1000 ? `${(cfmSummary.rtn / 1000).toFixed(cfmSummary.rtn >= 100000 ? 0 : 1)}k` : cfmSummary.rtn.toLocaleString()}`
@@ -9033,16 +9803,11 @@ function WorkHistoryPanel({
           <button type="button" className={`flex-1 text-xs py-1 rounded-md font-medium transition-colors ${tab === "timeline" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted/50"}`} onClick={() => setTab("timeline")}>
             Timeline
           </button>
-          {items.length >= 2 && (
-            <button type="button" className={`flex-1 text-xs py-1 rounded-md font-medium transition-colors ${tab === "compare" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted/50"}`} onClick={() => setTab("compare")}>
-              Compare
-            </button>
-          )}
         </div>
       )}
 
-      {/* Time Slider */}
-      {timeRange && timeRange.min && timeRange.max && (() => {
+      {/* Time Slider (timeline tab only) */}
+      {tab === "timeline" && timeRange && timeRange.min && timeRange.max && (() => {
         const minD = new Date(timeRange.min);
         const maxD = new Date(timeRange.max);
         const minMonth = minD.getFullYear() * 12 + minD.getMonth();
@@ -9060,81 +9825,60 @@ function WorkHistoryPanel({
         };
         return (
           <div className="mb-2.5 p-2 rounded-lg bg-muted/40 border space-y-1.5">
-            <div className="flex items-center justify-between">
+            <button
+              type="button"
+              className="w-full flex items-center justify-between text-left"
+              onClick={() => setShowTimeFilterPanel((p) => !p)}
+            >
               <span className="text-xs font-medium flex items-center gap-1">
                 <Clock className="h-3 w-3" /> Time Filter
               </span>
-              {timeFilter ? (
-                <button type="button" className="text-[13px] text-primary hover:underline" onClick={() => onTimeFilterChange(null)}>
-                  Clear (all time)
-                </button>
-              ) : (
-                <span className="text-[13px] text-muted-foreground">All time</span>
-              )}
-            </div>
-            <input
-              type="range"
-              min={0}
-              max={steps}
-              step={1}
-              value={currentVal > steps ? steps : currentVal}
-              onChange={(e) => {
-                const v = Number(e.target.value);
-                if (v >= steps) { onTimeFilterChange(null); }
-                else { onTimeFilterChange(formatMonth(v)); }
-              }}
-              className="w-full h-1.5 accent-primary cursor-pointer"
-            />
-            <div className="flex justify-between text-[13px] text-muted-foreground">
-              <span>{formatMonth(0)}</span>
-              {timeFilter && <span className="font-semibold text-foreground">{timeFilter}</span>}
-              <span>Now</span>
-            </div>
-            {timeFilter && activeResidence && (
-              <div className="flex items-center gap-1 text-[13px] bg-blue-500/10 text-blue-700 dark:text-blue-300 rounded px-1.5 py-0.5">
-                <span>🏠</span>
-                <span className="font-medium truncate">{activeResidence.label}</span>
-                <span className="text-muted-foreground">·</span>
-                <span className="truncate">{activeResidence.address}</span>
+              <div className="flex items-center gap-1 text-[13px] text-muted-foreground">
+                <span>{timeFilter ?? "All time"}</span>
+                {showTimeFilterPanel ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
               </div>
-            )}
-            {timeFilter && !activeResidence && residences.length === 0 && (
-              <p className="text-[13px] text-amber-600 dark:text-amber-400">Add a residence to see your home marker on the map</p>
-            )}
-          </div>
-        );
-      })()}
+            </button>
 
-      {/* Type Filters */}
-      {items.length > 0 && (() => {
-        const typeCounts = new Map<string, number>();
-        for (const w of items) { const t = w.type ?? "job"; if (t !== "unemployed") typeCounts.set(t, (typeCounts.get(t) ?? 0) + 1); }
-        if (typeCounts.size <= 1) return null;
-        const chips: { key: string; emoji: string; label: string }[] = [
-          { key: "job", emoji: "💼", label: "Jobs" },
-          { key: "school", emoji: "🎓", label: "Schools" },
-          { key: "military", emoji: "🎖️", label: "Military" },
-          { key: "volunteer", emoji: "🤝", label: "Volunteer" },
-          { key: "internship", emoji: "🏢", label: "Internships" },
-          { key: "self-employed", emoji: "🧑‍💻", label: "Self-Emp" },
-        ].filter((c) => typeCounts.has(c.key));
-        return (
-          <div className="flex flex-wrap gap-1 mb-2.5">
-            {chips.map((c) => {
-              const hidden = hiddenTypes.has(c.key);
-              return (
-                <button
-                  key={c.key}
-                  type="button"
-                  onClick={() => onToggleType(c.key)}
-                  className={`flex items-center gap-0.5 text-[13px] px-1.5 py-0.5 rounded-full border transition-colors ${hidden ? "opacity-40 bg-muted/20 border-muted" : "bg-primary/10 border-primary/30 text-foreground"}`}
-                >
-                  <span>{c.emoji}</span>
-                  <span>{c.label}</span>
-                  <span className="text-muted-foreground">({typeCounts.get(c.key)})</span>
-                </button>
-              );
-            })}
+            {(showTimeFilterPanel || !!timeFilter) && (
+              <>
+                <div className="flex items-center justify-end">
+                  {timeFilter && (
+                    <button type="button" className="text-[13px] text-primary hover:underline" onClick={() => onTimeFilterChange(null)}>
+                      Clear (all time)
+                    </button>
+                  )}
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={steps}
+                  step={1}
+                  value={currentVal > steps ? steps : currentVal}
+                  onChange={(e) => {
+                    const v = Number(e.target.value);
+                    if (v >= steps) { onTimeFilterChange(null); }
+                    else { onTimeFilterChange(formatMonth(v)); }
+                  }}
+                  className="w-full h-1.5 accent-primary cursor-pointer"
+                />
+                <div className="flex justify-between text-[13px] text-muted-foreground">
+                  <span>{formatMonth(0)}</span>
+                  {timeFilter && <span className="font-semibold text-foreground">{timeFilter}</span>}
+                  <span>Now</span>
+                </div>
+                {timeFilter && activeResidence && (
+                  <div className="flex items-center gap-1 text-[13px] bg-blue-500/10 text-blue-700 dark:text-blue-300 rounded px-1.5 py-0.5">
+                    <span>🏠</span>
+                    <span className="font-medium truncate">{activeResidence.label}</span>
+                    <span className="text-muted-foreground">·</span>
+                    <span className="truncate">{activeResidence.address}</span>
+                  </div>
+                )}
+                {timeFilter && !activeResidence && residences.length === 0 && (
+                  <p className="text-[13px] text-amber-600 dark:text-amber-400">Add a residence to see your home marker on the map</p>
+                )}
+              </>
+            )}
           </div>
         );
       })()}
@@ -9253,6 +9997,35 @@ function WorkHistoryPanel({
         </p>
       )}
 
+      {/* Search + Sort bar */}
+      {items.length > 0 && (
+        <div className="flex items-center gap-1.5 mb-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground pointer-events-none" />
+            <Input
+              value={listSearch}
+              onChange={(e) => setListSearch(e.target.value)}
+              placeholder="Search…"
+              className="h-6 text-xs pl-6 pr-2"
+            />
+            {listSearch && (
+              <button type="button" className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" onClick={() => setListSearch("")}>
+                <X className="h-2.5 w-2.5" />
+              </button>
+            )}
+          </div>
+          <select
+            value={listSort}
+            onChange={(e) => setListSort(e.target.value as "newest" | "oldest" | "tenure")}
+            className="h-6 text-[10px] rounded border border-input bg-background px-1 text-foreground shrink-0 cursor-pointer"
+          >
+            <option value="newest">Newest</option>
+            <option value="oldest">Oldest</option>
+            <option value="tenure">Longest</option>
+          </select>
+        </div>
+      )}
+
       {/* List view — most recent first */}
       {tab === "list" && (() => {
         // Group items by category
@@ -9319,16 +10092,20 @@ function WorkHistoryPanel({
             <div key={w.id} className="rounded-md hover:bg-muted/50 group">
               <div className="flex items-start justify-between gap-2 p-1.5">
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1 flex-wrap">
                     {(w.locations?.length ?? 0) > 0 && (
                       <button type="button" className="shrink-0 text-muted-foreground hover:text-foreground transition-transform" onClick={() => setExpandedId(expandedId === w.id ? null : w.id)}>
                         <ChevronDown className={`h-3 w-3 transition-transform ${expandedId === w.id ? "" : "-rotate-90"}`} />
                       </button>
                     )}
-                    {w.type === "school" ? <GraduationCap className="h-3 w-3 text-violet-500 shrink-0" /> : w.type === "self-employed" ? <span className="text-xs shrink-0">🧑‍💻</span> : w.type === "unemployed" ? <Search className="h-3 w-3 text-red-500 shrink-0" /> : <Briefcase className={`h-3 w-3 shrink-0 ${w.type === "internship" ? "text-cyan-600" : "text-gray-500"}`} />}
-                    <p className="text-sm font-medium truncate cursor-pointer hover:underline" onClick={() => onFocusJob(w)}>{w.company}</p>
-                    {(w.locations?.length ?? 0) > 0 && (
-                      <span className="text-[13px] bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300 px-1 rounded">{w.locations.length} loc</span>
+                    <p className="text-sm font-medium cursor-pointer hover:underline shrink-0" onClick={() => onFocusJob(w)}>{w.company}</p>
+                    {w.scheduleType && <span className="text-[10px] bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded capitalize">{w.scheduleType.replace(/_/g, " ")}</span>}
+                    {w.workMode && <span className="text-[10px] bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded capitalize">{w.workMode}{w.hybridDays != null ? ` ${w.hybridDays}d` : ""}</span>}
+                    {w.industry && <span className="text-[10px] bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-1.5 py-0.5 rounded">{w.industry}</span>}
+                    {w.salaryAmount != null && (
+                      <span className="ml-auto shrink-0 text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
+                        {w.salaryCurrency === "USD" || !w.salaryCurrency ? "$" : w.salaryCurrency}{w.salaryType === "hourly" ? `${w.salaryAmount}/hr` : w.salaryAmount >= 1000 ? `${Math.round(w.salaryAmount / 1000)}k` : w.salaryAmount}
+                      </span>
                     )}
                   </div>
                   {w.type === "school" ? (
@@ -9336,10 +10113,12 @@ function WorkHistoryPanel({
                   ) : (
                     w.title && <p className="text-xs text-muted-foreground truncate">{w.title}</p>
                   )}
-                  {w.type !== "unemployed" && <p className="text-xs text-muted-foreground truncate">{w.address}</p>}
-                  {(w.startDate || w.endDate) && (
-                    <p className="text-xs text-muted-foreground">
-                      {w.startDate ?? "?"} – {w.endDate ?? "present"}
+                  {(w.type !== "unemployed" || w.startDate || w.endDate) && (
+                    <p className="text-xs text-muted-foreground truncate">
+                      {w.type !== "unemployed" && shortAddress(w.address)}
+                      {w.type !== "unemployed" && (w.startDate || w.endDate) && " · "}
+                      {(w.startDate || w.endDate) && `${formatYearMonth(w.startDate) ?? "?"} – ${w.endDate ? (formatYearMonth(w.endDate) ?? w.endDate) : "Present"}`}
+                      {w.startDate && <span className="ml-1 text-foreground/60">({formatTenure(calcTenureMonths(w.startDate, w.endDate))})</span>}
                     </p>
                   )}
                   {activeResidence && timeFilter && w.type !== "unemployed" && (() => {
@@ -9533,15 +10312,18 @@ function WorkHistoryPanel({
               <div key={w.id} className="relative pb-3 last:pb-0">
                 <div className={`absolute -left-4 top-1 w-3.5 h-3.5 rounded-full border-2 ${isCurrent ? "bg-emerald-500 border-emerald-300" : "bg-gray-400 border-gray-300"}`} />
                 <div className="ml-1">
-                  <div className="flex items-center gap-1.5">
-                    <p className="text-xs font-medium">{w.company}</p>
-                    {isCurrent && <span className="text-[13px] bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 px-1 rounded">current</span>}
+                  <div className="flex items-center gap-1 flex-wrap">
+                    <p className="text-xs font-medium shrink-0 cursor-pointer hover:underline" onClick={() => onFocusJob(w)}>{w.company}</p>
+                    {isCurrent && <span className="text-[10px] bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 px-1 rounded">current</span>}
+                    {w.scheduleType && <span className="text-[10px] bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded capitalize">{w.scheduleType.replace(/_/g, " ")}</span>}
+                    {w.workMode && <span className="text-[10px] bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded capitalize">{w.workMode}{w.hybridDays != null ? ` ${w.hybridDays}d` : ""}</span>}
+                    {w.industry && <span className="text-[10px] bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-1.5 py-0.5 rounded">{w.industry}</span>}
                   </div>
                   {w.title && <p className="text-xs text-muted-foreground">{w.title}</p>}
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-0">
                     {(w.startDate || w.endDate) && (
                       <p className="text-xs text-muted-foreground">
-                        {w.startDate ?? "?"} – {w.endDate ?? "present"}
+                        {formatYearMonth(w.startDate) ?? "?"} – {w.endDate ? (formatYearMonth(w.endDate) ?? w.endDate) : "Present"}
                         {tenure && <span className="ml-1 text-foreground/70">({tenure})</span>}
                       </p>
                     )}
@@ -9551,7 +10333,7 @@ function WorkHistoryPanel({
                       </p>
                     )}
                   </div>
-                  {w.type !== "unemployed" && <p className="text-xs text-muted-foreground truncate">{w.address}</p>}
+                  {w.type !== "unemployed" && <p className="text-xs text-muted-foreground truncate">{shortAddress(w.address)}</p>}
                   {showOverlaps && overlapMap.has(w.id) && (
                     <div className="flex flex-wrap gap-0.5 mt-0.5">
                       {overlapMap.get(w.id)!.map((o) => (
@@ -9733,108 +10515,6 @@ function WorkHistoryPanel({
       </div>
     )}
 
-    {/* ── Concurrent Jobs Pop-out ── */}
-    {focusedItem && focusTab === "overview" && overlapMap.has(focusedItem.id) && (() => {
-      const concJobs = overlapMap.get(focusedItem.id)!;
-      const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-      const parseSchedule = (sched: string | null | undefined, shiftNotes: string | null | undefined) => {
-        const raw = sched || shiftNotes || "";
-        if (!raw) return null;
-        const dayMatch = raw.match(/(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s*[-–]\s*(Mon|Tue|Wed|Thu|Fri|Sat|Sun)/i);
-        const timeMatch = raw.match(/(\d{1,2}(?::\d{2})?\s*(?:am|pm|AM|PM)?)\s*[-–]\s*(\d{1,2}(?::\d{2})?\s*(?:am|pm|AM|PM)?)/);
-        let startDay = 0, endDay = 4;
-        if (dayMatch) {
-          const s = DAYS.findIndex((d) => d.toLowerCase() === dayMatch[1].slice(0, 3).toLowerCase());
-          const e = DAYS.findIndex((d) => d.toLowerCase() === dayMatch[2].slice(0, 3).toLowerCase());
-          if (s >= 0) startDay = s;
-          if (e >= 0) endDay = e;
-        }
-        const timeStr = timeMatch ? `${timeMatch[1]} – ${timeMatch[2]}` : null;
-        return { startDay, endDay, timeStr, raw };
-      };
-      const focusedSched = parseSchedule(focusedItem.schedule, focusedItem.shiftNotes);
-      return (
-        <div className="absolute top-3 left-[calc(0.75rem+24rem+0.75rem)] z-[1100] bg-background/95 backdrop-blur-md border border-cyan-500/30 rounded-xl shadow-xl p-2.5 w-64 pointer-events-auto">
-          <button type="button" className="w-full flex items-center gap-2 text-left mb-1.5"
-            onClick={() => setShowConcurrentSchedule((p) => !p)}>
-            <Layers className="h-3.5 w-3.5 text-cyan-500 shrink-0" />
-            <span className="text-xs font-semibold flex-1">
-              {concJobs.length} concurrent {concJobs.length === 1 ? "job" : "jobs"}
-            </span>
-            <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
-            <ChevronDown className={`h-3 w-3 text-muted-foreground transition-transform ${showConcurrentSchedule ? "rotate-180" : ""}`} />
-          </button>
-
-          {/* Collapsed: compact list */}
-          {!showConcurrentSchedule && (
-            <div className="space-y-1">
-              {concJobs.map((c) => (
-                <div key={c.id} className="flex items-center gap-1.5 text-xs cursor-pointer hover:bg-muted/30 rounded px-1 py-0.5"
-                  onClick={() => { const it = items.find((i) => i.id === c.id); if (it) onFocusJob(it); }}>
-                  <Briefcase className="h-3 w-3 text-cyan-500 shrink-0" />
-                  <span className="font-medium truncate">{c.company}</span>
-                  {c.title && <span className="text-muted-foreground truncate">· {c.title}</span>}
-                  {(c.schedule || c.shiftNotes) && (
-                    <span className="ml-auto text-[10px] text-muted-foreground shrink-0">{c.schedule || c.shiftNotes}</span>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Expanded: mini weekly schedule */}
-          {showConcurrentSchedule && (
-            <div className="space-y-2">
-              <div className="grid grid-cols-7 gap-px text-center">
-                {DAYS.map((d) => (
-                  <div key={d} className="text-[9px] font-semibold text-muted-foreground py-0.5">{d}</div>
-                ))}
-                {DAYS.map((_, di) => {
-                  const s = focusedSched;
-                  const active = s ? (s.endDay >= s.startDay ? di >= s.startDay && di <= s.endDay : di >= s.startDay || di <= s.endDay) : false;
-                  return (
-                    <div key={`f-${di}`} className={`h-5 rounded-sm text-[8px] flex items-center justify-center ${active ? "bg-blue-500/20 text-blue-600 dark:text-blue-400 font-medium" : "bg-muted/20 text-muted-foreground/40"}`}>
-                      {active ? "●" : ""}
-                    </div>
-                  );
-                })}
-                {concJobs.map((c) => {
-                  const s = parseSchedule(c.schedule, c.shiftNotes);
-                  return DAYS.map((_, di) => {
-                    const active = s ? (s.endDay >= s.startDay ? di >= s.startDay && di <= s.endDay : di >= s.startDay || di <= s.endDay) : false;
-                    return (
-                      <div key={`${c.id}-${di}`} className={`h-5 rounded-sm text-[8px] flex items-center justify-center ${active ? "bg-cyan-500/20 text-cyan-600 dark:text-cyan-400 font-medium" : "bg-muted/20 text-muted-foreground/40"}`}>
-                        {active ? "●" : ""}
-                      </div>
-                    );
-                  });
-                })}
-              </div>
-              <div className="space-y-0.5">
-                <div className="flex items-center gap-1.5 text-[10px]">
-                  <div className="w-2.5 h-2.5 rounded-sm bg-blue-500/30 shrink-0" />
-                  <span className="font-medium truncate">{focusedItem.company}</span>
-                  {focusedSched?.timeStr && <span className="text-muted-foreground ml-auto shrink-0">{focusedSched.timeStr}</span>}
-                  {!focusedSched && focusedItem.hoursPerWeek && <span className="text-muted-foreground ml-auto shrink-0">{focusedItem.hoursPerWeek}h/wk</span>}
-                </div>
-                {concJobs.map((c) => {
-                  const s = parseSchedule(c.schedule, c.shiftNotes);
-                  return (
-                    <div key={c.id} className="flex items-center gap-1.5 text-[10px] cursor-pointer hover:bg-muted/30 rounded px-0.5"
-                      onClick={() => { const it = items.find((i) => i.id === c.id); if (it) onFocusJob(it); }}>
-                      <div className="w-2.5 h-2.5 rounded-sm bg-cyan-500/30 shrink-0" />
-                      <span className="font-medium truncate">{c.company}</span>
-                      {s?.timeStr && <span className="text-muted-foreground ml-auto shrink-0">{s.timeStr}</span>}
-                      {!s && c.hoursPerWeek && <span className="text-muted-foreground ml-auto shrink-0">{c.hoursPerWeek}h/wk</span>}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </div>
-      );
-    })()}
     </>
   );
 }

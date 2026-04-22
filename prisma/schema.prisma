@@ -432,6 +432,23 @@ model Equipment {
 
   position  WorkHistory   @relation("WorkHistoryEquipment", fields: [positionId], references: [id], onDelete: Cascade)
   resources EquipmentResource[]
+  photos    EquipmentPhoto[]
+}
+
+model EquipmentPhoto {
+  id          String   @id @default(uuid())
+  equipmentId String
+  filePath    String
+  fileName    String
+  fileMime    String
+  fileSize    Int
+  caption     String?
+  isCover     Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  equipment Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+
+  @@index([equipmentId])
 }
 
 model EquipmentResource {
@@ -482,6 +499,49 @@ model Attachment {
   updatedAt   DateTime @updatedAt
 
   position WorkHistory @relation("WorkHistoryAttachments", fields: [positionId], references: [id], onDelete: Cascade)
+}
+
+// ─── Gallery Photos (multiple photos per work history entry) ───
+
+model GalleryPhoto {
+  id            String    @id @default(uuid())
+  workHistoryId String
+  albumId       String?
+  filePath      String    // /uploads/gallery/xxx.jpg
+  fileName      String    // original file name
+  fileMime      String    // image/jpeg etc
+  fileSize      Int       // bytes
+  caption       String?   // optional caption
+  isCover       Boolean   @default(false)
+  isFavorite    Boolean   @default(false)
+  isPrivate     Boolean   @default(false)
+  tags          String?   // JSON array of tag strings, e.g. ["welding","safety"]
+  markers       String?   // JSON array of {x,y,label,description} objects (x/y are 0-1 fractions)
+  dateTaken     DateTime?
+  rotation      Int       @default(0)  // 0, 90, 180, 270 — display rotation (non-destructive)
+  sortOrder     Int?
+  createdAt     DateTime  @default(now())
+
+  workHistory WorkHistory @relation("WorkHistoryGallery", fields: [workHistoryId], references: [id], onDelete: Cascade)
+  album       GalleryAlbum? @relation("GalleryAlbumPhotos", fields: [albumId], references: [id], onDelete: SetNull)
+
+  @@index([workHistoryId])
+  @@index([albumId])
+}
+
+model GalleryAlbum {
+  id            String    @id @default(uuid())
+  workHistoryId String
+  name          String
+  sortOrder     Int?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  workHistory WorkHistory   @relation("WorkHistoryGalleryAlbums", fields: [workHistoryId], references: [id], onDelete: Cascade)
+  photos      GalleryPhoto[] @relation("GalleryAlbumPhotos")
+
+  @@index([workHistoryId])
+  @@unique([workHistoryId, name])
 }
 
 // ─── Compensation & Benefits ───────────────────────────────────
@@ -1170,6 +1230,8 @@ model WorkHistory {
   equipment          Equipment[]             @relation("WorkHistoryEquipment")
   workLogs           WorkLog[]               @relation("WorkHistoryWorkLogs")
   attachments        Attachment[]            @relation("WorkHistoryAttachments")
+  galleryPhotos      GalleryPhoto[]          @relation("WorkHistoryGallery")
+  galleryAlbums      GalleryAlbum[]          @relation("WorkHistoryGalleryAlbums")
 }
 
 // ─── Residence History (where the user lived over time) ─────────

@@ -49,8 +49,17 @@ export async function GET(
         compensation: { orderBy: { effectiveDate: "desc" } },
         benefitRecords: true,
         timeOff: true,
-        equipment: true,
+        equipment: {
+          include: {
+            photos: { orderBy: [{ isCover: "desc" }, { createdAt: "asc" }] },
+          },
+        },
         attachments: { orderBy: { createdAt: "desc" } },
+        galleryPhotos: {
+          include: { album: { select: { id: true, name: true } } },
+          orderBy: [{ sortOrder: "asc" }, { isCover: "desc" }, { createdAt: "asc" }],
+        },
+        galleryAlbums: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] },
       },
     });
     if (!position) {
