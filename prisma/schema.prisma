@@ -1212,6 +1212,7 @@ model WorkHistory {
   annualRaiseMax  Float?                     // max annual raise %
   estimatorSettings String?                  // JSON blob for paycheck estimator
   coverImage      String?                    // base64 cover photo
+  coverImageY     Float?   @default(50)      // vertical focal point 0–100 for banner crop
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

@@ -119,6 +119,7 @@ export async function PATCH(
   if (body.annualRaiseMax !== undefined) data.annualRaiseMax = body.annualRaiseMax != null ? Number(body.annualRaiseMax) : null;
   if (body.estimatorSettings !== undefined) data.estimatorSettings = body.estimatorSettings ? String(body.estimatorSettings) : null;
   if (body.coverImage !== undefined) data.coverImage = body.coverImage ? String(body.coverImage) : null;
+  if (body.coverImageY !== undefined) data.coverImageY = body.coverImageY != null ? Math.max(0, Math.min(100, Number(body.coverImageY))) : null;
 
   const updated = await prisma.workHistory.update({ where: { id }, data });
   return NextResponse.json(updated);

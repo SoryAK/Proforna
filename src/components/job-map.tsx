@@ -91,6 +91,7 @@ import {
   LayoutGrid,
   FolderOpen,
   Info,
+  Move,
 } from "lucide-react";
 import { toast } from "sonner";
 import { GalleryModal } from "@/components/gallery-modal";
@@ -2126,6 +2127,8 @@ export function JobMap() {
         type: w.type ?? "job",
         startDate: w.startDate ?? null,
         endDate: w.endDate ?? null,
+        coverImage: w.coverImage ?? null,
+        coverImageY: w.coverImageY ?? 50,
       }));
   }, [showWorkHistory, workHistory, timeFilter, hiddenTypes]);
 
@@ -6408,6 +6411,7 @@ function WorkHistoryPanel({
     otHoursA?: number | null; otHoursB?: number | null; otRate?: number | null;
     differentials?: string | null; payFrequency?: string | null; payType?: string | null;
     coverImage?: string | null;
+    coverImageY?: number | null;
   }[];
   onClose: () => void;
   onAdded: () => void;
@@ -7224,6 +7228,83 @@ function WorkHistoryPanel({
   // ── Detail field editing ──
   const [detailSaving, setDetailSaving] = useState(false);
   const [detailSavedField, setDetailSavedField] = useState<string | null>(null);
+
+  // ── Cover image upload ──
+  const [coverUploading, setCoverUploading] = useState(false);
+  const coverInputRef = useRef<HTMLInputElement | null>(null);
+
+  async function handleCoverImageUpload(file: File) {
+    if (!focusedItem) return;
+    setCoverUploading(true);
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const img = new Image();
+          img.onload = () => {
+            const MAX = 900;
+            const scale = Math.min(1, MAX / Math.max(img.width, img.height));
+            const canvas = document.createElement("canvas");
+            canvas.width = Math.round(img.width * scale);
+            canvas.height = Math.round(img.height * scale);
+            canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height);
+            resolve(canvas.toDataURL("image/jpeg", 0.82));
+          };
+          img.onerror = reject;
+          img.src = reader.result as string;
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const res = await fetch(`/api/work-history/${focusedItem.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ coverImage: dataUrl }),
+      });
+      if (!res.ok) throw new Error();
+      onAdded();
+    } catch { toast.error("Failed to save cover image"); }
+    finally { setCoverUploading(false); }
+  }
+
+  async function handleCoverImageRemove() {
+    if (!focusedItem) return;
+    setCoverUploading(true);
+    try {
+      const res = await fetch(`/api/work-history/${focusedItem.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ coverImage: null }),
+      });
+      if (!res.ok) throw new Error();
+      onAdded();
+    } catch { toast.error("Failed to remove cover image"); }
+    finally { setCoverUploading(false); }
+  }
+
+  // ── Cover image repositioning ──
+  const [repositioning, setRepositioning] = useState(false);
+  const [coverYDraft, setCoverYDraft] = useState<number>(50);
+  const repoStartRef = useRef<{ mouseY: number; startY: number; h: number } | null>(null);
+  const bannerContainerRef = useRef<HTMLDivElement | null>(null);
+  const coverImgRef = useRef<HTMLImageElement | null>(null);
+
+  async function saveReposition() {
+    if (!focusedItem) return;
+    try {
+      const res = await fetch(`/api/work-history/${focusedItem.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ coverImageY: coverYDraft }),
+      });
+      if (!res.ok) throw new Error();
+      onAdded();
+    } catch { toast.error("Failed to save position"); }
+    setRepositioning(false);
+  }
+
+  function cancelReposition() { setRepositioning(false); }
+
   async function saveDetail(fields: Record<string, unknown>) {
     if (!focusedItem) return;
     const fieldKey = Object.keys(fields)[0] ?? null;
@@ -7737,7 +7818,132 @@ function WorkHistoryPanel({
             const startStr = fmtDate(focusedItem.startDate);
             const endStr = focusedItem.endDate ? fmtDate(focusedItem.endDate) : "Present";
             return (
-              <div className="p-2.5 rounded-lg bg-muted/40 border space-y-1.5">
+              <div className="rounded-lg bg-muted/40 border overflow-hidden">
+                {/* Cover Image Banner */}
+                <input
+                  ref={coverInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) handleCoverImageUpload(f);
+                    e.target.value = "";
+                  }}
+                />
+                {focusedItem.coverImage ? (
+                  <div
+                    ref={bannerContainerRef}
+                    className={`relative group${repositioning ? " select-none" : ""}`}
+                  >
+                    <img
+                      ref={coverImgRef}
+                      src={focusedItem.coverImage}
+                      alt="Cover"
+                      className="w-full h-24 object-cover pointer-events-none"
+                      style={{ objectPosition: `center ${repositioning ? coverYDraft : (focusedItem.coverImageY ?? 50)}%` }}
+                      draggable={false}
+                    />
+                    {repositioning ? (
+                      <div
+                        className="absolute inset-0 bg-black/30 flex items-center justify-center gap-2 cursor-ns-resize touch-none"
+                        onPointerDown={(e) => {
+                          e.preventDefault();
+                          e.currentTarget.setPointerCapture(e.pointerId);
+                          repoStartRef.current = {
+                            mouseY: e.clientY,
+                            startY: coverYDraft,
+                            h: bannerContainerRef.current?.offsetHeight ?? 96,
+                          };
+                        }}
+                        onPointerMove={(e) => {
+                          if (!repoStartRef.current) return;
+                          const delta = e.clientY - repoStartRef.current.mouseY;
+                          const newY = Math.max(0, Math.min(100,
+                            repoStartRef.current.startY + (delta / repoStartRef.current.h) * 100
+                          ));
+                          // Directly mutate DOM — no React re-render, so pointer capture is never lost
+                          if (coverImgRef.current) {
+                            coverImgRef.current.style.objectPosition = `center ${newY}%`;
+                          }
+                          repoStartRef.current.startY = newY;
+                          repoStartRef.current.mouseY = e.clientY;
+                        }}
+                        onPointerUp={(e) => {
+                          if (!repoStartRef.current) return;
+                          const finalY = parseFloat(
+                            coverImgRef.current?.style.objectPosition?.match(/([\d.]+)%/)?.[1] ?? String(coverYDraft)
+                          );
+                          setCoverYDraft(finalY);
+                          repoStartRef.current = null;
+                          e.currentTarget.releasePointerCapture(e.pointerId);
+                        }}
+                      >
+                        <button
+                          type="button"
+                          className="bg-white/95 text-green-600 text-[11px] font-medium rounded px-2.5 py-1 shadow hover:bg-white cursor-pointer"
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onClick={saveReposition}
+                        >Done</button>
+                        <button
+                          type="button"
+                          className="bg-white/95 text-gray-600 text-[11px] rounded px-2.5 py-1 shadow hover:bg-white cursor-pointer"
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onClick={cancelReposition}
+                        >Cancel</button>
+                      </div>
+                    ) : (
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
+                        <button
+                          type="button"
+                          title="Reposition"
+                          className="bg-white/90 text-gray-800 rounded-full p-1.5 hover:bg-white shadow"
+                          onClick={() => { setCoverYDraft(focusedItem.coverImageY ?? 50); setRepositioning(true); }}
+                        >
+                          <Move className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          title="Change cover photo"
+                          className="bg-white/90 text-gray-800 rounded-full p-1.5 hover:bg-white shadow"
+                          onClick={() => coverInputRef.current?.click()}
+                        >
+                          <Camera className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          title="Remove cover photo"
+                          className="bg-white/90 text-red-600 rounded-full p-1.5 hover:bg-white shadow"
+                          onClick={handleCoverImageRemove}
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    )}
+                    {coverUploading && (
+                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                        <Loader2 className="h-4 w-4 animate-spin text-white" />
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    className="w-full h-8 flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors border-b border-dashed border-border/50"
+                    onClick={() => coverInputRef.current?.click()}
+                    disabled={coverUploading}
+                  >
+                    {coverUploading ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <>
+                        <Camera className="h-3 w-3" />
+                        <span>Add cover photo</span>
+                      </>
+                    )}
+                  </button>
+                )}
+                <div className="p-2.5 space-y-1.5">
                 {/* Row 1 — Company + type badges + company size */}
                 <div className="flex items-center gap-1.5 flex-wrap">
                   {isSchool ? <GraduationCap className="h-3.5 w-3.5 text-violet-500 shrink-0" /> : isSelfEmployed ? <span className="text-xs shrink-0">🧑‍💻</span> : isUnemployed ? <Search className="h-3.5 w-3.5 text-red-500 shrink-0" /> : <Briefcase className={`h-3.5 w-3.5 shrink-0 ${isInternship ? "text-cyan-600" : "text-gray-500"}`} />}
@@ -7849,6 +8055,7 @@ function WorkHistoryPanel({
                     </div>
                   </div>
                 )}
+                </div>{/* end p-2.5 space-y-1.5 */}
               </div>
             );
           })()}
@@ -9806,83 +10013,6 @@ function WorkHistoryPanel({
         </div>
       )}
 
-      {/* Time Slider (timeline tab only) */}
-      {tab === "timeline" && timeRange && timeRange.min && timeRange.max && (() => {
-        const minD = new Date(timeRange.min);
-        const maxD = new Date(timeRange.max);
-        const minMonth = minD.getFullYear() * 12 + minD.getMonth();
-        const maxMonth = maxD.getFullYear() * 12 + maxD.getMonth();
-        const steps = maxMonth - minMonth;
-        if (steps <= 0) return null;
-        const currentVal = timeFilter
-          ? new Date(timeFilter + "-01").getFullYear() * 12 + new Date(timeFilter + "-01").getMonth() - minMonth
-          : steps;
-        const formatMonth = (val: number) => {
-          const totalMonths = minMonth + val;
-          const y = Math.floor(totalMonths / 12);
-          const m = (totalMonths % 12) + 1;
-          return `${y}-${String(m).padStart(2, "0")}`;
-        };
-        return (
-          <div className="mb-2.5 p-2 rounded-lg bg-muted/40 border space-y-1.5">
-            <button
-              type="button"
-              className="w-full flex items-center justify-between text-left"
-              onClick={() => setShowTimeFilterPanel((p) => !p)}
-            >
-              <span className="text-xs font-medium flex items-center gap-1">
-                <Clock className="h-3 w-3" /> Time Filter
-              </span>
-              <div className="flex items-center gap-1 text-[13px] text-muted-foreground">
-                <span>{timeFilter ?? "All time"}</span>
-                {showTimeFilterPanel ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-              </div>
-            </button>
-
-            {(showTimeFilterPanel || !!timeFilter) && (
-              <>
-                <div className="flex items-center justify-end">
-                  {timeFilter && (
-                    <button type="button" className="text-[13px] text-primary hover:underline" onClick={() => onTimeFilterChange(null)}>
-                      Clear (all time)
-                    </button>
-                  )}
-                </div>
-                <input
-                  type="range"
-                  min={0}
-                  max={steps}
-                  step={1}
-                  value={currentVal > steps ? steps : currentVal}
-                  onChange={(e) => {
-                    const v = Number(e.target.value);
-                    if (v >= steps) { onTimeFilterChange(null); }
-                    else { onTimeFilterChange(formatMonth(v)); }
-                  }}
-                  className="w-full h-1.5 accent-primary cursor-pointer"
-                />
-                <div className="flex justify-between text-[13px] text-muted-foreground">
-                  <span>{formatMonth(0)}</span>
-                  {timeFilter && <span className="font-semibold text-foreground">{timeFilter}</span>}
-                  <span>Now</span>
-                </div>
-                {timeFilter && activeResidence && (
-                  <div className="flex items-center gap-1 text-[13px] bg-blue-500/10 text-blue-700 dark:text-blue-300 rounded px-1.5 py-0.5">
-                    <span>🏠</span>
-                    <span className="font-medium truncate">{activeResidence.label}</span>
-                    <span className="text-muted-foreground">·</span>
-                    <span className="truncate">{activeResidence.address}</span>
-                  </div>
-                )}
-                {timeFilter && !activeResidence && residences.length === 0 && (
-                  <p className="text-[13px] text-amber-600 dark:text-amber-400">Add a residence to see your home marker on the map</p>
-                )}
-              </>
-            )}
-          </div>
-        );
-      })()}
-
       {/* Residences */}
       <div className="mb-2.5">
         <button
@@ -10025,6 +10155,83 @@ function WorkHistoryPanel({
           </select>
         </div>
       )}
+
+      {/* Time Slider (timeline tab only) */}
+      {tab === "timeline" && timeRange && timeRange.min && timeRange.max && (() => {
+        const minD = new Date(timeRange.min);
+        const maxD = new Date(timeRange.max);
+        const minMonth = minD.getFullYear() * 12 + minD.getMonth();
+        const maxMonth = maxD.getFullYear() * 12 + maxD.getMonth();
+        const steps = maxMonth - minMonth;
+        if (steps <= 0) return null;
+        const currentVal = timeFilter
+          ? new Date(timeFilter + "-01").getFullYear() * 12 + new Date(timeFilter + "-01").getMonth() - minMonth
+          : steps;
+        const formatMonth = (val: number) => {
+          const totalMonths = minMonth + val;
+          const y = Math.floor(totalMonths / 12);
+          const m = (totalMonths % 12) + 1;
+          return `${y}-${String(m).padStart(2, "0")}`;
+        };
+        return (
+          <div className="mb-2.5 p-2 rounded-lg bg-muted/40 border space-y-1.5">
+            <button
+              type="button"
+              className="w-full flex items-center justify-between text-left"
+              onClick={() => setShowTimeFilterPanel((p) => !p)}
+            >
+              <span className="text-xs font-medium flex items-center gap-1">
+                <Clock className="h-3 w-3" /> Time Filter
+              </span>
+              <div className="flex items-center gap-1 text-[13px] text-muted-foreground">
+                <span>{timeFilter ?? "All time"}</span>
+                {showTimeFilterPanel ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+              </div>
+            </button>
+
+            {(showTimeFilterPanel || !!timeFilter) && (
+              <>
+                <div className="flex items-center justify-end">
+                  {timeFilter && (
+                    <button type="button" className="text-[13px] text-primary hover:underline" onClick={() => onTimeFilterChange(null)}>
+                      Clear (all time)
+                    </button>
+                  )}
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={steps}
+                  step={1}
+                  value={currentVal > steps ? steps : currentVal}
+                  onChange={(e) => {
+                    const v = Number(e.target.value);
+                    if (v >= steps) { onTimeFilterChange(null); }
+                    else { onTimeFilterChange(formatMonth(v)); }
+                  }}
+                  className="w-full h-1.5 accent-primary cursor-pointer"
+                />
+                <div className="flex justify-between text-[13px] text-muted-foreground">
+                  <span>{formatMonth(0)}</span>
+                  {timeFilter && <span className="font-semibold text-foreground">{timeFilter}</span>}
+                  <span>Now</span>
+                </div>
+                {timeFilter && activeResidence && (
+                  <div className="flex items-center gap-1 text-[13px] bg-blue-500/10 text-blue-700 dark:text-blue-300 rounded px-1.5 py-0.5">
+                    <span>🏠</span>
+                    <span className="font-medium truncate">{activeResidence.label}</span>
+                    <span className="text-muted-foreground">·</span>
+                    <span className="truncate">{activeResidence.address}</span>
+                  </div>
+                )}
+                {timeFilter && !activeResidence && residences.length === 0 && (
+                  <p className="text-[13px] text-amber-600 dark:text-amber-400">Add a residence to see your home marker on the map</p>
+                )}
+              </>
+            )}
+          </div>
+        );
+      })()}
 
       {/* List view — most recent first */}
       {tab === "list" && (() => {

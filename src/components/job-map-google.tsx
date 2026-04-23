@@ -65,6 +65,8 @@ interface WorkHistoryMarker {
   type?: string; // "job" | "school" | "military" | "volunteer" | "internship" | "self-employed" | "unemployed"
   startDate?: string | null;
   endDate?: string | null;
+  coverImage?: string | null;
+  coverImageY?: number | null;
 }
 
 interface WorkHistorySubLocation {
@@ -235,6 +237,44 @@ function makeClusterSvg(count: number): string {
   return `<div style="display:flex;align-items:center;justify-content:center;width:${size}px;height:${size}px;border-radius:50%;background:${bg};color:#fff;font-weight:700;font-size:${fontSize}px;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.35);">${count}</div>`;
 }
 
+/* ── Work History marker helpers ── */
+function whTenureMonths(startDate: string | null | undefined, endDate: string | null | undefined): number {
+  if (!startDate) return 12;
+  const s = new Date(startDate + "-01");
+  const e = endDate ? new Date(endDate + "-01") : new Date();
+  return Math.max(1, (e.getFullYear() - s.getFullYear()) * 12 + (e.getMonth() - s.getMonth()));
+}
+
+function whMarkerSize(months: number): number {
+  if (months < 3)  return 26;
+  if (months < 12) return 30;
+  if (months < 36) return 34;
+  if (months < 60) return 38;
+  if (months < 96) return 42;
+  return 44;
+}
+
+/** Border ring color based on how recently the role ended */
+function whRecencyRingColor(endDate: string | null | undefined): string {
+  if (!endDate) return "#22c55e"; // current → vivid green
+  const end = new Date(endDate + "-01");
+  const now = new Date();
+  const monthsAgo = (now.getFullYear() - end.getFullYear()) * 12 + (now.getMonth() - end.getMonth());
+  if (monthsAgo <= 24)  return "#34d399"; // ended ≤2yr ago → teal
+  if (monthsAgo <= 60)  return "#60a5fa"; // 2–5yr → blue
+  if (monthsAgo <= 120) return "#fbbf24"; // 5–10yr → amber
+  return "#9ca3af";                        // 10yr+ → gray
+}
+
+/** Compact year-range badge, e.g. "'19–'22" or "'20–now" */
+function whYearLabel(startDate: string | null | undefined, endDate: string | null | undefined): string {
+  if (!startDate) return "";
+  const sy = startDate.slice(2, 4);
+  if (!endDate) return `'${sy}–now`;
+  const ey = endDate.slice(2, 4);
+  return sy === ey ? `'${sy}` : `'${sy}–'${ey}`;
+}
+
 /* ── Component ── */
 export default function JobMapGoogle({
   jobs,
@@ -297,12 +337,14 @@ export default function JobMapGoogle({
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
   const infoRef = useRef<google.maps.InfoWindow | null>(null);
+  const whTooltipRef = useRef<HTMLDivElement | null>(null);
   const clustererRef = useRef<MarkerClusterer | null>(null);
   const jobMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
   const anchorMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
   const workHistoryMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
   const whClustererRef = useRef<MarkerClusterer | null>(null);
   const whMarkerElementsRef = useRef<Map<string, HTMLDivElement>>(new Map());
+  const whMarkerDataRef = useRef<Map<google.maps.marker.AdvancedMarkerElement, WorkHistoryMarker>>(new Map());
   const concurrentLinesRef = useRef<google.maps.Polyline[]>([]);
   const workHistoryPathRef = useRef<google.maps.Polyline[]>([]);
   const careerYearLabelsRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
@@ -438,6 +480,43 @@ export default function JobMapGoogle({
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /** Custom tooltip for WH markers — fully bypasses Google's InfoWindow padding/close-button structure. */
+  function showWHTooltip(html: string, anchorEl: HTMLElement) {
+    const tooltip = whTooltipRef.current;
+    const outer = containerRef.current?.parentElement;
+    if (!tooltip || !outer) return;
+    const anchorRect = anchorEl.getBoundingClientRect();
+    const outerRect = outer.getBoundingClientRect();
+    tooltip.innerHTML = html;
+    tooltip.style.display = "block";
+    // Center above the marker with a small gap
+    const left = anchorRect.left - outerRect.left + anchorRect.width / 2;
+    const top = anchorRect.top - outerRect.top - 8;
+    tooltip.style.left = `${left}px`;
+    tooltip.style.top = `${top}px`;
+  }
+
+  function hideWHTooltip() {
+    if (whTooltipRef.current) whTooltipRef.current.style.display = "none";
+  }
+
+  /** Zero out Google Maps' InfoWindow container padding (used for non-WH markers). */
+  function stripInfoWindowPadding() {
+    if (!infoRef.current) return;
+    google.maps.event.addListenerOnce(infoRef.current, "domready", () => {
+      const iwc = document.querySelector<HTMLElement>(".gm-style-iw-c");
+      const iwd = document.querySelector<HTMLElement>(".gm-style-iw-d");
+      if (iwc) {
+        iwc.style.setProperty("padding", "0", "important");
+        iwc.style.setProperty("overflow", "hidden", "important");
+      }
+      if (iwd) {
+        iwd.style.setProperty("padding", "0", "important");
+        iwd.style.setProperty("overflow", "hidden", "important");
+      }
+    });
+  }
 
   /* ── Map type switching ── */
   useEffect(() => {
@@ -1262,6 +1341,7 @@ export default function JobMapGoogle({
         const info = infoRef.current;
         if (info && mapRef.current) {
           info.setContent(infoContent);
+          stripInfoWindowPadding();
           info.open({ map: mapRef.current, anchor: marker });
         }
       });
@@ -1356,21 +1436,35 @@ export default function JobMapGoogle({
     workHistoryMarkersRef.current.forEach((m) => (m.map = null));
     workHistoryMarkersRef.current = [];
     whMarkerElementsRef.current.clear();
+    whMarkerDataRef.current.clear();
     if (!mapRef.current || workHistoryMarkers.length === 0) return;
 
+    const WH_TYPE_EMOJI: Record<string, string> = { job: "💼", school: "🎓", internship: "🏢", military: "🎖️", volunteer: "🤝", "self-employed": "🧑‍💻", unemployed: "🔍" };
+    const WH_TYPE_BG: Record<string, string>    = { job: "#6b7280", school: "#7c3aed", internship: "#0891b2", military: "#047857", volunteer: "#d97706", "self-employed": "#92400e", unemployed: "#dc2626" };
+    const WH_TYPE_LABEL: Record<string, string> = { job: "Past workplace", school: "School", internship: "Internship", military: "Military", volunteer: "Volunteer", "self-employed": "Self-Employed", unemployed: "Unemployed" };
+
     workHistoryMarkers.forEach((w) => {
-      const isSchool = w.type === "school";
-      const isMilitary = w.type === "military";
-      const isVolunteer = w.type === "volunteer";
-      const isInternship = w.type === "internship";
-      const isSelfEmployed = w.type === "self-employed";
-      const isUnemployed = w.type === "unemployed";
-      const emoji = isSchool ? "🎓" : isMilitary ? "🎖️" : isVolunteer ? "🤝" : isInternship ? "🏢" : isSelfEmployed ? "🧑‍💻" : isUnemployed ? "🔍" : "💼";
-      const bg = isSchool ? "#7c3aed" : isMilitary ? "#047857" : isVolunteer ? "#d97706" : isInternship ? "#0891b2" : isSelfEmployed ? "#92400e" : isUnemployed ? "#dc2626" : "#6b7280";
-      const border = isSchool ? "#c4b5fd" : isMilitary ? "#6ee7b7" : isVolunteer ? "#fbbf24" : isInternship ? "#67e8f9" : isSelfEmployed ? "#fbbf24" : isUnemployed ? "#fca5a5" : "#d1d5db";
-      const typeLabel = isSchool ? "School" : isMilitary ? "Military" : isVolunteer ? "Volunteer" : isInternship ? "Internship" : isSelfEmployed ? "Self-Employed" : isUnemployed ? "Unemployed" : "Past workplace";
+      const type = w.type ?? "job";
+      const emoji     = WH_TYPE_EMOJI[type] ?? "💼";
+      const bg        = WH_TYPE_BG[type]    ?? "#6b7280";
+      const typeLabel = WH_TYPE_LABEL[type] ?? "Past workplace";
+
+      // Tenure → marker size
+      const tenureMonths = whTenureMonths(w.startDate, w.endDate);
+      const size         = whMarkerSize(tenureMonths);
+      // Recency → ring color
+      const ringColor = whRecencyRingColor(w.endDate);
+      const ringWidth = !w.endDate ? 3 : 2.5; // thicker ring for current roles
+      const emojiSize = size < 30 ? 12 : size < 36 ? 14 : 16;
+      // Year badge
+      const yearLabel = whYearLabel(w.startDate, w.endDate);
+
       const el = document.createElement("div");
-      el.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:50%;background:${bg};border:2.5px solid ${border};box-shadow:0 2px 6px rgba(0,0,0,0.25);font-size:16px;line-height:1;opacity:0.9;cursor:pointer;transition:transform 0.15s;" title="${escapeHtml(w.label)}${w.title ? ' - ' + escapeHtml(w.title) : ''}">${emoji}</div>`;
+      el.style.cssText = "display:flex;flex-direction:column;align-items:center;gap:1px;";
+      el.innerHTML = `
+        <div style="display:flex;align-items:center;justify-content:center;width:${size}px;height:${size}px;border-radius:50%;background:${bg};border:${ringWidth}px solid ${ringColor};box-shadow:0 2px 6px rgba(0,0,0,0.28);font-size:${emojiSize}px;line-height:1;opacity:0.92;cursor:pointer;transition:transform 0.15s;" title="${escapeHtml(w.label)}${w.title ? " \u2013 " + escapeHtml(w.title) : ""}">${emoji}</div>
+        ${yearLabel ? `<span style="font-size:8px;color:#1f2937;background:rgba(255,255,255,0.9);padding:0 3px;border-radius:3px;font-weight:700;pointer-events:none;white-space:nowrap;line-height:1.5;box-shadow:0 1px 2px rgba(0,0,0,0.15);">${yearLabel}</span>` : ""}
+      `;
 
       const marker = new google.maps.marker.AdvancedMarkerElement({
         position: { lat: w.lat, lng: w.lng },
@@ -1379,24 +1473,29 @@ export default function JobMapGoogle({
         zIndex: 1800,
       });
 
-      // Hover → InfoWindow with company + title
-      const titleStr = w.title ? `<div style="color:#6b7280;margin-top:1px">${escapeHtml(w.title)}</div>` : "";
-      const infoContent = `<div style="font-size:11px;max-width:200px;line-height:1.4;padding:2px 0">
-        <div style="font-weight:700;font-size:12px;color:#111">${emoji} ${escapeHtml(w.label)}</div>
-        ${titleStr}
-        <div style="color:#9ca3af;margin-top:2px;font-size:10px">${typeLabel} • Click to focus</div>
+      // Rich InfoWindow with tenure
+      const titleStr   = w.title ? `<div style="color:#6b7280;margin-top:1px">${escapeHtml(w.title)}</div>` : "";
+      const yrs        = Math.floor(tenureMonths / 12);
+      const mos        = tenureMonths % 12;
+      const tenureStr  = `<div style="color:#9ca3af;font-size:10px;margin-top:2px">${yrs > 0 ? yrs + "y " : ""}${mos}m tenure</div>`;
+      const coverImgHtml = w.coverImage
+        ? `<img src="${w.coverImage}" style="width:100%;height:72px;object-fit:cover;display:block;object-position:center ${w.coverImageY ?? 50}%" />`
+        : "";
+      const infoContent = `<div style="font-size:11px;max-width:210px;line-height:1.4;overflow:hidden;">
+        ${coverImgHtml}
+        <div style="padding:6px 8px 5px;">
+          <div style="font-weight:700;font-size:12px;color:#111">${emoji} ${escapeHtml(w.label)}</div>
+          ${titleStr}${tenureStr}
+          <div style="color:#9ca3af;margin-top:2px;font-size:10px">${typeLabel} \u2022 Click to focus</div>
+        </div>
       </div>`;
 
       el.addEventListener("mouseenter", () => {
-        const info = infoRef.current;
-        if (info && mapRef.current) {
-          info.setContent(infoContent);
-          info.open({ map: mapRef.current, anchor: marker });
-        }
+        showWHTooltip(infoContent, el);
         (el.firstElementChild as HTMLElement).style.transform = "scale(1.2)";
       });
       el.addEventListener("mouseleave", () => {
-        infoRef.current?.close();
+        hideWHTooltip();
         (el.firstElementChild as HTMLElement).style.transform = "scale(1)";
       });
 
@@ -1413,19 +1512,33 @@ export default function JobMapGoogle({
 
       workHistoryMarkersRef.current.push(marker);
       whMarkerElementsRef.current.set(w.id, el);
+      whMarkerDataRef.current.set(marker, w);
     });
 
-    // Cluster work history markers when zoomed out
+    // Cluster work history markers when zoomed out — type-aware coloring
     if (workHistoryMarkersRef.current.length >= 4 && mapRef.current) {
       whClustererRef.current = new MarkerClusterer({
         map: mapRef.current,
         markers: workHistoryMarkersRef.current,
         algorithm: new SuperClusterAlgorithm({ radius: 80 }),
         renderer: {
-          render: ({ count, position }) => {
-            const el = document.createElement("div");
-            el.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:50%;background:#4b5563;border:2.5px solid #9ca3af;color:#fff;font-size:12px;font-weight:700;box-shadow:0 2px 6px rgba(0,0,0,0.3);cursor:pointer;">${count}</div>`;
-            return new google.maps.marker.AdvancedMarkerElement({ position, content: el, zIndex: 1900 });
+          render: ({ count, position, markers: clusterMarkers }) => {
+            // Tally types to pick dominant color/icon
+            const typeCounts = new Map<string, number>();
+            for (const m of (clusterMarkers ?? [])) {
+              const wm = whMarkerDataRef.current.get(m as google.maps.marker.AdvancedMarkerElement);
+              const t  = wm?.type ?? "job";
+              typeCounts.set(t, (typeCounts.get(t) ?? 0) + 1);
+            }
+            const sorted      = [...typeCounts.entries()].sort((a, b) => b[1] - a[1]);
+            const dominantType = sorted[0]?.[0] ?? "job";
+            const allSameType  = typeCounts.size === 1;
+            const clBg   = allSameType ? (WH_TYPE_BG[dominantType]    ?? "#4b5563") : "#4b5563";
+            const clIcon = allSameType ? (WH_TYPE_EMOJI[dominantType] ?? "")        : "";
+            const sz     = count < 10 ? 36 : count < 20 ? 40 : 44;
+            const clEl   = document.createElement("div");
+            clEl.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;gap:2px;width:${sz}px;height:${sz}px;border-radius:50%;background:${clBg};border:2.5px solid #fff;color:#fff;font-size:11px;font-weight:700;box-shadow:0 2px 6px rgba(0,0,0,0.3);cursor:pointer;">${clIcon ? `<span style="font-size:13px">${clIcon}</span>` : ""}<span>${count}</span></div>`;
+            return new google.maps.marker.AdvancedMarkerElement({ position, content: clEl, zIndex: 1900 });
           },
         },
       });
@@ -1471,20 +1584,6 @@ export default function JobMapGoogle({
         });
         workHistoryPathRef.current.push(seg);
       }
-
-      // Year labels at each node
-      for (const node of nodes) {
-        if (!node.year) continue;
-        const el = document.createElement("div");
-        el.innerHTML = `<span style="font-size:9px;color:#6b7280;background:rgba(255,255,255,0.85);padding:0 3px;border-radius:3px;font-weight:600;pointer-events:none;white-space:nowrap;text-shadow:0 0 2px #fff;">${node.year}</span>`;
-        const marker = new google.maps.marker.AdvancedMarkerElement({
-          position: { lat: node.lat, lng: node.lng },
-          map: mapRef.current,
-          content: el,
-          zIndex: 1700,
-        });
-        careerYearLabelsRef.current.push(marker);
-      }
     }
   }, [workHistoryMarkers, showCareerPath, ready]);
 
@@ -1514,6 +1613,7 @@ export default function JobMapGoogle({
           <div style="color:#6b7280;margin-top:1px">${escapeHtml(residenceMarker.address)}</div>
           <div style="color:#9ca3af;margin-top:2px;font-size:10px">Residence</div>
         </div>`);
+        stripInfoWindowPadding();
         info.open({ map: mapRef.current, anchor: marker });
       }
       (el.firstElementChild as HTMLElement).style.transform = "scale(1.15)";
@@ -1633,6 +1733,7 @@ export default function JobMapGoogle({
         const info = infoRef.current;
         if (info && mapRef.current) {
           info.setContent(infoContent);
+          stripInfoWindowPadding();
           info.open({ map: mapRef.current, anchor: marker });
         }
         (el.firstElementChild as HTMLElement).style.transform = "scale(1.2)";
@@ -1845,6 +1946,26 @@ export default function JobMapGoogle({
   return (
     <div className="relative h-full w-full">
       <div ref={containerRef} className="h-full w-full" style={pinDropMode ? { cursor: "crosshair" } : undefined} />
+
+      {/* Custom WH marker tooltip — bypasses Google InfoWindow's close-button dead space */}
+      <div
+        ref={whTooltipRef}
+        style={{
+          display: "none",
+          position: "absolute",
+          zIndex: 9999,
+          pointerEvents: "none",
+          transform: "translateX(-50%) translateY(-100%)",
+          background: "white",
+          borderRadius: "10px",
+          boxShadow: "0 4px 16px rgba(0,0,0,0.22)",
+          overflow: "hidden",
+          maxWidth: "220px",
+          minWidth: "160px",
+          fontSize: "11px",
+          lineHeight: "1.4",
+        }}
+      />
 
       {/* Pulse animation for "you are here" */}
       <style>{`@keyframes gmPulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(2.2);opacity:0}}`}</style>
