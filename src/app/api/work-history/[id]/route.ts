@@ -120,6 +120,7 @@ export async function PATCH(
   if (body.estimatorSettings !== undefined) data.estimatorSettings = body.estimatorSettings ? String(body.estimatorSettings) : null;
   if (body.coverImage !== undefined) data.coverImage = body.coverImage ? String(body.coverImage) : null;
   if (body.coverImageY !== undefined) data.coverImageY = body.coverImageY != null ? Math.max(0, Math.min(100, Number(body.coverImageY))) : null;
+  if (body.uniformData !== undefined) data.uniformData = body.uniformData ? String(body.uniformData) : null;
 
   const updated = await prisma.workHistory.update({ where: { id }, data });
   return NextResponse.json(updated);

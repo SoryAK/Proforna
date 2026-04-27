@@ -128,6 +128,7 @@ import {
 } from "@/components/ui/dialog";
 import dynamic from "next/dynamic";
 import { CompanyDeepDive, type DeepDiveJob } from "@/components/company-deep-dive";
+import { UniformBodyMap, UniformMapPopup, type UniformData } from "@/components/uniform-body-map";
 
 /* ── Types ── */
 interface MapJob {
@@ -160,6 +161,51 @@ interface MapJob {
 /** Strip basic HTML tags from Adzuna descriptions */
 function stripHtml(html: string) {
   return html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function decodeHtmlEntities(text: string) {
+  return text
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/g, "'");
+}
+
+function formatJobDescription(html: string) {
+  const withBreaks = html
+    .replace(/<\s*br\s*\/?\s*>/gi, "\n")
+    .replace(/<\s*\/\s*(p|div|section|article|h\d|li|ul|ol)\s*>/gi, "\n")
+    .replace(/<\s*li[^>]*>/gi, "\n- ")
+    .replace(/<[^>]+>/g, " ");
+
+  const text = decodeHtmlEntities(withBreaks)
+    .replace(/\r/g, "")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+  const rawLines = text.split(/\n+/).map((line) => line.trim()).filter(Boolean);
+  const lines = rawLines.length > 1
+    ? rawLines
+    : (text.match(/[^.!?]+[.!?]+|[^.!?]+$/g) ?? [text])
+        .map((line) => line.trim())
+        .filter(Boolean);
+
+  const sections: { type: "paragraph" | "bullets"; items: string[] }[] = [];
+  for (const line of lines) {
+    const bullet = line.match(/^[-*•]\s*(.+)$/);
+    if (bullet) {
+      const last = sections[sections.length - 1];
+      if (last?.type === "bullets") last.items.push(bullet[1].trim());
+      else sections.push({ type: "bullets", items: [bullet[1].trim()] });
+    } else {
+      sections.push({ type: "paragraph", items: [line] });
+    }
+  }
+
+  return { text, sections };
 }
 
 /** Check if two date ranges (YYYY-MM format) overlap */
@@ -493,6 +539,8 @@ export function JobMap() {
   const [where, setWhere] = useState("");
   const [radius, setRadius] = useState(() => savedPrefs.radius || "25");
   const [selectedJob, setSelectedJob] = useState<MapJob | null>(null);
+  const [jobPanelSections, setJobPanelSections] = useState<Set<string>>(() => new Set(["description"]));
+  const [streetViewVisible, setStreetViewVisible] = useState(true);
   const [searched, setSearched] = useState(false);
   const [searchParams, setSearchParams] = useState<{ q: string; where: string; apiWhere: string; distance: string } | null>(null);
   const [trackedIds, setTrackedIds] = useState<Set<string>>(new Set());
@@ -2129,6 +2177,7 @@ export function JobMap() {
         endDate: w.endDate ?? null,
         coverImage: w.coverImage ?? null,
         coverImageY: w.coverImageY ?? 50,
+        uniformData: w.uniformData ?? null,
       }));
   }, [showWorkHistory, workHistory, timeFilter, hiddenTypes]);
 
@@ -2409,6 +2458,20 @@ export function JobMap() {
       setCompanyLocsLoading(false);
     }
   }
+
+  function toggleJobSection(key: string) {
+    setJobPanelSections((prev) => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
+  }
+
+  // Reset job panel sections when selected job changes
+  useEffect(() => {
+    setJobPanelSections(new Set(["description"]));
+    setStreetViewVisible(true);
+  }, [selectedJob?.id]);
 
   // ── Two-phase commute: fast duration first, then geometry in background ──
   // Waits for address resolution to finish so we don't compute twice
@@ -2948,6 +3011,69 @@ export function JobMap() {
     },
     [query, radius]
   );
+
+  const selectedJobUtilityControls = selectedJob ? (
+    <div className="flex items-center gap-1 rounded-full border border-border/70 bg-background/90 p-1 shadow-lg backdrop-blur-sm">
+      {GOOGLE_MAPS_KEY && effectiveJobCoords && (
+        <Button
+          size="icon"
+          variant={streetViewVisible ? "secondary" : "ghost"}
+          className="h-7 w-7 rounded-full"
+          title={streetViewVisible ? "Hide Street View" : "Show Street View"}
+          onClick={() => setStreetViewVisible((prev) => !prev)}
+        >
+          <PersonStanding className="h-3.5 w-3.5" />
+        </Button>
+      )}
+      <Button
+        size="icon"
+        variant={trackedIds.has(selectedJob.id) ? "secondary" : "ghost"}
+        disabled={trackedIds.has(selectedJob.id)}
+        className="h-7 w-7 rounded-full"
+        title={trackedIds.has(selectedJob.id) ? "Already tracked" : "Track job"}
+        onClick={() => trackMutation.mutate(selectedJob)}
+      >
+        {trackedIds.has(selectedJob.id) ? <Check className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
+      </Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger className="inline-flex h-7 w-7 items-center justify-center rounded-full border bg-background text-muted-foreground transition-colors hover:bg-accent hover:text-foreground" title="Save to interest group">
+          <Star className="h-3.5 w-3.5" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuGroup>
+            <DropdownMenuLabel className="text-xs">Save to Interest Group</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {interestGroups.map((g) => (
+              <DropdownMenuItem key={g.id} onClick={() => addToGroupMutation.mutate({ groupId: g.id, job: selectedJob })}>
+                <span className="h-2 w-2 rounded-full mr-2 shrink-0" style={{ background: g.color }} />
+                {g.name}
+              </DropdownMenuItem>
+            ))}
+            {interestGroups.length === 0 && (
+              <div className="px-2 py-1.5 text-xs text-muted-foreground">No groups yet</div>
+            )}
+          </DropdownMenuGroup>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => setShowNewGroup(true)}>
+            <FolderPlus className="h-3.5 w-3.5 mr-2" /> New Group…
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <Button
+        size="icon"
+        variant="ghost"
+        className="h-7 w-7 rounded-full"
+        title="Close panel"
+        onClick={() => {
+          setSelectedJob(null);
+          setShowDetails(false);
+          if (searchCenter) setZoomTarget({ lat: searchCenter[0], lng: searchCenter[1], zoom: 11 });
+        }}
+      >
+        <X className="h-3.5 w-3.5" />
+      </Button>
+    </div>
+  ) : null;
 
   return (
     <div className="space-y-3">
@@ -4259,397 +4385,373 @@ export function JobMap() {
 
           {/* ── Floating job info card on map ── */}
           {selectedJob && (
-            <div className="absolute top-3 left-3 z-[1000] w-80 max-h-[calc(100%-24px)] flex flex-col rounded-xl border bg-background/95 backdrop-blur-sm shadow-xl">
+            <div className="absolute top-3 left-3 z-[1000] w-[400px] max-h-[calc(100%-24px)] flex flex-col rounded-xl border bg-background/95 backdrop-blur-sm shadow-xl">
 
               {/* ═══ STICKY HEADER ═══ */}
-              <div className="shrink-0 p-3 pb-2 border-b bg-background/95 rounded-t-xl">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <h3 className="font-bold text-[13px] leading-tight line-clamp-2">{selectedJob.title}</h3>
-                    <button
-                      type="button"
-                      className="text-xs text-muted-foreground hover:text-primary hover:underline transition-colors text-left mt-0.5"
-                      onClick={() => setDeepDiveCompany(selectedJob.company)}
-                    >
-                      {selectedJob.company}
-                    </button>
-                  </div>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="shrink-0 h-6 w-6 -mr-1 -mt-1"
-                    onClick={() => {
-                      setSelectedJob(null);
-                      setShowDetails(false);
-                      if (searchCenter) setZoomTarget({ lat: searchCenter[0], lng: searchCenter[1], zoom: 11 });
-                    }}
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-
-                {/* Key metrics row — always visible */}
-                <div className="flex items-center gap-2 mt-2 flex-wrap">
-                  {(selectedJob.salaryMin || selectedJob.salaryMax) && (
-                    <span className="flex items-center gap-0.5 text-sm font-semibold text-emerald-600 dark:text-emerald-400">
-                      <DollarSign className="h-3.5 w-3.5" />
-                      {selectedJob.salaryMin && formatSalary(selectedJob.salaryMin)}
-                      {selectedJob.salaryMin && selectedJob.salaryMax && "–"}
-                      {selectedJob.salaryMax && formatSalary(selectedJob.salaryMax)}
-                      {selectedJob.salaryPredicted && <span className="text-[10px] font-normal text-muted-foreground ml-0.5">(est.)</span>}
-                    </span>
-                  )}
-                  {lifeScoreCache[selectedJob.id] != null && (
-                    <span className={`text-xs font-bold px-1.5 py-0.5 rounded-md ${lifeScoreCache[selectedJob.id] >= 70 ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400" : lifeScoreCache[selectedJob.id] >= 40 ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-950/50 dark:text-yellow-400" : "bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-400"}`}>
-                      {lifeScoreCache[selectedJob.id]}/100
-                    </span>
-                  )}
-                  {commuteInfo && !commuteLoading && (
-                    <span className="flex items-center gap-0.5 text-xs text-muted-foreground">
-                      {(() => { const ModeIcon = COMMUTE_MODES.find((m) => m.value === (commuteInfo.mode ?? "driving"))?.icon ?? Car; return <ModeIcon className="h-3 w-3" />; })()}
-                      ~{commuteInfo.durationMin}m
-                    </span>
-                  )}
-                  {commuteLoading && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
-                </div>
-
-                {/* Compact badges */}
-                <div className="flex flex-wrap gap-1 mt-1.5">
-                  <Badge variant="outline" className="gap-0.5 text-[10px] h-[18px] px-1.5">
-                    <MapPin className="h-2.5 w-2.5" /> {selectedJob.location}
-                  </Badge>
-                  <Badge variant="secondary" className={`text-[10px] h-[18px] px-1.5 ${sourceBadge(selectedJob.source).className}`}>
-                    {sourceBadge(selectedJob.source).label}
-                  </Badge>
-                  {selectedJob.contractTime && (
-                    <Badge variant="outline" className="text-[10px] h-[18px] px-1.5 capitalize">
-                      {selectedJob.contractTime.replace("_", " ")}
-                    </Badge>
-                  )}
-                  {selectedJob.dutyStations && selectedJob.dutyStations.length > 0 && (
-                    <Badge variant="outline" className="text-[10px] h-[18px] px-1.5 border-green-300 text-green-600 dark:border-green-700 dark:text-green-400">
-                      +{selectedJob.dutyStations.length} loc
-                    </Badge>
-                  )}
-                  {walkScoreData?.walkScore != null && (
-                    <Badge variant="outline" className="text-[10px] h-[18px] px-1.5 gap-0.5 border-teal-300 text-teal-700 dark:border-teal-700 dark:text-teal-400">
-                      🚶{walkScoreData.walkScore}
-                    </Badge>
-                  )}
-                  {walkScoreData?.transitScore != null && (
-                    <Badge variant="outline" className="text-[10px] h-[18px] px-1.5 gap-0.5 border-sky-300 text-sky-700 dark:border-sky-700 dark:text-sky-400">
-                      🚌{walkScoreData.transitScore}
-                    </Badge>
-                  )}
-                  {walkScoreData?.bikeScore != null && (
-                    <Badge variant="outline" className="text-[10px] h-[18px] px-1.5 gap-0.5 border-lime-300 text-lime-700 dark:border-lime-700 dark:text-lime-400">
-                      🚴{walkScoreData.bikeScore}
-                    </Badge>
-                  )}
-                </div>
-              </div>
-
-              {/* ═══ SCROLLABLE MIDDLE ═══ */}
-              <div className="flex-1 overflow-y-auto scrollbar-thin min-h-0 divide-y">
-
-                {/* ── 📍 Location Section ── */}
-                <details open className="group">
-                  <summary className="flex items-center gap-1.5 px-3 py-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider cursor-pointer hover:bg-muted/50 select-none">
-                    <MapPinned className="h-3 w-3 text-emerald-500" />
-                    Location
-                    <ChevronDown className="h-3 w-3 ml-auto transition-transform group-open:rotate-180" />
-                  </summary>
-                  <div className="px-3 pb-2.5 space-y-2">
-                    {/* Address resolution */}
-                    {addressLoading && (
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <Loader2 className="h-3 w-3 animate-spin" /> Resolving…
-                      </div>
-                    )}
-                    {resolvedAddress && !addressOverride && (
-                      <div className="space-y-1">
-                        <div className="flex items-start gap-1 text-xs text-emerald-600 dark:text-emerald-400">
-                          <MapPinned className="h-3 w-3 mt-0.5 shrink-0" />
-                          <span>{resolvedAddress.address}</span>
-                        </div>
-                        <Badge
-                          variant="outline"
-                          className={`text-[10px] px-1 py-0 h-3.5 ${
-                            resolvedAddress.confidence === "high" ? "border-emerald-300 text-emerald-600 dark:border-emerald-700 dark:text-emerald-400"
-                            : resolvedAddress.confidence === "medium" ? "border-yellow-300 text-yellow-600 dark:border-yellow-700 dark:text-yellow-400"
-                            : "border-red-300 text-red-600 dark:border-red-700 dark:text-red-400"
-                          }`}
-                        >
-                          {resolvedAddress.confidence === "high" ? "Exact" : resolvedAddress.confidence === "medium" ? "Likely" : "Multiple offices"}
-                        </Badge>
-                      </div>
-                    )}
-                    <PlacesAutocomplete
-                      value={addressOverride}
-                      onChange={(v) => {
-                        setAddressOverride(v);
-                        if (!v.trim()) return;
-                        geocodeOverride(v).then((d) => {
-                          if (d) {
-                            setResolvedAddress(d);
-                            if (selectedJob) saveAddressOverride(selectedJob.id, d.address, d.lat, d.lng, d.name, "manual");
-                          }
-                        });
-                      }}
-                      placeholder={resolvedAddress ? "Override address…" : "Enter exact address…"}
-                      className="h-7 text-xs"
+              <div className="shrink-0 bg-background/95 rounded-t-xl overflow-hidden border-b">
+                {/* Street View Banner */}
+                {GOOGLE_MAPS_KEY && effectiveJobCoords && streetViewVisible && (
+                  <div className="relative">
+                    <iframe
+                      src={`https://www.google.com/maps/embed/v1/streetview?key=${GOOGLE_MAPS_KEY}&location=${effectiveJobCoords[0]},${effectiveJobCoords[1]}&heading=210&pitch=10&fov=90`}
+                      className="w-full h-[108px] border-0"
+                      style={{ pointerEvents: "none" }}
+                      loading="lazy"
+                      allowFullScreen
+                      referrerPolicy="no-referrer-when-downgrade"
+                      title="Office street view"
                     />
-
-                    {/* Recruiter flags */}
-                    {(() => {
-                      const norm = selectedJob.company.toLowerCase().trim();
-                      const dbInfo = recruiterFlagDb[norm];
-                      const isRecruiter = isLikelyRecruiter(selectedJob.company) || isUserFlaggedRecruiter(selectedJob.company) || dbInfo?.confirmed;
-                      const dupInfo = getDuplicateInfo(selectedJob.id);
-                      if (!isRecruiter && !dupInfo) return null;
-                      return (
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          {isRecruiter && (
-                            <Badge variant="outline" className="text-[10px] h-5 gap-1 border-orange-300 text-orange-600 dark:border-orange-700 dark:text-orange-400">
-                              <ShieldAlert className="h-2.5 w-2.5" /> via recruiter
-                            </Badge>
-                          )}
-                          {dbInfo && dbInfo.count > 0 && (
-                            <span className="text-[9px] text-muted-foreground">
-                              {dbInfo.count} flag{dbInfo.count !== 1 ? "s" : ""}{dbInfo.confirmed ? " · confirmed" : ""}
-                            </span>
-                          )}
-                          {dupInfo && (
-                            <Badge variant="outline" className="text-[10px] h-5 gap-1 border-violet-300 text-violet-600 dark:border-violet-700 dark:text-violet-400">
-                              <Repeat2 className="h-2.5 w-2.5" /> Duplicate
-                            </Badge>
-                          )}
-                        </div>
-                      );
-                    })()}
-
-                    {/* Landmark mismatch alert */}
-                    {resolvedAddress && hasLandmarkMismatch(selectedJob.company, resolvedAddress.name) && (
-                      <div className="rounded-md border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30 px-2.5 py-1.5 space-y-1.5">
-                        <div className="flex items-start gap-1.5 text-xs text-amber-700 dark:text-amber-400">
-                          <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                          <span>
-                            Google identifies this location as <strong>{resolvedAddress.name}</strong>
-                            {isLikelyRecruiter(selectedJob.company) && <span> — poster may be a staffing agency</span>}
-                          </span>
-                        </div>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-6 text-[10px] gap-1 border-amber-300 text-amber-700 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950/50"
-                          onClick={swapToLandmark}
-                        >
-                          <ArrowRightLeft className="h-2.5 w-2.5" /> Confirm as {resolvedAddress.name}
-                        </Button>
-                      </div>
-                    )}
-
-                    {/* Recruiter office override */}
-                    {(isLikelyRecruiter(selectedJob.company) || isUserFlaggedRecruiter(selectedJob.company) || recruiterFlagDb[selectedJob.company.toLowerCase().trim()]?.confirmed) && (
-                      <div className="rounded-md border border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/20 px-2.5 py-1.5 space-y-1.5">
-                        <p className="text-[10px] text-blue-700 dark:text-blue-400 font-medium flex items-center gap-1">
-                          <Lightbulb className="h-3 w-3" /> Know the actual office?
-                        </p>
-                        <PlacesAutocomplete
-                          value={addressOverride}
-                          onChange={(v) => {
-                            setAddressOverride(v);
-                            if (!v.trim()) return;
-                            geocodeOverride(v).then((d) => {
-                              if (d) {
-                                setResolvedAddress(d);
-                                if (selectedJob) saveAddressOverride(selectedJob.id, d.address, d.lat, d.lng, d.name, "manual");
-                              }
-                            });
-                          }}
-                          placeholder="Enter real office address…"
-                          className="h-7 text-xs"
-                          types={["address", "establishment"]}
-                        />
-                        {nlpLocations.length > 0 && (
-                          <div className="space-y-0.5">
-                            <p className="text-[9px] text-muted-foreground">Detected in description:</p>
-                            <div className="flex flex-wrap gap-1">
-                              {nlpLocations.map((loc, i) => (
-                                <Button key={i} size="sm" variant="ghost" className="h-5 px-1.5 text-[10px] text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-950/30" onClick={() => applyNlpLocation(loc)}>
-                                  <MapPin className="h-2.5 w-2.5 mr-0.5" /> {loc}
-                                </Button>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Flag as recruiter */}
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-5 px-1.5 text-[10px] text-muted-foreground hover:text-orange-600"
-                      onClick={() => toggleRecruiterFlag(selectedJob.company)}
-                      title={isUserFlaggedRecruiter(selectedJob.company) ? "Unflag as recruiter" : "Flag as recruiter/staffing"}
-                    >
-                      <Flag className="h-2.5 w-2.5 mr-0.5" />
-                      {(isUserFlaggedRecruiter(selectedJob.company) || recruiterFlagDb[selectedJob.company.toLowerCase().trim()]?.flaggedByMe) ? "Unflag recruiter" : "Flag as recruiter"}
-                    </Button>
-
-                    {/* ── Company Locations Discovery ── */}
-                    {resolvedAddress && (
-                      <div className="space-y-1.5 pt-1 border-t">
-                        {!companyLocsSearched ? (
-                          <div className="space-y-1">
-                            <Button size="sm" variant="outline" className="w-full h-7 text-[10px]" disabled={companyLocsLoading} onClick={searchCompanyLocations}>
-                              {companyLocsLoading ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Building2 className="h-3 w-3 mr-1" />}
-                              See All {selectedJob.company} Locations
-                            </Button>
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-[9px] text-muted-foreground">Radius:</span>
-                              <Select value={String(companyLocsRadius)} onValueChange={(v) => setCompanyLocsRadius(parseInt(v ?? "25000", 10))}>
-                                <SelectTrigger className="h-5 text-[9px] w-[90px]"><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="5000" className="text-xs">5 km</SelectItem>
-                                  <SelectItem value="10000" className="text-xs">10 km</SelectItem>
-                                  <SelectItem value="25000" className="text-xs">25 km</SelectItem>
-                                  <SelectItem value="50000" className="text-xs">50 km</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          </div>
-                        ) : companyLocsLoading ? (
-                          <div className="flex items-center justify-center py-3">
-                            <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
-                            <span className="text-[10px] text-muted-foreground ml-1">Searching locations…</span>
-                          </div>
-                        ) : companyLocs.length > 0 ? (
-                          <div className="rounded-lg border overflow-hidden">
-                            <div className="p-1.5 bg-muted/30 flex items-center justify-between">
-                              <span className="text-[10px] font-medium flex items-center gap-1">
-                                <Building2 className="h-3 w-3 text-blue-500" /> {selectedJob.company} Locations ({companyLocs.length})
-                                {companyLocs.length >= 15 && (
-                                  <span className="text-[8px] bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 px-1 rounded">chain?</span>
-                                )}
-                              </span>
-                              <button type="button" className="text-[8px] text-muted-foreground hover:text-foreground" onClick={() => { setCompanyLocsSearched(false); setCompanyLocs([]); }}>
-                                <RefreshCw className="h-2.5 w-2.5" />
-                              </button>
-                            </div>
-                            <div className="max-h-[180px] overflow-y-auto divide-y">
-                              {companyLocs.map((loc) => (
-                                <button
-                                  key={loc.placeId}
-                                  type="button"
-                                  className="w-full flex items-start gap-1.5 p-1.5 hover:bg-muted/30 transition-colors text-left"
-                                  onClick={() => {
-                                    setZoomTarget({ lat: loc.lat, lng: loc.lng, zoom: 17 });
-                                  }}
-                                >
-                                  <MapPin className="h-3 w-3 text-blue-500 mt-0.5 shrink-0" />
-                                  <div className="flex-1 min-w-0">
-                                    <p className="text-[10px] font-medium truncate">{loc.name}</p>
-                                    <p className="text-[8px] text-muted-foreground truncate">{loc.address}</p>
-                                  </div>
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="p-2 rounded-lg border bg-muted/20 text-center">
-                            <p className="text-[10px] text-muted-foreground">No other {selectedJob.company} locations found</p>
-                            <button type="button" className="text-[9px] text-blue-500 hover:underline mt-0.5" onClick={() => { setCompanyLocsSearched(false); setCompanyLocs([]); }}>Try different radius</button>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </details>
-
-                {/* ── 🏢 Business Info Section ── */}
-                {resolvedAddress && (resolvedAddress.website || resolvedAddress.phone || resolvedAddress.rating != null || resolvedAddress.editorialSummary) && (
-                  <details className="group">
-                    <summary className="flex items-center gap-1.5 px-3 py-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider cursor-pointer hover:bg-muted/50 select-none">
-                      <Building2 className="h-3 w-3 text-blue-500" />
-                      Business Info
-                      {resolvedAddress.rating != null && (
-                        <span className="ml-auto mr-1 flex items-center gap-0.5 text-xs normal-case font-medium tracking-normal">
-                          <Star className="h-3 w-3 text-yellow-500 fill-yellow-500" /> {resolvedAddress.rating}
-                        </span>
-                      )}
-                      <ChevronDown className="h-3 w-3 transition-transform group-open:rotate-180" />
-                    </summary>
-                    <div className="px-3 pb-2.5 space-y-1.5">
-                      {resolvedAddress.editorialSummary && (
-                        <p className="text-[11px] text-muted-foreground leading-snug">{resolvedAddress.editorialSummary}</p>
-                      )}
-                      <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs">
-                        {resolvedAddress.rating != null && (
-                          <span className="flex items-center gap-0.5">
-                            <Star className="h-3 w-3 text-yellow-500 fill-yellow-500" />
-                            <span className="font-medium">{resolvedAddress.rating}</span>
-                            {resolvedAddress.ratingCount != null && (
-                              <span className="text-muted-foreground">({resolvedAddress.ratingCount.toLocaleString()})</span>
-                            )}
-                          </span>
-                        )}
-                        {resolvedAddress.businessStatus && resolvedAddress.businessStatus !== "OPERATIONAL" && (
-                          <Badge variant="outline" className="text-[10px] h-4 px-1 border-red-300 text-red-600 dark:border-red-700 dark:text-red-400">
-                            {resolvedAddress.businessStatus.replace(/_/g, " ")}
-                          </Badge>
-                        )}
-                        {resolvedAddress.openNow !== undefined && (
-                          <Badge variant="outline" className={`text-[10px] h-4 px-1 ${resolvedAddress.openNow ? "border-emerald-300 text-emerald-600 dark:border-emerald-700 dark:text-emerald-400" : "border-red-300 text-red-600 dark:border-red-700 dark:text-red-400"}`}>
-                            {resolvedAddress.openNow ? "Open Now" : "Closed"}
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs">
-                        {resolvedAddress.website && (
-                          <a href={resolvedAddress.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-0.5 text-blue-600 dark:text-blue-400 hover:underline truncate max-w-[180px]">
-                            <Globe className="h-3 w-3 shrink-0" />
-                            {new URL(resolvedAddress.website).hostname.replace("www.", "")}
-                          </a>
-                        )}
-                        {resolvedAddress.phone && (
-                          <a href={`tel:${resolvedAddress.phone}`} className="flex items-center gap-0.5 text-muted-foreground hover:text-foreground">
-                            <Phone className="h-3 w-3 shrink-0" />
-                            {resolvedAddress.phone}
-                          </a>
-                        )}
-                      </div>
-                      {resolvedAddress.hours && resolvedAddress.hours.length > 0 && (
-                        <details className="text-[10px] text-muted-foreground">
-                          <summary className="cursor-pointer hover:text-foreground flex items-center gap-0.5">
-                            <Clock className="h-2.5 w-2.5" /> Hours
-                          </summary>
-                          <div className="mt-1 space-y-0.5 pl-3">
-                            {resolvedAddress.hours.map((h, i) => (
-                              <div key={i}>{h}</div>
-                            ))}
-                          </div>
-                        </details>
-                      )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-transparent pointer-events-none" />
+                    <div className="absolute top-1.5 right-1.5">
+                      {selectedJobUtilityControls}
                     </div>
-                  </details>
+                  </div>
                 )}
 
-                {/* ── 🚗 Commute Section ── */}
-                {searchCenter && (
-                  <details open className="group">
-                    <summary className="flex items-center gap-1.5 px-3 py-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider cursor-pointer hover:bg-muted/50 select-none">
-                      <Car className="h-3 w-3 text-blue-500" />
-                      Commute
-                      {commuteInfo && !commuteLoading && (
-                        <span className="ml-auto mr-1 text-xs normal-case font-medium tracking-normal">
-                          ~{commuteInfo.durationMin}m · {commuteInfo.distanceMi}mi
-                        </span>
+                <div className="p-3 pb-0">
+                  {/* Title + Company + Close (only when no banner) */}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-bold text-base leading-snug line-clamp-2 pr-1">{selectedJob.title}</h3>
+                      <button
+                        type="button"
+                        className="text-sm font-medium text-muted-foreground hover:text-primary hover:underline transition-colors text-left mt-1"
+                        onClick={() => setDeepDiveCompany(selectedJob.company)}
+                      >
+                        {selectedJob.company}
+                      </button>
+                    </div>
+                    {(!GOOGLE_MAPS_KEY || !effectiveJobCoords || !streetViewVisible) && selectedJobUtilityControls}
+                  </div>
+
+                  {/* Location + Business Info strip */}
+                  {(addressLoading || resolvedAddress) && (
+                    <div className="mt-1.5 space-y-0.5">
+                      {addressLoading && !resolvedAddress && (
+                        <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                          <Loader2 className="h-2.5 w-2.5 animate-spin" /> Resolving address…
+                        </div>
                       )}
-                      <ChevronDown className="h-3 w-3 transition-transform group-open:rotate-180" />
-                    </summary>
-                    <div className="px-3 pb-2.5 space-y-2">
+                      {resolvedAddress && (
+                        <div className="flex items-start gap-1 text-[11px]">
+                          <MapPinned className="h-3 w-3 mt-0.5 shrink-0 text-emerald-500" />
+                          <div className="min-w-0 flex items-center gap-1 flex-wrap">
+                            <span className="text-muted-foreground">{resolvedAddress.address}</span>
+                            <Badge
+                              variant="outline"
+                              className={`text-[9px] px-1 py-0 h-3.5 ${
+                                resolvedAddress.confidence === "high" ? "border-emerald-300 text-emerald-600 dark:border-emerald-700 dark:text-emerald-400"
+                                : resolvedAddress.confidence === "medium" ? "border-yellow-300 text-yellow-600 dark:border-yellow-700 dark:text-yellow-400"
+                                : "border-red-300 text-red-600 dark:border-red-700 dark:text-red-400"
+                              }`}
+                            >
+                              {resolvedAddress.confidence === "high" ? "Exact" : resolvedAddress.confidence === "medium" ? "Likely" : "Multiple"}
+                            </Badge>
+                          </div>
+                        </div>
+                      )}
+                      {resolvedAddress && (resolvedAddress.rating != null || resolvedAddress.openNow !== undefined || resolvedAddress.website || resolvedAddress.phone) && (
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] pl-4">
+                          {resolvedAddress.rating != null && (
+                            <span className="flex items-center gap-0.5 text-muted-foreground">
+                              <Star className="h-3 w-3 text-yellow-500 fill-yellow-500" />
+                              <span className="font-medium">{resolvedAddress.rating}</span>
+                              {resolvedAddress.ratingCount != null && <span className="text-muted-foreground/70">({resolvedAddress.ratingCount.toLocaleString()})</span>}
+                            </span>
+                          )}
+                          {resolvedAddress.openNow !== undefined && (
+                            <span className={`text-[10px] font-medium ${resolvedAddress.openNow ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 dark:text-red-400"}`}>
+                              {resolvedAddress.openNow ? "Open" : "Closed"}
+                            </span>
+                          )}
+                          {resolvedAddress.website && (
+                            <a href={resolvedAddress.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-0.5 text-blue-600 dark:text-blue-400 hover:underline truncate max-w-[130px]">
+                              <Globe className="h-2.5 w-2.5 shrink-0" />
+                              {new URL(resolvedAddress.website).hostname.replace("www.", "")}
+                            </a>
+                          )}
+                          {resolvedAddress.phone && (
+                            <a href={`tel:${resolvedAddress.phone}`} className="flex items-center gap-0.5 text-muted-foreground hover:text-foreground">
+                              <Phone className="h-2.5 w-2.5 shrink-0" />
+                              {resolvedAddress.phone}
+                            </a>
+                          )}
+                          {resolvedAddress.hours && resolvedAddress.hours.length > 0 && (
+                            <details className="relative group">
+                              <summary className="flex items-center gap-0.5 cursor-pointer text-muted-foreground hover:text-foreground list-none">
+                                <Clock className="h-2.5 w-2.5 shrink-0" />
+                                <span className="text-[10px]">Hours</span>
+                              </summary>
+                              <div className="absolute left-0 top-full mt-1 z-50 bg-popover border rounded-md shadow-lg px-2.5 py-2 min-w-[180px] space-y-0.5">
+                                {resolvedAddress.hours.map((h, i) => (
+                                  <div key={i} className="text-[10px] text-muted-foreground whitespace-nowrap">{h}</div>
+                                ))}
+                              </div>
+                            </details>
+                          )}
+                        </div>
+                      )}
+                      {resolvedAddress && resolvedAddress.editorialSummary && (
+                        <p className="text-[10px] text-muted-foreground leading-snug pl-4 italic">{resolvedAddress.editorialSummary}</p>
+                      )}
+
+                      {/* Recruiter flags */}
+                      {resolvedAddress && (() => {
+                        const norm = selectedJob.company.toLowerCase().trim();
+                        const dbInfo = recruiterFlagDb[norm];
+                        const isRecruiter = isLikelyRecruiter(selectedJob.company) || isUserFlaggedRecruiter(selectedJob.company) || dbInfo?.confirmed;
+                        const dupInfo = getDuplicateInfo(selectedJob.id);
+                        if (!isRecruiter && !dupInfo) return null;
+                        return (
+                          <div className="flex items-center gap-1.5 flex-wrap pl-4">
+                            {isRecruiter && (
+                              <Badge variant="outline" className="text-[10px] h-5 gap-1 border-orange-300 text-orange-600 dark:border-orange-700 dark:text-orange-400">
+                                <ShieldAlert className="h-2.5 w-2.5" /> via recruiter
+                              </Badge>
+                            )}
+                            {dbInfo && dbInfo.count > 0 && (
+                              <span className="text-[9px] text-muted-foreground">
+                                {dbInfo.count} flag{dbInfo.count !== 1 ? "s" : ""}{dbInfo.confirmed ? " · confirmed" : ""}
+                              </span>
+                            )}
+                            {dupInfo && (
+                              <Badge variant="outline" className="text-[10px] h-5 gap-1 border-violet-300 text-violet-600 dark:border-violet-700 dark:text-violet-400">
+                                <Repeat2 className="h-2.5 w-2.5" /> Duplicate
+                              </Badge>
+                            )}
+                          </div>
+                        );
+                      })()}
+
+                      {/* Edit / Verify toggle */}
+                      {resolvedAddress && (
+                        <button
+                          type="button"
+                          className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground pl-4 mt-0.5"
+                          onClick={() => toggleJobSection("location-edit")}
+                        >
+                          <Pencil className="h-2.5 w-2.5" />
+                          {jobPanelSections.has("location-edit") ? "Hide edit tools" : "Edit / Verify"}
+                        </button>
+                      )}
+
+                      {/* Edit / Verify drawer */}
+                      {resolvedAddress && jobPanelSections.has("location-edit") && (
+                        <div className="space-y-2 pt-1 pl-4 border-t border-dashed">
+                          {/* Landmark mismatch alert */}
+                          {hasLandmarkMismatch(selectedJob.company, resolvedAddress.name) && (
+                            <div className="rounded-md border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30 px-2.5 py-1.5 space-y-1.5">
+                              <div className="flex items-start gap-1.5 text-xs text-amber-700 dark:text-amber-400">
+                                <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                                <span>
+                                  Google identifies this location as <strong>{resolvedAddress.name}</strong>
+                                  {isLikelyRecruiter(selectedJob.company) && <span> — poster may be a staffing agency</span>}
+                                </span>
+                              </div>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-6 text-[10px] gap-1 border-amber-300 text-amber-700 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950/50"
+                                onClick={swapToLandmark}
+                              >
+                                <ArrowRightLeft className="h-2.5 w-2.5" /> Confirm as {resolvedAddress.name}
+                              </Button>
+                            </div>
+                          )}
+
+                          {/* Address override */}
+                          <PlacesAutocomplete
+                            value={addressOverride}
+                            onChange={(v) => {
+                              setAddressOverride(v);
+                              if (!v.trim()) return;
+                              geocodeOverride(v).then((d) => {
+                                if (d) {
+                                  setResolvedAddress(d);
+                                  if (selectedJob) saveAddressOverride(selectedJob.id, d.address, d.lat, d.lng, d.name, "manual");
+                                }
+                              });
+                            }}
+                            placeholder={resolvedAddress ? "Override address…" : "Enter exact address…"}
+                            className="h-7 text-xs"
+                          />
+
+                          {/* Recruiter office override */}
+                          {(isLikelyRecruiter(selectedJob.company) || isUserFlaggedRecruiter(selectedJob.company) || recruiterFlagDb[selectedJob.company.toLowerCase().trim()]?.confirmed) && (
+                            <div className="rounded-md border border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/20 px-2.5 py-1.5 space-y-1.5">
+                              <p className="text-[10px] text-blue-700 dark:text-blue-400 font-medium flex items-center gap-1">
+                                <Lightbulb className="h-3 w-3" /> Know the actual office?
+                              </p>
+                              <PlacesAutocomplete
+                                value={addressOverride}
+                                onChange={(v) => {
+                                  setAddressOverride(v);
+                                  if (!v.trim()) return;
+                                  geocodeOverride(v).then((d) => {
+                                    if (d) {
+                                      setResolvedAddress(d);
+                                      if (selectedJob) saveAddressOverride(selectedJob.id, d.address, d.lat, d.lng, d.name, "manual");
+                                    }
+                                  });
+                                }}
+                                placeholder="Enter real office address…"
+                                className="h-7 text-xs"
+                                types={["address", "establishment"]}
+                              />
+                              {nlpLocations.length > 0 && (
+                                <div className="space-y-0.5">
+                                  <p className="text-[9px] text-muted-foreground">Detected in description:</p>
+                                  <div className="flex flex-wrap gap-1">
+                                    {nlpLocations.map((loc, i) => (
+                                      <Button key={i} size="sm" variant="ghost" className="h-5 px-1.5 text-[10px] text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-950/30" onClick={() => applyNlpLocation(loc)}>
+                                        <MapPin className="h-2.5 w-2.5 mr-0.5" /> {loc}
+                                      </Button>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Flag as recruiter */}
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-5 px-1.5 text-[10px] text-muted-foreground hover:text-orange-600"
+                            onClick={() => toggleRecruiterFlag(selectedJob.company)}
+                            title={isUserFlaggedRecruiter(selectedJob.company) ? "Unflag as recruiter" : "Flag as recruiter/staffing"}
+                          >
+                            <Flag className="h-2.5 w-2.5 mr-0.5" />
+                            {(isUserFlaggedRecruiter(selectedJob.company) || recruiterFlagDb[selectedJob.company.toLowerCase().trim()]?.flaggedByMe) ? "Unflag recruiter" : "Flag as recruiter"}
+                          </Button>
+
+                          {/* Company Locations Discovery */}
+                          <div className="space-y-1.5 pt-1 border-t">
+                            {!companyLocsSearched ? (
+                              <div className="space-y-1">
+                                <Button size="sm" variant="outline" className="w-full h-7 text-[10px]" disabled={companyLocsLoading} onClick={searchCompanyLocations}>
+                                  {companyLocsLoading ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Building2 className="h-3 w-3 mr-1" />}
+                                  See All {selectedJob.company} Locations
+                                </Button>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[9px] text-muted-foreground">Radius:</span>
+                                  <Select value={String(companyLocsRadius)} onValueChange={(v) => setCompanyLocsRadius(parseInt(v ?? "25000", 10))}>
+                                    <SelectTrigger className="h-5 text-[9px] w-[90px]"><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="5000" className="text-xs">5 km</SelectItem>
+                                      <SelectItem value="10000" className="text-xs">10 km</SelectItem>
+                                      <SelectItem value="25000" className="text-xs">25 km</SelectItem>
+                                      <SelectItem value="50000" className="text-xs">50 km</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              </div>
+                            ) : companyLocsLoading ? (
+                              <div className="flex items-center justify-center py-3">
+                                <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                                <span className="text-[10px] text-muted-foreground ml-1">Searching locations…</span>
+                              </div>
+                            ) : companyLocs.length > 0 ? (
+                              <div className="rounded-lg border overflow-hidden">
+                                <div className="p-1.5 bg-muted/30 flex items-center justify-between">
+                                  <span className="text-[10px] font-medium flex items-center gap-1">
+                                    <Building2 className="h-3 w-3 text-blue-500" /> {selectedJob.company} Locations ({companyLocs.length})
+                                    {companyLocs.length >= 15 && (
+                                      <span className="text-[8px] bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 px-1 rounded">chain?</span>
+                                    )}
+                                  </span>
+                                  <button type="button" className="text-[8px] text-muted-foreground hover:text-foreground" onClick={() => { setCompanyLocsSearched(false); setCompanyLocs([]); }}>
+                                    <RefreshCw className="h-2.5 w-2.5" />
+                                  </button>
+                                </div>
+                                <div className="max-h-[180px] overflow-y-auto divide-y">
+                                  {companyLocs.map((loc) => (
+                                    <button
+                                      key={loc.placeId}
+                                      type="button"
+                                      className="w-full flex items-start gap-1.5 p-1.5 hover:bg-muted/30 transition-colors text-left"
+                                      onClick={() => {
+                                        setZoomTarget({ lat: loc.lat, lng: loc.lng, zoom: 17 });
+                                      }}
+                                    >
+                                      <MapPin className="h-3 w-3 text-blue-500 mt-0.5 shrink-0" />
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-[10px] font-medium truncate">{loc.name}</p>
+                                        <p className="text-[8px] text-muted-foreground truncate">{loc.address}</p>
+                                      </div>
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="p-2 rounded-lg border bg-muted/20 text-center">
+                                <p className="text-[10px] text-muted-foreground">No other {selectedJob.company} locations found</p>
+                                <button type="button" className="text-[9px] text-blue-500 hover:underline mt-0.5" onClick={() => { setCompanyLocsSearched(false); setCompanyLocs([]); }}>Try different radius</button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Score strip */}
+                  <div className="flex items-center gap-2 mt-2 flex-wrap">
+                    {(selectedJob.salaryMin || selectedJob.salaryMax) && (
+                      <span className="flex items-center gap-0.5 text-sm font-semibold text-emerald-600 dark:text-emerald-400">
+                        <DollarSign className="h-3.5 w-3.5" />
+                        {selectedJob.salaryMin && formatSalary(selectedJob.salaryMin)}
+                        {selectedJob.salaryMin && selectedJob.salaryMax && "–"}
+                        {selectedJob.salaryMax && formatSalary(selectedJob.salaryMax)}
+                        {selectedJob.salaryPredicted && <span className="text-[10px] font-normal text-muted-foreground ml-0.5">(est.)</span>}
+                      </span>
+                    )}
+                    {lifeScoreCache[selectedJob.id] != null && (
+                      <span
+                        title={`Life Score ${lifeScoreCache[selectedJob.id]}/100 — commute, salary & life anchors`}
+                        className={`text-xs font-bold px-1.5 py-0.5 rounded-md cursor-default ${lifeScoreCache[selectedJob.id] >= 70 ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400" : lifeScoreCache[selectedJob.id] >= 40 ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-950/50 dark:text-yellow-400" : "bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-400"}`}
+                      >
+                        {lifeScoreCache[selectedJob.id]}/100
+                      </span>
+                    )}
+                    {/* Commute pill toggle */}
+                    {searchCenter && (
+                      <button
+                        type="button"
+                        onClick={() => toggleJobSection("commute")}
+                        className={`flex items-center gap-0.5 text-xs px-1.5 py-0.5 rounded-full border transition-colors ${
+                          jobPanelSections.has("commute")
+                            ? "bg-sky-100 dark:bg-sky-950/40 text-sky-700 dark:text-sky-400 border-sky-300 dark:border-sky-700"
+                            : "text-muted-foreground hover:text-foreground hover:bg-muted/60 border-transparent"
+                        }`}
+                        title="Toggle commute details"
+                      >
+                        {commuteLoading
+                          ? <Loader2 className="h-3 w-3 animate-spin" />
+                          : (() => { const ModeIcon = COMMUTE_MODES.find((m) => m.value === (commuteInfo?.mode ?? "driving"))?.icon ?? Car; return <ModeIcon className="h-3 w-3" />; })()
+                        }
+                        {commuteInfo && !commuteLoading && <span className="ml-0.5">~{commuteInfo.durationMin}m</span>}
+                        {!commuteInfo && !commuteLoading && <span className="ml-0.5">Commute</span>}
+                      </button>
+                    )}
+                    {selectedJob.created && (() => {
+                      const days = Math.floor((Date.now() - new Date(selectedJob.created).getTime()) / 86_400_000);
+                      return (
+                        <span className="text-[10px] text-muted-foreground">
+                          {days <= 0 ? "Today" : days === 1 ? "1d ago" : `${days}d ago`}
+                        </span>
+                      );
+                    })()}
+                    {trackedIds.has(selectedJob.id) && (
+                      <span className="text-[10px] font-medium text-sky-600 dark:text-sky-400 flex items-center gap-0.5">
+                        <Check className="h-2.5 w-2.5" /> Tracked
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Commute inline drawer */}
+                  {searchCenter && jobPanelSections.has("commute") && (
+                    <div className="mt-2 rounded-lg border border-sky-200 dark:border-sky-800/50 bg-sky-50/50 dark:bg-sky-950/20 p-2.5 space-y-2">
                       {/* Mode selector */}
                       <div className="flex items-center gap-1.5">
                         {COMMUTE_MODES.map((m) => {
@@ -4678,8 +4780,6 @@ export function JobMap() {
                           </PopoverTrigger>
                           <PopoverContent className="w-64 p-3 space-y-3" align="end">
                             <div className="text-xs font-semibold">Commute Settings</div>
-
-                            {/* Read-only summary from profile */}
                             <div className="rounded-md border p-2 bg-muted/30 space-y-0.5">
                               {commuteProfile.vehicleYear && commuteProfile.vehicleMake && commuteProfile.vehicleModel ? (
                                 <p className="text-[11px] font-medium">{commuteProfile.vehicleYear} {commuteProfile.vehicleMake} {commuteProfile.vehicleModel}</p>
@@ -4698,7 +4798,6 @@ export function JobMap() {
                                 Edit vehicle &amp; commute →
                               </Button>
                             </div>
-
                             <div className="space-y-2">
                               <div className="flex items-center justify-between">
                                 <Label className="text-[11px]">Departure hour</Label>
@@ -4738,12 +4837,11 @@ export function JobMap() {
                           </PopoverContent>
                         </Popover>
                       </div>
-
                       {/* Commute details */}
                       {commuteInfo ? (
                         <div className="space-y-1.5">
                           <div className="flex items-center gap-1 text-xs font-medium">
-                            {(() => { const ModeIcon = COMMUTE_MODES.find((m) => m.value === (commuteInfo.mode ?? "driving"))?.icon ?? Car; return <ModeIcon className="h-3.5 w-3.5 text-blue-500" />; })()}
+                            {(() => { const ModeIcon = COMMUTE_MODES.find((m) => m.value === (commuteInfo.mode ?? "driving"))?.icon ?? Car; return <ModeIcon className="h-3.5 w-3.5 text-sky-500" />; })()}
                             {commuteInfo.routes && commuteInfo.routes.length > 1 ? (
                               <span>
                                 {Math.min(...commuteInfo.routes.map(r => r.durationMin))}–{Math.max(...commuteInfo.routes.map(r => r.durationMin))} min
@@ -4761,7 +4859,6 @@ export function JobMap() {
                               ({commuteProfile.departureHour === 0 ? "12 AM" : commuteProfile.departureHour < 12 ? `${commuteProfile.departureHour} AM` : commuteProfile.departureHour === 12 ? "12 PM" : `${commuteProfile.departureHour - 12} PM`} departure)
                             </div>
                           )}
-                          {/* ETA */}
                           {(() => {
                             const dur = commuteInfo.durationInTrafficMin ?? commuteInfo.durationMin;
                             const depH = commuteProfile.departureHour;
@@ -4777,7 +4874,6 @@ export function JobMap() {
                               </div>
                             );
                           })()}
-                          {/* Yearly cost */}
                           <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
                             <Fuel className="h-2.5 w-2.5" />
                             {commuteInfo.routes && commuteInfo.routes.length > 1 ? (
@@ -4788,7 +4884,6 @@ export function JobMap() {
                               <span>{formatCost(yearlyCommuteCost(commuteInfo.distanceMi, commuteProfile))}/yr</span>
                             )}
                           </div>
-                          {/* Route alternatives */}
                           {commuteInfo.routes && commuteInfo.routes.length > 1 && (
                             <details className="text-[10px] text-muted-foreground">
                               <summary className="cursor-pointer hover:text-foreground flex items-center gap-0.5">
@@ -4804,11 +4899,10 @@ export function JobMap() {
                               </div>
                             </details>
                           )}
-                          {/* Transit itinerary */}
                           {commuteInfo.transitSteps && commuteInfo.transitSteps.length > 0 && (
                             <div className="space-y-1 pt-1 border-t border-dashed">
                               <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-                                <TrainFront className="h-3 w-3 text-blue-500" /> Transit Itinerary
+                                <TrainFront className="h-3 w-3 text-sky-500" /> Transit Itinerary
                               </span>
                               <div className="flex items-center gap-0.5 flex-wrap">
                                 {commuteInfo.transitSteps.map((step, i) => (
@@ -4821,10 +4915,7 @@ export function JobMap() {
                                     ) : (
                                       <span
                                         className="inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded"
-                                        style={{
-                                          backgroundColor: step.lineColor || "#6366f1",
-                                          color: step.lineTextColor || "#fff",
-                                        }}
+                                        style={{ backgroundColor: step.lineColor || "#6366f1", color: step.lineTextColor || "#fff" }}
                                       >
                                         {step.vehicleType === "BUS" && <span>🚌</span>}
                                         {(step.vehicleType === "SUBWAY" || step.vehicleType === "METRO_RAIL") && <span>🚇</span>}
@@ -4853,7 +4944,6 @@ export function JobMap() {
                               ))}
                             </div>
                           )}
-                          {/* Transit route alternatives */}
                           {commuteInfo.mode === "transit" && commuteInfo.routes && commuteInfo.routes.length > 1 && (
                             <details className="text-[10px] text-muted-foreground">
                               <summary className="cursor-pointer hover:text-foreground flex items-center gap-0.5">
@@ -4886,117 +4976,171 @@ export function JobMap() {
                         <span className="text-xs text-muted-foreground">Commute unavailable</span>
                       )}
                     </div>
-                  </details>
-                )}
+                  )}
 
-                {/* ── ⚓ Anchors Section ── */}
-                {lifeAnchors.length > 0 && Object.keys(anchorCommutes).length > 0 && (() => {
-                  const totalYearlyCost = lifeAnchors.reduce((sum, a) => {
-                    if (!enabledAnchors.has(a.id)) return sum;
-                    const ac = anchorCommutes[a.id];
-                    return sum + (ac ? yearlyCommuteCost(ac.distanceMi, commuteProfile) : 0);
-                  }, 0);
-                  const midSalary = selectedJob.salaryMin
-                    ? selectedJob.salaryMax ? (selectedJob.salaryMin + selectedJob.salaryMax) / 2 : selectedJob.salaryMin
+                  {/* Badges */}
+                  <div className="flex flex-wrap gap-1 mt-1.5 pb-2.5">
+                    {!resolvedAddress && (
+                      <Badge variant="outline" className="gap-0.5 text-[10px] h-[18px] px-1.5">
+                        <MapPin className="h-2.5 w-2.5" /> {selectedJob.location}
+                      </Badge>
+                    )}
+                    <Badge variant="secondary" className={`text-[10px] h-[18px] px-1.5 ${sourceBadge(selectedJob.source).className}`}>
+                      {sourceBadge(selectedJob.source).label}
+                    </Badge>
+                    {selectedJob.contractTime && (
+                      <Badge variant="outline" className="text-[10px] h-[18px] px-1.5 capitalize">
+                        {selectedJob.contractTime.replace("_", " ")}
+                      </Badge>
+                    )}
+                    {selectedJob.dutyStations && selectedJob.dutyStations.length > 0 && (
+                      <Badge variant="outline" className="text-[10px] h-[18px] px-1.5 border-green-300 text-green-600 dark:border-green-700 dark:text-green-400">
+                        +{selectedJob.dutyStations.length} loc
+                      </Badge>
+                    )}
+                    {(walkScoreData?.walkScore != null || walkScoreData?.transitScore != null || walkScoreData?.bikeScore != null) && (
+                      <Badge variant="outline" className="text-[10px] h-[18px] px-1.5 gap-1 border-teal-300 text-teal-700 dark:border-teal-700 dark:text-teal-400">
+                        {walkScoreData?.walkScore != null && <span>🚶{walkScoreData.walkScore}</span>}
+                        {walkScoreData?.transitScore != null && <span>🚌{walkScoreData.transitScore}</span>}
+                        {walkScoreData?.bikeScore != null && <span>🚴{walkScoreData.bikeScore}</span>}
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* ═══ SCROLLABLE MIDDLE ═══ */}
+              <div className="flex-1 overflow-y-auto scrollbar-thin min-h-0 divide-y">
+
+                {/* Fast Scan */}
+                {(() => {
+                  const midSalary = selectedJob.salaryMin && selectedJob.salaryMax
+                    ? (selectedJob.salaryMin + selectedJob.salaryMax) / 2
+                    : (selectedJob.salaryMin ?? selectedJob.salaryMax ?? null);
+                  const tx = midSalary ? estimateTaxes(midSalary, selectedJob.location) : null;
+                  const lifeScore = lifeScoreCache[selectedJob.id];
+                  const commuteCost = commuteInfo ? yearlyCommuteCost(commuteInfo.distanceMi, commuteProfile) : null;
+                  const missingItems = [
+                    !midSalary ? "pay" : null,
+                    !resolvedAddress && !addressLoading ? "exact address" : null,
+                    searchCenter && !commuteInfo && !commuteLoading ? "commute" : null,
+                  ].filter(Boolean);
+                  const daysOld = selectedJob.created
+                    ? Math.floor((Date.now() - new Date(selectedJob.created).getTime()) / 86_400_000)
                     : null;
                   return (
-                    <details className="group">
-                      <summary className="flex items-center gap-1.5 px-3 py-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider cursor-pointer hover:bg-muted/50 select-none">
-                        <Anchor className="h-3 w-3 text-indigo-500" />
-                        Anchors
-                        {totalYearlyCost > 0 && (
-                          <span className="ml-auto mr-1 text-xs normal-case font-medium tracking-normal text-orange-600 dark:text-orange-400">
-                            {formatCost(totalYearlyCost)}/yr
-                          </span>
-                        )}
-                        <ChevronDown className="h-3 w-3 transition-transform group-open:rotate-180" />
-                      </summary>
-                      <div className="px-3 pb-2.5 space-y-1.5">
-                        {lifeAnchors.map((anchor) => {
-                          const ac = anchorCommutes[anchor.id];
-                          const enabled = enabledAnchors.has(anchor.id);
-                          return (
-                            <div key={anchor.id} className={`flex items-center justify-between text-[11px] px-0.5 ${!enabled ? "opacity-40" : ""}`}>
-                              <span className="flex items-center gap-1 text-muted-foreground truncate">
-                                <button
-                                  type="button"
-                                  className="p-0.5 rounded hover:bg-muted transition-colors"
-                                  onClick={() => setEnabledAnchors((prev) => {
-                                    const next = new Set(prev);
-                                    next.has(anchor.id) ? next.delete(anchor.id) : next.add(anchor.id);
-                                    return next;
-                                  })}
-                                  title={enabled ? `Hide ${anchor.label} route` : `Show ${anchor.label} route`}
-                                >
-                                  {enabled
-                                    ? <Eye className="h-2.5 w-2.5 text-indigo-500" />
-                                    : <EyeOff className="h-2.5 w-2.5 text-muted-foreground" />
-                                  }
-                                </button>
-                                <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ backgroundColor: enabled ? ANCHOR_COLORS[lifeAnchors.indexOf(anchor) % ANCHOR_COLORS.length] : "transparent" }} />
-                                {anchor.label}
-                              </span>
-                              {ac ? (
-                                <span className="font-medium shrink-0 ml-1">
-                                  ~{ac.durationMin}m · {formatCost(yearlyCommuteCost(ac.distanceMi, commuteProfile))}/yr
-                                </span>
-                              ) : (
-                                <Loader2 className="h-2.5 w-2.5 animate-spin text-muted-foreground" />
-                              )}
-                            </div>
-                          );
-                        })}
-                        {totalYearlyCost > 0 && (
-                          <div className="pt-1 border-t space-y-0.5">
-                            <div className="flex items-center justify-between text-[11px]">
-                              <span className="text-muted-foreground">Commute</span>
-                              <span className="font-semibold text-orange-600 dark:text-orange-400">{formatCost(totalYearlyCost)}/yr</span>
-                            </div>
-                            {midSalary && (
-                              <div className="flex items-center justify-between text-[11px]">
-                                <span className="text-muted-foreground">Net Salary</span>
-                                <span className="font-bold text-emerald-600 dark:text-emerald-400">{formatSalary(midSalary - totalYearlyCost)}</span>
-                              </div>
-                            )}
-                          </div>
-                        )}
+                    <div className="px-3 py-2 space-y-1.5">
+                      <div className="flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                        <Zap className="h-3 w-3 text-amber-500" /> Fast Scan
+                        <span className="ml-auto text-[10px] normal-case tracking-normal font-medium text-muted-foreground">
+                          {daysOld == null ? "freshness unknown" : daysOld <= 0 ? "posted today" : `${daysOld}d old`}
+                        </span>
                       </div>
-                    </details>
+                      <div className="grid grid-cols-3 gap-1.5">
+                        <div className="rounded-md border bg-muted/20 px-2 py-1">
+                          <div className="text-[9px] uppercase tracking-wide text-muted-foreground">Pay</div>
+                          <div className="truncate text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                            {tx ? `${formatSalaryCompact(tx.takeHomePay)}/yr` : midSalary ? formatSalaryCompact(midSalary) : "n/a"}
+                          </div>
+                        </div>
+                        <div className="rounded-md border bg-muted/20 px-2 py-1">
+                          <div className="text-[9px] uppercase tracking-wide text-muted-foreground">Fit</div>
+                          <div className={`truncate text-[11px] font-semibold ${lifeScore == null ? "text-muted-foreground" : lifeScore >= 70 ? "text-emerald-600 dark:text-emerald-400" : lifeScore >= 40 ? "text-yellow-600 dark:text-yellow-400" : "text-red-500 dark:text-red-400"}`}>
+                            {lifeScore != null ? `${lifeScore}/100` : "pending"}
+                          </div>
+                        </div>
+                        <div className="rounded-md border bg-muted/20 px-2 py-1">
+                          <div className="text-[9px] uppercase tracking-wide text-muted-foreground">Commute</div>
+                          <div className="truncate text-[11px] font-semibold text-sky-600 dark:text-sky-400">
+                            {commuteInfo ? `~${commuteInfo.durationMin}m` : commuteLoading ? "checking" : "n/a"}
+                          </div>
+                        </div>
+                      </div>
+                      {commuteCost != null && (
+                        <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                          <span>{commuteProfile.daysInOffice}d/wk commute estimate</span>
+                          <span className="font-medium text-orange-600 dark:text-orange-400">{formatCost(commuteCost)}/yr</span>
+                        </div>
+                      )}
+                      {missingItems.length > 0 && (
+                        <div className="flex items-center gap-1 rounded-md border border-dashed bg-muted/20 px-2 py-1 text-[10px] text-muted-foreground">
+                          <Info className="h-3 w-3 shrink-0" />
+                          <span>Needs {missingItems.join(", ")} for a stronger read.</span>
+                        </div>
+                      )}
+                    </div>
                   );
                 })()}
 
-                {/* ── 🏠 Office View Section ── */}
-                {GOOGLE_MAPS_KEY && effectiveJobCoords && (
-                  <details className="group">
-                    <summary className="flex items-center gap-1.5 px-3 py-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider cursor-pointer hover:bg-muted/50 select-none">
-                      <PersonStanding className="h-3 w-3 text-violet-500" />
-                      {resolvedAddress ? "Office View" : "Neighborhood"}
-                      <ChevronDown className="h-3 w-3 ml-auto transition-transform group-open:rotate-180" />
-                    </summary>
-                    <div className="pb-0">
-                      <iframe
-                        src={`https://www.google.com/maps/embed/v1/streetview?key=${GOOGLE_MAPS_KEY}&location=${effectiveJobCoords[0]},${effectiveJobCoords[1]}&heading=210&pitch=10&fov=90`}
-                        className="w-full h-[140px] border-0"
-                        loading="lazy"
-                        allowFullScreen
-                        referrerPolicy="no-referrer-when-downgrade"
-                      />
+                {/* ── � Description Section ── */}
+                {selectedJob.description && (() => {
+                  const formatted = formatJobDescription(selectedJob.description);
+                  const preview = formatted.text.slice(0, 360);
+                  const isLong = formatted.text.length > 360;
+                  const open = jobPanelSections.has("description");
+                  return (
+                    <div>
+                      <button type="button" className="flex items-center gap-1.5 px-3 py-2 w-full text-[11px] font-semibold text-muted-foreground uppercase tracking-wider cursor-pointer hover:bg-muted/50 select-none" onClick={() => toggleJobSection("description")}>
+                        <FileText className="h-3 w-3 text-foreground/50" />
+                        Description
+                        {open ? <ChevronUp className="h-3 w-3 ml-auto" /> : <ChevronDown className="h-3 w-3 ml-auto" />}
+                      </button>
+                      <div className="px-3 pb-2.5">
+                        {open || !isLong ? (
+                          <div className="space-y-3 text-sm text-foreground/80 leading-6">
+                            {formatted.sections.map((section, index) => section.type === "bullets" ? (
+                              <ul key={index} className="space-y-1.5 pl-4 list-disc marker:text-muted-foreground/70">
+                                {section.items.map((item, itemIndex) => <li key={itemIndex}>{item}</li>)}
+                              </ul>
+                            ) : (
+                              <p key={index}>{section.items[0]}</p>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-foreground/80 leading-6 line-clamp-4">
+                            {preview}
+                          </p>
+                        )}
+                        {isLong && (
+                          <button
+                            type="button"
+                            className="mt-1.5 text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
+                            onClick={() => toggleJobSection("description")}
+                          >
+                            {open ? "Show less" : "Show more…"}
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  </details>
-                )}
+                  );
+                })()}
+
+                {/* Commute details stay in the header inline drawer. */}
 
               </div>
 
               {/* ═══ STICKY FOOTER ═══ */}
-              <div className="shrink-0 p-2.5 pt-2 border-t bg-background/95 rounded-b-xl space-y-1.5">
+              <div className="shrink-0 p-2.5 pt-2 border-t bg-background/95 rounded-b-xl">
                 <div className="flex gap-1.5">
                   <Button
                     size="sm"
                     variant="outline"
                     className="flex-1 gap-1 h-7 text-xs"
-                    onClick={() => setShowDetails(true)}
+                    title="Research this company"
+                    onClick={() => setDeepDiveCompany(selectedJob.company)}
                   >
-                    <Eye className="h-3 w-3" /> Details
+                    <Search className="h-3 w-3" /> Deep Dive
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={trackedIds.has(selectedJob.id) ? "secondary" : "outline"}
+                    disabled={trackedIds.has(selectedJob.id)}
+                    className="flex-1 gap-1 h-7 text-xs"
+                    title={trackedIds.has(selectedJob.id) ? "Already tracked" : "Track this job"}
+                    onClick={() => trackMutation.mutate(selectedJob)}
+                  >
+                    {trackedIds.has(selectedJob.id) ? <Check className="h-3 w-3" /> : <Plus className="h-3 w-3" />}
+                    {trackedIds.has(selectedJob.id) ? "Tracked" : "Track"}
                   </Button>
                   {selectedJob.url && (
                     <a href={selectedJob.url} target="_blank" rel="noopener noreferrer" className="flex-1">
@@ -5005,41 +5149,6 @@ export function JobMap() {
                       </Button>
                     </a>
                   )}
-                  <Button
-                    size="sm"
-                    variant={trackedIds.has(selectedJob.id) ? "outline" : "secondary"}
-                    disabled={trackedIds.has(selectedJob.id)}
-                    onClick={() => trackMutation.mutate(selectedJob)}
-                    className="gap-1 h-7 text-xs px-2"
-                  >
-                    <Plus className="h-3 w-3" />
-                    {trackedIds.has(selectedJob.id) ? "✓" : "Track"}
-                  </Button>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger className="inline-flex items-center justify-center gap-0.5 rounded-md border bg-background px-1.5 h-7 text-xs hover:bg-accent">
-                      <Star className="h-3 w-3" />
-                      <ChevronDown className="h-2.5 w-2.5" />
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuGroup>
-                        <DropdownMenuLabel className="text-xs">Save to Interest Group</DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        {interestGroups.map((g) => (
-                          <DropdownMenuItem key={g.id} onClick={() => addToGroupMutation.mutate({ groupId: g.id, job: selectedJob })}>
-                            <span className="h-2 w-2 rounded-full mr-2 shrink-0" style={{ background: g.color }} />
-                            {g.name}
-                          </DropdownMenuItem>
-                        ))}
-                        {interestGroups.length === 0 && (
-                          <div className="px-2 py-1.5 text-xs text-muted-foreground">No groups yet</div>
-                        )}
-                      </DropdownMenuGroup>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => setShowNewGroup(true)}>
-                        <FolderPlus className="h-3.5 w-3.5 mr-2" /> New Group…
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
                 </div>
               </div>
 
@@ -5852,7 +5961,8 @@ export function JobMap() {
                                   className="p-0.5 rounded hover:bg-muted transition-colors"
                                   onClick={() => setEnabledAnchors((prev) => {
                                     const next = new Set(prev);
-                                    next.has(anchor.id) ? next.delete(anchor.id) : next.add(anchor.id);
+                                    if (next.has(anchor.id)) next.delete(anchor.id);
+                                    else next.add(anchor.id);
                                     return next;
                                   })}
                                   title={enabled ? `Hide ${anchor.label} route` : `Show ${anchor.label} route`}
@@ -5990,37 +6100,166 @@ export function JobMap() {
               <Building2 className="h-5 w-5" /> Company Deep Dive
             </DialogTitle>
             <DialogDescription>
-              Aggregated intelligence for {deepDiveCompany} across your search results
+              This posting first, then company-wide intelligence across your search results
             </DialogDescription>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto -mx-4 px-4 min-h-0">
             {deepDiveCompany && (
-              <CompanyDeepDive
-                companyName={deepDiveCompany}
-                jobs={geoJobs
-                  .filter((j) => j.company === deepDiveCompany)
-                  .map((j) => ({
-                    id: j.id,
-                    title: j.title,
-                    company: j.company,
-                    location: j.location,
-                    lat: j.lat,
-                    lng: j.lng,
-                    salaryMin: j.salaryMin,
-                    salaryMax: j.salaryMax,
-                    created: j.created,
-                    source: j.source,
-                    via: j.via,
-                    scheduleType: j.scheduleType,
-                    contractTime: j.contractTime,
-                    contractType: j.contractType,
-                    category: j.category,
-                    description: j.description,
-                  }))}
-                placesData={Object.entries(addressCache).find(([k]) => k.startsWith(`${deepDiveCompany}:`))?.[1] ?? null}
-                marketMeanSalary={meanSalary}
-                allCompanyNames={availableCompanies}
-              />
+              <>
+                {selectedJob && selectedJob.company === deepDiveCompany && (() => {
+                  const midSalary = selectedJob.salaryMin && selectedJob.salaryMax
+                    ? (selectedJob.salaryMin + selectedJob.salaryMax) / 2
+                    : (selectedJob.salaryMin ?? selectedJob.salaryMax ?? null);
+                  const tx = midSalary ? estimateTaxes(midSalary, selectedJob.location) : null;
+                  const totalYearlyCost = lifeAnchors.reduce((sum, a) => {
+                    if (!enabledAnchors.has(a.id)) return sum;
+                    const ac = anchorCommutes[a.id];
+                    return sum + (ac ? yearlyCommuteCost(ac.distanceMi, commuteProfile) : 0);
+                  }, 0);
+                  const lifeScore = lifeScoreCache[selectedJob.id];
+                  const netAfterCommute = tx ? tx.takeHomePay - totalYearlyCost : midSalary ? midSalary - totalYearlyCost : null;
+                  const missingItems = [
+                    !midSalary ? "pay range" : null,
+                    !resolvedAddress && !addressLoading ? "exact address" : null,
+                    lifeAnchors.length === 0 ? "life anchors" : null,
+                  ].filter(Boolean);
+                  const taxRows: { label: string; amount: number }[] = tx ? [
+                    { label: "Federal", amount: tx.federalIncomeTax },
+                    { label: tx.stateName ? `State (${tx.stateName})` : "State", amount: tx.stateIncomeTax },
+                    { label: "Social Security", amount: tx.socialSecurity },
+                    { label: "Medicare", amount: tx.medicare },
+                    ...tx.localTaxes.map((lt) => ({ label: lt.name, amount: lt.amount })),
+                  ] : [];
+                  return (
+                    <div className="mb-3 rounded-lg border bg-muted/20 p-3 space-y-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                            <BarChart3 className="h-3.5 w-3.5 text-emerald-500" /> This Posting
+                          </div>
+                          <p className="mt-0.5 text-sm font-semibold line-clamp-1">{selectedJob.title}</p>
+                          <p className="text-xs text-muted-foreground line-clamp-1">{selectedJob.location}</p>
+                        </div>
+                        {lifeScore != null && (
+                          <span className={`shrink-0 rounded-md px-2 py-1 text-xs font-bold ${lifeScore >= 70 ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400" : lifeScore >= 40 ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-950/50 dark:text-yellow-400" : "bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-400"}`}>
+                            {lifeScore}/100 fit
+                          </span>
+                        )}
+                      </div>
+                      {missingItems.length > 0 && (
+                        <div className="flex items-center gap-1.5 rounded-md border border-dashed bg-background px-2.5 py-1.5 text-xs text-muted-foreground">
+                          <Info className="h-3.5 w-3.5 shrink-0" />
+                          <span>Add {missingItems.join(", ")} to complete this posting analysis.</span>
+                        </div>
+                      )}
+                      <div className="grid grid-cols-3 gap-2">
+                        <div className="rounded-md border bg-background px-2 py-1.5">
+                          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Gross</div>
+                          <div className="truncate text-sm font-bold text-emerald-600 dark:text-emerald-400">
+                            {selectedJob.salaryMin && formatSalary(selectedJob.salaryMin)}
+                            {selectedJob.salaryMin && selectedJob.salaryMax && " - "}
+                            {selectedJob.salaryMax && formatSalary(selectedJob.salaryMax)}
+                            {!selectedJob.salaryMin && !selectedJob.salaryMax && "n/a"}
+                          </div>
+                        </div>
+                        <div className="rounded-md border bg-background px-2 py-1.5">
+                          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Take-home</div>
+                          <div className="truncate text-sm font-bold text-emerald-600 dark:text-emerald-400">
+                            {tx ? `${formatSalaryCompact(tx.takeHomePay)}/yr` : "n/a"}
+                          </div>
+                        </div>
+                        <div className="rounded-md border bg-background px-2 py-1.5">
+                          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">After commute</div>
+                          <div className="truncate text-sm font-bold text-emerald-600 dark:text-emerald-400">
+                            {netAfterCommute != null ? `${formatSalaryCompact(netAfterCommute)}/yr` : "n/a"}
+                          </div>
+                        </div>
+                      </div>
+                      {tx && (
+                        <div className="rounded-md border bg-background px-2.5 py-2 space-y-1">
+                          <div className="flex items-center justify-between text-xs font-semibold">
+                            <span>Tax estimate</span>
+                            <span className="text-muted-foreground">Effective {(tx.effectiveRate * 100).toFixed(1)}%</span>
+                          </div>
+                          {taxRows.map((r) => (
+                            <div key={r.label} className="flex items-center justify-between text-xs">
+                              <span className="text-muted-foreground">{r.label}</span>
+                              <span className="font-mono text-red-500 dark:text-red-400">-{formatSalaryCompact(r.amount)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {lifeAnchors.length > 0 && Object.keys(anchorCommutes).length > 0 && (
+                        <div className="rounded-md border bg-background px-2.5 py-2 space-y-1">
+                          <div className="flex items-center justify-between text-xs font-semibold">
+                            <span className="flex items-center gap-1"><Anchor className="h-3 w-3 text-indigo-500" /> Life anchors</span>
+                            {totalYearlyCost > 0 && <span className="text-orange-600 dark:text-orange-400">-{formatCost(totalYearlyCost)}/yr</span>}
+                          </div>
+                          {lifeAnchors.map((anchor) => {
+                            const ac = anchorCommutes[anchor.id];
+                            const enabled = enabledAnchors.has(anchor.id);
+                            return (
+                              <div key={anchor.id} className={`flex items-center justify-between text-xs ${!enabled ? "opacity-40" : ""}`}>
+                                <span className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
+                                  <button
+                                    type="button"
+                                    className="p-0.5 rounded hover:bg-muted transition-colors"
+                                    onClick={() => setEnabledAnchors((prev) => {
+                                      const next = new Set(prev);
+                                      if (next.has(anchor.id)) next.delete(anchor.id);
+                                      else next.add(anchor.id);
+                                      return next;
+                                    })}
+                                    title={enabled ? `Hide ${anchor.label} route` : `Show ${anchor.label} route`}
+                                  >
+                                    {enabled
+                                      ? <Eye className="h-3 w-3 text-indigo-500" />
+                                      : <EyeOff className="h-3 w-3 text-muted-foreground" />
+                                    }
+                                  </button>
+                                  <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: enabled ? ANCHOR_COLORS[lifeAnchors.indexOf(anchor) % ANCHOR_COLORS.length] : "transparent" }} />
+                                  <span className="truncate">{anchor.label}</span>
+                                </span>
+                                {ac ? (
+                                  <span className="shrink-0 font-medium ml-2">~{ac.durationMin}m · {formatCost(yearlyCommuteCost(ac.distanceMi, commuteProfile))}/yr</span>
+                                ) : (
+                                  <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+                <CompanyDeepDive
+                  companyName={deepDiveCompany}
+                  jobs={geoJobs
+                    .filter((j) => j.company === deepDiveCompany)
+                    .map((j) => ({
+                      id: j.id,
+                      title: j.title,
+                      company: j.company,
+                      location: j.location,
+                      lat: j.lat,
+                      lng: j.lng,
+                      salaryMin: j.salaryMin,
+                      salaryMax: j.salaryMax,
+                      created: j.created,
+                      source: j.source,
+                      via: j.via,
+                      scheduleType: j.scheduleType,
+                      contractTime: j.contractTime,
+                      contractType: j.contractType,
+                      category: j.category,
+                      description: j.description,
+                    }))}
+                  placesData={Object.entries(addressCache).find(([k]) => k.startsWith(`${deepDiveCompany}:`))?.[1] ?? null}
+                  marketMeanSalary={meanSalary}
+                  allCompanyNames={availableCompanies}
+                />
+              </>
             )}
           </div>
         </DialogContent>
@@ -6412,6 +6651,7 @@ function WorkHistoryPanel({
     differentials?: string | null; payFrequency?: string | null; payType?: string | null;
     coverImage?: string | null;
     coverImageY?: number | null;
+    uniformData?: string | null;
   }[];
   onClose: () => void;
   onAdded: () => void;
@@ -7156,7 +7396,7 @@ function WorkHistoryPanel({
   useEffect(() => {
     if (!focusedItem || focusedId === prevFocusedId.current) return;
     prevFocusedId.current = focusedId;
-    setMatchedPosition(null); setCompEvents([]); setWorkLogs([]); setIncomeHistory(null); setExpandedSections(new Set()); setSidePanel(null);
+    setMatchedPosition(null); setCompEvents([]); setWorkLogs([]); setIncomeHistory(null); setExpandedSections(new Set()); setSidePanel(null); setUniformMapOpen(false);
     setShowFocusInfo(false);
 
     let cancelled = false;
@@ -7304,6 +7544,49 @@ function WorkHistoryPanel({
   }
 
   function cancelReposition() { setRepositioning(false); }
+
+  // ── Uniform ──
+  const [uniformDraft, setUniformDraft] = useState<UniformData | null>(null);
+  const [uniformSaving, setUniformSaving] = useState(false);
+  const [uniformMapOpen, setUniformMapOpen] = useState(false);
+
+  function openUniformEditor() {
+    if (!focusedItem) return;
+    let parsed: UniformData = { enabled: true, zones: {} };
+    if (focusedItem.uniformData) {
+      try { parsed = JSON.parse(focusedItem.uniformData); } catch { /* ignore */ }
+    }
+    setUniformDraft(parsed);
+    toggleSection("uniform");
+  }
+
+  async function saveUniform() {
+    if (!focusedItem || !uniformDraft) return;
+    setUniformSaving(true);
+    try {
+      const res = await fetch(`/api/work-history/${focusedItem.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ uniformData: JSON.stringify(uniformDraft) }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success("Uniform saved");
+      onAdded();
+    } catch { toast.error("Failed to save uniform"); }
+    finally { setUniformSaving(false); }
+  }
+
+  async function clearUniform() {
+    if (!focusedItem) return;
+    try {
+      await fetch(`/api/work-history/${focusedItem.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ uniformData: null }),
+      });
+      onAdded();
+    } catch { toast.error("Failed to remove uniform"); }
+  }
 
   async function saveDetail(fields: Record<string, unknown>) {
     if (!focusedItem) return;
@@ -7685,6 +7968,20 @@ function WorkHistoryPanel({
 
   return (
     <>
+    {/* ── Uniform Map Popup ── */}
+    {uniformMapOpen && focusedItem?.uniformData && (() => {
+      let ud: UniformData | null = null;
+      try { ud = JSON.parse(focusedItem.uniformData); } catch { /* ignore */ }
+      return ud ? (
+        <div className="absolute top-3 z-[1200] pointer-events-auto" style={{ left: "calc(12px + 384px + 12px)" }}>
+          <UniformMapPopup
+            data={ud}
+            companyName={focusedItem.company}
+            onClose={() => setUniformMapOpen(false)}
+          />
+        </div>
+      ) : null;
+    })()} 
     {/* ── Main Card ── */}
     <div className="absolute top-3 left-3 z-[1100] bg-background/95 backdrop-blur-md border rounded-xl shadow-xl p-3 w-96 max-h-[60vh] overflow-y-auto scrollbar-thin pointer-events-auto">
 
@@ -7715,6 +8012,17 @@ function WorkHistoryPanel({
                   <span className="absolute -top-1 -right-1 text-[8px] font-bold bg-blue-500 text-white rounded-full w-3.5 h-3.5 flex items-center justify-center">{focusedItem.locations.length}</span>
                 </button>
               )}
+              {focusedItem.uniformData && (() => {
+                let ud: UniformData | null = null;
+                try { ud = JSON.parse(focusedItem.uniformData); } catch { /* ignore */ }
+                return ud ? (
+                  <button type="button"
+                    className={`p-1 rounded transition-colors ${uniformMapOpen ? "text-orange-500 bg-orange-500/10" : "text-muted-foreground hover:text-foreground"}`}
+                    onClick={() => setUniformMapOpen(p => !p)} title="View Uniform">
+                    <PersonStanding className="h-3.5 w-3.5" />
+                  </button>
+                ) : null;
+              })()}
               <button type="button" className={`p-1 rounded transition-colors ${focusTab === "edit" ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground"}`} onClick={() => setFocusTab(focusTab === "edit" ? "overview" : "edit")} title={focusTab === "edit" ? "Back to overview" : "Edit"}>
                 <Pencil className="h-3.5 w-3.5" />
               </button>
@@ -9220,6 +9528,54 @@ function WorkHistoryPanel({
               )}
             </div>
           )}
+
+          {/* ── Uniform / PPE ── */}
+          {(() => {
+            let parsedUniform: UniformData | null = null;
+            if (focusedItem.uniformData) {
+              try { parsedUniform = JSON.parse(focusedItem.uniformData); } catch { /* ignore */ }
+            }
+            const hasUniform = parsedUniform?.enabled && Object.keys(parsedUniform.zones ?? {}).length > 0;
+            const zoneCount = Object.values(parsedUniform?.zones ?? {}).filter(z => z?.item || z?.notes || z?.photo).length;
+            return (
+              <div className="rounded-lg border overflow-hidden">
+                <button type="button" className="w-full flex items-center justify-between p-2 hover:bg-muted/30 transition-colors"
+                  onClick={() => {
+                    if (!expandedSections.has("uniform")) openUniformEditor();
+                    else toggleSection("uniform");
+                  }}>
+                  <span className="text-[13px] font-medium flex items-center gap-1.5">
+                    <PersonStanding className="h-3.5 w-3.5 text-orange-500" /> Uniform / PPE
+                    {hasUniform && (
+                      <span className="ml-1 text-[10px] bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 px-1.5 py-0.5 rounded-full">
+                        {parsedUniform?.category ?? "Custom"} · {zoneCount} zone{zoneCount !== 1 ? "s" : ""}
+                      </span>
+                    )}
+                  </span>
+                  {expandedSections.has("uniform") ? <ChevronUp className="h-3 w-3 text-muted-foreground" /> : <ChevronDown className="h-3 w-3 text-muted-foreground" />}
+                </button>
+                {expandedSections.has("uniform") && uniformDraft && (
+                  <div className="p-2 space-y-2">
+                    <UniformBodyMap value={uniformDraft} onChange={setUniformDraft} />
+                    <div className="flex gap-1.5 pt-1">
+                      <button type="button"
+                        onClick={saveUniform}
+                        disabled={uniformSaving}
+                        className="flex-1 text-[12px] bg-primary text-primary-foreground rounded py-1 hover:bg-primary/90 disabled:opacity-50">
+                        {uniformSaving ? "Saving…" : "Save Uniform"}
+                      </button>
+                      {hasUniform && (
+                        <button type="button" onClick={clearUniform}
+                          className="text-[12px] text-destructive border border-destructive/30 rounded px-2 py-1 hover:bg-destructive/10">
+                          Clear
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           </>)}
           {/* ═══ END OVERVIEW TAB ═══ */}

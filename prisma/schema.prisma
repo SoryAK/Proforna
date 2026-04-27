@@ -1213,6 +1213,7 @@ model WorkHistory {
   estimatorSettings String?                  // JSON blob for paycheck estimator
   coverImage      String?                    // base64 cover photo
   coverImageY     Float?   @default(50)      // vertical focal point 0–100 for banner crop
+  uniformData     String?                    // JSON blob: { enabled, category, zones: { [zoneId]: { item, color, providedBy, notes, photo } } }
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

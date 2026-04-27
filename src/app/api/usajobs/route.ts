@@ -110,6 +110,7 @@ export async function GET(req: NextRequest) {
     const totalCount: number =
       data?.SearchResult?.SearchResultCount ?? 0;
 
+    const hasCenter = !isNaN(centerLat) && !isNaN(centerLng);
     const jobs = results.flatMap((item) => {
       const pos = item.MatchedObjectDescriptor;
       const validLocs = (pos.PositionLocation ?? []).filter(
@@ -182,7 +183,6 @@ export async function GET(req: NextRequest) {
     });
 
     // Post-fetch geo-filter: keep only duty stations within radius of search center
-    const hasCenter = !isNaN(centerLat) && !isNaN(centerLng);
     const filtered = hasCenter
       ? jobs.filter((j) => haversine(centerLat, centerLng, j.lat, j.lng) <= maxMiles)
       : jobs;
