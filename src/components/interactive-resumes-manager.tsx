@@ -50,6 +50,7 @@ interface SectionConfig {
   type: string;
   visible: boolean;
   order: number;
+  settings?: Record<string, unknown>;
 }
 
 interface InteractiveResume {
@@ -220,6 +221,15 @@ export default function InteractiveResumesManager() {
   function toggleSectionVisibility(idx: number) {
     const next = [...form.sections];
     next[idx] = { ...next[idx], visible: !next[idx].visible };
+    setForm({ ...form, sections: next });
+  }
+
+  function updateSectionSetting(idx: number, key: string, value: unknown) {
+    const next = [...form.sections];
+    next[idx] = {
+      ...next[idx],
+      settings: { ...(next[idx].settings || {}), [key]: value },
+    };
     setForm({ ...form, sections: next });
   }
 
@@ -463,34 +473,68 @@ export default function InteractiveResumesManager() {
                   .map((section, idx) => (
                     <div
                       key={section.type}
-                      className="flex items-center gap-3 px-3 py-2"
+                      className="px-3 py-2"
                     >
-                      <div className="flex flex-col gap-0.5">
-                        <button
-                          type="button"
-                          onClick={() => moveSection(idx, -1)}
-                          disabled={idx === 0}
-                          className="text-gray-400 hover:text-gray-600 disabled:opacity-30"
-                        >
-                          <ChevronDown className="h-3 w-3 rotate-180" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => moveSection(idx, 1)}
-                          disabled={idx === form.sections.length - 1}
-                          className="text-gray-400 hover:text-gray-600 disabled:opacity-30"
-                        >
-                          <ChevronDown className="h-3 w-3" />
-                        </button>
+                      <div className="flex items-center gap-3">
+                        <div className="flex flex-col gap-0.5">
+                          <button
+                            type="button"
+                            onClick={() => moveSection(idx, -1)}
+                            disabled={idx === 0}
+                            className="text-gray-400 hover:text-gray-600 disabled:opacity-30"
+                          >
+                            <ChevronDown className="h-3 w-3 rotate-180" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => moveSection(idx, 1)}
+                            disabled={idx === form.sections.length - 1}
+                            className="text-gray-400 hover:text-gray-600 disabled:opacity-30"
+                          >
+                            <ChevronDown className="h-3 w-3" />
+                          </button>
+                        </div>
+                        <GripVertical className="h-4 w-4 text-gray-300" />
+                        <span className="flex-1 text-sm">
+                          {SECTION_LABELS[section.type] || section.type}
+                        </span>
+                        <Switch
+                          checked={section.visible}
+                          onCheckedChange={() => toggleSectionVisibility(idx)}
+                        />
                       </div>
-                      <GripVertical className="h-4 w-4 text-gray-300" />
-                      <span className="flex-1 text-sm">
-                        {SECTION_LABELS[section.type] || section.type}
-                      </span>
-                      <Switch
-                        checked={section.visible}
-                        onCheckedChange={() => toggleSectionVisibility(idx)}
-                      />
+                      {section.type === "experience" && section.visible && (
+                        <div className="mt-2 ml-10 flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">View:</span>
+                          <div className="inline-flex rounded-md border p-0.5 bg-muted/40">
+                            {([
+                              { v: "both", l: "Map + List" },
+                              { v: "map", l: "Map only" },
+                              { v: "list", l: "List only" },
+                            ] as const).map((opt) => {
+                              const current =
+                                (section.settings?.experienceView as string) || "both";
+                              const active = current === opt.v;
+                              return (
+                                <button
+                                  key={opt.v}
+                                  type="button"
+                                  onClick={() =>
+                                    updateSectionSetting(idx, "experienceView", opt.v)
+                                  }
+                                  className={`px-2 py-1 text-xs rounded ${
+                                    active
+                                      ? "bg-background text-indigo-600 shadow-sm"
+                                      : "text-muted-foreground hover:text-foreground"
+                                  }`}
+                                >
+                                  {opt.l}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))}
               </div>

@@ -179,7 +179,6 @@ function formatJobDescription(html: string) {
     .replace(/<\s*\/\s*(p|div|section|article|h\d|li|ul|ol)\s*>/gi, "\n")
     .replace(/<\s*li[^>]*>/gi, "\n- ")
     .replace(/<[^>]+>/g, " ");
-
   const text = decodeHtmlEntities(withBreaks)
     .replace(/\r/g, "")
     .replace(/[ \t]+/g, " ")
@@ -206,6 +205,16 @@ function formatJobDescription(html: string) {
   }
 
   return { text, sections };
+}
+
+function getPreferredApplyLink(job: MapJob) {
+  const links = job.applyLinks ?? [];
+  const aggregatorTerms = ["adzuna", "google", "indeed", "linkedin", "ziprecruiter", "glassdoor", "monster", "simplyhired"];
+  const directLink = links.find((link) => {
+    const text = `${link.title} ${link.link}`.toLowerCase();
+    return !aggregatorTerms.some((term) => text.includes(term));
+  });
+  return directLink?.link || job.url || links[0]?.link || "";
 }
 
 /** Check if two date ranges (YYYY-MM format) overlap */
@@ -385,6 +394,7 @@ const REMOTE_OPTIONS = [
 const DEFAULT_CENTER: [number, number] = [39.87, -75.38]; // Eddystone, PA area
 
 const ANCHOR_COLORS = ["#6366f1", "#f59e0b", "#10b981", "#ef4444", "#8b5cf6", "#ec4899", "#06b6d4", "#f97316"];
+const ALL_WORK_TYPES = ["job", "school", "military", "volunteer", "internship", "self-employed"] as const;
 
 function formatSalary(n: number) {
   return n >= 1000 ? `$${Math.round(n / 1000)}k` : `$${n}`;
@@ -400,6 +410,10 @@ interface CommuteProfile {
   daysInOffice: number;
   avoidTolls: boolean;
   departureHour: number; // 0-23
+  returnDepartureHour?: number; // 0-23
+  parkingMonthly?: number;
+  badDayMultiplier?: number;
+  transitReliability?: "high" | "medium" | "low";
   vehicleYear?: string;
   vehicleMake?: string;
   vehicleModel?: string;
@@ -411,6 +425,10 @@ const DEFAULT_COMMUTE_PROFILE: CommuteProfile = {
   daysInOffice: 5,
   avoidTolls: false,
   departureHour: 8,
+  returnDepartureHour: 17,
+  parkingMonthly: 0,
+  badDayMultiplier: 1.5,
+  transitReliability: "medium",
 };
 const COMMUTE_PROFILE_KEY = "resumsify:commute-profile";
 function loadCommuteProfile(): CommuteProfile {
@@ -459,7 +477,7 @@ interface RouteOption {
 function yearlyCommuteCost(distanceMi: number, profile?: CommuteProfile) {
   if (profile) {
     const costPerMile = profile.gasPricePerGallon / profile.vehicleMpg;
-    return distanceMi * 2 * profile.daysInOffice * 52 * costPerMile;
+    return distanceMi * 2 * profile.daysInOffice * 52 * costPerMile + (profile.parkingMonthly ?? 0) * 12;
   }
   return distanceMi * 2 * 250 * IRS_MILEAGE_RATE;
 }
@@ -477,9 +495,42 @@ function sourceBadge(src: "adzuna" | "google" | "email" | "usajobs") {
 
 /* ── Persistent preferences helper ── */
 const JOB_PREFS_KEY = "resumsify-job-search-prefs";
+const JOB_COMPARE_SHORTLIST_KEY = "resumsify:job-compare-shortlist";
+const JOB_INTENT_KEY = "resumsify:job-intent-states";
 const PANEL_GALLERY_VIEW_KEY = "resumsify:panel-gallery-view";
 const WORK_HISTORY_PANEL_PREFS_KEY = "resumsify:work-history-panel-prefs";
 const WORK_HISTORY_OVERLAPS_KEY = "resumsify:work-history-overlaps";
+
+type JobIntent = "interested" | "applied" | "interviewing" | "waiting" | "rejected" | "not-fit";
+
+const JOB_INTENT_OPTIONS: { value: JobIntent; label: string; className: string }[] = [
+  { value: "interested", label: "Interested", className: "border-blue-300 text-blue-700 dark:border-blue-700 dark:text-blue-400" },
+  { value: "applied", label: "Applied", className: "border-emerald-300 text-emerald-700 dark:border-emerald-700 dark:text-emerald-400" },
+  { value: "interviewing", label: "Interviewing", className: "border-violet-300 text-violet-700 dark:border-violet-700 dark:text-violet-400" },
+  { value: "waiting", label: "Waiting", className: "border-amber-300 text-amber-700 dark:border-amber-700 dark:text-amber-400" },
+  { value: "rejected", label: "Rejected", className: "border-red-300 text-red-700 dark:border-red-700 dark:text-red-400" },
+  { value: "not-fit", label: "Not a fit", className: "border-slate-300 text-slate-600 dark:border-slate-700 dark:text-slate-400" },
+];
+
+function loadStringArray(key: string) {
+  if (typeof window === "undefined") return [];
+  try {
+    const value = JSON.parse(localStorage.getItem(key) || "[]");
+    return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+  } catch { return []; }
+}
+
+function loadJobIntentStates(): Record<string, JobIntent> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = JSON.parse(localStorage.getItem(JOB_INTENT_KEY) || "{}");
+    if (!raw || typeof raw !== "object") return {};
+    const allowed = new Set(JOB_INTENT_OPTIONS.map((option) => option.value));
+    return Object.fromEntries(
+      Object.entries(raw).filter((entry): entry is [string, JobIntent] => typeof entry[0] === "string" && allowed.has(entry[1] as JobIntent)),
+    );
+  } catch { return {}; }
+}
 
 function loadWorkHistoryPanelPrefs(): { tab?: "list" | "timeline" | "compare"; lastMainTab?: "list" | "timeline"; showTimeFilterPanel?: boolean } {
   if (typeof window === "undefined") return {};
@@ -541,6 +592,9 @@ export function JobMap() {
   const [selectedJob, setSelectedJob] = useState<MapJob | null>(null);
   const [jobPanelSections, setJobPanelSections] = useState<Set<string>>(() => new Set(["description"]));
   const [streetViewVisible, setStreetViewVisible] = useState(true);
+  const [streetViewExpanded, setStreetViewExpanded] = useState(false);
+  const [compareShortlistIds, setCompareShortlistIds] = useState<string[]>(() => loadStringArray(JOB_COMPARE_SHORTLIST_KEY).slice(0, 4));
+  const [jobIntentById, setJobIntentById] = useState<Record<string, JobIntent>>(() => loadJobIntentStates());
   const [searched, setSearched] = useState(false);
   const [searchParams, setSearchParams] = useState<{ q: string; where: string; apiWhere: string; distance: string } | null>(null);
   const [trackedIds, setTrackedIds] = useState<Set<string>>(new Set());
@@ -961,7 +1015,7 @@ export function JobMap() {
 
   /* ── Work History (past jobs reference pins) ── */
   interface WorkHistoryLocationItem { id: string; label: string; type: string; address: string; lat: number; lng: number; isPrimary: boolean; placeId?: string | null; skills?: string | null; startDate?: string | null; endDate?: string | null; photos?: string | null }
-  interface WorkHistoryItem { id: string; type?: string; company: string; title: string | null; address: string; lat: number; lng: number; startDate: string | null; endDate: string | null; locations: WorkHistoryLocationItem[]; placeId?: string | null; degree?: string | null; major?: string | null; gpa?: number | null }
+  interface WorkHistoryItem { id: string; type?: string; company: string; title: string | null; address: string; lat: number; lng: number; startDate: string | null; endDate: string | null; locations: WorkHistoryLocationItem[]; placeId?: string | null; degree?: string | null; major?: string | null; gpa?: number | null; coverImage?: string | null; coverImageY?: number | null; uniformData?: string | null }
   const { data: workHistory = [] } = useQuery<WorkHistoryItem[]>({
     queryKey: ["work-history"],
     queryFn: () => fetch("/api/work-history").then((r) => r.json()),
@@ -977,7 +1031,6 @@ export function JobMap() {
   });
 
   /* ── Type Filters ── */
-  const ALL_WORK_TYPES = ["job", "school", "military", "volunteer", "internship", "self-employed"] as const;
   const [hiddenTypes, setHiddenTypes] = useState<Set<string>>(new Set());
 
   /* ── Time Filter (year-month slider) ── */
@@ -1304,6 +1357,10 @@ export function JobMap() {
       daysInOffice: profile.daysInOffice ?? local.daysInOffice,
       avoidTolls: local.avoidTolls, // stays local
       departureHour: local.departureHour, // stays local
+      returnDepartureHour: local.returnDepartureHour,
+      parkingMonthly: local.parkingMonthly,
+      badDayMultiplier: local.badDayMultiplier,
+      transitReliability: local.transitReliability,
       vehicleYear: profile.vehicleYear ?? local.vehicleYear,
       vehicleMake: profile.vehicleMake ?? local.vehicleMake,
       vehicleModel: profile.vehicleModel ?? local.vehicleModel,
@@ -1703,6 +1760,73 @@ export function JobMap() {
     return sorted;
   }, [geoJobs, sortBy, minSalary, datePosted, remoteFilter, employmentType, hoursFilter, categoryFilter, companyFilter, maxCommuteMin, commuteCache, lifeScoreCache]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    localStorage.setItem(JOB_COMPARE_SHORTLIST_KEY, JSON.stringify(compareShortlistIds));
+  }, [compareShortlistIds]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    localStorage.setItem(JOB_INTENT_KEY, JSON.stringify(jobIntentById));
+  }, [jobIntentById]);
+
+  const getJobDecisionMetrics = useCallback((job: MapJob) => {
+    const midSalary = job.salaryMin && job.salaryMax
+      ? (job.salaryMin + job.salaryMax) / 2
+      : (job.salaryMin ?? job.salaryMax ?? null);
+    const tx = midSalary ? estimateTaxes(midSalary, job.location) : null;
+    const cachedCommute = commuteCache[`${job.id}:driving`];
+    const commuteCost = cachedCommute ? yearlyCommuteCost(cachedCommute.distanceMi, commuteProfile) : 0;
+    const estimatedTrueCost = tx ? tx.takeHomePay - commuteCost : midSalary ? midSalary - commuteCost : null;
+    const daysOld = job.created
+      ? Math.floor((Date.now() - new Date(job.created).getTime()) / 86_400_000)
+      : null;
+    return {
+      midSalary,
+      takeHomePay: tx?.takeHomePay ?? null,
+      estimatedTrueCost,
+      commuteCost: cachedCommute ? commuteCost : null,
+      commuteMinutes: cachedCommute?.durationMin ?? null,
+      commuteDistance: cachedCommute?.distanceMi ?? null,
+      daysOld,
+    };
+  }, [commuteCache, commuteProfile]);
+
+  const averageEstimatedTrueCost = useMemo(() => {
+    const values = sortedJobs
+      .map((job) => getJobDecisionMetrics(job).estimatedTrueCost)
+      .filter((value): value is number => typeof value === "number" && Number.isFinite(value));
+    if (values.length === 0) return null;
+    return values.reduce((sum, value) => sum + value, 0) / values.length;
+  }, [sortedJobs, getJobDecisionMetrics]);
+
+  const compareShortlistJobs = useMemo(
+    () => compareShortlistIds
+      .map((id) => geoJobs.find((job) => job.id === id))
+      .filter((job): job is MapJob => Boolean(job)),
+    [compareShortlistIds, geoJobs],
+  );
+
+  const toggleCompareShortlist = useCallback((job: MapJob) => {
+    setCompareShortlistIds((prev) => {
+      if (prev.includes(job.id)) return prev.filter((id) => id !== job.id);
+      if (prev.length >= 4) {
+        toast.info("Compare shortlist is limited to 4 jobs");
+        return prev;
+      }
+      return [...prev, job.id];
+    });
+  }, []);
+
+  const setJobIntent = useCallback((jobId: string, intent: JobIntent | "none") => {
+    setJobIntentById((prev) => {
+      const next = { ...prev };
+      if (intent === "none") delete next[jobId];
+      else next[jobId] = intent;
+      return next;
+    });
+  }, []);
+
   /* ── Commute Matrix: fetch per-job travel times when isochrone enabled ── */
   useEffect(() => {
     if (!isochroneEnabled || !homeAnchor || sortedJobs.length === 0) {
@@ -2043,6 +2167,9 @@ export function JobMap() {
       if (isLikelyRecruiter(job.company) || isUserFlaggedRecruiter(job.company) || recruiterFlagDb[norm]?.confirmed) {
         set.add(job.id);
       }
+      if (jobIntentById[job.id] === "rejected" || jobIntentById[job.id] === "not-fit") {
+        set.add(job.id);
+      }
     }
     // Dim jobs outside isochrone outermost ring (if active)
     if (isochroneEnabled && mergedIsochroneRings && mergedIsochroneRings.length > 0) {
@@ -2060,7 +2187,7 @@ export function JobMap() {
     if (set.size === prev.size && [...set].every((id) => prev.has(id))) return prev;
     prevDimmedIdsRef.current = set;
     return set;
-  }, [sortedJobs, recruiterFlagDb, isochroneEnabled, mergedIsochroneRings]);
+  }, [sortedJobs, recruiterFlagDb, jobIntentById, isochroneEnabled, mergedIsochroneRings]);
 
   /** Check if a job is part of a duplicate group */
   function getDuplicateInfo(jobId: string): DuplicateGroup | null {
@@ -4265,17 +4392,10 @@ export function JobMap() {
           )}
 
           {/* ── Area Tax Info Card ── */}
-          {areaInfo && searched && (() => {
+          {areaInfo && searched && !selectedJob && !focusedWorkHistoryId && (() => {
             const stateCode = areaInfo.state ? resolveState(areaInfo.state) : null;
-            const jobSalary = selectedJob
-              ? (selectedJob.salaryMin && selectedJob.salaryMax
-                  ? (selectedJob.salaryMin + selectedJob.salaryMax) / 2
-                  : selectedJob.salaryMin ?? selectedJob.salaryMax ?? null)
-              : null;
-            const baseSalary = jobSalary ?? meanSalary ?? 75_000;
-            const salaryLabel = jobSalary
-              ? `${selectedJob!.title?.slice(0, 18) ?? "Job"} @ ${formatSalaryCompact(baseSalary)}`
-              : meanSalary
+            const baseSalary = meanSalary ?? 75_000;
+            const salaryLabel = meanSalary
                 ? `Avg salary ${formatSalaryCompact(baseSalary)}`
                 : `Est. @ ${formatSalaryCompact(baseSalary)}`;
             const tx = estimateTaxes(baseSalary, areaInfo.city && stateCode ? `${areaInfo.city}, ${stateCode}` : stateCode ?? "");
@@ -4391,11 +4511,16 @@ export function JobMap() {
               <div className="shrink-0 bg-background/95 rounded-t-xl overflow-hidden border-b">
                 {/* Street View Banner */}
                 {GOOGLE_MAPS_KEY && effectiveJobCoords && streetViewVisible && (
-                  <div className="relative">
+                  <div
+                    className="relative"
+                    onPointerEnter={() => setStreetViewExpanded(true)}
+                    onPointerLeave={() => setStreetViewExpanded(false)}
+                    onFocusCapture={() => setStreetViewExpanded(true)}
+                    onBlurCapture={() => setStreetViewExpanded(false)}
+                  >
                     <iframe
                       src={`https://www.google.com/maps/embed/v1/streetview?key=${GOOGLE_MAPS_KEY}&location=${effectiveJobCoords[0]},${effectiveJobCoords[1]}&heading=210&pitch=10&fov=90`}
-                      className="w-full h-[108px] border-0"
-                      style={{ pointerEvents: "none" }}
+                      className={`w-full border-0 transition-[height] duration-200 ease-out ${streetViewExpanded ? "h-[240px]" : "h-[108px]"}`}
                       loading="lazy"
                       allowFullScreen
                       referrerPolicy="no-referrer-when-downgrade"
@@ -4424,63 +4549,70 @@ export function JobMap() {
                     {(!GOOGLE_MAPS_KEY || !effectiveJobCoords || !streetViewVisible) && selectedJobUtilityControls}
                   </div>
 
-                  {/* Location + Business Info strip */}
+                  {/* Office Snapshot */}
                   {(addressLoading || resolvedAddress) && (
-                    <div className="mt-1.5 space-y-0.5">
+                    <div className="mt-2 space-y-1.5 rounded-lg border bg-muted/15 px-2.5 py-2">
                       {addressLoading && !resolvedAddress && (
                         <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
                           <Loader2 className="h-2.5 w-2.5 animate-spin" /> Resolving address…
                         </div>
                       )}
                       {resolvedAddress && (
-                        <div className="flex items-start gap-1 text-[11px]">
-                          <MapPinned className="h-3 w-3 mt-0.5 shrink-0 text-emerald-500" />
-                          <div className="min-w-0 flex items-center gap-1 flex-wrap">
-                            <span className="text-muted-foreground">{resolvedAddress.address}</span>
-                            <Badge
-                              variant="outline"
-                              className={`text-[9px] px-1 py-0 h-3.5 ${
-                                resolvedAddress.confidence === "high" ? "border-emerald-300 text-emerald-600 dark:border-emerald-700 dark:text-emerald-400"
-                                : resolvedAddress.confidence === "medium" ? "border-yellow-300 text-yellow-600 dark:border-yellow-700 dark:text-yellow-400"
-                                : "border-red-300 text-red-600 dark:border-red-700 dark:text-red-400"
-                              }`}
-                            >
-                              {resolvedAddress.confidence === "high" ? "Exact" : resolvedAddress.confidence === "medium" ? "Likely" : "Multiple"}
-                            </Badge>
+                        <div className="flex items-start gap-1.5 text-[11px]">
+                          <MapPinned className="h-3.5 w-3.5 mt-0.5 shrink-0 text-emerald-500" />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex min-w-0 items-center gap-1">
+                              <span className="truncate text-muted-foreground">{resolvedAddress.address}</span>
+                              <Badge
+                                variant="outline"
+                                className={`shrink-0 text-[9px] px-1 py-0 h-3.5 ${
+                                  resolvedAddress.confidence === "high" ? "border-emerald-300 text-emerald-600 dark:border-emerald-700 dark:text-emerald-400"
+                                  : resolvedAddress.confidence === "medium" ? "border-yellow-300 text-yellow-600 dark:border-yellow-700 dark:text-yellow-400"
+                                  : "border-red-300 text-red-600 dark:border-red-700 dark:text-red-400"
+                                }`}
+                              >
+                                {resolvedAddress.confidence === "high" ? "Exact" : resolvedAddress.confidence === "medium" ? "Likely" : "Multiple"}
+                              </Badge>
+                            </div>
                           </div>
+                          <button
+                            type="button"
+                            className={`mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full transition-colors ${jobPanelSections.has("location-edit") ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
+                            onClick={() => toggleJobSection("location-edit")}
+                            title={jobPanelSections.has("location-edit") ? "Hide edit tools" : "Edit / Verify location"}
+                          >
+                            <Pencil className="h-2.5 w-2.5" />
+                          </button>
                         </div>
                       )}
-                      {resolvedAddress && (resolvedAddress.rating != null || resolvedAddress.openNow !== undefined || resolvedAddress.website || resolvedAddress.phone) && (
-                        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] pl-4">
+                      {resolvedAddress && (resolvedAddress.rating != null || resolvedAddress.openNow !== undefined || resolvedAddress.website || resolvedAddress.phone || (resolvedAddress.hours && resolvedAddress.hours.length > 0)) && (
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 pl-5 text-[10px] text-muted-foreground">
                           {resolvedAddress.rating != null && (
-                            <span className="flex items-center gap-0.5 text-muted-foreground">
+                            <span className="flex items-center gap-0.5">
                               <Star className="h-3 w-3 text-yellow-500 fill-yellow-500" />
-                              <span className="font-medium">{resolvedAddress.rating}</span>
+                              <span className="font-medium text-foreground/80">{resolvedAddress.rating}</span>
                               {resolvedAddress.ratingCount != null && <span className="text-muted-foreground/70">({resolvedAddress.ratingCount.toLocaleString()})</span>}
                             </span>
                           )}
                           {resolvedAddress.openNow !== undefined && (
-                            <span className={`text-[10px] font-medium ${resolvedAddress.openNow ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 dark:text-red-400"}`}>
+                            <span className={`font-medium ${resolvedAddress.openNow ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 dark:text-red-400"}`}>
                               {resolvedAddress.openNow ? "Open" : "Closed"}
                             </span>
                           )}
                           {resolvedAddress.website && (
-                            <a href={resolvedAddress.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-0.5 text-blue-600 dark:text-blue-400 hover:underline truncate max-w-[130px]">
-                              <Globe className="h-2.5 w-2.5 shrink-0" />
-                              {new URL(resolvedAddress.website).hostname.replace("www.", "")}
+                            <a href={resolvedAddress.website} target="_blank" rel="noopener noreferrer" className="inline-flex h-5 w-5 items-center justify-center rounded-full hover:bg-muted hover:text-foreground" title={new URL(resolvedAddress.website).hostname.replace("www.", "")}>
+                              <Globe className="h-3 w-3" />
                             </a>
                           )}
                           {resolvedAddress.phone && (
-                            <a href={`tel:${resolvedAddress.phone}`} className="flex items-center gap-0.5 text-muted-foreground hover:text-foreground">
-                              <Phone className="h-2.5 w-2.5 shrink-0" />
-                              {resolvedAddress.phone}
+                            <a href={`tel:${resolvedAddress.phone}`} className="inline-flex h-5 w-5 items-center justify-center rounded-full hover:bg-muted hover:text-foreground" title={resolvedAddress.phone}>
+                              <Phone className="h-3 w-3" />
                             </a>
                           )}
                           {resolvedAddress.hours && resolvedAddress.hours.length > 0 && (
                             <details className="relative group">
-                              <summary className="flex items-center gap-0.5 cursor-pointer text-muted-foreground hover:text-foreground list-none">
-                                <Clock className="h-2.5 w-2.5 shrink-0" />
-                                <span className="text-[10px]">Hours</span>
+                              <summary className="inline-flex h-5 w-5 cursor-pointer list-none items-center justify-center rounded-full hover:bg-muted hover:text-foreground" title="Hours">
+                                <Clock className="h-3 w-3" />
                               </summary>
                               <div className="absolute left-0 top-full mt-1 z-50 bg-popover border rounded-md shadow-lg px-2.5 py-2 min-w-[180px] space-y-0.5">
                                 {resolvedAddress.hours.map((h, i) => (
@@ -4491,9 +4623,6 @@ export function JobMap() {
                           )}
                         </div>
                       )}
-                      {resolvedAddress && resolvedAddress.editorialSummary && (
-                        <p className="text-[10px] text-muted-foreground leading-snug pl-4 italic">{resolvedAddress.editorialSummary}</p>
-                      )}
 
                       {/* Recruiter flags */}
                       {resolvedAddress && (() => {
@@ -4503,7 +4632,7 @@ export function JobMap() {
                         const dupInfo = getDuplicateInfo(selectedJob.id);
                         if (!isRecruiter && !dupInfo) return null;
                         return (
-                          <div className="flex items-center gap-1.5 flex-wrap pl-4">
+                          <div className="flex items-center gap-1.5 flex-wrap pl-5">
                             {isRecruiter && (
                               <Badge variant="outline" className="text-[10px] h-5 gap-1 border-orange-300 text-orange-600 dark:border-orange-700 dark:text-orange-400">
                                 <ShieldAlert className="h-2.5 w-2.5" /> via recruiter
@@ -4516,24 +4645,12 @@ export function JobMap() {
                             )}
                             {dupInfo && (
                               <Badge variant="outline" className="text-[10px] h-5 gap-1 border-violet-300 text-violet-600 dark:border-violet-700 dark:text-violet-400">
-                                <Repeat2 className="h-2.5 w-2.5" /> Duplicate
+                                <Repeat2 className="h-2.5 w-2.5" /> Seen {dupInfo.duplicates.length + 1}x
                               </Badge>
                             )}
                           </div>
                         );
                       })()}
-
-                      {/* Edit / Verify toggle */}
-                      {resolvedAddress && (
-                        <button
-                          type="button"
-                          className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground pl-4 mt-0.5"
-                          onClick={() => toggleJobSection("location-edit")}
-                        >
-                          <Pencil className="h-2.5 w-2.5" />
-                          {jobPanelSections.has("location-edit") ? "Hide edit tools" : "Edit / Verify"}
-                        </button>
-                      )}
 
                       {/* Edit / Verify drawer */}
                       {resolvedAddress && jobPanelSections.has("location-edit") && (
@@ -4695,60 +4812,6 @@ export function JobMap() {
                     </div>
                   )}
 
-                  {/* Score strip */}
-                  <div className="flex items-center gap-2 mt-2 flex-wrap">
-                    {(selectedJob.salaryMin || selectedJob.salaryMax) && (
-                      <span className="flex items-center gap-0.5 text-sm font-semibold text-emerald-600 dark:text-emerald-400">
-                        <DollarSign className="h-3.5 w-3.5" />
-                        {selectedJob.salaryMin && formatSalary(selectedJob.salaryMin)}
-                        {selectedJob.salaryMin && selectedJob.salaryMax && "–"}
-                        {selectedJob.salaryMax && formatSalary(selectedJob.salaryMax)}
-                        {selectedJob.salaryPredicted && <span className="text-[10px] font-normal text-muted-foreground ml-0.5">(est.)</span>}
-                      </span>
-                    )}
-                    {lifeScoreCache[selectedJob.id] != null && (
-                      <span
-                        title={`Life Score ${lifeScoreCache[selectedJob.id]}/100 — commute, salary & life anchors`}
-                        className={`text-xs font-bold px-1.5 py-0.5 rounded-md cursor-default ${lifeScoreCache[selectedJob.id] >= 70 ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400" : lifeScoreCache[selectedJob.id] >= 40 ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-950/50 dark:text-yellow-400" : "bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-400"}`}
-                      >
-                        {lifeScoreCache[selectedJob.id]}/100
-                      </span>
-                    )}
-                    {/* Commute pill toggle */}
-                    {searchCenter && (
-                      <button
-                        type="button"
-                        onClick={() => toggleJobSection("commute")}
-                        className={`flex items-center gap-0.5 text-xs px-1.5 py-0.5 rounded-full border transition-colors ${
-                          jobPanelSections.has("commute")
-                            ? "bg-sky-100 dark:bg-sky-950/40 text-sky-700 dark:text-sky-400 border-sky-300 dark:border-sky-700"
-                            : "text-muted-foreground hover:text-foreground hover:bg-muted/60 border-transparent"
-                        }`}
-                        title="Toggle commute details"
-                      >
-                        {commuteLoading
-                          ? <Loader2 className="h-3 w-3 animate-spin" />
-                          : (() => { const ModeIcon = COMMUTE_MODES.find((m) => m.value === (commuteInfo?.mode ?? "driving"))?.icon ?? Car; return <ModeIcon className="h-3 w-3" />; })()
-                        }
-                        {commuteInfo && !commuteLoading && <span className="ml-0.5">~{commuteInfo.durationMin}m</span>}
-                        {!commuteInfo && !commuteLoading && <span className="ml-0.5">Commute</span>}
-                      </button>
-                    )}
-                    {selectedJob.created && (() => {
-                      const days = Math.floor((Date.now() - new Date(selectedJob.created).getTime()) / 86_400_000);
-                      return (
-                        <span className="text-[10px] text-muted-foreground">
-                          {days <= 0 ? "Today" : days === 1 ? "1d ago" : `${days}d ago`}
-                        </span>
-                      );
-                    })()}
-                    {trackedIds.has(selectedJob.id) && (
-                      <span className="text-[10px] font-medium text-sky-600 dark:text-sky-400 flex items-center gap-0.5">
-                        <Check className="h-2.5 w-2.5" /> Tracked
-                      </span>
-                    )}
-                  </div>
-
                   {/* Commute inline drawer */}
                   {searchCenter && jobPanelSections.has("commute") && (
                     <div className="mt-2 rounded-lg border border-sky-200 dark:border-sky-800/50 bg-sky-50/50 dark:bg-sky-950/20 p-2.5 space-y-2">
@@ -4800,7 +4863,7 @@ export function JobMap() {
                             </div>
                             <div className="space-y-2">
                               <div className="flex items-center justify-between">
-                                <Label className="text-[11px]">Departure hour</Label>
+                                <Label className="text-[11px]">Morning commute</Label>
                                 <Select
                                   value={String(commuteProfile.departureHour)}
                                   onValueChange={(v) => {
@@ -4821,6 +4884,74 @@ export function JobMap() {
                                 </Select>
                               </div>
                               <div className="flex items-center justify-between">
+                                <Label className="text-[11px]">Evening commute</Label>
+                                <Select
+                                  value={String(commuteProfile.returnDepartureHour ?? 17)}
+                                  onValueChange={(v) => {
+                                    const p = { ...commuteProfile, returnDepartureHour: parseInt(v ?? "17") };
+                                    setCommuteProfile(p); saveCommuteProfile(p);
+                                  }}
+                                >
+                                  <SelectTrigger className="h-7 w-20 text-xs">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {Array.from({ length: 24 }, (_, i) => (
+                                      <SelectItem key={i} value={String(i)}>
+                                        {i === 0 ? "12 AM" : i < 12 ? `${i} AM` : i === 12 ? "12 PM" : `${i - 12} PM`}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div className="flex items-center justify-between gap-2">
+                                <Label className="text-[11px]">Parking / mo</Label>
+                                <Input
+                                  inputMode="numeric"
+                                  value={String(commuteProfile.parkingMonthly ?? 0)}
+                                  onChange={(event) => {
+                                    const p = { ...commuteProfile, parkingMonthly: Number(event.target.value.replace(/\D/g, "")) || 0 };
+                                    setCommuteProfile(p); saveCommuteProfile(p);
+                                  }}
+                                  className="h-7 w-20 text-xs"
+                                />
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <Label className="text-[11px]">Bad day commute</Label>
+                                <Select
+                                  value={String(commuteProfile.badDayMultiplier ?? 1.5)}
+                                  onValueChange={(v) => {
+                                    const p = { ...commuteProfile, badDayMultiplier: Number(v ?? "1.5") };
+                                    setCommuteProfile(p); saveCommuteProfile(p);
+                                  }}
+                                >
+                                  <SelectTrigger className="h-7 w-20 text-xs"><SelectValue /></SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="1.25">1.25x</SelectItem>
+                                    <SelectItem value="1.5">1.5x</SelectItem>
+                                    <SelectItem value="1.75">1.75x</SelectItem>
+                                    <SelectItem value="2">2x</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <Label className="text-[11px]">Transit reliability</Label>
+                                <Select
+                                  value={commuteProfile.transitReliability ?? "medium"}
+                                  onValueChange={(v) => {
+                                    const p = { ...commuteProfile, transitReliability: (v ?? "medium") as CommuteProfile["transitReliability"] };
+                                    setCommuteProfile(p); saveCommuteProfile(p);
+                                  }}
+                                >
+                                  <SelectTrigger className="h-7 w-24 text-xs"><SelectValue /></SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="high">High</SelectItem>
+                                    <SelectItem value="medium">Medium</SelectItem>
+                                    <SelectItem value="low">Low</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div className="flex items-center justify-between">
                                 <Label className="text-[11px]">Avoid tolls</Label>
                                 <Switch
                                   checked={commuteProfile.avoidTolls}
@@ -4832,7 +4963,7 @@ export function JobMap() {
                               </div>
                             </div>
                             <p className="text-[10px] text-muted-foreground">
-                              Cost: ${(commuteProfile.gasPricePerGallon / commuteProfile.vehicleMpg).toFixed(2)}/mi · {commuteProfile.daysInOffice}d/wk · {commuteProfile.daysInOffice * 52} trips/yr
+                              Cost: ${(commuteProfile.gasPricePerGallon / commuteProfile.vehicleMpg).toFixed(2)}/mi · {commuteProfile.daysInOffice}d/wk · ${(commuteProfile.parkingMonthly ?? 0).toLocaleString()}/mo parking
                             </p>
                           </PopoverContent>
                         </Popover>
@@ -4874,6 +5005,17 @@ export function JobMap() {
                               </div>
                             );
                           })()}
+                          <div className="grid grid-cols-2 gap-1 text-[10px] text-muted-foreground">
+                            <div className="rounded-md border bg-background/40 px-1.5 py-1">
+                              Evening: {(() => {
+                                const hour = commuteProfile.returnDepartureHour ?? 17;
+                                return hour === 0 ? "12 AM" : hour < 12 ? `${hour} AM` : hour === 12 ? "12 PM" : `${hour - 12} PM`;
+                              })()}
+                            </div>
+                            <div className="rounded-md border bg-background/40 px-1.5 py-1">
+                              Bad day: ~{Math.round((commuteInfo.durationInTrafficMin ?? commuteInfo.durationMin) * (commuteProfile.badDayMultiplier ?? 1.5))} min
+                            </div>
+                          </div>
                           <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
                             <Fuel className="h-2.5 w-2.5" />
                             {commuteInfo.routes && commuteInfo.routes.length > 1 ? (
@@ -4985,14 +5127,6 @@ export function JobMap() {
                         <MapPin className="h-2.5 w-2.5" /> {selectedJob.location}
                       </Badge>
                     )}
-                    <Badge variant="secondary" className={`text-[10px] h-[18px] px-1.5 ${sourceBadge(selectedJob.source).className}`}>
-                      {sourceBadge(selectedJob.source).label}
-                    </Badge>
-                    {selectedJob.contractTime && (
-                      <Badge variant="outline" className="text-[10px] h-[18px] px-1.5 capitalize">
-                        {selectedJob.contractTime.replace("_", " ")}
-                      </Badge>
-                    )}
                     {selectedJob.dutyStations && selectedJob.dutyStations.length > 0 && (
                       <Badge variant="outline" className="text-[10px] h-[18px] px-1.5 border-green-300 text-green-600 dark:border-green-700 dark:text-green-400">
                         +{selectedJob.dutyStations.length} loc
@@ -5011,6 +5145,58 @@ export function JobMap() {
 
               {/* ═══ SCROLLABLE MIDDLE ═══ */}
               <div className="flex-1 overflow-y-auto scrollbar-thin min-h-0 divide-y">
+
+                {/* Estimated True Cost */}
+                {(() => {
+                  const metrics = getJobDecisionMetrics(selectedJob);
+                  const delta = metrics.estimatedTrueCost != null && averageEstimatedTrueCost != null
+                    ? metrics.estimatedTrueCost - averageEstimatedTrueCost
+                    : null;
+                  const missingItems = [
+                    !metrics.midSalary ? "salary" : null,
+                    metrics.commuteMinutes == null && searchCenter ? "commute" : null,
+                    !resolvedAddress && !addressLoading ? "exact address" : null,
+                  ].filter(Boolean);
+                  return (
+                    <div className="px-3 py-2.5 space-y-2 bg-emerald-50/50 dark:bg-emerald-950/10">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
+                            <BarChart3 className="h-3 w-3" /> Estimated True Cost
+                          </div>
+                          <div className="mt-0.5 text-xl font-bold text-emerald-700 dark:text-emerald-300">
+                            {metrics.estimatedTrueCost != null ? `${formatSalaryCompact(metrics.estimatedTrueCost)}/yr` : "Needs salary"}
+                          </div>
+                        </div>
+                        {delta != null && (
+                          <Badge variant="outline" className={`shrink-0 text-[10px] h-5 ${delta >= 0 ? "border-emerald-300 text-emerald-700 dark:border-emerald-700 dark:text-emerald-400" : "border-orange-300 text-orange-700 dark:border-orange-700 dark:text-orange-400"}`}>
+                            {delta >= 0 ? "+" : ""}{formatSalaryCompact(delta)} vs avg
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-3 gap-1.5">
+                        <div className="rounded-md border bg-background/60 px-2 py-1">
+                          <div className="text-[9px] uppercase tracking-wide text-muted-foreground">Take-home</div>
+                          <div className="truncate text-[11px] font-semibold">{metrics.takeHomePay != null ? `${formatSalaryCompact(metrics.takeHomePay)}/yr` : "n/a"}</div>
+                        </div>
+                        <div className="rounded-md border bg-background/60 px-2 py-1">
+                          <div className="text-[9px] uppercase tracking-wide text-muted-foreground">Commute cost</div>
+                          <div className="truncate text-[11px] font-semibold text-orange-600 dark:text-orange-400">{metrics.commuteCost != null ? `-${formatCost(metrics.commuteCost)}/yr` : "n/a"}</div>
+                        </div>
+                        <div className="rounded-md border bg-background/60 px-2 py-1">
+                          <div className="text-[9px] uppercase tracking-wide text-muted-foreground">Posting</div>
+                          <div className="truncate text-[11px] font-semibold">{metrics.daysOld == null ? "unknown" : metrics.daysOld <= 0 ? "today" : `${metrics.daysOld}d old`}</div>
+                        </div>
+                      </div>
+                      {missingItems.length > 0 && (
+                        <div className="flex items-center gap-1 rounded-md border border-dashed bg-background/50 px-2 py-1 text-[10px] text-muted-foreground">
+                          <Wrench className="h-3 w-3 shrink-0" />
+                          <span>Improve this estimate: add {missingItems.join(", ")}.</span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {/* Fast Scan */}
                 {(() => {
@@ -5049,12 +5235,21 @@ export function JobMap() {
                             {lifeScore != null ? `${lifeScore}/100` : "pending"}
                           </div>
                         </div>
-                        <div className="rounded-md border bg-muted/20 px-2 py-1">
+                        <button
+                          type="button"
+                          className={`rounded-md border bg-muted/20 px-2 py-1 text-left transition-colors ${searchCenter ? "hover:bg-muted/40" : "cursor-default"} ${jobPanelSections.has("commute") ? "border-sky-300 bg-sky-50/70 dark:border-sky-800 dark:bg-sky-950/30" : ""}`}
+                          onClick={() => { if (searchCenter) toggleJobSection("commute"); }}
+                          title={searchCenter ? "Toggle commute details" : undefined}
+                        >
                           <div className="text-[9px] uppercase tracking-wide text-muted-foreground">Commute</div>
-                          <div className="truncate text-[11px] font-semibold text-sky-600 dark:text-sky-400">
-                            {commuteInfo ? `~${commuteInfo.durationMin}m` : commuteLoading ? "checking" : "n/a"}
+                          <div className="flex items-center gap-1 truncate text-[11px] font-semibold text-sky-600 dark:text-sky-400">
+                            {commuteLoading
+                              ? <Loader2 className="h-3 w-3 animate-spin" />
+                              : (() => { const ModeIcon = COMMUTE_MODES.find((m) => m.value === (commuteInfo?.mode ?? "driving"))?.icon ?? Car; return <ModeIcon className="h-3 w-3 shrink-0" />; })()
+                            }
+                            <span className="truncate">{commuteInfo ? `~${commuteInfo.durationMin}m` : commuteLoading ? "checking" : "n/a"}</span>
                           </div>
-                        </div>
+                        </button>
                       </div>
                       {commuteCost != null && (
                         <div className="flex items-center justify-between text-[10px] text-muted-foreground">
@@ -5072,43 +5267,203 @@ export function JobMap() {
                   );
                 })()}
 
-                {/* ── � Description Section ── */}
-                {selectedJob.description && (() => {
-                  const formatted = formatJobDescription(selectedJob.description);
-                  const preview = formatted.text.slice(0, 360);
-                  const isLong = formatted.text.length > 360;
-                  const open = jobPanelSections.has("description");
+                {/* True Cost calculator */}
+                {(() => {
+                  const metrics = getJobDecisionMetrics(selectedJob);
+                  const midSalary = selectedJob.salaryMin && selectedJob.salaryMax
+                    ? (selectedJob.salaryMin + selectedJob.salaryMax) / 2
+                    : (selectedJob.salaryMin ?? selectedJob.salaryMax ?? null);
+                  const tx = midSalary ? estimateTaxes(midSalary, selectedJob.location) : null;
+                  const totalAnchorCost = lifeAnchors.reduce((sum, anchor) => {
+                    if (!enabledAnchors.has(anchor.id)) return sum;
+                    const anchorCommute = anchorCommutes[anchor.id];
+                    return sum + (anchorCommute ? yearlyCommuteCost(anchorCommute.distanceMi, commuteProfile) : 0);
+                  }, 0);
+                  const lifeScore = lifeScoreCache[selectedJob.id];
+                  const missingItems = [
+                    !midSalary ? "pay range" : null,
+                    !resolvedAddress && !addressLoading ? "exact address" : null,
+                    metrics.commuteMinutes == null && searchCenter ? "commute" : null,
+                  ].filter(Boolean);
+                  const taxRows: { label: string; amount: number }[] = tx ? [
+                    { label: "Federal", amount: tx.federalIncomeTax },
+                    { label: tx.stateName ? `State (${tx.stateName})` : "State", amount: tx.stateIncomeTax },
+                    { label: "Social Security", amount: tx.socialSecurity },
+                    { label: "Medicare", amount: tx.medicare },
+                    ...tx.localTaxes.map((localTax) => ({ label: localTax.name, amount: localTax.amount })),
+                  ] : [];
+                  const open = jobPanelSections.has("true-cost");
                   return (
-                    <div>
-                      <button type="button" className="flex items-center gap-1.5 px-3 py-2 w-full text-[11px] font-semibold text-muted-foreground uppercase tracking-wider cursor-pointer hover:bg-muted/50 select-none" onClick={() => toggleJobSection("description")}>
-                        <FileText className="h-3 w-3 text-foreground/50" />
-                        Description
-                        {open ? <ChevronUp className="h-3 w-3 ml-auto" /> : <ChevronDown className="h-3 w-3 ml-auto" />}
-                      </button>
-                      <div className="px-3 pb-2.5">
-                        {open || !isLong ? (
-                          <div className="space-y-3 text-sm text-foreground/80 leading-6">
-                            {formatted.sections.map((section, index) => section.type === "bullets" ? (
-                              <ul key={index} className="space-y-1.5 pl-4 list-disc marker:text-muted-foreground/70">
-                                {section.items.map((item, itemIndex) => <li key={itemIndex}>{item}</li>)}
-                              </ul>
-                            ) : (
-                              <p key={index}>{section.items[0]}</p>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="text-sm text-foreground/80 leading-6 line-clamp-4">
-                            {preview}
-                          </p>
+                    <div className="px-3 py-2 space-y-2">
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-1.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground"
+                        onClick={() => toggleJobSection("true-cost")}
+                      >
+                        <BarChart3 className="h-3 w-3 text-emerald-500" />
+                        Estimated True Cost
+                        {lifeScore != null && (
+                          <span className={`ml-auto rounded-md px-1.5 py-0.5 text-[10px] font-bold normal-case tracking-normal ${lifeScore >= 70 ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400" : lifeScore >= 40 ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-950/50 dark:text-yellow-400" : "bg-red-100 text-red-700 dark:bg-red-950/50 text-red-400"}`}>
+                            {lifeScore}/100 fit
+                          </span>
                         )}
-                        {isLong && (
-                          <button
-                            type="button"
-                            className="mt-1.5 text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
-                            onClick={() => toggleJobSection("description")}
-                          >
-                            {open ? "Show less" : "Show more…"}
-                          </button>
+                        {open ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />}
+                      </button>
+                      <div className="grid grid-cols-3 gap-1.5">
+                        <div className="rounded-md border bg-muted/20 px-2 py-1">
+                          <div className="text-[9px] uppercase tracking-wide text-muted-foreground">Gross</div>
+                          <div className="truncate text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                            {selectedJob.salaryMin && formatSalary(selectedJob.salaryMin)}
+                            {selectedJob.salaryMin && selectedJob.salaryMax && " - "}
+                            {selectedJob.salaryMax && formatSalary(selectedJob.salaryMax)}
+                            {!selectedJob.salaryMin && !selectedJob.salaryMax && "n/a"}
+                          </div>
+                        </div>
+                        <div className="rounded-md border bg-muted/20 px-2 py-1">
+                          <div className="text-[9px] uppercase tracking-wide text-muted-foreground">Take-home</div>
+                          <div className="truncate text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                            {tx ? `${formatSalaryCompact(tx.takeHomePay)}/yr` : "n/a"}
+                          </div>
+                        </div>
+                        <div className="rounded-md border bg-muted/20 px-2 py-1">
+                          <div className="text-[9px] uppercase tracking-wide text-muted-foreground">True cost</div>
+                          <div className="truncate text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                            {metrics.estimatedTrueCost != null ? `${formatSalaryCompact(metrics.estimatedTrueCost)}/yr` : "n/a"}
+                          </div>
+                        </div>
+                      </div>
+                      {missingItems.length > 0 && (
+                        <div className="flex items-center gap-1 rounded-md border border-dashed bg-muted/20 px-2 py-1 text-[10px] text-muted-foreground">
+                          <Info className="h-3 w-3 shrink-0" />
+                          <span>Add {missingItems.join(", ")} to complete this calculation.</span>
+                        </div>
+                      )}
+                      {open && (
+                        <div className="space-y-2">
+                          {tx && (
+                            <div className="rounded-md border bg-muted/15 px-2.5 py-2 space-y-1">
+                              <div className="flex items-center justify-between text-xs font-semibold">
+                                <span>Tax estimate</span>
+                                <span className="text-muted-foreground">Effective {(tx.effectiveRate * 100).toFixed(1)}%</span>
+                              </div>
+                              {taxRows.map((row) => (
+                                <div key={row.label} className="flex items-center justify-between text-xs">
+                                  <span className="text-muted-foreground">{row.label}</span>
+                                  <span className="font-mono text-red-500 dark:text-red-400">-{formatSalaryCompact(row.amount)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {lifeAnchors.length > 0 && Object.keys(anchorCommutes).length > 0 && (
+                            <div className="rounded-md border bg-muted/15 px-2.5 py-2 space-y-1">
+                              <div className="flex items-center justify-between text-xs font-semibold">
+                                <span className="flex items-center gap-1"><Anchor className="h-3 w-3 text-indigo-500" /> Life anchors</span>
+                                {totalAnchorCost > 0 && <span className="text-orange-600 dark:text-orange-400">-{formatCost(totalAnchorCost)}/yr</span>}
+                              </div>
+                              {lifeAnchors.map((anchor) => {
+                                const anchorCommute = anchorCommutes[anchor.id];
+                                const enabled = enabledAnchors.has(anchor.id);
+                                return (
+                                  <div key={anchor.id} className={`flex items-center justify-between text-xs ${!enabled ? "opacity-40" : ""}`}>
+                                    <span className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
+                                      <button
+                                        type="button"
+                                        className="p-0.5 rounded hover:bg-muted transition-colors"
+                                        onClick={() => setEnabledAnchors((prev) => {
+                                          const next = new Set(prev);
+                                          if (next.has(anchor.id)) next.delete(anchor.id);
+                                          else next.add(anchor.id);
+                                          return next;
+                                        })}
+                                        title={enabled ? `Hide ${anchor.label} route` : `Show ${anchor.label} route`}
+                                      >
+                                        {enabled
+                                          ? <Eye className="h-3 w-3 text-indigo-500" />
+                                          : <EyeOff className="h-3 w-3 text-muted-foreground" />
+                                        }
+                                      </button>
+                                      <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: enabled ? ANCHOR_COLORS[lifeAnchors.indexOf(anchor) % ANCHOR_COLORS.length] : "transparent" }} />
+                                      <span className="truncate">{anchor.label}</span>
+                                    </span>
+                                    {anchorCommute ? (
+                                      <span className="shrink-0 font-medium ml-2">~{anchorCommute.durationMin}m · {formatCost(yearlyCommuteCost(anchorCommute.distanceMi, commuteProfile))}/yr</span>
+                                    ) : (
+                                      <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* Missing Data Fixer */}
+                {(() => {
+                  const norm = selectedJob.company.toLowerCase().trim();
+                  const recruiterInfo = recruiterFlagDb[norm];
+                  const isRecruiter = isLikelyRecruiter(selectedJob.company) || isUserFlaggedRecruiter(selectedJob.company) || recruiterInfo?.confirmed;
+                  const dupInfo = getDuplicateInfo(selectedJob.id);
+                  const preferredApplyLink = getPreferredApplyLink(selectedJob);
+                  const text = `${selectedJob.title} ${selectedJob.location} ${selectedJob.description} ${selectedJob.scheduleType ?? ""}`.toLowerCase();
+                  const hasRemoteSignal = text.includes("remote") || text.includes("hybrid") || text.includes("on-site") || text.includes("onsite");
+                  const fixes = [
+                    !resolvedAddress && !addressLoading ? "exact address" : null,
+                    !selectedJob.salaryMin && !selectedJob.salaryMax ? "salary" : null,
+                    !hasRemoteSignal ? "remote/hybrid status" : null,
+                    !preferredApplyLink ? "apply link" : null,
+                    (isRecruiter || hasLandmarkMismatch(selectedJob.company, resolvedAddress?.name)) ? "company identity" : null,
+                  ].filter(Boolean);
+                  if (fixes.length === 0 && !dupInfo) return null;
+                  return (
+                    <div className="px-3 py-2 space-y-2">
+                      <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        <Wrench className="h-3 w-3 text-blue-500" /> Improve Posting
+                        {dupInfo && (
+                          <Badge variant="outline" className="ml-auto h-5 text-[10px] border-violet-300 text-violet-700 dark:border-violet-700 dark:text-violet-400">
+                            Seen {dupInfo.duplicates.length + 1}x
+                          </Badge>
+                        )}
+                      </div>
+                      {fixes.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {fixes.map((fix) => (
+                            <Badge key={fix} variant="outline" className="text-[10px] h-5 border-dashed text-muted-foreground">
+                              Missing {fix}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {(!resolvedAddress || isRecruiter || hasLandmarkMismatch(selectedJob.company, resolvedAddress?.name)) && (
+                          <Button size="sm" variant="outline" className="h-7 text-[10px] gap-1" onClick={() => toggleJobSection("location-edit")}>
+                            <MapPinned className="h-3 w-3" /> Verify office
+                          </Button>
+                        )}
+                        {(!selectedJob.salaryMin && !selectedJob.salaryMax) && (
+                          <Button size="sm" variant="outline" className="h-7 text-[10px] gap-1" onClick={() => setDeepDiveCompany(selectedJob.company)}>
+                            <DollarSign className="h-3 w-3" /> Research pay
+                          </Button>
+                        )}
+                        {!hasRemoteSignal && (
+                          <Button size="sm" variant="outline" className="h-7 text-[10px] gap-1" onClick={() => setShowDetails(true)}>
+                            <Wifi className="h-3 w-3" /> Check remote
+                          </Button>
+                        )}
+                        {preferredApplyLink && selectedJob.applyLinks && selectedJob.applyLinks.length > 1 && (
+                          <a href={preferredApplyLink} target="_blank" rel="noopener noreferrer">
+                            <Button size="sm" variant="outline" className="h-7 w-full text-[10px] gap-1">
+                              <ExternalLink className="h-3 w-3" /> Direct apply
+                            </Button>
+                          </a>
+                        )}
+                        {dupInfo && (
+                          <Button size="sm" variant="outline" className="h-7 text-[10px] gap-1" onClick={() => setDeepDiveCompany(selectedJob.company)}>
+                            <Repeat2 className="h-3 w-3" /> Review matches
+                          </Button>
                         )}
                       </div>
                     </div>
@@ -5121,6 +5476,29 @@ export function JobMap() {
 
               {/* ═══ STICKY FOOTER ═══ */}
               <div className="shrink-0 p-2.5 pt-2 border-t bg-background/95 rounded-b-xl">
+                <div className="mb-1.5 flex gap-1.5">
+                  <Select value={jobIntentById[selectedJob.id] ?? "none"} onValueChange={(value) => setJobIntent(selectedJob.id, (value ?? "none") as JobIntent | "none")}>
+                    <SelectTrigger className="h-7 flex-1 text-xs">
+                      <SelectValue placeholder="Intent" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No status</SelectItem>
+                      {JOB_INTENT_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    size="sm"
+                    variant={compareShortlistIds.includes(selectedJob.id) ? "secondary" : "outline"}
+                    className="h-7 gap-1 px-2 text-xs"
+                    title={compareShortlistIds.includes(selectedJob.id) ? "Remove from compare shortlist" : "Add to compare shortlist"}
+                    onClick={() => toggleCompareShortlist(selectedJob)}
+                  >
+                    <Bookmark className="h-3 w-3" />
+                    {compareShortlistIds.includes(selectedJob.id) ? "Pinned" : "Compare"}
+                  </Button>
+                </div>
                 <div className="flex gap-1.5">
                   <Button
                     size="sm"
@@ -5142,22 +5520,64 @@ export function JobMap() {
                     {trackedIds.has(selectedJob.id) ? <Check className="h-3 w-3" /> : <Plus className="h-3 w-3" />}
                     {trackedIds.has(selectedJob.id) ? "Tracked" : "Track"}
                   </Button>
-                  {selectedJob.url && (
-                    <a href={selectedJob.url} target="_blank" rel="noopener noreferrer" className="flex-1">
-                      <Button size="sm" className="w-full gap-1 h-7 text-xs">
-                        <ExternalLink className="h-3 w-3" /> Apply
-                      </Button>
-                    </a>
-                  )}
                 </div>
               </div>
 
             </div>
           )}
+
+          {compareShortlistJobs.length > 0 && (
+            <div className="absolute bottom-3 left-1/2 z-[1050] w-[min(760px,calc(100%-32px))] -translate-x-1/2 rounded-xl border bg-background/95 p-2 shadow-xl backdrop-blur-sm pointer-events-auto">
+              <div className="mb-1.5 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  <Bookmark className="h-3 w-3 text-blue-500" /> Compare Shortlist
+                  <span className="text-[10px] font-medium normal-case tracking-normal">{compareShortlistJobs.length}/4 pinned</span>
+                </div>
+                <button type="button" className="text-[10px] text-muted-foreground hover:text-foreground" onClick={() => setCompareShortlistIds([])}>
+                  Clear
+                </button>
+              </div>
+              <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${Math.min(compareShortlistJobs.length, 4)}, minmax(0, 1fr))` }}>
+                {compareShortlistJobs.map((job) => {
+                  const metrics = getJobDecisionMetrics(job);
+                  const intent = jobIntentById[job.id];
+                  const intentOption = intent ? JOB_INTENT_OPTIONS.find((option) => option.value === intent) : null;
+                  return (
+                    <div key={job.id} className={`rounded-lg border bg-muted/15 p-2 text-xs ${selectedJob?.id === job.id ? "ring-1 ring-primary" : ""}`}>
+                      <div className="flex items-start gap-1.5">
+                        <button type="button" className="min-w-0 flex-1 text-left" onClick={() => { setSelectedJob(job); setShowDetails(false); }}>
+                          <div className="truncate font-semibold leading-tight">{job.title}</div>
+                          <div className="truncate text-[10px] text-muted-foreground">{job.company}</div>
+                        </button>
+                        <button type="button" className="shrink-0 text-muted-foreground hover:text-foreground" title="Remove from compare" onClick={() => toggleCompareShortlist(job)}>
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                      <div className="mt-1.5 grid grid-cols-2 gap-x-2 gap-y-0.5 text-[10px]">
+                        <span className="text-muted-foreground">True cost</span>
+                        <span className="truncate text-right font-semibold text-emerald-600 dark:text-emerald-400">{metrics.estimatedTrueCost != null ? `${formatSalaryCompact(metrics.estimatedTrueCost)}/yr` : "n/a"}</span>
+                        <span className="text-muted-foreground">Commute</span>
+                        <span className="truncate text-right font-medium">{metrics.commuteMinutes != null ? `${metrics.commuteMinutes}m` : "n/a"}</span>
+                        <span className="text-muted-foreground">Distance</span>
+                        <span className="truncate text-right font-medium">{metrics.commuteDistance != null ? `${metrics.commuteDistance} mi` : "n/a"}</span>
+                        <span className="text-muted-foreground">Age</span>
+                        <span className="truncate text-right font-medium">{metrics.daysOld == null ? "unknown" : metrics.daysOld <= 0 ? "today" : `${metrics.daysOld}d`}</span>
+                      </div>
+                      <div className="mt-1.5 flex flex-wrap gap-1">
+                        <Badge variant="secondary" className={`h-4 px-1 text-[9px] ${sourceBadge(job.source).className}`}>{sourceBadge(job.source).label}</Badge>
+                        {lifeScoreCache[job.id] != null && <Badge variant="outline" className="h-4 px-1 text-[9px]">Fit {lifeScoreCache[job.id]}</Badge>}
+                        <Badge variant="outline" className={`h-4 px-1 text-[9px] ${intentOption?.className ?? "text-muted-foreground"}`}>{intentOption?.label ?? (trackedIds.has(job.id) ? "Tracked" : "New")}</Badge>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Sidebar — sort/filter + job list / detail */}
-        <div className="w-80 shrink-0 flex flex-col">
+        <div className="w-[380px] shrink-0 flex flex-col">
           {/* Sort & filter controls */}
           {searched && geoJobs.length > 0 && (
             <div className="space-y-2 mb-2">
@@ -5321,111 +5741,273 @@ export function JobMap() {
             </div>
           )}
 
-          {/* Scrollable job list */}
-          <div className="flex-1 overflow-y-auto space-y-2">
-                {sortedJobs.length === 0 && (searched || hasEmailLeads) && !isFetching && (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Briefcase className="h-8 w-8 mx-auto mb-2 opacity-30" />
-                    <p className="text-sm">No jobs found in this area</p>
+          {selectedJob ? (() => {
+            const formatted = selectedJob.description ? formatJobDescription(selectedJob.description) : null;
+            const midSalary = selectedJob.salaryMin && selectedJob.salaryMax
+              ? (selectedJob.salaryMin + selectedJob.salaryMax) / 2
+              : (selectedJob.salaryMin ?? selectedJob.salaryMax ?? null);
+            const tx = midSalary ? estimateTaxes(midSalary, selectedJob.location) : null;
+            const drivingCommute = commuteCache[`${selectedJob.id}:driving`];
+            const daysOld = selectedJob.created
+              ? Math.floor((Date.now() - new Date(selectedJob.created).getTime()) / 86_400_000)
+              : null;
+            const selectedJobIndex = sortedJobs.findIndex((job) => job.id === selectedJob.id);
+            const hasReaderPosition = selectedJobIndex >= 0;
+            const readerPrevJob = hasReaderPosition ? sortedJobs[selectedJobIndex - 1] : null;
+            const readerNextJob = hasReaderPosition ? sortedJobs[selectedJobIndex + 1] : null;
+            const preferredApplyLink = getPreferredApplyLink(selectedJob);
+            const openReaderJob = (job: MapJob | null | undefined) => {
+              if (!job) return;
+              setSelectedJob(job);
+              setShowDetails(false);
+            };
+            return (
+              <div className="flex-1 overflow-hidden rounded-lg border bg-background shadow-sm flex flex-col">
+                <div className="sticky top-0 z-10 border-b bg-background/95 p-2.5 backdrop-blur-sm">
+                  <div className="flex items-start gap-2">
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-sm font-bold leading-snug line-clamp-2">{selectedJob.title}</h3>
+                      <button
+                        type="button"
+                        className="mt-0.5 text-xs font-medium text-muted-foreground hover:text-primary hover:underline"
+                        onClick={() => setDeepDiveCompany(selectedJob.company)}
+                      >
+                        {selectedJob.company}
+                      </button>
+                    </div>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7 shrink-0"
+                      title="Back to results"
+                      onClick={() => { setSelectedJob(null); setShowDetails(false); }}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
                   </div>
-                )}
-                {pagedJobs.map((job) => (
-                  <Card
-                    key={job.id}
-                    data-job-id={job.id}
-                    className={`cursor-pointer hover:shadow-md transition-shadow ${selectedJob?.id === job.id ? "ring-2 ring-primary" : ""}`}
-                    onClick={() => { setSelectedJob(job); setShowDetails(false); }}
-                  >
-                    <CardContent className="py-3 px-3">
-                      <div className="flex items-start justify-between gap-1">
-                        <h4 className="font-medium text-sm leading-tight truncate">
-                          {job.title}
-                        </h4>
-                        <div className="flex items-center gap-0.5 shrink-0">
-                          <Badge
-                            variant="outline"
-                            className={`text-[10px] px-1 py-0 shrink-0 ${job.source === "google" ? "border-red-300 text-red-600 dark:border-red-700 dark:text-red-400" : "border-blue-300 text-blue-600 dark:border-blue-700 dark:text-blue-400"}`}
-                          >
-                            {job.source === "google" ? "G" : job.source === "email" ? "E" : "A"}
-                          </Badge>
-                          {job.source === "email" && (
-                            <button
-                              type="button"
-                              className="p-0.5 rounded hover:bg-red-100 dark:hover:bg-red-950/40 text-muted-foreground hover:text-red-500 transition-colors"
-                              onClick={(e) => { e.stopPropagation(); dismissLeadMutation.mutate(job.id); }}
-                              title="Dismiss lead"
-                            >
-                              <X className="h-3 w-3" />
-                            </button>
-                          )}
-                        </div>
+                  <div className="mt-1.5 flex flex-wrap gap-1">
+                    <Badge variant="secondary" className={`text-[9px] h-4 px-1.5 ${sourceBadge(selectedJob.source).className}`}>
+                      {sourceBadge(selectedJob.source).labelLong}
+                    </Badge>
+                    {selectedJob.scheduleType && <Badge variant="outline" className="text-[9px] h-4 px-1.5">{selectedJob.scheduleType}</Badge>}
+                    {selectedJob.contractTime && <Badge variant="outline" className="text-[9px] h-4 px-1.5 capitalize">{selectedJob.contractTime.replace("_", " ")}</Badge>}
+                    {selectedJob.contractType && <Badge variant="outline" className="text-[9px] h-4 px-1.5 capitalize">{selectedJob.contractType.replace("_", " ")}</Badge>}
+                    {daysOld != null && (
+                      <Badge variant="outline" className="text-[9px] h-4 px-1.5">
+                        {daysOld <= 0 ? "Posted today" : `${daysOld}d old`}
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="mt-2 grid grid-cols-2 gap-1.5">
+                    <div className="rounded-md border bg-muted/20 px-2 py-1.5">
+                      <div className="text-[9px] uppercase tracking-wide text-muted-foreground">Pay</div>
+                      <div className="truncate text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                        {selectedJob.salaryMin && formatSalary(selectedJob.salaryMin)}
+                        {selectedJob.salaryMin && selectedJob.salaryMax && " - "}
+                        {selectedJob.salaryMax && formatSalary(selectedJob.salaryMax)}
+                        {!selectedJob.salaryMin && !selectedJob.salaryMax && "n/a"}
                       </div>
-                      <p className="text-xs text-muted-foreground truncate">
-                        {job.company}
-                      </p>
-                      <div className="flex items-center justify-between mt-1">
-                        <span className="text-xs text-muted-foreground flex items-center gap-0.5">
-                          <MapPin className="h-2.5 w-2.5" /> {job.location}
-                        </span>
-                        {(job.salaryMin || job.salaryMax) && (
-                          <span className="text-xs font-medium text-emerald-600">
-                            {job.salaryMin ? formatSalary(job.salaryMin) : ""}
-                            {job.salaryMin && job.salaryMax ? "–" : ""}
-                            {job.salaryMax ? formatSalary(job.salaryMax) : ""}
-                          </span>
-                        )}
+                      {tx && <div className="truncate text-[9px] text-muted-foreground">~{formatSalaryCompact(tx.takeHomePay)}/yr net</div>}
+                    </div>
+                    <div className="rounded-md border bg-muted/20 px-2 py-1.5">
+                      <div className="text-[9px] uppercase tracking-wide text-muted-foreground">Commute</div>
+                      <div className="truncate text-[11px] font-semibold text-sky-600 dark:text-sky-400">
+                        {drivingCommute ? `~${drivingCommute.durationMin}m` : commuteInfo ? `~${commuteInfo.durationMin}m` : "n/a"}
                       </div>
-                      {commuteCache[`${job.id}:driving`] && (
-                        <div className="flex items-center gap-0.5 mt-1 text-xs text-blue-600 dark:text-blue-400">
-                          <Car className="h-2.5 w-2.5" />
-                          ~{commuteCache[`${job.id}:driving`].durationMin} min ({commuteCache[`${job.id}:driving`].distanceMi} mi)
-                          {commuteCache[`${job.id}:driving`].estimated && <span className="opacity-60">(est.)</span>}
-                        </div>
+                      {(drivingCommute || commuteInfo) && (
+                        <div className="truncate text-[9px] text-muted-foreground">{(drivingCommute ?? commuteInfo)?.distanceMi} mi</div>
                       )}
-                      {lifeScoreCache[job.id] != null && (
-                        <div className="flex items-center gap-0.5 mt-1 text-xs">
-                          <Anchor className="h-2.5 w-2.5 text-indigo-500" />
-                          <span className={`font-semibold ${lifeScoreCache[job.id] >= 70 ? "text-emerald-600 dark:text-emerald-400" : lifeScoreCache[job.id] >= 40 ? "text-yellow-600 dark:text-yellow-400" : "text-red-500"}`}>
-                            Life Score: {lifeScoreCache[job.id]}
-                          </span>
-                        </div>
-                      )}
-                      {nearbyWorkHistoryMap[job.id] && (
-                        <div className="flex items-center gap-0.5 mt-1 text-xs text-gray-500 dark:text-gray-400">
-                          <Briefcase className="h-2.5 w-2.5" />
-                          Near your old role at {nearbyWorkHistoryMap[job.id].company}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                ))}
-          </div>
+                    </div>
+                  </div>
+                  <div className="mt-2 flex items-center gap-1.5 rounded-md border bg-muted/10 px-1.5 py-1">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-6 w-6 shrink-0"
+                      disabled={!readerPrevJob}
+                      title="Previous posting"
+                      onClick={() => openReaderJob(readerPrevJob)}
+                    >
+                      <ChevronLeft className="h-3.5 w-3.5" />
+                    </Button>
+                    <button
+                      type="button"
+                      className="min-w-0 flex-1 truncate text-center text-[10px] font-medium text-muted-foreground hover:text-foreground"
+                      onClick={() => { setSelectedJob(null); setShowDetails(false); }}
+                      title="Back to results"
+                    >
+                      Results {hasReaderPosition ? `${selectedJobIndex + 1} / ${sortedJobs.length}` : `(${sortedJobs.length})`}
+                    </button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-6 w-6 shrink-0"
+                      disabled={!readerNextJob}
+                      title="Next posting"
+                      onClick={() => openReaderJob(readerNextJob)}
+                    >
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
 
-          {/* Pagination controls */}
-          {sortedJobs.length > PAGE_SIZE && (
-            <div className="flex items-center justify-between pt-2 border-t mt-2">
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={page <= 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                className="h-7 text-xs"
-              >
-                <ChevronLeft className="h-3.5 w-3.5" />
-              </Button>
-              <span className="text-xs text-muted-foreground">
-                {page} / {totalPages}
-              </span>
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={page >= totalPages}
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                className="h-7 text-xs"
-              >
-                <ChevronRight className="h-3.5 w-3.5" />
-              </Button>
-            </div>
+                <div className="flex-1 overflow-y-auto space-y-3 p-3">
+                  {selectedJob.applyLinks && selectedJob.applyLinks.length > 0 && (
+                    <div className="rounded-md border bg-muted/20 p-2.5 space-y-1.5">
+                      <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Apply Links</div>
+                      {selectedJob.applyLinks.map((link, i) => (
+                        <a key={i} href={link.link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline">
+                          <ExternalLink className="h-3 w-3 shrink-0" /> {link.title}
+                        </a>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="space-y-2 border-t pt-3">
+                    <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Full Job Description
+                    </div>
+                    {formatted ? (
+                      <div className="space-y-3 text-sm leading-6 text-foreground/85">
+                        {formatted.sections.map((section, index) => section.type === "bullets" ? (
+                          <ul key={index} className="space-y-1.5 pl-4 list-disc marker:text-muted-foreground/70">
+                            {section.items.map((item, itemIndex) => <li key={itemIndex}>{item}</li>)}
+                          </ul>
+                        ) : (
+                          <p key={index}>{section.items[0]}</p>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="rounded-md border border-dashed bg-muted/20 p-3 text-xs text-muted-foreground">
+                        No description was included with this posting.
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="shrink-0 border-t bg-background/95 p-2.5 backdrop-blur-sm">
+                  {preferredApplyLink ? (
+                    <a href={preferredApplyLink} target="_blank" rel="noopener noreferrer">
+                      <Button size="sm" className="w-full gap-1 h-8 text-xs">
+                        <ExternalLink className="h-3.5 w-3.5" /> Apply to this posting
+                      </Button>
+                    </a>
+                  ) : (
+                    <Button size="sm" variant="outline" disabled className="w-full h-8 text-xs">
+                      No apply link available
+                    </Button>
+                  )}
+                </div>
+              </div>
+            );
+          })() : (
+            <>
+              {/* Scrollable job list */}
+              <div className="flex-1 overflow-y-auto space-y-2">
+                    {sortedJobs.length === 0 && (searched || hasEmailLeads) && !isFetching && (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <Briefcase className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                        <p className="text-sm">No jobs found in this area</p>
+                      </div>
+                    )}
+                    {pagedJobs.map((job) => (
+                      <Card
+                        key={job.id}
+                        data-job-id={job.id}
+                        className="cursor-pointer hover:shadow-md transition-shadow"
+                        onClick={() => { setSelectedJob(job); setShowDetails(false); }}
+                      >
+                        <CardContent className="py-3 px-3">
+                          <div className="flex items-start justify-between gap-1">
+                            <h4 className="font-medium text-sm leading-tight truncate">
+                              {job.title}
+                            </h4>
+                            <div className="flex items-center gap-0.5 shrink-0">
+                              <Badge
+                                variant="outline"
+                                className={`text-[10px] px-1 py-0 shrink-0 ${job.source === "google" ? "border-red-300 text-red-600 dark:border-red-700 dark:text-red-400" : "border-blue-300 text-blue-600 dark:border-blue-700 dark:text-blue-400"}`}
+                              >
+                                {job.source === "google" ? "G" : job.source === "email" ? "E" : "A"}
+                              </Badge>
+                              {job.source === "email" && (
+                                <button
+                                  type="button"
+                                  className="p-0.5 rounded hover:bg-red-100 dark:hover:bg-red-950/40 text-muted-foreground hover:text-red-500 transition-colors"
+                                  onClick={(e) => { e.stopPropagation(); dismissLeadMutation.mutate(job.id); }}
+                                  title="Dismiss lead"
+                                >
+                                  <X className="h-3 w-3" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {job.company}
+                          </p>
+                          <div className="flex items-center justify-between mt-1">
+                            <span className="text-xs text-muted-foreground flex items-center gap-0.5">
+                              <MapPin className="h-2.5 w-2.5" /> {job.location}
+                            </span>
+                            {(job.salaryMin || job.salaryMax) && (
+                              <span className="text-xs font-medium text-emerald-600">
+                                {job.salaryMin ? formatSalary(job.salaryMin) : ""}
+                                {job.salaryMin && job.salaryMax ? "–" : ""}
+                                {job.salaryMax ? formatSalary(job.salaryMax) : ""}
+                              </span>
+                            )}
+                          </div>
+                          {commuteCache[`${job.id}:driving`] && (
+                            <div className="flex items-center gap-0.5 mt-1 text-xs text-blue-600 dark:text-blue-400">
+                              <Car className="h-2.5 w-2.5" />
+                              ~{commuteCache[`${job.id}:driving`].durationMin} min ({commuteCache[`${job.id}:driving`].distanceMi} mi)
+                              {commuteCache[`${job.id}:driving`].estimated && <span className="opacity-60">(est.)</span>}
+                            </div>
+                          )}
+                          {lifeScoreCache[job.id] != null && (
+                            <div className="flex items-center gap-0.5 mt-1 text-xs">
+                              <Anchor className="h-2.5 w-2.5 text-indigo-500" />
+                              <span className={`font-semibold ${lifeScoreCache[job.id] >= 70 ? "text-emerald-600 dark:text-emerald-400" : lifeScoreCache[job.id] >= 40 ? "text-yellow-600 dark:text-yellow-400" : "text-red-500"}`}>
+                                Life Score: {lifeScoreCache[job.id]}
+                              </span>
+                            </div>
+                          )}
+                          {nearbyWorkHistoryMap[job.id] && (
+                            <div className="flex items-center gap-0.5 mt-1 text-xs text-gray-500 dark:text-gray-400">
+                              <Briefcase className="h-2.5 w-2.5" />
+                              Near your old role at {nearbyWorkHistoryMap[job.id].company}
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    ))}
+              </div>
+
+              {/* Pagination controls */}
+              {sortedJobs.length > PAGE_SIZE && (
+                <div className="flex items-center justify-between pt-2 border-t mt-2">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={page <= 1}
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    className="h-7 text-xs"
+                  >
+                    <ChevronLeft className="h-3.5 w-3.5" />
+                  </Button>
+                  <span className="text-xs text-muted-foreground">
+                    {page} / {totalPages}
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={page >= totalPages}
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    className="h-7 text-xs"
+                  >
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -6048,8 +6630,8 @@ export function JobMap() {
               </div>
             </div>
             <DialogFooter>
-              {selectedJob.url && (
-                <a href={selectedJob.url} target="_blank" rel="noopener noreferrer">
+              {getPreferredApplyLink(selectedJob) && (
+                <a href={getPreferredApplyLink(selectedJob)} target="_blank" rel="noopener noreferrer">
                   <Button size="sm" className="gap-1"><ExternalLink className="h-3.5 w-3.5" /> Apply Now</Button>
                 </a>
               )}
@@ -6100,139 +6682,11 @@ export function JobMap() {
               <Building2 className="h-5 w-5" /> Company Deep Dive
             </DialogTitle>
             <DialogDescription>
-              This posting first, then company-wide intelligence across your search results
+              Company-wide intelligence across your search results
             </DialogDescription>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto -mx-4 px-4 min-h-0">
             {deepDiveCompany && (
-              <>
-                {selectedJob && selectedJob.company === deepDiveCompany && (() => {
-                  const midSalary = selectedJob.salaryMin && selectedJob.salaryMax
-                    ? (selectedJob.salaryMin + selectedJob.salaryMax) / 2
-                    : (selectedJob.salaryMin ?? selectedJob.salaryMax ?? null);
-                  const tx = midSalary ? estimateTaxes(midSalary, selectedJob.location) : null;
-                  const totalYearlyCost = lifeAnchors.reduce((sum, a) => {
-                    if (!enabledAnchors.has(a.id)) return sum;
-                    const ac = anchorCommutes[a.id];
-                    return sum + (ac ? yearlyCommuteCost(ac.distanceMi, commuteProfile) : 0);
-                  }, 0);
-                  const lifeScore = lifeScoreCache[selectedJob.id];
-                  const netAfterCommute = tx ? tx.takeHomePay - totalYearlyCost : midSalary ? midSalary - totalYearlyCost : null;
-                  const missingItems = [
-                    !midSalary ? "pay range" : null,
-                    !resolvedAddress && !addressLoading ? "exact address" : null,
-                    lifeAnchors.length === 0 ? "life anchors" : null,
-                  ].filter(Boolean);
-                  const taxRows: { label: string; amount: number }[] = tx ? [
-                    { label: "Federal", amount: tx.federalIncomeTax },
-                    { label: tx.stateName ? `State (${tx.stateName})` : "State", amount: tx.stateIncomeTax },
-                    { label: "Social Security", amount: tx.socialSecurity },
-                    { label: "Medicare", amount: tx.medicare },
-                    ...tx.localTaxes.map((lt) => ({ label: lt.name, amount: lt.amount })),
-                  ] : [];
-                  return (
-                    <div className="mb-3 rounded-lg border bg-muted/20 p-3 space-y-3">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                            <BarChart3 className="h-3.5 w-3.5 text-emerald-500" /> This Posting
-                          </div>
-                          <p className="mt-0.5 text-sm font-semibold line-clamp-1">{selectedJob.title}</p>
-                          <p className="text-xs text-muted-foreground line-clamp-1">{selectedJob.location}</p>
-                        </div>
-                        {lifeScore != null && (
-                          <span className={`shrink-0 rounded-md px-2 py-1 text-xs font-bold ${lifeScore >= 70 ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400" : lifeScore >= 40 ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-950/50 dark:text-yellow-400" : "bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-400"}`}>
-                            {lifeScore}/100 fit
-                          </span>
-                        )}
-                      </div>
-                      {missingItems.length > 0 && (
-                        <div className="flex items-center gap-1.5 rounded-md border border-dashed bg-background px-2.5 py-1.5 text-xs text-muted-foreground">
-                          <Info className="h-3.5 w-3.5 shrink-0" />
-                          <span>Add {missingItems.join(", ")} to complete this posting analysis.</span>
-                        </div>
-                      )}
-                      <div className="grid grid-cols-3 gap-2">
-                        <div className="rounded-md border bg-background px-2 py-1.5">
-                          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Gross</div>
-                          <div className="truncate text-sm font-bold text-emerald-600 dark:text-emerald-400">
-                            {selectedJob.salaryMin && formatSalary(selectedJob.salaryMin)}
-                            {selectedJob.salaryMin && selectedJob.salaryMax && " - "}
-                            {selectedJob.salaryMax && formatSalary(selectedJob.salaryMax)}
-                            {!selectedJob.salaryMin && !selectedJob.salaryMax && "n/a"}
-                          </div>
-                        </div>
-                        <div className="rounded-md border bg-background px-2 py-1.5">
-                          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Take-home</div>
-                          <div className="truncate text-sm font-bold text-emerald-600 dark:text-emerald-400">
-                            {tx ? `${formatSalaryCompact(tx.takeHomePay)}/yr` : "n/a"}
-                          </div>
-                        </div>
-                        <div className="rounded-md border bg-background px-2 py-1.5">
-                          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">After commute</div>
-                          <div className="truncate text-sm font-bold text-emerald-600 dark:text-emerald-400">
-                            {netAfterCommute != null ? `${formatSalaryCompact(netAfterCommute)}/yr` : "n/a"}
-                          </div>
-                        </div>
-                      </div>
-                      {tx && (
-                        <div className="rounded-md border bg-background px-2.5 py-2 space-y-1">
-                          <div className="flex items-center justify-between text-xs font-semibold">
-                            <span>Tax estimate</span>
-                            <span className="text-muted-foreground">Effective {(tx.effectiveRate * 100).toFixed(1)}%</span>
-                          </div>
-                          {taxRows.map((r) => (
-                            <div key={r.label} className="flex items-center justify-between text-xs">
-                              <span className="text-muted-foreground">{r.label}</span>
-                              <span className="font-mono text-red-500 dark:text-red-400">-{formatSalaryCompact(r.amount)}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      {lifeAnchors.length > 0 && Object.keys(anchorCommutes).length > 0 && (
-                        <div className="rounded-md border bg-background px-2.5 py-2 space-y-1">
-                          <div className="flex items-center justify-between text-xs font-semibold">
-                            <span className="flex items-center gap-1"><Anchor className="h-3 w-3 text-indigo-500" /> Life anchors</span>
-                            {totalYearlyCost > 0 && <span className="text-orange-600 dark:text-orange-400">-{formatCost(totalYearlyCost)}/yr</span>}
-                          </div>
-                          {lifeAnchors.map((anchor) => {
-                            const ac = anchorCommutes[anchor.id];
-                            const enabled = enabledAnchors.has(anchor.id);
-                            return (
-                              <div key={anchor.id} className={`flex items-center justify-between text-xs ${!enabled ? "opacity-40" : ""}`}>
-                                <span className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
-                                  <button
-                                    type="button"
-                                    className="p-0.5 rounded hover:bg-muted transition-colors"
-                                    onClick={() => setEnabledAnchors((prev) => {
-                                      const next = new Set(prev);
-                                      if (next.has(anchor.id)) next.delete(anchor.id);
-                                      else next.add(anchor.id);
-                                      return next;
-                                    })}
-                                    title={enabled ? `Hide ${anchor.label} route` : `Show ${anchor.label} route`}
-                                  >
-                                    {enabled
-                                      ? <Eye className="h-3 w-3 text-indigo-500" />
-                                      : <EyeOff className="h-3 w-3 text-muted-foreground" />
-                                    }
-                                  </button>
-                                  <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: enabled ? ANCHOR_COLORS[lifeAnchors.indexOf(anchor) % ANCHOR_COLORS.length] : "transparent" }} />
-                                  <span className="truncate">{anchor.label}</span>
-                                </span>
-                                {ac ? (
-                                  <span className="shrink-0 font-medium ml-2">~{ac.durationMin}m · {formatCost(yearlyCommuteCost(ac.distanceMi, commuteProfile))}/yr</span>
-                                ) : (
-                                  <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()}
                 <CompanyDeepDive
                   companyName={deepDiveCompany}
                   jobs={geoJobs
@@ -6259,7 +6713,6 @@ export function JobMap() {
                   marketMeanSalary={meanSalary}
                   allCompanyNames={availableCompanies}
                 />
-              </>
             )}
           </div>
         </DialogContent>

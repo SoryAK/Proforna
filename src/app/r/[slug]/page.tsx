@@ -18,11 +18,14 @@ import {
   CheckCircle2,
   UserCircle2,
 } from "lucide-react";
+import ResumeWorkMap, { type ResumeWorkItem } from "@/components/resume-work-map";
+import ResumeImmersiveMap, { type ImmersiveWorkItem } from "@/components/resume-immersive-map";
 
 interface SectionConfig {
   type: string;
   visible: boolean;
   order: number;
+  settings?: Record<string, unknown>;
 }
 
 interface Profile {
@@ -57,14 +60,51 @@ interface Position {
   id: string;
   company: string;
   role: string;
+  title: string | null;
   department: string | null;
   location: string | null;
+  address: string | null;
+  lat: number | null;
+  lng: number | null;
   type: string;
   startDate: string;
   endDate: string | null;
   isActive: boolean;
   techStack: string | null;
   description: string | null;
+  responsibilities?: string | null;
+  accomplishments?: string | null;
+  industry?: string | null;
+  workMode?: string | null;
+  scheduleType?: string | null;
+  companySize?: string | null;
+  teamSize?: number | null;
+  managerName?: string | null;
+  degree?: string | null;
+  major?: string | null;
+  coverImage?: string | null;
+  coverImageY?: number | null;
+  // ── Compensation ──
+  salaryAmount?: number | null;
+  salaryType?: string | null;
+  salaryCurrency?: string | null;
+  bonusAmount?: number | null;
+  payType?: string | null;
+  payFrequency?: string | null;
+  hoursPerWeek?: number | null;
+  hybridDays?: number | null;
+  schedule?: string | null;
+  shiftNotes?: string | null;
+  // ── Skills / Commute / Uniform ──
+  skillsUsed?: string | null;
+  commuteMinutes?: number | null;
+  commuteDistance?: number | null;
+  commuteMode?: string | null;
+  uniformData?: string | null;
+  // ── Relations ──
+  galleryPhotos?: { id: string; filePath: string; caption?: string | null; fileName: string }[];
+  attachments?: { id: string; label: string; category: string; fileName: string; filePath: string; fileMime: string; fileSize: number }[];
+  equipment?: { id: string; name: string; category: string; manufacturer?: string | null; model?: string | null; photos?: { id: string; filePath: string; isCover: boolean }[] }[];
 }
 
 interface ResumeData {
@@ -76,6 +116,7 @@ interface ResumeData {
     summary: string | null;
     theme: string;
     sections: SectionConfig[];
+    updatedAt?: string;
   };
   profile: Profile | null;
   skills: Skill[];
@@ -364,6 +405,114 @@ export default function InteractiveResumePage({
     sectionsViewed.current.add(type);
   };
 
+  // ── Immersive map mode: full-page work map when not restricted and we have geocoded experience ──
+  const experienceSection = sorted.find((s) => s.type === "experience" && s.visible);
+  const geocodedCount = experience.filter((p) => typeof p.lat === "number" && typeof p.lng === "number").length;
+  const immersiveDefault = (experienceSection?.settings?.experienceView as string | undefined) !== "list";
+  const useImmersive = !isRestricted && experienceSection && geocodedCount > 0 && immersiveDefault;
+
+  if (useImmersive) {
+    const immersiveItems: ImmersiveWorkItem[] = experience.map((pos) => ({
+      id: pos.id,
+      type: pos.type,
+      company: pos.company,
+      role: pos.role,
+      title: pos.title,
+      department: pos.department,
+      address: pos.address,
+      location: pos.location,
+      lat: pos.lat,
+      lng: pos.lng,
+      startDate: pos.startDate,
+      endDate: pos.endDate,
+      isActive: pos.isActive,
+      coverImage: pos.coverImage,
+      coverImageY: pos.coverImageY,
+      description: pos.description,
+      responsibilities: pos.responsibilities,
+      techStack: pos.techStack,
+      accomplishments: pos.accomplishments,
+      industry: pos.industry,
+      workMode: pos.workMode,
+      scheduleType: pos.scheduleType,
+      companySize: pos.companySize,
+      teamSize: pos.teamSize,
+      managerName: pos.managerName,
+      degree: pos.degree,
+      major: pos.major,
+      salaryAmount: pos.salaryAmount,
+      salaryType: pos.salaryType,
+      salaryCurrency: pos.salaryCurrency,
+      bonusAmount: pos.bonusAmount,
+      payType: pos.payType,
+      payFrequency: pos.payFrequency,
+      hoursPerWeek: pos.hoursPerWeek,
+      hybridDays: pos.hybridDays,
+      schedule: pos.schedule,
+      shiftNotes: pos.shiftNotes,
+      skillsUsed: pos.skillsUsed,
+      commuteMinutes: pos.commuteMinutes,
+      commuteDistance: pos.commuteDistance,
+      commuteMode: pos.commuteMode,
+      uniformData: pos.uniformData,
+      galleryPhotos: pos.galleryPhotos,
+      attachments: pos.attachments,
+      equipment: pos.equipment,
+    }));
+    return (
+      <>
+        <StealthBanner visibility={visibility} />
+        {visibility === "public" && profile?.fullName && (
+          <script
+            type="application/ld+json"
+            // eslint-disable-next-line react/no-danger
+            dangerouslySetInnerHTML={{
+              __html: JSON.stringify({
+                "@context": "https://schema.org",
+                "@type": "Person",
+                name: profile.fullName,
+                jobTitle: profile.headline ?? undefined,
+                description: resume.summary ?? undefined,
+                image: profile.avatarUrl ?? undefined,
+                email: profile.email ?? undefined,
+                url: profile.portfolioUrl ?? undefined,
+                sameAs: [profile.linkedinUrl, profile.githubUrl, profile.portfolioUrl].filter(Boolean),
+                address: profile.city || profile.state ? {
+                  "@type": "PostalAddress",
+                  addressLocality: profile.city ?? undefined,
+                  addressRegion: profile.state ?? undefined,
+                } : undefined,
+                knowsAbout: skills.slice(0, 25).map((s) => s.name),
+                hasCredential: certifications.map((c) => ({
+                  "@type": "EducationalOccupationalCredential",
+                  name: c.name,
+                  recognizedBy: c.issuer ? { "@type": "Organization", name: c.issuer } : undefined,
+                  url: c.credentialUrl ?? undefined,
+                  dateCreated: c.issueDate ?? undefined,
+                })),
+                workExperience: experience.map((pos) => ({
+                  "@type": "OrganizationRole",
+                  roleName: pos.title || pos.role || undefined,
+                  startDate: pos.startDate || undefined,
+                  endDate: pos.endDate || undefined,
+                  worksFor: { "@type": "Organization", name: pos.company },
+                })),
+              }),
+            }}
+          />
+        )}
+        <ResumeImmersiveMap
+          items={immersiveItems}
+          profile={profile}
+          skills={sorted.some((s) => s.type === "skills") ? skills : []}
+          certifications={sorted.some((s) => s.type === "certifications") ? certifications : []}
+          summary={sorted.some((s) => s.type === "summary") ? resume.summary : null}
+          updatedAt={resume.updatedAt}
+        />
+      </>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white dark:from-gray-950 dark:to-gray-900">
       <StealthBanner visibility={visibility} />
@@ -432,6 +581,23 @@ export default function InteractiveResumePage({
             }
 
             if (section.type === "experience" && experience.length > 0) {
+              const workItems: ResumeWorkItem[] = experience.map((pos) => ({
+                id: pos.id,
+                type: pos.type,
+                company: pos.company,
+                title: pos.title || pos.role,
+                address: pos.address,
+                location: pos.location,
+                lat: pos.lat,
+                lng: pos.lng,
+                startDate: pos.startDate,
+                endDate: pos.endDate,
+              }));
+              const expView = (section.settings?.experienceView as
+                | "map"
+                | "list"
+                | "both"
+                | undefined) || "map";
               return (
                 <ExpandableSection
                   key="experience"
@@ -440,50 +606,11 @@ export default function InteractiveResumePage({
                   defaultOpen
                   onToggle={() => trackSection("experience")}
                 >
-                  <div className="space-y-5">
-                    {experience.map((pos) => (
-                      <div key={pos.id} className="relative pl-4 border-l-2 border-indigo-200 dark:border-indigo-800">
-                        <div className="flex flex-wrap items-baseline gap-x-2">
-                          <h3 className="font-semibold text-gray-900 dark:text-gray-100">
-                            {pos.role}
-                          </h3>
-                          <span className="text-indigo-600 dark:text-indigo-400">
-                            @ {pos.company}
-                          </span>
-                        </div>
-                        <div className="flex flex-wrap gap-x-4 text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-                          <span className="flex items-center gap-1">
-                            <Calendar className="h-3.5 w-3.5" />
-                            {formatDate(pos.startDate)} –{" "}
-                            {pos.endDate ? formatDate(pos.endDate) : "Present"}
-                          </span>
-                          {pos.location && (
-                            <span className="flex items-center gap-1">
-                              <MapPin className="h-3.5 w-3.5" />
-                              {pos.location}
-                            </span>
-                          )}
-                        </div>
-                        {pos.description && (
-                          <p className="text-gray-600 dark:text-gray-400 text-sm mt-2 whitespace-pre-line">
-                            {pos.description}
-                          </p>
-                        )}
-                        {pos.techStack && (
-                          <div className="flex flex-wrap gap-1.5 mt-2">
-                            {pos.techStack.split(",").map((t) => (
-                              <span
-                                key={t.trim()}
-                                className="px-2 py-0.5 text-xs rounded-full bg-indigo-50 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300"
-                              >
-                                {t.trim()}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
+                  <ResumeWorkMap
+                    items={workItems}
+                    forceListOnly={isRestricted}
+                    defaultView={expView}
+                  />
                 </ExpandableSection>
               );
             }

@@ -80,7 +80,12 @@ export async function GET(
   const experience = visibleTypes.has("experience")
     ? await prisma.workHistory.findMany({
         where: { userId: resume.userId },
-        orderBy: { createdAt: "desc" },
+        orderBy: [{ isActive: "desc" }, { startDate: "desc" }],
+        include: {
+          galleryPhotos: { orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }] },
+          attachments: { orderBy: { createdAt: "desc" } },
+          equipment: { include: { photos: { orderBy: { isCover: "desc" } } } },
+        },
       })
     : [];
 
@@ -97,7 +102,7 @@ export async function GET(
 
     return NextResponse.json({
       visibility: "public",
-      resume: { title: resume.title, targetRole: resume.targetRole, summary: resume.summary, theme: resume.theme, sections },
+      resume: { title: resume.title, targetRole: resume.targetRole, summary: resume.summary, theme: resume.theme, sections, updatedAt: resume.updatedAt },
       profile: profile
         ? {
             fullName: profile.fullName,
@@ -122,7 +127,7 @@ export async function GET(
     return NextResponse.json({
       visibility: "stealth",
       profileId: profile?.id,
-      resume: { title: resume.title, targetRole: resume.targetRole, summary: resume.summary, theme: resume.theme, sections },
+      resume: { title: resume.title, targetRole: resume.targetRole, summary: resume.summary, theme: resume.theme, sections, updatedAt: resume.updatedAt },
       profile: {
         fullName: profile?.anonymousTitle || `Verified Professional #${profile?.id?.slice(-4).toUpperCase()}`,
         headline: profile?.headline,
@@ -153,6 +158,7 @@ export async function GET(
       summary: null,
       theme: resume.theme,
       sections: sections.filter((s) => s.type === "skills" || s.type === "certifications"),
+      updatedAt: resume.updatedAt,
     },
     profile: {
       fullName: profile?.anonymousTitle || `Verified Professional #${profile?.id?.slice(-4).toUpperCase()}`,
