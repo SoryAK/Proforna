@@ -312,6 +312,57 @@ model ResumeView {
   resume InteractiveResume @relation(fields: [resumeId], references: [id], onDelete: Cascade)
 }
 
+// ─── IR Engagement Analytics ───────────────────────────────────
+// Granular engagement events for the adaptive Interactive Resume.
+// Keyed by irSlug (works for both UserProfile.irSlug and legacy IR slugs).
+// Anonymous viewers are identified by a long-lived cookie sessionId.
+model IrViewEvent {
+  id              String   @id @default(uuid())
+  irSlug          String
+  sessionId       String                          // anonymous-cookie viewer session id
+  accessRequestId String?                         // set when viewer used an approved access token
+  eventType       String                          // view | role_click | contact_open | contact_method_click | education_click | journey_play | session_heartbeat
+  eventData       String?                         // JSON blob of extra context (workItemId, method, etc.)
+  referrer        String?
+  userAgent       String?
+  createdAt       DateTime @default(now())
+
+  @@index([irSlug, createdAt])
+  @@index([irSlug, sessionId])
+  @@index([irSlug, eventType])
+}
+
+// Recruiter-side bookmarks of candidate IRs, keyed by an anonymous
+// long-lived `recruiter_id` cookie (no account required).
+model RecruiterSavedCandidate {
+  id          String    @id @default(uuid())
+  viewerKey   String                                  // recruiter_id cookie
+  irSlug      String
+  candidateName String?                               // snapshot at save-time for display
+  candidateHeadline String?
+  tag         String?                                 // hot | maybe | no_go | null
+  savedAt     DateTime  @default(now())
+  archivedAt  DateTime?
+
+  @@unique([viewerKey, irSlug])
+  @@index([viewerKey, savedAt])
+  @@index([viewerKey, tag])
+  @@index([irSlug])
+}
+
+// Recruiter private notes about a candidate IR, keyed by recruiter cookie.
+model RecruiterNote {
+  id        String   @id @default(uuid())
+  viewerKey String                                    // recruiter_id cookie
+  irSlug    String
+  body      String                                    // free-form recruiter note
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  @@unique([viewerKey, irSlug])
+  @@index([viewerKey, updatedAt])
+}
+
 // ─── Profile & Identity ────────────────────────────────────────
 
 model UserProfile {
@@ -327,6 +378,7 @@ model UserProfile {
   linkedinUrl        String?
   githubUrl          String?
   portfolioUrl       String?
+  schedulingUrl      String?   // Calendly/Cal.com/etc — used for "Schedule an interview" CTA
   availability       String   @default("open_to_work")
   bio                String?
   preferredRoles     String?
@@ -340,6 +392,15 @@ model UserProfile {
   showCertifications Boolean  @default(true)
   showCurrentRole    Boolean  @default(true)
   portalSlug         String   @default("portal") @unique
+
+  // ── Adaptive Interactive Resume (IR) ──
+  // The IR is a single, profile-driven page at /r/<irSlug>.
+  // bio is the canonical summary; irSections controls section visibility/order.
+  irSlug             String?  @unique
+  irTheme            String   @default("modern")
+  irSections         String?                          // JSON: [{type,visible,order,settings?}]
+  irTargetRole       String?                          // optional default headline override for the IR
+
   filingStatus       String   @default("single")
   federalTaxRate     Float?
   stateTaxRate       Float?
@@ -388,6 +449,9 @@ model AccessRequest {
   approvedAt    DateTime?
   accessToken   String?   @unique              // magic link token for approved access
   tokenExpiresAt DateTime?
+  // ── Per-share IR overrides (shown only to viewers using this token) ──
+  targetRole    String?                            // override the default headline for this viewer
+  focusSections String?                            // JSON array of section types to highlight
   createdAt     DateTime  @default(now())
 
   profile UserProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
@@ -403,6 +467,9 @@ model SingleUseLink {
   viewedAt    DateTime?
   viewedBy    String?                           // IP or user-agent of viewer
   expiresAt   DateTime
+  // ── Per-share IR overrides ──
+  targetRole    String?                          // override headline for this viewer
+  focusSections String?                          // JSON array of section types to highlight
   createdAt   DateTime  @default(now())
 
   profile UserProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)

@@ -156,6 +156,7 @@ interface DashboardData {
     linkedinUrl: string | null;
     githubUrl: string | null;
     portfolioUrl: string | null;
+    schedulingUrl: string | null;
     availability: string;
     bio: string | null;
     preferredRoles: string | null;
@@ -291,6 +292,7 @@ export default function DashboardPage() {
     linkedinUrl: "",
     githubUrl: "",
     portfolioUrl: "",
+    schedulingUrl: "",
     availability: "open_to_work",
     bio: "",
     preferredRoles: "",
@@ -323,6 +325,7 @@ export default function DashboardPage() {
         linkedinUrl: data.profile.linkedinUrl ?? "",
         githubUrl: data.profile.githubUrl ?? "",
         portfolioUrl: data.profile.portfolioUrl ?? "",
+        schedulingUrl: data.profile.schedulingUrl ?? "",
         availability: data.profile.availability ?? "open_to_work",
         bio: data.profile.bio ?? "",
         preferredRoles: data.profile.preferredRoles ?? "",
@@ -1267,6 +1270,11 @@ export default function DashboardPage() {
             <div className="space-y-1.5">
               <Label htmlFor="ep-portfolio">Portfolio URL</Label>
               <Input id="ep-portfolio" value={editForm.portfolioUrl} onChange={(e) => setEditForm((f) => ({ ...f, portfolioUrl: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="ep-scheduling">Scheduling URL</Label>
+              <Input id="ep-scheduling" placeholder="https://calendly.com/your-handle" value={editForm.schedulingUrl} onChange={(e) => setEditForm((f) => ({ ...f, schedulingUrl: e.target.value }))} />
+              <p className="text-xs text-muted-foreground">Calendly, Cal.com, or any link where recruiters can book time. Powers the “Schedule interview” button on your public resume.</p>
             </div>
             <DialogFooter>
               <Button type="submit" disabled={profileMutation.isPending}>

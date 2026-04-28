@@ -48,7 +48,7 @@ export async function PATCH(request: Request) {
     // Whitelist allowed fields
     const allowed = [
       "fullName", "headline", "email", "phone", "city", "state",
-      "linkedinUrl", "githubUrl", "portfolioUrl", "avatarUrl",
+      "linkedinUrl", "githubUrl", "portfolioUrl", "schedulingUrl", "avatarUrl",
       "availability", "bio", "preferredRoles", "targetSalaryMin", "targetSalaryMax",
       "currency", "locationPreference", "showSkills", "showResume", "showCertifications",
       "showCurrentRole", "portalSlug", "filingStatus", "federalTaxRate", "stateTaxRate",
@@ -61,17 +61,45 @@ export async function PATCH(request: Request) {
       "gasPricePerGallon", "daysInOffice",
       // Skill graph
       "industryGroup",
+      // Adaptive Interactive Resume config
+      "irSlug", "irTheme", "irSections", "irTargetRole",
     ];
     const data: Record<string, unknown> = {};
     for (const key of allowed) {
       if (key in body) data[key] = body[key];
     }
-    const updated = await prisma.userProfile.upsert({
-      where: { userId },
-      create: { userId, ...data },
-      update: data,
-    });
-    return NextResponse.json(updated);
+
+    // Normalize / validate irSlug if provided
+    if (typeof data.irSlug === "string") {
+      const cleaned = data.irSlug.trim().toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "");
+      if (!cleaned) {
+        data.irSlug = null;
+      } else if (cleaned.length < 3 || cleaned.length > 60) {
+        return NextResponse.json({ error: "Slug must be 3–60 characters." }, { status: 400 });
+      } else {
+        data.irSlug = cleaned;
+        // Reserved slugs that collide with app routes
+        const RESERVED = new Set(["api", "app", "admin", "dashboard", "settings", "auth", "login", "signup", "signin", "r", "u", "portal"]);
+        if (RESERVED.has(cleaned)) {
+          return NextResponse.json({ error: "That slug is reserved." }, { status: 400 });
+        }
+      }
+    }
+
+    try {
+      const updated = await prisma.userProfile.upsert({
+        where: { userId },
+        create: { userId, ...data },
+        update: data,
+      });
+      return NextResponse.json(updated);
+    } catch (e: unknown) {
+      // Prisma unique constraint failure on irSlug
+      if (typeof e === "object" && e && "code" in e && (e as { code: string }).code === "P2002") {
+        return NextResponse.json({ error: "That slug is already taken." }, { status: 409 });
+      }
+      throw e;
+    }
   } catch (error) {
     console.error("[PATCH /api/profile] Error:", error);
     return NextResponse.json({ error: String(error) }, { status: 500 });

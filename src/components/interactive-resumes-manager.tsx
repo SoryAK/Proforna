@@ -75,6 +75,51 @@ interface ViewAnalytics {
   recentViews: { id: string; createdAt: string; referrer: string | null; userAgent: string | null }[];
 }
 
+interface IrEngagementAnalytics {
+  totals: {
+    sessions: number;
+    events: number;
+    byType: Record<string, number>;
+  };
+  byDay: { date: string; sessions: number; events: number }[];
+  viewers: {
+    sessionId: string;
+    firstSeen: string;
+    lastSeen: string;
+    eventCount: number;
+    durationSec: number;
+    referrer: string | null;
+    accessRequestId: string | null;
+    topEvents: Record<string, number>;
+  }[];
+  topRoles: {
+    workItemId: string;
+    kind: "role" | "education";
+    label: string | null;
+    clicks: number;
+    uniqueSessions: number;
+  }[];
+  funnel: {
+    viewers: number;
+    roleEngaged: number;
+    contactOpens: number;
+    contactClicks: number;
+    contactOpenRate: number;
+    contactClickRate: number;
+  };
+  contactMethods: { method: string; count: number }[];
+}
+
+const ENGAGEMENT_EVENT_LABELS: Record<string, string> = {
+  view: "Views",
+  role_click: "Role clicks",
+  contact_open: "Contact opens",
+  contact_method_click: "Contact taps",
+  education_click: "Education clicks",
+  journey_play: "Journey plays",
+  session_heartbeat: "Active pings",
+};
+
 const DEFAULT_SECTIONS: SectionConfig[] = [
   { type: "summary", visible: true, order: 0 },
   { type: "experience", visible: true, order: 1 },
@@ -126,6 +171,16 @@ export default function InteractiveResumesManager() {
         r.json()
       ),
     enabled: !!analyticsId,
+  });
+
+  const analyticsSlug = analyticsId
+    ? resumes.find((r) => r.id === analyticsId)?.slug ?? null
+    : null;
+  const { data: engagement } = useQuery<IrEngagementAnalytics>({
+    queryKey: ["ir-engagement", analyticsSlug],
+    queryFn: () =>
+      fetch(`/api/ir/${analyticsSlug}/analytics`).then((r) => r.json()),
+    enabled: !!analyticsSlug,
   });
 
   const saveMutation = useMutation({
@@ -661,6 +716,190 @@ export default function InteractiveResumesManager() {
                 <p className="text-sm text-muted-foreground text-center py-4">
                   No views yet. Share your resume link to start tracking!
                 </p>
+              )}
+
+              {/* Immersive Map engagement */}
+              {engagement && (
+                <div className="border-t pt-4 space-y-3">
+                  <div className="flex items-baseline justify-between">
+                    <h4 className="text-sm font-semibold">Map Engagement</h4>
+                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                      Last 90 days
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Card>
+                      <CardContent className="pt-4 text-center">
+                        <p className="text-2xl font-bold">{engagement.totals.sessions}</p>
+                        <p className="text-xs text-muted-foreground">Unique viewers</p>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="pt-4 text-center">
+                        <p className="text-2xl font-bold">{engagement.totals.events}</p>
+                        <p className="text-xs text-muted-foreground">Interactions</p>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {Object.keys(engagement.totals.byType).length > 0 && (
+                    <div className="space-y-1">
+                      {Object.entries(engagement.totals.byType)
+                        .sort((a, b) => b[1] - a[1])
+                        .map(([type, count]) => (
+                          <div
+                            key={type}
+                            className="flex justify-between text-xs"
+                          >
+                            <span className="text-muted-foreground">
+                              {ENGAGEMENT_EVENT_LABELS[type] ?? type}
+                            </span>
+                            <span className="font-medium">{count}</span>
+                          </div>
+                        ))}
+                    </div>
+                  )}
+
+                  {/* Funnel: View → Contact open → Contact click */}
+                  {engagement.funnel && engagement.funnel.viewers > 0 && (
+                    <div>
+                      <h5 className="text-xs font-semibold mb-1.5 text-muted-foreground uppercase tracking-wider">
+                        Conversion funnel
+                      </h5>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div className="rounded-md border bg-muted/20 p-2 text-center">
+                          <p className="text-base font-bold">{engagement.funnel.viewers}</p>
+                          <p className="text-[10px] text-muted-foreground">Viewers</p>
+                        </div>
+                        <div className="rounded-md border bg-muted/20 p-2 text-center">
+                          <p className="text-base font-bold">{engagement.funnel.contactOpens}</p>
+                          <p className="text-[10px] text-muted-foreground">
+                            Contact opens
+                            {engagement.funnel.contactOpenRate > 0 && (
+                              <span className="block text-[9px] text-amber-600">
+                                {Math.round(engagement.funnel.contactOpenRate * 100)}% of viewers
+                              </span>
+                            )}
+                          </p>
+                        </div>
+                        <div className="rounded-md border bg-muted/20 p-2 text-center">
+                          <p className="text-base font-bold">{engagement.funnel.contactClicks}</p>
+                          <p className="text-[10px] text-muted-foreground">
+                            Contact clicks
+                            {engagement.funnel.contactClickRate > 0 && (
+                              <span className="block text-[9px] text-amber-600">
+                                {Math.round(engagement.funnel.contactClickRate * 100)}% of opens
+                              </span>
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                      {engagement.contactMethods.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          {engagement.contactMethods.map((m) => (
+                            <span
+                              key={m.method}
+                              className="inline-flex items-center gap-1 rounded-full border bg-background px-2 py-0.5 text-[10px]"
+                            >
+                              {m.method}
+                              <span className="font-semibold">{m.count}</span>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Top role drill-down */}
+                  {engagement.topRoles.length > 0 && (() => {
+                    const maxClicks = engagement.topRoles[0].clicks || 1;
+                    return (
+                      <div>
+                        <h5 className="text-xs font-semibold mb-1.5 text-muted-foreground uppercase tracking-wider">
+                          Top roles tapped
+                        </h5>
+                        <ul className="space-y-1">
+                          {engagement.topRoles.slice(0, 8).map((r) => {
+                            const pct = Math.max(4, Math.round((r.clicks / maxClicks) * 100));
+                            return (
+                              <li key={r.workItemId} className="text-xs">
+                                <div className="flex justify-between items-baseline mb-0.5">
+                                  <span className="truncate font-medium" title={r.label ?? r.workItemId}>
+                                    {r.kind === "education" ? "🎓 " : ""}
+                                    {r.label || r.workItemId.slice(0, 8)}
+                                  </span>
+                                  <span className="text-muted-foreground tabular-nums shrink-0 ml-2">
+                                    {r.clicks}
+                                    <span className="text-[10px]"> ({r.uniqueSessions} viewers)</span>
+                                  </span>
+                                </div>
+                                <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                                  <div
+                                    className="h-full bg-amber-500"
+                                    style={{ width: `${pct}%` }}
+                                  />
+                                </div>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </div>
+                    );
+                  })()}
+
+                  {engagement.viewers.length > 0 && (
+                    <div>
+                      <h5 className="text-xs font-semibold mb-1.5 text-muted-foreground uppercase tracking-wider">
+                        Recent viewers
+                      </h5>
+                      <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                        {engagement.viewers.slice(0, 8).map((v) => {
+                          const top = Object.entries(v.topEvents).sort(
+                            (a, b) => b[1] - a[1]
+                          )[0];
+                          return (
+                            <div
+                              key={v.sessionId}
+                              className="flex justify-between items-baseline text-xs border-b pb-1"
+                            >
+                              <div className="min-w-0 flex-1">
+                                <div className="truncate font-medium">
+                                  {new Date(v.lastSeen).toLocaleString()}
+                                </div>
+                                <div className="text-[10px] text-muted-foreground truncate">
+                                  {v.eventCount} events
+                                  {v.durationSec > 0 &&
+                                    ` · ${Math.round(v.durationSec / 60)}m`}
+                                  {top && ` · top: ${ENGAGEMENT_EVENT_LABELS[top[0]] ?? top[0]}`}
+                                </div>
+                              </div>
+                              {v.referrer && (
+                                <span
+                                  className="ml-2 text-[10px] text-muted-foreground truncate max-w-[40%]"
+                                  title={v.referrer}
+                                >
+                                  {(() => {
+                                    try {
+                                      return new URL(v.referrer).hostname;
+                                    } catch {
+                                      return v.referrer;
+                                    }
+                                  })()}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {engagement.totals.events === 0 && (
+                    <p className="text-xs text-muted-foreground text-center py-2">
+                      No map interactions yet.
+                    </p>
+                  )}
+                </div>
               )}
             </div>
           ) : (

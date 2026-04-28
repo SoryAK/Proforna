@@ -33,9 +33,11 @@ interface Profile {
   headline: string | null;
   avatarUrl: string | null;
   email: string | null;
+  phone?: string | null;
   linkedinUrl: string | null;
   githubUrl: string | null;
   portfolioUrl: string | null;
+  schedulingUrl?: string | null;
   city: string | null;
   state: string | null;
 }
@@ -122,6 +124,7 @@ interface ResumeData {
   skills: Skill[];
   certifications: Certification[];
   experience: Position[];
+  viewerOverride?: { targetRole: string | null; focusSections: string[] | null } | null;
 }
 
 const proficiencyPercent: Record<string, number> = {
@@ -151,16 +154,27 @@ function ExpandableSection({
   children,
   defaultOpen = false,
   onToggle,
+  highlight = false,
 }: {
   title: string;
   icon: React.ComponentType<{ className?: string }>;
   children: React.ReactNode;
   defaultOpen?: boolean;
   onToggle?: (open: boolean) => void;
+  highlight?: boolean;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="border-b border-gray-200 dark:border-gray-700 last:border-b-0">
+    <div
+      className={`border-b border-gray-200 dark:border-gray-700 last:border-b-0 ${
+        highlight ? "ring-2 ring-amber-400/70 dark:ring-amber-500/60 bg-amber-50/40 dark:bg-amber-900/10 rounded-md" : ""
+      }`}
+    >
+      {highlight && (
+        <div className="px-6 pt-2 -mb-1 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300">
+          Recommended for this opportunity
+        </div>
+      )}
       <button
         onClick={() => {
           setOpen(!open);
@@ -389,6 +403,9 @@ export default function InteractiveResumePage({
 
   const { resume, profile, skills, certifications, experience } = data;
   const visibility = data.visibility || "public";
+  const viewerOverride = data.viewerOverride || null;
+  const effectiveTargetRole = viewerOverride?.targetRole || resume.targetRole;
+  const focusSet = new Set((viewerOverride?.focusSections || []).filter(Boolean));
   const isRestricted = visibility === "stealth" || visibility === "anonymous";
   const sorted = [...resume.sections]
     .filter((s) => s.visible)
@@ -508,6 +525,7 @@ export default function InteractiveResumePage({
           certifications={sorted.some((s) => s.type === "certifications") ? certifications : []}
           summary={sorted.some((s) => s.type === "summary") ? resume.summary : null}
           updatedAt={resume.updatedAt}
+          slug={slug}
         />
       </>
     );
@@ -543,9 +561,14 @@ export default function InteractiveResumePage({
                   </span>
                 )}
               </div>
-              {(resume.targetRole || profile?.headline) && (
+              {(effectiveTargetRole || profile?.headline) && (
                 <p className="text-indigo-600 dark:text-indigo-400 font-medium mt-0.5">
-                  {resume.targetRole || profile?.headline}
+                  {effectiveTargetRole || profile?.headline}
+                </p>
+              )}
+              {viewerOverride?.targetRole && (
+                <p className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 px-2 py-0.5 rounded-full">
+                  Tailored for this opportunity
                 </p>
               )}
               {profile?.city && (
@@ -572,6 +595,7 @@ export default function InteractiveResumePage({
                   icon={Briefcase}
                   defaultOpen
                   onToggle={() => trackSection("summary")}
+                  highlight={focusSet.has("summary")}
                 >
                   <p className="text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-line">
                     {resume.summary}
@@ -605,6 +629,7 @@ export default function InteractiveResumePage({
                   icon={Building2}
                   defaultOpen
                   onToggle={() => trackSection("experience")}
+                  highlight={focusSet.has("experience")}
                 >
                   <ResumeWorkMap
                     items={workItems}
@@ -623,6 +648,7 @@ export default function InteractiveResumePage({
                   icon={Code2}
                   defaultOpen
                   onToggle={() => trackSection("skills")}
+                  highlight={focusSet.has("skills")}
                 >
                   <div className="space-y-4">
                     {Object.entries(skillsByCategory).map(([cat, items]) => (
@@ -665,6 +691,7 @@ export default function InteractiveResumePage({
                   icon={Award}
                   defaultOpen={false}
                   onToggle={() => trackSection("certifications")}
+                  highlight={focusSet.has("certifications")}
                 >
                   <div className="space-y-3">
                     {certifications.map((cert) => (
@@ -704,6 +731,11 @@ export default function InteractiveResumePage({
                   href: `mailto:${profile.email}`,
                   icon: Mail,
                 },
+                profile.phone && {
+                  label: profile.phone,
+                  href: `tel:${profile.phone.replace(/[^+0-9]/g, "")}`,
+                  icon: Mail,
+                },
                 profile.linkedinUrl && {
                   label: "LinkedIn",
                   href: profile.linkedinUrl,
@@ -734,6 +766,7 @@ export default function InteractiveResumePage({
                   icon={Mail}
                   defaultOpen={false}
                   onToggle={() => trackSection("contact")}
+                  highlight={focusSet.has("contact")}
                 >
                   <div className="flex flex-wrap gap-3">
                     {links.map((link) => (

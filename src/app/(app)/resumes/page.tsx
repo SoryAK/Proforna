@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import InteractiveResumesManager from "@/components/interactive-resumes-manager";
+import AdaptiveIrEditor from "@/components/adaptive-ir-editor";
 import {
   Dialog,
   DialogContent,
@@ -383,7 +383,7 @@ export default function ResumesPage() {
           <h2 className="text-lg font-semibold">Interactive Resumes</h2>
           <span className="text-xs text-muted-foreground">Shareable living resumes</span>
         </button>
-        {interactiveOpen && <InteractiveResumesManager />}
+        {interactiveOpen && <AdaptiveIrEditor />}
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={(open) => !open && closeDialog()}>

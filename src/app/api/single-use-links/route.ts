@@ -39,6 +39,10 @@ export async function POST(req: NextRequest) {
       token,
       label: body.label || null,
       expiresAt,
+      targetRole: typeof body.targetRole === "string" ? (body.targetRole.trim() || null) : null,
+      focusSections: Array.isArray(body.focusSections)
+        ? JSON.stringify(body.focusSections.filter((s: unknown) => typeof s === "string"))
+        : null,
     },
   });
 

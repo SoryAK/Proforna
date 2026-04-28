@@ -12,7 +12,12 @@ export async function PATCH(
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
-  const { status } = await req.json();
+  const body = await req.json();
+  const { status, targetRole, focusSections } = body as {
+    status: string;
+    targetRole?: string | null;
+    focusSections?: string[] | null;
+  };
 
   if (!["approved", "denied"].includes(status)) {
     return NextResponse.json({ error: "Invalid status" }, { status: 400 });
@@ -35,6 +40,12 @@ export async function PATCH(
     updateData.approvedAt = new Date();
     // Token valid for 30 days
     updateData.tokenExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    if (typeof targetRole === "string") {
+      updateData.targetRole = targetRole.trim() || null;
+    }
+    if (Array.isArray(focusSections)) {
+      updateData.focusSections = JSON.stringify(focusSections.filter((s) => typeof s === "string"));
+    }
   }
 
   const updated = await prisma.accessRequest.update({ where: { id }, data: updateData });

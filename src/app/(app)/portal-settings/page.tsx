@@ -1176,6 +1176,136 @@ function SingleUseLinksManager() {
 }
 
 /* ── Access Requests Manager ── */
+const SECTION_KEYS = [
+  { value: "summary", label: "Summary" },
+  { value: "experience", label: "Experience" },
+  { value: "skills", label: "Skills" },
+  { value: "certifications", label: "Certifications" },
+  { value: "contact", label: "Contact" },
+];
+
+function PendingAccessRow({
+  req,
+  onApprove,
+  onDeny,
+  disabled,
+}: {
+  req: {
+    id: string;
+    requesterName: string;
+    requesterEmail: string;
+    requesterCompany: string | null;
+    requesterLinkedin: string | null;
+    message: string | null;
+    createdAt: string;
+  };
+  onApprove: (targetRole: string, focusSections: string[]) => void;
+  onDeny: () => void;
+  disabled: boolean;
+}) {
+  const [showCustomize, setShowCustomize] = useState(false);
+  const [targetRole, setTargetRole] = useState("");
+  const [focus, setFocus] = useState<string[]>([]);
+
+  const toggleFocus = (key: string) => {
+    setFocus((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
+  };
+
+  return (
+    <div className="p-4 rounded-lg border-2 border-indigo-200 dark:border-indigo-800 bg-indigo-50/50 dark:bg-indigo-950/30">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <p className="font-medium">{req.requesterName}</p>
+          <p className="text-sm text-gray-500">{req.requesterEmail}</p>
+          {req.requesterCompany && (
+            <p className="text-sm text-gray-500">@ {req.requesterCompany}</p>
+          )}
+          {req.requesterLinkedin && (
+            <a
+              href={req.requesterLinkedin}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-indigo-500 hover:underline"
+            >
+              LinkedIn Profile
+            </a>
+          )}
+          {req.message && (
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-2 italic">
+              &quot;{req.message}&quot;
+            </p>
+          )}
+          <p className="text-xs text-gray-400 mt-1">
+            {new Date(req.createdAt).toLocaleDateString()}
+          </p>
+        </div>
+        <div className="flex gap-2 shrink-0">
+          <Button
+            size="sm"
+            onClick={() => onApprove(targetRole.trim(), focus)}
+            disabled={disabled}
+          >
+            <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
+            Approve
+          </Button>
+          <Button size="sm" variant="outline" onClick={onDeny} disabled={disabled}>
+            Deny
+          </Button>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={() => setShowCustomize((s) => !s)}
+        className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline mt-3"
+      >
+        {showCustomize ? "Hide" : "Customize for this recruiter"} ▾
+      </button>
+
+      {showCustomize && (
+        <div className="mt-3 space-y-3 border-t border-indigo-200 dark:border-indigo-800 pt-3">
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+              Tailored target role (optional)
+            </label>
+            <input
+              type="text"
+              value={targetRole}
+              onChange={(e) => setTargetRole(e.target.value)}
+              placeholder="e.g. Senior React Engineer"
+              className="w-full text-sm px-2 py-1.5 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+              Highlight sections
+            </label>
+            <div className="flex flex-wrap gap-1.5">
+              {SECTION_KEYS.map((s) => {
+                const active = focus.includes(s.value);
+                return (
+                  <button
+                    key={s.value}
+                    type="button"
+                    onClick={() => toggleFocus(s.value)}
+                    className={`text-xs px-2 py-1 rounded-full border transition ${
+                      active
+                        ? "bg-amber-500 text-white border-amber-500"
+                        : "bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:border-amber-400"
+                    }`}
+                  >
+                    {s.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AccessRequestsManager() {
   const queryClient = useQueryClient();
 
@@ -1198,11 +1328,11 @@ function AccessRequestsManager() {
   });
 
   const actionMutation = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: string }) =>
+    mutationFn: ({ id, status, targetRole, focusSections }: { id: string; status: string; targetRole?: string; focusSections?: string[] }) =>
       fetch(`/api/access-requests/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({ status, targetRole, focusSections }),
       }).then((r) => r.json()),
     onSuccess: (_, { status }) => {
       queryClient.invalidateQueries({ queryKey: ["access-requests"] });
@@ -1246,56 +1376,15 @@ function AccessRequestsManager() {
 
         {/* Pending first */}
         {pending.map((req) => (
-          <div
+          <PendingAccessRow
             key={req.id}
-            className="p-4 rounded-lg border-2 border-indigo-200 dark:border-indigo-800 bg-indigo-50/50 dark:bg-indigo-950/30"
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex-1 min-w-0">
-                <p className="font-medium">{req.requesterName}</p>
-                <p className="text-sm text-gray-500">{req.requesterEmail}</p>
-                {req.requesterCompany && (
-                  <p className="text-sm text-gray-500">@ {req.requesterCompany}</p>
-                )}
-                {req.requesterLinkedin && (
-                  <a
-                    href={req.requesterLinkedin}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs text-indigo-500 hover:underline"
-                  >
-                    LinkedIn Profile
-                  </a>
-                )}
-                {req.message && (
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-2 italic">
-                    &quot;{req.message}&quot;
-                  </p>
-                )}
-                <p className="text-xs text-gray-400 mt-1">
-                  {new Date(req.createdAt).toLocaleDateString()}
-                </p>
-              </div>
-              <div className="flex gap-2 shrink-0">
-                <Button
-                  size="sm"
-                  onClick={() => actionMutation.mutate({ id: req.id, status: "approved" })}
-                  disabled={actionMutation.isPending}
-                >
-                  <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
-                  Approve
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => actionMutation.mutate({ id: req.id, status: "denied" })}
-                  disabled={actionMutation.isPending}
-                >
-                  Deny
-                </Button>
-              </div>
-            </div>
-          </div>
+            req={req}
+            onApprove={(targetRole, focusSections) =>
+              actionMutation.mutate({ id: req.id, status: "approved", targetRole, focusSections })
+            }
+            onDeny={() => actionMutation.mutate({ id: req.id, status: "denied" })}
+            disabled={actionMutation.isPending}
+          />
         ))}
 
         {/* Resolved */}

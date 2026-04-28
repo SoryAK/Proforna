@@ -51,7 +51,18 @@ import {
   PersonStanding,
   Share2,
   Check,
+  Phone,
+  Linkedin,
+  Github,
+  Globe,
+  Copy,
+  Play,
+  Pause,
+  RotateCcw,
+  Route,
 } from "lucide-react";
+import { useIrAnalytics } from "@/lib/use-ir-analytics";
+import RecruiterPanel from "@/components/recruiter-panel";
 
 const GOOGLE_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
 
@@ -129,9 +140,11 @@ export interface ImmersiveProfile {
   headline: string | null;
   avatarUrl: string | null;
   email?: string | null;
+  phone?: string | null;
   linkedinUrl?: string | null;
   githubUrl?: string | null;
   portfolioUrl?: string | null;
+  schedulingUrl?: string | null;
   city?: string | null;
   state?: string | null;
 }
@@ -146,6 +159,10 @@ interface Props {
   certifications?: ImmersiveCert[];
   summary?: string | null;
   updatedAt?: string | null;
+  /** IR slug from the page route — required for engagement-event tracking. */
+  slug?: string | null;
+  /** Optional approved AccessRequest id (token-based viewers). */
+  accessRequestId?: string | null;
 }
 
 /* ── Helpers ────────────────────────────────────────────────────── */
@@ -298,7 +315,8 @@ function fmtRelative(iso: string): string {
 
 /* ── Component ──────────────────────────────────────────────────── */
 
-export default function ResumeImmersiveMap({ items, profile, skills = [], certifications = [], summary, updatedAt }: Props) {
+export default function ResumeImmersiveMap({ items, profile, skills = [], certifications = [], summary, updatedAt, slug = null, accessRequestId = null }: Props) {
+  const analytics = useIrAnalytics(slug, accessRequestId);
   const geocoded = useMemo(
     () => items.filter((i) => typeof i.lat === "number" && typeof i.lng === "number") as (ImmersiveWorkItem & { lat: number; lng: number })[],
     [items],
@@ -386,22 +404,24 @@ export default function ResumeImmersiveMap({ items, profile, skills = [], certif
   };
   const isTypeOn = (t: string) => typeFilter.size === 0 || typeFilter.has(t);
 
-  // KPIs
+  // KPIs (exclude schools — those live in the bio card now)
   const kpis = useMemo(() => {
-    const totalMonths = items.reduce((s, i) => s + tenureMonths(i.startDate, i.endDate), 0);
+    const workItems = items.filter((i) => (i.type || "").toLowerCase() !== "school");
+    const workGeocoded = geocoded.filter((i) => (i.type || "").toLowerCase() !== "school");
+    const totalMonths = workItems.reduce((s, i) => s + tenureMonths(i.startDate, i.endDate), 0);
     const cities = new Set(
-      items.map((i) => i.location || i.address || "").filter(Boolean)
+      workItems.map((i) => i.location || i.address || "").filter(Boolean)
         .map((s) => s.split(",").slice(0, 2).join(",").trim()),
     );
     let miles = 0;
-    if (geocoded.length >= 2) {
-      const lats = geocoded.map((g) => g.lat), lngs = geocoded.map((g) => g.lng);
+    if (workGeocoded.length >= 2) {
+      const lats = workGeocoded.map((g) => g.lat), lngs = workGeocoded.map((g) => g.lng);
       miles = Math.round(distMiles(
         { lat: Math.min(...lats), lng: Math.min(...lngs) },
         { lat: Math.max(...lats), lng: Math.max(...lngs) },
       ));
     }
-    return { tenure: fmtTenure(totalMonths), roles: items.length, cities: cities.size, miles };
+    return { tenure: fmtTenure(totalMonths), roles: workItems.length, cities: cities.size, miles };
   }, [items, geocoded]);
 
   // Years of experience (excluding school) — coarse, based on earliest start date
@@ -417,6 +437,137 @@ export default function ResumeImmersiveMap({ items, profile, skills = [], certif
   }, [items]);
 
   const [bioExpanded, setBioExpanded] = useState(false);
+  const [summaryExpanded, setSummaryExpanded] = useState(false);
+  const [eduExpanded, setEduExpanded] = useState(true);
+  const [contactOpen, setContactOpen] = useState(false);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const contactBtnRef = useRef<HTMLButtonElement | null>(null);
+  const contactPopoverRef = useRef<HTMLDivElement | null>(null);
+
+  // Outside click + Escape close + focus management for the contact popover
+  useEffect(() => {
+    if (!contactOpen) return;
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    // Move focus into the popover
+    const t = window.setTimeout(() => {
+      const first = contactPopoverRef.current?.querySelector<HTMLElement>(
+        'a[href], button:not([disabled])',
+      );
+      first?.focus();
+    }, 0);
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        setContactOpen(false);
+        return;
+      }
+      if (e.key === "Tab" && contactPopoverRef.current) {
+        const focusables = contactPopoverRef.current.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled])',
+        );
+        if (focusables.length === 0) return;
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        const active = document.activeElement as HTMLElement | null;
+        if (e.shiftKey && active === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && active === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+    const onPointerDown = (e: PointerEvent) => {
+      const target = e.target as Node;
+      if (
+        contactPopoverRef.current?.contains(target) ||
+        contactBtnRef.current?.contains(target)
+      ) {
+        return;
+      }
+      setContactOpen(false);
+    };
+    document.addEventListener("keydown", onKey, true);
+    document.addEventListener("pointerdown", onPointerDown, true);
+    return () => {
+      window.clearTimeout(t);
+      document.removeEventListener("keydown", onKey, true);
+      document.removeEventListener("pointerdown", onPointerDown, true);
+      // Restore focus to the trigger
+      previouslyFocused?.focus?.();
+    };
+  }, [contactOpen]);
+
+  const educationItems = useMemo(
+    () => items.filter((i) => (i.type || "").toLowerCase() === "school"),
+    [items],
+  );
+
+  // ── Career timeline scrubber + journey playback ──────────────────
+  // Year span is computed from ALL items (including school/military/volunteer)
+  // so the scrubber covers the candidate's full life arc.
+  const yearSpan = useMemo<[number, number] | null>(() => {
+    const nowY = new Date().getFullYear();
+    const ys: number[] = [];
+    items.forEach((i) => {
+      const s = parseYM(i.startDate);
+      const e = parseYM(i.endDate);
+      if (s) ys.push(s.getFullYear());
+      if (e) ys.push(e.getFullYear());
+      else if (s) ys.push(nowY);
+    });
+    if (ys.length === 0) return null;
+    return [Math.min(...ys), Math.max(...ys, nowY)];
+  }, [items]);
+
+  // Selected year range — initially the full span. We keep [number, number] | null.
+  const [yearRange, setYearRange] = useState<[number, number] | null>(null);
+  useEffect(() => {
+    if (yearSpan && !yearRange) setYearRange([yearSpan[0], yearSpan[1]]);
+  }, [yearSpan, yearRange]);
+
+  // Journey playback
+  const [playing, setPlaying] = useState(false);
+  const [playSpeed, setPlaySpeed] = useState<1 | 2 | 4>(1);
+  const [showJourneyLine, setShowJourneyLine] = useState(true);
+  const playTimerRef = useRef<number | null>(null);
+  // When the user starts playback, we snap the END handle to the start
+  // and let it crawl forward year-by-year.
+  useEffect(() => {
+    if (!playing || !yearSpan) return;
+    const tick = () => {
+      setYearRange((cur) => {
+        if (!cur) return cur;
+        const next = cur[1] + 1;
+        if (next > yearSpan[1]) {
+          setPlaying(false);
+          return [yearSpan[0], yearSpan[1]];
+        }
+        return [cur[0], next];
+      });
+    };
+    const intervalMs = Math.round(1100 / playSpeed);
+    playTimerRef.current = window.setInterval(tick, intervalMs);
+    return () => {
+      if (playTimerRef.current !== null) {
+        window.clearInterval(playTimerRef.current);
+        playTimerRef.current = null;
+      }
+    };
+  }, [playing, playSpeed, yearSpan]);
+
+  const startPlayback = () => {
+    if (!yearSpan) return;
+    setYearRange([yearSpan[0], yearSpan[0]]);
+    setPlaying(true);
+    analytics.track("journey_play", { from: yearSpan[0], to: yearSpan[1] });
+  };
+  const resetTimeline = () => {
+    setPlaying(false);
+    if (yearSpan) setYearRange([yearSpan[0], yearSpan[1]]);
+  };
 
   return (
     <div className="fixed inset-0 bg-gray-950">
@@ -424,8 +575,16 @@ export default function ResumeImmersiveMap({ items, profile, skills = [], certif
       <ImmersiveMapView
         items={visibleGeocoded}
         focusedId={focusedId}
-        onFocus={(id) => setFocusedId(id)}
+        onFocus={(id) => {
+          setFocusedId(id);
+          const w = visibleGeocoded.find((x) => x.id === id);
+          const label = w ? `${w.role || w.title || "Role"} @ ${w.company}` : null;
+          analytics.track("role_click", { workItemId: id, label });
+        }}
         mapStyle={mapStyle}
+        yearRange={yearRange}
+        playing={playing}
+        showJourneyLine={showJourneyLine}
       />
 
       {/* Top-right sections pill */}
@@ -437,6 +596,8 @@ export default function ResumeImmersiveMap({ items, profile, skills = [], certif
         <Layers className="h-4 w-4 text-muted-foreground" />
         More
       </button>
+
+      {/* Recruiter save + notes (anonymous, cookie-keyed) — rendered inside the bottom action bar */}
 
       {/* Map style toggle (right side, under More) */}
       <div className="absolute top-16 right-3 z-30 inline-flex items-center rounded-xl bg-background/95 backdrop-blur-md border shadow-xl overflow-hidden text-xs">
@@ -493,6 +654,41 @@ export default function ResumeImmersiveMap({ items, profile, skills = [], certif
         </div>
       </div>
 
+      {/* Career timeline scrubber + recruiter actions (bottom-center) */}
+      {yearSpan && yearRange && yearSpan[1] > yearSpan[0] ? (
+        <TimelineScrubber
+          minYear={yearSpan[0]}
+          maxYear={yearSpan[1]}
+          range={yearRange}
+          onRangeChange={(r) => { setPlaying(false); setYearRange(r); }}
+          playing={playing}
+          onPlay={startPlayback}
+          onPause={() => setPlaying(false)}
+          onReset={resetTimeline}
+          speed={playSpeed}
+          onSpeedChange={setPlaySpeed}
+          showJourneyLine={showJourneyLine}
+          onToggleJourneyLine={() => setShowJourneyLine((v) => !v)}
+          actionsSlot={slug ? (
+            <RecruiterPanel
+              irSlug={slug}
+              candidateName={profile?.fullName ?? null}
+              candidateHeadline={profile?.headline ?? null}
+            />
+          ) : null}
+        />
+      ) : (
+        slug && (
+          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-30 rounded-xl bg-background/95 backdrop-blur-md border shadow-xl px-2 py-2">
+            <RecruiterPanel
+              irSlug={slug}
+              candidateName={profile?.fullName ?? null}
+              candidateHeadline={profile?.headline ?? null}
+            />
+          </div>
+        )
+      )}
+
       {/* Left column: bio card + work-history panel */}
       {!panelCollapsed ? (
         <div className="absolute top-3 left-3 z-20 w-96 max-w-[calc(100vw-24px)] flex flex-col gap-2 pointer-events-none">
@@ -524,6 +720,133 @@ export default function ResumeImmersiveMap({ items, profile, skills = [], certif
                     {[profile?.city, profile?.state].filter(Boolean).join(", ")}
                   </p>
                 )}
+                {profile && (profile.email || profile.phone || profile.linkedinUrl || profile.githubUrl || profile.portfolioUrl || profile.schedulingUrl) && (
+                  <div className="mt-1.5 relative flex items-center gap-2 flex-wrap">
+                    <button
+                      ref={contactBtnRef}
+                      type="button"
+                      onClick={() => {
+                        setContactOpen((v) => {
+                          if (!v) analytics.track("contact_open");
+                          return !v;
+                        });
+                      }}
+                      aria-expanded={contactOpen}
+                      aria-haspopup="dialog"
+                      className="inline-flex items-center gap-1.5 rounded-md bg-primary text-primary-foreground px-2.5 py-1 text-xs font-medium hover:bg-primary/90 transition-colors"
+                    >
+                      <Mail className="h-3.5 w-3.5" />
+                      Get in touch
+                      {contactOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                    </button>
+                    {updatedAt && (
+                      <span
+                        className="text-[10px] text-muted-foreground"
+                        title={new Date(updatedAt).toLocaleString()}
+                      >
+                        Updated {fmtRelative(updatedAt)}
+                      </span>
+                    )}
+                    {contactOpen && (() => {
+                      const copyToClipboard = (key: string, text: string) => {
+                        navigator.clipboard?.writeText(text).then(() => {
+                          setCopiedKey(key);
+                          setTimeout(() => setCopiedKey((k) => (k === key ? null : k)), 1500);
+                        });
+                      };
+                      const rows: {
+                        key: string;
+                        Icon: React.ComponentType<{ className?: string }>;
+                        label: string;
+                        value: string;
+                        href: string;
+                        external?: boolean;
+                        copyValue?: string;
+                      }[] = [];
+                      if (profile.email) rows.push({
+                        key: "email", Icon: Mail, label: "Email", value: profile.email,
+                        href: `mailto:${profile.email}?subject=${encodeURIComponent("Re: " + (profile?.headline || "your resume"))}`,
+                        copyValue: profile.email,
+                      });
+                      if (profile.phone) rows.push({
+                        key: "phone", Icon: Phone, label: "Phone", value: profile.phone,
+                        href: `tel:${profile.phone.replace(/[^+0-9]/g, "")}`,
+                        copyValue: profile.phone,
+                      });
+                      if (profile.linkedinUrl) rows.push({
+                        key: "linkedin", Icon: Linkedin, label: "LinkedIn", value: profile.linkedinUrl.replace(/^https?:\/\/(www\.)?/, ""),
+                        href: profile.linkedinUrl, external: true, copyValue: profile.linkedinUrl,
+                      });
+                      if (profile.githubUrl) rows.push({
+                        key: "github", Icon: Github, label: "GitHub", value: profile.githubUrl.replace(/^https?:\/\/(www\.)?/, ""),
+                        href: profile.githubUrl, external: true, copyValue: profile.githubUrl,
+                      });
+                      if (profile.portfolioUrl) rows.push({
+                        key: "portfolio", Icon: Globe, label: "Portfolio", value: profile.portfolioUrl.replace(/^https?:\/\/(www\.)?/, ""),
+                        href: profile.portfolioUrl, external: true, copyValue: profile.portfolioUrl,
+                      });
+                      if (profile.schedulingUrl) rows.push({
+                        key: "schedule", Icon: Calendar, label: "Schedule a call", value: "Book a time",
+                        href: profile.schedulingUrl, external: true, copyValue: profile.schedulingUrl,
+                      });
+                      return (
+                        <div
+                          ref={contactPopoverRef}
+                          role="dialog"
+                          aria-modal="false"
+                          aria-label="Contact options"
+                          className="absolute left-0 top-full mt-1.5 z-50 w-72 rounded-lg border bg-background shadow-xl p-1.5"
+                        >
+                          <div className="flex items-center justify-between px-1.5 py-1">
+                            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                              Contact {profile.fullName?.split(" ")[0] || ""}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setContactOpen(false)}
+                              className="text-muted-foreground hover:text-foreground"
+                              title="Close"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                          <ul className="space-y-0.5">
+                            {rows.map((r) => (
+                              <li key={r.key} className="group flex items-center gap-2 rounded-md hover:bg-muted/40 transition-colors">
+                                <a
+                                  href={r.href}
+                                  target={r.external ? "_blank" : undefined}
+                                  rel={r.external ? "noopener noreferrer" : undefined}
+                                  onClick={() => analytics.track("contact_method_click", { method: r.key })}
+                                  className="flex-1 min-w-0 flex items-center gap-2 px-2 py-1.5"
+                                >
+                                  <r.Icon className="h-4 w-4 text-muted-foreground shrink-0" />
+                                  <div className="min-w-0">
+                                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground leading-none">{r.label}</div>
+                                    <div className="text-xs text-foreground truncate">{r.value}</div>
+                                  </div>
+                                </a>
+                                {r.copyValue && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      copyToClipboard(r.key, r.copyValue!);
+                                    }}
+                                    className="px-2 py-1.5 text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+                                    title={`Copy ${r.label.toLowerCase()}`}
+                                  >
+                                    {copiedKey === r.key ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+                                  </button>
+                                )}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
               </div>
               <button
                 type="button"
@@ -535,58 +858,95 @@ export default function ResumeImmersiveMap({ items, profile, skills = [], certif
               </button>
             </div>
             {summary && (
-              <p className="mt-2 text-xs text-muted-foreground line-clamp-3 leading-relaxed">{summary}</p>
-            )}
-            {profile && (profile.email || profile.linkedinUrl || profile.githubUrl || profile.portfolioUrl) && (
-              <div className="mt-2 pt-2 border-t flex items-center gap-1.5 flex-wrap">
-                {profile.email && (
-                  <a
-                    href={`mailto:${profile.email}`}
-                    title={profile.email}
-                    className="inline-flex items-center gap-1 rounded-md border border-input bg-background px-2 py-1 text-xs text-foreground hover:bg-muted/40 transition-colors"
+              <div className="mt-2">
+                <p
+                  className={`text-sm text-gray-700 dark:text-gray-200 leading-relaxed whitespace-pre-line ${
+                    summaryExpanded ? "" : "line-clamp-4"
+                  }`}
+                >
+                  {summary}
+                </p>
+                {summary.length > 220 && (
+                  <button
+                    type="button"
+                    onClick={() => setSummaryExpanded((v) => !v)}
+                    className="mt-1 text-[11px] font-medium text-primary hover:underline"
                   >
-                    <Mail className="h-3 w-3 text-muted-foreground" />
-                    Email
-                  </a>
-                )}
-                {profile.linkedinUrl && (
-                  <a
-                    href={profile.linkedinUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 rounded-md border border-input bg-background px-2 py-1 text-xs text-foreground hover:bg-muted/40 transition-colors"
-                  >
-                    <ExternalLink className="h-3 w-3 text-muted-foreground" />
-                    LinkedIn
-                  </a>
-                )}
-                {profile.githubUrl && (
-                  <a
-                    href={profile.githubUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 rounded-md border border-input bg-background px-2 py-1 text-xs text-foreground hover:bg-muted/40 transition-colors"
-                  >
-                    <ExternalLink className="h-3 w-3 text-muted-foreground" />
-                    GitHub
-                  </a>
-                )}
-                {profile.portfolioUrl && (
-                  <a
-                    href={profile.portfolioUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 rounded-md border border-input bg-background px-2 py-1 text-xs text-foreground hover:bg-muted/40 transition-colors"
-                  >
-                    <ExternalLink className="h-3 w-3 text-muted-foreground" />
-                    Portfolio
-                  </a>
+                    {summaryExpanded ? "Show less" : "Read more"}
+                  </button>
                 )}
               </div>
             )}
 
-            {/* Skills & Certifications collapsible */}
-            {(skills.length > 0 || certifications.length > 0) && (
+            {/* Education */}
+            {educationItems.length > 0 && (
+              <div className="mt-2 pt-2 border-t">
+                <button
+                  type="button"
+                  onClick={() => setEduExpanded((v) => !v)}
+                  className="w-full flex items-center justify-between text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <span className="flex items-center gap-1.5 font-semibold uppercase tracking-wider text-[10px]">
+                    <GraduationCap className="h-3.5 w-3.5 text-violet-500" />
+                    Education
+                  </span>
+                  {eduExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                </button>
+                {eduExpanded && (
+                  <ul className="mt-2 space-y-2">
+                    {educationItems.map((e) => {
+                      const yrStart = e.startDate ? e.startDate.slice(0, 4) : null;
+                      const yrEnd = e.endDate ? e.endDate.slice(0, 4) : null;
+                      const years = yrStart && yrEnd && yrStart !== yrEnd
+                        ? `${yrStart} – ${yrEnd}`
+                        : (yrEnd || yrStart || "");
+                      const credential = [e.degree, e.major].filter(Boolean).join(", ");
+                      return (
+                        <li key={e.id}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFocusedId((cur) => (cur === e.id ? null : e.id));
+                              const label = [e.company, [e.degree, e.major].filter(Boolean).join(", ")]
+                                .filter(Boolean)
+                                .join(" — ") || null;
+                              analytics.track("education_click", { workItemId: e.id, label });
+                            }}
+                            className={`w-full text-left px-2 py-1.5 rounded-md hover:bg-muted/40 transition-colors ${
+                              focusedId === e.id ? "bg-muted/60" : ""
+                            }`}
+                            title={`Show ${e.company} on map`}
+                          >
+                            {credential ? (
+                              <>
+                                <div className="text-sm font-semibold text-foreground leading-snug">
+                                  {credential}
+                                </div>
+                                <div className="text-xs text-foreground/80 leading-snug mt-0.5">
+                                  {e.company}
+                                </div>
+                              </>
+                            ) : (
+                              <div className="text-sm font-semibold text-foreground leading-snug">
+                                {e.company}
+                              </div>
+                            )}
+                            {years && (
+                              <div className="text-[11px] text-muted-foreground mt-0.5">
+                                {years}
+                              </div>
+                            )}
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            )}
+
+            {/* Certifications collapsible */}
+            {certifications.length > 0 && (
               <div className="mt-2 pt-2 border-t">
                 <button
                   type="button"
@@ -594,91 +954,27 @@ export default function ResumeImmersiveMap({ items, profile, skills = [], certif
                   className="w-full flex items-center justify-between text-[11px] text-muted-foreground hover:text-foreground transition-colors"
                 >
                   <span className="flex items-center gap-1.5 font-medium">
-                    <Brain className="h-3 w-3 text-violet-500" />
-                    {skills.length > 0 && `${skills.length} skill${skills.length === 1 ? "" : "s"}`}
-                    {skills.length > 0 && certifications.length > 0 && " · "}
-                    {certifications.length > 0 && `${certifications.length} cert${certifications.length === 1 ? "" : "s"}`}
+                    <Award className="h-3 w-3 text-amber-500" />
+                    {`${certifications.length} cert${certifications.length === 1 ? "" : "s"}`}
                   </span>
                   {bioExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                 </button>
                 {bioExpanded && (
-                  <div className="mt-2 space-y-2">
-                    {skills.length > 0 && (
-                      <div>
-                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Skills</p>
-                        <div className="flex flex-wrap gap-1">
-                          {skills.map((s) => (
-                            <span
-                              key={s.id ?? s.name}
-                              className="px-1.5 py-0.5 text-[10px] rounded-full bg-violet-500/10 text-violet-600 dark:text-violet-300 border border-violet-500/20"
-                            >
-                              {s.name}
-                            </span>
-                          ))}
+                  <ul className="mt-2 space-y-1">
+                    {certifications.map((c) => (
+                      <li key={c.id ?? c.name} className="text-[11px] flex items-start gap-1.5">
+                        <Award className="h-3 w-3 text-amber-500 shrink-0 mt-0.5" />
+                        <div className="min-w-0">
+                          <div className="font-medium truncate">{c.name}</div>
+                          {(c.issuer || c.issueDate) && (
+                            <div className="text-muted-foreground text-[10px] truncate">
+                              {[c.issuer, c.issueDate].filter(Boolean).join(" · ")}
+                            </div>
+                          )}
                         </div>
-                      </div>
-                    )}
-                    {certifications.length > 0 && (
-                      <div>
-                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Certifications</p>
-                        <ul className="space-y-1">
-                          {certifications.map((c) => (
-                            <li key={c.id ?? c.name} className="text-[11px] flex items-start gap-1.5">
-                              <Award className="h-3 w-3 text-amber-500 shrink-0 mt-0.5" />
-                              <div className="min-w-0">
-                                <div className="font-medium truncate">{c.name}</div>
-                                {(c.issuer || c.issueDate) && (
-                                  <div className="text-muted-foreground text-[10px] truncate">
-                                    {[c.issuer, c.issueDate].filter(Boolean).join(" · ")}
-                                  </div>
-                                )}
-                              </div>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Contact CTA + last updated */}
-            {(profile?.email || profile?.linkedinUrl || profile?.portfolioUrl || updatedAt) && (
-              <div className="mt-2 pt-2 border-t flex items-center justify-between gap-2">
-                {profile?.email ? (
-                  <a
-                    href={`mailto:${profile.email}?subject=${encodeURIComponent("Re: " + (profile?.headline || "your resume"))}`}
-                    className="inline-flex items-center gap-1.5 rounded-md bg-primary text-primary-foreground px-2.5 py-1 text-xs font-medium hover:bg-primary/90 transition-colors"
-                  >
-                    <Mail className="h-3 w-3" />
-                    Get in touch
-                  </a>
-                ) : profile?.linkedinUrl ? (
-                  <a
-                    href={profile.linkedinUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 rounded-md bg-primary text-primary-foreground px-2.5 py-1 text-xs font-medium hover:bg-primary/90 transition-colors"
-                  >
-                    <ExternalLink className="h-3 w-3" />
-                    Connect on LinkedIn
-                  </a>
-                ) : profile?.portfolioUrl ? (
-                  <a
-                    href={profile.portfolioUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 rounded-md bg-primary text-primary-foreground px-2.5 py-1 text-xs font-medium hover:bg-primary/90 transition-colors"
-                  >
-                    <ExternalLink className="h-3 w-3" />
-                    Visit portfolio
-                  </a>
-                ) : <span />}
-                {updatedAt && (
-                  <span className="text-[10px] text-muted-foreground" title={new Date(updatedAt).toLocaleString()}>
-                    Updated {fmtRelative(updatedAt)}
-                  </span>
+                      </li>
+                    ))}
+                  </ul>
                 )}
               </div>
             )}
@@ -694,7 +990,7 @@ export default function ResumeImmersiveMap({ items, profile, skills = [], certif
             />
           ) : (
             <WorkHistoryViewerPanel
-              items={visibleItems}
+              items={visibleItems.filter((i) => (i.type || "").toLowerCase() !== "school")}
               kpis={kpis}
               focusedId={focusedId}
               onSelect={(id) => setFocusedId((cur) => (cur === id ? null : id))}
@@ -729,16 +1025,197 @@ export default function ResumeImmersiveMap({ items, profile, skills = [], certif
 
 /* ── Map view ───────────────────────────────────────────────────── */
 
+function TimelineScrubber({
+  minYear,
+  maxYear,
+  range,
+  onRangeChange,
+  playing,
+  onPlay,
+  onPause,
+  onReset,
+  speed,
+  onSpeedChange,
+  showJourneyLine,
+  onToggleJourneyLine,
+  actionsSlot,
+}: {
+  minYear: number;
+  maxYear: number;
+  range: [number, number];
+  onRangeChange: (r: [number, number]) => void;
+  playing: boolean;
+  onPlay: () => void;
+  onPause: () => void;
+  onReset: () => void;
+  speed: 1 | 2 | 4;
+  onSpeedChange: (s: 1 | 2 | 4) => void;
+  showJourneyLine: boolean;
+  onToggleJourneyLine: () => void;
+  actionsSlot?: React.ReactNode;
+}) {
+  const [lo, hi] = range;
+  const span = Math.max(1, maxYear - minYear);
+  const loPct = ((lo - minYear) / span) * 100;
+  const hiPct = ((hi - minYear) / span) * 100;
+  const isFullRange = lo === minYear && hi === maxYear;
+  const [timelineOpen, setTimelineOpen] = useState(false);
+
+  // Auto-pause when collapsing
+  useEffect(() => {
+    if (!timelineOpen && playing) onPause();
+  }, [timelineOpen, playing, onPause]);
+
+  return (
+    <div className={`absolute bottom-3 left-1/2 -translate-x-1/2 z-30 rounded-xl bg-background/95 backdrop-blur-md border shadow-xl px-2 py-2 transition-[width] ${timelineOpen ? "w-[min(720px,calc(100vw-32px))]" : "w-auto"}`}>
+      <div className="flex items-center gap-1.5">
+        {/* Timeline expand/collapse toggle */}
+        <button
+          type="button"
+          onClick={() => setTimelineOpen((v) => !v)}
+          aria-label={timelineOpen ? "Collapse timeline" : "Expand timeline"}
+          aria-pressed={timelineOpen}
+          title={timelineOpen ? "Collapse timeline" : "Career timeline"}
+          className={`h-8 w-8 shrink-0 rounded-full inline-flex items-center justify-center border transition-colors ${
+            timelineOpen
+              ? "bg-primary text-primary-foreground border-transparent"
+              : !isFullRange
+                ? "bg-amber-500/15 text-amber-600 border-amber-500/40"
+                : "bg-background text-muted-foreground hover:bg-muted/40"
+          }`}
+        >
+          <Clock className="h-3.5 w-3.5" />
+        </button>
+
+        {timelineOpen && (
+          <>
+            {/* Play / Pause */}
+            <button
+              type="button"
+              onClick={() => (playing ? onPause() : onPlay())}
+              aria-label={playing ? "Pause journey playback" : "Play career journey"}
+              title={playing ? "Pause" : "Play career journey"}
+              className="h-8 w-8 shrink-0 rounded-full inline-flex items-center justify-center bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
+            >
+              {playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4 ml-0.5" />}
+            </button>
+
+            {/* Reset */}
+            <button
+              type="button"
+              onClick={onReset}
+              aria-label="Reset timeline to full range"
+              title="Reset timeline"
+              disabled={isFullRange && !playing}
+              className="h-8 w-8 shrink-0 rounded-full inline-flex items-center justify-center border bg-background hover:bg-muted/40 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+            </button>
+
+            {/* Year readout */}
+            <div className="text-[11px] font-mono tabular-nums text-foreground shrink-0 w-[88px] text-center">
+              {lo === hi ? lo : `${lo} – ${hi}`}
+            </div>
+
+            {/* Dual-handle range track */}
+            <div className="relative flex-1 h-8 select-none min-w-[120px]">
+              {/* Track background */}
+              <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-1 rounded-full bg-muted" />
+              {/* Selected fill */}
+              <div
+                className="absolute top-1/2 -translate-y-1/2 h-1 rounded-full bg-primary"
+                style={{ left: `${loPct}%`, right: `${100 - hiPct}%` }}
+              />
+              {/* Min thumb input */}
+              <input
+                type="range"
+                min={minYear}
+                max={maxYear}
+                step={1}
+                value={lo}
+                onChange={(e) => {
+                  const v = Math.min(Number(e.target.value), hi);
+                  onRangeChange([v, hi]);
+                }}
+                aria-label={`Start year (${lo})`}
+                className="absolute inset-0 w-full h-8 appearance-none bg-transparent pointer-events-none [&::-webkit-slider-thumb]:pointer-events-auto [&::-moz-range-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-background [&::-webkit-slider-thumb]:shadow-md [&::-webkit-slider-thumb]:cursor-grab [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-primary [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-background [&::-moz-range-thumb]:cursor-grab"
+                style={{ zIndex: 3 }}
+              />
+              {/* Max thumb input */}
+              <input
+                type="range"
+                min={minYear}
+                max={maxYear}
+                step={1}
+                value={hi}
+                onChange={(e) => {
+                  const v = Math.max(Number(e.target.value), lo);
+                  onRangeChange([lo, v]);
+                }}
+                aria-label={`End year (${hi})`}
+                className="absolute inset-0 w-full h-8 appearance-none bg-transparent pointer-events-none [&::-webkit-slider-thumb]:pointer-events-auto [&::-moz-range-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-background [&::-webkit-slider-thumb]:shadow-md [&::-webkit-slider-thumb]:cursor-grab [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-primary [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-background [&::-moz-range-thumb]:cursor-grab"
+                style={{ zIndex: 4 }}
+              />
+            </div>
+
+            {/* Journey-line toggle */}
+            <button
+              type="button"
+              onClick={onToggleJourneyLine}
+              aria-label={showJourneyLine ? "Hide journey path" : "Show journey path"}
+              aria-pressed={showJourneyLine}
+              title={showJourneyLine ? "Hide journey path" : "Show journey path"}
+              className={`h-8 w-8 shrink-0 rounded-full inline-flex items-center justify-center border transition-colors ${showJourneyLine ? "bg-primary text-primary-foreground border-transparent" : "bg-background text-muted-foreground hover:bg-muted/40"}`}
+            >
+              <Route className="h-3.5 w-3.5" />
+            </button>
+
+            {/* Speed control */}
+            <div className="flex items-center rounded-md border overflow-hidden text-[10px] shrink-0">
+              {([1, 2, 4] as const).map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => onSpeedChange(s)}
+                  className={`px-1.5 py-1 transition-colors ${speed === s ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted/40"}`}
+                  aria-label={`Playback speed ${s}x`}
+                  aria-pressed={speed === s}
+                >
+                  {s}x
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* Trailing actions slot (e.g. Save / Notes) */}
+        {actionsSlot && (
+          <>
+            <div className="h-6 w-px bg-border mx-0.5 shrink-0" aria-hidden="true" />
+            {actionsSlot}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function ImmersiveMapView({
   items,
   focusedId,
   onFocus,
   mapStyle = "roadmap",
+  yearRange,
+  playing = false,
+  showJourneyLine = true,
 }: {
   items: (ImmersiveWorkItem & { lat: number; lng: number })[];
   focusedId: string | null;
   onFocus: (id: string) => void;
   mapStyle?: "roadmap" | "satellite" | "hybrid";
+  yearRange?: [number, number] | null;
+  playing?: boolean;
+  showJourneyLine?: boolean;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const tooltipRef = useRef<HTMLDivElement | null>(null);
@@ -746,6 +1223,9 @@ function ImmersiveMapView({
   const markersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
   const markerById = useRef<Map<string, { marker: google.maps.marker.AdvancedMarkerElement; el: HTMLElement }>>(new Map());
   const clustererRef = useRef<MarkerClusterer | null>(null);
+  const journeyPolylineRef = useRef<google.maps.Polyline | null>(null);
+  const onFocusRef = useRef(onFocus);
+  useEffect(() => { onFocusRef.current = onFocus; }, [onFocus]);
   const [ready, setReady] = useState(false);
 
   // Init map
@@ -789,6 +1269,7 @@ function ImmersiveMapView({
     if (items.length === 0) return;
 
     const typeByMarker = new Map<google.maps.marker.AdvancedMarkerElement, string>();
+    const companyByMarker = new Map<google.maps.marker.AdvancedMarkerElement, string>();
 
     items.forEach((w) => {
       const meta = metaFor(w.type);
@@ -802,9 +1283,24 @@ function ImmersiveMapView({
       const el = document.createElement("div");
       el.dataset.id = w.id;
       el.style.cssText = "display:flex;flex-direction:column;align-items:center;gap:1px;cursor:pointer;";
+      // Year metadata for the timeline scrubber dim effect
+      const startY = parseYM(w.startDate)?.getFullYear();
+      const endY = parseYM(w.endDate)?.getFullYear() ?? new Date().getFullYear();
+      if (startY) el.dataset.startYear = String(startY);
+      el.dataset.endYear = String(endY);
+      const yrs0 = Math.floor(months / 12);
+      const mos0 = months % 12;
+      const tenureLabel =
+        months > 0
+          ? `${yrs0 > 0 ? `${yrs0} year${yrs0 === 1 ? "" : "s"}${mos0 ? " " : ""}` : ""}${mos0 ? `${mos0} month${mos0 === 1 ? "" : "s"}` : ""}`
+          : "";
+      const ariaLabel = `${meta.label}: ${w.company}${w.title ? `, ${w.title}` : ""}${tenureLabel ? `, ${tenureLabel}` : ""}. Click to focus.`;
+      el.setAttribute("role", "button");
+      el.setAttribute("tabindex", "0");
+      el.setAttribute("aria-label", ariaLabel);
       el.innerHTML = `
-        <div data-circle="1" style="display:flex;align-items:center;justify-content:center;width:${size}px;height:${size}px;border-radius:50%;background:${meta.bg};border:${ringWidth}px solid ${ringColor};box-shadow:0 2px 6px rgba(0,0,0,0.28);font-size:${emojiSize}px;line-height:1;opacity:0.92;transition:transform 0.15s, box-shadow 0.15s;" title="${escapeHtml(w.company)}${w.title ? " \u2013 " + escapeHtml(w.title) : ""}">${meta.emoji}</div>
-        ${yLabel ? `<span style="font-size:8px;color:#1f2937;background:rgba(255,255,255,0.9);padding:0 3px;border-radius:3px;font-weight:700;pointer-events:none;white-space:nowrap;line-height:1.5;box-shadow:0 1px 2px rgba(0,0,0,0.15);">${yLabel}</span>` : ""}
+        <div data-circle="1" style="display:flex;align-items:center;justify-content:center;width:${size}px;height:${size}px;border-radius:50%;background:${meta.bg};border:${ringWidth}px solid ${ringColor};box-shadow:0 2px 6px rgba(0,0,0,0.28);font-size:${emojiSize}px;line-height:1;opacity:0.92;transition:transform 0.15s, box-shadow 0.15s;" title="${escapeHtml(w.company)}${w.title ? " \u2013 " + escapeHtml(w.title) : ""}" aria-hidden="true">${meta.emoji}</div>
+        ${yLabel ? `<span style="font-size:8px;color:#1f2937;background:rgba(255,255,255,0.9);padding:0 3px;border-radius:3px;font-weight:700;pointer-events:none;white-space:nowrap;line-height:1.5;box-shadow:0 1px 2px rgba(0,0,0,0.15);" aria-hidden="true">${yLabel}</span>` : ""}
       `;
 
       const marker = new google.maps.marker.AdvancedMarkerElement({
@@ -848,12 +1344,25 @@ function ImmersiveMapView({
           const z = map.getZoom() ?? 10;
           if (z < 17) map.setZoom(17);
         }
-        onFocus(w.id);
+        onFocusRef.current(w.id);
+      });
+      el.addEventListener("keydown", (ev) => {
+        if (ev.key === "Enter" || ev.key === " ") {
+          ev.preventDefault();
+          const map = mapRef.current;
+          if (map) {
+            map.panTo({ lat: w.lat, lng: w.lng });
+            const z = map.getZoom() ?? 10;
+            if (z < 17) map.setZoom(17);
+          }
+          onFocusRef.current(w.id);
+        }
       });
 
       markersRef.current.push(marker);
       markerById.current.set(w.id, { marker, el });
       typeByMarker.set(marker, w.type || "job");
+      if (w.company) companyByMarker.set(marker, w.company);
     });
 
     if (markersRef.current.length >= 4) {
@@ -864,9 +1373,13 @@ function ImmersiveMapView({
         renderer: {
           render: ({ count, position, markers: clusterMarkers }) => {
             const typeCounts = new Map<string, number>();
+            const companyCounts = new Map<string, number>();
             for (const m of (clusterMarkers ?? [])) {
-              const t = typeByMarker.get(m as google.maps.marker.AdvancedMarkerElement) ?? "job";
+              const am = m as google.maps.marker.AdvancedMarkerElement;
+              const t = typeByMarker.get(am) ?? "job";
               typeCounts.set(t, (typeCounts.get(t) ?? 0) + 1);
+              const c = companyByMarker.get(am);
+              if (c) companyCounts.set(c, (companyCounts.get(c) ?? 0) + 1);
             }
             const sortedTypes = [...typeCounts.entries()].sort((a, b) => b[1] - a[1]);
             const dominantType = sortedTypes[0]?.[0] ?? "job";
@@ -876,8 +1389,76 @@ function ImmersiveMapView({
             const clIcon = allSameType ? meta.emoji : "";
             const sz = count < 10 ? 36 : count < 20 ? 40 : 44;
             const clEl = document.createElement("div");
-            clEl.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;gap:2px;width:${sz}px;height:${sz}px;border-radius:50%;background:${clBg};border:2.5px solid #fff;color:#fff;font-size:11px;font-weight:700;box-shadow:0 2px 6px rgba(0,0,0,0.3);cursor:pointer;">${clIcon ? `<span style="font-size:13px">${clIcon}</span>` : ""}<span>${count}</span></div>`;
-            return new google.maps.marker.AdvancedMarkerElement({ position, content: clEl, zIndex: 1900 });
+            const breakdown = sortedTypes
+              .map(([t, n]) => `${n} ${metaFor(t).label.toLowerCase()}${n === 1 ? "" : "s"}`)
+              .join(", ");
+            const topCompanies = [...companyCounts.entries()]
+              .sort((a, b) => b[1] - a[1])
+              .slice(0, 2)
+              .map(([name]) => name);
+            const remaining = companyCounts.size - topCompanies.length;
+            const previewLine = topCompanies.length > 0
+              ? topCompanies.join(", ") + (remaining > 0 ? ` +${remaining} more` : "")
+              : "";
+            clEl.setAttribute("role", "button");
+            clEl.setAttribute(
+              "aria-label",
+              `Cluster of ${count} locations${previewLine ? `: ${previewLine}` : ""}. ${breakdown}. Click to zoom in.`
+            );
+            clEl.style.position = "relative";
+            const tooltipHtml = `
+              <div data-cluster-tooltip style="
+                position:absolute;
+                bottom:calc(100% + 6px);
+                left:50%;
+                transform:translateX(-50%);
+                background:#0b1220;
+                color:#fff;
+                padding:8px 12px;
+                border-radius:10px;
+                font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+                font-size:13px;
+                font-weight:500;
+                line-height:1.4;
+                white-space:nowrap;
+                border:1px solid rgba(255,255,255,0.12);
+                box-shadow:0 8px 24px rgba(0,0,0,0.5);
+                pointer-events:none;
+                opacity:0;
+                transition:opacity 120ms ease-out;
+                z-index:2000;
+                -webkit-font-smoothing:antialiased;
+                text-rendering:geometricPrecision;
+              ">
+                ${previewLine ? `<div style="font-weight:700;font-size:13px;color:#fff">${previewLine.replace(/</g, "&lt;")}</div>` : ""}
+                <div style="opacity:0.9;font-size:11px;color:#cbd5e1;margin-top:2px">${breakdown}</div>
+                <div style="
+                  position:absolute;
+                  top:100%;
+                  left:50%;
+                  transform:translateX(-50%);
+                  width:0;
+                  height:0;
+                  border-left:5px solid transparent;
+                  border-right:5px solid transparent;
+                  border-top:5px solid #0b1220;
+                "></div>
+              </div>
+            `;
+            clEl.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;gap:2px;width:${sz}px;height:${sz}px;border-radius:50%;background:${clBg};border:2.5px solid #fff;color:#fff;font-size:11px;font-weight:700;box-shadow:0 2px 6px rgba(0,0,0,0.3);cursor:pointer;" aria-hidden="true">${clIcon ? `<span style="font-size:13px">${clIcon}</span>` : ""}<span>${count}</span></div>${tooltipHtml}`;
+            const tipEl = clEl.querySelector<HTMLElement>("[data-cluster-tooltip]");
+            const clusterMarker = new google.maps.marker.AdvancedMarkerElement({ position, content: clEl, zIndex: 1900 });
+            if (tipEl) {
+              clEl.addEventListener("mouseenter", () => {
+                tipEl.style.opacity = "1";
+                clusterMarker.zIndex = 9999;
+              });
+              clEl.addEventListener("mouseleave", () => {
+                tipEl.style.opacity = "0";
+                clusterMarker.zIndex = 1900;
+              });
+            }
+            return clusterMarker;
           },
         },
       });
@@ -891,7 +1472,93 @@ function ImmersiveMapView({
       items.forEach((i) => b.extend({ lat: i.lat, lng: i.lng }));
       mapRef.current.fitBounds(b, 80);
     }
-  }, [ready, items, onFocus]);
+  }, [ready, items]);
+
+  // Apply timeline scrubber: dim out-of-range markers + draw journey polyline
+  // for in-range work items (job / internship / self-employed only).
+  useEffect(() => {
+    if (!ready || !mapRef.current) return;
+
+    // Cleanup previous polyline
+    if (journeyPolylineRef.current) {
+      journeyPolylineRef.current.setMap(null);
+      journeyPolylineRef.current = null;
+    }
+
+    if (!yearRange) {
+      // No scrubber active — make sure all markers are fully visible
+      markerById.current.forEach(({ el }) => {
+        el.style.opacity = "1";
+        el.style.pointerEvents = "auto";
+        el.setAttribute("tabindex", "0");
+      });
+      return;
+    }
+
+    const [lo, hi] = yearRange;
+
+    // Dim out-of-range markers
+    markerById.current.forEach(({ el }) => {
+      const sY = Number(el.dataset.startYear || NaN);
+      const eY = Number(el.dataset.endYear || NaN);
+      const inRange = !Number.isNaN(sY) && !Number.isNaN(eY) && sY <= hi && eY >= lo;
+      el.style.opacity = inRange ? "1" : "0.25";
+      el.style.pointerEvents = inRange ? "auto" : "none";
+      el.setAttribute("tabindex", inRange ? "0" : "-1");
+    });
+
+    // Build chronological polyline of in-range "career" items
+    // (excludes school / military / volunteer per design — career arc only)
+    const careerTypes = new Set(["job", "internship", "self-employed"]);
+    const careerInRange = items
+      .filter((i) => {
+        const t = (i.type || "job").toLowerCase();
+        if (!careerTypes.has(t)) return false;
+        const sY = parseYM(i.startDate)?.getFullYear();
+        const eY = parseYM(i.endDate)?.getFullYear() ?? new Date().getFullYear();
+        if (!sY) return false;
+        return sY <= hi && eY >= lo;
+      })
+      .sort((a, b) => {
+        const aS = parseYM(a.startDate)?.getTime() ?? 0;
+        const bS = parseYM(b.startDate)?.getTime() ?? 0;
+        return aS - bS;
+      });
+
+    if (showJourneyLine && careerInRange.length >= 2) {
+      const path = careerInRange.map((i) => ({ lat: i.lat, lng: i.lng }));
+      journeyPolylineRef.current = new google.maps.Polyline({
+        path,
+        map: mapRef.current,
+        strokeColor: "#6366f1",
+        strokeOpacity: 0.85,
+        strokeWeight: 2.5,
+        geodesic: true,
+        zIndex: 100,
+        icons: [
+          {
+            icon: {
+              path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+              scale: 3,
+              strokeColor: "#6366f1",
+              fillColor: "#6366f1",
+              fillOpacity: 1,
+            },
+            offset: "0%",
+            repeat: "120px",
+          },
+        ],
+      });
+    }
+
+    // During journey playback, pan the camera to the most recent in-range
+    // career item so the viewer follows the candidate's path.
+    if (playing && careerInRange.length > 0) {
+      const latest = careerInRange[careerInRange.length - 1];
+      mapRef.current.panTo({ lat: latest.lat, lng: latest.lng });
+      onFocusRef.current(latest.id);
+    }
+  }, [ready, items, yearRange, playing, showJourneyLine]);
 
   // Apply focus visual + pan/zoom
   useEffect(() => {
