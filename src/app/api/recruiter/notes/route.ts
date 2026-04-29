@@ -5,6 +5,7 @@ import {
   readRecruiterId,
   setRecruiterCookie,
 } from "@/lib/recruiter-cookie";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 /**
  * Recruiter private notes per IR.
@@ -47,6 +48,16 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
+  // Notes autosave can be chatty (debounced client-side); allow generous bursts.
+  const id = readRecruiterId(req) || (req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown");
+  const rl = checkRateLimit(`notes:put:${id}`, { limit: 200, windowMs: 60 * 60 * 1000 });
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "Too many note saves. Try again later." },
+      { status: 429, headers: rl.headers },
+    );
+  }
+
   let body: { irSlug?: string; body?: string };
   try {
     body = await req.json();

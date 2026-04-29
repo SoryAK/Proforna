@@ -56,6 +56,7 @@ import {
   Github,
   Globe,
   Copy,
+  DollarSign,
   Play,
   Pause,
   RotateCcw,
@@ -152,6 +153,24 @@ export interface ImmersiveProfile {
 export interface ImmersiveSkill { id: string; name: string; category: string; proficiency: string }
 export interface ImmersiveCert  { id: string; name: string; issuer: string; issueDate: string; expiryDate: string | null; credentialUrl: string | null }
 
+export interface ImmersiveCompensation {
+  period: "annual" | "hourly" | "monthly";
+  currency: string;
+  salaryMin: number | null;
+  salaryTarget: number | null;
+  salaryMax: number | null;
+  hasHardFloor: boolean;
+  employmentTypes: string[];
+  openToRelocation: boolean;
+  openToEquity: boolean;
+  openToBonus: boolean;
+  openToSignOn: boolean;
+  remotePreference: "any" | "remote" | "hybrid" | "onsite";
+  benefitsMustHaves: string[];
+  notes: string | null;
+  visibility: "public" | "recruiters" | "hidden";
+}
+
 interface Props {
   items: ImmersiveWorkItem[];
   profile: ImmersiveProfile | null;
@@ -163,6 +182,8 @@ interface Props {
   slug?: string | null;
   /** Optional approved AccessRequest id (token-based viewers). */
   accessRequestId?: string | null;
+  /** Candidate's compensation expectations (sanitized for public consumption). */
+  compensation?: ImmersiveCompensation | null;
 }
 
 /* ── Helpers ────────────────────────────────────────────────────── */
@@ -313,9 +334,104 @@ function fmtRelative(iso: string): string {
   return `${Math.floor(days / 365)}y ago`;
 }
 
+/** Format a compensation amount with k-shorthand for annual figures, locale-aware currency. */
+function fmtCompAmount(n: number, period: "annual" | "hourly" | "monthly", currency: string): string {
+  const cur = (currency || "USD").toUpperCase();
+  const fmt = (val: number, opts: Intl.NumberFormatOptions = {}) => {
+    try {
+      return new Intl.NumberFormat(undefined, {
+        style: "currency",
+        currency: cur,
+        maximumFractionDigits: 0,
+        ...opts,
+      }).format(val);
+    } catch {
+      // Unknown currency code → fall back to plain number with code prefix
+      return `${cur} ${val.toLocaleString()}`;
+    }
+  };
+  if (period === "hourly") return `${fmt(n, { maximumFractionDigits: 2 })}/hr`;
+  if (period === "monthly") return `${fmt(n)}/mo`;
+  // annual — k-shorthand using compact notation when ≥ 1000
+  if (n >= 1000) {
+    try {
+      return new Intl.NumberFormat(undefined, {
+        style: "currency",
+        currency: cur,
+        notation: "compact",
+        maximumFractionDigits: 1,
+      }).format(n);
+    } catch {
+      return `${cur} ${(n / 1000).toFixed(n % 1000 === 0 ? 0 : 1)}k`;
+    }
+  }
+  return fmt(n);
+}
+
+/** Build a one-line headline for the compensation chip, e.g. "$140k–$170k · FT · Remote OK". */
+function formatCompChip(c: ImmersiveCompensation): string {
+  const parts: string[] = [];
+  const { salaryMin: min, salaryMax: max, salaryTarget: tgt, period, currency } = c;
+  if (min != null && max != null) {
+    parts.push(`${fmtCompAmount(min, period, currency)}–${fmtCompAmount(max, period, currency)}`);
+  } else if (tgt != null) {
+    parts.push(`~${fmtCompAmount(tgt, period, currency)}`);
+  } else if (min != null) {
+    parts.push(`${fmtCompAmount(min, period, currency)}+`);
+  } else if (max != null) {
+    parts.push(`up to ${fmtCompAmount(max, period, currency)}`);
+  }
+  if (c.employmentTypes.length > 0) {
+    const short = c.employmentTypes.map(employmentShort).filter(Boolean).join("/");
+    if (short) parts.push(short);
+  }
+  if (c.remotePreference !== "any") {
+    parts.push(c.remotePreference === "remote" ? "Remote" : c.remotePreference === "hybrid" ? "Hybrid" : "On-site");
+  }
+  return parts.join(" · ") || "Open to offers";
+}
+
+function employmentShort(t: string): string {
+  switch (t) {
+    case "full_time": return "FT";
+    case "part_time": return "PT";
+    case "contract": return "Contract";
+    case "1099": return "1099";
+    case "internship": return "Intern";
+    case "temp": return "Temp";
+    default: return "";
+  }
+}
+
+/** Derive a "negotiation room" signal from min↔max spread. */
+function compFlexLabel(c: ImmersiveCompensation): { label: string; cls: string } | null {
+  const { salaryMin: min, salaryMax: max } = c;
+  if (min == null || max == null || min <= 0) return null;
+  if (min === max) return { label: "Firm", cls: "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30" };
+  const spread = (max - min) / min;
+  if (spread >= 0.25) return { label: "Flexible", cls: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30" };
+  return { label: "Some flex", cls: "bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/30" };
+}
+
+function employmentLabel(t: string): string {
+  switch (t) {
+    case "full_time": return "Full-time";
+    case "part_time": return "Part-time";
+    case "contract": return "Contract";
+    case "1099": return "1099";
+    case "internship": return "Internship";
+    case "temp": return "Temp";
+    default: return t;
+  }
+}
+
+function benefitLabel(b: string): string {
+  return b.replace(/_/g, " ");
+}
+
 /* ── Component ──────────────────────────────────────────────────── */
 
-export default function ResumeImmersiveMap({ items, profile, skills = [], certifications = [], summary, updatedAt, slug = null, accessRequestId = null }: Props) {
+export default function ResumeImmersiveMap({ items, profile, skills = [], certifications = [], summary, updatedAt, slug = null, accessRequestId = null, compensation = null }: Props) {
   const analytics = useIrAnalytics(slug, accessRequestId);
   const geocoded = useMemo(
     () => items.filter((i) => typeof i.lat === "number" && typeof i.lng === "number") as (ImmersiveWorkItem & { lat: number; lng: number })[],
@@ -424,21 +540,11 @@ export default function ResumeImmersiveMap({ items, profile, skills = [], certif
     return { tenure: fmtTenure(totalMonths), roles: workItems.length, cities: cities.size, miles };
   }, [items, geocoded]);
 
-  // Years of experience (excluding school) — coarse, based on earliest start date
-  const yrsExp = useMemo(() => {
-    const starts = items
-      .filter((i) => i.type !== "school")
-      .map((i) => parseYM(i.startDate)?.getTime())
-      .filter((t): t is number => typeof t === "number");
-    if (starts.length === 0) return 0;
-    const earliest = Math.min(...starts);
-    const ms = Date.now() - earliest;
-    return Math.max(0, Math.floor(ms / (365.25 * 24 * 3600 * 1000)));
-  }, [items]);
-
   const [bioExpanded, setBioExpanded] = useState(false);
+  const [bioCardOpen, setBioCardOpen] = useState(true);
   const [summaryExpanded, setSummaryExpanded] = useState(false);
-  const [eduExpanded, setEduExpanded] = useState(true);
+  const [eduExpanded, setEduExpanded] = useState(false);
+  const [compExpanded, setCompExpanded] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const contactBtnRef = useRef<HTMLButtonElement | null>(null);
@@ -505,6 +611,28 @@ export default function ResumeImmersiveMap({ items, profile, skills = [], certif
     [items],
   );
 
+  // Pick the most recent / highest-ranked degree to display inline near the name
+  const topEducation = useMemo(() => {
+    if (!educationItems.length) return null;
+    const rank = (deg?: string | null) => {
+      const d = (deg || "").toLowerCase();
+      if (/ph\.?d|doctor/.test(d)) return 6;
+      if (/master|m\.s|m\.a|mba/.test(d)) return 5;
+      if (/bachelor|b\.s|b\.a/.test(d)) return 4;
+      if (/associate|a\.s|a\.a/.test(d)) return 3;
+      if (/diploma|certificate/.test(d)) return 2;
+      if (/high school/.test(d)) return 1;
+      return 0;
+    };
+    return [...educationItems].sort((a, b) => {
+      const r = rank(b.degree) - rank(a.degree);
+      if (r !== 0) return r;
+      const ay = a.endDate || a.startDate || "";
+      const by = b.endDate || b.startDate || "";
+      return by.localeCompare(ay);
+    })[0];
+  }, [educationItems]);
+
   // ── Career timeline scrubber + journey playback ──────────────────
   // Year span is computed from ALL items (including school/military/volunteer)
   // so the scrubber covers the candidate's full life arc.
@@ -531,7 +659,7 @@ export default function ResumeImmersiveMap({ items, profile, skills = [], certif
   // Journey playback
   const [playing, setPlaying] = useState(false);
   const [playSpeed, setPlaySpeed] = useState<1 | 2 | 4>(1);
-  const [showJourneyLine, setShowJourneyLine] = useState(true);
+  const [showJourneyLine, setShowJourneyLine] = useState(false);
   const playTimerRef = useRef<number | null>(null);
   // When the user starts playback, we snap the END handle to the start
   // and let it crawl forward year-by-year.
@@ -599,46 +727,6 @@ export default function ResumeImmersiveMap({ items, profile, skills = [], certif
 
       {/* Recruiter save + notes (anonymous, cookie-keyed) — rendered inside the bottom action bar */}
 
-      {/* Map style toggle (right side, under More) */}
-      <div className="absolute top-16 right-3 z-30 inline-flex items-center rounded-xl bg-background/95 backdrop-blur-md border shadow-xl overflow-hidden text-xs">
-        {([
-          { key: "roadmap" as const, label: "Map" },
-          { key: "satellite" as const, label: "Satellite" },
-          { key: "hybrid" as const, label: "Hybrid" },
-        ]).map((s, idx) => (
-          <button
-            key={s.key}
-            type="button"
-            onClick={() => setMapStyle(s.key)}
-            className={`px-2.5 py-1.5 transition-colors ${idx > 0 ? "border-l" : ""} ${mapStyle === s.key ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-muted/40"}`}
-          >
-            {s.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Type filter chips (top-center) */}
-      {availableTypes.length > 1 && (
-        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1 rounded-xl bg-background/95 backdrop-blur-md border shadow-xl px-2 py-1.5">
-          {availableTypes.map((t) => {
-            const meta = metaFor(t);
-            const on = isTypeOn(t);
-            return (
-              <button
-                key={t}
-                type="button"
-                onClick={() => toggleType(t)}
-                title={meta.label}
-                className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-colors ${on ? "text-foreground bg-muted/50" : "text-muted-foreground/60 hover:text-muted-foreground"}`}
-              >
-                <span style={{ fontSize: 14, lineHeight: 1, opacity: on ? 1 : 0.4 }}>{meta.emoji}</span>
-                <span>{meta.label}</span>
-              </button>
-            );
-          })}
-        </div>
-      )}
-
       {/* Recency legend (bottom-left) */}
       <div className="absolute bottom-3 left-3 z-20 rounded-xl bg-background/95 backdrop-blur-md border shadow-xl px-2.5 py-2 text-[10px] pointer-events-none">
         <div className="flex items-center gap-1 text-muted-foreground mb-1 font-medium uppercase tracking-wider">
@@ -669,29 +757,43 @@ export default function ResumeImmersiveMap({ items, profile, skills = [], certif
           onSpeedChange={setPlaySpeed}
           showJourneyLine={showJourneyLine}
           onToggleJourneyLine={() => setShowJourneyLine((v) => !v)}
-          actionsSlot={slug ? (
-            <RecruiterPanel
-              irSlug={slug}
-              candidateName={profile?.fullName ?? null}
-              candidateHeadline={profile?.headline ?? null}
-            />
-          ) : null}
+          actionsSlot={(
+            <>
+              <MapStyleButton value={mapStyle} onChange={setMapStyle} />
+              {slug && (
+                <>
+                  <div className="h-6 w-px bg-border mx-0.5 shrink-0" aria-hidden="true" />
+                  <RecruiterPanel
+                    irSlug={slug}
+                    candidateName={profile?.fullName ?? null}
+                    candidateHeadline={profile?.headline ?? null}
+                  />
+                </>
+              )}
+            </>
+          )}
         />
       ) : (
-        slug && (
-          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-30 rounded-xl bg-background/95 backdrop-blur-md border shadow-xl px-2 py-2">
-            <RecruiterPanel
-              irSlug={slug}
-              candidateName={profile?.fullName ?? null}
-              candidateHeadline={profile?.headline ?? null}
-            />
+        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-30 rounded-xl bg-background/95 backdrop-blur-md border shadow-xl px-2 py-2">
+          <div className="flex items-center gap-1.5">
+            <MapStyleButton value={mapStyle} onChange={setMapStyle} />
+            {slug && (
+              <>
+                <div className="h-6 w-px bg-border mx-0.5 shrink-0" aria-hidden="true" />
+                <RecruiterPanel
+                  irSlug={slug}
+                  candidateName={profile?.fullName ?? null}
+                  candidateHeadline={profile?.headline ?? null}
+                />
+              </>
+            )}
           </div>
-        )
+        </div>
       )}
 
       {/* Left column: bio card + work-history panel */}
       {!panelCollapsed ? (
-        <div className="absolute top-3 left-3 z-20 w-96 max-w-[calc(100vw-24px)] flex flex-col gap-2 pointer-events-none">
+        <div className="absolute top-3 left-3 z-20 w-[26rem] max-w-[calc(100vw-24px)] flex flex-col gap-2 pointer-events-none">
           {/* Bio card */}
           <div className="bg-background/95 backdrop-blur-md border rounded-xl shadow-xl p-3 pointer-events-auto">
             <div className="flex items-center gap-3">
@@ -705,15 +807,25 @@ export default function ResumeImmersiveMap({ items, profile, skills = [], certif
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <p className="text-base font-semibold text-foreground truncate">{profile?.fullName || "Candidate"}</p>
-                  {yrsExp > 0 && (
-                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-primary/10 text-primary border border-primary/20 shrink-0">
-                      {yrsExp}+ yrs
-                    </span>
-                  )}
                 </div>
-                {profile?.headline && (
-                  <p className="text-sm text-primary truncate">{profile.headline}</p>
-                )}
+                {topEducation && (() => {
+                  const credential = [topEducation.degree, topEducation.major].filter(Boolean).join(", ");
+                  const display = credential ? `${credential} · ${topEducation.company}` : topEducation.company;
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFocusedId((cur) => (cur === topEducation.id ? null : topEducation.id));
+                        analytics.track("education_click", { workItemId: topEducation.id, label: display });
+                      }}
+                      className="text-left flex items-center gap-1 text-sm text-violet-600 dark:text-violet-300 hover:underline truncate w-full"
+                      title={`Show ${topEducation.company} on map`}
+                    >
+                      <GraduationCap className="h-3.5 w-3.5 shrink-0" />
+                      <span className="truncate">{display}</span>
+                    </button>
+                  );
+                })()}
                 {(profile?.city || profile?.state) && (
                   <p className="text-xs text-muted-foreground flex items-center gap-1 truncate mt-0.5">
                     <MapPin className="h-3 w-3 shrink-0" />
@@ -850,30 +962,133 @@ export default function ResumeImmersiveMap({ items, profile, skills = [], certif
               </div>
               <button
                 type="button"
-                onClick={() => setPanelCollapsed(true)}
+                onClick={() => setBioCardOpen((v) => !v)}
+                aria-expanded={bioCardOpen}
+                aria-label={bioCardOpen ? "Collapse bio details" : "Expand bio details"}
                 className="text-muted-foreground hover:text-foreground transition-colors shrink-0 self-start"
-                title="Collapse"
+                title={bioCardOpen ? "Collapse details" : "Show details"}
               >
-                <ChevronLeft className="h-4 w-4" />
+                {bioCardOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
               </button>
             </div>
+            {bioCardOpen && (
+              <>
+            {/* Headline (always visible, above the bio) */}
+            {profile?.headline && (
+              <p className="mt-2 text-sm font-medium text-primary leading-snug">
+                {profile.headline}
+              </p>
+            )}
+
+            {/* Compensation expectations — candidate-set, helps recruiters self-filter */}
+            {compensation && (compensation.salaryMin != null || compensation.salaryMax != null || compensation.salaryTarget != null || compensation.employmentTypes.length > 0 || compensation.remotePreference !== "any") && (
+              <div className="mt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCompExpanded((v) => {
+                      if (!v) analytics.track("comp_view");
+                      return !v;
+                    });
+                  }}
+                  aria-expanded={compExpanded}
+                  className="w-full flex items-center justify-between gap-2 text-left rounded-md border border-emerald-200 dark:border-emerald-900/60 bg-emerald-50/70 dark:bg-emerald-900/20 px-2 py-1.5 hover:bg-emerald-100/70 dark:hover:bg-emerald-900/30 transition-colors"
+                >
+                  <span className="flex items-center gap-1.5 min-w-0">
+                    <DollarSign className="h-3.5 w-3.5 text-emerald-700 dark:text-emerald-300 shrink-0" />
+                    <span className="text-xs font-semibold text-emerald-900 dark:text-emerald-100 truncate">
+                      {formatCompChip(compensation)}
+                    </span>
+                    {(() => {
+                      const flex = compFlexLabel(compensation);
+                      return flex ? (
+                        <span className={`shrink-0 inline-flex items-center rounded-full border px-1.5 py-0.5 text-[9px] font-semibold ${flex.cls}`}>
+                          {flex.label}
+                        </span>
+                      ) : null;
+                    })()}
+                  </span>
+                  {compExpanded ? <ChevronUp className="h-3.5 w-3.5 text-emerald-700 dark:text-emerald-300 shrink-0" /> : <ChevronDown className="h-3.5 w-3.5 text-emerald-700 dark:text-emerald-300 shrink-0" />}
+                </button>
+                {compExpanded && (
+                  <div className="mt-1.5 px-2 py-1.5 rounded-md border border-emerald-200/70 dark:border-emerald-900/40 bg-emerald-50/40 dark:bg-emerald-900/10 text-xs text-emerald-950 dark:text-emerald-50 space-y-1.5">
+                    {(compensation.employmentTypes.length > 0 || compensation.remotePreference !== "any") && (
+                      <div className="flex items-center gap-1 flex-wrap">
+                        {compensation.employmentTypes.map((t) => (
+                          <span key={t} className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-[10px] font-medium">
+                            {employmentLabel(t)}
+                          </span>
+                        ))}
+                        {compensation.remotePreference !== "any" && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-[10px] font-medium capitalize">
+                            {compensation.remotePreference}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    {(compensation.openToRelocation || compensation.openToEquity || compensation.openToSignOn || compensation.openToBonus) && (
+                      <div className="text-[11px] text-emerald-800 dark:text-emerald-200">
+                        Open to:{" "}
+                        {[
+                          compensation.openToBonus && "bonus",
+                          compensation.openToEquity && "equity",
+                          compensation.openToSignOn && "sign-on",
+                          compensation.openToRelocation && "relocation",
+                        ].filter(Boolean).join(", ")}
+                      </div>
+                    )}
+                    {compensation.benefitsMustHaves.length > 0 && (
+                      <div className="text-[11px] text-emerald-800 dark:text-emerald-200">
+                        Must-haves: {compensation.benefitsMustHaves.map(benefitLabel).join(", ")}
+                      </div>
+                    )}
+                    {compensation.notes && (
+                      <p className="text-[11px] text-emerald-800 dark:text-emerald-200 whitespace-pre-line">{compensation.notes}</p>
+                    )}
+                    {compensation.hasHardFloor && (
+                      <p className="text-[10px] text-emerald-700 dark:text-emerald-300 italic">
+                        Candidate has set a private minimum floor.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Bio summary — collapsed by default */}
             {summary && (
               <div className="mt-2">
-                <p
-                  className={`text-sm text-gray-700 dark:text-gray-200 leading-relaxed whitespace-pre-line ${
-                    summaryExpanded ? "" : "line-clamp-4"
-                  }`}
+                <button
+                  type="button"
+                  onClick={() => setBioExpanded((v) => !v)}
+                  aria-expanded={bioExpanded}
+                  className="w-full flex items-center justify-between text-xs text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  {summary}
-                </p>
-                {summary.length > 220 && (
-                  <button
-                    type="button"
-                    onClick={() => setSummaryExpanded((v) => !v)}
-                    className="mt-1 text-[11px] font-medium text-primary hover:underline"
-                  >
-                    {summaryExpanded ? "Show less" : "Read more"}
-                  </button>
+                  <span className="flex items-center gap-1.5 font-semibold uppercase tracking-wider text-[10px]">
+                    <UserIcon className="h-3.5 w-3.5 text-primary" />
+                    Bio
+                  </span>
+                  {bioExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                </button>
+                {bioExpanded && (
+                  <>
+                    <p
+                      className={`mt-2 text-sm text-gray-700 dark:text-gray-200 leading-relaxed whitespace-pre-line ${
+                        summaryExpanded ? "" : "line-clamp-6"
+                      }`}
+                    >
+                      {summary}
+                    </p>
+                    {summary.length > 220 && (
+                      <button
+                        type="button"
+                        onClick={() => setSummaryExpanded((v) => !v)}
+                        className="mt-1 text-[11px] font-medium text-primary hover:underline"
+                      >
+                        {summaryExpanded ? "Show less" : "Read more"}
+                      </button>
+                    )}
+                  </>
                 )}
               </div>
             )}
@@ -978,6 +1193,8 @@ export default function ResumeImmersiveMap({ items, profile, skills = [], certif
                 )}
               </div>
             )}
+              </>
+            )}
           </div>
 
           {/* Work history panel — replaced by focus card when a job is selected */}
@@ -995,6 +1212,10 @@ export default function ResumeImmersiveMap({ items, profile, skills = [], certif
               focusedId={focusedId}
               onSelect={(id) => setFocusedId((cur) => (cur === id ? null : id))}
               onCollapse={() => setPanelCollapsed(true)}
+              availableTypes={availableTypes}
+              isTypeOn={isTypeOn}
+              toggleType={toggleType}
+              metaFor={metaFor}
             />
           )}
         </div>
@@ -1647,16 +1868,88 @@ function ImmersiveMapView({
   );
 }
 
+/* ── Map style picker (Layers icon → popover) ─────────────────── */
+
+function MapStyleButton({
+  value,
+  onChange,
+}: {
+  value: "roadmap" | "satellite" | "hybrid";
+  onChange: (v: "roadmap" | "satellite" | "hybrid") => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+  const options: { key: "roadmap" | "satellite" | "hybrid"; label: string }[] = [
+    { key: "roadmap", label: "Map" },
+    { key: "satellite", label: "Satellite" },
+    { key: "hybrid", label: "Hybrid" },
+  ];
+  const currentLabel = options.find((o) => o.key === value)?.label ?? "Map";
+  return (
+    <div className="relative shrink-0" ref={wrapRef}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={`Map style: ${currentLabel}`}
+        title={`Map style: ${currentLabel}`}
+        className={`h-7 w-7 rounded-md inline-flex items-center justify-center transition-colors ${open ? "bg-muted/60 text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-muted/40"}`}
+      >
+        <Layers className="h-4 w-4" />
+      </button>
+      {open && (
+        <div
+          role="menu"
+          className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 min-w-[8rem] rounded-lg border bg-background shadow-xl py-1 z-40"
+        >
+          {options.map((o) => (
+            <button
+              key={o.key}
+              type="button"
+              role="menuitemradio"
+              aria-checked={value === o.key}
+              onClick={() => { onChange(o.key); setOpen(false); }}
+              className={`w-full flex items-center justify-between gap-2 px-2.5 py-1.5 text-xs text-left hover:bg-muted/50 transition-colors ${value === o.key ? "text-foreground" : "text-muted-foreground"}`}
+            >
+              <span>{o.label}</span>
+              {value === o.key && <Check className="h-3 w-3" />}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ── Left panel (read-only viewer of work history) ──────────────── */
 
 function WorkHistoryViewerPanel({
   items, kpis, focusedId, onSelect, onCollapse,
+  availableTypes, isTypeOn, toggleType, metaFor,
 }: {
   items: ImmersiveWorkItem[];
   kpis: { tenure: string; roles: number; cities: number; miles: number };
   focusedId: string | null;
   onSelect: (id: string) => void;
   onCollapse: () => void;
+  availableTypes: string[];
+  isTypeOn: (t: string) => boolean;
+  toggleType: (t: string) => void;
+  metaFor: (t: string) => { label: string; emoji: string };
 }) {
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<"newest" | "oldest" | "tenure">("newest");
@@ -1738,6 +2031,30 @@ function WorkHistoryViewerPanel({
           <KpiCell label="Cities" value={String(kpis.cities)} />
         </div>
       </div>
+
+      {/* Marker type filters */}
+      {availableTypes.length > 1 && (
+        <div className="flex items-center gap-1 mb-2 flex-wrap" role="group" aria-label="Marker type filters">
+          {availableTypes.map((t) => {
+            const meta = metaFor(t);
+            const on = isTypeOn(t);
+            return (
+              <button
+                key={t}
+                type="button"
+                onClick={() => toggleType(t)}
+                title={meta.label}
+                aria-pressed={on}
+                aria-label={`${on ? "Hide" : "Show"} ${meta.label}`}
+                className={`inline-flex items-center gap-1 h-6 px-1.5 rounded-md border text-[11px] font-medium transition-colors ${on ? "bg-muted/60 text-foreground border-border" : "text-muted-foreground/60 border-transparent hover:text-muted-foreground hover:bg-muted/30"}`}
+              >
+                <span style={{ fontSize: 12, lineHeight: 1, opacity: on ? 1 : 0.45 }}>{meta.emoji}</span>
+                <span>{meta.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* Search + Sort — matches editor */}
       {items.length > 0 && (
@@ -1822,7 +2139,7 @@ function WorkHistoryViewerPanel({
                           )}
                         </div>
                         {(w.title || w.role) && (
-                          <p className="text-sm text-muted-foreground truncate mt-0.5">{w.title || w.role}</p>
+                          <p className="text-sm font-medium text-foreground/90 truncate mt-0.5">{w.title || w.role}</p>
                         )}
                         <p className="text-xs text-muted-foreground truncate">
                           {(() => {

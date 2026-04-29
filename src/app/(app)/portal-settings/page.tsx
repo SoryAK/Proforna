@@ -48,6 +48,7 @@ import {
 } from "lucide-react";
 import { PlacesAutocomplete } from "@/components/places-autocomplete";
 import { Separator } from "@/components/ui/separator";
+import { CompensationEditor } from "@/components/compensation-editor";
 import {
   AVAILABILITY_LABELS,
   AVAILABILITY_COLORS,
@@ -687,6 +688,9 @@ export default function PortalSettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Compensation Expectations — detailed pay requirements (CompensationPreference) */}
+      <CompensationEditor />
 
       {/* Visibility Controls */}
       <Card>

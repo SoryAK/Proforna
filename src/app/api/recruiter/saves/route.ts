@@ -5,6 +5,15 @@ import {
   readRecruiterId,
   setRecruiterCookie,
 } from "@/lib/recruiter-cookie";
+import { checkRateLimit } from "@/lib/rate-limit";
+
+/** Build a rate-limit key from cookie viewerKey or fallback IP. */
+function rlKey(req: NextRequest): string {
+  const id = readRecruiterId(req);
+  if (id) return `rec:${id}`;
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  return `rec-ip:${ip}`;
+}
 
 /**
  * Recruiter "save candidate" endpoint.
@@ -56,6 +65,15 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  // 60 saves per hour per recruiter cookie/IP — prevents runaway bookmarking scripts.
+  const rl = checkRateLimit(`saves:post:${rlKey(req)}`, { limit: 60, windowMs: 60 * 60 * 1000 });
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "Too many saves. Try again later." },
+      { status: 429, headers: rl.headers },
+    );
+  }
+
   let body: {
     irSlug?: string;
     candidateName?: string | null;
@@ -91,6 +109,13 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
+  const rl = checkRateLimit(`saves:patch:${rlKey(req)}`, { limit: 120, windowMs: 60 * 60 * 1000 });
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "Too many tag updates. Try again later." },
+      { status: 429, headers: rl.headers },
+    );
+  }
   let body: { irSlug?: string; tag?: string | null };
   try {
     body = await req.json();

@@ -109,6 +109,24 @@ interface Position {
   equipment?: { id: string; name: string; category: string; manufacturer?: string | null; model?: string | null; photos?: { id: string; filePath: string; isCover: boolean }[] }[];
 }
 
+interface Compensation {
+  period: "annual" | "hourly" | "monthly";
+  currency: string;
+  salaryMin: number | null;
+  salaryTarget: number | null;
+  salaryMax: number | null;
+  hasHardFloor: boolean;
+  employmentTypes: string[];
+  openToRelocation: boolean;
+  openToEquity: boolean;
+  openToBonus: boolean;
+  openToSignOn: boolean;
+  remotePreference: "any" | "remote" | "hybrid" | "onsite";
+  benefitsMustHaves: string[];
+  notes: string | null;
+  visibility: "public" | "recruiters" | "hidden";
+}
+
 interface ResumeData {
   visibility: "public" | "stealth" | "anonymous";
   profileId?: string;
@@ -124,6 +142,7 @@ interface ResumeData {
   skills: Skill[];
   certifications: Certification[];
   experience: Position[];
+  compensation?: Compensation | null;
   viewerOverride?: { targetRole: string | null; focusSections: string[] | null } | null;
 }
 
@@ -526,6 +545,7 @@ export default function InteractiveResumePage({
           summary={sorted.some((s) => s.type === "summary") ? resume.summary : null}
           updatedAt={resume.updatedAt}
           slug={slug}
+          compensation={data.compensation ?? null}
         />
       </>
     );

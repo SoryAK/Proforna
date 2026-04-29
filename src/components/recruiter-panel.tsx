@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Bookmark, BookmarkCheck, StickyNote, X, Loader2, Check, Flame, HelpCircle, Ban } from "lucide-react";
+import { createPortal } from "react-dom";
+import { Bookmark, BookmarkCheck, StickyNote, X, Loader2, Check, Flame, HelpCircle, Ban, Minus, Maximize2, GripHorizontal } from "lucide-react";
 
 /**
  * RecruiterPanel — anonymous "save candidate" + private notes UI for the
@@ -38,6 +39,76 @@ export default function RecruiterPanel({ irSlug, candidateName, candidateHeadlin
   const [noteBody, setNoteBody] = useState("");
   const [noteLoaded, setNoteLoaded] = useState(false);
   const [noteStatus, setNoteStatus] = useState<"idle" | "saving" | "saved">("idle");
+
+  // Drag position for the floating notes card. null = use default bottom-right anchor.
+  const [notePos, setNotePos] = useState<{ x: number; y: number } | null>(null);
+  const dragRef = useRef<{ dx: number; dy: number } | null>(null);
+
+  // Resize state. null = use default size from CSS.
+  const [noteSize, setNoteSize] = useState<{ w: number; h: number } | null>(null);
+  const resizeRef = useRef<{ startX: number; startY: number; startW: number; startH: number } | null>(null);
+
+  // Minimize state. When minimized, only the header is rendered.
+  const [noteMinimized, setNoteMinimized] = useState(false);
+
+  function onResizeStart(e: React.PointerEvent<HTMLDivElement>) {
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    const card = e.currentTarget.parentElement as HTMLElement | null;
+    if (!card) return;
+    const rect = card.getBoundingClientRect();
+    resizeRef.current = { startX: e.clientX, startY: e.clientY, startW: rect.width, startH: rect.height };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }
+
+  function onResizeMove(e: React.PointerEvent<HTMLDivElement>) {
+    if (!resizeRef.current) return;
+    const { startX, startY, startW, startH } = resizeRef.current;
+    const w = Math.max(260, Math.min(window.innerWidth - 16, startW + (e.clientX - startX)));
+    const h = Math.max(180, Math.min(window.innerHeight - 16, startH + (e.clientY - startY)));
+    setNoteSize({ w, h });
+  }
+
+  function onResizeEnd(e: React.PointerEvent<HTMLDivElement>) {
+    resizeRef.current = null;
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
+  }
+
+  function onDragStart(e: React.PointerEvent<HTMLDivElement>) {
+    if (e.button !== 0) return;
+    // Don't initiate drag from the close button or other interactive children.
+    const target = e.target as HTMLElement;
+    if (target.closest("button, a, input, textarea")) return;
+    const card = e.currentTarget.parentElement as HTMLElement | null;
+    if (!card) return;
+    const rect = card.getBoundingClientRect();
+    dragRef.current = { dx: e.clientX - rect.left, dy: e.clientY - rect.top };
+    // Seed position so the card switches from bottom/right anchoring to absolute x/y.
+    setNotePos({ x: rect.left, y: rect.top });
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }
+
+  function onDragMove(e: React.PointerEvent<HTMLDivElement>) {
+    if (!dragRef.current) return;
+    const { dx, dy } = dragRef.current;
+    const card = e.currentTarget.parentElement as HTMLElement | null;
+    const w = card?.offsetWidth ?? 340;
+    const h = card?.offsetHeight ?? 240;
+    const maxX = window.innerWidth - w;
+    const maxY = window.innerHeight - h;
+    const x = Math.max(0, Math.min(maxX, e.clientX - dx));
+    const y = Math.max(0, Math.min(maxY, e.clientY - dy));
+    setNotePos({ x, y });
+  }
+
+  function onDragEnd(e: React.PointerEvent<HTMLDivElement>) {
+    dragRef.current = null;
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
+  }
 
   // Initial load: save status + note body
   useEffect(() => {
@@ -217,72 +288,116 @@ export default function RecruiterPanel({ irSlug, candidateName, candidateHeadlin
         </button>
       </div>
 
-      {notesOpen && (
-        <>
+      {notesOpen && typeof document !== "undefined" && createPortal(
+        <aside
+          role="dialog"
+          aria-label="Private recruiter notes"
+          style={{
+            ...(notePos
+              ? { left: notePos.x, top: notePos.y, right: "auto", bottom: "auto" }
+              : undefined),
+            ...(noteSize && !noteMinimized
+              ? { width: noteSize.w, height: noteSize.h, maxHeight: "none" }
+              : undefined),
+          }}
+          className={`fixed bottom-24 right-4 z-[101] w-[340px] max-w-[calc(100vw-32px)] ${
+            noteMinimized ? "" : "max-h-[60vh]"
+          } bg-background border rounded-xl shadow-2xl flex flex-col pointer-events-auto`}
+        >
           <div
-            className="fixed inset-0 z-40 bg-black/30"
-            onClick={() => setNotesOpen(false)}
-            aria-hidden="true"
-          />
-          <aside
-            role="dialog"
-            aria-modal="true"
-            aria-label="Private recruiter notes"
-            className="fixed right-0 top-0 bottom-0 z-50 w-full sm:w-[380px] bg-background border-l shadow-2xl flex flex-col"
+            onPointerDown={onDragStart}
+            onPointerMove={onDragMove}
+            onPointerUp={onDragEnd}
+            onPointerCancel={onDragEnd}
+            className="flex items-center justify-between border-b px-3 py-2 cursor-grab active:cursor-grabbing select-none touch-none"
           >
-            <div className="flex items-center justify-between border-b px-4 py-3">
-              <div>
+            <div className="min-w-0 flex items-center gap-1.5">
+              <GripHorizontal className="h-3.5 w-3.5 text-muted-foreground/60 shrink-0" />
+              <div className="min-w-0">
                 <h3 className="text-sm font-semibold flex items-center gap-1.5">
-                  <StickyNote className="h-4 w-4 text-amber-500" /> Private notes
+                  <StickyNote className="h-4 w-4 text-amber-500 shrink-0" /> Private notes
                 </h3>
-                <p className="text-[11px] text-muted-foreground">
-                  Visible only to you on this device.
-                </p>
+                {!noteMinimized && (
+                  <p className="text-[11px] text-muted-foreground truncate">
+                    Drag to move · only on this device.
+                  </p>
+                )}
               </div>
+            </div>
+            <div className="flex items-center gap-0.5 shrink-0 ml-2">
+              <button
+                type="button"
+                onClick={() => setNoteMinimized((v) => !v)}
+                aria-label={noteMinimized ? "Restore notes" : "Minimize notes"}
+                title={noteMinimized ? "Restore" : "Minimize"}
+                className="h-7 w-7 inline-flex items-center justify-center rounded-md text-muted-foreground hover:bg-muted/40"
+              >
+                {noteMinimized ? <Maximize2 className="h-3.5 w-3.5" /> : <Minus className="h-3.5 w-3.5" />}
+              </button>
               <button
                 type="button"
                 onClick={() => setNotesOpen(false)}
                 aria-label="Close notes"
-                className="text-muted-foreground hover:text-foreground"
+                className="h-7 w-7 inline-flex items-center justify-center rounded-md text-muted-foreground hover:bg-muted/40"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <div className="px-4 py-2 text-[11px] text-muted-foreground border-b flex items-center gap-1.5 min-h-[24px]">
-              {noteStatus === "saving" && (
-                <>
-                  <Loader2 className="h-3 w-3 animate-spin" /> Saving…
-                </>
-              )}
-              {noteStatus === "saved" && (
-                <>
-                  <Check className="h-3 w-3 text-emerald-500" /> Saved
-                </>
-              )}
-            </div>
-            <textarea
-              value={noteBody}
-              onChange={(e) => setNoteBody(e.target.value)}
-              disabled={!noteLoaded}
-              placeholder={
-                candidateName
-                  ? `Notes on ${candidateName}…`
-                  : "Notes on this candidate…"
-              }
-              className="flex-1 w-full resize-none bg-transparent px-4 py-3 text-sm leading-relaxed focus:outline-none"
-              maxLength={8000}
-            />
-            <div className="px-4 py-2 text-[10px] text-muted-foreground border-t flex justify-between">
-              <span>{noteBody.length} / 8000</span>
-              <a
-                href="/recruiter-saved"
-                className="text-primary hover:underline"
-              >
-                View all saved candidates →
-              </a>
-            </div>
-          </aside>
-        </>
+          </div>
+          {!noteMinimized && (
+            <>
+          <div className="px-3 py-1.5 text-[11px] text-muted-foreground border-b flex items-center gap-1.5 min-h-[22px]">
+            {noteStatus === "saving" && (
+              <>
+                <Loader2 className="h-3 w-3 animate-spin" /> Saving…
+              </>
+            )}
+            {noteStatus === "saved" && (
+              <>
+                <Check className="h-3 w-3 text-emerald-500" /> Saved
+              </>
+            )}
+          </div>
+          <textarea
+            value={noteBody}
+            onChange={(e) => setNoteBody(e.target.value)}
+            disabled={!noteLoaded}
+            placeholder={
+              candidateName
+                ? `Notes on ${candidateName}…`
+                : "Notes on this candidate…"
+            }
+            className="flex-1 min-h-[160px] w-full resize-none bg-transparent px-3 py-2 text-sm leading-relaxed focus:outline-none"
+            maxLength={8000}
+          />
+          <div className="px-3 py-1.5 text-[10px] text-muted-foreground border-t flex justify-between">
+            <span>{noteBody.length} / 8000</span>
+            <a
+              href="/recruiter-saved"
+              className="text-primary hover:underline"
+            >
+              View all →
+            </a>
+          </div>
+          {/* Resize handle */}
+          <div
+            onPointerDown={onResizeStart}
+            onPointerMove={onResizeMove}
+            onPointerUp={onResizeEnd}
+            onPointerCancel={onResizeEnd}
+            role="separator"
+            aria-label="Resize notes"
+            className="absolute bottom-0 right-0 h-4 w-4 cursor-nwse-resize touch-none"
+            style={{
+              backgroundImage:
+                "linear-gradient(135deg, transparent 0 50%, currentColor 50% 60%, transparent 60% 70%, currentColor 70% 80%, transparent 80%)",
+              color: "rgb(148 163 184 / 0.6)",
+            }}
+          />
+            </>
+          )}
+        </aside>,
+        document.body,
       )}
     </>
   );

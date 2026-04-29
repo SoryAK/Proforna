@@ -95,7 +95,7 @@ export async function GET(
   const visibleTypes = new Set(sections.filter((s) => s.visible).map((s) => s.type));
 
   // ── Fetch only the data we need ──
-  const [skills, certifications, experience] = await Promise.all([
+  const [skills, certifications, experience, compRaw] = await Promise.all([
     visibleTypes.has("skills")
       ? prisma.skill.findMany({ where: { userId: profile.userId }, orderBy: { category: "asc" } })
       : Promise.resolve([]),
@@ -113,7 +113,36 @@ export async function GET(
           },
         })
       : Promise.resolve([]),
+    prisma.compensationPreference.findUnique({ where: { profileId: profile.id } }),
   ]);
+
+  // Sanitize compensation for public consumption
+  // - Always strip the private hardFloor exact value
+  // - Respect comp.visibility: "hidden" → omit entirely; "recruiters" → only when token-based access
+  const compVisible =
+    compRaw &&
+    compRaw.visibility !== "hidden" &&
+    (compRaw.visibility !== "recruiters" || singleUseAccess || approvedAccess);
+  const compensation = compVisible
+    ? {
+        period: compRaw!.period,
+        currency: compRaw!.currency,
+        salaryMin: compRaw!.salaryMin,
+        salaryTarget: compRaw!.salaryTarget,
+        salaryMax: compRaw!.salaryMax,
+        // hardFloor itself is private — only signal that one exists so the IR can render a "verified floor" badge
+        hasHardFloor: compRaw!.hardFloor != null,
+        employmentTypes: safeParseArray(compRaw!.employmentTypes ?? "") ?? [],
+        openToRelocation: compRaw!.openToRelocation,
+        openToEquity: compRaw!.openToEquity,
+        openToBonus: compRaw!.openToBonus,
+        openToSignOn: compRaw!.openToSignOn,
+        remotePreference: compRaw!.remotePreference,
+        benefitsMustHaves: safeParseArray(compRaw!.benefitsMustHaves ?? "") ?? [],
+        notes: compRaw!.notes,
+        visibility: compRaw!.visibility,
+      }
+    : null;
 
   // ── Build response based on visibility ──
   if (hasFullAccess) {
@@ -141,6 +170,7 @@ export async function GET(
       skills,
       certifications,
       experience: expData,
+      compensation,
     });
   }
 
@@ -169,6 +199,7 @@ export async function GET(
         ...pos,
         company: pos.isActive ? "Current Employer (Hidden)" : pos.company,
       })),
+      compensation,
     });
   }
 

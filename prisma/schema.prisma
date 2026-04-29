@@ -433,6 +433,42 @@ model UserProfile {
   user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   accessRequests AccessRequest[]
   singleUseLinks SingleUseLink[]
+  compensation   CompensationPreference?
+}
+
+// ─── Compensation Expectations ─────────────────────────────────
+// Candidate-set pay requirements surfaced on the IR so recruiters can
+// self-filter before reaching out. 1:1 with UserProfile.
+model CompensationPreference {
+  id                String   @id @default(uuid())
+  profileId         String   @unique
+  // Public range
+  period            String   @default("annual")   // annual | hourly | monthly
+  currency          String   @default("USD")
+  salaryMin         Int?
+  salaryTarget      Int?
+  salaryMax         Int?
+  // Private hard floor — exact number is never sent to recruiters,
+  // but we surface a "below candidate's minimum" badge if a comparison number is provided.
+  hardFloor         Int?
+  // Employment type preferences (JSON string array): full_time | part_time | contract | 1099 | internship | temp
+  employmentTypes   String?
+  // Openness flags
+  openToRelocation  Boolean  @default(false)
+  openToEquity      Boolean  @default(false)
+  openToBonus       Boolean  @default(true)
+  openToSignOn      Boolean  @default(false)
+  remotePreference  String   @default("any")      // any | remote | hybrid | onsite
+  // Benefits must-haves (JSON string array): e.g. ["health","401k_match","unlimited_pto"]
+  benefitsMustHaves String?
+  notes             String?
+  // Visibility on the IR: public | recruiters | hidden
+  visibility        String   @default("public")
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  profile UserProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
 }
 
 // ─── Stealth Mode: Access Requests ─────────────────────────────

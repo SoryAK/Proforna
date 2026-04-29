@@ -28,12 +28,26 @@ export async function GET(req: NextRequest) {
     prisma.userProfile.findMany({
       where: { irSlug: { in: slugs } },
       select: {
+        id: true,
         irSlug: true,
         fullName: true,
         headline: true,
         avatarUrl: true,
         city: true,
         state: true,
+        compensation: {
+          select: {
+            visibility: true,
+            period: true,
+            currency: true,
+            salaryMin: true,
+            salaryTarget: true,
+            salaryMax: true,
+            hardFloor: true,
+            remotePreference: true,
+            employmentTypes: true,
+          },
+        },
       },
     }),
   ]);
@@ -44,6 +58,22 @@ export async function GET(req: NextRequest) {
   const items = saves.map((s) => {
     const profile = profileMap.get(s.irSlug);
     const note = noteMap.get(s.irSlug);
+    // Only expose comp on public visibility (no token/approval available here).
+    // hardFloor is never sent — only `hasHardFloor` boolean.
+    const c = profile?.compensation;
+    const compensation =
+      c && c.visibility === "public"
+        ? {
+            period: c.period,
+            currency: c.currency,
+            salaryMin: c.salaryMin,
+            salaryTarget: c.salaryTarget,
+            salaryMax: c.salaryMax,
+            hasHardFloor: c.hardFloor != null,
+            remotePreference: c.remotePreference,
+            employmentTypes: safeParseArray(c.employmentTypes ?? "") ?? [],
+          }
+        : null;
     return {
       irSlug: s.irSlug,
       savedAt: s.savedAt,
@@ -54,8 +84,17 @@ export async function GET(req: NextRequest) {
       location: [profile?.city, profile?.state].filter(Boolean).join(", ") || null,
       noteBody: note?.body ?? null,
       noteUpdatedAt: note?.updatedAt ?? null,
+      compensation,
     };
   });
 
   return NextResponse.json({ items });
+}
+
+function safeParseArray(raw: string): string[] | null {
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) return parsed.filter((x) => typeof x === "string");
+  } catch {}
+  return null;
 }
