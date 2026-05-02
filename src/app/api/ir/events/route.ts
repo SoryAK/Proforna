@@ -27,6 +27,9 @@ const ALLOWED_EVENT_TYPES = new Set([
   "contact_method_click",
   "education_click",
   "journey_play",
+  "comp_view",
+  "annot_view",
+  "tour_complete",
   "session_heartbeat",
 ]);
 

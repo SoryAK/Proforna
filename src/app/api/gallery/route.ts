@@ -5,8 +5,8 @@ import path from "path";
 import crypto from "crypto";
 import { getUserId } from "@/lib/auth-utils";
 
-const MAX_SIZE = 5 * 1024 * 1024; // 5 MB
-const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+const MAX_SIZE = 25 * 1024 * 1024; // 25 MB — modern phone photos
+const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/heic", "image/heif"];
 
 // GET — list gallery photos for a position
 export async function GET(request: Request) {
@@ -45,7 +45,8 @@ export async function POST(request: Request) {
     const formData = await request.formData();
     const file = formData.get("file") as File | null;
     const positionId = formData.get("positionId") as string | null;
-    const albumId = (formData.get("albumId") as string | null) || null;
+    let albumId = (formData.get("albumId") as string | null) || null;
+    const albumName = ((formData.get("albumName") as string | null) || "").trim();
     const caption = (formData.get("caption") as string) || null;
     const isCover = formData.get("isCover") === "true";
 
@@ -53,10 +54,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "file and positionId required" }, { status: 400 });
 
     if (!ALLOWED_TYPES.includes(file.type))
-      return NextResponse.json({ error: "Invalid file type. Use JPEG, PNG, WebP, or GIF." }, { status: 400 });
+      return NextResponse.json({ error: "Invalid file type. Use JPEG, PNG, WebP, GIF, or HEIC." }, { status: 400 });
 
     if (file.size > MAX_SIZE)
-      return NextResponse.json({ error: "File too large. Max 5 MB." }, { status: 400 });
+      return NextResponse.json({ error: "File too large. Max 25 MB." }, { status: 400 });
 
     const position = await prisma.workHistory.findFirst({
       where: { id: positionId, userId },
@@ -72,6 +73,22 @@ export async function POST(request: Request) {
       });
       if (!album || album.workHistory.userId !== userId)
         return NextResponse.json({ error: "Album not found" }, { status: 404 });
+    } else if (albumName) {
+      // Find-or-create album by name within this position (used by the
+      // "Upload album" multi-file flow so all photos land in one album).
+      const existing = await prisma.galleryAlbum.findFirst({
+        where: { workHistoryId: positionId, name: albumName },
+        select: { id: true },
+      });
+      if (existing) {
+        albumId = existing.id;
+      } else {
+        const created = await prisma.galleryAlbum.create({
+          data: { workHistoryId: positionId, name: albumName.slice(0, 80) },
+          select: { id: true },
+        });
+        albumId = created.id;
+      }
     }
 
     // If setting as cover, unset any existing cover
@@ -197,7 +214,7 @@ export async function PATCH(request: Request) {
     }
 
     // ── Single photo update ───────────────────────────────────
-    const { id, caption, fileName, isCover, isFavorite, isPrivate, tags, markers, dateTaken, rotation, sortOrder, albumId } = body;
+    const { id, caption, fileName, isCover, isFavorite, isPrivate, annotationsPublic, tags, markers, dateTaken, rotation, sortOrder, albumId } = body;
     if (!id)
       return NextResponse.json({ error: "id required" }, { status: 400 });
 
@@ -237,6 +254,7 @@ export async function PATCH(request: Request) {
         ...(isCover !== undefined && { isCover }),
         ...(isFavorite !== undefined && { isFavorite }),
         ...(isPrivate !== undefined && { isPrivate }),
+        ...(annotationsPublic !== undefined && { annotationsPublic: !!annotationsPublic }),
         ...(tags !== undefined && { tags: JSON.stringify(tags) }),
         ...(markers !== undefined && { markers: JSON.stringify(markers) }),
         ...(dateTaken !== undefined && { dateTaken: dateTaken ? new Date(dateTaken) : null }),

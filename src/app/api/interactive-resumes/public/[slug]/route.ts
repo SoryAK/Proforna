@@ -94,8 +94,16 @@ export async function GET(
 
   const visibleTypes = new Set(sections.filter((s) => s.visible).map((s) => s.type));
 
+  // ── Load published snapshot (frozen copy of profile + comp + work history). ──
+  // If present, the IR shows snapshot data only — unpublished edits stay hidden.
+  // We still rely on LIVE control fields (visibility/irSlug/hideCurrentEmployer)
+  // so the user can yank the IR offline immediately without republishing.
+  const published = await prisma.publishedProfile.findUnique({
+    where: { userId: profile.userId },
+  });
+
   // ── Fetch only the data we need ──
-  const [skills, certifications, experience, compRaw] = await Promise.all([
+  const [skills, certifications, experienceLive, compRawLive] = await Promise.all([
     visibleTypes.has("skills")
       ? prisma.skill.findMany({ where: { userId: profile.userId }, orderBy: { category: "asc" } })
       : Promise.resolve([]),
@@ -107,7 +115,15 @@ export async function GET(
           where: { userId: profile.userId },
           orderBy: [{ isActive: "desc" }, { startDate: "desc" }],
           include: {
-            galleryPhotos: { orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }] },
+            galleryPhotos: {
+              orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
+              include: {
+                annotations: {
+                  where: { isPrivate: false },
+                  orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+                },
+              },
+            },
             attachments: { orderBy: { createdAt: "desc" } },
             equipment: { include: { photos: { orderBy: { isCover: "desc" } } } },
           },
@@ -116,15 +132,50 @@ export async function GET(
     prisma.compensationPreference.findUnique({ where: { profileId: profile.id } }),
   ]);
 
+  // Apply snapshot overrides if user has published.
+  // Profile snapshot fields override the live profile object for viewer-facing data.
+  let experience = experienceLive;
+  let compRaw = compRawLive as typeof compRawLive | null;
+  let snapshotComp: ReturnType<typeof identitySnapshotComp> | null = null;
+  function identitySnapshotComp(c: unknown) { return c as Record<string, unknown> | null; }
+  if (published) {
+    const ps = (published.profileSnapshot ?? {}) as Record<string, unknown>;
+    // Mutate the local profile object — keep id/userId/irSlug/visibility/hideCurrentEmployer (live control fields).
+    const liveControl = {
+      id: profile.id,
+      userId: profile.userId,
+      irSlug: profile.irSlug,
+      visibility: profile.visibility,
+      hideCurrentEmployer: profile.hideCurrentEmployer,
+      anonymousTitle: profile.anonymousTitle,
+      updatedAt: published.publishedAt,
+    };
+    Object.assign(profile, ps, liveControl);
+    if (Array.isArray(published.workHistorySnapshot)) {
+      experience = published.workHistorySnapshot as typeof experience;
+    }
+    if (published.compensationSnapshot) {
+      // Snapshot comp is already in final public shape — use directly.
+      snapshotComp = identitySnapshotComp(published.compensationSnapshot);
+      compRaw = null; // skip live comp processing below
+    }
+  }
+
+  // updatedAt should reflect publish time when we have a snapshot.
+  const effectiveUpdatedAt = published?.publishedAt ?? updatedAt;
+
   // Sanitize compensation for public consumption
   // - Always strip the private hardFloor exact value
   // - Respect comp.visibility: "hidden" → omit entirely; "recruiters" → only when token-based access
+  const compSourceVisibility = (snapshotComp?.visibility as string | undefined) ?? compRaw?.visibility;
   const compVisible =
-    compRaw &&
-    compRaw.visibility !== "hidden" &&
-    (compRaw.visibility !== "recruiters" || singleUseAccess || approvedAccess);
+    (snapshotComp || compRaw) &&
+    compSourceVisibility !== "hidden" &&
+    (compSourceVisibility !== "recruiters" || singleUseAccess || approvedAccess);
   const compensation = compVisible
-    ? {
+    ? snapshotComp
+      ? snapshotComp
+      : {
         period: compRaw!.period,
         currency: compRaw!.currency,
         salaryMin: compRaw!.salaryMin,
@@ -144,15 +195,24 @@ export async function GET(
       }
     : null;
 
+  // ── Publicize gallery photos: drop private photos; clear annotations when annotationsPublic=false ──
+  const publicizeGallery = <T extends { galleryPhotos: Array<{ isPrivate: boolean; annotationsPublic: boolean; annotations?: unknown[] }> }>(pos: T) => ({
+    ...pos,
+    galleryPhotos: pos.galleryPhotos
+      .filter((p) => !p.isPrivate)
+      .map((p) => ({ ...p, annotations: p.annotationsPublic ? (p.annotations ?? []) : [] })),
+  });
+
   // ── Build response based on visibility ──
   if (hasFullAccess) {
-    const expData = profile.hideCurrentEmployer
+    const expData = (profile.hideCurrentEmployer
       ? experience.map((pos) => ({ ...pos, company: pos.isActive ? "Current Employer" : pos.company }))
-      : experience;
+      : experience
+    ).map(publicizeGallery);
 
     return NextResponse.json({
       visibility: "public",
-      resume: { title, targetRole, summary, theme, sections, updatedAt },
+      resume: { title, targetRole, summary, theme, sections, updatedAt: effectiveUpdatedAt },
       viewerOverride,
       profile: {
         fullName: profile.fullName,
@@ -180,7 +240,7 @@ export async function GET(
     return NextResponse.json({
       visibility: "stealth",
       profileId: profile.id,
-      resume: { title, targetRole, summary, theme, sections, updatedAt },
+      resume: { title, targetRole, summary, theme, sections, updatedAt: effectiveUpdatedAt },
       viewerOverride: null,
       profile: {
         fullName: anonName,
@@ -195,7 +255,7 @@ export async function GET(
       },
       skills,
       certifications,
-      experience: experience.map((pos) => ({
+      experience: experience.map(publicizeGallery).map((pos) => ({
         ...pos,
         company: pos.isActive ? "Current Employer (Hidden)" : pos.company,
       })),
@@ -214,7 +274,7 @@ export async function GET(
       summary: null,
       theme,
       sections: sections.filter((s) => s.type === "skills" || s.type === "certifications"),
-      updatedAt,
+      updatedAt: effectiveUpdatedAt,
     },
     viewerOverride: null,
     profile: {

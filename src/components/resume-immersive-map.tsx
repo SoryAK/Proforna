@@ -62,8 +62,10 @@ import {
   RotateCcw,
   Route,
 } from "lucide-react";
-import { useIrAnalytics } from "@/lib/use-ir-analytics";
+import { useIrAnalytics, type IrEventType } from "@/lib/use-ir-analytics";
 import RecruiterPanel from "@/components/recruiter-panel";
+import { AnnotationViewer } from "@/components/annotation-viewer";
+import type { Annotation } from "@/components/annotation-overlay";
 
 const GOOGLE_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
 
@@ -131,7 +133,23 @@ export interface ImmersiveWorkItem {
   uniformData?: string | null;
 
   // Relations
-  galleryPhotos?: { id: string; filePath: string; caption?: string | null; fileName: string }[];
+  galleryPhotos?: {
+    id: string;
+    filePath: string;
+    caption?: string | null;
+    fileName: string;
+    rotation?: number;
+    annotations?: Array<{
+      id: string;
+      kind: string;
+      geometry: string;
+      title?: string | null;
+      body?: string | null;
+      color?: string | null;
+      tags?: string | null;
+      sortOrder?: number | null;
+    }>;
+  }[];
   attachments?: { id: string; label: string; category: string; fileName: string; filePath: string; fileMime: string; fileSize: number }[];
   equipment?: { id: string; name: string; category: string; manufacturer?: string | null; model?: string | null; photos?: { id: string; filePath: string; isCover: boolean }[] }[];
 }
@@ -810,7 +828,7 @@ export default function ResumeImmersiveMap({ items, profile, skills = [], certif
                 </div>
                 {topEducation && (() => {
                   const credential = [topEducation.degree, topEducation.major].filter(Boolean).join(", ");
-                  const display = credential ? `${credential} · ${topEducation.company}` : topEducation.company;
+                  const display = credential || topEducation.company;
                   return (
                     <button
                       type="button"
@@ -818,11 +836,11 @@ export default function ResumeImmersiveMap({ items, profile, skills = [], certif
                         setFocusedId((cur) => (cur === topEducation.id ? null : topEducation.id));
                         analytics.track("education_click", { workItemId: topEducation.id, label: display });
                       }}
-                      className="text-left flex items-center gap-1 text-sm text-violet-600 dark:text-violet-300 hover:underline truncate w-full"
-                      title={`Show ${topEducation.company} on map`}
+                      className="text-left flex items-start gap-1 text-sm text-violet-600 dark:text-violet-300 hover:underline w-full"
+                      title={credential ? `${credential} · ${topEducation.company}` : topEducation.company}
                     >
-                      <GraduationCap className="h-3.5 w-3.5 shrink-0" />
-                      <span className="truncate">{display}</span>
+                      <GraduationCap className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                      <span className="line-clamp-2 break-words">{display}</span>
                     </button>
                   );
                 })()}
@@ -1204,6 +1222,7 @@ export default function ResumeImmersiveMap({ items, profile, skills = [], certif
               items={visibleItems}
               onClose={() => setFocusedId(null)}
               onNavigate={(id) => setFocusedId(id)}
+              analytics={analytics}
             />
           ) : (
             <WorkHistoryViewerPanel
@@ -2189,11 +2208,13 @@ function FocusCard({
   items,
   onClose,
   onNavigate,
+  analytics,
 }: {
   item: ImmersiveWorkItem;
   items: ImmersiveWorkItem[];
   onClose: () => void;
   onNavigate: (id: string) => void;
+  analytics?: { track: (eventType: IrEventType, eventData?: unknown) => void };
 }) {
   const meta = metaFor(item.type);
   const months = tenureMonths(item.startDate, item.endDate);
@@ -2238,6 +2259,24 @@ function FocusCard({
   const [openSections, setOpenSections] = useState<Set<string>>(new Set());
   const [skillsExpanded, setSkillsExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [lightboxPhotoId, setLightboxPhotoId] = useState<string | null>(null);
+  const [lightboxAnnId, setLightboxAnnId] = useState<string | null>(null);
+
+  // Deep link: ?ann=<annotationId> auto-opens the lightbox on the matching photo.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const annId = params.get("ann");
+    if (!annId) return;
+    const target = (item.galleryPhotos ?? []).find((p) =>
+      (p.annotations ?? []).some((a) => a.id === annId)
+    );
+    if (target) {
+      setSidePanel("gallery");
+      setLightboxPhotoId(target.id);
+      setLightboxAnnId(annId);
+    }
+  }, [item.id, item.galleryPhotos]);
   const toggleSection = (k: string) =>
     setOpenSections((prev) => {
       const next = new Set(prev);
@@ -2263,7 +2302,7 @@ function FocusCard({
   };
 
   return (
-    <div className="w-full max-h-[calc(60vh-110px)] flex flex-col rounded-xl bg-background/95 backdrop-blur-md border shadow-xl text-foreground overflow-hidden pointer-events-auto">
+    <div className="w-full max-h-[calc(100vh-200px)] flex flex-col rounded-xl bg-background/95 backdrop-blur-md border shadow-xl text-foreground overflow-hidden pointer-events-auto">
       {/* Top bar */}
       <div className="flex items-center justify-between px-2.5 py-1.5 border-b shrink-0">
         <button
@@ -2315,7 +2354,7 @@ function FocusCard({
       </div>
 
       {/* Body — scrolls */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto scrollbar-thin">
         <div className="p-2.5">
           <div className="rounded-lg bg-muted/40 border overflow-hidden">
             {/* Cover Image Banner */}
@@ -2383,7 +2422,7 @@ function FocusCard({
               {/* Row 2 — Position / Degree */}
               {isSchool ? (
                 (item.degree || item.major) && (
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-sm font-medium text-foreground/90">
                     {item.degree}
                     {item.degree && item.major ? " in " : ""}
                     {item.major}
@@ -2391,7 +2430,7 @@ function FocusCard({
                 )
               ) : (
                 (item.title || item.role) && (
-                  <p className="text-xs text-muted-foreground">{item.title || item.role}</p>
+                  <p className="text-sm font-medium text-foreground/90">{item.title || item.role}</p>
                 )
               )}
 
@@ -2523,19 +2562,40 @@ function FocusCard({
               )}
               {sidePanel === "gallery" && gallery.length > 0 && (
                 <div className="grid grid-cols-3 gap-1.5">
-                  {gallery.map((p) => (
-                    <a
-                      key={p.id}
-                      href={p.filePath}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="relative aspect-square overflow-hidden rounded border bg-muted hover:opacity-90 transition-opacity"
-                      title={p.caption ?? p.fileName}
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={p.filePath} alt={p.caption ?? ""} className="absolute inset-0 h-full w-full object-cover" />
-                    </a>
-                  ))}
+                  {gallery.map((p) => {
+                    const annCount = p.annotations?.length ?? 0;
+                    const hasAnn = annCount > 0;
+                    if (hasAnn) {
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => { setLightboxPhotoId(p.id); setLightboxAnnId(null); }}
+                          className="relative aspect-square overflow-hidden rounded border bg-muted hover:opacity-90 transition-opacity text-left"
+                          title={p.caption ?? p.fileName}
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={p.filePath} alt={p.caption ?? ""} className="absolute inset-0 h-full w-full object-cover" />
+                          <span className="absolute top-1 right-1 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-black/70 text-white text-[10px] font-semibold">
+                            {annCount}
+                          </span>
+                        </button>
+                      );
+                    }
+                    return (
+                      <a
+                        key={p.id}
+                        href={p.filePath}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="relative aspect-square overflow-hidden rounded border bg-muted hover:opacity-90 transition-opacity"
+                        title={p.caption ?? p.fileName}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={p.filePath} alt={p.caption ?? ""} className="absolute inset-0 h-full w-full object-cover" />
+                      </a>
+                    );
+                  })}
                 </div>
               )}
               {sidePanel === "attachments" && attachments.length > 0 && (
@@ -2737,9 +2797,9 @@ function FocusCard({
 
           {/* Description / About */}
           {item.description && (
-            <div className="mt-3 rounded-lg border bg-muted/40 p-2.5">
-              <h4 className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">About</h4>
-              <p className="text-xs text-foreground/90 leading-relaxed whitespace-pre-line">
+            <div className="mt-3 rounded-lg border bg-muted/40 p-3">
+              <h4 className="text-[11px] font-semibold uppercase tracking-wider text-foreground/70 mb-2">About</h4>
+              <p className="text-sm text-foreground/90 leading-relaxed whitespace-pre-line">
                 {item.description}
               </p>
             </div>
@@ -2747,14 +2807,14 @@ function FocusCard({
 
           {/* Responsibilities */}
           {responsibilities.length > 0 && (
-            <div className="mt-3 rounded-lg border bg-muted/40 p-2.5">
-              <h4 className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5 flex items-center gap-1">
-                <Briefcase className="h-3 w-3" /> Responsibilities
+            <div className="mt-3 rounded-lg border bg-muted/40 p-3">
+              <h4 className="text-[11px] font-semibold uppercase tracking-wider text-foreground/70 mb-2 flex items-center gap-1.5">
+                <Briefcase className="h-3.5 w-3.5" /> Responsibilities
               </h4>
-              <ul className="space-y-1 text-xs text-foreground/90">
+              <ul className="space-y-1.5 text-sm text-foreground/90 leading-relaxed">
                 {responsibilities.map((r, i) => (
                   <li key={i} className="flex gap-2">
-                    <span className="text-primary shrink-0">•</span>
+                    <span className="text-primary shrink-0 mt-0.5">•</span>
                     <span>{r}</span>
                   </li>
                 ))}
@@ -2764,14 +2824,14 @@ function FocusCard({
 
           {/* Accomplishments */}
           {accomplishments.length > 0 && (
-            <div className="mt-3 rounded-lg border bg-muted/40 p-2.5">
-              <h4 className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5 flex items-center gap-1">
-                <Award className="h-3 w-3 text-amber-500" /> Accomplishments
+            <div className="mt-3 rounded-lg border bg-muted/40 p-3">
+              <h4 className="text-[11px] font-semibold uppercase tracking-wider text-foreground/70 mb-2 flex items-center gap-1.5">
+                <Award className="h-3.5 w-3.5 text-amber-500" /> Accomplishments
               </h4>
-              <ul className="space-y-1 text-xs text-foreground/90">
+              <ul className="space-y-1.5 text-sm text-foreground/90 leading-relaxed">
                 {accomplishments.map((a, i) => (
                   <li key={i} className="flex gap-2">
-                    <span className="text-amber-500 shrink-0">★</span>
+                    <span className="text-amber-500 shrink-0 mt-0.5">★</span>
                     <span>{a}</span>
                   </li>
                 ))}
@@ -2781,15 +2841,15 @@ function FocusCard({
 
           {/* Tech stack */}
           {tech.length > 0 && (
-            <div className="mt-3 rounded-lg border bg-muted/40 p-2.5">
-              <h4 className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5 flex items-center gap-1">
-                <Code2 className="h-3 w-3" /> Tech & Tools
+            <div className="mt-3 rounded-lg border bg-muted/40 p-3">
+              <h4 className="text-[11px] font-semibold uppercase tracking-wider text-foreground/70 mb-2 flex items-center gap-1.5">
+                <Code2 className="h-3.5 w-3.5" /> Tech & Tools
               </h4>
               <div className="flex flex-wrap gap-1.5">
                 {tech.map((t) => (
                   <span
                     key={t}
-                    className="px-2 py-0.5 text-[11px] rounded-full bg-primary/10 text-primary border border-primary/20"
+                    className="px-2 py-0.5 text-xs rounded-full bg-primary/10 text-primary border border-primary/20"
                   >
                     {t}
                   </span>
@@ -2808,6 +2868,72 @@ function FocusCard({
           <ChevronLeft className="h-3 w-3" /> Back to all work history
         </button>
       </div>
+
+      {/* Photo lightbox with annotations */}
+      {lightboxPhotoId && (() => {
+        const photo = gallery.find((p) => p.id === lightboxPhotoId);
+        if (!photo) return null;
+        const anns: Annotation[] = (photo.annotations ?? []).map((a) => {
+          let parsedTags: string[] | null = null;
+          if (a.tags) {
+            try {
+              const t = JSON.parse(a.tags);
+              if (Array.isArray(t)) parsedTags = t.filter((x): x is string => typeof x === "string");
+            } catch {}
+          }
+          let parsedGeometry: unknown = a.geometry;
+          try { parsedGeometry = JSON.parse(a.geometry); } catch {}
+          return {
+            id: a.id,
+            kind: a.kind as Annotation["kind"],
+            geometry: parsedGeometry,
+            title: a.title ?? null,
+            body: a.body ?? null,
+            color: a.color ?? "#ef4444",
+            sortOrder: a.sortOrder ?? null,
+            isPrivate: false,
+            tags: parsedTags,
+          };
+        });
+        return (
+          <div
+            className="fixed inset-0 z-[60] bg-black/90 flex items-center justify-center p-4"
+            onClick={() => { setLightboxPhotoId(null); setLightboxAnnId(null); }}
+          >
+            <div
+              className="relative max-w-[95vw] max-h-[95vh] bg-background rounded-lg shadow-2xl overflow-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                type="button"
+                onClick={() => { setLightboxPhotoId(null); setLightboxAnnId(null); }}
+                className="absolute top-2 right-2 z-10 inline-flex items-center justify-center h-8 w-8 rounded-full bg-black/70 text-white hover:bg-black"
+                title="Close"
+              >
+                <X className="h-4 w-4" />
+              </button>
+              <div className="max-w-[90vw]">
+                <AnnotationViewer
+                  imageUrl={photo.filePath}
+                  imageRotation={photo.rotation ?? 0}
+                  annotations={anns}
+                  initialAnnotationId={lightboxAnnId}
+                  autoTour={false}
+                  onAnnotationView={(annId) => {
+                    analytics?.track("annot_view", { photoId: photo.id, annotationId: annId, workHistoryId: item.id });
+                  }}
+                  onTourComplete={() => {
+                    analytics?.track("tour_complete", { photoId: photo.id, workHistoryId: item.id });
+                  }}
+                />
+                {photo.caption && (
+                  <div className="px-3 py-2 text-xs text-muted-foreground border-t">{photo.caption}</div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

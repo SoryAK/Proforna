@@ -71,6 +71,8 @@ model User {
   diffusionExposures  DiffusionExposure[]
   careerEvents        CareerEvent[]
   employerAliases     EmployerAlias[]
+  personalEquipment   PersonalEquipment[]
+  publishedProfile    PublishedProfile?
 }
 
 model Account {
@@ -436,6 +438,27 @@ model UserProfile {
   compensation   CompensationPreference?
 }
 
+// ─── Published Profile Snapshot ────────────────────────────────
+// Frozen copy of the user's IR-facing data (profile + compensation +
+// work history). The public IR endpoint reads from this — edits to
+// UserProfile/CompensationPreference/WorkHistory don't go live until
+// the user explicitly publishes from the work-mapping panel.
+model PublishedProfile {
+  id              String   @id @default(uuid())
+  userId          String   @unique
+  // Snapshot of UserProfile fields shown on the IR
+  profileSnapshot Json
+  // Snapshot of CompensationPreference (sanitized — no hardFloor)
+  compensationSnapshot Json?
+  // Snapshot of WorkHistory[] with relations (galleryPhotos, attachments, equipment)
+  workHistorySnapshot Json?
+  publishedAt     DateTime @default(now())
+  // Free-form note the user can attach to a publish ("updated headline", etc.)
+  publishNote     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
 // ─── Compensation Expectations ─────────────────────────────────
 // Candidate-set pay requirements surfaced on the IR so recruiters can
 // self-filter before reaching out. 1:1 with UserProfile.
@@ -570,6 +593,52 @@ model EquipmentResource {
   equipment Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
 }
 
+// ─── Personal Inventory (user-scoped, not tied to a job) ───────
+
+model PersonalEquipment {
+  id            String    @id @default(uuid())
+  userId        String
+  name          String
+  category      String    @default("tool")        // hardware | software | vehicle | safety | tool | instrument | other
+  ownership     String    @default("personal")    // personal | shared | borrowed | rental
+  manufacturer  String?
+  model         String?
+  serialNumber  String?
+  condition     String    @default("good")        // new | good | fair | poor
+  proficiency   Int?                              // 1-5 self-rated
+  purchaseDate  DateTime?
+  purchasePrice Float?
+  currentValue  Float?
+  location      String?                           // where it's stored
+  isPrivate     Boolean   @default(true)          // hide from public IR by default
+  notes         String?
+  tags          String[]  @default([])             // free-text user tags
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  user   User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  photos PersonalEquipmentPhoto[]
+
+  @@index([userId])
+}
+
+model PersonalEquipmentPhoto {
+  id          String   @id @default(uuid())
+  equipmentId String
+  filePath    String
+  fileName    String
+  fileMime    String
+  fileSize    Int
+  caption     String?
+  isCover     Boolean  @default(false)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  equipment PersonalEquipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+
+  @@index([equipmentId])
+}
+
 model WorkLog {
   id             String   @id @default(uuid())
   positionId     String
@@ -618,8 +687,9 @@ model GalleryPhoto {
   isCover       Boolean   @default(false)
   isFavorite    Boolean   @default(false)
   isPrivate     Boolean   @default(false)
+  annotationsPublic Boolean @default(true) // when photo is shared, also expose annotations
   tags          String?   // JSON array of tag strings, e.g. ["welding","safety"]
-  markers       String?   // JSON array of {x,y,label,description} objects (x/y are 0-1 fractions)
+  markers       String?   // legacy JSON pins (kept for back-compat); new feature uses MediaAnnotation
   dateTaken     DateTime?
   rotation      Int       @default(0)  // 0, 90, 180, 270 — display rotation (non-destructive)
   sortOrder     Int?
@@ -627,6 +697,7 @@ model GalleryPhoto {
 
   workHistory WorkHistory @relation("WorkHistoryGallery", fields: [workHistoryId], references: [id], onDelete: Cascade)
   album       GalleryAlbum? @relation("GalleryAlbumPhotos", fields: [albumId], references: [id], onDelete: SetNull)
+  annotations MediaAnnotation[] @relation("GalleryPhotoAnnotations")
 
   @@index([workHistoryId])
   @@index([albumId])
@@ -645,6 +716,45 @@ model GalleryAlbum {
 
   @@index([workHistoryId])
   @@unique([workHistoryId, name])
+}
+
+// ─── Media Annotations (rich shapes + notes on photos/videos) ──
+
+model MediaAnnotation {
+  id              String   @id @default(uuid())
+  photoId         String?
+  // videoId String? — reserved for future GalleryVideo support
+  kind            String   // "pin" | "rect" | "circle" | "arrow" | "freehand"
+  geometry        String   // JSON; coords normalized 0..1 relative to media
+  title           String?
+  body            String?  // rich-text HTML (tiptap output)
+  color           String   @default("#ef4444")
+  tags            String?  // JSON array of tag strings
+  sortOrder       Int?     // null = not part of tour; numeric = step in tour
+  videoTimestamp  Float?   // seconds; null for photos or persistent video annotations
+  isPrivate       Boolean  @default(false) // override: hide on public surfaces even if photo is public
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  photo GalleryPhoto? @relation("GalleryPhotoAnnotations", fields: [photoId], references: [id], onDelete: Cascade)
+  comments MediaAnnotationComment[] @relation("AnnotationComments")
+
+  @@index([photoId])
+  @@index([photoId, sortOrder])
+}
+
+model MediaAnnotationComment {
+  id           String   @id @default(uuid())
+  annotationId String
+  authorId     String   // user id of comment author
+  body         String   // plain text or simple markdown
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  annotation MediaAnnotation @relation("AnnotationComments", fields: [annotationId], references: [id], onDelete: Cascade)
+
+  @@index([annotationId])
+  @@index([annotationId, createdAt])
 }
 
 // ─── Compensation & Benefits ───────────────────────────────────

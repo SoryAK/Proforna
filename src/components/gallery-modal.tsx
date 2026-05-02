@@ -8,7 +8,9 @@ import {
   Maximize2, Minimize2, Play, Pause, Columns2, CheckSquare, Square,
   RotateCw, Eye, EyeOff, Heart, Calendar, Settings2,
   SortAsc, SortDesc, Check, CheckCheck, XCircle, LayoutGrid, FolderOpen,
+  Layers,
 } from "lucide-react";
+import { AnnotationEditor } from "@/components/annotation-editor";
 
 /* ── Types ────────────────────────────────────────────────────────────────── */
 
@@ -24,6 +26,7 @@ export interface GalleryPhoto {
   isPrivate?: boolean;
   tags?: string | null;
   markers?: string | null;
+  annotationsPublic?: boolean;
   dateTaken?: string | null;
   rotation?: number;
   sortOrder?: number | null;
@@ -119,6 +122,7 @@ export function GalleryModal({ photos, albums = [], initialIndex, positionId, co
   const [busy, setBusy] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>(() => loadSettings().defaultViewMode ?? "viewer");
   const [addingMarker, setAddingMarker] = useState(false);
+  const [annotateOpen, setAnnotateOpen] = useState(false);
   const [hoveredMarker, setHoveredMarker] = useState<string | null>(null);
   const [tagInput, setTagInput] = useState("");
   const [zoom, setZoom] = useState(1);
@@ -1306,6 +1310,9 @@ export function GalleryModal({ photos, albums = [], initialIndex, positionId, co
 
             {/* Actions — row 3 */}
             <div className="flex flex-wrap gap-1">
+              <button onClick={() => setAnnotateOpen(true)} className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-violet-500/10 hover:bg-violet-500/20 text-violet-600 dark:text-violet-400 text-[10px] transition-colors" title="Open annotation editor">
+                <Layers className="h-2.5 w-2.5" /> Annotate
+              </button>
               <button onClick={() => setAddingMarker(true)} className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 text-[10px] transition-colors">
                 <MapPin className="h-2.5 w-2.5" /> Marker
               </button>
@@ -1381,6 +1388,23 @@ export function GalleryModal({ photos, albums = [], initialIndex, positionId, co
       </div>
 
       <KeyboardHandler onLeft={prev} onRight={next} onEsc={onClose} />
+      {annotateOpen && currentPhoto && (
+        <AnnotationEditor
+          photoId={currentPhoto.id}
+          imageUrl={currentPhoto.filePath}
+          imageRotation={currentPhoto.rotation ?? 0}
+          initialAnnotationsPublic={currentPhoto.annotationsPublic ?? true}
+          siblingPhotos={photos.map((p) => ({
+            id: p.id,
+            filePath: p.filePath,
+            fileName: p.fileName,
+            rotation: p.rotation,
+            caption: p.caption,
+          }))}
+          onClose={() => setAnnotateOpen(false)}
+          onChange={() => { void onRefresh(); }}
+        />
+      )}
     </div>
   );
 

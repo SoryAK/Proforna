@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useCallback, useEffect, useRef, Fragment } from "react";
+import { createPortal } from "react-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { PlacesAutocomplete } from "@/components/places-autocomplete";
 import type { DrawingSettings, DrawingCanvasHandle, SerializedDrawing } from "@/components/map-drawing-canvas";
@@ -86,8 +87,11 @@ import {
   Images,
   Paperclip,
   Wrench,
+  Boxes,
+  GripVertical,
   Brain,
   Maximize2,
+  Minus,
   LayoutGrid,
   FolderOpen,
   Info,
@@ -96,6 +100,8 @@ import {
 import { toast } from "sonner";
 import { GalleryModal } from "@/components/gallery-modal";
 import type { GalleryPhoto as GalleryPhotoType } from "@/components/gallery-modal";
+import { PersonalInventory } from "@/components/personal-inventory";
+import { BioCardEditor } from "@/components/bio-card-editor";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -500,6 +506,29 @@ const JOB_INTENT_KEY = "resumsify:job-intent-states";
 const PANEL_GALLERY_VIEW_KEY = "resumsify:panel-gallery-view";
 const WORK_HISTORY_PANEL_PREFS_KEY = "resumsify:work-history-panel-prefs";
 const WORK_HISTORY_OVERLAPS_KEY = "resumsify:work-history-overlaps";
+const WORK_HISTORY_KPI_SLOTS_KEY = "resumsify:work-history-kpi-slots";
+const KPI_MAX_SLOTS = 8;
+const DEFAULT_KPI_SLOTS = ["tenure", "roles", "miles", "cities", "rtg", "rtn"];
+
+const INVENTORY_PANEL_KEY = "resumsify:inventory-panel-v1";
+type InventoryPanelState = { x: number; y: number; w: number; h: number; minimized: boolean };
+const INVENTORY_PANEL_DEFAULTS: InventoryPanelState = { x: 80, y: 80, w: 720, h: 560, minimized: false };
+const INVENTORY_PANEL_MIN = { w: 360, h: 240 };
+function loadInventoryPanel(): InventoryPanelState {
+  if (typeof window === "undefined") return { ...INVENTORY_PANEL_DEFAULTS };
+  try {
+    const raw = JSON.parse(localStorage.getItem(INVENTORY_PANEL_KEY) || "null");
+    if (!raw || typeof raw !== "object") return { ...INVENTORY_PANEL_DEFAULTS };
+    const n = (v: unknown, d: number) => (typeof v === "number" && Number.isFinite(v) ? v : d);
+    return {
+      x: Math.max(0, n(raw.x, INVENTORY_PANEL_DEFAULTS.x)),
+      y: Math.max(0, n(raw.y, INVENTORY_PANEL_DEFAULTS.y)),
+      w: Math.max(INVENTORY_PANEL_MIN.w, n(raw.w, INVENTORY_PANEL_DEFAULTS.w)),
+      h: Math.max(INVENTORY_PANEL_MIN.h, n(raw.h, INVENTORY_PANEL_DEFAULTS.h)),
+      minimized: !!raw.minimized,
+    };
+  } catch { return { ...INVENTORY_PANEL_DEFAULTS }; }
+}
 
 type JobIntent = "interested" | "applied" | "interviewing" | "waiting" | "rejected" | "not-fit";
 
@@ -549,6 +578,19 @@ function loadWorkHistoryOverlapsDefault(): boolean {
     return raw === "1";
   } catch {
     return false;
+  }
+}
+
+function loadKpiSlots(): string[] {
+  if (typeof window === "undefined") return [...DEFAULT_KPI_SLOTS];
+  try {
+    const raw = localStorage.getItem(WORK_HISTORY_KPI_SLOTS_KEY);
+    if (!raw) return [...DEFAULT_KPI_SLOTS];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [...DEFAULT_KPI_SLOTS];
+    return parsed.filter((x): x is string => typeof x === "string").slice(0, KPI_MAX_SLOTS);
+  } catch {
+    return [...DEFAULT_KPI_SLOTS];
   }
 }
 interface JobSearchPrefs {
@@ -3845,9 +3887,22 @@ export function JobMap() {
 
       {/* ── MAP VIEW ── */}
       {viewMode === "map" && (
-      <div className="flex gap-3 h-[calc(100vh-220px)] min-h-[500px]">
+      <div
+        className={
+          showWorkHistory
+            ? "fixed inset-0 z-[60] flex gap-0 bg-background"
+            : "flex gap-3 h-[calc(100vh-220px)] min-h-[500px]"
+        }
+      >
         {/* Map */}
-        <div ref={mapContainerRef} className="flex-1 rounded-xl overflow-hidden border bg-muted relative">
+        <div
+          ref={mapContainerRef}
+          className={
+            showWorkHistory
+              ? "flex-1 overflow-hidden bg-muted relative"
+              : "flex-1 rounded-xl overflow-hidden border bg-muted relative"
+          }
+        >
           <LeafletMap
               jobs={sortedJobs}
               center={
@@ -5576,7 +5631,8 @@ export function JobMap() {
           )}
         </div>
 
-        {/* Sidebar — sort/filter + job list / detail */}
+        {/* Sidebar — sort/filter + job list / detail (hidden in full-screen work-mapping mode) */}
+        {!showWorkHistory && (
         <div className="w-[380px] shrink-0 flex flex-col">
           {/* Sort & filter controls */}
           {searched && geoJobs.length > 0 && (
@@ -6010,6 +6066,7 @@ export function JobMap() {
             </>
           )}
         </div>
+        )}
       </div>
       )}
 
@@ -7083,6 +7140,219 @@ function BenefitsToggle({ current, onSave }: { current?: string | null; onSave: 
 
 /* ── Work History Panel (floating on map) ──────────────────── */
 
+type KpiMetric = {
+  key: string;
+  label: string;
+  group: "Career" | "Compensation" | "Composition" | "Skills" | "Lifestyle";
+  // returns null when there's no meaningful value to render
+  compute: (ctx: KpiContext) => { value: string; color?: string } | null;
+};
+
+type KpiContext = {
+  items: KpiItem[];
+  stats: { tenureStr: string; totalMiles: number; cities: number; count: number } | null;
+  cfm: { rtg: number; rtn: number | null } | null;
+};
+
+type KpiItem = {
+  type?: string;
+  company: string;
+  title: string | null;
+  address: string;
+  startDate: string | null;
+  endDate: string | null;
+  industry?: string | null;
+  workMode?: string | null;
+  scheduleType?: string | null;
+  salaryAmount?: number | null;
+  salaryType?: string | null;
+  bonusAmount?: number | null;
+  commuteMinutes?: number | null;
+  commuteDistance?: number | null;
+  promotions?: string | null;
+  accomplishments?: string | null;
+  skillsUsed?: string | null;
+  skillsGained?: string | null;
+  wouldReturn?: string | null;
+};
+
+function fmtMoneyShort(n: number): string {
+  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(n >= 10_000_000 ? 0 : 1)}M`;
+  if (n >= 1000) return `$${(n / 1000).toFixed(n >= 100_000 ? 0 : 1)}k`;
+  return `$${Math.round(n).toLocaleString()}`;
+}
+
+function tenureMonthsOf(start: string | null, end: string | null): number {
+  if (!start) return 0;
+  const s = new Date(start + "-01");
+  const e = end ? new Date(end + "-01") : new Date();
+  return Math.max(0, (e.getFullYear() - s.getFullYear()) * 12 + (e.getMonth() - s.getMonth()));
+}
+
+function fmtMonths(m: number): string {
+  if (m <= 0) return "—";
+  const y = Math.floor(m / 12);
+  const mo = m % 12;
+  return y > 0 ? `${y}y ${mo}m` : `${mo}m`;
+}
+
+function jsonArrLen(raw: string | null | undefined): number {
+  if (!raw) return 0;
+  try { const a = JSON.parse(raw); return Array.isArray(a) ? a.length : 0; } catch { return 0; }
+}
+
+function jsonArrSet(raw: string | null | undefined): Set<string> {
+  if (!raw) return new Set();
+  try {
+    const a = JSON.parse(raw);
+    if (!Array.isArray(a)) return new Set();
+    return new Set(a.filter((x: unknown): x is string => typeof x === "string").map((s) => s.toLowerCase()));
+  } catch { return new Set(); }
+}
+
+const KPI_CATALOG: KpiMetric[] = [
+  // ── Career ──
+  { key: "tenure", label: "Total Tenure", group: "Career", compute: ({ stats }) => stats ? { value: stats.tenureStr } : null },
+  { key: "roles", label: "Roles", group: "Career", compute: ({ stats }) => stats ? { value: String(stats.count) } : null },
+  { key: "companies", label: "Companies", group: "Career", compute: ({ items }) => {
+    const set = new Set(items.map((i) => i.company.trim().toLowerCase()).filter(Boolean));
+    return set.size > 0 ? { value: String(set.size) } : null;
+  }},
+  { key: "industries", label: "Industries", group: "Career", compute: ({ items }) => {
+    const set = new Set(items.map((i) => (i.industry ?? "").trim().toLowerCase()).filter(Boolean));
+    return set.size > 0 ? { value: String(set.size) } : null;
+  }},
+  { key: "longestTenure", label: "Longest Tenure", group: "Career", compute: ({ items }) => {
+    const m = Math.max(0, ...items.map((i) => tenureMonthsOf(i.startDate, i.endDate)));
+    return m > 0 ? { value: fmtMonths(m) } : null;
+  }},
+  { key: "avgTenure", label: "Avg Tenure / Role", group: "Career", compute: ({ items }) => {
+    const months = items.map((i) => tenureMonthsOf(i.startDate, i.endDate)).filter((m) => m > 0);
+    if (months.length === 0) return null;
+    const avg = Math.round(months.reduce((a, b) => a + b, 0) / months.length);
+    return { value: fmtMonths(avg) };
+  }},
+  { key: "promotions", label: "Promotions", group: "Career", compute: ({ items }) => {
+    const total = items.reduce((s, i) => s + jsonArrLen(i.promotions), 0);
+    return total > 0 ? { value: String(total) } : null;
+  }},
+  { key: "accomplishments", label: "Accomplishments", group: "Career", compute: ({ items }) => {
+    const total = items.reduce((s, i) => s + jsonArrLen(i.accomplishments), 0);
+    return total > 0 ? { value: String(total) } : null;
+  }},
+  { key: "careerSpan", label: "Career Span", group: "Career", compute: ({ items }) => {
+    const starts = items.map((i) => i.startDate).filter(Boolean) as string[];
+    if (starts.length === 0) return null;
+    const earliest = starts.sort()[0];
+    const latestEnd = items.reduce((latest, i) => {
+      const end = i.endDate ?? new Date().toISOString().slice(0, 7);
+      return end > latest ? end : latest;
+    }, "0000-00");
+    const m = tenureMonthsOf(earliest, latestEnd === "0000-00" ? null : latestEnd);
+    return m > 0 ? { value: fmtMonths(m) } : null;
+  }},
+  { key: "wouldReturn", label: "Would Return", group: "Career", compute: ({ items }) => {
+    const yes = items.filter((i) => i.wouldReturn === "yes").length;
+    const total = items.filter((i) => !!i.wouldReturn).length;
+    if (total === 0) return null;
+    return { value: `${yes}/${total}` };
+  }},
+
+  // ── Compensation ──
+  { key: "rtg", label: "Recorded Total Gross", group: "Compensation", compute: ({ cfm }) => {
+    if (!cfm || cfm.rtg <= 0) return null;
+    return { value: fmtMoneyShort(cfm.rtg), color: "text-orange-600 dark:text-orange-400" };
+  }},
+  { key: "rtn", label: "Recorded Total Net", group: "Compensation", compute: ({ cfm }) => {
+    if (!cfm || !cfm.rtn || cfm.rtn <= 0) return null;
+    return { value: fmtMoneyShort(cfm.rtn), color: "text-emerald-600 dark:text-emerald-400" };
+  }},
+  { key: "highestSalary", label: "Highest Salary", group: "Compensation", compute: ({ items }) => {
+    const annuals = items
+      .filter((i) => typeof i.salaryAmount === "number" && i.salaryAmount! > 0)
+      .map((i) => (i.salaryType === "hourly" ? (i.salaryAmount as number) * 2080 : (i.salaryAmount as number)));
+    if (annuals.length === 0) return null;
+    return { value: fmtMoneyShort(Math.max(...annuals)), color: "text-emerald-600 dark:text-emerald-400" };
+  }},
+  { key: "avgSalary", label: "Avg Salary", group: "Compensation", compute: ({ items }) => {
+    const annuals = items
+      .filter((i) => typeof i.salaryAmount === "number" && i.salaryAmount! > 0)
+      .map((i) => (i.salaryType === "hourly" ? (i.salaryAmount as number) * 2080 : (i.salaryAmount as number)));
+    if (annuals.length === 0) return null;
+    const avg = annuals.reduce((a, b) => a + b, 0) / annuals.length;
+    return { value: fmtMoneyShort(avg) };
+  }},
+  { key: "totalBonus", label: "Total Bonus", group: "Compensation", compute: ({ items }) => {
+    const total = items.reduce((s, i) => s + (i.bonusAmount ?? 0), 0);
+    return total > 0 ? { value: fmtMoneyShort(total), color: "text-amber-600 dark:text-amber-400" } : null;
+  }},
+
+  // ── Composition ──
+  { key: "miles", label: "Miles Traveled", group: "Lifestyle", compute: ({ stats }) =>
+    stats && stats.totalMiles > 0 ? { value: String(stats.totalMiles) } : null
+  },
+  { key: "cities", label: "Cities", group: "Lifestyle", compute: ({ stats }) =>
+    stats && stats.cities > 0 ? { value: String(stats.cities) } : null
+  },
+  { key: "states", label: "States", group: "Lifestyle", compute: ({ items }) => {
+    const states = new Set<string>();
+    for (const i of items) {
+      const parts = i.address.split(",").map((p) => p.trim());
+      if (parts.length >= 2) {
+        const tail = parts[parts.length - 1];
+        const m = tail.match(/\b([A-Z]{2})\b/);
+        if (m) states.add(m[1]);
+      }
+    }
+    return states.size > 0 ? { value: String(states.size) } : null;
+  }},
+  { key: "avgCommute", label: "Avg Commute (min)", group: "Lifestyle", compute: ({ items }) => {
+    const mins = items.map((i) => i.commuteMinutes).filter((m): m is number => typeof m === "number" && m > 0);
+    if (mins.length === 0) return null;
+    return { value: `${Math.round(mins.reduce((a, b) => a + b, 0) / mins.length)}m` };
+  }},
+  { key: "remoteShare", label: "Remote Share", group: "Lifestyle", compute: ({ items }) => {
+    const known = items.filter((i) => !!i.workMode);
+    if (known.length === 0) return null;
+    const remote = known.filter((i) => i.workMode === "remote").length;
+    return { value: `${Math.round((remote / known.length) * 100)}%` };
+  }},
+  { key: "fullTimeCount", label: "Full-Time Roles", group: "Composition", compute: ({ items }) => {
+    const n = items.filter((i) => i.scheduleType === "full-time").length;
+    return n > 0 ? { value: String(n) } : null;
+  }},
+  { key: "contractCount", label: "Contract Roles", group: "Composition", compute: ({ items }) => {
+    const n = items.filter((i) => i.scheduleType === "contract" || i.scheduleType === "freelance").length;
+    return n > 0 ? { value: String(n) } : null;
+  }},
+  { key: "education", label: "Education", group: "Composition", compute: ({ items }) => {
+    const n = items.filter((i) => i.type === "school").length;
+    return n > 0 ? { value: String(n) } : null;
+  }},
+  { key: "military", label: "Military", group: "Composition", compute: ({ items }) => {
+    const n = items.filter((i) => i.type === "military").length;
+    return n > 0 ? { value: String(n) } : null;
+  }},
+  { key: "volunteer", label: "Volunteer", group: "Composition", compute: ({ items }) => {
+    const n = items.filter((i) => i.type === "volunteer").length;
+    return n > 0 ? { value: String(n) } : null;
+  }},
+
+  // ── Skills ──
+  { key: "skillsUsed", label: "Skills Used", group: "Skills", compute: ({ items }) => {
+    const set = new Set<string>();
+    for (const i of items) jsonArrSet(i.skillsUsed).forEach((s) => set.add(s));
+    return set.size > 0 ? { value: String(set.size) } : null;
+  }},
+  { key: "skillsGained", label: "Skills Gained", group: "Skills", compute: ({ items }) => {
+    const set = new Set<string>();
+    for (const i of items) jsonArrSet(i.skillsGained).forEach((s) => set.add(s));
+    return set.size > 0 ? { value: String(set.size) } : null;
+  }},
+];
+
+const KPI_CATALOG_BY_KEY: Record<string, KpiMetric> = Object.fromEntries(KPI_CATALOG.map((m) => [m.key, m]));
+
 function WorkHistoryPanel({
   items, onClose, onAdded, onDeleted, showCareerPath, onToggleCareerPath, showOverlaps, onToggleOverlaps, focusedId, onExitFocus,
   pinDropMode, pinDropCoords, onStartPinDrop, onCancelPinDrop, onClearPinDrop, onFocusJob,
@@ -7172,6 +7442,90 @@ function WorkHistoryPanel({
   });
   const [showTypeFilterPanel, setShowTypeFilterPanel] = useState(false);
   const [showPanelSettings, setShowPanelSettings] = useState(false);
+  const [kpiSlots, setKpiSlots] = useState<string[]>(() => loadKpiSlots());
+  useEffect(() => {
+    try { localStorage.setItem(WORK_HISTORY_KPI_SLOTS_KEY, JSON.stringify(kpiSlots)); } catch {}
+  }, [kpiSlots]);
+  const toggleKpiSlot = useCallback((k: string) => {
+    setKpiSlots((prev) => {
+      if (prev.includes(k)) return prev.filter((x) => x !== k);
+      if (prev.length >= KPI_MAX_SLOTS) return prev;
+      return [...prev, k];
+    });
+  }, []);
+  const resetKpiSlots = useCallback(() => setKpiSlots([...DEFAULT_KPI_SLOTS]), []);
+  const [showInventoryOverview, setShowInventoryOverview] = useState(false);
+  const [inventoryPanel, setInventoryPanel] = useState<InventoryPanelState>(() => loadInventoryPanel());
+  const [showInventorySnapMenu, setShowInventorySnapMenu] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try { localStorage.setItem(INVENTORY_PANEL_KEY, JSON.stringify(inventoryPanel)); } catch { /* noop */ }
+  }, [inventoryPanel]);
+  const inventoryDragRef = useRef<{ mode: "move" | "resize"; startX: number; startY: number; originX: number; originY: number; originW: number; originH: number } | null>(null);
+  const onInventoryDragStart = useCallback((e: React.PointerEvent) => {
+    e.preventDefault();
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    inventoryDragRef.current = {
+      mode: "move",
+      startX: e.clientX,
+      startY: e.clientY,
+      originX: inventoryPanel.x,
+      originY: inventoryPanel.y,
+      originW: inventoryPanel.w,
+      originH: inventoryPanel.h,
+    };
+  }, [inventoryPanel]);
+  const onInventoryResizeStart = useCallback((e: React.PointerEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    inventoryDragRef.current = {
+      mode: "resize",
+      startX: e.clientX,
+      startY: e.clientY,
+      originX: inventoryPanel.x,
+      originY: inventoryPanel.y,
+      originW: inventoryPanel.w,
+      originH: inventoryPanel.h,
+    };
+  }, [inventoryPanel]);
+  const onInventoryDragMove = useCallback((e: React.PointerEvent) => {
+    const drag = inventoryDragRef.current;
+    if (!drag) return;
+    const dx = e.clientX - drag.startX;
+    const dy = e.clientY - drag.startY;
+    if (drag.mode === "move") {
+      const maxX = Math.max(0, window.innerWidth - 80);
+      const maxY = Math.max(0, window.innerHeight - 60);
+      setInventoryPanel((p) => ({
+        ...p,
+        x: Math.min(maxX, Math.max(0, drag.originX + dx)),
+        y: Math.min(maxY, Math.max(0, drag.originY + dy)),
+      }));
+    } else {
+      const maxW = Math.max(INVENTORY_PANEL_MIN.w, window.innerWidth - drag.originX - 8);
+      const maxH = Math.max(INVENTORY_PANEL_MIN.h, window.innerHeight - drag.originY - 8);
+      setInventoryPanel((p) => ({
+        ...p,
+        w: Math.min(maxW, Math.max(INVENTORY_PANEL_MIN.w, drag.originW + dx)),
+        h: Math.min(maxH, Math.max(INVENTORY_PANEL_MIN.h, drag.originH + dy)),
+      }));
+    }
+  }, []);
+  const onInventoryDragEnd = useCallback(() => { inventoryDragRef.current = null; }, []);
+  const snapInventoryToCorner = useCallback((corner: "tl" | "tr" | "bl" | "br") => {
+    setInventoryPanel((p) => {
+      const margin = 16;
+      const w = p.w;
+      const h = p.minimized ? 44 : p.h;
+      const vw = typeof window !== "undefined" ? window.innerWidth : 1280;
+      const vh = typeof window !== "undefined" ? window.innerHeight : 800;
+      const x = corner === "tl" || corner === "bl" ? margin : Math.max(margin, vw - w - margin);
+      const y = corner === "tl" || corner === "tr" ? margin : Math.max(margin, vh - h - margin);
+      return { ...p, x, y };
+    });
+    setShowInventorySnapMenu(false);
+  }, []);
   const [lastMainTab, setLastMainTab] = useState<"list" | "timeline">(() => {
     return loadWorkHistoryPanelPrefs().lastMainTab === "timeline" ? "timeline" : "list";
   });
@@ -8435,8 +8789,12 @@ function WorkHistoryPanel({
         </div>
       ) : null;
     })()} 
-    {/* ── Main Card ── */}
-    <div className="absolute top-3 left-3 z-[1100] bg-background/95 backdrop-blur-md border rounded-xl shadow-xl p-3 w-96 max-h-[60vh] overflow-y-auto scrollbar-thin pointer-events-auto">
+    {/* ── Main Card (with bio card stacked above) ── */}
+    <div className="absolute top-3 left-3 z-[1100] flex flex-col gap-2 pointer-events-none max-h-[calc(100vh-24px)]">
+      <div className="pointer-events-auto">
+        <BioCardEditor />
+      </div>
+      <div className="bg-background/95 backdrop-blur-md border rounded-xl shadow-xl p-3 w-96 max-h-[60vh] overflow-y-auto scrollbar-thin pointer-events-auto">
 
       {/* ── Focused Detail View ── */}
       {focusedItem ? (
@@ -8864,23 +9222,66 @@ function WorkHistoryPanel({
                 }
                 const totalCount = galleryPhotos.length + locPhotos.length;
 
-                const uploadPhoto = async (file: File) => {
-                  if (!focusedItem) return;
-                  setPanelBusy(true);
+                const uploadPhoto = async (file: File, opts?: { albumName?: string; isCover?: boolean }) => {
+                  if (!focusedItem) return false;
                   try {
                     const fd = new FormData();
                     fd.append("file", file);
                     fd.append("positionId", focusedItem.id);
-                    if (galleryPhotos.length === 0) fd.append("isCover", "true");
+                    if (opts?.albumName) fd.append("albumName", opts.albumName);
+                    const setCover = opts?.isCover ?? (galleryPhotos.length === 0);
+                    if (setCover) fd.append("isCover", "true");
                     const res = await fetch("/api/gallery", { method: "POST", body: fd });
-                    if (res.ok) {
+                    if (res.ok) return true;
+                    const data = await res.json().catch(() => ({}));
+                    toast.error(`${file.name}: ${data?.error || "upload failed"}`);
+                    return false;
+                  } catch (e) {
+                    toast.error(`${file.name}: ${String(e)}`);
+                    return false;
+                  }
+                };
+
+                /** Upload many files into a single (auto-created) album, with bounded concurrency
+                 *  and live progress. Used by the "Upload album" button to ingest a phone-camera roll. */
+                const uploadAlbum = async (files: File[], albumName: string) => {
+                  if (!focusedItem || files.length === 0) return;
+                  setPanelBusy(true);
+                  const toastId = toast.loading(`Uploading 0/${files.length} to "${albumName}"…`);
+                  let done = 0;
+                  let failed = 0;
+                  const CONCURRENCY = 3;
+                  let i = 0;
+                  const workers = Array.from({ length: Math.min(CONCURRENCY, files.length) }, async () => {
+                    while (i < files.length) {
+                      const idx = i++;
+                      const ok = await uploadPhoto(files[idx], { albumName, isCover: false });
+                      if (ok) done++; else failed++;
+                      toast.loading(`Uploading ${done + failed}/${files.length} to "${albumName}"…`, { id: toastId });
+                    }
+                  });
+                  try {
+                    await Promise.all(workers);
+                    const posRes = await fetch(`/api/current-position/${focusedItem.id}`);
+                    if (posRes.ok) setMatchedPosition(await posRes.json());
+                    queryClient.invalidateQueries({ queryKey: ["work-history"] });
+                    if (failed === 0) {
+                      toast.success(`Uploaded ${done} photo${done === 1 ? "" : "s"} to "${albumName}"`, { id: toastId });
+                    } else {
+                      toast.warning(`Uploaded ${done} of ${files.length}; ${failed} failed`, { id: toastId });
+                    }
+                  } finally { setPanelBusy(false); }
+                };
+
+                const wrappedSinglePhoto = async (file: File) => {
+                  setPanelBusy(true);
+                  try {
+                    const ok = await uploadPhoto(file);
+                    if (ok) {
                       const posRes = await fetch(`/api/current-position/${focusedItem.id}`);
                       if (posRes.ok) setMatchedPosition(await posRes.json());
                       queryClient.invalidateQueries({ queryKey: ["work-history"] });
                       toast.success("Gallery photo uploaded");
-                    } else {
-                      const data = await res.json().catch(() => ({}));
-                      toast.error(data?.error || "Failed to upload gallery photo");
                     }
                   } finally { setPanelBusy(false); }
                 };
@@ -8936,17 +9337,67 @@ function WorkHistoryPanel({
                           <Maximize2 className="h-3.5 w-3.5" />
                         </button>
                       )}
-                      <label className="cursor-pointer p-0.5 rounded hover:bg-pink-500/10 text-pink-500 transition-colors" title="Add photo">
+                      <label className="cursor-pointer p-0.5 rounded hover:bg-pink-500/10 text-pink-500 transition-colors" title="Add photo(s)">
                         <Plus className="h-3.5 w-3.5" />
                         <input type="file" accept="image/*" multiple className="hidden" onChange={async (e) => {
                           const files = e.target.files;
                           if (!files?.length) return;
                           if (!confirmMediaUpload("gallery")) { e.target.value = ""; return; }
                           for (const file of Array.from(files)) {
-                            await uploadPhoto(file);
+                            await wrappedSinglePhoto(file);
                           }
                           e.target.value = "";
                         }} />
+                      </label>
+                      <label className="cursor-pointer p-0.5 rounded hover:bg-pink-500/10 text-pink-500 transition-colors" title="Upload entire album from your phone or computer">
+                        <FolderPlus className="h-3.5 w-3.5" />
+                        <input type="file" accept="image/*" multiple className="hidden" onChange={async (e) => {
+                          const files = e.target.files ? Array.from(e.target.files) : [];
+                          e.target.value = "";
+                          if (files.length === 0) return;
+                          if (!confirmMediaUpload("gallery")) return;
+                          const defaultName = `Album ${new Date().toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}`;
+                          const name = window.prompt(`Album name for these ${files.length} photo${files.length === 1 ? "" : "s"}:`, defaultName);
+                          const trimmed = name?.trim();
+                          if (!trimmed) return;
+                          await uploadAlbum(files, trimmed.slice(0, 80));
+                        }} />
+                      </label>
+                      {/* Desktop-only "pick a whole folder" — webkitdirectory is silently
+                       *  ignored on iOS/Android, so this is a no-op there. We still keep the
+                       *  multi-file picker above for those users. */}
+                      <label className="cursor-pointer p-0.5 rounded hover:bg-pink-500/10 text-pink-500 transition-colors hidden md:inline-flex" title="Upload an entire folder (incl. OneDrive / Drive / Dropbox synced folders)">
+                        <FolderOpen className="h-3.5 w-3.5" />
+                        <input
+                          type="file"
+                          multiple
+                          className="hidden"
+                          // Non-standard but supported in Chrome, Edge, Safari, Firefox desktop.
+                          {...({ webkitdirectory: "", directory: "" } as Record<string, string>)}
+                          onChange={async (e) => {
+                            const all = e.target.files ? Array.from(e.target.files) : [];
+                            e.target.value = "";
+                            // Filter to images only (folders may contain anything).
+                            const images = all.filter((f) => f.type.startsWith("image/"));
+                            const skipped = all.length - images.length;
+                            if (images.length === 0) {
+                              if (all.length > 0) toast.error("No images found in that folder.");
+                              return;
+                            }
+                            if (!confirmMediaUpload("gallery")) return;
+                            // Derive a default album name from the folder path of the first file.
+                            // webkitRelativePath is "FolderName/sub/file.jpg".
+                            const firstRel = (images[0] as File & { webkitRelativePath?: string }).webkitRelativePath || "";
+                            const folderName = firstRel.split("/")[0] || "Folder";
+                            const name = window.prompt(
+                              `Album name for ${images.length} photo${images.length === 1 ? "" : "s"}${skipped > 0 ? ` (${skipped} non-image file${skipped === 1 ? "" : "s"} skipped)` : ""}:`,
+                              folderName,
+                            );
+                            const trimmed = name?.trim();
+                            if (!trimmed) return;
+                            await uploadAlbum(images, trimmed.slice(0, 80));
+                          }}
+                        />
                       </label>
                     </div>
                     <p className="text-[10px] text-muted-foreground/80">
@@ -10662,6 +11113,9 @@ function WorkHistoryPanel({
           >
             <Settings className="h-4 w-4" />
           </button>
+          <button type="button" className={`transition-colors ${showInventoryOverview ? "text-emerald-600" : "text-muted-foreground hover:text-foreground"}`} title="My Tools & Inventory" onClick={() => setShowInventoryOverview((p) => !p)}>
+            <Boxes className="h-4 w-4" />
+          </button>
           <button type="button" className="text-muted-foreground hover:text-foreground" title="Import from experience" onClick={handleImportFromExperience} disabled={importing}>
             {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
           </button>
@@ -10747,7 +11201,7 @@ function WorkHistoryPanel({
           })()}
 
           {showPanelSettings && (
-            <div className="absolute right-0 top-7 z-[1200] w-56 rounded-lg border bg-background/95 backdrop-blur-md shadow-xl p-2 space-y-1.5">
+            <div className="absolute right-0 top-7 z-[1200] w-60 rounded-lg border bg-background/95 backdrop-blur-md shadow-xl p-2 space-y-1.5 max-h-[70vh] overflow-y-auto scrollbar-thin">
               <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide px-1">Panel Settings</p>
               <button
                 type="button"
@@ -10765,50 +11219,92 @@ function WorkHistoryPanel({
                 <span className="flex items-center gap-1.5"><Zap className="h-3.5 w-3.5" /> Concurrent Badges</span>
                 <span className={`text-[11px] ${showOverlaps ? "text-cyan-600" : "text-muted-foreground"}`}>{showOverlaps ? "On" : "Off"}</span>
               </button>
+              <div className="pt-1.5 mt-1.5 border-t border-border/60">
+                <div className="flex items-center justify-between px-1 mb-1">
+                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                    Stat Slots ({kpiSlots.length}/{KPI_MAX_SLOTS})
+                  </p>
+                  <button
+                    type="button"
+                    className="text-[10px] text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
+                    onClick={resetKpiSlots}
+                  >
+                    Reset
+                  </button>
+                </div>
+                <p className="text-[10px] text-muted-foreground px-1 mb-1.5 leading-snug">
+                  Pick which metrics show in the stats card. Click to add/remove.
+                </p>
+                {(["Career", "Compensation", "Lifestyle", "Composition", "Skills"] as const).map((group) => {
+                  const inGroup = KPI_CATALOG.filter((m) => m.group === group);
+                  return (
+                    <div key={group} className="mb-1.5">
+                      <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/70 px-1 mb-0.5">{group}</p>
+                      {inGroup.map((m) => {
+                        const selected = kpiSlots.includes(m.key);
+                        const order = selected ? kpiSlots.indexOf(m.key) + 1 : null;
+                        const atCap = !selected && kpiSlots.length >= KPI_MAX_SLOTS;
+                        return (
+                          <button
+                            key={m.key}
+                            type="button"
+                            disabled={atCap}
+                            className={`w-full flex items-center justify-between rounded-md px-2 py-1 text-xs hover:bg-muted/40 ${atCap ? "opacity-40 cursor-not-allowed" : ""}`}
+                            onClick={() => toggleKpiSlot(m.key)}
+                          >
+                            <span className="truncate">{m.label}</span>
+                            <span className={`text-[10px] ml-2 shrink-0 ${selected ? "text-primary font-medium" : "text-muted-foreground"}`}>
+                              {selected ? `✓ #${order}` : (atCap ? "max" : "+")}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>
       </div>
 
-      {/* Career Journey Stats */}
-      {stats && (
-        <div className="mb-2.5 p-2 rounded-lg bg-muted/40 border space-y-1.5">
-          <div className="grid grid-cols-4 gap-1">
-            <div className="text-center">
-              <p className="text-[10px] text-muted-foreground">Tenure</p>
-              <p className="text-sm font-semibold">{stats.tenureStr}</p>
-            </div>
-            <div className="text-center">
-              <p className="text-[10px] text-muted-foreground">Roles</p>
-              <p className="text-sm font-semibold">{stats.count}</p>
-            </div>
-            <div className="text-center">
-              <p className="text-[10px] text-muted-foreground">Miles</p>
-              <p className="text-sm font-semibold">{stats.totalMiles > 0 ? `${stats.totalMiles}` : "—"}</p>
-            </div>
-            <div className="text-center">
-              <p className="text-[10px] text-muted-foreground">Cities</p>
-              <p className="text-sm font-semibold">{stats.cities}</p>
+      {/* Career Journey Stats (user-configurable metric slots) */}
+      {(() => {
+        const ctx: KpiContext = {
+          items,
+          stats,
+          cfm: cfmSummary ? { rtg: cfmSummary.rtg, rtn: cfmSummary.rtn } : null,
+        };
+        const rendered = kpiSlots
+          .map((k) => {
+            const def = KPI_CATALOG_BY_KEY[k];
+            if (!def) return null;
+            const out = def.compute(ctx);
+            return out ? { key: k, label: def.label, value: out.value, color: out.color } : null;
+          })
+          .filter((x): x is { key: string; label: string; value: string; color?: string } => x !== null);
+        if (rendered.length === 0) return null;
+        // pick a sensible grid: 1–2 → cols match; 3 → 3; 4 → 4; 5–6 → 3; 7–8 → 4
+        const n = rendered.length;
+        const colsClass =
+          n === 1 ? "grid-cols-1" :
+          n === 2 ? "grid-cols-2" :
+          n === 3 ? "grid-cols-3" :
+          n === 4 ? "grid-cols-4" :
+          n <= 6 ? "grid-cols-3" : "grid-cols-4";
+        return (
+          <div className="mb-2.5 p-2 rounded-lg bg-muted/40 border">
+            <div className={`grid ${colsClass} gap-x-1 gap-y-1.5`}>
+              {rendered.map((m) => (
+                <div key={m.key} className="text-center min-w-0">
+                  <p className="text-[10px] text-muted-foreground truncate" title={m.label}>{m.label}</p>
+                  <p className={`text-sm font-semibold truncate ${m.color ?? ""}`} title={m.value}>{m.value}</p>
+                </div>
+              ))}
             </div>
           </div>
-          {cfmSummary && cfmSummary.rtg > 0 && (
-            <div className="grid grid-cols-2 gap-1 pt-1.5 border-t border-border/50">
-              <div className="text-center">
-                <p className="text-[10px] text-muted-foreground">Recorded Total Gross</p>
-                <p className="text-sm font-semibold text-orange-600 dark:text-orange-400">${cfmSummary.rtg >= 1000 ? `${(cfmSummary.rtg / 1000).toFixed(cfmSummary.rtg >= 100000 ? 0 : 1)}k` : cfmSummary.rtg.toLocaleString()}</p>
-              </div>
-              <div className="text-center">
-                <p className="text-[10px] text-muted-foreground">Recorded Total Net</p>
-                <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">
-                  {cfmSummary.rtn && cfmSummary.rtn > 0
-                    ? `$${cfmSummary.rtn >= 1000 ? `${(cfmSummary.rtn / 1000).toFixed(cfmSummary.rtn >= 100000 ? 0 : 1)}k` : cfmSummary.rtn.toLocaleString()}`
-                    : "—"}
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
+        );
+      })()}
 
       {/* Tabs */}
       {items.length > 0 && (
@@ -10890,6 +11386,102 @@ function WorkHistoryPanel({
           </div>
         )}
       </div>
+
+      {showInventoryOverview && typeof document !== "undefined" && createPortal(
+        <div
+          className="fixed z-[2000] flex flex-col bg-background border rounded-xl shadow-2xl select-none"
+          style={{
+            left: inventoryPanel.x,
+            top: inventoryPanel.y,
+            width: inventoryPanel.w,
+            height: inventoryPanel.minimized ? undefined : inventoryPanel.h,
+            maxWidth: "calc(100vw - 16px)",
+            maxHeight: "calc(100vh - 16px)",
+          }}
+          onPointerMove={onInventoryDragMove}
+          onPointerUp={onInventoryDragEnd}
+          onPointerCancel={onInventoryDragEnd}
+        >
+          <div
+            className="flex items-center gap-2 px-3 py-2 border-b cursor-grab active:cursor-grabbing bg-muted/40 rounded-t-xl"
+            onPointerDown={onInventoryDragStart}
+            onDoubleClick={() => setInventoryPanel((p) => ({ ...p, minimized: !p.minimized }))}
+          >
+            <GripVertical className="h-4 w-4 text-muted-foreground" />
+            <Boxes className="h-4 w-4 text-emerald-600" />
+            <div className="flex-1 text-sm font-semibold">My Tools & Inventory</div>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setShowInventorySnapMenu((v) => !v); }}
+                onPointerDown={(e) => e.stopPropagation()}
+                className="text-muted-foreground hover:text-foreground p-0.5 rounded hover:bg-muted"
+                title="Snap to corner"
+              >
+                <Maximize2 className="h-3.5 w-3.5" />
+              </button>
+              {showInventorySnapMenu && (
+                <div
+                  className="absolute right-0 top-6 z-[2100] grid grid-cols-2 gap-1 p-1.5 rounded-lg border bg-background shadow-xl"
+                  onPointerDown={(e) => e.stopPropagation()}
+                >
+                  <button type="button" onClick={() => snapInventoryToCorner("tl")} className="h-7 w-7 rounded border hover:bg-muted flex items-center justify-center" title="Top-left">
+                    <span className="block h-2 w-2 bg-foreground/70 rounded-sm -translate-x-1 -translate-y-1" />
+                  </button>
+                  <button type="button" onClick={() => snapInventoryToCorner("tr")} className="h-7 w-7 rounded border hover:bg-muted flex items-center justify-center" title="Top-right">
+                    <span className="block h-2 w-2 bg-foreground/70 rounded-sm translate-x-1 -translate-y-1" />
+                  </button>
+                  <button type="button" onClick={() => snapInventoryToCorner("bl")} className="h-7 w-7 rounded border hover:bg-muted flex items-center justify-center" title="Bottom-left">
+                    <span className="block h-2 w-2 bg-foreground/70 rounded-sm -translate-x-1 translate-y-1" />
+                  </button>
+                  <button type="button" onClick={() => snapInventoryToCorner("br")} className="h-7 w-7 rounded border hover:bg-muted flex items-center justify-center" title="Bottom-right">
+                    <span className="block h-2 w-2 bg-foreground/70 rounded-sm translate-x-1 translate-y-1" />
+                  </button>
+                </div>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setInventoryPanel((p) => ({ ...p, minimized: !p.minimized })); }}
+              onPointerDown={(e) => e.stopPropagation()}
+              className="text-muted-foreground hover:text-foreground p-0.5 rounded hover:bg-muted"
+              title={inventoryPanel.minimized ? "Restore" : "Minimize"}
+            >
+              {inventoryPanel.minimized ? <Square className="h-3.5 w-3.5" /> : <Minus className="h-3.5 w-3.5" />}
+            </button>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setShowInventoryOverview(false); }}
+              onPointerDown={(e) => e.stopPropagation()}
+              className="text-muted-foreground hover:text-foreground p-0.5 rounded hover:bg-muted"
+              title="Close"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          {!inventoryPanel.minimized && (
+            <>
+              <div className="flex-1 overflow-y-auto p-3 scrollbar-thin">
+                <PersonalInventory
+                  focusedPositionId={focusedItem?.id ?? null}
+                  focusedPositionLabel={focusedItem ? `${focusedItem.role || "Position"} @ ${focusedItem.company}` : null}
+                />
+              </div>
+              <div
+                onPointerDown={onInventoryResizeStart}
+                className="absolute bottom-0 right-0 h-4 w-4 cursor-nwse-resize"
+                title="Drag to resize"
+                style={{
+                  background:
+                    "linear-gradient(135deg, transparent 0%, transparent 50%, hsl(var(--muted-foreground) / 0.5) 50%, hsl(var(--muted-foreground) / 0.5) 60%, transparent 60%, transparent 70%, hsl(var(--muted-foreground) / 0.5) 70%, hsl(var(--muted-foreground) / 0.5) 80%, transparent 80%)",
+                  borderBottomRightRadius: "0.75rem",
+                }}
+              />
+            </>
+          )}
+        </div>,
+        document.body,
+      )}
 
       {/* Add form */}
       {adding && (
@@ -11445,6 +12037,7 @@ function WorkHistoryPanel({
       )}
       </>
       )}
+    </div>
     </div>
 
     {/* ── Locations Popover (floating below header) ── */}

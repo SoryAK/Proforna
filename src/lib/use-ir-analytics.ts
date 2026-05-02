@@ -23,6 +23,9 @@ export type IrEventType =
   | "contact_method_click"
   | "education_click"
   | "journey_play"
+  | "comp_view"
+  | "annot_view"
+  | "tour_complete"
   | "session_heartbeat";
 
 const FLUSH_INTERVAL_MS = 10_000;
