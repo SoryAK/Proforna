@@ -15,7 +15,8 @@
  *   • Right:     Company focus card (slides in when a role is selected)
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { setOptions, importLibrary } from "@googlemaps/js-api-loader";
 import { MarkerClusterer, SuperClusterAlgorithm } from "@googlemaps/markerclusterer";
 import { differenceInMonths } from "date-fns";
@@ -61,9 +62,15 @@ import {
   Pause,
   RotateCcw,
   Route,
+  StickyNote,
+  Target,
+  CheckCircle2,
+  AlertCircle,
+  XCircle,
 } from "lucide-react";
 import { useIrAnalytics, type IrEventType } from "@/lib/use-ir-analytics";
 import RecruiterPanel from "@/components/recruiter-panel";
+import { getCalApi } from "@calcom/embed-react";
 import { AnnotationViewer } from "@/components/annotation-viewer";
 import type { Annotation } from "@/components/annotation-overlay";
 
@@ -93,6 +100,8 @@ export interface ImmersiveWorkItem {
   startDate: string | null;
   endDate: string | null;
   isActive?: boolean;
+  /** OSM way ID for building footprint outline (resolved on first focus, cached server-side) */
+  osmWayId?: number | null;
 
   // Rich detail (already present in API response)
   coverImage?: string | null;
@@ -164,12 +173,31 @@ export interface ImmersiveProfile {
   githubUrl?: string | null;
   portfolioUrl?: string | null;
   schedulingUrl?: string | null;
+  contactCtaMessage?: string | null;
   city?: string | null;
   state?: string | null;
 }
 
 export interface ImmersiveSkill { id: string; name: string; category: string; proficiency: string }
 export interface ImmersiveCert  { id: string; name: string; issuer: string; issueDate: string; expiryDate: string | null; credentialUrl: string | null }
+
+export interface ImmersiveInventoryItem {
+  id: string;
+  name: string;
+  category: string;
+  ownership: string;
+  manufacturer: string | null;
+  model: string | null;
+  condition: string;
+  proficiency: number | null;
+  location: string | null;
+  purchaseDate: string | null;
+  purchasePrice: number | null;
+  currentValue: number | null;
+  notes: string | null;
+  tags: string[];
+  photos: { id: string; filePath: string; caption: string | null; isCover: boolean; focalX: number; focalY: number; zoom: number }[];
+}
 
 export interface ImmersiveCompensation {
   period: "annual" | "hourly" | "monthly";
@@ -202,6 +230,14 @@ interface Props {
   accessRequestId?: string | null;
   /** Candidate's compensation expectations (sanitized for public consumption). */
   compensation?: ImmersiveCompensation | null;
+  /** Approximate home centroid + max one-way commute miles for Recruit Mode. */
+  recruitMeta?: {
+    homeLat: number | null;
+    homeLng: number | null;
+    maxCommuteMiles: number | null;
+  } | null;
+  /** Public-safe personal inventory items (filtered upstream). Empty array hides the toggle. */
+  inventory?: ImmersiveInventoryItem[];
 }
 
 /* ── Helpers ────────────────────────────────────────────────────── */
@@ -449,7 +485,7 @@ function benefitLabel(b: string): string {
 
 /* ── Component ──────────────────────────────────────────────────── */
 
-export default function ResumeImmersiveMap({ items, profile, skills = [], certifications = [], summary, updatedAt, slug = null, accessRequestId = null, compensation = null }: Props) {
+export default function ResumeImmersiveMap({ items, profile, skills = [], certifications = [], summary, updatedAt, slug = null, accessRequestId = null, compensation = null, recruitMeta = null, inventory = [] }: Props) {
   const analytics = useIrAnalytics(slug, accessRequestId);
   const geocoded = useMemo(
     () => items.filter((i) => typeof i.lat === "number" && typeof i.lng === "number") as (ImmersiveWorkItem & { lat: number; lng: number })[],
@@ -459,9 +495,35 @@ export default function ResumeImmersiveMap({ items, profile, skills = [], certif
   const [focusedId, setFocusedId] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [panelCollapsed, setPanelCollapsed] = useState(false);
+  const [toolsOpen, setToolsOpen] = useState(false);
+  const [viewingTool, setViewingTool] = useState<ImmersiveInventoryItem | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [matchOpen, setMatchOpen] = useState(false);
+  const [jdText, setJdText] = useState("");
+  const [matchAnalyzed, setMatchAnalyzed] = useState(false);
   const [typeFilter, setTypeFilter] = useState<Set<string>>(() => new Set());
   const [mapStyle, setMapStyle] = useState<"roadmap" | "satellite" | "hybrid">("roadmap");
   const focused = useMemo(() => items.find((i) => i.id === focusedId) ?? null, [items, focusedId]);
+
+  // Hover prefetch: warm the building-footprint server cache when a row is hovered.
+  const prefetchedHoverRef = useRef<Set<string>>(new Set());
+  const prefetchFootprint = useCallback((id: string) => {
+    if (prefetchedHoverRef.current.has(id)) return;
+    const target = items.find((i) => i.id === id);
+    if (!target || target.lat == null || target.lng == null) return;
+    prefetchedHoverRef.current.add(id);
+    fetch("/api/building-footprints", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        coordinates: [{ id: target.id, lat: target.lat, lng: target.lng, wayId: target.osmWayId ?? null }],
+        radiusM: 150,
+      }),
+    }).catch(() => {
+      prefetchedHoverRef.current.delete(id);
+    });
+  }, [items]);
 
   // Read ?focus= deep-link on mount
   useEffect(() => {
@@ -472,6 +534,29 @@ export default function ResumeImmersiveMap({ items, profile, skills = [], certif
     // intentionally no deps — run once on mount
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Cal.com inline embed init (only when scheduling URL is a cal.com link)
+  const calLink = useMemo(() => {
+    const raw = profile?.schedulingUrl?.trim();
+    if (!raw) return null;
+    const m = raw.match(/^(?:https?:\/\/)?(?:www\.)?cal\.com\/(.+?)\/?(?:\?.*)?$/i);
+    return m ? m[1] : null;
+  }, [profile?.schedulingUrl]);
+
+  useEffect(() => {
+    if (!calLink) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const cal = await getCalApi({ namespace: "resumsify" });
+        if (cancelled) return;
+        cal("ui", { hideEventTypeDetails: false, layout: "month_view" });
+      } catch {
+        /* ignore */
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [calLink]);
 
   // Sync focus to URL (?focus=)
   useEffect(() => {
@@ -560,13 +645,98 @@ export default function ResumeImmersiveMap({ items, profile, skills = [], certif
 
   const [bioExpanded, setBioExpanded] = useState(false);
   const [bioCardOpen, setBioCardOpen] = useState(true);
-  const [summaryExpanded, setSummaryExpanded] = useState(false);
   const [eduExpanded, setEduExpanded] = useState(false);
-  const [compExpanded, setCompExpanded] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
+  const [contactUnlocked, setContactUnlocked] = useState(false);
+  const [contactForm, setContactForm] = useState({
+    recruiterName: "",
+    recruiterEmail: "",
+    recruiterPhone: "",
+    company: "",
+    jobTitle: "",
+    message: "",
+    linkedinUrl: "",
+    location: "",
+    jobType: "",
+    salaryMin: "",
+    salaryMax: "",
+    jobDescription: "",
+    joinNetwork: false,
+  });
+  const [offerDetailsOpen, setOfferDetailsOpen] = useState(false);
+  const [contactSubmitting, setContactSubmitting] = useState(false);
+  const [contactError, setContactError] = useState<string | null>(null);
+  const [recruitOpen, setRecruitOpen] = useState(false);
+  const [recruitMode, setRecruitMode] = useState(false);
+  const [showRecruitRadius, setShowRecruitRadius] = useState(false);
+  const [jobSite, setJobSite] = useState<{
+    address: string;
+    lat: number;
+    lng: number;
+    miles: number | null;
+    durationMin: number | null;
+    loading: boolean;
+    error: string | null;
+  } | null>(null);
+  const [aboutOpen, setAboutOpen] = useState(false);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const contactBtnRef = useRef<HTMLButtonElement | null>(null);
   const contactPopoverRef = useRef<HTMLDivElement | null>(null);
+  const recruitBtnRef = useRef<HTMLButtonElement | null>(null);
+  const recruitPopoverRef = useRef<HTMLDivElement | null>(null);
+  const aboutBtnRef = useRef<HTMLButtonElement | null>(null);
+  const aboutPopoverRef = useRef<HTMLDivElement | null>(null);
+
+  // Outside click + Escape close for the recruitment popout
+  useEffect(() => {
+    if (!recruitOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { e.stopPropagation(); setRecruitOpen(false); }
+    };
+    const onPointerDown = (e: PointerEvent) => {
+      const t = e.target as Node;
+      if (recruitPopoverRef.current?.contains(t) || recruitBtnRef.current?.contains(t)) return;
+      setRecruitOpen(false);
+    };
+    document.addEventListener("keydown", onKey, true);
+    document.addEventListener("pointerdown", onPointerDown, true);
+    return () => {
+      document.removeEventListener("keydown", onKey, true);
+      document.removeEventListener("pointerdown", onPointerDown, true);
+    };
+  }, [recruitOpen]);
+
+  // Outside click + Escape close for the 'Get to know me' popout
+  useEffect(() => {
+    if (!aboutOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { e.stopPropagation(); setAboutOpen(false); }
+    };
+    const onPointerDown = (e: PointerEvent) => {
+      const t = e.target as Node;
+      if (aboutPopoverRef.current?.contains(t) || aboutBtnRef.current?.contains(t)) return;
+      setAboutOpen(false);
+    };
+    document.addEventListener("keydown", onKey, true);
+    document.addEventListener("pointerdown", onPointerDown, true);
+    return () => {
+      document.removeEventListener("keydown", onKey, true);
+      document.removeEventListener("pointerdown", onPointerDown, true);
+    };
+  }, [aboutOpen]);
+
+  // Hydrate contact-unlocked state from sessionStorage so a recruiter who already
+  // submitted the form on this IR doesn't have to re-fill it on the same browser session.
+  useEffect(() => {
+    if (!slug || typeof window === "undefined") return;
+    try {
+      if (sessionStorage.getItem(`ir-contact-unlocked-${slug}`) === "1") {
+        setContactUnlocked(true);
+      }
+    } catch {
+      // sessionStorage unavailable (private mode etc.) — silently ignore
+    }
+  }, [slug]);
 
   // Outside click + Escape close + focus management for the contact popover
   useEffect(() => {
@@ -623,6 +793,28 @@ export default function ResumeImmersiveMap({ items, profile, skills = [], certif
       previouslyFocused?.focus?.();
     };
   }, [contactOpen]);
+
+  // Prefill contact form from Recruit Mode jobSite when the form opens
+  useEffect(() => {
+    if (!contactOpen || !jobSite) return;
+    const within = jobSite.miles != null && recruitMeta?.maxCommuteMiles != null
+      ? jobSite.miles <= recruitMeta.maxCommuteMiles
+      : null;
+    setContactForm((prev) => {
+      const next = { ...prev };
+      if (!prev.location.trim()) next.location = jobSite.address;
+      if (!prev.message.trim()) {
+        if (within === false) {
+          next.message = `FYI — this role is ~${jobSite.miles?.toFixed(1)} mi from my home (above my ${recruitMeta?.maxCommuteMiles} mi commute cap). Would the role support remote or hybrid work?`;
+        } else if (within === true) {
+          next.message = `Quick note — your job site is within my commute range (~${jobSite.miles?.toFixed(1)} mi · ~${jobSite.durationMin} min driving). Happy to chat further.`;
+        }
+      }
+      return next;
+    });
+    // intentionally only when contact opens or jobsite changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contactOpen, jobSite?.lat, jobSite?.lng, jobSite?.miles]);
 
   const educationItems = useMemo(
     () => items.filter((i) => (i.type || "").toLowerCase() === "school"),
@@ -715,6 +907,595 @@ export default function ResumeImmersiveMap({ items, profile, skills = [], certif
     if (yearSpan) setYearRange([yearSpan[0], yearSpan[1]]);
   };
 
+  // ── Recruiter Search ────────────────────────────────────────────
+  // Build a flat searchable index across the entire IR so a recruiter can
+  // type a keyword (e.g. "kubernetes") and instantly see every place it
+  // appears — work history, skills, certifications, equipment, etc.
+  type SearchHit = {
+    /** Stable key */
+    key: string;
+    /** Group label */
+    group: "Work" | "Skill" | "Certification" | "Education" | "Tool" | "Attachment";
+    /** Primary line */
+    title: string;
+    /** Secondary line (company / dates / category) */
+    subtitle?: string | null;
+    /** Snippet showing the matched text in context */
+    snippet?: string | null;
+    /** Click target → focus this work item if present */
+    focusItemId?: string | null;
+    /** Optional badge label (e.g. proficiency) */
+    badge?: string | null;
+    Icon: React.ComponentType<{ className?: string }>;
+    iconClass?: string;
+    /** Relevance score (lower = better) */
+    score: number;
+  };
+
+  const searchResults = useMemo<SearchHit[]>(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (q.length < 2) return [];
+    const terms = q.split(/\s+/).filter((t) => t.length >= 2);
+    if (terms.length === 0) return [];
+
+    const matchAll = (haystack: string): boolean => {
+      const h = haystack.toLowerCase();
+      return terms.every((t) => h.includes(t));
+    };
+    const matchAny = (haystack: string): number => {
+      const h = haystack.toLowerCase();
+      return terms.reduce((acc, t) => acc + (h.includes(t) ? 1 : 0), 0);
+    };
+    const snippet = (text: string, maxLen = 140): string => {
+      const lower = text.toLowerCase();
+      let idx = -1;
+      for (const t of terms) {
+        const i = lower.indexOf(t);
+        if (i >= 0) { idx = i; break; }
+      }
+      if (idx < 0) return text.length > maxLen ? text.slice(0, maxLen) + "…" : text;
+      const start = Math.max(0, idx - 30);
+      const end = Math.min(text.length, idx + maxLen - 30);
+      return (start > 0 ? "…" : "") + text.slice(start, end) + (end < text.length ? "…" : "");
+    };
+
+    const hits: SearchHit[] = [];
+
+    // Work items: company, role, description, responsibilities, accomplishments, techStack, skillsUsed, industry, location
+    for (const it of items) {
+      const company = it.company || "";
+      const role = it.role || it.title || "";
+      const headline = `${role} · ${company}`.trim();
+      const fields: Array<{ label: string; text: string }> = [];
+      if (it.description) fields.push({ label: "Description", text: it.description });
+      if (it.responsibilities) fields.push({ label: "Responsibilities", text: it.responsibilities });
+      if (it.accomplishments) fields.push({ label: "Accomplishments", text: it.accomplishments });
+      if (it.techStack) fields.push({ label: "Tech", text: it.techStack });
+      if (it.skillsUsed) fields.push({ label: "Skills", text: it.skillsUsed });
+      if (it.industry) fields.push({ label: "Industry", text: it.industry });
+      if (it.degree) fields.push({ label: "Degree", text: it.degree });
+      if (it.major) fields.push({ label: "Major", text: it.major });
+      if (it.department) fields.push({ label: "Dept", text: it.department });
+      if (it.location) fields.push({ label: "Location", text: it.location });
+
+      // Headline match (high priority)
+      if (matchAll(headline) || matchAll(company) || matchAll(role)) {
+        const isEducation = it.type === "school";
+        hits.push({
+          key: `wh-${it.id}`,
+          group: isEducation ? "Education" : "Work",
+          title: role || company,
+          subtitle: `${role && company ? company : ""}${yearLabel(it.startDate, it.endDate) ? ` · ${yearLabel(it.startDate, it.endDate)}` : ""}`,
+          snippet: it.description ? snippet(it.description) : null,
+          focusItemId: it.id,
+          Icon: isEducation ? GraduationCap : Briefcase,
+          iconClass: isEducation ? "text-violet-500" : "text-blue-500",
+          score: 0,
+        });
+        continue;
+      }
+
+      // Field-level matches (one row per matching field, dedup on item)
+      const fieldMatches = fields.filter((f) => matchAll(f.text));
+      if (fieldMatches.length > 0) {
+        const top = fieldMatches[0];
+        hits.push({
+          key: `wh-${it.id}-${top.label}`,
+          group: it.type === "school" ? "Education" : "Work",
+          title: headline || it.company,
+          subtitle: `Matched in ${fieldMatches.map((f) => f.label).join(", ")}${yearLabel(it.startDate, it.endDate) ? ` · ${yearLabel(it.startDate, it.endDate)}` : ""}`,
+          snippet: snippet(top.text),
+          focusItemId: it.id,
+          Icon: it.type === "school" ? GraduationCap : Briefcase,
+          iconClass: it.type === "school" ? "text-violet-500" : "text-blue-500",
+          score: 1,
+        });
+      }
+
+      // Equipment used at this job
+      for (const eq of it.equipment || []) {
+        const eqText = `${eq.name} ${eq.manufacturer || ""} ${eq.model || ""} ${eq.category}`;
+        if (matchAll(eqText)) {
+          hits.push({
+            key: `wh-${it.id}-eq-${eq.id}`,
+            group: "Tool",
+            title: eq.name,
+            subtitle: `Used at ${company}${yearLabel(it.startDate, it.endDate) ? ` · ${yearLabel(it.startDate, it.endDate)}` : ""}`,
+            snippet: [eq.manufacturer, eq.model].filter(Boolean).join(" "),
+            focusItemId: it.id,
+            Icon: Wrench,
+            iconClass: "text-orange-500",
+            score: 2,
+          });
+        }
+      }
+
+      // Attachment labels
+      for (const at of it.attachments || []) {
+        if (matchAll(`${at.label} ${at.category} ${at.fileName}`)) {
+          hits.push({
+            key: `wh-${it.id}-at-${at.id}`,
+            group: "Attachment",
+            title: at.label || at.fileName,
+            subtitle: `${at.category} · ${company}`,
+            focusItemId: it.id,
+            Icon: Paperclip,
+            iconClass: "text-slate-500",
+            score: 3,
+          });
+        }
+      }
+    }
+
+    // Skills
+    for (const s of skills) {
+      if (matchAll(`${s.name} ${s.category} ${s.proficiency}`)) {
+        hits.push({
+          key: `sk-${s.id}`,
+          group: "Skill",
+          title: s.name,
+          subtitle: s.category,
+          badge: s.proficiency,
+          // Skill clicks open the skills section in the drawer (no map focus)
+          Icon: Brain,
+          iconClass: "text-emerald-500",
+          score: matchAny(s.name) > 0 ? 0 : 1,
+        });
+      }
+    }
+
+    // Certifications
+    for (const c of certifications) {
+      if (matchAll(`${c.name} ${c.issuer}`)) {
+        hits.push({
+          key: `ct-${c.id}`,
+          group: "Certification",
+          title: c.name,
+          subtitle: c.issuer,
+          Icon: Award,
+          iconClass: "text-amber-500",
+          score: 1,
+        });
+      }
+    }
+
+    // Inventory tools (personal, not job-tied)
+    for (const inv of inventory) {
+      if (matchAll(`${inv.name} ${inv.manufacturer || ""} ${inv.model || ""} ${inv.category} ${inv.tags.join(" ")}`)) {
+        hits.push({
+          key: `inv-${inv.id}`,
+          group: "Tool",
+          title: inv.name,
+          subtitle: `${inv.category}${inv.manufacturer ? ` · ${inv.manufacturer}` : ""}`,
+          Icon: Wrench,
+          iconClass: "text-orange-500",
+          score: 2,
+        });
+      }
+    }
+
+    return hits.sort((a, b) => a.score - b.score).slice(0, 50);
+  }, [searchQuery, items, skills, certifications, inventory]);
+
+  // ── JD Match (Phase B) ─────────────────────────────────────────
+  // Build a "candidate vocabulary" from the IR — every skill/tech/tool the
+  // candidate has ever touched. Used to detect which JD requirements the
+  // candidate has evidence for.
+  type Vocab = {
+    /** lowercased term → display variant + provenance */
+    terms: Map<string, { display: string; sources: Array<{ kind: "skill" | "tech" | "tool" | "cert"; itemId?: string; label: string }> }>;
+    /** All work-history descriptive text concatenated, lowercased — for "soft" matches */
+    softCorpus: string;
+  };
+
+  const candidateVocab = useMemo<Vocab>(() => {
+    const terms = new Map<string, { display: string; sources: Array<{ kind: "skill" | "tech" | "tool" | "cert"; itemId?: string; label: string }> }>();
+    const softParts: string[] = [];
+
+    const add = (raw: string, source: { kind: "skill" | "tech" | "tool" | "cert"; itemId?: string; label: string }) => {
+      const t = raw.trim();
+      if (t.length < 2) return;
+      const key = t.toLowerCase();
+      const existing = terms.get(key);
+      if (existing) {
+        existing.sources.push(source);
+      } else {
+        terms.set(key, { display: t, sources: [source] });
+      }
+    };
+
+    for (const s of skills) add(s.name, { kind: "skill", label: `Skill (${s.proficiency})` });
+    for (const c of certifications) add(c.name, { kind: "cert", label: `Cert from ${c.issuer}` });
+
+    for (const it of items) {
+      const label = `${it.role || it.title || ""} · ${it.company}`.trim();
+      for (const t of parseTechStack(it.techStack)) add(t, { kind: "tech", itemId: it.id, label });
+      for (const t of parseSkillsUsed(it.skillsUsed)) add(t, { kind: "tech", itemId: it.id, label });
+      for (const eq of it.equipment || []) add(eq.name, { kind: "tool", itemId: it.id, label });
+
+      if (it.description) softParts.push(it.description);
+      if (it.responsibilities) softParts.push(it.responsibilities);
+      if (it.accomplishments) softParts.push(it.accomplishments);
+      if (it.industry) softParts.push(it.industry);
+    }
+    for (const inv of inventory) add(inv.name, { kind: "tool", label: `Personal: ${inv.category}` });
+
+    return { terms, softCorpus: softParts.join("\n").toLowerCase() };
+  }, [items, skills, certifications, inventory]);
+
+  // Stopwords for JD requirement extraction
+  const JD_STOP = new Set([
+    "the","and","for","with","you","your","our","will","that","this","are","have","has","not","but",
+    "from","into","using","use","used","work","working","experience","years","year","plus","preferred",
+    "required","must","should","strong","ability","able","skills","skill","knowledge","understanding",
+    "include","including","etc","such","various","across","over","more","than","least","most","other",
+    "all","any","new","day","team","teams","environment","environments","role","roles","position","positions",
+    "candidate","candidates","ideal","looking","seeking","join","help","build","builds","building","develop",
+    "develops","developing","design","designs","designing","manage","manages","managing","lead","leads","leading",
+    "support","supports","supporting","ensure","ensures","ensuring","drive","drives","driving","work","works",
+    "responsibilities","requirements","qualifications","what","who","where","when","how","why","etc","also",
+    "well","good","great","excellent","proven","track","record","years\u2019","yrs","yr","best","practices",
+  ]);
+
+  type MatchReport = {
+    score: number;
+    /** Vocab terms that explicitly appear in the JD — strong evidence */
+    strong: Array<{ term: string; sources: Vocab["terms"] extends Map<string, infer V> ? V : never }>;
+    /** JD-extracted phrases that don't match vocab but DO appear in candidate's free-text — partial evidence */
+    partial: Array<{ term: string }>;
+    /** JD-extracted phrases with no match anywhere — gaps */
+    gaps: Array<{ term: string }>;
+    /** Strong vocab not asked for in JD but recently used — bonus */
+    bonus: Array<{ term: string; sources: Vocab["terms"] extends Map<string, infer V> ? V : never }>;
+    /** Any years-of-experience phrases extracted */
+    yearsAsked: number | null;
+    /** Total candidate tenure in years (for years comparison) */
+    candidateYears: number;
+  };
+
+  const matchReport = useMemo<MatchReport | null>(() => {
+    if (!matchAnalyzed) return null;
+    const jd = jdText.trim();
+    if (jd.length < 20) return null;
+    const jdLower = jd.toLowerCase();
+
+    // 1. Strong matches: any vocab term that appears as a whole word in the JD
+    const strong: MatchReport["strong"] = [];
+    const matchedKeys = new Set<string>();
+    for (const [key, val] of candidateVocab.terms) {
+      // Word boundary match (escape regex special chars)
+      const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const re = new RegExp(`(^|[^a-z0-9])${escaped}([^a-z0-9]|$)`, "i");
+      if (re.test(jdLower)) {
+        strong.push({ term: val.display, sources: val });
+        matchedKeys.add(key);
+      }
+    }
+
+    // 2. Extract candidate JD requirement phrases (n-grams of capitalized/quoted/bulleted terms)
+    // Heuristic: look at lines that are bullets or after "experience with", "knowledge of", "proficient in", etc.
+    const requirementPhrases = new Set<string>();
+    const lines = jd.split(/\r?\n/);
+    for (const line of lines) {
+      const trimmed = line.trim().replace(/^[-•*–·]\s*/, "");
+      if (!trimmed) continue;
+      // Phrase after common requirement leaders
+      const leaderRe = /\b(experience (?:with|in|using)|knowledge of|proficien(?:cy|t) (?:with|in)|familiar(?:ity)? with|expertise (?:in|with)|skills? (?:in|with)|background in|hands-on (?:with|in)|working (?:knowledge of|with))\s+([^.,;:()]+)/gi;
+      let m: RegExpExecArray | null;
+      while ((m = leaderRe.exec(line)) !== null) {
+        const phrase = m[2].trim();
+        // Split on conjunctions
+        for (const piece of phrase.split(/\s*(?:,|\band\b|\bor\b|\/)\s*/i)) {
+          const p = piece.trim().replace(/[.,;:()]+$/, "");
+          if (p.length >= 2 && p.length <= 40) requirementPhrases.add(p);
+        }
+      }
+    }
+    // Also pull capitalized acronyms / TitleCase tokens from anywhere
+    const capRe = /\b([A-Z][A-Za-z0-9+#.\-]{1,}(?:\.[a-z]+)?)\b/g;
+    let cm: RegExpExecArray | null;
+    while ((cm = capRe.exec(jd)) !== null) {
+      const tok = cm[1];
+      if (tok.length >= 2 && tok.length <= 30 && !JD_STOP.has(tok.toLowerCase())) {
+        requirementPhrases.add(tok);
+      }
+    }
+
+    // 3. Bucket each requirement phrase into strong / partial / gap
+    const partial: MatchReport["partial"] = [];
+    const gaps: MatchReport["gaps"] = [];
+    const seenLower = new Set<string>();
+    for (const phrase of requirementPhrases) {
+      const lower = phrase.toLowerCase();
+      if (seenLower.has(lower)) continue;
+      seenLower.add(lower);
+      // Skip if it's a stopword fragment or already a strong match
+      if (JD_STOP.has(lower)) continue;
+      if (matchedKeys.has(lower)) continue;
+      // Skip generic fluff
+      if (lower.length < 3) continue;
+
+      // Partial: present in candidate's free-text but not as a tagged skill/tech
+      if (candidateVocab.softCorpus.includes(lower)) {
+        partial.push({ term: phrase });
+      } else {
+        gaps.push({ term: phrase });
+      }
+    }
+
+    // 4. Bonus: vocab terms NOT asked for that come from the most recent role
+    const recentItem = items
+      .filter((i) => !i.endDate || tenureMonths(i.startDate, i.endDate) > 0)
+      .sort((a, b) => (b.endDate || "9999").localeCompare(a.endDate || "9999"))[0];
+    const bonus: MatchReport["bonus"] = [];
+    if (recentItem) {
+      const recentTerms = [...parseTechStack(recentItem.techStack), ...parseSkillsUsed(recentItem.skillsUsed)];
+      for (const t of recentTerms) {
+        const key = t.trim().toLowerCase();
+        if (key.length < 2) continue;
+        if (matchedKeys.has(key)) continue;
+        const v = candidateVocab.terms.get(key);
+        if (v && !bonus.some((b) => b.term.toLowerCase() === key)) {
+          bonus.push({ term: v.display, sources: v });
+        }
+        if (bonus.length >= 6) break;
+      }
+    }
+
+    // 5. Years ask & candidate total
+    let yearsAsked: number | null = null;
+    const yrMatch = jd.match(/(\d+)\s*\+?\s*(?:to\s*\d+\s*)?(?:years?|yrs?)\b/i);
+    if (yrMatch) yearsAsked = parseInt(yrMatch[1], 10);
+    const candidateMonths = items.reduce((sum, i) => sum + tenureMonths(i.startDate, i.endDate), 0);
+    const candidateYears = Math.round((candidateMonths / 12) * 10) / 10;
+
+    // 6. Score: strong vs (strong + partial*0.5 + gaps)
+    const denom = strong.length + partial.length * 0.5 + gaps.length;
+    const score = denom === 0 ? 0 : Math.round((strong.length / denom) * 100);
+
+    // Limit list sizes for UX
+    return {
+      score,
+      strong: strong.slice(0, 30),
+      partial: partial.slice(0, 15),
+      gaps: gaps.slice(0, 15),
+      bonus: bonus.slice(0, 6),
+      yearsAsked,
+      candidateYears,
+    };
+  }, [matchAnalyzed, jdText, candidateVocab, items]);
+
+  // ⌘/Ctrl+K opens search; Esc closes
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const isMod = e.ctrlKey || e.metaKey;
+      if (isMod && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setSearchOpen((v) => !v);
+        return;
+      }
+      if (e.key === "Escape") {
+        if (searchOpen) setSearchOpen(false);
+        else if (matchOpen) setMatchOpen(false);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [searchOpen, matchOpen]);
+
+  const recruitTrigger = (compensation || kpis.roles > 0 || topEducation) ? (
+    <div className="relative shrink-0">
+      <button
+        ref={recruitBtnRef}
+        type="button"
+        onClick={() => {
+          setRecruitOpen((v) => {
+            if (!v) analytics.track("comp_view");
+            return !v;
+          });
+        }}
+        aria-expanded={recruitOpen}
+        aria-haspopup="dialog"
+        className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 text-white dark:bg-emerald-500 px-2.5 py-1.5 text-xs font-medium hover:bg-emerald-700 dark:hover:bg-emerald-400 transition-colors shadow-sm"
+        title="Recruitment card — at-a-glance fit signals"
+      >
+        <Sparkles className="h-3.5 w-3.5" />
+        Recruitment
+        {recruitOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronUp className="h-3 w-3" />}
+      </button>
+      {recruitOpen && (
+        <div
+          ref={recruitPopoverRef}
+          role="dialog"
+          aria-modal="false"
+          aria-label="Recruitment card"
+          className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 z-50 w-80 max-h-[70vh] overflow-y-auto scrollbar-thin rounded-lg border bg-background shadow-2xl p-3 space-y-2.5"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-300 inline-flex items-center gap-1">
+              <Sparkles className="h-3 w-3" />
+              Recruitment Card
+            </span>
+            <button
+              type="button"
+              onClick={() => setRecruitOpen(false)}
+              className="text-muted-foreground hover:text-foreground"
+              title="Close"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+
+          {/* Enter Recruit Mode */}
+          {recruitMeta && recruitMeta.homeLat != null && recruitMeta.homeLng != null && recruitMeta.maxCommuteMiles != null && (
+            <button
+              type="button"
+              onClick={() => {
+                setRecruitOpen(false);
+                setRecruitMode(true);
+                analytics.track("recruit_mode_open");
+              }}
+              className="w-full inline-flex items-center justify-center gap-1.5 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium px-2.5 py-1.5 transition-colors"
+              title="Drop a job site and instantly check if it's within travel range"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              Enter Recruit Mode
+              <span className="text-[10px] opacity-80">· {recruitMeta.maxCommuteMiles} mi radius</span>
+            </button>
+          )}
+
+          {/* Quick stats */}
+          <div className="grid grid-cols-2 gap-1.5">
+            {kpis.roles > 0 && kpis.tenure && (
+              <div className="rounded-md border bg-sky-500/10 border-sky-500/30 px-2 py-1.5">
+                <div className="text-[9px] uppercase tracking-wider text-sky-700 dark:text-sky-300 leading-none flex items-center gap-1">
+                  <Briefcase className="h-2.5 w-2.5" /> Experience
+                </div>
+                <div className="text-xs font-semibold text-sky-900 dark:text-sky-100 mt-1 truncate">{kpis.tenure}</div>
+                <div className="text-[10px] text-sky-700/80 dark:text-sky-300/80 truncate">{kpis.roles} role{kpis.roles === 1 ? "" : "s"} · {kpis.cities} {kpis.cities === 1 ? "city" : "cities"}</div>
+              </div>
+            )}
+            {topEducation && (() => {
+              const credential = [topEducation.degree, topEducation.major].filter(Boolean).join(", ");
+              const display = topEducation.degree || credential || topEducation.company;
+              return (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFocusedId(topEducation.id);
+                    setRecruitOpen(false);
+                    analytics.track("education_click", { workItemId: topEducation.id, label: display });
+                  }}
+                  className="text-left rounded-md border bg-violet-500/10 border-violet-500/30 px-2 py-1.5 hover:brightness-110 transition-colors"
+                  title={credential ? `${credential} · ${topEducation.company}` : topEducation.company}
+                >
+                  <div className="text-[9px] uppercase tracking-wider text-violet-700 dark:text-violet-300 leading-none flex items-center gap-1">
+                    <GraduationCap className="h-2.5 w-2.5" /> Education
+                  </div>
+                  <div className="text-xs font-semibold text-violet-900 dark:text-violet-100 mt-1 truncate">{display}</div>
+                  {topEducation.company && (
+                    <div className="text-[10px] text-violet-700/80 dark:text-violet-300/80 truncate">{topEducation.company}</div>
+                  )}
+                </button>
+              );
+            })()}
+          </div>
+
+          {/* Compensation block */}
+          {compensation && (compensation.salaryMin != null || compensation.salaryMax != null || compensation.salaryTarget != null || compensation.employmentTypes.length > 0 || compensation.remotePreference !== "any") && (
+            <div className="rounded-md border border-emerald-300 dark:border-emerald-800 bg-emerald-50/70 dark:bg-emerald-900/20 px-2.5 py-2 space-y-1.5">
+              <div className="flex items-center gap-1.5">
+                <DollarSign className="h-3.5 w-3.5 text-emerald-700 dark:text-emerald-300 shrink-0" />
+                <span className="text-xs font-semibold text-emerald-900 dark:text-emerald-100 truncate">
+                  {formatCompChip(compensation)}
+                </span>
+                {(() => {
+                  const flex = compFlexLabel(compensation);
+                  return flex ? (
+                    <span className={`shrink-0 inline-flex items-center rounded-full border px-1.5 py-0.5 text-[9px] font-semibold ${flex.cls}`}>
+                      {flex.label}
+                    </span>
+                  ) : null;
+                })()}
+              </div>
+              {(compensation.employmentTypes.length > 0 || compensation.remotePreference !== "any") && (
+                <div className="flex items-center gap-1 flex-wrap">
+                  {compensation.employmentTypes.map((t) => (
+                    <span key={t} className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-900 dark:text-emerald-100 text-[10px] font-medium">
+                      {employmentLabel(t)}
+                    </span>
+                  ))}
+                  {compensation.remotePreference !== "any" && (
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-900 dark:text-emerald-100 text-[10px] font-medium capitalize">
+                      {compensation.remotePreference}
+                    </span>
+                  )}
+                </div>
+              )}
+              {(compensation.openToRelocation || compensation.openToEquity || compensation.openToSignOn || compensation.openToBonus) && (
+                <div className="text-[11px] text-emerald-800 dark:text-emerald-200">
+                  <span className="font-medium">Open to:</span>{" "}
+                  {[
+                    compensation.openToBonus && "bonus",
+                    compensation.openToEquity && "equity",
+                    compensation.openToSignOn && "sign-on",
+                    compensation.openToRelocation && "relocation",
+                  ].filter(Boolean).join(", ")}
+                </div>
+              )}
+              {compensation.benefitsMustHaves.length > 0 && (
+                <div className="text-[11px] text-emerald-800 dark:text-emerald-200">
+                  <span className="font-medium">Must-haves:</span> {compensation.benefitsMustHaves.map(benefitLabel).join(", ")}
+                </div>
+              )}
+              {compensation.notes && (
+                <p className="text-[11px] text-emerald-800 dark:text-emerald-200 whitespace-pre-line">{compensation.notes}</p>
+              )}
+              {compensation.hasHardFloor && (
+                <p className="text-[10px] text-emerald-700 dark:text-emerald-300 italic">
+                  Candidate has set a private minimum floor.
+                </p>
+              )}
+            </div>
+          )}
+
+          {!compensation && (
+            <p className="text-[11px] text-muted-foreground italic px-1">
+              Candidate hasn&apos;t shared compensation expectations publicly.
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  ) : null;
+
+  const searchTrigger = (
+    <button
+      type="button"
+      onClick={() => setSearchOpen(true)}
+      title="Search this resume (Ctrl/⌘ K)"
+      className="shrink-0 inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-muted/60 transition-colors"
+    >
+      <SearchIcon className="h-3.5 w-3.5 text-muted-foreground" />
+      <span className="hidden sm:inline">Search</span>
+      <kbd className="hidden md:inline-flex items-center rounded border bg-muted/60 px-1 py-0.5 text-[9px] font-mono text-muted-foreground ml-0.5">
+        ⌘K
+      </kbd>
+    </button>
+  );
+
+  const matchTrigger = (
+    <button
+      type="button"
+      onClick={() => setMatchOpen(true)}
+      title="Paste a job description to see how this candidate matches"
+      className="shrink-0 inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-muted/60 transition-colors"
+    >
+      <Target className="h-3.5 w-3.5 text-violet-500" />
+      <span className="hidden sm:inline">Match JD</span>
+    </button>
+  );
+
   return (
     <div className="fixed inset-0 bg-gray-950">
       {/* Map */}
@@ -731,7 +1512,114 @@ export default function ResumeImmersiveMap({ items, profile, skills = [], certif
         yearRange={yearRange}
         playing={playing}
         showJourneyLine={showJourneyLine}
+        recruitMode={recruitMode}
+        recruitHome={recruitMeta && recruitMeta.homeLat != null && recruitMeta.homeLng != null ? { lat: recruitMeta.homeLat, lng: recruitMeta.homeLng } : null}
+        recruitRadiusMiles={showRecruitRadius ? (recruitMeta?.maxCommuteMiles ?? null) : null}
+        jobSite={jobSite ? { lat: jobSite.lat, lng: jobSite.lng } : null}
+        onJobSitePicked={(p) => {
+          setJobSite({ address: p.address, lat: p.lat, lng: p.lng, miles: null, durationMin: null, loading: true, error: null });
+          analytics.track("job_site_dropped", { address: p.address });
+        }}
+        onJobSiteResult={(r) => {
+          setJobSite((prev) => prev ? { ...prev, miles: r.miles, durationMin: r.durationMin, loading: false, error: r.error ?? null } : prev);
+          if (r.miles != null && recruitMeta?.maxCommuteMiles != null) {
+            analytics.track(r.miles <= recruitMeta.maxCommuteMiles ? "radius_match" : "radius_miss", { miles: r.miles });
+          }
+        }}
       />
+
+      {/* Recruit Mode top banner */}
+      {recruitMode && recruitMeta && (
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-30 w-[min(640px,calc(100vw-7rem))] rounded-xl bg-background/95 backdrop-blur-md border shadow-xl px-3 py-2">
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
+              <Sparkles className="h-3 w-3" />
+              Recruit Mode
+            </span>
+            <span className="text-[10px] text-muted-foreground">
+              {recruitMeta.maxCommuteMiles ? `${recruitMeta.maxCommuteMiles} mi radius from home` : "no radius set"}
+            </span>
+            {recruitMeta.maxCommuteMiles ? (
+              <button
+                type="button"
+                onClick={() => setShowRecruitRadius((s) => !s)}
+                className="text-[10px] text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
+                title={showRecruitRadius ? "Hide radius ring" : "Show radius ring"}
+              >
+                {showRecruitRadius ? "Hide ring" : "Show ring"}
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => {
+                setRecruitMode(false);
+                setJobSite(null);
+                analytics.track("recruit_mode_close");
+              }}
+              className="ml-auto text-[11px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
+              title="Exit Recruit Mode"
+            >
+              <X className="h-3.5 w-3.5" /> Exit
+            </button>
+          </div>
+
+          {/* Job-site autocomplete input — handled inside ImmersiveMapView via portal-like ref attachment */}
+          <input
+            id="ir-recruit-jobsite-input"
+            type="text"
+            placeholder="Enter a job site address to check commute…"
+            className="w-full text-xs h-8 px-2.5 rounded-md border bg-background placeholder:text-muted-foreground/70 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            autoComplete="off"
+          />
+
+          {/* Result banner */}
+          {jobSite && (
+            <div className="mt-1.5 flex items-start gap-2 text-[11px]">
+              {jobSite.loading ? (
+                <span className="text-muted-foreground">Calculating distance…</span>
+              ) : jobSite.error ? (
+                <span className="text-red-600 dark:text-red-400">{jobSite.error}</span>
+              ) : jobSite.miles != null ? (() => {
+                const within = recruitMeta.maxCommuteMiles != null && jobSite.miles <= recruitMeta.maxCommuteMiles;
+                return (
+                  <div className={`flex-1 rounded-md px-2 py-1.5 border ${within ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-900 dark:text-emerald-100" : "bg-red-500/10 border-red-500/40 text-red-900 dark:text-red-100"}`}>
+                    <div className="font-semibold">
+                      {within ? "✓ Within range" : "✗ Outside range"} · {jobSite.miles.toFixed(1)} mi
+                      {jobSite.durationMin != null && ` · ~${jobSite.durationMin} min driving`}
+                    </div>
+                    <div className="text-[10px] opacity-80 truncate">{jobSite.address}</div>
+                  </div>
+                );
+              })() : null}
+              {jobSite && !jobSite.loading && jobSite.miles != null && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setContactOpen(true);
+                    analytics.track("contact_open");
+                  }}
+                  className="inline-flex items-center gap-1 rounded-md bg-primary text-primary-foreground text-[11px] font-medium px-2 py-1 hover:bg-primary/90"
+                  title="Send this job to the candidate (prefilled)"
+                >
+                  <Mail className="h-3 w-3" /> Send
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setJobSite(null);
+                  const el = document.getElementById("ir-recruit-jobsite-input") as HTMLInputElement | null;
+                  if (el) el.value = "";
+                }}
+                className="text-muted-foreground hover:text-foreground"
+                title="Clear job site"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Top-right sections pill */}
       <button
@@ -742,6 +1630,364 @@ export default function ResumeImmersiveMap({ items, profile, skills = [], certif
         <Layers className="h-4 w-4 text-muted-foreground" />
         More
       </button>
+
+      {/* Recruiter search modal */}
+      {searchOpen && (
+        <div
+          className="fixed inset-0 z-[60] flex items-start justify-center pt-[10vh] px-4 bg-background/40 backdrop-blur-sm animate-in fade-in duration-150"
+          onClick={() => setSearchOpen(false)}
+        >
+          <div
+            className="w-full max-w-2xl rounded-2xl bg-background border shadow-2xl overflow-hidden animate-in slide-in-from-top-4 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-2 px-4 py-3 border-b">
+              <SearchIcon className="h-4 w-4 text-muted-foreground shrink-0" />
+              <input
+                type="text"
+                autoFocus
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={`Search ${profile?.fullName?.split(" ")[0] || "this candidate"}'s experience, skills, tools…`}
+                className="flex-1 bg-transparent border-0 outline-none text-sm placeholder:text-muted-foreground"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  className="text-muted-foreground hover:text-foreground"
+                  title="Clear"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+              <kbd className="hidden sm:inline-flex items-center rounded border bg-muted/60 px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground">
+                Esc
+              </kbd>
+            </div>
+
+            {/* Results */}
+            <div className="max-h-[60vh] overflow-y-auto">
+              {searchQuery.trim().length < 2 ? (
+                <div className="px-4 py-10 text-center text-sm text-muted-foreground">
+                  <SearchIcon className="h-6 w-6 mx-auto mb-2 opacity-40" />
+                  <p>Start typing to search across work history, skills, tools, and certifications.</p>
+                  <p className="mt-2 text-xs opacity-70">Try &ldquo;kubernetes&rdquo;, &ldquo;led team&rdquo;, or a job title.</p>
+                </div>
+              ) : searchResults.length === 0 ? (
+                <div className="px-4 py-10 text-center text-sm text-muted-foreground">
+                  No matches for &ldquo;{searchQuery}&rdquo;.
+                </div>
+              ) : (
+                <ul className="divide-y">
+                  {(["Work", "Education", "Skill", "Certification", "Tool", "Attachment"] as const).map((group) => {
+                    const groupHits = searchResults.filter((h) => h.group === group);
+                    if (groupHits.length === 0) return null;
+                    return (
+                      <li key={group} className="py-1">
+                        <div className="px-4 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground bg-muted/30">
+                          {group} <span className="opacity-60 font-normal">({groupHits.length})</span>
+                        </div>
+                        <ul>
+                          {groupHits.map((h) => (
+                            <li key={h.key}>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (h.focusItemId) {
+                                    setFocusedId(h.focusItemId);
+                                  } else if (h.group === "Skill" || h.group === "Certification") {
+                                    setDrawerOpen(true);
+                                  } else if (h.group === "Tool") {
+                                    setToolsOpen(true);
+                                  }
+                                  setSearchOpen(false);
+                                }}
+                                className="w-full flex items-start gap-3 px-4 py-2.5 text-left hover:bg-muted/40 transition-colors"
+                              >
+                                <h.Icon className={`h-4 w-4 mt-0.5 shrink-0 ${h.iconClass || "text-muted-foreground"}`} />
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm font-medium truncate">{h.title}</span>
+                                    {h.badge && (
+                                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground capitalize shrink-0">
+                                        {h.badge}
+                                      </span>
+                                    )}
+                                  </div>
+                                  {h.subtitle && (
+                                    <div className="text-xs text-muted-foreground truncate">{h.subtitle}</div>
+                                  )}
+                                  {h.snippet && (
+                                    <div className="text-xs text-muted-foreground/90 mt-0.5 line-clamp-2">
+                                      {h.snippet}
+                                    </div>
+                                  )}
+                                </div>
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+
+            {searchResults.length > 0 && (
+              <div className="px-4 py-2 border-t text-[10px] text-muted-foreground bg-muted/20 flex items-center justify-between">
+                <span>{searchResults.length} {searchResults.length === 1 ? "result" : "results"}</span>
+                <span>Click a result to jump to it on the map</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* JD Match modal (Phase B) */}
+      {matchOpen && (
+        <div
+          className="fixed inset-0 z-[60] flex items-start justify-center pt-[6vh] px-4 bg-background/40 backdrop-blur-sm animate-in fade-in duration-150"
+          onClick={() => setMatchOpen(false)}
+        >
+          <div
+            className="w-full max-w-3xl rounded-2xl bg-background border shadow-2xl overflow-hidden animate-in slide-in-from-top-4 duration-200 flex flex-col max-h-[88vh]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-2 px-4 py-3 border-b shrink-0">
+              <Target className="h-4 w-4 text-violet-500 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-semibold">Match a job description</div>
+                <div className="text-[11px] text-muted-foreground truncate">
+                  Paste a JD to instantly see how {profile?.fullName?.split(" ")[0] || "this candidate"} stacks up.
+                </div>
+              </div>
+              {matchAnalyzed && (
+                <button
+                  type="button"
+                  onClick={() => { setMatchAnalyzed(false); }}
+                  className="text-[11px] text-muted-foreground hover:text-foreground border rounded px-2 py-1"
+                  title="Edit the JD and re-analyze"
+                >
+                  Edit JD
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setMatchOpen(false)}
+                className="text-muted-foreground hover:text-foreground"
+                title="Close"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto">
+              {!matchAnalyzed ? (
+                <div className="p-4 space-y-3">
+                  <textarea
+                    autoFocus
+                    value={jdText}
+                    onChange={(e) => setJdText(e.target.value)}
+                    placeholder={"Paste the full job description here…\n\nExample:\n• 5+ years of experience with Kubernetes and Terraform\n• Strong knowledge of AWS, observability, and CI/CD\n• Experience leading platform migrations"}
+                    className="w-full h-72 rounded-lg border bg-background px-3 py-2 text-sm font-mono leading-relaxed focus:outline-none focus:ring-2 focus:ring-violet-500/40 resize-none"
+                  />
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-[11px] text-muted-foreground">
+                      Analysis runs locally in your browser — nothing is sent to a server.
+                    </p>
+                    <div className="flex items-center gap-2">
+                      {jdText && (
+                        <button
+                          type="button"
+                          onClick={() => setJdText("")}
+                          className="text-xs text-muted-foreground hover:text-foreground px-2 py-1.5"
+                        >
+                          Clear
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        disabled={jdText.trim().length < 20}
+                        onClick={() => setMatchAnalyzed(true)}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium px-3 py-1.5 transition-colors"
+                      >
+                        <Target className="h-3.5 w-3.5" />
+                        Analyze match
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : !matchReport ? (
+                <div className="p-8 text-center text-sm text-muted-foreground">
+                  Paste a longer job description to analyze (at least 20 characters).
+                </div>
+              ) : (
+                <div className="p-4 space-y-4">
+                  {/* Score header */}
+                  <div className="rounded-xl border bg-gradient-to-br from-violet-500/10 to-blue-500/10 p-4 flex items-center gap-4">
+                    <div className="relative shrink-0">
+                      <svg className="h-20 w-20 -rotate-90" viewBox="0 0 36 36">
+                        <circle cx="18" cy="18" r="15.9" fill="none" stroke="currentColor" strokeOpacity="0.15" strokeWidth="3" />
+                        <circle
+                          cx="18" cy="18" r="15.9" fill="none"
+                          stroke={matchReport.score >= 70 ? "#10b981" : matchReport.score >= 40 ? "#f59e0b" : "#ef4444"}
+                          strokeWidth="3"
+                          strokeDasharray={`${matchReport.score} 100`}
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <span className="text-xl font-bold">{matchReport.score}%</span>
+                      </div>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-semibold mb-1">
+                        {matchReport.score >= 70 ? "Strong match" : matchReport.score >= 40 ? "Partial match" : "Light match"}
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 text-[11px]">
+                        <div className="rounded-md bg-emerald-500/10 border border-emerald-500/30 px-2 py-1">
+                          <div className="font-semibold text-emerald-700 dark:text-emerald-300">{matchReport.strong.length}</div>
+                          <div className="text-muted-foreground">strong</div>
+                        </div>
+                        <div className="rounded-md bg-amber-500/10 border border-amber-500/30 px-2 py-1">
+                          <div className="font-semibold text-amber-700 dark:text-amber-300">{matchReport.partial.length}</div>
+                          <div className="text-muted-foreground">partial</div>
+                        </div>
+                        <div className="rounded-md bg-rose-500/10 border border-rose-500/30 px-2 py-1">
+                          <div className="font-semibold text-rose-700 dark:text-rose-300">{matchReport.gaps.length}</div>
+                          <div className="text-muted-foreground">gaps</div>
+                        </div>
+                      </div>
+                      {matchReport.yearsAsked != null && (
+                        <div className="text-[11px] text-muted-foreground mt-2">
+                          Experience asked: <span className="font-medium text-foreground">{matchReport.yearsAsked}+ yrs</span>
+                          {" · "}Candidate has: <span className={`font-medium ${matchReport.candidateYears >= matchReport.yearsAsked ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}`}>~{matchReport.candidateYears} yrs</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Strong matches */}
+                  {matchReport.strong.length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300 mb-2">
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        Strong matches ({matchReport.strong.length})
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {matchReport.strong.map((s) => {
+                          const firstSourceWithItem = s.sources.sources.find((x) => x.itemId);
+                          return (
+                            <button
+                              key={s.term}
+                              type="button"
+                              onClick={() => {
+                                if (firstSourceWithItem?.itemId) {
+                                  setFocusedId(firstSourceWithItem.itemId);
+                                  setMatchOpen(false);
+                                } else {
+                                  // Skill/cert — open Search prefilled with term
+                                  setSearchQuery(s.term);
+                                  setSearchOpen(true);
+                                  setMatchOpen(false);
+                                }
+                              }}
+                              title={s.sources.sources.map((x) => x.label).join(" · ")}
+                              className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 text-xs hover:bg-emerald-500/25 transition-colors"
+                            >
+                              <CheckCircle2 className="h-3 w-3" />
+                              {s.term}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Partial matches */}
+                  {matchReport.partial.length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-700 dark:text-amber-300 mb-2">
+                        <AlertCircle className="h-3.5 w-3.5" />
+                        Mentioned in their experience ({matchReport.partial.length})
+                      </div>
+                      <p className="text-[11px] text-muted-foreground mb-2">
+                        Found in role descriptions but not tagged as a primary skill.
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {matchReport.partial.map((p) => (
+                          <button
+                            key={p.term}
+                            type="button"
+                            onClick={() => {
+                              setSearchQuery(p.term);
+                              setSearchOpen(true);
+                              setMatchOpen(false);
+                            }}
+                            title="See where this is mentioned"
+                            className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-800 dark:text-amber-200 px-2 py-0.5 text-xs hover:bg-amber-500/25 transition-colors"
+                          >
+                            <SearchIcon className="h-3 w-3" />
+                            {p.term}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Gaps */}
+                  {matchReport.gaps.length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-1.5 text-xs font-semibold text-rose-700 dark:text-rose-300 mb-2">
+                        <XCircle className="h-3.5 w-3.5" />
+                        Not found in resume ({matchReport.gaps.length})
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {matchReport.gaps.map((g) => (
+                          <span
+                            key={g.term}
+                            className="inline-flex items-center gap-1 rounded-full bg-rose-500/10 border border-rose-500/30 text-rose-700 dark:text-rose-300 px-2 py-0.5 text-xs"
+                          >
+                            {g.term}
+                          </span>
+                        ))}
+                      </div>
+                      <p className="text-[10px] text-muted-foreground mt-2 italic">
+                        Worth asking the candidate about — these may simply be undocumented.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Bonus */}
+                  {matchReport.bonus.length > 0 && (
+                    <div className="rounded-lg border border-dashed bg-muted/20 p-3">
+                      <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground mb-2">
+                        <Sparkles className="h-3.5 w-3.5 text-violet-500" />
+                        Recent strengths not in your JD
+                      </div>
+                      <p className="text-[11px] text-muted-foreground mb-2">
+                        From their most recent role — could be relevant adjacent value.
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {matchReport.bonus.map((b) => (
+                          <span
+                            key={b.term}
+                            className="inline-flex items-center gap-1 rounded-full bg-violet-500/10 border border-violet-500/30 text-violet-700 dark:text-violet-300 px-2 py-0.5 text-xs"
+                          >
+                            {b.term}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Recruiter save + notes (anonymous, cookie-keyed) — rendered inside the bottom action bar */}
 
@@ -777,7 +2023,16 @@ export default function ResumeImmersiveMap({ items, profile, skills = [], certif
           onToggleJourneyLine={() => setShowJourneyLine((v) => !v)}
           actionsSlot={(
             <>
+              {searchTrigger}
+              {matchTrigger}
+              <div className="h-6 w-px bg-border mx-0.5 shrink-0" aria-hidden="true" />
               <MapStyleButton value={mapStyle} onChange={setMapStyle} />
+              {recruitTrigger && (
+                <>
+                  <div className="h-6 w-px bg-border mx-0.5 shrink-0" aria-hidden="true" />
+                  {recruitTrigger}
+                </>
+              )}
               {slug && (
                 <>
                   <div className="h-6 w-px bg-border mx-0.5 shrink-0" aria-hidden="true" />
@@ -794,7 +2049,16 @@ export default function ResumeImmersiveMap({ items, profile, skills = [], certif
       ) : (
         <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-30 rounded-xl bg-background/95 backdrop-blur-md border shadow-xl px-2 py-2">
           <div className="flex items-center gap-1.5">
+            {searchTrigger}
+            {matchTrigger}
+            <div className="h-6 w-px bg-border mx-0.5 shrink-0" aria-hidden="true" />
             <MapStyleButton value={mapStyle} onChange={setMapStyle} />
+            {recruitTrigger && (
+              <>
+                <div className="h-6 w-px bg-border mx-0.5 shrink-0" aria-hidden="true" />
+                {recruitTrigger}
+              </>
+            )}
             {slug && (
               <>
                 <div className="h-6 w-px bg-border mx-0.5 shrink-0" aria-hidden="true" />
@@ -812,8 +2076,8 @@ export default function ResumeImmersiveMap({ items, profile, skills = [], certif
       {/* Left column: bio card + work-history panel */}
       {!panelCollapsed ? (
         <div className="absolute top-3 left-3 z-20 w-[26rem] max-w-[calc(100vw-24px)] flex flex-col gap-2 pointer-events-none">
-          {/* Bio card */}
-          <div className="bg-background/95 backdrop-blur-md border rounded-xl shadow-xl p-3 pointer-events-auto">
+          {/* Bio card — relative + z-10 so the recruitment popover spills above the work-history sibling */}
+          <div className="relative z-10 bg-background/95 backdrop-blur-md border rounded-xl shadow-xl p-3 pointer-events-auto">
             <div className="flex items-center gap-3">
               {profile?.avatarUrl ? (
                 <img src={profile.avatarUrl} alt="" className="h-20 w-20 rounded-full object-cover ring-2 ring-primary/30 shrink-0" />
@@ -824,7 +2088,15 @@ export default function ResumeImmersiveMap({ items, profile, skills = [], certif
               )}
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5 flex-wrap">
-                  <p className="text-base font-semibold text-foreground truncate">{profile?.fullName || "Candidate"}</p>
+                  <p className="text-base font-semibold text-foreground truncate flex-1 min-w-0">{profile?.fullName || "Candidate"}</p>
+                  {updatedAt && (
+                    <span
+                      className="ml-auto text-[10px] text-muted-foreground whitespace-nowrap shrink-0"
+                      title={new Date(updatedAt).toLocaleString()}
+                    >
+                      Updated {fmtRelative(updatedAt)}
+                    </span>
+                  )}
                 </div>
                 {topEducation && (() => {
                   const credential = [topEducation.degree, topEducation.major].filter(Boolean).join(", ");
@@ -852,6 +2124,26 @@ export default function ResumeImmersiveMap({ items, profile, skills = [], certif
                 )}
                 {profile && (profile.email || profile.phone || profile.linkedinUrl || profile.githubUrl || profile.portfolioUrl || profile.schedulingUrl) && (
                   <div className="mt-1.5 relative flex items-center gap-2 flex-wrap">
+                    {summary && (
+                      <button
+                        ref={aboutBtnRef}
+                        type="button"
+                        onClick={() => {
+                          setAboutOpen((v) => {
+                            if (!v) analytics.track("bio_open");
+                            return !v;
+                          });
+                        }}
+                        aria-expanded={aboutOpen}
+                        aria-haspopup="dialog"
+                        className="inline-flex items-center gap-1.5 rounded-md bg-violet-600 text-white dark:bg-violet-500 px-2.5 py-1 text-xs font-medium hover:bg-violet-700 dark:hover:bg-violet-400 transition-colors"
+                        title="Get to know me — bio & background"
+                      >
+                        <UserIcon className="h-3.5 w-3.5" />
+                        Get to know me
+                        {aboutOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                      </button>
+                    )}
                     <button
                       ref={contactBtnRef}
                       type="button"
@@ -869,14 +2161,6 @@ export default function ResumeImmersiveMap({ items, profile, skills = [], certif
                       Get in touch
                       {contactOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                     </button>
-                    {updatedAt && (
-                      <span
-                        className="text-[10px] text-muted-foreground"
-                        title={new Date(updatedAt).toLocaleString()}
-                      >
-                        Updated {fmtRelative(updatedAt)}
-                      </span>
-                    )}
                     {contactOpen && (() => {
                       const copyToClipboard = (key: string, text: string) => {
                         navigator.clipboard?.writeText(text).then(() => {
@@ -903,78 +2187,460 @@ export default function ResumeImmersiveMap({ items, profile, skills = [], certif
                         href: `tel:${profile.phone.replace(/[^+0-9]/g, "")}`,
                         copyValue: profile.phone,
                       });
-                      if (profile.linkedinUrl) rows.push({
-                        key: "linkedin", Icon: Linkedin, label: "LinkedIn", value: profile.linkedinUrl.replace(/^https?:\/\/(www\.)?/, ""),
-                        href: profile.linkedinUrl, external: true, copyValue: profile.linkedinUrl,
-                      });
-                      if (profile.githubUrl) rows.push({
-                        key: "github", Icon: Github, label: "GitHub", value: profile.githubUrl.replace(/^https?:\/\/(www\.)?/, ""),
-                        href: profile.githubUrl, external: true, copyValue: profile.githubUrl,
-                      });
-                      if (profile.portfolioUrl) rows.push({
-                        key: "portfolio", Icon: Globe, label: "Portfolio", value: profile.portfolioUrl.replace(/^https?:\/\/(www\.)?/, ""),
-                        href: profile.portfolioUrl, external: true, copyValue: profile.portfolioUrl,
-                      });
-                      if (profile.schedulingUrl) rows.push({
-                        key: "schedule", Icon: Calendar, label: "Schedule a call", value: "Book a time",
-                        href: profile.schedulingUrl, external: true, copyValue: profile.schedulingUrl,
-                      });
-                      return (
+                      const ensureHttp = (u: string) => {
+                        const t = u.trim();
+                        return /^https?:\/\//i.test(t) ? t : `https://${t.replace(/^\/+/, "")}`;
+                      };
+                      if (profile.linkedinUrl) {
+                        const href = ensureHttp(profile.linkedinUrl);
+                        rows.push({
+                          key: "linkedin", Icon: Linkedin, label: "LinkedIn", value: href.replace(/^https?:\/\/(www\.)?/, ""),
+                          href, external: true, copyValue: href,
+                        });
+                      }
+                      if (profile.githubUrl) {
+                        const href = ensureHttp(profile.githubUrl);
+                        rows.push({
+                          key: "github", Icon: Github, label: "GitHub", value: href.replace(/^https?:\/\/(www\.)?/, ""),
+                          href, external: true, copyValue: href,
+                        });
+                      }
+                      if (profile.portfolioUrl) {
+                        const href = ensureHttp(profile.portfolioUrl);
+                        rows.push({
+                          key: "portfolio", Icon: Globe, label: "Portfolio", value: href.replace(/^https?:\/\/(www\.)?/, ""),
+                          href, external: true, copyValue: href,
+                        });
+                      }
+                      if (profile.schedulingUrl) {
+                        const href = ensureHttp(profile.schedulingUrl);
+                        rows.push({
+                          key: "schedule", Icon: Calendar, label: "Schedule a call", value: "Book a time",
+                          href, external: true, copyValue: href,
+                        });
+                      }
+
+                      const submitContactForm = async (e: React.FormEvent) => {
+                        e.preventDefault();
+                        if (contactSubmitting) return;
+                        setContactError(null);
+                        const name = contactForm.recruiterName.trim();
+                        const email = contactForm.recruiterEmail.trim();
+                        const role = contactForm.jobTitle.trim();
+                        if (!name || !email || !role) {
+                          setContactError("Name, email, and role are required.");
+                          return;
+                        }
+                        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+                          setContactError("Please enter a valid email address.");
+                          return;
+                        }
+                        setContactSubmitting(true);
+                        try {
+                          if (slug) {
+                            const linkedinUrl = contactForm.linkedinUrl.trim();
+                            const salaryMin = contactForm.salaryMin.trim();
+                            const salaryMax = contactForm.salaryMax.trim();
+                            const salaryMinNum = salaryMin ? Number(salaryMin.replace(/[^0-9.]/g, "")) : NaN;
+                            const salaryMaxNum = salaryMax ? Number(salaryMax.replace(/[^0-9.]/g, "")) : NaN;
+                            const res = await fetch(`/api/interactive-resumes/public/${slug}/contact`, {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({
+                                recruiterName: name,
+                                recruiterEmail: email,
+                                recruiterPhone: contactForm.recruiterPhone.trim() || undefined,
+                                company: contactForm.company.trim() || undefined,
+                                jobTitle: role,
+                                message: contactForm.message.trim() || undefined,
+                                linkedinUrl: linkedinUrl || undefined,
+                                location: contactForm.location.trim() || undefined,
+                                jobType: contactForm.jobType.trim() || undefined,
+                                salaryMin: Number.isFinite(salaryMinNum) ? salaryMinNum : undefined,
+                                salaryMax: Number.isFinite(salaryMaxNum) ? salaryMaxNum : undefined,
+                                jobDescription: contactForm.jobDescription.trim() || undefined,
+                                joinNetwork: contactForm.joinNetwork,
+                                // Recruit Mode metadata (only when a job site has been dropped & resolved)
+                                ...(jobSite && jobSite.miles != null ? {
+                                  jobLat: jobSite.lat,
+                                  jobLng: jobSite.lng,
+                                  commuteMiles: jobSite.miles,
+                                  commuteMinutes: jobSite.durationMin ?? undefined,
+                                  withinRange: recruitMeta?.maxCommuteMiles != null
+                                    ? jobSite.miles <= recruitMeta.maxCommuteMiles
+                                    : undefined,
+                                } : {}),
+                              }),
+                            });
+                            if (!res.ok) {
+                              const data = await res.json().catch(() => ({}));
+                              throw new Error(data?.error || "Submission failed");
+                            }
+                          }
+                          try {
+                            if (slug && typeof window !== "undefined") {
+                              sessionStorage.setItem(`ir-contact-unlocked-${slug}`, "1");
+                            }
+                          } catch { /* ignore */ }
+                          setContactUnlocked(true);
+                        } catch (err) {
+                          setContactError(err instanceof Error ? err.message : "Submission failed. Please try again.");
+                        } finally {
+                          setContactSubmitting(false);
+                        }
+                      };
+
+                      return createPortal(
                         <div
-                          ref={contactPopoverRef}
-                          role="dialog"
-                          aria-modal="false"
-                          aria-label="Contact options"
-                          className="absolute left-0 top-full mt-1.5 z-50 w-72 rounded-lg border bg-background shadow-xl p-1.5"
+                          className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+                          onClick={(e) => {
+                            if (e.target === e.currentTarget) setContactOpen(false);
+                          }}
                         >
-                          <div className="flex items-center justify-between px-1.5 py-1">
-                            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                              Contact {profile.fullName?.split(" ")[0] || ""}
+                          <div
+                            ref={contactPopoverRef}
+                            role="dialog"
+                            aria-modal="true"
+                            aria-label={contactUnlocked ? "Contact options" : "Introduce yourself"}
+                            className="w-full max-w-md max-h-[85vh] overflow-y-auto scrollbar-thin rounded-xl border bg-background shadow-2xl"
+                          >
+                            <div className="flex items-center justify-between px-4 py-3 border-b">
+                              <div className="min-w-0">
+                                <div className="text-sm font-semibold text-foreground truncate">
+                                  {contactUnlocked
+                                    ? `Contact ${profile.fullName?.split(" ")[0] || ""}`.trim()
+                                    : `Get in touch with ${profile.fullName?.split(" ")[0] || "the candidate"}`}
+                                </div>
+                                {!contactUnlocked && (
+                                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                                    {profile.contactCtaMessage?.trim()
+                                      ? profile.contactCtaMessage
+                                      : "Share a quick intro and we'll reveal contact options."}
+                                  </p>
+                                )}
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => setContactOpen(false)}
+                                className="text-muted-foreground hover:text-foreground shrink-0 ml-2"
+                                title="Close"
+                              >
+                                <X className="h-4 w-4" />
+                              </button>
+                            </div>
+
+                            {!contactUnlocked ? (
+                              <form onSubmit={submitContactForm} className="p-4 space-y-3">
+                                <div>
+                                  <label className="block text-[11px] font-medium text-muted-foreground mb-1">
+                                    Your name <span className="text-red-500">*</span>
+                                  </label>
+                                  <input
+                                    type="text"
+                                    required
+                                    autoFocus
+                                    value={contactForm.recruiterName}
+                                    onChange={(e) => setContactForm((f) => ({ ...f, recruiterName: e.target.value }))}
+                                    className="w-full rounded-md border bg-background px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                                    placeholder="Jane Doe"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-[11px] font-medium text-muted-foreground mb-1">
+                                    Email <span className="text-red-500">*</span>
+                                  </label>
+                                  <input
+                                    type="email"
+                                    required
+                                    value={contactForm.recruiterEmail}
+                                    onChange={(e) => setContactForm((f) => ({ ...f, recruiterEmail: e.target.value }))}
+                                    className="w-full rounded-md border bg-background px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                                    placeholder="jane@company.com"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-[11px] font-medium text-muted-foreground mb-1 flex items-center gap-1.5">
+                                    Phone
+                                    <span className="text-[10px] font-normal text-muted-foreground/80">— so {profile?.fullName?.split(" ")[0] || "they"} recognize{profile?.fullName ? "s" : ""} your call</span>
+                                  </label>
+                                  <input
+                                    type="tel"
+                                    value={contactForm.recruiterPhone}
+                                    onChange={(e) => setContactForm((f) => ({ ...f, recruiterPhone: e.target.value }))}
+                                    className="w-full rounded-md border bg-background px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                                    placeholder="+1 (555) 123-4567"
+                                    autoComplete="tel"
+                                  />
+                                  <p className="text-[10px] text-muted-foreground mt-1">
+                                    We&apos;ll add your details to {profile?.fullName?.split(" ")[0] || "their"} contacts so calls and texts come through with your name &amp; company.
+                                  </p>
+                                </div>
+                                <div>
+                                  <label className="block text-[11px] font-medium text-muted-foreground mb-1">
+                                    Company
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={contactForm.company}
+                                    onChange={(e) => setContactForm((f) => ({ ...f, company: e.target.value }))}
+                                    className="w-full rounded-md border bg-background px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                                    placeholder="Acme Corp"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-[11px] font-medium text-muted-foreground mb-1">
+                                    Role / job title <span className="text-red-500">*</span>
+                                  </label>
+                                  <input
+                                    type="text"
+                                    required
+                                    value={contactForm.jobTitle}
+                                    onChange={(e) => setContactForm((f) => ({ ...f, jobTitle: e.target.value }))}
+                                    className="w-full rounded-md border bg-background px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                                    placeholder="Senior Software Engineer"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-[11px] font-medium text-muted-foreground mb-1">
+                                    Message
+                                  </label>
+                                  <textarea
+                                    rows={3}
+                                    value={contactForm.message}
+                                    onChange={(e) => setContactForm((f) => ({ ...f, message: e.target.value }))}
+                                    className="w-full rounded-md border bg-background px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 resize-none"
+                                    placeholder="A short note about the opportunity..."
+                                  />
+                                </div>
+
+                                {/* Optional offer details */}
+                                <div className="border rounded-md">
+                                  <button
+                                    type="button"
+                                    onClick={() => setOfferDetailsOpen((v) => !v)}
+                                    aria-expanded={offerDetailsOpen}
+                                    className="w-full flex items-center justify-between px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-muted/40 rounded-md"
+                                  >
+                                    <span className="inline-flex items-center gap-1.5">
+                                      <Sparkles className="h-3.5 w-3.5 text-emerald-600" />
+                                      Add offer details (optional)
+                                    </span>
+                                    {offerDetailsOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                                  </button>
+                                  {offerDetailsOpen && (
+                                    <div className="p-2.5 pt-1 space-y-2.5 border-t">
+                                      <div>
+                                        <label className="block text-[11px] font-medium text-muted-foreground mb-1">
+                                          Your LinkedIn
+                                        </label>
+                                        <input
+                                          type="url"
+                                          value={contactForm.linkedinUrl}
+                                          onChange={(e) => setContactForm((f) => ({ ...f, linkedinUrl: e.target.value }))}
+                                          className="w-full rounded-md border bg-background px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                                          placeholder="https://linkedin.com/in/..."
+                                        />
+                                      </div>
+                                      <div className="grid grid-cols-2 gap-2">
+                                        <div>
+                                          <label className="block text-[11px] font-medium text-muted-foreground mb-1">
+                                            Location
+                                          </label>
+                                          <input
+                                            type="text"
+                                            value={contactForm.location}
+                                            onChange={(e) => setContactForm((f) => ({ ...f, location: e.target.value }))}
+                                            className="w-full rounded-md border bg-background px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                                            placeholder="Austin, TX"
+                                          />
+                                        </div>
+                                        <div>
+                                          <label className="block text-[11px] font-medium text-muted-foreground mb-1">
+                                            Work mode
+                                          </label>
+                                          <select
+                                            value={contactForm.jobType}
+                                            onChange={(e) => setContactForm((f) => ({ ...f, jobType: e.target.value }))}
+                                            className="w-full rounded-md border bg-background px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                                          >
+                                            <option value="">Select…</option>
+                                            <option value="remote">Remote</option>
+                                            <option value="hybrid">Hybrid</option>
+                                            <option value="on-site">On-site</option>
+                                          </select>
+                                        </div>
+                                      </div>
+                                      <div>
+                                        <label className="block text-[11px] font-medium text-muted-foreground mb-1">
+                                          Salary range (USD/yr)
+                                        </label>
+                                        <div className="grid grid-cols-2 gap-2">
+                                          <input
+                                            type="text"
+                                            inputMode="numeric"
+                                            value={contactForm.salaryMin}
+                                            onChange={(e) => setContactForm((f) => ({ ...f, salaryMin: e.target.value }))}
+                                            className="w-full rounded-md border bg-background px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                                            placeholder="Min  e.g. 150000"
+                                          />
+                                          <input
+                                            type="text"
+                                            inputMode="numeric"
+                                            value={contactForm.salaryMax}
+                                            onChange={(e) => setContactForm((f) => ({ ...f, salaryMax: e.target.value }))}
+                                            className="w-full rounded-md border bg-background px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                                            placeholder="Max  e.g. 200000"
+                                          />
+                                        </div>
+                                      </div>
+                                      <div>
+                                        <label className="block text-[11px] font-medium text-muted-foreground mb-1">
+                                          Job description / link
+                                        </label>
+                                        <textarea
+                                          rows={3}
+                                          value={contactForm.jobDescription}
+                                          onChange={(e) => setContactForm((f) => ({ ...f, jobDescription: e.target.value }))}
+                                          className="w-full rounded-md border bg-background px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 resize-none"
+                                          placeholder="Paste a JD link or key highlights, perks, talking points..."
+                                        />
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {contactError && (
+                                  <p className="text-xs text-red-600 dark:text-red-400">{contactError}</p>
+                                )}
+                                <label className="flex items-start gap-2 rounded-md border bg-violet-500/5 border-violet-500/30 px-2.5 py-2 cursor-pointer hover:bg-violet-500/10 transition-colors">
+                                  <input
+                                    type="checkbox"
+                                    checked={contactForm.joinNetwork}
+                                    onChange={(e) => setContactForm((f) => ({ ...f, joinNetwork: e.target.checked }))}
+                                    className="mt-0.5 h-3.5 w-3.5 rounded border-violet-400 text-violet-600 focus:ring-violet-500"
+                                  />
+                                  <span className="text-[11px] leading-snug text-foreground">
+                                    <span className="font-medium">Join {profile.fullName?.split(" ")[0] || "the candidate"}&apos;s network.</span>{" "}
+                                    <span className="text-muted-foreground">Stay connected for future opportunities even if this role isn&apos;t a fit.</span>
+                                  </span>
+                                </label>
+                                <div className="flex items-center justify-end gap-2 pt-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => setContactOpen(false)}
+                                    className="px-3 py-1.5 rounded-md text-xs font-medium text-muted-foreground hover:bg-muted/40"
+                                  >
+                                    Cancel
+                                  </button>
+                                  <button
+                                    type="submit"
+                                    disabled={contactSubmitting}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 disabled:opacity-50"
+                                  >
+                                    {contactSubmitting ? "Sending…" : "Reveal contact info"}
+                                  </button>
+                                </div>
+                              </form>
+                            ) : (
+                              <ul className="p-2 space-y-0.5">
+                                {rows.map((r) => {
+                                  const isCalSchedule = r.key === "schedule" && !!calLink;
+                                  const Inner = (
+                                    <>
+                                      <r.Icon className="h-4 w-4 text-muted-foreground shrink-0" />
+                                      <div className="min-w-0">
+                                        <div className="text-[10px] uppercase tracking-wider text-muted-foreground leading-none">{r.label}</div>
+                                        <div className="text-xs text-foreground truncate">{r.value}</div>
+                                      </div>
+                                    </>
+                                  );
+                                  return (
+                                  <li key={r.key} className="group flex items-center gap-2 rounded-md hover:bg-muted/40 transition-colors">
+                                    {isCalSchedule ? (
+                                      <button
+                                        type="button"
+                                        data-cal-namespace="resumsify"
+                                        data-cal-link={calLink!}
+                                        data-cal-config='{"layout":"month_view"}'
+                                        onClick={() => analytics.track("contact_method_click", { method: r.key })}
+                                        className="flex-1 min-w-0 flex items-center gap-2 px-2 py-2 text-left"
+                                      >
+                                        {Inner}
+                                      </button>
+                                    ) : (
+                                    <a
+                                      href={r.href}
+                                      target={r.external ? "_blank" : undefined}
+                                      rel={r.external ? "noopener noreferrer" : undefined}
+                                      onClick={() => analytics.track("contact_method_click", { method: r.key })}
+                                      className="flex-1 min-w-0 flex items-center gap-2 px-2 py-2"
+                                    >
+                                      {Inner}
+                                    </a>
+                                    )}
+                                    {r.copyValue && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          copyToClipboard(r.key, r.copyValue!);
+                                        }}
+                                        className="px-2 py-2 text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+                                        title={`Copy ${r.label.toLowerCase()}`}
+                                      >
+                                        {copiedKey === r.key ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+                                      </button>
+                                    )}
+                                  </li>
+                                  );
+                                })}
+                              </ul>
+                            )}
+                          </div>
+                        </div>,
+                        document.body
+                      );
+                    })()}
+                    {aboutOpen && summary && typeof window !== "undefined" && createPortal(
+                      <div
+                        className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+                        onClick={(e) => {
+                          if (e.target === e.currentTarget) setAboutOpen(false);
+                        }}
+                      >
+                        <div
+                          ref={aboutPopoverRef}
+                          role="dialog"
+                          aria-modal="true"
+                          aria-label="Get to know me"
+                          className="w-full max-w-md max-h-[85vh] overflow-y-auto scrollbar-thin rounded-xl border bg-background shadow-2xl p-4 space-y-3"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-semibold uppercase tracking-wider text-violet-700 dark:text-violet-300 inline-flex items-center gap-1.5">
+                              <UserIcon className="h-3.5 w-3.5" />
+                              Get to know {profile.fullName?.split(" ")[0] || "me"}
                             </span>
                             <button
                               type="button"
-                              onClick={() => setContactOpen(false)}
+                              onClick={() => setAboutOpen(false)}
                               className="text-muted-foreground hover:text-foreground"
                               title="Close"
                             >
-                              <X className="h-3.5 w-3.5" />
+                              <X className="h-4 w-4" />
                             </button>
                           </div>
-                          <ul className="space-y-0.5">
-                            {rows.map((r) => (
-                              <li key={r.key} className="group flex items-center gap-2 rounded-md hover:bg-muted/40 transition-colors">
-                                <a
-                                  href={r.href}
-                                  target={r.external ? "_blank" : undefined}
-                                  rel={r.external ? "noopener noreferrer" : undefined}
-                                  onClick={() => analytics.track("contact_method_click", { method: r.key })}
-                                  className="flex-1 min-w-0 flex items-center gap-2 px-2 py-1.5"
-                                >
-                                  <r.Icon className="h-4 w-4 text-muted-foreground shrink-0" />
-                                  <div className="min-w-0">
-                                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground leading-none">{r.label}</div>
-                                    <div className="text-xs text-foreground truncate">{r.value}</div>
-                                  </div>
-                                </a>
-                                {r.copyValue && (
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      copyToClipboard(r.key, r.copyValue!);
-                                    }}
-                                    className="px-2 py-1.5 text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity"
-                                    title={`Copy ${r.label.toLowerCase()}`}
-                                  >
-                                    {copiedKey === r.key ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
-                                  </button>
-                                )}
-                              </li>
-                            ))}
-                          </ul>
+                          {profile?.headline && (
+                            <p className="text-sm font-medium text-primary leading-snug">
+                              {profile.headline}
+                            </p>
+                          )}
+                          <p className="text-sm text-gray-700 dark:text-gray-200 leading-relaxed whitespace-pre-line">
+                            {summary}
+                          </p>
                         </div>
-                      );
-                    })()}
+                      </div>,
+                      document.body
+                    )}
                   </div>
                 )}
               </div>
@@ -996,119 +2662,6 @@ export default function ResumeImmersiveMap({ items, profile, skills = [], certif
               <p className="mt-2 text-sm font-medium text-primary leading-snug">
                 {profile.headline}
               </p>
-            )}
-
-            {/* Compensation expectations — candidate-set, helps recruiters self-filter */}
-            {compensation && (compensation.salaryMin != null || compensation.salaryMax != null || compensation.salaryTarget != null || compensation.employmentTypes.length > 0 || compensation.remotePreference !== "any") && (
-              <div className="mt-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCompExpanded((v) => {
-                      if (!v) analytics.track("comp_view");
-                      return !v;
-                    });
-                  }}
-                  aria-expanded={compExpanded}
-                  className="w-full flex items-center justify-between gap-2 text-left rounded-md border border-emerald-200 dark:border-emerald-900/60 bg-emerald-50/70 dark:bg-emerald-900/20 px-2 py-1.5 hover:bg-emerald-100/70 dark:hover:bg-emerald-900/30 transition-colors"
-                >
-                  <span className="flex items-center gap-1.5 min-w-0">
-                    <DollarSign className="h-3.5 w-3.5 text-emerald-700 dark:text-emerald-300 shrink-0" />
-                    <span className="text-xs font-semibold text-emerald-900 dark:text-emerald-100 truncate">
-                      {formatCompChip(compensation)}
-                    </span>
-                    {(() => {
-                      const flex = compFlexLabel(compensation);
-                      return flex ? (
-                        <span className={`shrink-0 inline-flex items-center rounded-full border px-1.5 py-0.5 text-[9px] font-semibold ${flex.cls}`}>
-                          {flex.label}
-                        </span>
-                      ) : null;
-                    })()}
-                  </span>
-                  {compExpanded ? <ChevronUp className="h-3.5 w-3.5 text-emerald-700 dark:text-emerald-300 shrink-0" /> : <ChevronDown className="h-3.5 w-3.5 text-emerald-700 dark:text-emerald-300 shrink-0" />}
-                </button>
-                {compExpanded && (
-                  <div className="mt-1.5 px-2 py-1.5 rounded-md border border-emerald-200/70 dark:border-emerald-900/40 bg-emerald-50/40 dark:bg-emerald-900/10 text-xs text-emerald-950 dark:text-emerald-50 space-y-1.5">
-                    {(compensation.employmentTypes.length > 0 || compensation.remotePreference !== "any") && (
-                      <div className="flex items-center gap-1 flex-wrap">
-                        {compensation.employmentTypes.map((t) => (
-                          <span key={t} className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-[10px] font-medium">
-                            {employmentLabel(t)}
-                          </span>
-                        ))}
-                        {compensation.remotePreference !== "any" && (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-[10px] font-medium capitalize">
-                            {compensation.remotePreference}
-                          </span>
-                        )}
-                      </div>
-                    )}
-                    {(compensation.openToRelocation || compensation.openToEquity || compensation.openToSignOn || compensation.openToBonus) && (
-                      <div className="text-[11px] text-emerald-800 dark:text-emerald-200">
-                        Open to:{" "}
-                        {[
-                          compensation.openToBonus && "bonus",
-                          compensation.openToEquity && "equity",
-                          compensation.openToSignOn && "sign-on",
-                          compensation.openToRelocation && "relocation",
-                        ].filter(Boolean).join(", ")}
-                      </div>
-                    )}
-                    {compensation.benefitsMustHaves.length > 0 && (
-                      <div className="text-[11px] text-emerald-800 dark:text-emerald-200">
-                        Must-haves: {compensation.benefitsMustHaves.map(benefitLabel).join(", ")}
-                      </div>
-                    )}
-                    {compensation.notes && (
-                      <p className="text-[11px] text-emerald-800 dark:text-emerald-200 whitespace-pre-line">{compensation.notes}</p>
-                    )}
-                    {compensation.hasHardFloor && (
-                      <p className="text-[10px] text-emerald-700 dark:text-emerald-300 italic">
-                        Candidate has set a private minimum floor.
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Bio summary — collapsed by default */}
-            {summary && (
-              <div className="mt-2">
-                <button
-                  type="button"
-                  onClick={() => setBioExpanded((v) => !v)}
-                  aria-expanded={bioExpanded}
-                  className="w-full flex items-center justify-between text-xs text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <span className="flex items-center gap-1.5 font-semibold uppercase tracking-wider text-[10px]">
-                    <UserIcon className="h-3.5 w-3.5 text-primary" />
-                    Bio
-                  </span>
-                  {bioExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                </button>
-                {bioExpanded && (
-                  <>
-                    <p
-                      className={`mt-2 text-sm text-gray-700 dark:text-gray-200 leading-relaxed whitespace-pre-line ${
-                        summaryExpanded ? "" : "line-clamp-6"
-                      }`}
-                    >
-                      {summary}
-                    </p>
-                    {summary.length > 220 && (
-                      <button
-                        type="button"
-                        onClick={() => setSummaryExpanded((v) => !v)}
-                        className="mt-1 text-[11px] font-medium text-primary hover:underline"
-                      >
-                        {summaryExpanded ? "Show less" : "Read more"}
-                      </button>
-                    )}
-                  </>
-                )}
-              </div>
             )}
 
             {/* Education */}
@@ -1215,7 +2768,7 @@ export default function ResumeImmersiveMap({ items, profile, skills = [], certif
             )}
           </div>
 
-          {/* Work history panel — replaced by focus card when a job is selected */}
+          {/* Work history panel — replaced by focus card when a job is selected, or by Recruiter Brief in Recruit Mode */}
           {focused ? (
             <FocusCard
               item={focused}
@@ -1224,17 +2777,33 @@ export default function ResumeImmersiveMap({ items, profile, skills = [], certif
               onNavigate={(id) => setFocusedId(id)}
               analytics={analytics}
             />
+          ) : recruitMode ? (
+            <RecruiterBriefPanel
+              items={items}
+              skills={skills}
+              certifications={certifications}
+              compensation={compensation}
+              kpis={kpis}
+              jobSite={jobSite}
+              maxCommuteMiles={recruitMeta?.maxCommuteMiles ?? null}
+              onCollapse={() => setPanelCollapsed(true)}
+              onSelectRole={(id) => setFocusedId(id)}
+            />
           ) : (
             <WorkHistoryViewerPanel
               items={visibleItems.filter((i) => (i.type || "").toLowerCase() !== "school")}
               kpis={kpis}
               focusedId={focusedId}
               onSelect={(id) => setFocusedId((cur) => (cur === id ? null : id))}
-              onCollapse={() => setPanelCollapsed(true)}
+              onHover={prefetchFootprint}
+              onCollapse={() => { setPanelCollapsed(true); setToolsOpen(false); }}
               availableTypes={availableTypes}
               isTypeOn={isTypeOn}
               toggleType={toggleType}
               metaFor={metaFor}
+              inventory={inventory}
+              toolsOpen={toolsOpen}
+              onToggleTools={() => setToolsOpen((v) => !v)}
             />
           )}
         </div>
@@ -1247,6 +2816,37 @@ export default function ResumeImmersiveMap({ items, profile, skills = [], certif
         >
           <ChevronRight className="h-5 w-5" />
         </button>
+      )}
+
+      {/* Tools & Inventory pop-out panel — slides out to the right of the work history panel */}
+      {!panelCollapsed && toolsOpen && inventory.length > 0 && (
+        <div
+          className="absolute top-3 left-[27rem] z-20 w-[26rem] max-w-[calc(100vw-27.5rem)] pointer-events-none animate-in slide-in-from-left-4 fade-in duration-200"
+        >
+          <div className="bg-background/95 backdrop-blur-md border rounded-xl shadow-xl p-3 max-h-[calc(75vh-110px)] overflow-y-auto scrollbar-thin pointer-events-auto">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-base font-semibold flex items-center gap-1.5">
+                <Wrench className="h-4 w-4 text-cyan-500" />
+                My Tools &amp; Inventory
+                <span className="text-xs text-muted-foreground tabular-nums">({inventory.length})</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => setToolsOpen(false)}
+                className="text-muted-foreground hover:text-foreground transition-colors"
+                title="Close"
+                aria-label="Close tools panel"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <ToolsInventoryPanel inventory={inventory} onSelect={(it) => setViewingTool(it)} />
+          </div>
+        </div>
+      )}
+
+      {viewingTool && (
+        <ToolDetailModal item={viewingTool} onClose={() => setViewingTool(null)} />
       )}
 
       {/* Sections drawer */}
@@ -1448,6 +3048,12 @@ function ImmersiveMapView({
   yearRange,
   playing = false,
   showJourneyLine = true,
+  recruitMode = false,
+  recruitHome = null,
+  recruitRadiusMiles = null,
+  jobSite = null,
+  onJobSitePicked,
+  onJobSiteResult,
 }: {
   items: (ImmersiveWorkItem & { lat: number; lng: number })[];
   focusedId: string | null;
@@ -1456,6 +3062,12 @@ function ImmersiveMapView({
   yearRange?: [number, number] | null;
   playing?: boolean;
   showJourneyLine?: boolean;
+  recruitMode?: boolean;
+  recruitHome?: { lat: number; lng: number } | null;
+  recruitRadiusMiles?: number | null;
+  jobSite?: { lat: number; lng: number } | null;
+  onJobSitePicked?: (p: { address: string; lat: number; lng: number }) => void;
+  onJobSiteResult?: (r: { miles: number | null; durationMin: number | null; error?: string }) => void;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const tooltipRef = useRef<HTMLDivElement | null>(null);
@@ -1464,8 +3076,16 @@ function ImmersiveMapView({
   const markerById = useRef<Map<string, { marker: google.maps.marker.AdvancedMarkerElement; el: HTMLElement }>>(new Map());
   const clustererRef = useRef<MarkerClusterer | null>(null);
   const journeyPolylineRef = useRef<google.maps.Polyline | null>(null);
+  const radiusCircleRef = useRef<google.maps.Circle | null>(null);
+  const jobSiteMarkerRef = useRef<google.maps.marker.AdvancedMarkerElement | null>(null);
+  const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
+  const focusedFootprintRef = useRef<google.maps.Polygon[]>([]);
   const onFocusRef = useRef(onFocus);
   useEffect(() => { onFocusRef.current = onFocus; }, [onFocus]);
+  const onJobSitePickedRef = useRef(onJobSitePicked);
+  const onJobSiteResultRef = useRef(onJobSiteResult);
+  useEffect(() => { onJobSitePickedRef.current = onJobSitePicked; }, [onJobSitePicked]);
+  useEffect(() => { onJobSiteResultRef.current = onJobSiteResult; }, [onJobSiteResult]);
   const [ready, setReady] = useState(false);
 
   // Init map
@@ -1821,7 +3441,7 @@ function ImmersiveMapView({
       if (target) {
         mapRef.current.panTo({ lat: target.lat, lng: target.lng });
         const z = mapRef.current.getZoom() ?? 10;
-        if (z < 14) mapRef.current.setZoom(15);
+        if (z < 17) mapRef.current.setZoom(17);
       }
     } else {
       // Restore overview view when focus is cleared
@@ -1835,6 +3455,239 @@ function ImmersiveMapView({
       }
     }
   }, [focusedId, items]);
+
+  // ── Focus mode: outline the focused job's building via OSM footprint ──
+  // Outlines are only drawn when zoom >= 16 (OUTLINE_MIN_ZOOM); a zoom_changed
+  // listener toggles their map handle so they fade in/out as the user zooms.
+  const OUTLINE_MIN_ZOOM = 16;
+  useEffect(() => {
+    // Always tear down previous polygons first
+    focusedFootprintRef.current.forEach((p) => p.setMap(null));
+    focusedFootprintRef.current = [];
+    if (!ready || !mapRef.current || !focusedId) return;
+    const target = items.find((i) => i.id === focusedId);
+    if (!target || target.lat == null || target.lng == null) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/building-footprints", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            coordinates: [
+              {
+                id: target.id,
+                lat: target.lat,
+                lng: target.lng,
+                wayId: target.osmWayId ?? null,
+              },
+            ],
+            radiusM: 150,
+          }),
+        });
+        if (!res.ok) return;
+        if (cancelled || !mapRef.current) return;
+        const data: { footprints?: { id: string; wayId: number | null; polygons: { lat: number; lng: number }[][] }[] } =
+          await res.json();
+        // Bail if focus changed during the fetch
+        if (cancelled || focusedId !== target.id) return;
+        const entry = data.footprints?.find((f) => f.id === target.id);
+        const polygons = entry?.polygons ?? [];
+        if (polygons.length === 0) return;
+        const color = recencyRingColor(target.endDate) || "#10b981";
+        const map = mapRef.current;
+        const zoom = map.getZoom() ?? 0;
+        const visible = zoom >= OUTLINE_MIN_ZOOM;
+        polygons.forEach((ring, idx) => {
+          if (ring.length < 3) return;
+          const isPrimary = idx === 0;
+          const poly = new google.maps.Polygon({
+            paths: ring,
+            map: visible ? map : null,
+            strokeColor: color,
+            strokeOpacity: isPrimary ? 1 : 0.7,
+            strokeWeight: isPrimary ? 3 : 2,
+            fillColor: color,
+            fillOpacity: isPrimary ? 0.25 : 0.12,
+            clickable: false,
+            zIndex: isPrimary ? 9999 : 9998,
+          });
+          focusedFootprintRef.current.push(poly);
+        });
+      } catch {
+        // Silent — outline is a nice-to-have, not critical
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [ready, focusedId, items]);
+
+  // Toggle building-outline polygons on/off when zoom crosses OUTLINE_MIN_ZOOM.
+  useEffect(() => {
+    if (!ready || !mapRef.current) return;
+    const map = mapRef.current;
+    const apply = () => {
+      const zoom = map.getZoom() ?? 0;
+      const visible = zoom >= OUTLINE_MIN_ZOOM;
+      focusedFootprintRef.current.forEach((p) => {
+        const onMap = p.getMap() != null;
+        if (visible && !onMap) p.setMap(map);
+        else if (!visible && onMap) p.setMap(null);
+      });
+    };
+    const listener = map.addListener("zoom_changed", apply);
+    return () => listener.remove();
+  }, [ready]);
+
+  // ── Recruit Mode: radius circle around home ──
+  useEffect(() => {
+    if (!ready || !mapRef.current) return;
+    // Always tear down any existing circle from a prior run first
+    if (radiusCircleRef.current) {
+      radiusCircleRef.current.setMap(null);
+      radiusCircleRef.current = null;
+    }
+    if (!recruitMode || !recruitHome || !recruitRadiusMiles || recruitRadiusMiles <= 0) {
+      // Nothing to draw — return a no-op cleanup so React always has one
+      return () => {};
+    }
+    const metersPerMile = 1609.344;
+    const circle = new google.maps.Circle({
+      map: mapRef.current,
+      center: recruitHome,
+      radius: recruitRadiusMiles * metersPerMile,
+      strokeColor: "#10b981",
+      strokeOpacity: 0.8,
+      strokeWeight: 2,
+      fillColor: "#10b981",
+      fillOpacity: 0.08,
+      clickable: false,
+    });
+    radiusCircleRef.current = circle;
+    // Fit map to the circle bounds for context
+    const bounds = circle.getBounds();
+    if (bounds) mapRef.current.fitBounds(bounds, 60);
+    return () => {
+      circle.setMap(null);
+      if (radiusCircleRef.current === circle) radiusCircleRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, recruitMode, recruitHome?.lat, recruitHome?.lng, recruitRadiusMiles]);
+
+  // ── Recruit Mode: dim work-history pins to keep focus on radius/job-site ──
+  useEffect(() => {
+    markerById.current.forEach(({ el }) => {
+      const circle = el.firstElementChild as HTMLElement | null;
+      if (circle) circle.style.opacity = recruitMode ? "0.35" : "0.92";
+    });
+  }, [recruitMode, ready, items]);
+
+  // ── Recruit Mode: attach Places Autocomplete to the input in the parent banner ──
+  useEffect(() => {
+    if (!ready || !recruitMode) return;
+    let cancelled = false;
+    let listener: google.maps.MapsEventListener | null = null;
+    (async () => {
+      try {
+        await importLibrary("places");
+        if (cancelled) return;
+        const input = document.getElementById("ir-recruit-jobsite-input") as HTMLInputElement | null;
+        if (!input) return;
+        autocompleteRef.current = new google.maps.places.Autocomplete(input, {
+          fields: ["formatted_address", "geometry", "name"],
+          types: ["geocode", "establishment"],
+        });
+        listener = autocompleteRef.current.addListener("place_changed", () => {
+          const place = autocompleteRef.current?.getPlace();
+          const loc = place?.geometry?.location;
+          if (!loc) return;
+          const lat = loc.lat();
+          const lng = loc.lng();
+          const address = place?.formatted_address || place?.name || `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+          onJobSitePickedRef.current?.({ address, lat, lng });
+        });
+      } catch (e) {
+        console.warn("Failed to init Places autocomplete", e);
+      }
+    })();
+    return () => {
+      cancelled = true;
+      if (listener) listener.remove();
+      if (autocompleteRef.current) {
+        google.maps.event.clearInstanceListeners(autocompleteRef.current);
+        autocompleteRef.current = null;
+      }
+    };
+  }, [ready, recruitMode]);
+
+  // ── Recruit Mode: drop job-site marker + Distance Matrix lookup ──
+  useEffect(() => {
+    if (!ready || !mapRef.current) return;
+    if (jobSiteMarkerRef.current) {
+      jobSiteMarkerRef.current.map = null;
+      jobSiteMarkerRef.current = null;
+    }
+    if (!recruitMode || !jobSite) return;
+    const el = document.createElement("div");
+    el.style.cssText = "display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:50%;background:#0ea5e9;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.4);font-size:16px;line-height:1;";
+    el.textContent = "📍";
+    jobSiteMarkerRef.current = new google.maps.marker.AdvancedMarkerElement({
+      position: jobSite,
+      map: mapRef.current,
+      content: el,
+      zIndex: 9999,
+    });
+    // Pan to fit both home + job site if home present
+    if (recruitHome) {
+      const b = new google.maps.LatLngBounds();
+      b.extend(recruitHome);
+      b.extend(jobSite);
+      mapRef.current.fitBounds(b, 100);
+    } else {
+      mapRef.current.panTo(jobSite);
+    }
+
+    // Distance Matrix lookup
+    if (recruitHome) {
+      let cancelled = false;
+      (async () => {
+        try {
+          await importLibrary("routes");
+          if (cancelled) return;
+          const svc = new google.maps.DistanceMatrixService();
+          svc.getDistanceMatrix({
+            origins: [recruitHome],
+            destinations: [jobSite],
+            travelMode: google.maps.TravelMode.DRIVING,
+            unitSystem: google.maps.UnitSystem.IMPERIAL,
+          }, (res, status) => {
+            if (cancelled) return;
+            if (status !== "OK" || !res) {
+              onJobSiteResultRef.current?.({ miles: null, durationMin: null, error: "Could not calculate distance" });
+              return;
+            }
+            const elem = res.rows?.[0]?.elements?.[0];
+            if (!elem || elem.status !== "OK") {
+              onJobSiteResultRef.current?.({ miles: null, durationMin: null, error: "No route found" });
+              return;
+            }
+            const meters = elem.distance?.value ?? 0;
+            const seconds = elem.duration?.value ?? 0;
+            onJobSiteResultRef.current?.({
+              miles: meters / 1609.344,
+              durationMin: Math.round(seconds / 60),
+            });
+          });
+        } catch {
+          if (!cancelled) onJobSiteResultRef.current?.({ miles: null, durationMin: null, error: "Distance service unavailable" });
+        }
+      })();
+      return () => { cancelled = true; };
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, recruitMode, jobSite?.lat, jobSite?.lng, recruitHome?.lat, recruitHome?.lng]);
 
   function showTooltip(html: string, anchorEl: HTMLElement) {
     const tooltip = tooltipRef.current;
@@ -1954,21 +3807,311 @@ function MapStyleButton({
   );
 }
 
+/* ── Recruiter Brief panel (replaces work history when in Recruit Mode) ─ */
+
+// Fire a global event so the floating RecruiterPanel can append this to the note.
+function pinToNotes(label: string, kind?: string) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent("recruiter:add-talking-point", { detail: { label, kind } }));
+}
+
+function RecruiterBriefPanel({
+  items, skills, certifications, compensation, kpis, jobSite, maxCommuteMiles, onCollapse, onSelectRole,
+}: {
+  items: ImmersiveWorkItem[];
+  skills: ImmersiveSkill[];
+  certifications: ImmersiveCert[];
+  compensation: ImmersiveCompensation | null;
+  kpis: { tenure: string; roles: number; miles: number; cities: number };
+  jobSite: { address: string; lat: number; lng: number; miles: number | null; durationMin: number | null; loading: boolean; error: string | null } | null;
+  maxCommuteMiles: number | null;
+  onCollapse: () => void;
+  onSelectRole: (id: string) => void;
+}) {
+  // Aggregate industries
+  const industries = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const i of items) {
+      const v = (i.industry || "").trim();
+      if (v) counts.set(v, (counts.get(v) || 0) + 1);
+    }
+    return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
+  }, [items]);
+
+  // Aggregate tools/tech from techStack + skillsUsed
+  const tools = useMemo(() => {
+    const counts = new Map<string, number>();
+    const split = (s: string | null | undefined) =>
+      (s || "").split(/[,;|\n]+/).map((x) => x.trim()).filter(Boolean);
+    for (const i of items) {
+      for (const t of split(i.techStack)) counts.set(t, (counts.get(t) || 0) + 1);
+      for (const t of split(i.skillsUsed)) counts.set(t, (counts.get(t) || 0) + 1);
+    }
+    return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12);
+  }, [items]);
+
+  // Top skills (by proficiency rank)
+  const topSkills = useMemo(() => {
+    const rank: Record<string, number> = { expert: 4, advanced: 3, intermediate: 2, beginner: 1 };
+    return [...skills].sort((a, b) => (rank[b.proficiency] || 0) - (rank[a.proficiency] || 0)).slice(0, 10);
+  }, [skills]);
+
+  // Work mode breakdown
+  const workModes = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const i of items) {
+      const m = (i.workMode || "").trim().toLowerCase();
+      if (m) counts.set(m, (counts.get(m) || 0) + 1);
+    }
+    return [...counts.entries()].sort((a, b) => b[1] - a[1]);
+  }, [items]);
+
+  // Active roles in commute range when a job site is set
+  const inRangeRoles = useMemo(() => {
+    if (!jobSite || jobSite.miles == null || maxCommuteMiles == null) return null;
+    return items.filter((i) => i.lat != null && i.lng != null).slice(0, 8);
+  }, [items, jobSite, maxCommuteMiles]);
+
+  const within = jobSite && jobSite.miles != null && maxCommuteMiles != null
+    ? jobSite.miles <= maxCommuteMiles
+    : null;
+
+  return (
+    <div className="bg-background/95 backdrop-blur-md border rounded-xl shadow-xl p-3 w-full max-h-[calc(75vh-110px)] overflow-y-auto scrollbar-thin pointer-events-auto">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-base font-semibold flex items-center gap-1.5">
+          <Sparkles className="h-4 w-4 text-emerald-600" /> Recruiter Brief
+        </span>
+        <button
+          type="button"
+          onClick={onCollapse}
+          className="text-muted-foreground hover:text-foreground"
+          title="Collapse"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+      </div>
+      <div className="mb-2 text-[10px] text-muted-foreground inline-flex items-center gap-1">
+        <StickyNote className="h-3 w-3 text-amber-500" />
+        Tip: click any chip below to pin it as a talking point in your notes.
+      </div>
+
+      {/* Commute verdict */}
+      {jobSite && (
+        <div className={`mb-2 rounded-md px-2.5 py-1.5 text-[11px] border ${
+          within === true ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-900 dark:text-emerald-100" :
+          within === false ? "bg-red-500/10 border-red-500/40 text-red-900 dark:text-red-100" :
+          "bg-muted border-border text-muted-foreground"
+        }`}>
+          {jobSite.loading ? "Calculating commute…" :
+           jobSite.error ? jobSite.error :
+           within === true ? `✓ Commute fits (${jobSite.miles?.toFixed(1)} mi · ~${jobSite.durationMin} min)` :
+           within === false ? `✗ Outside commute range (${jobSite.miles?.toFixed(1)} mi vs ${maxCommuteMiles} mi cap) — consider remote/hybrid` :
+           "Drop a job site to check commute"}
+        </div>
+      )}
+
+      {/* Quick KPIs */}
+      <div className="grid grid-cols-3 gap-1.5 mb-2">
+        <div className="rounded-md border bg-muted/30 px-2 py-1.5">
+          <div className="text-[9px] uppercase tracking-wider text-muted-foreground">Tenure</div>
+          <div className="text-sm font-semibold">{kpis.tenure || "—"}</div>
+        </div>
+        <div className="rounded-md border bg-muted/30 px-2 py-1.5">
+          <div className="text-[9px] uppercase tracking-wider text-muted-foreground">Roles</div>
+          <div className="text-sm font-semibold">{kpis.roles}</div>
+        </div>
+        <div className="rounded-md border bg-muted/30 px-2 py-1.5">
+          <div className="text-[9px] uppercase tracking-wider text-muted-foreground">Cities</div>
+          <div className="text-sm font-semibold">{kpis.cities}</div>
+        </div>
+      </div>
+
+      {/* Compensation */}
+      {compensation && (compensation.salaryMin != null || compensation.salaryMax != null || compensation.salaryTarget != null || compensation.employmentTypes.length > 0) && (
+        <BriefSection icon={<DollarSign className="h-3 w-3" />} label="Pay Expectations">
+          <div className="text-[11px] text-foreground">{formatCompChip(compensation)}</div>
+          {compensation.hasHardFloor && compensation.salaryMin != null && (
+            <div className="text-[10px] text-amber-700 dark:text-amber-300 mt-0.5">
+              Hard floor at {fmtCompAmount(compensation.salaryMin, compensation.period, compensation.currency)}
+            </div>
+          )}
+          {compensation.benefitsMustHaves.length > 0 && (
+            <div className="mt-1 flex flex-wrap gap-1">
+              {compensation.benefitsMustHaves.map((b) => (
+                <span key={b} className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
+                  {benefitLabel(b)}
+                </span>
+              ))}
+            </div>
+          )}
+        </BriefSection>
+      )}
+
+      {/* Industries */}
+      {industries.length > 0 && (
+        <BriefSection icon={<Building2 className="h-3 w-3" />} label="Industries">
+          <div className="flex flex-wrap gap-1">
+            {industries.map(([name, n]) => (
+              <button
+                key={name}
+                type="button"
+                onClick={() => pinToNotes(name, "Industry")}
+                title="Click to add to recruiter notes"
+                className="text-[10px] px-1.5 py-0.5 rounded-full bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-500/30 hover:ring-2 hover:ring-amber-400/60 transition"
+              >
+                {name}{n > 1 ? ` ×${n}` : ""}
+              </button>
+            ))}
+          </div>
+        </BriefSection>
+      )}
+
+      {/* Tools / Tech */}
+      {tools.length > 0 && (
+        <BriefSection icon={<Wrench className="h-3 w-3" />} label="Tools & Tech">
+          <div className="flex flex-wrap gap-1">
+            {tools.map(([name, n]) => (
+              <button
+                key={name}
+                type="button"
+                onClick={() => pinToNotes(name, "Tool")}
+                title="Click to add to recruiter notes"
+                className="text-[10px] px-1.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30 hover:ring-2 hover:ring-amber-400/60 transition"
+              >
+                {name}{n > 1 ? ` ×${n}` : ""}
+              </button>
+            ))}
+          </div>
+        </BriefSection>
+      )}
+
+      {/* Skills */}
+      {topSkills.length > 0 && (
+        <BriefSection icon={<Brain className="h-3 w-3" />} label="Top Skills">
+          <div className="flex flex-wrap gap-1">
+            {topSkills.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => pinToNotes(`${s.name} (${s.proficiency})`, "Skill")}
+                title="Click to add to recruiter notes"
+                className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/10 text-violet-700 dark:text-violet-300 border border-violet-500/30 hover:ring-2 hover:ring-amber-400/60 transition"
+              >
+                {s.name}
+                <span className="opacity-60"> · {s.proficiency}</span>
+              </button>
+            ))}
+          </div>
+        </BriefSection>
+      )}
+
+      {/* Work mode mix */}
+      {workModes.length > 0 && (
+        <BriefSection icon={<Navigation className="h-3 w-3" />} label="Work Mode History">
+          <div className="flex flex-wrap gap-1">
+            {workModes.map(([m, n]) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => pinToNotes(`${m} ×${n}`, "Work mode")}
+                title="Click to add to recruiter notes"
+                className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/30 capitalize hover:ring-2 hover:ring-amber-400/60 transition"
+              >
+                {m} ×{n}
+              </button>
+            ))}
+          </div>
+        </BriefSection>
+      )}
+
+      {/* Certifications */}
+      {certifications.length > 0 && (
+        <BriefSection icon={<Award className="h-3 w-3" />} label={`Certifications (${certifications.length})`}>
+          <div className="flex flex-wrap gap-1">
+            {certifications.slice(0, 6).map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => pinToNotes(c.name, "Certification")}
+                title="Click to add to recruiter notes"
+                className="text-[10px] px-1.5 py-0.5 rounded-full bg-rose-500/10 text-rose-700 dark:text-rose-300 border border-rose-500/30 hover:ring-2 hover:ring-amber-400/60 transition"
+              >
+                {c.name}
+              </button>
+            ))}
+          </div>
+        </BriefSection>
+      )}
+
+      {/* Roles preview */}
+      {inRangeRoles && inRangeRoles.length > 0 && (
+        <BriefSection icon={<Briefcase className="h-3 w-3" />} label="Recent Roles">
+          <ul className="space-y-0.5">
+            {inRangeRoles.map((r) => (
+              <li key={r.id} className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => onSelectRole(r.id)}
+                  className="flex-1 text-left text-[11px] px-1.5 py-1 rounded hover:bg-muted/60 truncate"
+                  title={`${r.role || r.title || "Role"} @ ${r.company}`}
+                >
+                  <span className="font-medium">{r.role || r.title || "Role"}</span>
+                  <span className="text-muted-foreground"> @ {r.company}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => pinToNotes(`${r.role || r.title || "Role"} @ ${r.company}`, "Role")}
+                  title="Add to recruiter notes"
+                  className="shrink-0 h-6 w-6 inline-flex items-center justify-center rounded text-muted-foreground hover:bg-amber-500/15 hover:text-amber-600"
+                  aria-label="Pin role to notes"
+                >
+                  <StickyNote className="h-3 w-3" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        </BriefSection>
+      )}
+    </div>
+  );
+}
+
+function BriefSection({ icon, label, children }: { icon: React.ReactNode; label: string; children: React.ReactNode }) {
+  return (
+    <div className="mb-2 last:mb-0">
+      <div className="text-[9px] uppercase tracking-wider text-muted-foreground inline-flex items-center gap-1 mb-1">
+        {icon}
+        {label}
+      </div>
+      {children}
+    </div>
+  );
+}
+
 /* ── Left panel (read-only viewer of work history) ──────────────── */
 
 function WorkHistoryViewerPanel({
-  items, kpis, focusedId, onSelect, onCollapse,
+  items, kpis, focusedId, onSelect, onHover, onCollapse,
   availableTypes, isTypeOn, toggleType, metaFor,
+  inventory = [],
+  toolsOpen = false,
+  onToggleTools,
 }: {
   items: ImmersiveWorkItem[];
   kpis: { tenure: string; roles: number; cities: number; miles: number };
   focusedId: string | null;
   onSelect: (id: string) => void;
+  onHover?: (id: string) => void;
   onCollapse: () => void;
   availableTypes: string[];
   isTypeOn: (t: string) => boolean;
   toggleType: (t: string) => void;
   metaFor: (t: string) => { label: string; emoji: string };
+  inventory?: ImmersiveInventoryItem[];
+  toolsOpen?: boolean;
+  onToggleTools?: () => void;
 }) {
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<"newest" | "oldest" | "tenure">("newest");
@@ -2025,20 +4168,35 @@ function WorkHistoryViewerPanel({
   }, [sorted]);
 
   return (
-    <div className="bg-background/95 backdrop-blur-md border rounded-xl shadow-xl p-3 w-full max-h-[calc(60vh-110px)] overflow-y-auto scrollbar-thin pointer-events-auto">
+    <div className="bg-background/95 backdrop-blur-md border rounded-xl shadow-xl p-3 w-full max-h-[calc(75vh-110px)] overflow-y-auto scrollbar-thin pointer-events-auto">
       {/* Header — matches editor */}
       <div className="flex items-center justify-between mb-2">
         <span className="text-base font-semibold flex items-center gap-1.5">
           <Briefcase className="h-4 w-4 text-muted-foreground" /> Work History
         </span>
-        <button
-          type="button"
-          onClick={onCollapse}
-          className="text-muted-foreground hover:text-foreground transition-colors"
-          title="Collapse"
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </button>
+        <div className="flex items-center gap-1">
+          {inventory.length > 0 && onToggleTools && (
+            <button
+              type="button"
+              onClick={onToggleTools}
+              className={`inline-flex items-center gap-1.5 h-8 px-3 rounded-full border text-xs font-semibold shadow-sm transition-all ${toolsOpen ? "bg-gradient-to-r from-cyan-500 to-blue-500 text-white border-transparent shadow-cyan-500/30" : "bg-gradient-to-r from-cyan-500/15 to-blue-500/15 text-cyan-600 dark:text-cyan-300 border-cyan-500/40 hover:from-cyan-500/25 hover:to-blue-500/25 hover:border-cyan-500/60"}`}
+              title={toolsOpen ? "Hide My Tools & Inventory" : `Show My Tools & Inventory (${inventory.length})`}
+              aria-pressed={toolsOpen}
+            >
+              <Wrench className="h-3.5 w-3.5" />
+              <span>My Tools</span>
+              <span className={`inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] tabular-nums font-bold ${toolsOpen ? "bg-white/30" : "bg-cyan-500/20"}`}>{inventory.length}</span>
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onCollapse}
+            className="text-muted-foreground hover:text-foreground transition-colors"
+            title="Collapse"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+        </div>
       </div>
 
       {/* Career Journey Stats — matches editor */}
@@ -2051,6 +4209,7 @@ function WorkHistoryViewerPanel({
         </div>
       </div>
 
+      <>
       {/* Marker type filters */}
       {availableTypes.length > 1 && (
         <div className="flex items-center gap-1 mb-2 flex-wrap" role="group" aria-label="Marker type filters">
@@ -2143,6 +4302,8 @@ function WorkHistoryViewerPanel({
                       <button
                         type="button"
                         onClick={() => onSelect(w.id)}
+                        onMouseEnter={() => onHover?.(w.id)}
+                        onFocus={() => onHover?.(w.id)}
                         className={`w-full text-left rounded-md px-2 py-1.5 border transition-colors ${
                           active
                             ? "bg-primary/10 border-primary/40"
@@ -2177,6 +4338,8 @@ function WorkHistoryViewerPanel({
           </div>
         );
       })}
+      </>
+
     </div>
   );
 }
@@ -2186,6 +4349,306 @@ function KpiCell({ label, value }: { label: string; value: string }) {
     <div className="text-center">
       <p className="text-xs text-muted-foreground">{label}</p>
       <p className="text-base font-semibold text-foreground truncate">{value}</p>
+    </div>
+  );
+}
+
+/* ── Tools & Inventory (read-only viewer) ───────────────────────── */
+
+const INV_CATEGORY_LABEL: Record<string, string> = {
+  hardware: "Hardware",
+  software: "Software",
+  vehicle: "Vehicle",
+  safety: "Safety",
+  tool: "Tool",
+  instrument: "Instrument",
+  other: "Other",
+};
+const INV_CATEGORY_DOT: Record<string, string> = {
+  hardware: "bg-blue-500",
+  software: "bg-violet-500",
+  vehicle: "bg-amber-500",
+  safety: "bg-red-500",
+  tool: "bg-cyan-500",
+  instrument: "bg-emerald-500",
+  other: "bg-slate-400",
+};
+const INV_CONDITION_BADGE: Record<string, string> = {
+  new: "bg-emerald-500/10 text-emerald-600",
+  good: "bg-blue-500/10 text-blue-600",
+  fair: "bg-amber-500/10 text-amber-600",
+  poor: "bg-red-500/10 text-red-600",
+};
+
+function ToolsInventoryPanel({ inventory, onSelect }: { inventory: ImmersiveInventoryItem[]; onSelect: (it: ImmersiveInventoryItem) => void }) {
+  const [search, setSearch] = useState("");
+  const [cat, setCat] = useState<string>("all");
+
+  const cats = useMemo(() => {
+    const s = new Set<string>();
+    inventory.forEach((i) => s.add(i.category));
+    return ["all", ...[...s].sort()];
+  }, [inventory]);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return inventory.filter((i) => {
+      if (cat !== "all" && i.category !== cat) return false;
+      if (!q) return true;
+      return (
+        i.name.toLowerCase().includes(q) ||
+        (i.manufacturer ?? "").toLowerCase().includes(q) ||
+        (i.model ?? "").toLowerCase().includes(q) ||
+        i.tags.some((t) => t.toLowerCase().includes(q))
+      );
+    });
+  }, [inventory, search, cat]);
+
+  if (inventory.length === 0) {
+    return <p className="text-xs text-muted-foreground text-center py-6">No public inventory items.</p>;
+  }
+
+  return (
+    <div>
+      {/* Search + category */}
+      <div className="flex items-center gap-1.5 mb-2">
+        <div className="relative flex-1">
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search tools…"
+            className="h-7 w-full rounded-md border border-input bg-background pl-6 pr-6 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+          />
+          <svg className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground pointer-events-none" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <circle cx="11" cy="11" r="8" />
+            <path d="m21 21-4.3-4.3" />
+          </svg>
+          {search && (
+            <button type="button" onClick={() => setSearch("")} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+              <X className="h-2.5 w-2.5" />
+            </button>
+          )}
+        </div>
+        <select
+          value={cat}
+          onChange={(e) => setCat(e.target.value)}
+          className="h-7 text-xs rounded border border-input bg-background px-1 text-foreground shrink-0 cursor-pointer capitalize"
+        >
+          {cats.map((c) => (
+            <option key={c} value={c}>{c === "all" ? "All" : INV_CATEGORY_LABEL[c] ?? c}</option>
+          ))}
+        </select>
+      </div>
+
+      {filtered.length === 0 ? (
+        <p className="text-xs text-muted-foreground text-center py-4">No matches.</p>
+      ) : (
+        <div className="grid grid-cols-2 gap-2">
+          {filtered.map((it) => {
+            const cover = it.photos.find((p) => p.isCover) ?? it.photos[0];
+            return (
+              <button
+                key={it.id}
+                type="button"
+                onClick={() => onSelect(it)}
+                className="text-left rounded-md border border-border hover:border-foreground/30 hover:bg-muted/40 transition-colors overflow-hidden flex flex-col"
+              >
+                <div className="relative aspect-square bg-muted">
+                  {cover ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img
+                      src={cover.filePath}
+                      alt={it.name}
+                      className="absolute inset-0 w-full h-full object-cover"
+                      style={{
+                        objectPosition: `${cover.focalX}% ${cover.focalY}%`,
+                        transform: `scale(${cover.zoom})`,
+                        transformOrigin: `${cover.focalX}% ${cover.focalY}%`,
+                      }}
+                    />
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center text-muted-foreground/40">
+                      <Wrench className="h-6 w-6" />
+                    </div>
+                  )}
+                  <span className={`absolute top-1 left-1 h-2 w-2 rounded-full shadow ${INV_CATEGORY_DOT[it.category] ?? "bg-slate-400"}`} />
+                </div>
+                <div className="p-1.5 space-y-0.5">
+                  <p className="text-xs font-semibold leading-tight line-clamp-2">{it.name}</p>
+                  {(it.manufacturer || it.model) && (
+                    <p className="text-[10px] text-muted-foreground truncate">{[it.manufacturer, it.model].filter(Boolean).join(" ")}</p>
+                  )}
+                  <div className="flex items-center gap-1 flex-wrap pt-0.5">
+                    <span className={`px-1 py-0 rounded text-[9px] capitalize ${INV_CONDITION_BADGE[it.condition] ?? "bg-muted text-muted-foreground"}`}>{it.condition}</span>
+                    {it.currentValue != null && (
+                      <span className="text-[10px] text-muted-foreground tabular-nums ml-auto">${Number(it.currentValue).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                    )}
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ToolDetailModal({ item, onClose }: { item: ImmersiveInventoryItem; onClose: () => void }) {
+  const [idx, setIdx] = useState(0);
+  const photo = item.photos[idx] ?? item.photos[0];
+  const subtitle = [item.manufacturer, item.model].filter(Boolean).join(" ");
+  const next = () => item.photos.length && setIdx((i) => (i + 1) % item.photos.length);
+  const prev = () => item.photos.length && setIdx((i) => (i - 1 + item.photos.length) % item.photos.length);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      else if (e.key === "ArrowRight") next();
+      else if (e.key === "ArrowLeft") prev();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [item.id, item.photos.length]);
+
+  return (
+    <div
+      className="fixed inset-0 z-[2150] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-background text-foreground rounded-lg shadow-2xl border border-border max-w-4xl w-full max-h-[92vh] overflow-hidden flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between gap-2 px-4 py-2.5 border-b border-border">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className={`inline-block h-2 w-2 rounded-full shrink-0 ${INV_CATEGORY_DOT[item.category] ?? "bg-slate-400"}`} />
+            <span className="text-[11px] uppercase tracking-wider text-muted-foreground">{INV_CATEGORY_LABEL[item.category] ?? item.category}</span>
+          </div>
+          <button type="button" onClick={onClose} className="p-1.5 rounded hover:bg-muted" title="Close (Esc)">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="grid md:grid-cols-2 gap-0 overflow-y-auto">
+          <div className="bg-muted/30 p-4 flex flex-col items-center gap-3 border-b md:border-b-0 md:border-r border-border">
+            <div className="relative w-full aspect-square max-w-md bg-muted rounded-lg overflow-hidden">
+              {photo ? (
+                <>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={photo.filePath}
+                    alt={photo.caption ?? item.name}
+                    className="w-full h-full object-cover"
+                    style={{
+                      objectPosition: `${photo.focalX}% ${photo.focalY}%`,
+                      transform: `scale(${photo.zoom})`,
+                      transformOrigin: `${photo.focalX}% ${photo.focalY}%`,
+                    }}
+                  />
+                  {item.photos.length > 1 && (
+                    <>
+                      <button type="button" onClick={prev} className="absolute left-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/40 text-white hover:bg-black/60" title="Previous (←)">
+                        <ChevronLeft className="h-4 w-4" />
+                      </button>
+                      <button type="button" onClick={next} className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/40 text-white hover:bg-black/60" title="Next (→)">
+                        <ChevronRight className="h-4 w-4" />
+                      </button>
+                      <span className="absolute bottom-2 right-2 text-[10px] px-1.5 py-0.5 rounded bg-black/60 text-white tabular-nums">
+                        {idx + 1} / {item.photos.length}
+                      </span>
+                    </>
+                  )}
+                </>
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center text-muted-foreground/40">
+                  <Wrench className="h-10 w-10" />
+                </div>
+              )}
+            </div>
+            {item.photos.length > 1 && (
+              <div className="flex items-center gap-1.5 flex-wrap justify-center">
+                {item.photos.map((p, i) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => setIdx(i)}
+                    className={`h-12 w-12 rounded overflow-hidden border-2 transition-all ${i === idx ? "border-foreground" : "border-transparent opacity-60 hover:opacity-100"}`}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={p.filePath}
+                      alt=""
+                      className="w-full h-full object-cover"
+                      style={{
+                        objectPosition: `${p.focalX}% ${p.focalY}%`,
+                        transform: `scale(${p.zoom})`,
+                        transformOrigin: `${p.focalX}% ${p.focalY}%`,
+                      }}
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="p-5 space-y-4">
+            <div>
+              <h2 className="text-xl font-semibold leading-tight">{item.name}</h2>
+              {subtitle && <p className="text-sm text-muted-foreground mt-0.5">{subtitle}</p>}
+            </div>
+            {item.currentValue != null && (
+              <div className="flex items-baseline gap-3">
+                <span className="text-2xl font-bold tabular-nums">${Number(item.currentValue).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                {item.purchasePrice != null && item.purchasePrice !== item.currentValue && (
+                  <span className="text-sm text-muted-foreground line-through tabular-nums">
+                    ${Number(item.purchasePrice).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                  </span>
+                )}
+                <span className="text-[11px] text-muted-foreground">current value</span>
+              </div>
+            )}
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className={`px-2 py-0.5 rounded-full text-xs capitalize ${INV_CONDITION_BADGE[item.condition] ?? "bg-muted text-muted-foreground"}`}>{item.condition}</span>
+              <span className="px-2 py-0.5 rounded-full text-xs capitalize bg-muted text-muted-foreground">{item.ownership}</span>
+            </div>
+            {item.proficiency != null && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">Skill level</span>
+                <div className="flex items-center gap-0.5">
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <span key={n} className={`h-2 w-2 rounded-full ${n <= (item.proficiency ?? 0) ? "bg-orange-500" : "bg-muted"}`} />
+                  ))}
+                </div>
+                <span className="text-xs text-muted-foreground tabular-nums">{item.proficiency}/5</span>
+              </div>
+            )}
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+              {item.manufacturer && (<><dt className="text-xs text-muted-foreground">Manufacturer</dt><dd>{item.manufacturer}</dd></>)}
+              {item.model && (<><dt className="text-xs text-muted-foreground">Model</dt><dd>{item.model}</dd></>)}
+              {item.location && (<><dt className="text-xs text-muted-foreground">Location</dt><dd>📍 {item.location}</dd></>)}
+              {item.purchaseDate && (<><dt className="text-xs text-muted-foreground">Purchased</dt><dd>{new Date(item.purchaseDate).toLocaleDateString()}</dd></>)}
+              {item.purchasePrice != null && (<><dt className="text-xs text-muted-foreground">Purchase price</dt><dd className="tabular-nums">${Number(item.purchasePrice).toLocaleString(undefined, { maximumFractionDigits: 0 })}</dd></>)}
+            </dl>
+            {item.tags.length > 0 && (
+              <div>
+                <p className="text-xs text-muted-foreground mb-1.5">Tags</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {item.tags.map((t) => (
+                    <span key={t} className="px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-600 text-xs">{t}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {item.notes && (
+              <div>
+                <p className="text-xs text-muted-foreground mb-1.5">Notes</p>
+                <p className="text-sm whitespace-pre-wrap text-foreground/90">{item.notes}</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

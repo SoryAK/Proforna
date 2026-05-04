@@ -11,6 +11,8 @@ import { getUserId } from "@/lib/auth-utils";
 const PROFILE_FIELDS = [
   "fullName", "headline", "email", "phone", "avatarUrl", "city", "state",
   "linkedinUrl", "githubUrl", "portfolioUrl", "schedulingUrl",
+  "contactCtaMessage",
+  "homeLat", "homeLng", "maxCommuteMiles",
   "availability", "bio", "preferredRoles", "targetSalaryMin", "targetSalaryMax",
   "currency", "locationPreference", "industryGroup",
   "showSkills", "showResume", "showCertifications", "showCurrentRole",

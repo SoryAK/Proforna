@@ -189,6 +189,32 @@ export default function RecruiterPanel({ irSlug, candidateName, candidateHeadlin
     }
   }
 
+  // Listen for "add talking point" events fired from chips/items elsewhere on the page.
+  // Appends a bulleted line to the note (deduped) and opens the panel briefly.
+  useEffect(() => {
+    function onAdd(ev: Event) {
+      const detail = (ev as CustomEvent<{ label?: string; kind?: string }>).detail || {};
+      const raw = (detail.label || "").trim();
+      if (!raw) return;
+      const kind = (detail.kind || "").trim();
+      const line = kind ? `• [${kind}] ${raw}` : `• ${raw}`;
+      setNoteBody((prev) => {
+        // Dedupe: skip if the exact line already exists
+        const lines = prev.split("\n").map((l) => l.trim());
+        if (lines.includes(line.trim())) return prev;
+        // Header on first add
+        const needsHeader = prev.trim().length === 0;
+        const header = needsHeader ? "Talking points:\n" : "";
+        const sep = !prev.endsWith("\n") && prev.length > 0 ? "\n" : "";
+        return `${prev}${sep}${header}${line}`;
+      });
+      setNotesOpen(true);
+      setNoteMinimized(false);
+    }
+    window.addEventListener("recruiter:add-talking-point", onAdd as EventListener);
+    return () => window.removeEventListener("recruiter:add-talking-point", onAdd as EventListener);
+  }, []);
+
   // Debounced autosave for note body
   const saveTimerRef = useRef<number | null>(null);
   const lastSavedRef = useRef<string>("");

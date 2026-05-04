@@ -24,6 +24,7 @@ import {
   Inbox,
   Building2,
   Mail,
+  Phone,
   MapPin,
   DollarSign,
   Briefcase,
@@ -34,6 +35,7 @@ import {
   Trash2,
   LinkIcon,
   CheckSquare,
+  Download,
   X,
 } from "lucide-react";
 import { format } from "date-fns";
@@ -49,6 +51,7 @@ interface Submission {
   id: string;
   recruiterName: string;
   recruiterEmail: string;
+  recruiterPhone: string | null;
   company: string | null;
   linkedinUrl: string | null;
   jobTitle: string;
@@ -343,7 +346,22 @@ export default function SubmissionsPage() {
               <div className="rounded-lg border p-4 space-y-2">
                 <h4 className="text-sm font-semibold">Recruiter</h4>
                 <p className="text-sm">{selectedSubmission.recruiterName}</p>
-                <p className="text-sm text-muted-foreground">{selectedSubmission.recruiterEmail}</p>
+                <a
+                  href={`mailto:${selectedSubmission.recruiterEmail}`}
+                  className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+                >
+                  <Mail className="h-3.5 w-3.5" />
+                  {selectedSubmission.recruiterEmail}
+                </a>
+                {selectedSubmission.recruiterPhone && (
+                  <a
+                    href={`tel:${selectedSubmission.recruiterPhone}`}
+                    className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+                  >
+                    <Phone className="h-3.5 w-3.5" />
+                    {selectedSubmission.recruiterPhone}
+                  </a>
+                )}
                 {selectedSubmission.company && (
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Building2 className="h-3.5 w-3.5" />
@@ -362,6 +380,17 @@ export default function SubmissionsPage() {
                     <ExternalLink className="h-3 w-3" />
                   </a>
                 )}
+                <a
+                  href={`/api/submissions/${selectedSubmission.id}/vcard`}
+                  className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1.5 text-xs font-medium text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/20"
+                  download
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  Save to contacts (.vcf)
+                </a>
+                <p className="text-[10px] text-muted-foreground">
+                  Add this recruiter to your phone so their calls and texts are recognized.
+                </p>
               </div>
 
               {/* Job Details */}

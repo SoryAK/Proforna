@@ -15,6 +15,7 @@ import {
   DollarSign,
   Download,
   Drill,
+  Crop,
   Eye,
   EyeOff,
   GripVertical,
@@ -57,6 +58,9 @@ type Photo = {
   fileName: string;
   caption: string | null;
   isCover: boolean;
+  focalX?: number;
+  focalY?: number;
+  zoom?: number;
 };
 
 type Item = {
@@ -74,6 +78,7 @@ type Item = {
   currentValue: number | null;
   location: string | null;
   isPrivate: boolean;
+  isDraft: boolean;
   notes: string | null;
   tags: string[];
   photos: Photo[];
@@ -213,6 +218,160 @@ function Highlight({ text, query }: { text: string | null | undefined; query: st
   return <>{out}</>;
 }
 
+function CropModal({
+  photo,
+  itemName,
+  onClose,
+  onSave,
+}: {
+  photo: Photo;
+  itemName: string;
+  onClose: () => void;
+  onSave: (focalX: number, focalY: number, zoom: number) => void | Promise<void>;
+}) {
+  const [focalX, setFocalX] = useState<number>(photo.focalX ?? 50);
+  const [focalY, setFocalY] = useState<number>(photo.focalY ?? 50);
+  const [zoom, setZoom] = useState<number>(photo.zoom ?? 1);
+  const [saving, setSaving] = useState(false);
+  const dragRef = useRef<HTMLDivElement>(null);
+  const draggingRef = useRef(false);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) { if (e.key === "Escape") onClose(); }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  function updateFromEvent(clientX: number, clientY: number) {
+    const el = dragRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const x = ((clientX - rect.left) / rect.width) * 100;
+    const y = ((clientY - rect.top) / rect.height) * 100;
+    setFocalX(Math.max(0, Math.min(100, x)));
+    setFocalY(Math.max(0, Math.min(100, y)));
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-[2300] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
+      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="bg-background rounded-xl shadow-2xl border w-full max-w-md overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-2.5 border-b">
+          <div>
+            <h3 className="text-sm font-semibold flex items-center gap-2">
+              <Crop className="h-4 w-4 text-violet-600" /> Adjust crop
+            </h3>
+            <p className="text-[11px] text-muted-foreground truncate">{itemName}</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1 rounded hover:bg-muted text-muted-foreground"
+            title="Close (Esc)"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="p-4 space-y-3">
+          {/* Square preview = how the card will look */}
+          <div
+            ref={dragRef}
+            className="relative aspect-square w-full bg-muted rounded-lg overflow-hidden cursor-move select-none ring-1 ring-border"
+            onMouseDown={(e) => {
+              draggingRef.current = true;
+              updateFromEvent(e.clientX, e.clientY);
+              const onMove = (ev: MouseEvent) => { if (draggingRef.current) updateFromEvent(ev.clientX, ev.clientY); };
+              const onUp = () => {
+                draggingRef.current = false;
+                window.removeEventListener("mousemove", onMove);
+                window.removeEventListener("mouseup", onUp);
+              };
+              window.addEventListener("mousemove", onMove);
+              window.addEventListener("mouseup", onUp);
+            }}
+            onTouchStart={(e) => {
+              const t = e.touches[0]; if (t) updateFromEvent(t.clientX, t.clientY);
+            }}
+            onTouchMove={(e) => {
+              const t = e.touches[0]; if (t) { e.preventDefault(); updateFromEvent(t.clientX, t.clientY); }
+            }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={photo.filePath}
+              alt={photo.caption ?? itemName}
+              draggable={false}
+              className="w-full h-full object-cover pointer-events-none"
+              style={{
+                objectPosition: `${focalX}% ${focalY}%`,
+                transform: `scale(${zoom})`,
+                transformOrigin: `${focalX}% ${focalY}%`,
+              }}
+            />
+            {/* Focal-point crosshair */}
+            <div
+              className="absolute h-6 w-6 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow-lg pointer-events-none mix-blend-difference"
+              style={{ left: `${focalX}%`, top: `${focalY}%` }}
+            >
+              <div className="absolute inset-0 m-auto h-1 w-1 rounded-full bg-white" />
+            </div>
+            <div className="absolute bottom-1 left-1/2 -translate-x-1/2 text-[10px] text-white/90 bg-black/40 backdrop-blur px-1.5 py-0.5 rounded">
+              Drag to set focal point
+            </div>
+          </div>
+
+          {/* Zoom slider */}
+          <div className="space-y-1">
+            <div className="flex items-center justify-between text-xs">
+              <Label className="text-xs">Zoom</Label>
+              <span className="tabular-nums text-muted-foreground">{zoom.toFixed(2)}×</span>
+            </div>
+            <input
+              type="range"
+              min={1}
+              max={3}
+              step={0.05}
+              value={zoom}
+              onChange={(e) => setZoom(Number(e.target.value))}
+              className="w-full accent-violet-500"
+            />
+          </div>
+
+          {/* Reset */}
+          <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+            <span>Focal {Math.round(focalX)}%, {Math.round(focalY)}%</span>
+            <button
+              type="button"
+              onClick={() => { setFocalX(50); setFocalY(50); setZoom(1); }}
+              className="text-foreground hover:underline"
+            >
+              Reset
+            </button>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-end gap-2 px-4 py-2.5 border-t bg-muted/30">
+          <Button variant="ghost" size="sm" onClick={onClose}>Cancel</Button>
+          <Button
+            size="sm"
+            disabled={saving}
+            onClick={async () => {
+              setSaving(true);
+              try { await onSave(Math.round(focalX), Math.round(focalY), zoom); }
+              finally { setSaving(false); }
+            }}
+          >
+            {saving ? "Saving…" : "Save"}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ConditionBadge({
   item,
   open,
@@ -312,8 +471,14 @@ export function PersonalInventory({
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkUploading, setBulkUploading] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
+  const [draftsOnly, setDraftsOnly] = useState(false);
+  const bulkFileInputRef = useRef<HTMLInputElement>(null);
   const [bulkMenu, setBulkMenu] = useState<null | "category" | "ownership" | "condition">(null);
   const [lightbox, setLightbox] = useState<{ item: Item; index: number } | null>(null);
+  const [viewing, setViewing] = useState<{ item: Item; index: number } | null>(null);
+  const [cropping, setCropping] = useState<{ item: Item; photoId: string } | null>(null);
   const [dragPhotoId, setDragPhotoId] = useState<string | null>(null);
   const [reorderBusy, setReorderBusy] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
@@ -503,6 +668,7 @@ export function PersonalInventory({
       if (cats.length && !cats.includes(i.category)) return false;
       if (owns.length && !owns.includes(i.ownership)) return false;
       if (tagSel.length && !tagSel.every((t) => (i.tags ?? []).includes(t))) return false;
+      if (draftsOnly && !i.isDraft) return false;
       if (!q) return true;
       return (
         i.name.toLowerCase().includes(q) ||
@@ -514,7 +680,7 @@ export function PersonalInventory({
         (i.tags ?? []).some((t) => t.includes(q))
       );
     });
-  }, [items, search, filterCategory, filterOwnership, uiPrefs.categories, uiPrefs.ownership, uiPrefs.tags]);
+  }, [items, search, filterCategory, filterOwnership, uiPrefs.categories, uiPrefs.ownership, uiPrefs.tags, draftsOnly]);
 
   const sorted = useMemo(() => {
     const arr = [...filtered];
@@ -561,10 +727,12 @@ export function PersonalInventory({
     setSaving(true);
     try {
       const isNew = !editing.id;
+      // Saving from the editor always promotes a draft to a real item
+      const payload = isNew ? editing : { ...editing, isDraft: false };
       const res = await fetch("/api/personal-equipment", {
         method: isNew ? "POST" : "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(editing),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error(await res.text());
       const saved: Item = await res.json();
@@ -605,6 +773,57 @@ export function PersonalInventory({
       console.error(err);
     }
   }
+
+  async function bulkUploadPhotos(files: File[]) {
+    if (files.length === 0) return;
+    const valid: File[] = [];
+    let oversize = 0;
+    let badType = 0;
+    const allowed = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+    for (const f of files) {
+      if (!allowed.has(f.type)) { badType++; continue; }
+      if (f.size > 5 * 1024 * 1024) { oversize++; continue; }
+      valid.push(f);
+    }
+    if (valid.length === 0) {
+      toast.error("No valid images (JPG/PNG/WebP/GIF, max 5 MB each)");
+      return;
+    }
+    if (badType || oversize) {
+      toast.warning(`Skipping ${badType + oversize} file${badType + oversize === 1 ? "" : "s"}: ${badType ? `${badType} bad type` : ""}${badType && oversize ? ", " : ""}${oversize ? `${oversize} oversize` : ""}`);
+    }
+    setBulkUploading(true);
+    const tid = toast.loading(`Uploading ${valid.length} photo${valid.length === 1 ? "" : "s"}\u2026`);
+    try {
+      // Chunk into batches of 10 to keep request bodies modest
+      const BATCH = 10;
+      let createdTotal = 0;
+      let errorTotal = 0;
+      for (let i = 0; i < valid.length; i += BATCH) {
+        const batch = valid.slice(i, i + BATCH);
+        const fd = new FormData();
+        for (const f of batch) fd.append("file", f);
+        const res = await fetch("/api/personal-equipment/bulk-upload", { method: "POST", body: fd });
+        if (!res.ok) throw new Error(await res.text());
+        const data = await res.json() as { createdCount: number; errorCount: number };
+        createdTotal += data.createdCount ?? 0;
+        errorTotal += data.errorCount ?? 0;
+      }
+      if (errorTotal === 0) {
+        toast.success(`Added ${createdTotal} draft item${createdTotal === 1 ? "" : "s"} \u2014 add details when ready`, { id: tid });
+      } else {
+        toast.warning(`Added ${createdTotal}, ${errorTotal} failed`, { id: tid });
+      }
+      setDraftsOnly(true);
+      await load();
+    } catch (err) {
+      toast.error("Bulk upload failed", { id: tid });
+      console.error(err);
+    } finally {
+      setBulkUploading(false);
+    }
+  }
+
 
   async function uploadPhoto(equipmentId: string, file: File, isFirst: boolean) {
     if (file.size > 5 * 1024 * 1024) {
@@ -781,6 +1000,28 @@ export function PersonalInventory({
     }
   }, [items, lightbox]);
 
+  // Keep quick-view modal in sync with refreshed items
+  useEffect(() => {
+    if (!viewing) return;
+    const fresh = items.find((i) => i.id === viewing.item.id);
+    if (!fresh) { setViewing(null); return; }
+    if (fresh !== viewing.item) {
+      const maxIdx = Math.max(0, fresh.photos.length - 1);
+      setViewing({ item: fresh, index: Math.min(viewing.index, maxIdx) });
+    }
+  }, [items, viewing]);
+
+  // Quick-view keyboard nav
+  useEffect(() => {
+    if (!viewing) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "ArrowRight") setViewing((v) => v && v.item.photos.length ? { ...v, index: (v.index + 1) % v.item.photos.length } : v);
+      else if (e.key === "ArrowLeft") setViewing((v) => v && v.item.photos.length ? { ...v, index: (v.index - 1 + v.item.photos.length) % v.item.photos.length } : v);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [viewing]);
+
   // Global keyboard shortcuts: /, n, Esc, ArrowUp/Down, Space, Enter
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -800,6 +1041,7 @@ export function PersonalInventory({
           return;
         }
         if (editing) { setEditing(null); return; }
+        if (viewing) { setViewing(null); return; }
         if (selected.size > 0) { clearSelection(); return; }
         if (focusedIndex !== null) { setFocusedIndex(null); return; }
         return;
@@ -810,6 +1052,7 @@ export function PersonalInventory({
       }
       // Ignore when modal/dialog is open
       if (editing) return;
+      if (viewing) return;
       // "/" — focus the search box
       if (e.key === "/") {
         e.preventDefault();
@@ -896,7 +1139,45 @@ export function PersonalInventory({
   }, [focusedIndex, sorted]);
 
   return (
-    <div className="space-y-4">
+    <div
+      className={`space-y-4 relative ${dragActive ? "ring-2 ring-cyan-500/60 ring-offset-2 ring-offset-background rounded-lg" : ""}`}
+      onDragEnter={(e) => {
+        if (e.dataTransfer?.types?.includes("Files")) {
+          e.preventDefault();
+          setDragActive(true);
+        }
+      }}
+      onDragOver={(e) => {
+        if (e.dataTransfer?.types?.includes("Files")) {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "copy";
+        }
+      }}
+      onDragLeave={(e) => {
+        // Only clear if leaving the root, not crossing children
+        if (e.currentTarget === e.target) setDragActive(false);
+      }}
+      onDrop={async (e) => {
+        if (!e.dataTransfer?.files?.length) return;
+        e.preventDefault();
+        setDragActive(false);
+        const files = Array.from(e.dataTransfer.files).filter((f) => f.type.startsWith("image/"));
+        if (files.length === 0) {
+          toast.error("Drop image files only");
+          return;
+        }
+        await bulkUploadPhotos(files);
+      }}
+    >
+      {dragActive && (
+        <div className="pointer-events-none fixed inset-0 z-[2100] flex items-center justify-center bg-cyan-500/10 backdrop-blur-sm">
+          <div className="rounded-2xl border-2 border-dashed border-cyan-400 bg-background/90 px-8 py-6 text-center shadow-2xl">
+            <Upload className="h-10 w-10 text-cyan-500 mx-auto mb-2" />
+            <div className="text-base font-semibold">Drop photos to add as draft items</div>
+            <div className="text-xs text-muted-foreground mt-1">JPG / PNG / WebP / GIF, max 5 MB each</div>
+          </div>
+        </div>
+      )}
       {/* Focused-position banner */}
       {focusedPositionId && (
         <div className="flex items-center gap-2 rounded-lg border border-emerald-300/50 bg-emerald-500/10 px-3 py-1.5 text-xs">
@@ -918,6 +1199,27 @@ export function PersonalInventory({
           <Plus className="h-4 w-4 mr-1" /> Add item
           <kbd className="ml-2 hidden sm:inline-flex items-center justify-center h-4 px-1 rounded border border-foreground/20 bg-background/20 text-[10px] font-mono">N</kbd>
         </Button>
+        <Button
+          variant="outline"
+          onClick={() => bulkFileInputRef.current?.click()}
+          disabled={bulkUploading}
+          title="Upload photos to create draft items you can fill in later"
+        >
+          <Upload className="h-4 w-4 mr-1" />
+          {bulkUploading ? "Uploading\u2026" : "Upload photos"}
+        </Button>
+        <input
+          ref={bulkFileInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          className="hidden"
+          onChange={async (e) => {
+            const files = Array.from(e.target.files ?? []);
+            e.target.value = "";
+            if (files.length) await bulkUploadPhotos(files);
+          }}
+        />
         <button
           type="button"
           onClick={() => setShowShortcuts(true)}
@@ -1119,6 +1421,23 @@ export function PersonalInventory({
               Clear
             </button>
           )}
+          {(() => {
+            const draftCount = items.filter((i) => i.isDraft).length;
+            if (draftCount === 0 && !draftsOnly) return null;
+            return (
+              <>
+                <span className="mx-1 self-center h-3 w-px bg-border" />
+                <button
+                  type="button"
+                  onClick={() => setDraftsOnly((v) => !v)}
+                  className={`text-[11px] px-2 py-0.5 rounded-full border transition-colors ${draftsOnly ? "bg-amber-500 text-white border-amber-500" : "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/40 hover:bg-amber-500/20"}`}
+                  title="Show only items that still need details filled in"
+                >
+                  Needs details <span className={draftsOnly ? "opacity-90" : "opacity-70"}>({draftCount})</span>
+                </button>
+              </>
+            );
+          })()}
         </div>
 
         {/* Tag chips (only render when tags exist) */}
@@ -1352,7 +1671,19 @@ export function PersonalInventory({
                 <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setEditing(emptyForm())}>
                   <Plus className="h-3 w-3 mr-1" /> Blank item
                 </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs"
+                  onClick={() => bulkFileInputRef.current?.click()}
+                  disabled={bulkUploading}
+                >
+                  <Upload className="h-3 w-3 mr-1" /> Bulk upload photos
+                </Button>
               </div>
+              <p className="text-[10px] text-muted-foreground/70 max-w-md">
+                Tip: drop photos anywhere on this page to bulk-create draft items you can fill in later.
+              </p>
             </CardContent>
           </Card>
         ) : (
@@ -1456,19 +1787,29 @@ export function PersonalInventory({
                     const isSel = selected.has(item.id);
                     const isFocused = focusedIndex !== null && sorted[focusedIndex]?.id === item.id;
                     return (
-                      <Card key={item.id} data-inv-row={item.id} className={`overflow-hidden group ${isSel ? "ring-2 ring-foreground/40" : ""} ${isFocused ? "ring-2 ring-cyan-500/70" : ""}`}>
+                      <Card key={item.id} data-inv-row={item.id} onClick={() => setViewing({ item, index: 0 })} className={`overflow-hidden group cursor-pointer hover:bg-muted/40 ${isSel ? "ring-2 ring-foreground/40" : ""} ${isFocused ? "ring-2 ring-cyan-500/70" : ""}`}>
                         <div className="flex items-stretch gap-3 p-2">
                           <input
                             type="checkbox"
                             checked={isSel}
                             onChange={() => toggleSelect(item.id)}
+                            onClick={(e) => e.stopPropagation()}
                             className="h-3.5 w-3.5 mt-1 cursor-pointer self-start"
                             aria-label={`Select ${item.name}`}
                           />
-                          <div className={`h-14 w-14 shrink-0 rounded-md overflow-hidden bg-muted flex items-center justify-center ${cover ? "cursor-zoom-in" : ""}`} onClick={() => { if (cover) setLightbox({ item, index: 0 }); }}>
+                          <div className={`h-14 w-14 shrink-0 rounded-md overflow-hidden bg-muted flex items-center justify-center`}>
                             {cover ? (
                               /* eslint-disable-next-line @next/next/no-img-element */
-                              <img src={cover.filePath} alt={cover.caption ?? item.name} className="w-full h-full object-cover" />
+                              <img
+                                src={cover.filePath}
+                                alt={cover.caption ?? item.name}
+                                className="w-full h-full object-cover"
+                                style={{
+                                  objectPosition: `${cover.focalX ?? 50}% ${cover.focalY ?? 50}%`,
+                                  transform: `scale(${cover.zoom ?? 1})`,
+                                  transformOrigin: `${cover.focalX ?? 50}% ${cover.focalY ?? 50}%`,
+                                }}
+                              />
                             ) : (
                               <Camera className="h-5 w-5 text-muted-foreground/40" />
                             )}
@@ -1485,17 +1826,17 @@ export function PersonalInventory({
                               </div>
                               <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                                 {focusedPositionId && (
-                                  <button type="button" className="p-1 rounded hover:bg-emerald-500/10 disabled:opacity-50" onClick={() => assignToPosition(item)} disabled={assigningId === item.id} title={`Add to ${focusedPositionLabel ?? "focused job"}`}>
+                                  <button type="button" className="p-1 rounded hover:bg-emerald-500/10 disabled:opacity-50" onClick={(e) => { e.stopPropagation(); assignToPosition(item); }} disabled={assigningId === item.id} title={`Add to ${focusedPositionLabel ?? "focused job"}`}>
                                     <Briefcase className="h-3.5 w-3.5 text-emerald-600" />
                                   </button>
                                 )}
-                                <button type="button" className="p-1 rounded hover:bg-muted" onClick={() => togglePrivacy(item)} title={item.isPrivate ? "Make public" : "Make private"}>
+                                <button type="button" className="p-1 rounded hover:bg-muted" onClick={(e) => { e.stopPropagation(); togglePrivacy(item); }} title={item.isPrivate ? "Make public" : "Make private"}>
                                   {item.isPrivate ? <Lock className="h-3.5 w-3.5 text-muted-foreground" /> : <Unlock className="h-3.5 w-3.5 text-blue-500" />}
                                 </button>
-                                <button type="button" className="p-1 rounded hover:bg-muted" onClick={() => setEditing(item)} title="Edit">
+                                <button type="button" className="p-1 rounded hover:bg-muted" onClick={(e) => { e.stopPropagation(); setEditing(item); }} title="Edit">
                                   <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
                                 </button>
-                                <button type="button" className="p-1 rounded hover:bg-red-500/10" onClick={() => deleteItem(item.id)} title="Delete">
+                                <button type="button" className="p-1 rounded hover:bg-red-500/10" onClick={(e) => { e.stopPropagation(); deleteItem(item.id); }} title="Delete">
                                   <Trash2 className="h-3.5 w-3.5 text-red-500" />
                                 </button>
                               </div>
@@ -1516,6 +1857,16 @@ export function PersonalInventory({
                               <span className="px-1.5 py-0.5 rounded-full bg-muted">{CATEGORY_LABELS[item.category]}</span>
                               {item.proficiency && <span className="px-1.5 py-0.5 rounded-full bg-orange-500/10 text-orange-600">Skill {item.proficiency}/5</span>}
                               {!item.isPrivate && <span className="px-1.5 py-0.5 rounded-full bg-blue-500/10 text-blue-600">public</span>}
+                              {item.isDraft && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); setEditing(item); }}
+                                  className="px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/40 hover:bg-amber-500/25"
+                                  title="Click to add details"
+                                >
+                                  Needs details
+                                </button>
+                              )}
                               {(item.tags ?? []).map((t) => (
                                 <span key={t} className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-cyan-500/10 text-cyan-600">
                                   <Tag className="h-2 w-2" />{t}
@@ -1531,208 +1882,243 @@ export function PersonalInventory({
                 </div>
               );
             }
-            // Default: grid (existing card layout)
+            // Default: grid (e-commerce style product cards)
             return (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
                 {arr.map((item) => {
                   const cover = item.photos.find((p) => p.isCover) ?? item.photos[0];
                   const isSel = selected.has(item.id);
                   const isFocused = focusedIndex !== null && sorted[focusedIndex]?.id === item.id;
+                  const price = item.currentValue ?? item.purchasePrice;
+                  const subtitle = [item.manufacturer, item.model].filter(Boolean).join(" ");
                   return (
-                    <Card key={item.id} data-inv-row={item.id} className={`overflow-hidden group relative ${isSel ? "ring-2 ring-foreground/40" : ""} ${isFocused ? "ring-2 ring-cyan-500/70" : ""}`}>
-                      <input
-                        type="checkbox"
-                        checked={isSel}
-                        onChange={() => toggleSelect(item.id)}
-                        className={`absolute top-2 left-2 z-10 h-4 w-4 cursor-pointer rounded bg-background/90 ${isSel ? "opacity-100" : "opacity-0 group-hover:opacity-100"} transition-opacity`}
-                        aria-label={`Select ${item.name}`}
-                      />
-                      {cover ? (
-                        <div className="relative aspect-video bg-muted">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={cover.filePath}
-                            alt={cover.caption ?? item.name}
-                            className="w-full h-full object-cover cursor-zoom-in"
-                            onClick={() => setLightbox({ item, index: 0 })}
-                          />
-                          {item.photos.length > 1 && (
-                            <span className="absolute bottom-1 right-1 rounded bg-black/60 text-white text-[10px] px-1.5 py-0.5">
-                              {item.photos.length} photos
-                            </span>
-                          )}
-                          <button
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); togglePrivacy(item); }}
-                            title={item.isPrivate ? "Make public" : "Make private"}
-                            className={`absolute top-1 right-1 p-1 rounded-full backdrop-blur ${item.isPrivate ? "bg-black/40 text-white/90 hover:bg-black/60" : "bg-blue-500/80 text-white hover:bg-blue-500"}`}
-                          >
-                            {item.isPrivate ? <Lock className="h-3 w-3" /> : <Unlock className="h-3 w-3" />}
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="aspect-video bg-muted flex items-center justify-center relative">
-                          <Camera className="h-6 w-6 text-muted-foreground/40" />
-                          <button
-                            type="button"
-                            onClick={() => togglePrivacy(item)}
-                            title={item.isPrivate ? "Make public" : "Make private"}
-                            className={`absolute top-1 right-1 p-1 rounded-full ${item.isPrivate ? "bg-muted text-muted-foreground hover:bg-muted/80" : "bg-blue-500 text-white hover:bg-blue-600"}`}
-                          >
-                            {item.isPrivate ? <Lock className="h-3 w-3" /> : <Unlock className="h-3 w-3" />}
-                          </button>
-                        </div>
-                      )}
-                      <CardHeader className="pb-2">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <CardTitle className="text-sm truncate"><Highlight text={item.name} query={search} /></CardTitle>
-                            <p className="text-[11px] text-muted-foreground truncate">
-                              {[item.manufacturer, item.model].filter(Boolean).length
-                                ? <Highlight text={[item.manufacturer, item.model].filter(Boolean).join(" ")} query={search} />
-                                : CATEGORY_LABELS[item.category]}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                            {focusedPositionId && (
-                              <button
-                                type="button"
-                                className="p-1 rounded hover:bg-emerald-500/10 disabled:opacity-50"
-                                onClick={() => assignToPosition(item)}
-                                disabled={assigningId === item.id}
-                                title={`Add to ${focusedPositionLabel ?? "focused job"}`}
-                              >
-                                <Briefcase className="h-3.5 w-3.5 text-emerald-600" />
-                              </button>
+                    <Card
+                      key={item.id}
+                      data-inv-row={item.id}
+                      onClick={() => setViewing({ item, index: 0 })}
+                      className={`overflow-hidden group relative border-border/60 hover:border-foreground/30 hover:shadow-md transition-all duration-200 p-0 gap-0 cursor-pointer ${isSel ? "ring-2 ring-foreground/40" : ""} ${isFocused ? "ring-2 ring-cyan-500/70" : ""}`}
+                    >
+                      {/* Image area */}
+                      <div
+                        className="relative aspect-square bg-gradient-to-br from-muted/40 to-muted overflow-hidden"
+                      >
+                        {cover ? (
+                          <>
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={cover.filePath}
+                              alt={cover.caption ?? item.name}
+                              className="w-full h-full object-cover transition-transform duration-300"
+                              style={{
+                                objectPosition: `${cover.focalX ?? 50}% ${cover.focalY ?? 50}%`,
+                                transform: `scale(${cover.zoom ?? 1})`,
+                                transformOrigin: `${cover.focalX ?? 50}% ${cover.focalY ?? 50}%`,
+                              }}
+                            />
+                            {item.photos.length > 1 && (
+                              <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1">
+                                {item.photos.slice(0, Math.min(item.photos.length, 5)).map((_, i) => (
+                                  <span
+                                    key={i}
+                                    className={`h-1.5 rounded-full transition-all ${i === 0 ? "bg-white w-3 shadow" : "bg-white/60 w-1.5"}`}
+                                  />
+                                ))}
+                              </div>
                             )}
-                            <button
-                              type="button"
-                              className="p-1 rounded hover:bg-muted"
-                              onClick={() => togglePrivacy(item)}
-                              title={item.isPrivate ? "Make public" : "Make private"}
-                            >
-                              {item.isPrivate ? <Lock className="h-3.5 w-3.5 text-muted-foreground" /> : <Unlock className="h-3.5 w-3.5 text-blue-500" />}
-                            </button>
-                            <button
-                              type="button"
-                              className="p-1 rounded hover:bg-muted"
-                              onClick={() => setEditing(item)}
-                              title="Edit"
-                            >
-                              <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
-                            </button>
-                            <button
-                              type="button"
-                              className="p-1 rounded hover:bg-red-500/10"
-                              onClick={() => deleteItem(item.id)}
-                              title="Delete"
-                            >
-                              <Trash2 className="h-3.5 w-3.5 text-red-500" />
-                            </button>
+                          </>
+                        ) : (
+                          <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground/50">
+                            <Camera className="h-8 w-8 mb-1" />
+                            <span className="text-[10px] uppercase tracking-wide">No photo</span>
                           </div>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="space-y-2 pt-0">
-                        <div className="flex flex-wrap gap-1 text-[10px]">
-                          <OwnershipBadge
-                            item={item}
-                            open={inlinePopover?.itemId === item.id && inlinePopover.field === "ownership"}
-                            onOpen={() => setInlinePopover({ itemId: item.id, field: "ownership" })}
-                            onSelect={(v) => inlinePatch(item.id, "ownership", v)}
-                          />
-                          <ConditionBadge
-                            item={item}
-                            open={inlinePopover?.itemId === item.id && inlinePopover.field === "condition"}
-                            onOpen={() => setInlinePopover({ itemId: item.id, field: "condition" })}
-                            onSelect={(v) => inlinePatch(item.id, "condition", v)}
-                          />
-                          <span className="px-1.5 py-0.5 rounded-full bg-muted">
-                            {CATEGORY_LABELS[item.category]}
-                          </span>
-                          {item.proficiency && (
-                            <span className="px-1.5 py-0.5 rounded-full bg-orange-500/10 text-orange-600">
-                              Skill {item.proficiency}/5
-                            </span>
-                          )}
-                          {!item.isPrivate && (
-                            <span className="px-1.5 py-0.5 rounded-full bg-blue-500/10 text-blue-600">
-                              public
-                            </span>
-                          )}
-                          {(item.tags ?? []).map((t) => (
-                            <span key={t} className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-cyan-500/10 text-cyan-600">
-                              <Tag className="h-2 w-2" />{t}
-                            </span>
-                          ))}
-                        </div>
-                        {(item.location || item.serialNumber) && (
-                          <div className="text-[11px] text-muted-foreground space-y-0.5">
-                            {item.location && <div>📍 {item.location}</div>}
-                            {item.serialNumber && (
-                              <div className="font-mono">SN: {item.serialNumber}</div>
-                            )}
-                          </div>
-                        )}
-                        {item.notes && (
-                          <p className="text-[11px] text-muted-foreground italic line-clamp-2">
-                            {item.notes}
-                          </p>
                         )}
 
-                        {/* Photo strip */}
-                        <div className="flex items-center gap-1 pt-1">
-                          {item.photos.map((p, idx) => (
-                            <div key={p.id} className="relative group/p">
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img
-                                src={p.filePath}
-                                alt={p.caption ?? item.name}
-                                className="h-10 w-10 rounded object-cover border cursor-zoom-in"
-                                onClick={() => setLightbox({ item, index: idx })}
-                              />
-                              {p.isCover && (
-                                <Star className="absolute -top-1 -left-1 h-3 w-3 text-yellow-400 fill-yellow-400 pointer-events-none" />
-                              )}
-                              <div className="absolute inset-0 flex items-center justify-center gap-0.5 opacity-0 group-hover/p:opacity-100 bg-black/60 rounded transition-opacity pointer-events-none">
-                                {!p.isCover && (
-                                  <button
-                                    type="button"
-                                    onClick={(e) => { e.stopPropagation(); setCover(p.id, item.id); }}
-                                    title="Set cover"
-                                    className="p-0.5 hover:bg-yellow-500/30 rounded pointer-events-auto"
-                                  >
-                                    <Star className="h-3 w-3 text-yellow-300" />
-                                  </button>
-                                )}
-                                <button
-                                  type="button"
-                                  onClick={(e) => { e.stopPropagation(); deletePhoto(p.id, item.id); }}
-                                  title="Delete"
-                                  className="p-0.5 hover:bg-red-500/30 rounded pointer-events-auto"
-                                >
-                                  <X className="h-3 w-3 text-white" />
-                                </button>
-                              </div>
-                            </div>
-                          ))}
-                          {item.photos.length < 5 && (
-                            <label className="h-10 w-10 rounded border border-dashed flex items-center justify-center cursor-pointer hover:bg-muted text-muted-foreground">
-                              <Upload className="h-3.5 w-3.5" />
-                              <input
-                                type="file"
-                                accept="image/*"
-                                className="hidden"
-                                onChange={async (e) => {
-                                  const f = e.target.files?.[0];
-                                  if (!f) return;
-                                  await uploadPhoto(item.id, f, item.photos.length === 0);
-                                  e.target.value = "";
-                                }}
-                              />
-                            </label>
+                        {/* Top-left: select checkbox */}
+                        <input
+                          type="checkbox"
+                          checked={isSel}
+                          onChange={() => toggleSelect(item.id)}
+                          onClick={(e) => e.stopPropagation()}
+                          className={`absolute top-2 left-2 z-10 h-4 w-4 cursor-pointer rounded bg-background/90 ring-1 ring-border ${isSel ? "opacity-100" : "opacity-0 group-hover:opacity-100"} transition-opacity`}
+                          aria-label={`Select ${item.name}`}
+                        />
+
+                        {/* Top-right: privacy heart-style toggle */}
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); togglePrivacy(item); }}
+                          title={item.isPrivate ? "Private — make public" : "Public — make private"}
+                          className={`absolute top-2 right-2 z-10 h-7 w-7 rounded-full backdrop-blur flex items-center justify-center transition ${
+                            item.isPrivate
+                              ? "bg-white/85 text-foreground hover:bg-white shadow-sm"
+                              : "bg-blue-500 text-white hover:bg-blue-600 shadow"
+                          }`}
+                        >
+                          {item.isPrivate ? <Lock className="h-3.5 w-3.5" /> : <Unlock className="h-3.5 w-3.5" />}
+                        </button>
+
+                        {/* Bottom-right corner badges */}
+                        <div className="absolute top-2 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1">
+                          {item.isDraft && (
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); setEditing(item); }}
+                              className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-500 text-white shadow hover:bg-amber-600"
+                              title="Click to add details"
+                            >
+                              Needs details
+                            </button>
                           )}
                         </div>
-                      </CardContent>
+
+                        {/* Hover action bar */}
+                        <div className="absolute bottom-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          {focusedPositionId && (
+                            <button
+                              type="button"
+                              className="h-7 w-7 rounded-full bg-white/90 hover:bg-emerald-500 hover:text-white flex items-center justify-center shadow-sm disabled:opacity-50"
+                              onClick={(e) => { e.stopPropagation(); assignToPosition(item); }}
+                              disabled={assigningId === item.id}
+                              title={`Add to ${focusedPositionLabel ?? "focused job"}`}
+                            >
+                              <Briefcase className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            className="h-7 w-7 rounded-full bg-white/90 hover:bg-foreground hover:text-background flex items-center justify-center shadow-sm"
+                            onClick={(e) => { e.stopPropagation(); setEditing(item); }}
+                            title="Edit"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                          {cover && (
+                            <button
+                              type="button"
+                              className="h-7 w-7 rounded-full bg-white/90 hover:bg-violet-500 hover:text-white flex items-center justify-center shadow-sm"
+                              onClick={(e) => { e.stopPropagation(); setCropping({ item, photoId: cover.id }); }}
+                              title="Adjust crop"
+                            >
+                              <Crop className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                          <label
+                            className="h-7 w-7 rounded-full bg-white/90 hover:bg-cyan-500 hover:text-white flex items-center justify-center shadow-sm cursor-pointer"
+                            onClick={(e) => e.stopPropagation()}
+                            title="Add photo"
+                          >
+                            <Upload className="h-3.5 w-3.5" />
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              disabled={item.photos.length >= 5}
+                              onChange={async (e) => {
+                                const f = e.target.files?.[0];
+                                if (!f) return;
+                                await uploadPhoto(item.id, f, item.photos.length === 0);
+                                e.target.value = "";
+                              }}
+                            />
+                          </label>
+                          <button
+                            type="button"
+                            className="h-7 w-7 rounded-full bg-white/90 hover:bg-red-500 hover:text-white flex items-center justify-center shadow-sm"
+                            onClick={(e) => { e.stopPropagation(); deleteItem(item.id); }}
+                            title="Delete"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Info area */}
+                      <div className="p-3 space-y-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium flex items-center gap-1.5">
+                              <span className={`inline-block h-1.5 w-1.5 rounded-full ${CATEGORY_BAR_COLOR[item.category] ?? "bg-slate-400"}`} />
+                              {CATEGORY_LABELS[item.category]}
+                            </p>
+                            <h3 className="text-sm font-semibold leading-snug truncate mt-0.5">
+                              <Highlight text={item.name} query={search} />
+                            </h3>
+                            {subtitle && (
+                              <p className="text-[11px] text-muted-foreground truncate">
+                                <Highlight text={subtitle} query={search} />
+                              </p>
+                            )}
+                          </div>
+                          {price != null && (
+                            <div className="text-right shrink-0">
+                              <p className="text-sm font-semibold tabular-nums">
+                                ${Number(price).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                              </p>
+                              {item.currentValue != null && item.purchasePrice != null && item.currentValue !== item.purchasePrice && (
+                                <p className="text-[10px] text-muted-foreground line-through tabular-nums">
+                                  ${Number(item.purchasePrice).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                </p>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Proficiency dots + condition pill */}
+                        <div className="flex items-center justify-between gap-2">
+                          {item.proficiency ? (
+                            <div className="flex items-center gap-0.5" title={`Skill ${item.proficiency}/5`}>
+                              {[1, 2, 3, 4, 5].map((n) => (
+                                <span
+                                  key={n}
+                                  className={`h-1.5 w-1.5 rounded-full ${n <= (item.proficiency ?? 0) ? "bg-orange-500" : "bg-muted"}`}
+                                />
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-[10px] text-muted-foreground/60">—</span>
+                          )}
+                          <div className="flex items-center gap-1">
+                            <ConditionBadge
+                              item={item}
+                              open={inlinePopover?.itemId === item.id && inlinePopover.field === "condition"}
+                              onOpen={() => setInlinePopover({ itemId: item.id, field: "condition" })}
+                              onSelect={(v) => inlinePatch(item.id, "condition", v)}
+                            />
+                            <OwnershipBadge
+                              item={item}
+                              open={inlinePopover?.itemId === item.id && inlinePopover.field === "ownership"}
+                              onOpen={() => setInlinePopover({ itemId: item.id, field: "ownership" })}
+                              onSelect={(v) => inlinePatch(item.id, "ownership", v)}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Optional meta row: location / serial */}
+                        {(item.location || item.serialNumber) && (
+                          <div className="flex items-center gap-2 text-[10px] text-muted-foreground truncate">
+                            {item.location && (
+                              <span className="truncate">📍 {item.location}</span>
+                            )}
+                            {item.serialNumber && (
+                              <span className="font-mono truncate">SN: {item.serialNumber}</span>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Tags row (compact) */}
+                        {(item.tags ?? []).length > 0 && (
+                          <div className="flex flex-wrap gap-1 pt-0.5">
+                            {(item.tags ?? []).slice(0, 3).map((t) => (
+                              <span key={t} className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-cyan-500/10 text-cyan-600 text-[10px]">
+                                <Tag className="h-2 w-2" />{t}
+                              </span>
+                            ))}
+                            {(item.tags ?? []).length > 3 && (
+                              <span className="text-[10px] text-muted-foreground">+{(item.tags ?? []).length - 3}</span>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </Card>
                   );
                 })}
@@ -1768,10 +2154,14 @@ export function PersonalInventory({
         })()
       )}
 
-      {/* Edit / Add — inline panel */}
+      {/* Edit / Add — modal overlay */}
       {editing && (
-        <Card className="border-cyan-500/40 ring-1 ring-cyan-500/20 shadow-md">
-          <div className="flex items-start justify-between gap-3 px-3 py-2 border-b bg-cyan-500/5">
+        <div
+          className="fixed inset-0 z-[2150] flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-6"
+          onMouseDown={(e) => { if (e.target === e.currentTarget) setEditing(null); }}
+        >
+          <Card className="border-cyan-500/40 ring-1 ring-cyan-500/20 shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+            <div className="flex items-start justify-between gap-3 px-3 py-2 border-b bg-cyan-500/5 shrink-0">
             <div className="min-w-0">
               <div className="text-sm font-semibold flex items-center gap-2">
                 {editing?.id ? <Pencil className="h-4 w-4 text-cyan-600" /> : <Plus className="h-4 w-4 text-cyan-600" />}
@@ -1790,7 +2180,7 @@ export function PersonalInventory({
               <X className="h-4 w-4" />
             </button>
           </div>
-          <CardContent className="p-3 space-y-3">
+          <CardContent className="p-3 space-y-3 overflow-y-auto flex-1">
           {editing && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="sm:col-span-2 space-y-1">
@@ -2044,6 +2434,11 @@ export function PersonalInventory({
                           src={p.filePath}
                           alt={p.caption ?? editing.name ?? "photo"}
                           className="w-full h-full object-cover cursor-zoom-in"
+                          style={{
+                            objectPosition: `${p.focalX ?? 50}% ${p.focalY ?? 50}%`,
+                            transform: `scale(${p.zoom ?? 1})`,
+                            transformOrigin: `${p.focalX ?? 50}% ${p.focalY ?? 50}%`,
+                          }}
                           onClick={() => {
                             const fresh = items.find((i) => i.id === editing.id);
                             if (fresh) setLightbox({ item: fresh, index: idx });
@@ -2069,6 +2464,20 @@ export function PersonalInventory({
                           {editing.id && (
                             <button
                               type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const fresh = items.find((i) => i.id === editing.id);
+                                if (fresh) setCropping({ item: fresh, photoId: p.id });
+                              }}
+                              title="Adjust crop"
+                              className="p-1 rounded hover:bg-violet-500/40"
+                            >
+                              <Crop className="h-3.5 w-3.5 text-violet-200" />
+                            </button>
+                          )}
+                          {editing.id && (
+                            <button
+                              type="button"
                               onClick={(e) => { e.stopPropagation(); deletePhoto(p.id, editing.id!); }}
                               title="Delete"
                               className="p-1 rounded hover:bg-red-500/40"
@@ -2087,15 +2496,15 @@ export function PersonalInventory({
               </div>
             </div>
           )}
-
-          <div className="flex items-center justify-end gap-2 pt-2 border-t">
+          </CardContent>
+          <div className="flex items-center justify-end gap-2 px-3 py-2 border-t bg-background shrink-0">
             <Button variant="ghost" size="sm" onClick={() => setEditing(null)}>Cancel</Button>
             <Button size="sm" onClick={saveItem} disabled={saving || !editing?.name?.trim()}>
               {saving ? "Saving…" : editing?.id ? "Save" : "Add"}
             </Button>
           </div>
-          </CardContent>
-        </Card>
+          </Card>
+        </div>
       )}
 
       {/* Keyboard shortcuts overlay */}
@@ -2140,6 +2549,250 @@ export function PersonalInventory({
           </div>
         </div>
       )}
+
+      {/* Crop / focal-point editor */}
+      {cropping && (() => {
+        const photo = cropping.item.photos.find((p) => p.id === cropping.photoId);
+        if (!photo) return null;
+        return (
+          <CropModal
+            key={photo.id}
+            photo={photo}
+            itemName={cropping.item.name}
+            onClose={() => setCropping(null)}
+            onSave={async (focalX, focalY, zoom) => {
+              const tid = toast.loading("Saving crop…");
+              try {
+                const res = await fetch("/api/personal-equipment/photos", {
+                  method: "PATCH",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ id: photo.id, focalX, focalY, zoom }),
+                });
+                if (!res.ok) throw new Error(await res.text());
+                toast.success("Crop saved", { id: tid });
+                setCropping(null);
+                if (editing?.id === cropping.item.id) {
+                  await refreshEditing(cropping.item.id);
+                } else {
+                  await load();
+                }
+              } catch (err) {
+                toast.error("Save failed", { id: tid });
+                console.error(err);
+              }
+            }}
+          />
+        );
+      })()}
+
+      {/* Quick view (Amazon-style product detail) */}
+      {viewing && (() => {
+        const item = viewing.item;
+        const photos = item.photos;
+        const photo = photos[viewing.index] ?? photos[0];
+        const price = item.currentValue ?? item.purchasePrice;
+        const subtitle = [item.manufacturer, item.model].filter(Boolean).join(" ");
+        const setIdx = (i: number) => setViewing((v) => v ? { ...v, index: i } : v);
+        const next = () => photos.length && setIdx((viewing.index + 1) % photos.length);
+        const prev = () => photos.length && setIdx((viewing.index - 1 + photos.length) % photos.length);
+        return (
+          <div
+            className="fixed inset-0 z-[2150] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
+            onClick={() => setViewing(null)}
+          >
+            <div
+              className="bg-background text-foreground rounded-lg shadow-2xl border border-border max-w-5xl w-full max-h-[92vh] overflow-hidden flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between gap-2 px-4 py-2.5 border-b border-border">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className={`inline-block h-2 w-2 rounded-full shrink-0 ${CATEGORY_BAR_COLOR[item.category] ?? "bg-slate-400"}`} />
+                  <span className="text-[11px] uppercase tracking-wider text-muted-foreground">{CATEGORY_LABELS[item.category]}</span>
+                  {item.isDraft && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500 text-white">Draft</span>}
+                </div>
+                <div className="flex items-center gap-1">
+                  <Button size="sm" variant="ghost" onClick={() => { setEditing(item); setViewing(null); }}>
+                    <Pencil className="h-3.5 w-3.5 mr-1.5" /> Edit
+                  </Button>
+                  <button
+                    type="button"
+                    onClick={() => setViewing(null)}
+                    className="p-1.5 rounded hover:bg-muted"
+                    title="Close (Esc)"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Body */}
+              <div className="grid md:grid-cols-2 gap-0 overflow-y-auto">
+                {/* Image gallery */}
+                <div className="bg-muted/30 p-4 flex flex-col items-center gap-3 border-b md:border-b-0 md:border-r border-border">
+                  <div className="relative w-full aspect-square max-w-md bg-muted rounded-lg overflow-hidden">
+                    {photo ? (
+                      <>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={photo.filePath}
+                          alt={photo.caption ?? item.name}
+                          className="w-full h-full object-cover cursor-zoom-in"
+                          style={{
+                            objectPosition: `${photo.focalX ?? 50}% ${photo.focalY ?? 50}%`,
+                            transform: `scale(${photo.zoom ?? 1})`,
+                            transformOrigin: `${photo.focalX ?? 50}% ${photo.focalY ?? 50}%`,
+                          }}
+                          onClick={() => setLightbox({ item, index: viewing.index })}
+                        />
+                        {photos.length > 1 && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={prev}
+                              className="absolute left-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/40 text-white hover:bg-black/60"
+                              title="Previous (←)"
+                            >
+                              <ChevronLeft className="h-4 w-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={next}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/40 text-white hover:bg-black/60"
+                              title="Next (→)"
+                            >
+                              <ChevronRight className="h-4 w-4" />
+                            </button>
+                            <span className="absolute bottom-2 right-2 text-[10px] px-1.5 py-0.5 rounded bg-black/60 text-white tabular-nums">
+                              {viewing.index + 1} / {photos.length}
+                            </span>
+                          </>
+                        )}
+                      </>
+                    ) : (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground/50">
+                        <Camera className="h-10 w-10 mb-2" />
+                        <span className="text-xs uppercase tracking-wide">No photo</span>
+                      </div>
+                    )}
+                  </div>
+                  {photos.length > 1 && (
+                    <div className="flex items-center gap-1.5 flex-wrap justify-center">
+                      {photos.map((p, i) => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => setIdx(i)}
+                          className={`h-12 w-12 rounded overflow-hidden border-2 transition-all ${i === viewing.index ? "border-foreground" : "border-transparent opacity-60 hover:opacity-100"}`}
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={p.filePath}
+                            alt=""
+                            className="w-full h-full object-cover"
+                            style={{
+                              objectPosition: `${p.focalX ?? 50}% ${p.focalY ?? 50}%`,
+                              transform: `scale(${p.zoom ?? 1})`,
+                              transformOrigin: `${p.focalX ?? 50}% ${p.focalY ?? 50}%`,
+                            }}
+                          />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Info panel */}
+                <div className="p-5 space-y-4">
+                  <div>
+                    <h2 className="text-xl font-semibold leading-tight">{item.name}</h2>
+                    {subtitle && <p className="text-sm text-muted-foreground mt-0.5">{subtitle}</p>}
+                  </div>
+
+                  {price != null && (
+                    <div className="flex items-baseline gap-3">
+                      <span className="text-2xl font-bold tabular-nums">${Number(price).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                      {item.currentValue != null && item.purchasePrice != null && item.currentValue !== item.purchasePrice && (
+                        <span className="text-sm text-muted-foreground line-through tabular-nums">
+                          ${Number(item.purchasePrice).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                        </span>
+                      )}
+                      {item.currentValue != null && (
+                        <span className="text-[11px] text-muted-foreground">current value</span>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className={`px-2 py-0.5 rounded-full text-xs capitalize ${CONDITION_BADGE[item.condition]}`}>{item.condition}</span>
+                    <span className={`px-2 py-0.5 rounded-full text-xs capitalize ${OWNERSHIP_BADGE[item.ownership]}`}>{item.ownership}</span>
+                    {item.isPrivate ? (
+                      <span className="px-2 py-0.5 rounded-full text-xs bg-muted text-muted-foreground inline-flex items-center gap-1"><Lock className="h-3 w-3" /> Private</span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded-full text-xs bg-blue-500/10 text-blue-600 inline-flex items-center gap-1"><Unlock className="h-3 w-3" /> Public</span>
+                    )}
+                  </div>
+
+                  {item.proficiency != null && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">Skill level</span>
+                      <div className="flex items-center gap-0.5">
+                        {[1, 2, 3, 4, 5].map((n) => (
+                          <span key={n} className={`h-2 w-2 rounded-full ${n <= (item.proficiency ?? 0) ? "bg-orange-500" : "bg-muted"}`} />
+                        ))}
+                      </div>
+                      <span className="text-xs text-muted-foreground tabular-nums">{item.proficiency}/5</span>
+                    </div>
+                  )}
+
+                  <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                    {item.manufacturer && (<><dt className="text-xs text-muted-foreground">Manufacturer</dt><dd className="text-foreground">{item.manufacturer}</dd></>)}
+                    {item.model && (<><dt className="text-xs text-muted-foreground">Model</dt><dd className="text-foreground">{item.model}</dd></>)}
+                    {item.serialNumber && (<><dt className="text-xs text-muted-foreground">Serial</dt><dd className="font-mono text-xs">{item.serialNumber}</dd></>)}
+                    {item.location && (<><dt className="text-xs text-muted-foreground">Location</dt><dd className="text-foreground">📍 {item.location}</dd></>)}
+                    {item.purchaseDate && (<><dt className="text-xs text-muted-foreground">Purchased</dt><dd className="text-foreground">{new Date(item.purchaseDate).toLocaleDateString()}</dd></>)}
+                    {item.purchasePrice != null && (<><dt className="text-xs text-muted-foreground">Purchase price</dt><dd className="tabular-nums">${Number(item.purchasePrice).toLocaleString(undefined, { maximumFractionDigits: 0 })}</dd></>)}
+                  </dl>
+
+                  {(item.tags ?? []).length > 0 && (
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1.5">Tags</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {(item.tags ?? []).map((t) => (
+                          <span key={t} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-600 text-xs">
+                            <Tag className="h-2.5 w-2.5" />{t}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {item.notes && (
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1.5">Notes</p>
+                      <p className="text-sm whitespace-pre-wrap text-foreground/90">{item.notes}</p>
+                    </div>
+                  )}
+
+                  {focusedPositionId && (
+                    <div className="pt-2 border-t border-border">
+                      <Button
+                        size="sm"
+                        className="w-full"
+                        onClick={() => { assignToPosition(item); setViewing(null); }}
+                        disabled={assigningId === item.id}
+                      >
+                        <Briefcase className="h-3.5 w-3.5 mr-2" />
+                        Add to {focusedPositionLabel ?? "focused job"}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Lightbox */}
       {lightbox && lightbox.item.photos.length > 0 && (() => {
@@ -2209,7 +2862,16 @@ export function PersonalInventory({
                         className={`h-10 w-10 rounded overflow-hidden border-2 transition-all ${i === lightbox.index ? "border-white scale-110" : "border-transparent opacity-60 hover:opacity-100"}`}
                       >
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={p.filePath} alt="" className="w-full h-full object-cover" />
+                        <img
+                          src={p.filePath}
+                          alt=""
+                          className="w-full h-full object-cover"
+                          style={{
+                            objectPosition: `${p.focalX ?? 50}% ${p.focalY ?? 50}%`,
+                            transform: `scale(${p.zoom ?? 1})`,
+                            transformOrigin: `${p.focalX ?? 50}% ${p.focalY ?? 50}%`,
+                          }}
+                        />
                       </button>
                     ))}
                   </div>

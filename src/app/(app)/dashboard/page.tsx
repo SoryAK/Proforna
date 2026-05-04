@@ -23,7 +23,6 @@ import {
   Settings,
   Camera,
   DollarSign,
-  Youtube,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -62,7 +61,6 @@ import { PersonalFinance } from "@/components/personal-finance";
 import { OnboardingFlow } from "@/components/onboarding-flow";
 import { PayPeriodCalendar } from "@/components/pay-period-calendar";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { VideoFeed } from "@/components/video-feed";
 import ExperiencePage from "../experience/page";
 import SkillsPage from "../skills/page";
 import ResumesPage from "../resumes/page";
@@ -1042,15 +1040,6 @@ export default function DashboardPage() {
             </Tabs>
           </CardContent>
         </Card>
-      </div>
-
-      {/* ━━ VIDEO FEED ━━ */}
-      <div className="space-y-3">
-        <div className="flex items-center gap-2 px-1">
-          <Youtube className="h-4 w-4 text-red-600" />
-          <h2 className="text-sm font-semibold tracking-wide uppercase text-muted-foreground">Industry Videos</h2>
-        </div>
-        <VideoFeed />
       </div>
 
       {/* ━━ ACTIVITY & INSIGHTS ━━ */}

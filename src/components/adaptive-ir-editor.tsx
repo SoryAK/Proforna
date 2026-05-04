@@ -38,7 +38,8 @@ const DEFAULT_SECTIONS: SectionConfig[] = [
   { type: "experience", visible: true, order: 1 },
   { type: "skills", visible: true, order: 2 },
   { type: "certifications", visible: true, order: 3 },
-  { type: "contact", visible: true, order: 4 },
+  { type: "inventory", visible: false, order: 4 },
+  { type: "contact", visible: true, order: 5 },
 ];
 
 const SECTION_LABELS: Record<string, string> = {
@@ -46,6 +47,7 @@ const SECTION_LABELS: Record<string, string> = {
   experience: "Experience",
   skills: "Skills",
   certifications: "Certifications",
+  inventory: "Tools & Inventory",
   contact: "Contact",
 };
 
@@ -101,7 +103,16 @@ export default function AdaptiveIrEditor() {
       try {
         const parsed = JSON.parse(profile.irSections);
         if (Array.isArray(parsed) && parsed.length) {
-          setSections(parsed);
+          // Merge in any new default sections that aren't in the saved config
+          // (so newly added section types like "inventory" appear for existing users)
+          const existingTypes = new Set(parsed.map((s: SectionConfig) => s.type));
+          const merged = [...parsed];
+          for (const def of DEFAULT_SECTIONS) {
+            if (!existingTypes.has(def.type)) {
+              merged.push({ ...def, order: merged.length });
+            }
+          }
+          setSections(merged);
         }
       } catch {
         // ignore

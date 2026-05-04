@@ -47,6 +47,11 @@ interface Profile {
   githubUrl: string | null;
   portfolioUrl: string | null;
   schedulingUrl: string | null;
+  contactCtaMessage: string | null;
+  maxCommuteMiles: number | null;
+  homeAddress: string | null;
+  homeLat: number | null;
+  homeLng: number | null;
   bio: string | null;
 }
 
@@ -118,6 +123,7 @@ export function BioCardEditor() {
   // Edit drafts (separate from server state so cancel works)
   const [draftP, setDraftP] = useState<Profile | null>(null);
   const [draftC, setDraftC] = useState<Comp | null>(null);
+  const [geocodingHome, setGeocodingHome] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -448,6 +454,139 @@ export function BioCardEditor() {
               <div className="col-span-2">
                 <Label className="text-[11px]">Scheduling URL (Calendly, Cal.com, etc.)</Label>
                 <Input className="h-7 text-xs" value={draftP.schedulingUrl ?? ""} onChange={(e) => setDraftP({ ...draftP, schedulingUrl: e.target.value || null })} />
+              </div>
+              <div className="col-span-2">
+                <Label className="text-[11px]">&ldquo;Get in touch&rdquo; message <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                <Textarea
+                  className="text-xs min-h-[56px]"
+                  maxLength={280}
+                  value={draftP.contactCtaMessage ?? ""}
+                  onChange={(e) => setDraftP({ ...draftP, contactCtaMessage: e.target.value || null })}
+                  placeholder="Custom CTA or disclosure shown above the contact form (e.g. &lsquo;Only contact me about Senior+ roles&rsquo; or &lsquo;Replies within 48h&rsquo;)…"
+                />
+                <p className="text-[10px] text-muted-foreground mt-0.5">{(draftP.contactCtaMessage ?? "").length}/280</p>
+              </div>
+              <div className="col-span-2">
+                <Label className="text-[11px]">Home address <span className="text-muted-foreground font-normal">(used for commute radius — kept private)</span></Label>
+                <div className="flex gap-1.5">
+                  <Input
+                    className="h-7 text-xs flex-1"
+                    value={draftP.homeAddress ?? ""}
+                    onChange={(e) => setDraftP({ ...draftP, homeAddress: e.target.value || null })}
+                    placeholder="123 Main St, City, ST 12345"
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2 text-[11px]"
+                    disabled={geocodingHome}
+                    title="Pull from Life Anchor 'Home', current Residence, or Job-Search portal"
+                    onClick={async () => {
+                      setGeocodingHome(true);
+                      try {
+                        // 1) Life Anchor labeled Home (or icon=home)
+                        const aRes = await fetch("/api/life-anchors");
+                        if (aRes.ok) {
+                          const anchors = await aRes.json();
+                          const home = Array.isArray(anchors)
+                            ? anchors.find((a: { label?: string; icon?: string }) =>
+                                /^home$/i.test(a.label || "") || (a.icon || "").toLowerCase() === "home")
+                            : null;
+                          if (home && home.lat != null && home.lng != null) {
+                            setDraftP({ ...draftP, homeAddress: home.address, homeLat: home.lat, homeLng: home.lng });
+                            toast.success("Pulled from Life Anchor 'Home'");
+                            return;
+                          }
+                        }
+                        // 2) Current residence
+                        const rRes = await fetch("/api/residences");
+                        if (rRes.ok) {
+                          const residences = await rRes.json();
+                          const current = Array.isArray(residences)
+                            ? residences.find((r: { isCurrent?: boolean }) => r.isCurrent)
+                              ?? residences.find((r: { endDate?: string | null }) => !r.endDate)
+                            : null;
+                          if (current && current.lat != null && current.lng != null) {
+                            setDraftP({ ...draftP, homeAddress: current.address, homeLat: current.lat, homeLng: current.lng });
+                            toast.success("Pulled from current residence");
+                            return;
+                          }
+                        }
+                        // 3) Job-search portal settings (already on UserProfile.homeAddress)
+                        const pRes = await fetch("/api/profile");
+                        if (pRes.ok) {
+                          const p = await pRes.json();
+                          if (p.homeLat != null && p.homeLng != null) {
+                            setDraftP({ ...draftP, homeAddress: p.homeAddress, homeLat: p.homeLat, homeLng: p.homeLng });
+                            toast.success("Pulled from Portal Settings");
+                            return;
+                          }
+                        }
+                        toast.error("No home location found in Life Anchors, Residences, or Portal Settings");
+                      } catch {
+                        toast.error("Auto-fill failed");
+                      } finally {
+                        setGeocodingHome(false);
+                      }
+                    }}
+                  >
+                    Auto-fill
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2 text-[11px]"
+                    disabled={geocodingHome || !draftP.homeAddress?.trim()}
+                    onClick={async () => {
+                      const addr = draftP.homeAddress?.trim();
+                      if (!addr) return;
+                      setGeocodingHome(true);
+                      try {
+                        const res = await fetch(`/api/resolve-address?address=${encodeURIComponent(addr)}&mode=geocode`);
+                        if (!res.ok) throw new Error("Geocode failed");
+                        const data = await res.json();
+                        if (data.lat && data.lng) {
+                          setDraftP({ ...draftP, homeAddress: addr, homeLat: data.lat, homeLng: data.lng });
+                          toast.success("Home location pinned");
+                        } else {
+                          toast.error("Couldn't find that address");
+                        }
+                      } catch {
+                        toast.error("Geocoding failed");
+                      } finally {
+                        setGeocodingHome(false);
+                      }
+                    }}
+                  >
+                    {geocodingHome ? <Loader2 className="h-3 w-3 animate-spin" /> : "Pin"}
+                  </Button>
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-0.5">
+                  {draftP.homeLat != null && draftP.homeLng != null
+                    ? `✓ Pinned at ${draftP.homeLat.toFixed(4)}, ${draftP.homeLng.toFixed(4)} · only a ~1km-jittered version is exposed publicly.`
+                    : "Click Pin to geocode — required for IR Recruit Mode."}
+                </p>
+              </div>
+              <div className="col-span-2">
+                <Label className="text-[11px]">Max commute distance <span className="text-muted-foreground font-normal">(miles, one-way)</span></Label>
+                <Input
+                  className="h-7 text-xs"
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  max={500}
+                  value={draftP.maxCommuteMiles ?? ""}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    if (raw === "") return setDraftP({ ...draftP, maxCommuteMiles: null });
+                    const n = Number(raw);
+                    setDraftP({ ...draftP, maxCommuteMiles: Number.isFinite(n) ? Math.max(0, Math.min(500, Math.round(n))) : null });
+                  }}
+                  placeholder="e.g. 35"
+                />
+                <p className="text-[10px] text-muted-foreground mt-0.5">Used by IR Recruit Mode to draw a travel radius around your home address.</p>
               </div>
             </div>
 

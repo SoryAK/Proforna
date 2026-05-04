@@ -110,7 +110,7 @@ export async function PATCH(request: Request) {
 
   try {
     const body = await request.json();
-    const { id, caption, isCover } = body;
+    const { id, caption, isCover, focalX, focalY, zoom } = body;
     if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
 
     const existing = await prisma.personalEquipmentPhoto.findUnique({
@@ -128,11 +128,15 @@ export async function PATCH(request: Request) {
       });
     }
 
+    const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
     const updated = await prisma.personalEquipmentPhoto.update({
       where: { id },
       data: {
         ...(caption !== undefined && { caption: caption || null }),
         ...(isCover !== undefined && { isCover }),
+        ...(typeof focalX === "number" && { focalX: Math.round(clamp(focalX, 0, 100)) }),
+        ...(typeof focalY === "number" && { focalY: Math.round(clamp(focalY, 0, 100)) }),
+        ...(typeof zoom === "number" && { zoom: clamp(zoom, 1, 4) }),
       },
     });
     return NextResponse.json(updated);

@@ -82,12 +82,6 @@ interface WorkHistorySubLocation {
   photos?: string[];
 }
 
-interface BuildingFootprint {
-  coords: { lat: number; lng: number }[];
-  color: string;
-  opacity?: number;
-}
-
 interface SweetSpotZone {
   center: [number, number];
   radiusMeters: number;
@@ -163,7 +157,6 @@ interface Props {
   concurrentWorkHistoryIds?: Set<string>;
   onSelectWorkHistory?: (marker: WorkHistoryMarker | WorkHistorySubLocation) => void;
   residenceMarker?: { id: string; lat: number; lng: number; label: string; address: string } | null;
-  buildingFootprints?: BuildingFootprint[];
   pinDropMode?: boolean;
   onMapClick?: (coords: { lat: number; lng: number; placeId?: string }) => void;
   companyLocationMarkers?: { placeId: string; name: string; address: string; lat: number; lng: number }[];
@@ -325,7 +318,6 @@ export default function JobMapGoogle({
   concurrentWorkHistoryIds,
   onSelectWorkHistory,
   residenceMarker = null,
-  buildingFootprints = [],
   pinDropMode = false,
   onMapClick,
   companyLocationMarkers = [],
@@ -351,7 +343,6 @@ export default function JobMapGoogle({
   const residenceMarkerRef = useRef<google.maps.marker.AdvancedMarkerElement | null>(null);
   const subLocationMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
   const subLocationLinesRef = useRef<google.maps.Polyline[]>([]);
-  const buildingPolygonsRef = useRef<google.maps.Polygon[]>([]);
   const officeMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
   const sweetSpotMarkerRef = useRef<google.maps.marker.AdvancedMarkerElement | null>(null);
   const youAreHereMarkerRef = useRef<google.maps.marker.AdvancedMarkerElement | null>(null);
@@ -386,6 +377,7 @@ export default function JobMapGoogle({
 
   // Map ready
   const [ready, setReady] = useState(false);
+  const [showSearchRadius, setShowSearchRadius] = useState(false);
 
   // Store callbacks in refs so they're fresh in event handlers
   const onSelectRef = useRef(onSelect);
@@ -1071,7 +1063,8 @@ export default function JobMapGoogle({
   /* ── Search radius circle ── */
   useEffect(() => {
     searchRadiusRef.current?.setMap(null);
-    if (!mapRef.current || !searchCenter) return;
+    searchRadiusRef.current = null;
+    if (!mapRef.current || !searchCenter || !showSearchRadius) return;
     searchRadiusRef.current = new google.maps.Circle({
       center: { lat: searchCenter[0], lng: searchCenter[1] },
       radius: radiusMiles * 1609.34,
@@ -1082,7 +1075,7 @@ export default function JobMapGoogle({
       fillOpacity: 0.05,
       map: mapRef.current,
     });
-  }, [searchCenter, radiusMiles, ready]);
+  }, [searchCenter, radiusMiles, ready, showSearchRadius]);
 
   /* ── Isochrone rings (donut polygons — no overlap) ── */
   useEffect(() => {
@@ -1758,29 +1751,6 @@ export default function JobMapGoogle({
     });
   }, [workHistorySubLocations, ready]);
 
-  /* ── Building footprint polygons ── */
-  useEffect(() => {
-    buildingPolygonsRef.current.forEach((p) => p.setMap(null));
-    buildingPolygonsRef.current = [];
-    if (!mapRef.current || buildingFootprints.length === 0) return;
-
-    const map = mapRef.current;
-    buildingFootprints.forEach((fp) => {
-      if (fp.coords.length < 3) return;
-      const poly = new google.maps.Polygon({
-        paths: fp.coords,
-        fillColor: fp.color,
-        fillOpacity: fp.opacity ?? 0.35,
-        strokeColor: fp.color,
-        strokeOpacity: 0.8,
-        strokeWeight: 2,
-        map,
-        zIndex: 500,
-      });
-      buildingPolygonsRef.current.push(poly);
-    });
-  }, [buildingFootprints, ready]);
-
   /* ── Office location markers ── */
   useEffect(() => {
     officeMarkersRef.current.forEach((m) => (m.map = null));
@@ -2040,6 +2010,23 @@ export default function JobMapGoogle({
             )}
           </button>
         </div>
+        {/* Search-radius ring toggle */}
+        {searchCenter && (
+          <div className="rounded-lg overflow-hidden shadow-md border border-gray-300">
+            <button
+              onClick={() => setShowSearchRadius((s) => !s)}
+              title={showSearchRadius ? "Hide search radius" : "Show search radius"}
+              className={`flex items-center justify-center w-10 h-10 cursor-pointer transition-colors ${
+                showSearchRadius ? "bg-blue-50 hover:bg-blue-100" : "bg-white hover:bg-gray-50"
+              }`}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={showSearchRadius ? "#2563eb" : "#374151"} strokeWidth="2">
+                <circle cx="12" cy="12" r="9" strokeDasharray="3 3" />
+                <circle cx="12" cy="12" r="2" fill={showSearchRadius ? "#2563eb" : "#374151"} stroke="none" />
+              </svg>
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

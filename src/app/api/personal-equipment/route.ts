@@ -120,6 +120,7 @@ export async function PATCH(request: Request) {
     if (fields.location !== undefined) data.location = fields.location || null;
     if (fields.notes !== undefined) data.notes = fields.notes || null;
     if (fields.isPrivate !== undefined) data.isPrivate = !!fields.isPrivate;
+    if (fields.isDraft !== undefined) data.isDraft = !!fields.isDraft;
     if (fields.proficiency !== undefined) {
       const p = num(fields.proficiency);
       data.proficiency = p !== null ? Math.max(1, Math.min(5, Math.round(p))) : null;

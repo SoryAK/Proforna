@@ -6,7 +6,8 @@ const DEFAULT_SECTIONS: SectionConfig[] = [
   { type: "experience", visible: true, order: 1 },
   { type: "skills", visible: true, order: 2 },
   { type: "certifications", visible: true, order: 3 },
-  { type: "contact", visible: true, order: 4 },
+  { type: "inventory", visible: false, order: 4 },
+  { type: "contact", visible: true, order: 5 },
 ];
 
 type SectionConfig = {
@@ -103,7 +104,7 @@ export async function GET(
   });
 
   // ── Fetch only the data we need ──
-  const [skills, certifications, experienceLive, compRawLive] = await Promise.all([
+  const [skills, certifications, experienceLive, compRawLive, inventoryLive] = await Promise.all([
     visibleTypes.has("skills")
       ? prisma.skill.findMany({ where: { userId: profile.userId }, orderBy: { category: "asc" } })
       : Promise.resolve([]),
@@ -130,6 +131,13 @@ export async function GET(
         })
       : Promise.resolve([]),
     prisma.compensationPreference.findUnique({ where: { profileId: profile.id } }),
+    visibleTypes.has("inventory")
+      ? prisma.personalEquipment.findMany({
+          where: { userId: profile.userId, isPrivate: false, isDraft: false },
+          orderBy: [{ category: "asc" }, { name: "asc" }],
+          include: { photos: { orderBy: [{ isCover: "desc" }, { sortOrder: "asc" }] } },
+        })
+      : Promise.resolve([]),
   ]);
 
   // Apply snapshot overrides if user has published.
@@ -203,6 +211,33 @@ export async function GET(
       .map((p) => ({ ...p, annotations: p.annotationsPublic ? (p.annotations ?? []) : [] })),
   });
 
+  // ── Inventory (Personal Equipment): redact serial numbers + private notes for public viewers ──
+  const inventory = (inventoryLive ?? []).map((it) => ({
+    id: it.id,
+    name: it.name,
+    category: it.category,
+    ownership: it.ownership,
+    manufacturer: it.manufacturer,
+    model: it.model,
+    condition: it.condition,
+    proficiency: it.proficiency,
+    location: it.location,
+    purchaseDate: it.purchaseDate,
+    purchasePrice: it.purchasePrice,
+    currentValue: it.currentValue,
+    notes: it.notes,
+    tags: it.tags,
+    photos: (it.photos ?? []).map((p) => ({
+      id: p.id,
+      filePath: p.filePath,
+      caption: p.caption,
+      isCover: p.isCover,
+      focalX: p.focalX,
+      focalY: p.focalY,
+      zoom: p.zoom,
+    })),
+  }));
+
   // ── Build response based on visibility ──
   if (hasFullAccess) {
     const expData = (profile.hideCurrentEmployer
@@ -224,13 +259,21 @@ export async function GET(
         githubUrl: visibleTypes.has("contact") ? profile.githubUrl : null,
         portfolioUrl: visibleTypes.has("contact") ? profile.portfolioUrl : null,
         schedulingUrl: visibleTypes.has("contact") ? profile.schedulingUrl : null,
+        contactCtaMessage: visibleTypes.has("contact") ? profile.contactCtaMessage : null,
         city: profile.city,
         state: profile.state,
       },
       skills,
       certifications,
       experience: expData,
+      inventory,
       compensation,
+      recruitMeta: {
+        // Coords rounded to ~1km grid for privacy; sufficient for radius circle.
+        homeLat: profile.homeLat != null ? Math.round(profile.homeLat * 100) / 100 : null,
+        homeLng: profile.homeLng != null ? Math.round(profile.homeLng * 100) / 100 : null,
+        maxCommuteMiles: profile.maxCommuteMiles ?? null,
+      },
     });
   }
 
@@ -259,6 +302,7 @@ export async function GET(
         ...pos,
         company: pos.isActive ? "Current Employer (Hidden)" : pos.company,
       })),
+      inventory,
       compensation,
     });
   }

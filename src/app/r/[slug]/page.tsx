@@ -38,6 +38,7 @@ interface Profile {
   githubUrl: string | null;
   portfolioUrl: string | null;
   schedulingUrl?: string | null;
+  contactCtaMessage?: string | null;
   city: string | null;
   state: string | null;
 }
@@ -72,6 +73,7 @@ interface Position {
   startDate: string;
   endDate: string | null;
   isActive: boolean;
+  osmWayId?: number | null;
   techStack: string | null;
   description: string | null;
   responsibilities?: string | null;
@@ -109,6 +111,24 @@ interface Position {
   equipment?: { id: string; name: string; category: string; manufacturer?: string | null; model?: string | null; photos?: { id: string; filePath: string; isCover: boolean }[] }[];
 }
 
+interface InventoryItem {
+  id: string;
+  name: string;
+  category: string;
+  ownership: string;
+  manufacturer: string | null;
+  model: string | null;
+  condition: string;
+  proficiency: number | null;
+  location: string | null;
+  purchaseDate: string | null;
+  purchasePrice: number | null;
+  currentValue: number | null;
+  notes: string | null;
+  tags: string[];
+  photos: { id: string; filePath: string; caption: string | null; isCover: boolean; focalX: number; focalY: number; zoom: number }[];
+}
+
 interface Compensation {
   period: "annual" | "hourly" | "monthly";
   currency: string;
@@ -142,7 +162,13 @@ interface ResumeData {
   skills: Skill[];
   certifications: Certification[];
   experience: Position[];
+  inventory?: InventoryItem[];
   compensation?: Compensation | null;
+  recruitMeta?: {
+    homeLat: number | null;
+    homeLng: number | null;
+    maxCommuteMiles: number | null;
+  } | null;
   viewerOverride?: { targetRole: string | null; focusSections: string[] | null } | null;
 }
 
@@ -462,6 +488,7 @@ export default function InteractiveResumePage({
       startDate: pos.startDate,
       endDate: pos.endDate,
       isActive: pos.isActive,
+      osmWayId: pos.osmWayId,
       coverImage: pos.coverImage,
       coverImageY: pos.coverImageY,
       description: pos.description,
@@ -546,6 +573,8 @@ export default function InteractiveResumePage({
           updatedAt={resume.updatedAt}
           slug={slug}
           compensation={data.compensation ?? null}
+          recruitMeta={data.recruitMeta ?? null}
+          inventory={sorted.some((s) => s.type === "inventory") ? (data.inventory ?? []) : []}
         />
       </>
     );

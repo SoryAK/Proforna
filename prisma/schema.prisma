@@ -200,6 +200,7 @@ model RecruiterSubmission {
   userId         String
   recruiterName  String
   recruiterEmail String
+  recruiterPhone String?
   company        String?
   linkedinUrl    String?
   jobTitle       String
@@ -209,6 +210,13 @@ model RecruiterSubmission {
   location       String?
   jobType        String?
   message        String?
+  joinNetwork    Boolean  @default(false)
+  // Recruit Mode metadata captured at submission time
+  jobLat         Float?
+  jobLng         Float?
+  commuteMiles   Float?
+  commuteMinutes Int?
+  withinRange    Boolean?
   status         String   @default("new")
   contactId      String?
   applicationId  String?
@@ -381,6 +389,7 @@ model UserProfile {
   githubUrl          String?
   portfolioUrl       String?
   schedulingUrl      String?   // Calendly/Cal.com/etc — used for "Schedule an interview" CTA
+  contactCtaMessage  String?   // Custom message/disclosure shown atop the "Get in touch" modal
   availability       String   @default("open_to_work")
   bio                String?
   preferredRoles     String?
@@ -419,6 +428,7 @@ model UserProfile {
   homeAddress        String?
   homeLat            Float?
   homeLng            Float?
+  maxCommuteMiles    Int?     // Max one-way distance owner is willing to commute (used by IR Recruit Mode)
 
   // ── Vehicle / Commute ──
   vehicleYear        String?
@@ -611,6 +621,7 @@ model PersonalEquipment {
   currentValue  Float?
   location      String?                           // where it's stored
   isPrivate     Boolean   @default(true)          // hide from public IR by default
+  isDraft       Boolean   @default(false)         // true when created via bulk-photo upload, awaiting details
   notes         String?
   tags          String[]  @default([])             // free-text user tags
   createdAt     DateTime  @default(now())
@@ -632,6 +643,9 @@ model PersonalEquipmentPhoto {
   caption     String?
   isCover     Boolean  @default(false)
   sortOrder   Int      @default(0)
+  focalX      Int      @default(50) // 0-100, horizontal focal point %
+  focalY      Int      @default(50) // 0-100, vertical focal point %
+  zoom        Float    @default(1)  // 1.0 = cover (no extra zoom)
   createdAt   DateTime @default(now())
 
   equipment PersonalEquipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
@@ -1225,17 +1239,6 @@ model SiteMarketData {
   @@index([socCode, region])
 }
 
-// ─── Site-Level Video Feed Cache ───────────────────────────────
-
-model SiteVideoFeed {
-  id          String   @id @default(cuid())
-  searchQuery String   @unique          // normalized query string
-  category    String   @default("general") // industry, skills, tools, equipment, career
-  videosJson  String                     // JSON array of video objects
-  fetchedAt   DateTime @default(now())
-  staleAfter  DateTime                   // fetchedAt + staleness window
-}
-
 // ─── Micro-Learning ────────────────────────────────────────────
 
 model LearningTopic {
@@ -1348,6 +1351,7 @@ model WorkHistory {
   lat       Float
   lng       Float
   placeId   String?  // Google Place ID for Feature Layer building highlight
+  osmWayId  Int?     // OpenStreetMap way ID for building footprint outline (resolved on first focus)
   startDate String?  // e.g. "2020-01" (year-month)
   endDate   String?  // e.g. "2023-06" or null for "still there"
 

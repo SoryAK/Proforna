@@ -125,7 +125,8 @@ const DEFAULT_SECTIONS: SectionConfig[] = [
   { type: "experience", visible: true, order: 1 },
   { type: "skills", visible: true, order: 2 },
   { type: "certifications", visible: true, order: 3 },
-  { type: "contact", visible: true, order: 4 },
+  { type: "inventory", visible: false, order: 4 },
+  { type: "contact", visible: true, order: 5 },
 ];
 
 const SECTION_LABELS: Record<string, string> = {
@@ -133,6 +134,7 @@ const SECTION_LABELS: Record<string, string> = {
   experience: "Experience",
   skills: "Skills",
   certifications: "Certifications",
+  inventory: "Tools & Inventory",
   contact: "Contact Info",
 };
 

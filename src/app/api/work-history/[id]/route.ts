@@ -45,6 +45,7 @@ export async function PATCH(
   if (body.startDate !== undefined) data.startDate = body.startDate ? String(body.startDate).slice(0, 7) : null;
   if (body.endDate !== undefined) data.endDate = body.endDate ? String(body.endDate).slice(0, 7) : null;
   if (body.placeId !== undefined) data.placeId = body.placeId ? String(body.placeId) : null;
+  if (body.osmWayId !== undefined) data.osmWayId = body.osmWayId != null ? Number(body.osmWayId) : null;
 
   // Type & Education
   if (body.type !== undefined) data.type = body.type ? String(body.type).slice(0, 20) : "job";

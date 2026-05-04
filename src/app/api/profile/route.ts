@@ -49,6 +49,8 @@ export async function PATCH(request: Request) {
     const allowed = [
       "fullName", "headline", "email", "phone", "city", "state",
       "linkedinUrl", "githubUrl", "portfolioUrl", "schedulingUrl", "avatarUrl",
+      "contactCtaMessage",
+      "maxCommuteMiles",
       "availability", "bio", "preferredRoles", "targetSalaryMin", "targetSalaryMax",
       "currency", "locationPreference", "showSkills", "showResume", "showCertifications",
       "showCurrentRole", "portalSlug", "filingStatus", "federalTaxRate", "stateTaxRate",

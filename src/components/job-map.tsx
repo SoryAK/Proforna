@@ -1057,12 +1057,15 @@ export function JobMap() {
 
   /* ── Work History (past jobs reference pins) ── */
   interface WorkHistoryLocationItem { id: string; label: string; type: string; address: string; lat: number; lng: number; isPrimary: boolean; placeId?: string | null; skills?: string | null; startDate?: string | null; endDate?: string | null; photos?: string | null }
-  interface WorkHistoryItem { id: string; type?: string; company: string; title: string | null; address: string; lat: number; lng: number; startDate: string | null; endDate: string | null; locations: WorkHistoryLocationItem[]; placeId?: string | null; degree?: string | null; major?: string | null; gpa?: number | null; coverImage?: string | null; coverImageY?: number | null; uniformData?: string | null }
+  interface WorkHistoryItem { id: string; type?: string; company: string; title: string | null; address: string; lat: number; lng: number; startDate: string | null; endDate: string | null; locations: WorkHistoryLocationItem[]; placeId?: string | null; osmWayId?: number | null; degree?: string | null; major?: string | null; gpa?: number | null; coverImage?: string | null; coverImageY?: number | null; uniformData?: string | null }
   const { data: workHistory = [] } = useQuery<WorkHistoryItem[]>({
     queryKey: ["work-history"],
     queryFn: () => fetch("/api/work-history").then((r) => r.json()),
     staleTime: 60_000,
   });
+
+  /* ── Building footprint outline (focus mode) ── */
+  const focusedFootprintRef = useRef<google.maps.Polygon[]>([]);
 
   /* ── Residence History ── */
   interface ResidenceItem { id: string; label: string; address: string; lat: number; lng: number; placeId?: string | null; startDate: string | null; endDate: string | null; isCurrent: boolean }
@@ -1094,9 +1097,6 @@ export function JobMap() {
   const preWorkHistoryZoomRef = useRef<{ lat: number; lng: number; zoom: number } | null>(null);
   const [pinDropMode, setPinDropMode] = useState(false);
   const [pinDropCoords, setPinDropCoords] = useState<{ lat: number; lng: number; placeId?: string } | null>(null);
-  const [showBuildingHighlights, setShowBuildingHighlights] = useState(false);
-  const [buildingFootprints, setBuildingFootprints] = useState<{ coords: { lat: number; lng: number }[]; color: string }[]>([]);
-  const buildingCacheRef = useRef<Map<string, { lat: number; lng: number }[][]>>(new Map());
 
   /* ── Drawing scope: derive from current map context ── */
   const activeDrawingScope = useMemo(() => {
@@ -2405,6 +2405,96 @@ export function JobMap() {
     return ids;
   }, [focusedWorkHistoryId, showWorkHistory, workHistory]);
 
+  /* ── Building footprint outline: draw + persist osmWayId on first focus ── */
+  // Only render outlines when zoom >= OUTLINE_MIN_ZOOM; a zoom_changed listener
+  // toggles polygon map handles so they fade in/out as the user zooms.
+  const OUTLINE_MIN_ZOOM = 16;
+  useEffect(() => {
+    // Tear down previous polygons when focus changes (or work-history layer toggled off).
+    focusedFootprintRef.current.forEach((p) => p.setMap(null));
+    focusedFootprintRef.current = [];
+    if (!focusedWorkHistoryId || !showWorkHistory) return;
+    const target = workHistory.find((w) => w.id === focusedWorkHistoryId);
+    if (!target || target.lat == null || target.lng == null) return;
+    const map = googleMapRef.current;
+    if (!map) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/building-footprints", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            coordinates: [
+              { id: target.id, lat: target.lat, lng: target.lng, wayId: target.osmWayId ?? null },
+            ],
+            radiusM: 150,
+          }),
+        });
+        if (!res.ok || cancelled) return;
+        const data: { footprints?: { id: string; wayId: number | null; polygons: { lat: number; lng: number }[][] }[] } =
+          await res.json();
+        if (cancelled || focusedWorkHistoryId !== target.id) return;
+        const entry = data.footprints?.find((f) => f.id === target.id);
+        const polygons = entry?.polygons ?? [];
+        if (polygons.length === 0) return;
+        const color = "#10b981"; // emerald-500
+        const zoom = map.getZoom() ?? 0;
+        const visible = zoom >= OUTLINE_MIN_ZOOM;
+        polygons.forEach((ring, idx) => {
+          if (ring.length < 3) return;
+          const isPrimary = idx === 0;
+          const poly = new google.maps.Polygon({
+            paths: ring,
+            map: visible ? map : null,
+            strokeColor: color,
+            strokeOpacity: isPrimary ? 1 : 0.7,
+            strokeWeight: isPrimary ? 3 : 2,
+            fillColor: color,
+            fillOpacity: isPrimary ? 0.25 : 0.12,
+            clickable: false,
+            zIndex: isPrimary ? 9999 : 9998,
+          });
+          focusedFootprintRef.current.push(poly);
+        });
+
+        // Persist osmWayId on first successful resolution so future visits skip the area search.
+        if (entry?.wayId && !target.osmWayId) {
+          fetch(`/api/work-history/${target.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ osmWayId: entry.wayId }),
+          })
+            .then((r) => {
+              if (r.ok) queryClient.invalidateQueries({ queryKey: ["work-history"] });
+            })
+            .catch(() => {});
+        }
+      } catch {
+        // Silent — outline is a nice-to-have.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [focusedWorkHistoryId, showWorkHistory, workHistory, queryClient]);
+
+  // Toggle building-outline polygons on/off when zoom crosses OUTLINE_MIN_ZOOM.
+  useEffect(() => {
+    const map = googleMapRef.current;
+    if (!map) return;
+    const apply = () => {
+      const zoom = map.getZoom() ?? 0;
+      const visible = zoom >= OUTLINE_MIN_ZOOM;
+      focusedFootprintRef.current.forEach((p) => {
+        const onMap = p.getMap() != null;
+        if (visible && !onMap) p.setMap(map);
+        else if (!visible && onMap) p.setMap(null);
+      });
+    };
+    const listener = map.addListener("zoom_changed", apply);
+    return () => listener.remove();
+  }, [focusedWorkHistoryId]);
+
   /** Memoized sub-location markers for the map */
   const workHistorySubLocationsForMap = useMemo(() => {
     if (!showWorkHistory || workHistory.length === 0) return [];
@@ -2427,92 +2517,6 @@ export function JobMap() {
       })
     );
   }, [showWorkHistory, workHistory]);
-
-  /* ── Building footprints fetch ── */
-  useEffect(() => {
-    if (!showBuildingHighlights) { setBuildingFootprints([]); return; }
-
-    // Collect all geocoded marker coords with colour
-    const markers: { id: string; lat: number; lng: number; color: string }[] = [];
-
-    // Life anchors
-    if (lifeAnchors && (lifeAnchors as LifeAnchorData[]).length > 0) {
-      (lifeAnchors as LifeAnchorData[]).forEach((a, i) => {
-        markers.push({ id: `anchor-${a.id}`, lat: a.lat, lng: a.lng, color: ANCHOR_COLORS[i % ANCHOR_COLORS.length] });
-      });
-    }
-
-    // Work history
-    if (showWorkHistory) {
-      workHistory.forEach((w) => {
-        markers.push({ id: `wh-${w.id}`, lat: w.lat, lng: w.lng, color: "#6b7280" });
-        (w.locations ?? []).forEach((loc) => {
-          markers.push({ id: `whloc-${loc.id}`, lat: loc.lat, lng: loc.lng, color: "#9ca3af" });
-        });
-      });
-    }
-
-    // Office locations for selected job
-    if (resolvedAddress?.allLocations) {
-      resolvedAddress.allLocations.forEach((o, i) => {
-        markers.push({ id: `office-${i}`, lat: o.lat, lng: o.lng, color: "#3b82f6" });
-      });
-    }
-
-    if (markers.length === 0) { setBuildingFootprints([]); return; }
-
-    // Dedupe by rounded key, keep first colour
-    const seen = new Map<string, { id: string; lat: number; lng: number; color: string }>();
-    for (const m of markers) {
-      const k = `${m.lat.toFixed(5)},${m.lng.toFixed(5)}`;
-      if (!seen.has(k)) seen.set(k, m);
-    }
-    const unique = [...seen.values()];
-
-    // Check cache for already-fetched coords
-    const toFetch: typeof unique = [];
-    const cached: { coords: { lat: number; lng: number }[]; color: string }[] = [];
-    for (const m of unique) {
-      const k = `${m.lat.toFixed(5)},${m.lng.toFixed(5)}`;
-      const hit = buildingCacheRef.current.get(k);
-      if (hit) {
-        hit.forEach((ring) => cached.push({ coords: ring, color: m.color }));
-      } else {
-        toFetch.push(m);
-      }
-    }
-
-    if (toFetch.length === 0) { setBuildingFootprints(cached); return; }
-
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch("/api/building-footprints", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ coordinates: toFetch.map((m) => ({ id: m.id, lat: m.lat, lng: m.lng })) }),
-        });
-        if (!res.ok || cancelled) return;
-        const data = await res.json();
-        const fp: { coords: { lat: number; lng: number }[]; color: string }[] = [...cached];
-        for (const item of data.footprints ?? []) {
-          const source = toFetch.find((m) => m.id === item.id);
-          if (!source) continue;
-          const k = `${source.lat.toFixed(5)},${source.lng.toFixed(5)}`;
-          buildingCacheRef.current.set(k, item.polygons ?? []);
-          for (const ring of item.polygons ?? []) {
-            fp.push({ coords: ring, color: source.color });
-          }
-        }
-        if (!cancelled) setBuildingFootprints(fp);
-      } catch (err) {
-        console.error("Building footprint fetch error:", err);
-        if (!cancelled) setBuildingFootprints(cached);
-      }
-    })();
-    return () => { cancelled = true; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showBuildingHighlights, lifeAnchors, showWorkHistory, workHistory, resolvedAddress?.allLocations]);
 
   /** For each job, find closest work-history pin within 3 miles */
   const nearbyWorkHistoryMap = useMemo(() => {
@@ -3957,7 +3961,6 @@ export function JobMap() {
               focusedWorkHistoryId={focusedWorkHistoryId}
               concurrentWorkHistoryIds={showOverlaps ? concurrentWorkHistoryIds : undefined}
               residenceMarker={residenceMarkerForMap}
-              buildingFootprints={buildingFootprints}
               pinDropMode={pinDropMode}
               companyLocationMarkers={companyLocs}
               showWorkHistory={showWorkHistory}
@@ -4239,14 +4242,6 @@ export function JobMap() {
                 className={`flex items-center justify-center w-10 h-10 border-l border-gray-200 cursor-pointer transition-colors ${showAnchors ? "bg-blue-50" : "bg-white hover:bg-gray-50"}`}
               >
                 <Anchor className={`h-[18px] w-[18px] ${showAnchors ? "text-blue-600" : "text-gray-600"}`} />
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowBuildingHighlights(!showBuildingHighlights)}
-                title="Highlight Buildings"
-                className={`flex items-center justify-center w-10 h-10 border-l border-gray-200 cursor-pointer transition-colors ${showBuildingHighlights ? "bg-blue-50" : "bg-white hover:bg-gray-50"}`}
-              >
-                <Building2 className={`h-[18px] w-[18px] ${showBuildingHighlights ? "text-blue-600" : "text-gray-600"}`} />
               </button>
               <button
                 type="button"
