@@ -46,6 +46,35 @@ export async function PATCH(
   if (body.endDate !== undefined) data.endDate = body.endDate ? String(body.endDate).slice(0, 7) : null;
   if (body.placeId !== undefined) data.placeId = body.placeId ? String(body.placeId) : null;
   if (body.osmWayId !== undefined) data.osmWayId = body.osmWayId != null ? Number(body.osmWayId) : null;
+  if (body.osmWayIds !== undefined) {
+    const arr = Array.isArray(body.osmWayIds) ? body.osmWayIds : [];
+    const cleaned = arr
+      .map((n: unknown) => Number(n))
+      .filter((n: number) => Number.isFinite(n) && n > 0);
+    // Dedupe while preserving order (first occurrence wins → primary).
+    data.osmWayIds = Array.from(new Set<number>(cleaned)).slice(0, 25);
+  }
+  if (body.footprintCustom !== undefined) {
+    if (body.footprintCustom == null) {
+      data.footprintCustom = null;
+    } else if (Array.isArray(body.footprintCustom)) {
+      // Validate: array of rings, each ring is array of {lat,lng}, ≥3 points, cap totals.
+      const rings = (body.footprintCustom as unknown[])
+        .filter((r): r is { lat: number; lng: number }[] => Array.isArray(r))
+        .map((r) =>
+          r
+            .map((p) => ({
+              lat: Number((p as { lat?: unknown })?.lat),
+              lng: Number((p as { lng?: unknown })?.lng),
+            }))
+            .filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng))
+            .slice(0, 500),
+        )
+        .filter((r) => r.length >= 3)
+        .slice(0, 10);
+      data.footprintCustom = rings.length > 0 ? rings : null;
+    }
+  }
 
   // Type & Education
   if (body.type !== undefined) data.type = body.type ? String(body.type).slice(0, 20) : "job";
@@ -103,6 +132,8 @@ export async function PATCH(
   if (body.ein !== undefined) data.ein = body.ein ? String(body.ein).slice(0, 20) : null;
   if (body.legalName !== undefined) data.legalName = body.legalName ? String(body.legalName).slice(0, 200) : null;
   if (body.companySynopsis !== undefined) data.companySynopsis = body.companySynopsis ? String(body.companySynopsis) : null;
+  if (body.companyClosed !== undefined) data.companyClosed = Boolean(body.companyClosed);
+  if (body.locationClosed !== undefined) data.locationClosed = Boolean(body.locationClosed);
   if (body.industry !== undefined) data.industry = body.industry ? String(body.industry).slice(0, 100) : null;
   if (body.website !== undefined) data.website = body.website ? String(body.website).slice(0, 300) : null;
   if (body.focus !== undefined) data.focus = body.focus ? String(body.focus) : null;
@@ -122,6 +153,42 @@ export async function PATCH(
   if (body.coverImage !== undefined) data.coverImage = body.coverImage ? String(body.coverImage) : null;
   if (body.coverImageY !== undefined) data.coverImageY = body.coverImageY != null ? Math.max(0, Math.min(100, Number(body.coverImageY))) : null;
   if (body.uniformData !== undefined) data.uniformData = body.uniformData ? String(body.uniformData) : null;
+  if (body.hoverNote !== undefined) data.hoverNote = body.hoverNote ? String(body.hoverNote).slice(0, 280) : null;
+  if (body.outlineColor !== undefined) {
+    const c = body.outlineColor ? String(body.outlineColor).trim() : null;
+    data.outlineColor = c && /^#[0-9a-fA-F]{6}$/.test(c) ? c.toLowerCase() : null;
+  }
+  // Per-ring overrides: shallow-merge patch object into the existing JSON map.
+  // Shape on disk: { [ringKey]: { color?: string|null, note?: string|null } }.
+  // - body.outlineOverridesPatch = { [ringKey]: { color?, note? } | null }  → merge (null entry deletes the ring's overrides)
+  // - body.outlineOverrides = full replacement (object | null)
+  if (body.outlineOverridesPatch !== undefined && body.outlineOverridesPatch && typeof body.outlineOverridesPatch === "object") {
+    const current = (existing as { outlineOverrides?: unknown }).outlineOverrides;
+    const merged: Record<string, { color?: string | null; note?: string | null }> =
+      current && typeof current === "object" && !Array.isArray(current)
+        ? { ...(current as Record<string, { color?: string | null; note?: string | null }>) }
+        : {};
+    for (const [rawKey, rawVal] of Object.entries(body.outlineOverridesPatch as Record<string, unknown>)) {
+      const key = String(rawKey).slice(0, 200);
+      if (rawVal == null) { delete merged[key]; continue; }
+      if (typeof rawVal !== "object") continue;
+      const v = rawVal as { color?: unknown; note?: unknown };
+      const entry: { color?: string | null; note?: string | null } = { ...(merged[key] || {}) };
+      if (v.color !== undefined) {
+        const c = v.color ? String(v.color).trim() : null;
+        entry.color = c && /^#[0-9a-fA-F]{6}$/.test(c) ? c.toLowerCase() : null;
+      }
+      if (v.note !== undefined) {
+        entry.note = v.note ? String(v.note).slice(0, 280) : null;
+      }
+      // Drop empty entries to keep the JSON tidy.
+      if (entry.color == null && entry.note == null) delete merged[key];
+      else merged[key] = entry;
+    }
+    data.outlineOverrides = Object.keys(merged).length > 0 ? merged : null;
+  } else if (body.outlineOverrides !== undefined) {
+    data.outlineOverrides = body.outlineOverrides && typeof body.outlineOverrides === "object" ? body.outlineOverrides : null;
+  }
 
   const updated = await prisma.workHistory.update({ where: { id }, data });
   return NextResponse.json(updated);

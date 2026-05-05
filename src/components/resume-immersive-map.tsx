@@ -102,6 +102,10 @@ export interface ImmersiveWorkItem {
   isActive?: boolean;
   /** OSM way ID for building footprint outline (resolved on first focus, cached server-side) */
   osmWayId?: number | null;
+  /** Explicit list of OSM way IDs to outline (multi-building campus). Overrides auto sibling lookup. */
+  osmWayIds?: number[] | null;
+  /** User-drawn polygon rings (lat/lng). Appended to OSM rings on render. */
+  footprintCustom?: { lat: number; lng: number }[][] | null;
 
   // Rich detail (already present in API response)
   coverImage?: string | null;
@@ -111,6 +115,10 @@ export interface ImmersiveWorkItem {
   techStack?: string | null;
   accomplishments?: string | null;
   industry?: string | null;
+  /** Marked true when the company has shut down. Surfaced as a "Closed" badge in the focus card. */
+  companyClosed?: boolean | null;
+  /** Marked true when this primary work location/branch is closed (company still operating). */
+  locationClosed?: boolean | null;
   workMode?: string | null;
   scheduleType?: string | null;
   companySize?: string | null;
@@ -140,6 +148,12 @@ export interface ImmersiveWorkItem {
   commuteDistance?: number | null;
   commuteMode?: string | null;
   uniformData?: string | null;
+  /** Custom recruiter-facing note shown in building-outline hover tooltip (item #10 follow-up). */
+  hoverNote?: string | null;
+  /** Custom hex color for the building outline polygon. Null = default emerald. */
+  outlineColor?: string | null;
+  /** Per-ring overrides keyed by stable ringKey (first-3-coords joined). Lets each individual building on a multi-building campus carry its own color/note. */
+  outlineOverrides?: Record<string, { color?: string | null; note?: string | null }> | null;
 
   // Relations
   galleryPhotos?: {
@@ -161,6 +175,24 @@ export interface ImmersiveWorkItem {
   }[];
   attachments?: { id: string; label: string; category: string; fileName: string; filePath: string; fileMime: string; fileSize: number }[];
   equipment?: { id: string; name: string; category: string; manufacturer?: string | null; model?: string | null; photos?: { id: string; filePath: string; isCover: boolean }[] }[];
+  /** Sub-locations (satellite offices, client sites, etc.). Surfaced as secondary pins on the map. */
+  locations?: {
+    id: string;
+    label: string;
+    type: string;
+    address: string;
+    lat: number;
+    lng: number;
+    isPrimary: boolean;
+    includeInOutline: boolean;
+    closed?: boolean;
+    startDate?: string | null;
+    endDate?: string | null;
+    /** Per-location hover note. Overrides parent hoverNote when present for this location's outline. */
+    hoverNote?: string | null;
+    /** Per-location outline color override. Overrides parent outlineColor when present. */
+    outlineColor?: string | null;
+  }[];
 }
 
 export interface ImmersiveProfile {
@@ -314,6 +346,18 @@ function distMiles(a: { lat: number; lng: number }, b: { lat: number; lng: numbe
 }
 function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] || c));
+}
+/**
+ * Format a user-supplied hover note for safe insertion into the polygon/pin tooltip.
+ * Escapes HTML, then auto-links http(s) URLs. Newlines preserved by `white-space:pre-wrap`
+ * on the surrounding container. Caller should already have applied a length cap.
+ */
+function formatHoverNote(s: string): string {
+  const escaped = escapeHtml(s);
+  return escaped.replace(
+    /(https?:\/\/[^\s<]+)/g,
+    (m) => `<a href="${m}" target="_blank" rel="noopener noreferrer" style="color:#2563eb;text-decoration:underline">${m}</a>`,
+  );
 }
 function shortLoc(s?: string | null): string {
   if (!s) return "";
@@ -499,6 +543,23 @@ export default function ResumeImmersiveMap({ items, profile, skills = [], certif
   const [viewingTool, setViewingTool] = useState<ImmersiveInventoryItem | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchSelectedIndex, setSearchSelectedIndex] = useState(0);
+  const [recentSearches, setRecentSearches] = useState<string[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const raw = localStorage.getItem("resumsify:ir-recent-searches");
+      return raw ? (JSON.parse(raw) as string[]).slice(0, 5) : [];
+    } catch { return []; }
+  });
+  const pushRecentSearch = useCallback((q: string) => {
+    const v = q.trim();
+    if (v.length < 2) return;
+    setRecentSearches((prev) => {
+      const next = [v, ...prev.filter((x) => x.toLowerCase() !== v.toLowerCase())].slice(0, 5);
+      try { localStorage.setItem("resumsify:ir-recent-searches", JSON.stringify(next)); } catch {}
+      return next;
+    });
+  }, []);
   const [matchOpen, setMatchOpen] = useState(false);
   const [jdText, setJdText] = useState("");
   const [matchAnalyzed, setMatchAnalyzed] = useState(false);
@@ -517,7 +578,18 @@ export default function ResumeImmersiveMap({ items, profile, skills = [], certif
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        coordinates: [{ id: target.id, lat: target.lat, lng: target.lng, wayId: target.osmWayId ?? null }],
+        coordinates: [{
+          id: target.id,
+          lat: target.lat,
+          lng: target.lng,
+          wayId: target.osmWayId ?? null,
+          wayIds: target.osmWayIds ?? undefined,
+          customRings: target.footprintCustom ?? undefined,
+          // If the user has curated outlines, skip auto campus-sibling lookup.
+          suppressAuto:
+            (Array.isArray(target.osmWayIds) && target.osmWayIds.length > 0) ||
+            (Array.isArray(target.footprintCustom) && target.footprintCustom.length > 0),
+        }],
         radiusM: 150,
       }),
     }).catch(() => {
@@ -1285,6 +1357,9 @@ export default function ResumeImmersiveMap({ items, profile, skills = [], certif
     };
   }, [matchAnalyzed, jdText, candidateVocab, items]);
 
+  // Reset search selection whenever query changes
+  useEffect(() => { setSearchSelectedIndex(0); }, [searchQuery]);
+
   // ⌘/Ctrl+K opens search; Esc closes
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -1632,7 +1707,41 @@ export default function ResumeImmersiveMap({ items, profile, skills = [], certif
       </button>
 
       {/* Recruiter search modal */}
-      {searchOpen && (
+      {searchOpen && (() => {
+        const terms = searchQuery.trim().toLowerCase().split(/\s+/).filter((t) => t.length >= 2);
+        const highlight = (text: string): React.ReactNode => {
+          if (!text || terms.length === 0) return text;
+          const escaped = terms.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+          const re = new RegExp(`(${escaped.join("|")})`, "gi");
+          const parts = text.split(re);
+          return parts.map((p, i) => re.test(p)
+            ? <mark key={i} className="bg-yellow-500/30 text-foreground rounded-sm px-0.5">{p}</mark>
+            : <span key={i}>{p}</span>);
+        };
+        const orderedGroups = (["Work", "Education", "Skill", "Certification", "Tool", "Attachment"] as const)
+          .map((g) => ({ group: g, hits: searchResults.filter((h) => h.group === g) }))
+          .filter((g) => g.hits.length > 0);
+        const flatHits = orderedGroups.flatMap((g) => g.hits);
+        const focusHit = (h: SearchHit) => {
+          if (h.focusItemId) {
+            setFocusedId(h.focusItemId);
+          } else if (h.group === "Skill" || h.group === "Certification") {
+            setDrawerOpen(true);
+          } else if (h.group === "Tool") {
+            setToolsOpen(true);
+          }
+          pushRecentSearch(searchQuery);
+          setSearchOpen(false);
+        };
+        const recentChips = recentSearches.slice(0, 5);
+        const topSkills = skills.slice(0, 4).map((s) => s.name);
+        const topCompanies = Array.from(new Set(
+          [...items]
+            .sort((a, b) => (b.startDate ?? "").localeCompare(a.startDate ?? ""))
+            .map((i) => i.company)
+            .filter(Boolean)
+        )).slice(0, 3);
+        return (
         <div
           className="fixed inset-0 z-[60] flex items-start justify-center pt-[10vh] px-4 bg-background/40 backdrop-blur-sm animate-in fade-in duration-150"
           onClick={() => setSearchOpen(false)}
@@ -1648,6 +1757,20 @@ export default function ResumeImmersiveMap({ items, profile, skills = [], certif
                 autoFocus
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (flatHits.length === 0) return;
+                  if (e.key === "ArrowDown") {
+                    e.preventDefault();
+                    setSearchSelectedIndex((i) => Math.min(i + 1, flatHits.length - 1));
+                  } else if (e.key === "ArrowUp") {
+                    e.preventDefault();
+                    setSearchSelectedIndex((i) => Math.max(i - 1, 0));
+                  } else if (e.key === "Enter") {
+                    e.preventDefault();
+                    const h = flatHits[searchSelectedIndex];
+                    if (h) focusHit(h);
+                  }
+                }}
                 placeholder={`Search ${profile?.fullName?.split(" ")[0] || "this candidate"}'s experience, skills, tools…`}
                 className="flex-1 bg-transparent border-0 outline-none text-sm placeholder:text-muted-foreground"
               />
@@ -1669,10 +1792,59 @@ export default function ResumeImmersiveMap({ items, profile, skills = [], certif
             {/* Results */}
             <div className="max-h-[60vh] overflow-y-auto">
               {searchQuery.trim().length < 2 ? (
-                <div className="px-4 py-10 text-center text-sm text-muted-foreground">
-                  <SearchIcon className="h-6 w-6 mx-auto mb-2 opacity-40" />
-                  <p>Start typing to search across work history, skills, tools, and certifications.</p>
-                  <p className="mt-2 text-xs opacity-70">Try &ldquo;kubernetes&rdquo;, &ldquo;led team&rdquo;, or a job title.</p>
+                <div className="px-4 py-6 text-sm text-muted-foreground">
+                  {recentChips.length > 0 && (
+                    <div className="mb-4">
+                      <div className="text-[10px] font-semibold uppercase tracking-wider mb-2 opacity-70">Recent</div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {recentChips.map((q) => (
+                          <button
+                            key={`recent-${q}`}
+                            type="button"
+                            onClick={() => setSearchQuery(q)}
+                            className="inline-flex items-center gap-1 rounded-full border bg-muted/40 hover:bg-muted px-2.5 py-1 text-xs text-foreground transition"
+                          >
+                            <Clock className="h-3 w-3 opacity-60" />
+                            {q}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {(topSkills.length > 0 || topCompanies.length > 0) && (
+                    <div className="mb-4">
+                      <div className="text-[10px] font-semibold uppercase tracking-wider mb-2 opacity-70">Try</div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {topSkills.map((s) => (
+                          <button
+                            key={`top-skill-${s}`}
+                            type="button"
+                            onClick={() => setSearchQuery(s)}
+                            className="inline-flex items-center gap-1 rounded-full border bg-muted/40 hover:bg-muted px-2.5 py-1 text-xs text-foreground transition"
+                          >
+                            <Brain className="h-3 w-3 opacity-60 text-emerald-500" />
+                            {s}
+                          </button>
+                        ))}
+                        {topCompanies.map((c) => (
+                          <button
+                            key={`top-co-${c}`}
+                            type="button"
+                            onClick={() => setSearchQuery(c)}
+                            className="inline-flex items-center gap-1 rounded-full border bg-muted/40 hover:bg-muted px-2.5 py-1 text-xs text-foreground transition"
+                          >
+                            <Briefcase className="h-3 w-3 opacity-60 text-blue-500" />
+                            {c}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  <div className="text-center pt-2 pb-4 opacity-80">
+                    <SearchIcon className="h-5 w-5 mx-auto mb-2 opacity-40" />
+                    <p className="text-xs">Search across work history, skills, tools, and certifications.</p>
+                    <p className="mt-1 text-[10px] opacity-70">Try &ldquo;kubernetes&rdquo;, &ldquo;led team&rdquo;, or a job title.</p>
+                  </div>
                 </div>
               ) : searchResults.length === 0 ? (
                 <div className="px-4 py-10 text-center text-sm text-muted-foreground">
@@ -1680,35 +1852,27 @@ export default function ResumeImmersiveMap({ items, profile, skills = [], certif
                 </div>
               ) : (
                 <ul className="divide-y">
-                  {(["Work", "Education", "Skill", "Certification", "Tool", "Attachment"] as const).map((group) => {
-                    const groupHits = searchResults.filter((h) => h.group === group);
-                    if (groupHits.length === 0) return null;
-                    return (
-                      <li key={group} className="py-1">
-                        <div className="px-4 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground bg-muted/30">
-                          {group} <span className="opacity-60 font-normal">({groupHits.length})</span>
-                        </div>
-                        <ul>
-                          {groupHits.map((h) => (
+                  {orderedGroups.map(({ group, hits: groupHits }) => (
+                    <li key={group} className="py-1">
+                      <div className="px-4 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground bg-muted/30">
+                        {group} <span className="opacity-60 font-normal">({groupHits.length})</span>
+                      </div>
+                      <ul>
+                        {groupHits.map((h) => {
+                          const flatIdx = flatHits.indexOf(h);
+                          const isSelected = flatIdx === searchSelectedIndex;
+                          return (
                             <li key={h.key}>
                               <button
                                 type="button"
-                                onClick={() => {
-                                  if (h.focusItemId) {
-                                    setFocusedId(h.focusItemId);
-                                  } else if (h.group === "Skill" || h.group === "Certification") {
-                                    setDrawerOpen(true);
-                                  } else if (h.group === "Tool") {
-                                    setToolsOpen(true);
-                                  }
-                                  setSearchOpen(false);
-                                }}
-                                className="w-full flex items-start gap-3 px-4 py-2.5 text-left hover:bg-muted/40 transition-colors"
+                                onClick={() => focusHit(h)}
+                                onMouseEnter={() => setSearchSelectedIndex(flatIdx)}
+                                className={`w-full flex items-start gap-3 px-4 py-2.5 text-left transition-colors ${isSelected ? "bg-muted/60" : "hover:bg-muted/40"}`}
                               >
                                 <h.Icon className={`h-4 w-4 mt-0.5 shrink-0 ${h.iconClass || "text-muted-foreground"}`} />
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-2">
-                                    <span className="text-sm font-medium truncate">{h.title}</span>
+                                    <span className="text-sm font-medium truncate">{highlight(h.title)}</span>
                                     {h.badge && (
                                       <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground capitalize shrink-0">
                                         {h.badge}
@@ -1716,34 +1880,42 @@ export default function ResumeImmersiveMap({ items, profile, skills = [], certif
                                     )}
                                   </div>
                                   {h.subtitle && (
-                                    <div className="text-xs text-muted-foreground truncate">{h.subtitle}</div>
+                                    <div className="text-xs text-muted-foreground truncate">{highlight(h.subtitle)}</div>
                                   )}
                                   {h.snippet && (
                                     <div className="text-xs text-muted-foreground/90 mt-0.5 line-clamp-2">
-                                      {h.snippet}
+                                      {highlight(h.snippet)}
                                     </div>
                                   )}
                                 </div>
                               </button>
                             </li>
-                          ))}
-                        </ul>
-                      </li>
-                    );
-                  })}
+                          );
+                        })}
+                      </ul>
+                    </li>
+                  ))}
                 </ul>
               )}
             </div>
 
-            {searchResults.length > 0 && (
-              <div className="px-4 py-2 border-t text-[10px] text-muted-foreground bg-muted/20 flex items-center justify-between">
-                <span>{searchResults.length} {searchResults.length === 1 ? "result" : "results"}</span>
-                <span>Click a result to jump to it on the map</span>
-              </div>
-            )}
+            <div className="px-4 py-2 border-t text-[10px] text-muted-foreground bg-muted/20 flex items-center justify-between">
+              {searchResults.length > 0 ? (
+                <>
+                  <span>{searchResults.length} {searchResults.length === 1 ? "result" : "results"}</span>
+                  <span className="flex items-center gap-2">
+                    <span className="flex items-center gap-1"><kbd className="rounded border bg-background px-1 font-mono">↑↓</kbd> navigate</span>
+                    <span className="flex items-center gap-1"><kbd className="rounded border bg-background px-1 font-mono">⏎</kbd> open</span>
+                  </span>
+                </>
+              ) : (
+                <span className="ml-auto">Press <kbd className="rounded border bg-background px-1 font-mono">⏎</kbd> after typing to open the top result</span>
+              )}
+            </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* JD Match modal (Phase B) */}
       {matchOpen && (
@@ -3074,12 +3246,24 @@ function ImmersiveMapView({
   const mapRef = useRef<google.maps.Map | null>(null);
   const markersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
   const markerById = useRef<Map<string, { marker: google.maps.marker.AdvancedMarkerElement; el: HTMLElement }>>(new Map());
+  // Per-item tooltip HTML so hover handlers (incl. building polygons) can show the
+  // same rich tooltip the pin shows.
+  const whTooltipHtmlRef = useRef<Map<string, string>>(new Map());
   const clustererRef = useRef<MarkerClusterer | null>(null);
   const journeyPolylineRef = useRef<google.maps.Polyline | null>(null);
   const radiusCircleRef = useRef<google.maps.Circle | null>(null);
   const jobSiteMarkerRef = useRef<google.maps.marker.AdvancedMarkerElement | null>(null);
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
   const focusedFootprintRef = useRef<google.maps.Polygon[]>([]);
+  // Whether the most recent focus successfully rendered a building outline.
+  // Drives the high-zoom "hide pin in favor of polygon" behavior.
+  const focusedFootprintRenderedRef = useRef(false);
+  // Mirror of focusedId in a ref so the zoom listener (registered once) can read the latest.
+  const focusedIdRef = useRef<string | null>(null);
+  // Tracks which work-history pin is currently hidden behind its polygon, so we can
+  // restore it when focus changes or zoom drops below the outline threshold.
+  const hiddenFocusedPinRef = useRef<string | null>(null);
+  const subLocMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
   const onFocusRef = useRef(onFocus);
   useEffect(() => { onFocusRef.current = onFocus; }, [onFocus]);
   const onJobSitePickedRef = useRef(onJobSitePicked);
@@ -3180,11 +3364,14 @@ function ImmersiveMapView({
       const cover     = w.coverImage
         ? `<img src="${w.coverImage}" style="width:100%;height:72px;object-fit:cover;display:block;object-position:center ${w.coverImageY ?? 50}%" />`
         : "";
+      const noteStr = w.hoverNote
+        ? `<div style="margin-top:4px;padding-top:4px;border-top:1px solid #f3f4f6;font-size:10.5px;color:#4b5563;line-height:1.35;white-space:pre-wrap">${formatHoverNote(w.hoverNote)}</div>`
+        : "";
       const tipHtml = `<div style="overflow:hidden;">
         ${cover}
         <div style="padding:6px 8px 5px;">
           <div style="font-weight:700;font-size:12px;color:#111">${meta.emoji} ${escapeHtml(w.company)}</div>
-          ${titleStr}${tenureStr}
+          ${titleStr}${tenureStr}${noteStr}
           <div style="color:#9ca3af;margin-top:2px;font-size:10px">${escapeHtml(meta.label)} \u2022 Click to focus</div>
         </div>
       </div>`;
@@ -3197,6 +3384,8 @@ function ImmersiveMapView({
         circle.style.transform = el.dataset.focused === "1" ? "scale(1.25)" : "scale(1)";
         hideTooltip();
       });
+      // Cache tooltip html so polygon hover can reuse it.
+      whTooltipHtmlRef.current.set(w.id, tipHtml);
       marker.addListener("click", () => {
         const map = mapRef.current;
         if (map) {
@@ -3459,11 +3648,71 @@ function ImmersiveMapView({
   // ── Focus mode: outline the focused job's building via OSM footprint ──
   // Outlines are only drawn when zoom >= 16 (OUTLINE_MIN_ZOOM); a zoom_changed
   // listener toggles their map handle so they fade in/out as the user zooms.
+  // When the outline is on screen, the focused job's pin is hidden so the polygon
+  // takes over as the visual marker (item #10).
   const OUTLINE_MIN_ZOOM = 16;
+
+  // Sync focusedId into a ref for the zoom listener and the polygon-toggle helper.
   useEffect(() => {
-    // Always tear down previous polygons first
+    focusedIdRef.current = focusedId;
+  }, [focusedId]);
+
+  // Restore the previously-hidden focused pin when focus changes (before any new
+  // outline renders), then run the toggle to apply the new state.
+  const restoreHiddenPin = () => {
+    const map = mapRef.current;
+    const prevId = hiddenFocusedPinRef.current;
+    if (!prevId) return;
+    const entry = markerById.current.get(prevId);
+    if (entry?.marker && map && entry.marker.map !== map) entry.marker.map = map;
+    hiddenFocusedPinRef.current = null;
+  };
+
+  // Single source of truth for outline visibility + focused-pin hiding. Reads only
+  // refs so it's safe to call from any effect / event listener.
+  const syncOutlineAndPin = () => {
+    const map = mapRef.current;
+    if (!map) return;
+    const zoom = map.getZoom() ?? 0;
+    const polysVisible = zoom >= OUTLINE_MIN_ZOOM;
+
+    // Toggle the polygons themselves.
+    focusedFootprintRef.current.forEach((p) => {
+      const onMap = p.getMap() != null;
+      if (polysVisible && !onMap) p.setMap(map);
+      else if (!polysVisible && onMap) p.setMap(null);
+    });
+
+    // Decide whether the focused pin should be hidden.
+    const fid = focusedIdRef.current;
+    const shouldHide = polysVisible && focusedFootprintRenderedRef.current && fid != null;
+
+    // Restore any previously-hidden pin that should no longer be hidden.
+    if (
+      hiddenFocusedPinRef.current &&
+      (!shouldHide || hiddenFocusedPinRef.current !== fid)
+    ) {
+      const prev = markerById.current.get(hiddenFocusedPinRef.current);
+      if (prev?.marker && prev.marker.map !== map) prev.marker.map = map;
+      hiddenFocusedPinRef.current = null;
+    }
+
+    // Hide the focused pin if appropriate.
+    if (shouldHide && fid) {
+      const cur = markerById.current.get(fid);
+      if (cur?.marker && cur.marker.map != null) {
+        cur.marker.map = null;
+        hiddenFocusedPinRef.current = fid;
+      }
+    }
+  };
+
+  useEffect(() => {
+    // Always tear down previous polygons + restore previously-hidden pin first.
     focusedFootprintRef.current.forEach((p) => p.setMap(null));
     focusedFootprintRef.current = [];
+    focusedFootprintRenderedRef.current = false;
+    restoreHiddenPin();
     if (!ready || !mapRef.current || !focusedId) return;
     const target = items.find((i) => i.id === focusedId);
     if (!target || target.lat == null || target.lng == null) return;
@@ -3471,50 +3720,140 @@ function ImmersiveMapView({
     let cancelled = false;
     (async () => {
       try {
+        const hasOverrides =
+          (Array.isArray(target.osmWayIds) && target.osmWayIds.length > 0) ||
+          (Array.isArray(target.footprintCustom) && target.footprintCustom.length > 0);
+        const subLocs = (target.locations ?? []).filter(
+          (l) => l.includeInOutline && l.lat != null && l.lng != null,
+        );
+        const coordinates: Array<{
+          id: string;
+          lat: number;
+          lng: number;
+          wayId?: number | null;
+          wayIds?: number[];
+          customRings?: { lat: number; lng: number }[][];
+          suppressAuto?: boolean;
+        }> = [
+          {
+            id: target.id,
+            lat: target.lat,
+            lng: target.lng,
+            wayId: target.osmWayId ?? null,
+            wayIds: target.osmWayIds ?? undefined,
+            customRings: target.footprintCustom ?? undefined,
+            suppressAuto: hasOverrides,
+          },
+          ...subLocs.map((l) => ({
+            id: `sub:${l.id}`,
+            lat: l.lat,
+            lng: l.lng,
+            suppressAuto: false,
+          })),
+        ];
         const res = await fetch("/api/building-footprints", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            coordinates: [
-              {
-                id: target.id,
-                lat: target.lat,
-                lng: target.lng,
-                wayId: target.osmWayId ?? null,
-              },
-            ],
-            radiusM: 150,
-          }),
+          body: JSON.stringify({ coordinates, radiusM: 150 }),
         });
         if (!res.ok) return;
         if (cancelled || !mapRef.current) return;
         const data: { footprints?: { id: string; wayId: number | null; polygons: { lat: number; lng: number }[][] }[] } =
           await res.json();
-        // Bail if focus changed during the fetch
         if (cancelled || focusedId !== target.id) return;
-        const entry = data.footprints?.find((f) => f.id === target.id);
-        const polygons = entry?.polygons ?? [];
-        if (polygons.length === 0) return;
+
+        // Merge polygons across primary + each opted-in sub-location, dedupe by ring identity.
+        const seenKeys = new Set<string>();
+        const merged: Array<{ ring: { lat: number; lng: number }[]; isPrimary: boolean; locationId?: string; ringKey: string }> = [];
+        const collectFrom = (id: string, isPrimary: boolean, locationId?: string) => {
+          const e = data.footprints?.find((f) => f.id === id);
+          if (!e) return;
+          e.polygons.forEach((ring, idx) => {
+            if (ring.length < 3) return;
+            const key = ring
+              .slice(0, 3)
+              .map((p) => `${p.lat.toFixed(6)},${p.lng.toFixed(6)}`)
+              .join("|");
+            if (seenKeys.has(key)) return;
+            seenKeys.add(key);
+            merged.push({ ring, isPrimary: isPrimary && idx === 0, locationId, ringKey: key });
+          });
+        };
+        collectFrom(target.id, true);
+        subLocs.forEach((l) => collectFrom(`sub:${l.id}`, false, l.id));
+
+        if (merged.length === 0) return;
         const color = recencyRingColor(target.endDate) || "#10b981";
         const map = mapRef.current;
         const zoom = map.getZoom() ?? 0;
         const visible = zoom >= OUTLINE_MIN_ZOOM;
-        polygons.forEach((ring, idx) => {
-          if (ring.length < 3) return;
-          const isPrimary = idx === 0;
+        const overrides = (target.outlineOverrides && typeof target.outlineOverrides === "object") ? target.outlineOverrides : {};
+        // Build a per-location tooltip-html cache keyed by location id when the
+        // sub-location has its own hoverNote (overrides the parent job's note).
+        const subLocTipById = new Map<string, string>();
+        subLocs.forEach((l) => {
+          if (!l.hoverNote) return;
+          const baseHtml = whTooltipHtmlRef.current.get(target.id) ?? "";
+          // Replace any existing note block (defensive) by re-building from base parts.
+          // Easiest: append the location-specific note after the base card body.
+          const noteHtml = `<div style="margin-top:4px;padding-top:4px;border-top:1px solid #f3f4f6;font-size:10.5px;color:#4b5563;line-height:1.35;white-space:pre-wrap"><b>${escapeHtml(l.label || "Location")}:</b> ${formatHoverNote(l.hoverNote)}</div>`;
+          // Inject the location note just before the trailing </div></div>.
+          const injected = baseHtml.replace(/<\/div>\s*<\/div>\s*$/, `${noteHtml}</div></div>`);
+          subLocTipById.set(l.id, injected || baseHtml + noteHtml);
+        });
+        merged.forEach(({ ring, isPrimary, locationId, ringKey }) => {
+          const subLoc = locationId ? subLocs.find((l) => l.id === locationId) : null;
+          // Color resolution: per-ring override → per-location → job → recency → default emerald.
+          const ringOverride = overrides[ringKey];
+          const ringColor = ringOverride?.color || subLoc?.outlineColor || target.outlineColor || color;
+          // Per-ring tooltip: if this ring has its own note, build a one-off html
+          // by appending the override note onto the base card; falls back to the
+          // sub-location/job hover note html otherwise.
+          const ringTipHtml = ringOverride?.note
+            ? (() => {
+                const base = whTooltipHtmlRef.current.get(target.id) ?? "";
+                const noteHtml = `<div style="margin-top:4px;padding-top:4px;border-top:1px solid #f3f4f6;font-size:10.5px;color:#4b5563;line-height:1.35;white-space:pre-wrap">${formatHoverNote(ringOverride.note!)}</div>`;
+                return base.replace(/<\/div>\s*<\/div>\s*$/, `${noteHtml}</div></div>`) || base + noteHtml;
+              })()
+            : null;
           const poly = new google.maps.Polygon({
             paths: ring,
             map: visible ? map : null,
-            strokeColor: color,
-            strokeOpacity: isPrimary ? 1 : 0.7,
-            strokeWeight: isPrimary ? 3 : 2,
-            fillColor: color,
-            fillOpacity: isPrimary ? 0.25 : 0.12,
-            clickable: false,
+            strokeColor: ringColor,
+            strokeOpacity: 1,
+            strokeWeight: 3,
+            fillColor: ringColor,
+            fillOpacity: 0.25,
+            // Clickable so we can receive mouseover/mouseout. We don't open an
+            // InfoWindow on click — the focus card on the right already shows full
+            // details.
+            clickable: true,
             zIndex: isPrimary ? 9999 : 9998,
+          });
+          const getTipHtml = () =>
+            ringTipHtml ||
+            (locationId && subLocTipById.get(locationId)) ||
+            whTooltipHtmlRef.current.get(target.id);
+          poly.addListener("mouseover", (e: google.maps.MapMouseEvent) => {
+            poly.setOptions({ strokeWeight: 4, fillOpacity: 0.35 });
+            const html = getTipHtml();
+            const ev = (e as unknown as { domEvent?: MouseEvent }).domEvent;
+            if (html && ev) showTooltipAt(html, ev.clientX, ev.clientY);
+          });
+          poly.addListener("mousemove", (e: google.maps.MapMouseEvent) => {
+            const html = getTipHtml();
+            const ev = (e as unknown as { domEvent?: MouseEvent }).domEvent;
+            if (html && ev) showTooltipAt(html, ev.clientX, ev.clientY);
+          });
+          poly.addListener("mouseout", () => {
+            poly.setOptions({ strokeWeight: 3, fillOpacity: 0.25 });
+            hideTooltip();
           });
           focusedFootprintRef.current.push(poly);
         });
+        focusedFootprintRenderedRef.current = true;
+        // Apply pin-hide immediately if zoomed in.
+        syncOutlineAndPin();
       } catch {
         // Silent — outline is a nice-to-have, not critical
       }
@@ -3522,24 +3861,57 @@ function ImmersiveMapView({
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, focusedId, items]);
 
-  // Toggle building-outline polygons on/off when zoom crosses OUTLINE_MIN_ZOOM.
+  // Toggle building-outline polygons + focused-pin visibility when zoom crosses
+  // OUTLINE_MIN_ZOOM. Registered once; reads everything from refs.
   useEffect(() => {
     if (!ready || !mapRef.current) return;
     const map = mapRef.current;
-    const apply = () => {
-      const zoom = map.getZoom() ?? 0;
-      const visible = zoom >= OUTLINE_MIN_ZOOM;
-      focusedFootprintRef.current.forEach((p) => {
-        const onMap = p.getMap() != null;
-        if (visible && !onMap) p.setMap(map);
-        else if (!visible && onMap) p.setMap(null);
-      });
-    };
-    const listener = map.addListener("zoom_changed", apply);
+    const listener = map.addListener("zoom_changed", syncOutlineAndPin);
     return () => listener.remove();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready]);
+
+  // ── Sub-location pins for the focused job (satellite offices, client sites, etc.) ──
+  useEffect(() => {
+    // Tear down any existing sub-location pins
+    subLocMarkersRef.current.forEach((m) => (m.map = null));
+    subLocMarkersRef.current = [];
+    if (!ready || !mapRef.current || !focusedId) return;
+    const target = items.find((i) => i.id === focusedId);
+    if (!target) return;
+    const subLocs = (target.locations ?? []).filter(
+      (l) => l.lat != null && l.lng != null && !(l.isPrimary && target.lat === l.lat && target.lng === l.lng),
+    );
+    if (subLocs.length === 0) return;
+    const map = mapRef.current;
+    subLocs.forEach((loc) => {
+      const el = document.createElement("div");
+      el.style.cssText =
+        "display:flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:#0ea5e9;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.35);font-size:11px;line-height:1;cursor:pointer;color:#fff;font-weight:700;";
+      el.title = `${loc.label}${loc.address ? " — " + loc.address : ""}`;
+      el.setAttribute("aria-label", el.title);
+      el.textContent = "📍";
+      const marker = new google.maps.marker.AdvancedMarkerElement({
+        position: { lat: loc.lat, lng: loc.lng },
+        map,
+        content: el,
+        zIndex: 1700,
+      });
+      marker.addListener("click", () => {
+        map.panTo({ lat: loc.lat, lng: loc.lng });
+        const z = map.getZoom() ?? 10;
+        if (z < 17) map.setZoom(17);
+      });
+      subLocMarkersRef.current.push(marker);
+    });
+    return () => {
+      subLocMarkersRef.current.forEach((m) => (m.map = null));
+      subLocMarkersRef.current = [];
+    };
+  }, [ready, focusedId, items]);
 
   // ── Recruit Mode: radius circle around home ──
   useEffect(() => {
@@ -3699,6 +4071,18 @@ function ImmersiveMapView({
     tooltip.style.display = "block";
     tooltip.style.left = `${a.left - o.left + a.width / 2}px`;
     tooltip.style.top = `${a.top - o.top - 8}px`;
+  }
+  // Show the tooltip at arbitrary client coordinates (used by polygon hover where
+  // there's no anchor element).
+  function showTooltipAt(html: string, clientX: number, clientY: number) {
+    const tooltip = tooltipRef.current;
+    const outer = containerRef.current?.parentElement;
+    if (!tooltip || !outer) return;
+    const o = outer.getBoundingClientRect();
+    tooltip.innerHTML = html;
+    tooltip.style.display = "block";
+    tooltip.style.left = `${clientX - o.left}px`;
+    tooltip.style.top = `${clientY - o.top - 12}px`;
   }
   function hideTooltip() {
     if (tooltipRef.current) tooltipRef.current.style.display = "none";
@@ -4851,6 +5235,22 @@ function FocusCard({
                   <Briefcase className={`h-3.5 w-3.5 shrink-0 ${isInternship ? "text-cyan-600" : "text-gray-500"}`} />
                 )}
                 <span className="text-sm font-semibold">{item.company}</span>
+                {item.companyClosed && (
+                  <span
+                    className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 inline-flex items-center gap-1 shrink-0"
+                    title="Company is no longer in operation"
+                  >
+                    <XCircle className="h-3 w-3" /> Company Closed
+                  </span>
+                )}
+                {!item.companyClosed && item.locationClosed && (
+                  <span
+                    className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200 inline-flex items-center gap-1 shrink-0"
+                    title="This location/branch is closed (company is still operating)"
+                  >
+                    <XCircle className="h-3 w-3" /> Location Closed
+                  </span>
+                )}
                 {item.scheduleType && (
                   <span className="text-[10px] bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded capitalize">
                     {item.scheduleType.replace("-", " ")}
@@ -4905,6 +5305,14 @@ function FocusCard({
                       <MapPin className="h-3 w-3 shrink-0" />
                       <span className="truncate">{shortAddr}</span>
                     </>
+                  )}
+                  {(item.locations?.length ?? 0) > 0 && (
+                    <span
+                      className="inline-flex items-center gap-0.5 text-[9px] font-semibold bg-sky-100 dark:bg-sky-900/40 text-sky-700 dark:text-sky-300 px-1 py-px rounded shrink-0"
+                      title={(item.locations ?? []).map((l) => l.label).join(" · ")}
+                    >
+                      +{item.locations!.length} {item.locations!.length === 1 ? "site" : "sites"}
+                    </span>
                   )}
                   {(item.startDate || item.endDate) && (
                     <>

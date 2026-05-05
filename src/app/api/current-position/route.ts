@@ -77,6 +77,8 @@ export async function POST(request: Request) {
         ein: (mapped.ein as string) || null,
         legalName: (mapped.legalName as string) || null,
         companySynopsis: (mapped.companySynopsis as string) || null,
+        companyClosed: mapped.companyClosed != null ? Boolean(mapped.companyClosed) : false,
+        locationClosed: mapped.locationClosed != null ? Boolean(mapped.locationClosed) : false,
         industry: (mapped.industry as string) || null,
         website: (mapped.website as string) || null,
         focus: (mapped.focus as string) || null,

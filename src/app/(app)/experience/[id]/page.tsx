@@ -47,6 +47,7 @@ import {
   Loader2,
   RefreshCw,
   ImagePlus,
+  XCircle,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { format, formatDistanceToNow } from "date-fns";
@@ -76,6 +77,8 @@ interface Position {
   ein: string | null;
   legalName: string | null;
   companySynopsis: string | null;
+  companyClosed: boolean;
+  locationClosed: boolean;
   industry: string | null;
   website: string | null;
   address: string | null;
@@ -115,6 +118,8 @@ const emptyForm = {
   ein: "",
   legalName: "",
   companySynopsis: "",
+  companyClosed: false,
+  locationClosed: false,
   industry: "",
   website: "",
   address: "",
@@ -212,6 +217,8 @@ export default function ExperienceDetailPage({
       ein: position.ein || "",
       legalName: position.legalName || "",
       companySynopsis: position.companySynopsis || "",
+      companyClosed: !!position.companyClosed,
+      locationClosed: !!position.locationClosed,
       industry: position.industry || "",
       website: position.website || "",
       address: position.address || "",
@@ -399,6 +406,18 @@ export default function ExperienceDetailPage({
                 <TypeIcon className="h-3 w-3" />
                 {pos.type}
               </Badge>
+              {pos.companyClosed && (
+                <Badge variant="outline" className="gap-1 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600" title="Company is no longer in operation">
+                  <XCircle className="h-3 w-3" />
+                  Company Closed
+                </Badge>
+              )}
+              {!pos.companyClosed && pos.locationClosed && (
+                <Badge variant="outline" className="gap-1 bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200 border-amber-300 dark:border-amber-700/60" title="This location/branch is closed (company is still operating)">
+                  <XCircle className="h-3 w-3" />
+                  Location Closed
+                </Badge>
+              )}
             </div>
           </div>
 
@@ -980,6 +999,27 @@ export default function ExperienceDetailPage({
                 onChange={(e) => setForm({ ...form, legalName: e.target.value })}
               />
             </div>
+            <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={form.companyClosed}
+                onChange={(e) => setForm({ ...form, companyClosed: e.target.checked })}
+                className="h-4 w-4 rounded border-gray-300"
+              />
+              <span>Company has closed (no longer in operation)</span>
+            </label>
+            <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={form.locationClosed}
+                onChange={(e) => setForm({ ...form, locationClosed: e.target.checked })}
+                disabled={form.companyClosed}
+                className="h-4 w-4 rounded border-gray-300 disabled:opacity-50"
+              />
+              <span className={form.companyClosed ? "text-muted-foreground line-through" : ""}>
+                This location is closed (company still operating)
+              </span>
+            </label>
             {(form.type === "onsite" || form.type === "hybrid") && (
               <div>
                 <Label className="mb-1">Office Address</Label>

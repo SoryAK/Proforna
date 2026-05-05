@@ -6,6 +6,16 @@ interface CoordRequest {
   lng: number;
   /** Optional: if known, skip Overpass nearest-search and fetch this way directly */
   wayId?: number | null;
+  /** Optional: explicit list of OSM way IDs to outline (multi-building campus).
+   *  When provided and non-empty, takes precedence over `wayId` and the
+   *  nearest-search fallback. Auto campus-sibling lookup is also skipped. */
+  wayIds?: number[];
+  /** Optional: caller-supplied polygon rings (e.g., user-drawn). Appended
+   *  after any OSM rings in the result. */
+  customRings?: LatLng[][];
+  /** Optional: if true, never run the auto campus-sibling heuristic for this
+   *  coord (even when no wayIds are supplied). The user has curated outlines. */
+  suppressAuto?: boolean;
 }
 
 type LatLng = { lat: number; lng: number };
@@ -175,24 +185,37 @@ export async function POST(request: Request) {
   const coords = coordinates.slice(0, 20);
   const results: Footprint[] = [];
 
-  // ── Fast path: known wayIds (skip nearest-search). ──
-  const needWayLookup: { coord: CoordRequest; wayId: number }[] = [];
+  // Helper: append user-drawn custom rings to a footprint result.
+  const withCustom = (fp: Footprint, c: CoordRequest): Footprint => {
+    const custom = (c.customRings ?? []).filter((r) => Array.isArray(r) && r.length >= 3);
+    if (custom.length === 0) return fp;
+    return { ...fp, polygons: [...fp.polygons, ...custom] };
+  };
+
+  // ── Fast path: explicit wayIds[] or singular wayId (skip nearest-search). ──
+  // For each coord, gather all way IDs we need to fetch.
+  const multiNeed: { coord: CoordRequest; wayIds: number[]; primary: number | null }[] = [];
   const remaining: CoordRequest[] = [];
+  const needWayLookupIds = new Set<number>();
+
   for (const c of coords) {
-    if (c.wayId && Number.isFinite(c.wayId)) {
-      const cached = wayCache.get(c.wayId);
-      if (cached && !noCache) {
-        results.push({ id: c.id, wayId: c.wayId, polygons: [cached] });
-      } else {
-        needWayLookup.push({ coord: c, wayId: c.wayId });
-      }
-    } else {
+    const explicit = (c.wayIds ?? []).filter((n) => Number.isFinite(n) && n > 0);
+    const single = c.wayId && Number.isFinite(c.wayId) ? Number(c.wayId) : null;
+    const ids = explicit.length > 0 ? Array.from(new Set(explicit)) : single ? [single] : [];
+    if (ids.length === 0) {
       remaining.push(c);
+      continue;
+    }
+    multiNeed.push({ coord: c, wayIds: ids, primary: single ?? ids[0] });
+    if (noCache) {
+      ids.forEach((id) => needWayLookupIds.add(id));
+    } else {
+      ids.forEach((id) => { if (!wayCache.has(id)) needWayLookupIds.add(id); });
     }
   }
 
-  if (needWayLookup.length > 0) {
-    const idsList = needWayLookup.map((w) => w.wayId).join(",");
+  if (needWayLookupIds.size > 0) {
+    const idsList = Array.from(needWayLookupIds).join(",");
     const query = `[out:json][timeout:10];way(id:${idsList});out body;>;out skel qt;`;
     try {
       const res = await fetch(OVERPASS_URL, {
@@ -204,35 +227,49 @@ export async function POST(request: Request) {
       if (res.ok) {
         const data = await res.json();
         const { nodes, ways } = parseOverpass(data);
-        const wayMap = new Map(ways.map((w) => [w.id, w]));
-        for (const { coord, wayId } of needWayLookup) {
-          const w = wayMap.get(wayId);
-          if (w) {
-            const ring = ringFromWay(w, nodes);
-            if (ring.length >= 3) {
-              wayCache.set(wayId, ring);
-              results.push({ id: coord.id, wayId, polygons: [ring] });
-              continue;
-            }
-          }
-          // Way not found / invalid — fall back to coord lookup.
-          remaining.push(coord);
+        for (const w of ways) {
+          if (!needWayLookupIds.has(w.id)) continue;
+          const ring = ringFromWay(w, nodes);
+          if (ring.length >= 3) wayCache.set(w.id, ring);
         }
-      } else {
-        for (const { coord } of needWayLookup) remaining.push(coord);
       }
     } catch {
-      for (const { coord } of needWayLookup) remaining.push(coord);
+      // Fall through — coord-based lookup will catch what we couldn't fetch.
     }
   }
 
-  // ── Coord lookups (with cache) ──
+  for (const { coord, wayIds, primary } of multiNeed) {
+    const polygons: LatLng[][] = [];
+    // Render primary first so client styling (idx===0) treats it as the main outline.
+    const ordered = primary != null ? [primary, ...wayIds.filter((id) => id !== primary)] : wayIds;
+    for (const id of ordered) {
+      const ring = wayCache.get(id);
+      if (ring && ring.length >= 3) polygons.push(ring);
+    }
+    if (polygons.length === 0) {
+      // None of the explicit ways resolved — fall back to coord-based lookup
+      // unless the caller suppressed auto.
+      if (coord.suppressAuto) {
+        results.push(withCustom({ id: coord.id, wayId: null, polygons: [] }, coord));
+      } else {
+        remaining.push(coord);
+      }
+    } else {
+      results.push(withCustom({ id: coord.id, wayId: primary, polygons }, coord));
+    }
+  }
+
+  // ── Coord lookups (with cache). Honors suppressAuto: emit empty result without firing Overpass. ──
   const toFetch: CoordRequest[] = [];
   for (const c of remaining) {
+    if (c.suppressAuto) {
+      results.push(withCustom({ id: c.id, wayId: null, polygons: [] }, c));
+      continue;
+    }
     const k = cacheKey(c.lat, c.lng);
     const hit = noCache ? undefined : coordCache.get(k);
     if (hit && hit.polygons.length > 0) {
-      results.push({ ...hit, id: c.id });
+      results.push(withCustom({ ...hit, id: c.id }, c));
     } else {
       toFetch.push(c);
     }
@@ -258,7 +295,7 @@ export async function POST(request: Request) {
         for (const c of toFetch) {
           const k = cacheKey(c.lat, c.lng);
           coordCache.set(k, { id: c.id, wayId: null, polygons: [] });
-          results.push({ id: c.id, wayId: null, polygons: [] });
+          results.push(withCustom({ id: c.id, wayId: null, polygons: [] }, c));
         }
       } else {
         const data = await res.json();
@@ -269,7 +306,7 @@ export async function POST(request: Request) {
           if (!picked) {
             const fp: Footprint = { id: c.id, wayId: null, polygons: [] };
             coordCache.set(cacheKey(c.lat, c.lng), fp);
-            results.push(fp);
+            results.push(withCustom(fp, c));
             continue;
           }
           const siblings = findCampusSiblings(picked.way, picked.ring, ways, nodes);
@@ -280,7 +317,7 @@ export async function POST(request: Request) {
           };
           coordCache.set(cacheKey(c.lat, c.lng), fp);
           wayCache.set(picked.way.id, picked.ring);
-          results.push(fp);
+          results.push(withCustom(fp, c));
         }
       }
     } catch (err) {
@@ -288,7 +325,7 @@ export async function POST(request: Request) {
       for (const c of toFetch) {
         const k = cacheKey(c.lat, c.lng);
         coordCache.set(k, { id: c.id, wayId: null, polygons: [] });
-        results.push({ id: c.id, wayId: null, polygons: [] });
+        results.push(withCustom({ id: c.id, wayId: null, polygons: [] }, c));
       }
     }
   }

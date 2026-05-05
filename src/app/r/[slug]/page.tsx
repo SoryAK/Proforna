@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useRef, use } from "react";
+import { useEffect, useState, useRef, use, useCallback } from "react";
+import { toast } from "sonner";
 import {
   ChevronDown,
   MapPin,
@@ -74,11 +75,15 @@ interface Position {
   endDate: string | null;
   isActive: boolean;
   osmWayId?: number | null;
+  osmWayIds?: number[] | null;
+  footprintCustom?: { lat: number; lng: number }[][] | null;
   techStack: string | null;
   description: string | null;
   responsibilities?: string | null;
   accomplishments?: string | null;
   industry?: string | null;
+  companyClosed?: boolean | null;
+  locationClosed?: boolean | null;
   workMode?: string | null;
   scheduleType?: string | null;
   companySize?: string | null;
@@ -105,10 +110,14 @@ interface Position {
   commuteDistance?: number | null;
   commuteMode?: string | null;
   uniformData?: string | null;
+  hoverNote?: string | null;
+  outlineColor?: string | null;
+  outlineOverrides?: Record<string, { color?: string | null; note?: string | null }> | null;
   // ── Relations ──
   galleryPhotos?: { id: string; filePath: string; caption?: string | null; fileName: string }[];
   attachments?: { id: string; label: string; category: string; fileName: string; filePath: string; fileMime: string; fileSize: number }[];
   equipment?: { id: string; name: string; category: string; manufacturer?: string | null; model?: string | null; photos?: { id: string; filePath: string; isCover: boolean }[] }[];
+  locations?: { id: string; label: string; type: string; address: string; lat: number; lng: number; isPrimary: boolean; includeInOutline: boolean; closed?: boolean; startDate?: string | null; endDate?: string | null; hoverNote?: string | null; outlineColor?: string | null }[];
 }
 
 interface InventoryItem {
@@ -389,6 +398,33 @@ export default function InteractiveResumePage({
       .catch(() => setError(true));
   }, [slug]);
 
+  // Re-fetch IR data without a full page reload (used by the publish broadcast).
+  const refetch = useCallback(async (silent = false) => {
+    try {
+      const searchParams = new URLSearchParams(window.location.search);
+      const token = searchParams.get("token");
+      const url = `/api/interactive-resumes/public/${encodeURIComponent(slug)}${token ? `?token=${encodeURIComponent(token)}` : ""}`;
+      const r = await fetch(url, { cache: "no-store" });
+      if (!r.ok) return;
+      const fresh = await r.json();
+      setData(fresh);
+      if (!silent) toast.success("Resume updated", { duration: 2500 });
+    } catch {
+      // Silent — refetch is best-effort.
+    }
+  }, [slug]);
+
+  // Listen for "publish" broadcasts from the editor (same-origin, same-browser only).
+  // Lets an open IR preview tab pick up the latest snapshot without a manual reload.
+  useEffect(() => {
+    if (typeof BroadcastChannel === "undefined") return;
+    const ch = new BroadcastChannel("resumsify-publish");
+    ch.onmessage = (ev) => {
+      if (ev.data?.type === "publish") refetch(false);
+    };
+    return () => ch.close();
+  }, [refetch]);
+
   // Track view on load
   useEffect(() => {
     if (!data) return;
@@ -489,6 +525,8 @@ export default function InteractiveResumePage({
       endDate: pos.endDate,
       isActive: pos.isActive,
       osmWayId: pos.osmWayId,
+      osmWayIds: pos.osmWayIds,
+      footprintCustom: pos.footprintCustom,
       coverImage: pos.coverImage,
       coverImageY: pos.coverImageY,
       description: pos.description,
@@ -496,6 +534,8 @@ export default function InteractiveResumePage({
       techStack: pos.techStack,
       accomplishments: pos.accomplishments,
       industry: pos.industry,
+      companyClosed: pos.companyClosed,
+      locationClosed: pos.locationClosed,
       workMode: pos.workMode,
       scheduleType: pos.scheduleType,
       companySize: pos.companySize,
@@ -518,9 +558,13 @@ export default function InteractiveResumePage({
       commuteDistance: pos.commuteDistance,
       commuteMode: pos.commuteMode,
       uniformData: pos.uniformData,
+      hoverNote: pos.hoverNote,
+      outlineColor: pos.outlineColor,
+      outlineOverrides: pos.outlineOverrides,
       galleryPhotos: pos.galleryPhotos,
       attachments: pos.attachments,
       equipment: pos.equipment,
+      locations: pos.locations,
     }));
     return (
       <>

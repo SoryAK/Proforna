@@ -1351,7 +1351,9 @@ model WorkHistory {
   lat       Float
   lng       Float
   placeId   String?  // Google Place ID for Feature Layer building highlight
-  osmWayId  Int?     // OpenStreetMap way ID for building footprint outline (resolved on first focus)
+  osmWayId  Int?     // OpenStreetMap way ID for building footprint outline (resolved on first focus, primary building only — kept for back-compat / fast path)
+  osmWayIds Int[]    @default([]) // Explicit list of OSM way IDs to outline (multi-building campus). When non-empty this overrides auto campus-sibling lookup.
+  footprintCustom Json? // Optional hand-drawn polygon rings: Array<Array<{lat:number,lng:number}>>. Appended to OSM rings on render.
   startDate String?  // e.g. "2020-01" (year-month)
   endDate   String?  // e.g. "2023-06" or null for "still there"
 
@@ -1414,6 +1416,10 @@ model WorkHistory {
   companySynopsis String?                    // brief company description
   industry        String?                    // industry sector
   website         String?                    // company website URL
+  // Set when the company has shut down / no longer in operation. Surfaced as a "Closed" badge.
+  companyClosed   Boolean  @default(false)
+  // Set when this primary work location/branch is closed but the company is still operating.
+  locationClosed  Boolean  @default(false)
   focus           String?                    // primary role summary
   schedule        String?                    // free-text schedule (e.g. "Overnight 6pm-6am")
   payRate         String?                    // base rate string (e.g. "$35.50/hr")
@@ -1431,6 +1437,9 @@ model WorkHistory {
   coverImage      String?                    // base64 cover photo
   coverImageY     Float?   @default(50)      // vertical focal point 0–100 for banner crop
   uniformData     String?                    // JSON blob: { enabled, category, zones: { [zoneId]: { item, color, providedBy, notes, photo } } }
+  hoverNote       String?                    // Custom recruiter-facing note shown in the building-outline hover tooltip (item #10 follow-up). Plain text + URLs; ~280 chars.
+  outlineColor    String?                    // Custom hex color (e.g. #10b981) for the building-outline polygon. Null = default emerald.
+  outlineOverrides Json?                     // Per-ring overrides keyed by stable ringKey (first-3-coords of the polygon). Shape: { [ringKey]: { color?: string, note?: string } }. Lets the user color/note individual buildings on a multi-building campus.
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1483,11 +1492,16 @@ model WorkHistoryLocation {
   lat           Float
   lng           Float
   placeId       String?  // Google Place ID for Feature Layer building highlight
-  isPrimary     Boolean  @default(false) // used for polyline path
+  isPrimary        Boolean  @default(false) // used for polyline path
+  includeInOutline Boolean  @default(false) // include this sub-location in auto building-outline detection
+  // Set when this specific sub-location is closed (the company / other locations may still operate).
+  closed           Boolean  @default(false)
   skills        String?  // JSON array of skill names used at this location
   photos        String?  // JSON array of photo URLs or base64 data URIs
   startDate     String?  // optional YYYY-MM period start at this location
   endDate       String?  // optional YYYY-MM period end at this location
+  hoverNote     String?  // Custom recruiter-facing note shown in the per-location building-outline hover tooltip. Overrides parent WorkHistory.hoverNote when present.
+  outlineColor  String?  // Custom hex color override for this sub-location's polygon. Overrides parent WorkHistory.outlineColor when present.
   createdAt     DateTime @default(now())
 
   workHistory WorkHistory @relation(fields: [workHistoryId], references: [id], onDelete: Cascade)

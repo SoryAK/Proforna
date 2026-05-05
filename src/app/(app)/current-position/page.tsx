@@ -48,6 +48,7 @@ import {
   RefreshCw,
   Sparkles,
   ImagePlus,
+  XCircle,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { format, formatDistanceToNow } from "date-fns";
@@ -81,6 +82,8 @@ interface Position {
   ein: string | null;
   legalName: string | null;
   companySynopsis: string | null;
+  companyClosed: boolean;
+  locationClosed: boolean;
   industry: string | null;
   website: string | null;
   address: string | null;
@@ -160,6 +163,8 @@ const emptyForm = {
   ein: "",
   legalName: "",
   companySynopsis: "",
+  companyClosed: false,
+  locationClosed: false,
   industry: "",
   website: "",
   address: "",
@@ -270,6 +275,8 @@ export default function CurrentPositionPage() {
       ein: pos.ein || "",
       legalName: pos.legalName || "",
       companySynopsis: pos.companySynopsis || "",
+      companyClosed: !!pos.companyClosed,
+      locationClosed: !!pos.locationClosed,
       industry: pos.industry || "",
       website: pos.website || "",
       address: pos.address || "",
@@ -494,7 +501,25 @@ export default function CurrentPositionPage() {
 
             {/* Company + Role */}
             <div className="space-y-0.5">
-              <h1 className="text-xl font-bold">{active.company}</h1>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-xl font-bold">{active.company}</h1>
+                {active.companyClosed && (
+                  <span
+                    className="text-[11px] font-medium px-1.5 py-0.5 rounded bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 inline-flex items-center gap-1"
+                    title="Company is no longer in operation"
+                  >
+                    <XCircle className="h-3 w-3" /> Company Closed
+                  </span>
+                )}
+                {!active.companyClosed && active.locationClosed && (
+                  <span
+                    className="text-[11px] font-medium px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200 inline-flex items-center gap-1"
+                    title="This location/branch is closed (company is still operating)"
+                  >
+                    <XCircle className="h-3 w-3" /> Location Closed
+                  </span>
+                )}
+              </div>
               <p className="text-sm text-muted-foreground">{active.role}</p>
               {active.industry && (
                 <p className="text-sm text-muted-foreground flex items-center gap-1">
@@ -1042,6 +1067,27 @@ export default function CurrentPositionPage() {
                 onChange={(e) => setForm({ ...form, legalName: e.target.value })}
               />
             </div>
+            <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={form.companyClosed}
+                onChange={(e) => setForm({ ...form, companyClosed: e.target.checked })}
+                className="h-4 w-4 rounded border-gray-300"
+              />
+              <span>Company has closed (no longer in operation)</span>
+            </label>
+            <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={form.locationClosed}
+                onChange={(e) => setForm({ ...form, locationClosed: e.target.checked })}
+                disabled={form.companyClosed}
+                className="h-4 w-4 rounded border-gray-300 disabled:opacity-50"
+              />
+              <span className={form.companyClosed ? "text-muted-foreground line-through" : ""}>
+                This location is closed (company still operating)
+              </span>
+            </label>
             {(form.type === "onsite" || form.type === "hybrid") && (
               <div>
                 <Label className="mb-1">Office Address</Label>

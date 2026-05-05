@@ -1,4 +1,4 @@
-1. I need to transfer over the bio crad to the work mapping allowing the user to edit that sectmion before publishing the changes [completed]
+1. I need to transfer over the bio crad to the work mapping allowing the user to edit that sectmion before publishing the changes [completed].
 2. I need to add a publish/update/push feature that pushes any changes from the work mapping to the IR that way incomplete edits dont show on the IR [completed]
 3. I need to find a better wasy to show the user minim requirements as well as the eductation and bio 
 4. I should add gallery for the business banner 
@@ -8,10 +8,10 @@
 8. There should be a question asking the recruiter if they would like to be apart of the user network[completed]
 9. I should make it so when you're in the work mapping mode the map goes full screen so it owuld beasically behave and look like the IR but revert back when job seeking [completed]
 
-10. Pin → Vector Outline swap at high zoom (z >= 16): when the user is focused on a job and zoomed in past z16, hide the focused item's pin and let the building outline take over as the visual marker. The polygon already mirrors the recency color and sits exactly on the building, so the pin becomes redundant and competes for attention. Only hide the pin if a footprint actually rendered (fallback safety for addresses with no OSM building). Add a hover effect on the polygon (stroke 3→4, fillOpacity 0.25→0.35). Other (non-focused) pins stay visible to preserve at-a-glance career context. Apply to both IR (resume-immersive-map.tsx) and the work-mapping editor (job-map.tsx). Skip InfoWindow on the polygon since the focus card on the right already shows full details.
+10. Pin → Vector Outline swap at high zoom (z >= 16): when the user is focused on a job and zoomed in past z16, hide the focused item's pin and let the building outline take over as the visual marker. The polygon already mirrors the recency color and sits exactly on the building, so the pin becomes redundant and competes for attention. Only hide the pin if a footprint actually rendered (fallback safety for addresses with no OSM building). Add a hover effect on the polygon (stroke 3→4, fillOpacity 0.25→0.35). Other (non-focused) pins stay visible to preserve at-a-glance career context. Apply to both IR (resume-immersive-map.tsx) and the work-mapping editor (job-map.tsx). Skip InfoWindow on the polygon since the focus card on the right already shows full details. Polygon hover also shows the same rich tooltip card as the pin (cover image + company + title + tenure). [completed]
 
-11. At some point I have to add feature that notfies you/ the recruiter that the company you worked for closed 
-12. We should implement a global search 
+11. At some point I have to add feature that notfies you/ the recruiter that the company you worked for closed [completed]
+12. We should implement a global search [completed]
 13. At some point we need to implement a guide to help recruiters understand what and IR is and how to navigate it
 
 14. **Recruiter Search & JD Match (in IR)** — As an IR grows dense over a career, recruiters won't read the whole thing. Build a recruiter-facing search/match layer on the public IR so they can find what they need in seconds.
@@ -25,7 +25,7 @@
     - Career events / milestones
     - Industries / occupations tagged
 
-    Each result is clickable → flies the map to that position / opens the relevant panel. Server-side Postgres `ILIKE` for v1 — no AI cost, instant. Decide which fields stay locked behind contact-unlock.
+    Each result is clickable → flies the map to that position / opens the relevant panel. Server-side Postgres `ILIKE` for v1 — no AI cost, instant. Decide which fields stay locked behind contact-unlock. [completed]
 
     **Phase B — Paste-a-JD Match (the headline feature):** "Match this job" button in Recruit Mode. Recruiter pastes a job description, we:
     1. Extract keywords/required skills from the JD (regex + skills dictionary, or lightweight LLM call)
@@ -44,3 +44,5 @@
     Build order: A → B → C. Skip life anchors / residence history from the searchable index (not recruiter-relevant).
 
 
+15. I need t make it easier to add more location for the vector outline to automatically detect and outline 
+16. For the sub location outline on hover cusomization on hover effect I want the user to be able to right click the outline and be able to edit it which also includes changing the color. [completed]

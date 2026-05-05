@@ -127,6 +127,7 @@ export async function GET(
             },
             attachments: { orderBy: { createdAt: "desc" } },
             equipment: { include: { photos: { orderBy: { isCover: "desc" } } } },
+            locations: { orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }] },
           },
         })
       : Promise.resolve([]),

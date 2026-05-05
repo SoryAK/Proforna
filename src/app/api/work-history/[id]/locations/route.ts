@@ -15,7 +15,7 @@ export async function POST(
   if (!parent) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const body = await request.json();
-  const { label, type, address, lat, lng, isPrimary, placeId, skills, startDate, endDate } = body;
+  const { label, type, address, lat, lng, isPrimary, placeId, skills, startDate, endDate, includeInOutline } = body;
 
   if (!label || !address || lat == null || lng == null) {
     return NextResponse.json({ error: "label, address, lat, lng are required" }, { status: 400 });
@@ -39,6 +39,7 @@ export async function POST(
       lng: Number(lng),
       placeId: placeId ? String(placeId) : null,
       isPrimary: isPrimary === true,
+      includeInOutline: includeInOutline === true,
       skills: skillsJson,
       startDate: startDate ? String(startDate).slice(0, 7) : null,
       endDate: endDate ? String(endDate).slice(0, 7) : null,

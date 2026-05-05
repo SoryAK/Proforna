@@ -96,6 +96,10 @@ import {
   FolderOpen,
   Info,
   Move,
+  Pentagon,
+  XCircle,
+  MoreHorizontal,
+  GitCommitVertical,
 } from "lucide-react";
 import { toast } from "sonner";
 import { GalleryModal } from "@/components/gallery-modal";
@@ -266,6 +270,7 @@ const LeafletMap = dynamic(
 
 const MapDrawingCanvas = dynamic(() => import("@/components/map-drawing-canvas"), { ssr: false });
 const MapDrawingPanel = dynamic(() => import("@/components/map-drawing-panel"), { ssr: false });
+const BuildingOutlineEditor = dynamic(() => import("@/components/building-outline-editor"), { ssr: false });
 
 /* ── Constants ── */
 const RADIUS_OPTIONS = [
@@ -1056,8 +1061,8 @@ export function JobMap() {
   const knownAnchorIds = useRef<Set<string>>(new Set());
 
   /* ── Work History (past jobs reference pins) ── */
-  interface WorkHistoryLocationItem { id: string; label: string; type: string; address: string; lat: number; lng: number; isPrimary: boolean; placeId?: string | null; skills?: string | null; startDate?: string | null; endDate?: string | null; photos?: string | null }
-  interface WorkHistoryItem { id: string; type?: string; company: string; title: string | null; address: string; lat: number; lng: number; startDate: string | null; endDate: string | null; locations: WorkHistoryLocationItem[]; placeId?: string | null; osmWayId?: number | null; degree?: string | null; major?: string | null; gpa?: number | null; coverImage?: string | null; coverImageY?: number | null; uniformData?: string | null }
+  interface WorkHistoryLocationItem { id: string; label: string; type: string; address: string; lat: number; lng: number; isPrimary: boolean; includeInOutline?: boolean; closed?: boolean; placeId?: string | null; skills?: string | null; startDate?: string | null; endDate?: string | null; photos?: string | null; hoverNote?: string | null; outlineColor?: string | null }
+  interface WorkHistoryItem { id: string; type?: string; company: string; title: string | null; address: string; lat: number; lng: number; startDate: string | null; endDate: string | null; locations: WorkHistoryLocationItem[]; placeId?: string | null; osmWayId?: number | null; osmWayIds?: number[] | null; footprintCustom?: { lat: number; lng: number }[][] | null; degree?: string | null; major?: string | null; gpa?: number | null; coverImage?: string | null; coverImageY?: number | null; uniformData?: string | null; hoverNote?: string | null; outlineColor?: string | null; outlineOverrides?: Record<string, { color?: string | null; note?: string | null }> | null }
   const { data: workHistory = [] } = useQuery<WorkHistoryItem[]>({
     queryKey: ["work-history"],
     queryFn: () => fetch("/api/work-history").then((r) => r.json()),
@@ -1066,6 +1071,42 @@ export function JobMap() {
 
   /* ── Building footprint outline (focus mode) ── */
   const focusedFootprintRef = useRef<google.maps.Polygon[]>([]);
+  // Floating tooltip element shown when hovering the focused-job's building polygon.
+  // Rendered as a portal at the end of the component tree.
+  const polyTooltipRef = useRef<HTMLDivElement | null>(null);
+  // Right-click outline editor popover state (note + color, per-outline).
+  const [outlineEdit, setOutlineEdit] = useState<{
+    workHistoryId: string;
+    ringKey: string;
+    locationId?: string;
+    locationLabel?: string;
+    note: string;
+    color: string;
+    x: number;
+    y: number;
+  } | null>(null);
+  const [outlineEditSaving, setOutlineEditSaving] = useState(false);
+  // Last known pointer position (fallback when google maps event lacks domEvent).
+  const lastPointerRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  // True while the cursor is over a focused-job outline polygon — used to
+  // suppress the browser's native context menu so our right-click editor opens.
+  const overOutlineRef = useRef(false);
+  // Meta of the polygon currently under the cursor. The window-level
+  // contextmenu handler reads this to open the editor for the right ring.
+  const hoveredPolyMetaRef = useRef<{
+    workHistoryId: string;
+    ringKey: string;
+    locationId?: string;
+    locationLabel?: string;
+    note: string;
+    color: string;
+  } | null>(null);
+  // Whether the most recent focus successfully rendered a building outline. Drives
+  // the high-zoom "hide pin in favor of polygon" behavior (item #10).
+  const focusedFootprintRenderedRef = useRef(false);
+  // Reactive flag passed to JobMapGoogle so it can hide the focused work-history
+  // pin while the building polygon is on screen at z>=OUTLINE_MIN_ZOOM.
+  const [hideFocusedWorkHistoryMarker, setHideFocusedWorkHistoryMarker] = useState(false);
 
   /* ── Residence History ── */
   interface ResidenceItem { id: string; label: string; address: string; lat: number; lng: number; placeId?: string | null; startDate: string | null; endDate: string | null; isCurrent: boolean }
@@ -1094,6 +1135,7 @@ export function JobMap() {
   }, [showOverlaps]);
   const [showSweetSpot, setShowSweetSpot] = useState(true);
   const [focusedWorkHistoryId, setFocusedWorkHistoryId] = useState<string | null>(null);
+  const [outlineEditorOpen, setOutlineEditorOpen] = useState(false);
   const preWorkHistoryZoomRef = useRef<{ lat: number; lng: number; zoom: number } | null>(null);
   const [pinDropMode, setPinDropMode] = useState(false);
   const [pinDropCoords, setPinDropCoords] = useState<{ lat: number; lng: number; placeId?: string } | null>(null);
@@ -2413,6 +2455,8 @@ export function JobMap() {
     // Tear down previous polygons when focus changes (or work-history layer toggled off).
     focusedFootprintRef.current.forEach((p) => p.setMap(null));
     focusedFootprintRef.current = [];
+    focusedFootprintRenderedRef.current = false;
+    setHideFocusedWorkHistoryMarker(false);
     if (!focusedWorkHistoryId || !showWorkHistory) return;
     const target = workHistory.find((w) => w.id === focusedWorkHistoryId);
     if (!target || target.lat == null || target.lng == null) return;
@@ -2422,49 +2466,144 @@ export function JobMap() {
     let cancelled = false;
     (async () => {
       try {
+        // Build the coordinate request: always the primary, plus any sub-locations
+        // explicitly opted into outline detection by the user.
+        const hasOverrides =
+          (Array.isArray(target.osmWayIds) && target.osmWayIds.length > 0) ||
+          (Array.isArray(target.footprintCustom) && target.footprintCustom.length > 0);
+        const subLocs = (target.locations ?? []).filter(
+          (l) => l.includeInOutline && l.lat != null && l.lng != null,
+        );
+        const coordinates: Array<{
+          id: string;
+          lat: number;
+          lng: number;
+          wayId?: number | null;
+          wayIds?: number[];
+          customRings?: { lat: number; lng: number }[][];
+          suppressAuto?: boolean;
+        }> = [
+          {
+            id: target.id,
+            lat: target.lat,
+            lng: target.lng,
+            wayId: target.osmWayId ?? null,
+            wayIds: target.osmWayIds ?? undefined,
+            customRings: target.footprintCustom ?? undefined,
+            suppressAuto: hasOverrides,
+          },
+          ...subLocs.map((l) => ({
+            id: `sub:${l.id}`,
+            lat: l.lat,
+            lng: l.lng,
+            // Sub-locations always run the auto search (no per-loc override storage yet).
+            suppressAuto: false,
+          })),
+        ];
         const res = await fetch("/api/building-footprints", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            coordinates: [
-              { id: target.id, lat: target.lat, lng: target.lng, wayId: target.osmWayId ?? null },
-            ],
-            radiusM: 150,
-          }),
+          body: JSON.stringify({ coordinates, radiusM: 150 }),
         });
         if (!res.ok || cancelled) return;
         const data: { footprints?: { id: string; wayId: number | null; polygons: { lat: number; lng: number }[][] }[] } =
           await res.json();
         if (cancelled || focusedWorkHistoryId !== target.id) return;
-        const entry = data.footprints?.find((f) => f.id === target.id);
-        const polygons = entry?.polygons ?? [];
-        if (polygons.length === 0) return;
-        const color = "#10b981"; // emerald-500
+
+        // Merge polygons across primary + each opted-in sub-location, dedupe by ring identity.
+        const seenKeys = new Set<string>();
+        const merged: Array<{ ring: { lat: number; lng: number }[]; isPrimary: boolean; locationId?: string; ringKey: string }> = [];
+        const collectFrom = (id: string, isPrimary: boolean, locationId?: string) => {
+          const e = data.footprints?.find((f) => f.id === id);
+          if (!e) return;
+          e.polygons.forEach((ring, idx) => {
+            if (ring.length < 3) return;
+            // Dedup key: first 3 rounded coords. Cheap & good enough for OSM ways.
+            const key = ring
+              .slice(0, 3)
+              .map((p) => `${p.lat.toFixed(6)},${p.lng.toFixed(6)}`)
+              .join("|");
+            if (seenKeys.has(key)) return;
+            seenKeys.add(key);
+            merged.push({ ring, isPrimary: isPrimary && idx === 0, locationId, ringKey: key });
+          });
+        };
+        collectFrom(target.id, true);
+        subLocs.forEach((l) => collectFrom(`sub:${l.id}`, false, l.id));
+
+        if (merged.length === 0) return;
+        const color = "#10b981"; // emerald-500 default
         const zoom = map.getZoom() ?? 0;
         const visible = zoom >= OUTLINE_MIN_ZOOM;
-        polygons.forEach((ring, idx) => {
-          if (ring.length < 3) return;
-          const isPrimary = idx === 0;
+        const overrides = (target.outlineOverrides && typeof target.outlineOverrides === "object") ? target.outlineOverrides : {};
+        merged.forEach(({ ring, isPrimary, locationId, ringKey }) => {
+          const subLoc = locationId ? subLocs.find((l) => l.id === locationId) : null;
+          // Color resolution: per-ring override → per-location → job → default emerald.
+          const ringOverride = overrides[ringKey];
+          const ringColor = ringOverride?.color || subLoc?.outlineColor || target.outlineColor || color;
+          // Note resolution: per-ring override → per-location → job.
+          const ringNote = (ringOverride?.note ?? (locationId ? subLoc?.hoverNote : target.hoverNote)) ?? null;
           const poly = new google.maps.Polygon({
             paths: ring,
             map: visible ? map : null,
-            strokeColor: color,
-            strokeOpacity: isPrimary ? 1 : 0.7,
-            strokeWeight: isPrimary ? 3 : 2,
-            fillColor: color,
-            fillOpacity: isPrimary ? 0.25 : 0.12,
-            clickable: false,
+            strokeColor: ringColor,
+            strokeOpacity: 1,
+            strokeWeight: 3,
+            fillColor: ringColor,
+            fillOpacity: 0.25,
+            // Clickable so we can receive mouseover/mouseout. We don't open an
+            // InfoWindow on click — the focus card on the right already shows full
+            // details.
+            clickable: true,
             zIndex: isPrimary ? 9999 : 9998,
+          });
+          // Stable per-ring meta used by the window-level contextmenu handler.
+          const meta = {
+            workHistoryId: target.id,
+            ringKey,
+            locationId,
+            locationLabel: subLoc?.label,
+            note: ringNote ?? "",
+            color: ringColor === color ? "" : ringColor,
+          };
+          poly.addListener("mouseover", (e: google.maps.MapMouseEvent) => {
+            poly.setOptions({ strokeWeight: 4, fillOpacity: 0.35 });
+            overOutlineRef.current = true;
+            hoveredPolyMetaRef.current = meta;
+            const ev = (e as unknown as { domEvent?: MouseEvent }).domEvent;
+            if (ev) {
+              lastPointerRef.current = { x: ev.clientX, y: ev.clientY };
+              showPolyTooltip(target, ev.clientX, ev.clientY, locationId, ringNote);
+            }
+          });
+          poly.addListener("mousemove", (e: google.maps.MapMouseEvent) => {
+            hoveredPolyMetaRef.current = meta;
+            const ev = (e as unknown as { domEvent?: MouseEvent }).domEvent;
+            if (ev) {
+              lastPointerRef.current = { x: ev.clientX, y: ev.clientY };
+              showPolyTooltip(target, ev.clientX, ev.clientY, locationId, ringNote);
+            }
+          });
+          poly.addListener("mouseout", () => {
+            poly.setOptions({ strokeWeight: 3, fillOpacity: 0.25 });
+            overOutlineRef.current = false;
+            if (hoveredPolyMetaRef.current === meta) hoveredPolyMetaRef.current = null;
+            hidePolyTooltip();
           });
           focusedFootprintRef.current.push(poly);
         });
+        focusedFootprintRenderedRef.current = true;
+        // If the user is already zoomed past the threshold, hide the pin now.
+        setHideFocusedWorkHistoryMarker(visible);
 
         // Persist osmWayId on first successful resolution so future visits skip the area search.
-        if (entry?.wayId && !target.osmWayId) {
+        // Skip if the user has curated outlines (osmWayIds[] or custom rings) — their choice wins.
+        const primaryEntry = data.footprints?.find((f) => f.id === target.id);
+        if (primaryEntry?.wayId && !target.osmWayId && !hasOverrides) {
           fetch(`/api/work-history/${target.id}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ osmWayId: entry.wayId }),
+            body: JSON.stringify({ osmWayId: primaryEntry.wayId }),
           })
             .then((r) => {
               if (r.ok) queryClient.invalidateQueries({ queryKey: ["work-history"] });
@@ -2478,7 +2617,155 @@ export function JobMap() {
     return () => { cancelled = true; };
   }, [focusedWorkHistoryId, showWorkHistory, workHistory, queryClient]);
 
+  // Polygon-hover tooltip helpers (mirrors the WH pin tooltip from the child map).
+  const showPolyTooltip = (
+    target: WorkHistoryItem,
+    clientX: number,
+    clientY: number,
+    locationId?: string,
+    overrideNote?: string | null,
+  ) => {
+    const tip = polyTooltipRef.current;
+    if (!tip) return;
+    const esc = (s: string) =>
+      s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    const linkify = (s: string) =>
+      esc(s).replace(
+        /(https?:\/\/[^\s<]+)/g,
+        (m) => `<a href="${m}" target="_blank" rel="noopener noreferrer" style="color:#2563eb;text-decoration:underline;pointer-events:auto">${m}</a>`,
+      );
+    const TYPE_EMOJI: Record<string, string> = {
+      job: "💼", school: "🎓", internship: "🏢", military: "🎖️", volunteer: "🤝",
+      "self-employed": "🧑‍💻", unemployed: "🔍",
+    };
+    const TYPE_LABEL: Record<string, string> = {
+      job: "Past workplace", school: "School", internship: "Internship", military: "Military",
+      volunteer: "Volunteer", "self-employed": "Self-Employed", unemployed: "Unemployed",
+    };
+    const emoji = TYPE_EMOJI[target.type ?? "job"] ?? "💼";
+    const typeLabel = TYPE_LABEL[target.type ?? "job"] ?? "Past workplace";
+    // Tenure (months between startDate and endDate or now)
+    const parseYM = (s: string | null | undefined) => {
+      if (!s) return null;
+      const [y, m] = s.split("-").map(Number);
+      if (!y) return null;
+      return new Date(y, (m || 1) - 1, 1);
+    };
+    const start = parseYM(target.startDate);
+    const end = parseYM(target.endDate) ?? new Date();
+    let months = 0;
+    if (start) months = Math.max(0, (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth()));
+    const yrs = Math.floor(months / 12);
+    const mos = months % 12;
+    const titleStr = target.title
+      ? `<div style="color:#6b7280;margin-top:1px">${esc(target.title)}</div>`
+      : "";
+    const tenureStr = months > 0
+      ? `<div style="color:#9ca3af;font-size:10px;margin-top:2px">${yrs > 0 ? yrs + "y " : ""}${mos}m tenure</div>`
+      : "";
+    const cover = target.coverImage
+      ? `<img src="${target.coverImage}" style="width:100%;height:72px;object-fit:cover;display:block;object-position:center ${target.coverImageY ?? 50}%" />`
+      : "";
+    // Hover note resolution: per-ring override (passed in) → per-location → job.
+    const subLoc = locationId ? target.locations?.find((l) => l.id === locationId) : null;
+    const subNote = subLoc?.hoverNote ?? null;
+    const jobNote = target.hoverNote ?? null;
+    const effectiveNote = overrideNote !== undefined && overrideNote !== null
+      ? overrideNote
+      : (subNote ?? jobNote);
+    const noteParts: string[] = [];
+    if (effectiveNote) {
+      // Prefix with the location label only when the note isn't a per-ring override
+      // and it came from the sub-location (so the recruiter knows which campus building it's about).
+      if ((overrideNote === undefined || overrideNote === null) && subNote) {
+        noteParts.push(`<b>${esc(subLoc?.label || "Location")}:</b> ${linkify(effectiveNote)}`);
+      } else {
+        noteParts.push(linkify(effectiveNote));
+      }
+    }
+    const noteStr = noteParts.length
+      ? `<div style="margin-top:4px;padding-top:4px;border-top:1px solid #f3f4f6;font-size:10.5px;color:#4b5563;line-height:1.35;white-space:pre-wrap">${noteParts.join("<br/>")}</div>`
+      : "";
+    tip.innerHTML = `<div style="overflow:hidden;">
+      ${cover}
+      <div style="padding:6px 8px 5px;">
+        <div style="font-weight:700;font-size:12px;color:#111">${emoji} ${esc(target.company)}</div>
+        ${titleStr}${tenureStr}${noteStr}
+        <div style="color:#9ca3af;margin-top:2px;font-size:10px">${esc(typeLabel)} • Building outline</div>
+      </div>
+    </div>`;
+    tip.style.display = "block";
+    tip.style.left = `${clientX}px`;
+    tip.style.top = `${clientY - 12}px`;
+  };
+  const hidePolyTooltip = () => {
+    if (polyTooltipRef.current) polyTooltipRef.current.style.display = "none";
+  };
+
+  // Open the right-click outline editor popover. Clamped to viewport.
+  const openOutlineEditor = (opts: {
+    workHistoryId: string;
+    ringKey: string;
+    locationId?: string;
+    locationLabel?: string;
+    note: string;
+    color: string;
+    x: number;
+    y: number;
+  }) => {
+    const POPOVER_W = 280;
+    const POPOVER_H = 220;
+    const x = Math.min(Math.max(8, opts.x), (typeof window !== "undefined" ? window.innerWidth : 1024) - POPOVER_W - 8);
+    const y = Math.min(Math.max(8, opts.y), (typeof window !== "undefined" ? window.innerHeight : 768) - POPOVER_H - 8);
+    setOutlineEdit({ ...opts, x, y });
+  };
+
+  // Window-level contextmenu handler: when the cursor is over a focused-job
+  // outline polygon, suppress the browser menu and open OUR per-ring editor.
+  // Driving this from window (instead of the polygon's own contextmenu listener)
+  // sidesteps Maps API quirks where the shape-level event needs two clicks.
+  useEffect(() => {
+    const onContext = (e: MouseEvent) => {
+      if (!overOutlineRef.current) return;
+      e.preventDefault();
+      const meta = hoveredPolyMetaRef.current;
+      if (!meta) return;
+      hidePolyTooltip();
+      openOutlineEditor({ ...meta, x: e.clientX, y: e.clientY });
+    };
+    window.addEventListener("contextmenu", onContext);
+    return () => window.removeEventListener("contextmenu", onContext);
+  }, []);
+
+  const saveOutlineEdit = async () => {
+    if (!outlineEdit) return;
+    setOutlineEditSaving(true);
+    try {
+      // Per-ring storage: PATCH the parent work-history with an overrides patch.
+      // This way each individual building polygon can have its own color/note,
+      // even when a job has multiple buildings (osmWayIds[]) or merges sub-loc rings.
+      const note = outlineEdit.note.trim() || null;
+      const color = outlineEdit.color || null;
+      const res = await fetch(`/api/work-history/${outlineEdit.workHistoryId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          outlineOverridesPatch: {
+            [outlineEdit.ringKey]: { color, note },
+          },
+        }),
+      });
+      if (res.ok) {
+        toast.success("Outline updated");
+        queryClient.invalidateQueries({ queryKey: ["work-history"] });
+        setOutlineEdit(null);
+      } else toast.error("Failed to save");
+    } catch { toast.error("Failed to save"); } finally { setOutlineEditSaving(false); }
+  };
+
   // Toggle building-outline polygons on/off when zoom crosses OUTLINE_MIN_ZOOM.
+  // Also drives the focused-pin hide flag so the polygon takes over as the marker
+  // at high zoom.
   useEffect(() => {
     const map = googleMapRef.current;
     if (!map) return;
@@ -2490,10 +2777,22 @@ export function JobMap() {
         if (visible && !onMap) p.setMap(map);
         else if (!visible && onMap) p.setMap(null);
       });
+      setHideFocusedWorkHistoryMarker(visible && focusedFootprintRenderedRef.current);
     };
     const listener = map.addListener("zoom_changed", apply);
     return () => listener.remove();
   }, [focusedWorkHistoryId]);
+
+  // Close the building-outline editor whenever focus changes or work-history layer is hidden.
+  useEffect(() => {
+    if (!focusedWorkHistoryId || !showWorkHistory) setOutlineEditorOpen(false);
+  }, [focusedWorkHistoryId, showWorkHistory]);
+
+  /** Currently focused work-history entry (memoized for child components). */
+  const focusedWorkHistoryItem = useMemo(
+    () => (focusedWorkHistoryId ? workHistory.find((w) => w.id === focusedWorkHistoryId) ?? null : null),
+    [focusedWorkHistoryId, workHistory],
+  );
 
   /** Memoized sub-location markers for the map */
   const workHistorySubLocationsForMap = useMemo(() => {
@@ -3959,6 +4258,7 @@ export function JobMap() {
               workHistorySubLocations={workHistorySubLocationsForMap}
               showCareerPath={showCareerPath}
               focusedWorkHistoryId={focusedWorkHistoryId}
+              hideFocusedWorkHistoryMarker={hideFocusedWorkHistoryMarker}
               concurrentWorkHistoryIds={showOverlaps ? concurrentWorkHistoryIds : undefined}
               residenceMarker={residenceMarkerForMap}
               pinDropMode={pinDropMode}
@@ -4315,7 +4615,7 @@ export function JobMap() {
           {showWorkHistoryPanel && (
             <WorkHistoryPanel
               items={workHistory}
-              onClose={() => { setShowWorkHistoryPanel(false); setFocusedWorkHistoryId(null); setPinDropMode(false); }}
+              onClose={() => { setShowWorkHistoryPanel(false); setFocusedWorkHistoryId(null); setPinDropMode(false); setOutlineEditorOpen(false); }}
               onAdded={() => queryClient.invalidateQueries({ queryKey: ["work-history"] })}
               onDeleted={() => queryClient.invalidateQueries({ queryKey: ["work-history"] })}
               showCareerPath={showCareerPath}
@@ -4367,6 +4667,40 @@ export function JobMap() {
               }}
               mapContainer={mapContainerRef.current}
             />
+          )}
+
+          {/* ── Building outline editor (floating, opens via the chip below) ── */}
+          {focusedWorkHistoryItem && outlineEditorOpen && googleMapRef.current && (
+            <BuildingOutlineEditor
+              workHistoryId={focusedWorkHistoryItem.id}
+              lat={focusedWorkHistoryItem.lat}
+              lng={focusedWorkHistoryItem.lng}
+              osmWayIds={focusedWorkHistoryItem.osmWayIds ?? []}
+              footprintCustom={focusedWorkHistoryItem.footprintCustom ?? []}
+              osmWayId={focusedWorkHistoryItem.osmWayId ?? null}
+              map={googleMapRef.current}
+              onClose={() => setOutlineEditorOpen(false)}
+              onSaved={() => queryClient.invalidateQueries({ queryKey: ["work-history"] })}
+            />
+          )}
+
+          {/* ── "Edit outlines" chip — appears when a work-history is focused ── */}
+          {focusedWorkHistoryItem && showWorkHistory && !outlineEditorOpen && (
+            <button
+              onClick={() => setOutlineEditorOpen(true)}
+              className="absolute top-4 left-1/2 -translate-x-1/2 z-50 inline-flex items-center gap-1.5 rounded-full border border-gray-200 dark:border-gray-700 bg-white/95 dark:bg-gray-900/95 backdrop-blur px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-200 shadow-md hover:bg-white dark:hover:bg-gray-900 cursor-pointer"
+              title="Edit building outlines for this position"
+            >
+              <Pentagon className="h-3.5 w-3.5 text-emerald-500" />
+              Edit outlines
+              {((focusedWorkHistoryItem.osmWayIds?.length ?? 0) +
+                (focusedWorkHistoryItem.footprintCustom?.length ?? 0)) > 0 && (
+                <span className="ml-1 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 text-[10px] leading-none">
+                  {(focusedWorkHistoryItem.osmWayIds?.length ?? 0) +
+                    (focusedWorkHistoryItem.footprintCustom?.length ?? 0)}
+                </span>
+              )}
+            </button>
           )}
 
           {/* ── Isochrone Commute Time Legend (floating on map) ── */}
@@ -7082,6 +7416,130 @@ export function JobMap() {
           saveCommuteProfile(updated);
         }}
       />
+
+      {/* Building-polygon hover tooltip (item #10 — mirrors the WH pin tooltip) */}
+      {typeof document !== "undefined" && createPortal(
+        <div
+          ref={polyTooltipRef}
+          style={{
+            display: "none",
+            position: "fixed",
+            zIndex: 9999,
+            pointerEvents: "none",
+            transform: "translateX(-50%) translateY(-100%)",
+            background: "white",
+            borderRadius: "10px",
+            boxShadow: "0 6px 20px rgba(0,0,0,0.18)",
+            border: "1px solid rgba(0,0,0,0.06)",
+            maxWidth: "240px",
+            color: "#111",
+            overflow: "hidden",
+          }}
+        />,
+        document.body,
+      )}
+
+      {/* Right-click outline editor popover (per-outline note + color customization) */}
+      {outlineEdit && typeof document !== "undefined" && createPortal(
+        <>
+          {/* Backdrop to capture outside-clicks */}
+          <div
+            onClick={() => !outlineEditSaving && setOutlineEdit(null)}
+            onContextMenu={(e) => { e.preventDefault(); if (!outlineEditSaving) setOutlineEdit(null); }}
+            style={{ position: "fixed", inset: 0, zIndex: 10000, background: "transparent" }}
+          />
+          <div
+            style={{
+              position: "fixed",
+              left: outlineEdit.x,
+              top: outlineEdit.y,
+              width: 280,
+              zIndex: 10001,
+              background: "white",
+              borderRadius: 10,
+              boxShadow: "0 10px 30px rgba(0,0,0,0.2)",
+              border: "1px solid rgba(0,0,0,0.08)",
+              padding: 10,
+              fontSize: 12,
+              color: "#111",
+            }}
+            onClick={(e) => e.stopPropagation()}
+            onContextMenu={(e) => e.preventDefault()}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+              <span style={{ fontWeight: 600, fontSize: 12 }}>
+                Edit outline {outlineEdit.locationLabel ? <span style={{ color: "#6b7280", fontWeight: 400 }}>· {outlineEdit.locationLabel}</span> : <span style={{ color: "#6b7280", fontWeight: 400 }}>· Building</span>}
+              </span>
+              <button
+                type="button"
+                onClick={() => setOutlineEdit(null)}
+                style={{ background: "transparent", border: "none", cursor: "pointer", color: "#6b7280", padding: 2 }}
+                aria-label="Close"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+            <label style={{ display: "block", fontSize: 10, color: "#6b7280", marginBottom: 3 }}>Hover note (max 280)</label>
+            <textarea
+              value={outlineEdit.note}
+              onChange={(e) => setOutlineEdit((s) => s ? { ...s, note: e.target.value.slice(0, 280) } : s)}
+              maxLength={280}
+              rows={3}
+              placeholder={outlineEdit.locationId ? "Leave blank to inherit job note…" : "e.g. Led migration — https://example.com/case"}
+              style={{
+                width: "100%", boxSizing: "border-box", padding: 6, border: "1px solid #e5e7eb", borderRadius: 6,
+                fontSize: 11, resize: "none", outline: "none", fontFamily: "inherit",
+              }}
+            />
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#9ca3af", marginTop: 2 }}>
+              <span>{outlineEdit.note.length}/280</span>
+            </div>
+            <div style={{ marginTop: 8 }}>
+              <label style={{ display: "block", fontSize: 10, color: "#6b7280", marginBottom: 3 }}>Outline color</label>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                <input
+                  type="color"
+                  value={outlineEdit.color || "#10b981"}
+                  onChange={(e) => setOutlineEdit((s) => s ? { ...s, color: e.target.value.toLowerCase() } : s)}
+                  style={{ width: 28, height: 24, border: "1px solid #e5e7eb", borderRadius: 4, cursor: "pointer", padding: 0, background: "transparent" }}
+                />
+                {/* Preset swatches */}
+                {["#10b981", "#3b82f6", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"].map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => setOutlineEdit((s) => s ? { ...s, color: c } : s)}
+                    title={c}
+                    style={{
+                      width: 18, height: 18, borderRadius: 4, background: c, cursor: "pointer",
+                      border: outlineEdit.color === c ? "2px solid #111" : "1px solid rgba(0,0,0,0.1)",
+                      padding: 0,
+                    }}
+                  />
+                ))}
+                {outlineEdit.color && (
+                  <button
+                    type="button"
+                    onClick={() => setOutlineEdit((s) => s ? { ...s, color: "" } : s)}
+                    style={{ fontSize: 10, color: "#6b7280", background: "transparent", border: "none", cursor: "pointer", textDecoration: "underline" }}
+                  >
+                    {outlineEdit.locationId ? "Inherit" : "Default"}
+                  </button>
+                )}
+              </div>
+            </div>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 6, marginTop: 10 }}>
+              <Button size="sm" variant="ghost" className="h-6 text-xs" disabled={outlineEditSaving} onClick={() => setOutlineEdit(null)}>
+                Cancel
+              </Button>
+              <Button size="sm" className="h-6 text-xs" disabled={outlineEditSaving} onClick={saveOutlineEdit}>
+                {outlineEditSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save"}
+              </Button>
+            </div>
+          </div>
+        </>,
+        document.body,
+      )}
     </div>
   );
 }
@@ -7354,7 +7812,7 @@ function WorkHistoryPanel({
   residences, activeResidence, timeFilter, timeRange, onTimeFilterChange, onResidenceAdded, onResidenceDeleted,
   hiddenTypes, onToggleType, mapContainer,
 }: {
-  items: { id: string; type?: string; company: string; title: string | null; address: string; lat: number; lng: number; startDate: string | null; endDate: string | null; locations: { id: string; label: string; type: string; address: string; lat: number; lng: number; isPrimary: boolean; placeId?: string | null; skills?: string | null; startDate?: string | null; endDate?: string | null; photos?: string | null }[];
+  items: { id: string; type?: string; company: string; title: string | null; address: string; lat: number; lng: number; startDate: string | null; endDate: string | null; locations: { id: string; label: string; type: string; address: string; lat: number; lng: number; isPrimary: boolean; includeInOutline?: boolean; closed?: boolean; placeId?: string | null; skills?: string | null; startDate?: string | null; endDate?: string | null; photos?: string | null }[];
     degree?: string | null; major?: string | null; gpa?: number | null;
     salaryAmount?: number | null; salaryType?: string | null; salaryCurrency?: string | null; bonusAmount?: number | null; equityNotes?: string | null;
     workMode?: string | null; hybridDays?: number | null; scheduleType?: string | null; hoursPerWeek?: number | null; shiftNotes?: string | null;
@@ -7437,6 +7895,51 @@ function WorkHistoryPanel({
   });
   const [showTypeFilterPanel, setShowTypeFilterPanel] = useState(false);
   const [showPanelSettings, setShowPanelSettings] = useState(false);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [showTimeSlider, setShowTimeSlider] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchSelectedIndex, setSearchSelectedIndex] = useState(0);
+  const [recentSearches, setRecentSearches] = useState<string[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const raw = localStorage.getItem("resumsify:work-history-recent-searches");
+      return raw ? (JSON.parse(raw) as string[]).slice(0, 5) : [];
+    } catch { return []; }
+  });
+  const pushRecentSearch = useCallback((q: string) => {
+    const v = q.trim();
+    if (v.length < 2) return;
+    setRecentSearches((prev) => {
+      const next = [v, ...prev.filter((x) => x.toLowerCase() !== v.toLowerCase())].slice(0, 5);
+      try { localStorage.setItem("resumsify:work-history-recent-searches", JSON.stringify(next)); } catch {}
+      return next;
+    });
+  }, []);
+  // Ctrl/Cmd + / opens the work-history search (Cmd+K stays for the global CommandPalette).
+  // Some keyboard layouts deliver "/" via Shift, so accept e.key === "/" OR e.code === "Slash".
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const isSlash = e.key === "/" || e.code === "Slash";
+      if ((e.ctrlKey || e.metaKey) && isSlash) {
+        e.preventDefault();
+        setSearchOpen((v) => !v);
+      } else if (e.key === "Escape" && searchOpen) {
+        setSearchOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [searchOpen]);
+  // Reset selection whenever results change
+  useEffect(() => { setSearchSelectedIndex(0); }, [searchQuery]);
+  const [useTimelineStyle, setUseTimelineStyle] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    try { return localStorage.getItem("resumsify:work-history-timeline-style") === "1"; } catch { return false; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem("resumsify:work-history-timeline-style", useTimelineStyle ? "1" : "0"); } catch {}
+  }, [useTimelineStyle]);
   const [kpiSlots, setKpiSlots] = useState<string[]>(() => loadKpiSlots());
   useEffect(() => {
     try { localStorage.setItem(WORK_HISTORY_KPI_SLOTS_KEY, JSON.stringify(kpiSlots)); } catch {}
@@ -7543,6 +8046,12 @@ function WorkHistoryPanel({
   const [resEnd, setResEnd] = useState("");
   const [resSaving, setResSaving] = useState(false);
   const [showResidences, setShowResidences] = useState(false);
+  // Tracks whether the user dismissed the auto-surfaced residences block while
+  // the time/commute slider is open. Cleared automatically when the slider closes.
+  const [residencesDismissedForSlider, setResidencesDismissedForSlider] = useState(false);
+  useEffect(() => {
+    if (!showTimeSlider) setResidencesDismissedForSlider(false);
+  }, [showTimeSlider]);
   // Commute time cache: workHistoryId → { durationMin, distanceMi }
   const [commuteTimes, setCommuteTimes] = useState<Map<string, { durationMin: number; distanceMi: number }>>(new Map());
   const commuteAbortRef = useRef<AbortController | null>(null);
@@ -7923,6 +8432,111 @@ function WorkHistoryPanel({
     return [...items].sort((a, b) => (a.startDate ?? "0000").localeCompare(b.startDate ?? "0000"));
   }, [items]);
 
+  // ── Work-history search index (Cmd/⌘+K modal) ──
+  type WHSearchHit = {
+    key: string;
+    group: "Work" | "Education" | "Field" | "Sub-location";
+    title: string;
+    subtitle?: string | null;
+    snippet?: string | null;
+    itemId: string;
+    Icon: React.ComponentType<{ className?: string }>;
+    iconClass?: string;
+    score: number;
+  };
+  const searchHits = useMemo<WHSearchHit[]>(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (q.length < 2) return [];
+    const terms = q.split(/\s+/).filter((t) => t.length >= 2);
+    if (terms.length === 0) return [];
+    const matchAll = (text: string) => {
+      const h = text.toLowerCase();
+      return terms.every((t) => h.includes(t));
+    };
+    const snippet = (text: string, maxLen = 140) => {
+      const lower = text.toLowerCase();
+      let idx = -1;
+      for (const t of terms) { const i = lower.indexOf(t); if (i >= 0) { idx = i; break; } }
+      if (idx < 0) return text.length > maxLen ? text.slice(0, maxLen) + "…" : text;
+      const start = Math.max(0, idx - 30);
+      const end = Math.min(text.length, idx + maxLen - 30);
+      return (start > 0 ? "…" : "") + text.slice(start, end) + (end < text.length ? "…" : "");
+    };
+    const yrs = (s: string | null, e: string | null) => {
+      if (!s) return "";
+      const sy = s.slice(0, 4);
+      const ey = e ? e.slice(0, 4) : "Present";
+      return sy === ey ? sy : `${sy}–${ey}`;
+    };
+    const hits: WHSearchHit[] = [];
+    for (const it of items) {
+      const isEdu = it.type === "school";
+      const role = it.title || "";
+      const headline = `${role} ${it.company}`.trim();
+      // Headline / company / role (highest priority)
+      if (matchAll(headline) || matchAll(it.company) || (role && matchAll(role))) {
+        hits.push({
+          key: `wh-${it.id}`,
+          group: isEdu ? "Education" : "Work",
+          title: role || it.company,
+          subtitle: `${role && it.company ? it.company : ""}${yrs(it.startDate, it.endDate) ? ` · ${yrs(it.startDate, it.endDate)}` : ""}`,
+          snippet: it.accomplishments ? snippet(it.accomplishments) : (it.skillsUsed ? snippet(it.skillsUsed) : null),
+          itemId: it.id,
+          Icon: isEdu ? GraduationCap : Briefcase,
+          iconClass: isEdu ? "text-violet-500" : "text-blue-500",
+          score: 0,
+        });
+        continue;
+      }
+      // Field-level matches
+      const fields: { label: string; text: string }[] = [];
+      if (it.accomplishments) fields.push({ label: "Accomplishments", text: it.accomplishments });
+      if (it.skillsUsed) fields.push({ label: "Skills", text: it.skillsUsed });
+      if (it.skillsGained) fields.push({ label: "Skills Gained", text: it.skillsGained });
+      if (it.industry) fields.push({ label: "Industry", text: it.industry });
+      if (it.degree) fields.push({ label: "Degree", text: it.degree });
+      if (it.major) fields.push({ label: "Major", text: it.major });
+      if (it.department) fields.push({ label: "Dept", text: it.department });
+      if (it.address) fields.push({ label: "Location", text: it.address });
+      if (it.reasonForLeaving) fields.push({ label: "Left because", text: it.reasonForLeaving });
+      if (it.promotions) fields.push({ label: "Promotions", text: it.promotions });
+      if (it.benefits) fields.push({ label: "Benefits", text: it.benefits });
+      if (it.managerName) fields.push({ label: "Manager", text: it.managerName });
+      const matched = fields.filter((f) => matchAll(f.text));
+      if (matched.length > 0) {
+        const top = matched[0];
+        hits.push({
+          key: `wh-${it.id}-${top.label}`,
+          group: "Field",
+          title: headline || it.company,
+          subtitle: `Matched in ${matched.map((f) => f.label).join(", ")}${yrs(it.startDate, it.endDate) ? ` · ${yrs(it.startDate, it.endDate)}` : ""}`,
+          snippet: snippet(top.text),
+          itemId: it.id,
+          Icon: isEdu ? GraduationCap : Briefcase,
+          iconClass: isEdu ? "text-violet-500" : "text-blue-500",
+          score: 1,
+        });
+      }
+      // Sub-locations
+      for (const loc of it.locations || []) {
+        if (matchAll(`${loc.label} ${loc.address} ${loc.skills || ""}`)) {
+          hits.push({
+            key: `wh-${it.id}-loc-${loc.id}`,
+            group: "Sub-location",
+            title: loc.label || loc.address,
+            subtitle: `${it.company} · ${loc.type}`,
+            snippet: loc.address,
+            itemId: it.id,
+            Icon: MapPin,
+            iconClass: "text-amber-500",
+            score: 2,
+          });
+        }
+      }
+    }
+    return hits.sort((a, b) => a.score - b.score).slice(0, 50);
+  }, [searchQuery, items]);
+
   // Overlap map: for each item, which other items overlap in time
   const overlapMap = useMemo(() => {
     const m = new Map<string, { id: string; company: string; type?: string; title?: string | null; schedule?: string | null; hoursPerWeek?: number | null; scheduleType?: string | null; shiftNotes?: string | null; startDate?: string | null; endDate?: string | null }[]>();
@@ -8001,6 +8615,8 @@ function WorkHistoryPanel({
     payType: string; payRate: string | null; payFrequency: string;
     description: string | null; responsibilities: string | null; techStack: string | null;
     companySynopsis: string | null; industry: string | null; website: string | null;
+    companyClosed?: boolean | null;
+    locationClosed?: boolean | null;
     ein: string | null; legalName: string | null; managerName: string | null;
     hoursPerWeek: number | null; type: string;
     equipment?: {
@@ -8589,6 +9205,9 @@ function WorkHistoryPanel({
     } catch { toast.error("Failed to delete note"); }
   }
 
+  // ── Hover Note state/handlers removed — now handled per-ring via the
+  // right-click polygon editor (saves to WorkHistory.outlineOverrides).
+
   // ── Feature E: Milestones ──
   interface WHMilestone { id: string; title: string; description: string | null; type: string; date: string }
   const [milestones, setMilestones] = useState<WHMilestone[]>([]);
@@ -8688,6 +9307,36 @@ function WorkHistoryPanel({
       else toast.error("Failed to delete location");
     } catch { toast.error("Failed to delete location"); }
     finally { setDeletingLocId(null); }
+  }
+
+  async function handleToggleOutline(locId: string, next: boolean) {
+    if (!focusedItem) return;
+    try {
+      const res = await fetch(`/api/work-history/${focusedItem.id}/locations/${locId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ includeInOutline: next }),
+      });
+      if (res.ok) {
+        onAdded();
+        toast.success(next ? "Sub-location added to outline detection" : "Sub-location removed from outline detection");
+      } else toast.error("Failed to update sub-location");
+    } catch { toast.error("Failed to update sub-location"); }
+  }
+
+  async function handleToggleLocClosed(locId: string, next: boolean) {
+    if (!focusedItem) return;
+    try {
+      const res = await fetch(`/api/work-history/${focusedItem.id}/locations/${locId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ closed: next }),
+      });
+      if (res.ok) {
+        onAdded();
+        toast.success(next ? "Marked location as closed" : "Marked location as open");
+      } else toast.error("Failed to update sub-location");
+    } catch { toast.error("Failed to update sub-location"); }
   }
 
   // ── Feature F: Skills per sub-location ──
@@ -10181,11 +10830,27 @@ function WorkHistoryPanel({
               )}
 
               {/* F — Company Intel Card */}
-              {(matchedPosition.companySynopsis || matchedPosition.industry || matchedPosition.website || matchedPosition.legalName) && (
+              {(matchedPosition.companySynopsis || matchedPosition.industry || matchedPosition.website || matchedPosition.legalName || matchedPosition.companyClosed || matchedPosition.locationClosed) && (
                 <div className="rounded-lg border overflow-hidden">
                   <button type="button" className="w-full flex items-center justify-between p-2 hover:bg-muted/30 transition-colors" onClick={() => toggleSection("intel")}>
                     <span className="text-[13px] font-medium flex items-center gap-1.5">
                       <Building2 className="h-3.5 w-3.5 text-violet-500" /> Company Intel
+                      {matchedPosition.companyClosed && (
+                        <span
+                          className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 inline-flex items-center gap-1"
+                          title="Company is no longer in operation"
+                        >
+                          <XCircle className="h-3 w-3" /> Company Closed
+                        </span>
+                      )}
+                      {!matchedPosition.companyClosed && matchedPosition.locationClosed && (
+                        <span
+                          className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200 inline-flex items-center gap-1"
+                          title="This location/branch is closed (company is still operating)"
+                        >
+                          <XCircle className="h-3 w-3" /> Location Closed
+                        </span>
+                      )}
                     </span>
                     {expandedSections.has("intel") ? <ChevronUp className="h-3 w-3 text-muted-foreground" /> : <ChevronDown className="h-3 w-3 text-muted-foreground" />}
                   </button>
@@ -10652,6 +11317,8 @@ function WorkHistoryPanel({
             )}
           </div>
 
+          {/* Hover Note section removed — replaced by per-ring right-click editor on the building polygons. */}
+
           {/* ── Feature G: Workplace Rating Card ── */}
           <div className="rounded-lg border overflow-hidden">
             <button type="button" className="w-full flex items-center justify-between p-2 hover:bg-muted/30 transition-colors" onClick={() => toggleSection("rating")}>
@@ -11076,26 +11743,31 @@ function WorkHistoryPanel({
           <Briefcase className="h-4 w-4 text-gray-500" /> Work History
         </span>
         <div className="relative flex items-center gap-1">
-          {items.length >= 2 && (
-            <button
-              type="button"
-              className={`transition-colors ${tab === "compare" ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
-              title="Compare roles"
-              onClick={() => setTab((prev) => (prev === "compare" ? lastMainTab : "compare"))}
-            >
-              <ArrowRightLeft className="h-4 w-4" />
-            </button>
-          )}
+          {(() => {
+            const isMac =
+              typeof navigator !== "undefined" && /Mac|iPod|iPhone|iPad/.test(navigator.platform);
+            const label = isMac ? "⌘ /" : "Ctrl /";
+            return (
+              <button
+                type="button"
+                className="flex items-center gap-1 text-muted-foreground hover:text-foreground"
+                title={`Search work history (${label})`}
+                onClick={() => setSearchOpen(true)}
+              >
+                <Search className="h-4 w-4" />
+                <kbd className="hidden md:inline-flex items-center rounded border bg-muted/50 px-1 py-0 text-[9px] font-mono leading-none h-4">
+                  {label}
+                </kbd>
+              </button>
+            );
+          })()}
           <button
             type="button"
-            className={`transition-colors ${showTypeFilterPanel ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
-            title="Filter work history"
-            onClick={() => {
-              setShowTypeFilterPanel((p) => !p);
-              setShowPanelSettings(false);
-            }}
+            className="text-muted-foreground hover:text-foreground"
+            title="Add work history entry"
+            onClick={() => setAdding(!adding)}
           >
-            <Filter className="h-4 w-4" />
+            <Plus className="h-4 w-4" />
           </button>
           <button
             type="button"
@@ -11104,96 +11776,86 @@ function WorkHistoryPanel({
             onClick={() => {
               setShowPanelSettings((p) => !p);
               setShowTypeFilterPanel(false);
+              setShowMoreMenu(false);
             }}
           >
             <Settings className="h-4 w-4" />
           </button>
-          <button type="button" className={`transition-colors ${showInventoryOverview ? "text-emerald-600" : "text-muted-foreground hover:text-foreground"}`} title="My Tools & Inventory" onClick={() => setShowInventoryOverview((p) => !p)}>
-            <Boxes className="h-4 w-4" />
-          </button>
-          <button type="button" className="text-muted-foreground hover:text-foreground" title="Import from experience" onClick={handleImportFromExperience} disabled={importing}>
-            {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-          </button>
-          <button type="button" className="text-muted-foreground hover:text-foreground" onClick={() => setAdding(!adding)}>
-            <Plus className="h-4 w-4" />
+          <button
+            type="button"
+            className={`transition-colors ${showMoreMenu ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
+            title="More options"
+            onClick={() => {
+              setShowMoreMenu((p) => !p);
+              setShowPanelSettings(false);
+              setShowTypeFilterPanel(false);
+            }}
+          >
+            <MoreHorizontal className="h-4 w-4" />
           </button>
           <button type="button" className="text-muted-foreground hover:text-foreground" onClick={onClose}>
             <X className="h-4 w-4" />
           </button>
 
-          {showTypeFilterPanel && (() => {
-            const typeMeta: { key: string; label: string; emoji: string }[] = [
-              { key: "job", label: "Jobs", emoji: "💼" },
-              { key: "school", label: "Schools", emoji: "🎓" },
-              { key: "internship", label: "Internships", emoji: "🏢" },
-              { key: "military", label: "Military", emoji: "🎖️" },
-              { key: "volunteer", label: "Volunteer", emoji: "🤝" },
-              { key: "self-employed", label: "Self-Employed", emoji: "🧑‍💻" },
-            ];
-            const counts = new Map<string, number>();
-            for (const w of items) {
-              const t = w.type ?? "job";
-              if (t === "unemployed") continue;
-              counts.set(t, (counts.get(t) ?? 0) + 1);
-            }
-            const visibleMeta = typeMeta.filter((m) => (counts.get(m.key) ?? 0) > 0);
-
-            return (
-              <div className="absolute right-0 top-7 z-[1200] w-64 rounded-lg border bg-background/95 backdrop-blur-md shadow-xl p-2 space-y-2">
-                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide px-1">History Filters</p>
-
-                <div className="space-y-1">
-                  <p className="text-[10px] text-muted-foreground px-1">Quick Presets</p>
-                  <div className="grid grid-cols-2 gap-1">
-                    <button type="button" className="text-[11px] rounded-md border px-1.5 py-1 hover:bg-muted/40" onClick={() => applyHiddenTypes(new Set())}>All</button>
-                    <button
-                      type="button"
-                      className="text-[11px] rounded-md border px-1.5 py-1 hover:bg-muted/40"
-                      onClick={() => applyHiddenTypes(new Set<string>(["school", "military", "volunteer"]))}
-                    >
-                      Work Map
-                    </button>
-                    <button
-                      type="button"
-                      className="text-[11px] rounded-md border px-1.5 py-1 hover:bg-muted/40"
-                      onClick={() => applyHiddenTypes(new Set<string>(["job", "internship", "military", "volunteer", "self-employed"]))}
-                    >
-                      School Only
-                    </button>
-                    <button
-                      type="button"
-                      className="text-[11px] rounded-md border px-1.5 py-1 hover:bg-muted/40"
-                      onClick={() => applyHiddenTypes(new Set<string>(["military", "volunteer", "self-employed"]))}
-                    >
-                      Core
-                    </button>
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <p className="text-[10px] text-muted-foreground px-1">Entry Types</p>
-                  {visibleMeta.map((m) => {
-                    const hidden = hiddenTypes.has(m.key);
-                    const count = counts.get(m.key) ?? 0;
-                    return (
-                      <button
-                        key={m.key}
-                        type="button"
-                        className="w-full flex items-center justify-between rounded-md px-2 py-1 text-xs hover:bg-muted/40"
-                        onClick={() => onToggleType(m.key)}
-                      >
-                        <span className="flex items-center gap-1.5">
-                          <span>{m.emoji}</span>
-                          <span>{m.label}</span>
-                        </span>
-                        <span className={`text-[11px] ${hidden ? "text-muted-foreground" : "text-primary"}`}>{hidden ? "Off" : "On"} · {count}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })()}
+          {showMoreMenu && (
+            <div className="absolute right-0 top-7 z-[1200] w-56 rounded-lg border bg-background/95 backdrop-blur-md shadow-xl p-1 space-y-0.5">
+              {items.length >= 2 && (
+                <button
+                  type="button"
+                  className="w-full flex items-center gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-muted/40 text-left"
+                  onClick={() => {
+                    setTab((prev) => (prev === "compare" ? lastMainTab : "compare"));
+                    setShowMoreMenu(false);
+                  }}
+                >
+                  <ArrowRightLeft className="h-3.5 w-3.5 shrink-0" />
+                  <span className="flex-1">Compare roles</span>
+                  {tab === "compare" && <Check className="h-3.5 w-3.5 text-primary" />}
+                </button>
+              )}
+              <button
+                type="button"
+                className="w-full flex items-center gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-muted/40 text-left"
+                onClick={() => {
+                  setShowResidences((p) => !p);
+                  setShowMoreMenu(false);
+                }}
+              >
+                <Home className="h-3.5 w-3.5 shrink-0" />
+                <span className="flex-1">Residences ({residences.length})</span>
+                {showResidences && <Check className="h-3.5 w-3.5 text-primary" />}
+              </button>
+              <button
+                type="button"
+                className="w-full flex items-center gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-muted/40 text-left"
+                onClick={() => {
+                  setShowInventoryOverview((p) => !p);
+                  setShowMoreMenu(false);
+                }}
+              >
+                <Boxes className="h-3.5 w-3.5 shrink-0" />
+                <span className="flex-1">My Tools & Inventory</span>
+                {showInventoryOverview && <Check className="h-3.5 w-3.5 text-emerald-600" />}
+              </button>
+              <button
+                type="button"
+                disabled={importing}
+                className="w-full flex items-center gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-muted/40 text-left disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={() => {
+                  if (importing) return;
+                  handleImportFromExperience();
+                  setShowMoreMenu(false);
+                }}
+              >
+                {importing ? (
+                  <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
+                ) : (
+                  <Download className="h-3.5 w-3.5 shrink-0" />
+                )}
+                <span className="flex-1">Import from experience</span>
+              </button>
+            </div>
+          )}
 
           {showPanelSettings && (
             <div className="absolute right-0 top-7 z-[1200] w-60 rounded-lg border bg-background/95 backdrop-blur-md shadow-xl p-2 space-y-1.5 max-h-[70vh] overflow-y-auto scrollbar-thin">
@@ -11213,6 +11875,14 @@ function WorkHistoryPanel({
               >
                 <span className="flex items-center gap-1.5"><Zap className="h-3.5 w-3.5" /> Concurrent Badges</span>
                 <span className={`text-[11px] ${showOverlaps ? "text-cyan-600" : "text-muted-foreground"}`}>{showOverlaps ? "On" : "Off"}</span>
+              </button>
+              <button
+                type="button"
+                className="w-full flex items-center justify-between rounded-md px-2 py-1 text-xs hover:bg-muted/40"
+                onClick={() => setUseTimelineStyle((p) => !p)}
+              >
+                <span className="flex items-center gap-1.5"><GitCommitVertical className="h-3.5 w-3.5" /> Timeline Style</span>
+                <span className={`text-[11px] ${useTimelineStyle ? "text-primary" : "text-muted-foreground"}`}>{useTimelineStyle ? "On" : "Off"}</span>
               </button>
               <div className="pt-1.5 mt-1.5 border-t border-border/60">
                 <div className="flex items-center justify-between px-1 mb-1">
@@ -11301,31 +11971,46 @@ function WorkHistoryPanel({
         );
       })()}
 
-      {/* Tabs */}
-      {items.length > 0 && (
-        <div className="flex gap-1 mb-2">
-          <button type="button" className={`flex-1 text-xs py-1 rounded-md font-medium transition-colors ${tab === "list" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted/50"}`} onClick={() => setTab("list")}>
-            List
-          </button>
-          <button type="button" className={`flex-1 text-xs py-1 rounded-md font-medium transition-colors ${tab === "timeline" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted/50"}`} onClick={() => setTab("timeline")}>
-            Timeline
+      {/* Compare-mode banner (lets user exit Compare back to list) */}
+      {tab === "compare" && items.length > 0 && (
+        <div className="flex items-center justify-between gap-2 mb-2 px-2 py-1 rounded-md bg-primary/5 border border-primary/20">
+          <span className="text-xs font-medium text-primary flex items-center gap-1.5">
+            <ArrowRightLeft className="h-3 w-3" /> Comparing roles
+          </span>
+          <button
+            type="button"
+            className="text-xs text-muted-foreground hover:text-foreground"
+            onClick={() => setTab(lastMainTab)}
+          >
+            Exit
           </button>
         </div>
       )}
 
-      {/* Residences */}
+      {/* Residences — surfaces when toggled via More menu OR when time/commute slider is active (unless dismissed) */}
+      {(showResidences || (showTimeSlider && !residencesDismissedForSlider)) && (
       <div className="mb-2.5">
-        <button
-          type="button"
-          className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground w-full"
-          onClick={() => setShowResidences(!showResidences)}
-        >
-          <Home className="h-3 w-3" />
-          Residences ({residences.length})
-          {showResidences ? <ChevronUp className="h-3 w-3 ml-auto" /> : <ChevronDown className="h-3 w-3 ml-auto" />}
-        </button>
-        {showResidences && (
-          <div className="mt-1.5 space-y-1.5">
+        <div className="flex items-center justify-between gap-1 text-xs font-medium text-muted-foreground mb-1">
+          <span className="flex items-center gap-1">
+            <Home className="h-3 w-3" />
+            Residences ({residences.length})
+            {showTimeSlider && !showResidences && (
+              <span className="ml-1 text-[10px] text-primary/70">· for commute</span>
+            )}
+          </span>
+          <button
+            type="button"
+            className="text-muted-foreground/60 hover:text-foreground"
+            title="Hide"
+            onClick={() => {
+              setShowResidences(false);
+              if (showTimeSlider) setResidencesDismissedForSlider(true);
+            }}
+          >
+            <X className="h-3 w-3" />
+          </button>
+        </div>
+        <div className="space-y-1.5">
             {residences.map((r) => (
               <div key={r.id} className={`flex items-center gap-1.5 p-1.5 rounded border text-xs ${activeResidence?.id === r.id ? "border-blue-400 bg-blue-500/10" : "bg-muted/30"}`}>
                 <span>🏠</span>
@@ -11378,9 +12063,194 @@ function WorkHistoryPanel({
                 </div>
               </div>
             )}
-          </div>
-        )}
+        </div>
       </div>
+      )}
+
+      {/* Recruiter-style scoped search modal (Cmd/Ctrl+K) */}
+      {searchOpen && typeof document !== "undefined" && (() => {
+        // Highlight matched substrings (case-insensitive) in a string.
+        const terms = searchQuery.trim().toLowerCase().split(/\s+/).filter((t) => t.length >= 2);
+        const highlight = (text: string): React.ReactNode => {
+          if (!text || terms.length === 0) return text;
+          const escaped = terms.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+          const re = new RegExp(`(${escaped.join("|")})`, "gi");
+          const parts = text.split(re);
+          return parts.map((p, i) => re.test(p)
+            ? <mark key={i} className="bg-yellow-500/30 text-foreground rounded-sm px-0.5">{p}</mark>
+            : <span key={i}>{p}</span>);
+        };
+        // Flatten ordered hits for keyboard navigation
+        const orderedGroups = (["Work", "Education", "Field", "Sub-location"] as const)
+          .map((g) => ({ group: g, hits: searchHits.filter((h) => h.group === g) }))
+          .filter((g) => g.hits.length > 0);
+        const flatHits = orderedGroups.flatMap((g) => g.hits);
+        const focusHit = (h: WHSearchHit) => {
+          const target = items.find((i) => i.id === h.itemId);
+          if (target) onFocusJob(target);
+          pushRecentSearch(searchQuery);
+          setSearchOpen(false);
+        };
+        // Empty-state suggestion chips: most-recent searches + top companies
+        const recentChips = recentSearches.slice(0, 5);
+        const topCompanies = Array.from(new Set(
+          [...items]
+            .sort((a, b) => (b.startDate ?? "").localeCompare(a.startDate ?? ""))
+            .map((i) => i.company)
+            .filter(Boolean)
+        )).slice(0, 4);
+        return createPortal(
+          <div
+            className="fixed inset-0 z-[2100] flex items-start justify-center pt-[10vh] px-4 bg-background/40 backdrop-blur-sm"
+            onClick={() => setSearchOpen(false)}
+          >
+            <div
+              className="w-full max-w-2xl rounded-2xl bg-background border shadow-2xl overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-2 px-4 py-3 border-b">
+                <Search className="h-4 w-4 text-muted-foreground shrink-0" />
+                <input
+                  type="text"
+                  autoFocus
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (flatHits.length === 0) return;
+                    if (e.key === "ArrowDown") {
+                      e.preventDefault();
+                      setSearchSelectedIndex((i) => Math.min(i + 1, flatHits.length - 1));
+                    } else if (e.key === "ArrowUp") {
+                      e.preventDefault();
+                      setSearchSelectedIndex((i) => Math.max(i - 1, 0));
+                    } else if (e.key === "Enter") {
+                      e.preventDefault();
+                      const h = flatHits[searchSelectedIndex];
+                      if (h) focusHit(h);
+                    }
+                  }}
+                  placeholder="Search work history, skills, accomplishments, locations…"
+                  className="flex-1 bg-transparent border-0 outline-none text-sm placeholder:text-muted-foreground"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery("")}
+                    className="text-muted-foreground hover:text-foreground"
+                    title="Clear"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+                <kbd className="hidden sm:inline-flex items-center rounded border bg-muted/60 px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground">
+                  Esc
+                </kbd>
+              </div>
+              <div className="max-h-[60vh] overflow-y-auto">
+                {searchQuery.trim().length < 2 ? (
+                  <div className="px-4 py-6 text-sm text-muted-foreground">
+                    {recentChips.length > 0 && (
+                      <div className="mb-4">
+                        <div className="text-[10px] font-semibold uppercase tracking-wider mb-2 opacity-70">Recent</div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {recentChips.map((q) => (
+                            <button
+                              key={`recent-${q}`}
+                              type="button"
+                              onClick={() => setSearchQuery(q)}
+                              className="inline-flex items-center gap-1 rounded-full border bg-muted/40 hover:bg-muted px-2.5 py-1 text-xs text-foreground transition"
+                            >
+                              <Clock className="h-3 w-3 opacity-60" />
+                              {q}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {topCompanies.length > 0 && (
+                      <div className="mb-4">
+                        <div className="text-[10px] font-semibold uppercase tracking-wider mb-2 opacity-70">Jump to</div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {topCompanies.map((c) => (
+                            <button
+                              key={`top-${c}`}
+                              type="button"
+                              onClick={() => setSearchQuery(c)}
+                              className="inline-flex items-center gap-1 rounded-full border bg-muted/40 hover:bg-muted px-2.5 py-1 text-xs text-foreground transition"
+                            >
+                              <Briefcase className="h-3 w-3 opacity-60" />
+                              {c}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    <div className="text-center pt-2 pb-4 opacity-80">
+                      <Search className="h-5 w-5 mx-auto mb-2 opacity-40" />
+                      <p className="text-xs">Search across companies, roles, accomplishments, skills, and sub-locations.</p>
+                    </div>
+                  </div>
+                ) : searchHits.length === 0 ? (
+                  <div className="px-4 py-10 text-center text-sm text-muted-foreground">
+                    No matches for &ldquo;{searchQuery}&rdquo;.
+                  </div>
+                ) : (
+                  <ul className="divide-y">
+                    {orderedGroups.map(({ group, hits: groupHits }) => (
+                      <li key={group} className="py-1">
+                        <div className="px-4 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground bg-muted/30">
+                          {group} <span className="opacity-60 font-normal">({groupHits.length})</span>
+                        </div>
+                        <ul>
+                          {groupHits.map((h) => {
+                            const flatIdx = flatHits.indexOf(h);
+                            const isSelected = flatIdx === searchSelectedIndex;
+                            return (
+                              <li key={h.key}>
+                                <button
+                                  type="button"
+                                  onClick={() => focusHit(h)}
+                                  onMouseEnter={() => setSearchSelectedIndex(flatIdx)}
+                                  className={`w-full flex items-start gap-3 px-4 py-2.5 text-left transition-colors ${isSelected ? "bg-muted/60" : "hover:bg-muted/40"}`}
+                                >
+                                  <h.Icon className={`h-4 w-4 mt-0.5 shrink-0 ${h.iconClass || "text-muted-foreground"}`} />
+                                  <div className="flex-1 min-w-0">
+                                    <div className="text-sm font-medium truncate">{highlight(h.title)}</div>
+                                    {h.subtitle && (
+                                      <div className="text-xs text-muted-foreground truncate">{highlight(h.subtitle)}</div>
+                                    )}
+                                    {h.snippet && (
+                                      <div className="text-xs text-muted-foreground/90 mt-0.5 line-clamp-2">{highlight(h.snippet)}</div>
+                                    )}
+                                  </div>
+                                </button>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <div className="px-4 py-2 border-t text-[10px] text-muted-foreground bg-muted/20 flex items-center justify-between">
+                {searchHits.length > 0 ? (
+                  <>
+                    <span>{searchHits.length} {searchHits.length === 1 ? "result" : "results"}</span>
+                    <span className="flex items-center gap-2">
+                      <span className="flex items-center gap-1"><kbd className="rounded border bg-background px-1 font-mono">↑↓</kbd> navigate</span>
+                      <span className="flex items-center gap-1"><kbd className="rounded border bg-background px-1 font-mono">⏎</kbd> open</span>
+                    </span>
+                  </>
+                ) : (
+                  <span className="ml-auto">Press <kbd className="rounded border bg-background px-1 font-mono">⏎</kbd> after typing to open the top result</span>
+                )}
+              </div>
+            </div>
+          </div>,
+          document.body,
+        );
+      })()}
 
       {showInventoryOverview && typeof document !== "undefined" && createPortal(
         <div
@@ -11523,9 +12393,9 @@ function WorkHistoryPanel({
         </p>
       )}
 
-      {/* Search + Sort bar */}
+      {/* Search + Filter + Sort bar */}
       {items.length > 0 && (
-        <div className="flex items-center gap-1.5 mb-2">
+        <div className="relative flex items-center gap-1.5 mb-2">
           <div className="relative flex-1">
             <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground pointer-events-none" />
             <Input
@@ -11540,6 +12410,37 @@ function WorkHistoryPanel({
               </button>
             )}
           </div>
+          <button
+            type="button"
+            className={`relative h-6 w-6 inline-flex items-center justify-center rounded border border-input bg-background shrink-0 transition-colors ${showTimeSlider || timeFilter ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
+            title="Time filter"
+            onClick={() => {
+              setShowTimeSlider((p) => {
+                const next = !p;
+                if (!next && timeFilter) onTimeFilterChange(null);
+                return next;
+              });
+            }}
+          >
+            <Calendar className="h-3 w-3" />
+            {timeFilter && (
+              <span className="absolute -top-0.5 -right-0.5 h-1.5 w-1.5 rounded-full bg-primary" />
+            )}
+          </button>
+          <button
+            type="button"
+            className={`relative h-6 w-6 inline-flex items-center justify-center rounded border border-input bg-background shrink-0 transition-colors ${showTypeFilterPanel ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
+            title="Filter work history"
+            onClick={() => {
+              setShowTypeFilterPanel((p) => !p);
+              setShowPanelSettings(false);
+            }}
+          >
+            <Filter className="h-3 w-3" />
+            {hiddenTypes.size > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 h-1.5 w-1.5 rounded-full bg-primary" />
+            )}
+          </button>
           <select
             value={listSort}
             onChange={(e) => setListSort(e.target.value as "newest" | "oldest" | "tenure")}
@@ -11549,11 +12450,85 @@ function WorkHistoryPanel({
             <option value="oldest">Oldest</option>
             <option value="tenure">Longest</option>
           </select>
+
+          {showTypeFilterPanel && (() => {
+            const typeMeta: { key: string; label: string; emoji: string }[] = [
+              { key: "job", label: "Jobs", emoji: "💼" },
+              { key: "school", label: "Schools", emoji: "🎓" },
+              { key: "internship", label: "Internships", emoji: "🏢" },
+              { key: "military", label: "Military", emoji: "🎖️" },
+              { key: "volunteer", label: "Volunteer", emoji: "🤝" },
+              { key: "self-employed", label: "Self-Employed", emoji: "🧑‍💻" },
+            ];
+            const counts = new Map<string, number>();
+            for (const w of items) {
+              const t = w.type ?? "job";
+              if (t === "unemployed") continue;
+              counts.set(t, (counts.get(t) ?? 0) + 1);
+            }
+            const visibleMeta = typeMeta.filter((m) => (counts.get(m.key) ?? 0) > 0);
+
+            return (
+              <div className="absolute right-0 top-7 z-[1200] w-64 rounded-lg border bg-background/95 backdrop-blur-md shadow-xl p-2 space-y-2">
+                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide px-1">History Filters</p>
+
+                <div className="space-y-1">
+                  <p className="text-[10px] text-muted-foreground px-1">Quick Presets</p>
+                  <div className="grid grid-cols-2 gap-1">
+                    <button type="button" className="text-[11px] rounded-md border px-1.5 py-1 hover:bg-muted/40" onClick={() => applyHiddenTypes(new Set())}>All</button>
+                    <button
+                      type="button"
+                      className="text-[11px] rounded-md border px-1.5 py-1 hover:bg-muted/40"
+                      onClick={() => applyHiddenTypes(new Set<string>(["school", "military", "volunteer"]))}
+                    >
+                      Work Map
+                    </button>
+                    <button
+                      type="button"
+                      className="text-[11px] rounded-md border px-1.5 py-1 hover:bg-muted/40"
+                      onClick={() => applyHiddenTypes(new Set<string>(["job", "internship", "military", "volunteer", "self-employed"]))}
+                    >
+                      School Only
+                    </button>
+                    <button
+                      type="button"
+                      className="text-[11px] rounded-md border px-1.5 py-1 hover:bg-muted/40"
+                      onClick={() => applyHiddenTypes(new Set<string>(["military", "volunteer", "self-employed"]))}
+                    >
+                      Core
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <p className="text-[10px] text-muted-foreground px-1">Entry Types</p>
+                  {visibleMeta.map((m) => {
+                    const hidden = hiddenTypes.has(m.key);
+                    const count = counts.get(m.key) ?? 0;
+                    return (
+                      <button
+                        key={m.key}
+                        type="button"
+                        className="w-full flex items-center justify-between rounded-md px-2 py-1 text-xs hover:bg-muted/40"
+                        onClick={() => onToggleType(m.key)}
+                      >
+                        <span className="flex items-center gap-1.5">
+                          <span>{m.emoji}</span>
+                          <span>{m.label}</span>
+                        </span>
+                        <span className={`text-[11px] ${hidden ? "text-muted-foreground" : "text-primary"}`}>{hidden ? "Off" : "On"} · {count}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
 
-      {/* Time Slider (timeline tab only) */}
-      {tab === "timeline" && timeRange && timeRange.min && timeRange.max && (() => {
+      {/* Time Slider (toggleable) */}
+      {showTimeSlider && timeRange && timeRange.min && timeRange.max && (() => {
         const minD = new Date(timeRange.min);
         const maxD = new Date(timeRange.max);
         const minMonth = minD.getFullYear() * 12 + minD.getMonth();
@@ -11630,7 +12605,7 @@ function WorkHistoryPanel({
       })()}
 
       {/* List view — most recent first */}
-      {tab === "list" && (() => {
+      {tab !== "compare" && (() => {
         // Group items by category
         const sections: { key: string; label: string; emoji: string; icon: React.ReactNode; items: typeof listItems }[] = [];
         const groups = new Map<string, typeof listItems>();
@@ -11671,9 +12646,12 @@ function WorkHistoryPanel({
                   </button>
                 )}
                 {!collapsedSections.has(sec.key) && (
-                  <div className="space-y-1.5">
+                  <div className={`space-y-1.5 ${useTimelineStyle ? "relative ml-2 pl-4 border-l-2 border-border/70" : ""}`}>
                     {sec.items.map((w) => editingId === w.id ? (
-            <div key={w.id} className="space-y-1.5 p-2 border rounded-lg bg-muted/30">
+            <div key={w.id} className={`space-y-1.5 p-2 border rounded-lg bg-muted/30 ${useTimelineStyle ? "relative" : ""}`}>
+              {useTimelineStyle && (
+                <span className="absolute -left-[21px] top-3 h-2.5 w-2.5 rounded-full bg-primary ring-2 ring-background" />
+              )}
               <Input placeholder="Company *" value={editCompany} onChange={(e) => setEditCompany(e.target.value)} className="h-7 text-xs" />
               <Input placeholder="Job title" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} className="h-7 text-xs" />
               <PlacesAutocomplete value={editAddress} onChange={(v) => { setEditAddress(v); setEditCoords(null); setEditPlaceId(null); }} onPlaceSelect={handleEditPlaceSelect} placeholder="Work address *" className="h-7 text-xs" types={[]} />
@@ -11692,7 +12670,20 @@ function WorkHistoryPanel({
               </div>
             </div>
           ) : (
-            <div key={w.id} className="rounded-md hover:bg-muted/50 group">
+            <div key={w.id} className={`rounded-md hover:bg-muted/50 group ${useTimelineStyle ? "relative" : ""}`}>
+              {useTimelineStyle && (
+                <span
+                  className={`absolute -left-[21px] top-3 h-2.5 w-2.5 rounded-full ring-2 ring-background ${
+                    w.type === "school" ? "bg-violet-500" :
+                    w.type === "internship" ? "bg-cyan-500" :
+                    w.type === "volunteer" ? "bg-amber-500" :
+                    w.type === "military" ? "bg-emerald-500" :
+                    w.type === "self-employed" ? "bg-amber-700" :
+                    w.type === "unemployed" ? "bg-red-500" :
+                    "bg-blue-500"
+                  }`}
+                />
+              )}
               <div className="flex items-start justify-between gap-2 p-1.5">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1 flex-wrap">
@@ -11877,92 +12868,6 @@ function WorkHistoryPanel({
         );
       })()}
 
-      {/* Timeline view — most recent first */}
-      {tab === "timeline" && listItems.length > 0 && (
-        <div className="relative pl-4 space-y-0">
-          {/* Vertical connecting line */}
-          <div className="absolute left-[7px] top-2 bottom-2 w-px bg-border" />
-          {listItems.map((w, i) => {
-            let tenure = "";
-            if (w.startDate) {
-              const s = new Date(w.startDate + "-01");
-              const e = w.endDate ? new Date(w.endDate + "-01") : new Date();
-              const m = Math.max(0, (e.getFullYear() - s.getFullYear()) * 12 + (e.getMonth() - s.getMonth()));
-              tenure = m >= 12 ? `${Math.floor(m / 12)}y ${m % 12}m` : `${m}m`;
-            }
-            // Distance / commute from home (if time filter active) or chronologically-previous role
-            let distStr = "";
-            if (activeResidence && timeFilter) {
-              const ct = commuteTimes.get(w.id);
-              if (ct) {
-                distStr = `${ct.durationMin} min · ${ct.distanceMi} mi from 🏠`;
-              } else {
-                // Fallback while loading
-                const dLat = (w.lat - activeResidence.lat) * 69;
-                const dLng = (w.lng - activeResidence.lng) * 69 * Math.cos(((w.lat + activeResidence.lat) / 2) * Math.PI / 180);
-                const dist = Math.round(Math.sqrt(dLat * dLat + dLng * dLng));
-                if (dist > 1) distStr = `~${dist} mi from 🏠`;
-              }
-            } else if (i < listItems.length - 1) {
-              const prev = listItems[i + 1];
-              const dLat = (w.lat - prev.lat) * 69;
-              const dLng = (w.lng - prev.lng) * 69 * Math.cos(((w.lat + prev.lat) / 2) * Math.PI / 180);
-              const dist = Math.round(Math.sqrt(dLat * dLat + dLng * dLng));
-              if (dist > 1) distStr = `${dist} mi from prev`;
-            }
-            const isCurrent = !w.endDate;
-            return (
-              <div key={w.id} className="relative pb-3 last:pb-0">
-                <div className={`absolute -left-4 top-1 w-3.5 h-3.5 rounded-full border-2 ${isCurrent ? "bg-emerald-500 border-emerald-300" : "bg-gray-400 border-gray-300"}`} />
-                <div className="ml-1">
-                  <div className="flex items-center gap-1 flex-wrap">
-                    <p className="text-xs font-medium shrink-0 cursor-pointer hover:underline" onClick={() => onFocusJob(w)}>{w.company}</p>
-                    {isCurrent && <span className="text-[10px] bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 px-1 rounded">current</span>}
-                    {w.scheduleType && <span className="text-[10px] bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded capitalize">{w.scheduleType.replace(/_/g, " ")}</span>}
-                    {w.workMode && <span className="text-[10px] bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded capitalize">{w.workMode}{w.hybridDays != null ? ` ${w.hybridDays}d` : ""}</span>}
-                    {w.industry && <span className="text-[10px] bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-1.5 py-0.5 rounded">{w.industry}</span>}
-                  </div>
-                  {w.title && <p className="text-xs text-muted-foreground">{w.title}</p>}
-                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0">
-                    {(w.startDate || w.endDate) && (
-                      <p className="text-xs text-muted-foreground">
-                        {formatYearMonth(w.startDate) ?? "?"} – {w.endDate ? (formatYearMonth(w.endDate) ?? w.endDate) : "Present"}
-                        {tenure && <span className="ml-1 text-foreground/70">({tenure})</span>}
-                      </p>
-                    )}
-                    {distStr && (
-                      <p className="text-xs text-muted-foreground italic flex items-center gap-0.5">
-                        <Route className="h-2.5 w-2.5" /> {distStr}
-                      </p>
-                    )}
-                  </div>
-                  {w.type !== "unemployed" && <p className="text-xs text-muted-foreground truncate">{shortAddress(w.address)}</p>}
-                  {showOverlaps && overlapMap.has(w.id) && (
-                    <div className="flex flex-wrap gap-0.5 mt-0.5">
-                      {overlapMap.get(w.id)!.map((o) => (
-                        <span key={o.id} className="inline-flex items-center gap-0.5 text-[13px] bg-cyan-100 dark:bg-cyan-900/40 text-cyan-700 dark:text-cyan-300 px-1 rounded">
-                          <Zap className="h-2 w-2" /> {o.type === "school" ? "🎓" : o.type === "military" ? "🎖️" : o.type === "volunteer" ? "🤝" : o.type === "internship" ? "🏢" : o.type === "self-employed" ? "🧑‍💻" : o.type === "unemployed" ? "🔍" : "💼"} {o.company}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                  {/* Sub-locations in timeline */}
-                  {(w.locations ?? []).length > 0 && (
-                    <div className="mt-0.5 pl-2 border-l border-dashed border-muted-foreground/30 space-y-0.5">
-                      {w.locations.map((loc) => (
-                        <p key={loc.id} className="text-[13px] text-muted-foreground flex items-center gap-0.5 flex-wrap">
-                          <MapPin className="h-2 w-2 shrink-0" /> {loc.label} <span className="opacity-60">({LOC_TYPES.find((t) => t.value === loc.type)?.label ?? loc.type})</span>
-                          {loc.lat != null && loc.lng != null && <span className="font-mono text-xs opacity-50">📍 {Number(loc.lat).toFixed(5)}, {Number(loc.lng).toFixed(5)}</span>}
-                        </p>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
       {/* Compare view — side-by-side role comparison */}
       {tab === "compare" && (
         <div className="space-y-2">
@@ -12013,6 +12918,74 @@ function WorkHistoryPanel({
 
             return (
               <div className="rounded-lg border overflow-hidden">
+                {useTimelineStyle && (() => {
+                  // Mini timeline rail: two stacked bars showing each role's date range over the union span
+                  const toMs = (s: string | null | undefined, fallback: number) => {
+                    if (!s) return fallback;
+                    const [y, m] = s.split("-");
+                    const yr = Number(y); const mo = Number(m) - 1;
+                    if (!Number.isFinite(yr)) return fallback;
+                    return new Date(yr, Number.isFinite(mo) ? mo : 0, 1).getTime();
+                  };
+                  const now = Date.now();
+                  const aStart = toMs(a.startDate, now);
+                  const aEnd = toMs(a.endDate, now);
+                  const bStart = toMs(b.startDate, now);
+                  const bEnd = toMs(b.endDate, now);
+                  const minMs = Math.min(aStart, bStart);
+                  const maxMs = Math.max(aEnd, bEnd);
+                  if (!Number.isFinite(minMs) || !Number.isFinite(maxMs) || maxMs <= minMs) return null;
+                  const span = maxMs - minMs;
+                  const overlaps = aStart < bEnd && bStart < aEnd;
+                  const colorFor = (type?: string) => {
+                    switch (type) {
+                      case "school": return "bg-violet-500";
+                      case "internship": return "bg-cyan-500";
+                      case "volunteer": return "bg-amber-500";
+                      case "military": return "bg-emerald-500";
+                      case "self-employed": return "bg-amber-700";
+                      case "unemployed": return "bg-red-500";
+                      default: return "bg-blue-500";
+                    }
+                  };
+                  const yearLabel = (ms: number) => new Date(ms).getFullYear();
+                  const Bar = ({ start, end, type }: { start: number; end: number; type?: string }) => {
+                    const left = ((start - minMs) / span) * 100;
+                    const width = Math.max(2, ((end - start) / span) * 100);
+                    return (
+                      <div className="relative h-2.5">
+                        <div className="absolute inset-y-1/2 left-0 right-0 -translate-y-1/2 h-px bg-border" />
+                        <div
+                          className={`absolute top-1/2 -translate-y-1/2 h-1.5 rounded-full ${colorFor(type)}/80`}
+                          style={{ left: `${left}%`, width: `${width}%` }}
+                        />
+                        <div
+                          className={`absolute top-1/2 -translate-y-1/2 h-2 w-2 rounded-full ring-2 ring-background ${colorFor(type)}`}
+                          style={{ left: `calc(${left}% - 4px)` }}
+                        />
+                        <div
+                          className={`absolute top-1/2 -translate-y-1/2 h-2 w-2 rounded-full ring-2 ring-background ${colorFor(type)}`}
+                          style={{ left: `calc(${left + width}% - 4px)` }}
+                        />
+                      </div>
+                    );
+                  };
+                  return (
+                    <div className="px-2.5 py-2 bg-muted/20 border-b">
+                      <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-1.5">
+                        <span>{yearLabel(minMs)}</span>
+                        {overlaps && (
+                          <span className="text-amber-600 dark:text-amber-400 font-medium">⟷ overlap</span>
+                        )}
+                        <span>{yearLabel(maxMs)}</span>
+                      </div>
+                      <div className="space-y-1">
+                        <Bar start={aStart} end={aEnd} type={a.type} />
+                        <Bar start={bStart} end={bEnd} type={b.type} />
+                      </div>
+                    </div>
+                  );
+                })()}
                 <div className="grid grid-cols-[auto_1fr_1fr] text-xs">
                   <div className="p-1.5 bg-muted/40 font-medium border-b" />
                   <div className="p-1.5 bg-muted/40 font-medium border-b border-l truncate">{a.company}</div>
@@ -12038,12 +13011,35 @@ function WorkHistoryPanel({
     {/* ── Locations Popover (floating below header) ── */}
     {focusedItem && showLocationsPopover && (focusedItem.locations ?? []).length > 0 && (
       <div className="absolute top-[52px] left-[calc(0.75rem+24rem-12rem)] z-[1150] bg-background/95 backdrop-blur-md border rounded-xl shadow-xl p-2.5 w-72 max-h-[40vh] overflow-y-auto scrollbar-thin pointer-events-auto">
-        <div className="flex items-center justify-between mb-1.5">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Locations ({focusedItem.locations.length})</p>
-          <button type="button" className="p-0.5 text-muted-foreground hover:text-foreground" onClick={() => setShowLocationsPopover(false)}>
-            <X className="h-3 w-3" />
-          </button>
-        </div>
+        {(() => {
+          const locs = focusedItem.locations;
+          const currentIdx = expandedLocId ? locs.findIndex((l) => l.id === expandedLocId) : -1;
+          const goTo = (idx: number) => {
+            const wrapped = ((idx % locs.length) + locs.length) % locs.length;
+            const next = locs[wrapped];
+            if (!next) return;
+            setExpandedLocId(next.id);
+            onFocusJob({ id: focusedItem.id, lat: next.lat, lng: next.lng });
+          };
+          return (
+            <div className="flex items-center justify-between mb-1.5 gap-1">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex-1 truncate">
+                Locations ({locs.length}){currentIdx >= 0 && <span className="ml-1 text-[10px] normal-case text-muted-foreground/70">{currentIdx + 1} / {locs.length}</span>}
+              </p>
+              <div className="flex items-center gap-0.5 shrink-0">
+                <button type="button" className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground disabled:opacity-30" disabled={locs.length < 2} title="Previous location" onClick={() => goTo((currentIdx < 0 ? 0 : currentIdx - 1))}>
+                  <ChevronLeft className="h-3.5 w-3.5" />
+                </button>
+                <button type="button" className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground disabled:opacity-30" disabled={locs.length < 2} title="Next location" onClick={() => goTo((currentIdx < 0 ? 0 : currentIdx + 1))}>
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </button>
+                <button type="button" className="p-0.5 text-muted-foreground hover:text-foreground ml-1" onClick={() => setShowLocationsPopover(false)} title="Close">
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            </div>
+          );
+        })()}
         <div className="space-y-0.5">
           {focusedItem.locations.map((loc) => {
             const locSkills: string[] = loc.skills ? (() => { try { return JSON.parse(loc.skills); } catch { return []; } })() : [];
@@ -12077,11 +13073,38 @@ function WorkHistoryPanel({
                   </div>
                 ) : (
                   <>
-                    <div role="button" tabIndex={0} className="w-full flex items-center gap-1.5 px-2 py-1.5 text-left cursor-pointer" onClick={() => setExpandedLocId(isExpanded ? null : loc.id)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setExpandedLocId(isExpanded ? null : loc.id); }}>
+                    <div role="button" tabIndex={0} className="w-full flex items-center gap-1.5 px-2 py-1.5 text-left cursor-pointer" onClick={() => { setExpandedLocId(isExpanded ? null : loc.id); if (focusedItem) onFocusJob({ id: focusedItem.id, lat: loc.lat, lng: loc.lng }); }} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { setExpandedLocId(isExpanded ? null : loc.id); if (focusedItem) onFocusJob({ id: focusedItem.id, lat: loc.lat, lng: loc.lng }); } }}>
                       <MapPin className="h-3 w-3 shrink-0 text-blue-500" />
-                      <span className="text-xs font-medium truncate flex-1">{loc.label}</span>
+                      <span className={`text-xs font-medium truncate flex-1 ${loc.closed ? "line-through text-muted-foreground" : ""}`}>{loc.label}</span>
                       <span className="text-[10px] bg-muted px-1 rounded shrink-0">{typeInfo?.label ?? loc.type}</span>
+                      {loc.closed && (
+                        <span
+                          className="text-[10px] font-medium px-1 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200 shrink-0 inline-flex items-center gap-0.5"
+                          title="This location is closed"
+                        >
+                          <XCircle className="h-2.5 w-2.5" /> Closed
+                        </span>
+                      )}
+                      {loc.includeInOutline && (
+                        <Pentagon className="h-2.5 w-2.5 text-emerald-500 shrink-0" aria-label="Included in outline detection" />
+                      )}
                       <span className="flex items-center gap-0.5 opacity-0 group-hover/loc:opacity-100 transition-opacity shrink-0" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          className={`p-0.5 rounded hover:bg-muted ${loc.includeInOutline ? "text-emerald-500" : "text-muted-foreground hover:text-foreground"}`}
+                          title={loc.includeInOutline ? "Remove from outline auto-detection" : "Include in outline auto-detection"}
+                          onClick={() => handleToggleOutline(loc.id, !loc.includeInOutline)}
+                        >
+                          <Pentagon className="h-2.5 w-2.5" />
+                        </button>
+                        <button
+                          type="button"
+                          className={`p-0.5 rounded hover:bg-muted ${loc.closed ? "text-amber-600" : "text-muted-foreground hover:text-foreground"}`}
+                          title={loc.closed ? "Mark this location as open" : "Mark this location as closed"}
+                          onClick={() => handleToggleLocClosed(loc.id, !loc.closed)}
+                        >
+                          <XCircle className="h-2.5 w-2.5" />
+                        </button>
                         <button type="button" className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground" title="Edit" onClick={() => startEditLoc(loc)}>
                           <Pencil className="h-2.5 w-2.5" />
                         </button>

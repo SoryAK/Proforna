@@ -57,45 +57,20 @@ function sanitizeComp(comp: Record<string, unknown> | null) {
   };
 }
 
-// GET — current publish status: has the user ever published, and are there pending changes?
+// GET — current publish status: has the user ever published, and when?
 export async function GET() {
   const userId = await getUserId();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const [published, profile, latestWh] = await Promise.all([
-    prisma.publishedProfile.findUnique({ where: { userId } }),
-    prisma.userProfile.findUnique({ where: { userId } }),
-    prisma.workHistory.findFirst({
-      where: { userId },
-      orderBy: { updatedAt: "desc" },
-      select: { updatedAt: true },
-    }),
-  ]);
-
-  let comp: { updatedAt: Date } | null = null;
-  if (profile) {
-    comp = await prisma.compensationPreference.findUnique({
-      where: { profileId: profile.id },
-      select: { updatedAt: true },
-    });
-  }
-
-  const lastChangeAt = [
-    profile?.updatedAt,
-    comp?.updatedAt,
-    latestWh?.updatedAt,
-  ]
-    .filter((d): d is Date => d != null)
-    .reduce<Date | null>((acc, d) => (acc == null || d > acc ? d : acc), null);
-
-  const hasChanges = !!published && !!lastChangeAt && lastChangeAt > published.publishedAt;
+  const published = await prisma.publishedProfile.findUnique({
+    where: { userId },
+    select: { publishedAt: true, publishNote: true },
+  });
 
   return NextResponse.json({
     everPublished: !!published,
     publishedAt: published?.publishedAt ?? null,
     publishNote: published?.publishNote ?? null,
-    lastChangeAt: lastChangeAt ?? null,
-    hasChanges: !!published ? hasChanges : !!profile, // never published = treat as pending if profile exists
   });
 }
 
@@ -134,6 +109,7 @@ export async function POST(req: NextRequest) {
         },
         attachments: { orderBy: { createdAt: "desc" } },
         equipment: { include: { photos: { orderBy: { isCover: "desc" } } } },
+        locations: { orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }] },
       },
     }),
   ]);
@@ -141,6 +117,25 @@ export async function POST(req: NextRequest) {
   const profileSnapshot = pickProfile(profile as unknown as Record<string, unknown>);
   const compensationSnapshot = sanitizeComp(comp as unknown as Record<string, unknown> | null);
   const workHistorySnapshot = workHistory;
+
+  // Server-side dedupe: if the snapshot bytes are identical to the current
+  // PublishedProfile and no new note was supplied, skip the write entirely.
+  // The button is always-on, so this prevents needless DB writes when the
+  // user re-publishes without having changed anything.
+  const existing = await prisma.publishedProfile.findUnique({ where: { userId } });
+  if (existing && publishNote == null) {
+    const sameProfile = JSON.stringify(existing.profileSnapshot) === JSON.stringify(profileSnapshot);
+    const sameComp = JSON.stringify(existing.compensationSnapshot ?? null) === JSON.stringify(compensationSnapshot);
+    const sameWh = JSON.stringify(existing.workHistorySnapshot ?? null) === JSON.stringify(workHistorySnapshot);
+    if (sameProfile && sameComp && sameWh) {
+      return NextResponse.json({
+        publishedAt: existing.publishedAt,
+        publishNote: existing.publishNote,
+        noChange: true,
+        counts: { workHistory: workHistory.length },
+      });
+    }
+  }
 
   const saved = await prisma.publishedProfile.upsert({
     where: { userId },
@@ -163,6 +158,7 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     publishedAt: saved.publishedAt,
     publishNote: saved.publishNote,
+    noChange: false,
     counts: {
       workHistory: workHistory.length,
     },

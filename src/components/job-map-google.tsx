@@ -154,6 +154,9 @@ interface Props {
   workHistorySubLocations?: WorkHistorySubLocation[];
   showCareerPath?: boolean;
   focusedWorkHistoryId?: string | null;
+  /** When true, the focused work-history pin is hidden so the building polygon
+   *  can take over as the visual marker (item #10 — high-zoom outline mode). */
+  hideFocusedWorkHistoryMarker?: boolean;
   concurrentWorkHistoryIds?: Set<string>;
   onSelectWorkHistory?: (marker: WorkHistoryMarker | WorkHistorySubLocation) => void;
   residenceMarker?: { id: string; lat: number; lng: number; label: string; address: string } | null;
@@ -315,6 +318,7 @@ export default function JobMapGoogle({
   workHistorySubLocations = [],
   showCareerPath = false,
   focusedWorkHistoryId = null,
+  hideFocusedWorkHistoryMarker = false,
   concurrentWorkHistoryIds,
   onSelectWorkHistory,
   residenceMarker = null,
@@ -1656,6 +1660,28 @@ export default function JobMapGoogle({
       }
     });
   }, [focusedWorkHistoryId, concurrentWorkHistoryIds, workHistoryMarkers]);
+
+  /* ── Hide focused work-history pin when its building polygon takes over (item #10) ──
+   * Parent toggles `hideFocusedWorkHistoryMarker` based on zoom + whether an outline
+   * actually rendered. We translate that into AdvancedMarkerElement.map = null/map.
+   * On unmount or when the flag/focus changes, we restore the pin. */
+  useEffect(() => {
+    if (!mapRef.current) return;
+    const map = mapRef.current;
+    let hiddenMarker: google.maps.marker.AdvancedMarkerElement | null = null;
+    if (hideFocusedWorkHistoryMarker && focusedWorkHistoryId) {
+      whMarkerDataRef.current.forEach((data, marker) => {
+        if (data.id === focusedWorkHistoryId) {
+          if (marker.map != null) marker.map = null;
+          hiddenMarker = marker;
+        }
+      });
+    }
+    return () => {
+      const m = hiddenMarker as google.maps.marker.AdvancedMarkerElement | null;
+      if (m && m.map !== map) m.map = map;
+    };
+  }, [hideFocusedWorkHistoryMarker, focusedWorkHistoryId, workHistoryMarkers]);
 
   /* ── Work History sub-location markers (smaller pins + dashed lines to parent) ── */
   useEffect(() => {

@@ -51,6 +51,13 @@ export async function PATCH(
   if (body.type) update.type = String(body.type);
   if (body.startDate !== undefined) update.startDate = body.startDate ? String(body.startDate).slice(0, 7) : null;
   if (body.endDate !== undefined) update.endDate = body.endDate ? String(body.endDate).slice(0, 7) : null;
+  if (body.includeInOutline !== undefined) update.includeInOutline = body.includeInOutline === true;
+  if (body.closed !== undefined) update.closed = Boolean(body.closed);
+  if (body.hoverNote !== undefined) update.hoverNote = body.hoverNote ? String(body.hoverNote).slice(0, 280) : null;
+  if (body.outlineColor !== undefined) {
+    const c = body.outlineColor ? String(body.outlineColor).trim() : null;
+    update.outlineColor = c && /^#[0-9a-fA-F]{6}$/.test(c) ? c.toLowerCase() : null;
+  }
 
   const updated = await prisma.workHistoryLocation.update({ where: { id: locId }, data: update });
   return NextResponse.json(updated);

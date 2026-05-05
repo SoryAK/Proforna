@@ -75,8 +75,6 @@ interface PublishStatus {
   everPublished: boolean;
   publishedAt: string | null;
   publishNote: string | null;
-  lastChangeAt: string | null;
-  hasChanges: boolean;
 }
 
 const EMPLOYMENT_OPTS = ["full_time", "part_time", "contract", "1099", "internship", "temp"];
@@ -119,6 +117,8 @@ export function BioCardEditor() {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  // Brief lockout right after a successful publish to discourage spam clicks.
+  const [justPublished, setJustPublished] = useState(false);
 
   // Edit drafts (separate from server state so cancel works)
   const [draftP, setDraftP] = useState<Profile | null>(null);
@@ -201,9 +201,27 @@ export function BioCardEditor() {
     try {
       const res = await fetch("/api/publish", { method: "POST" });
       if (!res.ok) throw new Error("Publish failed");
+      const data = await res.json().catch(() => ({} as { noChange?: boolean }));
       const sRes = await fetch("/api/publish");
       if (sRes.ok) setStatus(await sRes.json());
-      toast.success("Published to your Interactive Resume");
+      if (data?.noChange) {
+        toast.success("Already up to date");
+      } else {
+        toast.success("Published to your Interactive Resume");
+        // Notify any open IR tabs (same browser) so they re-fetch without a reload.
+        if (typeof BroadcastChannel !== "undefined") {
+          try {
+            const ch = new BroadcastChannel("resumsify-publish");
+            ch.postMessage({ type: "publish", at: Date.now() });
+            ch.close();
+          } catch {
+            // Best-effort; ignore environments that block BroadcastChannel.
+          }
+        }
+      }
+      // 5-second lockout to discourage spam re-clicks.
+      setJustPublished(true);
+      window.setTimeout(() => setJustPublished(false), 5000);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Publish failed");
     } finally {
@@ -213,8 +231,10 @@ export function BioCardEditor() {
 
   const view = profile;
   const compStr = comp && (comp.salaryMin || comp.salaryMax || comp.salaryTarget) ? fmtSalary(comp) : null;
-  const hasChanges = !!status?.hasChanges;
   const everPublished = !!status?.everPublished;
+  // Block publish only when there's literally no profile to snapshot yet, or while in flight / cool-down.
+  const noProfile = !view;
+  const publishDisabled = publishing || justPublished || (noProfile && !everPublished);
 
   const toggleEmp = (val: string) => {
     if (!draftC) return;
@@ -239,30 +259,18 @@ export function BioCardEditor() {
       {/* ── Publish status strip ── */}
       <div
         className={`flex items-center justify-between gap-2 px-3 py-1.5 border-b ${
-          hasChanges
-            ? "bg-amber-500/10 border-amber-500/30"
-            : everPublished
-              ? "bg-emerald-500/10 border-emerald-500/30"
-              : "bg-muted/40"
+          everPublished ? "bg-emerald-500/10 border-emerald-500/30" : "bg-muted/40"
         }`}
       >
         <div className="flex items-center gap-1.5 text-[11px] min-w-0">
-          {hasChanges ? (
-            <>
-              <AlertCircle className="h-3.5 w-3.5 text-amber-600 shrink-0" />
-              <span className="font-semibold text-amber-700 dark:text-amber-300">
-                {everPublished ? "Pending changes" : "Not published"}
-              </span>
-              {status?.lastChangeAt && (
-                <span className="text-muted-foreground truncate">· edited {fmtRel(status.lastChangeAt)}</span>
-              )}
-            </>
-          ) : everPublished ? (
+          {everPublished ? (
             <>
               <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-              <span className="font-semibold text-emerald-700 dark:text-emerald-300">Up to date</span>
+              <span className="font-semibold text-emerald-700 dark:text-emerald-300">
+                Last published
+              </span>
               {status?.publishedAt && (
-                <span className="text-muted-foreground truncate">· published {fmtRel(status.publishedAt)}</span>
+                <span className="text-muted-foreground truncate">· {fmtRel(status.publishedAt)}</span>
               )}
             </>
           ) : (
@@ -274,13 +282,22 @@ export function BioCardEditor() {
         </div>
         <Button
           size="sm"
-          variant={hasChanges ? "default" : "outline"}
+          variant="default"
           className="h-6 text-[11px] px-2"
-          disabled={publishing || (!hasChanges && everPublished)}
+          disabled={publishDisabled}
           onClick={publish}
+          title={
+            noProfile && !everPublished
+              ? "Add your bio first"
+              : justPublished
+                ? "Just published — try again in a moment"
+                : "Publish current state to your Interactive Resume"
+          }
         >
           {publishing ? (
             <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Publishing…</>
+          ) : justPublished ? (
+            <><CheckCircle2 className="h-3 w-3 mr-1" /> Published</>
           ) : (
             <><CloudUpload className="h-3 w-3 mr-1" /> Publish</>
           )}
