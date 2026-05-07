@@ -152,6 +152,9 @@ export async function PATCH(
   if (body.estimatorSettings !== undefined) data.estimatorSettings = body.estimatorSettings ? String(body.estimatorSettings) : null;
   if (body.coverImage !== undefined) data.coverImage = body.coverImage ? String(body.coverImage) : null;
   if (body.coverImageY !== undefined) data.coverImageY = body.coverImageY != null ? Math.max(0, Math.min(100, Number(body.coverImageY))) : null;
+  if (body.bannerSlideshowOverride !== undefined) {
+    data.bannerSlideshowOverride = body.bannerSlideshowOverride === null ? null : Boolean(body.bannerSlideshowOverride);
+  }
   if (body.uniformData !== undefined) data.uniformData = body.uniformData ? String(body.uniformData) : null;
   if (body.hoverNote !== undefined) data.hoverNote = body.hoverNote ? String(body.hoverNote).slice(0, 280) : null;
   if (body.outlineColor !== undefined) {

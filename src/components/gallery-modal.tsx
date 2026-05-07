@@ -8,7 +8,7 @@ import {
   Maximize2, Minimize2, Play, Pause, Columns2, CheckSquare, Square,
   RotateCw, Eye, EyeOff, Heart, Calendar, Settings2,
   SortAsc, SortDesc, Check, CheckCheck, XCircle, LayoutGrid, FolderOpen,
-  Layers,
+  Layers, Video as VideoIcon, Upload, Link2,
 } from "lucide-react";
 import { AnnotationEditor } from "@/components/annotation-editor";
 
@@ -42,6 +42,28 @@ export interface GalleryAlbum {
   createdAt: string;
 }
 
+export interface GalleryVideo {
+  id: string;
+  filePath: string;
+  fileName: string;
+  fileMime: string;
+  fileSize: number;
+  posterPath?: string | null;
+  durationSec?: number | null;
+  isEmbed?: boolean;
+  embedProvider?: string | null;
+  caption?: string | null;
+  isCover?: boolean;
+  isFavorite?: boolean;
+  isPrivate?: boolean;
+  tags?: string | null;
+  dateTaken?: string | null;
+  sortOrder?: number | null;
+  albumId?: string | null;
+  album?: { id: string; name: string } | null;
+  createdAt: string;
+}
+
 interface ImageMarker {
   id: string;
   x: number;
@@ -62,7 +84,7 @@ interface GalleryModalProps {
 
 type SortBy = "date" | "name" | "size" | "favorite";
 type ThumbSize = "sm" | "md" | "lg";
-type ViewMode = "viewer" | "photos" | "albums";
+type ViewMode = "viewer" | "photos" | "albums" | "videos";
 
 interface GallerySettings {
   sortBy: SortBy;
@@ -146,6 +168,86 @@ export function GalleryModal({ photos, albums = [], initialIndex, positionId, co
 
   /* ── Albums ── */
   const [activeAlbumId, setActiveAlbumId] = useState<string>("__all");
+
+  /* ── Videos ── */
+  const [videos, setVideos] = useState<GalleryVideo[]>([]);
+  const [videosLoading, setVideosLoading] = useState(false);
+  const [videoUploading, setVideoUploading] = useState(false);
+  const videoInputRef = useRef<HTMLInputElement | null>(null);
+
+  const loadVideos = useCallback(async () => {
+    setVideosLoading(true);
+    try {
+      const res = await fetch(`/api/gallery/videos?positionId=${encodeURIComponent(positionId)}`);
+      if (res.ok) {
+        const data = (await res.json()) as GalleryVideo[];
+        setVideos(data);
+      }
+    } catch { /* ignore */ }
+    finally { setVideosLoading(false); }
+  }, [positionId]);
+
+  useEffect(() => { void loadVideos(); }, [loadVideos]);
+
+  async function uploadVideoFiles(files: File[]) {
+    if (files.length === 0) return;
+    setVideoUploading(true);
+    try {
+      for (const file of files) {
+        const fd = new FormData();
+        fd.append("file", file);
+        fd.append("positionId", positionId);
+        const res = await fetch("/api/gallery/videos", { method: "POST", body: fd });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ error: "Upload failed" }));
+          alert(`Failed to upload ${file.name}: ${err.error ?? "Unknown error"}`);
+        }
+      }
+      await loadVideos();
+    } finally {
+      setVideoUploading(false);
+    }
+  }
+
+  async function deleteVideo(id: string) {
+    if (settings.confirmDelete && !window.confirm("Delete this video? This cannot be undone.")) return;
+    const res = await fetch(`/api/gallery/videos?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+    if (res.ok) {
+      setVideos((prev) => prev.filter((v) => v.id !== id));
+    }
+  }
+
+  async function addVideoEmbed() {
+    const url = window.prompt("Paste a YouTube, Vimeo, Loom, or other video URL:");
+    if (!url || !url.trim()) return;
+    setVideoUploading(true);
+    try {
+      const res = await fetch("/api/gallery/videos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ positionId, url: url.trim() }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Failed to add embed" }));
+        alert(`Failed to add embed: ${err.error ?? "Unknown error"}`);
+        return;
+      }
+      await loadVideos();
+    } finally {
+      setVideoUploading(false);
+    }
+  }
+
+  async function updateVideoCaption(id: string, caption: string) {
+    const res = await fetch("/api/gallery/videos", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, caption }),
+    });
+    if (res.ok) {
+      setVideos((prev) => prev.map((v) => (v.id === id ? { ...v, caption } : v)));
+    }
+  }
 
   /* ── Slideshow ── */
   const [slideshowActive, setSlideshowActive] = useState(false);
@@ -737,6 +839,13 @@ export function GalleryModal({ photos, albums = [], initialIndex, positionId, co
           >
             <FolderOpen className="h-3.5 w-3.5" />
           </button>
+          <button
+            onClick={() => setViewMode("videos")}
+            className={`p-1 rounded ${viewMode === "videos" ? "bg-background text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            title={`Videos${videos.length ? ` (${videos.length})` : ""}`}
+          >
+            <VideoIcon className="h-3.5 w-3.5" />
+          </button>
         </div>
 
         <div className="flex items-center gap-0.5 shrink-0">
@@ -1071,6 +1180,132 @@ export function GalleryModal({ photos, albums = [], initialIndex, positionId, co
                       </button>
                     );
                   })}
+                </div>
+              )}
+            </div>
+          ) : viewMode === "videos" ? (
+            <div
+              className="h-full overflow-auto p-3"
+              onDragOver={(e) => {
+                if (e.dataTransfer?.types?.includes("Files")) {
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = "copy";
+                }
+              }}
+              onDrop={(e) => {
+                if (!e.dataTransfer?.types?.includes("Files")) return;
+                e.preventDefault();
+                const files = Array.from(e.dataTransfer.files).filter((f) => f.type.startsWith("video/"));
+                if (files.length === 0) return;
+                void uploadVideoFiles(files);
+              }}
+            >
+              <div className="flex items-center justify-between mb-3">
+                <div className="text-sm">
+                  <span className="font-medium">{videos.length}</span>
+                  <span className="text-muted-foreground"> video{videos.length !== 1 ? "s" : ""}</span>
+                  {videosLoading && <span className="ml-2 text-xs text-muted-foreground">loading…</span>}
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    ref={videoInputRef}
+                    type="file"
+                    accept="video/mp4,video/webm,video/quicktime,video/x-matroska,video/ogg"
+                    multiple
+                    className="hidden"
+                    onChange={(e) => {
+                      const files = Array.from(e.target.files ?? []);
+                      if (e.target) e.target.value = "";
+                      void uploadVideoFiles(files);
+                    }}
+                  />
+                  <button
+                    type="button"
+                    disabled={videoUploading}
+                    onClick={addVideoEmbed}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-border bg-background hover:bg-accent disabled:opacity-50 text-xs"
+                    title="Embed a YouTube / Vimeo / Loom video"
+                  >
+                    <Link2 className="h-3.5 w-3.5" />
+                    Add embed
+                  </button>
+                  <button
+                    type="button"
+                    disabled={videoUploading}
+                    onClick={() => videoInputRef.current?.click()}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-pink-500 hover:bg-pink-600 disabled:opacity-50 text-white text-xs"
+                  >
+                    <Upload className="h-3.5 w-3.5" />
+                    {videoUploading ? "Uploading…" : "Upload videos"}
+                  </button>
+                </div>
+              </div>
+
+              {videos.length === 0 ? (
+                <div className="h-[60%] flex flex-col items-center justify-center text-muted-foreground border border-dashed border-border/60 rounded-lg p-8">
+                  <VideoIcon className="h-10 w-10 mb-2 opacity-40" />
+                  <p className="text-sm">No videos yet</p>
+                  <p className="text-[11px] mt-1 opacity-70">Drag &amp; drop video files here, use Upload, or paste a YouTube/Vimeo/Loom link via Add embed.</p>
+                  <p className="text-[10px] mt-2 opacity-60">MP4, WebM, MOV, MKV, OGV — up to 50 MB each. Embeds have no size limit.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {videos.map((v) => (
+                    <div
+                      key={v.id}
+                      className="group relative rounded-md overflow-hidden border border-border/60 bg-black/40"
+                    >
+                      {v.isEmbed ? (
+                        <div className="relative w-full aspect-video bg-black">
+                          <iframe
+                            src={v.filePath}
+                            title={v.fileName}
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                            allowFullScreen
+                            referrerPolicy="strict-origin-when-cross-origin"
+                            className="absolute inset-0 w-full h-full border-0"
+                          />
+                          {v.embedProvider && (
+                            <span className="absolute top-1 left-1 px-1.5 py-0.5 rounded bg-black/70 text-white text-[10px] uppercase tracking-wide">
+                              {v.embedProvider}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <video
+                          src={v.filePath}
+                          poster={v.posterPath ?? undefined}
+                          controls
+                          preload="metadata"
+                          className="w-full aspect-video bg-black object-contain"
+                        />
+                      )}
+                      <div className="px-2 py-1.5 bg-background/95">
+                        <input
+                          defaultValue={v.caption ?? ""}
+                          placeholder="Add a caption…"
+                          onBlur={(e) => {
+                            const next = e.target.value.trim();
+                            if (next !== (v.caption ?? "")) void updateVideoCaption(v.id, next);
+                          }}
+                          onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                          className="w-full bg-transparent border-0 text-sm outline-none focus:ring-0 truncate"
+                        />
+                        <div className="flex items-center justify-between text-[10px] text-muted-foreground mt-0.5">
+                          <span className="truncate" title={v.fileName}>{v.fileName}</span>
+                          <span className="shrink-0 ml-2">{v.isEmbed ? "embed" : fmtSize(v.fileSize)}</span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => void deleteVideo(v.id)}
+                        className="absolute top-1 right-1 p-1 rounded bg-black/70 hover:bg-red-600 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Delete video"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>

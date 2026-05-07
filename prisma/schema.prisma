@@ -72,6 +72,8 @@ model User {
   careerEvents        CareerEvent[]
   employerAliases     EmployerAlias[]
   personalEquipment   PersonalEquipment[]
+  personalEquipmentShares PersonalEquipmentShare[]
+  equipmentKits       EquipmentKit[]
   publishedProfile    PublishedProfile?
 }
 
@@ -439,6 +441,11 @@ model UserProfile {
   gasPricePerGallon  Float?
   daysInOffice       Int?
 
+  // ── Display / UX preferences ──
+  // Global default for whether the focused-job banner cycles through gallery photos.
+  // Per-job overrides live on WorkHistory.bannerSlideshowOverride.
+  bannerSlideshowEnabled Boolean @default(true)
+
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
@@ -629,6 +636,7 @@ model PersonalEquipment {
 
   user   User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
   photos PersonalEquipmentPhoto[]
+  kits   EquipmentKitItem[]
 
   @@index([userId])
 }
@@ -646,11 +654,68 @@ model PersonalEquipmentPhoto {
   focalX      Int      @default(50) // 0-100, horizontal focal point %
   focalY      Int      @default(50) // 0-100, vertical focal point %
   zoom        Float    @default(1)  // 1.0 = cover (no extra zoom)
+  rotation    Int      @default(0)  // degrees, multiples of 90 (0/90/180/270)
+  flipH       Boolean  @default(false)
+  flipV       Boolean  @default(false)
   createdAt   DateTime @default(now())
 
   equipment PersonalEquipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
 
   @@index([equipmentId])
+}
+
+// ─── Equipment Kits / Collections ─────────────────────────────
+
+model EquipmentKit {
+  id          String   @id @default(uuid())
+  userId      String
+  name        String                                   // e.g. "Plumbing kit", "Camping gear"
+  description String?
+  color       String?                                  // optional hex/color token for chip
+  icon        String?                                  // optional lucide icon key
+  isPrivate   Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user  User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items EquipmentKitItem[]
+
+  @@unique([userId, name])
+  @@index([userId])
+}
+
+model EquipmentKitItem {
+  id          String   @id @default(uuid())
+  kitId       String
+  equipmentId String
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  kit       EquipmentKit      @relation(fields: [kitId], references: [id], onDelete: Cascade)
+  equipment PersonalEquipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+
+  @@unique([kitId, equipmentId])
+  @@index([kitId])
+  @@index([equipmentId])
+}
+
+model PersonalEquipmentShare {
+  id          String    @id @default(uuid())
+  userId      String
+  token       String    @unique
+  label       String?                                   // optional name like "For Bob"
+  scope       String    @default("all")                 // "all" | "selected" | "kit"
+  itemIds     String[]  @default([])                    // when scope = "selected"
+  kitId       String?                                   // when scope = "kit"
+  expiresAt   DateTime?
+  viewCount   Int       @default(0)
+  lastViewedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model WorkLog {
@@ -687,6 +752,40 @@ model Attachment {
   position WorkHistory @relation("WorkHistoryAttachments", fields: [positionId], references: [id], onDelete: Cascade)
 }
 
+// ─── Gallery Videos (multiple videos per work history entry) ───
+
+model GalleryVideo {
+  id            String    @id @default(uuid())
+  workHistoryId String
+  albumId       String?
+  filePath      String    // /uploads/gallery/videos/xxx.mp4 OR external URL when isEmbed
+  fileName      String    // original file name or display title for embeds
+  fileMime      String    // video/mp4 etc, or "embed/youtube" | "embed/vimeo" | "embed/loom" | "embed/other"
+  fileSize      Int       // bytes (0 for embeds)
+  posterPath    String?   // optional poster image (or remote thumbnail URL for embeds)
+  durationSec   Float?    // optional duration in seconds
+  width         Int?      // optional intrinsic width
+  height        Int?      // optional intrinsic height
+  isEmbed       Boolean   @default(false)  // true → render iframe / external player
+  embedProvider String?   // youtube | vimeo | loom | other
+  caption       String?
+  isCover       Boolean   @default(false)
+  isFavorite    Boolean   @default(false)
+  isPrivate     Boolean   @default(false)
+  annotationsPublic Boolean @default(true)
+  tags          String?   // JSON array of tag strings
+  dateTaken     DateTime?
+  sortOrder     Int?
+  createdAt     DateTime  @default(now())
+
+  workHistory WorkHistory @relation("WorkHistoryGalleryVideos", fields: [workHistoryId], references: [id], onDelete: Cascade)
+  album       GalleryAlbum? @relation("GalleryAlbumVideos", fields: [albumId], references: [id], onDelete: SetNull)
+  annotations MediaAnnotation[] @relation("GalleryVideoAnnotations")
+
+  @@index([workHistoryId])
+  @@index([albumId])
+}
+
 // ─── Gallery Photos (multiple photos per work history entry) ───
 
 model GalleryPhoto {
@@ -701,6 +800,8 @@ model GalleryPhoto {
   isCover       Boolean   @default(false)
   isFavorite    Boolean   @default(false)
   isPrivate     Boolean   @default(false)
+  // Marks photo for inclusion in the work-history banner slideshow.
+  isBanner      Boolean   @default(false)
   annotationsPublic Boolean @default(true) // when photo is shared, also expose annotations
   tags          String?   // JSON array of tag strings, e.g. ["welding","safety"]
   markers       String?   // legacy JSON pins (kept for back-compat); new feature uses MediaAnnotation
@@ -727,6 +828,7 @@ model GalleryAlbum {
 
   workHistory WorkHistory   @relation("WorkHistoryGalleryAlbums", fields: [workHistoryId], references: [id], onDelete: Cascade)
   photos      GalleryPhoto[] @relation("GalleryAlbumPhotos")
+  videos      GalleryVideo[] @relation("GalleryAlbumVideos")
 
   @@index([workHistoryId])
   @@unique([workHistoryId, name])
@@ -737,7 +839,7 @@ model GalleryAlbum {
 model MediaAnnotation {
   id              String   @id @default(uuid())
   photoId         String?
-  // videoId String? — reserved for future GalleryVideo support
+  videoId         String?
   kind            String   // "pin" | "rect" | "circle" | "arrow" | "freehand"
   geometry        String   // JSON; coords normalized 0..1 relative to media
   title           String?
@@ -751,10 +853,13 @@ model MediaAnnotation {
   updatedAt       DateTime @updatedAt
 
   photo GalleryPhoto? @relation("GalleryPhotoAnnotations", fields: [photoId], references: [id], onDelete: Cascade)
+  video GalleryVideo? @relation("GalleryVideoAnnotations", fields: [videoId], references: [id], onDelete: Cascade)
   comments MediaAnnotationComment[] @relation("AnnotationComments")
 
   @@index([photoId])
   @@index([photoId, sortOrder])
+  @@index([videoId])
+  @@index([videoId, sortOrder])
 }
 
 model MediaAnnotationComment {
@@ -1436,6 +1541,9 @@ model WorkHistory {
   estimatorSettings String?                  // JSON blob for paycheck estimator
   coverImage      String?                    // base64 cover photo
   coverImageY     Float?   @default(50)      // vertical focal point 0–100 for banner crop
+  // Per-job override for the global UserProfile.bannerSlideshowEnabled setting.
+  // null = use user default; true/false = explicit override.
+  bannerSlideshowOverride Boolean?
   uniformData     String?                    // JSON blob: { enabled, category, zones: { [zoneId]: { item, color, providedBy, notes, photo } } }
   hoverNote       String?                    // Custom recruiter-facing note shown in the building-outline hover tooltip (item #10 follow-up). Plain text + URLs; ~280 chars.
   outlineColor    String?                    // Custom hex color (e.g. #10b981) for the building-outline polygon. Null = default emerald.
@@ -1459,6 +1567,7 @@ model WorkHistory {
   workLogs           WorkLog[]               @relation("WorkHistoryWorkLogs")
   attachments        Attachment[]            @relation("WorkHistoryAttachments")
   galleryPhotos      GalleryPhoto[]          @relation("WorkHistoryGallery")
+  galleryVideos      GalleryVideo[]          @relation("WorkHistoryGalleryVideos")
   galleryAlbums      GalleryAlbum[]          @relation("WorkHistoryGalleryAlbums")
 }
 
@@ -1502,6 +1611,10 @@ model WorkHistoryLocation {
   endDate       String?  // optional YYYY-MM period end at this location
   hoverNote     String?  // Custom recruiter-facing note shown in the per-location building-outline hover tooltip. Overrides parent WorkHistory.hoverNote when present.
   outlineColor  String?  // Custom hex color override for this sub-location's polygon. Overrides parent WorkHistory.outlineColor when present.
+  // Per sub-location cover photo shown in the on-hover popup. When null, the
+  // parent WorkHistory.coverImage is used as a fallback.
+  coverImage    String?
+  coverImageY   Float?   @default(50)
   createdAt     DateTime @default(now())
 
   workHistory WorkHistory @relation(fields: [workHistoryId], references: [id], onDelete: Cascade)

@@ -65,6 +65,8 @@ export async function PATCH(request: Request) {
       "industryGroup",
       // Adaptive Interactive Resume config
       "irSlug", "irTheme", "irSections", "irTargetRole",
+      // Banner slideshow preference
+      "bannerSlideshowEnabled",
     ];
     const data: Record<string, unknown> = {};
     for (const key of allowed) {

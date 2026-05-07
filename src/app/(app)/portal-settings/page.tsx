@@ -85,6 +85,8 @@ interface UserProfile {
   anonymousTitle: string | null;
   blockedEins: string | null;
   blockedDomains: string | null;
+  // Banner slideshow
+  bannerSlideshowEnabled: boolean;
   // Home address
   homeAddress: string | null;
   homeLat: number | null;
@@ -210,6 +212,8 @@ export default function PortalSettingsPage() {
     hideCurrentEmployer: false,
     anonymousTitle: "",
     blockedDomains: "",
+    // Banner slideshow
+    bannerSlideshowEnabled: true,
     // Home address
     homeAddress: "",
     homeLat: null as number | null,
@@ -250,6 +254,7 @@ export default function PortalSettingsPage() {
         // Stealth mode
         visibility: profile.visibility || "public",
         hideCurrentEmployer: profile.hideCurrentEmployer,
+        bannerSlideshowEnabled: profile.bannerSlideshowEnabled ?? true,
         anonymousTitle: profile.anonymousTitle || "",
         blockedDomains: profile.blockedDomains
           ? JSON.parse(profile.blockedDomains).join(", ")
@@ -317,6 +322,7 @@ export default function PortalSettingsPage() {
       // Stealth mode
       visibility: form.visibility,
       hideCurrentEmployer: form.hideCurrentEmployer,
+      bannerSlideshowEnabled: form.bannerSlideshowEnabled,
       anonymousTitle: form.anonymousTitle || null,
       blockedDomains: blockedDomainsArray.length > 0 ? JSON.stringify(blockedDomainsArray) : null,
       // Home address
@@ -811,6 +817,20 @@ export default function PortalSettingsPage() {
             <Switch
               checked={form.hideCurrentEmployer}
               onCheckedChange={(checked) => setForm({ ...form, hideCurrentEmployer: checked })}
+            />
+          </div>
+
+          {/* Banner Slideshow (global default) */}
+          <div className="flex items-center justify-between">
+            <div>
+              <Label>Banner Photo Slideshow</Label>
+              <p className="text-xs text-gray-500">
+                When enabled, job banners cycle through photos you&apos;ve marked &quot;Use in banner&quot; in the gallery. Each job can override this.
+              </p>
+            </div>
+            <Switch
+              checked={form.bannerSlideshowEnabled}
+              onCheckedChange={(checked) => setForm({ ...form, bannerSlideshowEnabled: checked })}
             />
           </div>
 

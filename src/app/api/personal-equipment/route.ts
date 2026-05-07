@@ -49,7 +49,7 @@ export async function GET() {
   const items = await prisma.personalEquipment.findMany({
     where: { userId },
     orderBy: { createdAt: "desc" },
-    include: { photos: { orderBy: [{ isCover: "desc" }, { sortOrder: "asc" }, { createdAt: "asc" }] } },
+    include: { photos: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] } },
   });
   return NextResponse.json(items);
 }
@@ -151,7 +151,7 @@ export async function PATCH(request: Request) {
     const item = await prisma.personalEquipment.update({
       where: { id },
       data,
-      include: { photos: { orderBy: [{ isCover: "desc" }, { sortOrder: "asc" }, { createdAt: "asc" }] } },
+      include: { photos: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] } },
     });
     return NextResponse.json(item);
   } catch (error) {

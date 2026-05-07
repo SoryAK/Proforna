@@ -18,16 +18,22 @@ import {
   Crop,
   Eye,
   EyeOff,
+  FlipHorizontal,
+  FlipVertical,
   GripVertical,
   Keyboard,
   Laptop,
+  Layers,
   LayoutGrid,
   List as ListIcon,
   Lock,
   Pencil,
   Plus,
+  RotateCcw,
+  RotateCw,
   Rows3,
   Search,
+  Share2,
   SlidersHorizontal,
   Square,
   Star,
@@ -37,10 +43,13 @@ import {
   Upload,
   Wrench,
   X,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { TagInput } from "@/components/ui/tag-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
@@ -61,6 +70,9 @@ type Photo = {
   focalX?: number;
   focalY?: number;
   zoom?: number;
+  rotation?: number;
+  flipH?: boolean;
+  flipV?: boolean;
 };
 
 type Item = {
@@ -82,6 +94,19 @@ type Item = {
   notes: string | null;
   tags: string[];
   photos: Photo[];
+};
+
+type Kit = {
+  id: string;
+  name: string;
+  description: string | null;
+  color: string | null;
+  icon: string | null;
+  isPrivate: boolean;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+  itemIds: string[];
 };
 
 const CATEGORIES = ["hardware", "software", "vehicle", "safety", "tool", "instrument", "other"] as const;
@@ -140,6 +165,8 @@ type InventoryUiPrefs = {
   categories: string[]; // empty = all
   ownership: string[]; // empty = all
   tags: string[]; // empty = all
+  activeKitId?: string | null;
+  filtersOpen?: boolean;
 };
 const INVENTORY_UI_PREFS_KEY = "resumsify:inventory-ui-prefs-v1";
 const DEFAULT_UI_PREFS: InventoryUiPrefs = {
@@ -149,6 +176,7 @@ const DEFAULT_UI_PREFS: InventoryUiPrefs = {
   categories: [],
   ownership: [],
   tags: [],
+  activeKitId: null,
 };
 function loadUiPrefs(): InventoryUiPrefs {
   if (typeof window === "undefined") return { ...DEFAULT_UI_PREFS };
@@ -165,6 +193,8 @@ function loadUiPrefs(): InventoryUiPrefs {
       categories: Array.isArray(raw.categories) ? raw.categories.filter((s: unknown): s is string => typeof s === "string") : [],
       ownership: Array.isArray(raw.ownership) ? raw.ownership.filter((s: unknown): s is string => typeof s === "string") : [],
       tags: Array.isArray(raw.tags) ? raw.tags.filter((s: unknown): s is string => typeof s === "string") : [],
+      activeKitId: typeof raw.activeKitId === "string" ? raw.activeKitId : null,
+      filtersOpen: typeof raw.filtersOpen === "boolean" ? raw.filtersOpen : true,
     };
   } catch { return { ...DEFAULT_UI_PREFS }; }
 }
@@ -218,6 +248,58 @@ function Highlight({ text, query }: { text: string | null | undefined; query: st
   return <>{out}</>;
 }
 
+// Compose CSS transform for a photo's saved crop/rotate/flip values.
+// Rotation/flip happen around CENTER of the frame; zoom pivots around the focal point.
+type PhotoLike = { focalX?: number | null; focalY?: number | null; zoom?: number | null; rotation?: number | null; flipH?: boolean | null; flipV?: boolean | null };
+function photoFrameStyle(p: PhotoLike): React.CSSProperties {
+  const r = p.rotation ?? 0;
+  const sx = p.flipH ? -1 : 1;
+  const sy = p.flipV ? -1 : 1;
+  return {
+    transform: `rotate(${r}deg) scaleX(${sx}) scaleY(${sy})`,
+    transformOrigin: "center center",
+  };
+}
+function photoImgStyle(p: PhotoLike): React.CSSProperties {
+  const fx = p.focalX ?? 50;
+  const fy = p.focalY ?? 50;
+  const z = p.zoom ?? 1;
+  return {
+    objectPosition: `${fx}% ${fy}%`,
+    transform: `scale(${z})`,
+    transformOrigin: `${fx}% ${fy}%`,
+  };
+}
+function PhotoView({
+  p,
+  alt,
+  className,
+  imgClassName,
+  onClick,
+  fit = "cover",
+}: {
+  p: { filePath: string } & PhotoLike;
+  alt?: string;
+  className?: string;
+  imgClassName?: string;
+  onClick?: () => void;
+  fit?: "cover" | "contain";
+}) {
+  return (
+    <div className={`relative w-full h-full overflow-hidden ${className ?? ""}`} style={photoFrameStyle(p)}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={p.filePath}
+        alt={alt ?? ""}
+        className={`w-full h-full ${fit === "contain" ? "object-contain" : "object-cover"} ${imgClassName ?? ""}`}
+        style={photoImgStyle(p)}
+        onClick={onClick}
+        draggable={false}
+      />
+    </div>
+  );
+}
+
 function CropModal({
   photo,
   itemName,
@@ -227,11 +309,14 @@ function CropModal({
   photo: Photo;
   itemName: string;
   onClose: () => void;
-  onSave: (focalX: number, focalY: number, zoom: number) => void | Promise<void>;
+  onSave: (vals: { focalX: number; focalY: number; zoom: number; rotation: number; flipH: boolean; flipV: boolean }) => void | Promise<void>;
 }) {
   const [focalX, setFocalX] = useState<number>(photo.focalX ?? 50);
   const [focalY, setFocalY] = useState<number>(photo.focalY ?? 50);
   const [zoom, setZoom] = useState<number>(photo.zoom ?? 1);
+  const [rotation, setRotation] = useState<number>(photo.rotation ?? 0);
+  const [flipH, setFlipH] = useState<boolean>(photo.flipH ?? false);
+  const [flipV, setFlipV] = useState<boolean>(photo.flipV ?? false);
   const [saving, setSaving] = useState(false);
   const dragRef = useRef<HTMLDivElement>(null);
   const draggingRef = useRef(false);
@@ -299,18 +384,27 @@ function CropModal({
               const t = e.touches[0]; if (t) { e.preventDefault(); updateFromEvent(t.clientX, t.clientY); }
             }}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={photo.filePath}
-              alt={photo.caption ?? itemName}
-              draggable={false}
-              className="w-full h-full object-cover pointer-events-none"
+            {/* Frame: rotation + flip around center */}
+            <div
+              className="absolute inset-0"
               style={{
-                objectPosition: `${focalX}% ${focalY}%`,
-                transform: `scale(${zoom})`,
-                transformOrigin: `${focalX}% ${focalY}%`,
+                transform: `rotate(${rotation}deg) scaleX(${flipH ? -1 : 1}) scaleY(${flipV ? -1 : 1})`,
+                transformOrigin: "center center",
               }}
-            />
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={photo.filePath}
+                alt={photo.caption ?? itemName}
+                draggable={false}
+                className="w-full h-full object-cover pointer-events-none"
+                style={{
+                  objectPosition: `${focalX}% ${focalY}%`,
+                  transform: `scale(${zoom})`,
+                  transformOrigin: `${focalX}% ${focalY}%`,
+                }}
+              />
+            </div>
             {/* Focal-point crosshair */}
             <div
               className="absolute h-6 w-6 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow-lg pointer-events-none mix-blend-difference"
@@ -340,12 +434,34 @@ function CropModal({
             />
           </div>
 
+          {/* Rotate + Flip controls */}
+          <div className="space-y-1">
+            <div className="flex items-center justify-between text-xs">
+              <Label className="text-xs">Rotate &amp; flip</Label>
+              <span className="tabular-nums text-muted-foreground">{rotation}°</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <Button type="button" variant="outline" size="sm" className="h-7 px-2 flex-1" title="Rotate 90° left" onClick={() => setRotation((r) => (r - 90 + 360) % 360)}>
+                <RotateCcw className="h-3.5 w-3.5" />
+              </Button>
+              <Button type="button" variant="outline" size="sm" className="h-7 px-2 flex-1" title="Rotate 90° right" onClick={() => setRotation((r) => (r + 90) % 360)}>
+                <RotateCw className="h-3.5 w-3.5" />
+              </Button>
+              <Button type="button" variant={flipH ? "default" : "outline"} size="sm" className="h-7 px-2 flex-1" title="Flip horizontal" onClick={() => setFlipH((v) => !v)}>
+                <FlipHorizontal className="h-3.5 w-3.5" />
+              </Button>
+              <Button type="button" variant={flipV ? "default" : "outline"} size="sm" className="h-7 px-2 flex-1" title="Flip vertical" onClick={() => setFlipV((v) => !v)}>
+                <FlipVertical className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </div>
+
           {/* Reset */}
           <div className="flex items-center justify-between text-[11px] text-muted-foreground">
             <span>Focal {Math.round(focalX)}%, {Math.round(focalY)}%</span>
             <button
               type="button"
-              onClick={() => { setFocalX(50); setFocalY(50); setZoom(1); }}
+              onClick={() => { setFocalX(50); setFocalY(50); setZoom(1); setRotation(0); setFlipH(false); setFlipV(false); }}
               className="text-foreground hover:underline"
             >
               Reset
@@ -360,7 +476,7 @@ function CropModal({
             disabled={saving}
             onClick={async () => {
               setSaving(true);
-              try { await onSave(Math.round(focalX), Math.round(focalY), zoom); }
+              try { await onSave({ focalX: Math.round(focalX), focalY: Math.round(focalY), zoom, rotation, flipH, flipV }); }
               finally { setSaving(false); }
             }}
           >
@@ -452,15 +568,355 @@ function OwnershipBadge({
   );
 }
 
+// ─── Share modal ──────────────────────────────────────────────
+type ShareRecord = {
+  id: string;
+  token: string;
+  label: string | null;
+  scope: string;
+  itemIds: string[];
+  kitId: string | null;
+  expiresAt: string | null;
+  viewCount: number;
+  lastViewedAt: string | null;
+  createdAt: string;
+};
+
+function ShareModal({
+  onClose,
+  selectedIds,
+  totalCount,
+  kits,
+}: {
+  onClose: () => void;
+  selectedIds: string[];
+  totalCount: number;
+  kits: Kit[];
+}) {
+  const [shares, setShares] = useState<ShareRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
+  const [scope, setScope] = useState<"all" | "selected" | "kit">(selectedIds.length > 0 ? "selected" : "all");
+  const [kitId, setKitId] = useState<string>(kits[0]?.id ?? "");
+  const [label, setLabel] = useState<string>("");
+  const [expiryDays, setExpiryDays] = useState<string>(""); // "" = no expiry
+  const [copiedToken, setCopiedToken] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/personal-equipment/shares");
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+        if (!cancelled) setShares(Array.isArray(data) ? data : []);
+      } catch {
+        toast.error("Failed to load existing shares");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  function shareUrl(token: string) {
+    if (typeof window === "undefined") return `/share/inventory/${token}`;
+    return `${window.location.origin}/share/inventory/${token}`;
+  }
+
+  async function copy(token: string) {
+    try {
+      await navigator.clipboard.writeText(shareUrl(token));
+      setCopiedToken(token);
+      toast.success("Link copied");
+      setTimeout(() => setCopiedToken((c) => (c === token ? null : c)), 1500);
+    } catch {
+      toast.error("Couldn't copy link");
+    }
+  }
+
+  async function createShare() {
+    setCreating(true);
+    try {
+      const expiresAt = expiryDays
+        ? new Date(Date.now() + Number(expiryDays) * 24 * 60 * 60 * 1000).toISOString()
+        : null;
+      const body: Record<string, unknown> = {
+        scope,
+        label: label.trim() || null,
+        expiresAt,
+      };
+      if (scope === "selected") body.itemIds = selectedIds;
+      if (scope === "kit") {
+        if (!kitId) {
+          toast.error("Pick a kit first");
+          setCreating(false);
+          return;
+        }
+        body.kitId = kitId;
+      }
+      const res = await fetch("/api/personal-equipment/shares", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err?.error || "Failed");
+      }
+      const created: ShareRecord = await res.json();
+      setShares((prev) => [created, ...prev]);
+      setLabel("");
+      setExpiryDays("");
+      copy(created.token);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to create share");
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  async function revoke(id: string) {
+    if (!confirm("Revoke this share link? Anyone with the link will lose access.")) return;
+    try {
+      const res = await fetch(`/api/personal-equipment/shares/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
+      setShares((prev) => prev.filter((s) => s.id !== id));
+      toast.success("Share revoked");
+    } catch {
+      toast.error("Failed to revoke");
+    }
+  }
+
+  const canSelectScope = selectedIds.length > 0;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-background rounded-lg shadow-2xl w-full max-w-xl max-h-[88vh] overflow-hidden flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-4 py-2.5 border-b">
+          <h3 className="text-sm font-semibold flex items-center gap-2">
+            <Share2 className="h-4 w-4 text-cyan-600" /> Share inventory
+          </h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1 rounded hover:bg-muted text-muted-foreground"
+            title="Close (Esc)"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="p-4 space-y-4 overflow-y-auto">
+          {/* Create new share */}
+          <div className="space-y-3 rounded-md border p-3">
+            <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              Create new share link
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs">What to share</Label>
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setScope("all")}
+                  className={`text-left text-xs px-3 py-2 rounded border ${
+                    scope === "all" ? "border-foreground bg-muted" : "border-border hover:bg-muted/50"
+                  }`}
+                >
+                  <div className="font-medium">All items</div>
+                  <div className="text-muted-foreground text-[11px]">{totalCount} item{totalCount === 1 ? "" : "s"}</div>
+                </button>
+                <button
+                  type="button"
+                  disabled={!canSelectScope}
+                  onClick={() => setScope("selected")}
+                  className={`text-left text-xs px-3 py-2 rounded border ${
+                    scope === "selected" ? "border-foreground bg-muted" : "border-border hover:bg-muted/50"
+                  } ${!canSelectScope ? "opacity-50 cursor-not-allowed" : ""}`}
+                  title={!canSelectScope ? "Select items first to share a subset" : ""}
+                >
+                  <div className="font-medium">Selected only</div>
+                  <div className="text-muted-foreground text-[11px]">
+                    {selectedIds.length} item{selectedIds.length === 1 ? "" : "s"}
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  disabled={kits.length === 0}
+                  onClick={() => setScope("kit")}
+                  className={`text-left text-xs px-3 py-2 rounded border ${
+                    scope === "kit" ? "border-foreground bg-muted" : "border-border hover:bg-muted/50"
+                  } ${kits.length === 0 ? "opacity-50 cursor-not-allowed" : ""}`}
+                  title={kits.length === 0 ? "Create a kit first" : ""}
+                >
+                  <div className="font-medium flex items-center gap-1"><Layers className="h-3 w-3 text-amber-500" /> Kit</div>
+                  <div className="text-muted-foreground text-[11px]">
+                    {kits.length} kit{kits.length === 1 ? "" : "s"}
+                  </div>
+                </button>
+              </div>
+              {scope === "kit" && kits.length > 0 && (
+                <div className="pt-2">
+                  <Select value={kitId} onValueChange={(v) => setKitId(v ?? "")}>
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="Choose a kit" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {kits.map((k) => (
+                        <SelectItem key={k.id} value={k.id}>
+                          {k.name} ({k.itemIds.length})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <Label className="text-xs">Label (optional)</Label>
+                <Input
+                  value={label}
+                  onChange={(e) => setLabel(e.target.value)}
+                  placeholder="e.g. For Bob"
+                  className="h-8 text-xs"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Expires</Label>
+                <Select value={expiryDays || "never"} onValueChange={(v) => setExpiryDays(v === "never" ? "" : v)}>
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="never">Never</SelectItem>
+                    <SelectItem value="1">1 day</SelectItem>
+                    <SelectItem value="7">7 days</SelectItem>
+                    <SelectItem value="30">30 days</SelectItem>
+                    <SelectItem value="90">90 days</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <Button size="sm" onClick={createShare} disabled={creating} className="w-full">
+              <Share2 className="h-3.5 w-3.5 mr-1" />
+              {creating ? "Creating…" : "Create share link"}
+            </Button>
+          </div>
+
+          {/* Existing shares */}
+          <div className="space-y-2">
+            <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              Active links {shares.length > 0 && `(${shares.length})`}
+            </div>
+            {loading ? (
+              <div className="text-xs text-muted-foreground py-4 text-center">Loading…</div>
+            ) : shares.length === 0 ? (
+              <div className="text-xs text-muted-foreground py-4 text-center border rounded-md border-dashed">
+                No active share links.
+              </div>
+            ) : (
+              <ul className="space-y-2">
+                {shares.map((s) => {
+                  const url = shareUrl(s.token);
+                  const expired = s.expiresAt && new Date(s.expiresAt).getTime() < Date.now();
+                  return (
+                    <li key={s.id} className="rounded-md border p-2.5 space-y-1.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="text-xs font-medium truncate">
+                            {s.label || (s.scope === "all" ? "All items" : s.scope === "kit" ? (kits.find((k) => k.id === s.kitId)?.name ?? "Kit") : `${s.itemIds.length} selected items`)}
+                          </div>
+                          <div className="text-[10px] text-muted-foreground">
+                            {s.scope === "all" ? "All inventory" : s.scope === "kit" ? `Kit · ${kits.find((k) => k.id === s.kitId)?.itemIds.length ?? 0} item${(kits.find((k) => k.id === s.kitId)?.itemIds.length ?? 0) === 1 ? "" : "s"}` : `${s.itemIds.length} item${s.itemIds.length === 1 ? "" : "s"}`}
+                            {" · "}
+                            {s.viewCount} view{s.viewCount === 1 ? "" : "s"}
+                            {s.expiresAt && (
+                              <>
+                                {" · "}
+                                <span className={expired ? "text-red-500" : ""}>
+                                  {expired ? "expired " : "expires "}
+                                  {new Date(s.expiresAt).toLocaleDateString()}
+                                </span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => copy(s.token)}>
+                            {copiedToken === s.token ? "Copied!" : "Copy link"}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 text-xs text-red-500 hover:text-red-600"
+                            onClick={() => revoke(s.id)}
+                            title="Revoke"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <input
+                          readOnly
+                          value={url}
+                          onClick={(e) => (e.currentTarget as HTMLInputElement).select()}
+                          className="flex-1 text-[10px] font-mono px-2 py-1 rounded bg-muted text-muted-foreground border focus:outline-none"
+                        />
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        </div>
+
+        <div className="flex items-center justify-end gap-2 px-4 py-2.5 border-t bg-muted/30">
+          <Button variant="ghost" size="sm" onClick={onClose}>
+            Done
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function PersonalInventory({
   focusedPositionId = null,
   focusedPositionLabel = null,
+  openItemId = null,
+  onItemOpened,
 }: {
   focusedPositionId?: string | null;
   focusedPositionLabel?: string | null;
+  /** When set (e.g. from a Ctrl+/ search hit) auto-open this item's viewer. */
+  openItemId?: string | null;
+  onItemOpened?: () => void;
 } = {}) {
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
+  const [kits, setKits] = useState<Kit[]>([]);
   const [search, setSearch] = useState("");
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [filterOwnership, setFilterOwnership] = useState<string>("all");
@@ -475,13 +931,23 @@ export function PersonalInventory({
   const [dragActive, setDragActive] = useState(false);
   const [draftsOnly, setDraftsOnly] = useState(false);
   const bulkFileInputRef = useRef<HTMLInputElement>(null);
-  const [bulkMenu, setBulkMenu] = useState<null | "category" | "ownership" | "condition">(null);
+  const [bulkMenu, setBulkMenu] = useState<null | "category" | "ownership" | "condition" | "crop" | "kit">(null);
   const [lightbox, setLightbox] = useState<{ item: Item; index: number } | null>(null);
+  // Lightbox image manipulation (session-only, doesn't persist)
+  const [lbZoom, setLbZoom] = useState(1);
+  const [lbPan, setLbPan] = useState({ x: 0, y: 0 });
+  const [lbRotation, setLbRotation] = useState(0);
+  const [lbFlipH, setLbFlipH] = useState(false);
+  const [lbFlipV, setLbFlipV] = useState(false);
+  const lbDragRef = useRef<{ x: number; y: number; sx: number; sy: number } | null>(null);
   const [viewing, setViewing] = useState<{ item: Item; index: number } | null>(null);
   const [cropping, setCropping] = useState<{ item: Item; photoId: string } | null>(null);
+  const [bulkCropping, setBulkCropping] = useState<null | { scope: "covers" | "all" }>(null);
   const [dragPhotoId, setDragPhotoId] = useState<string | null>(null);
   const [reorderBusy, setReorderBusy] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [editingDragActive, setEditingDragActive] = useState(false);
   const [inlinePopover, setInlinePopover] = useState<null | { itemId: string; field: "condition" | "ownership" }>(null);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -653,16 +1119,119 @@ export function PersonalInventory({
     }
   }
 
+  async function loadKits() {
+    try {
+      const res = await fetch("/api/personal-equipment/kits");
+      if (res.ok) setKits(await res.json());
+    } catch { /* noop */ }
+  }
+
+  async function saveSelectionAsKit() {
+    const name = window.prompt("Kit name (e.g. \"Plumbing kit\")");
+    if (!name || !name.trim()) return;
+    const ids = Array.from(selected);
+    if (ids.length === 0) {
+      toast.error("Select at least one item first");
+      return;
+    }
+    try {
+      const res = await fetch("/api/personal-equipment/kits", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name.trim(), itemIds: ids }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err?.error || "Failed");
+      }
+      const created: Kit = await res.json();
+      setKits((prev) => [...prev, created]);
+      toast.success(`Saved kit "${created.name}" (${created.itemIds.length} items)`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to save kit");
+    }
+  }
+
+  async function addSelectionToKit(kitId: string) {
+    const ids = Array.from(selected);
+    if (ids.length === 0) return;
+    try {
+      const res = await fetch(`/api/personal-equipment/kits/${kitId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ addItemIds: ids }),
+      });
+      if (!res.ok) throw new Error();
+      const updated = await res.json();
+      setKits((prev) => prev.map((k) => (k.id === kitId ? { ...k, itemIds: updated.itemIds } : k)));
+      toast.success(`Added ${ids.length} item${ids.length === 1 ? "" : "s"} to kit`);
+    } catch {
+      toast.error("Failed to add to kit");
+    }
+  }
+
+  async function renameKit(kit: Kit) {
+    const name = window.prompt("Rename kit:", kit.name);
+    if (!name || !name.trim() || name.trim() === kit.name) return;
+    try {
+      const res = await fetch(`/api/personal-equipment/kits/${kit.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name.trim() }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err?.error || "Rename failed");
+      }
+      setKits((prev) => prev.map((k) => (k.id === kit.id ? { ...k, name: name.trim() } : k)));
+      toast.success("Kit renamed");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Rename failed");
+    }
+  }
+
+  async function deleteKit(kit: Kit) {
+    if (!window.confirm(`Delete kit "${kit.name}"? Items themselves are not deleted.`)) return;
+    try {
+      const res = await fetch(`/api/personal-equipment/kits/${kit.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
+      setKits((prev) => prev.filter((k) => k.id !== kit.id));
+      if (uiPrefs.activeKitId === kit.id) setUiPrefs((p) => ({ ...p, activeKitId: null }));
+      toast.success("Kit deleted");
+    } catch {
+      toast.error("Failed to delete");
+    }
+  }
+
+  useEffect(() => {
+    void loadKits();
+  }, []);
+
   useEffect(() => {
     void load();
   }, []);
+
+  // Auto-open an item when requested by an outside caller (e.g. Ctrl+/ search
+  // hit on the work-mapping page). Waits for items to load, then opens the
+  // viewer once and notifies the parent to clear the request.
+  useEffect(() => {
+    if (!openItemId || items.length === 0) return;
+    const target = items.find((it) => it.id === openItemId);
+    if (!target) return;
+    setViewing({ item: target, index: 0 });
+    onItemOpened?.();
+  }, [openItemId, items, onItemOpened]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     const cats = uiPrefs.categories;
     const owns = uiPrefs.ownership;
     const tagSel = uiPrefs.tags;
+    const kitFilter = uiPrefs.activeKitId
+      ? new Set(kits.find((k) => k.id === uiPrefs.activeKitId)?.itemIds ?? [])
+      : null;
     return items.filter((i) => {
+      if (kitFilter && !kitFilter.has(i.id)) return false;
       if (filterCategory !== "all" && i.category !== filterCategory) return false;
       if (filterOwnership !== "all" && i.ownership !== filterOwnership) return false;
       if (cats.length && !cats.includes(i.category)) return false;
@@ -680,7 +1249,7 @@ export function PersonalInventory({
         (i.tags ?? []).some((t) => t.includes(q))
       );
     });
-  }, [items, search, filterCategory, filterOwnership, uiPrefs.categories, uiPrefs.ownership, uiPrefs.tags, draftsOnly]);
+  }, [items, kits, search, filterCategory, filterOwnership, uiPrefs.categories, uiPrefs.ownership, uiPrefs.tags, uiPrefs.activeKitId, draftsOnly]);
 
   const sorted = useMemo(() => {
     const arr = [...filtered];
@@ -982,10 +1551,23 @@ export function PersonalInventory({
       if (e.key === "Escape") setLightbox(null);
       else if (e.key === "ArrowRight") setLightbox((lb) => lb ? { ...lb, index: (lb.index + 1) % lb.item.photos.length } : lb);
       else if (e.key === "ArrowLeft") setLightbox((lb) => lb ? { ...lb, index: (lb.index - 1 + lb.item.photos.length) % lb.item.photos.length } : lb);
+      else if (e.key === "+" || e.key === "=") setLbZoom((z) => Math.min(8, +(z + 0.25).toFixed(2)));
+      else if (e.key === "-" || e.key === "_") setLbZoom((z) => Math.max(1, +(z - 0.25).toFixed(2)));
+      else if (e.key === "0") { setLbZoom(1); setLbPan({ x: 0, y: 0 }); setLbRotation(0); setLbFlipH(false); setLbFlipV(false); }
+      else if (e.key === "r" || e.key === "R") setLbRotation((r) => (r + 90) % 360);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [lightbox]);
+
+  // Reset zoom/pan/rotation/flip when the lightbox photo changes
+  useEffect(() => {
+    setLbZoom(1);
+    setLbPan({ x: 0, y: 0 });
+    setLbRotation(0);
+    setLbFlipH(false);
+    setLbFlipV(false);
+  }, [lightbox?.item.id, lightbox?.index]);
 
   // When items refresh, keep lightbox in sync (photos may have been reordered/deleted)
   useEffect(() => {
@@ -1208,6 +1790,13 @@ export function PersonalInventory({
           <Upload className="h-4 w-4 mr-1" />
           {bulkUploading ? "Uploading\u2026" : "Upload photos"}
         </Button>
+        <Button
+          variant="outline"
+          onClick={() => setShareOpen(true)}
+          title="Share your inventory via a link"
+        >
+          <Share2 className="h-4 w-4 mr-1" /> Share
+        </Button>
         <input
           ref={bulkFileInputRef}
           type="file"
@@ -1377,9 +1966,39 @@ export function PersonalInventory({
           >
             Group
           </Button>
+
+          {/* Filters toggle */}
+          {(() => {
+            const filtersOpen = uiPrefs.filtersOpen ?? true;
+            const activeCount =
+              uiPrefs.categories.length +
+              uiPrefs.ownership.length +
+              uiPrefs.tags.length +
+              (draftsOnly ? 1 : 0);
+            return (
+              <Button
+                type="button"
+                size="sm"
+                variant={filtersOpen ? "default" : "outline"}
+                className="h-9"
+                onClick={() => setUiPrefs((p) => ({ ...p, filtersOpen: !(p.filtersOpen ?? true) }))}
+                title={filtersOpen ? "Hide filters" : "Show filters"}
+              >
+                <SlidersHorizontal className="h-3 w-3 mr-1" />
+                Filters
+                {activeCount > 0 && (
+                  <span className="ml-1.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-cyan-500 text-white text-[10px] font-medium">
+                    {activeCount}
+                  </span>
+                )}
+                <ChevronDown className={`h-3 w-3 ml-1 transition-transform ${filtersOpen ? "rotate-180" : ""}`} />
+              </Button>
+            );
+          })()}
         </div>
 
         {/* Chip strip — categories + ownership multi-select */}
+        {(uiPrefs.filtersOpen ?? true) && (
         <div className="flex flex-wrap gap-1">
           {CATEGORIES.map((c) => {
             const active = uiPrefs.categories.includes(c);
@@ -1439,9 +2058,55 @@ export function PersonalInventory({
             );
           })()}
         </div>
+        )}
+
+        {/* Kits chips (only when kits exist) */}
+        {(uiPrefs.filtersOpen ?? true) && kits.length > 0 && (
+          <div className="flex flex-wrap gap-1 items-center">
+            <span className="text-[10px] uppercase tracking-wide text-muted-foreground self-center mr-1">Kits</span>
+            {kits.map((k) => {
+              const active = uiPrefs.activeKitId === k.id;
+              return (
+                <span key={k.id} className="inline-flex items-center">
+                  <button
+                    type="button"
+                    onClick={() => setUiPrefs((p) => ({ ...p, activeKitId: active ? null : k.id }))}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      void renameKit(k);
+                    }}
+                    className={`inline-flex items-center gap-1 text-[11px] pl-2 pr-1 py-0.5 rounded-l-full border-y border-l transition-colors ${active ? "bg-amber-500 text-white border-amber-500" : "bg-background text-muted-foreground hover:bg-muted border-border"}`}
+                    title={`${k.itemIds.length} item${k.itemIds.length === 1 ? "" : "s"} — click to filter, right-click to rename`}
+                  >
+                    <Layers className="h-2.5 w-2.5" />
+                    {k.name}
+                    <span className={active ? "opacity-90" : "opacity-60"}>({k.itemIds.length})</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void deleteKit(k)}
+                    className={`inline-flex items-center justify-center text-[11px] px-1.5 py-0.5 rounded-r-full border-y border-r transition-colors ${active ? "bg-amber-600 text-white border-amber-600 hover:bg-amber-700" : "bg-background text-muted-foreground border-border hover:bg-red-500/10 hover:text-red-600"}`}
+                    title="Delete kit"
+                  >
+                    <X className="h-2.5 w-2.5" />
+                  </button>
+                </span>
+              );
+            })}
+            {uiPrefs.activeKitId && (
+              <button
+                type="button"
+                onClick={() => setUiPrefs((p) => ({ ...p, activeKitId: null }))}
+                className="text-[11px] px-2 py-0.5 rounded-full text-muted-foreground hover:bg-muted ml-1"
+              >
+                Clear kit
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Tag chips (only render when tags exist) */}
-        {Object.keys(tagCounts).length > 0 && (
+        {(uiPrefs.filtersOpen ?? true) && Object.keys(tagCounts).length > 0 && (
           <div className="flex flex-wrap gap-1">
             <span className="text-[10px] uppercase tracking-wide text-muted-foreground self-center mr-1">Tags</span>
             {Object.entries(tagCounts)
@@ -1527,6 +2192,32 @@ export function PersonalInventory({
             <Button size="sm" variant="outline" className="h-7 text-xs" disabled={bulkBusy} onClick={() => bulkPatch({ isPrivate: true }, "Made private")}>
               <EyeOff className="h-3 w-3 mr-1" /> Private
             </Button>
+            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setShareOpen(true)}>
+              <Share2 className="h-3 w-3 mr-1" /> Share selected
+            </Button>
+            <div className="relative">
+              <Button size="sm" variant="outline" className="h-7 text-xs" disabled={bulkBusy} onClick={() => setBulkMenu(bulkMenu === "crop" ? null : "crop")}>
+                <Crop className="h-3 w-3 mr-1" /> Crop
+              </Button>
+              {bulkMenu === "crop" && (
+                <div className="absolute z-30 mt-1 left-0 min-w-[180px] rounded-md border bg-popover shadow-md py-1">
+                  <button
+                    type="button"
+                    className="w-full text-left text-xs px-2 py-1 hover:bg-muted"
+                    onClick={() => { setBulkMenu(null); setBulkCropping({ scope: "covers" }); }}
+                  >
+                    Cover photo only
+                  </button>
+                  <button
+                    type="button"
+                    className="w-full text-left text-xs px-2 py-1 hover:bg-muted"
+                    onClick={() => { setBulkMenu(null); setBulkCropping({ scope: "all" }); }}
+                  >
+                    All photos of each item
+                  </button>
+                </div>
+              )}
+            </div>
 
             {/* Tag-style metadata setters */}
             <div className="relative">
@@ -1605,6 +2296,49 @@ export function PersonalInventory({
             }}>
               <X className="h-3 w-3 mr-1" /> Untag
             </Button>
+
+            {/* Kits — save selection as a new kit, or add selection to an existing kit */}
+            <div className="relative">
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs"
+                disabled={bulkBusy}
+                onClick={() => setBulkMenu(bulkMenu === "kit" ? null : "kit")}
+              >
+                <Layers className="h-3 w-3 mr-1" /> Kit
+              </Button>
+              {bulkMenu === "kit" && (
+                <div className="absolute z-30 mt-1 left-0 min-w-[200px] rounded-md border bg-popover shadow-md py-1 max-h-64 overflow-auto">
+                  <button
+                    type="button"
+                    className="w-full text-left text-xs px-2 py-1 hover:bg-muted flex items-center gap-2 font-medium"
+                    onClick={() => { setBulkMenu(null); void saveSelectionAsKit(); }}
+                  >
+                    <Plus className="h-3 w-3" /> Save selection as new kit…
+                  </button>
+                  {kits.length > 0 && (
+                    <>
+                      <div className="px-2 pt-1.5 pb-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">Add to existing</div>
+                      {kits.map((k) => (
+                        <button
+                          key={k.id}
+                          type="button"
+                          className="w-full text-left text-xs px-2 py-1 hover:bg-muted flex items-center justify-between gap-2"
+                          onClick={() => { setBulkMenu(null); void addSelectionToKit(k.id); }}
+                        >
+                          <span className="flex items-center gap-1.5 truncate">
+                            <Layers className="h-3 w-3 text-amber-500" />
+                            <span className="truncate">{k.name}</span>
+                          </span>
+                          <span className="text-muted-foreground text-[10px] shrink-0">{k.itemIds.length}</span>
+                        </button>
+                      ))}
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
 
             <span className="h-4 w-px bg-border" />
             <Button
@@ -1717,7 +2451,7 @@ export function PersonalInventory({
                         const isSel = selected.has(item.id);
                         const isFocused = focusedIndex !== null && sorted[focusedIndex]?.id === item.id;
                         return (
-                          <tr key={item.id} data-inv-row={item.id} className={`border-t hover:bg-muted/30 group ${isSel ? "bg-foreground/[0.04]" : ""} ${isFocused ? "outline outline-2 outline-cyan-500/60 outline-offset-[-2px]" : ""}`}>
+                          <tr key={item.id} data-inv-row={item.id} data-search-highlight-id={`personalEquipment:${item.id}`} className={`border-t hover:bg-muted/30 group ${isSel ? "bg-foreground/[0.04]" : ""} ${isFocused ? "outline outline-2 outline-cyan-500/60 outline-offset-[-2px]" : ""}`}>
                             <td className="px-2 py-1.5">
                               <input
                                 type="checkbox"
@@ -1787,7 +2521,7 @@ export function PersonalInventory({
                     const isSel = selected.has(item.id);
                     const isFocused = focusedIndex !== null && sorted[focusedIndex]?.id === item.id;
                     return (
-                      <Card key={item.id} data-inv-row={item.id} onClick={() => setViewing({ item, index: 0 })} className={`overflow-hidden group cursor-pointer hover:bg-muted/40 ${isSel ? "ring-2 ring-foreground/40" : ""} ${isFocused ? "ring-2 ring-cyan-500/70" : ""}`}>
+                      <Card key={item.id} data-inv-row={item.id} data-search-highlight-id={`personalEquipment:${item.id}`} onClick={() => setViewing({ item, index: 0 })} className={`overflow-hidden group cursor-pointer hover:bg-muted/40 ${isSel ? "ring-2 ring-foreground/40" : ""} ${isFocused ? "ring-2 ring-cyan-500/70" : ""}`}>
                         <div className="flex items-stretch gap-3 p-2">
                           <input
                             type="checkbox"
@@ -1799,17 +2533,7 @@ export function PersonalInventory({
                           />
                           <div className={`h-14 w-14 shrink-0 rounded-md overflow-hidden bg-muted flex items-center justify-center`}>
                             {cover ? (
-                              /* eslint-disable-next-line @next/next/no-img-element */
-                              <img
-                                src={cover.filePath}
-                                alt={cover.caption ?? item.name}
-                                className="w-full h-full object-cover"
-                                style={{
-                                  objectPosition: `${cover.focalX ?? 50}% ${cover.focalY ?? 50}%`,
-                                  transform: `scale(${cover.zoom ?? 1})`,
-                                  transformOrigin: `${cover.focalX ?? 50}% ${cover.focalY ?? 50}%`,
-                                }}
-                              />
+                              <PhotoView p={cover} alt={cover.caption ?? item.name} />
                             ) : (
                               <Camera className="h-5 w-5 text-muted-foreground/40" />
                             )}
@@ -1895,6 +2619,7 @@ export function PersonalInventory({
                     <Card
                       key={item.id}
                       data-inv-row={item.id}
+                      data-search-highlight-id={`personalEquipment:${item.id}`}
                       onClick={() => setViewing({ item, index: 0 })}
                       className={`overflow-hidden group relative border-border/60 hover:border-foreground/30 hover:shadow-md transition-all duration-200 p-0 gap-0 cursor-pointer ${isSel ? "ring-2 ring-foreground/40" : ""} ${isFocused ? "ring-2 ring-cyan-500/70" : ""}`}
                     >
@@ -1904,17 +2629,7 @@ export function PersonalInventory({
                       >
                         {cover ? (
                           <>
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={cover.filePath}
-                              alt={cover.caption ?? item.name}
-                              className="w-full h-full object-cover transition-transform duration-300"
-                              style={{
-                                objectPosition: `${cover.focalX ?? 50}% ${cover.focalY ?? 50}%`,
-                                transform: `scale(${cover.zoom ?? 1})`,
-                                transformOrigin: `${cover.focalX ?? 50}% ${cover.focalY ?? 50}%`,
-                              }}
-                            />
+                            <PhotoView p={cover} alt={cover.caption ?? item.name} className="transition-transform duration-300" />
                             {item.photos.length > 1 && (
                               <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1">
                                 {item.photos.slice(0, Math.min(item.photos.length, 5)).map((_, i) => (
@@ -2160,7 +2875,49 @@ export function PersonalInventory({
           className="fixed inset-0 z-[2150] flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-6"
           onMouseDown={(e) => { if (e.target === e.currentTarget) setEditing(null); }}
         >
-          <Card className="border-cyan-500/40 ring-1 ring-cyan-500/20 shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+          <Card
+            className={`relative border-cyan-500/40 ring-1 ring-cyan-500/20 shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden ${editingDragActive ? "ring-2 ring-cyan-500" : ""}`}
+            onDragEnter={(e) => {
+              if (e.dataTransfer?.types?.includes("Files")) {
+                e.preventDefault();
+                setEditingDragActive(true);
+              }
+            }}
+            onDragOver={(e) => {
+              if (e.dataTransfer?.types?.includes("Files")) {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = "copy";
+              }
+            }}
+            onDragLeave={(e) => {
+              if (e.currentTarget === e.target) setEditingDragActive(false);
+            }}
+            onDrop={async (e) => {
+              if (!e.dataTransfer?.types?.includes("Files")) return;
+              e.preventDefault();
+              setEditingDragActive(false);
+              const files = Array.from(e.dataTransfer.files).filter((f) => f.type.startsWith("image/"));
+              if (!files.length) return;
+              if (!editing?.id) {
+                toast.message("Save the item first, then drop photos");
+                return;
+              }
+              const tid = toast.loading(`Uploading ${files.length} photo${files.length === 1 ? "" : "s"}…`);
+              const startIndex = editing.photos?.length ?? 0;
+              for (let i = 0; i < files.length; i++) {
+                await uploadPhoto(editing.id, files[i], startIndex === 0 && i === 0);
+              }
+              toast.success("Photos added", { id: tid });
+            }}
+          >
+            {editingDragActive && (
+              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-cyan-500/15 backdrop-blur-sm pointer-events-none rounded-lg border-2 border-dashed border-cyan-500">
+                <Upload className="h-10 w-10 text-cyan-500 mb-2" />
+                <div className="text-sm font-medium text-cyan-700 dark:text-cyan-300">
+                  {editing?.id ? "Drop to add photos" : "Save the item first"}
+                </div>
+              </div>
+            )}
             <div className="flex items-start justify-between gap-3 px-3 py-2 border-b bg-cyan-500/5 shrink-0">
             <div className="min-w-0">
               <div className="text-sm font-semibold flex items-center gap-2">
@@ -2330,16 +3087,15 @@ export function PersonalInventory({
 
               <div className="sm:col-span-2 space-y-1">
                 <Label>Tags</Label>
-                <Input
-                  value={(editing.tags ?? []).join(", ")}
-                  placeholder="comma-separated, e.g. field-kit, calibrated, loaner"
-                  onChange={(e) => {
-                    const raw = e.target.value;
-                    const arr = raw.split(",").map((t) => t.trim().toLowerCase()).filter(Boolean);
-                    setEditing({ ...editing, tags: Array.from(new Set(arr)).slice(0, 20) });
-                  }}
+                <TagInput
+                  value={editing.tags ?? []}
+                  onChange={(next) => setEditing({ ...editing, tags: next })}
+                  placeholder="Type a tag and press Enter (e.g. field-kit)"
+                  maxTags={20}
+                  maxTagLength={32}
+                  suggestions={Object.keys(tagCounts)}
                 />
-                <p className="text-[10px] text-muted-foreground">Lowercased, max 20 tags / 32 chars each.</p>
+                <p className="text-[10px] text-muted-foreground">Press Enter, Tab, or comma to add. Backspace removes the last. Max 20 tags / 32 chars each.</p>
               </div>
 
               <div className="sm:col-span-2 space-y-1">
@@ -2430,15 +3186,10 @@ export function PersonalInventory({
                         className={`relative group/p aspect-square rounded border overflow-hidden bg-muted ${dragPhotoId === p.id ? "opacity-40" : ""} ${reorderBusy ? "pointer-events-none" : ""}`}
                       >
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={p.filePath}
+                        <PhotoView
+                          p={p}
                           alt={p.caption ?? editing.name ?? "photo"}
-                          className="w-full h-full object-cover cursor-zoom-in"
-                          style={{
-                            objectPosition: `${p.focalX ?? 50}% ${p.focalY ?? 50}%`,
-                            transform: `scale(${p.zoom ?? 1})`,
-                            transformOrigin: `${p.focalX ?? 50}% ${p.focalY ?? 50}%`,
-                          }}
+                          imgClassName="cursor-zoom-in"
                           onClick={() => {
                             const fresh = items.find((i) => i.id === editing.id);
                             if (fresh) setLightbox({ item: fresh, index: idx });
@@ -2550,6 +3301,76 @@ export function PersonalInventory({
         </div>
       )}
 
+      {/* Share modal */}
+      {shareOpen && (
+        <ShareModal
+          onClose={() => setShareOpen(false)}
+          selectedIds={Array.from(selected)}
+          totalCount={items.length}
+          kits={kits}
+        />
+      )}
+
+      {/* Bulk crop — apply same focal/zoom/rotation/flip across many photos */}
+      {bulkCropping && (() => {
+        const selectedItems = items.filter((i) => selected.has(i.id));
+        const photoIds: string[] = [];
+        for (const it of selectedItems) {
+          if (!it.photos || it.photos.length === 0) continue;
+          if (bulkCropping.scope === "covers") {
+            const cover = it.photos.find((p) => p.isCover) ?? it.photos[0];
+            photoIds.push(cover.id);
+          } else {
+            for (const p of it.photos) photoIds.push(p.id);
+          }
+        }
+        const previewPhoto =
+          selectedItems.find((i) => i.photos && i.photos.length > 0)?.photos[0] ?? null;
+        if (!previewPhoto || photoIds.length === 0) {
+          setBulkCropping(null);
+          toast.message("No photos in selected items");
+          return null;
+        }
+        const itemName =
+          bulkCropping.scope === "covers"
+            ? `${selectedItems.length} cover photo${selectedItems.length === 1 ? "" : "s"}`
+            : `${photoIds.length} photo${photoIds.length === 1 ? "" : "s"} across ${selectedItems.length} item${selectedItems.length === 1 ? "" : "s"}`;
+        return (
+          <CropModal
+            key="bulk-crop"
+            photo={previewPhoto}
+            itemName={itemName}
+            onClose={() => setBulkCropping(null)}
+            onSave={async ({ focalX, focalY, zoom, rotation, flipH, flipV }) => {
+              const tid = toast.loading(`Applying crop to ${photoIds.length} photo${photoIds.length === 1 ? "" : "s"}…`);
+              let ok = 0;
+              let fail = 0;
+              for (const pid of photoIds) {
+                try {
+                  const res = await fetch("/api/personal-equipment/photos", {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ id: pid, focalX, focalY, zoom, rotation, flipH, flipV }),
+                  });
+                  if (res.ok) ok++; else fail++;
+                } catch {
+                  fail++;
+                }
+              }
+              if (fail === 0) {
+                toast.success(`Crop applied to ${ok} photo${ok === 1 ? "" : "s"}`, { id: tid });
+              } else if (ok === 0) {
+                toast.error(`Crop failed for all ${fail} photo${fail === 1 ? "" : "s"}`, { id: tid });
+              } else {
+                toast.warning(`Crop applied to ${ok}, failed for ${fail}`, { id: tid });
+              }
+              setBulkCropping(null);
+              await load();
+            }}
+          />
+        );
+      })()}
+
       {/* Crop / focal-point editor */}
       {cropping && (() => {
         const photo = cropping.item.photos.find((p) => p.id === cropping.photoId);
@@ -2560,13 +3381,13 @@ export function PersonalInventory({
             photo={photo}
             itemName={cropping.item.name}
             onClose={() => setCropping(null)}
-            onSave={async (focalX, focalY, zoom) => {
+            onSave={async ({ focalX, focalY, zoom, rotation, flipH, flipV }) => {
               const tid = toast.loading("Saving crop…");
               try {
                 const res = await fetch("/api/personal-equipment/photos", {
                   method: "PATCH",
                   headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ id: photo.id, focalX, focalY, zoom }),
+                  body: JSON.stringify({ id: photo.id, focalX, focalY, zoom, rotation, flipH, flipV }),
                 });
                 if (!res.ok) throw new Error(await res.text());
                 toast.success("Crop saved", { id: tid });
@@ -2633,16 +3454,10 @@ export function PersonalInventory({
                   <div className="relative w-full aspect-square max-w-md bg-muted rounded-lg overflow-hidden">
                     {photo ? (
                       <>
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={photo.filePath}
+                        <PhotoView
+                          p={photo}
                           alt={photo.caption ?? item.name}
-                          className="w-full h-full object-cover cursor-zoom-in"
-                          style={{
-                            objectPosition: `${photo.focalX ?? 50}% ${photo.focalY ?? 50}%`,
-                            transform: `scale(${photo.zoom ?? 1})`,
-                            transformOrigin: `${photo.focalX ?? 50}% ${photo.focalY ?? 50}%`,
-                          }}
+                          imgClassName="cursor-zoom-in"
                           onClick={() => setLightbox({ item, index: viewing.index })}
                         />
                         {photos.length > 1 && (
@@ -2686,16 +3501,7 @@ export function PersonalInventory({
                           className={`h-12 w-12 rounded overflow-hidden border-2 transition-all ${i === viewing.index ? "border-foreground" : "border-transparent opacity-60 hover:opacity-100"}`}
                         >
                           {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={p.filePath}
-                            alt=""
-                            className="w-full h-full object-cover"
-                            style={{
-                              objectPosition: `${p.focalX ?? 50}% ${p.focalY ?? 50}%`,
-                              transform: `scale(${p.zoom ?? 1})`,
-                              transformOrigin: `${p.focalX ?? 50}% ${p.focalY ?? 50}%`,
-                            }}
-                          />
+                          <PhotoView p={p} />
                         </button>
                       ))}
                     </div>
@@ -2801,11 +3607,42 @@ export function PersonalInventory({
         if (!photo) return null;
         const next = () => setLightbox((lb) => lb ? { ...lb, index: (lb.index + 1) % photos.length } : lb);
         const prev = () => setLightbox((lb) => lb ? { ...lb, index: (lb.index - 1 + photos.length) % photos.length } : lb);
+        const totalRotation = ((photo.rotation ?? 0) + lbRotation) % 360;
+        const flipH = (photo.flipH ? -1 : 1) * (lbFlipH ? -1 : 1);
+        const flipV = (photo.flipV ? -1 : 1) * (lbFlipV ? -1 : 1);
+        const reset = () => { setLbZoom(1); setLbPan({ x: 0, y: 0 }); setLbRotation(0); setLbFlipH(false); setLbFlipV(false); };
+        const isZoomed = lbZoom > 1.001;
         return (
           <div
-            className="fixed inset-0 z-[2200] bg-black/90 flex items-center justify-center"
+            className="fixed inset-0 z-[2200] bg-black/90 flex items-center justify-center select-none"
             onClick={() => setLightbox(null)}
+            onWheel={(e) => {
+              if (!e.ctrlKey && !e.metaKey) {
+                // Only zoom on wheel — let normal scroll alone if modifier not held
+                e.preventDefault();
+              }
+              const delta = -e.deltaY * 0.0015;
+              setLbZoom((z) => Math.min(8, Math.max(1, +(z + delta * z).toFixed(3))));
+            }}
           >
+            {/* Top toolbar */}
+            <div
+              className="absolute top-3 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-black/60 rounded-full px-2 py-1 text-white text-xs"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button type="button" onClick={() => setLbZoom((z) => Math.max(1, +(z - 0.25).toFixed(2)))} className="p-1.5 rounded-full hover:bg-white/15" title="Zoom out (-)"><ZoomOut className="h-4 w-4" /></button>
+              <span className="px-1 tabular-nums w-12 text-center">{Math.round(lbZoom * 100)}%</span>
+              <button type="button" onClick={() => setLbZoom((z) => Math.min(8, +(z + 0.25).toFixed(2)))} className="p-1.5 rounded-full hover:bg-white/15" title="Zoom in (+)"><ZoomIn className="h-4 w-4" /></button>
+              <span className="h-4 w-px bg-white/20 mx-1" />
+              <button type="button" onClick={() => setLbRotation((r) => (r + 270) % 360)} className="p-1.5 rounded-full hover:bg-white/15" title="Rotate left"><RotateCcw className="h-4 w-4" /></button>
+              <button type="button" onClick={() => setLbRotation((r) => (r + 90) % 360)} className="p-1.5 rounded-full hover:bg-white/15" title="Rotate right (R)"><RotateCw className="h-4 w-4" /></button>
+              <button type="button" onClick={() => setLbFlipH((f) => !f)} className={`p-1.5 rounded-full hover:bg-white/15 ${lbFlipH ? "bg-white/20" : ""}`} title="Flip horizontal"><FlipHorizontal className="h-4 w-4" /></button>
+              <button type="button" onClick={() => setLbFlipV((f) => !f)} className={`p-1.5 rounded-full hover:bg-white/15 ${lbFlipV ? "bg-white/20" : ""}`} title="Flip vertical"><FlipVertical className="h-4 w-4" /></button>
+              <span className="h-4 w-px bg-white/20 mx-1" />
+              <button type="button" onClick={reset} className="px-2 py-1 rounded-full hover:bg-white/15 text-[11px]" title="Reset (0)">Reset</button>
+              <a href={photo.filePath} download className="p-1.5 rounded-full hover:bg-white/15" title="Download" onClick={(e) => e.stopPropagation()}><Download className="h-4 w-4" /></a>
+            </div>
+
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); setLightbox(null); }}
@@ -2835,12 +3672,33 @@ export function PersonalInventory({
               </>
             )}
             <div className="max-w-[92vw] max-h-[88vh] flex flex-col items-center gap-3" onClick={(e) => e.stopPropagation()}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={photo.filePath}
-                alt={photo.caption ?? lightbox.item.name}
-                className="max-w-[92vw] max-h-[78vh] object-contain rounded shadow-2xl"
-              />
+              <div
+                className="overflow-hidden flex items-center justify-center"
+                style={{ width: "92vw", height: "78vh", cursor: isZoomed ? (lbDragRef.current ? "grabbing" : "grab") : "zoom-in" }}
+                onDoubleClick={() => setLbZoom((z) => (z > 1.001 ? 1 : 2))}
+                onMouseDown={(e) => {
+                  if (!isZoomed) return;
+                  lbDragRef.current = { x: e.clientX, y: e.clientY, sx: lbPan.x, sy: lbPan.y };
+                }}
+                onMouseMove={(e) => {
+                  const d = lbDragRef.current;
+                  if (!d) return;
+                  setLbPan({ x: d.sx + (e.clientX - d.x), y: d.sy + (e.clientY - d.y) });
+                }}
+                onMouseUp={() => { lbDragRef.current = null; }}
+                onMouseLeave={() => { lbDragRef.current = null; }}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={photo.filePath}
+                  alt={photo.caption ?? lightbox.item.name}
+                  draggable={false}
+                  className="max-w-full max-h-full object-contain rounded shadow-2xl will-change-transform transition-transform duration-75"
+                  style={{
+                    transform: `translate(${lbPan.x}px, ${lbPan.y}px) scale(${lbZoom}) rotate(${totalRotation}deg) scaleX(${flipH}) scaleY(${flipV})`,
+                  }}
+                />
+              </div>
               <div className="flex flex-col items-center gap-1 text-center text-white">
                 <div className="text-sm font-medium">{lightbox.item.name}</div>
                 {photo.caption && <div className="text-xs text-white/70 italic">{photo.caption}</div>}
@@ -2851,28 +3709,42 @@ export function PersonalInventory({
                       <Star className="h-3 w-3 fill-yellow-300" /> cover
                     </span>
                   )}
+                  <span className="opacity-60">· scroll to zoom · drag to pan · R rotate · 0 reset</span>
                 </div>
                 {photos.length > 1 && (
                   <div className="flex items-center gap-1 mt-2">
                     {photos.map((p, i) => (
-                      <button
+                      <div
                         key={p.id}
-                        type="button"
-                        onClick={() => setLightbox({ item: lightbox.item, index: i })}
-                        className={`h-10 w-10 rounded overflow-hidden border-2 transition-all ${i === lightbox.index ? "border-white scale-110" : "border-transparent opacity-60 hover:opacity-100"}`}
+                        draggable={!reorderBusy}
+                        onDragStart={() => setDragPhotoId(p.id)}
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          if (!dragPhotoId || dragPhotoId === p.id) { setDragPhotoId(null); return; }
+                          const ids = photos.map((x) => x.id);
+                          const from = ids.indexOf(dragPhotoId);
+                          if (from < 0) { setDragPhotoId(null); return; }
+                          ids.splice(i, 0, ids.splice(from, 1)[0]);
+                          setDragPhotoId(null);
+                          void reorderPhotos(lightbox.item.id, ids);
+                        }}
+                        onDragEnd={() => setDragPhotoId(null)}
+                        className={`relative ${dragPhotoId === p.id ? "opacity-40" : ""}`}
+                        title="Click to view · Drag to reorder"
                       >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={p.filePath}
-                          alt=""
-                          className="w-full h-full object-cover"
-                          style={{
-                            objectPosition: `${p.focalX ?? 50}% ${p.focalY ?? 50}%`,
-                            transform: `scale(${p.zoom ?? 1})`,
-                            transformOrigin: `${p.focalX ?? 50}% ${p.focalY ?? 50}%`,
-                          }}
-                        />
-                      </button>
+                        <button
+                          type="button"
+                          onClick={() => setLightbox({ item: lightbox.item, index: i })}
+                          className={`block h-10 w-10 rounded overflow-hidden border-2 transition-all ${i === lightbox.index ? "border-white scale-110" : "border-transparent opacity-60 hover:opacity-100"}`}
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <PhotoView p={p} />
+                        </button>
+                        {p.isCover && (
+                          <Star className="absolute -top-1 -left-1 h-3 w-3 text-yellow-300 fill-yellow-300 drop-shadow" />
+                        )}
+                      </div>
                     ))}
                   </div>
                 )}

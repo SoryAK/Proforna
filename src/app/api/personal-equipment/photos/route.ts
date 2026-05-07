@@ -33,7 +33,7 @@ export async function GET(request: Request) {
 
   const photos = await prisma.personalEquipmentPhoto.findMany({
     where: { equipmentId },
-    orderBy: [{ isCover: "desc" }, { sortOrder: "asc" }, { createdAt: "asc" }],
+    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
   });
   return NextResponse.json(photos);
 }
@@ -110,7 +110,7 @@ export async function PATCH(request: Request) {
 
   try {
     const body = await request.json();
-    const { id, caption, isCover, focalX, focalY, zoom } = body;
+    const { id, caption, isCover, focalX, focalY, zoom, rotation, flipH, flipV } = body;
     if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
 
     const existing = await prisma.personalEquipmentPhoto.findUnique({
@@ -137,6 +137,9 @@ export async function PATCH(request: Request) {
         ...(typeof focalX === "number" && { focalX: Math.round(clamp(focalX, 0, 100)) }),
         ...(typeof focalY === "number" && { focalY: Math.round(clamp(focalY, 0, 100)) }),
         ...(typeof zoom === "number" && { zoom: clamp(zoom, 1, 4) }),
+        ...(typeof rotation === "number" && { rotation: ((Math.round(rotation / 90) * 90) % 360 + 360) % 360 }),
+        ...(typeof flipH === "boolean" && { flipH }),
+        ...(typeof flipV === "boolean" && { flipV }),
       },
     });
     return NextResponse.json(updated);

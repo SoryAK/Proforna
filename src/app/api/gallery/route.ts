@@ -214,7 +214,7 @@ export async function PATCH(request: Request) {
     }
 
     // ── Single photo update ───────────────────────────────────
-    const { id, caption, fileName, isCover, isFavorite, isPrivate, annotationsPublic, tags, markers, dateTaken, rotation, sortOrder, albumId } = body;
+    const { id, caption, fileName, isCover, isFavorite, isPrivate, isBanner, annotationsPublic, tags, markers, dateTaken, rotation, sortOrder, albumId } = body;
     if (!id)
       return NextResponse.json({ error: "id required" }, { status: 400 });
 
@@ -254,6 +254,7 @@ export async function PATCH(request: Request) {
         ...(isCover !== undefined && { isCover }),
         ...(isFavorite !== undefined && { isFavorite }),
         ...(isPrivate !== undefined && { isPrivate }),
+        ...(isBanner !== undefined && { isBanner: !!isBanner }),
         ...(annotationsPublic !== undefined && { annotationsPublic: !!annotationsPublic }),
         ...(tags !== undefined && { tags: JSON.stringify(tags) }),
         ...(markers !== undefined && { markers: JSON.stringify(markers) }),

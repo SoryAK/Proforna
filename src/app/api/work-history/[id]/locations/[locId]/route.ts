@@ -58,6 +58,8 @@ export async function PATCH(
     const c = body.outlineColor ? String(body.outlineColor).trim() : null;
     update.outlineColor = c && /^#[0-9a-fA-F]{6}$/.test(c) ? c.toLowerCase() : null;
   }
+  if (body.coverImage !== undefined) update.coverImage = body.coverImage ? String(body.coverImage) : null;
+  if (body.coverImageY !== undefined) update.coverImageY = body.coverImageY != null ? Math.max(0, Math.min(100, Number(body.coverImageY))) : 50;
 
   const updated = await prisma.workHistoryLocation.update({ where: { id: locId }, data: update });
   return NextResponse.json(updated);

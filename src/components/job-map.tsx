@@ -1061,7 +1061,7 @@ export function JobMap() {
   const knownAnchorIds = useRef<Set<string>>(new Set());
 
   /* ── Work History (past jobs reference pins) ── */
-  interface WorkHistoryLocationItem { id: string; label: string; type: string; address: string; lat: number; lng: number; isPrimary: boolean; includeInOutline?: boolean; closed?: boolean; placeId?: string | null; skills?: string | null; startDate?: string | null; endDate?: string | null; photos?: string | null; hoverNote?: string | null; outlineColor?: string | null }
+  interface WorkHistoryLocationItem { id: string; label: string; type: string; address: string; lat: number; lng: number; isPrimary: boolean; includeInOutline?: boolean; closed?: boolean; placeId?: string | null; skills?: string | null; startDate?: string | null; endDate?: string | null; photos?: string | null; hoverNote?: string | null; outlineColor?: string | null; coverImage?: string | null; coverImageY?: number | null }
   interface WorkHistoryItem { id: string; type?: string; company: string; title: string | null; address: string; lat: number; lng: number; startDate: string | null; endDate: string | null; locations: WorkHistoryLocationItem[]; placeId?: string | null; osmWayId?: number | null; osmWayIds?: number[] | null; footprintCustom?: { lat: number; lng: number }[][] | null; degree?: string | null; major?: string | null; gpa?: number | null; coverImage?: string | null; coverImageY?: number | null; uniformData?: string | null; hoverNote?: string | null; outlineColor?: string | null; outlineOverrides?: Record<string, { color?: string | null; note?: string | null }> | null }
   const { data: workHistory = [] } = useQuery<WorkHistoryItem[]>({
     queryKey: ["work-history"],
@@ -1405,6 +1405,7 @@ export function JobMap() {
     vehicleYear?: string; vehicleMake?: string; vehicleModel?: string;
     vehicleId?: string; vehicleMpg?: number;
     gasPricePerGallon?: number; daysInOffice?: number;
+    bannerSlideshowEnabled?: boolean;
   }>({
     queryKey: ["profile"],
     queryFn: () => fetch("/api/profile").then((r) => r.json()),
@@ -2668,6 +2669,12 @@ export function JobMap() {
       : "";
     // Hover note resolution: per-ring override (passed in) → per-location → job.
     const subLoc = locationId ? target.locations?.find((l) => l.id === locationId) : null;
+    // Sub-location cover image: prefer the sub-location's own image, fall back to the parent job's cover.
+    const subCoverSrc = subLoc?.coverImage ?? target.coverImage ?? null;
+    const subCoverY = subLoc?.coverImage ? (subLoc.coverImageY ?? 50) : (target.coverImageY ?? 50);
+    const effectiveCover = locationId
+      ? (subCoverSrc ? `<img src="${subCoverSrc}" style="width:100%;height:72px;object-fit:cover;display:block;object-position:center ${subCoverY}%" />` : "")
+      : cover;
     const subNote = subLoc?.hoverNote ?? null;
     const jobNote = target.hoverNote ?? null;
     const effectiveNote = overrideNote !== undefined && overrideNote !== null
@@ -2687,7 +2694,7 @@ export function JobMap() {
       ? `<div style="margin-top:4px;padding-top:4px;border-top:1px solid #f3f4f6;font-size:10.5px;color:#4b5563;line-height:1.35;white-space:pre-wrap">${noteParts.join("<br/>")}</div>`
       : "";
     tip.innerHTML = `<div style="overflow:hidden;">
-      ${cover}
+      ${effectiveCover}
       <div style="padding:6px 8px 5px;">
         <div style="font-weight:700;font-size:12px;color:#111">${emoji} ${esc(target.company)}</div>
         ${titleStr}${tenureStr}${noteStr}
@@ -4637,6 +4644,7 @@ export function JobMap() {
               onResidenceDeleted={() => queryClient.invalidateQueries({ queryKey: ["residences"] })}
               hiddenTypes={hiddenTypes}
               onToggleType={(type) => setHiddenTypes((prev) => { const s = new Set(prev); if (s.has(type)) s.delete(type); else s.add(type); return s; })}
+              bannerSlideshowEnabled={profile?.bannerSlideshowEnabled ?? true}
               onExitFocus={() => {
                 setFocusedWorkHistoryId(null);
                 setPinDropMode(false);
@@ -7810,9 +7818,9 @@ function WorkHistoryPanel({
   items, onClose, onAdded, onDeleted, showCareerPath, onToggleCareerPath, showOverlaps, onToggleOverlaps, focusedId, onExitFocus,
   pinDropMode, pinDropCoords, onStartPinDrop, onCancelPinDrop, onClearPinDrop, onFocusJob,
   residences, activeResidence, timeFilter, timeRange, onTimeFilterChange, onResidenceAdded, onResidenceDeleted,
-  hiddenTypes, onToggleType, mapContainer,
+  hiddenTypes, onToggleType, mapContainer, bannerSlideshowEnabled,
 }: {
-  items: { id: string; type?: string; company: string; title: string | null; address: string; lat: number; lng: number; startDate: string | null; endDate: string | null; locations: { id: string; label: string; type: string; address: string; lat: number; lng: number; isPrimary: boolean; includeInOutline?: boolean; closed?: boolean; placeId?: string | null; skills?: string | null; startDate?: string | null; endDate?: string | null; photos?: string | null }[];
+  items: { id: string; type?: string; company: string; title: string | null; address: string; lat: number; lng: number; startDate: string | null; endDate: string | null; locations: { id: string; label: string; type: string; address: string; lat: number; lng: number; isPrimary: boolean; includeInOutline?: boolean; closed?: boolean; placeId?: string | null; skills?: string | null; startDate?: string | null; endDate?: string | null; photos?: string | null; coverImage?: string | null; coverImageY?: number | null }[];
     degree?: string | null; major?: string | null; gpa?: number | null;
     salaryAmount?: number | null; salaryType?: string | null; salaryCurrency?: string | null; bonusAmount?: number | null; equityNotes?: string | null;
     workMode?: string | null; hybridDays?: number | null; scheduleType?: string | null; hoursPerWeek?: number | null; shiftNotes?: string | null;
@@ -7827,6 +7835,7 @@ function WorkHistoryPanel({
     differentials?: string | null; payFrequency?: string | null; payType?: string | null;
     coverImage?: string | null;
     coverImageY?: number | null;
+    bannerSlideshowOverride?: boolean | null;
     uniformData?: string | null;
   }[];
   onClose: () => void;
@@ -7854,6 +7863,7 @@ function WorkHistoryPanel({
   hiddenTypes: Set<string>;
   onToggleType: (type: string) => void;
   mapContainer: HTMLElement | null;
+  bannerSlideshowEnabled: boolean;
 }) {
   const [adding, setAdding] = useState(false);
   const [addType, setAddType] = useState<"job" | "school" | "military" | "volunteer" | "internship" | "self-employed" | "unemployed">("job");
@@ -7900,6 +7910,20 @@ function WorkHistoryPanel({
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchSelectedIndex, setSearchSelectedIndex] = useState(0);
+  // Deep-link target set when a search hit is selected. The matching panel
+  // (Equipment / Attachments / Gallery / PersonalInventory) reads this via a
+  // `data-search-highlight-id` attribute and we scroll it into view + flash.
+  // Used as a fallback (e.g. attachments have no inline viewer).
+  const [searchHighlight, setSearchHighlight] = useState<{ kind: string; id: string } | null>(null);
+  // Pending "open this thing" request from a search hit. Resolved by an effect
+  // once the relevant data (matchedPosition, gallery, inventory) is loaded so
+  // we can actually open the photo viewer / lightbox / item card.
+  const [pendingSearchOpen, setPendingSearchOpen] = useState<
+    | { kind: "equipment"; id: string }
+    | { kind: "galleryPhoto"; id: string }
+    | { kind: "personalEquipment"; id: string }
+    | null
+  >(null);
   const [recentSearches, setRecentSearches] = useState<string[]>(() => {
     if (typeof window === "undefined") return [];
     try {
@@ -7933,6 +7957,29 @@ function WorkHistoryPanel({
   }, [searchOpen]);
   // Reset selection whenever results change
   useEffect(() => { setSearchSelectedIndex(0); }, [searchQuery]);
+  // Scroll-to + flash effect for deep-linked search hits. Polls briefly so
+  // it works even when the target panel mounts a tick after the search
+  // modal closes (e.g. PersonalInventory data still loading).
+  useEffect(() => {
+    if (!searchHighlight) return;
+    const sel = `[data-search-highlight-id="${searchHighlight.kind}:${searchHighlight.id}"]`;
+    let attempts = 0;
+    let timeoutId: number | undefined;
+    const tick = () => {
+      const el = document.querySelector(sel) as HTMLElement | null;
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        el.classList.add("search-flash");
+        window.setTimeout(() => el.classList.remove("search-flash"), 1700);
+        setSearchHighlight(null);
+        return;
+      }
+      if (attempts++ > 20) { setSearchHighlight(null); return; } // ~2s ceiling
+      timeoutId = window.setTimeout(tick, 100);
+    };
+    timeoutId = window.setTimeout(tick, 60);
+    return () => { if (timeoutId !== undefined) window.clearTimeout(timeoutId); };
+  }, [searchHighlight]);
   const [useTimelineStyle, setUseTimelineStyle] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
     try { return localStorage.getItem("resumsify:work-history-timeline-style") === "1"; } catch { return false; }
@@ -8435,16 +8482,72 @@ function WorkHistoryPanel({
   // ── Work-history search index (Cmd/⌘+K modal) ──
   type WHSearchHit = {
     key: string;
-    group: "Work" | "Education" | "Field" | "Sub-location";
+    group: "Work" | "Education" | "Field" | "Sub-location" | "Tools" | "Files" | "Photos" | "Notes" | "Inventory";
     title: string;
     subtitle?: string | null;
     snippet?: string | null;
-    itemId: string;
+    /** Work-history id when the hit belongs to a job; clicking focuses that job. */
+    itemId?: string;
+    /** Optional route to navigate to when not job-scoped (e.g. personal inventory). */
+    href?: string;
+    /** Sub-record kind so the side panel can scroll to + flash the matching row. */
+    targetKind?: "equipment" | "attachment" | "galleryPhoto" | "annotation" | "personalEquipment" | "personalEquipmentPhoto";
+    targetId?: string;
+    targetPhotoId?: string;
     Icon: React.ComponentType<{ className?: string }>;
     iconClass?: string;
     score: number;
   };
-  const searchHits = useMemo<WHSearchHit[]>(() => {
+  // Server-side deep search across equipment, attachments, gallery photos,
+  // photo annotations, and personal inventory. Enabled only while the
+  // search modal is open with at least 2 chars.
+  type ServerSearchHit = {
+    key: string;
+    group: "Tools" | "Files" | "Photos" | "Notes" | "Inventory";
+    title: string;
+    subtitle?: string | null;
+    snippet?: string | null;
+    itemId?: string;
+    href?: string;
+    targetKind?: "equipment" | "attachment" | "galleryPhoto" | "annotation" | "personalEquipment" | "personalEquipmentPhoto";
+    targetId?: string;
+    targetPhotoId?: string;
+  };
+  const debouncedSearchQuery = searchQuery.trim();
+  const { data: serverSearchData } = useQuery<{ hits: ServerSearchHit[] }>({
+    queryKey: ["work-history-search", debouncedSearchQuery],
+    queryFn: () =>
+      fetch(`/api/work-history/search?q=${encodeURIComponent(debouncedSearchQuery)}`).then((r) => r.json()),
+    enabled: searchOpen && debouncedSearchQuery.length >= 2,
+    staleTime: 30_000,
+  });
+  const serverSearchHits = useMemo<WHSearchHit[]>(() => {
+    const hits = serverSearchData?.hits || [];
+    const iconFor = (g: ServerSearchHit["group"]) => {
+      switch (g) {
+        case "Tools":     return { Icon: Wrench,    iconClass: "text-cyan-500" };
+        case "Files":     return { Icon: Paperclip, iconClass: "text-slate-500" };
+        case "Photos":    return { Icon: Camera,    iconClass: "text-pink-500" };
+        case "Notes":     return { Icon: Pencil,    iconClass: "text-emerald-500" };
+        case "Inventory": return { Icon: Boxes,     iconClass: "text-amber-500" };
+      }
+    };
+    return hits.map<WHSearchHit>((h) => ({
+      key: h.key,
+      group: h.group,
+      title: h.title,
+      subtitle: h.subtitle ?? null,
+      snippet: h.snippet ?? null,
+      itemId: h.itemId,
+      href: h.href,
+      targetKind: h.targetKind,
+      targetId: h.targetId,
+      targetPhotoId: h.targetPhotoId,
+      ...iconFor(h.group),
+      score: 3,
+    }));
+  }, [serverSearchData]);
+  const localSearchHits = useMemo<WHSearchHit[]>(() => {
     const q = searchQuery.trim().toLowerCase();
     if (q.length < 2) return [];
     const terms = q.split(/\s+/).filter((t) => t.length >= 2);
@@ -8536,6 +8639,18 @@ function WorkHistoryPanel({
     }
     return hits.sort((a, b) => a.score - b.score).slice(0, 50);
   }, [searchQuery, items]);
+  // Combined hits = local (work-history text fields) + server (deep search).
+  // De-dup by key just in case.
+  const searchHits = useMemo<WHSearchHit[]>(() => {
+    const seen = new Set<string>();
+    const out: WHSearchHit[] = [];
+    for (const h of [...localSearchHits, ...serverSearchHits]) {
+      if (seen.has(h.key)) continue;
+      seen.add(h.key);
+      out.push(h);
+    }
+    return out;
+  }, [localSearchHits, serverSearchHits]);
 
   // Overlap map: for each item, which other items overlap in time
   const overlapMap = useMemo(() => {
@@ -8650,6 +8765,7 @@ function WorkHistoryPanel({
       isCover: boolean;
       isFavorite?: boolean;
       isPrivate?: boolean;
+      isBanner?: boolean;
       tags?: string | null;
       markers?: string | null;
       dateTaken?: string | null;
@@ -8681,6 +8797,30 @@ function WorkHistoryPanel({
   const [panelBusy, setPanelBusy] = useState(false);
   const [galleryModalIdx, setGalleryModalIdx] = useState<number | null>(null);
   const [equipmentPhotoViewer, setEquipmentPhotoViewer] = useState<{ equipmentId: string; index: number } | null>(null);
+  // Resolve a pending search-open by actually opening the relevant viewer
+  // once the supporting data (job equipment, gallery photos) has loaded.
+  // Personal inventory is handled by passing `openItemId` to the inventory panel.
+  useEffect(() => {
+    if (!pendingSearchOpen) return;
+    if (pendingSearchOpen.kind === "equipment") {
+      const eq = matchedPosition?.equipment?.find((e) => e.id === pendingSearchOpen.id);
+      if (!eq) return; // wait for matchedPosition to populate
+      if ((eq.photos?.length ?? 0) > 0) {
+        setEquipmentPhotoViewer({ equipmentId: eq.id, index: 0 });
+      } else {
+        // No photos to open — fall back to scroll + flash on the card.
+        setSearchHighlight({ kind: "equipment", id: eq.id });
+      }
+      setPendingSearchOpen(null);
+    } else if (pendingSearchOpen.kind === "galleryPhoto") {
+      const photos = matchedPosition?.galleryPhotos ?? [];
+      const idx = photos.findIndex((p) => p.id === pendingSearchOpen.id);
+      if (idx < 0) return; // wait
+      setGalleryModalIdx(idx);
+      setPendingSearchOpen(null);
+    }
+    // personalEquipment: PersonalInventory consumes openItemId itself.
+  }, [pendingSearchOpen, matchedPosition]);
   const [showFocusInfo, setShowFocusInfo] = useState(false);
   const [showInfoLabel, setShowInfoLabel] = useState(false);
   const [isFocusInfoHovered, setIsFocusInfoHovered] = useState(false);
@@ -8946,6 +9086,40 @@ function WorkHistoryPanel({
   const repoStartRef = useRef<{ mouseY: number; startY: number; h: number } | null>(null);
   const bannerContainerRef = useRef<HTMLDivElement | null>(null);
   const coverImgRef = useRef<HTMLImageElement | null>(null);
+  // ── Banner slideshow ──
+  const [bannerSlide, setBannerSlide] = useState(0);
+  const [bannerHovered, setBannerHovered] = useState(false);
+  // Slideshow on/off — per-job override beats the global user setting.
+  const slideshowOn = (focusedItem?.bannerSlideshowOverride ?? bannerSlideshowEnabled) === true;
+  // Build the slide list: cover image first (if set), then banner-flagged gallery photos when slideshow is on.
+  const bannerSlides = useMemo(() => {
+    const slides: { src: string; y: number; isCover: boolean; id: string }[] = [];
+    if (focusedItem?.coverImage) {
+      slides.push({ src: focusedItem.coverImage, y: focusedItem.coverImageY ?? 50, isCover: true, id: "__cover__" });
+    }
+    if (slideshowOn) {
+      const photos = matchedPosition?.galleryPhotos ?? [];
+      for (const p of photos) {
+        if (p.isPrivate) continue;
+        if (!p.isBanner) continue; // only photos explicitly tagged for the banner gallery
+        // Skip a gallery photo that's identical to the cover (avoids duplicate slide).
+        if (focusedItem?.coverImage && p.filePath === focusedItem.coverImage) continue;
+        slides.push({ src: p.filePath, y: 50, isCover: false, id: p.id });
+      }
+    }
+    return slides;
+  }, [focusedItem?.coverImage, focusedItem?.coverImageY, matchedPosition?.galleryPhotos, slideshowOn]);
+  // Reset slide when the focused job (or slide list) changes.
+  useEffect(() => { setBannerSlide(0); }, [focusedItem?.id, bannerSlides.length]);
+  // Auto-advance the slideshow every 4.5s. Pause on hover or while repositioning.
+  useEffect(() => {
+    if (bannerSlides.length < 2 || bannerHovered || repositioning) return;
+    const id = window.setInterval(() => {
+      setBannerSlide((i) => (i + 1) % bannerSlides.length);
+    }, 4500);
+    return () => window.clearInterval(id);
+  }, [bannerSlides.length, bannerHovered, repositioning]);
+  const currentSlide = bannerSlides[bannerSlide] ?? null;
 
   async function saveReposition() {
     if (!focusedItem) return;
@@ -8962,6 +9136,27 @@ function WorkHistoryPanel({
   }
 
   function cancelReposition() { setRepositioning(false); }
+
+  // Cycle the per-job slideshow override: default (null) → on (true) → off (false) → default.
+  async function cycleBannerSlideshowOverride() {
+    if (!focusedItem) return;
+    const cur = focusedItem.bannerSlideshowOverride;
+    const next: boolean | null = cur == null ? true : cur === true ? false : null;
+    try {
+      const res = await fetch(`/api/work-history/${focusedItem.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bannerSlideshowOverride: next }),
+      });
+      if (!res.ok) throw new Error();
+      onAdded();
+      toast.success(
+        next === null
+          ? `Slideshow: follow setting (${bannerSlideshowEnabled ? "on" : "off"})`
+          : next ? "Slideshow: on for this job" : "Slideshow: off for this job"
+      );
+    } catch { toast.error("Failed to update slideshow"); }
+  }
 
   // ── Uniform ──
   const [uniformDraft, setUniformDraft] = useState<UniformData | null>(null);
@@ -9339,6 +9534,56 @@ function WorkHistoryPanel({
     } catch { toast.error("Failed to update sub-location"); }
   }
 
+  // ── Sub-location cover image upload ──
+  const [locCoverUploading, setLocCoverUploading] = useState<string | null>(null);
+  async function handleSubLocCoverUpload(locId: string, file: File) {
+    if (!focusedItem) return;
+    setLocCoverUploading(locId);
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const img = new Image();
+          img.onload = () => {
+            const MAX = 900;
+            const scale = Math.min(1, MAX / Math.max(img.width, img.height));
+            const canvas = document.createElement("canvas");
+            canvas.width = Math.round(img.width * scale);
+            canvas.height = Math.round(img.height * scale);
+            canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height);
+            resolve(canvas.toDataURL("image/jpeg", 0.82));
+          };
+          img.onerror = reject;
+          img.src = reader.result as string;
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const res = await fetch(`/api/work-history/${focusedItem.id}/locations/${locId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ coverImage: dataUrl }),
+      });
+      if (!res.ok) throw new Error();
+      onAdded();
+    } catch { toast.error("Failed to save sub-location cover"); }
+    finally { setLocCoverUploading(null); }
+  }
+  async function handleSubLocCoverRemove(locId: string) {
+    if (!focusedItem) return;
+    setLocCoverUploading(locId);
+    try {
+      const res = await fetch(`/api/work-history/${focusedItem.id}/locations/${locId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ coverImage: null }),
+      });
+      if (!res.ok) throw new Error();
+      onAdded();
+    } catch { toast.error("Failed to remove sub-location cover"); }
+    finally { setLocCoverUploading(null); }
+  }
+
   // ── Feature F: Skills per sub-location ──
   const [editingSkillsLocId, setEditingSkillsLocId] = useState<string | null>(null);
   const [skillInput, setSkillInput] = useState("");
@@ -9594,20 +9839,45 @@ function WorkHistoryPanel({
                     e.target.value = "";
                   }}
                 />
-                {focusedItem.coverImage ? (
+                {focusedItem.coverImage || bannerSlides.length > 0 ? (
                   <div
                     ref={bannerContainerRef}
                     className={`relative group${repositioning ? " select-none" : ""}`}
+                    onMouseEnter={() => setBannerHovered(true)}
+                    onMouseLeave={() => setBannerHovered(false)}
                   >
-                    <img
-                      ref={coverImgRef}
-                      src={focusedItem.coverImage}
-                      alt="Cover"
-                      className="w-full h-24 object-cover pointer-events-none"
-                      style={{ objectPosition: `center ${repositioning ? coverYDraft : (focusedItem.coverImageY ?? 50)}%` }}
-                      draggable={false}
-                    />
-                    {repositioning ? (
+                    {/* Stacked, crossfaded slides */}
+                    {bannerSlides.map((s, i) => {
+                      const active = i === bannerSlide;
+                      const isCoverSlide = s.isCover;
+                      const y = isCoverSlide && repositioning ? coverYDraft : s.y;
+                      return (
+                        <img
+                          key={s.id}
+                          ref={isCoverSlide && active ? coverImgRef : undefined}
+                          src={s.src}
+                          alt={isCoverSlide ? "Cover" : "Photo"}
+                          className={`${i === 0 ? "" : "absolute inset-0"} w-full h-24 object-cover pointer-events-none transition-opacity duration-700 ease-out`}
+                          style={{ objectPosition: `center ${y}%`, opacity: active ? 1 : 0 }}
+                          draggable={false}
+                        />
+                      );
+                    })}
+                    {/* Slide dot pager (only when 2+ slides) */}
+                    {bannerSlides.length > 1 && !repositioning && (
+                      <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 flex items-center gap-1 z-10">
+                        {bannerSlides.map((_, i) => (
+                          <button
+                            key={i}
+                            type="button"
+                            aria-label={`Go to slide ${i + 1}`}
+                            onClick={() => setBannerSlide(i)}
+                            className={`h-1.5 rounded-full transition-all ${i === bannerSlide ? "w-4 bg-white" : "w-1.5 bg-white/55 hover:bg-white/80"}`}
+                          />
+                        ))}
+                      </div>
+                    )}
+                    {repositioning && currentSlide?.isCover ? (
                       <div
                         className="absolute inset-0 bg-black/30 flex items-center justify-center gap-2 cursor-ns-resize touch-none"
                         onPointerDown={(e) => {
@@ -9657,30 +9927,53 @@ function WorkHistoryPanel({
                       </div>
                     ) : (
                       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
+                        {currentSlide?.isCover && (
+                          <button
+                            type="button"
+                            title="Reposition"
+                            className="bg-white/90 text-gray-800 rounded-full p-1.5 hover:bg-white shadow"
+                            onClick={() => { setCoverYDraft(focusedItem.coverImageY ?? 50); setRepositioning(true); }}
+                          >
+                            <Move className="h-3.5 w-3.5" />
+                          </button>
+                        )}
                         <button
                           type="button"
-                          title="Reposition"
-                          className="bg-white/90 text-gray-800 rounded-full p-1.5 hover:bg-white shadow"
-                          onClick={() => { setCoverYDraft(focusedItem.coverImageY ?? 50); setRepositioning(true); }}
-                        >
-                          <Move className="h-3.5 w-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          title="Change cover photo"
+                          title={focusedItem.coverImage ? "Change cover photo" : "Set cover photo"}
                           className="bg-white/90 text-gray-800 rounded-full p-1.5 hover:bg-white shadow"
                           onClick={() => coverInputRef.current?.click()}
                         >
                           <Camera className="h-3.5 w-3.5" />
                         </button>
-                        <button
-                          type="button"
-                          title="Remove cover photo"
-                          className="bg-white/90 text-red-600 rounded-full p-1.5 hover:bg-white shadow"
-                          onClick={handleCoverImageRemove}
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </button>
+                        {(() => {
+                          const ov = focusedItem.bannerSlideshowOverride;
+                          const label = ov == null
+                            ? `Slideshow: follows setting (${bannerSlideshowEnabled ? "on" : "off"}) — click to override`
+                            : ov ? "Slideshow: forced on for this job" : "Slideshow: forced off for this job";
+                          const cls = ov == null
+                            ? "bg-white/90 text-gray-800"
+                            : ov ? "bg-emerald-500/95 text-white" : "bg-red-500/95 text-white";
+                          return (
+                            <button
+                              type="button"
+                              title={label}
+                              className={`${cls} rounded-full p-1.5 hover:bg-white shadow`}
+                              onClick={cycleBannerSlideshowOverride}
+                            >
+                              <Images className="h-3.5 w-3.5" />
+                            </button>
+                          );
+                        })()}
+                        {currentSlide?.isCover && (
+                          <button
+                            type="button"
+                            title="Remove cover photo"
+                            className="bg-white/90 text-red-600 rounded-full p-1.5 hover:bg-white shadow"
+                            onClick={handleCoverImageRemove}
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        )}
                       </div>
                     )}
                     {coverUploading && (
@@ -10055,13 +10348,37 @@ function WorkHistoryPanel({
                           const tagCount = parseTags(p.tags).length;
                           const markerCount = parseMarkers(p.markers).length;
                           return (
-                            <div key={p.id} className="group/photo relative rounded-md overflow-hidden aspect-square bg-muted cursor-pointer" onClick={() => setGalleryModalIdx(i)}>
+                            <div key={p.id} data-search-highlight-id={`galleryPhoto:${p.id}`} className="group/photo relative rounded-md overflow-hidden aspect-square bg-muted cursor-pointer" onClick={() => setGalleryModalIdx(i)}>
                               <img src={p.filePath} alt={p.caption || p.fileName} className="w-full h-full object-cover" />
                               {p.isCover && (
                                 <div className="absolute top-0.5 left-0.5">
                                   <Star className="h-3 w-3 text-yellow-400 fill-yellow-400 drop-shadow" />
                                 </div>
                               )}
+                              {/* "Use in banner" toggle (top-left, below the cover star). Active = photo appears in the slideshow. */}
+                              <button
+                                type="button"
+                                title={p.isBanner ? "Remove from banner gallery" : "Add to banner gallery"}
+                                className={`absolute ${p.isCover ? "top-4" : "top-0.5"} left-0.5 p-0.5 rounded ${p.isBanner ? "bg-amber-400/90 text-white" : "bg-black/35 text-white/70 hover:text-white opacity-0 group-hover/photo:opacity-100"} transition-all`}
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  if (!focusedItem) return;
+                                  setPanelBusy(true);
+                                  try {
+                                    const res = await fetch("/api/gallery", {
+                                      method: "PATCH",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({ id: p.id, isBanner: !p.isBanner }),
+                                    });
+                                    if (!res.ok) throw new Error();
+                                    const posRes = await fetch(`/api/current-position/${focusedItem.id}`);
+                                    if (posRes.ok) setMatchedPosition(await posRes.json());
+                                  } catch { toast.error("Failed to update"); }
+                                  finally { setPanelBusy(false); }
+                                }}
+                              >
+                                <Images className="h-2.5 w-2.5" />
+                              </button>
                               {/* Tag/marker badges */}
                               {(tagCount > 0 || markerCount > 0) && (
                                 <div className="absolute top-0.5 right-0.5 flex gap-0.5">
@@ -10199,7 +10516,7 @@ function WorkHistoryPanel({
                     ) : (
                       <div className="space-y-1">
                         {atts.map((a) => (
-                          <div key={a.id} className="group flex items-center gap-2 rounded-md border bg-background/60 px-2 py-1.5">
+                          <div key={a.id} data-search-highlight-id={`attachment:${a.id}`} className="group flex items-center gap-2 rounded-md border bg-background/60 px-2 py-1.5">
                             <FileText className="h-3.5 w-3.5 text-amber-500 shrink-0" />
                             <div className="min-w-0 flex-1">
                               <p className="text-[11px] font-medium truncate">{a.label}</p>
@@ -10430,7 +10747,7 @@ function WorkHistoryPanel({
                 };
 
                 const EquipCard = ({ e }: { e: { id: string; name: string; category: string; usage: string; manufacturer?: string | null; model?: string | null; condition: string; notes?: string | null; photos?: { id: string; filePath: string; caption?: string | null; isCover: boolean }[] } }) => (
-                  <div className="group rounded-md border p-1.5 text-[11px] space-y-0.5">
+                  <div data-search-highlight-id={`equipment:${e.id}`} className="group rounded-md border p-1.5 text-[11px] space-y-0.5">
                     <div className="flex items-center justify-between">
                       <span className="font-medium">{e.name}</span>
                       <div className="flex items-center gap-0.5">
@@ -10473,7 +10790,14 @@ function WorkHistoryPanel({
                       {(e.photos?.length ?? 0) > 0 ? (
                         <div className="grid grid-cols-3 gap-1">
                           {e.photos!.map((p) => (
-                            <button key={p.id} type="button" className="group/p relative aspect-square rounded overflow-hidden bg-muted" onClick={() => setEquipmentPhotoViewer({ equipmentId: e.id, index: e.photos!.findIndex((photo) => photo.id === p.id) })}>
+                            <div
+                              key={p.id}
+                              role="button"
+                              tabIndex={0}
+                              className="group/p relative aspect-square rounded overflow-hidden bg-muted cursor-pointer"
+                              onClick={() => setEquipmentPhotoViewer({ equipmentId: e.id, index: e.photos!.findIndex((photo) => photo.id === p.id) })}
+                              onKeyDown={(ev) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); setEquipmentPhotoViewer({ equipmentId: e.id, index: e.photos!.findIndex((photo) => photo.id === p.id) }); } }}
+                            >
                               <img src={p.filePath} alt={p.caption ?? e.name} className="w-full h-full object-cover" />
                               {p.isCover && <Star className="absolute top-0.5 left-0.5 h-2.5 w-2.5 text-yellow-400 fill-yellow-400" />}
                               <div className="absolute inset-x-0 bottom-0 bg-black/50 px-0.5 py-0.5 text-[8px] text-white truncate">
@@ -10490,7 +10814,7 @@ function WorkHistoryPanel({
                                   <Trash2 className="h-2 w-2 text-red-300" />
                                 </button>
                               </div>
-                            </button>
+                            </div>
                           ))}
                         </div>
                       ) : (
@@ -12081,13 +12405,38 @@ function WorkHistoryPanel({
             : <span key={i}>{p}</span>);
         };
         // Flatten ordered hits for keyboard navigation
-        const orderedGroups = (["Work", "Education", "Field", "Sub-location"] as const)
+        const orderedGroups = (["Work", "Education", "Field", "Sub-location", "Tools", "Files", "Photos", "Notes", "Inventory"] as const)
           .map((g) => ({ group: g, hits: searchHits.filter((h) => h.group === g) }))
           .filter((g) => g.hits.length > 0);
         const flatHits = orderedGroups.flatMap((g) => g.hits);
         const focusHit = (h: WHSearchHit) => {
-          const target = items.find((i) => i.id === h.itemId);
-          if (target) onFocusJob(target);
+          // For Inventory hits the item lives outside any job — open the
+          // floating Tools & Inventory panel and let PersonalInventory open
+          // the matched item via its `openItemId` prop.
+          if (h.group === "Inventory") {
+            setShowInventoryOverview(true);
+            if (h.targetId) setPendingSearchOpen({ kind: "personalEquipment", id: h.targetId });
+          } else if (h.itemId) {
+            const target = items.find((i) => i.id === h.itemId);
+            if (target) onFocusJob(target);
+            // Auto-open the side panel tab that matches the hit type.
+            if (h.group === "Tools")       setSidePanel("equipment");
+            else if (h.group === "Files")  setSidePanel("attachments");
+            else if (h.group === "Photos" || h.group === "Notes") setSidePanel("gallery");
+            // Try to actually open the matched item once its panel data loads.
+            if (h.targetKind === "equipment" && h.targetId) {
+              setPendingSearchOpen({ kind: "equipment", id: h.targetId });
+            } else if (h.targetKind === "galleryPhoto" && h.targetId) {
+              setPendingSearchOpen({ kind: "galleryPhoto", id: h.targetId });
+            } else if (h.targetKind === "annotation" && h.targetPhotoId) {
+              setPendingSearchOpen({ kind: "galleryPhoto", id: h.targetPhotoId });
+            } else if (h.targetKind === "attachment" && h.targetId) {
+              // No inline preview for attachments — scroll + flash the row.
+              setSearchHighlight({ kind: "attachment", id: h.targetId });
+            }
+          } else if (h.href) {
+            window.location.href = h.href;
+          }
           pushRecentSearch(searchQuery);
           setSearchOpen(false);
         };
@@ -12129,7 +12478,7 @@ function WorkHistoryPanel({
                       if (h) focusHit(h);
                     }
                   }}
-                  placeholder="Search work history, skills, accomplishments, locations…"
+                  placeholder="Search work history, tools, files, photos, notes, inventory…"
                   className="flex-1 bg-transparent border-0 outline-none text-sm placeholder:text-muted-foreground"
                 />
                 {searchQuery && (
@@ -12187,7 +12536,7 @@ function WorkHistoryPanel({
                     )}
                     <div className="text-center pt-2 pb-4 opacity-80">
                       <Search className="h-5 w-5 mx-auto mb-2 opacity-40" />
-                      <p className="text-xs">Search across companies, roles, accomplishments, skills, and sub-locations.</p>
+                      <p className="text-xs">Search across companies, roles, accomplishments, skills, sub-locations, tools, files, photos, annotations, and personal inventory.</p>
                     </div>
                   </div>
                 ) : searchHits.length === 0 ? (
@@ -12330,6 +12679,8 @@ function WorkHistoryPanel({
                 <PersonalInventory
                   focusedPositionId={focusedItem?.id ?? null}
                   focusedPositionLabel={focusedItem ? `${focusedItem.role || "Position"} @ ${focusedItem.company}` : null}
+                  openItemId={pendingSearchOpen?.kind === "personalEquipment" ? pendingSearchOpen.id : null}
+                  onItemOpened={() => setPendingSearchOpen(null)}
                 />
               </div>
               <div
@@ -13124,6 +13475,40 @@ function WorkHistoryPanel({
                           </button>
                         </div>
                         {dateRange && <p className="text-[10px] text-muted-foreground">{dateRange}</p>}
+                        {/* Sub-location cover image (used in the on-hover popup; falls back to the parent job's cover when empty) */}
+                        <div className="flex items-center gap-1.5">
+                          {loc.coverImage ? (
+                            <div className="relative w-12 h-9 rounded overflow-hidden border bg-muted shrink-0 group/lcover">
+                              <img src={loc.coverImage} alt="Sub-location cover" className="w-full h-full object-cover" style={{ objectPosition: `center ${loc.coverImageY ?? 50}%` }} />
+                              <button
+                                type="button"
+                                title="Remove sub-location cover"
+                                className="absolute inset-0 bg-black/50 text-white text-[9px] flex items-center justify-center opacity-0 group-hover/lcover:opacity-100 transition-opacity"
+                                onClick={() => handleSubLocCoverRemove(loc.id)}
+                                disabled={locCoverUploading === loc.id}
+                              >
+                                {locCoverUploading === loc.id ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : "Remove"}
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="relative w-12 h-9 rounded overflow-hidden border border-dashed bg-muted/30 shrink-0 flex items-center justify-center" title="Falls back to the parent job's cover if not set">
+                              {focusedItem?.coverImage ? (
+                                <img src={focusedItem.coverImage} alt="Inherited cover" className="w-full h-full object-cover opacity-50" />
+                              ) : null}
+                              <span className="absolute text-[8px] text-muted-foreground">inherit</span>
+                            </div>
+                          )}
+                          <label className="text-[10px] text-blue-600 hover:underline cursor-pointer">
+                            {loc.coverImage ? "Change photo" : "Upload photo"}
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => { const f = e.target.files?.[0]; if (f) handleSubLocCoverUpload(loc.id, f); e.target.value = ""; }}
+                            />
+                          </label>
+                          <span className="text-[9px] text-muted-foreground/70 ml-auto">Shown on hover</span>
+                        </div>
                         {locSkills.length > 0 && (
                           <div className="flex flex-wrap gap-0.5">
                             {locSkills.map((s) => (

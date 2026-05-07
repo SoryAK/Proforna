@@ -44,5 +44,9 @@
     Build order: A → B → C. Skip life anchors / residence history from the searchable index (not recruiter-relevant).
 
 
-15. I need t make it easier to add more location for the vector outline to automatically detect and outline 
+15. I need t make it easier to add more location for the vector outline to automatically detect and outline building/ addresses to make picking building much easier
 16. For the sub location outline on hover cusomization on hover effect I want the user to be able to right click the outline and be able to edit it which also includes changing the color. [completed]
+
+17. I need to set up it so the user can choose the order of the photos for a patricular tool with multi photos the tools and inventory 
+18. When viewing the photos the user should be able to zoom in and do other things with the photo 
+19. 
