@@ -18,6 +18,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { setOptions, importLibrary } from "@googlemaps/js-api-loader";
+import { SIDEBAR_CARD_CHROME } from "@/components/immersive-layout";
 import { MarkerClusterer, SuperClusterAlgorithm } from "@googlemaps/markerclusterer";
 import { differenceInMonths } from "date-fns";
 import {
@@ -70,6 +71,7 @@ import {
 } from "lucide-react";
 import { useIrAnalytics, type IrEventType } from "@/lib/use-ir-analytics";
 import RecruiterPanel from "@/components/recruiter-panel";
+import IrPopoutSheet from "@/components/ir-popout-sheet";
 import { getCalApi } from "@calcom/embed-react";
 import { AnnotationViewer } from "@/components/annotation-viewer";
 import type { Annotation } from "@/components/annotation-overlay";
@@ -527,10 +529,20 @@ function benefitLabel(b: string): string {
   return b.replace(/_/g, " ");
 }
 
+const MAP_HEIGHT_RATIO_STORAGE_KEY = "resumsify:ir-map-height-ratio";
+const MAP_HEIGHT_RATIO_DEFAULT = 0.74;
+const MAP_HEIGHT_RATIO_MIN = 0.52;
+const MAP_HEIGHT_RATIO_MAX = 0.86;
+
 /* ── Component ──────────────────────────────────────────────────── */
 
 export default function ResumeImmersiveMap({ items, profile, skills = [], certifications = [], summary, updatedAt, slug = null, accessRequestId = null, compensation = null, recruitMeta = null, inventory = [] }: Props) {
   const analytics = useIrAnalytics(slug, accessRequestId);
+  const rightPaneRef = useRef<HTMLDivElement | null>(null);
+  const clampMapHeightRatio = useCallback(
+    (value: number) => Math.min(MAP_HEIGHT_RATIO_MAX, Math.max(MAP_HEIGHT_RATIO_MIN, value)),
+    [],
+  );
   const geocoded = useMemo(
     () => items.filter((i) => typeof i.lat === "number" && typeof i.lng === "number") as (ImmersiveWorkItem & { lat: number; lng: number })[],
     [items],
@@ -539,6 +551,14 @@ export default function ResumeImmersiveMap({ items, profile, skills = [], certif
   const [focusedId, setFocusedId] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [panelCollapsed, setPanelCollapsed] = useState(false);
+  const [mapCardsCollapsed, setMapCardsCollapsed] = useState(false);
+  const [mapHeightRatio, setMapHeightRatio] = useState<number>(() => {
+    if (typeof window === "undefined") return MAP_HEIGHT_RATIO_DEFAULT;
+    const raw = window.localStorage.getItem(MAP_HEIGHT_RATIO_STORAGE_KEY);
+    const parsed = raw ? Number.parseFloat(raw) : Number.NaN;
+    if (!Number.isFinite(parsed)) return MAP_HEIGHT_RATIO_DEFAULT;
+    return Math.min(MAP_HEIGHT_RATIO_MAX, Math.max(MAP_HEIGHT_RATIO_MIN, parsed));
+  });
   const [toolsOpen, setToolsOpen] = useState(false);
   const [viewingTool, setViewingTool] = useState<ImmersiveInventoryItem | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -566,6 +586,74 @@ export default function ResumeImmersiveMap({ items, profile, skills = [], certif
   const [typeFilter, setTypeFilter] = useState<Set<string>>(() => new Set());
   const [mapStyle, setMapStyle] = useState<"roadmap" | "satellite" | "hybrid">("roadmap");
   const focused = useMemo(() => items.find((i) => i.id === focusedId) ?? null, [items, focusedId]);
+
+  // Keep map usable on phones by starting with a collapsed sidebar.
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.innerWidth < 1024) {
+      setPanelCollapsed(true);
+    }
+  }, []);
+
+  // Preserve map height on shorter laptop viewports by collapsing the bottom cards by default.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (window.innerHeight < 860) {
+      setMapCardsCollapsed(true);
+      setMapHeightRatio(0.82);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(MAP_HEIGHT_RATIO_STORAGE_KEY, mapHeightRatio.toString());
+  }, [mapHeightRatio]);
+
+  const applyMapSplitFromClientY = useCallback((clientY: number) => {
+    const pane = rightPaneRef.current;
+    if (!pane) return;
+    const rect = pane.getBoundingClientRect();
+    const nextRatio = (clientY - rect.top) / rect.height;
+    setMapHeightRatio(clampMapHeightRatio(nextRatio));
+  }, [clampMapHeightRatio]);
+
+  const startMapSplitDrag = useCallback((clientY: number) => {
+    applyMapSplitFromClientY(clientY);
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      applyMapSplitFromClientY(moveEvent.clientY);
+    };
+
+    const onTouchMove = (moveEvent: TouchEvent) => {
+      if (moveEvent.touches.length === 0) return;
+      moveEvent.preventDefault();
+      applyMapSplitFromClientY(moveEvent.touches[0].clientY);
+    };
+
+    const onStop = () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onStop);
+      window.removeEventListener("touchmove", onTouchMove);
+      window.removeEventListener("touchend", onStop);
+      window.removeEventListener("touchcancel", onStop);
+    };
+
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onStop);
+    window.addEventListener("touchmove", onTouchMove, { passive: false });
+    window.addEventListener("touchend", onStop);
+    window.addEventListener("touchcancel", onStop);
+  }, [applyMapSplitFromClientY]);
+
+  const handleMapSplitMouseDown = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    startMapSplitDrag(event.clientY);
+  }, [startMapSplitDrag]);
+
+  const handleMapSplitTouchStart = useCallback((event: React.TouchEvent<HTMLButtonElement>) => {
+    if (event.touches.length === 0) return;
+    event.preventDefault();
+    startMapSplitDrag(event.touches[0].clientY);
+  }, [startMapSplitDrag]);
 
   // Hover prefetch: warm the building-footprint server cache when a row is hovered.
   const prefetchedHoverRef = useRef<Set<string>>(new Set());
@@ -1572,36 +1660,41 @@ export default function ResumeImmersiveMap({ items, profile, skills = [], certif
   );
 
   return (
-    <div className="fixed inset-0 bg-gray-950">
-      {/* Map */}
-      <ImmersiveMapView
-        items={visibleGeocoded}
-        focusedId={focusedId}
-        onFocus={(id) => {
-          setFocusedId(id);
-          const w = visibleGeocoded.find((x) => x.id === id);
-          const label = w ? `${w.role || w.title || "Role"} @ ${w.company}` : null;
-          analytics.track("role_click", { workItemId: id, label });
-        }}
-        mapStyle={mapStyle}
-        yearRange={yearRange}
-        playing={playing}
-        showJourneyLine={showJourneyLine}
-        recruitMode={recruitMode}
-        recruitHome={recruitMeta && recruitMeta.homeLat != null && recruitMeta.homeLng != null ? { lat: recruitMeta.homeLat, lng: recruitMeta.homeLng } : null}
-        recruitRadiusMiles={showRecruitRadius ? (recruitMeta?.maxCommuteMiles ?? null) : null}
-        jobSite={jobSite ? { lat: jobSite.lat, lng: jobSite.lng } : null}
-        onJobSitePicked={(p) => {
-          setJobSite({ address: p.address, lat: p.lat, lng: p.lng, miles: null, durationMin: null, loading: true, error: null });
-          analytics.track("job_site_dropped", { address: p.address });
-        }}
-        onJobSiteResult={(r) => {
-          setJobSite((prev) => prev ? { ...prev, miles: r.miles, durationMin: r.durationMin, loading: false, error: r.error ?? null } : prev);
-          if (r.miles != null && recruitMeta?.maxCommuteMiles != null) {
-            analytics.track(r.miles <= recruitMeta.maxCommuteMiles ? "radius_match" : "radius_miss", { miles: r.miles });
-          }
-        }}
-      />
+    <div className="relative flex h-screen bg-gray-950">
+      <div ref={rightPaneRef} className="relative order-2 flex min-w-0 flex-1 flex-col overflow-hidden">
+        <div
+          className="relative m-2 mb-0 min-h-0 overflow-hidden rounded-2xl border border-white/10"
+          style={{ height: `${Math.round(mapHeightRatio * 100)}%` }}
+        >
+          {/* Map */}
+          <ImmersiveMapView
+          items={visibleGeocoded}
+          focusedId={focusedId}
+          onFocus={(id) => {
+            setFocusedId(id);
+            const w = visibleGeocoded.find((x) => x.id === id);
+            const label = w ? `${w.role || w.title || "Role"} @ ${w.company}` : null;
+            analytics.track("role_click", { workItemId: id, label });
+          }}
+          mapStyle={mapStyle}
+          yearRange={yearRange}
+          playing={playing}
+          showJourneyLine={showJourneyLine}
+          recruitMode={recruitMode}
+          recruitHome={recruitMeta && recruitMeta.homeLat != null && recruitMeta.homeLng != null ? { lat: recruitMeta.homeLat, lng: recruitMeta.homeLng } : null}
+          recruitRadiusMiles={showRecruitRadius ? (recruitMeta?.maxCommuteMiles ?? null) : null}
+          jobSite={jobSite ? { lat: jobSite.lat, lng: jobSite.lng } : null}
+          onJobSitePicked={(p) => {
+            setJobSite({ address: p.address, lat: p.lat, lng: p.lng, miles: null, durationMin: null, loading: true, error: null });
+            analytics.track("job_site_dropped", { address: p.address });
+          }}
+          onJobSiteResult={(r) => {
+            setJobSite((prev) => prev ? { ...prev, miles: r.miles, durationMin: r.durationMin, loading: false, error: r.error ?? null } : prev);
+            if (r.miles != null && recruitMeta?.maxCommuteMiles != null) {
+              analytics.track(r.miles <= recruitMeta.maxCommuteMiles ? "radius_match" : "radius_miss", { miles: r.miles });
+            }
+          }}
+          />
 
       {/* Recruit Mode top banner */}
       {recruitMode && recruitMeta && (
@@ -2176,6 +2269,67 @@ export default function ResumeImmersiveMap({ items, profile, skills = [], certif
           <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full" style={{ background: "#a855f7" }} />≤10y</span>
           <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full" style={{ background: "#9ca3af" }} />Older</span>
         </div>
+        </div>
+
+      </div>
+
+      <div className="px-2 py-1">
+        <button
+          type="button"
+          onMouseDown={handleMapSplitMouseDown}
+          onTouchStart={handleMapSplitTouchStart}
+          className="group flex h-3 w-full cursor-row-resize touch-none select-none items-center justify-center"
+          aria-label="Resize map and cards"
+          title="Drag to resize map and cards"
+        >
+          <span className="h-1.5 w-14 rounded-full bg-white/15 transition-colors group-hover:bg-white/30" />
+        </button>
+      </div>
+
+      <div className="shrink-0 border-t border-white/10 bg-background/75 backdrop-blur-md px-3 py-2">
+        <div className="mb-2 flex items-center justify-between">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Map Insights</p>
+          <button
+            type="button"
+            onClick={() => setMapCardsCollapsed((v) => !v)}
+            className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-background/80 px-2 py-1 text-[11px] text-foreground hover:bg-muted/50 transition-colors"
+            aria-expanded={!mapCardsCollapsed}
+            aria-controls="map-insight-cards"
+          >
+            {mapCardsCollapsed ? "Show cards" : "Hide cards"}
+            {mapCardsCollapsed ? <ChevronDown className="h-3 w-3" /> : <ChevronUp className="h-3 w-3" />}
+          </button>
+        </div>
+
+        {!mapCardsCollapsed && (
+          <div id="map-insight-cards" className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+            <div className="rounded-xl border border-white/10 bg-background/80 p-3">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Mapped Roles</p>
+              <p className="mt-1 text-xl font-semibold text-foreground">{visibleGeocoded.length}</p>
+              <p className="text-[11px] text-muted-foreground">roles currently plotted on the timeline map</p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setSearchOpen(true)}
+              className="text-left rounded-xl border border-white/10 bg-background/80 p-3 hover:bg-muted/50 transition-colors"
+            >
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Quick Action</p>
+              <p className="mt-1 text-sm font-semibold text-foreground">Search Resume</p>
+              <p className="text-[11px] text-muted-foreground">open instant search for roles, skills, and evidence</p>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setMatchOpen(true)}
+              className="text-left rounded-xl border border-white/10 bg-background/80 p-3 hover:bg-muted/50 transition-colors"
+            >
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Quick Action</p>
+              <p className="mt-1 text-sm font-semibold text-foreground">Match Job Description</p>
+              <p className="text-[11px] text-muted-foreground">paste a JD to score fit, strengths, and possible gaps</p>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Career timeline scrubber + recruiter actions (bottom-center) */}
@@ -2245,11 +2399,14 @@ export default function ResumeImmersiveMap({ items, profile, skills = [], certif
         </div>
       )}
 
+      </div>
+
       {/* Left column: bio card + work-history panel */}
       {!panelCollapsed ? (
-        <div className="absolute top-3 left-3 z-20 w-[26rem] max-w-[calc(100vw-24px)] flex flex-col gap-2 pointer-events-none">
+        <aside className="order-1 w-[min(26rem,calc(100vw-24px))] lg:w-[32rem] xl:w-[36rem] shrink-0 border-r border-white/10 bg-background/70 backdrop-blur-md overflow-y-auto">
+          <div className="flex min-h-full flex-col gap-2.5 p-3">
           {/* Bio card — relative + z-10 so the recruitment popover spills above the work-history sibling */}
-          <div className="relative z-10 bg-background/95 backdrop-blur-md border rounded-xl shadow-xl p-3 pointer-events-auto">
+          <div className={`relative z-10 ${SIDEBAR_CARD_CHROME} pointer-events-auto`}>
             <div className="flex items-center gap-3">
               {profile?.avatarUrl ? (
                 <img src={profile.avatarUrl} alt="" className="h-20 w-20 rounded-full object-cover ring-2 ring-primary/30 shrink-0" />
@@ -2978,44 +3135,32 @@ export default function ResumeImmersiveMap({ items, profile, skills = [], certif
               onToggleTools={() => setToolsOpen((v) => !v)}
             />
           )}
-        </div>
+
+          </div>
+        </aside>
       ) : (
-        <button
-          type="button"
-          onClick={() => setPanelCollapsed(false)}
-          className="absolute top-3 left-3 z-30 h-10 w-10 rounded-xl bg-background/95 backdrop-blur-md border text-foreground shadow-xl flex items-center justify-center hover:bg-muted/40 transition-colors"
-          title="Show work history"
-        >
-          <ChevronRight className="h-5 w-5" />
-        </button>
+        <div className="order-1 w-14 lg:w-16 shrink-0 border-r border-white/10 bg-background/70 backdrop-blur-md p-2 lg:p-3">
+          <button
+            type="button"
+            onClick={() => setPanelCollapsed(false)}
+            className="h-10 w-10 rounded-xl bg-background/95 backdrop-blur-md border text-foreground shadow-xl flex items-center justify-center hover:bg-muted/40 transition-colors"
+            title="Show work history"
+          >
+            <ChevronRight className="h-5 w-5" />
+          </button>
+        </div>
       )}
 
-      {/* Tools & Inventory pop-out panel — slides out to the right of the work history panel */}
-      {!panelCollapsed && toolsOpen && inventory.length > 0 && (
-        <div
-          className="absolute top-3 left-[27rem] z-20 w-[26rem] max-w-[calc(100vw-27.5rem)] pointer-events-none animate-in slide-in-from-left-4 fade-in duration-200"
-        >
-          <div className="bg-background/95 backdrop-blur-md border rounded-xl shadow-xl p-3 max-h-[calc(75vh-110px)] overflow-y-auto scrollbar-thin pointer-events-auto">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-base font-semibold flex items-center gap-1.5">
-                <Wrench className="h-4 w-4 text-cyan-500" />
-                My Tools &amp; Inventory
-                <span className="text-xs text-muted-foreground tabular-nums">({inventory.length})</span>
-              </span>
-              <button
-                type="button"
-                onClick={() => setToolsOpen(false)}
-                className="text-muted-foreground hover:text-foreground transition-colors"
-                title="Close"
-                aria-label="Close tools panel"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <ToolsInventoryPanel inventory={inventory} onSelect={(it) => setViewingTool(it)} />
-          </div>
-        </div>
-      )}
+      {/* Tools & Inventory popout sheet (kept outside sidebar flow) */}
+      <IrPopoutSheet
+        open={toolsOpen && inventory.length > 0}
+        onClose={() => setToolsOpen(false)}
+        title="My Tools & Inventory"
+        icon={<Wrench className="h-4 w-4 text-cyan-500" />}
+        badge={<span className="text-xs text-muted-foreground tabular-nums">({inventory.length})</span>}
+      >
+        <ToolsInventoryPanel inventory={inventory} onSelect={(it) => setViewingTool(it)} />
+      </IrPopoutSheet>
 
       {viewingTool && (
         <ToolDetailModal item={viewingTool} onClose={() => setViewingTool(null)} />
@@ -4261,10 +4406,10 @@ function RecruiterBriefPanel({
     : null;
 
   return (
-    <div className="bg-background/95 backdrop-blur-md border rounded-xl shadow-xl p-3 w-full max-h-[calc(75vh-110px)] overflow-y-auto scrollbar-thin pointer-events-auto">
+    <div className={`${SIDEBAR_CARD_CHROME} w-full max-h-[calc(75vh-110px)] overflow-y-auto scrollbar-thin pointer-events-auto`}>
       {/* Header */}
       <div className="flex items-center justify-between mb-2">
-        <span className="text-base font-semibold flex items-center gap-1.5">
+        <span className="text-sm font-semibold flex items-center gap-1.5">
           <Sparkles className="h-4 w-4 text-emerald-600" /> Recruiter Brief
         </span>
         <button
@@ -4552,10 +4697,10 @@ function WorkHistoryViewerPanel({
   }, [sorted]);
 
   return (
-    <div className="bg-background/95 backdrop-blur-md border rounded-xl shadow-xl p-3 w-full max-h-[calc(75vh-110px)] overflow-y-auto scrollbar-thin pointer-events-auto">
+    <div className={`${SIDEBAR_CARD_CHROME} w-full max-h-[calc(75vh-110px)] overflow-y-auto scrollbar-thin pointer-events-auto`}>
       {/* Header — matches editor */}
       <div className="flex items-center justify-between mb-2">
-        <span className="text-base font-semibold flex items-center gap-1.5">
+        <span className="text-sm font-semibold flex items-center gap-1.5">
           <Briefcase className="h-4 w-4 text-muted-foreground" /> Work History
         </span>
         <div className="flex items-center gap-1">

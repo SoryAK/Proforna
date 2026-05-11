@@ -4,6 +4,7 @@ import { useState, useMemo, useCallback, useEffect, useRef, Fragment } from "rea
 import { createPortal } from "react-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { PlacesAutocomplete } from "@/components/places-autocomplete";
+import { SIDEBAR_CARD_CHROME } from "@/components/immersive-layout";
 import type { DrawingSettings, DrawingCanvasHandle, SerializedDrawing } from "@/components/map-drawing-canvas";
 import {
   Search,
@@ -88,10 +89,8 @@ import {
   Paperclip,
   Wrench,
   Boxes,
-  GripVertical,
   Brain,
   Maximize2,
-  Minus,
   LayoutGrid,
   FolderOpen,
   Info,
@@ -105,6 +104,8 @@ import { toast } from "sonner";
 import { GalleryModal } from "@/components/gallery-modal";
 import type { GalleryPhoto as GalleryPhotoType } from "@/components/gallery-modal";
 import { PersonalInventory } from "@/components/personal-inventory";
+import IrPopoutSheet from "@/components/ir-popout-sheet";
+import IrAnchoredPopover from "@/components/ir-anchored-popover";
 import { BioCardEditor } from "@/components/bio-card-editor";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -515,26 +516,6 @@ const WORK_HISTORY_KPI_SLOTS_KEY = "resumsify:work-history-kpi-slots";
 const KPI_MAX_SLOTS = 8;
 const DEFAULT_KPI_SLOTS = ["tenure", "roles", "miles", "cities", "rtg", "rtn"];
 
-const INVENTORY_PANEL_KEY = "resumsify:inventory-panel-v1";
-type InventoryPanelState = { x: number; y: number; w: number; h: number; minimized: boolean };
-const INVENTORY_PANEL_DEFAULTS: InventoryPanelState = { x: 80, y: 80, w: 720, h: 560, minimized: false };
-const INVENTORY_PANEL_MIN = { w: 360, h: 240 };
-function loadInventoryPanel(): InventoryPanelState {
-  if (typeof window === "undefined") return { ...INVENTORY_PANEL_DEFAULTS };
-  try {
-    const raw = JSON.parse(localStorage.getItem(INVENTORY_PANEL_KEY) || "null");
-    if (!raw || typeof raw !== "object") return { ...INVENTORY_PANEL_DEFAULTS };
-    const n = (v: unknown, d: number) => (typeof v === "number" && Number.isFinite(v) ? v : d);
-    return {
-      x: Math.max(0, n(raw.x, INVENTORY_PANEL_DEFAULTS.x)),
-      y: Math.max(0, n(raw.y, INVENTORY_PANEL_DEFAULTS.y)),
-      w: Math.max(INVENTORY_PANEL_MIN.w, n(raw.w, INVENTORY_PANEL_DEFAULTS.w)),
-      h: Math.max(INVENTORY_PANEL_MIN.h, n(raw.h, INVENTORY_PANEL_DEFAULTS.h)),
-      minimized: !!raw.minimized,
-    };
-  } catch { return { ...INVENTORY_PANEL_DEFAULTS }; }
-}
-
 type JobIntent = "interested" | "applied" | "interviewing" | "waiting" | "rejected" | "not-fit";
 
 const JOB_INTENT_OPTIONS: { value: JobIntent; label: string; className: string }[] = [
@@ -666,6 +647,13 @@ export function JobMap() {
   const [showDetails, setShowDetails] = useState(false);
   const [viewMode, setViewMode] = useState<"map" | "list">(() => (savedPrefs.viewMode as "map" | "list") || "map");
   const [expandedDescs, setExpandedDescs] = useState<Set<string>>(new Set());
+  /* Work Mapping resizable split */
+  const [workMapHeightRatio, setWorkMapHeightRatio] = useState(() => {
+    try { return parseFloat(localStorage.getItem("work-map:height-ratio") ?? "0.65"); } catch { return 0.65; }
+  });
+  const [workMapCardsCollapsed, setWorkMapCardsCollapsed] = useState(false);
+  /* Work Mapping aside host — when set, WorkHistoryPanel portals its bio card + work-history list into this element so the map sits to the right of the aside (matches IR layout). Using state-as-ref so the initial mount triggers a re-render once the host is attached. */
+  const [workMapAsideHost, setWorkMapAsideHost] = useState<HTMLDivElement | null>(null);
   /* Map overlays */
   const [showHeatmap, setShowHeatmap] = useState(() => savedPrefs.showHeatmap ?? false);
 
@@ -754,6 +742,66 @@ export function JobMap() {
   useEffect(() => { saveJobPref("showCityTax", showCityTax); }, [showCityTax]);
   useEffect(() => { saveJobPref("showCountyPropTax", showCountyPropTax); }, [showCountyPropTax]);
   useEffect(() => { saveJobPref("commuteMode", commuteMode); }, [commuteMode]);
+
+  /* ── Work Mapping split resize handlers ── */
+  const handleWorkMapSplitMouseDown = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    const startClientY = event.clientY;
+    const containerRef = document.querySelector('.work-map-container') as HTMLElement | null;
+    if (!containerRef) return;
+    const startHeight = containerRef.clientHeight;
+    const container = containerRef.parentElement;
+    if (!container) return;
+    const totalHeight = container.clientHeight;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const deltaY = e.clientY - startClientY;
+      const newHeight = Math.max(300, Math.min(totalHeight - 100, startHeight + deltaY));
+      const newRatio = newHeight / totalHeight;
+      setWorkMapHeightRatio(Math.max(0.3, Math.min(0.9, newRatio)));
+    };
+
+    const handleMouseUp = () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      try { localStorage.setItem('work-map:height-ratio', workMapHeightRatio.toString()); } catch {}
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  }, [workMapHeightRatio]);
+
+  const handleWorkMapSplitTouchStart = useCallback((event: React.TouchEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    const touch = event.touches[0];
+    if (!touch) return;
+    const startClientY = touch.clientY;
+    const containerRef = document.querySelector('.work-map-container') as HTMLElement | null;
+    if (!containerRef) return;
+    const startHeight = containerRef.clientHeight;
+    const container = containerRef.parentElement;
+    if (!container) return;
+    const totalHeight = container.clientHeight;
+
+    const handleTouchMove = (e: TouchEvent) => {
+      e.preventDefault();
+      const touch = e.touches[0];
+      if (!touch) return;
+      const deltaY = touch.clientY - startClientY;
+      const newHeight = Math.max(300, Math.min(totalHeight - 100, startHeight + deltaY));
+      const newRatio = newHeight / totalHeight;
+      setWorkMapHeightRatio(Math.max(0.3, Math.min(0.9, newRatio)));
+    };
+
+    const handleTouchEnd = () => {
+      document.removeEventListener('touchmove', handleTouchMove);
+      document.removeEventListener('touchend', handleTouchEnd);
+      try { localStorage.setItem('work-map:height-ratio', workMapHeightRatio.toString()); } catch {}
+    };
+
+    document.addEventListener('touchmove', handleTouchMove, { passive: false });
+    document.addEventListener('touchend', handleTouchEnd);
+  }, [workMapHeightRatio]);
 
   /* ── Drawing: map ready → store ref + observe container size ── */
   const handleMapReady = useCallback((map: google.maps.Map) => {
@@ -4200,18 +4248,24 @@ export function JobMap() {
       <div
         className={
           showWorkHistory
-            ? "fixed inset-0 z-[60] flex gap-0 bg-background"
+            ? "fixed inset-0 z-[60] flex bg-background"
             : "flex gap-3 h-[calc(100vh-220px)] min-h-[500px]"
         }
       >
+        {/* Work Mapping aside host — receives the bio card + work-history list via portal so the map sits to the right of the aside (matches IR layout) */}
+        {showWorkHistory && (
+          <aside
+            ref={setWorkMapAsideHost}
+            className="order-1 w-[min(26rem,calc(100vw-24px))] lg:w-[28rem] xl:w-[32rem] shrink-0 border-r border-white/10 bg-background/70 backdrop-blur-md overflow-y-auto p-3 flex flex-col gap-2.5"
+          />
+        )}
+        {/* Center column wrapper. `display: contents` in non-Work-Mapping mode keeps the existing flex-row layout (map + sidebar as siblings of outer). */}
+        <div className={showWorkHistory ? "order-2 flex-1 flex flex-col min-w-0" : "contents"}>
         {/* Map */}
         <div
           ref={mapContainerRef}
-          className={
-            showWorkHistory
-              ? "flex-1 overflow-hidden bg-muted relative"
-              : "flex-1 rounded-xl overflow-hidden border bg-muted relative"
-          }
+          className={showWorkHistory ? "work-map-container flex-1 overflow-hidden bg-muted relative rounded-2xl m-2 mb-0 border" : "jobmap-map-container flex-1 overflow-hidden bg-muted relative"}
+          style={showWorkHistory ? { height: `${Math.round(workMapHeightRatio * 100)}%` } : undefined}
         >
           <LeafletMap
               jobs={sortedJobs}
@@ -4434,7 +4488,7 @@ export function JobMap() {
               </Popover>
               <Popover>
                 <PopoverTrigger
-                  title="Commute zone"
+                  title="Commute Zone"
                   className={`flex items-center justify-center w-10 h-10 border-r border-gray-200 cursor-pointer transition-colors ${isochroneEnabled ? "bg-blue-50" : "bg-white hover:bg-gray-50"}`}
                 >
                   {isochroneLoading
@@ -4489,7 +4543,7 @@ export function JobMap() {
                                         style={{ backgroundColor: `hsl(${h}, 75%, 45%)`, opacity: 0.8 }}
                                       />
                                       <span className="text-[10px]">
-                                        {i === 0 ? `0 – ${ring.minutes}` : `${arr[i - 1].minutes} – ${ring.minutes}`} min
+                                        {i === 0 ? `0 - ${ring.minutes}` : `${arr[i - 1].minutes} - ${ring.minutes}`} min
                                       </span>
                                     </div>
                                   );
@@ -4674,6 +4728,7 @@ export function JobMap() {
                 setZoomTarget({ lat: item.lat, lng: item.lng, zoom: 17 });
               }}
               mapContainer={mapContainerRef.current}
+              asideHost={workMapAsideHost}
             />
           )}
 
@@ -5968,9 +6023,67 @@ export function JobMap() {
           )}
         </div>
 
+        {/* Resize Handle + Map Insights (Work Mapping mode only) */}
+        {showWorkHistory && (
+          <>
+            <button
+              type="button"
+              aria-label="Resize work map and insights"
+              onMouseDown={handleWorkMapSplitMouseDown}
+              onTouchStart={handleWorkMapSplitTouchStart}
+              className="group flex h-3 w-full cursor-row-resize touch-none select-none items-center justify-center"
+            >
+              <span className="h-1.5 w-14 rounded-full bg-white/15 transition-colors group-hover:bg-white/30" />
+            </button>
+
+            <div className="shrink-0 border-t border-white/10 bg-background/75 backdrop-blur-md px-3 py-2 overflow-y-auto">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2 text-sm font-semibold">
+                  <BarChart3 className="h-4 w-4 text-indigo-500" />
+                  Map Insights
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 px-2"
+                  onClick={() => setWorkMapCardsCollapsed((v) => !v)}
+                >
+                  {workMapCardsCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+                </Button>
+              </div>
+
+              {!workMapCardsCollapsed && (
+                <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
+                  <Card className="border-white/10 bg-background/70">
+                    <CardContent className="p-3">
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Work History Items</p>
+                      <p className="mt-1 text-lg font-semibold">{workHistory.length}</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="border-white/10 bg-background/70">
+                    <CardContent className="p-3">
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Companies</p>
+                      <p className="mt-1 text-lg font-semibold">{new Set(workHistory.map(w => w.company)).size}</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="border-white/10 bg-background/70">
+                    <CardContent className="p-3">
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Total Locations</p>
+                      <p className="mt-1 text-lg font-semibold">{workHistory.reduce((sum, w) => sum + (w.locations?.length ?? 1), 0)}</p>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+        </div>
+        {/* /center column wrapper */}
+
         {/* Sidebar — sort/filter + job list / detail (hidden in full-screen work-mapping mode) */}
         {!showWorkHistory && (
-        <div className="w-[380px] shrink-0 flex flex-col">
+          <div className="w-[380px] shrink-0 flex flex-col">
           {/* Sort & filter controls */}
           {searched && geoJobs.length > 0 && (
             <div className="space-y-2 mb-2">
@@ -7447,106 +7560,128 @@ export function JobMap() {
         document.body,
       )}
 
-      {/* Right-click outline editor popover (per-outline note + color customization) */}
-      {outlineEdit && typeof document !== "undefined" && createPortal(
-        <>
-          {/* Backdrop to capture outside-clicks */}
-          <div
-            onClick={() => !outlineEditSaving && setOutlineEdit(null)}
-            onContextMenu={(e) => { e.preventDefault(); if (!outlineEditSaving) setOutlineEdit(null); }}
-            style={{ position: "fixed", inset: 0, zIndex: 10000, background: "transparent" }}
-          />
-          <div
-            style={{
-              position: "fixed",
-              left: outlineEdit.x,
-              top: outlineEdit.y,
-              width: 280,
-              zIndex: 10001,
-              background: "white",
-              borderRadius: 10,
-              boxShadow: "0 10px 30px rgba(0,0,0,0.2)",
-              border: "1px solid rgba(0,0,0,0.08)",
-              padding: 10,
-              fontSize: 12,
-              color: "#111",
-            }}
-            onClick={(e) => e.stopPropagation()}
-            onContextMenu={(e) => e.preventDefault()}
+      {/* ── Life Anchors popout sheet ── */}
+      <IrPopoutSheet
+        open={showAnchorsPanel}
+        onClose={() => setShowAnchorsPanel(false)}
+        title="Life Anchors"
+        icon={<Anchor className="h-4 w-4 text-violet-500" />}
+        side="left"
+        zIndexClassName="z-[1100]"
+        maxWidthClassName="max-w-sm"
+        bodyClassName="max-h-[min(70vh,560px)] overflow-y-auto px-3 py-3 scrollbar-thin"
+      >
+        {/* Sweet Spot toggle */}
+        <label className="flex items-center justify-between gap-2 mb-2 px-0.5">
+          <span className="text-xs text-muted-foreground">Show Sweet Spot radius</span>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={showSweetSpot}
+            onClick={() => setShowSweetSpot((p) => !p)}
+            className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${showSweetSpot ? "bg-violet-500" : "bg-muted"}`}
           >
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-              <span style={{ fontWeight: 600, fontSize: 12 }}>
-                Edit outline {outlineEdit.locationLabel ? <span style={{ color: "#6b7280", fontWeight: 400 }}>· {outlineEdit.locationLabel}</span> : <span style={{ color: "#6b7280", fontWeight: 400 }}>· Building</span>}
-              </span>
-              <button
-                type="button"
-                onClick={() => setOutlineEdit(null)}
-                style={{ background: "transparent", border: "none", cursor: "pointer", color: "#6b7280", padding: 2 }}
-                aria-label="Close"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </div>
-            <label style={{ display: "block", fontSize: 10, color: "#6b7280", marginBottom: 3 }}>Hover note (max 280)</label>
-            <textarea
-              value={outlineEdit.note}
-              onChange={(e) => setOutlineEdit((s) => s ? { ...s, note: e.target.value.slice(0, 280) } : s)}
-              maxLength={280}
-              rows={3}
-              placeholder={outlineEdit.locationId ? "Leave blank to inherit job note…" : "e.g. Led migration — https://example.com/case"}
-              style={{
-                width: "100%", boxSizing: "border-box", padding: 6, border: "1px solid #e5e7eb", borderRadius: 6,
-                fontSize: 11, resize: "none", outline: "none", fontFamily: "inherit",
-              }}
-            />
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#9ca3af", marginTop: 2 }}>
-              <span>{outlineEdit.note.length}/280</span>
-            </div>
-            <div style={{ marginTop: 8 }}>
-              <label style={{ display: "block", fontSize: 10, color: "#6b7280", marginBottom: 3 }}>Outline color</label>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                <input
-                  type="color"
-                  value={outlineEdit.color || "#10b981"}
-                  onChange={(e) => setOutlineEdit((s) => s ? { ...s, color: e.target.value.toLowerCase() } : s)}
-                  style={{ width: 28, height: 24, border: "1px solid #e5e7eb", borderRadius: 4, cursor: "pointer", padding: 0, background: "transparent" }}
+            <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm transform transition-transform ${showSweetSpot ? "translate-x-4" : "translate-x-0"}`} />
+          </button>
+        </label>
+        <LifeAnchorsPanel
+          compact
+          defaultAddress={where}
+          onAnchorsChange={() => queryClient.invalidateQueries({ queryKey: ["life-anchors"] })}
+          enabledAnchorIds={enabledAnchors}
+          onToggleAnchor={(id) => setEnabledAnchors((prev) => {
+            const next = new Set(prev);
+            next.has(id) ? next.delete(id) : next.add(id);
+            return next;
+          })}
+        />
+      </IrPopoutSheet>
+
+      {/* Right-click outline editor popover (per-outline note + color customization) */}
+      {outlineEdit && (
+        <IrAnchoredPopover
+          open
+          x={outlineEdit.x}
+          y={outlineEdit.y}
+          onClose={() => setOutlineEdit(null)}
+          canClose={!outlineEditSaving}
+          panelClassName="w-[280px] rounded-xl border bg-background p-2.5 text-xs text-foreground shadow-2xl"
+        >
+          <div className="mb-1.5 flex items-center justify-between">
+            <span className="text-xs font-semibold">
+              Edit outline{" "}
+              {outlineEdit.locationLabel ? (
+                <span className="font-normal text-muted-foreground">· {outlineEdit.locationLabel}</span>
+              ) : (
+                <span className="font-normal text-muted-foreground">· Building</span>
+              )}
+            </span>
+            <button
+              type="button"
+              onClick={() => setOutlineEdit(null)}
+              className="rounded p-0.5 text-muted-foreground hover:text-foreground"
+              aria-label="Close"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+
+          <label className="mb-1 block text-[10px] text-muted-foreground">Hover note (max 280)</label>
+          <textarea
+            value={outlineEdit.note}
+            onChange={(e) => setOutlineEdit((s) => s ? { ...s, note: e.target.value.slice(0, 280) } : s)}
+            maxLength={280}
+            rows={3}
+            placeholder={outlineEdit.locationId ? "Leave blank to inherit job note…" : "e.g. Led migration - https://example.com/case"}
+            className="w-full resize-none rounded-md border bg-background px-1.5 py-1 text-[11px] outline-none focus:ring-2 focus:ring-primary/30"
+          />
+          <div className="mt-0.5 flex justify-between text-[10px] text-muted-foreground">
+            <span>{outlineEdit.note.length}/280</span>
+          </div>
+
+          <div className="mt-2">
+            <label className="mb-1 block text-[10px] text-muted-foreground">Outline color</label>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <input
+                type="color"
+                value={outlineEdit.color || "#10b981"}
+                onChange={(e) => setOutlineEdit((s) => s ? { ...s, color: e.target.value.toLowerCase() } : s)}
+                className="h-6 w-7 cursor-pointer rounded border bg-transparent p-0"
+              />
+              {["#10b981", "#3b82f6", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"].map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setOutlineEdit((s) => s ? { ...s, color: c } : s)}
+                  title={c}
+                  className="h-[18px] w-[18px] rounded"
+                  style={{
+                    background: c,
+                    border: outlineEdit.color === c ? "2px solid #111" : "1px solid rgba(0,0,0,0.1)",
+                  }}
                 />
-                {/* Preset swatches */}
-                {["#10b981", "#3b82f6", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"].map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => setOutlineEdit((s) => s ? { ...s, color: c } : s)}
-                    title={c}
-                    style={{
-                      width: 18, height: 18, borderRadius: 4, background: c, cursor: "pointer",
-                      border: outlineEdit.color === c ? "2px solid #111" : "1px solid rgba(0,0,0,0.1)",
-                      padding: 0,
-                    }}
-                  />
-                ))}
-                {outlineEdit.color && (
-                  <button
-                    type="button"
-                    onClick={() => setOutlineEdit((s) => s ? { ...s, color: "" } : s)}
-                    style={{ fontSize: 10, color: "#6b7280", background: "transparent", border: "none", cursor: "pointer", textDecoration: "underline" }}
-                  >
-                    {outlineEdit.locationId ? "Inherit" : "Default"}
-                  </button>
-                )}
-              </div>
-            </div>
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 6, marginTop: 10 }}>
-              <Button size="sm" variant="ghost" className="h-6 text-xs" disabled={outlineEditSaving} onClick={() => setOutlineEdit(null)}>
-                Cancel
-              </Button>
-              <Button size="sm" className="h-6 text-xs" disabled={outlineEditSaving} onClick={saveOutlineEdit}>
-                {outlineEditSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save"}
-              </Button>
+              ))}
+              {outlineEdit.color && (
+                <button
+                  type="button"
+                  onClick={() => setOutlineEdit((s) => s ? { ...s, color: "" } : s)}
+                  className="text-[10px] text-muted-foreground underline hover:text-foreground"
+                >
+                  {outlineEdit.locationId ? "Inherit" : "Default"}
+                </button>
+              )}
             </div>
           </div>
-        </>,
-        document.body,
+
+          <div className="mt-2.5 flex justify-end gap-1.5">
+            <Button size="sm" variant="ghost" className="h-6 text-xs" disabled={outlineEditSaving} onClick={() => setOutlineEdit(null)}>
+              Cancel
+            </Button>
+            <Button size="sm" className="h-6 text-xs" disabled={outlineEditSaving} onClick={saveOutlineEdit}>
+              {outlineEditSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save"}
+            </Button>
+          </div>
+        </IrAnchoredPopover>
       )}
     </div>
   );
@@ -7814,11 +7949,22 @@ const KPI_CATALOG: KpiMetric[] = [
 
 const KPI_CATALOG_BY_KEY: Record<string, KpiMetric> = Object.fromEntries(KPI_CATALOG.map((m) => [m.key, m]));
 
+/**
+ * MaybePortal — renders children into `target` when provided, otherwise inline.
+ * Used by WorkHistoryPanel so the aside (bio card + work-history list) can be
+ * mounted in the parent's flex-sibling sidebar host while map-overlay popups
+ * stay anchored to the map container.
+ */
+function MaybePortal({ target, children }: { target: HTMLElement | null; children: React.ReactNode }) {
+  if (!target) return <>{children}</>;
+  return createPortal(children, target);
+}
+
 function WorkHistoryPanel({
   items, onClose, onAdded, onDeleted, showCareerPath, onToggleCareerPath, showOverlaps, onToggleOverlaps, focusedId, onExitFocus,
   pinDropMode, pinDropCoords, onStartPinDrop, onCancelPinDrop, onClearPinDrop, onFocusJob,
   residences, activeResidence, timeFilter, timeRange, onTimeFilterChange, onResidenceAdded, onResidenceDeleted,
-  hiddenTypes, onToggleType, mapContainer, bannerSlideshowEnabled,
+  hiddenTypes, onToggleType, mapContainer, bannerSlideshowEnabled, asideHost,
 }: {
   items: { id: string; type?: string; company: string; title: string | null; address: string; lat: number; lng: number; startDate: string | null; endDate: string | null; locations: { id: string; label: string; type: string; address: string; lat: number; lng: number; isPrimary: boolean; includeInOutline?: boolean; closed?: boolean; placeId?: string | null; skills?: string | null; startDate?: string | null; endDate?: string | null; photos?: string | null; coverImage?: string | null; coverImageY?: number | null }[];
     degree?: string | null; major?: string | null; gpa?: number | null;
@@ -7864,6 +8010,8 @@ function WorkHistoryPanel({
   onToggleType: (type: string) => void;
   mapContainer: HTMLElement | null;
   bannerSlideshowEnabled: boolean;
+  /** Optional flex-sibling sidebar host. When provided, the bio card + work-history list portals into it instead of overlaying the map. */
+  asideHost?: HTMLElement | null;
 }) {
   const [adding, setAdding] = useState(false);
   const [addType, setAddType] = useState<"job" | "school" | "military" | "volunteer" | "internship" | "self-employed" | "unemployed">("job");
@@ -8000,77 +8148,6 @@ function WorkHistoryPanel({
   }, []);
   const resetKpiSlots = useCallback(() => setKpiSlots([...DEFAULT_KPI_SLOTS]), []);
   const [showInventoryOverview, setShowInventoryOverview] = useState(false);
-  const [inventoryPanel, setInventoryPanel] = useState<InventoryPanelState>(() => loadInventoryPanel());
-  const [showInventorySnapMenu, setShowInventorySnapMenu] = useState(false);
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try { localStorage.setItem(INVENTORY_PANEL_KEY, JSON.stringify(inventoryPanel)); } catch { /* noop */ }
-  }, [inventoryPanel]);
-  const inventoryDragRef = useRef<{ mode: "move" | "resize"; startX: number; startY: number; originX: number; originY: number; originW: number; originH: number } | null>(null);
-  const onInventoryDragStart = useCallback((e: React.PointerEvent) => {
-    e.preventDefault();
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    inventoryDragRef.current = {
-      mode: "move",
-      startX: e.clientX,
-      startY: e.clientY,
-      originX: inventoryPanel.x,
-      originY: inventoryPanel.y,
-      originW: inventoryPanel.w,
-      originH: inventoryPanel.h,
-    };
-  }, [inventoryPanel]);
-  const onInventoryResizeStart = useCallback((e: React.PointerEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    inventoryDragRef.current = {
-      mode: "resize",
-      startX: e.clientX,
-      startY: e.clientY,
-      originX: inventoryPanel.x,
-      originY: inventoryPanel.y,
-      originW: inventoryPanel.w,
-      originH: inventoryPanel.h,
-    };
-  }, [inventoryPanel]);
-  const onInventoryDragMove = useCallback((e: React.PointerEvent) => {
-    const drag = inventoryDragRef.current;
-    if (!drag) return;
-    const dx = e.clientX - drag.startX;
-    const dy = e.clientY - drag.startY;
-    if (drag.mode === "move") {
-      const maxX = Math.max(0, window.innerWidth - 80);
-      const maxY = Math.max(0, window.innerHeight - 60);
-      setInventoryPanel((p) => ({
-        ...p,
-        x: Math.min(maxX, Math.max(0, drag.originX + dx)),
-        y: Math.min(maxY, Math.max(0, drag.originY + dy)),
-      }));
-    } else {
-      const maxW = Math.max(INVENTORY_PANEL_MIN.w, window.innerWidth - drag.originX - 8);
-      const maxH = Math.max(INVENTORY_PANEL_MIN.h, window.innerHeight - drag.originY - 8);
-      setInventoryPanel((p) => ({
-        ...p,
-        w: Math.min(maxW, Math.max(INVENTORY_PANEL_MIN.w, drag.originW + dx)),
-        h: Math.min(maxH, Math.max(INVENTORY_PANEL_MIN.h, drag.originH + dy)),
-      }));
-    }
-  }, []);
-  const onInventoryDragEnd = useCallback(() => { inventoryDragRef.current = null; }, []);
-  const snapInventoryToCorner = useCallback((corner: "tl" | "tr" | "bl" | "br") => {
-    setInventoryPanel((p) => {
-      const margin = 16;
-      const w = p.w;
-      const h = p.minimized ? 44 : p.h;
-      const vw = typeof window !== "undefined" ? window.innerWidth : 1280;
-      const vh = typeof window !== "undefined" ? window.innerHeight : 800;
-      const x = corner === "tl" || corner === "bl" ? margin : Math.max(margin, vw - w - margin);
-      const y = corner === "tl" || corner === "tr" ? margin : Math.max(margin, vh - h - margin);
-      return { ...p, x, y };
-    });
-    setShowInventorySnapMenu(false);
-  }, []);
   const [lastMainTab, setLastMainTab] = useState<"list" | "timeline">(() => {
     return loadWorkHistoryPanelPrefs().lastMainTab === "timeline" ? "timeline" : "list";
   });
@@ -8494,6 +8571,8 @@ function WorkHistoryPanel({
     targetKind?: "equipment" | "attachment" | "galleryPhoto" | "annotation" | "personalEquipment" | "personalEquipmentPhoto";
     targetId?: string;
     targetPhotoId?: string;
+    /** Optional preview thumbnail for image-bearing hits. */
+    thumbnailUrl?: string | null;
     Icon: React.ComponentType<{ className?: string }>;
     iconClass?: string;
     score: number;
@@ -8512,6 +8591,7 @@ function WorkHistoryPanel({
     targetKind?: "equipment" | "attachment" | "galleryPhoto" | "annotation" | "personalEquipment" | "personalEquipmentPhoto";
     targetId?: string;
     targetPhotoId?: string;
+    thumbnailUrl?: string | null;
   };
   const debouncedSearchQuery = searchQuery.trim();
   const { data: serverSearchData } = useQuery<{ hits: ServerSearchHit[] }>({
@@ -8543,6 +8623,7 @@ function WorkHistoryPanel({
       targetKind: h.targetKind,
       targetId: h.targetId,
       targetPhotoId: h.targetPhotoId,
+      thumbnailUrl: h.thumbnailUrl ?? null,
       ...iconFor(h.group),
       score: 3,
     }));
@@ -9669,7 +9750,7 @@ function WorkHistoryPanel({
       let ud: UniformData | null = null;
       try { ud = JSON.parse(focusedItem.uniformData); } catch { /* ignore */ }
       return ud ? (
-        <div className="absolute top-3 z-[1200] pointer-events-auto" style={{ left: "calc(12px + 384px + 12px)" }}>
+        <div className="absolute top-3 left-3 z-[1200] pointer-events-auto">
           <UniformMapPopup
             data={ud}
             companyName={focusedItem.company}
@@ -9678,12 +9759,15 @@ function WorkHistoryPanel({
         </div>
       ) : null;
     })()} 
-    {/* ── Main Card (with bio card stacked above) ── */}
-    <div className="absolute top-3 left-3 z-[1100] flex flex-col gap-2 pointer-events-none max-h-[calc(100vh-24px)]">
+    {/* ── Main Card (with bio card stacked above) — portals into asideHost when provided so map starts to the right of the aside (matches IR layout) ── */}
+    <MaybePortal target={asideHost ?? null}>
+    <div className={asideHost
+      ? "relative w-full h-full flex flex-col gap-2.5"
+      : "absolute top-0 left-0 bottom-0 z-[1100] flex flex-col gap-2.5 pointer-events-none w-[min(26rem,calc(100vw-24px))] lg:w-[28rem] border-r border-white/10 bg-background/70 backdrop-blur-md p-3 overflow-y-auto scrollbar-thin"}>
       <div className="pointer-events-auto">
         <BioCardEditor />
       </div>
-      <div className="bg-background/95 backdrop-blur-md border rounded-xl shadow-xl p-3 w-96 max-h-[60vh] overflow-y-auto scrollbar-thin pointer-events-auto">
+      <div className={`${SIDEBAR_CARD_CHROME} w-full flex-1 min-h-0 overflow-y-auto scrollbar-thin pointer-events-auto`}>
 
       {/* ── Focused Detail View ── */}
       {focusedItem ? (
@@ -10166,8 +10250,9 @@ function WorkHistoryPanel({
                     fd.append("file", file);
                     fd.append("positionId", focusedItem.id);
                     if (opts?.albumName) fd.append("albumName", opts.albumName);
-                    const setCover = opts?.isCover ?? (galleryPhotos.length === 0);
-                    if (setCover) fd.append("isCover", "true");
+                    // Cover is never auto-assigned. The user explicitly sets it via
+                    // the "Set as cover" action or the dedicated banner uploader.
+                    if (opts?.isCover === true) fd.append("isCover", "true");
                     const res = await fetch("/api/gallery", { method: "POST", body: fd });
                     if (res.ok) return true;
                     const data = await res.json().catch(() => ({}));
@@ -12063,28 +12148,8 @@ function WorkHistoryPanel({
       ) : (
       <>
       <div className="flex items-center justify-between mb-2">
-        <span className="text-sm font-semibold flex items-center gap-1.5">
-          <Briefcase className="h-4 w-4 text-gray-500" /> Work History
-        </span>
+        <span className="text-base font-semibold pl-1.5">Work History</span>
         <div className="relative flex items-center gap-1">
-          {(() => {
-            const isMac =
-              typeof navigator !== "undefined" && /Mac|iPod|iPhone|iPad/.test(navigator.platform);
-            const label = isMac ? "⌘ /" : "Ctrl /";
-            return (
-              <button
-                type="button"
-                className="flex items-center gap-1 text-muted-foreground hover:text-foreground"
-                title={`Search work history (${label})`}
-                onClick={() => setSearchOpen(true)}
-              >
-                <Search className="h-4 w-4" />
-                <kbd className="hidden md:inline-flex items-center rounded border bg-muted/50 px-1 py-0 text-[9px] font-mono leading-none h-4">
-                  {label}
-                </kbd>
-              </button>
-            );
-          })()}
           <button
             type="button"
             className="text-muted-foreground hover:text-foreground"
@@ -12095,19 +12160,7 @@ function WorkHistoryPanel({
           </button>
           <button
             type="button"
-            className={`transition-colors ${showPanelSettings ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
-            title="Panel settings"
-            onClick={() => {
-              setShowPanelSettings((p) => !p);
-              setShowTypeFilterPanel(false);
-              setShowMoreMenu(false);
-            }}
-          >
-            <Settings className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            className={`transition-colors ${showMoreMenu ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
+            className={`transition-colors ${(showMoreMenu || showPanelSettings) ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
             title="More options"
             onClick={() => {
               setShowMoreMenu((p) => !p);
@@ -12177,6 +12230,18 @@ function WorkHistoryPanel({
                   <Download className="h-3.5 w-3.5 shrink-0" />
                 )}
                 <span className="flex-1">Import from experience</span>
+              </button>
+              <div className="my-1 h-px bg-border/60" />
+              <button
+                type="button"
+                className="w-full flex items-center gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-muted/40 text-left"
+                onClick={() => {
+                  setShowPanelSettings(true);
+                  setShowMoreMenu(false);
+                }}
+              >
+                <Settings className="h-3.5 w-3.5 shrink-0" />
+                <span className="flex-1">Panel settings</span>
               </button>
             </div>
           )}
@@ -12392,7 +12457,7 @@ function WorkHistoryPanel({
       )}
 
       {/* Recruiter-style scoped search modal (Cmd/Ctrl+K) */}
-      {searchOpen && typeof document !== "undefined" && (() => {
+      {searchOpen && (() => {
         // Highlight matched substrings (case-insensitive) in a string.
         const terms = searchQuery.trim().toLowerCase().split(/\s+/).filter((t) => t.length >= 2);
         const highlight = (text: string): React.ReactNode => {
@@ -12448,14 +12513,11 @@ function WorkHistoryPanel({
             .map((i) => i.company)
             .filter(Boolean)
         )).slice(0, 4);
-        return createPortal(
-          <div
-            className="fixed inset-0 z-[2100] flex items-start justify-center pt-[10vh] px-4 bg-background/40 backdrop-blur-sm"
-            onClick={() => setSearchOpen(false)}
-          >
-            <div
-              className="w-full max-w-2xl rounded-2xl bg-background border shadow-2xl overflow-hidden"
-              onClick={(e) => e.stopPropagation()}
+        return (
+          <Dialog open={searchOpen} onOpenChange={setSearchOpen}>
+            <DialogContent
+              showCloseButton={false}
+              className="w-full max-w-2xl rounded-2xl bg-background border shadow-2xl overflow-hidden p-0"
             >
               <div className="flex items-center gap-2 px-4 py-3 border-b">
                 <Search className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -12562,7 +12624,20 @@ function WorkHistoryPanel({
                                   onMouseEnter={() => setSearchSelectedIndex(flatIdx)}
                                   className={`w-full flex items-start gap-3 px-4 py-2.5 text-left transition-colors ${isSelected ? "bg-muted/60" : "hover:bg-muted/40"}`}
                                 >
-                                  <h.Icon className={`h-4 w-4 mt-0.5 shrink-0 ${h.iconClass || "text-muted-foreground"}`} />
+                                  {h.thumbnailUrl ? (
+                                    <span className="relative h-14 w-14 mt-0.5 shrink-0 overflow-hidden rounded-md bg-muted ring-1 ring-border">
+                                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                                      <img
+                                        src={h.thumbnailUrl}
+                                        alt=""
+                                        loading="lazy"
+                                        className="absolute inset-0 h-full w-full object-cover"
+                                      />
+                                      <h.Icon className={`absolute bottom-0.5 right-0.5 h-4 w-4 rounded-full bg-background p-0.5 ring-1 ring-border ${h.iconClass || "text-muted-foreground"}`} />
+                                    </span>
+                                  ) : (
+                                    <h.Icon className={`h-4 w-4 mt-0.5 shrink-0 ${h.iconClass || "text-muted-foreground"}`} />
+                                  )}
                                   <div className="flex-1 min-w-0">
                                     <div className="text-sm font-medium truncate">{highlight(h.title)}</div>
                                     {h.subtitle && (
@@ -12595,109 +12670,10 @@ function WorkHistoryPanel({
                   <span className="ml-auto">Press <kbd className="rounded border bg-background px-1 font-mono">⏎</kbd> after typing to open the top result</span>
                 )}
               </div>
-            </div>
-          </div>,
-          document.body,
+            </DialogContent>
+          </Dialog>
         );
       })()}
-
-      {showInventoryOverview && typeof document !== "undefined" && createPortal(
-        <div
-          className="fixed z-[2000] flex flex-col bg-background border rounded-xl shadow-2xl select-none"
-          style={{
-            left: inventoryPanel.x,
-            top: inventoryPanel.y,
-            width: inventoryPanel.w,
-            height: inventoryPanel.minimized ? undefined : inventoryPanel.h,
-            maxWidth: "calc(100vw - 16px)",
-            maxHeight: "calc(100vh - 16px)",
-          }}
-          onPointerMove={onInventoryDragMove}
-          onPointerUp={onInventoryDragEnd}
-          onPointerCancel={onInventoryDragEnd}
-        >
-          <div
-            className="flex items-center gap-2 px-3 py-2 border-b cursor-grab active:cursor-grabbing bg-muted/40 rounded-t-xl"
-            onPointerDown={onInventoryDragStart}
-            onDoubleClick={() => setInventoryPanel((p) => ({ ...p, minimized: !p.minimized }))}
-          >
-            <GripVertical className="h-4 w-4 text-muted-foreground" />
-            <Boxes className="h-4 w-4 text-emerald-600" />
-            <div className="flex-1 text-sm font-semibold">My Tools & Inventory</div>
-            <div className="relative">
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); setShowInventorySnapMenu((v) => !v); }}
-                onPointerDown={(e) => e.stopPropagation()}
-                className="text-muted-foreground hover:text-foreground p-0.5 rounded hover:bg-muted"
-                title="Snap to corner"
-              >
-                <Maximize2 className="h-3.5 w-3.5" />
-              </button>
-              {showInventorySnapMenu && (
-                <div
-                  className="absolute right-0 top-6 z-[2100] grid grid-cols-2 gap-1 p-1.5 rounded-lg border bg-background shadow-xl"
-                  onPointerDown={(e) => e.stopPropagation()}
-                >
-                  <button type="button" onClick={() => snapInventoryToCorner("tl")} className="h-7 w-7 rounded border hover:bg-muted flex items-center justify-center" title="Top-left">
-                    <span className="block h-2 w-2 bg-foreground/70 rounded-sm -translate-x-1 -translate-y-1" />
-                  </button>
-                  <button type="button" onClick={() => snapInventoryToCorner("tr")} className="h-7 w-7 rounded border hover:bg-muted flex items-center justify-center" title="Top-right">
-                    <span className="block h-2 w-2 bg-foreground/70 rounded-sm translate-x-1 -translate-y-1" />
-                  </button>
-                  <button type="button" onClick={() => snapInventoryToCorner("bl")} className="h-7 w-7 rounded border hover:bg-muted flex items-center justify-center" title="Bottom-left">
-                    <span className="block h-2 w-2 bg-foreground/70 rounded-sm -translate-x-1 translate-y-1" />
-                  </button>
-                  <button type="button" onClick={() => snapInventoryToCorner("br")} className="h-7 w-7 rounded border hover:bg-muted flex items-center justify-center" title="Bottom-right">
-                    <span className="block h-2 w-2 bg-foreground/70 rounded-sm translate-x-1 translate-y-1" />
-                  </button>
-                </div>
-              )}
-            </div>
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); setInventoryPanel((p) => ({ ...p, minimized: !p.minimized })); }}
-              onPointerDown={(e) => e.stopPropagation()}
-              className="text-muted-foreground hover:text-foreground p-0.5 rounded hover:bg-muted"
-              title={inventoryPanel.minimized ? "Restore" : "Minimize"}
-            >
-              {inventoryPanel.minimized ? <Square className="h-3.5 w-3.5" /> : <Minus className="h-3.5 w-3.5" />}
-            </button>
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); setShowInventoryOverview(false); }}
-              onPointerDown={(e) => e.stopPropagation()}
-              className="text-muted-foreground hover:text-foreground p-0.5 rounded hover:bg-muted"
-              title="Close"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-          {!inventoryPanel.minimized && (
-            <>
-              <div className="flex-1 overflow-y-auto p-3 scrollbar-thin">
-                <PersonalInventory
-                  focusedPositionId={focusedItem?.id ?? null}
-                  focusedPositionLabel={focusedItem ? `${focusedItem.role || "Position"} @ ${focusedItem.company}` : null}
-                  openItemId={pendingSearchOpen?.kind === "personalEquipment" ? pendingSearchOpen.id : null}
-                  onItemOpened={() => setPendingSearchOpen(null)}
-                />
-              </div>
-              <div
-                onPointerDown={onInventoryResizeStart}
-                className="absolute bottom-0 right-0 h-4 w-4 cursor-nwse-resize"
-                title="Drag to resize"
-                style={{
-                  background:
-                    "linear-gradient(135deg, transparent 0%, transparent 50%, hsl(var(--muted-foreground) / 0.5) 50%, hsl(var(--muted-foreground) / 0.5) 60%, transparent 60%, transparent 70%, hsl(var(--muted-foreground) / 0.5) 70%, hsl(var(--muted-foreground) / 0.5) 80%, transparent 80%)",
-                  borderBottomRightRadius: "0.75rem",
-                }}
-              />
-            </>
-          )}
-        </div>,
-        document.body,
-      )}
 
       {/* Add form */}
       {adding && (
@@ -13358,10 +13334,11 @@ function WorkHistoryPanel({
       )}
     </div>
     </div>
+    </MaybePortal>
 
     {/* ── Locations Popover (floating below header) ── */}
     {focusedItem && showLocationsPopover && (focusedItem.locations ?? []).length > 0 && (
-      <div className="absolute top-[52px] left-[calc(0.75rem+24rem-12rem)] z-[1150] bg-background/95 backdrop-blur-md border rounded-xl shadow-xl p-2.5 w-72 max-h-[40vh] overflow-y-auto scrollbar-thin pointer-events-auto">
+      <div className="absolute top-[52px] left-3 z-[1150] bg-background/95 backdrop-blur-md border rounded-xl shadow-xl p-2.5 w-72 max-h-[40vh] overflow-y-auto scrollbar-thin pointer-events-auto">
         {(() => {
           const locs = focusedItem.locations;
           const currentIdx = expandedLocId ? locs.findIndex((l) => l.id === expandedLocId) : -1;
@@ -13527,6 +13504,22 @@ function WorkHistoryPanel({
       </div>
     )}
 
+      {/* ── My Tools & Inventory popout sheet ── */}
+      <IrPopoutSheet
+        open={showInventoryOverview}
+        onClose={() => setShowInventoryOverview(false)}
+        title="My Tools & Inventory"
+        icon={<Boxes className="h-4 w-4 text-emerald-600" />}
+        maxWidthClassName="max-w-[min(92vw,1000px)]"
+        bodyClassName="max-h-[min(82vh,860px)] overflow-y-auto px-4 py-3 scrollbar-thin"
+      >
+        <PersonalInventory
+          focusedPositionId={focusedItem?.id ?? null}
+          focusedPositionLabel={focusedItem ? `${focusedItem.role || "Position"} @ ${focusedItem.company}` : null}
+          openItemId={pendingSearchOpen?.kind === "personalEquipment" ? pendingSearchOpen.id : null}
+          onItemOpened={() => setPendingSearchOpen(null)}
+        />
+      </IrPopoutSheet>
     </>
   );
 }

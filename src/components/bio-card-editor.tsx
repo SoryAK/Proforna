@@ -255,7 +255,7 @@ export function BioCardEditor() {
   }
 
   return (
-    <div className="bg-background/95 backdrop-blur-md border rounded-xl shadow-xl w-96 max-h-[70vh] overflow-y-auto scrollbar-thin">
+    <div className="bg-background/95 backdrop-blur-md border rounded-xl shadow-xl w-full max-h-[70vh] overflow-y-auto scrollbar-thin">
       {/* ── Publish status strip ── */}
       <div
         className={`flex items-center justify-between gap-2 px-3 py-1.5 border-b ${
