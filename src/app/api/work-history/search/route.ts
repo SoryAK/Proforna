@@ -47,6 +47,11 @@ export async function GET(req: Request) {
         notes: true,
         positionId: true,
         position: { select: { company: true, title: true } },
+        photos: {
+          select: { filePath: true, isCover: true },
+          orderBy: [{ isCover: "desc" }, { createdAt: "asc" }],
+          take: 1,
+        },
       },
       take: limit,
     }),
@@ -112,6 +117,7 @@ export async function GET(req: Request) {
           select: {
             id: true,
             caption: true,
+            filePath: true,
             workHistoryId: true,
             workHistory: { select: { company: true, title: true } },
           },
@@ -143,6 +149,20 @@ export async function GET(req: Request) {
         notes: true,
         location: true,
         tags: true,
+        photos: {
+          select: {
+            filePath: true,
+            isCover: true,
+            focalX: true,
+            focalY: true,
+            zoom: true,
+            rotation: true,
+            flipH: true,
+            flipV: true,
+          },
+          orderBy: [{ isCover: "desc" }, { sortOrder: "asc" }, { createdAt: "asc" }],
+          take: 1,
+        },
       },
       take: limit,
     }),
@@ -159,6 +179,13 @@ export async function GET(req: Request) {
         id: true,
         caption: true,
         fileName: true,
+        filePath: true,
+        focalX: true,
+        focalY: true,
+        zoom: true,
+        rotation: true,
+        flipH: true,
+        flipV: true,
         equipmentId: true,
         equipment: { select: { name: true, category: true } },
       },
@@ -182,6 +209,15 @@ export async function GET(req: Request) {
     targetId?: string;
     /** For annotations: the parent gallery photo id so the gallery panel can scroll to the photo. */
     targetPhotoId?: string;
+    /** Optional preview thumbnail URL for image-bearing hits (photos, annotations, equipment photos). */
+    thumbnailUrl?: string | null;
+    /** Optional focal/zoom/orientation data so the client can frame the thumb the same way the source UI does. */
+    thumbFocalX?: number | null;
+    thumbFocalY?: number | null;
+    thumbZoom?: number | null;
+    thumbRotation?: number | null;
+    thumbFlipH?: boolean | null;
+    thumbFlipV?: boolean | null;
   };
 
   const stripHtml = (s: string | null | undefined) =>
@@ -199,6 +235,7 @@ export async function GET(req: Request) {
       itemId: e.positionId,
       targetKind: "equipment",
       targetId: e.id,
+      thumbnailUrl: e.photos?.[0]?.filePath ?? null,
     })),
     ...attachments.map<Hit>((a) => ({
       key: `att-${a.id}`,
@@ -219,6 +256,7 @@ export async function GET(req: Request) {
       itemId: g.workHistoryId,
       targetKind: "galleryPhoto",
       targetId: g.id,
+      thumbnailUrl: g.filePath,
     })),
     ...annotations
       .filter((a) => a.photo) // annotations without photos are out of scope here
@@ -232,17 +270,28 @@ export async function GET(req: Request) {
         targetKind: "annotation",
         targetId: a.id,
         targetPhotoId: a.photo!.id,
+        thumbnailUrl: a.photo!.filePath,
       })),
-    ...personal.map<Hit>((p) => ({
-      key: `pi-${p.id}`,
-      group: "Inventory",
-      title: p.name,
-      subtitle: [p.category, [p.manufacturer, p.model].filter(Boolean).join(" ")].filter(Boolean).join(" · ") || null,
-      snippet: p.notes || (p.tags && p.tags.length ? p.tags.join(", ") : null),
-      href: `/inventory#${p.id}`,
-      targetKind: "personalEquipment",
-      targetId: p.id,
-    })),
+    ...personal.map<Hit>((p) => {
+      const cover = p.photos?.[0];
+      return {
+        key: `pi-${p.id}`,
+        group: "Inventory",
+        title: p.name,
+        subtitle: [p.category, [p.manufacturer, p.model].filter(Boolean).join(" ")].filter(Boolean).join(" · ") || null,
+        snippet: p.notes || (p.tags && p.tags.length ? p.tags.join(", ") : null),
+        href: `/inventory#${p.id}`,
+        targetKind: "personalEquipment",
+        targetId: p.id,
+        thumbnailUrl: cover?.filePath ?? null,
+        thumbFocalX: cover?.focalX ?? null,
+        thumbFocalY: cover?.focalY ?? null,
+        thumbZoom: cover?.zoom ?? null,
+        thumbRotation: cover?.rotation ?? null,
+        thumbFlipH: cover?.flipH ?? null,
+        thumbFlipV: cover?.flipV ?? null,
+      };
+    }),
     ...personalPhotos.map<Hit>((p) => ({
       key: `pip-${p.id}`,
       group: "Inventory",
@@ -251,6 +300,13 @@ export async function GET(req: Request) {
       href: `/inventory#${p.equipmentId}`,
       targetKind: "personalEquipmentPhoto",
       targetId: p.equipmentId,
+      thumbnailUrl: p.filePath,
+      thumbFocalX: p.focalX,
+      thumbFocalY: p.focalY,
+      thumbZoom: p.zoom,
+      thumbRotation: p.rotation,
+      thumbFlipH: p.flipH,
+      thumbFlipV: p.flipV,
     })),
   ];
 

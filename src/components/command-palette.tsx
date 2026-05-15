@@ -18,6 +18,9 @@ import {
   BookOpen,
   FolderOpen,
   Boxes,
+  Cog,
+  NotebookPen,
+  Images,
 } from "lucide-react";
 import {
   CommandDialog,
@@ -36,6 +39,9 @@ const NAV_PAGES = [
   { label: "Job Search", href: "/job-search", icon: Search },
   { label: "Career Analytics", href: "/career-growth", icon: TrendingUp },
   { label: "Personal Inventory", href: "/inventory", icon: Boxes },
+  { label: "Job Assets", href: "/job-assets", icon: Cog },
+  { label: "Master Gallery", href: "/master-gallery", icon: Images },
+  { label: "Worklog", href: "/worklog", icon: NotebookPen },
   { label: "Insights", href: "/insights", icon: BarChart3 },
   { label: "Research", href: "/research", icon: BookOpen },
   { label: "Documents", href: "/docs", icon: FolderOpen },
@@ -47,6 +53,14 @@ interface SearchResults {
   contacts: { id: string; name: string; company: string | null }[];
   goals: { id: string; title: string }[];
   skills: { id: string; name: string; category: string }[];
+  worklogs: {
+    id: string;
+    title: string;
+    date: string;
+    tags: string | null;
+    isNotable: boolean;
+    content: string | null;
+  }[];
 }
 
 export function CommandPalette() {
@@ -84,7 +98,7 @@ export function CommandPalette() {
   return (
     <CommandDialog open={open} onOpenChange={setOpen}>
       <Command>
-        <CommandInput placeholder="Search pages, applications, contacts, goals..." />
+        <CommandInput placeholder="Search pages, applications, contacts, goals, worklogs..." />
         <CommandList>
           <CommandEmpty>No results found.</CommandEmpty>
 
@@ -180,6 +194,40 @@ export function CommandPalette() {
                     </span>
                   </CommandItem>
                 ))}
+              </CommandGroup>
+            </>
+          )}
+
+          {/* Worklogs — PRIVATE, owner-only. */}
+          {data?.worklogs && data.worklogs.length > 0 && (
+            <>
+              <CommandSeparator />
+              <CommandGroup heading="Worklogs">
+                {data.worklogs.map((w) => {
+                  const date = new Date(w.date);
+                  const dateLabel = date.toLocaleDateString(undefined, {
+                    month: "short",
+                    day: "numeric",
+                    year: "2-digit",
+                  });
+                  return (
+                    <CommandItem
+                      key={w.id}
+                      // value is what cmdk fuzzy-matches against — include title + tags + content snippet
+                      value={`worklog ${w.title} ${w.tags ?? ""} ${(w.content ?? "").slice(0, 200)}`}
+                      onSelect={() => navigate(`/worklog?focus=${w.id}`)}
+                    >
+                      <NotebookPen className="mr-2 h-4 w-4 text-muted-foreground" />
+                      <span className="truncate">{w.title}</span>
+                      {w.isNotable && (
+                        <span className="ml-1 text-yellow-500" title="Notable">★</span>
+                      )}
+                      <span className="ml-auto pl-2 text-xs text-muted-foreground shrink-0">
+                        {dateLabel}
+                      </span>
+                    </CommandItem>
+                  );
+                })}
               </CommandGroup>
             </>
           )}

@@ -32,6 +32,7 @@ import {
   STATUS_LABELS,
   type ApplicationStatus,
 } from "@/lib/constants";
+import { CareerAnalyticsBanner } from "@/components/career-analytics-banner";
 
 interface AnalyticsData {
   total: number;
@@ -102,6 +103,7 @@ export default function AnalyticsPage() {
       </div>
 
       <div className="flex-1 overflow-auto p-6 space-y-6">
+        <CareerAnalyticsBanner section="jobsearch" />
         {/* ── KPI Cards ── */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <StatCard

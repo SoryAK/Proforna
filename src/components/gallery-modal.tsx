@@ -9,6 +9,7 @@ import {
   RotateCw, Eye, EyeOff, Heart, Calendar, Settings2,
   SortAsc, SortDesc, Check, CheckCheck, XCircle, LayoutGrid, FolderOpen,
   Layers, Video as VideoIcon, Upload, Link2,
+  GripVertical, Minus, MoreHorizontal,
 } from "lucide-react";
 import { AnnotationEditor } from "@/components/annotation-editor";
 
@@ -260,6 +261,34 @@ export function GalleryModal({ photos, albums = [], initialIndex, positionId, co
   /* ── Fullscreen ── */
   const [isFullscreen, setIsFullscreen] = useState(false);
 
+  /* ── Minimize ── */
+  const [minimized, setMinimized] = useState(false);
+
+  /* ── Overflow menu ── */
+  const [showOverflow, setShowOverflow] = useState(false);
+  useEffect(() => {
+    if (!showOverflow) return;
+    const handler = (e: MouseEvent) => {
+      const tgt = e.target as HTMLElement;
+      if (!tgt.closest("[data-overflow-root]")) setShowOverflow(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showOverflow]);
+
+  /* ── Close settings popover on outside click ── */
+  useEffect(() => {
+    if (!showSettings) return;
+    const handler = (e: MouseEvent) => {
+      const tgt = e.target as HTMLElement;
+      if (!tgt.closest("[data-settings-root]") && !tgt.closest("[data-overflow-root]")) {
+        setShowSettings(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showSettings]);
+
   /* ── Drag ── */
   const panelRef = useRef<HTMLDivElement>(null);
   const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(null);
@@ -267,6 +296,19 @@ export function GalleryModal({ photos, albums = [], initialIndex, positionId, co
   const dragOffset = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const isDragging = useRef(false);
   const imgRef = useRef<HTMLDivElement>(null);
+  const [imgViewport, setImgViewport] = useState<{ w: number; h: number }>({ w: 0, h: 0 });
+  useEffect(() => {
+    const el = imgRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const cr = entry.contentRect;
+        setImgViewport({ w: Math.floor(cr.width), h: Math.floor(cr.height) });
+      }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   /* ── Resize ── */
   const [size, setSize] = useState<{ w: number; h: number } | null>(null);
@@ -772,8 +814,8 @@ export function GalleryModal({ photos, albums = [], initialIndex, positionId, co
   if (!target) return null;
 
   const panelStyle: React.CSSProperties = dragPos
-    ? { left: dragPos.x, top: dragPos.y, width: size ? size.w : "min(900px, 78%)", height: size ? size.h : "min(520px, 72%)" }
-    : { left: "50%", top: "50%", transform: "translate(-50%, -50%)", width: size ? size.w : "min(900px, 78%)", height: size ? size.h : "min(520px, 72%)" };
+    ? { left: dragPos.x, top: dragPos.y, width: size ? size.w : "min(900px, 78%)", height: minimized ? undefined : (size ? size.h : "min(520px, 72%)") }
+    : { left: "50%", top: "50%", transform: "translate(-50%, -50%)", width: size ? size.w : "min(900px, 78%)", height: minimized ? undefined : (size ? size.h : "min(520px, 72%)") };
 
   const thumbArea = settings.thumbnailSize === "sm" ? "w-14 shrink-0" : settings.thumbnailSize === "lg" ? "w-28 shrink-0" : "w-20 shrink-0";
 
@@ -783,7 +825,7 @@ export function GalleryModal({ photos, albums = [], initialIndex, positionId, co
   const panel = (
     <div
       ref={panelRef}
-      className="absolute z-[1200] flex flex-col rounded-xl bg-background/95 backdrop-blur-md border shadow-2xl pointer-events-auto animate-in fade-in-0 zoom-in-95 duration-200 overflow-hidden"
+      className="absolute z-[2000] flex flex-col rounded-xl bg-background border shadow-2xl pointer-events-auto animate-in fade-in-0 zoom-in-95 duration-200 overflow-hidden"
       style={panelStyle}
       onClick={(e) => e.stopPropagation()}
     >
@@ -796,7 +838,8 @@ export function GalleryModal({ photos, albums = [], initialIndex, positionId, co
         </div>
       )}
 
-      {/* Resize handles */}
+      {/* Resize handles (hidden when minimized) */}
+      {!minimized && <>
       <div className="absolute top-0 left-0 right-0 h-1.5 cursor-n-resize z-50" onMouseDown={(e) => onResizeStart(e, "t")} />
       <div className="absolute bottom-0 left-0 right-0 h-1.5 cursor-s-resize z-50" onMouseDown={(e) => onResizeStart(e, "b")} />
       <div className="absolute top-0 left-0 bottom-0 w-1.5 cursor-w-resize z-50" onMouseDown={(e) => onResizeStart(e, "l")} />
@@ -805,250 +848,331 @@ export function GalleryModal({ photos, albums = [], initialIndex, positionId, co
       <div className="absolute top-0 right-0 w-3 h-3 cursor-ne-resize z-50" onMouseDown={(e) => onResizeStart(e, "tr")} />
       <div className="absolute bottom-0 left-0 w-3 h-3 cursor-sw-resize z-50" onMouseDown={(e) => onResizeStart(e, "bl")} />
       <div className="absolute bottom-0 right-0 w-3 h-3 cursor-se-resize z-50" onMouseDown={(e) => onResizeStart(e, "br")} />
+      </>}
 
-      {/* ── Top bar (drag handle) ── */}
+      {/* ── Title bar (drag handle) ── */}
       <div
-        className="flex items-center gap-1.5 px-3 py-1.5 border-b bg-muted/30 shrink-0 cursor-grab active:cursor-grabbing select-none"
+        className="flex items-center gap-2 px-3 py-2 border-b bg-muted/40 rounded-t-xl shrink-0 cursor-grab active:cursor-grabbing select-none"
         onMouseDown={onDragStart}
+        onDoubleClick={() => setMinimized((m) => !m)}
       >
+        <GripVertical className="h-4 w-4 text-muted-foreground shrink-0" />
         <Images className="h-4 w-4 text-pink-500 shrink-0" />
-        <span className="text-sm font-semibold shrink-0">Gallery</span>
-        <span className="text-xs text-muted-foreground shrink-0">
-          {filteredPhotos.length}/{photos.length} photo{photos.length !== 1 ? "s" : ""}
-        </span>
-
-        <div className="flex items-center rounded-md bg-muted/60 p-0.5 shrink-0">
-          <button
-            onClick={() => setViewMode("viewer")}
-            className={`p-1 rounded ${viewMode === "viewer" ? "bg-background text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-            title="Viewer mode"
-          >
-            <Images className="h-3.5 w-3.5" />
-          </button>
-          <button
-            onClick={() => setViewMode("photos")}
-            className={`p-1 rounded ${viewMode === "photos" ? "bg-background text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-            title="Photos mode"
-          >
-            <LayoutGrid className="h-3.5 w-3.5" />
-          </button>
-          <button
-            onClick={() => setViewMode("albums")}
-            className={`p-1 rounded ${viewMode === "albums" ? "bg-background text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-            title="Albums mode"
-          >
-            <FolderOpen className="h-3.5 w-3.5" />
-          </button>
-          <button
-            onClick={() => setViewMode("videos")}
-            className={`p-1 rounded ${viewMode === "videos" ? "bg-background text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-            title={`Videos${videos.length ? ` (${videos.length})` : ""}`}
-          >
-            <VideoIcon className="h-3.5 w-3.5" />
-          </button>
+        <div className="flex-1 text-sm font-semibold truncate">
+          Gallery <span className="text-xs font-normal text-muted-foreground">— {filteredPhotos.length}/{photos.length} photo{photos.length !== 1 ? "s" : ""}</span>
         </div>
-
-        <div className="flex items-center gap-0.5 shrink-0">
-          <select
-            value={activeAlbumId}
-            onChange={(e) => { setActiveAlbumId(e.target.value); setIdx(0); }}
-            className="h-6 rounded bg-muted text-[10px] px-1 outline-none border-0 cursor-pointer max-w-[170px]"
-            title="Filter by album"
-          >
-            <option value="__all">All albums ({photos.length})</option>
-            <option value="__unassigned">Unassigned ({albumCounts.get("__unassigned") ?? 0})</option>
-            {sortedAlbums.map((a) => (
-              <option key={a.id} value={a.id}>{a.name} ({albumCounts.get(a.id) ?? 0})</option>
-            ))}
-          </select>
-          <button onClick={createAlbum} className="p-1 rounded hover:bg-muted text-muted-foreground" title="New album">
-            <Plus className="h-3 w-3" />
-          </button>
-          <button
-            onClick={renameActiveAlbum}
-            disabled={activeAlbumId === "__all" || activeAlbumId === "__unassigned"}
-            className="p-1 rounded hover:bg-muted text-muted-foreground disabled:opacity-40 disabled:cursor-not-allowed"
-            title="Rename selected album"
-          >
-            <Pencil className="h-3 w-3" />
-          </button>
-          <button
-            onClick={deleteActiveAlbum}
-            disabled={activeAlbumId === "__all" || activeAlbumId === "__unassigned"}
-            className="p-1 rounded hover:bg-muted text-muted-foreground disabled:opacity-40 disabled:cursor-not-allowed"
-            title="Delete selected album"
-          >
-            <Trash2 className="h-3 w-3" />
-          </button>
-        </div>
-
-        {/* Search */}
-        <div className="flex-1 min-w-0 max-w-[220px]">
-          <div className="relative">
-            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => { setSearchQuery(e.target.value); setIdx(0); }}
-              placeholder="Search tags, captions..."
-              className="w-full pl-7 pr-2 py-1 rounded-md bg-muted text-xs outline-none focus:ring-1 focus:ring-pink-500/50 placeholder:text-muted-foreground/60"
-            />
-            {searchQuery && (
-              <button onClick={() => { setSearchQuery(""); setIdx(0); }} className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 rounded hover:bg-muted-foreground/10">
-                <X className="h-2.5 w-2.5 text-muted-foreground" />
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Quick tag pills */}
-        {allTags.length > 0 && (
-          <div className="hidden xl:flex items-center gap-1">
-            {allTags.slice(0, 3).map((t) => (
-              <button key={t} onClick={() => { setSearchQuery(searchQuery === t ? "" : t); setIdx(0); }}
-                className={`px-1.5 py-0.5 rounded-full text-[10px] transition-colors ${searchQuery === t ? "bg-pink-500 text-white" : "bg-pink-500/10 text-pink-500 hover:bg-pink-500/20"}`}>
-                {t}
-              </button>
-            ))}
-            {allTags.length > 3 && <span className="text-[10px] text-muted-foreground">+{allTags.length - 3}</span>}
-          </div>
-        )}
-
-        {/* Sort */}
-        <div className="flex items-center gap-0.5 shrink-0">
-          <select value={settings.sortBy} onChange={(e) => updateSettings({ sortBy: e.target.value as SortBy })}
-            className="h-6 rounded bg-muted text-[10px] px-1 outline-none border-0 cursor-pointer">
-            <option value="date">Date</option>
-            <option value="name">Name</option>
-            <option value="size">Size</option>
-            <option value="favorite">Fav</option>
-          </select>
-          <button onClick={() => updateSettings({ sortAsc: !settings.sortAsc })}
-            className="p-1 rounded hover:bg-muted text-muted-foreground" title={settings.sortAsc ? "Asc" : "Desc"}>
-            {settings.sortAsc ? <SortAsc className="h-3 w-3" /> : <SortDesc className="h-3 w-3" />}
-          </button>
-        </div>
-
-        {/* Mode buttons */}
-        <div className="flex items-center gap-0.5 shrink-0">
-          <button onClick={() => { setBulkMode((b) => !b); setSelectedIds(new Set()); }}
-            className={`p-1 rounded transition-colors ${bulkMode ? "bg-pink-500/20 text-pink-500" : "hover:bg-muted text-muted-foreground"}`} title="Bulk select">
-            <CheckSquare className="h-3.5 w-3.5" />
-          </button>
-          <button onClick={() => { setViewMode("viewer"); setCompareMode((c) => !c); setSlideshowActive(false); }}
-            className={`p-1 rounded transition-colors ${compareMode ? "bg-blue-500/20 text-blue-500" : "hover:bg-muted text-muted-foreground"}`} title="Compare two photos">
-            <Columns2 className="h-3.5 w-3.5" />
-          </button>
-          <button onClick={() => { setViewMode("viewer"); setSlideshowActive((s) => !s); setCompareMode(false); }}
-            className={`p-1 rounded transition-colors ${slideshowActive ? "bg-green-500/20 text-green-500" : "hover:bg-muted text-muted-foreground"}`} title="Slideshow">
-            {slideshowActive ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
-          </button>
-          <button onClick={toggleFullscreen} className="p-1 rounded hover:bg-muted text-muted-foreground" title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}>
-            {isFullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
-          </button>
-          <button onClick={exportZip} className="p-1 rounded hover:bg-muted text-muted-foreground" title="Export all as ZIP">
-            <Archive className="h-3.5 w-3.5" />
-          </button>
-          <button onClick={() => setShowSettings((s) => !s)}
-            className={`p-1 rounded transition-colors ${showSettings ? "bg-muted text-foreground" : "hover:bg-muted text-muted-foreground"}`} title="Settings">
-            <Settings2 className="h-3.5 w-3.5" />
-          </button>
-        </div>
-
-        <button onClick={onClose} className="p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors" title="Close">
+        <button
+          type="button"
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={toggleFullscreen}
+          className="text-muted-foreground hover:text-foreground p-0.5 rounded hover:bg-muted"
+          title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+        >
+          {isFullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+        </button>
+        <button
+          type="button"
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={() => setMinimized((m) => !m)}
+          className="text-muted-foreground hover:text-foreground p-0.5 rounded hover:bg-muted"
+          title={minimized ? "Restore" : "Minimize"}
+        >
+          {minimized ? <Square className="h-3.5 w-3.5" /> : <Minus className="h-3.5 w-3.5" />}
+        </button>
+        <button
+          type="button"
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={onClose}
+          className="text-muted-foreground hover:text-foreground p-0.5 rounded hover:bg-muted"
+          title="Close"
+        >
           <X className="h-4 w-4" />
         </button>
       </div>
 
+      {!minimized && <>
+
+      {/* ── Secondary toolbar ── */}
+      <div className="flex items-center gap-2 px-3 py-1.5 border-b bg-muted/20 shrink-0 select-none">
+
+        {/* View mode segmented control */}
+        <div className="flex items-center rounded-md bg-muted/60 p-0.5 shrink-0">
+          {([
+            { v: "viewer", icon: Images, t: "Viewer" },
+            { v: "photos", icon: LayoutGrid, t: "Grid" },
+            { v: "albums", icon: FolderOpen, t: "Albums" },
+            { v: "videos", icon: VideoIcon, t: `Videos${videos.length ? ` (${videos.length})` : ""}` },
+          ] as const).map(({ v, icon: Icon, t }) => (
+            <button
+              key={v}
+              onClick={() => setViewMode(v)}
+              className={`p-1 rounded transition-colors ${viewMode === v ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+              title={t}
+            >
+              <Icon className="h-3.5 w-3.5" />
+            </button>
+          ))}
+        </div>
+
+        <div className="h-5 w-px bg-border shrink-0" />
+
+        {/* Album filter */}
+        <select
+          value={activeAlbumId}
+          onChange={(e) => { setActiveAlbumId(e.target.value); setIdx(0); }}
+          className="h-7 rounded-md bg-background border border-input text-xs px-2 outline-none cursor-pointer max-w-[160px] hover:border-muted-foreground/40 focus:border-pink-500/50"
+          title="Filter by album"
+        >
+          <option value="__all">All ({photos.length})</option>
+          <option value="__unassigned">Unassigned ({albumCounts.get("__unassigned") ?? 0})</option>
+          {sortedAlbums.map((a) => (
+            <option key={a.id} value={a.id}>{a.name} ({albumCounts.get(a.id) ?? 0})</option>
+          ))}
+        </select>
+
+        {/* Search (flex-1 fills remaining space) */}
+        <div className="relative flex-1 min-w-0">
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground pointer-events-none" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => { setSearchQuery(e.target.value); setIdx(0); }}
+            placeholder="Search tags, captions, file names…"
+            className="w-full h-7 pl-7 pr-7 rounded-md bg-background border border-input text-xs outline-none focus:border-pink-500/50 placeholder:text-muted-foreground/60"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => { setSearchQuery(""); setIdx(0); }}
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 rounded hover:bg-muted text-muted-foreground"
+              title="Clear search"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          )}
+        </div>
+
+        <div className="h-5 w-px bg-border shrink-0" />
+
+        {/* Primary actions */}
+        <div className="flex items-center gap-0.5 shrink-0">
+          <button
+            onClick={() => { setBulkMode((b) => !b); setSelectedIds(new Set()); }}
+            className={`p-1.5 rounded-md transition-colors ${bulkMode ? "bg-pink-500/15 text-pink-600 dark:text-pink-400" : "hover:bg-muted text-muted-foreground hover:text-foreground"}`}
+            title="Select multiple"
+          >
+            <CheckSquare className="h-3.5 w-3.5" />
+          </button>
+          <button
+            onClick={() => { setViewMode("viewer"); setCompareMode((c) => !c); setSlideshowActive(false); }}
+            className={`p-1.5 rounded-md transition-colors ${compareMode ? "bg-pink-500/15 text-pink-600 dark:text-pink-400" : "hover:bg-muted text-muted-foreground hover:text-foreground"}`}
+            title="Compare two photos"
+          >
+            <Columns2 className="h-3.5 w-3.5" />
+          </button>
+          <button
+            onClick={() => { setViewMode("viewer"); setSlideshowActive((s) => !s); setCompareMode(false); }}
+            className={`p-1.5 rounded-md transition-colors ${slideshowActive ? "bg-pink-500/15 text-pink-600 dark:text-pink-400" : "hover:bg-muted text-muted-foreground hover:text-foreground"}`}
+            title={slideshowActive ? "Pause slideshow" : "Start slideshow"}
+          >
+            {slideshowActive ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+          </button>
+
+          {/* Overflow menu */}
+          <div className="relative" data-overflow-root>
+            <button
+              onClick={() => setShowOverflow((s) => !s)}
+              className={`p-1.5 rounded-md transition-colors ${showOverflow ? "bg-muted text-foreground" : "hover:bg-muted text-muted-foreground hover:text-foreground"}`}
+              title="More"
+            >
+              <MoreHorizontal className="h-3.5 w-3.5" />
+            </button>
+            {showOverflow && (
+              <div className="absolute right-0 top-full mt-1 w-56 rounded-lg border bg-background shadow-xl z-[2100] py-1 text-xs">
+                {/* Sort */}
+                <div className="px-2 py-1.5">
+                  <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">Sort by</div>
+                  <div className="flex items-center gap-1">
+                    <select
+                      value={settings.sortBy}
+                      onChange={(e) => updateSettings({ sortBy: e.target.value as SortBy })}
+                      className="flex-1 h-7 rounded-md bg-background border border-input text-xs px-2 outline-none cursor-pointer"
+                    >
+                      <option value="date">Date</option>
+                      <option value="name">Name</option>
+                      <option value="size">Size</option>
+                      <option value="favorite">Favorites first</option>
+                    </select>
+                    <button
+                      onClick={() => updateSettings({ sortAsc: !settings.sortAsc })}
+                      className="h-7 w-7 inline-flex items-center justify-center rounded-md border border-input hover:bg-muted text-muted-foreground"
+                      title={settings.sortAsc ? "Ascending" : "Descending"}
+                    >
+                      {settings.sortAsc ? <SortAsc className="h-3.5 w-3.5" /> : <SortDesc className="h-3.5 w-3.5" />}
+                    </button>
+                  </div>
+                </div>
+                <div className="h-px bg-border my-1" />
+
+                {/* Album management */}
+                <div className="px-1">
+                  <button onClick={() => { createAlbum(); setShowOverflow(false); }} className="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted text-left">
+                    <Plus className="h-3.5 w-3.5 text-muted-foreground" /> New album
+                  </button>
+                  <button
+                    onClick={() => { renameActiveAlbum(); setShowOverflow(false); }}
+                    disabled={activeAlbumId === "__all" || activeAlbumId === "__unassigned"}
+                    className="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted text-left disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <Pencil className="h-3.5 w-3.5 text-muted-foreground" /> Rename album
+                  </button>
+                  <button
+                    onClick={() => { deleteActiveAlbum(); setShowOverflow(false); }}
+                    disabled={activeAlbumId === "__all" || activeAlbumId === "__unassigned"}
+                    className="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-red-500/10 text-left text-red-600 dark:text-red-400 disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" /> Delete album
+                  </button>
+                </div>
+                <div className="h-px bg-border my-1" />
+
+                {/* Other */}
+                <div className="px-1">
+                  <button onClick={() => { exportZip(); setShowOverflow(false); }} className="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted text-left">
+                    <Archive className="h-3.5 w-3.5 text-muted-foreground" /> Export all as ZIP
+                  </button>
+                  <button onClick={() => { setShowSettings((s) => !s); setShowOverflow(false); }} className="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted text-left">
+                    <Settings2 className="h-3.5 w-3.5 text-muted-foreground" /> Settings
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
       {/* ── Bulk action bar ── */}
       {bulkMode && (
-        <div className="flex items-center gap-2 px-3 py-1 bg-pink-500/5 border-b shrink-0 text-xs">
-          <span className="text-muted-foreground font-medium">{selectedIds.size} selected</span>
-          <button onClick={selectAll} className="flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-muted text-muted-foreground">
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-muted/40 border-b shrink-0 text-xs">
+          <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-pink-500/15 text-pink-600 dark:text-pink-400 font-medium">
+            <CheckSquare className="h-3 w-3" />
+            <span>{selectedIds.size} selected</span>
+          </div>
+          <button onClick={selectAll} className="inline-flex items-center gap-1 h-6 px-2 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
             <CheckCheck className="h-3 w-3" /> All
           </button>
-          <button onClick={deselectAll} className="flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-muted text-muted-foreground">
+          <button onClick={deselectAll} className="inline-flex items-center gap-1 h-6 px-2 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
             <XCircle className="h-3 w-3" /> None
           </button>
+
           {selectedIds.size > 0 && (
             <>
-              <button onClick={() => setShowBulkTagInput((s) => !s)} className="flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-muted text-pink-500">
+              <div className="h-5 w-px bg-border" />
+              <button onClick={() => setShowBulkTagInput((s) => !s)} className="inline-flex items-center gap-1 h-6 px-2 rounded-md border border-input bg-background hover:bg-muted text-foreground transition-colors">
                 <Tag className="h-3 w-3" /> Tag
               </button>
-              <select
-                value={bulkMoveAlbumId}
-                onChange={(e) => setBulkMoveAlbumId(e.target.value)}
-                className="rounded bg-muted px-1.5 py-0.5 text-[10px] outline-none"
-                title="Select album to move selected photos"
-              >
-                <option value="__unassigned">Move to Unassigned</option>
-                {sortedAlbums.map((a) => (
-                  <option key={a.id} value={a.id}>Move to {a.name}</option>
-                ))}
-              </select>
-              <button onClick={bulkMoveAlbum} className="flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-blue-500/10 text-blue-500">
-                <Images className="h-3 w-3" /> Move
-              </button>
-              <button onClick={bulkDelete} className="flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-red-500/10 text-red-500">
+              <div className="inline-flex items-center gap-1">
+                <select
+                  value={bulkMoveAlbumId}
+                  onChange={(e) => setBulkMoveAlbumId(e.target.value)}
+                  className="h-6 rounded-md bg-background border border-input px-2 text-[11px] outline-none cursor-pointer max-w-[160px]"
+                  title="Select destination album"
+                >
+                  <option value="__unassigned">Unassigned</option>
+                  {sortedAlbums.map((a) => (
+                    <option key={a.id} value={a.id}>{a.name}</option>
+                  ))}
+                </select>
+                <button onClick={bulkMoveAlbum} className="inline-flex items-center gap-1 h-6 px-2 rounded-md border border-input bg-background hover:bg-muted text-foreground transition-colors">
+                  <FolderOpen className="h-3 w-3" /> Move
+                </button>
+              </div>
+              <div className="ml-auto" />
+              <button onClick={bulkDelete} className="inline-flex items-center gap-1 h-6 px-2 rounded-md border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 transition-colors">
                 <Trash2 className="h-3 w-3" /> Delete
               </button>
             </>
           )}
           {showBulkTagInput && (
-            <div className="flex items-center gap-1">
-              <input type="text" value={bulkTagInput} onChange={(e) => setBulkTagInput(e.target.value)}
+            <div className="inline-flex items-center gap-1">
+              <input
+                type="text"
+                value={bulkTagInput}
+                onChange={(e) => setBulkTagInput(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); bulkTag(); } }}
-                placeholder="Tag name..." autoFocus
-                className="px-1.5 py-0.5 rounded bg-muted text-[10px] outline-none focus:ring-1 focus:ring-pink-500/50 w-24" />
-              <button onClick={bulkTag} className="px-1.5 py-0.5 rounded bg-pink-500/10 hover:bg-pink-500/20 text-pink-500">Apply</button>
+                placeholder="Tag name…"
+                autoFocus
+                className="h-6 px-2 rounded-md bg-background border border-input text-[11px] outline-none focus:border-pink-500/50 w-28"
+              />
+              <button onClick={bulkTag} className="inline-flex items-center h-6 px-2 rounded-md bg-pink-500 hover:bg-pink-600 text-white text-[11px]">Apply</button>
             </div>
           )}
         </div>
       )}
 
-      {/* ── Settings panel ── */}
+      {/* ── Settings popover ── */}
       {showSettings && (
-        <div className="border-b bg-muted/20 px-4 py-2.5 shrink-0 grid grid-cols-2 md:grid-cols-5 gap-3 text-xs">
-          <label className="flex flex-col gap-1">
-            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Thumbnail size</span>
-            <select value={settings.thumbnailSize} onChange={(e) => updateSettings({ thumbnailSize: e.target.value as ThumbSize })}
-              className="rounded bg-muted px-1.5 py-1 text-xs outline-none">
-              <option value="sm">Small</option>
-              <option value="md">Medium</option>
-              <option value="lg">Large</option>
-            </select>
-          </label>
-          <label className="flex flex-col gap-1">
-            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Slideshow interval</span>
-            <select value={settings.slideshowInterval} onChange={(e) => updateSettings({ slideshowInterval: Number(e.target.value) })}
-              className="rounded bg-muted px-1.5 py-1 text-xs outline-none">
-              {[1, 2, 3, 5, 8, 10].map((s) => <option key={s} value={s}>{s}s</option>)}
-            </select>
-          </label>
-          <label className="flex flex-col gap-1">
-            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Default view</span>
-            <select
-              value={settings.defaultViewMode}
-              onChange={(e) => {
-                const next = e.target.value as ViewMode;
-                updateSettings({ defaultViewMode: next });
-                setViewMode(next);
-              }}
-              className="rounded bg-muted px-1.5 py-1 text-xs outline-none"
-            >
-              <option value="viewer">Viewer</option>
-              <option value="photos">Photos</option>
-              <option value="albums">Albums</option>
-            </select>
-          </label>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" checked={settings.confirmDelete} onChange={(e) => updateSettings({ confirmDelete: e.target.checked })} className="accent-pink-500" />
-            <span>Confirm before delete</span>
-          </label>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" checked={settings.showPrivate} onChange={(e) => updateSettings({ showPrivate: e.target.checked })} className="accent-pink-500" />
-            <span>Show private photos</span>
-          </label>
+        <div
+          data-settings-root
+          className="absolute top-[88px] right-3 z-[2050] w-72 rounded-lg border bg-background shadow-xl text-xs"
+        >
+          <div className="flex items-center justify-between px-3 py-2 border-b">
+            <div className="flex items-center gap-1.5">
+              <Settings2 className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="font-semibold">Settings</span>
+            </div>
+            <button onClick={() => setShowSettings(false)} className="p-1 rounded hover:bg-muted text-muted-foreground" title="Close">
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+          <div className="p-3 space-y-3">
+            <label className="flex items-center justify-between gap-3">
+              <span className="text-muted-foreground">Thumbnail size</span>
+              <select
+                value={settings.thumbnailSize}
+                onChange={(e) => updateSettings({ thumbnailSize: e.target.value as ThumbSize })}
+                className="h-7 rounded-md bg-background border border-input px-2 outline-none cursor-pointer"
+              >
+                <option value="sm">Small</option>
+                <option value="md">Medium</option>
+                <option value="lg">Large</option>
+              </select>
+            </label>
+            <label className="flex items-center justify-between gap-3">
+              <span className="text-muted-foreground">Slideshow interval</span>
+              <select
+                value={settings.slideshowInterval}
+                onChange={(e) => updateSettings({ slideshowInterval: Number(e.target.value) })}
+                className="h-7 rounded-md bg-background border border-input px-2 outline-none cursor-pointer"
+              >
+                {[1, 2, 3, 5, 8, 10].map((s) => <option key={s} value={s}>{s}s</option>)}
+              </select>
+            </label>
+            <label className="flex items-center justify-between gap-3">
+              <span className="text-muted-foreground">Default view</span>
+              <select
+                value={settings.defaultViewMode}
+                onChange={(e) => {
+                  const next = e.target.value as ViewMode;
+                  updateSettings({ defaultViewMode: next });
+                  setViewMode(next);
+                }}
+                className="h-7 rounded-md bg-background border border-input px-2 outline-none cursor-pointer"
+              >
+                <option value="viewer">Viewer</option>
+                <option value="photos">Photos</option>
+                <option value="albums">Albums</option>
+              </select>
+            </label>
+            <div className="h-px bg-border" />
+            <label className="flex items-center justify-between gap-3 cursor-pointer">
+              <span>Confirm before delete</span>
+              <input type="checkbox" checked={settings.confirmDelete} onChange={(e) => updateSettings({ confirmDelete: e.target.checked })} className="accent-pink-500 h-3.5 w-3.5" />
+            </label>
+            <label className="flex items-center justify-between gap-3 cursor-pointer">
+              <span>Show private photos</span>
+              <input type="checkbox" checked={settings.showPrivate} onChange={(e) => updateSettings({ showPrivate: e.target.checked })} className="accent-pink-500 h-3.5 w-3.5" />
+            </label>
+          </div>
         </div>
       )}
 
@@ -1056,13 +1180,20 @@ export function GalleryModal({ photos, albums = [], initialIndex, positionId, co
       <div className="flex flex-1 min-h-0 overflow-hidden">
 
         {/* Left: thumbnail strip */}
-        {viewMode === "viewer" && <div className={`${thumbArea} border-r bg-muted/20 overflow-y-auto scrollbar-thin p-1.5 space-y-1.5`}>
+        {viewMode === "viewer" && <div className={`${thumbArea} border-r bg-muted/20 overflow-y-auto scrollbar-thin p-2 space-y-2`}>
           {filteredPhotos.map((p, i) => {
             const pTags = parseTags(p.tags);
             const pMarkers = parseMarkers(p.markers);
             const isSelected = selectedIds.has(p.id);
             const isActive = !compareMode && i === idx;
             const isCompare = compareMode && i === compareIdx;
+            const ringClass = isCompare
+              ? "ring-2 ring-blue-500"
+              : isSelected
+                ? "ring-2 ring-pink-500"
+                : isActive
+                  ? "ring-2 ring-pink-500"
+                  : "ring-1 ring-transparent hover:ring-pink-500/40";
             return (
               <button key={p.id} type="button"
                 onClick={() => {
@@ -1070,27 +1201,40 @@ export function GalleryModal({ photos, albums = [], initialIndex, positionId, co
                   else if (compareMode) setCompareIdx(i);
                   else { setIdx(i); setZoom(1); }
                 }}
-                className={`relative w-full aspect-square rounded-md overflow-hidden border-2 transition-colors
-                  ${isCompare ? "border-blue-500" : ""}
-                  ${isActive && !isCompare ? "border-pink-500" : ""}
-                  ${isSelected ? "border-pink-500 ring-2 ring-pink-500/30" : ""}
-                  ${!isSelected && !isActive && !isCompare ? "border-transparent hover:border-muted-foreground/30" : ""}
-                `}
+                className={`group relative w-full aspect-square rounded-md overflow-hidden bg-muted transition-all ${ringClass}`}
               >
                 <img src={p.filePath} alt={p.caption || p.fileName} className="w-full h-full object-cover"
                   style={{ transform: p.rotation ? `rotate(${p.rotation}deg)` : undefined }} />
+
+                {/* Bulk select check */}
                 {bulkMode && (
-                  <div className="absolute top-0.5 left-0.5">
-                    {isSelected ? <CheckSquare className="h-3 w-3 text-pink-500 drop-shadow" /> : <Square className="h-3 w-3 text-white/70 drop-shadow" />}
+                  <div className="absolute top-1 left-1 inline-flex items-center justify-center h-4 w-4 rounded bg-background/80 backdrop-blur-sm shadow">
+                    {isSelected
+                      ? <CheckSquare className="h-3 w-3 text-pink-500" />
+                      : <Square className="h-3 w-3 text-muted-foreground" />}
                   </div>
                 )}
-                {!bulkMode && p.isCover && <Star className="absolute top-0.5 left-0.5 h-2.5 w-2.5 text-yellow-400 fill-yellow-400 drop-shadow" />}
-                {!bulkMode && p.isFavorite && <Heart className="absolute top-0.5 right-0.5 h-2.5 w-2.5 text-red-400 fill-red-400 drop-shadow" />}
-                {!bulkMode && p.isPrivate && <EyeOff className="absolute bottom-0.5 left-0.5 h-2.5 w-2.5 text-gray-300 drop-shadow" />}
+
+                {/* Top-right badges (cover + favorite) */}
+                {!bulkMode && (p.isCover || p.isFavorite) && (
+                  <div className="absolute top-1 right-1 inline-flex items-center gap-0.5 rounded-md bg-background/70 backdrop-blur-sm px-1 py-0.5 shadow">
+                    {p.isCover && <Star className="h-2.5 w-2.5 text-yellow-500 fill-yellow-500" />}
+                    {p.isFavorite && <Heart className="h-2.5 w-2.5 text-red-500 fill-red-500" />}
+                  </div>
+                )}
+
+                {/* Bottom-left private */}
+                {!bulkMode && p.isPrivate && (
+                  <div className="absolute bottom-1 left-1 inline-flex items-center justify-center rounded bg-background/70 backdrop-blur-sm p-0.5 shadow">
+                    <EyeOff className="h-2.5 w-2.5 text-muted-foreground" />
+                  </div>
+                )}
+
+                {/* Bottom-right tag/marker counts */}
                 {!bulkMode && (pTags.length > 0 || pMarkers.length > 0) && (
-                  <div className="absolute bottom-0.5 right-0.5 flex gap-0.5">
-                    {pTags.length > 0 && <span className="px-0.5 rounded-full bg-pink-500/80 text-white text-[7px] font-bold leading-tight">{pTags.length}</span>}
-                    {pMarkers.length > 0 && <span className="px-0.5 rounded-full bg-blue-500/80 text-white text-[7px] font-bold leading-tight">{pMarkers.length}</span>}
+                  <div className="absolute bottom-1 right-1 inline-flex items-center gap-0.5">
+                    {pTags.length > 0 && <span className="px-1 rounded-full bg-pink-500 text-white text-[8px] font-bold leading-tight shadow">{pTags.length}</span>}
+                    {pMarkers.length > 0 && <span className="px-1 rounded-full bg-blue-500 text-white text-[8px] font-bold leading-tight shadow">{pMarkers.length}</span>}
                   </div>
                 )}
               </button>
@@ -1109,15 +1253,30 @@ export function GalleryModal({ photos, albums = [], initialIndex, positionId, co
           {viewMode === "photos" ? (
             <div className="h-full overflow-auto p-3">
               {filteredPhotos.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-muted-foreground">
-                  <LayoutGrid className="h-8 w-8 mb-2 opacity-40" />
-                  <p className="text-sm">No photos match current filters</p>
+                <div className="h-full flex flex-col items-center justify-center text-center px-6">
+                  <div className="h-14 w-14 rounded-full bg-muted/60 flex items-center justify-center mb-3">
+                    <LayoutGrid className="h-6 w-6 text-muted-foreground/70" />
+                  </div>
+                  <p className="text-sm font-medium">No photos match your filters</p>
+                  <p className="text-xs text-muted-foreground mt-1 max-w-xs">
+                    Try clearing the search, switching albums, or enabling private photos in settings.
+                  </p>
+                  {(searchQuery || activeAlbumId !== "__all") && (
+                    <button
+                      onClick={() => { setSearchQuery(""); setActiveAlbumId("__all"); setIdx(0); }}
+                      className="mt-3 inline-flex items-center gap-1 h-7 px-3 rounded-md border border-input bg-background hover:bg-muted text-xs"
+                    >
+                      <X className="h-3 w-3" /> Clear filters
+                    </button>
+                  )}
                 </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
                   {filteredPhotos.map((p, i) => {
                     const selected = selectedIds.has(p.id);
                     const isRenaming = renamingPhotoId === p.id;
+                    const pTagsG = parseTags(p.tags);
+                    const pMarkersG = parseMarkers(p.markers);
                     return (
                       <button
                         key={p.id}
@@ -1131,10 +1290,28 @@ export function GalleryModal({ photos, albums = [], initialIndex, positionId, co
                           setIdx(i);
                           setViewMode("viewer");
                         }}
-                        className={`group relative rounded-md overflow-hidden border ${selected ? "border-pink-500 ring-2 ring-pink-500/30" : "border-border/50 hover:border-muted-foreground/40"}`}
+                        className={`group relative rounded-md overflow-hidden bg-muted transition-all ring-1 ${selected ? "ring-2 ring-pink-500" : "ring-transparent hover:ring-pink-500/40"}`}
                       >
                         <img src={p.filePath} alt={p.caption || p.fileName} className="w-full h-32 object-cover" />
-                        <div className="absolute inset-x-0 bottom-0 px-1.5 py-1 bg-black/60 text-white text-[10px]">
+
+                        {/* Status badges (cover/favorite/private) */}
+                        {!bulkMode && !isRenaming && (p.isCover || p.isFavorite || p.isPrivate) && (
+                          <div className="absolute top-1 left-1 inline-flex items-center gap-0.5 rounded-md bg-background/70 backdrop-blur-sm px-1 py-0.5 shadow">
+                            {p.isCover && <Star className="h-3 w-3 text-yellow-500 fill-yellow-500" />}
+                            {p.isFavorite && <Heart className="h-3 w-3 text-red-500 fill-red-500" />}
+                            {p.isPrivate && <EyeOff className="h-3 w-3 text-muted-foreground" />}
+                          </div>
+                        )}
+
+                        {/* Tag/marker counts */}
+                        {!bulkMode && !isRenaming && (pTagsG.length > 0 || pMarkersG.length > 0) && (
+                          <div className="absolute bottom-7 right-1 inline-flex items-center gap-0.5">
+                            {pTagsG.length > 0 && <span className="px-1 rounded-full bg-pink-500 text-white text-[9px] font-bold leading-tight shadow">{pTagsG.length}</span>}
+                            {pMarkersG.length > 0 && <span className="px-1 rounded-full bg-blue-500 text-white text-[9px] font-bold leading-tight shadow">{pMarkersG.length}</span>}
+                          </div>
+                        )}
+
+                        <div className="absolute inset-x-0 bottom-0 px-1.5 py-1 bg-gradient-to-t from-black/80 via-black/50 to-transparent text-white text-[10px]">
                           {isRenaming ? (
                             <input
                               value={renameDraft}
@@ -1158,7 +1335,11 @@ export function GalleryModal({ photos, albums = [], initialIndex, positionId, co
                             <span className="block truncate">{p.fileName}</span>
                           )}
                         </div>
-                        {p.album?.name && <div className="absolute top-1 left-1 px-1 py-0.5 rounded bg-black/60 text-white text-[9px]">{p.album.name}</div>}
+                        {p.album?.name && (
+                          <div className="absolute bottom-7 left-1 px-1.5 py-0.5 rounded-md bg-background/80 backdrop-blur-sm text-foreground text-[9px] font-medium shadow truncate max-w-[80%]">
+                            {p.album.name}
+                          </div>
+                        )}
                         {!bulkMode && !isRenaming && (
                           <button
                             type="button"
@@ -1166,15 +1347,15 @@ export function GalleryModal({ photos, albums = [], initialIndex, positionId, co
                               e.stopPropagation();
                               startInlineRename(p);
                             }}
-                            className="absolute top-1 right-1 p-1 rounded bg-black/60 text-white/90 hover:text-white hover:bg-black/75"
+                            className="absolute top-1 right-1 p-1 rounded-md bg-background/80 backdrop-blur-sm text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity shadow"
                             title="Rename photo"
                           >
                             <Pencil className="h-3 w-3" />
                           </button>
                         )}
                         {bulkMode && (
-                          <div className="absolute top-1 right-1">
-                            {selected ? <CheckSquare className="h-3.5 w-3.5 text-pink-400" /> : <Square className="h-3.5 w-3.5 text-white/80" />}
+                          <div className="absolute top-1 right-1 inline-flex items-center justify-center h-5 w-5 rounded bg-background/80 backdrop-blur-sm shadow">
+                            {selected ? <CheckSquare className="h-3.5 w-3.5 text-pink-500" /> : <Square className="h-3.5 w-3.5 text-muted-foreground" />}
                           </div>
                         )}
                       </button>
@@ -1342,10 +1523,22 @@ export function GalleryModal({ photos, albums = [], initialIndex, positionId, co
               </div>
             </div>
           ) : filteredPhotos.length === 0 ? (
-            <div className="text-center text-muted-foreground">
-              <Search className="h-8 w-8 mx-auto mb-2 opacity-40" />
-              <p className="text-sm">No photos match &quot;{searchQuery}&quot;</p>
-              <button onClick={() => setSearchQuery("")} className="mt-2 text-xs text-pink-500 hover:underline">Clear search</button>
+            <div className="text-center px-6">
+              <div className="h-14 w-14 rounded-full bg-background/80 flex items-center justify-center mb-3 mx-auto">
+                <Search className="h-6 w-6 text-muted-foreground/70" />
+              </div>
+              <p className="text-sm font-medium text-foreground">No matches{searchQuery ? <> for &ldquo;{searchQuery}&rdquo;</> : null}</p>
+              <p className="text-xs text-muted-foreground mt-1 max-w-xs mx-auto">
+                Try a different search term, switch albums, or upload a new photo.
+              </p>
+              {(searchQuery || activeAlbumId !== "__all") && (
+                <button
+                  onClick={() => { setSearchQuery(""); setActiveAlbumId("__all"); setIdx(0); }}
+                  className="mt-3 inline-flex items-center gap-1 h-7 px-3 rounded-md border border-input bg-background hover:bg-muted text-xs text-foreground"
+                >
+                  <X className="h-3 w-3" /> Clear filters
+                </button>
+              )}
             </div>
           ) : compareMode ? (
             /* ── Compare view ── */
@@ -1443,16 +1636,21 @@ export function GalleryModal({ photos, albums = [], initialIndex, positionId, co
 
               {/* Image + markers */}
               <div ref={imgRef}
-                className={`relative overflow-auto max-h-full max-w-full ${addingMarker ? "cursor-crosshair" : ""}`}
+                className={`relative w-full h-full overflow-auto flex items-center justify-center ${addingMarker ? "cursor-crosshair" : ""}`}
                 onClick={handleImageClick}>
                 <div className="relative inline-block" style={{ transform: `scale(${zoom})`, transformOrigin: "center center" }}>
                   <img src={currentPhoto.filePath} alt={currentPhoto.caption || currentPhoto.fileName}
-                    className="max-h-[calc(100vh-320px)] max-w-full select-none"
+                    className="block select-none"
                     draggable={false}
                     style={{
                       objectFit: zoomFit,
                       transform: currentPhoto.rotation ? `rotate(${currentPhoto.rotation}deg)` : undefined,
-                      ...(zoom !== 1 ? { maxWidth: "none", maxHeight: "none" } : {}),
+                      ...(zoom !== 1
+                        ? { maxWidth: "none", maxHeight: "none" }
+                        : {
+                            maxWidth: imgViewport.w ? `${imgViewport.w}px` : "100%",
+                            maxHeight: imgViewport.h ? `${imgViewport.h}px` : "100%",
+                          }),
                     }} />
                   {markers.map((m) => (
                     <div key={m.id} className="absolute"
@@ -1494,129 +1692,199 @@ export function GalleryModal({ photos, albums = [], initialIndex, positionId, co
 
         {/* Right: info sidebar */}
         {viewMode === "viewer" && currentPhoto && !compareMode && (
-          <div className="w-56 shrink-0 border-l bg-muted/20 overflow-y-auto scrollbar-thin p-3 space-y-3">
-            <div>
-              <h3 className="text-xs font-semibold truncate">{currentPhoto.caption || currentPhoto.fileName}</h3>
-              <p className="text-[10px] text-muted-foreground mt-0.5">{fmtSize(currentPhoto.fileSize)} · {currentPhoto.fileMime.split("/")[1]?.toUpperCase()}</p>
-              <p className="text-[10px] text-muted-foreground">Uploaded: {new Date(currentPhoto.createdAt).toLocaleDateString()}</p>
-              <p className="text-[10px] text-muted-foreground">Album: {currentPhoto.album?.name ?? "Unassigned"}</p>
-              {currentPhoto.dateTaken && (
-                <p className="text-[10px] text-muted-foreground">Taken: {new Date(currentPhoto.dateTaken).toLocaleDateString()}</p>
-              )}
+          <div className="w-60 shrink-0 border-l bg-muted/20 overflow-y-auto scrollbar-thin">
+            {/* Header */}
+            <div className="px-3 py-3 border-b">
+              <h3 className="text-xs font-semibold leading-tight break-all">{currentPhoto.caption || currentPhoto.fileName}</h3>
+              <div className="mt-2 grid grid-cols-[auto_1fr] gap-x-2 gap-y-0.5 text-[10px]">
+                <span className="text-muted-foreground">Size</span>
+                <span className="text-foreground/80 truncate">{fmtSize(currentPhoto.fileSize)} · {currentPhoto.fileMime.split("/")[1]?.toUpperCase()}</span>
+                <span className="text-muted-foreground">Album</span>
+                <span className="text-foreground/80 truncate">{currentPhoto.album?.name ?? "Unassigned"}</span>
+                <span className="text-muted-foreground">Uploaded</span>
+                <span className="text-foreground/80 truncate">{new Date(currentPhoto.createdAt).toLocaleDateString()}</span>
+                {currentPhoto.dateTaken && (
+                  <>
+                    <span className="text-muted-foreground">Taken</span>
+                    <span className="text-foreground/80 truncate">{new Date(currentPhoto.dateTaken).toLocaleDateString()}</span>
+                  </>
+                )}
+              </div>
             </div>
 
-            {/* Actions — row 1 */}
-            <div className="flex flex-wrap gap-1">
-              <button onClick={editCaption} className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-muted hover:bg-muted-foreground/10 text-[10px] transition-colors">
-                <Pencil className="h-2.5 w-2.5" /> Caption
+            {/* Status toggle pills */}
+            <div className="px-3 py-2 border-b flex flex-wrap gap-1">
+              <button
+                onClick={setCover}
+                disabled={currentPhoto.isCover}
+                className={`inline-flex items-center gap-1 h-6 px-2 rounded-full border text-[10px] transition-colors ${currentPhoto.isCover ? "border-yellow-500/40 bg-yellow-500/15 text-yellow-600 dark:text-yellow-400" : "border-input bg-background text-muted-foreground hover:text-foreground hover:bg-muted"}`}
+                title={currentPhoto.isCover ? "Cover photo" : "Set as cover"}
+              >
+                <Star className={`h-2.5 w-2.5 ${currentPhoto.isCover ? "fill-current" : ""}`} />
+                Cover
               </button>
-              <button onClick={editFileName} className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-muted hover:bg-muted-foreground/10 text-[10px] transition-colors">
-                <Pencil className="h-2.5 w-2.5" /> Rename
-              </button>
-              {!currentPhoto.isCover && (
-                <button onClick={setCover} className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-600 dark:text-yellow-400 text-[10px] transition-colors">
-                  <Star className="h-2.5 w-2.5" /> Cover
-                </button>
-              )}
-              <button onClick={toggleFavorite}
-                className={`flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] transition-colors ${currentPhoto.isFavorite ? "bg-red-500/20 text-red-500" : "bg-muted hover:bg-muted-foreground/10"}`}>
+              <button
+                onClick={toggleFavorite}
+                className={`inline-flex items-center gap-1 h-6 px-2 rounded-full border text-[10px] transition-colors ${currentPhoto.isFavorite ? "border-red-500/40 bg-red-500/15 text-red-600 dark:text-red-400" : "border-input bg-background text-muted-foreground hover:text-foreground hover:bg-muted"}`}
+                title={currentPhoto.isFavorite ? "Remove favorite" : "Mark as favorite"}
+              >
                 <Heart className={`h-2.5 w-2.5 ${currentPhoto.isFavorite ? "fill-current" : ""}`} />
-                {currentPhoto.isFavorite ? "Unfav" : "Fav"}
+                {currentPhoto.isFavorite ? "Favorited" : "Favorite"}
               </button>
-            </div>
-
-            {/* Actions — row 2 */}
-            <div className="flex flex-wrap gap-1">
-              <button onClick={togglePrivate}
-                className={`flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] transition-colors ${currentPhoto.isPrivate ? "bg-gray-500/20 text-gray-400" : "bg-muted hover:bg-muted-foreground/10"}`}>
+              <button
+                onClick={togglePrivate}
+                className={`inline-flex items-center gap-1 h-6 px-2 rounded-full border text-[10px] transition-colors ${currentPhoto.isPrivate ? "border-muted-foreground/40 bg-muted text-foreground" : "border-input bg-background text-muted-foreground hover:text-foreground hover:bg-muted"}`}
+                title={currentPhoto.isPrivate ? "Make public" : "Make private"}
+              >
                 {currentPhoto.isPrivate ? <EyeOff className="h-2.5 w-2.5" /> : <Eye className="h-2.5 w-2.5" />}
                 {currentPhoto.isPrivate ? "Private" : "Public"}
               </button>
-              <button onClick={rotatePhoto} className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-muted hover:bg-muted-foreground/10 text-[10px] transition-colors">
-                <RotateCw className="h-2.5 w-2.5" /> Rotate
-              </button>
-              <button onClick={editDateTaken} className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-muted hover:bg-muted-foreground/10 text-[10px] transition-colors">
-                <Calendar className="h-2.5 w-2.5" /> Date taken
-              </button>
-              <button onClick={moveCurrentPhoto} className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-muted hover:bg-muted-foreground/10 text-[10px] transition-colors">
-                <Images className="h-2.5 w-2.5" /> Move album
-              </button>
             </div>
 
-            {/* Actions — row 3 */}
-            <div className="flex flex-wrap gap-1">
-              <button onClick={() => setAnnotateOpen(true)} className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-violet-500/10 hover:bg-violet-500/20 text-violet-600 dark:text-violet-400 text-[10px] transition-colors" title="Open annotation editor">
-                <Layers className="h-2.5 w-2.5" /> Annotate
-              </button>
-              <button onClick={() => setAddingMarker(true)} className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 text-[10px] transition-colors">
-                <MapPin className="h-2.5 w-2.5" /> Marker
-              </button>
-              <button onClick={() => downloadPhoto(currentPhoto)} className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-muted hover:bg-muted-foreground/10 text-[10px] transition-colors">
-                <Download className="h-2.5 w-2.5" /> Download
-              </button>
-              <button onClick={deletePhoto} className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 text-[10px] transition-colors">
-                <Trash2 className="h-2.5 w-2.5" /> Delete
-              </button>
+            {/* Edit actions */}
+            <div className="px-3 py-2 border-b">
+              <div className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Edit</div>
+              <div className="grid grid-cols-2 gap-1">
+                {[
+                  { icon: Pencil, label: "Caption", onClick: editCaption },
+                  { icon: Pencil, label: "Rename", onClick: editFileName },
+                  { icon: Calendar, label: "Date taken", onClick: editDateTaken },
+                  { icon: FolderOpen, label: "Move", onClick: moveCurrentPhoto },
+                ].map(({ icon: Icon, label, onClick }) => (
+                  <button
+                    key={label}
+                    onClick={onClick}
+                    className="inline-flex items-center gap-1.5 h-7 px-2 rounded-md border border-input bg-background hover:bg-muted text-foreground text-[10px] transition-colors"
+                  >
+                    <Icon className="h-3 w-3 text-muted-foreground" /> {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Tools */}
+            <div className="px-3 py-2 border-b">
+              <div className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Tools</div>
+              <div className="grid grid-cols-2 gap-1">
+                <button
+                  onClick={() => setAnnotateOpen(true)}
+                  className="inline-flex items-center gap-1.5 h-7 px-2 rounded-md border border-input bg-background hover:bg-muted text-foreground text-[10px] transition-colors"
+                  title="Open annotation editor"
+                >
+                  <Layers className="h-3 w-3 text-muted-foreground" /> Annotate
+                </button>
+                <button
+                  onClick={() => setAddingMarker(true)}
+                  className="inline-flex items-center gap-1.5 h-7 px-2 rounded-md border border-input bg-background hover:bg-muted text-foreground text-[10px] transition-colors"
+                >
+                  <MapPin className="h-3 w-3 text-muted-foreground" /> Marker
+                </button>
+                <button
+                  onClick={rotatePhoto}
+                  className="inline-flex items-center gap-1.5 h-7 px-2 rounded-md border border-input bg-background hover:bg-muted text-foreground text-[10px] transition-colors"
+                >
+                  <RotateCw className="h-3 w-3 text-muted-foreground" /> Rotate
+                </button>
+                <button
+                  onClick={() => downloadPhoto(currentPhoto)}
+                  className="inline-flex items-center gap-1.5 h-7 px-2 rounded-md border border-input bg-background hover:bg-muted text-foreground text-[10px] transition-colors"
+                >
+                  <Download className="h-3 w-3 text-muted-foreground" /> Download
+                </button>
+              </div>
             </div>
 
             {/* Tags */}
-            <div>
-              <h4 className="text-[10px] font-semibold text-muted-foreground mb-1 flex items-center gap-1">
-                <Tag className="h-2.5 w-2.5" /> Tags
-              </h4>
-              <div className="flex flex-wrap gap-1 mb-1.5">
-                {tags.length === 0 && <span className="text-[9px] text-muted-foreground/60">No tags</span>}
-                {tags.map((t) => (
-                  <span key={t} className="group/tag inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-pink-500/10 text-pink-600 dark:text-pink-400 text-[9px]">
-                    {t}
-                    <button onClick={() => removeTag(t)} className="opacity-0 group-hover/tag:opacity-100 transition-opacity hover:text-red-500">
-                      <X className="h-2 w-2" />
-                    </button>
-                  </span>
-                ))}
+            <div className="px-3 py-2 border-b">
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+                  <Tag className="h-2.5 w-2.5" /> Tags
+                </div>
+                {tags.length > 0 && <span className="text-[9px] text-muted-foreground">{tags.length}</span>}
               </div>
+              {tags.length > 0 && (
+                <div className="flex flex-wrap gap-1 mb-1.5">
+                  {tags.map((t) => (
+                    <span key={t} className="group/tag inline-flex items-center gap-0.5 pl-1.5 pr-0.5 py-0.5 rounded-full bg-pink-500/10 text-pink-600 dark:text-pink-400 text-[10px]">
+                      {t}
+                      <button onClick={() => removeTag(t)} className="ml-0.5 inline-flex items-center justify-center h-3.5 w-3.5 rounded-full hover:bg-pink-500/20 text-pink-500" title="Remove tag">
+                        <X className="h-2 w-2" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
               <div className="flex gap-1">
-                <input type="text" value={tagInput} onChange={(e) => setTagInput(e.target.value)}
+                <input
+                  type="text"
+                  value={tagInput}
+                  onChange={(e) => setTagInput(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addTag(); } }}
-                  placeholder="Add tag..."
-                  className="flex-1 min-w-0 px-1.5 py-0.5 rounded-md bg-muted text-[10px] outline-none focus:ring-1 focus:ring-pink-500/50 placeholder:text-muted-foreground/50" />
-                <button onClick={addTag} className="px-1.5 py-0.5 rounded-md bg-pink-500/10 hover:bg-pink-500/20 text-pink-500 text-[10px]" title="Add tag">
-                  <Plus className="h-2.5 w-2.5" />
+                  placeholder="Add tag…"
+                  className="flex-1 min-w-0 h-6 px-2 rounded-md bg-background border border-input text-[10px] outline-none focus:border-pink-500/50 placeholder:text-muted-foreground/60"
+                />
+                <button
+                  onClick={addTag}
+                  disabled={!tagInput.trim()}
+                  className="inline-flex items-center justify-center h-6 w-6 rounded-md bg-pink-500 hover:bg-pink-600 disabled:opacity-40 disabled:cursor-not-allowed text-white"
+                  title="Add tag"
+                >
+                  <Plus className="h-3 w-3" />
                 </button>
               </div>
             </div>
 
             {/* Markers */}
-            <div>
-              <h4 className="text-[10px] font-semibold text-muted-foreground mb-1 flex items-center gap-1">
-                <MapPin className="h-2.5 w-2.5" /> Markers ({markers.length})
-              </h4>
+            <div className="px-3 py-2">
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1">
+                  <MapPin className="h-2.5 w-2.5" /> Markers
+                </div>
+                {markers.length > 0 && <span className="text-[9px] text-muted-foreground">{markers.length}</span>}
+              </div>
               {markers.length === 0 ? (
-                <p className="text-[9px] text-muted-foreground/60">No markers yet.</p>
+                <button
+                  onClick={() => setAddingMarker(true)}
+                  className="w-full inline-flex items-center justify-center gap-1 h-7 px-2 rounded-md border border-dashed border-input hover:border-muted-foreground/40 hover:bg-muted text-[10px] text-muted-foreground"
+                >
+                  <Plus className="h-3 w-3" /> Add marker
+                </button>
               ) : (
                 <div className="space-y-0.5">
                   {markers.map((m) => (
-                    <div key={m.id}
-                      className="group/mlist flex items-start gap-1 rounded px-1 py-0.5 hover:bg-muted/50 transition-colors"
+                    <div
+                      key={m.id}
+                      className="group/mlist flex items-start gap-1.5 rounded-md px-1.5 py-1 hover:bg-muted transition-colors"
                       onMouseEnter={() => setHoveredMarker(m.id)}
-                      onMouseLeave={() => setHoveredMarker(null)}>
-                      <MapPin className="h-2.5 w-2.5 text-red-500 mt-0.5 shrink-0" />
+                      onMouseLeave={() => setHoveredMarker(null)}
+                    >
+                      <MapPin className="h-2.5 w-2.5 text-red-500 fill-red-500 mt-0.5 shrink-0" />
                       <div className="min-w-0 flex-1">
                         <p className="text-[10px] font-medium truncate">{m.label}</p>
                         {m.description && <p className="text-[9px] text-muted-foreground truncate">{m.description}</p>}
                       </div>
                       <div className="flex gap-0.5 opacity-0 group-hover/mlist:opacity-100 transition-opacity">
-                        <button onClick={() => editMarker(m)} className="p-0.5 rounded hover:bg-muted" title="Edit">
-                          <Pencil className="h-2 w-2 text-muted-foreground" />
+                        <button onClick={() => editMarker(m)} className="p-0.5 rounded hover:bg-background" title="Edit">
+                          <Pencil className="h-2.5 w-2.5 text-muted-foreground" />
                         </button>
                         <button onClick={() => removeMarker(m.id)} className="p-0.5 rounded hover:bg-red-500/10" title="Remove">
-                          <Trash2 className="h-2 w-2 text-red-500" />
+                          <Trash2 className="h-2.5 w-2.5 text-red-500" />
                         </button>
                       </div>
                     </div>
                   ))}
                 </div>
               )}
+            </div>
+
+            {/* Destructive action */}
+            <div className="px-3 py-2 border-t">
+              <button
+                onClick={deletePhoto}
+                className="w-full inline-flex items-center justify-center gap-1.5 h-7 rounded-md border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 text-[10px] transition-colors"
+              >
+                <Trash2 className="h-3 w-3" /> Delete photo
+              </button>
             </div>
           </div>
         )}
@@ -1640,6 +1908,7 @@ export function GalleryModal({ photos, albums = [], initialIndex, positionId, co
           onChange={() => { void onRefresh(); }}
         />
       )}
+      </>}
     </div>
   );
 

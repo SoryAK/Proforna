@@ -5376,9 +5376,7 @@ function FocusCard({
                   <span className="text-xs shrink-0">🧑‍💻</span>
                 ) : isUnemployed ? (
                   <SearchIcon className="h-3.5 w-3.5 text-red-500 shrink-0" />
-                ) : (
-                  <Briefcase className={`h-3.5 w-3.5 shrink-0 ${isInternship ? "text-cyan-600" : "text-gray-500"}`} />
-                )}
+                ) : null}
                 <span className="text-sm font-semibold">{item.company}</span>
                 {item.companyClosed && (
                   <span

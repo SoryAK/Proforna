@@ -98,6 +98,8 @@ export const NAV_ITEMS = [
   { label: "Documents", href: "/docs", icon: "FolderOpen" },
   { label: "Learning", href: "/learning", icon: "Brain" },
   { label: "Inventory", href: "/inventory", icon: "Boxes" },
+  { label: "Worklog", href: "/worklog", icon: "NotebookPen" },
   { label: "Worker Rights", href: "/worker-rights", icon: "Shield" },
+  { label: "Integrations", href: "/integrations", icon: "Plug" },
   { label: "Portal Settings", href: "/portal-settings", icon: "Globe" },
 ] as const;

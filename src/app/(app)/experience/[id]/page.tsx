@@ -56,6 +56,7 @@ import { CompensationTracker } from "@/components/compensation-tracker";
 import { BenefitsTracker } from "@/components/benefits-tracker";
 import { TimeOffTracker } from "@/components/timeoff-tracker";
 import { CompanyIntel } from "@/components/company-intel";
+import { PositionWorklogTab } from "@/components/position-worklog-tab";
 import Link from "next/link";
 
 interface Position {
@@ -534,6 +535,7 @@ export default function ExperienceDetailPage({
           <TabsTrigger value="compensation">Compensation</TabsTrigger>
           <TabsTrigger value="benefits">Benefits</TabsTrigger>
           <TabsTrigger value="timeoff">Time Off</TabsTrigger>
+          <TabsTrigger value="worklog">Worklog</TabsTrigger>
           {pos.ein && <TabsTrigger value="intel">Company Intel</TabsTrigger>}
         </TabsList>
 
@@ -821,6 +823,10 @@ export default function ExperienceDetailPage({
 
         <TabsContent value="timeoff" className="mt-4">
           <TimeOffTracker positionId={pos.id} />
+        </TabsContent>
+
+        <TabsContent value="worklog" className="mt-4">
+          <PositionWorklogTab positionId={pos.id} />
         </TabsContent>
 
         {pos.ein && (

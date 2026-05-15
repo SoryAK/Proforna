@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getUserId } from "@/lib/auth-utils";
+import { ensureAutoLog } from "@/lib/auto-log";
 import { mkdir, unlink, writeFile } from "fs/promises";
 import path from "path";
 import crypto from "crypto";
@@ -96,6 +97,14 @@ export async function POST(request: Request) {
         sortOrder: count,
       },
     });
+
+    // Phase B implicit logging — uploading a photo to a tool implies "used today".
+    // Best-effort; never block the photo response on failure.
+    try {
+      await ensureAutoLog({ userId, source: "photo-equipment", equipmentIds: [equipmentId] });
+    } catch (e) {
+      console.warn("[ensureAutoLog/photo-equipment] failed", e);
+    }
 
     return NextResponse.json(photo, { status: 201 });
   } catch (error) {

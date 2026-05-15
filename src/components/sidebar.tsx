@@ -27,6 +27,8 @@ import {
   Network,
   Map,
   Boxes,
+  NotebookPen,
+  Plug,
   ChevronDown,
   LogOut,
 } from "lucide-react";
@@ -39,6 +41,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { NotificationBell } from "@/components/notification-bell";
+import { QuickLogTrigger } from "@/components/quick-log-dialog";
 
 const iconMap: Record<string, React.ElementType> = {
   Home,
@@ -54,7 +57,9 @@ const iconMap: Record<string, React.ElementType> = {
   Network,
   Map,
   Boxes,
+  NotebookPen,
   Globe,
+  Plug,
 };
 
 function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
@@ -191,6 +196,9 @@ export function Sidebar() {
           <Search className="h-3 w-3" />
           <kbd className="text-[10px]">Ctrl+K</kbd>
         </button>
+      </div>
+      <div className="px-3 pt-3">
+        <QuickLogTrigger className="w-full justify-start" />
       </div>
       <NavLinks />
       <div className="border-t p-3 space-y-2">

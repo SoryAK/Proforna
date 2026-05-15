@@ -7,7 +7,7 @@ export async function GET() {
   const userId = await getUserId();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const [applications, contacts, goals, skills] = await Promise.all([
+  const [applications, contacts, goals, skills, worklogs] = await Promise.all([
     prisma.jobApplication.findMany({
       select: { id: true, company: true, role: true },
       orderBy: { updatedAt: "desc" },
@@ -29,7 +29,16 @@ export async function GET() {
       orderBy: { createdAt: "desc" },
       take: 20,
     }),
+    // Worklogs are PRIVATE — always scoped to the current user.
+    // Never surface anyone else's entries here, even if other groups
+    // are eventually broadened to public/recruiter contexts.
+    prisma.workLog.findMany({
+      where: { userId },
+      select: { id: true, title: true, date: true, tags: true, isNotable: true, content: true },
+      orderBy: { date: "desc" },
+      take: 30,
+    }),
   ]);
 
-  return NextResponse.json({ applications, contacts, goals, skills });
+  return NextResponse.json({ applications, contacts, goals, skills, worklogs });
 }

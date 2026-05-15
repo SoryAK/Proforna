@@ -59,7 +59,7 @@ import { BenefitsTracker } from "@/components/benefits-tracker";
 import { TimeOffTracker } from "@/components/timeoff-tracker";
 import { PayPeriodCalendar } from "@/components/pay-period-calendar";
 import { EquipmentTracker } from "@/components/equipment-tracker";
-import { WorkLogTracker } from "@/components/work-log-tracker";
+import { PositionWorklogTab } from "@/components/position-worklog-tab";
 import { HoursWorkedTracker } from "@/components/hours-worked-tracker";
 import { CompanyIntel } from "@/components/company-intel";
 
@@ -836,7 +836,7 @@ export default function CurrentPositionPage() {
           </TabsContent>
 
           <TabsContent value="worklog" className="mt-4">
-            <WorkLogTracker positionId={active.id} />
+            <PositionWorklogTab positionId={active.id} />
           </TabsContent>
 
           <TabsContent value="hours" className="mt-4">

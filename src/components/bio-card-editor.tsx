@@ -262,7 +262,7 @@ export function BioCardEditor() {
           everPublished ? "bg-emerald-500/10 border-emerald-500/30" : "bg-muted/40"
         }`}
       >
-        <div className="flex items-center gap-1.5 text-[11px] min-w-0">
+        <div className="flex items-center gap-1.5 text-xs min-w-0">
           {everPublished ? (
             <>
               <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
@@ -283,7 +283,7 @@ export function BioCardEditor() {
         <Button
           size="sm"
           variant="default"
-          className="h-6 text-[11px] px-2"
+          className="h-7 text-xs px-2.5"
           disabled={publishDisabled}
           onClick={publish}
           title={
@@ -317,13 +317,13 @@ export function BioCardEditor() {
             </div>
           )}
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold truncate">{view?.fullName || "Your name"}</p>
+            <p className="text-base font-semibold truncate">{view?.fullName || "Your name"}</p>
             {view?.headline && (
-              <p className="text-xs text-primary line-clamp-2 mt-0.5">{view.headline}</p>
+              <p className="text-sm text-primary line-clamp-2 mt-0.5">{view.headline}</p>
             )}
             {(view?.city || view?.state) && (
-              <p className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5">
-                <MapPin className="h-3 w-3" />
+              <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                <MapPin className="h-3.5 w-3.5" />
                 {[view?.city, view?.state].filter(Boolean).join(", ")}
               </p>
             )}
@@ -364,28 +364,28 @@ export function BioCardEditor() {
         {/* Comp chip (preview) */}
         {!editing && compStr && (
           <div className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-emerald-200 dark:border-emerald-900/60 bg-emerald-50/70 dark:bg-emerald-900/20 px-2 py-1">
-            <DollarSign className="h-3 w-3 text-emerald-700 dark:text-emerald-300" />
-            <span className="text-[11px] font-semibold text-emerald-900 dark:text-emerald-100">{compStr}</span>
+            <DollarSign className="h-3.5 w-3.5 text-emerald-700 dark:text-emerald-300" />
+            <span className="text-xs font-semibold text-emerald-900 dark:text-emerald-100">{compStr}</span>
             {comp && comp.visibility !== "public" && (
-              <span className="text-[9px] uppercase tracking-wider text-emerald-700 dark:text-emerald-300">{comp.visibility}</span>
+              <span className="text-[10px] uppercase tracking-wider text-emerald-700 dark:text-emerald-300">{comp.visibility}</span>
             )}
           </div>
         )}
 
         {/* Bio summary preview */}
         {!editing && view?.bio && !collapsed && (
-          <div className="mt-2 text-xs text-muted-foreground whitespace-pre-line">{view.bio}</div>
+          <div className="mt-2 text-sm text-muted-foreground whitespace-pre-line">{view.bio}</div>
         )}
 
         {/* Contact preview */}
         {!editing && !collapsed && (
-          <div className="mt-2 flex flex-wrap gap-1.5 text-[11px]">
-            {view?.email && <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-muted/60"><Mail className="h-3 w-3" /> {view.email}</span>}
-            {view?.phone && <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-muted/60"><Phone className="h-3 w-3" /> {view.phone}</span>}
-            {view?.linkedinUrl && <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-muted/60"><Linkedin className="h-3 w-3" /> LinkedIn</span>}
-            {view?.githubUrl && <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-muted/60"><Github className="h-3 w-3" /> GitHub</span>}
-            {view?.portfolioUrl && <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-muted/60"><Globe className="h-3 w-3" /> Portfolio</span>}
-            {view?.schedulingUrl && <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-muted/60"><Calendar className="h-3 w-3" /> Scheduling</span>}
+          <div className="mt-2 flex flex-wrap gap-1.5 text-xs">
+            {view?.email && <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-muted/60"><Mail className="h-3.5 w-3.5" /> {view.email}</span>}
+            {view?.phone && <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-muted/60"><Phone className="h-3.5 w-3.5" /> {view.phone}</span>}
+            {view?.linkedinUrl && <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-muted/60"><Linkedin className="h-3.5 w-3.5" /> LinkedIn</span>}
+            {view?.githubUrl && <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-muted/60"><Github className="h-3.5 w-3.5" /> GitHub</span>}
+            {view?.portfolioUrl && <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-muted/60"><Globe className="h-3.5 w-3.5" /> Portfolio</span>}
+            {view?.schedulingUrl && <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-muted/60"><Calendar className="h-3.5 w-3.5" /> Scheduling</span>}
           </div>
         )}
 

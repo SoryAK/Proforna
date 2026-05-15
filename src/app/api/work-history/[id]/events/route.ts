@@ -18,10 +18,13 @@ export async function GET(
 
   const events = await prisma.careerEvent.findMany({
     where: { workHistoryId: id, userId },
-    include: { skills: { include: { skillNode: { select: { id: true, name: true, type: true } } } } },
+    include: {
+      skills: { include: { skillNode: { select: { id: true, name: true, type: true } } } },
+      photos: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] },
+    },
     orderBy: { startDate: "asc" },
   });
-
+  // Ensure lat/lng are included in the response (Prisma includes all fields by default)
   return NextResponse.json(events);
 }
 
@@ -35,7 +38,7 @@ export async function POST(
 
   const { id } = await params;
   const body = await req.json();
-  const { title, description, category, startDate, endDate, metrics, skillNodeIds } = body;
+  const { title, description, category, startDate, endDate, metrics, location, lat, lng, skillNodeIds } = body;
 
   if (!title || typeof title !== "string" || title.trim().length === 0) {
     return NextResponse.json({ error: "title is required" }, { status: 400 });
@@ -45,8 +48,13 @@ export async function POST(
   const wh = await prisma.workHistory.findFirst({ where: { id, userId } });
   if (!wh) return NextResponse.json({ error: "Work history not found" }, { status: 404 });
 
-  const validCategories = ["project", "milestone", "responsibility", "training", "outcome", "context_shift"];
-  const cat = validCategories.includes(category) ? category : "project";
+  const validCategories = [
+    // legacy
+    "project", "milestone", "responsibility", "training", "outcome", "context_shift",
+    // "things you participated in"
+    "company_event", "field_day", "emergency", "news_event", "social", "conference", "other",
+  ];
+  const cat = validCategories.includes(category) ? category : "company_event";
 
   const event = await prisma.careerEvent.create({
     data: {
@@ -55,19 +63,25 @@ export async function POST(
       title: String(title).trim().slice(0, 200),
       description: description ? String(description).slice(0, 2000) : null,
       category: cat,
-      startDate: startDate ? String(startDate).slice(0, 7) : null,
-      endDate: endDate ? String(endDate).slice(0, 7) : null,
+      startDate: startDate ? new Date(startDate) : null,
+      endDate: endDate ? new Date(endDate) : null,
+      location: location ? String(location).slice(0, 200) : null,
+      lat: typeof lat === "number" ? lat : null,
+      lng: typeof lng === "number" ? lng : null,
       metrics: metrics ? String(metrics).slice(0, 500) : null,
       skills: {
         create: Array.isArray(skillNodeIds)
           ? skillNodeIds
               .filter((sid: unknown) => typeof sid === "string" && sid.length > 0)
-              .slice(0, 20) // cap at 20 skills per event
+              .slice(0, 20)
               .map((sid: string) => ({ skillNodeId: sid }))
           : [],
       },
     },
-    include: { skills: { include: { skillNode: { select: { id: true, name: true, type: true } } } } },
+    include: {
+      skills: { include: { skillNode: { select: { id: true, name: true, type: true } } } },
+      photos: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] },
+    },
   });
 
   return NextResponse.json(event, { status: 201 });
