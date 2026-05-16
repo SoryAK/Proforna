@@ -6030,14 +6030,24 @@ export function JobMap() {
               onTouchStart={handleWorkMapSplitTouchStart}
               className="group flex h-3 w-full cursor-row-resize touch-none select-none items-center justify-center"
             >
-              <span className="h-1.5 w-14 rounded-full bg-white/15 transition-colors group-hover:bg-white/30" />
+              <span className="h-1.5 w-16 rounded-full bg-border/70 transition-colors group-hover:bg-primary/40" />
             </button>
 
-            <div className="shrink-0 border-t border-white/10 bg-background/75 backdrop-blur-md px-3 py-2 overflow-y-auto">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2 text-sm font-semibold">
-                  <Zap className="h-4 w-4 text-indigo-500" />
-                  Action Bar
+            <div className="shrink-0 border-t border-border/60 bg-background/90 backdrop-blur-md px-3 py-2.5 overflow-y-auto">
+              <div className="rounded-xl border border-border/70 bg-card/70 px-3 py-2.5 shadow-sm">
+                <div className="mb-2.5 flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 text-sm font-semibold">
+                      <Zap className="h-4 w-4 text-indigo-500" />
+                      Work Mapping Controls
+                    </div>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      Toggle overlays and panels for the current map view.
+                    </p>
+                  </div>
+                  <span className="hidden rounded-full border border-border/70 bg-muted/50 px-2 py-0.5 text-[10px] text-muted-foreground sm:inline-flex">
+                    {workMapCardsCollapsed ? "Collapsed" : "Expanded"}
+                  </span>
                 </div>
                 <Button
                   type="button"
@@ -6048,11 +6058,11 @@ export function JobMap() {
                 >
                   {workMapCardsCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
                 </Button>
-              </div>
+                </div>
 
-              {!workMapCardsCollapsed && (
-                <div className="space-y-2">
-                  <div className="flex flex-wrap items-center gap-1.5">
+                {!workMapCardsCollapsed && (
+                  <div className="space-y-2.5">
+                    <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-border/60 bg-background/70 p-2">
                     <Button
                       type="button"
                       size="sm"
@@ -6128,18 +6138,21 @@ export function JobMap() {
                       <Layers className="h-3.5 w-3.5 mr-1" />
                       Map Style
                     </Button>
-                  </div>
+                    </div>
 
-                  <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground">
-                    <span className="rounded-full border px-2 py-0.5">Work items: {workHistory.length}</span>
-                    <span className="rounded-full border px-2 py-0.5">Companies: {new Set(workHistory.map((w) => w.company)).size}</span>
-                    <span className="rounded-full border px-2 py-0.5">Locations: {workHistory.reduce((sum, w) => sum + (w.locations?.length ?? 1), 0)}</span>
-                  </div>
+                    <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground">
+                      <span className="rounded-full border border-border/70 bg-muted/40 px-2 py-0.5">Work items: {workHistory.length}</span>
+                      <span className="rounded-full border border-border/70 bg-muted/40 px-2 py-0.5">Companies: {new Set(workHistory.map((w) => w.company)).size}</span>
+                      <span className="rounded-full border border-border/70 bg-muted/40 px-2 py-0.5">Locations: {workHistory.reduce((sum, w) => sum + (w.locations?.length ?? 1), 0)}</span>
+                    </div>
 
-                  <div ref={setBottomGalleryHost} />
-                  <div ref={setBottomSidePanelHost} />
-                </div>
-              )}
+                    <div className="space-y-1.5">
+                      <div ref={setBottomGalleryHost} />
+                      <div ref={setBottomSidePanelHost} />
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </>
         )}
