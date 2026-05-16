@@ -33,11 +33,16 @@ export const PRESET_META: Record<
   },
 };
 
-/** Default ratio for the lower frame, per preset. Bigger = more room below. */
+/**
+ * Default ratio for the TOP frame, per preset (i.e. how tall the swap surface
+ * gets). The top frame is hot-swapped between Map / Work Log / Career Analytics,
+ * so all three want roughly the same generous default — the user can still
+ * resize per preset and we'll remember it.
+ */
 export const PRESET_DEFAULT_RATIO: Record<ViewPreset, number> = {
-  map: 0.65,        // map dominant, small action bar
-  worklog: 0.30,    // small map, big work log
-  analytics: 0.30,  // small map, big analytics
+  map: 0.65,
+  worklog: 0.80,
+  analytics: 0.80,
 };
 
 export const DEFAULT_VIEW_PRESET: ViewPreset = "map";

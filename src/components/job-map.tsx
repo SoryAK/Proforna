@@ -6089,6 +6089,15 @@ export function JobMap() {
               </div>
             </div>
           )}
+          {/* Hot-swap overlay: when the user picks a non-map preset, cover
+              the map with the selected surface. Keeping the map mounted under
+              the overlay preserves Leaflet state (center, zoom, layers). */}
+          {showWorkHistory && viewPreset !== "map" && (
+            <div className="absolute inset-0 z-30 overflow-y-auto bg-background rounded-2xl">
+              {viewPreset === "worklog" && <WorklogPage />}
+              {viewPreset === "analytics" && <AnalyticsPage />}
+            </div>
+          )}
         </div>
 
         {/* Resize Handle + Action Bar (Work Mapping mode only) */}
@@ -6219,18 +6228,6 @@ export function JobMap() {
                       <div className="space-y-1.5">
                         <div ref={setBottomGalleryHost} />
                         <div ref={setBottomSidePanelHost} />
-                      </div>
-                    )}
-
-                    {viewPreset === "worklog" && (
-                      <div className="rounded-lg border border-border/60 bg-background/70 p-2 max-h-[70vh] overflow-y-auto">
-                        <WorklogPage />
-                      </div>
-                    )}
-
-                    {viewPreset === "analytics" && (
-                      <div className="rounded-lg border border-border/60 bg-background/70 p-2 max-h-[70vh] overflow-y-auto">
-                        <AnalyticsPage />
                       </div>
                     )}
                   </div>
