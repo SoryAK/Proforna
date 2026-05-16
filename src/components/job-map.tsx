@@ -6022,7 +6022,7 @@ export function JobMap() {
 
         {/* Resize Handle + Action Bar (Work Mapping mode only) */}
         {showWorkHistory && (
-          <>
+          <div className="shrink-0">
             <button
               type="button"
               aria-label="Resize work map and action bar"
@@ -6033,7 +6033,7 @@ export function JobMap() {
               <span className="h-1.5 w-16 rounded-full bg-border/70 transition-colors group-hover:bg-primary/40" />
             </button>
 
-            <div className="shrink-0 border-t border-border/60 bg-background/90 backdrop-blur-md px-3 py-2.5 overflow-y-auto">
+            <div className="border-t border-border/60 bg-background/90 backdrop-blur-md px-3 py-2.5 overflow-y-auto">
               <div className="rounded-xl border border-border/70 bg-card/70 px-3 py-2.5 shadow-sm">
                 <div className="mb-2.5 flex items-center justify-between gap-2">
                   <div className="min-w-0">
@@ -6048,16 +6048,15 @@ export function JobMap() {
                   <span className="hidden rounded-full border border-border/70 bg-muted/50 px-2 py-0.5 text-[10px] text-muted-foreground sm:inline-flex">
                     {workMapCardsCollapsed ? "Collapsed" : "Expanded"}
                   </span>
-                </div>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  className="h-7 px-2"
-                  onClick={() => setWorkMapCardsCollapsed((v) => !v)}
-                >
-                  {workMapCardsCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
-                </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 px-2"
+                    onClick={() => setWorkMapCardsCollapsed((v) => !v)}
+                  >
+                    {workMapCardsCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+                  </Button>
                 </div>
 
                 {!workMapCardsCollapsed && (
@@ -6154,7 +6153,7 @@ export function JobMap() {
                 )}
               </div>
             </div>
-          </>
+          </div>
         )}
         </div>
         {/* /center column wrapper */}
