@@ -1,15 +1,6 @@
 "use client";
 
-/**
- * Stub for IrPopoutSheet.
- *
- * The original implementation was lost (likely an OneDrive sync casualty —
- * file was referenced in committed resume-immersive-map.tsx and job-map.tsx
- * but the source was never committed to git and is no longer on disk).
- * This stub renders a minimal slide-in side sheet so the app builds and the
- * call sites remain functional. Rebuild with the original styling when ready.
- */
-
+import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import type { ReactNode } from "react";
 
@@ -38,14 +29,43 @@ export default function IrPopoutSheet({
   bodyClassName = "max-h-[70vh] overflow-y-auto px-3 py-3",
   children,
 }: IrPopoutSheetProps) {
-  if (!open) return null;
-  const sideClass =
-    side === "left"
-      ? `left-0 border-r ${open ? "translate-x-0" : "-translate-x-full"}`
-      : `right-0 border-l ${open ? "translate-x-0" : "translate-x-full"}`;
+  // Keep mounted for 250 ms after close so the exit animation can play.
+  const [mounted, setMounted] = useState(open);
+  const [visible, setVisible] = useState(open);
+
+  useEffect(() => {
+    if (open) {
+      setMounted(true);
+      // Defer so the browser paints the hidden state before animating in.
+      requestAnimationFrame(() => requestAnimationFrame(() => setVisible(true)));
+    } else {
+      setVisible(false);
+      const t = setTimeout(() => setMounted(false), 250);
+      return () => clearTimeout(t);
+    }
+  }, [open]);
+
+  if (!mounted) return null;
+
+  const isLeft = side === "left";
+  const translateIn = "translate-x-0";
+  const translateOut = isLeft ? "-translate-x-full" : "translate-x-full";
+  const edgeClass = isLeft
+    ? "left-0 rounded-r-xl border-r"
+    : "right-0 rounded-l-xl border-l";
+
   return (
     <div
-      className={`fixed top-1/2 -translate-y-1/2 ${sideClass} ${zIndexClassName} w-[92vw] ${maxWidthClassName} bg-background/95 backdrop-blur-md border-border rounded-lg shadow-2xl transition-transform duration-200`}
+      className={[
+        "fixed top-1/2 -translate-y-1/2",
+        edgeClass,
+        zIndexClassName,
+        "w-[92vw]",
+        maxWidthClassName,
+        "bg-background/95 backdrop-blur-md border-border shadow-2xl",
+        "transition-transform duration-200 ease-in-out",
+        visible ? translateIn : translateOut,
+      ].join(" ")}
     >
       <div className="flex items-center gap-2 px-3 py-2 border-b border-border">
         {icon}
