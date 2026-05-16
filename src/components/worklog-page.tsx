@@ -133,7 +133,13 @@ function dateLabel(d: Date) {
 }
 
 // ── Component ───────────────────────────────────────────────────
-export function WorklogPage() {
+export interface WorklogPageProps {
+  /** Embedded mode: hide page title/subtitle, tighten spacing for use inside
+      another frame (e.g. the job-map view-preset overlay). */
+  compact?: boolean;
+}
+
+export function WorklogPage({ compact = false }: WorklogPageProps = {}) {
   const qc = useQueryClient();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -495,19 +501,21 @@ export function WorklogPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className={compact ? "space-y-3 p-3" : "space-y-6"}>
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            Worklog
-            <Badge variant="secondary" className="text-[10px]">Private</Badge>
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Capture today in seconds. Cherry-pick highlights for your IR later.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
+        {!compact && (
+          <div>
+            <h1 className="text-2xl font-bold flex items-center gap-2">
+              Worklog
+              <Badge variant="secondary" className="text-[10px]">Private</Badge>
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Capture today in seconds. Cherry-pick highlights for your IR later.
+            </p>
+          </div>
+        )}
+        <div className={compact ? "flex items-center gap-2 ml-auto" : "flex items-center gap-2"}>
           {logs.length > 0 && (
             <Button size="sm" variant="outline" onClick={copyLast}>
               <Copy className="h-3.5 w-3.5 mr-1.5" /> Same as last

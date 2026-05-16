@@ -6096,8 +6096,8 @@ export function JobMap() {
               tile-style/anchor/tax clusters at z-[1050..1200]). */}
           {showWorkHistory && viewPreset !== "map" && (
             <div className="absolute inset-0 z-[1300] overflow-y-auto bg-background rounded-2xl">
-              {viewPreset === "worklog" && <WorklogPage />}
-              {viewPreset === "analytics" && <AnalyticsPage />}
+              {viewPreset === "worklog" && <WorklogPage compact />}
+              {viewPreset === "analytics" && <AnalyticsPage compact />}
             </div>
           )}
         </div>
