@@ -6091,9 +6091,11 @@ export function JobMap() {
           )}
           {/* Hot-swap overlay: when the user picks a non-map preset, cover
               the map with the selected surface. Keeping the map mounted under
-              the overlay preserves Leaflet state (center, zoom, layers). */}
+              the overlay preserves Leaflet state (center, zoom, layers).
+              z-[1300] sits above all in-map floating controls (zoom buttons,
+              tile-style/anchor/tax clusters at z-[1050..1200]). */}
           {showWorkHistory && viewPreset !== "map" && (
-            <div className="absolute inset-0 z-30 overflow-y-auto bg-background rounded-2xl">
+            <div className="absolute inset-0 z-[1300] overflow-y-auto bg-background rounded-2xl">
               {viewPreset === "worklog" && <WorklogPage />}
               {viewPreset === "analytics" && <AnalyticsPage />}
             </div>
