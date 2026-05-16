@@ -143,6 +143,19 @@ import {
 import dynamic from "next/dynamic";
 import { CompanyDeepDive, type DeepDiveJob } from "@/components/company-deep-dive";
 import { UniformBodyMap, UniformMapPopup, type UniformData } from "@/components/uniform-body-map";
+import { WorklogPage } from "@/components/worklog-page";
+import AnalyticsPage from "@/app/(app)/analytics/page";
+import { ViewPresetSwitcher } from "@/components/job-map/view-preset-switcher";
+import {
+  loadViewPreset,
+  saveViewPreset,
+  loadPresetTweaks,
+  savePresetTweaks,
+  resetAllPresets,
+  PRESET_DEFAULT_RATIO,
+  type ViewPreset,
+  type PresetTweaks,
+} from "@/components/job-map/view-preset";
 
 /* ── Types ── */
 interface MapJob {
@@ -655,6 +668,64 @@ export function JobMap() {
     try { return parseFloat(localStorage.getItem("work-map:height-ratio") ?? "0.65"); } catch { return 0.65; }
   });
   const [workMapCardsCollapsed, setWorkMapCardsCollapsed] = useState(false);
+  /* View preset for the under-map frame (map | worklog | analytics).
+     Switching presets auto-flips the bottom-frame ratio to that preset's last
+     tweak (or its default), giving embedded surfaces room to breathe. */
+  const [viewPreset, setViewPresetState] = useState<ViewPreset>("map");
+  const presetTweaksRef = useRef<Record<ViewPreset, PresetTweaks>>({
+    map: {}, worklog: {}, analytics: {},
+  });
+  // Hydrate viewPreset + per-preset tweaks once on mount, applying the
+  // restored ratio for whatever preset the user left us on.
+  useEffect(() => {
+    const tweaks = loadPresetTweaks();
+    presetTweaksRef.current = tweaks;
+    const preset = loadViewPreset();
+    setViewPresetState(preset);
+    const ratio = tweaks[preset]?.ratio ?? PRESET_DEFAULT_RATIO[preset];
+    setWorkMapHeightRatio(ratio);
+    if (typeof tweaks[preset]?.collapsed === "boolean") {
+      setWorkMapCardsCollapsed(tweaks[preset]!.collapsed!);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const setViewPreset = useCallback((next: ViewPreset) => {
+    setViewPresetState((prev) => {
+      if (prev === next) return prev;
+      // Persist the current preset's tweaks before switching.
+      const t = { ...presetTweaksRef.current };
+      t[prev] = {
+        ...t[prev],
+        ratio: workMapHeightRatio,
+        collapsed: workMapCardsCollapsed,
+      };
+      presetTweaksRef.current = t;
+      savePresetTweaks(t);
+      saveViewPreset(next);
+      // Apply incoming preset's tweaks (or its default ratio).
+      const nextRatio = t[next]?.ratio ?? PRESET_DEFAULT_RATIO[next];
+      setWorkMapHeightRatio(nextRatio);
+      if (typeof t[next]?.collapsed === "boolean") {
+        setWorkMapCardsCollapsed(t[next]!.collapsed!);
+      }
+      try { localStorage.setItem("work-map:height-ratio", nextRatio.toString()); } catch {}
+      return next;
+    });
+  }, [workMapHeightRatio, workMapCardsCollapsed]);
+  const handleResetAllPresets = useCallback(() => {
+    if (typeof window !== "undefined") {
+      const ok = window.confirm(
+        "Reset all view-preset tweaks? This clears per-preset layout and collapsed states.",
+      );
+      if (!ok) return;
+    }
+    resetAllPresets();
+    presetTweaksRef.current = { map: {}, worklog: {}, analytics: {} };
+    setViewPresetState("map");
+    setWorkMapHeightRatio(PRESET_DEFAULT_RATIO.map);
+    setWorkMapCardsCollapsed(false);
+    try { localStorage.setItem("work-map:height-ratio", PRESET_DEFAULT_RATIO.map.toString()); } catch {}
+  }, []);
   /* Work Mapping aside host — when set, WorkHistoryPanel portals its bio card + work-history list into this element so the map sits to the right of the aside (matches IR layout). Using state-as-ref so the initial mount triggers a re-render once the host is attached. */
   const [workMapAsideHost, setWorkMapAsideHost] = useState<HTMLDivElement | null>(null);
   /* Bottom gallery host — when set, WorkHistoryPanel portals the gallery toggle button into this action-bar slot. State-as-ref pattern (same as workMapAsideHost). */
@@ -6036,24 +6107,21 @@ export function JobMap() {
             <div className="border-t border-border/60 bg-background/90 backdrop-blur-md px-3 py-2.5 overflow-y-auto">
               <div className="rounded-xl border border-border/70 bg-card/70 px-3 py-2.5 shadow-sm">
                 <div className="mb-2.5 flex items-center justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 text-sm font-semibold">
-                      <Zap className="h-4 w-4 text-indigo-500" />
-                      Work Mapping Controls
-                    </div>
-                    <p className="mt-0.5 text-[11px] text-muted-foreground">
-                      Toggle overlays and panels for the current map view.
-                    </p>
+                  <div className="min-w-0 flex items-center gap-2">
+                    <Zap className="h-4 w-4 text-indigo-500 shrink-0" />
+                    <ViewPresetSwitcher
+                      current={viewPreset}
+                      onChange={setViewPreset}
+                      onResetAll={handleResetAllPresets}
+                    />
                   </div>
-                  <span className="hidden rounded-full border border-border/70 bg-muted/50 px-2 py-0.5 text-[10px] text-muted-foreground sm:inline-flex">
-                    {workMapCardsCollapsed ? "Collapsed" : "Expanded"}
-                  </span>
                   <Button
                     type="button"
                     size="sm"
                     variant="ghost"
                     className="h-7 px-2"
                     onClick={() => setWorkMapCardsCollapsed((v) => !v)}
+                    title={workMapCardsCollapsed ? "Expand" : "Collapse"}
                   >
                     {workMapCardsCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
                   </Button>
@@ -6061,7 +6129,8 @@ export function JobMap() {
 
                 {!workMapCardsCollapsed && (
                   <div className="space-y-2.5">
-                    <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-border/60 bg-background/70 p-2">
+                    {viewPreset === "map" && (
+                      <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-border/60 bg-background/70 p-2">
                     <Button
                       type="button"
                       size="sm"
@@ -6137,7 +6206,8 @@ export function JobMap() {
                       <Layers className="h-3.5 w-3.5 mr-1" />
                       Map Style
                     </Button>
-                    </div>
+                      </div>
+                    )}
 
                     <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground">
                       <span className="rounded-full border border-border/70 bg-muted/40 px-2 py-0.5">Work items: {workHistory.length}</span>
@@ -6145,10 +6215,24 @@ export function JobMap() {
                       <span className="rounded-full border border-border/70 bg-muted/40 px-2 py-0.5">Locations: {workHistory.reduce((sum, w) => sum + (w.locations?.length ?? 1), 0)}</span>
                     </div>
 
-                    <div className="space-y-1.5">
-                      <div ref={setBottomGalleryHost} />
-                      <div ref={setBottomSidePanelHost} />
-                    </div>
+                    {viewPreset === "map" && (
+                      <div className="space-y-1.5">
+                        <div ref={setBottomGalleryHost} />
+                        <div ref={setBottomSidePanelHost} />
+                      </div>
+                    )}
+
+                    {viewPreset === "worklog" && (
+                      <div className="rounded-lg border border-border/60 bg-background/70 p-2 max-h-[70vh] overflow-y-auto">
+                        <WorklogPage />
+                      </div>
+                    )}
+
+                    {viewPreset === "analytics" && (
+                      <div className="rounded-lg border border-border/60 bg-background/70 p-2 max-h-[70vh] overflow-y-auto">
+                        <AnalyticsPage />
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
