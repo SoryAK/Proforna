@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   format,
   startOfDay,
@@ -48,6 +48,8 @@ import { cn } from "@/lib/utils";
 import type { WorkLog, WorkLogPhoto, Template, Position } from "@/types/worklog";
 import { CATEGORIES, MOODS, dateLabel } from "@/components/worklog/constants";
 import { buildHeatmap, intensityClass, calcStreak } from "@/components/worklog/heatmap-utils";
+import { useWorklogData } from "@/components/worklog/hooks/use-worklog-data";
+import { useWorklogMutations } from "@/components/worklog/hooks/use-worklog-mutations";
 
 // EquipmentItem / JobAsset types and their constants live in the picker files
 // (imported above).
@@ -61,7 +63,6 @@ export interface WorklogPageProps {
 }
 
 export function WorklogPage({ compact = false }: WorklogPageProps = {}) {
-  const qc = useQueryClient();
   const searchParams = useSearchParams();
   const router = useRouter();
   const focusId = searchParams.get("focus");
@@ -78,55 +79,17 @@ export function WorklogPage({ compact = false }: WorklogPageProps = {}) {
   const [filterAssetId, setFilterAssetId] = useState<string>("all");
 
   // Data
-  const { data: logs = [], isLoading: loadingLogs } = useQuery<WorkLog[]>({
-    queryKey: ["worklogs"],
-    queryFn: () => fetch("/api/work-logs").then((r) => r.json()),
-  });
-  const { data: templates = [] } = useQuery<Template[]>({
-    queryKey: ["worklog-templates"],
-    queryFn: () => fetch("/api/work-logs/templates").then((r) => r.json()),
-  });
-  const { data: positions = [] } = useQuery<Position[]>({
-    queryKey: ["work-history"],
-    queryFn: () => fetch("/api/work-history").then((r) => r.json()),
-    staleTime: 60_000,
-  });
-  const { data: equipment = [] } = useQuery<EquipmentItem[]>({
-    queryKey: ["personal-equipment"],
-    queryFn: async () => {
-      const r = await fetch("/api/personal-equipment");
-      if (!r.ok) return [];
-      return r.json();
-    },
-    staleTime: 60_000,
-  });
-  const { data: assets = [] } = useQuery<JobAsset[]>({
-    queryKey: ["job-assets"],
-    queryFn: async () => {
-      const r = await fetch("/api/job-assets");
-      if (!r.ok) return [];
-      return r.json();
-    },
-    staleTime: 60_000,
-  });
-
-  const positionMap = useMemo(() => {
-    const m = new Map<string, Position>();
-    positions.forEach((p) => m.set(p.id, p));
-    return m;
-  }, [positions]);
-
-  const equipmentMap = useMemo(() => {
-    const m = new Map<string, EquipmentItem>();
-    equipment.forEach((e) => m.set(e.id, e));
-    return m;
-  }, [equipment]);
-
-  const assetMap = useMemo(() => {
-    const m = new Map<string, JobAsset>();
-    assets.forEach((a) => m.set(a.id, a));
-    return m;
-  }, [assets]);
+  const {
+    logs,
+    loadingLogs,
+    templates,
+    positions,
+    equipment,
+    assets,
+    positionMap,
+    equipmentMap,
+    assetMap,
+  } = useWorklogData();
 
   // Filter logs (client-side for snappy UX)
   const filteredLogs = useMemo(() => {
@@ -313,58 +276,14 @@ export function WorklogPage({ compact = false }: WorklogPageProps = {}) {
   const notableCount = useMemo(() => logs.filter((l) => l.isNotable || l.accomplishment).length, [logs]);
 
   // Mutations
-  const saveLog = useMutation({
-    mutationFn: async (data: Partial<WorkLog>) => {
-      const isEdit = !!data.id;
-      const url = isEdit ? `/api/work-logs/${data.id}` : "/api/work-logs";
-      const res = await fetch(url, {
-        method: isEdit ? "PUT" : "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-      if (!res.ok) throw new Error(await res.text());
-      return res.json();
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["worklogs"] });
-      qc.invalidateQueries({ queryKey: ["worklog-templates"] });
+  const { saveLog, deleteLog, saveTemplate, deleteTemplate } = useWorklogMutations({
+    onSaveLogSuccess: () => {
       setEditing(null);
       setShowQuickAdd(false);
     },
-  });
-
-  const deleteLog = useMutation({
-    mutationFn: async (id: string) => {
-      const res = await fetch(`/api/work-logs/${id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error(await res.text());
-    },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["worklogs"] }),
-  });
-
-  const saveTemplate = useMutation({
-    mutationFn: async (data: Partial<Template>) => {
-      const isEdit = !!data.id;
-      const url = isEdit ? `/api/work-logs/templates/${data.id}` : "/api/work-logs/templates";
-      const res = await fetch(url, {
-        method: isEdit ? "PUT" : "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-      if (!res.ok) throw new Error(await res.text());
-      return res.json();
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["worklog-templates"] });
+    onSaveTemplateSuccess: () => {
       setEditingTemplate(null);
     },
-  });
-
-  const deleteTemplate = useMutation({
-    mutationFn: async (id: string) => {
-      const res = await fetch(`/api/work-logs/templates/${id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error(await res.text());
-    },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["worklog-templates"] }),
   });
 
   // Apply a template to start a new log
