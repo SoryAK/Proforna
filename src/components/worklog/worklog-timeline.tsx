@@ -181,10 +181,19 @@ function DayView({
               <div
                 key={l.id}
                 id={`worklog-row-${l.id}`}
+                role="button"
+                tabIndex={0}
+                onClick={() => onEdit(l)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    onEdit(l);
+                  }
+                }}
                 className={cn(
-                  "group relative pl-4 pr-2 py-3 -mx-2 rounded-md transition-colors duration-150",
+                  "group relative pl-4 pr-2 py-3 -mx-2 rounded-md transition-colors duration-150 cursor-pointer",
                   "hover:bg-muted/40 focus-within:bg-muted/40",
-                  "focus-within:ring-2 focus-within:ring-pink-500/30",
+                  "focus:outline-none focus-visible:ring-2 focus-visible:ring-pink-500/40",
                   isFocused && "bg-yellow-50/40 dark:bg-yellow-500/5 ring-2 ring-yellow-300/60",
                 )}
               >
@@ -207,7 +216,10 @@ function DayView({
                     )}
                     <span className="truncate">{l.title}</span>
                   </div>
-                  <div className="flex items-center gap-0.5 shrink-0">
+                  <div
+                    className="flex items-center gap-0.5 shrink-0"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <Button
                       size="sm"
                       variant="ghost"

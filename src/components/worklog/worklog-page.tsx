@@ -283,7 +283,7 @@ export function WorklogPage({ compact = false }: WorklogPageProps = {}) {
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-x-8 gap-y-6">
               {/* Left rail */}
-              <aside className="space-y-6 lg:sticky lg:top-4 lg:self-start lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto lg:pr-2">
+              <aside className="scrollbar-thin space-y-6 lg:sticky lg:top-4 lg:self-start lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto lg:pr-2">
                 <WorklogStatsStrip
                   streak={streak}
                   totalThisMonth={totalThisMonth}
