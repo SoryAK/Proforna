@@ -49,6 +49,7 @@ import { useWorklogFilters } from "@/components/worklog/hooks/use-worklog-filter
 import { useWorklogDeepLinks } from "@/components/worklog/hooks/use-worklog-deep-links";
 import { WorklogStatsStrip } from "@/components/worklog/worklog-stats-strip";
 import { WorklogHeatmap } from "@/components/worklog/worklog-heatmap";
+import { WorklogFiltersBar } from "@/components/worklog/worklog-filters-bar";
 
 // EquipmentItem / JobAsset types and their constants live in the picker files
 // (imported above).
@@ -236,70 +237,25 @@ export function WorklogPage({ compact = false }: WorklogPageProps = {}) {
       <WorklogHeatmap logs={logs} selectedDate={selectedDate} onSelectDate={setSelectedDate} />
 
       {/* Filters */}
-      <Card className="p-3 flex flex-wrap items-center gap-2">
-        <Select value={filterPositionId} onValueChange={(v) => setFilterPositionId(v ?? "all")}>
-          <SelectTrigger className="h-8 w-auto min-w-[160px] text-xs">
-            <SelectValue placeholder="All jobs" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All jobs</SelectItem>
-            <SelectItem value="none">No job linked</SelectItem>
-            {positions.filter((p) => p.type === "job").map((p) => (
-              <SelectItem key={p.id} value={p.id}>
-                {p.company}{p.title ? ` — ${p.title}` : ""}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={filterCategory} onValueChange={(v) => setFilterCategory(v ?? "all")}>
-          <SelectTrigger className="h-8 w-auto min-w-[140px] text-xs">
-            <SelectValue placeholder="All categories" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All categories</SelectItem>
-            {Object.entries(CATEGORIES).map(([k, c]) => (
-              <SelectItem key={k} value={k}>{c.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Button
-          size="sm"
-          variant={filterNotable ? "default" : "outline"}
-          onClick={() => setFilterNotable((v) => !v)}
-          className="h-8"
-        >
-          <Star className={cn("h-3.5 w-3.5 mr-1.5", filterNotable && "fill-current")} />
-          Notable only
-        </Button>
-        {filterEquipmentId !== "all" && (
-          <Button size="sm" variant="secondary" onClick={() => setFilterEquipmentId("all")} className="h-8 text-xs">
-            Tool: {equipmentMap.get(filterEquipmentId)?.name ?? "filtered"} ✕
-          </Button>
-        )}
-        {filterAssetId !== "all" && (() => {
-          const a = assetMap.get(filterAssetId);
-          const cover = a?.photos?.find((p) => p.isCover) ?? a?.photos?.[0] ?? null;
-          return (
-            <Button size="sm" variant="secondary" onClick={() => setFilterAssetId("all")} className="h-8 text-xs gap-1.5 pl-1.5">
-              {cover ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={cover.filePath} alt="" className="h-5 w-5 rounded-sm object-cover" />
-              ) : (
-                <Cog className="h-3 w-3" />
-              )}
-              Asset: {a?.name ?? "filtered"} ✕
-            </Button>
-          );
-        })()}
-        {(filterPositionId !== "all" || filterCategory !== "all" || filterNotable || filterEquipmentId !== "all" || filterAssetId !== "all") && (
-          <Button size="sm" variant="ghost" onClick={() => { setFilterPositionId("all"); setFilterCategory("all"); setFilterNotable(false); setFilterEquipmentId("all"); setFilterAssetId("all"); }} className="h-8">
-            Clear
-          </Button>
-        )}
-        <div className="ml-auto text-xs text-muted-foreground">
-          {filteredLogs.length} of {logs.length} entries
-        </div>
-      </Card>
+      <WorklogFiltersBar
+        positions={positions}
+        equipmentMap={equipmentMap}
+        assetMap={assetMap}
+        filterPositionId={filterPositionId}
+        setFilterPositionId={setFilterPositionId}
+        filterCategory={filterCategory}
+        setFilterCategory={setFilterCategory}
+        filterNotable={filterNotable}
+        setFilterNotable={setFilterNotable}
+        filterEquipmentId={filterEquipmentId}
+        setFilterEquipmentId={setFilterEquipmentId}
+        filterAssetId={filterAssetId}
+        setFilterAssetId={setFilterAssetId}
+        isAnyFilterActive={isAnyFilterActive}
+        onClearAll={clearAllFilters}
+        filteredCount={filteredLogs.length}
+        totalCount={logs.length}
+      />
 
       {/* Tabs: Timeline | Templates */}
       <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
