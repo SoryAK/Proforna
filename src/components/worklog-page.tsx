@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   format,
@@ -49,6 +48,7 @@ import { buildHeatmap, intensityClass, calcStreak } from "@/components/worklog/h
 import { useWorklogData } from "@/components/worklog/hooks/use-worklog-data";
 import { useWorklogMutations } from "@/components/worklog/hooks/use-worklog-mutations";
 import { useWorklogFilters } from "@/components/worklog/hooks/use-worklog-filters";
+import { useWorklogDeepLinks } from "@/components/worklog/hooks/use-worklog-deep-links";
 
 // EquipmentItem / JobAsset types and their constants live in the picker files
 // (imported above).
@@ -62,9 +62,6 @@ export interface WorklogPageProps {
 }
 
 export function WorklogPage({ compact = false }: WorklogPageProps = {}) {
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const focusId = searchParams.get("focus");
   const [tab, setTab] = useState<"timeline" | "templates">("timeline");
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [editing, setEditing] = useState<Partial<WorkLog> | null>(null);
@@ -109,87 +106,17 @@ export function WorklogPage({ compact = false }: WorklogPageProps = {}) {
     return filteredLogs.filter((l) => isSameDay(parseISO(l.date), selectedDate));
   }, [selectedDate, filteredLogs]);
 
-  // Deep-link focus (?focus=<id>) — clear filters, scroll to row, briefly highlight, drop the param.
-  useEffect(() => {
-    if (!focusId) return;
-    const target = logs.find((l) => l.id === focusId);
-    if (!target) return; // wait for data to load (effect re-runs on logs change)
-    // Reset filters/selection so the row is visible.
-    setSelectedDate(null);
-    setFilterPositionId("all");
-    setFilterCategory("all");
-    setFilterNotable(false);
-    setFilterEquipmentId("all");
-    setFilterAssetId("all");
-    setTab("timeline");
-    // Scroll on the next frame after re-render.
-    const t = setTimeout(() => {
-      const el = document.getElementById(`worklog-row-${focusId}`);
-      if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
-    }, 50);
-    // Strip ?focus from URL after a moment so refresh doesn't re-trigger.
-    const t2 = setTimeout(() => {
-      router.replace("/worklog", { scroll: false });
-    }, 1500);
-    return () => {
-      clearTimeout(t);
-      clearTimeout(t2);
-    };
-  }, [focusId, logs, router]);
-
-  // Deep-link "?focusPosition=<id>" — pre-filter the timeline to a single position.
-  const focusPositionId = searchParams.get("focusPosition");
-  useEffect(() => {
-    if (!focusPositionId) return;
-    setFilterPositionId(focusPositionId);
-    setTab("timeline");
-    const t = setTimeout(() => router.replace("/worklog", { scroll: false }), 800);
-    return () => clearTimeout(t);
-  }, [focusPositionId, router]);
-
-  // Deep-link "?focusEquipment=<id>" — pre-filter the timeline to a single piece of equipment.
-  const focusEquipmentId = searchParams.get("focusEquipment");
-  useEffect(() => {
-    if (!focusEquipmentId) return;
-    setFilterEquipmentId(focusEquipmentId);
-    setTab("timeline");
-    const t = setTimeout(() => router.replace("/worklog", { scroll: false }), 800);
-    return () => clearTimeout(t);
-  }, [focusEquipmentId, router]);
-
-  // Deep-link "?focusAsset=<id>" — pre-filter the timeline to a single job asset.
-  const focusAssetId = searchParams.get("focusAsset");
-  useEffect(() => {
-    if (!focusAssetId) return;
-    setFilterAssetId(focusAssetId);
-    setTab("timeline");
-    const t = setTimeout(() => router.replace("/worklog", { scroll: false }), 800);
-    return () => clearTimeout(t);
-  }, [focusAssetId, router]);
-
-  // Deep-link "?new=1[&positionId=<id>]" — open the quick-add editor pre-filled with the position.
-  const newParam = searchParams.get("new");
-  const newPositionId = searchParams.get("positionId");
-  useEffect(() => {
-    if (newParam !== "1") return;
-    setEditing({
-      date: new Date().toISOString(),
-      title: "",
-      category: "task",
-      positionId: newPositionId ?? null,
-      isNotable: false,
-      content: "",
-      hours: null,
-      tags: null,
-      mood: null,
-      equipmentIds: [],
-      assetIds: [],
-      templateId: null,
-    });
-    setShowQuickAdd(true);
-    const t = setTimeout(() => router.replace("/worklog", { scroll: false }), 100);
-    return () => clearTimeout(t);
-  }, [newParam, newPositionId, router]);
+  // Deep links (5 ?focus/?focusPosition/?focusEquipment/?focusAsset/?new params).
+  const { focusId } = useWorklogDeepLinks(logs, {
+    setSelectedDate,
+    setFilterPositionId,
+    setFilterEquipmentId,
+    setFilterAssetId,
+    setTab,
+    setEditing,
+    setShowQuickAdd,
+    clearAllFilters,
+  });
 
   // Heatmap + streak
   const weeks = useMemo(() => buildHeatmap(logs), [logs]);
