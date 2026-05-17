@@ -7,12 +7,7 @@ import {
   format,
   startOfDay,
   isSameDay,
-  subDays,
   parseISO,
-  isToday,
-  isYesterday,
-  eachDayOfInterval,
-  startOfWeek,
   differenceInCalendarDays,
 } from "date-fns";
 import {
@@ -27,20 +22,11 @@ import {
   Copy,
   Flame,
   CalendarDays,
-  Smile,
   Meh,
-  Frown,
-  ClipboardList,
   Wrench,
   Cog,
-  Users,
-  BookOpen,
-  FolderKanban,
-  Phone,
-  MoreHorizontal,
-  Search as SearchIcon,
+  ClipboardList,
   ChevronDown,
-  Activity,
   Image as ImageIcon,
   Upload,
 } from "lucide-react";
@@ -60,77 +46,12 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import type { WorkLog, WorkLogPhoto, Template, Position } from "@/types/worklog";
+import { CATEGORIES, MOODS, dateLabel } from "@/components/worklog/constants";
+import { buildHeatmap, intensityClass, calcStreak } from "@/components/worklog/heatmap-utils";
 
 // EquipmentItem / JobAsset types and their constants live in the picker files
 // (imported above).
 
-
-const CATEGORIES: Record<string, { label: string; icon: React.ElementType; color: string }> = {
-  task: { label: "Task", icon: ClipboardList, color: "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300" },
-  project: { label: "Project", icon: FolderKanban, color: "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300" },
-  meeting: { label: "Meeting", icon: Users, color: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300" },
-  training: { label: "Training", icon: BookOpen, color: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300" },
-  administrative: { label: "Admin", icon: FolderKanban, color: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300" },
-  maintenance: { label: "Maintenance", icon: Wrench, color: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300" },
-  "on-call": { label: "On-Call", icon: Phone, color: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300" },
-  other: { label: "Other", icon: MoreHorizontal, color: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300" },
-};
-
-const MOODS: { value: string; label: string; icon: React.ElementType; color: string }[] = [
-  { value: "good", label: "Good", icon: Smile, color: "text-emerald-500" },
-  { value: "neutral", label: "OK", icon: Meh, color: "text-slate-400" },
-  { value: "tough", label: "Tough", icon: Frown, color: "text-rose-500" },
-];
-
-// ── Heatmap helpers ─────────────────────────────────────────────
-function buildHeatmap(logs: WorkLog[], days = 84) {
-  const today = startOfDay(new Date());
-  const start = startOfWeek(subDays(today, days - 1), { weekStartsOn: 0 });
-  const all = eachDayOfInterval({ start, end: today });
-
-  const counts = new Map<string, number>();
-  for (const log of logs) {
-    const key = format(startOfDay(parseISO(log.date)), "yyyy-MM-dd");
-    counts.set(key, (counts.get(key) ?? 0) + 1);
-  }
-
-  const cells = all.map((d) => ({
-    date: d,
-    key: format(d, "yyyy-MM-dd"),
-    count: counts.get(format(d, "yyyy-MM-dd")) ?? 0,
-  }));
-
-  // Group into weeks (columns)
-  const weeks: typeof cells[] = [];
-  for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
-  return weeks;
-}
-
-function intensityClass(count: number) {
-  if (count === 0) return "bg-muted/40";
-  if (count === 1) return "bg-emerald-200 dark:bg-emerald-900/60";
-  if (count === 2) return "bg-emerald-300 dark:bg-emerald-700/70";
-  if (count <= 4) return "bg-emerald-400 dark:bg-emerald-600/80";
-  return "bg-emerald-500 dark:bg-emerald-500";
-}
-
-function calcStreak(logs: WorkLog[]) {
-  if (logs.length === 0) return 0;
-  const days = new Set(logs.map((l) => format(startOfDay(parseISO(l.date)), "yyyy-MM-dd")));
-  let streak = 0;
-  let cursor = startOfDay(new Date());
-  while (days.has(format(cursor, "yyyy-MM-dd"))) {
-    streak += 1;
-    cursor = subDays(cursor, 1);
-  }
-  return streak;
-}
-
-function dateLabel(d: Date) {
-  if (isToday(d)) return "Today";
-  if (isYesterday(d)) return "Yesterday";
-  return format(d, "EEE, MMM d, yyyy");
-}
 
 // ── Component ───────────────────────────────────────────────────
 export interface WorklogPageProps {

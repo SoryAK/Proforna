@@ -21,39 +21,13 @@ import { format } from "date-fns";
 import {
   X,
   Plus,
-  ClipboardList,
-  FolderKanban,
-  Users,
-  BookOpen,
-  Wrench,
-  Phone,
-  MoreHorizontal,
-  Smile,
-  Meh,
-  Frown,
   Star,
   Zap,
 } from "lucide-react";
 import type { Template } from "@/types/worklog";
+import { CATEGORIES, MOODS } from "@/components/worklog/constants";
 
-// ── Constants (mirrors worklog-page.tsx) ─────────────────────────────────────
-
-const CATEGORIES: Record<string, { label: string; icon: React.ElementType }> = {
-  task:           { label: "Task",        icon: ClipboardList },
-  project:        { label: "Project",     icon: FolderKanban  },
-  meeting:        { label: "Meeting",     icon: Users         },
-  training:       { label: "Training",    icon: BookOpen      },
-  administrative: { label: "Admin",       icon: FolderKanban  },
-  maintenance:    { label: "Maintenance", icon: Wrench        },
-  "on-call":      { label: "On-Call",     icon: Phone         },
-  other:          { label: "Other",       icon: MoreHorizontal},
-};
-
-const MOODS = [
-  { value: "good",    label: "Good",  icon: Smile, color: "text-emerald-500" },
-  { value: "neutral", label: "OK",    icon: Meh,   color: "text-slate-400"   },
-  { value: "tough",   label: "Tough", icon: Frown, color: "text-rose-500"    },
-];
+// ── Local form defaults ──────────────────────────────────────────────────────
 
 const EMPTY_FORM = {
   title: "",
