@@ -143,7 +143,7 @@ import {
 import dynamic from "next/dynamic";
 import { CompanyDeepDive, type DeepDiveJob } from "@/components/company-deep-dive";
 import { UniformBodyMap, UniformMapPopup, type UniformData } from "@/components/uniform-body-map";
-import { WorklogPage } from "@/components/worklog-page";
+import { WorklogPage } from "@/components/worklog/worklog-page";
 import AnalyticsPage from "@/app/(app)/analytics/page";
 import { ViewPresetSwitcher } from "@/components/job-map/view-preset-switcher";
 import {

@@ -1,4 +1,4 @@
-import { WorklogPage } from "@/components/worklog-page";
+import { WorklogPage } from "@/components/worklog/worklog-page";
 import { CareerAnalyticsBanner } from "@/components/career-analytics-banner";
 
 export const metadata = {

@@ -1,6 +1,6 @@
 /**
  * Worklog-domain types shared across:
- *   - src/components/worklog-page.tsx (full editor)
+ *   - src/components/worklog/worklog-page.tsx (full editor)
  *   - src/components/quick-log-dialog.tsx (lightweight Quick Log)
  *   - src/components/equipment-picker.tsx
  *   - src/components/asset-picker.tsx
