@@ -17,8 +17,6 @@ import {
   Briefcase,
   X,
   Copy,
-  Flame,
-  CalendarDays,
   Meh,
   Wrench,
   Cog,
@@ -44,11 +42,13 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import type { WorkLog, WorkLogPhoto, Template, Position } from "@/types/worklog";
 import { CATEGORIES, MOODS, dateLabel } from "@/components/worklog/constants";
-import { buildHeatmap, intensityClass, calcStreak } from "@/components/worklog/heatmap-utils";
+import { calcStreak } from "@/components/worklog/heatmap-utils";
 import { useWorklogData } from "@/components/worklog/hooks/use-worklog-data";
 import { useWorklogMutations } from "@/components/worklog/hooks/use-worklog-mutations";
 import { useWorklogFilters } from "@/components/worklog/hooks/use-worklog-filters";
 import { useWorklogDeepLinks } from "@/components/worklog/hooks/use-worklog-deep-links";
+import { WorklogStatsStrip } from "@/components/worklog/worklog-stats-strip";
+import { WorklogHeatmap } from "@/components/worklog/worklog-heatmap";
 
 // EquipmentItem / JobAsset types and their constants live in the picker files
 // (imported above).
@@ -119,7 +119,6 @@ export function WorklogPage({ compact = false }: WorklogPageProps = {}) {
   });
 
   // Heatmap + streak
-  const weeks = useMemo(() => buildHeatmap(logs), [logs]);
   const streak = useMemo(() => calcStreak(logs), [logs]);
   const totalThisMonth = useMemo(() => {
     const now = new Date();
@@ -226,76 +225,15 @@ export function WorklogPage({ compact = false }: WorklogPageProps = {}) {
       </div>
 
       {/* Stat strip */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Card className="p-4">
-          <div className="text-xs text-muted-foreground flex items-center gap-1.5">
-            <Flame className="h-3.5 w-3.5" /> Current streak
-          </div>
-          <div className="text-2xl font-bold mt-1">{streak} <span className="text-sm font-normal text-muted-foreground">days</span></div>
-        </Card>
-        <Card className="p-4">
-          <div className="text-xs text-muted-foreground flex items-center gap-1.5">
-            <CalendarDays className="h-3.5 w-3.5" /> This month
-          </div>
-          <div className="text-2xl font-bold mt-1">{totalThisMonth} <span className="text-sm font-normal text-muted-foreground">entries</span></div>
-        </Card>
-        <Card className="p-4">
-          <div className="text-xs text-muted-foreground flex items-center gap-1.5">
-            <Star className="h-3.5 w-3.5" /> Notable
-          </div>
-          <div className="text-2xl font-bold mt-1">{notableCount} <span className="text-sm font-normal text-muted-foreground">all-time</span></div>
-        </Card>
-        <Card className="p-4">
-          <div className="text-xs text-muted-foreground flex items-center gap-1.5">
-            <Sparkles className="h-3.5 w-3.5" /> Templates
-          </div>
-          <div className="text-2xl font-bold mt-1">{templates.length}</div>
-        </Card>
-      </div>
+      <WorklogStatsStrip
+        streak={streak}
+        totalThisMonth={totalThisMonth}
+        notableCount={notableCount}
+        templateCount={templates.length}
+      />
 
       {/* Heatmap */}
-      <Card className="p-4">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold">Activity (last 12 weeks)</h2>
-          {selectedDate && (
-            <Button size="sm" variant="ghost" onClick={() => setSelectedDate(null)} className="h-7 text-xs">
-              <X className="h-3 w-3 mr-1" /> Clear day filter
-            </Button>
-          )}
-        </div>
-        <div className="overflow-x-auto">
-          <div className="flex gap-1 min-w-max">
-            {weeks.map((w, i) => (
-              <div key={i} className="flex flex-col gap-1">
-                {w.map((c) => {
-                  const isSel = selectedDate && isSameDay(c.date, selectedDate);
-                  return (
-                    <button
-                      key={c.key}
-                      onClick={() => setSelectedDate(isSel ? null : c.date)}
-                      title={`${format(c.date, "MMM d, yyyy")} — ${c.count} entr${c.count === 1 ? "y" : "ies"}`}
-                      className={cn(
-                        "h-3 w-3 rounded-sm transition-all hover:scale-125",
-                        intensityClass(c.count),
-                        isSel && "ring-2 ring-foreground ring-offset-1 ring-offset-background"
-                      )}
-                    />
-                  );
-                })}
-              </div>
-            ))}
-          </div>
-        </div>
-        <div className="flex items-center gap-2 mt-3 text-[10px] text-muted-foreground">
-          <span>Less</span>
-          <div className="h-3 w-3 rounded-sm bg-muted/40" />
-          <div className="h-3 w-3 rounded-sm bg-emerald-200 dark:bg-emerald-900/60" />
-          <div className="h-3 w-3 rounded-sm bg-emerald-300 dark:bg-emerald-700/70" />
-          <div className="h-3 w-3 rounded-sm bg-emerald-400 dark:bg-emerald-600/80" />
-          <div className="h-3 w-3 rounded-sm bg-emerald-500" />
-          <span>More</span>
-        </div>
-      </Card>
+      <WorklogHeatmap logs={logs} selectedDate={selectedDate} onSelectDate={setSelectedDate} />
 
       {/* Filters */}
       <Card className="p-3 flex flex-wrap items-center gap-2">
