@@ -12,6 +12,7 @@ import {
   Pencil,
   Briefcase,
   Copy,
+  ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -183,6 +184,52 @@ export function WorklogPage({ compact = false }: WorklogPageProps = {}) {
     setShowQuickAdd(true);
   }
 
+  // Left-rail filters block, factored so we can reuse it in compact mode
+  // (where it's shown inline above the feed instead of in a sticky column).
+  const filtersNode = (
+    <WorklogFiltersBar
+      positions={positions}
+      equipmentMap={equipmentMap}
+      assetMap={assetMap}
+      filterPositionId={filterPositionId}
+      setFilterPositionId={setFilterPositionId}
+      filterCategory={filterCategory}
+      setFilterCategory={setFilterCategory}
+      filterNotable={filterNotable}
+      setFilterNotable={setFilterNotable}
+      filterEquipmentId={filterEquipmentId}
+      setFilterEquipmentId={setFilterEquipmentId}
+      filterAssetId={filterAssetId}
+      setFilterAssetId={setFilterAssetId}
+      isAnyFilterActive={isAnyFilterActive}
+      onClearAll={clearAllFilters}
+      filteredCount={filteredLogs.length}
+      totalCount={logs.length}
+    />
+  );
+
+  const timelineNode = (
+    <WorklogTimeline
+      selectedDate={selectedDate}
+      selectedDayLogs={selectedDayLogs}
+      loadingLogs={loadingLogs}
+      timeline={timeline}
+      positionMap={positionMap}
+      equipmentMap={equipmentMap}
+      assetMap={assetMap}
+      focusId={focusId}
+      onEdit={(l) => {
+        setEditing(l);
+        setShowQuickAdd(true);
+      }}
+      onDelete={(id) => {
+        if (confirm("Delete this entry?")) deleteLog.mutate(id);
+      }}
+      onToggleNotable={(l) => saveLog.mutate({ id: l.id, isNotable: !l.isNotable })}
+      onStartBlank={startBlank}
+    />
+  );
+
   return (
     <div className={compact ? "space-y-3 p-3" : "space-y-6"}>
       {/* Header */}
@@ -213,68 +260,58 @@ export function WorklogPage({ compact = false }: WorklogPageProps = {}) {
         </div>
       </div>
 
-      {/* Stat strip */}
-      <WorklogStatsStrip
-        streak={streak}
-        totalThisMonth={totalThisMonth}
-        notableCount={notableCount}
-        templateCount={templates.length}
-      />
-
-      {/* Heatmap */}
-      <WorklogHeatmap logs={logs} selectedDate={selectedDate} onSelectDate={setSelectedDate} />
-
-      {/* Filters */}
-      <WorklogFiltersBar
-        positions={positions}
-        equipmentMap={equipmentMap}
-        assetMap={assetMap}
-        filterPositionId={filterPositionId}
-        setFilterPositionId={setFilterPositionId}
-        filterCategory={filterCategory}
-        setFilterCategory={setFilterCategory}
-        filterNotable={filterNotable}
-        setFilterNotable={setFilterNotable}
-        filterEquipmentId={filterEquipmentId}
-        setFilterEquipmentId={setFilterEquipmentId}
-        filterAssetId={filterAssetId}
-        setFilterAssetId={setFilterAssetId}
-        isAnyFilterActive={isAnyFilterActive}
-        onClearAll={clearAllFilters}
-        filteredCount={filteredLogs.length}
-        totalCount={logs.length}
-      />
-
-      {/* Tabs: Timeline | Templates */}
-      <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
+      {/* Tabs header + body. In non-compact mode the Timeline pane is a
+          2-column grid (sticky left rail + feed); in compact mode everything
+          stacks single-column for the embed. */}
+      <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)} className="space-y-4">
         <TabsList>
           <TabsTrigger value="timeline">Timeline</TabsTrigger>
           <TabsTrigger value="templates">Templates ({templates.length})</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="timeline" className="mt-4">
-          <WorklogTimeline
-            selectedDate={selectedDate}
-            selectedDayLogs={selectedDayLogs}
-            loadingLogs={loadingLogs}
-            timeline={timeline}
-            positionMap={positionMap}
-            equipmentMap={equipmentMap}
-            assetMap={assetMap}
-            focusId={focusId}
-            onEdit={(l) => {
-              setEditing(l);
-              setShowQuickAdd(true);
-            }}
-            onDelete={(id) => {
-              if (confirm("Delete this entry?")) deleteLog.mutate(id);
-            }}
-            onToggleNotable={(l) => saveLog.mutate({ id: l.id, isNotable: !l.isNotable })}
-            onStartBlank={startBlank}
-          />
+        <TabsContent value="timeline" className="mt-0">
+          {compact ? (
+            <div className="space-y-4">
+              <WorklogStatsStrip
+                streak={streak}
+                totalThisMonth={totalThisMonth}
+                notableCount={notableCount}
+              />
+              {filtersNode}
+              {timelineNode}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-x-8 gap-y-6">
+              {/* Left rail */}
+              <aside className="space-y-6 lg:sticky lg:top-4 lg:self-start lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto lg:pr-2">
+                <WorklogStatsStrip
+                  streak={streak}
+                  totalThisMonth={totalThisMonth}
+                  notableCount={notableCount}
+                />
+                <details className="group">
+                  <summary className="cursor-pointer list-none inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors select-none">
+                    <ChevronRight className="h-3 w-3 transition-transform group-open:rotate-90" />
+                    Activity · 12 weeks
+                  </summary>
+                  <div className="mt-3 pl-1">
+                    <WorklogHeatmap
+                      logs={logs}
+                      selectedDate={selectedDate}
+                      onSelectDate={setSelectedDate}
+                    />
+                  </div>
+                </details>
+                {filtersNode}
+              </aside>
+
+              {/* Main feed */}
+              <main className="min-w-0">{timelineNode}</main>
+            </div>
+          )}
         </TabsContent>
 
-        <TabsContent value="templates" className="mt-4">
+        <TabsContent value="templates" className="mt-0">
           <WorklogTemplatesTab
             templates={templates}
             positionMap={positionMap}

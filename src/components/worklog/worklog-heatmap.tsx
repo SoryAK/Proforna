@@ -9,7 +9,6 @@
 import { isSameDay, format } from "date-fns";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import type { WorkLog } from "@/types/worklog";
 import { buildHeatmap, intensityClass } from "@/components/worklog/heatmap-utils";
@@ -21,25 +20,27 @@ export interface WorklogHeatmapProps {
   onSelectDate: (d: Date | null) => void;
 }
 
+/**
+ * Chrome-less heatmap content. The caller is responsible for any surrounding
+ * disclosure/card chrome (we render bare so it can live inside a left-rail
+ * `<details>` block without nested borders).
+ */
 export function WorklogHeatmap({ logs, selectedDate, onSelectDate }: WorklogHeatmapProps) {
   const weeks = useMemo(() => buildHeatmap(logs), [logs]);
 
   return (
-    <Card className="p-4">
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-semibold">Activity (last 12 weeks)</h2>
-        {selectedDate && (
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => onSelectDate(null)}
-            className="h-7 text-xs"
-          >
-            <X className="h-3 w-3 mr-1" /> Clear day filter
-          </Button>
-        )}
-      </div>
-      <div className="overflow-x-auto">
+    <div className="space-y-3">
+      {selectedDate && (
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => onSelectDate(null)}
+          className="h-6 -ml-2 text-[11px]"
+        >
+          <X className="h-3 w-3 mr-1" /> Clear day filter
+        </Button>
+      )}
+      <div className="overflow-x-auto -mx-1 px-1">
         <div className="flex gap-1 min-w-max">
           {weeks.map((w, i) => (
             <div key={i} className="flex flex-col gap-1">
@@ -51,7 +52,7 @@ export function WorklogHeatmap({ logs, selectedDate, onSelectDate }: WorklogHeat
                     onClick={() => onSelectDate(isSel ? null : c.date)}
                     title={`${format(c.date, "MMM d, yyyy")} — ${c.count} entr${c.count === 1 ? "y" : "ies"}`}
                     className={cn(
-                      "h-3 w-3 rounded-sm transition-all hover:scale-125",
+                      "h-2.5 w-2.5 rounded-sm transition-all hover:scale-125",
                       intensityClass(c.count),
                       isSel && "ring-2 ring-foreground ring-offset-1 ring-offset-background",
                     )}
@@ -62,15 +63,15 @@ export function WorklogHeatmap({ logs, selectedDate, onSelectDate }: WorklogHeat
           ))}
         </div>
       </div>
-      <div className="flex items-center gap-2 mt-3 text-[10px] text-muted-foreground">
+      <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
         <span>Less</span>
-        <div className="h-3 w-3 rounded-sm bg-muted/40" />
-        <div className="h-3 w-3 rounded-sm bg-emerald-200 dark:bg-emerald-900/60" />
-        <div className="h-3 w-3 rounded-sm bg-emerald-300 dark:bg-emerald-700/70" />
-        <div className="h-3 w-3 rounded-sm bg-emerald-400 dark:bg-emerald-600/80" />
-        <div className="h-3 w-3 rounded-sm bg-emerald-500" />
+        <div className="h-2.5 w-2.5 rounded-sm bg-muted/40" />
+        <div className="h-2.5 w-2.5 rounded-sm bg-emerald-200 dark:bg-emerald-900/60" />
+        <div className="h-2.5 w-2.5 rounded-sm bg-emerald-300 dark:bg-emerald-700/70" />
+        <div className="h-2.5 w-2.5 rounded-sm bg-emerald-400 dark:bg-emerald-600/80" />
+        <div className="h-2.5 w-2.5 rounded-sm bg-emerald-500" />
         <span>More</span>
       </div>
-    </Card>
+    </div>
   );
 }
