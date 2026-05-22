@@ -12,6 +12,7 @@ import {
   BookOpen,
   Wrench,
   Phone,
+  Bug,
   MoreHorizontal,
   Smile,
   Meh,
@@ -32,9 +33,10 @@ export const CATEGORIES: Record<string, CategoryMeta> = {
   meeting:        { label: "Meeting",     icon: Users,         color: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300" },
   training:       { label: "Training",    icon: BookOpen,      color: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300" },
   administrative: { label: "Admin",       icon: FolderKanban,  color: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300" },
-  maintenance:    { label: "Maintenance", icon: Wrench,        color: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300" },
-  "on-call":      { label: "On-Call",     icon: Phone,         color: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300" },
-  other:          { label: "Other",       icon: MoreHorizontal, color: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300" },
+  maintenance:     { label: "Maintenance",    icon: Wrench,        color: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300" },
+  troubleshooting: { label: "Troubleshooting", icon: Bug,           color: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-300" },
+  "on-call":       { label: "On-Call",        icon: Phone,         color: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300" },
+  other:           { label: "Other",          icon: MoreHorizontal, color: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300" },
 };
 
 export interface MoodMeta {

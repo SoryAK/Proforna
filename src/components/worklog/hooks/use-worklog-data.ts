@@ -6,26 +6,72 @@
  * All queries are owned here so components never call `fetch` directly.
  */
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { WorkLog, Template, Position } from "@/types/worklog";
 import type { EquipmentItem } from "@/components/equipment-picker";
 import type { JobAsset } from "@/components/asset-picker";
+import {
+  cacheGetAllLogs,
+  cacheReplaceAllLogs,
+} from "@/lib/worklog/worklog-cache";
+
+async function fetchArrayOrThrow<T>(url: string): Promise<T[]> {
+  const r = await fetch(url);
+  if (!r.ok) {
+    const message = await r.text();
+    throw new Error(message || `Request failed for ${url}`);
+  }
+  const json = await r.json();
+  if (!Array.isArray(json)) {
+    throw new Error(`Unexpected response shape for ${url}`);
+  }
+  return json as T[];
+}
 
 export function useWorklogData() {
-  const { data: logs = [], isLoading: loadingLogs } = useQuery<WorkLog[]>({
+  // Seed the worklog list from Dexie on mount so the page paints instantly
+  // (and works offline). `null` = not-yet-checked; `[] / WorkLog[]` = decided.
+  const [cachedLogs, setCachedLogs] = useState<WorkLog[] | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    cacheGetAllLogs().then((rows) => {
+      if (cancelled) return;
+      setCachedLogs(rows ?? []);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const {
+    data: logs = [],
+    isLoading: loadingLogs,
+    isSuccess: logsLoaded,
+  } = useQuery<WorkLog[]>({
     queryKey: ["worklogs"],
-    queryFn: () => fetch("/api/work-logs").then((r) => r.json()),
+    queryFn: () => fetchArrayOrThrow<WorkLog>("/api/work-logs"),
+    // `offlineFirst`: still try the network, but keep cached data on failure.
+    networkMode: "offlineFirst",
+    // Use cached rows as initial data once Dexie has been consulted.
+    initialData: cachedLogs && cachedLogs.length > 0 ? cachedLogs : undefined,
+    initialDataUpdatedAt: 0, // force a background refetch even with initialData
   });
+
+  // Mirror server responses to the cache for the next cold load.
+  useEffect(() => {
+    if (!logsLoaded) return;
+    void cacheReplaceAllLogs(logs);
+  }, [logsLoaded, logs]);
 
   const { data: templates = [] } = useQuery<Template[]>({
     queryKey: ["worklog-templates"],
-    queryFn: () => fetch("/api/work-logs/templates").then((r) => r.json()),
+    queryFn: () => fetchArrayOrThrow<Template>("/api/work-logs/templates"),
   });
 
   const { data: positions = [] } = useQuery<Position[]>({
     queryKey: ["work-history"],
-    queryFn: () => fetch("/api/work-history").then((r) => r.json()),
+    queryFn: () => fetchArrayOrThrow<Position>("/api/work-history"),
     staleTime: 60_000,
   });
 

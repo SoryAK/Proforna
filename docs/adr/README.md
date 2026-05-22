@@ -27,6 +27,9 @@ NNNN-short-kebab-title.md
 | 0004 | [Adopt shadcn/ui v2 (base-ui) over Radix](./0004-shadcn-ui-v2-base-ui.md)            | Accepted   | 2026-05-17 |
 | 0005 | [Use @googlemaps/js-api-loader v2 standalone API](./0005-google-maps-js-api-loader-v2.md) | Accepted   | 2026-05-17 |
 | 0006 | [Job-map view-preset hot-swap pattern](./0006-job-map-view-preset-hot-swap.md)       | Accepted   | 2026-05-17 |
+| 0007 | [Worklog notes three-pane redesign](./0007-worklog-notes-three-pane-redesign.md)     | Proposed   | 2026-05-18 |
+| 0008 | [Worklog capture acceleration and draft persistence](./0008-worklog-capture-acceleration-and-draft-persistence.md) | Proposed   | 2026-05-18 |
+| 0009 | [Worklog server-backed draft sync](./0009-worklog-server-backed-draft-sync.md) | Proposed   | 2026-05-18 |
 
 ## How to Add a New ADR
 

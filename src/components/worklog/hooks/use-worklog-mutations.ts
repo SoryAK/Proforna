@@ -29,6 +29,30 @@ export function useWorklogMutations(cb: WorklogMutationCallbacks = {}) {
       if (!res.ok) throw new Error(await res.text());
       return res.json();
     },
+    onMutate: async (data) => {
+      if (!data.id) return { previous: undefined as WorkLog[] | undefined };
+
+      await qc.cancelQueries({ queryKey: ["worklogs"] });
+      const previous = qc.getQueryData<WorkLog[]>(["worklogs"]);
+
+      qc.setQueryData<WorkLog[]>(["worklogs"], (old = []) =>
+        old.map((log) => {
+          if (log.id !== data.id) return log;
+          return {
+            ...log,
+            ...data,
+            updatedAt: new Date().toISOString(),
+          } as WorkLog;
+        }),
+      );
+
+      return { previous };
+    },
+    onError: (_error, _variables, context) => {
+      if (context?.previous) {
+        qc.setQueryData(["worklogs"], context.previous);
+      }
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["worklogs"] });
       qc.invalidateQueries({ queryKey: ["worklog-templates"] });

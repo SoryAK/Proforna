@@ -1,63 +1,77 @@
+/**
+ * WorklogPage — orchestrator for the notes-app worklog redesign.
+ *
+ * Composition:
+ *   ┌── Toolbar (search · filters · + New) ──────────────────────────┐
+ *   │ Folders rail │  Notes list  │  Inline Note Reader              │
+ *   │ (categories) │  (recency)   │  (save-on-blur)                  │
+ *   └──────────────────────────────────────────────────────────────── ┘
+ *
+ * No dialogs for log read/edit — everything is inline, saved on blur via
+ * `useAutosaveField` inside the reader. Templates retain their own modal
+ * editor because they are configuration, not notes.
+ *
+ * Selection model:
+ *   • `activeFolder` (left rail): drives the category / notable / templates view
+ *   • `selectedNoteId` (middle list): drives which note the reader shows
+ *
+ * Deep links: see use-worklog-deep-links.ts for the ?focus / ?new wiring.
+ */
+
 "use client";
 
-import { useMemo, useState } from "react";
-import {
-  parseISO,
-  isSameDay,
-} from "date-fns";
-import {
-  Plus,
-  Sparkles,
-  Trash2,
-  Pencil,
-  Briefcase,
-  Copy,
-  ChevronRight,
-} from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { parseISO, isSameDay } from "date-fns";
+import { Plus, ChevronLeft } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { type EquipmentItem } from "@/components/equipment-picker";
-import { type JobAsset } from "@/components/asset-picker";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import type { WorkLog, Template, Position } from "@/types/worklog";
-import { CATEGORIES, dateLabel } from "@/components/worklog/constants";
+import type { WorkLog, Template, WorkShift, WorklogPreferences } from "@/types/worklog";
+import { CATEGORIES } from "@/components/worklog/constants";
 import { calcStreak } from "@/components/worklog/heatmap-utils";
 import { useWorklogData } from "@/components/worklog/hooks/use-worklog-data";
 import { useWorklogMutations } from "@/components/worklog/hooks/use-worklog-mutations";
 import { useWorklogFilters } from "@/components/worklog/hooks/use-worklog-filters";
 import { useWorklogDeepLinks } from "@/components/worklog/hooks/use-worklog-deep-links";
-import { WorklogStatsStrip } from "@/components/worklog/worklog-stats-strip";
-import { WorklogHeatmap } from "@/components/worklog/worklog-heatmap";
-import { WorklogFiltersBar } from "@/components/worklog/worklog-filters-bar";
-import { WorklogTimeline } from "@/components/worklog/worklog-timeline";
+import {
+  WorklogFoldersRail,
+  type FolderSelection,
+} from "@/components/worklog/worklog-folders-rail";
+import { WorklogNotesList } from "@/components/worklog/worklog-notes-list";
+import {
+  WorklogNoteReader,
+  type WorklogNoteReaderHandle,
+} from "@/components/worklog/worklog-note-reader";
+import { WorklogToolbar } from "@/components/worklog/worklog-toolbar";
+import { WorklogDefaultsDialog } from "@/components/worklog/worklog-defaults-dialog";
 import { WorklogTemplatesTab } from "@/components/worklog/worklog-templates-tab";
-import { WorklogLogEditor } from "@/components/worklog/worklog-log-editor";
 import { WorklogTemplateEditor } from "@/components/worklog/worklog-template-editor";
 
-// EquipmentItem / JobAsset types and their constants live in the picker files
-// (imported above).
-
-
-// ── Component ───────────────────────────────────────────────────
 export interface WorklogPageProps {
-  /** Embedded mode: hide page title/subtitle, tighten spacing for use inside
-      another frame (e.g. the job-map view-preset overlay). */
+  /** Embedded mode: hide page brand, tighten chrome for the job-map embed. */
   compact?: boolean;
 }
 
 export function WorklogPage({ compact = false }: WorklogPageProps = {}) {
-  const [tab, setTab] = useState<"timeline" | "templates">("timeline");
+  const queryClient = useQueryClient();
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const readerRef = useRef<WorklogNoteReaderHandle | null>(null);
+
+  const [activeFolder, setActiveFolder] = useState<FolderSelection>({ kind: "all" });
+  const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [editing, setEditing] = useState<Partial<WorkLog> | null>(null);
-  const [showQuickAdd, setShowQuickAdd] = useState(false);
+  const [search, setSearch] = useState("");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
+  const [showDefaultsDialog, setShowDefaultsDialog] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<Partial<Template> | null>(null);
+  // Mobile drill-down: when a note is selected on narrow screens, show the
+  // reader and provide a back button to return to the list.
+  const [mobileShowReader, setMobileShowReader] = useState(false);
 
   // Data
   const {
@@ -68,15 +82,76 @@ export function WorklogPage({ compact = false }: WorklogPageProps = {}) {
     equipment,
     assets,
     positionMap,
-    equipmentMap,
-    assetMap,
   } = useWorklogData();
 
-  // Filters + derived timeline
+  const emptyPreferences: WorklogPreferences = {
+    defaultPositionId: null,
+    defaultShiftId: null,
+    defaultCategory: "task",
+    defaultMood: null,
+    defaultHours: null,
+  };
+
+  const { data: defaults = emptyPreferences } = useQuery<WorklogPreferences>({
+    queryKey: ["worklog-preferences"],
+    queryFn: async () => {
+      const r = await fetch("/api/work-logs/preferences");
+      if (!r.ok) throw new Error(await r.text());
+      return r.json();
+    },
+    staleTime: 60_000,
+  });
+
+  const { data: defaultShifts = [], isLoading: loadingDefaultShifts } = useQuery<WorkShift[]>({
+    queryKey: ["work-history-shifts", defaults.defaultPositionId],
+    queryFn: async () => {
+      const r = await fetch(`/api/work-history/${defaults.defaultPositionId}/shifts`);
+      if (!r.ok) throw new Error(await r.text());
+      return r.json();
+    },
+    enabled: !!defaults.defaultPositionId,
+    staleTime: 60_000,
+  });
+
+  const defaultsSummary = useMemo(() => {
+    const company = defaults.defaultPositionId
+      ? positionMap.get(defaults.defaultPositionId)?.company ?? "Default company"
+      : null;
+    const shift = defaults.defaultShiftId
+      ? defaultShifts.find((s) => s.id === defaults.defaultShiftId)?.name ?? null
+      : null;
+
+    if (company && shift) return `${company} · ${shift}`;
+    if (company) return company;
+
+    const hasOtherDefaults =
+      defaults.defaultCategory !== "task" || defaults.defaultMood != null || defaults.defaultHours != null;
+    return hasOtherDefaults ? "Custom defaults" : null;
+  }, [defaults, positionMap, defaultShifts]);
+
+  const saveDefaults = useMutation({
+    mutationFn: async (next: WorklogPreferences) => {
+      const r = await fetch("/api/work-logs/preferences", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(next),
+      });
+      if (!r.ok) throw new Error(await r.text());
+      return r.json() as Promise<WorklogPreferences>;
+    },
+    onSuccess: (saved) => {
+      queryClient.setQueryData(["worklog-preferences"], saved);
+      queryClient.invalidateQueries({ queryKey: ["work-history-shifts", saved.defaultPositionId] });
+      setShowDefaultsDialog(false);
+      toast.success("Worklog defaults saved");
+    },
+    onError: () => toast.error("Could not save defaults"),
+  });
+
+  // Filters (shared with old hook; category + notable are driven by the rail).
   const {
     filterPositionId,
     setFilterPositionId,
-    filterCategory,
     setFilterCategory,
     filterNotable,
     setFilterNotable,
@@ -84,31 +159,71 @@ export function WorklogPage({ compact = false }: WorklogPageProps = {}) {
     setFilterEquipmentId,
     filterAssetId,
     setFilterAssetId,
-    filteredLogs,
-    timeline,
     isAnyFilterActive,
     clearAll: clearAllFilters,
   } = useWorklogFilters(logs);
 
-  // Selected day view (when user clicks a heatmap cell)
-  const selectedDayLogs = useMemo(() => {
-    if (!selectedDate) return null;
-    return filteredLogs.filter((l) => isSameDay(parseISO(l.date), selectedDate));
-  }, [selectedDate, filteredLogs]);
+  // Sync the folder selection into the underlying category/notable filters.
+  // This keeps useWorklogFilters' invariants intact even though the visible
+  // list is computed below directly.
+  useEffect(() => {
+    if (activeFolder.kind === "category") {
+      setFilterCategory(activeFolder.category);
+      setFilterNotable(false);
+    } else if (activeFolder.kind === "notable") {
+      setFilterCategory("all");
+      setFilterNotable(true);
+    } else {
+      setFilterCategory("all");
+      setFilterNotable(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeFolder]);
 
-  // Deep links (5 ?focus/?focusPosition/?focusEquipment/?focusAsset/?new params).
-  const { focusId } = useWorklogDeepLinks(logs, {
-    setSelectedDate,
-    setFilterPositionId,
-    setFilterEquipmentId,
-    setFilterAssetId,
-    setTab,
-    setEditing,
-    setShowQuickAdd,
-    clearAllFilters,
-  });
+  // Compose the visible notes list from folder + filters + search + selectedDate.
+  const visibleLogs = useMemo(() => {
+    let out = logs;
+    if (activeFolder.kind === "category") {
+      out = out.filter((l) => l.category === activeFolder.category);
+    } else if (activeFolder.kind === "notable") {
+      out = out.filter((l) => l.isNotable || l.accomplishment);
+    }
+    if (filterPositionId !== "all") {
+      if (filterPositionId === "none") out = out.filter((l) => !l.positionId);
+      else out = out.filter((l) => l.positionId === filterPositionId);
+    }
+    if (filterEquipmentId !== "all") {
+      out = out.filter((l) => (l.equipmentIds ?? []).includes(filterEquipmentId));
+    }
+    if (filterAssetId !== "all") {
+      out = out.filter((l) => (l.assetIds ?? []).includes(filterAssetId));
+    }
+    if (filterNotable && activeFolder.kind !== "notable") {
+      out = out.filter((l) => l.isNotable || l.accomplishment);
+    }
+    if (selectedDate) {
+      out = out.filter((l) => isSameDay(parseISO(l.date), selectedDate));
+    }
+    const q = search.trim().toLowerCase();
+    if (q) {
+      out = out.filter((l) => {
+        const hay = `${l.title ?? ""} ${l.content ?? ""} ${l.tags ?? ""}`.toLowerCase();
+        return hay.includes(q);
+      });
+    }
+    return out;
+  }, [
+    logs,
+    activeFolder,
+    filterPositionId,
+    filterEquipmentId,
+    filterAssetId,
+    filterNotable,
+    selectedDate,
+    search,
+  ]);
 
-  // Heatmap + streak
+  // Stats for the rail
   const streak = useMemo(() => calcStreak(logs), [logs]);
   const totalThisMonth = useMemo(() => {
     const now = new Date();
@@ -117,213 +232,363 @@ export function WorklogPage({ compact = false }: WorklogPageProps = {}) {
       return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
     }).length;
   }, [logs]);
-  const notableCount = useMemo(() => logs.filter((l) => l.isNotable || l.accomplishment).length, [logs]);
+  const notableCount = useMemo(
+    () => logs.filter((l) => l.isNotable || l.accomplishment).length,
+    [logs],
+  );
 
   // Mutations
   const { saveLog, deleteLog, saveTemplate, deleteTemplate } = useWorklogMutations({
-    onSaveLogSuccess: () => {
-      setEditing(null);
-      setShowQuickAdd(false);
-    },
-    onSaveTemplateSuccess: () => {
-      setEditingTemplate(null);
-    },
+    onSaveTemplateSuccess: () => setEditingTemplate(null),
   });
 
-  // Apply a template to start a new log
-  function applyTemplate(t: Template) {
-    setShowTemplatePicker(false);
-    setEditing({
-      date: new Date().toISOString(),
-      title: t.defaultTitle || t.name,
-      category: t.defaultCategory,
-      positionId: t.defaultPositionId,
-      tags: t.defaultTags,
-      mood: t.defaultMood,
-      equipmentIds: t.defaultEquipmentIds,
-      assetIds: t.defaultAssetIds ?? [],
-      hours: t.defaultDurationMinutes ? t.defaultDurationMinutes / 60 : null,
-      templateId: t.id,
-      isNotable: false,
-      content: "",
-    });
-    setShowQuickAdd(true);
-  }
+  // Keep selectedNoteId valid as logs change (e.g. after delete).
+  useEffect(() => {
+    if (selectedNoteId && !logs.find((l) => l.id === selectedNoteId)) {
+      setSelectedNoteId(null);
+      setMobileShowReader(false);
+    }
+  }, [logs, selectedNoteId]);
 
-  // "Same as last entry" — copy the most recent log
-  function copyLast() {
-    const last = logs[0];
-    if (!last) return;
-    setEditing({
+  // Selected log object (read from live `logs` so reader sees up-to-date data
+  // after every mutation invalidation).
+  const selectedLog = useMemo(
+    () => (selectedNoteId ? logs.find((l) => l.id === selectedNoteId) ?? null : null),
+    [logs, selectedNoteId],
+  );
+
+  // Create-blank flow: POST a minimal note, then auto-select it.
+  async function createBlankNote(
+    opts: { positionId?: string | null; from?: Partial<WorkLog> } = {},
+  ) {
+    const resolvedPositionId = opts.from?.positionId ?? opts.positionId ?? defaults.defaultPositionId ?? null;
+    const resolvedShiftId =
+      opts.from?.shiftId ??
+      (defaults.defaultShiftId && resolvedPositionId && defaults.defaultPositionId === resolvedPositionId
+        ? defaults.defaultShiftId
+        : null);
+
+    const payload: Partial<WorkLog> = {
       date: new Date().toISOString(),
-      title: last.title,
-      category: last.category,
-      positionId: last.positionId,
-      tags: last.tags,
-      mood: last.mood,
-      equipmentIds: last.equipmentIds,
-      assetIds: last.assetIds ?? [],
-      hours: last.hours,
-      content: "",
+      title: opts.from?.title || "Untitled",
+      category: opts.from?.category ?? defaults.defaultCategory ?? "task",
+      positionId: resolvedPositionId,
+      shiftId: resolvedShiftId,
+      content: opts.from?.content ?? "",
+      hours: opts.from?.hours ?? defaults.defaultHours ?? null,
+      tags: opts.from?.tags ?? null,
+      mood: opts.from?.mood ?? defaults.defaultMood ?? null,
+      equipmentIds: opts.from?.equipmentIds ?? [],
+      assetIds: opts.from?.assetIds ?? [],
+      templateId: opts.from?.templateId ?? null,
       isNotable: false,
-    });
-    setShowQuickAdd(true);
+    };
+    try {
+      const saved: WorkLog = await saveLog.mutateAsync(payload);
+      setActiveFolder({ kind: "all" });
+      setSelectedNoteId(saved.id);
+      setMobileShowReader(true);
+    } catch {
+      // mutation surfaces errors via React Query; nothing to do here
+    }
   }
 
   function startBlank() {
-    setEditing({
-      date: new Date().toISOString(),
-      title: "",
-      category: "task",
-      positionId: null,
-      isNotable: false,
-      content: "",
-      equipmentIds: [],
-      assetIds: [],
-    });
-    setShowQuickAdd(true);
+    void createBlankNote();
   }
 
-  // Left-rail filters block, factored so we can reuse it in compact mode
-  // (where it's shown inline above the feed instead of in a sticky column).
-  const filtersNode = (
-    <WorklogFiltersBar
-      positions={positions}
-      equipmentMap={equipmentMap}
-      assetMap={assetMap}
-      filterPositionId={filterPositionId}
-      setFilterPositionId={setFilterPositionId}
-      filterCategory={filterCategory}
-      setFilterCategory={setFilterCategory}
-      filterNotable={filterNotable}
-      setFilterNotable={setFilterNotable}
-      filterEquipmentId={filterEquipmentId}
-      setFilterEquipmentId={setFilterEquipmentId}
-      filterAssetId={filterAssetId}
-      setFilterAssetId={setFilterAssetId}
-      isAnyFilterActive={isAnyFilterActive}
-      onClearAll={clearAllFilters}
-      filteredCount={filteredLogs.length}
-      totalCount={logs.length}
-    />
-  );
+  function startQuickCapture(data: { title: string; category: string; hours: number | null }) {
+    void createBlankNote({
+      from: {
+        title: data.title,
+        category: data.category,
+        hours: data.hours,
+        content: "",
+      },
+    });
+  }
 
-  const timelineNode = (
-    <WorklogTimeline
-      selectedDate={selectedDate}
-      selectedDayLogs={selectedDayLogs}
-      loadingLogs={loadingLogs}
-      timeline={timeline}
-      positionMap={positionMap}
-      equipmentMap={equipmentMap}
-      assetMap={assetMap}
-      focusId={focusId}
-      onEdit={(l) => {
-        setEditing(l);
-        setShowQuickAdd(true);
-      }}
-      onDelete={(id) => {
-        if (confirm("Delete this entry?")) deleteLog.mutate(id);
-      }}
-      onToggleNotable={(l) => saveLog.mutate({ id: l.id, isNotable: !l.isNotable })}
-      onStartBlank={startBlank}
-    />
-  );
+  function copyLast() {
+    const last = logs[0];
+    if (!last) return;
+    void createBlankNote({
+      from: {
+        title: last.title,
+        category: last.category,
+        positionId: last.positionId,
+        tags: last.tags,
+        mood: last.mood,
+        equipmentIds: last.equipmentIds,
+        assetIds: last.assetIds ?? [],
+        hours: last.hours,
+        content: "",
+      },
+    });
+  }
+
+  function applyTemplate(t: Template) {
+    setShowTemplatePicker(false);
+    void createBlankNote({
+      from: {
+        title: t.defaultTitle || t.name,
+        category: t.defaultCategory,
+        positionId: t.defaultPositionId,
+        tags: t.defaultTags,
+        mood: t.defaultMood,
+        equipmentIds: t.defaultEquipmentIds,
+        assetIds: t.defaultAssetIds ?? [],
+        hours: t.defaultDurationMinutes ? t.defaultDurationMinutes / 60 : null,
+        templateId: t.id,
+        content: "",
+      },
+    });
+  }
+
+  // Deep links
+  useWorklogDeepLinks(logs, {
+    setSelectedDate,
+    setFilterPositionId,
+    setFilterEquipmentId,
+    setFilterAssetId,
+    setActiveFolder,
+    setSelectedNoteId: (id) => {
+      setSelectedNoteId(id);
+      if (id) setMobileShowReader(true);
+    },
+    createBlankNote: ({ positionId }) => void createBlankNote({ positionId }),
+    clearAllFilters,
+  });
+
+  // ── Render ───────────────────────────────────────────────────
+  const inTemplatesView = activeFolder.kind === "templates";
+
+  useEffect(() => {
+    function isTypingTarget(target: EventTarget | null) {
+      if (!(target instanceof HTMLElement)) return false;
+      const tag = target.tagName.toLowerCase();
+      return (
+        tag === "input" ||
+        tag === "textarea" ||
+        tag === "select" ||
+        target.isContentEditable
+      );
+    }
+
+    function handleShortcuts(e: KeyboardEvent) {
+      if (inTemplatesView) return;
+
+      const metaOrCtrl = e.metaKey || e.ctrlKey;
+      const typing = isTypingTarget(e.target);
+
+      if (metaOrCtrl && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        readerRef.current?.flushAutosave();
+        return;
+      }
+
+      if (typing) return;
+
+      if (e.key === "/") {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+        return;
+      }
+
+      if (!e.altKey && !metaOrCtrl) {
+        if (e.key.toLowerCase() === "n") {
+          e.preventDefault();
+          startBlank();
+          return;
+        }
+
+        const currentIdx = selectedNoteId
+          ? visibleLogs.findIndex((l) => l.id === selectedNoteId)
+          : -1;
+
+        if (e.key.toLowerCase() === "j") {
+          e.preventDefault();
+          const nextIdx = Math.min(visibleLogs.length - 1, currentIdx + 1);
+          if (visibleLogs[nextIdx]) {
+            setSelectedNoteId(visibleLogs[nextIdx].id);
+            setMobileShowReader(true);
+          }
+        }
+
+        if (e.key.toLowerCase() === "k") {
+          e.preventDefault();
+          const prevIdx = Math.max(0, currentIdx <= 0 ? 0 : currentIdx - 1);
+          if (visibleLogs[prevIdx]) {
+            setSelectedNoteId(visibleLogs[prevIdx].id);
+            setMobileShowReader(true);
+          }
+        }
+      }
+    }
+
+    window.addEventListener("keydown", handleShortcuts);
+    return () => window.removeEventListener("keydown", handleShortcuts);
+  }, [inTemplatesView, selectedNoteId, visibleLogs]);
 
   return (
-    <div className={compact ? "space-y-3 p-3" : "space-y-6"}>
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        {!compact && (
-          <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
-              Worklog
-              <Badge variant="secondary" className="text-[10px]">Private</Badge>
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Capture today in seconds. Cherry-pick highlights for your IR later.
-            </p>
+    <div
+      className={cn(
+        "flex flex-col bg-background",
+        compact ? "h-[calc(100vh-8rem)] rounded-md border overflow-hidden" : "h-[calc(100vh-4rem)]",
+      )}
+    >
+      <WorklogToolbar
+        compact={compact}
+        search={search}
+        setSearch={setSearch}
+        searchInputRef={searchInputRef}
+        filtersOpen={filtersOpen}
+        setFiltersOpen={setFiltersOpen}
+        positions={positions}
+        equipment={equipment}
+        assets={assets}
+        filterPositionId={filterPositionId}
+        setFilterPositionId={setFilterPositionId}
+        filterNotable={filterNotable}
+        setFilterNotable={setFilterNotable}
+        filterEquipmentId={filterEquipmentId}
+        setFilterEquipmentId={setFilterEquipmentId}
+        filterAssetId={filterAssetId}
+        setFilterAssetId={setFilterAssetId}
+        isAnyFilterActive={isAnyFilterActive || activeFolder.kind !== "all"}
+        onClearAll={() => {
+          clearAllFilters();
+          setActiveFolder({ kind: "all" });
+          setSelectedDate(null);
+          setSearch("");
+        }}
+        hasLogs={logs.length > 0}
+        onNew={startBlank}
+        onQuickCapture={startQuickCapture}
+        onCopyLast={copyLast}
+        onFromTemplate={() => setShowTemplatePicker(true)}
+        onDefaults={() => setShowDefaultsDialog(true)}
+        defaultsSummary={defaultsSummary}
+      />
+
+      {/* 3-pane grid */}
+      <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-[200px_1fr] xl:grid-cols-[220px_320px_1fr]">
+        {/* Folders rail */}
+        <div className="hidden md:block min-h-0 overflow-hidden">
+          <WorklogFoldersRail
+            logs={logs}
+            templatesCount={templates.length}
+            selected={activeFolder}
+            onSelect={(f) => {
+              setActiveFolder(f);
+              setSelectedNoteId(null);
+              setSelectedDate(null);
+            }}
+            selectedDate={selectedDate}
+            onSelectDate={setSelectedDate}
+            streak={streak}
+            totalThisMonth={totalThisMonth}
+            notableCount={notableCount}
+          />
+        </div>
+
+        {/* Middle pane: notes list OR templates list */}
+        <div
+          className={cn(
+            "min-h-0 border-r flex flex-col",
+            mobileShowReader && selectedLog ? "hidden md:flex" : "flex",
+          )}
+        >
+          {/* Mobile back button when only middle pane shows but we're navigating between groups */}
+          {inTemplatesView ? (
+            <ScrollArea className="h-full">
+              <div className="p-3">
+                <WorklogTemplatesTab
+                  templates={templates}
+                  positionMap={positionMap}
+                  onApply={applyTemplate}
+                  onEdit={(t) => setEditingTemplate(t)}
+                  onDelete={(id) => deleteTemplate.mutate(id)}
+                  onNew={() =>
+                    setEditingTemplate({
+                      name: "",
+                      defaultCategory: "task",
+                      defaultEquipmentIds: [],
+                      defaultAssetIds: [],
+                    })
+                  }
+                />
+              </div>
+            </ScrollArea>
+          ) : (
+            <WorklogNotesList
+              logs={visibleLogs}
+              selectedId={selectedNoteId}
+              onSelect={(id) => {
+                setSelectedNoteId(id);
+                setMobileShowReader(true);
+              }}
+              positionMap={positionMap}
+              loading={loadingLogs}
+              emptyMessage={
+                search
+                  ? "No notes match your search"
+                  : activeFolder.kind === "category"
+                    ? `No ${CATEGORIES[activeFolder.category]?.label.toLowerCase() ?? ""} notes yet`
+                    : activeFolder.kind === "notable"
+                      ? "No notable notes yet"
+                      : "No notes yet"
+              }
+              emptyHint={
+                search ? "Try a different keyword." : "Start a note to capture today’s work."
+              }
+              onNew={!search ? startBlank : undefined}
+            />
+          )}
+        </div>
+
+        {/* Right pane: note reader (hidden in templates view) */}
+        {!inTemplatesView && (
+          <div
+            className={cn(
+              "min-h-0 flex flex-col",
+              mobileShowReader && selectedLog ? "flex" : "hidden xl:flex",
+            )}
+          >
+            {/* Mobile back button */}
+            {mobileShowReader && selectedLog && (
+              <div className="xl:hidden flex items-center gap-2 px-3 py-1.5 border-b">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setMobileShowReader(false)}
+                  className="h-7 gap-1"
+                >
+                  <ChevronLeft className="h-3.5 w-3.5" /> Back
+                </Button>
+              </div>
+            )}
+            <div className="flex-1 min-h-0">
+              <WorklogNoteReader
+                ref={readerRef}
+                log={selectedLog}
+                positions={positions}
+                equipment={equipment}
+                assets={assets}
+                positionMap={positionMap}
+                onUpdate={(patch) => saveLog.mutateAsync(patch)}
+                onDelete={(id) => {
+                  deleteLog.mutate(id);
+                  setSelectedNoteId(null);
+                  setMobileShowReader(false);
+                }}
+                onNew={startBlank}
+                hasLogs={logs.length > 0}
+              />
+            </div>
           </div>
         )}
-        <div className={compact ? "flex items-center gap-2 ml-auto" : "flex items-center gap-2"}>
-          {logs.length > 0 && (
-            <Button size="sm" variant="outline" onClick={copyLast}>
-              <Copy className="h-3.5 w-3.5 mr-1.5" /> Same as last
-            </Button>
-          )}
-          <Button size="sm" variant="outline" onClick={() => setShowTemplatePicker(true)}>
-            <Sparkles className="h-3.5 w-3.5 mr-1.5" /> From template
-          </Button>
-          <Button size="sm" onClick={startBlank}>
-            <Plus className="h-3.5 w-3.5 mr-1.5" /> New entry
-          </Button>
-        </div>
       </div>
-
-      {/* Tabs header + body. In non-compact mode the Timeline pane is a
-          2-column grid (sticky left rail + feed); in compact mode everything
-          stacks single-column for the embed. */}
-      <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)} className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="timeline">Timeline</TabsTrigger>
-          <TabsTrigger value="templates">Templates ({templates.length})</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="timeline" className="mt-0">
-          {compact ? (
-            <div className="space-y-4">
-              <WorklogStatsStrip
-                streak={streak}
-                totalThisMonth={totalThisMonth}
-                notableCount={notableCount}
-              />
-              {filtersNode}
-              {timelineNode}
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-x-8 gap-y-6">
-              {/* Left rail */}
-              <aside className="scrollbar-thin space-y-6 lg:sticky lg:top-4 lg:self-start lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto lg:pr-2">
-                <WorklogStatsStrip
-                  streak={streak}
-                  totalThisMonth={totalThisMonth}
-                  notableCount={notableCount}
-                />
-                <details className="group">
-                  <summary className="cursor-pointer list-none inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors select-none">
-                    <ChevronRight className="h-3 w-3 transition-transform group-open:rotate-90" />
-                    Activity · 12 weeks
-                  </summary>
-                  <div className="mt-3 pl-1">
-                    <WorklogHeatmap
-                      logs={logs}
-                      selectedDate={selectedDate}
-                      onSelectDate={setSelectedDate}
-                    />
-                  </div>
-                </details>
-                {filtersNode}
-              </aside>
-
-              {/* Main feed */}
-              <main className="min-w-0">{timelineNode}</main>
-            </div>
-          )}
-        </TabsContent>
-
-        <TabsContent value="templates" className="mt-0">
-          <WorklogTemplatesTab
-            templates={templates}
-            positionMap={positionMap}
-            onApply={applyTemplate}
-            onEdit={(t) => setEditingTemplate(t)}
-            onDelete={(id) => deleteTemplate.mutate(id)}
-            onNew={() =>
-              setEditingTemplate({ name: "", defaultCategory: "task", defaultEquipmentIds: [], defaultAssetIds: [] })
-            }
-          />
-        </TabsContent>
-      </Tabs>
 
       {/* Template picker modal */}
       <Dialog open={showTemplatePicker} onOpenChange={setShowTemplatePicker}>
@@ -333,10 +598,21 @@ export function WorklogPage({ compact = false }: WorklogPageProps = {}) {
           </DialogHeader>
           {templates.length === 0 ? (
             <div className="py-6 text-center">
-              <p className="text-sm text-muted-foreground mb-3">No templates yet — create one to log routine days in seconds.</p>
+              <p className="text-sm text-muted-foreground mb-3">
+                No templates yet — create one to log routine days in seconds.
+              </p>
               <Button
                 size="sm"
-                onClick={() => { setShowTemplatePicker(false); setTab("templates"); setEditingTemplate({ name: "", defaultCategory: "task", defaultEquipmentIds: [], defaultAssetIds: [] }); }}
+                onClick={() => {
+                  setShowTemplatePicker(false);
+                  setActiveFolder({ kind: "templates" });
+                  setEditingTemplate({
+                    name: "",
+                    defaultCategory: "task",
+                    defaultEquipmentIds: [],
+                    defaultAssetIds: [],
+                  });
+                }}
               >
                 <Plus className="h-3.5 w-3.5 mr-1.5" /> Create your first template
               </Button>
@@ -351,7 +627,9 @@ export function WorklogPage({ compact = false }: WorklogPageProps = {}) {
                     className="w-full text-left p-3 rounded-md border hover:border-foreground/30 hover:bg-accent/40 transition-colors"
                   >
                     <div className="font-medium text-sm">{t.name}</div>
-                    {t.description && <div className="text-xs text-muted-foreground mt-0.5">{t.description}</div>}
+                    {t.description && (
+                      <div className="text-xs text-muted-foreground mt-0.5">{t.description}</div>
+                    )}
                     <div className="flex flex-wrap items-center gap-1.5 mt-2">
                       <Badge variant="outline" className={cn("text-[10px]", CATEGORIES[t.defaultCategory]?.color)}>
                         {CATEGORIES[t.defaultCategory]?.label ?? t.defaultCategory}
@@ -370,28 +648,29 @@ export function WorklogPage({ compact = false }: WorklogPageProps = {}) {
         </DialogContent>
       </Dialog>
 
-      {/* Quick-add / edit log modal */}
-      <WorklogLogEditor
-        open={showQuickAdd}
-        onOpenChange={(o) => { setShowQuickAdd(o); if (!o) setEditing(null); }}
-        value={editing}
-        positions={positions}
-        equipment={equipment}
-        assets={assets}
-        onSave={(data) => saveLog.mutate(data)}
-        saving={saveLog.isPending}
-      />
-
       {/* Template editor modal */}
       <WorklogTemplateEditor
         open={editingTemplate !== null}
-        onOpenChange={(o) => { if (!o) setEditingTemplate(null); }}
+        onOpenChange={(o) => {
+          if (!o) setEditingTemplate(null);
+        }}
         value={editingTemplate}
         positions={positions}
         equipment={equipment}
         assets={assets}
         onSave={(data) => saveTemplate.mutate(data)}
         saving={saveTemplate.isPending}
+      />
+
+      <WorklogDefaultsDialog
+        open={showDefaultsDialog}
+        onOpenChange={setShowDefaultsDialog}
+        value={defaults}
+        positions={positions}
+        shifts={defaultShifts}
+        loadingShifts={loadingDefaultShifts}
+        onSave={(next) => saveDefaults.mutate(next)}
+        saving={saveDefaults.isPending}
       />
     </div>
   );

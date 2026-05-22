@@ -45,3 +45,6 @@ next-env.d.ts
 # Prisma
 *.db
 *.db-journal
+
+# CodeGraph (local index — junctioned to C:\CodeGraphCache\resumsify to bypass OneDrive)
+.codegraph/

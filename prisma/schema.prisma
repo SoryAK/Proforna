@@ -75,7 +75,10 @@ model User {
   personalEquipmentShares PersonalEquipmentShare[]
   equipmentKits       EquipmentKit[]
   workLogs            WorkLog[]
+  workHistoryShifts   WorkHistoryShift[]
+  workLogDrafts       WorkLogDraft[]
   workLogTemplates    WorkLogTemplate[]
+  workLogPreference   WorkLogPreference?
   integrationConnections IntegrationConnection[]
   jobAssets           JobAsset[]
   publishedProfile    PublishedProfile?
@@ -726,9 +729,12 @@ model WorkLog {
   id                       String   @id @default(uuid())
   userId                   String
   positionId               String?
+  shiftId                  String?
   date                     DateTime
+  workdayDate              DateTime?
   title                    String
-  content                  String?
+  content                  String?                                  // plain-text projection (search, exports, legacy readers)
+  contentJson              Json?                                    // ProseMirror JSON (rich editor source of truth — Phase 1b)
   category                 String   @default("task")
   hours                    Float?
   tags                     String?
@@ -754,13 +760,79 @@ model WorkLog {
 
   user     User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   position WorkHistory?     @relation("WorkHistoryWorkLogs", fields: [positionId], references: [id], onDelete: Cascade)
+  shift    WorkHistoryShift? @relation(fields: [shiftId], references: [id], onDelete: SetNull)
   template WorkLogTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
   photos   WorkLogPhoto[]
+  drafts   WorkLogDraft[]
 
   @@index([userId, date])
+  @@index([userId, workdayDate])
+  @@index([positionId, shiftId])
   @@index([positionId])
   @@index([templateId])
   @@unique([userId, externalSource, externalId], map: "WorkLog_external_unique")
+}
+
+// Reusable shift windows for a specific WorkHistory job.
+model WorkHistoryShift {
+  id            String   @id @default(uuid())
+  userId        String
+  workHistoryId String
+  name          String
+  startMinute   Int      // 0..1439
+  endMinute     Int      // 0..1439
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workHistory WorkHistory @relation(fields: [workHistoryId], references: [id], onDelete: Cascade)
+  workLogs    WorkLog[]
+  defaultForWorkLogPreferences WorkLogPreference[] @relation("WorkLogPreferenceDefaultShift")
+
+  @@index([userId, workHistoryId])
+  @@index([workHistoryId, isActive])
+}
+
+// Per-user defaults applied to new worklog creation.
+model WorkLogPreference {
+  id                String   @id @default(uuid())
+  userId            String   @unique
+  defaultPositionId String?
+  defaultShiftId    String?
+  defaultCategory   String   @default("task")
+  defaultMood       String?
+  defaultHours      Float?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  defaultPosition WorkHistory?     @relation("WorkLogPreferenceDefaultPosition", fields: [defaultPositionId], references: [id], onDelete: SetNull)
+  defaultShift    WorkHistoryShift? @relation("WorkLogPreferenceDefaultShift", fields: [defaultShiftId], references: [id], onDelete: SetNull)
+
+  @@index([defaultPositionId])
+  @@index([defaultShiftId])
+}
+
+// ─── Work Log Drafts (Phase 2 — cross-device persisted edits) ───────────
+// Field-level draft rows used by reader autosave write-through.
+// Last-write-wins by updatedAt. Entries expire after 7 days by policy.
+model WorkLogDraft {
+  id        String   @id @default(uuid())
+  userId    String
+  workLogId String
+  field     String
+  valueJson Json
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workLog WorkLog @relation(fields: [workLogId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, workLogId, field])
+  @@index([userId, workLogId])
+  @@index([expiresAt])
 }
 
 // ─── Work Log Photos (item #19 Phase A — visual evidence) ────────
@@ -775,11 +847,15 @@ model WorkLogPhoto {
   fileSize  Int
   caption   String?
   sortOrder Int      @default(0)
+  /// "panel" = uploaded via the Photos disclosure section (capped at 6 per log)
+  /// "body"  = inline image embedded inside a worklog note via the rich editor (cap 20 per log)
+  source    String   @default("panel")
   createdAt DateTime @default(now())
 
   workLog WorkLog @relation(fields: [workLogId], references: [id], onDelete: Cascade)
 
   @@index([workLogId])
+  @@index([workLogId, source])
 }
 
 // ─── Work Log Templates (item #19 Phase A — "day types") ────────
@@ -1736,6 +1812,8 @@ model WorkHistory {
   paychecks          PaycheckRecord[]        @relation("WorkHistoryPaychecks")
   equipment          Equipment[]             @relation("WorkHistoryEquipment")
   workLogs           WorkLog[]               @relation("WorkHistoryWorkLogs")
+  shifts             WorkHistoryShift[]
+  defaultForWorkLogPreferences WorkLogPreference[] @relation("WorkLogPreferenceDefaultPosition")
   workLogTemplates   WorkLogTemplate[]       @relation("WorkHistoryWorkLogTemplates")
   jobAssets          JobAsset[]              @relation("WorkHistoryJobAssets")
   attachments        Attachment[]            @relation("WorkHistoryAttachments")

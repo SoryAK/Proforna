@@ -57,6 +57,7 @@ import { BenefitsTracker } from "@/components/benefits-tracker";
 import { TimeOffTracker } from "@/components/timeoff-tracker";
 import { CompanyIntel } from "@/components/company-intel";
 import { PositionWorklogTab } from "@/components/position-worklog-tab";
+import { WorkHistoryShiftManager } from "@/components/work-history-shift-manager";
 import Link from "next/link";
 
 interface Position {
@@ -774,6 +775,9 @@ export default function ExperienceDetailPage({
                   )}
                 </CardContent>
               </Card>
+
+              {/* Actions */}
+              <WorkHistoryShiftManager positionId={pos.id} />
 
               {/* Actions */}
               <Card>

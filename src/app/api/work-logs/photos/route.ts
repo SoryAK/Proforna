@@ -7,7 +7,13 @@ import crypto from "crypto";
 
 const MAX_SIZE = 5 * 1024 * 1024;
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-const MAX_PER_LOG = 6;
+const MAX_PER_LOG_PANEL = 6;
+const MAX_PER_LOG_BODY = 20;
+
+type PhotoSource = "panel" | "body";
+function parseSource(raw: string | null | undefined): PhotoSource {
+  return raw === "body" ? "body" : "panel";
+}
 
 async function ensureLogOwnership(workLogId: string, userId: string) {
   const log = await prisma.workLog.findUnique({
@@ -30,8 +36,17 @@ export async function GET(request: Request) {
   const log = await ensureLogOwnership(workLogId, userId);
   if (!log) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+  // Default to the panel photos for back-compat with the existing Photos
+  // disclosure section. Pass `source=body` to load body-embedded images,
+  // or `source=all` to retrieve both.
+  const sourceParam = searchParams.get("source");
+  const where: { workLogId: string; source?: PhotoSource } = { workLogId };
+  if (sourceParam !== "all") {
+    where.source = parseSource(sourceParam);
+  }
+
   const photos = await prisma.workLogPhoto.findMany({
-    where: { workLogId },
+    where,
     orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
   });
   return NextResponse.json(photos);
@@ -47,6 +62,7 @@ export async function POST(request: Request) {
     const workLogId = formData.get("workLogId") as string | null;
     const file = formData.get("file") as File | null;
     const caption = (formData.get("caption") as string | null) || null;
+    const source = parseSource(formData.get("source") as string | null);
 
     if (!workLogId || !file) {
       return NextResponse.json({ error: "workLogId and file required" }, { status: 400 });
@@ -61,9 +77,12 @@ export async function POST(request: Request) {
     const log = await ensureLogOwnership(workLogId, userId);
     if (!log) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    const count = await prisma.workLogPhoto.count({ where: { workLogId } });
-    if (count >= MAX_PER_LOG) {
-      return NextResponse.json({ error: `Max ${MAX_PER_LOG} photos per entry` }, { status: 400 });
+    // Panel and body images use independent caps so a long note doesn't
+    // exhaust the disclosure section's slot budget (and vice versa).
+    const cap = source === "body" ? MAX_PER_LOG_BODY : MAX_PER_LOG_PANEL;
+    const count = await prisma.workLogPhoto.count({ where: { workLogId, source } });
+    if (count >= cap) {
+      return NextResponse.json({ error: `Max ${cap} ${source} photos per entry` }, { status: 400 });
     }
 
     const ext = file.type.split("/")[1] === "jpeg" ? "jpg" : file.type.split("/")[1];
@@ -83,6 +102,7 @@ export async function POST(request: Request) {
         fileSize: file.size,
         caption,
         sortOrder: count,
+        source,
       },
     });
 

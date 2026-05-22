@@ -24,9 +24,13 @@ export type WorkLog = {
   id: string;
   userId: string;
   positionId: string | null;
+  shiftId: string | null;
   date: string;
+  workdayDate: string | null;
   title: string;
   content: string | null;
+  /** ProseMirror JSON source of truth (Tiptap editor). May be null for legacy notes. */
+  contentJson?: unknown | null;
   category: string;
   hours: number | null;
   tags: string | null;
@@ -43,6 +47,27 @@ export type WorkLog = {
   createdAt: string;
   updatedAt: string;
   photos?: WorkLogPhoto[];
+  shift?: WorkShift | null;
+};
+
+export type WorkShift = {
+  id: string;
+  userId: string;
+  workHistoryId: string;
+  name: string;
+  startMinute: number;
+  endMinute: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type WorklogPreferences = {
+  defaultPositionId: string | null;
+  defaultShiftId: string | null;
+  defaultCategory: string;
+  defaultMood: string | null;
+  defaultHours: number | null;
 };
 
 export type Template = {

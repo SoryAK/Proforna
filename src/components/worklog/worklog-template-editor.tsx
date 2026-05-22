@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { TagInput } from "@/components/ui/tag-input";
 import { EquipmentPicker, type EquipmentItem } from "@/components/equipment-picker";
 import { AssetPicker, type JobAsset } from "@/components/asset-picker";
 import type { Template, Position } from "@/types/worklog";
@@ -128,11 +129,15 @@ export function WorklogTemplateEditor({
             </select>
           </div>
           <div>
-            <Label className="text-xs">Default tags (comma-separated)</Label>
-            <Input
-              value={draft.defaultTags ?? ""}
-              onChange={(e) => update("defaultTags", e.target.value || null)}
-              placeholder="kubernetes, deploy"
+            <Label className="text-xs">Default tags</Label>
+            <TagInput
+              value={(draft.defaultTags ?? "")
+                .split(",")
+                .map((t) => t.trim())
+                .filter(Boolean)}
+              onChange={(next) => update("defaultTags", next.length ? next.join(", ") : null)}
+              placeholder="Add tags and press Enter"
+              className="w-full"
             />
           </div>
           {equipment.length > 0 && (

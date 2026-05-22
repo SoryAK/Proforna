@@ -1,12 +1,12 @@
 /**
- * useWorklogDeepLinks — wires the 5 URL-driven entry points the rest of the
- * app uses to jump into the worklog page:
+ * useWorklogDeepLinks — wires the URL-driven entry points the rest of the app
+ * uses to jump into the worklog page.
  *
- *   • ?focus=<logId>          → clear filters, scroll the row into view, then strip the param
- *   • ?focusPosition=<id>     → pre-filter timeline to one position
- *   • ?focusEquipment=<id>    → pre-filter timeline to one equipment item
- *   • ?focusAsset=<id>        → pre-filter timeline to one job asset
- *   • ?new=1[&positionId=<id>] → open quick-add editor pre-filled with the position
+ *   • ?focus=<logId>          → clear filters, select that note, then strip the param
+ *   • ?focusPosition=<id>     → pre-filter to one position
+ *   • ?focusEquipment=<id>    → pre-filter to one equipment item
+ *   • ?focusAsset=<id>        → pre-filter to one job asset
+ *   • ?new=1[&positionId=<id>] → create a blank note (optionally pre-linked)
  *
  * The hook owns the URL reads + cleanups; it calls back into the orchestrator
  * via the provided actions object to mutate state.
@@ -15,15 +15,16 @@
 import { useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import type { WorkLog } from "@/types/worklog";
+import type { FolderSelection } from "@/components/worklog/worklog-folders-rail";
 
 export interface WorklogDeepLinkActions {
   setSelectedDate: (d: Date | null) => void;
   setFilterPositionId: (v: string) => void;
   setFilterEquipmentId: (v: string) => void;
   setFilterAssetId: (v: string) => void;
-  setTab: (t: "timeline" | "templates") => void;
-  setEditing: (e: Partial<WorkLog> | null) => void;
-  setShowQuickAdd: (v: boolean) => void;
+  setActiveFolder: (f: FolderSelection) => void;
+  setSelectedNoteId: (id: string | null) => void;
+  createBlankNote: (opts: { positionId: string | null }) => void;
   clearAllFilters: () => void;
 }
 
@@ -38,33 +39,27 @@ export function useWorklogDeepLinks(logs: WorkLog[], actions: WorklogDeepLinkAct
   const newParam = searchParams.get("new");
   const newPositionId = searchParams.get("positionId");
 
-  // ?focus=<id>: scroll-into-view + highlight, then strip the param.
+  // ?focus=<id>: select + scroll-into-view, then strip the param.
   useEffect(() => {
     if (!focusId) return;
     const target = logs.find((l) => l.id === focusId);
     if (!target) return; // wait for data — effect re-runs on logs change
     actions.setSelectedDate(null);
     actions.clearAllFilters();
-    actions.setTab("timeline");
+    actions.setActiveFolder({ kind: "all" });
+    actions.setSelectedNoteId(focusId);
     const t = setTimeout(() => {
-      const el = document.getElementById(`worklog-row-${focusId}`);
-      if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
-    }, 50);
-    const t2 = setTimeout(() => {
       router.replace("/worklog", { scroll: false });
     }, 1500);
-    return () => {
-      clearTimeout(t);
-      clearTimeout(t2);
-    };
+    return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusId, logs, router]);
 
   // ?focusPosition=<id>
   useEffect(() => {
     if (!focusPositionId) return;
+    actions.setActiveFolder({ kind: "all" });
     actions.setFilterPositionId(focusPositionId);
-    actions.setTab("timeline");
     const t = setTimeout(() => router.replace("/worklog", { scroll: false }), 800);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -73,8 +68,8 @@ export function useWorklogDeepLinks(logs: WorkLog[], actions: WorklogDeepLinkAct
   // ?focusEquipment=<id>
   useEffect(() => {
     if (!focusEquipmentId) return;
+    actions.setActiveFolder({ kind: "all" });
     actions.setFilterEquipmentId(focusEquipmentId);
-    actions.setTab("timeline");
     const t = setTimeout(() => router.replace("/worklog", { scroll: false }), 800);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -83,36 +78,23 @@ export function useWorklogDeepLinks(logs: WorkLog[], actions: WorklogDeepLinkAct
   // ?focusAsset=<id>
   useEffect(() => {
     if (!focusAssetId) return;
+    actions.setActiveFolder({ kind: "all" });
     actions.setFilterAssetId(focusAssetId);
-    actions.setTab("timeline");
     const t = setTimeout(() => router.replace("/worklog", { scroll: false }), 800);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusAssetId, router]);
 
-  // ?new=1[&positionId=<id>]
+  // ?new=1[&positionId=<id>] — create a blank note immediately.
   useEffect(() => {
     if (newParam !== "1") return;
-    actions.setEditing({
-      date: new Date().toISOString(),
-      title: "",
-      category: "task",
-      positionId: newPositionId ?? null,
-      isNotable: false,
-      content: "",
-      hours: null,
-      tags: null,
-      mood: null,
-      equipmentIds: [],
-      assetIds: [],
-      templateId: null,
-    });
-    actions.setShowQuickAdd(true);
+    actions.setActiveFolder({ kind: "all" });
+    actions.createBlankNote({ positionId: newPositionId ?? null });
     const t = setTimeout(() => router.replace("/worklog", { scroll: false }), 100);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [newParam, newPositionId, router]);
 
-  // Surface focusId so the timeline can apply its highlight class to the matching row.
+  // Surface focusId so the list pane can apply a momentary highlight class.
   return { focusId };
 }

@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import type { Template } from "@/types/worklog";
 import { CATEGORIES, MOODS } from "@/components/worklog/constants";
+import { TagInput } from "@/components/ui/tag-input";
 
 // ── Local form defaults ──────────────────────────────────────────────────────
 
@@ -322,12 +323,14 @@ export function QuickLogDialog() {
           </div>
 
           {/* Tags */}
-          <input
-            type="text"
-            value={form.tags}
-            onChange={(e) => setForm((p) => ({ ...p, tags: e.target.value }))}
-            placeholder="Tags: comma, separated"
-            className="w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-violet-500/40"
+          <TagInput
+            value={form.tags
+              .split(",")
+              .map((t) => t.trim())
+              .filter(Boolean)}
+            onChange={(next) => setForm((p) => ({ ...p, tags: next.join(", ") }))}
+            placeholder="Add tags and press Enter"
+            className="w-full"
           />
 
           {/* Error */}

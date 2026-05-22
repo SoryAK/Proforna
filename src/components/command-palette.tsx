@@ -21,6 +21,7 @@ import {
   Cog,
   NotebookPen,
   Images,
+  PlusCircle,
 } from "lucide-react";
 import {
   CommandDialog,
@@ -32,6 +33,7 @@ import {
   CommandItem,
   CommandSeparator,
 } from "@/components/ui/command";
+import { QuickCaptureDialog } from "@/components/worklog/quick-capture-dialog";
 
 const NAV_PAGES = [
   { label: "Home", href: "/", icon: Home },
@@ -65,12 +67,19 @@ interface SearchResults {
 
 export function CommandPalette() {
   const [open, setOpen] = useState(false);
+  const [quickCaptureOpen, setQuickCaptureOpen] = useState(false);
   const router = useRouter();
 
-  // Keyboard shortcut
+  // Keyboard shortcuts
+  //  - Cmd/Ctrl+K → toggle the global command palette.
+  //  - We deliberately don't add a second global hotkey for QuickCapture: the
+  //    obvious choices (Cmd+Shift+N / Cmd+N) are claimed by the browser
+  //    (new incognito / new window) and preventDefault doesn't fight that
+  //    reliably. QuickCapture is exposed via Cmd+K → "New worklog".
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+      const mod = e.metaKey || e.ctrlKey;
+      if (mod && !e.shiftKey && e.key === "k") {
         e.preventDefault();
         setOpen((o) => !o);
       }
@@ -96,14 +105,30 @@ export function CommandPalette() {
   );
 
   return (
-    <CommandDialog open={open} onOpenChange={setOpen}>
-      <Command>
-        <CommandInput placeholder="Search pages, applications, contacts, goals, worklogs..." />
-        <CommandList>
-          <CommandEmpty>No results found.</CommandEmpty>
+    <>
+      <CommandDialog open={open} onOpenChange={setOpen}>
+        <Command>
+          <CommandInput placeholder="Search pages, applications, contacts, goals, worklogs..." />
+          <CommandList>
+            <CommandEmpty>No results found.</CommandEmpty>
 
-          {/* Pages */}
-          <CommandGroup heading="Pages">
+            {/* Quick actions */}
+            <CommandGroup heading="Actions">
+              <CommandItem
+                value="new worklog quick capture note"
+                onSelect={() => {
+                  setOpen(false);
+                  setQuickCaptureOpen(true);
+                }}
+              >
+                <PlusCircle className="mr-2 h-4 w-4 text-muted-foreground" />
+                New worklog
+              </CommandItem>
+            </CommandGroup>
+            <CommandSeparator />
+
+            {/* Pages */}
+            <CommandGroup heading="Pages">
             {NAV_PAGES.map((page) => {
               const Icon = page.icon;
               return (
@@ -234,5 +259,7 @@ export function CommandPalette() {
         </CommandList>
       </Command>
     </CommandDialog>
+    <QuickCaptureDialog open={quickCaptureOpen} onOpenChange={setQuickCaptureOpen} />
+    </>
   );
 }

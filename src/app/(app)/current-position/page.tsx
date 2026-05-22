@@ -62,6 +62,7 @@ import { EquipmentTracker } from "@/components/equipment-tracker";
 import { PositionWorklogTab } from "@/components/position-worklog-tab";
 import { HoursWorkedTracker } from "@/components/hours-worked-tracker";
 import { CompanyIntel } from "@/components/company-intel";
+import { WorkHistoryShiftManager } from "@/components/work-history-shift-manager";
 
 
 interface Position {
@@ -779,6 +780,9 @@ export default function CurrentPositionPage() {
                     </div>
                   </CardContent>
                 </Card>
+
+                {/* Actions */}
+                <WorkHistoryShiftManager positionId={active.id} />
 
                 {/* Actions */}
                 <Card>
