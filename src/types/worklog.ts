@@ -46,6 +46,8 @@ export type WorkLog = {
   visibility: string;
   createdAt: string;
   updatedAt: string;
+  /** User-defined folder placement. `null` = Unfiled (default for legacy / new notes). */
+  folderId?: string | null;
   photos?: WorkLogPhoto[];
   shift?: WorkShift | null;
 };
@@ -113,4 +115,31 @@ export type Position = {
   title: string | null;
   endDate: string | null;
   type: string;
+};
+
+/**
+ * User-defined folder for organizing WorkLog notes.
+ * Folders form a tree via `parentId` (null = root). Names are 1..80 chars.
+ * Folders coexist with `WorkLog.category` — they're orthogonal axes.
+ */
+export type WorkLogFolder = {
+  id: string;
+  userId: string;
+  name: string;
+  parentId: string | null;
+  color: string | null;
+  icon: string | null;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+/**
+ * Server-side folder row enriched with a note count (computed in the
+ * `GET /api/work-logs/folders` response so the rail doesn't have to do a
+ * second round trip).
+ */
+export type WorkLogFolderWithCount = WorkLogFolder & {
+  /** Direct notes filed in this folder (does NOT include descendants). */
+  noteCount: number;
 };

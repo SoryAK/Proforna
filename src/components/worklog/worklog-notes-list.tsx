@@ -23,6 +23,9 @@ import { Star, Briefcase, ImageIcon, FileText, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CATEGORIES } from "@/components/worklog/constants";
 import type { WorkLog, Position } from "@/types/worklog";
+import { useWorklogFolders } from "@/components/worklog/hooks/use-worklog-folders";
+import { useWorklogMutations } from "@/components/worklog/hooks/use-worklog-mutations";
+import { WorklogMoveToFolderDialog } from "@/components/worklog/worklog-move-to-folder-dialog";
 
 export interface WorklogNotesListProps {
   logs: WorkLog[];
@@ -115,6 +118,13 @@ export function WorklogNotesList({
   );
   const groups = useMemo(() => groupLogs(visibleLogs), [visibleLogs]);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Right-click → Move to folder… affordance.
+  // Self-contained so the orchestrator doesn't need a new callback prop.
+  const [moveLogId, setMoveLogId] = useState<string | null>(null);
+  const { folders, createFolder } = useWorklogFolders();
+  const { saveLog } = useWorklogMutations();
+  const moveTargetLog = moveLogId ? logs.find((l) => l.id === moveLogId) ?? null : null;
   const listboxId = "worklog-notes-list";
   const nowYear = new Date().getFullYear();
 
@@ -272,6 +282,11 @@ export function WorklogNotesList({
                   role="option"
                   aria-selected={isActive}
                   onClick={() => onSelect(l.id)}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    onSelect(l.id);
+                    setMoveLogId(l.id);
+                  }}
                   className={cn(
                     "cursor-pointer border-b px-3 py-2.5 transition-colors",
                     isActive
@@ -351,6 +366,23 @@ export function WorklogNotesList({
           </button>
         </div>
       )}
+
+      <WorklogMoveToFolderDialog
+        open={!!moveLogId}
+        onOpenChange={(o) => !o && setMoveLogId(null)}
+        folders={folders}
+        currentFolderId={moveTargetLog?.folderId ?? null}
+        onChoose={async (folderId) => {
+          if (!moveLogId) return;
+          await saveLog.mutateAsync({ id: moveLogId, folderId });
+          setMoveLogId(null);
+        }}
+        onCreateFolder={async (name) => {
+          const created = await createFolder.mutateAsync({ name, parentId: null });
+          return { id: created.id };
+        }}
+        title={moveTargetLog?.title ? `Move “${moveTargetLog.title}” to…` : "Move note to folder"}
+      />
     </div>
   );
 }

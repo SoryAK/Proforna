@@ -36,6 +36,8 @@ import { calcStreak } from "@/components/worklog/heatmap-utils";
 import { useWorklogData } from "@/components/worklog/hooks/use-worklog-data";
 import { useWorklogMutations } from "@/components/worklog/hooks/use-worklog-mutations";
 import { useWorklogFilters } from "@/components/worklog/hooks/use-worklog-filters";
+import { useWorklogFolders } from "@/components/worklog/hooks/use-worklog-folders";
+import { collectDescendantIds } from "@/lib/worklog-folders";
 import { useWorklogDeepLinks } from "@/components/worklog/hooks/use-worklog-deep-links";
 import {
   WorklogFoldersRail,
@@ -188,12 +190,20 @@ export function WorklogPage({ compact = false }: WorklogPageProps = {}) {
   }, [activeFolder]);
 
   // Compose the visible notes list from folder + filters + search + selectedDate.
+  const { folders: userFolders } = useWorklogFolders();
+
   const visibleLogs = useMemo(() => {
     let out = logs;
     if (activeFolder.kind === "category") {
       out = out.filter((l) => l.category === activeFolder.category);
     } else if (activeFolder.kind === "notable") {
       out = out.filter((l) => l.isNotable || l.accomplishment);
+    } else if (activeFolder.kind === "folder") {
+      // Include direct + all descendants so selecting a parent shows its subtree.
+      const ids = collectDescendantIds(userFolders, activeFolder.folderId);
+      out = out.filter((l) => l.folderId != null && ids.has(l.folderId));
+    } else if (activeFolder.kind === "unfiled") {
+      out = out.filter((l) => l.folderId == null);
     }
     if (filterPositionId !== "all") {
       if (filterPositionId === "none") out = out.filter((l) => !l.positionId);
@@ -222,6 +232,7 @@ export function WorklogPage({ compact = false }: WorklogPageProps = {}) {
   }, [
     logs,
     activeFolder,
+    userFolders,
     filterPositionId,
     filterEquipmentId,
     filterAssetId,

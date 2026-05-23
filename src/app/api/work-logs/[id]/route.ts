@@ -78,6 +78,18 @@ export async function PUT(
       });
     }
 
+    // Validate folder ownership when moving. `null` removes the note from
+    // any folder (Unfiled). Omitting the field leaves placement unchanged.
+    if (hasOwn(body, "folderId") && body.folderId) {
+      const folder = await prisma.workLogFolder.findFirst({
+        where: { id: String(body.folderId), userId },
+        select: { id: true },
+      });
+      if (!folder) {
+        return NextResponse.json({ error: "Folder not found" }, { status: 404 });
+      }
+    }
+
     const nextDateIso = hasOwn(body, "date") && body.date
       ? new Date(String(body.date)).toISOString()
       : existing.date.toISOString();
@@ -116,6 +128,9 @@ export async function PUT(
         : {}),
       ...(hasOwn(body, "assetIds")
         ? { assetIds: Array.isArray(body.assetIds) ? body.assetIds : undefined }
+        : {}),
+      ...(hasOwn(body, "folderId")
+        ? { folderId: body.folderId ? String(body.folderId) : null }
         : {}),
     };
 

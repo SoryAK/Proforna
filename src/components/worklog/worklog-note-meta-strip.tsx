@@ -23,6 +23,8 @@ import {
   ChevronDown,
   ChevronRight,
   Clock,
+  Folder as FolderIcon,
+  Inbox,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,6 +42,8 @@ import {
   minutesFromTimeLabel,
   timeLabelFromMinutes,
 } from "@/lib/worklog-shifts";
+import { useWorklogFolders } from "@/components/worklog/hooks/use-worklog-folders";
+import { WorklogMoveToFolderDialog } from "@/components/worklog/worklog-move-to-folder-dialog";
 
 export interface WorklogNoteMetaStripProps {
   log: WorkLog;
@@ -93,6 +97,13 @@ export function WorklogNoteMetaStrip({
   const [newShiftName, setNewShiftName] = useState("");
   const [newShiftStart, setNewShiftStart] = useState("23:00");
   const [newShiftEnd, setNewShiftEnd] = useState("07:00");
+  const [moveOpen, setMoveOpen] = useState(false);
+
+  // Folder picker (independent query — TanStack dedupes the cache key)
+  const { folders, createFolder } = useWorklogFolders();
+  const currentFolder = log.folderId
+    ? folders.find((f) => f.id === log.folderId) ?? null
+    : null;
 
   const cat = CATEGORIES[log.category];
   const CatIcon = cat?.icon;
@@ -322,6 +333,22 @@ export function WorklogNoteMetaStrip({
               </button>
             </>
           )}
+          {/* Folder picker — orthogonal to category/job/shift */}
+          <button
+            type="button"
+            onClick={() => setMoveOpen(true)}
+            aria-label="Move to folder"
+            className="inline-flex w-full items-center gap-1.5 h-7 px-2 text-xs rounded-md border bg-background hover:bg-accent hover:text-foreground transition-colors min-w-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            {currentFolder ? (
+              <FolderIcon className="h-3 w-3 text-muted-foreground shrink-0" />
+            ) : (
+              <Inbox className="h-3 w-3 text-muted-foreground shrink-0" />
+            )}
+            <span className="truncate">
+              {currentFolder ? currentFolder.name : "Unfiled"}
+            </span>
+          </button>
         </fieldset>
 
         {/* EFFORT */}
@@ -444,6 +471,22 @@ export function WorklogNoteMetaStrip({
           </Button>
         </div>
       )}
+
+      <WorklogMoveToFolderDialog
+        open={moveOpen}
+        onOpenChange={setMoveOpen}
+        folders={folders}
+        currentFolderId={log.folderId ?? null}
+        onChoose={async (folderId) => {
+          await onUpdate({ id: log.id, folderId });
+          setMoveOpen(false);
+        }}
+        onCreateFolder={async (name) => {
+          const created = await createFolder.mutateAsync({ name, parentId: null });
+          return { id: created.id };
+        }}
+        title="Move note to folder"
+      />
     </div>
   );
 }

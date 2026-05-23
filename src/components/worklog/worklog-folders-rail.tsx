@@ -21,10 +21,21 @@ import {
   ChevronRight,
   Flame,
   CalendarDays,
+  Plus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CATEGORIES } from "@/components/worklog/constants";
 import { WorklogHeatmap } from "@/components/worklog/worklog-heatmap";
+import { useWorklogFolders } from "@/components/worklog/hooks/use-worklog-folders";
+import {
+  WorklogFolderTree,
+  computeDeleteBlastRadius,
+} from "@/components/worklog/worklog-folder-tree";
+import { WorklogMoveToFolderDialog } from "@/components/worklog/worklog-move-to-folder-dialog";
+import {
+  WorklogFolderDeleteDialog,
+} from "@/components/worklog/worklog-folder-delete-dialog";
+import { validateFolderName } from "@/lib/worklog-folders";
 import type { WorkLog } from "@/types/worklog";
 
 /** localStorage key for the Activity disclosure open state. */
@@ -96,7 +107,9 @@ export type FolderSelection =
   | { kind: "all" }
   | { kind: "notable" }
   | { kind: "category"; category: string }
-  | { kind: "templates" };
+  | { kind: "templates" }
+  | { kind: "folder"; folderId: string }
+  | { kind: "unfiled" };
 
 export interface WorklogFoldersRailProps {
   logs: WorkLog[];
@@ -121,6 +134,9 @@ function isSelected(sel: FolderSelection, target: FolderSelection): boolean {
   if (sel.kind !== target.kind) return false;
   if (sel.kind === "category" && target.kind === "category") {
     return sel.category === target.category;
+  }
+  if (sel.kind === "folder" && target.kind === "folder") {
+    return sel.folderId === target.folderId;
   }
   return true;
 }
@@ -265,6 +281,47 @@ export function WorklogFoldersRail({
   };
   const selectNotable = () => onSelect({ kind: "notable" });
 
+  // --- User-defined folders -----------------------------------------------
+  const { folders, unfiledCount, createFolder, updateFolder, deleteFolder } =
+    useWorklogFolders();
+
+  // Move-target dialog (used when user picks "Move…" on a folder kebab).
+  const [moveTargetId, setMoveTargetId] = useState<string | null>(null);
+  // Delete dialog state.
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+
+  const handleCreateRoot = async () => {
+    // Lightweight prompt — same UX as Bear; full inline editor lives in the tree.
+    const name = window.prompt("New folder name");
+    if (!name) return;
+    const err = validateFolderName(name);
+    if (err) {
+      window.alert(err);
+      return;
+    }
+    await createFolder.mutateAsync({ name: name.trim(), parentId: null });
+  };
+
+  const handleCreateChild = async (parentId: string | null) => {
+    const name = window.prompt("New folder name");
+    if (!name) return;
+    const err = validateFolderName(name);
+    if (err) {
+      window.alert(err);
+      return;
+    }
+    await createFolder.mutateAsync({ name: name.trim(), parentId });
+  };
+
+  const deleteTarget = deleteTargetId
+    ? folders.find((f) => f.id === deleteTargetId)
+    : null;
+  const blast = deleteTarget
+    ? computeDeleteBlastRadius(folders, deleteTarget.id)
+    : { noteCount: 0, descendantFolderCount: 0 };
+
+  const moveTarget = moveTargetId ? folders.find((f) => f.id === moveTargetId) : null;
+
   return (
     <aside
       className={cn(
@@ -347,6 +404,40 @@ export function WorklogFoldersRail({
             compact={compact}
           />
         </div>
+
+        {/* User-defined Folders ----------------------------------------- */}
+        {!compact && (
+          <div className="pt-3 pb-1 px-2 flex items-center justify-between">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Folders
+            </span>
+            <button
+              type="button"
+              onClick={handleCreateRoot}
+              className="inline-flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              title="New folder"
+              aria-label="New folder"
+            >
+              <Plus className="h-3 w-3" />
+            </button>
+          </div>
+        )}
+        {compact && <div className="my-1 h-px w-6 bg-border" />}
+
+        <WorklogFolderTree
+          folders={folders}
+          unfiledCount={unfiledCount}
+          selectedFolderId={selected.kind === "folder" ? selected.folderId : null}
+          isUnfiledSelected={selected.kind === "unfiled"}
+          compact={compact}
+          onSelectFolder={(folderId) => onSelect({ kind: "folder", folderId })}
+          onSelectUnfiled={() => onSelect({ kind: "unfiled" })}
+          onActivate={onActivate}
+          onRename={(id, name) => updateFolder.mutateAsync({ id, name })}
+          onCreate={(parentId) => void handleCreateChild(parentId)}
+          onRequestMove={(id) => setMoveTargetId(id)}
+          onRequestDelete={(id) => setDeleteTargetId(id)}
+        />
       </div>
 
       {!compact && (
@@ -379,6 +470,45 @@ export function WorklogFoldersRail({
           </details>
         </div>
       )}
+
+      {/* Folder management dialogs --------------------------------------- */}
+      <WorklogMoveToFolderDialog
+        open={!!moveTargetId}
+        onOpenChange={(o) => !o && setMoveTargetId(null)}
+        folders={folders}
+        currentFolderId={moveTarget?.parentId ?? null}
+        title={moveTarget ? `Move “${moveTarget.name}” to…` : "Move to folder"}
+        onChoose={async (newParentId) => {
+          if (!moveTargetId) return;
+          try {
+            await updateFolder.mutateAsync({ id: moveTargetId, parentId: newParentId });
+          } catch (e) {
+            window.alert(e instanceof Error ? e.message : String(e));
+          }
+          setMoveTargetId(null);
+        }}
+      />
+      <WorklogFolderDeleteDialog
+        open={!!deleteTargetId}
+        onOpenChange={(o) => !o && setDeleteTargetId(null)}
+        folderName={deleteTarget?.name ?? ""}
+        noteCount={blast.noteCount}
+        descendantFolderCount={blast.descendantFolderCount}
+        pending={deleteFolder.isPending}
+        onConfirm={async (mode, nameConfirm) => {
+          if (!deleteTargetId) return;
+          try {
+            await deleteFolder.mutateAsync({ id: deleteTargetId, mode, nameConfirm });
+            // If we were viewing the deleted folder, fall back to "All notes".
+            if (selected.kind === "folder" && selected.folderId === deleteTargetId) {
+              onSelect({ kind: "all" });
+            }
+            setDeleteTargetId(null);
+          } catch (e) {
+            window.alert(e instanceof Error ? e.message : String(e));
+          }
+        }}
+      />
     </aside>
   );
 }

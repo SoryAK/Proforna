@@ -75,6 +75,7 @@ model User {
   personalEquipmentShares PersonalEquipmentShare[]
   equipmentKits       EquipmentKit[]
   workLogs            WorkLog[]
+  workLogFolders      WorkLogFolder[]
   workHistoryShifts   WorkHistoryShift[]
   workLogDrafts       WorkLogDraft[]
   workLogTemplates    WorkLogTemplate[]
@@ -755,6 +756,9 @@ model WorkLog {
   externalSource           String?                                  // null | "ics" | "github" | "google-calendar" | "microsoft-graph"
   externalId               String?                                  // provider-specific event/commit/PR id (used for dedupe on re-sync)
 
+  // ── User-defined folder hierarchy (Phase C item #20) ──
+  folderId                 String?
+
   createdAt                DateTime @default(now())
   updatedAt                DateTime @updatedAt
 
@@ -762,15 +766,40 @@ model WorkLog {
   position WorkHistory?     @relation("WorkHistoryWorkLogs", fields: [positionId], references: [id], onDelete: Cascade)
   shift    WorkHistoryShift? @relation(fields: [shiftId], references: [id], onDelete: SetNull)
   template WorkLogTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  folder   WorkLogFolder?   @relation(fields: [folderId], references: [id], onDelete: SetNull)
   photos   WorkLogPhoto[]
   drafts   WorkLogDraft[]
 
   @@index([userId, date])
   @@index([userId, workdayDate])
+  @@index([userId, folderId])
   @@index([positionId, shiftId])
   @@index([positionId])
   @@index([templateId])
   @@unique([userId, externalSource, externalId], map: "WorkLog_external_unique")
+}
+
+// User-defined folder tree (adjacency list) for organizing WorkLog notes.
+// Folders coexist with the `category` field — categories remain a
+// cross-cutting "kind" tag while folders provide hierarchical organization.
+model WorkLogFolder {
+  id        String   @id @default(uuid())
+  userId    String
+  name      String                           // 1..80 chars, validated server-side
+  parentId  String?                          // null = root
+  color     String?                          // optional tailwind hue token, e.g. "blue"
+  icon      String?                          // optional lucide icon name (future)
+  sortOrder Int      @default(0)             // reserved for manual drag-reorder (Phase D)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user     User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent   WorkLogFolder?   @relation("FolderTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children WorkLogFolder[]  @relation("FolderTree")
+  workLogs WorkLog[]
+
+  @@index([userId, parentId])
+  @@index([userId, sortOrder])
 }
 
 // Reusable shift windows for a specific WorkHistory job.

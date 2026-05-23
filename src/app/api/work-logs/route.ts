@@ -37,11 +37,21 @@ export async function GET(request: Request) {
   const notable = searchParams.get("notable");
   const templateId = searchParams.get("templateId");
   const equipmentId = searchParams.get("equipmentId");
+  const folderIdParam = searchParams.get("folderId");
 
   const where: Record<string, unknown> = { userId };
 
   if (positionId) {
     where.positionId = positionId;
+  }
+  // folderId filter — pass an actual id, or the literal string "null" / "unfiled"
+  // to select notes that don't belong to any folder.
+  if (folderIdParam) {
+    if (folderIdParam === "null" || folderIdParam === "unfiled") {
+      where.folderId = null;
+    } else {
+      where.folderId = folderIdParam;
+    }
   }
   if (from || to) {
     where.date = {};
@@ -110,6 +120,7 @@ export async function POST(request: Request) {
       workdayDate,
       equipmentIds,
       assetIds,
+      folderId,
     } = body;
 
     if (!date || !title) {
@@ -157,6 +168,17 @@ export async function POST(request: Request) {
       }
     }
 
+    // Validate folderId ownership if provided.
+    if (folderId) {
+      const folder = await prisma.workLogFolder.findFirst({
+        where: { id: folderId, userId },
+        select: { id: true },
+      });
+      if (!folder) {
+        return NextResponse.json({ error: "Folder not found" }, { status: 404 });
+      }
+    }
+
     const dateIso = new Date(date).toISOString();
     const derivedWorkdayIso = deriveWorkdayIso(dateIso, shift);
 
@@ -180,6 +202,7 @@ export async function POST(request: Request) {
         templateId: templateId || null,
         equipmentIds: Array.isArray(equipmentIds) ? equipmentIds : [],
         assetIds: Array.isArray(assetIds) ? assetIds : [],
+        folderId: folderId || null,
       },
     });
 
