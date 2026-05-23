@@ -20,14 +20,10 @@
 
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { format, parseISO } from "date-fns";
 import {
   Star,
   Trash2,
   ChevronRight,
-  Briefcase,
-  Clock,
-  Calendar,
   FileText,
   Wrench,
   Cog,
@@ -36,24 +32,22 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { TagInput } from "@/components/ui/tag-input";
 import { EquipmentPicker, type EquipmentItem } from "@/components/equipment-picker";
 import { AssetPicker, type JobAsset } from "@/components/asset-picker";
 import { cn } from "@/lib/utils";
 import type { WorkLog, Position, WorkShift } from "@/types/worklog";
-import { CATEGORIES, MOODS } from "@/components/worklog/constants";
 import { readAutosaveDraft, useAutosaveField } from "@/components/worklog/hooks/use-autosave";
 import { useWorklogDrafts } from "@/components/worklog/hooks/use-worklog-drafts";
 import { WorklogPhotoSection } from "@/components/worklog/worklog-photo-section";
 import { WorklogEditor, type WorklogEditorHandle } from "@/components/worklog/worklog-editor";
 import { WorklogNoteView } from "@/components/worklog/worklog-note-view";
+import { WorklogNoteMetaStrip } from "@/components/worklog/worklog-note-meta-strip";
 import { extractTagsFromDoc, mergeEditorTags } from "@/lib/worklog/tiptap/extract-tags";
 import {
   computeWorkdayDateLocal,
   localDateAndMinuteFromIso,
-  minutesFromTimeLabel,
   timeLabelFromMinutes,
   toIsoFromLocalDate,
   toIsoFromLocalDateTime,
@@ -226,10 +220,6 @@ const ReaderInner = forwardRef<WorklogNoteReaderHandle, ReaderInnerProps>(functi
   const [equipOpen, setEquipOpen] = useState(false);
   const [assetsOpen, setAssetsOpen] = useState(false);
   const [photosOpen, setPhotosOpen] = useState(true);
-  const [newShiftOpen, setNewShiftOpen] = useState(false);
-  const [newShiftName, setNewShiftName] = useState("");
-  const [newShiftStart, setNewShiftStart] = useState("23:00");
-  const [newShiftEnd, setNewShiftEnd] = useState("07:00");
 
   // Read-mode by default. Auto-open in edit mode for brand-new empty notes
   // so first-time capture doesn't require an extra click. (Phase 2c.)
@@ -239,14 +229,12 @@ const ReaderInner = forwardRef<WorklogNoteReaderHandle, ReaderInnerProps>(functi
     Array.isArray((log.contentJson as { content?: unknown[] }).content) &&
     ((log.contentJson as { content: unknown[] }).content?.length ?? 0) > 0;
   const hasTextContent = !!log.content && log.content.trim().length > 0;
-  const [editMode, setEditMode] = useState(!hasJsonContent && !hasTextContent);
+  const isEmptyNote = !hasJsonContent && !hasTextContent;
+  const [editMode, setEditMode] = useState(isEmptyNote);
 
   const qc = useQueryClient();
 
-  const cat = CATEGORIES[log.category];
-  const CatIcon = cat?.icon;
   const pos = log.positionId ? positionMap.get(log.positionId) : null;
-  const datePretty = useMemo(() => format(parseISO(log.date), "EEEE, MMMM d, yyyy"), [log.date]);
 
   const { localDate: initialLocalDate, minuteOfDay: initialMinute } = useMemo(
     () => localDateAndMinuteFromIso(log.date),
@@ -272,11 +260,6 @@ const ReaderInner = forwardRef<WorklogNoteReaderHandle, ReaderInnerProps>(functi
     staleTime: 60_000,
   });
 
-  const selectedShift = useMemo(
-    () => shifts.find((s) => s.id === log.shiftId) ?? null,
-    [shifts, log.shiftId],
-  );
-
   function buildShiftAwarePatch(partial: Partial<WorkLog>) {
     const nextDate = partial.date ?? log.date;
     const { localDate, minuteOfDay } = localDateAndMinuteFromIso(String(nextDate));
@@ -300,29 +283,6 @@ const ReaderInner = forwardRef<WorklogNoteReaderHandle, ReaderInnerProps>(functi
     const iso = toIsoFromLocalDateTime(nextDate, nextTime);
     if (!iso) return;
     onUpdate({ id: log.id, ...buildShiftAwarePatch({ date: iso }) });
-  }
-
-  async function createShiftTemplate() {
-    if (!log.positionId) return;
-    const startMinute = minutesFromTimeLabel(newShiftStart);
-    const endMinute = minutesFromTimeLabel(newShiftEnd);
-    if (!newShiftName.trim() || startMinute == null || endMinute == null) return;
-
-    const r = await fetch(`/api/work-history/${log.positionId}/shifts`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: newShiftName.trim(),
-        startMinute,
-        endMinute,
-      }),
-    });
-    if (!r.ok) return;
-    const created: WorkShift = await r.json();
-    qc.invalidateQueries({ queryKey: ["work-history-shifts", log.positionId] });
-    onUpdate({ id: log.id, ...buildShiftAwarePatch({ shiftId: created.id }) });
-    setNewShiftName("");
-    setNewShiftOpen(false);
   }
 
   if (draftsLoading) {
@@ -357,8 +317,36 @@ const ReaderInner = forwardRef<WorklogNoteReaderHandle, ReaderInnerProps>(functi
               onClick={flushAllFields}
               disabled={!isDirty || isSaving}
               className="h-8 px-3"
+              title="Save now — fields also auto-save on blur and after a short pause (⌘/Ctrl+S)"
             >
               Save
+            </Button>
+            <Button
+              size="sm"
+              variant={editMode ? "default" : "ghost"}
+              onClick={() => {
+                if (editMode) {
+                  editorRef.current?.flush();
+                  setEditMode(false);
+                } else {
+                  setEditMode(true);
+                }
+              }}
+              className="h-8 px-2.5"
+              title={editMode ? "Switch back to read view" : "Edit note body"}
+              aria-pressed={editMode}
+            >
+              {editMode ? (
+                <>
+                  <Check className="h-3.5 w-3.5 mr-1" />
+                  Done
+                </>
+              ) : (
+                <>
+                  <Pencil className="h-3.5 w-3.5 mr-1" />
+                  Edit
+                </>
+              )}
             </Button>
             <Button
               size="sm"
@@ -366,6 +354,7 @@ const ReaderInner = forwardRef<WorklogNoteReaderHandle, ReaderInnerProps>(functi
               onClick={() => onUpdate({ id: log.id, isNotable: !log.isNotable })}
               className="h-8 w-8 p-0"
               title={log.isNotable ? "Unmark notable" : "Mark notable"}
+              aria-pressed={!!log.isNotable}
             >
               <Star className={cn("h-4 w-4", log.isNotable && "fill-amber-400 text-amber-500")} />
             </Button>
@@ -384,257 +373,70 @@ const ReaderInner = forwardRef<WorklogNoteReaderHandle, ReaderInnerProps>(functi
         </div>
       </div>
 
-      {/* Meta strip */}
-      <div className="px-4 sm:px-6 py-3 flex flex-wrap items-center gap-x-3 gap-y-2 text-xs border-b bg-muted/20">
-        <span className="inline-flex items-center gap-1.5 text-muted-foreground">
-          <Calendar className="h-3 w-3" />
-          <input
-            type="date"
-            value={dateInput}
-            onChange={(e) => {
-              setDateInput(e.target.value);
-              commitDateTime(e.target.value, timeInput);
-            }}
-            className="bg-transparent border-0 p-0 text-xs text-foreground focus:outline-none cursor-pointer"
-            title={datePretty}
-          />
-        </span>
-
-        <span className="inline-flex items-center gap-1 text-muted-foreground">
-          <Clock className="h-3 w-3" />
-          <input
-            type="time"
-            value={timeInput}
-            onChange={(e) => setTimeInput(e.target.value)}
-            onBlur={() => commitDateTime(dateInput, timeInput)}
-            className="bg-transparent border-0 p-0 text-xs text-foreground focus:outline-none"
-          />
-        </span>
-
-        <Select
-          value={log.category}
-          onValueChange={(v) => onUpdate({ id: log.id, category: (v ?? "task") as WorkLog["category"] })}
-        >
-          <SelectTrigger className="h-6 px-1.5 text-xs gap-1 border-0 bg-transparent hover:bg-accent shadow-none w-auto">
-            <SelectValue>
-              <span className="inline-flex items-center gap-1.5">
-                {CatIcon && <CatIcon className="h-3 w-3" />}
-                {cat?.label ?? log.category}
-              </span>
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            {Object.entries(CATEGORIES).map(([k, c]) => (
-              <SelectItem key={k} value={k}>{c.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Select
-          value={log.positionId ?? "__none__"}
-          onValueChange={(v) => {
-            const nextPosition = v === "__none__" ? null : (v ?? null);
-            onUpdate({ id: log.id, ...buildShiftAwarePatch({ positionId: nextPosition, shiftId: null }) });
-          }}
-        >
-          <SelectTrigger className="h-6 px-1.5 text-xs gap-1 border-0 bg-transparent hover:bg-accent shadow-none w-auto">
-            <SelectValue>
-              <span className="inline-flex items-center gap-1.5 text-muted-foreground">
-                <Briefcase className="h-3 w-3" />
-                <span className="text-foreground">{pos ? pos.company : "No job"}</span>
-              </span>
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="__none__">No job</SelectItem>
-            {positions.filter((p) => p.type === "job").map((p) => (
-              <SelectItem key={p.id} value={p.id}>
-                {p.company}{p.title ? ` — ${p.title}` : ""}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        {log.positionId && (
-          <>
-            <Select
-              value={log.shiftId ?? "__none__"}
-              onValueChange={(v) => {
-                const nextShiftId = v === "__none__" ? null : (v ?? null);
-                onUpdate({ id: log.id, ...buildShiftAwarePatch({ shiftId: nextShiftId }) });
-              }}
-            >
-              <SelectTrigger className="h-6 px-1.5 text-xs gap-1 border-0 bg-transparent hover:bg-accent shadow-none w-auto">
-                <SelectValue>
-                  <span className="text-foreground">
-                    {selectedShift
-                      ? `${selectedShift.name} (${timeLabelFromMinutes(selectedShift.startMinute)}-${timeLabelFromMinutes(selectedShift.endMinute)})`
-                      : "No shift"}
-                  </span>
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__none__">No shift</SelectItem>
-                {shifts.map((s) => (
-                  <SelectItem key={s.id} value={s.id}>
-                    {s.name} ({timeLabelFromMinutes(s.startMinute)}-{timeLabelFromMinutes(s.endMinute)})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-6 px-2 text-[11px]"
-              onClick={() => setNewShiftOpen((v) => !v)}
-            >
-              {newShiftOpen ? "Cancel shift" : "New shift"}
-            </Button>
-          </>
-        )}
-
-        <label className="inline-flex items-center gap-1 text-muted-foreground">
-          <Clock className="h-3 w-3" />
-          <input
-            type="number"
-            step="0.25"
-            min="0"
-            value={hoursField.value}
-            onChange={(e) => hoursField.onChange(e.target.value)}
-            onBlur={hoursField.onBlur}
-            placeholder="—"
-            className="w-12 bg-transparent border-0 p-0 text-xs text-foreground focus:outline-none tabular-nums"
-          />
-          <span>h</span>
-        </label>
-
-        <div className="inline-flex items-center gap-1">
-          {MOODS.map((m) => {
-            const Icon = m.icon;
-            const sel = log.mood === m.value;
-            return (
-              <button
-                key={m.value}
-                type="button"
-                onClick={() => onUpdate({ id: log.id, mood: sel ? null : m.value })}
-                title={m.label}
-                className={cn(
-                  "h-5 w-5 rounded flex items-center justify-center transition-colors",
-                  sel ? cn("bg-accent", m.color) : "text-muted-foreground hover:bg-accent hover:text-foreground",
-                )}
-              >
-                <Icon className="h-3 w-3" />
-              </button>
-            );
-          })}
-
-          <span className="ml-auto text-[11px] text-muted-foreground hidden lg:inline-flex">
-            Auto-saves on blur and after a short pause. Use Save or ⌘/Ctrl+S to flush now.
-          </span>
-        </div>
-      </div>
-
-      {newShiftOpen && log.positionId && (
-        <div className="px-4 sm:px-6 py-2 border-b bg-muted/10 flex flex-wrap items-end gap-2">
-          <div className="min-w-[160px]">
-            <p className="text-[10px] text-muted-foreground mb-1">Shift name</p>
-            <Input
-              value={newShiftName}
-              onChange={(e) => setNewShiftName(e.target.value)}
-              placeholder="Night shift"
-              className="h-7 text-xs"
-            />
-          </div>
-          <div>
-            <p className="text-[10px] text-muted-foreground mb-1">Start</p>
-            <Input
-              type="time"
-              value={newShiftStart}
-              onChange={(e) => setNewShiftStart(e.target.value)}
-              className="h-7 text-xs w-[120px]"
-            />
-          </div>
-          <div>
-            <p className="text-[10px] text-muted-foreground mb-1">End</p>
-            <Input
-              type="time"
-              value={newShiftEnd}
-              onChange={(e) => setNewShiftEnd(e.target.value)}
-              className="h-7 text-xs w-[120px]"
-            />
-          </div>
-          <Button size="sm" className="h-7 text-xs" onClick={() => void createShiftTemplate()}>
-            Save shift
-          </Button>
-        </div>
-      )}
+      {/* Meta strip — collapsible details (date/time/category/job/shift/hours/mood) */}
+      <WorklogNoteMetaStrip
+        log={log}
+        positions={positions}
+        positionMap={positionMap}
+        shifts={shifts}
+        dateInput={dateInput}
+        setDateInput={setDateInput}
+        timeInput={timeInput}
+        setTimeInput={setTimeInput}
+        hoursValue={hoursField.value}
+        onHoursChange={hoursField.onChange}
+        onHoursBlur={hoursField.onBlur}
+        commitDateTime={commitDateTime}
+        buildShiftAwarePatch={buildShiftAwarePatch}
+        onUpdate={onUpdate}
+        onShiftsRefetch={() =>
+          qc.invalidateQueries({ queryKey: ["work-history-shifts", log.positionId] })
+        }
+        defaultExpanded={isEmptyNote}
+      />
 
       {/* Body + sections */}
       <div className="flex-1 min-h-0 overflow-y-auto scrollbar-thin">
-        <div className="px-6 py-4 space-y-5">
-          <div className="flex items-start gap-2">
-            <div className="flex-1 min-w-0">
-              {editMode ? (
-                <WorklogEditor
-                  ref={editorRef}
-                  workLogId={log.id}
-                  initialContentJson={log.contentJson ?? null}
-                  initialContent={log.content ?? null}
-                  placeholder="Start writing…"
-                  className="px-0"
-                  shifts={shifts}
-                  onStateChange={({ dirty, saving }) => {
-                    setEditorDirty(dirty);
-                    setEditorSaving(saving);
-                  }}
-                  onSave={async ({ json, text }) => {
-                    const editorTags = extractTagsFromDoc(json);
-                    const mergedTags = mergeEditorTags(log.tags ?? null, editorTags);
-                    await onUpdate({
-                      id: log.id,
-                      content: text || null,
-                      contentJson: json ?? null,
-                      ...(mergedTags !== (log.tags ?? null) ? { tags: mergedTags } : {}),
-                    });
-                  }}
-                />
-              ) : (
-                <WorklogNoteView
-                  json={log.contentJson ?? null}
-                  contentText={log.content ?? null}
-                  className="px-0"
-                />
-              )}
-            </div>
-            <Button
-              size="sm"
-              variant={editMode ? "default" : "ghost"}
-              className="h-7 px-2 text-xs shrink-0"
-              onClick={() => {
-                if (editMode) {
-                  editorRef.current?.flush();
-                  setEditMode(false);
-                } else {
-                  setEditMode(true);
-                }
-              }}
-            >
-              {editMode ? (
-                <>
-                  <Check className="h-3.5 w-3.5 mr-1" />
-                  Done
-                </>
-              ) : (
-                <>
-                  <Pencil className="h-3.5 w-3.5 mr-1" />
-                  Edit
-                </>
-              )}
-            </Button>
+        <div className="px-6 py-5 space-y-7">
+          <div className="min-w-0">
+            {editMode ? (
+              <WorklogEditor
+                ref={editorRef}
+                workLogId={log.id}
+                initialContentJson={log.contentJson ?? null}
+                initialContent={log.content ?? null}
+                placeholder="Start writing…"
+                className="px-0"
+                shifts={shifts}
+                onStateChange={({ dirty, saving }) => {
+                  setEditorDirty(dirty);
+                  setEditorSaving(saving);
+                }}
+                onSave={async ({ json, text }) => {
+                  const editorTags = extractTagsFromDoc(json);
+                  const mergedTags = mergeEditorTags(log.tags ?? null, editorTags);
+                  await onUpdate({
+                    id: log.id,
+                    content: text || null,
+                    contentJson: json ?? null,
+                    ...(mergedTags !== (log.tags ?? null) ? { tags: mergedTags } : {}),
+                  });
+                }}
+              />
+            ) : (
+              <WorklogNoteView
+                json={log.contentJson ?? null}
+                contentText={log.content ?? null}
+                className="px-0"
+              />
+            )}
           </div>
 
-          <div className="flex items-center gap-2 text-xs">
+          {/* Tags — own labelled block */}
+          <div className="space-y-1.5">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+              Tags
+            </p>
             <TagInput
               value={tagsField.value
                 .split(",")
