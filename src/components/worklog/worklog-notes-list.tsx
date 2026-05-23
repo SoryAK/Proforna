@@ -19,7 +19,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useState } from "react";
 import { format, parseISO, isToday, isYesterday, differenceInDays, startOfDay } from "date-fns";
-import { Star, Briefcase, ImageIcon, FileText } from "lucide-react";
+import { Star, Briefcase, ImageIcon, FileText, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CATEGORIES } from "@/components/worklog/constants";
 import type { WorkLog, Position } from "@/types/worklog";
@@ -33,12 +33,23 @@ export interface WorklogNotesListProps {
   emptyMessage?: string;
   emptyHint?: string;
   onNew?: () => void;
+  /**
+   * Fired when the user presses Enter on the selected row — used by the
+   * orchestrator to move focus forward to the next pane (note view).
+   */
+  onActivate?: (id: string) => void;
 }
 
 type Group = { key: string; label: string; logs: WorkLog[] };
 
 const VIRTUALIZE_THRESHOLD = 250;
 const PAGE_SIZE = 120;
+const KEYBOARD_PAGE_JUMP = 10;
+
+/** Format date for a note row: `Mar 5` for current year, `Mar 5, 2025` for older. */
+function formatRowDate(d: Date, nowYear: number): string {
+  return d.getFullYear() === nowYear ? format(d, "MMM d") : format(d, "MMM d, yyyy");
+}
 
 function groupLogs(logs: WorkLog[]): Group[] {
   const today: WorkLog[] = [];
@@ -77,6 +88,7 @@ export function WorklogNotesList({
   emptyMessage = "No notes",
   emptyHint,
   onNew,
+  onActivate,
 }: WorklogNotesListProps) {
   const [renderCount, setRenderCount] = useState(PAGE_SIZE);
   const shouldVirtualize = logs.length >= VIRTUALIZE_THRESHOLD;
@@ -103,25 +115,62 @@ export function WorklogNotesList({
   );
   const groups = useMemo(() => groupLogs(visibleLogs), [visibleLogs]);
   const containerRef = useRef<HTMLDivElement>(null);
+  const listboxId = "worklog-notes-list";
+  const nowYear = new Date().getFullYear();
+
+  // Track whether the most recent selection change came from a keyboard
+  // arrow press. Arrow nav uses instant scroll to avoid jitter; external
+  // changes (deep link, new note) use smooth scroll for visual continuity.
+  const lastSelectionViaKeyboardRef = useRef(false);
 
   // Scroll selected row into view when selection changes externally
   // (e.g. from a deep link).
   useEffect(() => {
     if (!selectedId || !containerRef.current) return;
     const el = containerRef.current.querySelector<HTMLElement>(`[data-note-id="${selectedId}"]`);
-    if (el) el.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    if (!el) return;
+    el.scrollIntoView({
+      block: "nearest",
+      behavior: lastSelectionViaKeyboardRef.current ? "auto" : "smooth",
+    });
+    lastSelectionViaKeyboardRef.current = false;
   }, [selectedId]);
 
-  // Arrow-key navigation.
+  // Arrow / Home / End / PageUp / PageDown navigation + Enter (activate).
   function handleKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
-    if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+    const key = e.key;
+
+    // Enter on the selected row hands focus forward to the orchestrator
+    // (which moves it into the note view's title field).
+    if (key === "Enter" && selectedId && onActivate) {
+      e.preventDefault();
+      onActivate(selectedId);
+      return;
+    }
+
+    if (
+      key !== "ArrowDown" &&
+      key !== "ArrowUp" &&
+      key !== "Home" &&
+      key !== "End" &&
+      key !== "PageDown" &&
+      key !== "PageUp"
+    ) {
+      return;
+    }
     const flat = logs;
+    if (flat.length === 0) return;
     const idx = selectedId ? flat.findIndex((l) => l.id === selectedId) : -1;
     let next = idx;
-    if (e.key === "ArrowDown") next = Math.min(flat.length - 1, idx + 1);
-    if (e.key === "ArrowUp") next = Math.max(0, idx - 1);
+    if (key === "ArrowDown") next = idx < 0 ? 0 : Math.min(flat.length - 1, idx + 1);
+    else if (key === "ArrowUp") next = idx < 0 ? 0 : Math.max(0, idx - 1);
+    else if (key === "Home") next = 0;
+    else if (key === "End") next = flat.length - 1;
+    else if (key === "PageDown") next = Math.min(flat.length - 1, (idx < 0 ? 0 : idx) + KEYBOARD_PAGE_JUMP);
+    else if (key === "PageUp") next = Math.max(0, (idx < 0 ? 0 : idx) - KEYBOARD_PAGE_JUMP);
     if (next !== idx && flat[next]) {
       e.preventDefault();
+      lastSelectionViaKeyboardRef.current = true;
       onSelect(flat[next].id);
     }
   }
@@ -137,7 +186,24 @@ export function WorklogNotesList({
 
   if (loading) {
     return (
-      <div className="p-4 text-sm text-muted-foreground">Loading notes…</div>
+      <div className="p-2 space-y-2" aria-busy="true" aria-live="polite">
+        <span className="sr-only">Loading notes…</span>
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="px-3 py-2.5 border-b animate-pulse">
+            <div className="flex items-start justify-between gap-2">
+              <div className="h-3.5 bg-muted/60 rounded w-2/3" />
+              <div className="h-3 bg-muted/40 rounded w-10" />
+            </div>
+            <div className="mt-2 h-3 bg-muted/40 rounded w-11/12" />
+            <div className="mt-1.5 h-3 bg-muted/30 rounded w-3/4" />
+            <div className="mt-2 flex gap-2">
+              <div className="h-2 w-2 rounded-full bg-muted/50" />
+              <div className="h-2.5 bg-muted/30 rounded w-20" />
+              <div className="h-2.5 bg-muted/30 rounded w-8" />
+            </div>
+          </div>
+        ))}
+      </div>
     );
   }
 
@@ -151,9 +217,16 @@ export function WorklogNotesList({
           <button
             type="button"
             onClick={onNew}
-            className="text-xs font-medium text-orange-600 hover:text-orange-700 dark:text-orange-400 dark:hover:text-orange-300"
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium",
+              "bg-orange-600 text-white hover:bg-orange-700",
+              "dark:bg-orange-500 dark:hover:bg-orange-400",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+              "transition-colors",
+            )}
           >
-            + Create your first note
+            <Plus className="h-3.5 w-3.5" />
+            Create your first note
           </button>
         )}
       </div>
@@ -163,8 +236,17 @@ export function WorklogNotesList({
   return (
     <div
       ref={containerRef}
-      className="h-full overflow-y-auto scrollbar-thin focus:outline-none"
+      className={cn(
+        "group h-full overflow-y-auto scrollbar-thin",
+        // No ring on the container itself — focus is communicated by the
+        // ring on the active row (group-focus-visible below).
+        "focus:outline-none",
+      )}
       tabIndex={0}
+      role="listbox"
+      id={listboxId}
+      aria-label="Worklog notes"
+      aria-activedescendant={selectedId ? `${listboxId}-${selectedId}` : undefined}
       onKeyDown={handleKeyDown}
       onScroll={handleScroll}
     >
@@ -179,19 +261,27 @@ export function WorklogNotesList({
               const cat = CATEGORIES[l.category];
               const Icon = cat?.icon;
               const pos = l.positionId ? positionMap.get(l.positionId) : null;
-              const dateStr = format(parseISO(l.date), "MMM d");
+              const dateStr = formatRowDate(parseISO(l.date), nowYear);
               const preview = (l.content ?? "").trim();
               const photoCount = l.photos?.length ?? 0;
               return (
                 <li
                   key={l.id}
+                  id={`${listboxId}-${l.id}`}
                   data-note-id={l.id}
+                  role="option"
+                  aria-selected={isActive}
                   onClick={() => onSelect(l.id)}
                   className={cn(
                     "cursor-pointer border-b px-3 py-2.5 transition-colors",
                     isActive
                       ? "bg-orange-50 dark:bg-orange-900/20 border-l-2 border-l-orange-500"
                       : "hover:bg-accent/40 border-l-2 border-l-transparent",
+                    // Visible focus indicator on the SELECTED row when the
+                    // list container has keyboard focus. Inset so it doesn't
+                    // get clipped by the scroll container.
+                    isActive &&
+                      "group-focus-visible:ring-2 group-focus-visible:ring-ring group-focus-visible:ring-inset",
                   )}
                 >
                   <div className="flex items-start justify-between gap-2">
@@ -241,8 +331,24 @@ export function WorklogNotesList({
       ))}
 
       {shouldVirtualize && renderCount < logs.length && (
-        <div className="px-3 py-2 text-[11px] text-muted-foreground border-t bg-background/80">
-          Showing {renderCount} of {logs.length} notes. Scroll to load more.
+        <div className="px-3 py-2 text-[11px] text-muted-foreground border-t bg-background/80 flex items-center justify-between gap-2">
+          <span>
+            Showing {renderCount.toLocaleString()} of {logs.length.toLocaleString()} notes.
+          </span>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setRenderCount(logs.length);
+            }}
+            className={cn(
+              "rounded px-2 py-0.5 font-medium text-orange-600 hover:bg-orange-100",
+              "dark:text-orange-400 dark:hover:bg-orange-900/30",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            )}
+          >
+            Load all
+          </button>
         </div>
       )}
     </div>

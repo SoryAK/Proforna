@@ -61,6 +61,13 @@ export function WorklogPage({ compact = false }: WorklogPageProps = {}) {
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const readerRef = useRef<WorklogNoteReaderHandle | null>(null);
 
+  // Pane container refs for cross-pane keyboard navigation
+  // (Cmd/Ctrl+] forward, Cmd/Ctrl+[ back). The note view doesn't need a
+  // DOM ref because the reader exposes focusTitle() on its handle.
+  const railPaneRef = useRef<HTMLDivElement | null>(null);
+  const listPaneRef = useRef<HTMLDivElement | null>(null);
+  const viewPaneRef = useRef<HTMLDivElement | null>(null);
+
   const [activeFolder, setActiveFolder] = useState<FolderSelection>({ kind: "all" });
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -386,6 +393,16 @@ export function WorklogPage({ compact = false }: WorklogPageProps = {}) {
         return;
       }
 
+      // Pane cycling: Cmd/Ctrl+Shift+→ forward, Cmd/Ctrl+Shift+← back.
+      // Works even when typing — Shift+arrow alone means "extend selection",
+      // but adding Cmd/Ctrl makes it unambiguous and free on all platforms
+      // (avoids the Cmd+← back-navigation / Ctrl+← word-jump conflicts).
+      if (metaOrCtrl && e.shiftKey && (e.key === "ArrowRight" || e.key === "ArrowLeft")) {
+        e.preventDefault();
+        cyclePane(e.key === "ArrowRight" ? "next" : "prev");
+        return;
+      }
+
       if (typing) return;
 
       if (e.key === "/") {
@@ -429,6 +446,58 @@ export function WorklogPage({ compact = false }: WorklogPageProps = {}) {
     window.addEventListener("keydown", handleShortcuts);
     return () => window.removeEventListener("keydown", handleShortcuts);
   }, [inTemplatesView, selectedNoteId, visibleLogs]);
+
+  // ── Cross-pane focus helpers ─────────────────────────────────
+  // The 3-pane shell (rail → list → view) supports keyboard hand-off:
+  //   • Enter on rail row → focusPane("list")
+  //   • Enter on list row → focusPane("view") (note title input)
+  //   • Cmd/Ctrl+] / Cmd/Ctrl+[ → cyclePane next/prev (wraps)
+  type PaneId = "rail" | "list" | "view";
+  const PANE_ORDER: PaneId[] = ["rail", "list", "view"];
+
+  function focusPane(target: PaneId): boolean {
+    if (target === "rail") {
+      const btn = railPaneRef.current?.querySelector<HTMLButtonElement>("[data-rail-row]");
+      if (btn) {
+        btn.focus();
+        return true;
+      }
+      return false;
+    }
+    if (target === "list") {
+      const lb = listPaneRef.current?.querySelector<HTMLElement>('[role="listbox"]');
+      if (lb) {
+        lb.focus();
+        return true;
+      }
+      return false;
+    }
+    // view
+    if (!selectedLog) return false;
+    readerRef.current?.focusTitle();
+    return true;
+  }
+
+  function detectActivePane(): PaneId | null {
+    const active = document.activeElement;
+    if (!active || active === document.body) return null;
+    if (railPaneRef.current?.contains(active)) return "rail";
+    if (listPaneRef.current?.contains(active)) return "list";
+    if (viewPaneRef.current?.contains(active)) return "view";
+    return null;
+  }
+
+  function cyclePane(direction: "next" | "prev") {
+    const current = detectActivePane();
+    const startIdx = current ? PANE_ORDER.indexOf(current) : (direction === "next" ? -1 : 0);
+    const step = direction === "next" ? 1 : -1;
+    // Try up to 3 panes — skip ones that can't accept focus (e.g. view
+    // with no selected note).
+    for (let i = 1; i <= PANE_ORDER.length; i++) {
+      const idx = (startIdx + step * i + PANE_ORDER.length) % PANE_ORDER.length;
+      if (focusPane(PANE_ORDER[idx])) return;
+    }
+  }
 
   return (
     <div
@@ -474,7 +543,7 @@ export function WorklogPage({ compact = false }: WorklogPageProps = {}) {
       {/* 3-pane grid */}
       <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-[200px_1fr] xl:grid-cols-[220px_320px_1fr]">
         {/* Folders rail */}
-        <div className="hidden md:block min-h-0 overflow-hidden">
+        <div ref={railPaneRef} data-pane="rail" className="hidden md:block min-h-0 overflow-hidden">
           <WorklogFoldersRail
             logs={logs}
             templatesCount={templates.length}
@@ -484,6 +553,7 @@ export function WorklogPage({ compact = false }: WorklogPageProps = {}) {
               setSelectedNoteId(null);
               setSelectedDate(null);
             }}
+            onActivate={() => focusPane("list")}
             selectedDate={selectedDate}
             onSelectDate={setSelectedDate}
             streak={streak}
@@ -494,6 +564,8 @@ export function WorklogPage({ compact = false }: WorklogPageProps = {}) {
 
         {/* Middle pane: notes list OR templates list */}
         <div
+          ref={listPaneRef}
+          data-pane="list"
           className={cn(
             "min-h-0 border-r flex flex-col",
             mobileShowReader && selectedLog ? "hidden md:flex" : "flex",
@@ -528,6 +600,13 @@ export function WorklogPage({ compact = false }: WorklogPageProps = {}) {
                 setSelectedNoteId(id);
                 setMobileShowReader(true);
               }}
+              onActivate={(id) => {
+                setSelectedNoteId(id);
+                setMobileShowReader(true);
+                // Defer one frame so the reader can mount/update before
+                // we hand focus to its title input.
+                requestAnimationFrame(() => focusPane("view"));
+              }}
               positionMap={positionMap}
               loading={loadingLogs}
               emptyMessage={
@@ -550,6 +629,8 @@ export function WorklogPage({ compact = false }: WorklogPageProps = {}) {
         {/* Right pane: note reader (hidden in templates view) */}
         {!inTemplatesView && (
           <div
+            ref={viewPaneRef}
+            data-pane="view"
             className={cn(
               "min-h-0 flex flex-col",
               mobileShowReader && selectedLog ? "flex" : "hidden xl:flex",

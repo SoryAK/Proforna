@@ -154,16 +154,32 @@ export const SLASH_COMMANDS: SlashCommandItem[] = [
 
 /**
  * Filter commands by a free-form query. Matches against title + searchTerms.
- * Case-insensitive substring match keeps the menu responsive without fuzzy
- * matching dependencies.
+ * Results are ranked so that prefix matches surface first, then substring
+ * matches, with title hits beating searchTerm hits within each tier:
+ *
+ *   0. title starts with query        (e.g. "/h"  -> Heading 3)
+ *   1. title contains query           (e.g. "/ad" -> ... )
+ *   2. searchTerm starts with query   (e.g. "/check" -> Task list)
+ *   3. searchTerm contains query
+ *
+ * Original array order is the tie-breaker (stable sort), so the curated
+ * order in SLASH_COMMANDS still acts as a soft preference.
  */
 export function filterSlashCommands(query: string, items: SlashCommandItem[] = SLASH_COMMANDS): SlashCommandItem[] {
   const q = query.trim().toLowerCase();
   if (!q) return items;
-  return items.filter((item) => {
-    if (item.title.toLowerCase().includes(q)) return true;
-    return item.searchTerms.some((t) => t.toLowerCase().includes(q));
+  const scored: { item: SlashCommandItem; score: number; idx: number }[] = [];
+  items.forEach((item, idx) => {
+    const title = item.title.toLowerCase();
+    let score = -1;
+    if (title.startsWith(q)) score = 0;
+    else if (title.includes(q)) score = 1;
+    else if (item.searchTerms.some((t) => t.toLowerCase().startsWith(q))) score = 2;
+    else if (item.searchTerms.some((t) => t.toLowerCase().includes(q))) score = 3;
+    if (score >= 0) scored.push({ item, score, idx });
   });
+  scored.sort((a, b) => a.score - b.score || a.idx - b.idx);
+  return scored.map((s) => s.item);
 }
 
 /**
