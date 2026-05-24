@@ -759,6 +759,11 @@ model WorkLog {
   // ── User-defined folder hierarchy (Phase C item #20) ──
   folderId                 String?
 
+  // ── Full-text search (W1.2) ──
+  // GENERATED STORED tsvector maintained by Postgres — see migration
+  // 20260523220000_add_worklog_search_vector. Combines title (A), content (B), tags (C).
+  searchVector             Unsupported("tsvector")? @map("search_vector")
+
   createdAt                DateTime @default(now())
   updatedAt                DateTime @updatedAt
 
@@ -776,6 +781,7 @@ model WorkLog {
   @@index([positionId, shiftId])
   @@index([positionId])
   @@index([templateId])
+  @@index([searchVector], type: Gin)
   @@unique([userId, externalSource, externalId], map: "WorkLog_external_unique")
 }
 

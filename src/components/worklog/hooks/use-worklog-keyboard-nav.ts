@@ -3,7 +3,7 @@
  * helpers for the worklog 3-pane shell.
  *
  * Shortcuts (non-typing context):
- *   • `/`                              → focus search input
+ *   • `/`                              → open global search palette (W1.2)
  *   • `n`                              → new blank note
  *   • `j` / `k`                        → next / prev note in visible list
  *
@@ -27,8 +27,8 @@ interface UseWorklogKeyboardNavArgs {
   railPaneRef: RefObject<HTMLDivElement | null>;
   listPaneRef: RefObject<HTMLDivElement | null>;
   viewPaneRef: RefObject<HTMLDivElement | null>;
-  /** Search input ref — `/` focuses it. */
-  searchInputRef: RefObject<HTMLInputElement | null>;
+  /** `/` opens the global search palette (W1.2). */
+  openSearchPalette: () => void;
   /** Reader handle — used by Cmd+S flush and focus("view"). */
   readerRef: RefObject<WorklogNoteReaderHandle | null>;
   /** Current visible notes (for j/k navigation). */
@@ -51,7 +51,7 @@ export function useWorklogKeyboardNav({
   railPaneRef,
   listPaneRef,
   viewPaneRef,
-  searchInputRef,
+  openSearchPalette,
   readerRef,
   visibleLogs,
   selectedNoteId,
@@ -147,8 +147,7 @@ export function useWorklogKeyboardNav({
 
       if (e.key === "/") {
         e.preventDefault();
-        searchInputRef.current?.focus();
-        searchInputRef.current?.select();
+        openSearchPalette();
         return;
       }
 
@@ -191,7 +190,7 @@ export function useWorklogKeyboardNav({
     visibleLogs,
     cyclePane,
     readerRef,
-    searchInputRef,
+    openSearchPalette,
     setMobileShowReader,
     setSelectedNoteId,
     startBlank,

@@ -49,6 +49,7 @@ import { WorklogDefaultsDialog } from "@/components/worklog/worklog-defaults-dia
 import { WorklogTemplatesTab } from "@/components/worklog/worklog-templates-tab";
 import { WorklogTemplateEditor } from "@/components/worklog/worklog-template-editor";
 import { WorklogTemplatePickerDialog } from "@/components/worklog/worklog-template-picker-dialog";
+import { WorklogSearchPalette } from "@/components/worklog/worklog-search-palette";
 
 export interface WorklogPageProps {
   /** Embedded mode: hide page brand, tighten chrome for the job-map embed. */
@@ -71,6 +72,7 @@ export function WorklogPage({ compact = false }: WorklogPageProps = {}) {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [showDefaultsDialog, setShowDefaultsDialog] = useState(false);
+  const [searchPaletteOpen, setSearchPaletteOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<Partial<Template> | null>(null);
   // Mobile drill-down: when a note is selected on narrow screens, show the
   // reader and provide a back button to return to the list.
@@ -169,7 +171,7 @@ export function WorklogPage({ compact = false }: WorklogPageProps = {}) {
     railPaneRef,
     listPaneRef,
     viewPaneRef,
-    searchInputRef,
+    openSearchPalette: () => setSearchPaletteOpen(true),
     readerRef,
     visibleLogs,
     selectedNoteId,
@@ -367,6 +369,17 @@ export function WorklogPage({ compact = false }: WorklogPageProps = {}) {
             defaultEquipmentIds: [],
             defaultAssetIds: [],
           });
+        }}
+      />
+
+      <WorklogSearchPalette
+        open={searchPaletteOpen}
+        onOpenChange={setSearchPaletteOpen}
+        scopedFolderId={activeFolder.kind === "folder" ? activeFolder.folderId : null}
+        scopeLabel={activeFolder.kind === "folder" ? "this folder" : undefined}
+        onSelect={(id) => {
+          setSelectedNoteId(id);
+          setMobileShowReader(true);
         }}
       />
 
