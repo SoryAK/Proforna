@@ -94,5 +94,30 @@ export function useWorklogMutations(cb: WorklogMutationCallbacks = {}) {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["worklog-templates"] }),
   });
 
-  return { saveLog, deleteLog, saveTemplate, deleteTemplate };
+  /**
+   * Bulk multi-select action (W1.3). Posts to /api/work-logs/bulk which
+   * runs `move` or `delete` over an id list inside a Prisma $transaction.
+   * Invalidates both worklogs and folder counts on success.
+   */
+  const bulkAction = useMutation({
+    mutationFn: async (input: {
+      action: "move" | "delete";
+      ids: string[];
+      payload?: { folderId: string | null };
+    }) => {
+      const res = await fetch("/api/work-logs/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      return res.json() as Promise<{ ok: true; affected: number }>;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["worklogs"] });
+      qc.invalidateQueries({ queryKey: ["worklog-folders"] });
+    },
+  });
+
+  return { saveLog, deleteLog, saveTemplate, deleteTemplate, bulkAction };
 }

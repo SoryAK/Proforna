@@ -50,6 +50,8 @@ import { WorklogTemplatesTab } from "@/components/worklog/worklog-templates-tab"
 import { WorklogTemplateEditor } from "@/components/worklog/worklog-template-editor";
 import { WorklogTemplatePickerDialog } from "@/components/worklog/worklog-template-picker-dialog";
 import { WorklogSearchPalette } from "@/components/worklog/worklog-search-palette";
+import { WorklogBulkActionBar } from "@/components/worklog/worklog-bulk-action-bar";
+import { useWorklogSelection } from "@/components/worklog/hooks/use-worklog-selection";
 
 export interface WorklogPageProps {
   /** Embedded mode: hide page brand, tighten chrome for the job-map embed. */
@@ -114,9 +116,13 @@ export function WorklogPage({ compact = false }: WorklogPageProps = {}) {
   const { streak, totalThisMonth, notableCount } = useWorklogStats(logs);
 
   // Mutations
-  const { saveLog, deleteLog, saveTemplate, deleteTemplate } = useWorklogMutations({
+  const { saveLog, deleteLog, saveTemplate, deleteTemplate, bulkAction } = useWorklogMutations({
     onSaveTemplateSuccess: () => setEditingTemplate(null),
   });
+
+  // Multi-select (W1.3). Lives at the orchestrator so the rail/filter/search
+  // state can clear it on context change.
+  const selection = useWorklogSelection();
 
   // Keep selectedNoteId valid as logs change (e.g. after delete).
   useEffect(() => {
@@ -235,6 +241,7 @@ export function WorklogPage({ compact = false }: WorklogPageProps = {}) {
               setActiveFolder(f);
               setSelectedNoteId(null);
               setSelectedDate(null);
+              selection.clear();
             }}
             onActivate={() => focusPane("list")}
             selectedDate={selectedDate}
@@ -305,6 +312,7 @@ export function WorklogPage({ compact = false }: WorklogPageProps = {}) {
                 search ? "Try a different keyword." : "Start a note to capture today’s work."
               }
               onNew={!search ? startBlank : undefined}
+              selection={selection}
             />
           )}
         </div>
@@ -370,6 +378,29 @@ export function WorklogPage({ compact = false }: WorklogPageProps = {}) {
             defaultAssetIds: [],
           });
         }}
+      />
+
+      <WorklogBulkActionBar
+        count={selection.selectedCount}
+        busy={bulkAction.isPending}
+        onMove={async (folderId) => {
+          const ids = Array.from(selection.selectedIds);
+          if (ids.length === 0) return;
+          await bulkAction.mutateAsync({ action: "move", ids, payload: { folderId } });
+          selection.clear();
+        }}
+        onDelete={async () => {
+          const ids = Array.from(selection.selectedIds);
+          if (ids.length === 0) return;
+          await bulkAction.mutateAsync({ action: "delete", ids });
+          // If the currently-open note was part of the batch, drop the reader.
+          if (selectedNoteId && ids.includes(selectedNoteId)) {
+            setSelectedNoteId(null);
+            setMobileShowReader(false);
+          }
+          selection.clear();
+        }}
+        onClear={selection.clear}
       />
 
       <WorklogSearchPalette

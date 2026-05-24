@@ -27,6 +27,19 @@ import { useWorklogFolders } from "@/components/worklog/hooks/use-worklog-folder
 import { useWorklogMutations } from "@/components/worklog/hooks/use-worklog-mutations";
 import { WorklogMoveToFolderDialog } from "@/components/worklog/worklog-move-to-folder-dialog";
 
+/**
+ * Multi-select API surfaced by the orchestrator. Optional — when omitted
+ * the row checkbox column is hidden and the list behaves as single-select.
+ */
+export interface WorklogNotesListSelection {
+  selectedCount: number;
+  isSelected: (id: string) => boolean;
+  toggle: (id: string) => void;
+  toggleRange: (id: string, orderedIds: string[]) => void;
+  setSelection: (ids: string[]) => void;
+  clear: () => void;
+}
+
 export interface WorklogNotesListProps {
   logs: WorkLog[];
   selectedId: string | null;
@@ -41,6 +54,8 @@ export interface WorklogNotesListProps {
    * orchestrator to move focus forward to the next pane (note view).
    */
   onActivate?: (id: string) => void;
+  /** Optional multi-select wiring (W1.3). */
+  selection?: WorklogNotesListSelection;
 }
 
 type Group = { key: string; label: string; logs: WorkLog[] };
@@ -92,6 +107,7 @@ export function WorklogNotesList({
   emptyHint,
   onNew,
   onActivate,
+  selection,
 }: WorklogNotesListProps) {
   const [renderCount, setRenderCount] = useState(PAGE_SIZE);
   const shouldVirtualize = logs.length >= VIRTUALIZE_THRESHOLD;
@@ -149,6 +165,13 @@ export function WorklogNotesList({
   // Arrow / Home / End / PageUp / PageDown navigation + Enter (activate).
   function handleKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
     const key = e.key;
+
+    // ⌘/Ctrl+A → select every loaded note (W1.3 multi-select).
+    if (selection && (e.metaKey || e.ctrlKey) && (key === "a" || key === "A")) {
+      e.preventDefault();
+      selection.setSelection(logs.map((l) => l.id));
+      return;
+    }
 
     // Enter on the selected row hands focus forward to the orchestrator
     // (which moves it into the note view's title field).
@@ -268,6 +291,7 @@ export function WorklogNotesList({
           <ul>
             {g.logs.map((l) => {
               const isActive = l.id === selectedId;
+              const isChecked = selection ? selection.isSelected(l.id) : false;
               const cat = CATEGORIES[l.category];
               const Icon = cat?.icon;
               const pos = l.positionId ? positionMap.get(l.positionId) : null;
@@ -281,17 +305,27 @@ export function WorklogNotesList({
                   data-note-id={l.id}
                   role="option"
                   aria-selected={isActive}
-                  onClick={() => onSelect(l.id)}
+                  onClick={(e) => {
+                    // ⌘/Ctrl+click anywhere on the row → toggle selection
+                    // (alternative to the checkbox).
+                    if (selection && (e.metaKey || e.ctrlKey)) {
+                      e.preventDefault();
+                      selection.toggle(l.id);
+                      return;
+                    }
+                    onSelect(l.id);
+                  }}
                   onContextMenu={(e) => {
                     e.preventDefault();
                     onSelect(l.id);
                     setMoveLogId(l.id);
                   }}
                   className={cn(
-                    "cursor-pointer border-b px-3 py-2.5 transition-colors",
+                    "cursor-pointer border-b px-3 py-2.5 transition-colors flex items-start gap-2",
                     isActive
                       ? "bg-orange-50 dark:bg-orange-900/20 border-l-2 border-l-orange-500"
                       : "hover:bg-accent/40 border-l-2 border-l-transparent",
+                    isChecked && "bg-orange-100/60 dark:bg-orange-900/30",
                     // Visible focus indicator on the SELECTED row when the
                     // list container has keyboard focus. Inset so it doesn't
                     // get clipped by the scroll container.
@@ -299,6 +333,42 @@ export function WorklogNotesList({
                       "group-focus-visible:ring-2 group-focus-visible:ring-ring group-focus-visible:ring-inset",
                   )}
                 >
+                  {selection && (
+                    <label
+                      // Click handling lives on the label so the whole
+                      // 24×24 region is a comfortable hit target.
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        if (e.shiftKey) {
+                          selection.toggleRange(l.id, logs.map((x) => x.id));
+                        } else {
+                          selection.toggle(l.id);
+                        }
+                      }}
+                      className={cn(
+                        "mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded",
+                        "cursor-pointer transition-opacity",
+                        // Hover-reveal until something IS selected; then
+                        // checkboxes are always visible for affordance.
+                        selection.selectedCount > 0
+                          ? "opacity-100"
+                          : "opacity-0 group-hover:opacity-60 focus-within:opacity-100",
+                      )}
+                      aria-label={isChecked ? "Deselect note" : "Select note"}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        // Visual click is intercepted by label; this keeps
+                        // a11y semantics + keyboard reachable via tab.
+                        onChange={() => {}}
+                        tabIndex={-1}
+                        className="h-3.5 w-3.5 rounded border-muted-foreground/50 accent-orange-600"
+                      />
+                    </label>
+                  )}
+                  <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-1.5 min-w-0 flex-1">
                       {Icon && <Icon className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />}
@@ -337,6 +407,7 @@ export function WorklogNotesList({
                         {photoCount}
                       </span>
                     )}
+                  </div>
                   </div>
                 </li>
               );
