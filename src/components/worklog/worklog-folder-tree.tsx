@@ -35,6 +35,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
   buildFolderTree,
   collectDescendantIds,
   validateFolderName,
@@ -134,6 +139,20 @@ export function WorklogFolderTree(props: WorklogFolderTreeProps) {
       else next.add(id);
       return next;
     });
+
+  // Expand the parent BEFORE delegating to the caller's create handler so the
+  // freshly-created child is visible the moment the server returns it.
+  const handleCreate = (parentId: string | null) => {
+    if (parentId) {
+      setExpanded((prev) => {
+        if (prev.has(parentId)) return prev;
+        const next = new Set(prev);
+        next.add(parentId);
+        return next;
+      });
+    }
+    onCreate(parentId);
+  };
 
   // --- Inline rename ------------------------------------------------------
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -266,12 +285,16 @@ export function WorklogFolderTree(props: WorklogFolderTreeProps) {
                     "hover:bg-background/60 hover:text-foreground transition-opacity",
                   )}
                   aria-label={`Actions for ${node.name}`}
-                  onClick={(e) => e.stopPropagation()}
+                  // NOTE: do NOT add onClick here — base-ui Trigger opens via
+                  // its own onClick, and React last-write-wins would clobber it.
+                  // The label is a sibling <button>, so clicks don't bubble
+                  // into it; no propagation guard is needed.
+                  onMouseDown={(e) => e.stopPropagation()}
                 >
                   <MoreHorizontal className="h-3.5 w-3.5" />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-44">
-                  <DropdownMenuItem onClick={() => onCreate(node.id)}>
+                  <DropdownMenuItem onClick={() => handleCreate(node.id)}>
                     <Plus className="mr-2 h-3.5 w-3.5" />
                     New subfolder
                   </DropdownMenuItem>
@@ -308,8 +331,14 @@ export function WorklogFolderTree(props: WorklogFolderTreeProps) {
   const unfiledLabel = `Unfiled`;
 
   if (compact) {
-    // In compact mode we collapse the entire user-folder section to a single
-    // icon-only "Folders" entry that simply triggers an expand on hover via tooltip.
+    // In compact mode the rail is only ~48px wide — too narrow for a tree.
+    // We surface two icon buttons:
+    //   1. Unfiled (direct filter, single click)
+    //   2. Folders (opens a flyout popover containing the full tree, new-root
+    //      button, and per-folder kebab actions).
+    // The popover renders to document.body via portal with z-[1400] so it sits
+    // above the job-map embed surface (z-[1300]).
+    const hasAnyFolders = tree.length > 0;
     return (
       <div className="flex flex-col items-center gap-1">
         <button
@@ -327,6 +356,55 @@ export function WorklogFolderTree(props: WorklogFolderTreeProps) {
         >
           <Inbox className="h-3.5 w-3.5" />
         </button>
+        <Popover>
+          <PopoverTrigger
+            className={cn(
+              "h-8 w-8 inline-flex items-center justify-center rounded-md",
+              "text-foreground/70 hover:bg-accent data-[popup-open]:bg-accent",
+            )}
+            title="Folders"
+            aria-label="Folders"
+          >
+            {hasAnyFolders ? (
+              <FolderOpen className="h-3.5 w-3.5" />
+            ) : (
+              <Folder className="h-3.5 w-3.5" />
+            )}
+          </PopoverTrigger>
+          <PopoverContent
+            side="right"
+            align="start"
+            sideOffset={8}
+            className="w-64 z-[1400] p-2 gap-1.5"
+          >
+            <div className="flex items-center justify-between px-1 pb-1">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Folders
+              </span>
+              <button
+                type="button"
+                onClick={() => handleCreate(null)}
+                title="New folder"
+                aria-label="New folder"
+                className="inline-flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+              >
+                <Plus className="h-3 w-3" />
+              </button>
+            </div>
+            <div
+              className="max-h-80 overflow-y-auto scrollbar-thin space-y-0.5"
+              role="group"
+              aria-label="Folders"
+            >
+              {tree.map((node) => renderNode(node))}
+              {!hasAnyFolders && (
+                <p className="px-2 py-1 text-[11px] text-muted-foreground italic">
+                  No folders yet — click + to create one.
+                </p>
+              )}
+            </div>
+          </PopoverContent>
+        </Popover>
       </div>
     );
   }
