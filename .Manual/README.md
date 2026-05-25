@@ -33,6 +33,7 @@ Examples: `job-map-view-presets.md`, `worklog-streak-tracking.md`, `resume-pdf-e
 | Feature | File | Status |
 |---------|------|--------|
 | Worklog Notes Three-Pane Experience | [worklog-notes-three-pane.md](./worklog-notes-three-pane.md) | Shipped |
+| Worklog Notes & Folder Drag-and-Drop Reorder | [worklog-dnd-reorder.md](./worklog-dnd-reorder.md) | Shipped |
 
 ## Style Rules
 

@@ -134,3 +134,57 @@ export function validateFolderName(raw: string): string | null {
   if (name.length > FOLDER_NAME_MAX) return `Name must be ${FOLDER_NAME_MAX} characters or fewer`;
   return null;
 }
+
+// ── Server-side adjacency-list helpers (minimal shape) ──────────────────────
+// These accept a plain `{id, parentId}[]` array so they can be used in
+// Route Handlers that query only the two fields needed for tree traversal.
+
+type FolderNode = { id: string; parentId: string | null };
+
+/**
+ * Throws if moving `folderId` under `newParentId` would create a cycle
+ * (i.e. `newParentId` is a descendant of `folderId`).
+ *
+ * Pass the full flat list of folders for the user (select id, parentId).
+ * This is the authoritative server check — the client-side `wouldCreateCycle`
+ * is UI-only and not trusted.
+ */
+export function assertNoCycle(
+  folderId: string,
+  newParentId: string,
+  allFolders: FolderNode[],
+): void {
+  const byId = new Map(allFolders.map((f) => [f.id, f]));
+  const visited = new Set<string>();
+  let cursor: FolderNode | undefined = byId.get(newParentId);
+  while (cursor) {
+    if (visited.has(cursor.id)) break; // defensive: pre-existing cycle in data
+    visited.add(cursor.id);
+    if (cursor.id === folderId) {
+      throw new Error("Cannot move a folder into one of its descendants");
+    }
+    if (!cursor.parentId) break;
+    cursor = byId.get(cursor.parentId);
+  }
+}
+
+/**
+ * Returns the depth of `folderId` in the folder tree (root = 0).
+ *
+ * Useful for enforcing `FOLDER_MAX_DEPTH` before a reparent operation:
+ *   `getDepth(newParentId, allFolders) + 1` gives the depth the moved
+ *   folder will sit at after the move.
+ */
+export function getDepth(folderId: string, allFolders: FolderNode[]): number {
+  const byId = new Map(allFolders.map((f) => [f.id, f]));
+  let depth = 0;
+  let cursor: FolderNode | undefined = byId.get(folderId);
+  const visited = new Set<string>();
+  while (cursor?.parentId) {
+    if (visited.has(cursor.id)) break; // cycle guard
+    visited.add(cursor.id);
+    cursor = byId.get(cursor.parentId);
+    depth++;
+  }
+  return depth;
+}

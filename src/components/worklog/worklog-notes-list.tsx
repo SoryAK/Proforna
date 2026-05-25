@@ -21,7 +21,9 @@ import { useState } from "react";
 import { format, parseISO, isToday, isYesterday, differenceInDays, startOfDay } from "date-fns";
 import { Star, Briefcase, ImageIcon, FileText, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { CATEGORIES } from "@/components/worklog/constants";
+import { CATEGORIES, DND_ACTIVE_ROW_CLASS } from "@/components/worklog/constants";
+import { useSortable, SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import type { WorkLog, Position } from "@/types/worklog";
 import { useWorklogFolders } from "@/components/worklog/hooks/use-worklog-folders";
 import { useWorklogMutations } from "@/components/worklog/hooks/use-worklog-mutations";
@@ -56,9 +58,29 @@ export interface WorklogNotesListProps {
   onActivate?: (id: string) => void;
   /** Optional multi-select wiring (W1.3). */
   selection?: WorklogNotesListSelection;
+  /**
+   * When true (folder view), note rows participate in @dnd-kit DnD reorder.
+   * Should only be true when displaying a specific folder's notes.
+   */
+  sortable?: boolean;
 }
 
 type Group = { key: string; label: string; logs: WorkLog[] };
+
+function SortableNoteWrapper({ id, children }: { id: string; children: React.ReactNode }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      className={isDragging ? DND_ACTIVE_ROW_CLASS : undefined}
+      {...attributes}
+      {...listeners}
+    >
+      {children}
+    </div>
+  );
+}
 
 const VIRTUALIZE_THRESHOLD = 250;
 const PAGE_SIZE = 120;
@@ -108,6 +130,7 @@ export function WorklogNotesList({
   onNew,
   onActivate,
   selection,
+  sortable,
 }: WorklogNotesListProps) {
   const [renderCount, setRenderCount] = useState(PAGE_SIZE);
   const shouldVirtualize = logs.length >= VIRTUALIZE_THRESHOLD;
@@ -288,6 +311,10 @@ export function WorklogNotesList({
           <div className="sticky top-0 z-10 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground bg-background/95 backdrop-blur border-b">
             {g.label}
           </div>
+          <SortableContext
+            items={sortable ? g.logs.map((l) => "note:" + l.id) : []}
+            strategy={verticalListSortingStrategy}
+          >
           <ul>
             {g.logs.map((l) => {
               const isActive = l.id === selectedId;
@@ -298,7 +325,7 @@ export function WorklogNotesList({
               const dateStr = formatRowDate(parseISO(l.date), nowYear);
               const preview = (l.content ?? "").trim();
               const photoCount = l.photos?.length ?? 0;
-              return (
+              const liContent = (
                 <li
                   key={l.id}
                   id={`${listboxId}-${l.id}`}
@@ -306,11 +333,12 @@ export function WorklogNotesList({
                   role="option"
                   aria-selected={isActive}
                   onClick={(e) => {
-                    // ⌘/Ctrl+click anywhere on the row → toggle selection
-                    // (alternative to the checkbox).
-                    if (selection && (e.metaKey || e.ctrlKey)) {
+                    // Bulk mode (selection present): every click toggles selection
+                    // AND opens the note so the user can review before acting.
+                    if (selection) {
                       e.preventDefault();
                       selection.toggle(l.id);
+                      onSelect(l.id);
                       return;
                     }
                     onSelect(l.id);
@@ -411,8 +439,12 @@ export function WorklogNotesList({
                   </div>
                 </li>
               );
+              return sortable ? (
+                <SortableNoteWrapper key={l.id} id={"note:" + l.id}>{liContent}</SortableNoteWrapper>
+              ) : liContent;
             })}
           </ul>
+          </SortableContext>
         </div>
       ))}
 

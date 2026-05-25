@@ -6,6 +6,7 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { WorkLog, Template } from "@/types/worklog";
+import type { FolderListResponse } from "./use-worklog-folders";
 
 export interface WorklogMutationCallbacks {
   /** Called after a log create/update succeeds (cache already invalidated). */
@@ -119,5 +120,75 @@ export function useWorklogMutations(cb: WorklogMutationCallbacks = {}) {
     },
   });
 
-  return { saveLog, deleteLog, saveTemplate, deleteTemplate, bulkAction };
+  const reorderNotes = useMutation({
+    mutationFn: async (input: {
+      items: Array<{ id: string; sortOrder: number; folderId?: string | null }>;
+    }) => {
+      const res = await fetch("/api/work-logs/reorder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      return res.json() as Promise<{ ok: true; affected: number }>;
+    },
+    onMutate: async ({ items }) => {
+      await qc.cancelQueries({ queryKey: ["worklogs"] });
+      const previous = qc.getQueryData<WorkLog[]>(["worklogs"]);
+
+      qc.setQueryData<WorkLog[]>(["worklogs"], (old = []) => {
+        const patchMap = new Map(items.map((it) => [it.id, it]));
+        return old.map((log) => {
+          const patch = patchMap.get(log.id);
+          if (!patch) return log;
+          return { ...log, sortOrder: patch.sortOrder, folderId: patch.folderId ?? log.folderId };
+        });
+      });
+
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) qc.setQueryData(["worklogs"], context.previous);
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ["worklogs"] }),
+  });
+
+  const reorderFolders = useMutation({
+    mutationFn: async (input: {
+      items: Array<{ id: string; sortOrder: number; parentId?: string | null }>;
+    }) => {
+      const res = await fetch("/api/work-logs/folders/reorder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      return res.json() as Promise<{ ok: true; affected: number }>;
+    },
+    onMutate: async ({ items }) => {
+      await qc.cancelQueries({ queryKey: ["worklog-folders"] });
+      const previous = qc.getQueryData<FolderListResponse>(["worklog-folders"]);
+
+      qc.setQueryData<FolderListResponse>(["worklog-folders"], (old) => {
+        if (!old) return old;
+        const patchMap = new Map(items.map((it) => [it.id, it]));
+        return {
+          ...old,
+          folders: old.folders.map((f) => {
+            const patch = patchMap.get(f.id);
+            if (!patch) return f;
+            return { ...f, sortOrder: patch.sortOrder, parentId: patch.parentId ?? f.parentId };
+          }),
+        };
+      });
+
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) qc.setQueryData(["worklog-folders"], context.previous);
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ["worklog-folders"] }),
+  });
+
+  return { saveLog, deleteLog, saveTemplate, deleteTemplate, bulkAction, reorderNotes, reorderFolders };
 }

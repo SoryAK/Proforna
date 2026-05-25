@@ -20,7 +20,7 @@
 
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -52,6 +52,7 @@ import { WorklogTemplatePickerDialog } from "@/components/worklog/worklog-templa
 import { WorklogSearchPalette } from "@/components/worklog/worklog-search-palette";
 import { WorklogBulkActionBar } from "@/components/worklog/worklog-bulk-action-bar";
 import { useWorklogSelection } from "@/components/worklog/hooks/use-worklog-selection";
+import { WorklogDndProvider } from "@/components/worklog/worklog-dnd-provider";
 
 export interface WorklogPageProps {
   /** Embedded mode: hide page brand, tighten chrome for the job-map embed. */
@@ -123,6 +124,29 @@ export function WorklogPage({ compact = false }: WorklogPageProps = {}) {
   // Multi-select (W1.3). Lives at the orchestrator so the rail/filter/search
   // state can clear it on context change.
   const selection = useWorklogSelection();
+
+  // Bulk-select activation gate. When off: no checkboxes, DnD reorder active.
+  // When on: DnD disabled, checkboxes shown, row click = toggle + open.
+  const [bulkMode, setBulkMode] = useState(false);
+  const toggleBulkMode = useCallback(() => {
+    setBulkMode((prev) => {
+      if (prev) selection.clear();
+      return !prev;
+    });
+  }, [selection]);
+
+  // Escape exits bulk mode.
+  useEffect(() => {
+    if (!bulkMode) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setBulkMode(false);
+        selection.clear();
+      }
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [bulkMode, selection]);
 
   // Keep selectedNoteId valid as logs change (e.g. after delete).
   useEffect(() => {
@@ -227,9 +251,12 @@ export function WorklogPage({ compact = false }: WorklogPageProps = {}) {
         onFromTemplate={() => setShowTemplatePicker(true)}
         onDefaults={() => setShowDefaultsDialog(true)}
         defaultsSummary={defaultsSummary}
+        bulkMode={bulkMode}
+        onToggleBulkMode={toggleBulkMode}
       />
 
       {/* 3-pane grid */}
+      <WorklogDndProvider>
       <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-[200px_1fr] xl:grid-cols-[220px_320px_1fr]">
         {/* Folders rail */}
         <div ref={railPaneRef} data-pane="rail" className="hidden md:block min-h-0 overflow-hidden">
@@ -242,6 +269,7 @@ export function WorklogPage({ compact = false }: WorklogPageProps = {}) {
               setSelectedNoteId(null);
               setSelectedDate(null);
               selection.clear();
+              setBulkMode(false);
             }}
             onActivate={() => focusPane("list")}
             selectedDate={selectedDate}
@@ -312,7 +340,8 @@ export function WorklogPage({ compact = false }: WorklogPageProps = {}) {
                 search ? "Try a different keyword." : "Start a note to capture today’s work."
               }
               onNew={!search ? startBlank : undefined}
-              selection={selection}
+              selection={bulkMode ? selection : undefined}
+              sortable={activeFolder.kind === "folder" && !bulkMode}
             />
           )}
         </div>
@@ -361,6 +390,7 @@ export function WorklogPage({ compact = false }: WorklogPageProps = {}) {
           </div>
         )}
       </div>
+      </WorklogDndProvider>
 
       <WorklogTemplatePickerDialog
         open={showTemplatePicker}

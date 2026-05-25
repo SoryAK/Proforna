@@ -758,6 +758,7 @@ model WorkLog {
 
   // ── User-defined folder hierarchy (Phase C item #20) ──
   folderId                 String?
+  sortOrder                Int      @default(0)             // drag-reorder position within folder (W2.1)
 
   // ── Full-text search (W1.2) ──
   // GENERATED STORED tsvector maintained by Postgres — see migration
@@ -778,6 +779,7 @@ model WorkLog {
   @@index([userId, date])
   @@index([userId, workdayDate])
   @@index([userId, folderId])
+  @@index([userId, folderId, sortOrder])
   @@index([positionId, shiftId])
   @@index([positionId])
   @@index([templateId])

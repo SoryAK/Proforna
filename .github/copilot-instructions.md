@@ -26,7 +26,8 @@ Phase 4: Persistence & Institutional Knowledge (The Wrap-up)
 After the code is implemented and verified:
   1. ADR Anchor: If a structural or logic choice was finalized, trigger the ADR Author skill.
   2. Manual Engineer: If a feature was added or changed, update the .Manual/ folder.
-  3. Handoff Architect: ONLY when the user indicates the session is ending, trigger the Handoff Architect to create the dated session log.
+  3. UI Graph Keeper: If any UI component, token, color, spacing, or visual pattern was introduced or changed this session, update the relevant .github/ui/ file. New tokens → tokens.md first. New shared patterns → global.md. Feature-specific patterns → the feature file. Run BEFORE the handoff.
+  4. Handoff Architect: ONLY when the user indicates the session is ending, trigger the Handoff Architect to create the dated session log.
 
 ### Execution Rules:
 Skill Transparency: You must begin your response by stating: "Applying Skills: [Skill Name 1], [Skill Name 2]..."
@@ -65,6 +66,15 @@ Atomic Responses: Do not overwhelm the user. If 4 skills apply, prioritize the S
 - Instead, act as a Skeptical Senior Engineer.
 - Ask me exactly 3 "Grilling" questions that challenge the edge cases, security, or performance of my idea.
 - Only once I have answered these questions can you proceed to the implementation phase.
+
+### Skill: UI Design Graph
+- BEFORE writing any JSX, className strings, or Tailwind, read the design graph:
+  1. Read `.github/ui/index.md` — identify which feature file applies and review the governance rules.
+  2. Read `.github/ui/tokens.md` — know the exact color, scale, and brand token values.
+  3. Read the relevant feature file (e.g., `.github/ui/worklog.md`).
+- NEVER introduce a new color, spacing value, or scale variant that is not defined in `tokens.md`.
+- If a pattern you need is not yet in the graph, derive it from the nearest existing component, implement it, then add it to the graph in Phase 4 (UI Graph Keeper).
+- This skill is silently mandatory — do not announce it unless it surfaces a conflict.
 
 ## Advanced Engineering Skills
 
@@ -130,4 +140,16 @@ Atomic Responses: Do not overwhelm the user. If 4 skills apply, prioritize the S
   3. **The "Live" Context:** Specific variables, active logic paths, or line numbers that are currently "warm" in memory.
   4. **Next Immediate Step:** The exact sentence/prompt I should use to resume work.
   5. **Unresolved Blockers:** Bugs, missing info, or "technical debt" left open.
+  6. **UI Graph Status:** List any `.github/ui/` files updated this session, or "none" if no UI changes were made.
 - **CRITICAL:** At the start of any new session, your first priority is to locate and read the **most recent** file in `docs/handoffs/` and summarize it to me.
+
+### Skill: UI Graph Keeper
+- **Trigger:** Any session where UI code (JSX, className strings, Tailwind) was written or modified.
+- **Timing:** Run in Phase 4 BEFORE the Handoff Architect writes the session log.
+- **Action — audit and update the graph:**
+  1. New color, spacing, or scale value introduced? → Add to `.github/ui/tokens.md`.
+  2. New shared component pattern (buttons, empty states, loading indicators)? → Update `.github/ui/global.md`.
+  3. New feature-specific layout or behavior pattern? → Update the relevant `.github/ui/[feature].md`.
+  4. New feature area with no file yet? → Create a stub file and add a row to the index table in `.github/ui/index.md`.
+- **Governance rule (CRITICAL):** Feature files NEVER define new token values. Tokens are always defined in `tokens.md` first, then referenced in feature files. If a feature file defines a raw Tailwind value that should be a token, correct the violation before the session ends.
+- **Editing discipline:** Do NOT rewrite entire files. Only append or update the specific section that changed. Keep all graph files under 150 lines.

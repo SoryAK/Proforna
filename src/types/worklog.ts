@@ -46,6 +46,8 @@ export type WorkLog = {
   visibility: string;
   createdAt: string;
   updatedAt: string;
+  /** Display order within a folder/unfiled group. Optional since legacy cache entries may lack it. */
+  sortOrder?: number;
   /** User-defined folder placement. `null` = Unfiled (default for legacy / new notes). */
   folderId?: string | null;
   photos?: WorkLogPhoto[];

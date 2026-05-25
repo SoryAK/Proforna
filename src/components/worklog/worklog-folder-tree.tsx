@@ -46,6 +46,9 @@ import {
   type FolderTreeNode,
 } from "@/lib/worklog-folders";
 import type { WorkLogFolderWithCount } from "@/types/worklog";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { DND_ACTIVE_ROW_CLASS } from "@/components/worklog/constants";
 
 const EXPANDED_KEY = "worklog-folder-tree-expanded";
 
@@ -66,6 +69,27 @@ export interface WorklogFolderTreeProps {
   onRequestMove: (id: string) => void;
   /** Open delete dialog for `id`. */
   onRequestDelete: (id: string) => void;
+}
+
+/** Minimal DnD wrapper around each folder row. Applies transform/transition/opacity. */
+function SortableFolderWrapper({ id, children }: { id: string; children: React.ReactNode }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id,
+  });
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+      }}
+      className={isDragging ? DND_ACTIVE_ROW_CLASS : undefined}
+      {...attributes}
+      {...listeners}
+    >
+      {children}
+    </div>
+  );
 }
 
 export function WorklogFolderTree(props: WorklogFolderTreeProps) {
@@ -185,7 +209,8 @@ export function WorklogFolderTree(props: WorklogFolderTreeProps) {
     const indent = Math.min(node.depth, 6) * 12;
 
     return (
-      <div key={node.id}>
+      <SortableFolderWrapper key={node.id} id={"folder:" + node.id}>
+        <div>
         <div
           className={cn(
             "group flex items-center rounded-md text-sm transition-colors",
@@ -323,7 +348,8 @@ export function WorklogFolderTree(props: WorklogFolderTreeProps) {
         {hasChildren && isOpen && (
           <div>{node.children.map((c) => renderNode(c))}</div>
         )}
-      </div>
+        </div>
+      </SortableFolderWrapper>
     );
   };
 

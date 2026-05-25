@@ -59,3 +59,9 @@ export function dateLabel(d: Date): string {
   if (isYesterday(d)) return "Yesterday";
   return format(d, "EEE, MMM d, yyyy");
 }
+
+/** Applied to a folder or zone row that is a valid drop target while dragging. */
+export const DND_DROP_TARGET_CLASS = "ring-1 ring-ring bg-accent/30";
+
+/** Applied to the row that is actively being dragged (the original, not the overlay). */
+export const DND_ACTIVE_ROW_CLASS = "opacity-40";

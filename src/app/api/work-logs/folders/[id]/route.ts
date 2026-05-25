@@ -17,6 +17,8 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getUserId } from "@/lib/auth-utils";
 import {
+  assertNoCycle,
+  getDepth,
   FOLDER_MAX_DEPTH,
   FOLDER_NAME_MAX,
   validateFolderName,
@@ -73,30 +75,22 @@ export async function PATCH(request: Request, { params }: RouteCtx) {
         });
         if (!parent) return NextResponse.json({ error: "Parent folder not found" }, { status: 404 });
 
-        // Cycle check: walk up from new parent; if we encounter `id`, it's a cycle.
-        // Also compute depth at the same time to enforce FOLDER_MAX_DEPTH.
+        // Cycle check + depth enforcement via extracted helpers.
         const allFolders = await prisma.workLogFolder.findMany({
           where: { userId },
           select: { id: true, parentId: true },
         });
-        const byId = new Map(allFolders.map((f) => [f.id, f]));
 
-        let cursor: { id: string; parentId: string | null } | undefined = byId.get(nextParentId);
-        const ancestors = new Set<string>();
-        let depth = 1; // depth the moving folder will sit at (parent depth + 1)
-        while (cursor) {
-          if (ancestors.has(cursor.id)) break; // defensive: pre-existing cycle in data
-          ancestors.add(cursor.id);
-          if (cursor.id === id) {
-            return NextResponse.json(
-              { error: "Cannot move a folder into one of its descendants" },
-              { status: 400 },
-            );
-          }
-          if (!cursor.parentId) break;
-          cursor = byId.get(cursor.parentId);
-          depth += 1;
+        try {
+          assertNoCycle(id, nextParentId, allFolders);
+        } catch {
+          return NextResponse.json(
+            { error: "Cannot move a folder into one of its descendants" },
+            { status: 400 },
+          );
         }
+
+        const depth = getDepth(nextParentId, allFolders) + 1; // depth the moving folder will sit at
 
         // Compute deepest descendant depth of the moving folder.
         const childrenOf = new Map<string, string[]>();

@@ -30,6 +30,7 @@ NNNN-short-kebab-title.md
 | 0007 | [Worklog notes three-pane redesign](./0007-worklog-notes-three-pane-redesign.md)     | Proposed   | 2026-05-18 |
 | 0008 | [Worklog capture acceleration and draft persistence](./0008-worklog-capture-acceleration-and-draft-persistence.md) | Proposed   | 2026-05-18 |
 | 0009 | [Worklog server-backed draft sync](./0009-worklog-server-backed-draft-sync.md) | Proposed   | 2026-05-18 |
+| 0012 | [W2.1 DnD context placement and sortable tree strategy](./0012-w2.1-dnd-context-and-tree-strategy.md) | Proposed | 2026-05-25 |
 
 ## How to Add a New ADR
 

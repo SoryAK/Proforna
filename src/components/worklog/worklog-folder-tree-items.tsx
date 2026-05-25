@@ -16,9 +16,14 @@
 
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Plus } from "lucide-react";
 import { useWorklogFolders } from "@/components/worklog/hooks/use-worklog-folders";
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { flattenFolderTree, buildFolderTree } from "@/lib/worklog-folders";
 import {
   WorklogFolderTree,
   computeDeleteBlastRadius,
@@ -44,6 +49,11 @@ export function WorklogFolderTreeItems({
 }: WorklogFolderTreeItemsProps) {
   const { folders, unfiledCount, createFolder, updateFolder, deleteFolder } =
     useWorklogFolders();
+
+  const sortedFolderIds = useMemo(() => {
+    const tree = buildFolderTree(folders);
+    return flattenFolderTree(tree).map((f) => "folder:" + f.id);
+  }, [folders]);
 
   const [moveTargetId, setMoveTargetId] = useState<string | null>(null);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
@@ -103,20 +113,22 @@ export function WorklogFolderTreeItems({
       {compact && <div className="my-1 h-px w-6 bg-border" />}
 
       {/* ---- Recursive folder tree ------------------------------------ */}
-      <WorklogFolderTree
-        folders={folders}
-        unfiledCount={unfiledCount}
-        selectedFolderId={selected.kind === "folder" ? selected.folderId : null}
-        isUnfiledSelected={selected.kind === "unfiled"}
-        compact={compact}
-        onSelectFolder={(folderId) => onSelect({ kind: "folder", folderId })}
-        onSelectUnfiled={() => onSelect({ kind: "unfiled" })}
-        onActivate={onActivate}
-        onRename={(id, name) => updateFolder.mutateAsync({ id, name })}
-        onCreate={(parentId) => void handleCreateChild(parentId)}
-        onRequestMove={(id) => setMoveTargetId(id)}
-        onRequestDelete={(id) => setDeleteTargetId(id)}
-      />
+      <SortableContext items={sortedFolderIds} strategy={verticalListSortingStrategy}>
+        <WorklogFolderTree
+          folders={folders}
+          unfiledCount={unfiledCount}
+          selectedFolderId={selected.kind === "folder" ? selected.folderId : null}
+          isUnfiledSelected={selected.kind === "unfiled"}
+          compact={compact}
+          onSelectFolder={(folderId) => onSelect({ kind: "folder", folderId })}
+          onSelectUnfiled={() => onSelect({ kind: "unfiled" })}
+          onActivate={onActivate}
+          onRename={(id, name) => updateFolder.mutateAsync({ id, name })}
+          onCreate={(parentId) => void handleCreateChild(parentId)}
+          onRequestMove={(id) => setMoveTargetId(id)}
+          onRequestDelete={(id) => setDeleteTargetId(id)}
+        />
+      </SortableContext>
 
       {/* ---- Folder management dialogs (portal-rendered) -------------- */}
       <WorklogMoveToFolderDialog

@@ -29,3 +29,25 @@ What Nova knows about this project. Accumulated across sessions.
 - **TS pattern**: `export type { X } from "mod"` (re-export) + `import type { X } from "mod"` (local use) in same file — both valid TypeScript, no compiler error.
 - **Final line counts**: rail = 396, tree-items = 161 (both under 300-line target; rail is above 300 due to retained logic — heatmap, stats strip, smart folders — acceptable since only the folder tree section was in scope).
 - **PowerShell workaround**: Dead-code trim on the rail used `(Get-Content $path)[0..N]` pattern when `replace_string_in_file` failed due to Unicode `…` chars in the old string.
+
+### T3.1 / T3.2 — DnD Mutations + Core Hook (2026-05-25)
+- `sortOrder?: number` added to `WorkLog` type as optional after `updatedAt` (`prisma generate` was blocked by OneDrive EPERM; DB column already exists).
+- `reorderNotes` and `reorderFolders` mutations added to `useWorklogMutations` (file: `use-worklog-mutations.ts`). Both use TanStack Query v5 optimistic `onMutate` + `onError` rollback + `onSettled` invalidate pattern matching `saveLog`.
+- `FolderListResponse` imported from `./use-worklog-folders` into `use-worklog-mutations.ts` to type the folder cache snapshot.
+- `use-worklog-dnd.ts` created at `src/components/worklog/hooks/`. Exports `useWorklogDnd()` → `WorklogDndState`. ID prefix convention: `"note:<id>"`, `"folder:<id>"`, `"zone:unfiled"`, `"zone:notable"`. Hook is self-contained (calls `useWorklogMutations()` internally). No `"use client"` directive needed.
+
+### T4.1–T4.5 — DnD UI Wiring (2026-05-25)
+- `DND_DROP_TARGET_CLASS` and `DND_ACTIVE_ROW_CLASS` constants appended to `constants.ts` — pure Tailwind strings, no imports needed.
+- `WorklogDndProvider` created as a `"use client"` wrapper around `<DndContext>` + `<DragOverlay>`. Calls `useWorklogData()` and `useWorklogFolders()` for ghost lookups — both are already mounted by the page so no extra network requests.
+- `SortableFolderWrapper` added to `worklog-folder-tree.tsx` (renders `<div>` with DnD attrs). The `renderNode` return wraps with it; key moves to wrapper. Added imports: `useSortable`, `CSS`, `DND_ACTIVE_ROW_CLASS`.
+- `worklog-folder-tree-items.tsx`: added `useMemo`, `SortableContext`/`verticalListSortingStrategy`, `flattenFolderTree`/`buildFolderTree`. Computes flat pre-order folder ID list for single `<SortableContext>` wrapping `WorklogFolderTree`.
+- `worklog-notes-list.tsx`: added `sortable?: boolean` prop + `SortableNoteWrapper` (renders `<div>` — keeps `<ul>→<li>` ARIA attrs intact inside, trades perfect HTML for simpler a11y preservation). `SortableContext` always rendered; empty `items=[]` when `sortable=false`.
+- `worklog-page.tsx`: wraps 3-pane grid with `<WorklogDndProvider>`. Passes `sortable={activeFolder.kind === "folder"}` to `WorklogNotesList`.
+- **God-file check**: folder-tree.tsx ≈503 lines, notes-list.tsx ≈487 lines, page.tsx ≈447 lines — all under 600. ✓
+
+### T5 — Bulk Mode Activation Gate (2026-05-25)
+- Bulk mode is gated by `bulkMode` state in `worklog-page.tsx`; toggled via `toggleBulkMode` (useCallback) in `WorklogToolbar` "Select" button.
+- `selection` prop on `WorklogNotesList` is `undefined` when bulk mode is off — no checkboxes rendered, no row-click toggle.
+- `sortable` prop is `false` when bulk mode is on — DnD and bulk mode are mutually exclusive.
+- The "Select" toggle button lives in `WorklogToolbar`; Escape also exits via a `keydown` effect on `window`.
+- Row click in bulk mode: always calls `selection.toggle(l.id)` AND `onSelect(l.id)` so the note opens simultaneously with checkbox toggle.

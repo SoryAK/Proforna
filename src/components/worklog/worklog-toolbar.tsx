@@ -13,7 +13,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Search, SlidersHorizontal, Star, X, Sparkles, Copy, Settings2 } from "lucide-react";
+import { CheckSquare, Copy, Plus, Search, Settings2, SlidersHorizontal, Sparkles, Star, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -50,6 +50,8 @@ export interface WorklogToolbarProps {
   onClearAll: () => void;
 
   hasLogs: boolean;
+  bulkMode: boolean;
+  onToggleBulkMode: () => void;
   onNew: () => void;
   onQuickCapture: (data: { title: string; category: string; hours: number | null }) => void;
   onCopyLast: () => void;
@@ -80,6 +82,8 @@ export function WorklogToolbar(props: WorklogToolbarProps) {
     isAnyFilterActive,
     onClearAll,
     hasLogs,
+    bulkMode,
+    onToggleBulkMode,
     onNew,
     onQuickCapture,
     onCopyLast,
@@ -156,6 +160,18 @@ export function WorklogToolbar(props: WorklogToolbarProps) {
           {activeChipCount > 0 && (
             <Badge variant="default" className="h-4 min-w-4 px-1 text-[10px]">{activeChipCount}</Badge>
           )}
+        </Button>
+
+        <Button
+          size="sm"
+          variant={bulkMode ? "secondary" : "ghost"}
+          onClick={onToggleBulkMode}
+          className="h-8 gap-1.5"
+          aria-label={bulkMode ? "Exit select mode" : "Select multiple notes"}
+          aria-pressed={bulkMode}
+        >
+          <CheckSquare className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">{bulkMode ? "Done" : "Select"}</span>
         </Button>
 
         <div className="ml-auto flex items-center gap-1.5">
