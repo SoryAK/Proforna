@@ -64,6 +64,8 @@ Last updated: 2026-05-25
 
 **Rule:** Never mix icon scales within the same visual context. All buttons in a toolbar row must use `icon.button`.
 
+**Icon policy:** Use Lucide icons for all UI chrome (buttons, indicators, status). Emoji are reserved for user-facing content nodes (mood markers, shift chips) — never in toolbar buttons, labels, or action indicators.
+
 ---
 
 ## Typography Scale

@@ -91,7 +91,27 @@ Follows global.md Toolbar Row Pattern, plus:
 
 ---
 
-## Note Reader Pattern
+## Canvas Block Pattern
+
+The `canvasBlock` Tiptap node renders inside the prose editor as a self-contained block.
+
+```
+<figure> rounded-lg border border-border overflow-hidden bg-background not-prose
+  Header bar:  flex items-center gap-1.5 px-2 py-1.5 border-b bg-muted/30
+    PenLine icon  →  icon.inline (h-3 w-3)
+    Title         →  text-xs font-medium text-muted-foreground (type.meta-strong)
+    Edit button   →  button.xs (h-6 px-2) + Pencil icon  →  icon.inline
+    Delete button →  button.xs (h-6 w-6) + Trash2 icon   →  hover:text-destructive
+  Preview area:  cursor-pointer (editable), height 280px
+    Empty state:  PenLine h-8 w-8 opacity-25 + "Click to start drawing" text-sm
+    With content: <CanvasThumbnail> (TldrawImage SVG)
+  Full-screen dialog: max-w-full w-screen h-[100dvh] rounded-none border-0
+```
+
+- No emoji in any canvas UI element — Lucide icons only (→ tokens.md Icon policy).
+- tldraw CSS (`@tldraw/tldraw/tldraw.css`) is lazy-loaded with the component chunk.
+- Canvas state travels through the existing `onSave` → `contentJson` path.
+- Read-only note view (`worklog-note-view.tsx`) shows a compact title-bar placeholder.
 
 - Editable title: `text-xl font-semibold` inline input → `tokens.type.title`
 - Editor toolbar buttons: `h-7 px-2 gap-1 text-xs` (micro size, not standard toolbar)

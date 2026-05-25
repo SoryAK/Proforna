@@ -271,6 +271,21 @@ function RenderBlock({ node }: { node: PmNode }) {
       );
     }
 
+    case "canvasBlock": {
+      const a = (node.attrs ?? {}) as Record<string, unknown>;
+      const title = typeof a.title === "string" && a.title ? a.title : "Canvas";
+      return (
+        <figure className="my-3 rounded-lg border border-border overflow-hidden">
+          <div className="flex items-center gap-1.5 px-2 py-1.5 border-b bg-muted/30">
+            <span className="text-xs font-medium text-muted-foreground">{title}</span>
+          </div>
+          <div className="flex items-center justify-center h-16 bg-muted/10">
+            <span className="text-xs text-muted-foreground">Canvas — open note to view</span>
+          </div>
+        </figure>
+      );
+    }
+
     default:
       // Unknown block: render inline children if any, else nothing.
       if (Array.isArray(node.content) && node.content.length > 0) {

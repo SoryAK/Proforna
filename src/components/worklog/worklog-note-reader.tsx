@@ -221,16 +221,11 @@ const ReaderInner = forwardRef<WorklogNoteReaderHandle, ReaderInnerProps>(functi
   const [assetsOpen, setAssetsOpen] = useState(false);
   const [photosOpen, setPhotosOpen] = useState(true);
 
-  // Read-mode by default. Auto-open in edit mode for brand-new empty notes
-  // so first-time capture doesn't require an extra click. (Phase 2c.)
-  const hasJsonContent =
-    !!log.contentJson &&
-    typeof log.contentJson === "object" &&
-    Array.isArray((log.contentJson as { content?: unknown[] }).content) &&
-    ((log.contentJson as { content: unknown[] }).content?.length ?? 0) > 0;
-  const hasTextContent = !!log.content && log.content.trim().length > 0;
-  const isEmptyNote = !hasJsonContent && !hasTextContent;
-  const [editMode, setEditMode] = useState(isEmptyNote);
+  // Auto-start in edit mode and expand details only for brand-new notes
+  // (created within the last 15 s). Old notes that happen to have no body
+  // text should open in read mode — the user is reviewing, not capturing.
+  const isNewNote = Date.now() - new Date(log.createdAt).getTime() < 15_000;
+  const [editMode, setEditMode] = useState(isNewNote);
 
   const qc = useQueryClient();
 
@@ -392,7 +387,7 @@ const ReaderInner = forwardRef<WorklogNoteReaderHandle, ReaderInnerProps>(functi
         onShiftsRefetch={() =>
           qc.invalidateQueries({ queryKey: ["work-history-shifts", log.positionId] })
         }
-        defaultExpanded={isEmptyNote}
+        defaultExpanded={isNewNote}
       />
 
       {/* Body + sections */}

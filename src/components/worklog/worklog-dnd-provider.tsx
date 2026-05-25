@@ -17,6 +17,24 @@ import { useWorklogDnd } from "@/components/worklog/hooks/use-worklog-dnd";
 import { useWorklogData } from "@/components/worklog/hooks/use-worklog-data";
 import { useWorklogFolders } from "@/components/worklog/hooks/use-worklog-folders";
 
+// ---------------------------------------------------------------------------
+// Pure ghost-resolution helper — exported for unit testing
+// ---------------------------------------------------------------------------
+
+export function resolveGhosts(
+  activeId: string | null,
+  activeType: "note" | "folder" | null,
+  logs: Array<{ id: string; title?: string | null }>,
+  folders: Array<{ id: string; name: string }>,
+) {
+  const rawId = activeId ? activeId.replace(/^(note:|folder:)/, "") : null;
+  const noteGhost =
+    activeType === "note" && rawId ? (logs.find((l) => l.id === rawId) ?? null) : null;
+  const folderGhost =
+    activeType === "folder" && rawId ? (folders.find((f) => f.id === rawId) ?? null) : null;
+  return { noteGhost, folderGhost };
+}
+
 interface WorklogDndProviderProps {
   children: React.ReactNode;
 }
@@ -30,12 +48,7 @@ export function WorklogDndProvider({ children }: WorklogDndProviderProps) {
   const { logs } = useWorklogData();
   const { folders } = useWorklogFolders();
 
-  // Strip prefix to get raw id
-  const rawId = activeId ? activeId.replace(/^(note:|folder:)/, "") : null;
-
-  const noteGhost = activeType === "note" && rawId ? logs.find((l) => l.id === rawId) : null;
-  const folderGhost =
-    activeType === "folder" && rawId ? folders.find((f) => f.id === rawId) : null;
+  const { noteGhost, folderGhost } = resolveGhosts(activeId, activeType, logs, folders);
 
   return (
     <DndContext

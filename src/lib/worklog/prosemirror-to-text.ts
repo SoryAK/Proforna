@@ -26,6 +26,7 @@ const BLOCK_TYPES = new Set([
   "orderedList",
   "taskList",
   "photo",
+  "canvasBlock",
 ]);
 
 export function proseMirrorDocToPlainText(doc: unknown): string {
@@ -82,6 +83,11 @@ function walk(node: PmNode, lines: string[], prefix: string) {
       const v = (node.attrs as { value?: string } | null)?.value ?? "neutral";
       const label = v === "good" ? "Good" : v === "tough" ? "Tough" : "OK";
       lines.push(prefix + `[Mood: ${label}]`);
+      return;
+    }
+    case "canvasBlock": {
+      const title = (node.attrs as { title?: string | null } | null)?.title;
+      lines.push(prefix + (title ? `[Canvas: ${title}]` : "[Canvas]"));
       return;
     }
     case "tag": {

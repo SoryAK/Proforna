@@ -30,6 +30,8 @@ import type { WorkLog } from "@/types/worklog";
 
 /** localStorage key for the Activity disclosure open state. */
 const ACTIVITY_OPEN_KEY = "worklog-rail-activity-open";
+/** localStorage key for the Categories disclosure open state. */
+const CATEGORIES_OPEN_KEY = "worklog-rail-categories-open";
 
 /**
  * Inline stats strip — was previously its own file but only the rail used it.
@@ -228,6 +230,26 @@ export function WorklogFoldersRail({
     }
   }, [activityOpen]);
 
+  // --- Categories disclosure: persist open/closed across reloads -----------
+  const categoriesRef = useRef<HTMLDetailsElement | null>(null);
+  const [categoriesOpen, setCategoriesOpen] = useState<boolean>(true);
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(CATEGORIES_OPEN_KEY);
+      // Default open (true) — only close if explicitly saved as "0"
+      if (raw === "0") setCategoriesOpen(false);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(CATEGORIES_OPEN_KEY, categoriesOpen ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
+  }, [categoriesOpen]);
+
   // --- Keyboard nav between rows (↑/↓/Home/End) ---------------------------
   // Hooked at the scroll container; finds all `[data-rail-row]` buttons.
   const navRef = useRef<HTMLDivElement | null>(null);
@@ -304,32 +326,69 @@ export function WorklogFoldersRail({
           />
         </div>
 
+        {/* User-defined Folders ----------------------------------------- */}
+        <WorklogFolderTreeItems
+          selected={selected}
+          onSelect={onSelect}
+          compact={compact}
+          onActivate={onActivate}
+        />
+
+        {/* Categories ---------------------------------------------------- */}
         {!compact && (
-          <div className="pt-3 pb-1 px-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Categories
-          </div>
+          <details
+            ref={categoriesRef}
+            open={categoriesOpen}
+            onToggle={(e) => setCategoriesOpen((e.currentTarget as HTMLDetailsElement).open)}
+            className="group"
+          >
+            <summary className="cursor-pointer list-none flex items-center gap-1 pt-3 pb-1 px-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded">
+              <ChevronRight className="h-3 w-3 transition-transform group-open:rotate-90" />
+              Categories
+            </summary>
+            <div role="group" aria-label="Categories" className="space-y-0.5">
+              {Object.entries(CATEGORIES).map(([key, cat]) => {
+                const Icon = cat.icon;
+                const count = categoryCounts.get(key) ?? 0;
+                return (
+                  <FolderRow
+                    key={key}
+                    icon={<Icon className="h-3.5 w-3.5" />}
+                    label={cat.label}
+                    count={count}
+                    active={isSelected(selected, { kind: "category", category: key })}
+                    onClick={() => onSelect({ kind: "category", category: key })}
+                    onActivate={onActivate}
+                    compact={compact}
+                    dim={count === 0}
+                  />
+                );
+              })}
+            </div>
+          </details>
         )}
         {compact && <div className="my-1 h-px w-6 bg-border" />}
-
-        <div role="group" aria-label="Categories" className={cn(!compact && "space-y-0.5")}>
-          {Object.entries(CATEGORIES).map(([key, cat]) => {
-            const Icon = cat.icon;
-            const count = categoryCounts.get(key) ?? 0;
-            return (
-              <FolderRow
-                key={key}
-                icon={<Icon className="h-3.5 w-3.5" />}
-                label={cat.label}
-                count={count}
-                active={isSelected(selected, { kind: "category", category: key })}
-                onClick={() => onSelect({ kind: "category", category: key })}
-                onActivate={onActivate}
-                compact={compact}
-                dim={count === 0}
-              />
-            );
-          })}
-        </div>
+        {compact && (
+          <div role="group" aria-label="Categories" className="space-y-0.5">
+            {Object.entries(CATEGORIES).map(([key, cat]) => {
+              const Icon = cat.icon;
+              const count = categoryCounts.get(key) ?? 0;
+              return (
+                <FolderRow
+                  key={key}
+                  icon={<Icon className="h-3.5 w-3.5" />}
+                  label={cat.label}
+                  count={count}
+                  active={isSelected(selected, { kind: "category", category: key })}
+                  onClick={() => onSelect({ kind: "category", category: key })}
+                  onActivate={onActivate}
+                  compact={compact}
+                  dim={count === 0}
+                />
+              );
+            })}
+          </div>
+        )}
 
         {!compact && (
           <div className="pt-3 pb-1 px-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -349,14 +408,6 @@ export function WorklogFoldersRail({
             compact={compact}
           />
         </div>
-
-        {/* User-defined Folders ----------------------------------------- */}
-        <WorklogFolderTreeItems
-          selected={selected}
-          onSelect={onSelect}
-          compact={compact}
-          onActivate={onActivate}
-        />
 
       </div>
 

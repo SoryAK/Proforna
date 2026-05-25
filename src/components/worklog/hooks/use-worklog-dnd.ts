@@ -44,13 +44,13 @@ export interface WorklogDndState {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function parseType(id: string): "note" | "folder" | null {
+export function parseType(id: string): "note" | "folder" | null {
   if (id.startsWith("note:")) return "note";
   if (id.startsWith("folder:")) return "folder";
   return null;
 }
 
-function stripPrefix(id: string): string {
+export function stripPrefix(id: string): string {
   return id.replace(/^(note:|folder:|zone:)/, "");
 }
 

@@ -44,10 +44,11 @@ import { MoodBlock } from "@/lib/worklog/tiptap/mood-block";
 import { TagMention } from "@/lib/worklog/tiptap/tag-mention";
 import { SlashCommands, SLASH_COMMANDS, type SlashCommandItem } from "@/lib/worklog/tiptap/slash-commands";
 import { PhotoNode, type PhotoNodeAttrs } from "@/lib/worklog/tiptap/photo-node";
+import { CanvasNode, type CanvasNodeAttrs } from "@/lib/worklog/tiptap/canvas-node";
 import { createSlashCommandRender } from "@/components/worklog/slash-command-menu";
 import { WorklogEditorToolbar } from "@/components/worklog/worklog-editor-toolbar";
 import { uploadBodyPhoto, reconcileBodyPhotos } from "@/lib/worklog/photo-upload";
-import { ImageIcon } from "lucide-react";
+import { ImageIcon, PenLine } from "lucide-react";
 import type { WorkShift } from "@/types/worklog";
 import { cn } from "@/lib/utils";
 
@@ -65,6 +66,7 @@ const SCHEMA_EXTENSIONS = [
   TaskList,
   TaskItem.configure({ nested: true }),
   PhotoNode,
+  CanvasNode,
 ];
 const seedSchema = getSchema(SCHEMA_EXTENSIONS);
 
@@ -336,6 +338,21 @@ const EditorBody = forwardRef<WorklogEditorHandle, EditorBodyProps>(function Edi
         pickAndInsertPhoto(range);
       },
     },
+    {
+      id: "canvas",
+      title: "Canvas",
+      description: "Draw a freehand diagram or whiteboard",
+      icon: PenLine,
+      searchTerms: ["canvas", "draw", "whiteboard", "diagram", "sketch", "freehand"],
+      run: ({ editor: ed, range }) => {
+        const attrs: CanvasNodeAttrs = {
+          canvasId: crypto.randomUUID(),
+          snapshot: "",
+          title: null,
+        };
+        ed.chain().deleteRange(range).insertCanvasBlock(attrs).run();
+      },
+    },
   ];
 
   async function runSave(payload: WorklogEditorChange) {
@@ -381,6 +398,7 @@ const EditorBody = forwardRef<WorklogEditorHandle, EditorBodyProps>(function Edi
         TaskList,
         TaskItem.configure({ nested: true }),
         PhotoNode,
+        CanvasNode,
         SlashCommands.configure({
           render: createSlashCommandRender(),
           items: slashCommandsWithPhoto,
