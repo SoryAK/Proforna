@@ -118,6 +118,19 @@ export type Position = {
 };
 
 /**
+ * Discriminated union representing which "view" the worklog rail has selected.
+ * Defined here (not in the rail component) so it can be imported by both the
+ * rail and the folder-tree-items sub-component without circular deps.
+ */
+export type FolderSelection =
+  | { kind: "all" }
+  | { kind: "notable" }
+  | { kind: "category"; category: string }
+  | { kind: "templates" }
+  | { kind: "folder"; folderId: string }
+  | { kind: "unfiled" };
+
+/**
  * User-defined folder for organizing WorkLog notes.
  * Folders form a tree via `parentId` (null = root). Names are 1..80 chars.
  * Folders coexist with `WorkLog.category` — they're orthogonal axes.
