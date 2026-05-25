@@ -117,3 +117,41 @@ The `canvasBlock` Tiptap node renders inside the prose editor as a self-containe
 - Editor toolbar buttons: `h-7 px-2 gap-1 text-xs` (micro size, not standard toolbar)
 - Autosave indicator: subtle, non-disruptive — never a full banner for autosave success
 - Empty state (no note selected): follow global.md Empty State Pattern with worklog-appropriate copy
+
+---
+
+## Promotion State Patterns (Phase D)
+
+Two distinct visual states for notable worklog entries:
+
+### "Ready to Promote" button
+```
+<Button variant="ghost" className="h-8 px-2 gap-1 {state.promote-action}">
+  <Trophy className="h-3.5 w-3.5" />    {/* icon.button */}
+  <span className="text-xs font-medium hidden sm:inline">Promote</span>
+</Button>
+```
+- Only rendered when: `log.isNotable && log.positionId && !log.promotedToCareerEventId`
+- Uses `state.promote-action` token — never raw amber values
+- Trophy icon at `icon.button` scale (`h-3.5 w-3.5`)
+- Text label hidden on mobile (`hidden sm:inline`)
+
+### "Already Promoted" inline indicator
+```
+<span className="inline-flex items-center gap-1 px-2 h-8 rounded text-xs font-medium {state.promoted}">
+  <Trophy className="h-3.5 w-3.5" /> Promoted
+</span>
+```
+- Replaces the Promote button once `log.promotedToCareerEventId` is set
+- Not a Badge component — it's an inline span to match the button's height in the action row
+- Uses `state.promoted` token
+
+### Promotable-entries banner card (position-worklog-tab)
+```
+<Card className="p-3 border {state.promote-surface}">
+  {/* Trophy icon + count header, then one row per unpromoted notable entry */}
+</Card>
+```
+- Only visible when `unpromoted.length > 0`
+- Uses `state.promote-surface` token for background and border
+- Per-entry Promote button uses `variant="outline"` with `state.promote-action` classes (outline variant in this context only)

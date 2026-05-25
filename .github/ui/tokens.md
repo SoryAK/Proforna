@@ -30,6 +30,9 @@ Last updated: 2026-05-25
 | `state.destructive-border` | `border border-destructive/30` | — | Warning containers, delete dialogs |
 | `state.success` | `bg-emerald-50 text-emerald-700 border-emerald-200` | `dark:bg-emerald-950/40 dark:text-emerald-300` | Success banners/toasts |
 | `state.warning` | `text-amber-600` | `dark:text-amber-400` | Notable star icon, warning labels |
+| `state.promote-action` | `text-amber-600 hover:text-amber-700 hover:bg-amber-50` | `dark:hover:bg-amber-950/30` | "Promote" CTA button — notable entries ready to promote |
+| `state.promote-surface` | `bg-amber-50/60 border-amber-300/40` | `dark:bg-amber-950/20 dark:border-amber-700/40` | Card/banner surface for promotable-entry callouts |
+| `state.promoted` | `text-emerald-700` | `dark:text-emerald-300` | Inline "Promoted" indicator — entry already promoted to career event |
 | `surface.toolbar` | `bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60` | — | Sticky toolbars and top bars |
 | `surface.hover` | `hover:bg-accent/40` | — | Row hover state |
 

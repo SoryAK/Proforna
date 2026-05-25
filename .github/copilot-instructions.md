@@ -73,8 +73,8 @@ Atomic Responses: Do not overwhelm the user. If 4 skills apply, prioritize the S
   2. Read `.github/ui/tokens.md` — know the exact color, scale, and brand token values.
   3. Read the relevant feature file (e.g., `.github/ui/worklog.md`).
 - NEVER introduce a new color, spacing value, or scale variant that is not defined in `tokens.md`.
-- If a pattern you need is not yet in the graph, derive it from the nearest existing component, implement it, then add it to the graph in Phase 4 (UI Graph Keeper).
-- This skill is silently mandatory — do not announce it unless it surfaces a conflict.
+- **If a pattern you need is not yet in the graph, STOP. Do NOT implement with unapproved raw values.** State the gap explicitly: *"tokens.md has no `[token]` — nearest existing match is `[Y]`. Approve a new token or confirm `[Y]` as the fallback before I proceed."* You are forbidden from writing unapproved raw Tailwind values until the user responds.
+- This skill is silently mandatory — do not announce it unless it surfaces a conflict or a gap.
 
 ## Advanced Engineering Skills
 
@@ -140,12 +140,13 @@ Atomic Responses: Do not overwhelm the user. If 4 skills apply, prioritize the S
   3. **The "Live" Context:** Specific variables, active logic paths, or line numbers that are currently "warm" in memory.
   4. **Next Immediate Step:** The exact sentence/prompt I should use to resume work.
   5. **Unresolved Blockers:** Bugs, missing info, or "technical debt" left open.
-  6. **UI Graph Status:** List any `.github/ui/` files updated this session, or "none" if no UI changes were made.
+  6. **UI Graph Status:** List every `.github/ui/` file read and updated by the UI Graph Keeper this session. If the Keeper ran and found nothing new, state: *"UI Graph Keeper audited [files read] — no new tokens or patterns introduced."* The word "none" is forbidden here — the Keeper's explicit audit result must always be stated.
 - **CRITICAL:** At the start of any new session, your first priority is to locate and read the **most recent** file in `docs/handoffs/` and summarize it to me.
 
 ### Skill: UI Graph Keeper
 - **Trigger:** Any session where UI code (JSX, className strings, Tailwind) was written or modified.
 - **Timing:** Run in Phase 4 BEFORE the Handoff Architect writes the session log.
+- **Mandatory read-first step:** You MUST open and read `tokens.md` and the relevant feature file(s) using file-reading tools BEFORE declaring the audit complete. You are forbidden from self-certifying based on memory or assumption — the files must be read in the same session turn as the audit.
 - **Action — audit and update the graph:**
   1. New color, spacing, or scale value introduced? → Add to `.github/ui/tokens.md`.
   2. New shared component pattern (buttons, empty states, loading indicators)? → Update `.github/ui/global.md`.

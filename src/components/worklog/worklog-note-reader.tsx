@@ -29,6 +29,7 @@ import {
   Cog,
   Pencil,
   Check,
+  Trophy,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,6 +46,7 @@ import { WorklogEditor, type WorklogEditorHandle } from "@/components/worklog/wo
 import { WorklogNoteView } from "@/components/worklog/worklog-note-view";
 import { WorklogNoteMetaStrip } from "@/components/worklog/worklog-note-meta-strip";
 import { extractTagsFromDoc, mergeEditorTags } from "@/lib/worklog/tiptap/extract-tags";
+import { PromoteToEventDialog } from "@/components/worklog/promote-to-event-dialog";
 import {
   computeWorkdayDateLocal,
   localDateAndMinuteFromIso,
@@ -64,6 +66,8 @@ export interface WorklogNoteReaderProps {
   onDelete: (id: string) => void;
   onNew?: () => void;
   hasLogs?: boolean;
+  /** Unique tag strings from all logs for autocomplete. */
+  tagSuggestions?: string[];
 }
 
 export interface WorklogNoteReaderHandle {
@@ -81,6 +85,7 @@ export const WorklogNoteReader = forwardRef<WorklogNoteReaderHandle, WorklogNote
   onDelete,
   onNew,
   hasLogs,
+  tagSuggestions,
 }, ref) {
   const innerRef = useRef<WorklogNoteReaderHandle | null>(null);
 
@@ -122,6 +127,7 @@ export const WorklogNoteReader = forwardRef<WorklogNoteReaderHandle, WorklogNote
     positionMap={positionMap}
     onUpdate={onUpdate}
     onDelete={onDelete}
+    tagSuggestions={tagSuggestions}
   />;
 });
 
@@ -133,6 +139,7 @@ interface ReaderInnerProps {
   positionMap: Map<string, Position>;
   onUpdate: (patch: Partial<WorkLog> & { id: string }) => void | Promise<unknown>;
   onDelete: (id: string) => void;
+  tagSuggestions?: string[];
 }
 
 const ReaderInner = forwardRef<WorklogNoteReaderHandle, ReaderInnerProps>(function ReaderInner({
@@ -143,6 +150,7 @@ const ReaderInner = forwardRef<WorklogNoteReaderHandle, ReaderInnerProps>(functi
   positionMap,
   onUpdate,
   onDelete,
+  tagSuggestions,
 }, ref) {
   const titleInputRef = useRef<HTMLInputElement | null>(null);
   const editorRef = useRef<WorklogEditorHandle | null>(null);
@@ -220,6 +228,7 @@ const ReaderInner = forwardRef<WorklogNoteReaderHandle, ReaderInnerProps>(functi
   const [equipOpen, setEquipOpen] = useState(false);
   const [assetsOpen, setAssetsOpen] = useState(false);
   const [photosOpen, setPhotosOpen] = useState(true);
+  const [promoteOpen, setPromoteOpen] = useState(false);
 
   // Auto-start in edit mode and expand details only for brand-new notes
   // (created within the last 15 s). Old notes that happen to have no body
@@ -289,6 +298,7 @@ const ReaderInner = forwardRef<WorklogNoteReaderHandle, ReaderInnerProps>(functi
   }
 
   return (
+    <>
     <div className="h-full flex flex-col">
       {/* Title row */}
       <div className="px-4 sm:px-6 pt-4 pb-3 border-b space-y-3">
@@ -353,6 +363,28 @@ const ReaderInner = forwardRef<WorklogNoteReaderHandle, ReaderInnerProps>(functi
             >
               <Star className={cn("h-4 w-4", log.isNotable && "fill-amber-400 text-amber-500")} />
             </Button>
+            {/* Promote button — only for notable entries that have a position and aren't promoted yet */}
+            {log.isNotable && log.positionId && !log.promotedToCareerEventId && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setPromoteOpen(true)}
+                className="h-8 px-2 gap-1 text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/30"
+                title="Promote to career event"
+              >
+                <Trophy className="h-3.5 w-3.5" />
+                <span className="text-xs font-medium hidden sm:inline">Promote</span>
+              </Button>
+            )}
+            {/* Promoted indicator */}
+            {log.promotedToCareerEventId && (
+              <span
+                className="inline-flex items-center gap-1 px-2 h-8 rounded text-xs font-medium text-emerald-700 dark:text-emerald-300"
+                title="Already promoted to a career event"
+              >
+                <Trophy className="h-3.5 w-3.5" /> Promoted
+              </span>
+            )}
             <Button
               size="sm"
               variant="ghost"
@@ -439,6 +471,7 @@ const ReaderInner = forwardRef<WorklogNoteReaderHandle, ReaderInnerProps>(functi
                 .filter(Boolean)}
               onChange={(next) => tagsField.onChange(next.join(", "))}
               placeholder="Add tags and press Enter"
+              suggestions={tagSuggestions}
               className="w-full"
             />
           </div>
@@ -516,5 +549,21 @@ const ReaderInner = forwardRef<WorklogNoteReaderHandle, ReaderInnerProps>(functi
         </div>
       </div>
     </div>
+
+    {/* Promotion dialog — mounts only when a promotable notable is open */}
+    {log.isNotable && log.positionId && !log.promotedToCareerEventId && (
+      <PromoteToEventDialog
+        open={promoteOpen}
+        onOpenChange={setPromoteOpen}
+        logId={log.id}
+        logTitle={log.title}
+        logDate={log.date instanceof Date ? log.date.toISOString() : String(log.date)}
+        positionId={log.positionId}
+        onPromoted={(eventId) =>
+          onUpdate({ id: log.id, promotedToCareerEventId: eventId })
+        }
+      />
+    )}
+    </>
   );
 });

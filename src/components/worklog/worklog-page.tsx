@@ -163,6 +163,19 @@ export function WorklogPage({ compact = false }: WorklogPageProps = {}) {
     [logs, selectedNoteId],
   );
 
+  // Unique sorted tag strings across all logs — fed into TagInput for autocomplete.
+  const tagSuggestions = useMemo(() => {
+    const seen = new Set<string>();
+    for (const log of logs) {
+      if (!log.tags) continue;
+      for (const t of log.tags.split(",")) {
+        const trimmed = t.trim().toLowerCase();
+        if (trimmed) seen.add(trimmed);
+      }
+    }
+    return Array.from(seen).sort();
+  }, [logs]);
+
   // Create-blank flow: blank / quick-capture / copy-last / apply-template all
   // route through the same create-and-select choreography.
   const { createBlankNote, startBlank, startQuickCapture, copyLast, applyTemplate } =
@@ -377,6 +390,7 @@ export function WorklogPage({ compact = false }: WorklogPageProps = {}) {
                 equipment={equipment}
                 assets={assets}
                 positionMap={positionMap}
+                tagSuggestions={tagSuggestions}
                 onUpdate={(patch) => saveLog.mutateAsync(patch)}
                 onDelete={(id) => {
                   deleteLog.mutate(id);

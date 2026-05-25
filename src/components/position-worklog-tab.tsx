@@ -35,6 +35,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { PromoteToEventDialog } from "@/components/worklog/promote-to-event-dialog";
 
 // ── Types (mirror /api/work-logs response) ────────────────────
 type Photo = { id: string; filePath: string; caption: string | null };
@@ -124,6 +125,8 @@ function MiniActivityStrip({ logs }: { logs: WorkLog[] }) {
 export function PositionWorklogTab({ positionId }: { positionId: string }) {
   const qc = useQueryClient();
   const [showAll, setShowAll] = useState(false);
+  /** The worklog id whose promote dialog is currently open, or null. */
+  const [promotingLog, setPromotingLog] = useState<WorkLog | null>(null);
 
   const { data: logs = [], isLoading } = useQuery<WorkLog[]>({
     queryKey: ["worklogs", "position", positionId],
@@ -216,19 +219,36 @@ export function PositionWorklogTab({ positionId }: { positionId: string }) {
         </Card>
       </div>
 
-      {/* Phase D promotion note */}
-      {notableCount > 0 && (
-        <Card className="p-3 border-amber-300/40 dark:border-amber-700/40 bg-amber-50/60 dark:bg-amber-950/20">
-          <div className="flex items-start gap-2 text-xs">
-            <Trophy className="h-3.5 w-3.5 text-amber-600 mt-0.5 shrink-0" />
-            <p className="text-muted-foreground">
-              You have <span className="font-semibold text-foreground">{notableCount}</span> notable
-              {" "}entr{notableCount === 1 ? "y" : "ies"} ready to be promoted into résumé-ready milestones.
-              {" "}<span className="italic">Promotion UI ships in Phase D.</span>
-            </p>
-          </div>
-        </Card>
-      )}
+      {/* Phase D promotion — list unpromoted notable entries as action items */}
+      {notableCount > 0 && (() => {
+        const unpromoted = logs.filter((l) => l.isNotable && !l.promotedToCareerEventId);
+        if (unpromoted.length === 0) return null;
+        return (
+          <Card className="p-3 border-amber-300/40 dark:border-amber-700/40 bg-amber-50/60 dark:bg-amber-950/20">
+            <div className="flex items-start gap-2 text-xs mb-2">
+              <Trophy className="h-3.5 w-3.5 text-amber-600 mt-0.5 shrink-0" />
+              <p className="text-muted-foreground font-medium text-foreground">
+                {unpromoted.length} notable entr{unpromoted.length === 1 ? "y" : "ies"} ready to promote
+              </p>
+            </div>
+            <div className="space-y-1 pl-5">
+              {unpromoted.map((l) => (
+                <div key={l.id} className="flex items-center justify-between gap-2">
+                  <span className="text-xs truncate text-foreground">{l.title}</span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-6 px-2 text-[11px] gap-1 shrink-0 border-amber-400/50 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/30"
+                    onClick={() => setPromotingLog(l)}
+                  >
+                    <Trophy className="h-3 w-3" /> Promote
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </Card>
+        );
+      })()}
 
       {/* Day-grouped list */}
       {isLoading ? (
@@ -318,6 +338,18 @@ export function PositionWorklogTab({ positionId }: { positionId: string }) {
                           )}
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
+                          {/* Promote button — only for notable + un-promoted entries */}
+                          {l.isNotable && !l.promotedToCareerEventId && (
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-6 w-6 text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/30"
+                              onClick={() => setPromotingLog(l)}
+                              title="Promote to career event"
+                            >
+                              <Trophy className="h-3 w-3" />
+                            </Button>
+                          )}
                           <Link href={`/worklog?focus=${l.id}`} title="Open in full worklog">
                             <Button size="icon" variant="ghost" className="h-6 w-6">
                               <Pencil className="h-3 w-3" />
@@ -351,6 +383,22 @@ export function PositionWorklogTab({ positionId }: { positionId: string }) {
             </div>
           )}
         </div>
+      )}
+
+      {/* Promotion dialog — shared across all rows */}
+      {promotingLog && (
+        <PromoteToEventDialog
+          open={!!promotingLog}
+          onOpenChange={(v) => { if (!v) setPromotingLog(null); }}
+          logId={promotingLog.id}
+          logTitle={promotingLog.title}
+          logDate={promotingLog.date}
+          positionId={positionId}
+          onPromoted={() => {
+            qc.invalidateQueries({ queryKey: ["worklogs", "position", positionId] });
+            setPromotingLog(null);
+          }}
+        />
       )}
     </div>
   );
