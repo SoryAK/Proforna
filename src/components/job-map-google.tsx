@@ -138,7 +138,7 @@ interface Props {
   showStateTax?: boolean;
   showCityTax?: boolean;
   showCountyPropTax?: boolean;
-  tileStyle?: "osm" | "google-roadmap" | "google-satellite" | "google-hybrid";
+  tileStyle?: "google-roadmap" | "google-satellite" | "google-hybrid";
   resolvedCoords?: [number, number] | null;
   highlightedIds?: string[];
   anchorRoutes?: AnchorRoute[];
@@ -214,7 +214,6 @@ const ANCHOR_EMOJI: Record<string, string> = {
 };
 
 const TILE_STYLE_MAP: Record<string, string> = {
-  osm: "roadmap",
   "google-roadmap": "roadmap",
   "google-satellite": "satellite",
   "google-hybrid": "hybrid",

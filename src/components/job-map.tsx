@@ -743,7 +743,12 @@ export function JobMap() {
   const [showStateTax, setShowStateTax] = useState(() => savedPrefs.showStateTax ?? true);
   const [showCityTax, setShowCityTax] = useState(() => savedPrefs.showCityTax ?? true);
   const [showCountyPropTax, setShowCountyPropTax] = useState(() => savedPrefs.showCountyPropTax ?? true);
-  const [tileStyle, setTileStyle] = useState<"osm" | "google-roadmap" | "google-satellite" | "google-hybrid">(() => (savedPrefs.tileStyle as "osm" | "google-roadmap" | "google-satellite" | "google-hybrid") || "osm");
+  const [tileStyle, setTileStyle] = useState<"google-roadmap" | "google-satellite" | "google-hybrid">(() => {
+    const saved = savedPrefs.tileStyle;
+    if (saved === "google-satellite") return "google-satellite";
+    if (saved === "google-hybrid") return "google-hybrid";
+    return "google-roadmap";
+  });
 
   /* ── Drawing mode ── */
   const [drawingActive, setDrawingActive] = useState(false);
@@ -4527,8 +4532,8 @@ export function JobMap() {
             )}
           </div>
 
-          {/* ── Map layer controls (bottom-right, above zoom) ── */}
-          <div className="absolute bottom-6 right-[60px] z-[1110] flex flex-row gap-2 pointer-events-auto">
+          {/* ── Map layer controls (bottom-right, same plane as zoom buttons) ── */}
+          <div className="absolute bottom-6 right-[60px] z-[1000] flex flex-row gap-2 pointer-events-auto">
             <div className="rounded-lg overflow-hidden shadow-md border border-gray-300 flex flex-row">
               <button
                 type="button"
@@ -4667,8 +4672,7 @@ export function JobMap() {
                 <PopoverContent className="w-40 p-2" align="end" side="left">
                   <div className="space-y-0.5">
                     {([
-                      { value: "osm", label: "OSM" },
-                      { value: "google-roadmap", label: "Google Road" },
+                      { value: "google-roadmap", label: "Roadmap" },
                       { value: "google-satellite", label: "Satellite" },
                       { value: "google-hybrid", label: "Hybrid" },
                     ] as const).map((opt) => (
@@ -6150,7 +6154,7 @@ export function JobMap() {
                       onClick={() => setShowWorkHistoryPanel((p) => !p)}
                     >
                       <Briefcase className="h-3.5 w-3.5 mr-1" />
-                      Work History Panel
+                      Work History
                     </Button>
                     <Button
                       type="button"
@@ -6201,30 +6205,22 @@ export function JobMap() {
                     <Button
                       type="button"
                       size="sm"
-                      variant="outline"
+                      variant={tileStyle !== "google-roadmap" ? "default" : "outline"}
                       className="h-7 text-xs"
                       onClick={() => {
-                        const next = tileStyle === "osm"
-                          ? "google-roadmap"
-                          : tileStyle === "google-roadmap"
-                            ? "google-satellite"
-                            : tileStyle === "google-satellite"
-                              ? "google-hybrid"
-                              : "osm";
+                        const next = tileStyle === "google-roadmap"
+                          ? "google-satellite"
+                          : tileStyle === "google-satellite"
+                            ? "google-hybrid"
+                            : "google-roadmap";
                         setTileStyle(next);
                       }}
                     >
                       <Layers className="h-3.5 w-3.5 mr-1" />
-                      Map Style
+                      {tileStyle === "google-satellite" ? "Satellite" : tileStyle === "google-hybrid" ? "Hybrid" : "Roadmap"}
                     </Button>
                       </div>
                     )}
-
-                    <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground">
-                      <span className="rounded-full border border-border/70 bg-muted/40 px-2 py-0.5">Work items: {workHistory.length}</span>
-                      <span className="rounded-full border border-border/70 bg-muted/40 px-2 py-0.5">Companies: {new Set(workHistory.map((w) => w.company)).size}</span>
-                      <span className="rounded-full border border-border/70 bg-muted/40 px-2 py-0.5">Locations: {workHistory.reduce((sum, w) => sum + (w.locations?.length ?? 1), 0)}</span>
-                    </div>
 
                     {viewPreset === "map" && (
                       <div className="space-y-1.5">
@@ -12703,36 +12699,47 @@ function WorkHistoryPanel({
             </div>
           )}
 
-          {showPanelSettings && (
-            <div className="absolute right-0 top-7 z-[1200] w-60 rounded-lg border bg-background/95 backdrop-blur-md shadow-xl p-2 space-y-1.5 max-h-[70vh] overflow-y-auto scrollbar-thin">
-              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide px-1">Panel Settings</p>
-              <button
-                type="button"
-                className="w-full flex items-center justify-between rounded-md px-2 py-1 text-xs hover:bg-muted/40"
-                onClick={onToggleCareerPath}
-              >
-                <span className="flex items-center gap-1.5"><Route className="h-3.5 w-3.5" /> Career Path Line</span>
-                <span className={`text-[11px] ${showCareerPath ? "text-blue-600" : "text-muted-foreground"}`}>{showCareerPath ? "On" : "Off"}</span>
-              </button>
-              <button
-                type="button"
-                className="w-full flex items-center justify-between rounded-md px-2 py-1 text-xs hover:bg-muted/40"
-                onClick={onToggleOverlaps}
-              >
-                <span className="flex items-center gap-1.5"><Zap className="h-3.5 w-3.5" /> Concurrent Badges</span>
-                <span className={`text-[11px] ${showOverlaps ? "text-cyan-600" : "text-muted-foreground"}`}>{showOverlaps ? "On" : "Off"}</span>
-              </button>
-              <button
-                type="button"
-                className="w-full flex items-center justify-between rounded-md px-2 py-1 text-xs hover:bg-muted/40"
-                onClick={() => setUseTimelineStyle((p) => !p)}
-              >
-                <span className="flex items-center gap-1.5"><GitCommitVertical className="h-3.5 w-3.5" /> Timeline Style</span>
-                <span className={`text-[11px] ${useTimelineStyle ? "text-primary" : "text-muted-foreground"}`}>{useTimelineStyle ? "On" : "Off"}</span>
-              </button>
-              <div className="pt-1.5 mt-1.5 border-t border-border/60">
-                <div className="flex items-center justify-between px-1 mb-1">
-                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+          <Dialog open={showPanelSettings} onOpenChange={setShowPanelSettings}>
+            <DialogContent className="sm:max-w-md gap-0 p-0 overflow-hidden">
+              <DialogHeader className="px-4 pt-4 pb-3 border-b">
+                <DialogTitle className="text-sm">Panel Settings</DialogTitle>
+              </DialogHeader>
+              <div className="px-4 py-4 space-y-4 overflow-y-auto max-h-[65vh] scrollbar-thin">
+              {/* Display toggles — 3-col icon tile grid */}
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Display</p>
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  className={`flex flex-col items-center gap-1 rounded-lg border px-1.5 py-2 text-[10px] transition-colors ${showCareerPath ? "border-blue-500/40 bg-blue-500/10 text-blue-600 dark:text-blue-400" : "border-border/60 bg-muted/30 text-muted-foreground hover:bg-muted/50"}`}
+                  onClick={onToggleCareerPath}
+                >
+                  <Route className="h-3.5 w-3.5" />
+                  <span className="leading-tight text-center">Career Path</span>
+                  <span className={`text-[9px] font-medium ${showCareerPath ? "text-blue-500" : "text-muted-foreground/60"}`}>{showCareerPath ? "On" : "Off"}</span>
+                </button>
+                <button
+                  type="button"
+                  className={`flex flex-col items-center gap-1 rounded-lg border px-1.5 py-2 text-[10px] transition-colors ${showOverlaps ? "border-cyan-500/40 bg-cyan-500/10 text-cyan-600 dark:text-cyan-400" : "border-border/60 bg-muted/30 text-muted-foreground hover:bg-muted/50"}`}
+                  onClick={onToggleOverlaps}
+                >
+                  <Zap className="h-3.5 w-3.5" />
+                  <span className="leading-tight text-center">Concurrent</span>
+                  <span className={`text-[9px] font-medium ${showOverlaps ? "text-cyan-500" : "text-muted-foreground/60"}`}>{showOverlaps ? "On" : "Off"}</span>
+                </button>
+                <button
+                  type="button"
+                  className={`flex flex-col items-center gap-1 rounded-lg border px-1.5 py-2 text-[10px] transition-colors ${useTimelineStyle ? "border-primary/40 bg-primary/10 text-primary" : "border-border/60 bg-muted/30 text-muted-foreground hover:bg-muted/50"}`}
+                  onClick={() => setUseTimelineStyle((p) => !p)}
+                >
+                  <GitCommitVertical className="h-3.5 w-3.5" />
+                  <span className="leading-tight text-center">Timeline</span>
+                  <span className={`text-[9px] font-medium ${useTimelineStyle ? "text-primary" : "text-muted-foreground/60"}`}>{useTimelineStyle ? "On" : "Off"}</span>
+                </button>
+              </div>
+              {/* Stat Slots — 2-col chip grid per group */}
+              <div className="pt-2 border-t border-border/60">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
                     Stat Slots ({kpiSlots.length}/{KPI_MAX_SLOTS})
                   </p>
                   <button
@@ -12743,39 +12750,45 @@ function WorkHistoryPanel({
                     Reset
                   </button>
                 </div>
-                <p className="text-[10px] text-muted-foreground px-1 mb-1.5 leading-snug">
-                  Pick which metrics show in the stats card. Click to add/remove.
-                </p>
                 {(["Career", "Compensation", "Lifestyle", "Composition", "Skills"] as const).map((group) => {
                   const inGroup = KPI_CATALOG.filter((m) => m.group === group);
                   return (
-                    <div key={group} className="mb-1.5">
-                      <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/70 px-1 mb-0.5">{group}</p>
-                      {inGroup.map((m) => {
-                        const selected = kpiSlots.includes(m.key);
-                        const order = selected ? kpiSlots.indexOf(m.key) + 1 : null;
-                        const atCap = !selected && kpiSlots.length >= KPI_MAX_SLOTS;
-                        return (
-                          <button
-                            key={m.key}
-                            type="button"
-                            disabled={atCap}
-                            className={`w-full flex items-center justify-between rounded-md px-2 py-1 text-xs hover:bg-muted/40 ${atCap ? "opacity-40 cursor-not-allowed" : ""}`}
-                            onClick={() => toggleKpiSlot(m.key)}
-                          >
-                            <span className="truncate">{m.label}</span>
-                            <span className={`text-[10px] ml-2 shrink-0 ${selected ? "text-primary font-medium" : "text-muted-foreground"}`}>
-                              {selected ? `✓ #${order}` : (atCap ? "max" : "+")}
-                            </span>
-                          </button>
-                        );
-                      })}
+                    <div key={group} className="mb-2">
+                      <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/70 mb-1">{group}</p>
+                      <div className="grid grid-cols-2 gap-1">
+                        {inGroup.map((m) => {
+                          const selected = kpiSlots.includes(m.key);
+                          const order = selected ? kpiSlots.indexOf(m.key) + 1 : null;
+                          const atCap = !selected && kpiSlots.length >= KPI_MAX_SLOTS;
+                          return (
+                            <button
+                              key={m.key}
+                              type="button"
+                              disabled={atCap}
+                              className={`flex items-center justify-between rounded px-1.5 py-1 text-[10px] border transition-colors ${
+                                selected
+                                  ? "bg-primary/10 text-primary border-primary/30"
+                                  : atCap
+                                    ? "opacity-40 cursor-not-allowed bg-muted/30 border-border/40 text-muted-foreground"
+                                    : "bg-muted/30 border-border/40 text-muted-foreground hover:bg-muted/60"
+                              }`}
+                              onClick={() => toggleKpiSlot(m.key)}
+                            >
+                              <span className="truncate mr-1">{m.label}</span>
+                              <span className={`shrink-0 font-medium ${selected ? "text-primary" : "text-muted-foreground/50"}`}>
+                                {selected ? `#${order}` : atCap ? "·" : "+"}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
                   );
                 })}
               </div>
-            </div>
-          )}
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
