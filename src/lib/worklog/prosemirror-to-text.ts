@@ -171,6 +171,9 @@ function collectInlineText(node: PmNode): string {
     } else if (child.type === "tag") {
       const label = (child.attrs as { label?: string } | null)?.label ?? "";
       if (label) parts.push(`#${label}`);
+    } else if (child.type === "mention") {
+      const label = (child.attrs as { label?: string } | null)?.label ?? "";
+      if (label) parts.push(`@${label}`);
     } else {
       parts.push(collectInlineText(child));
     }
@@ -189,6 +192,32 @@ function formatMinute(m: number): string {
   const period = h >= 12 ? "PM" : "AM";
   const hour12 = ((h + 11) % 12) + 1;
   return `${hour12}:${mm} ${period}`;
+}
+
+/**
+ * Return the unique set of `entityId` values for every `mention` node whose
+ * `entityType` is `"asset"` in the given ProseMirror doc. Used server-side to
+ * auto-populate `WorkLog.assetIds` when the editor saves `contentJson`.
+ */
+export function extractMentionAssetIds(doc: unknown): string[] {
+  if (!doc || typeof doc !== "object") return [];
+  const root = doc as PmNode;
+  if (root.type !== "doc" || !Array.isArray(root.content)) return [];
+  const ids = new Set<string>();
+  collectAssetMentions(root, ids);
+  return Array.from(ids);
+}
+
+function collectAssetMentions(node: PmNode, ids: Set<string>): void {
+  if (node.type === "mention") {
+    const a = node.attrs as { entityType?: string; entityId?: string } | null;
+    if (a?.entityType === "asset" && typeof a.entityId === "string" && a.entityId) {
+      ids.add(a.entityId);
+    }
+  }
+  if (Array.isArray(node.content)) {
+    for (const child of node.content) collectAssetMentions(child, ids);
+  }
 }
 
 /** Build a minimal ProseMirror doc from a plain-text legacy `content` string. */

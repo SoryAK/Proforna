@@ -335,6 +335,37 @@ function RenderInlineNode({ node }: { node: PmNode }) {
         </span>
       );
     }
+    case "mention": {
+      const a = (node.attrs ?? {}) as Record<string, unknown>;
+      const label = typeof a.label === "string" ? a.label : "";
+      const entityType = (a.entityType as string) ?? "asset";
+      const badgeMap: Record<string, string> = {
+        asset: "A",
+        skill: "S",
+        company: "C",
+        contact: "P",
+      };
+      const colorMap: Record<string, string> = {
+        asset: "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300",
+        skill: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300",
+        company: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300",
+        contact: "bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300",
+      };
+      if (!label) return null;
+      return (
+        <span
+          className={cn(
+            "inline-flex items-center gap-1 rounded px-1.5 py-0.5 mx-0.5 text-xs font-medium align-middle",
+            colorMap[entityType] ?? colorMap.asset,
+          )}
+        >
+          <span className="font-bold opacity-70 text-[10px]">
+            {badgeMap[entityType] ?? "?"}
+          </span>
+          {label}
+        </span>
+      );
+    }
     case "shiftBlock":
     case "moodBlock":
       // These can appear inline in some legacy docs; defer to the block renderer.

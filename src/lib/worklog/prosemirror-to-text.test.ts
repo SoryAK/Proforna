@@ -6,6 +6,7 @@
 import {
   proseMirrorDocToPlainText,
   plainTextToProseMirrorDoc,
+  extractMentionAssetIds,
 } from "@/lib/worklog/prosemirror-to-text";
 
 // ─────────────────────────────────────────────────────────
@@ -373,5 +374,171 @@ describe("plainTextToProseMirrorDoc", () => {
     expect(para.content?.[0]).toEqual({ type: "text", text: "Line A" });
     expect(para.content?.[1]).toEqual({ type: "hardBreak" });
     expect(para.content?.[2]).toEqual({ type: "text", text: "Line B" });
+  });
+});
+
+// ─────────────────────────────────────────────────────────
+// mention inline node — plain-text projection
+// ─────────────────────────────────────────────────────────
+
+describe("proseMirrorDocToPlainText — mention", () => {
+  it("projects a mention node inline as @label", () => {
+    const doc = {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [
+            { type: "text", text: "Replaced belt on " },
+            { type: "mention", attrs: { entityType: "asset", entityId: "a1", label: "Conveyor C-204" } },
+          ],
+        },
+      ],
+    };
+    expect(proseMirrorDocToPlainText(doc)).toBe("Replaced belt on @Conveyor C-204");
+  });
+
+  it("projects multiple mentions in the same paragraph", () => {
+    const doc = {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [
+            { type: "mention", attrs: { entityType: "company", entityId: "c1", label: "Acme Corp" } },
+            { type: "text", text: " via " },
+            { type: "mention", attrs: { entityType: "contact", entityId: "co1", label: "Jane Doe" } },
+          ],
+        },
+      ],
+    };
+    expect(proseMirrorDocToPlainText(doc)).toBe("@Acme Corp via @Jane Doe");
+  });
+
+  it("omits a mention with an empty label from the output", () => {
+    const doc = {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [
+            { type: "text", text: "before " },
+            { type: "mention", attrs: { entityType: "skill", entityId: "s1", label: "" } },
+            { type: "text", text: "after" },
+          ],
+        },
+      ],
+    };
+    expect(proseMirrorDocToPlainText(doc)).toBe("before after");
+  });
+});
+
+// ─────────────────────────────────────────────────────────
+// extractMentionAssetIds
+// ─────────────────────────────────────────────────────────
+
+describe("extractMentionAssetIds", () => {
+  it("returns empty array for null input", () => {
+    expect(extractMentionAssetIds(null)).toEqual([]);
+  });
+
+  it("returns empty array for non-doc object", () => {
+    expect(extractMentionAssetIds({ type: "paragraph" })).toEqual([]);
+  });
+
+  it("returns empty array when doc has no mention nodes", () => {
+    const doc = {
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text: "No mentions here" }] }],
+    };
+    expect(extractMentionAssetIds(doc)).toEqual([]);
+  });
+
+  it("extracts asset entityId from a paragraph mention", () => {
+    const doc = {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [
+            { type: "mention", attrs: { entityType: "asset", entityId: "a1", label: "Pump A" } },
+          ],
+        },
+      ],
+    };
+    expect(extractMentionAssetIds(doc)).toEqual(["a1"]);
+  });
+
+  it("ignores mention nodes with entityType !== 'asset'", () => {
+    const doc = {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [
+            { type: "mention", attrs: { entityType: "skill", entityId: "s1", label: "React" } },
+            { type: "mention", attrs: { entityType: "contact", entityId: "co1", label: "John" } },
+            { type: "mention", attrs: { entityType: "asset", entityId: "a1", label: "Pump A" } },
+          ],
+        },
+      ],
+    };
+    expect(extractMentionAssetIds(doc)).toEqual(["a1"]);
+  });
+
+  it("deduplicates the same asset mentioned multiple times", () => {
+    const doc = {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [
+            { type: "mention", attrs: { entityType: "asset", entityId: "a1", label: "Pump A" } },
+            { type: "text", text: " and again " },
+            { type: "mention", attrs: { entityType: "asset", entityId: "a1", label: "Pump A" } },
+          ],
+        },
+      ],
+    };
+    expect(extractMentionAssetIds(doc)).toEqual(["a1"]);
+  });
+
+  it("collects asset mentions across multiple paragraphs", () => {
+    const doc = {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [
+            { type: "mention", attrs: { entityType: "asset", entityId: "a1", label: "Pump A" } },
+          ],
+        },
+        {
+          type: "paragraph",
+          content: [
+            { type: "mention", attrs: { entityType: "asset", entityId: "a2", label: "Valve B" } },
+          ],
+        },
+      ],
+    };
+    const result = extractMentionAssetIds(doc);
+    expect(result).toHaveLength(2);
+    expect(result).toContain("a1");
+    expect(result).toContain("a2");
+  });
+
+  it("ignores a mention node missing entityId", () => {
+    const doc = {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [
+            { type: "mention", attrs: { entityType: "asset", label: "Pump A" } },
+          ],
+        },
+      ],
+    };
+    expect(extractMentionAssetIds(doc)).toEqual([]);
   });
 });

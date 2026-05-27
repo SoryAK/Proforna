@@ -108,3 +108,16 @@ Last updated: 2026-05-25
 | `border.divider` | `border-b` | Horizontal section dividers |
 | `border.pane` | `border-r` | Vertical pane separators (3-pane layout) |
 | `border.accent` | `border-l-2 border-l-orange-500` | Active/selected row left indicator |
+
+---
+
+## Mention Chip Entity-Type Colors
+
+Used by `ENTITY_TYPE_CONFIG` in `mention-node.ts`, `mention-node-view.tsx`, and the static `colorMap` in `worklog-note-view.tsx`. Each entity type has one canonical color string; never define a second copy inline.
+
+| Token | Classes | Entity type |
+|---|---|---|
+| `mention.asset` | `bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300` | Asset (`@a:`) |
+| `mention.skill` | `bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300` | Skill (`@s:`) |
+| `mention.company` | `bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300` | Company (`@c:`) |
+| `mention.contact` | `bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300` | Person/Contact (`@p:`) |

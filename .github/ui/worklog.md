@@ -120,6 +120,29 @@ The `canvasBlock` Tiptap node renders inside the prose editor as a self-containe
 
 ---
 
+## Inline Mention Chip Pattern
+
+Used in the Tiptap editor (edit mode `mention-node-view.tsx`) and the static reader (`worklog-note-view.tsx`).
+
+```
+<span class="inline-flex items-center gap-1 rounded px-1.5 py-0.5 mx-0.5
+             text-xs font-medium align-middle cursor-default select-none
+             {mention.<entityType>}  ← from tokens.md
+             {selected → ring-2 ring-ring ring-offset-1}
+             {broken   → opacity-50 line-through decoration-red-400}">
+  <span class="font-bold opacity-70 text-[10px]">{badge letter}</span>
+  {label}
+</span>
+```
+
+- Color comes **exclusively** from `tokens.mention.*` — never inline raw Tailwind.
+- Badge letters: `A` (asset), `S` (skill), `C` (company), `P` (person/contact).
+- `broken` state (entity deleted): `opacity-50` + `line-through` — checked via `GET /api/work-logs/mention-search?type=X&id=Y`.
+- Suggestion popup: `fixed z-[9999]` floating overlay, `min-w-[220px] max-w-xs rounded-lg border bg-popover shadow-lg`. Triggered by `@` in the editor.
+- Auto-populate rule: on every `contentJson` save the server unions `@a:` mention IDs into `WorkLog.assetIds` (additive only — never removes manually-tagged assets).
+
+---
+
 ## Promotion State Patterns (Phase D)
 
 Two distinct visual states for notable worklog entries:

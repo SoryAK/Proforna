@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getUserId } from "@/lib/auth-utils";
 import { computeWorkdayDateLocal, localDateAndMinuteFromIso } from "@/lib/worklog-shifts";
 import { validateContentJson } from "@/lib/worklog/content-json";
+import { extractMentionAssetIds } from "@/lib/worklog/prosemirror-to-text";
 
 function hasOwn(body: Record<string, unknown>, key: string) {
   return Object.prototype.hasOwnProperty.call(body, key);
@@ -39,7 +40,7 @@ export async function PUT(
 
     const existing = await prisma.workLog.findFirst({
       where: { id, userId },
-      select: { id: true, positionId: true, date: true, shiftId: true },
+      select: { id: true, positionId: true, date: true, shiftId: true, assetIds: true },
     });
     if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
@@ -51,6 +52,25 @@ export async function PUT(
       }
       validatedContentJson = result.value;
     }
+
+    // When contentJson is being saved, union any @a: mention asset IDs into
+    // assetIds so the structured tag always reflects inline references.
+    // Mentions only ever ADD — manual accordion entries are never removed.
+    const mentionAssetIds: string[] =
+      hasOwn(body, "contentJson") && validatedContentJson
+        ? extractMentionAssetIds(validatedContentJson)
+        : [];
+
+    // Base: explicit body.assetIds if the client sent them; otherwise keep existing.
+    const baseAssetIds: string[] =
+      hasOwn(body, "assetIds") && Array.isArray(body.assetIds)
+        ? (body.assetIds as unknown[]).filter((v): v is string => typeof v === "string")
+        : existing.assetIds;
+
+    const mergedAssetIds: string[] | null =
+      hasOwn(body, "assetIds") || mentionAssetIds.length > 0
+        ? Array.from(new Set([...baseAssetIds, ...mentionAssetIds]))
+        : null; // null → leave assetIds column untouched
 
     const nextPositionId = hasOwn(body, "positionId")
       ? (body.positionId ? String(body.positionId) : null)
@@ -126,9 +146,7 @@ export async function PUT(
       ...(hasOwn(body, "equipmentIds")
         ? { equipmentIds: Array.isArray(body.equipmentIds) ? body.equipmentIds : undefined }
         : {}),
-      ...(hasOwn(body, "assetIds")
-        ? { assetIds: Array.isArray(body.assetIds) ? body.assetIds : undefined }
-        : {}),
+      ...(mergedAssetIds !== null ? { assetIds: mergedAssetIds } : {}),
       ...(hasOwn(body, "folderId")
         ? { folderId: body.folderId ? String(body.folderId) : null }
         : {}),

@@ -45,6 +45,7 @@ import { TagMention } from "@/lib/worklog/tiptap/tag-mention";
 import { SlashCommands, SLASH_COMMANDS, type SlashCommandItem } from "@/lib/worklog/tiptap/slash-commands";
 import { PhotoNode, type PhotoNodeAttrs } from "@/lib/worklog/tiptap/photo-node";
 import { CanvasNode, type CanvasNodeAttrs } from "@/lib/worklog/tiptap/canvas-node";
+import { MentionNode } from "@/lib/worklog/tiptap/mention-node";
 import { createSlashCommandRender } from "@/components/worklog/slash-command-menu";
 import { WorklogEditorToolbar } from "@/components/worklog/worklog-editor-toolbar";
 import { uploadBodyPhoto, reconcileBodyPhotos } from "@/lib/worklog/photo-upload";
@@ -67,6 +68,7 @@ const SCHEMA_EXTENSIONS = [
   TaskItem.configure({ nested: true }),
   PhotoNode,
   CanvasNode,
+  MentionNode,
 ];
 const seedSchema = getSchema(SCHEMA_EXTENSIONS);
 
@@ -399,6 +401,7 @@ const EditorBody = forwardRef<WorklogEditorHandle, EditorBodyProps>(function Edi
         TaskItem.configure({ nested: true }),
         PhotoNode,
         CanvasNode,
+        MentionNode,
         SlashCommands.configure({
           render: createSlashCommandRender(),
           items: slashCommandsWithPhoto,
