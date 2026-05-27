@@ -91,13 +91,13 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
                   href={item.href}
                   onClick={onNavigate}
                   className={cn(
-                    "flex flex-1 items-center gap-3 rounded-lg rounded-r-none px-3 py-2 text-sm font-medium transition-colors",
+                    "flex flex-1 items-center gap-3 rounded-lg rounded-r-none px-3 py-2.5 text-base font-medium transition-colors",
                     isActive
                       ? "bg-orange-100 text-orange-700 border-l-[3px] border-orange-500 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-400"
                       : "text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200"
                   )}
                 >
-                  {Icon && <Icon className="h-4 w-4" />}
+                  {Icon && <Icon className="h-5 w-5" />}
                   {item.label}
                 </Link>
                 {activeJobs.length > 0 && (
@@ -105,13 +105,13 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
                     type="button"
                     onClick={() => setJobsOpen(!jobsOpen)}
                     className={cn(
-                      "rounded-lg rounded-l-none px-2 py-2 transition-colors",
+                      "rounded-lg rounded-l-none px-2 py-2.5 transition-colors",
                       isActive
                         ? "bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300"
                         : "text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300"
                     )}
                   >
-                    <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", jobsOpen ? "rotate-0" : "-rotate-90")} />
+                    <ChevronDown className={cn("h-4 w-4 transition-transform", jobsOpen ? "rotate-0" : "-rotate-90")} />
                   </button>
                 )}
               </div>
@@ -122,7 +122,7 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
                       key={job.id}
                       href={`/experience/${job.id}`}
                       onClick={onNavigate}
-                      className="block rounded-md px-2 py-1.5 text-xs text-muted-foreground hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-gray-800 dark:hover:text-gray-200 transition-colors truncate"
+                      className="block rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-gray-800 dark:hover:text-gray-200 transition-colors truncate"
                       title={`${job.title || job.company} at ${job.company}`}
                     >
                       <span className="font-medium text-foreground">{job.title || job.company}</span>
@@ -141,13 +141,13 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
             href={item.href}
             onClick={onNavigate}
             className={cn(
-              "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+              "flex items-center gap-3 rounded-lg px-3 py-2.5 text-base font-medium transition-colors",
               isActive
                 ? "bg-orange-100 text-orange-700 border-l-[3px] border-orange-500 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-400"
                 : "text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200"
             )}
           >
-            {Icon && <Icon className="h-4 w-4" />}
+            {Icon && <Icon className="h-5 w-5" />}
             {item.label}
           </Link>
         );
@@ -168,13 +168,13 @@ function ThemeToggle() {
   };
 
   if (!mounted) {
-    return <Button variant="ghost" size="icon"><Sun className="h-4 w-4" /></Button>;
+    return <Button variant="ghost" size="icon"><Sun className="h-5 w-5" /></Button>;
   }
 
   const Icon = theme === "dark" ? Moon : theme === "light" ? Sun : Monitor;
   return (
     <Button variant="ghost" size="icon" onClick={cycle} title={`Theme: ${theme}`}>
-      <Icon className="h-4 w-4" />
+      <Icon className="h-5 w-5" />
     </Button>
   );
 }
@@ -182,7 +182,7 @@ function ThemeToggle() {
 /** Desktop sidebar — hidden below md */
 export function Sidebar() {
   return (
-    <aside className="hidden md:flex h-full w-56 flex-col border-r bg-white dark:bg-gray-950">
+    <aside className="hidden md:flex h-full w-72 flex-col border-r bg-white dark:bg-gray-950">
       <div className="flex h-16 items-center justify-between border-b px-4">
         <Link href="/dashboard" className="flex items-center gap-2.5 font-semibold text-lg">
           <Image src="/logo-icon.png" alt="Resumsify" width={32} height={32} className="h-8 w-8" />
@@ -211,7 +211,7 @@ export function Sidebar() {
             onClick={() => signOut({ callbackUrl: "/login" })}
             title="Sign out"
           >
-            <LogOut className="h-4 w-4" />
+            <LogOut className="h-5 w-5" />
           </Button>
         </div>
         <p className="text-xs text-gray-500 dark:text-gray-500">
@@ -235,7 +235,7 @@ export function MobileHeader() {
           <Menu className="h-5 w-5" />
           <span className="sr-only">Open menu</span>
         </SheetTrigger>
-        <SheetContent side="left" className="w-56 p-0">
+        <SheetContent side="left" className="w-72 p-0">
           <div className="flex h-16 items-center border-b px-4">
             <SheetTitle className="flex items-center gap-2.5 font-semibold text-lg">
               <Image src="/logo-icon.png" alt="Resumsify" width={32} height={32} className="h-8 w-8" />
