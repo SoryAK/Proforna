@@ -2,15 +2,6 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getUserId } from "@/lib/auth-utils";
 
-const VALID_TYPES = new Set([
-  "machine",
-  "vehicle",
-  "system",
-  "structure",
-  "unit",
-  "tool",
-  "other",
-]);
 const VALID_STATUS = new Set(["active", "retired", "out-of-service"]);
 
 function normalizeTags(input: unknown): string[] | undefined {
@@ -43,12 +34,13 @@ export async function GET(request: Request) {
 
   const items = await prisma.jobAsset.findMany({
     where: { userId, ...(positionId ? { positionId } : {}) },
-    orderBy: [{ status: "asc" }, { name: "asc" }],
+    orderBy: [{ name: "asc" }],
     include: {
       photos: {
         orderBy: [{ isCover: "desc" }, { sortOrder: "asc" }, { createdAt: "asc" }],
         select: { id: true, filePath: true, caption: true, isCover: true, sortOrder: true },
       },
+      type: { select: { id: true, name: true, category: true, tags: true } },
     },
   });
   return NextResponse.json(items);
@@ -63,7 +55,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const {
       name,
-      assetType,
+      assetTypeId,
       identifier,
       manufacturer,
       model,
@@ -94,7 +86,7 @@ export async function POST(request: Request) {
       data: {
         userId,
         name: name.trim().slice(0, 200),
-        assetType: VALID_TYPES.has(assetType) ? assetType : "machine",
+        assetTypeId: assetTypeId || null,
         identifier: identifier || null,
         manufacturer: manufacturer || null,
         model: model || null,
@@ -140,7 +132,7 @@ export async function PATCH(request: Request) {
 
     const data: Record<string, unknown> = {};
     if (fields.name != null) data.name = String(fields.name).trim().slice(0, 200);
-    if (fields.assetType != null && VALID_TYPES.has(fields.assetType)) data.assetType = fields.assetType;
+    if (fields.assetTypeId !== undefined) data.assetTypeId = fields.assetTypeId || null;
     if (fields.status != null && VALID_STATUS.has(fields.status)) data.status = fields.status;
     if (fields.identifier !== undefined) data.identifier = fields.identifier || null;
     if (fields.manufacturer !== undefined) data.manufacturer = fields.manufacturer || null;

@@ -542,7 +542,24 @@ const ReaderInner = forwardRef<WorklogNoteReaderHandle, ReaderInnerProps>(functi
                 positions={positions}
                 selectedIds={log.assetIds ?? []}
                 defaultPositionId={log.positionId ?? null}
-                onChange={(ids) => onUpdate({ id: log.id, assetIds: ids })}
+                onChange={(ids) => {
+                  // Auto-apply tags from newly added asset types (one-shot, deduplicated)
+                  const prev = new Set(log.assetIds ?? []);
+                  const newIds = ids.filter((id) => !prev.has(id));
+                  if (newIds.length > 0) {
+                    const assetMap = new Map(assets.map((a) => [a.id, a]));
+                    const incoming = newIds.flatMap((id) => assetMap.get(id)?.type?.tags ?? []);
+                    if (incoming.length > 0) {
+                      const existing = tagsField.value.split(",").map((t) => t.trim()).filter(Boolean);
+                      const existingLower = new Set(existing.map((t) => t.toLowerCase()));
+                      const toAdd = incoming.filter((t) => !existingLower.has(t.toLowerCase()));
+                      if (toAdd.length > 0) {
+                        tagsField.onChange([...existing, ...toAdd].join(", "));
+                      }
+                    }
+                  }
+                  onUpdate({ id: log.id, assetIds: ids });
+                }}
               />
             </div>
           </details>

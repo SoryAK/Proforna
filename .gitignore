@@ -56,3 +56,7 @@ next-env.d.ts
 .squad/.scratch/
 # Squad: SubSquad activation file (local to this machine)
 .squad-workstream
+
+# Understand-Anything (keep knowledge-graph.json, skip local scratch files)
+.understand-anything/intermediate/
+.understand-anything/diff-overlay.json

@@ -39,7 +39,8 @@ type JobAssetPhoto = {
 type JobAsset = {
   id: string;
   name: string;
-  assetType: string;
+  assetTypeId: string | null;
+  type?: { id: string; name: string; category: string } | null;
   identifier: string | null;
   manufacturer: string | null;
   model: string | null;
@@ -55,17 +56,13 @@ type JobAsset = {
   photos?: JobAssetPhoto[];
 };
 
+import { ASSET_CATEGORIES, type AssetTypeRecord } from "@/components/asset-types-manager";
+import { AssetTypePicker } from "@/components/asset-type-picker";
+
 type Position = { id: string; company: string; type: string };
 
-const ASSET_TYPES = [
-  { value: "machine", label: "Machine" },
-  { value: "vehicle", label: "Vehicle" },
-  { value: "system", label: "System" },
-  { value: "structure", label: "Structure" },
-  { value: "unit", label: "Unit" },
-  { value: "tool", label: "Tool" },
-  { value: "other", label: "Other" },
-];
+// Alias for backward compat with filter/group label lookups
+const ASSET_TYPES = ASSET_CATEGORIES;
 
 const ASSET_STATUS = [
   { value: "active", label: "Active" },
@@ -103,7 +100,7 @@ export function JobAssetsPage() {
     const q = query.trim().toLowerCase();
     return assets.filter((a) => {
       if (statusFilter !== "all" && a.status !== statusFilter) return false;
-      if (typeFilter !== "all" && a.assetType !== typeFilter) return false;
+      if (typeFilter !== "all" && a.type?.category !== typeFilter) return false;
       if (positionFilter !== "all") {
         if (positionFilter === "none" && a.positionId) return false;
         if (positionFilter !== "none" && a.positionId !== positionFilter) return false;
@@ -124,7 +121,7 @@ export function JobAssetsPage() {
   const grouped = useMemo(() => {
     const groups: Record<string, JobAsset[]> = {};
     filtered.forEach((a) => {
-      const key = a.assetType || "other";
+      const key = a.type?.category || "other";
       (groups[key] ||= []).push(a);
     });
     return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b));
@@ -384,14 +381,13 @@ function AssetDetailModal({
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label className="text-xs">Type</Label>
-                <select
-                  value={draft.assetType ?? "machine"}
-                  onChange={(e) => update("assetType", e.target.value)}
-                  className="h-9 w-full rounded-md border bg-background px-2 text-sm"
-                >
-                  {ASSET_TYPES.map((c) => (<option key={c.value} value={c.value}>{c.label}</option>))}
-                </select>
+                <Label className="text-xs">Category</Label>
+                <div className="h-9 flex items-center text-sm text-muted-foreground">
+                  {draft.type?.category
+                    ? ASSET_CATEGORIES.find((c) => c.value === draft.type!.category)?.label ?? draft.type.category
+                    : "(no type set)"}
+                  {draft.type?.name && <span className="ml-1 text-foreground">— {draft.type.name}</span>}
+                </div>
               </div>
               <div>
                 <Label className="text-xs">Status</Label>
@@ -518,7 +514,7 @@ function CreateAssetModal({
 }) {
   const qc = useQueryClient();
   const [name, setName] = useState("");
-  const [assetType, setAssetType] = useState("machine");
+  const [assetTypeId, setAssetTypeId] = useState<string | null>(null);
   const [positionId, setPositionId] = useState<string | null>(null);
   const [identifier, setIdentifier] = useState("");
 
@@ -529,7 +525,7 @@ function CreateAssetModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: name.trim(),
-          assetType,
+          assetTypeId,
           positionId,
           identifier: identifier.trim() || null,
         }),
@@ -543,7 +539,7 @@ function CreateAssetModal({
       setName("");
       setIdentifier("");
       setPositionId(null);
-      setAssetType("machine");
+      setAssetTypeId(null);
     },
   });
 
@@ -565,14 +561,8 @@ function CreateAssetModal({
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label className="text-xs">Type</Label>
-              <select
-                value={assetType}
-                onChange={(e) => setAssetType(e.target.value)}
-                className="h-9 w-full rounded-md border bg-background px-2 text-sm"
-              >
-                {ASSET_TYPES.map((c) => (<option key={c.value} value={c.value}>{c.label}</option>))}
-              </select>
+              <Label className="text-xs">Type (optional)</Label>
+              <AssetTypePicker value={assetTypeId} onChange={setAssetTypeId} />
             </div>
             <div>
               <Label className="text-xs">Asset tag (optional)</Label>
@@ -603,3 +593,7 @@ function CreateAssetModal({
     </Dialog>
   );
 }
+
+// ─── Asset type picker ────────────────────────────────────────────
+
+

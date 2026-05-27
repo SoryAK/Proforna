@@ -82,6 +82,7 @@ model User {
   workLogPreference   WorkLogPreference?
   integrationConnections IntegrationConnection[]
   jobAssets           JobAsset[]
+  assetTypes          AssetType[]
   publishedProfile    PublishedProfile?
 }
 
@@ -965,7 +966,7 @@ model JobAsset {
   id              String    @id @default(uuid())
   userId          String                                  // owner of the record (the worker)
   name            String                                  // "Compressor C-204", "Truck 427", "RTU-3"
-  assetType       String    @default("machine")           // machine | vehicle | system | structure | unit | tool | other
+  assetTypeId     String?                                 // link to AssetType knowledge profile (replaces old assetType enum)
   identifier      String?                                 // asset tag / unit # / VIN / serial at the site
   manufacturer    String?
   model           String?
@@ -988,12 +989,16 @@ model JobAsset {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
-  user     User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  position WorkHistory? @relation("WorkHistoryJobAssets", fields: [positionId], references: [id], onDelete: SetNull)
-  photos   JobAssetPhoto[]
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  position  WorkHistory? @relation("WorkHistoryJobAssets", fields: [positionId], references: [id], onDelete: SetNull)
+  type      AssetType?   @relation(fields: [assetTypeId], references: [id], onDelete: SetNull)
+  photos    JobAssetPhoto[]
+  documents AssetDocument[]
+  links     AssetLink[]
 
   @@index([userId])
   @@index([positionId])
+  @@index([assetTypeId])
 }
 
 model JobAssetPhoto {
@@ -2450,4 +2455,69 @@ model EmployerAlias {
 
   @@unique([userId, variantName])
   @@index([userId, canonicalName])
+}
+
+// ─── Asset Library — Sprint 1 (ADR-0012) ───────────────────────
+
+// Generic equipment class — cross-employer knowledge layer.
+// A user creates "Loss-in-Weight Feeder" once; every JobAsset of that class
+// inherits its manuals, links, and skill mappings regardless of employer.
+model AssetType {
+  id           String   @id @default(uuid())
+  userId       String
+  name         String                        // "Loss-in-Weight Feeder", "Pneumatic Cylinder"
+  category     String   @default("machine")  // machine | vehicle | system | structure | unit | tool | other
+  description  String?
+  manufacturer String?                       // set when type is manufacturer-specific (e.g. "Schenck Process")
+  tags         String[] @default([])
+  isPublic     Boolean  @default(false)      // reserved for future community sharing — always false in Sprint 1
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  instances JobAsset[]
+  documents AssetDocument[]
+  links     AssetLink[]
+
+  @@index([userId])
+}
+
+// Documents attached to an AssetType (type-level: manufacturer manuals, spec sheets)
+// OR to a JobAsset instance (instance-level: site-specific wiring diagrams).
+// Exactly one of assetTypeId / assetId must be set.
+model AssetDocument {
+  id          String   @id @default(uuid())
+  assetTypeId String?
+  assetId     String?
+  docType     String   @default("manual")   // manual | wiring_diagram | spec_sheet | safety_sheet | parts_list | other
+  title       String
+  filePath    String?                        // uploaded file (e.g. /uploads/asset-docs/uuid.pdf)
+  url         String?                        // external URL (manufacturer site, Google Drive)
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  assetType AssetType? @relation(fields: [assetTypeId], references: [id], onDelete: Cascade)
+  asset     JobAsset?  @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@index([assetTypeId])
+  @@index([assetId])
+}
+
+// Web links attached to an AssetType or JobAsset instance.
+// Exactly one of assetTypeId / assetId must be set.
+model AssetLink {
+  id          String   @id @default(uuid())
+  assetTypeId String?
+  assetId     String?
+  url         String
+  title       String
+  linkType    String   @default("other")    // supplier | video | forum | article | datasheet | other
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  assetType AssetType? @relation(fields: [assetTypeId], references: [id], onDelete: Cascade)
+  asset     JobAsset?  @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@index([assetTypeId])
+  @@index([assetId])
 }

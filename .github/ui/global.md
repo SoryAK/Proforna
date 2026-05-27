@@ -72,6 +72,23 @@ This is `tokens.type.badge`. Use a `<div>`, never `<h*>`, for sidebar group head
 
 ---
 
+## Searchable Inline Picker Pattern
+Used by `AssetTypePicker`, `EquipmentPicker` — a search input + floating results list + selected chip.
+
+```
+Search input:   h-9 pl-8 text-sm  (SearchIcon at left-2.5, h-3.5 w-3.5)
+Results list:   rounded-md border bg-popover shadow-md max-h-40 overflow-y-auto divide-y text-sm
+Result row:     px-3 py-2 hover:bg-accent flex items-center gap-2
+Selected chip:  flex items-center gap-2 rounded-md border bg-muted/30 px-2 py-1 text-xs
+Clear button:   ml-auto text-muted-foreground hover:text-foreground  (× character)
+```
+
+- Results list is only shown when the search query is non-empty
+- Selected chip always shown when a value is selected, regardless of query state
+- "No results" text: `text-xs text-muted-foreground px-1` with inline `<a href>` to create
+
+---
+
 ## Focus & Keyboard Accessibility
 - All interactive elements must be keyboard-reachable (tab order)
 - Focus ring: `focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2`

@@ -41,6 +41,7 @@ const NAV_PAGES = [
   { label: "Job Search", href: "/job-search", icon: Search },
   { label: "Career Analytics", href: "/career-growth", icon: TrendingUp },
   { label: "Personal Inventory", href: "/inventory", icon: Boxes },
+  { label: "Asset Library", href: "/asset-types", icon: BookOpen },
   { label: "Job Assets", href: "/job-assets", icon: Cog },
   { label: "Master Gallery", href: "/master-gallery", icon: Images },
   { label: "Worklog", href: "/worklog", icon: NotebookPen },

@@ -21,12 +21,15 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AssetServiceHistory } from "@/components/asset-service-history";
+import { AssetTypePicker } from "@/components/asset-type-picker";
+import { ASSET_CATEGORIES } from "@/components/asset-types-manager";
 import { cn } from "@/lib/utils";
 
 export type JobAsset = {
   id: string;
   name: string;
-  assetType: string;
+  assetTypeId?: string | null;
+  type?: { id: string; name: string; category: string; tags?: string[] } | null;
   identifier?: string | null;
   manufacturer?: string | null;
   model?: string | null;
@@ -50,15 +53,7 @@ export type AssetPickerPosition = {
   type: string;
 };
 
-export const ASSET_TYPES = [
-  { value: "machine", label: "Machine" },
-  { value: "vehicle", label: "Vehicle" },
-  { value: "system", label: "System" },
-  { value: "structure", label: "Structure" },
-  { value: "unit", label: "Unit" },
-  { value: "tool", label: "Tool" },
-  { value: "other", label: "Other" },
-];
+export const ASSET_TYPES = ASSET_CATEGORIES;
 
 export const ASSET_STATUS = [
   { value: "active", label: "Active" },
@@ -86,7 +81,6 @@ export function AssetPicker({
   const [query, setQuery] = useState("");
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
-  const [newType, setNewType] = useState("machine");
   const [newPositionId, setNewPositionId] = useState<string | null>(defaultPositionId);
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -111,7 +105,7 @@ export function AssetPicker({
           (a) =>
             a.name.toLowerCase().includes(q) ||
             (a.identifier ?? "").toLowerCase().includes(q) ||
-            (a.assetType ?? "").toLowerCase().includes(q) ||
+                (a.type?.category ?? "").toLowerCase().includes(q) ||
             (a.customerName ?? "").toLowerCase().includes(q),
         )
       : scoped;
@@ -134,7 +128,7 @@ export function AssetPicker({
   }
 
   const createAsset = useMutation({
-    mutationFn: async (data: { name: string; assetType: string; positionId: string | null }) => {
+    mutationFn: async (data: { name: string; positionId: string | null }) => {
       const res = await fetch("/api/job-assets", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -148,14 +142,12 @@ export function AssetPicker({
       onChange([...selectedIds, created.id]);
       setCreating(false);
       setNewName("");
-      setNewType("machine");
       setQuery("");
     },
   });
 
   function startCreateFromQuery() {
     setNewName(query.trim());
-    setNewType("machine");
     setNewPositionId(defaultPositionId);
     setCreating(true);
   }
@@ -240,16 +232,7 @@ export function AssetPicker({
                   placeholder="e.g. Compressor C-204, Truck #427"
                   className="h-8 text-sm"
                 />
-                <div className="grid grid-cols-2 gap-2">
-                  <select
-                    value={newType}
-                    onChange={(e) => setNewType(e.target.value)}
-                    className="h-8 rounded-md border bg-background px-2 text-xs"
-                  >
-                    {ASSET_TYPES.map((c) => (
-                      <option key={c.value} value={c.value}>{c.label}</option>
-                    ))}
-                  </select>
+                <div className="grid grid-cols-1 gap-2">
                   <select
                     value={newPositionId ?? ""}
                     onChange={(e) => setNewPositionId(e.target.value || null)}
@@ -269,7 +252,7 @@ export function AssetPicker({
                     size="sm"
                     className="h-7 text-xs"
                     disabled={!newName.trim() || createAsset.isPending}
-                    onClick={() => createAsset.mutate({ name: newName.trim(), assetType: newType, positionId: newPositionId })}
+                    onClick={() => createAsset.mutate({ name: newName.trim(), positionId: newPositionId })}
                   >
                     {createAsset.isPending ? "Adding…" : "Add asset"}
                   </Button>
@@ -321,7 +304,7 @@ export function AssetPicker({
                               </span>
                             )}
                             <span className="text-[10px] text-muted-foreground shrink-0">
-                              {a.assetType}
+                              {a.type?.category ?? ""}
                             </span>
                           </button>
                           <button
@@ -424,30 +407,25 @@ function AssetEditModal({
             <Input value={draft.name ?? ""} onChange={(e) => update("name", e.target.value)} />
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <div>
+            <div className="col-span-2">
               <Label className="text-xs">Type</Label>
-              <select
-                value={draft.assetType ?? "machine"}
-                onChange={(e) => update("assetType", e.target.value)}
-                className="h-9 w-full rounded-md border bg-background px-2 text-sm"
-              >
-                {ASSET_TYPES.map((c) => (
-                  <option key={c.value} value={c.value}>{c.label}</option>
-                ))}
-              </select>
+              <AssetTypePicker
+                value={draft.assetTypeId ?? null}
+                onChange={(id) => update("assetTypeId", id)}
+              />
             </div>
-            <div>
-              <Label className="text-xs">Status</Label>
-              <select
-                value={draft.status ?? "active"}
-                onChange={(e) => update("status", e.target.value)}
-                className="h-9 w-full rounded-md border bg-background px-2 text-sm"
-              >
-                {ASSET_STATUS.map((c) => (
-                  <option key={c.value} value={c.value}>{c.label}</option>
-                ))}
-              </select>
-            </div>
+          </div>
+          <div>
+            <Label className="text-xs">Status</Label>
+            <select
+              value={draft.status ?? "active"}
+              onChange={(e) => update("status", e.target.value)}
+              className="h-9 w-full rounded-md border bg-background px-2 text-sm"
+            >
+              {ASSET_STATUS.map((c) => (
+                <option key={c.value} value={c.value}>{c.label}</option>
+              ))}
+            </select>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
