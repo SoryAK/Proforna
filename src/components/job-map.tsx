@@ -528,6 +528,7 @@ const JOB_INTENT_KEY = "resumsify:job-intent-states";
 const PANEL_GALLERY_VIEW_KEY = "resumsify:panel-gallery-view";
 const WORK_HISTORY_PANEL_PREFS_KEY = "resumsify:work-history-panel-prefs";
 const WORK_HISTORY_OVERLAPS_KEY = "resumsify:work-history-overlaps";
+const WORK_HISTORY_CAREER_PATH_KEY = "resumsify:work-history-career-path";
 const WORK_HISTORY_KPI_SLOTS_KEY = "resumsify:work-history-kpi-slots";
 const KPI_MAX_SLOTS = 8;
 const DEFAULT_KPI_SLOTS = ["tenure", "roles", "miles", "cities", "rtg", "rtn"];
@@ -563,7 +564,7 @@ function loadJobIntentStates(): Record<string, JobIntent> {
   } catch { return {}; }
 }
 
-function loadWorkHistoryPanelPrefs(): { tab?: "list" | "timeline" | "compare"; lastMainTab?: "list" | "timeline"; showTimeFilterPanel?: boolean } {
+function loadWorkHistoryPanelPrefs(): { tab?: "list" | "timeline" | "compare"; lastMainTab?: "list" | "timeline"; showTimeFilterPanel?: boolean; showPay?: boolean; useTimelineStyle?: boolean } {
   if (typeof window === "undefined") return {};
   try {
     return JSON.parse(localStorage.getItem(WORK_HISTORY_PANEL_PREFS_KEY) || "{}");
@@ -1256,7 +1257,10 @@ export function JobMap() {
   const [timeFilter, setTimeFilter] = useState<string | null>(null); // e.g. "2022-06" or null for "all time"
   const [showWorkHistory, setShowWorkHistory] = useState(false);
   const [showWorkHistoryPanel, setShowWorkHistoryPanel] = useState(false);
-  const [showCareerPath, setShowCareerPath] = useState(false);
+  const [showCareerPath, setShowCareerPath] = useState(() => {
+    if (typeof window === "undefined") return false;
+    try { return localStorage.getItem(WORK_HISTORY_CAREER_PATH_KEY) === "1"; } catch { return false; }
+  });
   const [showOverlaps, setShowOverlaps] = useState(() => loadWorkHistoryOverlapsDefault());
   // Events from the focused work history item (lifted from WorkHistoryPanel via onEventsChange)
   const [mappableEvents, setMappableEvents] = useState<{ id: string; title: string; startDate: string | null; location: string | null; lat?: number | null; lng?: number | null; photos?: { filePath: string }[] }[]>([]);
@@ -1268,6 +1272,9 @@ export function JobMap() {
       // ignore quota/permission issues
     }
   }, [showOverlaps]);
+  useEffect(() => {
+    try { localStorage.setItem(WORK_HISTORY_CAREER_PATH_KEY, showCareerPath ? "1" : "0"); } catch {}
+  }, [showCareerPath]);
   const [showSweetSpot, setShowSweetSpot] = useState(true);
   const [focusedWorkHistoryId, setFocusedWorkHistoryId] = useState<string | null>(null);
   const [hoveredWorkHistoryId, setHoveredWorkHistoryId] = useState<string | null>(null);
@@ -8292,13 +8299,7 @@ function WorkHistoryPanel({
     timeoutId = window.setTimeout(tick, 60);
     return () => { if (timeoutId !== undefined) window.clearTimeout(timeoutId); };
   }, [searchHighlight]);
-  const [useTimelineStyle, setUseTimelineStyle] = useState<boolean>(() => {
-    if (typeof window === "undefined") return false;
-    try { return localStorage.getItem("resumsify:work-history-timeline-style") === "1"; } catch { return false; }
-  });
-  useEffect(() => {
-    try { localStorage.setItem("resumsify:work-history-timeline-style", useTimelineStyle ? "1" : "0"); } catch {}
-  }, [useTimelineStyle]);
+  const [useTimelineStyle, setUseTimelineStyle] = useState<boolean>(() => !!loadWorkHistoryPanelPrefs().useTimelineStyle);
   const [kpiSlots, setKpiSlots] = useState<string[]>(() => loadKpiSlots());
   useEffect(() => {
     try { localStorage.setItem(WORK_HISTORY_KPI_SLOTS_KEY, JSON.stringify(kpiSlots)); } catch {}
@@ -8316,6 +8317,7 @@ function WorkHistoryPanel({
     return loadWorkHistoryPanelPrefs().lastMainTab === "timeline" ? "timeline" : "list";
   });
   const [showTimeFilterPanel, setShowTimeFilterPanel] = useState(() => !!loadWorkHistoryPanelPrefs().showTimeFilterPanel);
+  const [showPay, setShowPay] = useState(() => { const p = loadWorkHistoryPanelPrefs(); return p.showPay !== false; });
   // Collapsible sections in list view
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
   const toggleListSection = (key: string) => setCollapsedSections((prev) => { const s = new Set(prev); if (s.has(key)) s.delete(key); else s.add(key); return s; });
@@ -8376,12 +8378,12 @@ function WorkHistoryPanel({
     try {
       localStorage.setItem(
         WORK_HISTORY_PANEL_PREFS_KEY,
-        JSON.stringify({ tab, lastMainTab, showTimeFilterPanel }),
+        JSON.stringify({ tab, lastMainTab, showTimeFilterPanel, showPay, useTimelineStyle }),
       );
     } catch {
       // ignore quota/permission issues
     }
-  }, [tab, lastMainTab, showTimeFilterPanel]);
+  }, [tab, lastMainTab, showTimeFilterPanel, showPay, useTimelineStyle]);
 
   useEffect(() => {
     if (tab !== "compare") setLastMainTab(tab);
@@ -8421,8 +8423,7 @@ function WorkHistoryPanel({
   }, [activeResidence, timeFilter, items]);
 
   // Sub-location state
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [addingLocFor, setAddingLocFor] = useState<string | null>(null);
+
   const [locLabel, setLocLabel] = useState("");
   const [locType, setLocType] = useState("daily-workplace");
   const [customLocType, setCustomLocType] = useState("");
@@ -8681,7 +8682,6 @@ function WorkHistoryPanel({
       if (!res.ok) throw new Error("Failed to add");
       toast.success("Location added");
       setLocLabel(""); setLocType("daily-workplace"); setCustomLocType(""); setLocAddress(""); setLocCoords(null); setLocPlaceId(null);
-      setAddingLocFor(null);
       onAdded();
     } catch { toast.error("Failed to add location"); } finally { setLocSaving(false); }
   }
@@ -8705,7 +8705,12 @@ function WorkHistoryPanel({
   // List view: sorted + filtered
   const listItems = useMemo(() => {
     let arr = [...items];
-    if (listSort === "newest") arr.sort((a, b) => (b.startDate ?? "9999").localeCompare(a.startDate ?? "9999"));
+    if (listSort === "newest") arr.sort((a, b) => {
+      const aCurr = a.endDate == null ? 1 : 0;
+      const bCurr = b.endDate == null ? 1 : 0;
+      if (aCurr !== bCurr) return bCurr - aCurr;
+      return (b.startDate ?? "9999").localeCompare(a.startDate ?? "9999");
+    });
     else if (listSort === "oldest") arr.sort((a, b) => (a.startDate ?? "0000").localeCompare(b.startDate ?? "0000"));
     else if (listSort === "tenure") arr.sort((a, b) => calcTenureMonths(b.startDate, b.endDate) - calcTenureMonths(a.startDate, a.endDate));
     if (listSearch.trim()) {
@@ -12735,6 +12740,15 @@ function WorkHistoryPanel({
                   <span className="leading-tight text-center">Timeline</span>
                   <span className={`text-[9px] font-medium ${useTimelineStyle ? "text-primary" : "text-muted-foreground/60"}`}>{useTimelineStyle ? "On" : "Off"}</span>
                 </button>
+                <button
+                  type="button"
+                  className={`flex flex-col items-center gap-1 rounded-lg border px-1.5 py-2 text-[10px] transition-colors ${showPay ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "border-border/60 bg-muted/30 text-muted-foreground hover:bg-muted/50"}`}
+                  onClick={() => setShowPay((p) => !p)}
+                >
+                  <DollarSign className="h-3.5 w-3.5" />
+                  <span className="leading-tight text-center">Show Pay</span>
+                  <span className={`text-[9px] font-medium ${showPay ? "text-emerald-500" : "text-muted-foreground/60"}`}>{showPay ? "On" : "Off"}</span>
+                </button>
               </div>
               {/* Stat Slots — 2-col chip grid per group */}
               <div className="pt-2 border-t border-border/60">
@@ -13626,16 +13640,12 @@ function WorkHistoryPanel({
               <div className="flex items-start justify-between gap-2 p-2">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    {(w.locations?.length ?? 0) > 0 && (
-                      <button type="button" className="shrink-0 text-muted-foreground hover:text-foreground transition-transform" onClick={(e) => { e.stopPropagation(); setExpandedId(expandedId === w.id ? null : w.id); }}>
-                        <ChevronDown className={`h-3.5 w-3.5 transition-transform ${expandedId === w.id ? "" : "-rotate-90"}`} />
-                      </button>
-                    )}
                     <p className="text-base font-medium shrink-0">{w.company}</p>
+                    {w.endDate == null && <span className="text-[10px] font-semibold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 rounded-full border border-emerald-500/30 shrink-0">CURRENT</span>}
                     {w.scheduleType && <span className="text-[11px] bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded capitalize">{w.scheduleType.replace(/_/g, " ")}</span>}
                     {w.workMode && <span className="text-[11px] bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded capitalize">{w.workMode}{w.hybridDays != null ? ` ${w.hybridDays}d` : ""}</span>}
                     {w.industry && <span className="text-[11px] bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-1.5 py-0.5 rounded">{w.industry}</span>}
-                    {w.salaryAmount != null && (
+                    {showPay && w.salaryAmount != null && (
                       <span className="ml-auto shrink-0 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
                         {w.salaryCurrency === "USD" || !w.salaryCurrency ? "$" : w.salaryCurrency}{w.salaryType === "hourly" ? `${w.salaryAmount}/hr` : w.salaryAmount >= 1000 ? `${Math.round(w.salaryAmount / 1000)}k` : w.salaryAmount}
                       </span>
@@ -13673,8 +13683,13 @@ function WorkHistoryPanel({
                   )}
                 </div>
                 <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button type="button" className="text-muted-foreground hover:text-blue-500" title="Add location" onClick={(e) => { e.stopPropagation(); setAddingLocFor(addingLocFor === w.id ? null : w.id); setExpandedId(w.id); }}>
+                  <button type="button" className="relative text-muted-foreground hover:text-blue-500" title="View locations" onClick={(e) => { e.stopPropagation(); onFocusJob(w); }}>
                     <MapPin className="h-3.5 w-3.5" />
+                    {(w.locations?.length ?? 0) > 0 && (
+                      <span className="absolute -top-1.5 -right-1.5 min-w-[14px] h-3.5 rounded-full bg-blue-500 text-[8px] text-white flex items-center justify-center font-medium leading-none px-0.5">
+                        {(w.locations?.length ?? 0) > 9 ? "9+" : w.locations.length}
+                      </span>
+                    )}
                   </button>
                   <button type="button" className="text-muted-foreground hover:text-foreground" onClick={(e) => { e.stopPropagation(); startEdit(w); }}>
                     <Pencil className="h-3.5 w-3.5" />
@@ -13685,124 +13700,26 @@ function WorkHistoryPanel({
                 </div>
               </div>
 
-              {/* Expanded sub-locations */}
-              <div className={`grid transition-all duration-200 ease-in-out ${expandedId === w.id ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
-                <div className="overflow-hidden">
-                {expandedId === w.id && (
-                <div className="px-1.5 pb-1.5 space-y-1" ref={(el) => { if (el && expandedId === w.id) el.scrollIntoView({ behavior: "smooth", block: "nearest" }); }}>
-                  {(w.locations ?? []).length > 0 && (
-                    <div className="pl-2 border-l-2 border-muted space-y-1">
-                      {w.locations.map((loc) => {
-                        const photos: string[] = (() => { try { return loc.photos ? JSON.parse(loc.photos) : []; } catch { return []; } })();
-                        return (
-                        <div key={loc.id} className="space-y-1 group/loc">
-                          <div className="flex items-start justify-between gap-1">
-                            <div className="min-w-0">
-                              <p className="text-xs font-medium truncate">{loc.label}</p>
-                              <div className="flex items-center gap-1">
-                                <p className="text-[13px] text-muted-foreground truncate">{loc.address}</p>
-                                <button type="button" className="shrink-0 p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground opacity-0 group-hover/loc:opacity-100 transition-opacity" title="Copy address" onClick={() => { navigator.clipboard.writeText(loc.address); toast.success("Address copied"); }}>
-                                  <Copy className="h-2.5 w-2.5" />
-                                </button>
-                              </div>
-                              {loc.lat != null && loc.lng != null && (
-                                <div className="flex items-center gap-1">
-                                  <p className="text-xs text-muted-foreground font-mono">📍 {Number(loc.lat).toFixed(5)}, {Number(loc.lng).toFixed(5)}</p>
-                                  <button type="button" className="shrink-0 p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground opacity-0 group-hover/loc:opacity-100 transition-opacity" title="Copy coordinates" onClick={() => { navigator.clipboard.writeText(`${Number(loc.lat).toFixed(5)}, ${Number(loc.lng).toFixed(5)}`); toast.success("Coordinates copied"); }}>
-                                    <Copy className="h-2 w-2" />
-                                  </button>
-                                </div>
-                              )}
-                              <span className="text-[13px] bg-muted px-1 rounded">{LOC_TYPES.find((t) => t.value === loc.type)?.label ?? loc.type}</span>
-                            </div>
-                            <button type="button" className="text-muted-foreground hover:text-red-500 opacity-0 group-hover/loc:opacity-100 transition-opacity shrink-0" onClick={() => handleDeleteLocation(w.id, loc.id)}>
-                              <Trash2 className="h-2.5 w-2.5" />
-                            </button>
-                          </div>
-
-                          {/* Photo gallery */}
-                          <div className="flex flex-wrap gap-1 items-center">
-                            {photos.map((url) => (
-                              <div key={url} className="relative group/photo w-10 h-10 rounded overflow-hidden border">
-                                <img src={url} alt="" className="w-full h-full object-cover" />
-                                <button
-                                  type="button"
-                                  className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover/photo:opacity-100 transition-opacity"
-                                  onClick={() => handlePhotoDelete(w.id, loc.id, url)}
-                                >
-                                  <X className="h-3 w-3 text-white" />
-                                </button>
-                              </div>
-                            ))}
-                            {photos.length < 5 && (
-                              <>
-                                <input
-                                  type="file"
-                                  accept="image/jpeg,image/png,image/webp,image/gif"
-                                  className="hidden"
-                                  ref={(el) => { photoInputRefs.current[loc.id] = el; }}
-                                  onChange={(e) => {
-                                    const f = e.target.files?.[0];
-                                    if (f) handlePhotoUpload(w.id, loc.id, f);
-                                    e.target.value = "";
-                                  }}
-                                />
-                                <button
-                                  type="button"
-                                  className="w-10 h-10 rounded border border-dashed border-muted-foreground/40 flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-foreground transition-colors"
-                                  onClick={() => photoInputRefs.current[loc.id]?.click()}
-                                  disabled={uploadingPhotoFor === loc.id}
-                                >
-                                  {uploadingPhotoFor === loc.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Camera className="h-3 w-3" />}
-                                </button>
-                              </>
-                            )}
-                            {photos.length > 0 && (
-                              <span className="text-xs text-muted-foreground">📷 {photos.length}/5</span>
-                            )}
-                          </div>
-                        </div>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {/* Add sub-location form */}
-                  {addingLocFor === w.id && (
-                    <div className="space-y-1.5 p-1.5 border rounded bg-muted/20">
-                      <Input placeholder="Label (e.g. Downtown office) *" value={locLabel} onChange={(e) => setLocLabel(e.target.value)} className="h-6 text-xs" />
-                      <select value={locType} onChange={(e) => { setLocType(e.target.value); if (e.target.value !== "custom") setCustomLocType(""); }} className="w-full h-6 text-xs rounded border bg-background px-1">
-                        {LOC_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-                      </select>
-                      {locType === "custom" && (
-                        <Input value={customLocType} onChange={(e) => setCustomLocType(e.target.value)} placeholder="Type name (e.g. Warehouse)" className="h-6 text-xs" />
-                      )}
-                      <PlacesAutocomplete value={locAddress} onChange={(v) => { setLocAddress(v); setLocCoords(null); setLocPlaceId(null); }} onPlaceSelect={handleLocPlaceSelect} placeholder="Address *" className="h-6 text-xs" types={[]} />
-                      <div className="flex gap-1">
-                        <Button size="sm" className="flex-1 h-6 text-xs" onClick={() => handleAddLocation(w.id)} disabled={locSaving || (locType === "custom" && !customLocType.trim())}>
-                          {locSaving ? <Loader2 className="h-2.5 w-2.5 animate-spin mr-0.5" /> : <Plus className="h-2.5 w-2.5 mr-0.5" />}
-                          Add
-                        </Button>
-                        <Button size="sm" variant="ghost" className="h-6 text-xs" onClick={() => setAddingLocFor(null)}>Cancel</Button>
-                      </div>
-                    </div>
-                  )}
-
-                  {addingLocFor !== w.id && (
-                    <button type="button" className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-0.5" onClick={() => setAddingLocFor(w.id)}>
-                      <Plus className="h-2.5 w-2.5" /> Add location
-                    </button>
-                  )}
-                </div>
-              )}
-                </div>
-              </div>
             </div>
           ))}
                   </div>
                 )}
               </div>
             ))}
+            {sections.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-10 text-center gap-2">
+                {items.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No work history added yet</p>
+                ) : (
+                  <>
+                    <p className="text-sm text-muted-foreground">No entries match</p>
+                    {listSearch && (
+                      <button type="button" className="text-xs text-primary hover:underline" onClick={() => setListSearch("")}>Clear search</button>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
           </div>
         );
       })()}
