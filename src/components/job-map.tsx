@@ -8711,7 +8711,12 @@ function WorkHistoryPanel({
       if (aCurr !== bCurr) return bCurr - aCurr;
       return (b.startDate ?? "9999").localeCompare(a.startDate ?? "9999");
     });
-    else if (listSort === "oldest") arr.sort((a, b) => (a.startDate ?? "0000").localeCompare(b.startDate ?? "0000"));
+    else if (listSort === "oldest") arr.sort((a, b) => {
+      const aCurr = a.endDate == null ? 1 : 0;
+      const bCurr = b.endDate == null ? 1 : 0;
+      if (aCurr !== bCurr) return aCurr - bCurr;
+      return (a.startDate ?? "0000").localeCompare(b.startDate ?? "0000");
+    });
     else if (listSort === "tenure") arr.sort((a, b) => calcTenureMonths(b.startDate, b.endDate) - calcTenureMonths(a.startDate, a.endDate));
     if (listSearch.trim()) {
       const q = listSearch.trim().toLowerCase();
@@ -13625,17 +13630,30 @@ function WorkHistoryPanel({
               }}
             >
               {useTimelineStyle && (
-                <span
-                  className={`absolute -left-[21px] top-3 h-2.5 w-2.5 rounded-full ring-2 ring-background ${
-                    w.type === "school" ? "bg-violet-500" :
-                    w.type === "internship" ? "bg-cyan-500" :
-                    w.type === "volunteer" ? "bg-amber-500" :
-                    w.type === "military" ? "bg-emerald-500" :
-                    w.type === "self-employed" ? "bg-amber-700" :
-                    w.type === "unemployed" ? "bg-red-500" :
-                    "bg-blue-500"
-                  }`}
-                />
+                <>
+                  {w.endDate == null && (
+                    <span className={`absolute -left-[26px] top-[7px] h-5 w-5 rounded-full animate-ping opacity-75 ${
+                      w.type === "school" ? "bg-violet-400" :
+                      w.type === "internship" ? "bg-cyan-400" :
+                      w.type === "volunteer" ? "bg-amber-400" :
+                      w.type === "military" ? "bg-emerald-400" :
+                      w.type === "self-employed" ? "bg-amber-600" :
+                      w.type === "unemployed" ? "bg-red-400" :
+                      "bg-blue-400"
+                    }`} />
+                  )}
+                  <span
+                    className={`absolute -left-[21px] top-3 h-2.5 w-2.5 rounded-full ring-2 ring-background ${
+                      w.type === "school" ? "bg-violet-500" :
+                      w.type === "internship" ? "bg-cyan-500" :
+                      w.type === "volunteer" ? "bg-amber-500" :
+                      w.type === "military" ? "bg-emerald-500" :
+                      w.type === "self-employed" ? "bg-amber-700" :
+                      w.type === "unemployed" ? "bg-red-500" :
+                      "bg-blue-500"
+                    }`}
+                  />
+                </>
               )}
               <div className="flex items-start justify-between gap-2 p-2">
                 <div className="min-w-0 flex-1">
@@ -13683,7 +13701,7 @@ function WorkHistoryPanel({
                   )}
                 </div>
                 <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button type="button" className="relative text-muted-foreground hover:text-blue-500" title="View locations" onClick={(e) => { e.stopPropagation(); onFocusJob(w); }}>
+                  <button type="button" className="relative text-muted-foreground hover:text-blue-500" title={(w.locations?.length ?? 0) > 0 ? `${w.locations.length} location${w.locations.length === 1 ? "" : "s"} — click to focus` : "Open in focus mode"} onClick={(e) => { e.stopPropagation(); onFocusJob(w); }}>
                     <MapPin className="h-3.5 w-3.5" />
                     {(w.locations?.length ?? 0) > 0 && (
                       <span className="absolute -top-1.5 -right-1.5 min-w-[14px] h-3.5 rounded-full bg-blue-500 text-[8px] text-white flex items-center justify-center font-medium leading-none px-0.5">
