@@ -1,0 +1,29 @@
+{
+  "entities": [
+    {
+      "name": "JobMapDomain",
+      "entityType": "domain",
+      "observations": [
+        "2026-05-28: Primary file is src/components/job-map.tsx — ~13,800+ lines (god file by design, acknowledged)",
+        "2026-05-28: Contains WorkHistoryPanel at line ~10372 which mounts BioCardEditor via portal into asideHost",
+        "2026-05-28: Work mapping aside host is w-[380px] (line ~6249)",
+        "2026-05-28: Also uses job-map/ subdirectory for split-out subcomponents",
+        "2026-05-28: Google Maps via @googlemaps/js-api-loader v2 — uses setOptions()+importLibrary(), NOT Loader class",
+        "2026-05-28: Polygon right-click driven by window-level contextmenu + hoveredPolyMetaRef pattern"
+      ]
+    },
+    {
+      "name": "WorkHistoryDomain",
+      "entityType": "domain",
+      "observations": [
+        "2026-05-28: WorkHistoryPanel lives inside JobMapDomain (job-map.tsx ~10372)",
+        "2026-05-28: API routes under src/app/api/work-history/",
+        "2026-05-28: Timeline dot pulse animation, CURRENT badge, oldest-sort pins current to bottom — committed May 2026",
+        "2026-05-28: Work history shift manager at src/components/work-history-shift-manager.tsx"
+      ]
+    }
+  ],
+  "relations": [
+    { "from": "WorkHistoryDomain", "relationType": "lives-inside", "to": "JobMapDomain" }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "entities": [
+    {
+      "name": "AIServicesLayer",
+      "entityType": "layer",
+      "observations": [
+        "2026-05-28: Core AI lib at src/lib/ai.ts, Gemini integration at src/lib/gemini.ts",
+        "2026-05-28: API routes under src/app/api/ai/",
+        "2026-05-28: AI chat component at src/components/ai-chat.tsx",
+        "2026-05-28: Used by multiple domains — not a standalone domain, a cross-cutting service layer"
+      ]
+    }
+  ],
+  "relations": [
+    { "from": "AIServicesLayer", "relationType": "serves", "to": "WorklogDomain" },
+    { "from": "AIServicesLayer", "relationType": "serves", "to": "JobBoardDomain" },
+    { "from": "AIServicesLayer", "relationType": "serves", "to": "ResumeDomain" },
+    { "from": "AIServicesLayer", "relationType": "serves", "to": "InterviewDomain" }
+  ]
+}

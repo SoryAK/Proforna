@@ -39,6 +39,8 @@ applyTo: "**"
   1. `mcp_memory_create_entities` — domain name, file, kind
   2. `mcp_memory_create_relations` — "calls", "depends-on", "implements", "mounts-via-portal"
   3. `mcp_memory_add_observations` — curated conclusions with date tag
+  4. **Shard backup:** After writing to MCP graph, update the corresponding shard file in `docs/memory/`. Check `docs/memory/index.json` to find the right shard. Append new observations to the entity's `observations` array. Commit the shard file with the session commit.
+- **Rebuild protocol:** If MCP graph is ever wiped, read `docs/memory/index.json` → for each shard file, run `mcp_memory_create_entities` then `mcp_memory_create_relations` to restore.
 - **Shallow graph rule:** Only write domain/component-level entities, not individual function-level nodes. Shallow graph = durable graph.
 
 ### Skill: Handoff Architect

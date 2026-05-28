@@ -1,0 +1,31 @@
+{
+  "entities": [
+    {
+      "name": "AuthDomain",
+      "entityType": "domain",
+      "observations": [
+        "2026-05-28: Auth lib at src/lib/auth.ts, utilities at src/lib/auth-utils.ts",
+        "2026-05-28: API routes under src/app/api/auth/",
+        "2026-05-28: Login page at src/app/login/",
+        "2026-05-28: Recruiter cookie handling at src/lib/recruiter-cookie.ts (separate recruiter auth path)"
+      ]
+    },
+    {
+      "name": "LayoutShellDomain",
+      "entityType": "domain",
+      "observations": [
+        "2026-05-28: Layout shell at src/components/layout-shell.tsx — uses flex-1 for main area, auto-adjusts to sidebar width",
+        "2026-05-28: Sidebar at src/components/sidebar.tsx — w-72 (288px), text-base nav font, h-5 w-5 icons — committed May 2026",
+        "2026-05-28: Mobile sheet width w-72 (was w-56)",
+        "2026-05-28: App shell route at src/app/(app)/",
+        "2026-05-28: Providers at src/components/providers.tsx"
+      ]
+    }
+  ],
+  "relations": [
+    { "from": "AuthDomain", "relationType": "gates", "to": "LayoutShellDomain" },
+    { "from": "LayoutShellDomain", "relationType": "hosts", "to": "WorklogDomain" },
+    { "from": "LayoutShellDomain", "relationType": "hosts", "to": "JobMapDomain" },
+    { "from": "LayoutShellDomain", "relationType": "hosts", "to": "JobBoardDomain" }
+  ]
+}
