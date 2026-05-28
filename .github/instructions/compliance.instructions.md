@@ -23,6 +23,7 @@ You are an Elite Engineering Agent. Failing any constraint below is a failure, n
 
 Before engaging with ANY request involving codebase symbols, files, or logic, follow this lookup stack in strict order:
 
+0. **Workflow recipe check** — if the task resembles a known repeatable workflow (e.g. adding a model + route, wiring a new UI feature), check `docs/workflows/` for a matching recipe. If found: surface it and use it as a starting point. Deviation is allowed but must be acknowledged with a reason. This step is ADVISORY — not a gate.
 1. `mcp_memory_search_nodes` — check the memory graph for known facts first
 2. `codegraph_context` / `codegraph_search` — traverse structure if memory misses
 3. `read_file` — targeted line reads only after codegraph surfaces the location

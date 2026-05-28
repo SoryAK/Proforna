@@ -43,8 +43,22 @@ applyTo: "**"
 - **Rebuild protocol:** If MCP graph is ever wiped, read `docs/memory/index.json` → for each shard file, run `mcp_memory_create_entities` then `mcp_memory_create_relations` to restore.
 - **Shallow graph rule:** Only write domain/component-level entities, not individual function-level nodes. Shallow graph = durable graph.
 
+### Skill: Workflow Logger
+- **Trigger:** Called by the Handoff Architect at Phase 4 when a non-trivial multi-step workflow was completed this session (e.g. adding a Prisma model + migration + route + hook, wiring a new UI feature end-to-end, setting up a new integration).
+- **NOT triggered by:** single-file edits, config tweaks, bug fixes under 3 steps, or pure refactors.
+- **Output:** Create or UPDATE a file in `docs/workflows/` named by workflow type slug (e.g. `add-prisma-model-route.md`, `wire-tiptap-extension.md`). One file per workflow type — update it if it already exists, never duplicate.
+- **Recipe format:**
+  1. **Workflow Type:** Short slug + human title
+  2. **Stack Context:** Libraries and versions involved (e.g. Prisma v6, Next.js 16 Route Handler, TanStack Query v5)
+  3. **Successful Sequence:** Numbered steps in the order that worked
+  4. **First-Attempt Failures:** What was tried first and exactly why it failed
+  5. **Gotchas:** Non-obvious constraints, ordering requirements, or env quirks
+  6. **Last Updated:** Date of this session
+- **Authority level:** ADVISORY — these recipes are starting points, not hard rules. The agent may deviate for good reason but must acknowledge the recipe and state why it is diverging.
+
 ### Skill: Handoff Architect
 - **Trigger:** Use this skill ONLY when the user says "Wrap up," "Session End," or "Handoff."
+- **Pre-requisite:** Before writing the handoff doc, invoke **Workflow Logger** if a non-trivial multi-step workflow was completed this session.
 - **File Management:**
   1. Create a NEW file for every session in `docs/handoffs/`
   2. **Naming Convention:** `YYYY-MM-DD_HHmm_handoff.md` (e.g., `2026-05-28_1700_handoff.md`)

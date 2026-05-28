@@ -16,7 +16,7 @@ Full skill definitions live in `.github/instructions/`. This file is the pipelin
 
 **Phase 3: Logic & UX Validation** — `logic.instructions.md` + `ui.instructions.md` · The Griller → UI/UX Critic → Performance Pro. Chain into a single Interview block.
 
-**Phase 4: Persistence & Wrap-up** — `persistence.instructions.md` · ADR Author → Manual Engineer → UI Graph Keeper → Memory Keeper → Handoff Architect.
+**Phase 4: Persistence & Wrap-up** — `persistence.instructions.md` · ADR Author → Manual Engineer → Workflow Logger → UI Graph Keeper → Memory Keeper → Handoff Architect.
 
 ---
 
