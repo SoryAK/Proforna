@@ -41,3 +41,15 @@ Before engaging with ANY request involving codebase symbols, files, or logic, fo
 - "Show source/signature" → `codegraph_node`
 - "Survey an area" → `codegraph_explore` (one capped call, not a loop of codegraph_node)
 - "What's in directory X?" → `codegraph_files`
+
+---
+
+## Post-Edit Scan (Mandatory)
+
+After ANY file edit — and always after batch edits (`multi_replace_string_in_file` or multiple sequential edits) — you MUST:
+
+1. Call `get_errors` on every file that was modified in this response.
+2. If errors are found: fix them immediately in the same response before handing back to the user. Do NOT report errors and stop — fix them.
+3. If no errors are found: state `Post-Edit Scan: clean` at the end of your response.
+
+**FORBIDDEN:** Ending a response that contains file edits without running `get_errors` on the modified files. Silently skipping the scan is a compliance failure.

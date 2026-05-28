@@ -26,3 +26,4 @@ Full skill definitions live in `.github/instructions/`. This file is the pipelin
 - **No-Code Wall:** If any skill says "DO NOT implement" or "Wait for my plan," writing implementation code is forbidden.
 - **Plan Before Implement:** Overview → user confirmation → implementation. Always.
 - **Atomic Responses:** Prioritize Security Sentinel and Architectural Reviewer when 4+ skills apply.
+- **Post-Edit Scan:** After every file edit, run `get_errors` on all modified files. Fix any errors before handing back. State `Post-Edit Scan: clean` if none found. Skipping this scan is a compliance failure.
