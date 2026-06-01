@@ -34,7 +34,7 @@ applyTo: "**"
   - Non-obvious dependencies (e.g., "WorkHistoryPanel mounts BioCardEditor via portal into asideHost")
   - Design intent that codegraph cannot derive
 - **What NOT to write:** Line numbers, specific values, function signatures codegraph already has, implementation details.
-- **Staleness discipline:** Tag every observation with the current date. If this session touched a domain heavily, scan that domain's existing memory entities and mark stale ones before writing new ones.
+- **Staleness discipline (HARD GATE):** Tag every observation with the current date. For every domain touched this session, you MUST run `mcp_memory_search_nodes` on that domain before writing the Memory Graph Status line in the handoff. This is not advisory — it is a prerequisite. Writing "no new entities warranted" or "nothing to update" without showing the `mcp_memory_search_nodes` tool call result is a compliance failure, identical in severity to skipping the Post-Edit Scan.
 - **Write protocol:**
   1. `mcp_memory_create_entities` — domain name, file, kind
   2. `mcp_memory_create_relations` — "calls", "depends-on", "implements", "mounts-via-portal"

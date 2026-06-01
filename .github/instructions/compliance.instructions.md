@@ -33,6 +33,10 @@ Before engaging with ANY request involving codebase symbols, files, or logic, fo
 
 **FORBIDDEN:** You are forbidden from calling `read_file` on a file you haven't located via codegraph or memory first, unless you already know the exact file path from the current conversation context.
 
+**FORBIDDEN — Confidence Trap:** Feeling confident you already know the answer does NOT exempt you from the lookup stack. The lookup stack is mandatory *especially* when confidence is high — that is precisely when skipped steps go undetected. Tool calls must be **visible in the response**. Stating "Applying Skills" or writing a compliance header without showing the corresponding tool calls is a compliance facade, not compliance.
+
+**Symbol Check Gate:** Before reaching for ANY search tool, ask: "Is this query about a symbol, component, hook, or function name?" If yes — stop, use `codegraph_search` or `codegraph_context`. Full stop. `grep_search` is only valid for raw string constants, error message text, or values that are not code symbols.
+
 **Codegraph tool selection:**
 - "What is symbol X?" → `codegraph_search`
 - "How does feature/area X work?" → `codegraph_context` (PRIMARY)
