@@ -87,20 +87,40 @@ export const SUBMISSION_COLORS: Record<SubmissionStatus, string> = {
   archived: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
 };
 
-export const NAV_ITEMS = [
-  { label: "Home", href: "/dashboard", icon: "Home" },
-  { label: "Jobs", href: "/current-position", icon: "Building2" },
-  { label: "Job Search", href: "/job-search", icon: "Search" },
-  { label: "Career Analytics", href: "/career-growth", icon: "TrendingUp" },
-  { label: "Skill Graph", href: "/skill-graph", icon: "Network" },
-  { label: "Insights", href: "/insights", icon: "BarChart3" },
-  { label: "Research", href: "/research", icon: "BookOpen" },
-  { label: "Documents", href: "/docs", icon: "FolderOpen" },
-  { label: "Learning", href: "/learning", icon: "Brain" },
-  { label: "Inventory", href: "/inventory", icon: "Boxes" },
-  { label: "Asset Library", href: "/asset-types", icon: "BookOpen" },
-  { label: "Worklog", href: "/worklog", icon: "NotebookPen" },
-  { label: "Worker Rights", href: "/worker-rights", icon: "Shield" },
-  { label: "Integrations", href: "/integrations", icon: "Plug" },
-  { label: "Portal Settings", href: "/portal-settings", icon: "Globe" },
+export const NAV_SECTIONS = [
+  {
+    label: null,
+    items: [
+      { label: "Home", href: "/dashboard", icon: "Home" },
+      { label: "Work History", href: "/current-position", icon: "Building2" },
+      { label: "Worklog", href: "/worklog", icon: "NotebookPen" },
+    ],
+  },
+  {
+    label: "Resources",
+    items: [
+      { label: "My Docs", href: "/docs", icon: "FolderOpen" },
+      { label: "Inventory", href: "/inventory", icon: "Boxes" },
+      { label: "Asset Library", href: "/asset-types", icon: "BookOpen" },
+    ],
+  },
+  {
+    label: "Career",
+    items: [
+      { label: "Career Analytics", href: "/career-growth", icon: "TrendingUp" },
+      { label: "Insights", href: "/insights", icon: "BarChart3" },
+      { label: "Skill Graph", href: "/skill-graph", icon: "Network" },
+      { label: "Research", href: "/research", icon: "BookOpen" },
+      { label: "Learning", href: "/learning", icon: "Brain" },
+    ],
+  },
+  {
+    label: "Tools",
+    items: [
+      { label: "Job Search", href: "/job-search", icon: "Search" },
+      { label: "Worker Rights", href: "/worker-rights", icon: "Shield" },
+      { label: "Integrations", href: "/integrations", icon: "Plug" },
+      { label: "Portal Settings", href: "/portal-settings", icon: "Globe" },
+    ],
+  },
 ] as const;

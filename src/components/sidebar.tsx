@@ -7,7 +7,7 @@ import { useState, useEffect } from "react";
 import { useTheme } from "next-themes";
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
-import { NAV_ITEMS } from "@/lib/constants";
+import { NAV_SECTIONS } from "@/lib/constants";
 import {
   Home,
   Globe,
@@ -30,10 +30,14 @@ import {
   NotebookPen,
   Plug,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   LogOut,
+  User,
 } from "lucide-react";
-import { signOut } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
+
 import {
   Sheet,
   SheetTrigger,
@@ -42,6 +46,7 @@ import {
 } from "@/components/ui/sheet";
 import { NotificationBell } from "@/components/notification-bell";
 import { QuickLogTrigger } from "@/components/quick-log-dialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const iconMap: Record<string, React.ElementType> = {
   Home,
@@ -62,7 +67,7 @@ const iconMap: Record<string, React.ElementType> = {
   Plug,
 };
 
-function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
+function NavLinks({ onNavigate, collapsed }: { onNavigate?: () => void; collapsed?: boolean }) {
   const pathname = usePathname();
   const [jobsOpen, setJobsOpen] = useState(() => pathname.startsWith("/current-position") || pathname.startsWith("/experience"));
 
@@ -73,86 +78,132 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   });
   const activeJobs = workHistory?.filter((p) => !p.endDate && p.type === "job") ?? [];
 
-  return (
-    <nav className="flex-1 space-y-1 p-3 overflow-y-auto">
-      {NAV_ITEMS.map((item) => {
-        const Icon = iconMap[item.icon];
-        const isActive =
-          item.href === "/dashboard"
-            ? pathname === "/dashboard"
-            : pathname.startsWith(item.href);
+  const isItemActive = (href: string) =>
+    href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(href);
 
-        // Jobs item gets accordion treatment
-        if (item.href === "/current-position") {
-          return (
-            <div key={item.href}>
-              <div className="flex items-center">
-                <Link
-                  href={item.href}
-                  onClick={onNavigate}
-                  className={cn(
-                    "flex flex-1 items-center gap-3 rounded-lg rounded-r-none px-3 py-2.5 text-base font-medium transition-colors",
-                    isActive
-                      ? "bg-orange-100 text-orange-700 border-l-[3px] border-orange-500 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-400"
-                      : "text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200"
-                  )}
-                >
-                  {Icon && <Icon className="h-5 w-5" />}
-                  {item.label}
-                </Link>
-                {activeJobs.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setJobsOpen(!jobsOpen)}
-                    className={cn(
-                      "rounded-lg rounded-l-none px-2 py-2.5 transition-colors",
-                      isActive
-                        ? "bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300"
-                        : "text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300"
-                    )}
-                  >
-                    <ChevronDown className={cn("h-4 w-4 transition-transform", jobsOpen ? "rotate-0" : "-rotate-90")} />
-                  </button>
+  const activeClass = "bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300";
+  const inactiveClass = "text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200";
+
+  const renderItem = (item: { label: string; href: string; icon: string }) => {
+    const Icon = iconMap[item.icon];
+    const isActive = isItemActive(item.href);
+    const linkClass = cn(
+      "flex items-center gap-3 rounded-lg px-3 py-2.5 text-base font-medium transition-colors",
+      collapsed && "justify-center px-0",
+      isActive ? activeClass : inactiveClass
+    );
+
+    if (item.href === "/current-position") {
+      if (collapsed) {
+        return (
+          <Tooltip key={item.href}>
+            <TooltipTrigger render={<Link href={item.href} onClick={onNavigate} className={linkClass} />}>
+              {Icon && <Icon className="h-5 w-5 shrink-0" />}
+            </TooltipTrigger>
+            <TooltipContent side="right">{item.label}</TooltipContent>
+          </Tooltip>
+        );
+      }
+      return (
+        <div key={item.href}>
+          <div className="flex items-center gap-1">
+            <Link
+              href={item.href}
+              onClick={onNavigate}
+              className={cn(
+                "flex flex-1 items-center gap-3 rounded-lg px-3 py-2.5 text-base font-medium transition-colors",
+                isActive ? activeClass : inactiveClass
+              )}
+            >
+              {Icon && <Icon className="h-5 w-5 shrink-0" />}
+              {item.label}
+            </Link>
+            {activeJobs.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setJobsOpen(!jobsOpen)}
+                className={cn(
+                  "rounded-lg px-2 py-2.5 transition-colors",
+                  isActive
+                    ? "bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300"
+                    : "text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300"
                 )}
-              </div>
-              {jobsOpen && activeJobs.length > 0 && (
-                <div className="ml-7 mt-0.5 space-y-0.5 border-l pl-3">
-                  {activeJobs.map((job) => (
-                    <Link
-                      key={job.id}
-                      href={`/experience/${job.id}`}
-                      onClick={onNavigate}
-                      className="block rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-gray-800 dark:hover:text-gray-200 transition-colors truncate"
-                      title={`${job.title || job.company} at ${job.company}`}
-                    >
-                      <span className="font-medium text-foreground">{job.title || job.company}</span>
-                      <span className="text-muted-foreground"> · {job.company}</span>
-                    </Link>
-                  ))}
+              >
+                <ChevronDown className={cn("h-4 w-4 transition-transform", jobsOpen ? "rotate-0" : "-rotate-90")} />
+              </button>
+            )}
+          </div>
+          {jobsOpen && activeJobs.length > 0 && (
+            <div className="ml-7 mt-0.5 space-y-0.5 border-l pl-3">
+              {activeJobs.map((job) => (
+                <Link
+                  key={job.id}
+                  href={`/experience/${job.id}`}
+                  onClick={onNavigate}
+                  className="block rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-gray-800 dark:hover:text-gray-200 transition-colors truncate"
+                >
+                  <span className="font-medium text-foreground">{job.title || job.company}</span>
+                  <span className="text-muted-foreground"> · {job.company}</span>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    if (collapsed) {
+      return (
+        <Tooltip key={item.href}>
+          <TooltipTrigger render={<Link href={item.href} onClick={onNavigate} className={linkClass} />}>
+            {Icon && <Icon className="h-5 w-5 shrink-0" />}
+          </TooltipTrigger>
+          <TooltipContent side="right">{item.label}</TooltipContent>
+        </Tooltip>
+      );
+    }
+
+    return (
+      <Link
+        key={item.href}
+        href={item.href}
+        onClick={onNavigate}
+        className={linkClass}
+      >
+        {Icon && <Icon className="h-5 w-5 shrink-0" />}
+        {item.label}
+      </Link>
+    );
+  };
+
+  return (
+    <TooltipProvider>
+      <nav className="flex-1 p-3 overflow-y-auto space-y-0">
+        {NAV_SECTIONS.map((section, sectionIdx) => {
+          const sectionHasActive = section.items.some((item) => isItemActive(item.href));
+          return (
+            <div key={section.label ?? "main"} className={sectionIdx > 0 ? "mt-1" : ""}>
+              {sectionIdx > 0 && (
+                <div className="flex items-center gap-2 px-1 mb-1 mt-2">
+                  {!collapsed && section.label && (
+                    <span className={cn(
+                      "text-[10px] uppercase tracking-wider font-semibold shrink-0",
+                      sectionHasActive ? "text-primary" : "text-muted-foreground"
+                    )}>
+                      {section.label}
+                    </span>
+                  )}
+                  <div className="flex-1 border-t" />
                 </div>
               )}
+              <div className="space-y-0.5">
+                {section.items.map((item) => renderItem(item))}
+              </div>
             </div>
           );
-        }
-
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            onClick={onNavigate}
-            className={cn(
-              "flex items-center gap-3 rounded-lg px-3 py-2.5 text-base font-medium transition-colors",
-              isActive
-                ? "bg-orange-100 text-orange-700 border-l-[3px] border-orange-500 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-400"
-                : "text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200"
-            )}
-          >
-            {Icon && <Icon className="h-5 w-5" />}
-            {item.label}
-          </Link>
-        );
-      })}
-    </nav>
+        })}
+      </nav>
+    </TooltipProvider>
   );
 }
 
@@ -181,28 +232,94 @@ function ThemeToggle() {
 
 /** Desktop sidebar — hidden below md */
 export function Sidebar() {
+  const { data: session } = useSession();
+  const { data: profile } = useQuery<{ avatarUrl?: string | null; fullName?: string | null; headline?: string | null }>({
+    queryKey: ["profile-avatar"],
+    queryFn: () => fetch("/api/profile").then((r) => r.json()),
+    staleTime: 5 * 60_000,
+  });
+
+  // Prefer the app-uploaded avatar, fall back to OAuth provider photo, then initials
+  const avatarSrc = profile?.avatarUrl ?? session?.user?.image ?? undefined;
+  const displayName = profile?.fullName ?? session?.user?.name ?? null;
+  const headline = profile?.headline ?? null;
+
+  const [collapsed, setCollapsed] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem("sidebar-collapsed") === "true";
+  });
+
+  const toggle = () => {
+    setCollapsed((prev) => {
+      const next = !prev;
+      localStorage.setItem("sidebar-collapsed", String(next));
+      return next;
+    });
+  };
+
   return (
-    <aside className="hidden md:flex h-full w-72 flex-col border-r bg-white dark:bg-gray-950">
-      <div className="flex h-16 items-center justify-between border-b px-4">
-        <Link href="/dashboard" className="flex items-center gap-2.5 font-semibold text-lg">
-          <Image src="/logo-icon.png" alt="Resumsify" width={32} height={32} className="h-8 w-8" />
-          <span>Resumsify</span>
-        </Link>
-        <button
-          onClick={() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true }))}
-          className="flex items-center gap-1 rounded-md border px-2 py-1 text-xs text-muted-foreground hover:bg-muted transition-colors"
-          title="Search (Ctrl+K)"
-        >
-          <Search className="h-3 w-3" />
-          <kbd className="text-[10px]">Ctrl+K</kbd>
-        </button>
-      </div>
-      <div className="px-3 pt-3">
-        <QuickLogTrigger className="w-full justify-start" />
-      </div>
-      <NavLinks />
-      <div className="border-t p-3 space-y-2">
-        <div className="flex items-center gap-2">
+    <aside className={cn(
+      "hidden md:flex h-full flex-col border-r bg-white dark:bg-gray-950 transition-all duration-200",
+      collapsed ? "w-18" : "w-72"
+    )}>
+      {/* User identity card — card frame only when expanded */}
+      {collapsed ? (
+        <div className="flex justify-center pt-3 pb-3">
+          <div className="relative">
+            <Link href="/profile" title={displayName ?? "Profile"} className="shrink-0">
+              {avatarSrc ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={avatarSrc} alt={displayName ?? "User"} className="h-10 w-10 rounded-full object-cover ring-2 ring-primary/30" />
+              ) : (
+                <div className="h-10 w-10 rounded-full bg-primary/10 ring-2 ring-primary/30 flex items-center justify-center">
+                  <User className="h-5 w-5 text-primary" />
+                </div>
+              )}
+            </Link>
+            <button
+              onClick={toggle}
+              title="Expand sidebar"
+              className="absolute -bottom-1 -right-1 flex items-center justify-center h-5 w-5 rounded-full border bg-background text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shadow-sm"
+            >
+              <ChevronRight className="h-3 w-3" />
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="px-3 pt-3 pb-3">
+          <div className="bg-background/95 backdrop-blur-sm border rounded-xl shadow-sm flex items-start gap-3 p-3">
+            <Link href="/profile" className="shrink-0">
+              {avatarSrc ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={avatarSrc} alt={displayName ?? "User"} className="h-12 w-12 rounded-full object-cover ring-2 ring-primary/30" />
+              ) : (
+                <div className="h-12 w-12 rounded-full bg-primary/10 ring-2 ring-primary/30 flex items-center justify-center">
+                  <User className="h-6 w-6 text-primary" />
+                </div>
+              )}
+            </Link>
+            <div className="flex-1 min-w-0">
+              <p className="text-base font-semibold truncate">{displayName ?? "You"}</p>
+              {headline && (
+                <p className="text-sm text-primary line-clamp-2 mt-0.5">{headline}</p>
+              )}
+            </div>
+            <button
+              onClick={toggle}
+              title="Collapse sidebar"
+              className="flex items-center justify-center h-6 w-6 rounded-full border bg-background text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0"
+            >
+              <ChevronLeft className="h-3 w-3" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      <NavLinks collapsed={collapsed} />
+
+      {/* Footer */}
+      <div className={cn("border-t p-3 space-y-2", collapsed && "p-2 flex flex-col items-center space-y-1")}>
+        <div className={cn("flex items-center gap-2", collapsed && "flex-col gap-1")}>
           <NotificationBell />
           <ThemeToggle />
           <Button
@@ -214,9 +331,11 @@ export function Sidebar() {
             <LogOut className="h-5 w-5" />
           </Button>
         </div>
-        <p className="text-xs text-gray-500 dark:text-gray-500">
-          Career Tracker v1.0
-        </p>
+        {!collapsed && (
+          <p className="text-xs text-gray-500 dark:text-gray-500">
+            Career Tracker v1.0
+          </p>
+        )}
       </div>
     </aside>
   );
@@ -249,7 +368,8 @@ export function MobileHeader() {
         <Image src="/logo-icon.png" alt="Resumsify" width={32} height={32} className="h-8 w-8" />
         <span>Resumsify</span>
       </Link>
-      <div className="ml-auto flex items-center gap-1">
+      <div className="ml-auto flex items-center gap-1.5">
+        <QuickLogTrigger />
         <NotificationBell />
         <ThemeToggle />
         <Button
