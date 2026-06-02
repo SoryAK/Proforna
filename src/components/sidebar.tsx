@@ -74,7 +74,7 @@ const iconMap: Record<string, React.ElementType> = {
 
 function NavLinks({ onNavigate, collapsed }: { onNavigate?: () => void; collapsed?: boolean }) {
   const pathname = usePathname();
-  const [jobsOpen, setJobsOpen] = useState(() => pathname.startsWith("/current-position") || pathname.startsWith("/experience"));
+  const [jobsOpen, setJobsOpen] = useState(() => pathname.startsWith("/work-map") || pathname.startsWith("/experience"));
 
   const { data: workHistory } = useQuery<{ id: string; company: string; title: string | null; endDate: string | null; type: string }[]>({
     queryKey: ["work-history"],
@@ -98,7 +98,7 @@ function NavLinks({ onNavigate, collapsed }: { onNavigate?: () => void; collapse
       isActive ? activeClass : inactiveClass
     );
 
-    if (item.href === "/current-position") {
+    if (item.href === "/work-map") {
       if (collapsed) {
         return (
           <Tooltip key={item.href}>

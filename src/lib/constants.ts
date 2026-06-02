@@ -92,7 +92,7 @@ export const NAV_SECTIONS = [
     label: null,
     items: [
       { label: "Home", href: "/dashboard", icon: "Home" },
-      { label: "Work History", href: "/current-position", icon: "Building2" },
+      { label: "Work History", href: "/work-map", icon: "Map" },
       { label: "Worklog", href: "/worklog", icon: "NotebookPen" },
     ],
   },

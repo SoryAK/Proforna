@@ -2122,7 +2122,8 @@ export default function JobMapGoogle({
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth="2"><path d="M5 12h14" /></svg>
           </button>
         </div>
-        {/* Mode toggle: Work History ↔ Job Search */}
+        {/* Mode toggle: Work History ↔ Job Search — hidden when mode is locked */}
+        {onToggleWorkHistory && (
         <div className="rounded-lg overflow-hidden shadow-md border border-gray-300">
           <button
             onClick={onToggleWorkHistory}
@@ -2145,6 +2146,7 @@ export default function JobMapGoogle({
             )}
           </button>
         </div>
+        )}
         <div className="rounded-lg overflow-hidden shadow-md border border-gray-300">
           <button
             onClick={handleLocate}

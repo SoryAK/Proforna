@@ -626,7 +626,7 @@ function saveJobPref<K extends keyof JobSearchPrefs>(key: K, value: JobSearchPre
 }
 
 /* ── Component ── */
-export function JobMap() {
+export function JobMap({ initialMode = "job-search", lockedMode = false }: { initialMode?: "work-history" | "job-search"; lockedMode?: boolean } = {}) {
   // Load saved preferences once on mount
   const [savedPrefs] = useState(() => loadJobPrefs());
   const queryClient = useQueryClient();
@@ -1255,8 +1255,8 @@ export function JobMap() {
 
   /* ── Time Filter (year-month slider) ── */
   const [timeFilter, setTimeFilter] = useState<string | null>(null); // e.g. "2022-06" or null for "all time"
-  const [showWorkHistory, setShowWorkHistory] = useState(false);
-  const [showWorkHistoryPanel, setShowWorkHistoryPanel] = useState(false);
+  const [showWorkHistory, setShowWorkHistory] = useState(() => initialMode === "work-history");
+  const [showWorkHistoryPanel, setShowWorkHistoryPanel] = useState(() => initialMode === "work-history");
   const [showCareerPath, setShowCareerPath] = useState(() => {
     if (typeof window === "undefined") return false;
     try { return localStorage.getItem(WORK_HISTORY_CAREER_PATH_KEY) === "1"; } catch { return false; }
@@ -4422,7 +4422,7 @@ export function JobMap() {
             pinDropMode={pinDropMode}
             companyLocationMarkers={companyLocs}
             showWorkHistory={showWorkHistory}
-            onToggleWorkHistory={() => {
+            onToggleWorkHistory={lockedMode ? undefined : () => {
               if (showWorkHistory && !showWorkHistoryPanel) {
                 setShowWorkHistoryPanel(true);
               } else if (showWorkHistory && showWorkHistoryPanel) {
@@ -6153,6 +6153,7 @@ export function JobMap() {
                   <div className="space-y-2.5">
                     {viewPreset === "map" && (
                       <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-border/60 bg-background/70 p-2">
+                    {!lockedMode && (
                     <Button
                       type="button"
                       size="sm"
@@ -6163,6 +6164,7 @@ export function JobMap() {
                       <Briefcase className="h-3.5 w-3.5 mr-1" />
                       Work History
                     </Button>
+                    )}
                     <Button
                       type="button"
                       size="sm"
