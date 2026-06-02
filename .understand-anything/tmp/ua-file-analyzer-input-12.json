@@ -1,0 +1,395 @@
+{
+  "projectRoot": "C:\\Users\\Sory kaba\\OneDrive\\RESUMSIFY\\Personal_Projects\\Dev_Pojects\\resumsify",
+  "batchFiles": [
+    {
+      "path": "src/app/(app)/portal/page.tsx",
+      "language": "typescript",
+      "sizeLines": 648,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/profile/page.tsx",
+      "language": "typescript",
+      "sizeLines": 38,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/research/page.tsx",
+      "language": "typescript",
+      "sizeLines": 50,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/resumes/page.tsx",
+      "language": "typescript",
+      "sizeLines": 749,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/skills/page.tsx",
+      "language": "typescript",
+      "sizeLines": 474,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/submissions/page.tsx",
+      "language": "typescript",
+      "sizeLines": 512,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/worker-rights/page.tsx",
+      "language": "typescript",
+      "sizeLines": 606,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/interview/[roomId]/page.tsx",
+      "language": "typescript",
+      "sizeLines": 214,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/jobs/[slug]/page.tsx",
+      "language": "typescript",
+      "sizeLines": 239,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/login/page.tsx",
+      "language": "typescript",
+      "sizeLines": 279,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/onboarding/page.tsx",
+      "language": "typescript",
+      "sizeLines": 833,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/page.tsx",
+      "language": "typescript",
+      "sizeLines": 598,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/adaptive-ir-editor.tsx",
+      "language": "typescript",
+      "sizeLines": 337,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/ai-chat.tsx",
+      "language": "typescript",
+      "sizeLines": 568,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/asset-type-picker.tsx",
+      "language": "typescript",
+      "sizeLines": 93,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/asset-types-manager.tsx",
+      "language": "typescript",
+      "sizeLines": 903,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/benefits-tracker.tsx",
+      "language": "typescript",
+      "sizeLines": 435,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/bio-card-editor.tsx",
+      "language": "typescript",
+      "sizeLines": 721,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/career-direction-model.tsx",
+      "language": "typescript",
+      "sizeLines": 1391,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/company-deep-dive.tsx",
+      "language": "typescript",
+      "sizeLines": 1152,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/company-intel.tsx",
+      "language": "typescript",
+      "sizeLines": 716,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/company-news.tsx",
+      "language": "typescript",
+      "sizeLines": 272,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/compensation-editor.tsx",
+      "language": "typescript",
+      "sizeLines": 463,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/compensation-tracker.tsx",
+      "language": "typescript",
+      "sizeLines": 1404,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/equipment-tracker.tsx",
+      "language": "typescript",
+      "sizeLines": 996,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/equipment-usage-history.tsx",
+      "language": "typescript",
+      "sizeLines": 244,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/hours-worked-tracker.tsx",
+      "language": "typescript",
+      "sizeLines": 473,
+      "fileCategory": "code"
+    }
+  ],
+  "batchImportData": {
+    "src/app/(app)/portal/page.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/textarea.tsx",
+      "src/lib/constants.ts"
+    ],
+    "src/app/(app)/profile/page.tsx": [
+      "src/app/(app)/experience/page.tsx",
+      "src/app/(app)/resumes/page.tsx",
+      "src/app/(app)/skills/page.tsx",
+      "src/components/ui/tabs.tsx"
+    ],
+    "src/app/(app)/research/page.tsx": [
+      "src/components/company-news.tsx",
+      "src/components/industry-research.tsx",
+      "src/components/job-market-research.tsx",
+      "src/components/learning-tracker.tsx",
+      "src/components/scholar-search.tsx",
+      "src/components/ui/tabs.tsx"
+    ],
+    "src/app/(app)/resumes/page.tsx": [
+      "src/components/adaptive-ir-editor.tsx",
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/dropdown-menu.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/scroll-area.tsx",
+      "src/components/ui/skeleton.tsx",
+      "src/components/ui/textarea.tsx"
+    ],
+    "src/app/(app)/skills/page.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/dropdown-menu.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/progress.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/skeleton.tsx",
+      "src/components/ui/tabs.tsx",
+      "src/lib/constants.ts",
+      "src/lib/utils.ts"
+    ],
+    "src/app/(app)/submissions/page.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/checkbox.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/select.tsx",
+      "src/lib/constants.ts",
+      "src/lib/utils.ts"
+    ],
+    "src/app/(app)/worker-rights/page.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/textarea.tsx"
+    ],
+    "src/app/interview/[roomId]/page.tsx": [
+      "src/components/interview-resume-sidebar.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/video-call.tsx"
+    ],
+    "src/app/jobs/[slug]/page.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/login/page.tsx": [
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/separator.tsx"
+    ],
+    "src/app/onboarding/page.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/textarea.tsx"
+    ],
+    "src/app/page.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx"
+    ],
+    "src/components/adaptive-ir-editor.tsx": [
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/skeleton.tsx",
+      "src/components/ui/switch.tsx"
+    ],
+    "src/components/ai-chat.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/textarea.tsx"
+    ],
+    "src/components/asset-type-picker.tsx": [
+      "src/components/asset-types-manager.tsx",
+      "src/components/ui/input.tsx"
+    ],
+    "src/components/asset-types-manager.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/textarea.tsx",
+      "src/lib/utils.ts"
+    ],
+    "src/components/benefits-tracker.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/separator.tsx",
+      "src/components/ui/textarea.tsx"
+    ],
+    "src/components/bio-card-editor.tsx": [
+      "src/components/ui/button.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/textarea.tsx"
+    ],
+    "src/components/career-direction-model.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/dropdown-menu.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/progress.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/separator.tsx",
+      "src/components/ui/skeleton.tsx",
+      "src/components/ui/textarea.tsx"
+    ],
+    "src/components/company-deep-dive.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/progress.tsx",
+      "src/components/ui/separator.tsx",
+      "src/components/ui/skeleton.tsx",
+      "src/components/ui/tabs.tsx"
+    ],
+    "src/components/company-intel.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/separator.tsx",
+      "src/components/ui/skeleton.tsx",
+      "src/components/ui/textarea.tsx"
+    ],
+    "src/components/company-news.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/separator.tsx"
+    ],
+    "src/components/compensation-editor.tsx": [
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/switch.tsx",
+      "src/components/ui/textarea.tsx"
+    ],
+    "src/components/compensation-tracker.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/separator.tsx",
+      "src/components/ui/textarea.tsx"
+    ],
+    "src/components/equipment-tracker.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/textarea.tsx"
+    ],
+    "src/components/equipment-usage-history.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/lib/utils.ts"
+    ],
+    "src/components/hours-worked-tracker.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/separator.tsx",
+      "src/components/ui/tabs.tsx"
+    ]
+  }
+}

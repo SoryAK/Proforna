@@ -1,0 +1,30 @@
+{
+  "version": "1.0.0",
+  "gitCommitHash": "e0c3d6085d6fa463a8ccf11b46e1ea2b6c31df0a",
+  "analyzedAt": "2026-05-26T17:31:59.589Z",
+  "projectName": "Resumsify",
+  "totalFiles": 621,
+  "totalNodes": 1850,
+  "totalEdges": 3681,
+  "totalBatches": 34,
+  "languages": [
+    "TypeScript",
+    "JavaScript",
+    "CSS",
+    "Prisma",
+    "JSON",
+    "Markdown"
+  ],
+  "frameworks": [
+    "Next.js",
+    "React",
+    "Prisma",
+    "Tiptap",
+    "Yjs",
+    "TanStack Query",
+    "shadcn/ui",
+    "TailwindCSS",
+    "Vitest"
+  ],
+  "outputPath": ".understand-anything/knowledge-graph.json"
+}

@@ -1,0 +1,57 @@
+{
+  "batchIndex": 19,
+  "totalBatches": 34,
+  "files": [
+    {
+      "path": "src/app/api/interview-room/route.ts",
+      "language": "typescript",
+      "sizeLines": 37,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/interview-room/signal/route.ts",
+      "language": "typescript",
+      "sizeLines": 63,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/interview-rooms.ts",
+      "language": "typescript",
+      "sizeLines": 93,
+      "fileCategory": "code"
+    }
+  ],
+  "batchImportData": {
+    "src/app/api/interview-room/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/interview-rooms.ts"
+    ],
+    "src/app/api/interview-room/signal/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/interview-rooms.ts"
+    ],
+    "src/lib/interview-rooms.ts": []
+  },
+  "neighborMap": {
+    "src/app/api/interview-room/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      }
+    ],
+    "src/app/api/interview-room/signal/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      }
+    ]
+  }
+}

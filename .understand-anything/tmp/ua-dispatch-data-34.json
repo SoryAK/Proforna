@@ -1,0 +1,117 @@
+{
+  "batchIndex": 34,
+  "totalBatches": 34,
+  "files": [
+    {
+      "path": "src/app/r/[slug]/layout.tsx",
+      "language": "typescript",
+      "sizeLines": 3,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/recruiter-saved/page.tsx",
+      "language": "typescript",
+      "sizeLines": 461,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/share/inventory/[token]/page.tsx",
+      "language": "typescript",
+      "sizeLines": 285,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/building-outline-editor.tsx",
+      "language": "typescript",
+      "sizeLines": 589,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/job-map-leaflet.tsx",
+      "language": "typescript",
+      "sizeLines": 902,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/map-drawing-canvas.tsx",
+      "language": "typescript",
+      "sizeLines": 1028,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/map-drawing-panel.tsx",
+      "language": "typescript",
+      "sizeLines": 484,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/col.ts",
+      "language": "typescript",
+      "sizeLines": 165,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/worklog/parse-snapshot.test.ts",
+      "language": "typescript",
+      "sizeLines": 82,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/worklog/parse-snapshot.ts",
+      "language": "typescript",
+      "sizeLines": 16,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/types/leaflet-heat.d.ts",
+      "language": "typescript",
+      "sizeLines": 15,
+      "fileCategory": "code"
+    },
+    {
+      "path": "vitest.config.ts",
+      "language": "typescript",
+      "sizeLines": 15,
+      "fileCategory": "code"
+    }
+  ],
+  "batchImportData": {
+    "src/app/r/[slug]/layout.tsx": [],
+    "src/app/recruiter-saved/page.tsx": [],
+    "src/app/share/inventory/[token]/page.tsx": [],
+    "src/components/building-outline-editor.tsx": [],
+    "src/components/job-map-leaflet.tsx": [],
+    "src/components/map-drawing-canvas.tsx": [],
+    "src/components/map-drawing-panel.tsx": [
+      "src/components/map-drawing-canvas.tsx"
+    ],
+    "src/lib/col.ts": [],
+    "src/lib/worklog/parse-snapshot.test.ts": [
+      "src/lib/worklog/parse-snapshot.ts"
+    ],
+    "src/lib/worklog/parse-snapshot.ts": [],
+    "src/types/leaflet-heat.d.ts": [],
+    "vitest.config.ts": []
+  },
+  "neighborMap": {
+    "src/components/map-drawing-canvas.tsx": [
+      {
+        "path": "src/components/job-map.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "JobMap"
+        ]
+      }
+    ],
+    "src/lib/worklog/parse-snapshot.ts": [
+      {
+        "path": "src/components/worklog/canvas-dialog.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "CanvasDialog",
+          "CanvasThumbnail"
+        ]
+      }
+    ]
+  }
+}

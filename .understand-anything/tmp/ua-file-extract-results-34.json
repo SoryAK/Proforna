@@ -1,0 +1,3624 @@
+{
+  "scriptCompleted": true,
+  "filesAnalyzed": 12,
+  "filesSkipped": [],
+  "results": [
+    {
+      "path": "src/app/r/[slug]/layout.tsx",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 3,
+      "nonEmptyLines": 3,
+      "functions": [
+        {
+          "name": "RLayout",
+          "startLine": 1,
+          "endLine": 3,
+          "params": [
+            "{ children }"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "RLayout",
+          "line": 1,
+          "isDefault": true
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 1,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/app/recruiter-saved/page.tsx",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 461,
+      "nonEmptyLines": 433,
+      "functions": [
+        {
+          "name": "fmtMoney",
+          "startLine": 47,
+          "endLine": 66,
+          "params": [
+            "n",
+            "period",
+            "currency"
+          ]
+        },
+        {
+          "name": "formatCompChip",
+          "startLine": 68,
+          "endLine": 75,
+          "params": [
+            "c"
+          ]
+        },
+        {
+          "name": "compFlex",
+          "startLine": 78,
+          "endLine": 85,
+          "params": [
+            "c"
+          ]
+        },
+        {
+          "name": "budgetMatch",
+          "startLine": 94,
+          "endLine": 100,
+          "params": [
+            "comp",
+            "budget"
+          ]
+        },
+        {
+          "name": "RecruiterSavedPage",
+          "startLine": 118,
+          "endLine": 461,
+          "params": []
+        }
+      ],
+      "exports": [
+        {
+          "name": "RecruiterSavedPage",
+          "line": 118,
+          "isDefault": true
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "fmtMoney",
+          "callee": "(currency || \"USD\").toUpperCase",
+          "lineNumber": 48
+        },
+        {
+          "caller": "fmtMoney",
+          "callee": "new Intl.NumberFormat(undefined, {\r\n        style: \"currency\",\r\n        currency: cur,\r\n        notation: \"compact\",\r\n        maximumFractionDigits: 1,\r\n      }).format",
+          "lineNumber": 51
+        },
+        {
+          "caller": "fmtMoney",
+          "callee": "new Intl.NumberFormat(undefined, {\r\n      style: \"currency\",\r\n      currency: cur,\r\n      maximumFractionDigits: period === \"hourly\" ? 2 : 0,\r\n    }).format",
+          "lineNumber": 58
+        },
+        {
+          "caller": "fmtMoney",
+          "callee": "n.toLocaleString",
+          "lineNumber": 64
+        },
+        {
+          "caller": "formatCompChip",
+          "callee": "fmtMoney",
+          "lineNumber": 70
+        },
+        {
+          "caller": "formatCompChip",
+          "callee": "fmtMoney",
+          "lineNumber": 70
+        },
+        {
+          "caller": "formatCompChip",
+          "callee": "fmtMoney",
+          "lineNumber": 71
+        },
+        {
+          "caller": "formatCompChip",
+          "callee": "fmtMoney",
+          "lineNumber": 72
+        },
+        {
+          "caller": "formatCompChip",
+          "callee": "fmtMoney",
+          "lineNumber": 73
+        },
+        {
+          "caller": "RecruiterSavedPage",
+          "callee": "useState",
+          "lineNumber": 119
+        },
+        {
+          "caller": "RecruiterSavedPage",
+          "callee": "useState",
+          "lineNumber": 120
+        },
+        {
+          "caller": "RecruiterSavedPage",
+          "callee": "useState",
+          "lineNumber": 121
+        },
+        {
+          "caller": "RecruiterSavedPage",
+          "callee": "useState",
+          "lineNumber": 122
+        },
+        {
+          "caller": "RecruiterSavedPage",
+          "callee": "useState",
+          "lineNumber": 123
+        },
+        {
+          "caller": "load",
+          "callee": "fetch",
+          "lineNumber": 126
+        },
+        {
+          "caller": "load",
+          "callee": "r.json",
+          "lineNumber": 127
+        },
+        {
+          "caller": "load",
+          "callee": "setItems",
+          "lineNumber": 128
+        },
+        {
+          "caller": "RecruiterSavedPage",
+          "callee": "useEffect",
+          "lineNumber": 131
+        },
+        {
+          "caller": "RecruiterSavedPage",
+          "callee": "load",
+          "lineNumber": 132
+        },
+        {
+          "caller": "unsave",
+          "callee": "setBusySlug",
+          "lineNumber": 136
+        },
+        {
+          "caller": "unsave",
+          "callee": "fetch",
+          "lineNumber": 138
+        },
+        {
+          "caller": "unsave",
+          "callee": "encodeURIComponent",
+          "lineNumber": 138
+        },
+        {
+          "caller": "unsave",
+          "callee": "setItems",
+          "lineNumber": 142
+        },
+        {
+          "caller": "unsave",
+          "callee": "cur?.filter",
+          "lineNumber": 142
+        },
+        {
+          "caller": "unsave",
+          "callee": "setBusySlug",
+          "lineNumber": 144
+        },
+        {
+          "caller": "setItemTag",
+          "callee": "setItems",
+          "lineNumber": 150
+        },
+        {
+          "caller": "setItemTag",
+          "callee": "cur?.map",
+          "lineNumber": 150
+        },
+        {
+          "caller": "setItemTag",
+          "callee": "fetch",
+          "lineNumber": 152
+        },
+        {
+          "caller": "setItemTag",
+          "callee": "JSON.stringify",
+          "lineNumber": 156
+        },
+        {
+          "caller": "setItemTag",
+          "callee": "setItems",
+          "lineNumber": 158
+        },
+        {
+          "caller": "setItemTag",
+          "callee": "setItems",
+          "lineNumber": 160
+        },
+        {
+          "caller": "RecruiterSavedPage",
+          "callee": "useMemo",
+          "lineNumber": 164
+        },
+        {
+          "caller": "RecruiterSavedPage",
+          "callee": "useMemo",
+          "lineNumber": 175
+        },
+        {
+          "caller": "RecruiterSavedPage",
+          "callee": "budgetInput.trim",
+          "lineNumber": 177
+        },
+        {
+          "caller": "RecruiterSavedPage",
+          "callee": "Number",
+          "lineNumber": 177
+        },
+        {
+          "caller": "RecruiterSavedPage",
+          "callee": "list.filter",
+          "lineNumber": 179
+        },
+        {
+          "caller": "RecruiterSavedPage",
+          "callee": "list.filter",
+          "lineNumber": 180
+        },
+        {
+          "caller": "RecruiterSavedPage",
+          "callee": "list.filter",
+          "lineNumber": 182
+        },
+        {
+          "caller": "RecruiterSavedPage",
+          "callee": "budgetMatch",
+          "lineNumber": 182
+        },
+        {
+          "caller": "RecruiterSavedPage",
+          "callee": "useEffect",
+          "lineNumber": 188
+        },
+        {
+          "caller": "RecruiterSavedPage",
+          "callee": "budgetInput.trim",
+          "lineNumber": 189
+        },
+        {
+          "caller": "RecruiterSavedPage",
+          "callee": "Number",
+          "lineNumber": 190
+        },
+        {
+          "caller": "RecruiterSavedPage",
+          "callee": "Number.isFinite",
+          "lineNumber": 191
+        },
+        {
+          "caller": "RecruiterSavedPage",
+          "callee": "window.setTimeout",
+          "lineNumber": 192
+        },
+        {
+          "caller": "RecruiterSavedPage",
+          "callee": "budgetMatch",
+          "lineNumber": 195
+        },
+        {
+          "caller": "RecruiterSavedPage",
+          "callee": "fetch(\"/api/analytics/event\", {\r\n          method: \"POST\",\r\n          headers: { \"Content-Type\": \"application/json\" },\r\n          body: JSON.stringify({ event: \"recruiter_budget_filter\", budget, match, miss, unknown }),\r\n          keepalive: true,\r\n        }).catch",
+          "lineNumber": 202
+        },
+        {
+          "caller": "RecruiterSavedPage",
+          "callee": "fetch",
+          "lineNumber": 202
+        },
+        {
+          "caller": "RecruiterSavedPage",
+          "callee": "JSON.stringify",
+          "lineNumber": 205
+        },
+        {
+          "caller": "RecruiterSavedPage",
+          "callee": "window.clearTimeout",
+          "lineNumber": 210
+        },
+        {
+          "caller": "RecruiterSavedPage",
+          "callee": "filterChips.map",
+          "lineNumber": 244
+        },
+        {
+          "caller": "RecruiterSavedPage",
+          "callee": "setFilter",
+          "lineNumber": 250
+        },
+        {
+          "caller": "RecruiterSavedPage",
+          "callee": "setBudgetInput",
+          "lineNumber": 275
+        },
+        {
+          "caller": "RecruiterSavedPage",
+          "callee": "setHideOverBudget",
+          "lineNumber": 282
+        },
+        {
+          "caller": "RecruiterSavedPage",
+          "callee": "budgetInput.trim",
+          "lineNumber": 287
+        },
+        {
+          "caller": "RecruiterSavedPage",
+          "callee": "setBudgetInput",
+          "lineNumber": 290
+        },
+        {
+          "caller": "RecruiterSavedPage",
+          "callee": "setHideOverBudget",
+          "lineNumber": 290
+        },
+        {
+          "caller": "RecruiterSavedPage",
+          "callee": "filtered.map",
+          "lineNumber": 325
+        },
+        {
+          "caller": "RecruiterSavedPage",
+          "callee": "budgetInput.trim",
+          "lineNumber": 327
+        },
+        {
+          "caller": "RecruiterSavedPage",
+          "callee": "Number",
+          "lineNumber": 327
+        },
+        {
+          "caller": "RecruiterSavedPage",
+          "callee": "budgetMatch",
+          "lineNumber": 328
+        },
+        {
+          "caller": "RecruiterSavedPage",
+          "callee": "(it.candidateName ?? \"?\").slice(0, 1).toUpperCase",
+          "lineNumber": 343
+        },
+        {
+          "caller": "RecruiterSavedPage",
+          "callee": "(it.candidateName ?? \"?\").slice",
+          "lineNumber": 343
+        },
+        {
+          "caller": "RecruiterSavedPage",
+          "callee": "new Date(it.savedAt).toLocaleString",
+          "lineNumber": 360
+        },
+        {
+          "caller": "RecruiterSavedPage",
+          "callee": "new Date(it.savedAt).toLocaleDateString",
+          "lineNumber": 362
+        },
+        {
+          "caller": "RecruiterSavedPage",
+          "callee": "formatCompChip",
+          "lineNumber": 377
+        },
+        {
+          "caller": "RecruiterSavedPage",
+          "callee": "(() => {\r\n                          const flex = compFlex(it.compensation!);\r\n                          return flex ? (\r\n                            <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${flex.cls}`}>\r\n                              {flex.label}\r\n                            </span>\r\n                          ) : null;\r\n                        })",
+          "lineNumber": 379
+        },
+        {
+          "caller": "RecruiterSavedPage",
+          "callee": "compFlex",
+          "lineNumber": 380
+        },
+        {
+          "caller": "RecruiterSavedPage",
+          "callee": "TAG_ORDER.map",
+          "lineNumber": 423
+        },
+        {
+          "caller": "RecruiterSavedPage",
+          "callee": "setItemTag",
+          "lineNumber": 430
+        },
+        {
+          "caller": "RecruiterSavedPage",
+          "callee": "unsave",
+          "lineNumber": 445
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 1,
+        "functionCount": 5,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/app/share/inventory/[token]/page.tsx",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 285,
+      "nonEmptyLines": 270,
+      "functions": [
+        {
+          "name": "PhotoView",
+          "startLine": 56,
+          "endLine": 79,
+          "params": [
+            "{ p, fit = \"cover\", onClick }"
+          ]
+        },
+        {
+          "name": "SharedInventoryPage",
+          "startLine": 81,
+          "endLine": 285,
+          "params": [
+            "{ params }"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "SharedInventoryPage",
+          "line": 81,
+          "isDefault": true
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "SharedInventoryPage",
+          "callee": "use",
+          "lineNumber": 82
+        },
+        {
+          "caller": "SharedInventoryPage",
+          "callee": "useState",
+          "lineNumber": 83
+        },
+        {
+          "caller": "SharedInventoryPage",
+          "callee": "useState",
+          "lineNumber": 84
+        },
+        {
+          "caller": "SharedInventoryPage",
+          "callee": "useState",
+          "lineNumber": 85
+        },
+        {
+          "caller": "SharedInventoryPage",
+          "callee": "useState",
+          "lineNumber": 86
+        },
+        {
+          "caller": "SharedInventoryPage",
+          "callee": "useEffect",
+          "lineNumber": 88
+        },
+        {
+          "caller": "SharedInventoryPage",
+          "callee": "(async () => {\r\n      try {\r\n        const res = await fetch(`/api/personal-equipment/shares/public/${encodeURIComponent(token)}`);\r\n        if (!res.ok) {\r\n          if (res.status === 410) setError(\"This share link has expired.\");\r\n          else if (res.status === 404) setError(\"This share link is invalid or has been revoked.\");\r\n          else setError(\"Failed to load shared inventory.\");\r\n          return;\r\n        }\r\n        const data = await res.json();\r\n        if (cancelled) return;\r\n        setShare(data.share);\r\n        setItems(data.items);\r\n      } catch {\r\n        if (!cancelled) setError(\"Failed to load shared inventory.\");\r\n      }\r\n    })",
+          "lineNumber": 90
+        },
+        {
+          "caller": "SharedInventoryPage",
+          "callee": "fetch",
+          "lineNumber": 92
+        },
+        {
+          "caller": "SharedInventoryPage",
+          "callee": "encodeURIComponent",
+          "lineNumber": 92
+        },
+        {
+          "caller": "SharedInventoryPage",
+          "callee": "setError",
+          "lineNumber": 94
+        },
+        {
+          "caller": "SharedInventoryPage",
+          "callee": "setError",
+          "lineNumber": 95
+        },
+        {
+          "caller": "SharedInventoryPage",
+          "callee": "setError",
+          "lineNumber": 96
+        },
+        {
+          "caller": "SharedInventoryPage",
+          "callee": "res.json",
+          "lineNumber": 99
+        },
+        {
+          "caller": "SharedInventoryPage",
+          "callee": "setShare",
+          "lineNumber": 101
+        },
+        {
+          "caller": "SharedInventoryPage",
+          "callee": "setItems",
+          "lineNumber": 102
+        },
+        {
+          "caller": "SharedInventoryPage",
+          "callee": "setError",
+          "lineNumber": 104
+        },
+        {
+          "caller": "next",
+          "callee": "setLightbox",
+          "lineNumber": 134
+        },
+        {
+          "caller": "prev",
+          "callee": "setLightbox",
+          "lineNumber": 139
+        },
+        {
+          "caller": "SharedInventoryPage",
+          "callee": "useEffect",
+          "lineNumber": 142
+        },
+        {
+          "caller": "onKey",
+          "callee": "setLightbox",
+          "lineNumber": 145
+        },
+        {
+          "caller": "onKey",
+          "callee": "next",
+          "lineNumber": 146
+        },
+        {
+          "caller": "onKey",
+          "callee": "prev",
+          "lineNumber": 147
+        },
+        {
+          "caller": "SharedInventoryPage",
+          "callee": "window.addEventListener",
+          "lineNumber": 149
+        },
+        {
+          "caller": "SharedInventoryPage",
+          "callee": "window.removeEventListener",
+          "lineNumber": 150
+        },
+        {
+          "caller": "SharedInventoryPage",
+          "callee": "new Date(share.expiresAt).toLocaleDateString",
+          "lineNumber": 166
+        },
+        {
+          "caller": "SharedInventoryPage",
+          "callee": "items.map",
+          "lineNumber": 180
+        },
+        {
+          "caller": "SharedInventoryPage",
+          "callee": "item.photos.find",
+          "lineNumber": 181
+        },
+        {
+          "caller": "SharedInventoryPage",
+          "callee": "setLightbox",
+          "lineNumber": 187
+        },
+        {
+          "caller": "SharedInventoryPage",
+          "callee": "[item.manufacturer, item.model].filter(Boolean).join",
+          "lineNumber": 197
+        },
+        {
+          "caller": "SharedInventoryPage",
+          "callee": "[item.manufacturer, item.model].filter",
+          "lineNumber": 197
+        },
+        {
+          "caller": "SharedInventoryPage",
+          "callee": "Number(value).toLocaleString",
+          "lineNumber": 203
+        },
+        {
+          "caller": "SharedInventoryPage",
+          "callee": "Number",
+          "lineNumber": 203
+        },
+        {
+          "caller": "SharedInventoryPage",
+          "callee": "item.tags.slice(0, 4).map",
+          "lineNumber": 209
+        },
+        {
+          "caller": "SharedInventoryPage",
+          "callee": "item.tags.slice",
+          "lineNumber": 209
+        },
+        {
+          "caller": "SharedInventoryPage",
+          "callee": "setLightbox",
+          "lineNumber": 227
+        },
+        {
+          "caller": "SharedInventoryPage",
+          "callee": "e.stopPropagation",
+          "lineNumber": 232
+        },
+        {
+          "caller": "SharedInventoryPage",
+          "callee": "setLightbox",
+          "lineNumber": 233
+        },
+        {
+          "caller": "SharedInventoryPage",
+          "callee": "e.stopPropagation",
+          "lineNumber": 244
+        },
+        {
+          "caller": "SharedInventoryPage",
+          "callee": "prev",
+          "lineNumber": 245
+        },
+        {
+          "caller": "SharedInventoryPage",
+          "callee": "e.stopPropagation",
+          "lineNumber": 254
+        },
+        {
+          "caller": "SharedInventoryPage",
+          "callee": "next",
+          "lineNumber": 255
+        },
+        {
+          "caller": "SharedInventoryPage",
+          "callee": "e.stopPropagation",
+          "lineNumber": 263
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 1,
+        "functionCount": 2,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/components/building-outline-editor.tsx",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 589,
+      "nonEmptyLines": 554,
+      "functions": [
+        {
+          "name": "BuildingOutlineEditor",
+          "startLine": 38,
+          "endLine": 589,
+          "params": [
+            "{\r\n  workHistoryId,\r\n  lat,\r\n  lng,\r\n  osmWayIds,\r\n  footprintCustom,\r\n  osmWayId,\r\n  map,\r\n  onClose,\r\n  onSaved,\r\n}"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "BuildingOutlineEditor",
+          "line": 38,
+          "isDefault": true
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "useMemo",
+          "lineNumber": 51
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "useState",
+          "lineNumber": 56
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "useState",
+          "lineNumber": 57
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "useState",
+          "lineNumber": 58
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "useState",
+          "lineNumber": 59
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "useState",
+          "lineNumber": 60
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "useState",
+          "lineNumber": 61
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "useState",
+          "lineNumber": 63
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "JSON.stringify",
+          "lineNumber": 66
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "JSON.stringify",
+          "lineNumber": 66
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "JSON.stringify",
+          "lineNumber": 67
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "JSON.stringify",
+          "lineNumber": 67
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "useRef",
+          "lineNumber": 70
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "useCallback",
+          "lineNumber": 72
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "pickPolysRef.current.forEach",
+          "lineNumber": 73
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "google.maps.event.clearInstanceListeners",
+          "lineNumber": 74
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "p.setMap",
+          "lineNumber": 75
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "pickPolysRef.current.clear",
+          "lineNumber": 77
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "useCallback",
+          "lineNumber": 80
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "draftWayIds.includes",
+          "lineNumber": 82
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "poly.setOptions",
+          "lineNumber": 83
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "useEffect",
+          "lineNumber": 96
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "pickPolysRef.current.forEach",
+          "lineNumber": 97
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "renderPickerStyle",
+          "lineNumber": 97
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "useCallback",
+          "lineNumber": 100
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "setMode",
+          "lineNumber": 101
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "setLoadingNearby",
+          "lineNumber": 103
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "fetch",
+          "lineNumber": 105
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "res.json",
+          "lineNumber": 109
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "setNearby",
+          "lineNumber": 110
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "setLoadingNearby",
+          "lineNumber": 115
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "useEffect",
+          "lineNumber": 121
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "teardownPicker",
+          "lineNumber": 123
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "teardownPicker",
+          "lineNumber": 126
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "nearby.forEach",
+          "lineNumber": 127
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "renderPickerStyle",
+          "lineNumber": 134
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "poly.addListener",
+          "lineNumber": 135
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "renderPickerStyle",
+          "lineNumber": 135
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "poly.addListener",
+          "lineNumber": 136
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "renderPickerStyle",
+          "lineNumber": 136
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "poly.addListener",
+          "lineNumber": 137
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "setDraftWayIds",
+          "lineNumber": 138
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "prev.includes",
+          "lineNumber": 139
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "prev.filter",
+          "lineNumber": 139
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "pickPolysRef.current.set",
+          "lineNumber": 142
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "teardownPicker",
+          "lineNumber": 145
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "useRef",
+          "lineNumber": 153
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "useCallback",
+          "lineNumber": 155
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "google.maps.event.clearInstanceListeners",
+          "lineNumber": 157
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "drawingMgrRef.current.setMap",
+          "lineNumber": 158
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "useEffect",
+          "lineNumber": 163
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "teardownDrawing",
+          "lineNumber": 165
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "(async () => {\r\n      await importLibrary(\"drawing\");\r\n      if (cancelled) return;\r\n      const mgr = new google.maps.drawing.DrawingManager({\r\n        drawingMode: google.maps.drawing.OverlayType.POLYGON,\r\n        drawingControl: false,\r\n        polygonOptions: {\r\n          strokeColor: ACCENT,\r\n          strokeWeight: 3,\r\n          fillColor: ACCENT,\r\n          fillOpacity: 0.25,\r\n          editable: false,\r\n          zIndex: 10002,\r\n        },\r\n      });\r\n      mgr.setMap(map);\r\n      drawingMgrRef.current = mgr;\r\n\r\n      mgr.addListener(\"polygoncomplete\", (poly: google.maps.Polygon) => {\r\n        const path = poly.getPath();\r\n        const ring: LatLng[] = [];\r\n        for (let i = 0; i < path.getLength(); i++) {\r\n          const ll = path.getAt(i);\r\n          ring.push({ lat: ll.lat(), lng: ll.lng() });\r\n        }\r\n        // Tear down the throwaway polygon — the persisted outline will be\r\n        // re-rendered by the focused-footprint effect after save.\r\n        poly.setMap(null);\r\n        if (ring.length >= 3) {\r\n          setDraftCustom((prev) => [...prev, ring]);\r\n        }\r\n        // Auto-exit drawing mode after a single polygon — most users want one at a time.\r\n        setMode(\"list\");\r\n      });\r\n    })",
+          "lineNumber": 169
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "importLibrary",
+          "lineNumber": 170
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "mgr.setMap",
+          "lineNumber": 184
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "mgr.addListener",
+          "lineNumber": 187
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "poly.getPath",
+          "lineNumber": 188
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "path.getLength",
+          "lineNumber": 190
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "path.getAt",
+          "lineNumber": 191
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "ring.push",
+          "lineNumber": 192
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "ll.lat",
+          "lineNumber": 192
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "ll.lng",
+          "lineNumber": 192
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "poly.setMap",
+          "lineNumber": 196
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "setDraftCustom",
+          "lineNumber": 198
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "setMode",
+          "lineNumber": 201
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "teardownDrawing",
+          "lineNumber": 206
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "useRef",
+          "lineNumber": 211
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "useCallback",
+          "lineNumber": 213
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "google.maps.event.clearInstanceListeners",
+          "lineNumber": 215
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "editPolyRef.current.getPath",
+          "lineNumber": 216
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "google.maps.event.clearInstanceListeners",
+          "lineNumber": 217
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "editPolyRef.current.setMap",
+          "lineNumber": 218
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "useEffect",
+          "lineNumber": 223
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "teardownEdit",
+          "lineNumber": 225
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "setEditingCustomIdx",
+          "lineNumber": 230
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "teardownEdit",
+          "lineNumber": 233
+        },
+        {
+          "caller": "sync",
+          "callee": "poly.getPath",
+          "lineNumber": 249
+        },
+        {
+          "caller": "sync",
+          "callee": "path.getLength",
+          "lineNumber": 251
+        },
+        {
+          "caller": "sync",
+          "callee": "path.getAt",
+          "lineNumber": 252
+        },
+        {
+          "caller": "sync",
+          "callee": "next.push",
+          "lineNumber": 253
+        },
+        {
+          "caller": "sync",
+          "callee": "ll.lat",
+          "lineNumber": 253
+        },
+        {
+          "caller": "sync",
+          "callee": "ll.lng",
+          "lineNumber": 253
+        },
+        {
+          "caller": "sync",
+          "callee": "setDraftCustom",
+          "lineNumber": 255
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "poly.getPath",
+          "lineNumber": 261
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "path.addListener",
+          "lineNumber": 262
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "path.addListener",
+          "lineNumber": 263
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "path.addListener",
+          "lineNumber": 264
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "teardownEdit",
+          "lineNumber": 265
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "useEffect",
+          "lineNumber": 270
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "setEditingCustomIdx",
+          "lineNumber": 271
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "useEffect",
+          "lineNumber": 275
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "teardownPicker",
+          "lineNumber": 275
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "teardownDrawing",
+          "lineNumber": 275
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "teardownEdit",
+          "lineNumber": 275
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "useCallback",
+          "lineNumber": 278
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "setSaving",
+          "lineNumber": 279
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "fetch",
+          "lineNumber": 289
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "JSON.stringify",
+          "lineNumber": 292
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "onSaved",
+          "lineNumber": 295
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "onClose",
+          "lineNumber": 296
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "setSaving",
+          "lineNumber": 299
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "useState",
+          "lineNumber": 307
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "useRef",
+          "lineNumber": 308
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "useRef",
+          "lineNumber": 315
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "useCallback",
+          "lineNumber": 317
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "(e.target as HTMLElement).closest",
+          "lineNumber": 319
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "parent?.getBoundingClientRect",
+          "lineNumber": 323
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "node.getBoundingClientRect",
+          "lineNumber": 324
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "setPanelPos",
+          "lineNumber": 333
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "(e.currentTarget as HTMLElement).setPointerCapture",
+          "lineNumber": 334
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "e.preventDefault",
+          "lineNumber": 335
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "useCallback",
+          "lineNumber": 338
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "setPanelPos",
+          "lineNumber": 341
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "useCallback",
+          "lineNumber": 347
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "(e.currentTarget as HTMLElement).releasePointerCapture",
+          "lineNumber": 350
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "draftWayIds.map",
+          "lineNumber": 365
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "nearby.find",
+          "lineNumber": 366
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "setDraftWayIds",
+          "lineNumber": 376
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "prev.filter",
+          "lineNumber": 376
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "setEditingCustomIdx",
+          "lineNumber": 378
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "enterPickMode",
+          "lineNumber": 378
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "draftCustom.map",
+          "lineNumber": 381
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "setEditingCustomIdx",
+          "lineNumber": 386
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "setDraftCustom",
+          "lineNumber": 387
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "prev.filter",
+          "lineNumber": 387
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "setMode",
+          "lineNumber": 391
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "setEditingCustomIdx",
+          "lineNumber": 392
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "setMode",
+          "lineNumber": 432
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "setMode",
+          "lineNumber": 454
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "entries.map",
+          "lineNumber": 491
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "nearby.map",
+          "lineNumber": 537
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "draftWayIds.includes",
+          "lineNumber": 538
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "setDraftWayIds",
+          "lineNumber": 544
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "prev.includes",
+          "lineNumber": 545
+        },
+        {
+          "caller": "BuildingOutlineEditor",
+          "callee": "prev.filter",
+          "lineNumber": 546
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 1,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/components/job-map-leaflet.tsx",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 902,
+      "nonEmptyLines": 836,
+      "functions": [
+        {
+          "name": "svgIcon",
+          "startLine": 20,
+          "endLine": 43,
+          "params": [
+            "color",
+            "size",
+            "selected",
+            "highlighted",
+            "dimmed"
+          ]
+        },
+        {
+          "name": "salaryColor",
+          "startLine": 46,
+          "endLine": 52,
+          "params": [
+            "min",
+            "max",
+            "mean"
+          ]
+        },
+        {
+          "name": "FitBounds",
+          "startLine": 173,
+          "endLine": 186,
+          "params": [
+            "{ jobs }"
+          ]
+        },
+        {
+          "name": "FlyToSelected",
+          "startLine": 189,
+          "endLine": 228,
+          "params": [
+            "{\r\n  selectedId,\r\n  jobs,\r\n  resolvedCoords,\r\n  anchors,\r\n}"
+          ]
+        },
+        {
+          "name": "FitRoute",
+          "startLine": 231,
+          "endLine": 246,
+          "params": [
+            "{ geometry }"
+          ]
+        },
+        {
+          "name": "PanDetector",
+          "startLine": 249,
+          "endLine": 276,
+          "params": [
+            "{\r\n  searchCenter,\r\n  onMoved,\r\n}"
+          ]
+        },
+        {
+          "name": "formatSalary",
+          "startLine": 278,
+          "endLine": 280,
+          "params": [
+            "n"
+          ]
+        },
+        {
+          "name": "HeatmapLayer",
+          "startLine": 303,
+          "endLine": 367,
+          "params": [
+            "{ jobs, mode, meanSalary }"
+          ]
+        },
+        {
+          "name": "JobMapLeaflet",
+          "startLine": 369,
+          "endLine": 731,
+          "params": [
+            "{\r\n  jobs,\r\n  center,\r\n  selectedId,\r\n  onSelect,\r\n  meanSalary,\r\n  searchCenter,\r\n  radiusMiles,\r\n  onSearchArea,\r\n  routeGeometry,\r\n  transitSteps,\r\n  showHeatmap = false,\r\n  heatmapMode = \"density\",\r\n  showTraffic = false,\r\n  tileStyle = \"osm\",\r\n  resolvedCoords = null,\r\n  highlightedIds = [],\r\n  anchorRoutes = [],\r\n  anchorMarkers = [],\r\n  sweetSpot = null,\r\n  officeLocations = [],\r\n  onSelectOffice,\r\n  enabledAnchorIds,\r\n  onToggleAnchor,\r\n  dimmedIds,\r\n  workHistoryMarkers = [],\r\n}"
+          ]
+        },
+        {
+          "name": "SearchAreaButton",
+          "startLine": 734,
+          "endLine": 790,
+          "params": [
+            "{ onClick }"
+          ]
+        },
+        {
+          "name": "MapControls",
+          "startLine": 793,
+          "endLine": 902,
+          "params": [
+            "{ searchCenter }"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "JobMapLeaflet",
+          "line": 369,
+          "isDefault": true
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "svgIcon",
+          "callee": "Math.round",
+          "lineNumber": 22
+        },
+        {
+          "caller": "svgIcon",
+          "callee": "Math.round",
+          "lineNumber": 22
+        },
+        {
+          "caller": "svgIcon",
+          "callee": "Math.round",
+          "lineNumber": 22
+        },
+        {
+          "caller": "svgIcon",
+          "callee": "L.divIcon",
+          "lineNumber": 36
+        },
+        {
+          "caller": "FitBounds",
+          "callee": "useMap",
+          "lineNumber": 174
+        },
+        {
+          "caller": "FitBounds",
+          "callee": "useRef",
+          "lineNumber": 175
+        },
+        {
+          "caller": "FitBounds",
+          "callee": "useEffect",
+          "lineNumber": 177
+        },
+        {
+          "caller": "FitBounds",
+          "callee": "L.latLngBounds",
+          "lineNumber": 181
+        },
+        {
+          "caller": "FitBounds",
+          "callee": "jobs.map",
+          "lineNumber": 181
+        },
+        {
+          "caller": "FitBounds",
+          "callee": "map.fitBounds",
+          "lineNumber": 182
+        },
+        {
+          "caller": "FlyToSelected",
+          "callee": "useMap",
+          "lineNumber": 200
+        },
+        {
+          "caller": "FlyToSelected",
+          "callee": "useRef",
+          "lineNumber": 201
+        },
+        {
+          "caller": "FlyToSelected",
+          "callee": "useEffect",
+          "lineNumber": 203
+        },
+        {
+          "caller": "FlyToSelected",
+          "callee": "jobs.find",
+          "lineNumber": 207
+        },
+        {
+          "caller": "FlyToSelected",
+          "callee": "anchors.forEach",
+          "lineNumber": 214
+        },
+        {
+          "caller": "FlyToSelected",
+          "callee": "points.push",
+          "lineNumber": 214
+        },
+        {
+          "caller": "FlyToSelected",
+          "callee": "L.latLngBounds",
+          "lineNumber": 215
+        },
+        {
+          "caller": "FlyToSelected",
+          "callee": "map.fitBounds",
+          "lineNumber": 216
+        },
+        {
+          "caller": "FlyToSelected",
+          "callee": "map.flyTo",
+          "lineNumber": 218
+        },
+        {
+          "caller": "FlyToSelected",
+          "callee": "Math.max",
+          "lineNumber": 218
+        },
+        {
+          "caller": "FlyToSelected",
+          "callee": "map.getZoom",
+          "lineNumber": 218
+        },
+        {
+          "caller": "FlyToSelected",
+          "callee": "useEffect",
+          "lineNumber": 223
+        },
+        {
+          "caller": "FitRoute",
+          "callee": "useMap",
+          "lineNumber": 232
+        },
+        {
+          "caller": "FitRoute",
+          "callee": "useRef",
+          "lineNumber": 233
+        },
+        {
+          "caller": "FitRoute",
+          "callee": "useEffect",
+          "lineNumber": 235
+        },
+        {
+          "caller": "FitRoute",
+          "callee": "L.latLngBounds",
+          "lineNumber": 241
+        },
+        {
+          "caller": "FitRoute",
+          "callee": "map.fitBounds",
+          "lineNumber": 242
+        },
+        {
+          "caller": "PanDetector",
+          "callee": "useRef",
+          "lineNumber": 256
+        },
+        {
+          "caller": "PanDetector",
+          "callee": "useMapEvents",
+          "lineNumber": 257
+        },
+        {
+          "caller": "moveend",
+          "callee": "map.getCenter",
+          "lineNumber": 263
+        },
+        {
+          "caller": "moveend",
+          "callee": "map.distance",
+          "lineNumber": 265
+        },
+        {
+          "caller": "moveend",
+          "callee": "onMoved",
+          "lineNumber": 267
+        },
+        {
+          "caller": "moveend",
+          "callee": "onMoved",
+          "lineNumber": 271
+        },
+        {
+          "caller": "formatSalary",
+          "callee": "Math.round",
+          "lineNumber": 279
+        },
+        {
+          "caller": "HeatmapLayer",
+          "callee": "useMap",
+          "lineNumber": 304
+        },
+        {
+          "caller": "HeatmapLayer",
+          "callee": "useRef",
+          "lineNumber": 305
+        },
+        {
+          "caller": "HeatmapLayer",
+          "callee": "useEffect",
+          "lineNumber": 307
+        },
+        {
+          "caller": "HeatmapLayer",
+          "callee": "import(\"leaflet.heat\").then",
+          "lineNumber": 311
+        },
+        {
+          "caller": "HeatmapLayer",
+          "callee": "import",
+          "lineNumber": 311
+        },
+        {
+          "caller": "HeatmapLayer",
+          "callee": "map.removeLayer",
+          "lineNumber": 314
+        },
+        {
+          "caller": "HeatmapLayer",
+          "callee": "jobs.map",
+          "lineNumber": 323
+        },
+        {
+          "caller": "HeatmapLayer",
+          "callee": "Math.min",
+          "lineNumber": 325
+        },
+        {
+          "caller": "HeatmapLayer",
+          "callee": "jobs.map",
+          "lineNumber": 337
+        },
+        {
+          "caller": "HeatmapLayer",
+          "callee": "(L as any).heatLayer",
+          "lineNumber": 347
+        },
+        {
+          "caller": "HeatmapLayer",
+          "callee": "heat.addTo",
+          "lineNumber": 354
+        },
+        {
+          "caller": "HeatmapLayer",
+          "callee": "map.removeLayer",
+          "lineNumber": 360
+        },
+        {
+          "caller": "JobMapLeaflet",
+          "callee": "useState",
+          "lineNumber": 396
+        },
+        {
+          "caller": "JobMapLeaflet",
+          "callee": "useState",
+          "lineNumber": 397
+        },
+        {
+          "caller": "JobMapLeaflet",
+          "callee": "useCallback",
+          "lineNumber": 399
+        },
+        {
+          "caller": "JobMapLeaflet",
+          "callee": "setPanCenter",
+          "lineNumber": 401
+        },
+        {
+          "caller": "JobMapLeaflet",
+          "callee": "setHasPanned",
+          "lineNumber": 402
+        },
+        {
+          "caller": "JobMapLeaflet",
+          "callee": "useEffect",
+          "lineNumber": 408
+        },
+        {
+          "caller": "JobMapLeaflet",
+          "callee": "setHasPanned",
+          "lineNumber": 409
+        },
+        {
+          "caller": "JobMapLeaflet",
+          "callee": "transitSteps.some",
+          "lineNumber": 451
+        },
+        {
+          "caller": "JobMapLeaflet",
+          "callee": "transitSteps.map",
+          "lineNumber": 454
+        },
+        {
+          "caller": "JobMapLeaflet",
+          "callee": "anchorRoutes.map",
+          "lineNumber": 486
+        },
+        {
+          "caller": "JobMapLeaflet",
+          "callee": "L.divIcon",
+          "lineNumber": 533
+        },
+        {
+          "caller": "JobMapLeaflet",
+          "callee": "cluster.getChildCount",
+          "lineNumber": 563
+        },
+        {
+          "caller": "JobMapLeaflet",
+          "callee": "L.divIcon",
+          "lineNumber": 567
+        },
+        {
+          "caller": "JobMapLeaflet",
+          "callee": "jobs.map",
+          "lineNumber": 575
+        },
+        {
+          "caller": "JobMapLeaflet",
+          "callee": "salaryColor",
+          "lineNumber": 576
+        },
+        {
+          "caller": "JobMapLeaflet",
+          "callee": "highlightedIds.includes",
+          "lineNumber": 578
+        },
+        {
+          "caller": "JobMapLeaflet",
+          "callee": "dimmedIds.has",
+          "lineNumber": 579
+        },
+        {
+          "caller": "JobMapLeaflet",
+          "callee": "svgIcon",
+          "lineNumber": 585
+        },
+        {
+          "caller": "JobMapLeaflet",
+          "callee": "onSelect",
+          "lineNumber": 587
+        },
+        {
+          "caller": "JobMapLeaflet",
+          "callee": "formatSalary",
+          "lineNumber": 599
+        },
+        {
+          "caller": "JobMapLeaflet",
+          "callee": "formatSalary",
+          "lineNumber": 601
+        },
+        {
+          "caller": "JobMapLeaflet",
+          "callee": "formatSalary",
+          "lineNumber": 612
+        },
+        {
+          "caller": "JobMapLeaflet",
+          "callee": "formatSalary",
+          "lineNumber": 614
+        },
+        {
+          "caller": "JobMapLeaflet",
+          "callee": "anchorMarkers.map",
+          "lineNumber": 625
+        },
+        {
+          "caller": "JobMapLeaflet",
+          "callee": "enabledAnchorIds.has",
+          "lineNumber": 626
+        },
+        {
+          "caller": "JobMapLeaflet",
+          "callee": "L.divIcon",
+          "lineNumber": 631
+        },
+        {
+          "caller": "JobMapLeaflet",
+          "callee": "e.originalEvent.preventDefault",
+          "lineNumber": 639
+        },
+        {
+          "caller": "JobMapLeaflet",
+          "callee": "onToggleAnchor",
+          "lineNumber": 639
+        },
+        {
+          "caller": "JobMapLeaflet",
+          "callee": "workHistoryMarkers.map",
+          "lineNumber": 653
+        },
+        {
+          "caller": "JobMapLeaflet",
+          "callee": "L.divIcon",
+          "lineNumber": 657
+        },
+        {
+          "caller": "JobMapLeaflet",
+          "callee": "(() => {\r\n        // Compute bounding radius (max distance from centroid) in metres\r\n        const cLat = officeLocations.reduce((s, o) => s + o.lat, 0) / officeLocations.length;\r\n        const cLng = officeLocations.reduce((s, o) => s + o.lng, 0) / officeLocations.length;\r\n        const maxDist = officeLocations.reduce((max, o) => {\r\n          const d = Math.sqrt(Math.pow((o.lat - cLat) * 111_320, 2) + Math.pow((o.lng - cLng) * 111_320 * Math.cos(cLat * Math.PI / 180), 2));\r\n          return Math.max(max, d);\r\n        }, 0);\r\n        const radiusM = Math.max(maxDist * 1.3, 500); // pad 30%, min 500m\r\n        return (\r\n          <>\r\n            <Circle\r\n              center={[cLat, cLng]}\r\n              radius={radiusM}\r\n              pathOptions={{ color: \"#8b5cf6\", fillColor: \"#8b5cf6\", fillOpacity: 0.08, weight: 1.5, dashArray: \"6 4\" }}\r\n            />\r\n            {officeLocations.map((office, idx) => (\r\n              <Marker\r\n                key={`office-${idx}`}\r\n                position={[office.lat, office.lng]}\r\n                icon={L.divIcon({\r\n                  html: `<div style=\"display:flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:#8b5cf6;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.3);color:#fff;font-size:10px;font-weight:700;cursor:pointer;\">${idx + 1}</div>`,\r\n                  className: \"\",\r\n                  iconSize: [22, 22],\r\n                  iconAnchor: [11, 11],\r\n                })}\r\n                zIndexOffset={1500}\r\n                eventHandlers={onSelectOffice ? { click: () => onSelectOffice(office) } : {}}\r\n              >\r\n                <Tooltip direction=\"top\" offset={[0, -12]} opacity={0.95}>\r\n                  <div style={{ fontSize: 10, maxWidth: 180 }}>\r\n                    {office.name && <div style={{ fontWeight: 600 }}>{office.name}</div>}\r\n                    <div style={{ color: \"#666\" }}>{office.address}</div>\r\n                  </div>\r\n                </Tooltip>\r\n              </Marker>\r\n            ))}\r\n          </>\r\n        );\r\n      })",
+          "lineNumber": 676
+        },
+        {
+          "caller": "JobMapLeaflet",
+          "callee": "officeLocations.reduce",
+          "lineNumber": 678
+        },
+        {
+          "caller": "JobMapLeaflet",
+          "callee": "officeLocations.reduce",
+          "lineNumber": 679
+        },
+        {
+          "caller": "JobMapLeaflet",
+          "callee": "officeLocations.reduce",
+          "lineNumber": 680
+        },
+        {
+          "caller": "JobMapLeaflet",
+          "callee": "Math.sqrt",
+          "lineNumber": 681
+        },
+        {
+          "caller": "JobMapLeaflet",
+          "callee": "Math.pow",
+          "lineNumber": 681
+        },
+        {
+          "caller": "JobMapLeaflet",
+          "callee": "Math.pow",
+          "lineNumber": 681
+        },
+        {
+          "caller": "JobMapLeaflet",
+          "callee": "Math.cos",
+          "lineNumber": 681
+        },
+        {
+          "caller": "JobMapLeaflet",
+          "callee": "Math.max",
+          "lineNumber": 682
+        },
+        {
+          "caller": "JobMapLeaflet",
+          "callee": "Math.max",
+          "lineNumber": 684
+        },
+        {
+          "caller": "JobMapLeaflet",
+          "callee": "officeLocations.map",
+          "lineNumber": 692
+        },
+        {
+          "caller": "JobMapLeaflet",
+          "callee": "L.divIcon",
+          "lineNumber": 696
+        },
+        {
+          "caller": "JobMapLeaflet",
+          "callee": "onSelectOffice",
+          "lineNumber": 703
+        },
+        {
+          "caller": "JobMapLeaflet",
+          "callee": "onSearchArea",
+          "lineNumber": 721
+        },
+        {
+          "caller": "JobMapLeaflet",
+          "callee": "setHasPanned",
+          "lineNumber": 722
+        },
+        {
+          "caller": "SearchAreaButton",
+          "callee": "useMap",
+          "lineNumber": 735
+        },
+        {
+          "caller": "SearchAreaButton",
+          "callee": "useRef",
+          "lineNumber": 736
+        },
+        {
+          "caller": "SearchAreaButton",
+          "callee": "useEffect",
+          "lineNumber": 738
+        },
+        {
+          "caller": "SearchAreaButton",
+          "callee": "L.DomEvent.disableClickPropagation",
+          "lineNumber": 741
+        },
+        {
+          "caller": "MapControls",
+          "callee": "useMap",
+          "lineNumber": 794
+        },
+        {
+          "caller": "MapControls",
+          "callee": "useRef",
+          "lineNumber": 795
+        },
+        {
+          "caller": "MapControls",
+          "callee": "useState",
+          "lineNumber": 796
+        },
+        {
+          "caller": "MapControls",
+          "callee": "useEffect",
+          "lineNumber": 798
+        },
+        {
+          "caller": "MapControls",
+          "callee": "L.DomEvent.disableClickPropagation",
+          "lineNumber": 800
+        },
+        {
+          "caller": "MapControls",
+          "callee": "L.DomEvent.disableScrollPropagation",
+          "lineNumber": 801
+        },
+        {
+          "caller": "MapControls",
+          "callee": "useCallback",
+          "lineNumber": 804
+        },
+        {
+          "caller": "MapControls",
+          "callee": "map.flyTo",
+          "lineNumber": 806
+        },
+        {
+          "caller": "MapControls",
+          "callee": "setLocating",
+          "lineNumber": 809
+        },
+        {
+          "caller": "MapControls",
+          "callee": "navigator.geolocation.getCurrentPosition",
+          "lineNumber": 810
+        },
+        {
+          "caller": "MapControls",
+          "callee": "map.flyTo",
+          "lineNumber": 812
+        },
+        {
+          "caller": "MapControls",
+          "callee": "setLocating",
+          "lineNumber": 813
+        },
+        {
+          "caller": "MapControls",
+          "callee": "setLocating",
+          "lineNumber": 815
+        },
+        {
+          "caller": "MapControls",
+          "callee": "map.zoomIn",
+          "lineNumber": 854
+        },
+        {
+          "caller": "MapControls",
+          "callee": "map.zoomOut",
+          "lineNumber": 863
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 1,
+        "functionCount": 11,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/components/map-drawing-canvas.tsx",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 1028,
+      "nonEmptyLines": 928,
+      "functions": [
+        {
+          "name": "isLightColor",
+          "startLine": 94,
+          "endLine": 102,
+          "params": [
+            "hex"
+          ]
+        },
+        {
+          "name": "haversine",
+          "startLine": 116,
+          "endLine": 125,
+          "params": [
+            "a",
+            "b"
+          ]
+        },
+        {
+          "name": "polygonArea",
+          "startLine": 128,
+          "endLine": 140,
+          "params": [
+            "pts"
+          ]
+        },
+        {
+          "name": "formatDistance",
+          "startLine": 142,
+          "endLine": 148,
+          "params": [
+            "m"
+          ]
+        },
+        {
+          "name": "formatArea",
+          "startLine": 150,
+          "endLine": 167,
+          "params": [
+            "sqm"
+          ]
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "isLightColor",
+          "callee": "hex.replace",
+          "lineNumber": 95
+        },
+        {
+          "caller": "isLightColor",
+          "callee": "parseInt",
+          "lineNumber": 97
+        },
+        {
+          "caller": "isLightColor",
+          "callee": "c.slice",
+          "lineNumber": 97
+        },
+        {
+          "caller": "isLightColor",
+          "callee": "parseInt",
+          "lineNumber": 98
+        },
+        {
+          "caller": "isLightColor",
+          "callee": "c.slice",
+          "lineNumber": 98
+        },
+        {
+          "caller": "isLightColor",
+          "callee": "parseInt",
+          "lineNumber": 99
+        },
+        {
+          "caller": "isLightColor",
+          "callee": "c.slice",
+          "lineNumber": 99
+        },
+        {
+          "caller": "haversine",
+          "callee": "toRad",
+          "lineNumber": 119
+        },
+        {
+          "caller": "haversine",
+          "callee": "toRad",
+          "lineNumber": 120
+        },
+        {
+          "caller": "haversine",
+          "callee": "Math.sin",
+          "lineNumber": 122
+        },
+        {
+          "caller": "haversine",
+          "callee": "Math.cos",
+          "lineNumber": 123
+        },
+        {
+          "caller": "haversine",
+          "callee": "toRad",
+          "lineNumber": 123
+        },
+        {
+          "caller": "haversine",
+          "callee": "Math.cos",
+          "lineNumber": 123
+        },
+        {
+          "caller": "haversine",
+          "callee": "toRad",
+          "lineNumber": 123
+        },
+        {
+          "caller": "haversine",
+          "callee": "Math.sin",
+          "lineNumber": 123
+        },
+        {
+          "caller": "haversine",
+          "callee": "Math.atan2",
+          "lineNumber": 124
+        },
+        {
+          "caller": "haversine",
+          "callee": "Math.sqrt",
+          "lineNumber": 124
+        },
+        {
+          "caller": "haversine",
+          "callee": "Math.sqrt",
+          "lineNumber": 124
+        },
+        {
+          "caller": "polygonArea",
+          "callee": "toRad",
+          "lineNumber": 136
+        },
+        {
+          "caller": "polygonArea",
+          "callee": "Math.sin",
+          "lineNumber": 137
+        },
+        {
+          "caller": "polygonArea",
+          "callee": "toRad",
+          "lineNumber": 137
+        },
+        {
+          "caller": "polygonArea",
+          "callee": "Math.sin",
+          "lineNumber": 137
+        },
+        {
+          "caller": "polygonArea",
+          "callee": "toRad",
+          "lineNumber": 137
+        },
+        {
+          "caller": "polygonArea",
+          "callee": "Math.abs",
+          "lineNumber": 139
+        },
+        {
+          "caller": "formatDistance",
+          "callee": "Math.round",
+          "lineNumber": 144
+        },
+        {
+          "caller": "formatDistance",
+          "callee": "Math.round",
+          "lineNumber": 144
+        },
+        {
+          "caller": "formatDistance",
+          "callee": "km.toFixed",
+          "lineNumber": 147
+        },
+        {
+          "caller": "formatDistance",
+          "callee": "mi.toFixed",
+          "lineNumber": 147
+        },
+        {
+          "caller": "formatArea",
+          "callee": "parts.push",
+          "lineNumber": 160
+        },
+        {
+          "caller": "formatArea",
+          "callee": "Math.round(sqFt).toLocaleString",
+          "lineNumber": 160
+        },
+        {
+          "caller": "formatArea",
+          "callee": "Math.round",
+          "lineNumber": 160
+        },
+        {
+          "caller": "formatArea",
+          "callee": "parts.push",
+          "lineNumber": 161
+        },
+        {
+          "caller": "formatArea",
+          "callee": "Math.round(sqYd).toLocaleString",
+          "lineNumber": 161
+        },
+        {
+          "caller": "formatArea",
+          "callee": "Math.round",
+          "lineNumber": 161
+        },
+        {
+          "caller": "formatArea",
+          "callee": "parts.push",
+          "lineNumber": 162
+        },
+        {
+          "caller": "formatArea",
+          "callee": "acres.toFixed",
+          "lineNumber": 162
+        },
+        {
+          "caller": "formatArea",
+          "callee": "parts.push",
+          "lineNumber": 163
+        },
+        {
+          "caller": "formatArea",
+          "callee": "hectares.toFixed",
+          "lineNumber": 163
+        },
+        {
+          "caller": "formatArea",
+          "callee": "parts.push",
+          "lineNumber": 164
+        },
+        {
+          "caller": "formatArea",
+          "callee": "sqKm.toFixed",
+          "lineNumber": 164
+        },
+        {
+          "caller": "formatArea",
+          "callee": "parts.push",
+          "lineNumber": 165
+        },
+        {
+          "caller": "formatArea",
+          "callee": "sqMi.toFixed",
+          "lineNumber": 165
+        },
+        {
+          "caller": "formatArea",
+          "callee": "parts.join",
+          "lineNumber": 166
+        },
+        {
+          "caller": "onPathCreated",
+          "callee": "commitObject",
+          "lineNumber": 342
+        },
+        {
+          "caller": "onMouseDown",
+          "callee": "isLightColor",
+          "lineNumber": 380
+        },
+        {
+          "caller": "onMouseDown",
+          "callee": "isLightColor",
+          "lineNumber": 381
+        },
+        {
+          "caller": "onMouseDown",
+          "callee": "fc.add",
+          "lineNumber": 383
+        },
+        {
+          "caller": "onMouseDown",
+          "callee": "fc.setActiveObject",
+          "lineNumber": 384
+        },
+        {
+          "caller": "onMouseDown",
+          "callee": "text.enterEditing",
+          "lineNumber": 385
+        },
+        {
+          "caller": "onMouseDown",
+          "callee": "commitObject",
+          "lineNumber": 386
+        },
+        {
+          "caller": "onMouseDown",
+          "callee": "fc.add",
+          "lineNumber": 397
+        },
+        {
+          "caller": "onMouseDown",
+          "callee": "commitObject",
+          "lineNumber": 398
+        },
+        {
+          "caller": "onMouseDown",
+          "callee": "polyPoints.current.push",
+          "lineNumber": 403
+        },
+        {
+          "caller": "onMouseDown",
+          "callee": "fc.add",
+          "lineNumber": 412
+        },
+        {
+          "caller": "onMouseDown",
+          "callee": "polyLines.current.push",
+          "lineNumber": 413
+        },
+        {
+          "caller": "onMouseDown",
+          "callee": "fc.renderAll",
+          "lineNumber": 415
+        },
+        {
+          "caller": "onMouseMove",
+          "callee": "fc.remove",
+          "lineNumber": 431
+        },
+        {
+          "caller": "onMouseMove",
+          "callee": "Math.abs",
+          "lineNumber": 445
+        },
+        {
+          "caller": "onMouseMove",
+          "callee": "Math.abs",
+          "lineNumber": 446
+        },
+        {
+          "caller": "onMouseMove",
+          "callee": "Math.min",
+          "lineNumber": 448
+        },
+        {
+          "caller": "onMouseMove",
+          "callee": "Math.min",
+          "lineNumber": 449
+        },
+        {
+          "caller": "onMouseMove",
+          "callee": "Math.min",
+          "lineNumber": 460
+        },
+        {
+          "caller": "onMouseMove",
+          "callee": "Math.min",
+          "lineNumber": 461
+        },
+        {
+          "caller": "onMouseMove",
+          "callee": "Math.abs",
+          "lineNumber": 462
+        },
+        {
+          "caller": "onMouseMove",
+          "callee": "Math.abs",
+          "lineNumber": 463
+        },
+        {
+          "caller": "onMouseMove",
+          "callee": "fc.add",
+          "lineNumber": 473
+        },
+        {
+          "caller": "onMouseMove",
+          "callee": "fc.remove",
+          "lineNumber": 478
+        },
+        {
+          "caller": "onMouseMove",
+          "callee": "pixelToLatLng",
+          "lineNumber": 479
+        },
+        {
+          "caller": "onMouseMove",
+          "callee": "pixelToLatLng",
+          "lineNumber": 480
+        },
+        {
+          "caller": "onMouseMove",
+          "callee": "haversine",
+          "lineNumber": 482
+        },
+        {
+          "caller": "onMouseMove",
+          "callee": "formatDistance",
+          "lineNumber": 483
+        },
+        {
+          "caller": "onMouseMove",
+          "callee": "fc.add",
+          "lineNumber": 493
+        },
+        {
+          "caller": "onMouseMove",
+          "callee": "fc.renderAll",
+          "lineNumber": 499
+        },
+        {
+          "caller": "onMouseUp",
+          "callee": "tempShape.current.set",
+          "lineNumber": 507
+        },
+        {
+          "caller": "onMouseUp",
+          "callee": "pixelToLatLng",
+          "lineNumber": 511
+        },
+        {
+          "caller": "onMouseUp",
+          "callee": "pixelToLatLng",
+          "lineNumber": 512
+        },
+        {
+          "caller": "onMouseUp",
+          "callee": "haversine",
+          "lineNumber": 514
+        },
+        {
+          "caller": "onMouseUp",
+          "callee": "onMeasurement",
+          "lineNumber": 515
+        },
+        {
+          "caller": "onMouseUp",
+          "callee": "commitObject",
+          "lineNumber": 521
+        },
+        {
+          "caller": "finishPoly",
+          "callee": "polyLines.current.forEach",
+          "lineNumber": 531
+        },
+        {
+          "caller": "finishPoly",
+          "callee": "fc.remove",
+          "lineNumber": 531
+        },
+        {
+          "caller": "finishPoly",
+          "callee": "polyPoints.current.map",
+          "lineNumber": 534
+        },
+        {
+          "caller": "finishPoly",
+          "callee": "fc.add",
+          "lineNumber": 542
+        },
+        {
+          "caller": "finishPoly",
+          "callee": "commitObject",
+          "lineNumber": 543
+        },
+        {
+          "caller": "finishPoly",
+          "callee": "polyPoints.current.map((p) => pixelToLatLng(p.x, p.y)).filter",
+          "lineNumber": 546
+        },
+        {
+          "caller": "finishPoly",
+          "callee": "polyPoints.current.map",
+          "lineNumber": 546
+        },
+        {
+          "caller": "finishPoly",
+          "callee": "pixelToLatLng",
+          "lineNumber": 546
+        },
+        {
+          "caller": "finishPoly",
+          "callee": "polygonArea",
+          "lineNumber": 548
+        },
+        {
+          "caller": "finishPoly",
+          "callee": "onMeasurement",
+          "lineNumber": 549
+        },
+        {
+          "caller": "finishPoly",
+          "callee": "fc.add",
+          "lineNumber": 557
+        },
+        {
+          "caller": "finishPoly",
+          "callee": "commitObject",
+          "lineNumber": 558
+        },
+        {
+          "caller": "finishPoly",
+          "callee": "fc.renderAll",
+          "lineNumber": 562
+        },
+        {
+          "caller": "onDblClick",
+          "callee": "finishPoly",
+          "lineNumber": 568
+        },
+        {
+          "caller": "onKeyDown",
+          "callee": "finishPoly",
+          "lineNumber": 573
+        },
+        {
+          "caller": "onSelect",
+          "callee": "fc.getActiveObject",
+          "lineNumber": 600
+        },
+        {
+          "caller": "onSelect",
+          "callee": "fc.remove",
+          "lineNumber": 603
+        },
+        {
+          "caller": "onSelect",
+          "callee": "drawingMapRef.current.delete",
+          "lineNumber": 605
+        },
+        {
+          "caller": "onSelect",
+          "callee": "onDrawingDelete",
+          "lineNumber": 606
+        },
+        {
+          "caller": "onSelect",
+          "callee": "fc.discardActiveObject",
+          "lineNumber": 608
+        },
+        {
+          "caller": "onSelect",
+          "callee": "fc.renderAll",
+          "lineNumber": 609
+        },
+        {
+          "caller": "onSelect",
+          "callee": "saveState",
+          "lineNumber": 610
+        },
+        {
+          "caller": "saveState",
+          "callee": "undoStack.current.push",
+          "lineNumber": 624
+        },
+        {
+          "caller": "saveState",
+          "callee": "JSON.stringify",
+          "lineNumber": 624
+        },
+        {
+          "caller": "saveState",
+          "callee": "fc.toJSON",
+          "lineNumber": 624
+        },
+        {
+          "caller": "commitObject",
+          "callee": "Date.now",
+          "lineNumber": 629
+        },
+        {
+          "caller": "commitObject",
+          "callee": "Math.random().toString(36).slice",
+          "lineNumber": 629
+        },
+        {
+          "caller": "commitObject",
+          "callee": "Math.random().toString",
+          "lineNumber": 629
+        },
+        {
+          "caller": "commitObject",
+          "callee": "Math.random",
+          "lineNumber": 629
+        },
+        {
+          "caller": "commitObject",
+          "callee": "obj.getBoundingRect",
+          "lineNumber": 634
+        },
+        {
+          "caller": "commitObject",
+          "callee": "corners.map((c) => pixelToLatLng(c.x, c.y)).filter",
+          "lineNumber": 641
+        },
+        {
+          "caller": "commitObject",
+          "callee": "corners.map",
+          "lineNumber": 641
+        },
+        {
+          "caller": "commitObject",
+          "callee": "pixelToLatLng",
+          "lineNumber": 641
+        },
+        {
+          "caller": "commitObject",
+          "callee": "VERTEX_TYPES.includes",
+          "lineNumber": 649
+        },
+        {
+          "caller": "commitObject",
+          "callee": "extractVertexAnchors",
+          "lineNumber": 650
+        },
+        {
+          "caller": "commitObject",
+          "callee": "obj.toObject",
+          "lineNumber": 656
+        },
+        {
+          "caller": "commitObject",
+          "callee": "drawingMapRef.current.set",
+          "lineNumber": 666
+        },
+        {
+          "caller": "commitObject",
+          "callee": "saveState",
+          "lineNumber": 667
+        },
+        {
+          "caller": "commitObject",
+          "callee": "onDrawingComplete",
+          "lineNumber": 668
+        },
+        {
+          "caller": "extractVertexAnchors",
+          "callee": "pixelToLatLng",
+          "lineNumber": 680
+        },
+        {
+          "caller": "extractVertexAnchors",
+          "callee": "pixelToLatLng",
+          "lineNumber": 681
+        },
+        {
+          "caller": "extractVertexAnchors",
+          "callee": "results.push",
+          "lineNumber": 682
+        },
+        {
+          "caller": "extractVertexAnchors",
+          "callee": "results.push",
+          "lineNumber": 683
+        },
+        {
+          "caller": "extractVertexAnchors",
+          "callee": "pixelToLatLng",
+          "lineNumber": 691
+        },
+        {
+          "caller": "extractVertexAnchors",
+          "callee": "results.push",
+          "lineNumber": 692
+        },
+        {
+          "caller": "extractVertexAnchors",
+          "callee": "pixelToLatLng",
+          "lineNumber": 711
+        },
+        {
+          "caller": "extractVertexAnchors",
+          "callee": "results.push",
+          "lineNumber": 712
+        },
+        {
+          "caller": "reconstructObject",
+          "callee": "data.anchors.map((a) => latLngToPixel(a.lat, a.lng)).filter",
+          "lineNumber": 727
+        },
+        {
+          "caller": "reconstructObject",
+          "callee": "data.anchors.map",
+          "lineNumber": 727
+        },
+        {
+          "caller": "reconstructObject",
+          "callee": "latLngToPixel",
+          "lineNumber": 727
+        },
+        {
+          "caller": "reconstructObject",
+          "callee": "Math.min",
+          "lineNumber": 730
+        },
+        {
+          "caller": "reconstructObject",
+          "callee": "corners.map",
+          "lineNumber": 730
+        },
+        {
+          "caller": "reconstructObject",
+          "callee": "Math.min",
+          "lineNumber": 731
+        },
+        {
+          "caller": "reconstructObject",
+          "callee": "corners.map",
+          "lineNumber": 731
+        },
+        {
+          "caller": "reconstructObject",
+          "callee": "Math.max",
+          "lineNumber": 732
+        },
+        {
+          "caller": "reconstructObject",
+          "callee": "corners.map",
+          "lineNumber": 732
+        },
+        {
+          "caller": "reconstructObject",
+          "callee": "Math.max",
+          "lineNumber": 733
+        },
+        {
+          "caller": "reconstructObject",
+          "callee": "corners.map",
+          "lineNumber": 733
+        },
+        {
+          "caller": "reconstructObject",
+          "callee": "isLightColor",
+          "lineNumber": 763
+        },
+        {
+          "caller": "reconstructObject",
+          "callee": "isLightColor",
+          "lineNumber": 764
+        },
+        {
+          "caller": "reconstructObject",
+          "callee": "latLngToPixel",
+          "lineNumber": 781
+        },
+        {
+          "caller": "reconstructObject",
+          "callee": "latLngToPixel",
+          "lineNumber": 782
+        },
+        {
+          "caller": "reconstructObject",
+          "callee": "data.vertexAnchors\r\n            .map((a) => latLngToPixel(a.lat, a.lng))\r\n            .filter",
+          "lineNumber": 794
+        },
+        {
+          "caller": "reconstructObject",
+          "callee": "data.vertexAnchors\r\n            .map",
+          "lineNumber": 794
+        },
+        {
+          "caller": "reconstructObject",
+          "callee": "latLngToPixel",
+          "lineNumber": 795
+        },
+        {
+          "caller": "reconstructObject",
+          "callee": "pts.map",
+          "lineNumber": 799
+        },
+        {
+          "caller": "reconstructObject",
+          "callee": "data.vertexAnchors\r\n            .map((a) => latLngToPixel(a.lat, a.lng))\r\n            .filter",
+          "lineNumber": 809
+        },
+        {
+          "caller": "reconstructObject",
+          "callee": "data.vertexAnchors\r\n            .map",
+          "lineNumber": 809
+        },
+        {
+          "caller": "reconstructObject",
+          "callee": "latLngToPixel",
+          "lineNumber": 810
+        },
+        {
+          "caller": "reconstructObject",
+          "callee": "pts.map",
+          "lineNumber": 814
+        },
+        {
+          "caller": "reconstructObject",
+          "callee": "data.vertexAnchors\r\n            .map((a) => latLngToPixel(a.lat, a.lng))\r\n            .filter",
+          "lineNumber": 824
+        },
+        {
+          "caller": "reconstructObject",
+          "callee": "data.vertexAnchors\r\n            .map",
+          "lineNumber": 824
+        },
+        {
+          "caller": "reconstructObject",
+          "callee": "latLngToPixel",
+          "lineNumber": 825
+        },
+        {
+          "caller": "reconstructObject",
+          "callee": "hiddenLayerIds?.has",
+          "lineNumber": 859
+        },
+        {
+          "caller": "reconstructObject",
+          "callee": "obj.set",
+          "lineNumber": 860
+        },
+        {
+          "caller": "reconstructObject",
+          "callee": "fc.add",
+          "lineNumber": 862
+        },
+        {
+          "caller": "reconstructObject",
+          "callee": "fc.renderAll",
+          "lineNumber": 863
+        },
+        {
+          "caller": "repositionAllObjects",
+          "callee": "drawingMapRef.current.forEach",
+          "lineNumber": 873
+        },
+        {
+          "caller": "repositionAllObjects",
+          "callee": "fc.getObjects().find",
+          "lineNumber": 876
+        },
+        {
+          "caller": "repositionAllObjects",
+          "callee": "fc.getObjects",
+          "lineNumber": 876
+        },
+        {
+          "caller": "repositionAllObjects",
+          "callee": "VERTEX_TYPES.has",
+          "lineNumber": 882
+        },
+        {
+          "caller": "repositionAllObjects",
+          "callee": "fc.remove",
+          "lineNumber": 887
+        },
+        {
+          "caller": "repositionAllObjects",
+          "callee": "reconstructObject",
+          "lineNumber": 888
+        },
+        {
+          "caller": "repositionAllObjects",
+          "callee": "fc.getObjects().find",
+          "lineNumber": 890
+        },
+        {
+          "caller": "repositionAllObjects",
+          "callee": "fc.getObjects",
+          "lineNumber": 890
+        },
+        {
+          "caller": "repositionAllObjects",
+          "callee": "newObj.set",
+          "lineNumber": 894
+        },
+        {
+          "caller": "repositionAllObjects",
+          "callee": "data.anchors\r\n        .map((a) => latLngToPixel(a.lat, a.lng))\r\n        .filter",
+          "lineNumber": 900
+        },
+        {
+          "caller": "repositionAllObjects",
+          "callee": "data.anchors\r\n        .map",
+          "lineNumber": 900
+        },
+        {
+          "caller": "repositionAllObjects",
+          "callee": "latLngToPixel",
+          "lineNumber": 901
+        },
+        {
+          "caller": "repositionAllObjects",
+          "callee": "Math.min",
+          "lineNumber": 905
+        },
+        {
+          "caller": "repositionAllObjects",
+          "callee": "corners.map",
+          "lineNumber": 905
+        },
+        {
+          "caller": "repositionAllObjects",
+          "callee": "Math.min",
+          "lineNumber": 906
+        },
+        {
+          "caller": "repositionAllObjects",
+          "callee": "corners.map",
+          "lineNumber": 906
+        },
+        {
+          "caller": "repositionAllObjects",
+          "callee": "Math.max",
+          "lineNumber": 907
+        },
+        {
+          "caller": "repositionAllObjects",
+          "callee": "corners.map",
+          "lineNumber": 907
+        },
+        {
+          "caller": "repositionAllObjects",
+          "callee": "Math.max",
+          "lineNumber": 908
+        },
+        {
+          "caller": "repositionAllObjects",
+          "callee": "corners.map",
+          "lineNumber": 908
+        },
+        {
+          "caller": "repositionAllObjects",
+          "callee": "obj.set",
+          "lineNumber": 912
+        },
+        {
+          "caller": "repositionAllObjects",
+          "callee": "obj.set",
+          "lineNumber": 920
+        },
+        {
+          "caller": "repositionAllObjects",
+          "callee": "obj.setCoords",
+          "lineNumber": 922
+        },
+        {
+          "caller": "repositionAllObjects",
+          "callee": "fc.renderAll",
+          "lineNumber": 925
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 5,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/components/map-drawing-panel.tsx",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 484,
+      "nonEmptyLines": 451,
+      "functions": [
+        {
+          "name": "MapDrawingPanel",
+          "startLine": 87,
+          "endLine": 484,
+          "params": [
+            "{\r\n  canvasRef,\r\n  settings,\r\n  onSettingsChange,\r\n  layers,\r\n  activeLayerId,\r\n  onActiveLayerChange,\r\n  onCreateLayer,\r\n  onDeleteLayer,\r\n  onToggleLayerVisibility,\r\n  measurement,\r\n  activeScope,\r\n  activeScopeLabel,\r\n  onClose,\r\n}"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "MapDrawingPanel",
+          "line": 87,
+          "isDefault": true
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "useState",
+          "lineNumber": 102
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "useState",
+          "lineNumber": 103
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "useState",
+          "lineNumber": 104
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "useState",
+          "lineNumber": 105
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "useRef",
+          "lineNumber": 106
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "useState",
+          "lineNumber": 109
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "useRef",
+          "lineNumber": 110
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "useCallback",
+          "lineNumber": 112
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "e.preventDefault",
+          "lineNumber": 113
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "(e.target as HTMLElement).setPointerCapture",
+          "lineNumber": 114
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "useCallback",
+          "lineNumber": 118
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "setPos",
+          "lineNumber": 120
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "useCallback",
+          "lineNumber": 126
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "useEffect",
+          "lineNumber": 129
+        },
+        {
+          "caller": "handler",
+          "callee": "emojiRef.current.contains",
+          "lineNumber": 131
+        },
+        {
+          "caller": "handler",
+          "callee": "setShowEmoji",
+          "lineNumber": 132
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "document.addEventListener",
+          "lineNumber": 135
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "document.removeEventListener",
+          "lineNumber": 136
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "useCallback",
+          "lineNumber": 139
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "onSettingsChange",
+          "lineNumber": 141
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "setShowEmoji",
+          "lineNumber": 142
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "useCallback",
+          "lineNumber": 147
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "canvasRef.current?.exportImage",
+          "lineNumber": 148
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "document.createElement",
+          "lineNumber": 150
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "new Date().toISOString().slice",
+          "lineNumber": 152
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "new Date().toISOString",
+          "lineNumber": 152
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "a.click",
+          "lineNumber": 153
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "useCallback",
+          "lineNumber": 156
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "newLayerName.trim",
+          "lineNumber": 157
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "onCreateLayer",
+          "lineNumber": 159
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "setNewLayerName",
+          "lineNumber": 160
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "TOOLS.map",
+          "lineNumber": 186
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "setTool",
+          "lineNumber": 189
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "canvasRef.current?.finishPoly",
+          "lineNumber": 206
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "onSettingsChange",
+          "lineNumber": 221
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "ZONE_TYPES.map",
+          "lineNumber": 228
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "onSettingsChange",
+          "lineNumber": 232
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "activeScope.startsWith",
+          "lineNumber": 253
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "activeScope.startsWith",
+          "lineNumber": 255
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "setShowColors",
+          "lineNumber": 268
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "COLORS.map",
+          "lineNumber": 281
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "onSettingsChange",
+          "lineNumber": 284
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "onSettingsChange",
+          "lineNumber": 303
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "Number",
+          "lineNumber": 303
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "EMOJIS.map",
+          "lineNumber": 313
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "onSettingsChange",
+          "lineNumber": 317
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "setShowEmoji",
+          "lineNumber": 318
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "canvasRef.current?.undo",
+          "lineNumber": 336
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "canvasRef.current?.redo",
+          "lineNumber": 343
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "canvasRef.current?.deleteSelected",
+          "lineNumber": 350
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "setShowLayers",
+          "lineNumber": 367
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "onActiveLayerChange",
+          "lineNumber": 382
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "layers.map",
+          "lineNumber": 390
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "onActiveLayerChange",
+          "lineNumber": 393
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "onToggleLayerVisibility",
+          "lineNumber": 402
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "onDeleteLayer",
+          "lineNumber": 413
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "setNewLayerName",
+          "lineNumber": 427
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "handleCreateLayer",
+          "lineNumber": 428
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "(() => {\r\n                const m = measurement.distance;\r\n                const ft = m * 3.28084;\r\n                if (m < 1000) return `${Math.round(m)} m (${Math.round(ft)} ft)`;\r\n                const mi = m / 1609.344;\r\n                const km = m / 1000;\r\n                return `${km.toFixed(2)} km / ${mi.toFixed(2)} mi (${Math.round(ft).toLocaleString()} ft)`;\r\n              })",
+          "lineNumber": 449
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "Math.round",
+          "lineNumber": 452
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "Math.round",
+          "lineNumber": 452
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "km.toFixed",
+          "lineNumber": 455
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "mi.toFixed",
+          "lineNumber": 455
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "Math.round(ft).toLocaleString",
+          "lineNumber": 455
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "Math.round",
+          "lineNumber": 455
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "Math.round(measurement.area * 10.7639).toLocaleString",
+          "lineNumber": 462
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "Math.round",
+          "lineNumber": 462
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "Math.round(measurement.area * 1.19599).toLocaleString",
+          "lineNumber": 464
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "Math.round",
+          "lineNumber": 464
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "(measurement.area / 4046.856).toFixed",
+          "lineNumber": 467
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "(measurement.area / 10000).toFixed",
+          "lineNumber": 470
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "(measurement.area / 1e6).toFixed",
+          "lineNumber": 473
+        },
+        {
+          "caller": "MapDrawingPanel",
+          "callee": "(measurement.area / 2589988.11).toFixed",
+          "lineNumber": 476
+        }
+      ],
+      "metrics": {
+        "importCount": 1,
+        "exportCount": 1,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/lib/col.ts",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 165,
+      "nonEmptyLines": 154,
+      "functions": [
+        {
+          "name": "getCOL",
+          "startLine": 88,
+          "endLine": 109,
+          "params": [
+            "location",
+            "stateCode"
+          ]
+        },
+        {
+          "name": "compareCOL",
+          "startLine": 116,
+          "endLine": 139,
+          "params": [
+            "homeCOL",
+            "areaCOL",
+            "salary"
+          ]
+        },
+        {
+          "name": "getMonthlyCosts",
+          "startLine": 156,
+          "endLine": 165,
+          "params": [
+            "col"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "getCOL",
+          "line": 88,
+          "isDefault": false
+        },
+        {
+          "name": "compareCOL",
+          "line": 116,
+          "isDefault": false
+        },
+        {
+          "name": "getMonthlyCosts",
+          "line": 156,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "getCOL",
+          "callee": "location.toLowerCase",
+          "lineNumber": 95
+        },
+        {
+          "caller": "getCOL",
+          "callee": "loc.includes",
+          "lineNumber": 97
+        },
+        {
+          "caller": "getCOL",
+          "callee": "m.match.toLowerCase",
+          "lineNumber": 97
+        },
+        {
+          "caller": "getCOL",
+          "callee": "stateCode?.toUpperCase",
+          "lineNumber": 103
+        },
+        {
+          "caller": "compareCOL",
+          "callee": "Math.abs",
+          "lineNumber": 129
+        },
+        {
+          "caller": "compareCOL",
+          "callee": "absDiff.toFixed",
+          "lineNumber": 133
+        },
+        {
+          "caller": "compareCOL",
+          "callee": "absDiff.toFixed",
+          "lineNumber": 135
+        },
+        {
+          "caller": "getMonthlyCosts",
+          "callee": "BASE_MONTHLY.map",
+          "lineNumber": 158
+        },
+        {
+          "caller": "getMonthlyCosts",
+          "callee": "Math.round",
+          "lineNumber": 161
+        },
+        {
+          "caller": "getMonthlyCosts",
+          "callee": "items.reduce",
+          "lineNumber": 163
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 3,
+        "functionCount": 3,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/lib/worklog/parse-snapshot.test.ts",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 82,
+      "nonEmptyLines": 66,
+      "metrics": {
+        "importCount": 1,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/lib/worklog/parse-snapshot.ts",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 16,
+      "nonEmptyLines": 15,
+      "functions": [
+        {
+          "name": "parseSnapshot",
+          "startLine": 7,
+          "endLine": 16,
+          "params": [
+            "raw"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "parseSnapshot",
+          "line": 7,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "parseSnapshot",
+          "callee": "JSON.parse",
+          "lineNumber": 10
+        },
+        {
+          "caller": "parseSnapshot",
+          "callee": "Array.isArray",
+          "lineNumber": 11
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 1,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/types/leaflet-heat.d.ts",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 15,
+      "nonEmptyLines": 14,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "vitest.config.ts",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 15,
+      "nonEmptyLines": 14,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    }
+  ]
+}

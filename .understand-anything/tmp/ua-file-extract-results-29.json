@@ -1,0 +1,844 @@
+{
+  "scriptCompleted": true,
+  "filesAnalyzed": 9,
+  "filesSkipped": [],
+  "results": [
+    {
+      "path": "IMPROVEMENTS.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 386,
+      "nonEmptyLines": 283,
+      "sections": [
+        {
+          "heading": "Resumsify — Future Improvements",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Recruiter Job Location Accuracy",
+          "level": 2,
+          "line": 3
+        },
+        {
+          "heading": "Landmark Association (Auto-Detect Actual Employer)",
+          "level": 3,
+          "line": 23
+        },
+        {
+          "heading": "Crowdsourced Recruiter Flagging (Waze Model)",
+          "level": 3,
+          "line": 40
+        },
+        {
+          "heading": "Google Places Enrichment for Companies",
+          "level": 2,
+          "line": 57
+        },
+        {
+          "heading": "Enhanced Commute Calculator with Ranges & Cost",
+          "level": 2,
+          "line": 107
+        },
+        {
+          "heading": "Company Deep Dive",
+          "level": 2,
+          "line": 158
+        },
+        {
+          "heading": "EIN-Based Federal Records Search",
+          "level": 2,
+          "line": 180
+        },
+        {
+          "heading": "Company Deep Dive — Prioritized Feature Spec",
+          "level": 2,
+          "line": 217
+        },
+        {
+          "heading": "Priority 1: H-1B / PERM Wage Data (Highest Impact)",
+          "level": 3,
+          "line": 219
+        },
+        {
+          "heading": "Priority 2: WARN Act Notices (Layoff Early Warning)",
+          "level": 3,
+          "line": 242
+        },
+        {
+          "heading": "Priority 3: DOL Wage & Hour Violations",
+          "level": 3,
+          "line": 265
+        },
+        {
+          "heading": "Priority 4: OSHA Injury & Violation Rates",
+          "level": 3,
+          "line": 289
+        },
+        {
+          "heading": "Priority 5: CEO Pay Ratio",
+          "level": 3,
+          "line": 314
+        },
+        {
+          "heading": "Priority 6: SEC 8-K Filings (Real-Time Material Events)",
+          "level": 3,
+          "line": 337
+        },
+        {
+          "heading": "Implementation Order & Dependencies",
+          "level": 3,
+          "line": 365
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 16
+      }
+    },
+    {
+      "path": "Improvents.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 136,
+      "nonEmptyLines": 111,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 0
+      }
+    },
+    {
+      "path": "PROJECT_PLAN.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 254,
+      "nonEmptyLines": 212,
+      "sections": [
+        {
+          "heading": "Resumsify — Project Plan",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Current State (March 2026)",
+          "level": 2,
+          "line": 9
+        },
+        {
+          "heading": "What's Built",
+          "level": 3,
+          "line": 13
+        },
+        {
+          "heading": "Tech Stack",
+          "level": 3,
+          "line": 30
+        },
+        {
+          "heading": "Roadmap",
+          "level": 2,
+          "line": 46
+        },
+        {
+          "heading": "Phase 1 — Production Foundation *(Must-have before any real user)*",
+          "level": 3,
+          "line": 48
+        },
+        {
+          "heading": "Phase 2 — Core Experience Polish",
+          "level": 3,
+          "line": 60
+        },
+        {
+          "heading": "Phase 3 — Growth Features",
+          "level": 3,
+          "line": 73
+        },
+        {
+          "heading": "Phase 4 — Scale & Monetization",
+          "level": 3,
+          "line": 86
+        },
+        {
+          "heading": "Known Issues & Tech Debt",
+          "level": 2,
+          "line": 98
+        },
+        {
+          "heading": "Bugs / Broken",
+          "level": 3,
+          "line": 102
+        },
+        {
+          "heading": "UI/UX Debt",
+          "level": 3,
+          "line": 110
+        },
+        {
+          "heading": "Architecture Debt",
+          "level": 3,
+          "line": 119
+        },
+        {
+          "heading": "File Structure Reference",
+          "level": 2,
+          "line": 133
+        },
+        {
+          "heading": "External Services & API Keys",
+          "level": 2,
+          "line": 223
+        },
+        {
+          "heading": "Quick Reference",
+          "level": 2,
+          "line": 239
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 16
+      }
+    },
+    {
+      "path": "README.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 36,
+      "nonEmptyLines": 23,
+      "sections": [
+        {
+          "heading": "Getting Started",
+          "level": 2,
+          "line": 3
+        },
+        {
+          "heading": "Learn More",
+          "level": 2,
+          "line": 23
+        },
+        {
+          "heading": "Deploy on Vercel",
+          "level": 2,
+          "line": 32
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 3
+      }
+    },
+    {
+      "path": "TESTING.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 296,
+      "nonEmptyLines": 224,
+      "sections": [
+        {
+          "heading": "Session Testing Checklist — March 26, 2026",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Feature 1: Application → Current Position Automation",
+          "level": 2,
+          "line": 3
+        },
+        {
+          "heading": "Files Changed",
+          "level": 3,
+          "line": 7
+        },
+        {
+          "heading": "Test Cases",
+          "level": 3,
+          "line": 11
+        },
+        {
+          "heading": "1.1 — Basic Auto-Creation",
+          "level": 4,
+          "line": 13
+        },
+        {
+          "heading": "1.2 — Salary & Pay Fields",
+          "level": 4,
+          "line": 23
+        },
+        {
+          "heading": "1.3 — Auto-Created Benefits",
+          "level": 4,
+          "line": 27
+        },
+        {
+          "heading": "1.4 — Auto-Created Time Off",
+          "level": 4,
+          "line": 32
+        },
+        {
+          "heading": "1.5 — Auto-Created Compensation Events",
+          "level": 4,
+          "line": 36
+        },
+        {
+          "heading": "1.6 — Activity Logging",
+          "level": 4,
+          "line": 42
+        },
+        {
+          "heading": "1.7 — Toast & Navigation",
+          "level": 4,
+          "line": 45
+        },
+        {
+          "heading": "1.8 — Idempotency",
+          "level": 4,
+          "line": 50
+        },
+        {
+          "heading": "1.9 — EIN Pass-Through",
+          "level": 4,
+          "line": 53
+        },
+        {
+          "heading": "Feature 2: Stealth Mode Privacy System",
+          "level": 2,
+          "line": 58
+        },
+        {
+          "heading": "Files Changed / Created",
+          "level": 3,
+          "line": 62
+        },
+        {
+          "heading": "2A — Visibility Modes (Portal Settings UI)",
+          "level": 3,
+          "line": 76
+        },
+        {
+          "heading": "2A.1 — Visibility Selector",
+          "level": 4,
+          "line": 78
+        },
+        {
+          "heading": "2A.2 — Anonymous Display Name",
+          "level": 4,
+          "line": 84
+        },
+        {
+          "heading": "2A.3 — Hide Current Employer Toggle",
+          "level": 4,
+          "line": 89
+        },
+        {
+          "heading": "2A.4 — Blocked Email Domains",
+          "level": 4,
+          "line": 93
+        },
+        {
+          "heading": "2B — Public Visibility Mode (`/r/[slug]`)",
+          "level": 3,
+          "line": 100
+        },
+        {
+          "heading": "2B.1 — Full Profile Visible",
+          "level": 4,
+          "line": 102
+        },
+        {
+          "heading": "2B.2 — Public + Hide Current Employer",
+          "level": 4,
+          "line": 108
+        },
+        {
+          "heading": "2C — Stealth Visibility Mode",
+          "level": 3,
+          "line": 115
+        },
+        {
+          "heading": "2C.1 — Redacted Identity",
+          "level": 4,
+          "line": 117
+        },
+        {
+          "heading": "2C.2 — Content Still Visible",
+          "level": 4,
+          "line": 124
+        },
+        {
+          "heading": "2C.3 — Access Request Form",
+          "level": 4,
+          "line": 130
+        },
+        {
+          "heading": "2C.4 — City/State Location",
+          "level": 4,
+          "line": 136
+        },
+        {
+          "heading": "2D — Anonymous Visibility Mode",
+          "level": 3,
+          "line": 141
+        },
+        {
+          "heading": "2D.1 — Fully Redacted",
+          "level": 4,
+          "line": 143
+        },
+        {
+          "heading": "2D.2 — Experience Redaction",
+          "level": 4,
+          "line": 151
+        },
+        {
+          "heading": "2D.3 — Location Redaction",
+          "level": 4,
+          "line": 156
+        },
+        {
+          "heading": "2D.4 — Sections Reduced",
+          "level": 4,
+          "line": 160
+        },
+        {
+          "heading": "2E — Private Visibility Mode",
+          "level": 3,
+          "line": 166
+        },
+        {
+          "heading": "2E.1 — Complete Lockdown",
+          "level": 4,
+          "line": 168
+        },
+        {
+          "heading": "2F — Employer Blocking (Boss Block)",
+          "level": 3,
+          "line": 175
+        },
+        {
+          "heading": "2F.1 — Domain Blocking",
+          "level": 4,
+          "line": 177
+        },
+        {
+          "heading": "2F.2 — Non-Blocked Domain",
+          "level": 4,
+          "line": 183
+        },
+        {
+          "heading": "2F.3 — Invalid Email",
+          "level": 4,
+          "line": 187
+        },
+        {
+          "heading": "2G — Access Request Workflow",
+          "level": 3,
+          "line": 192
+        },
+        {
+          "heading": "2G.1 — Submit Request (Recruiter Side)",
+          "level": 4,
+          "line": 194
+        },
+        {
+          "heading": "2G.2 — View Requests (Owner Side)",
+          "level": 4,
+          "line": 199
+        },
+        {
+          "heading": "2G.3 — Approve Request",
+          "level": 4,
+          "line": 204
+        },
+        {
+          "heading": "2G.4 — Deny Request",
+          "level": 4,
+          "line": 210
+        },
+        {
+          "heading": "2G.5 — Delete Request",
+          "level": 4,
+          "line": 216
+        },
+        {
+          "heading": "2G.6 — Magic Link Access",
+          "level": 4,
+          "line": 220
+        },
+        {
+          "heading": "2G.7 — Expired Token",
+          "level": 4,
+          "line": 226
+        },
+        {
+          "heading": "2H — Single-Use \"Burn After Reading\" Links",
+          "level": 3,
+          "line": 233
+        },
+        {
+          "heading": "2H.1 — Create Link (Portal Settings)",
+          "level": 4,
+          "line": 235
+        },
+        {
+          "heading": "2H.2 — Link Display",
+          "level": 4,
+          "line": 241
+        },
+        {
+          "heading": "2H.3 — First Use (Burns)",
+          "level": 4,
+          "line": 247
+        },
+        {
+          "heading": "2H.4 — Second Use (Burned)",
+          "level": 4,
+          "line": 253
+        },
+        {
+          "heading": "2H.5 — Expired Link",
+          "level": 4,
+          "line": 258
+        },
+        {
+          "heading": "2H.6 — Delete Link",
+          "level": 4,
+          "line": 264
+        },
+        {
+          "heading": "2H.7 — Token Length Routing",
+          "level": 4,
+          "line": 268
+        },
+        {
+          "heading": "2I — Profile API Whitelist",
+          "level": 3,
+          "line": 274
+        },
+        {
+          "heading": "2I.1 — Save Stealth Fields",
+          "level": 4,
+          "line": 276
+        },
+        {
+          "heading": "2I.2 — Reject Unknown Fields",
+          "level": 4,
+          "line": 280
+        },
+        {
+          "heading": "2J — Edge Cases & Security",
+          "level": 3,
+          "line": 286
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 59
+      }
+    },
+    {
+      "path": "UI_UX_IMPROVEMENTS.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 139,
+      "nonEmptyLines": 104,
+      "sections": [
+        {
+          "heading": "UI/UX Improvements Tracker",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "🔴 High Priority",
+          "level": 2,
+          "line": 7
+        },
+        {
+          "heading": "1. Dashboard layout — revisit section design",
+          "level": 3,
+          "line": 9
+        },
+        {
+          "heading": "2. Card density — reduce oversized cards across pages",
+          "level": 3,
+          "line": 14
+        },
+        {
+          "heading": "2. Dashboard — too many full-width cards stacked vertically",
+          "level": 3,
+          "line": 23
+        },
+        {
+          "heading": "3. Current Position — compensation tab is very long",
+          "level": 3,
+          "line": 30
+        },
+        {
+          "heading": "🟡 Medium Priority",
+          "level": 2,
+          "line": 39
+        },
+        {
+          "heading": "🟢 Low Priority / Polish",
+          "level": 2,
+          "line": 45
+        },
+        {
+          "heading": "🔵 Rethink / Design Discussion",
+          "level": 2,
+          "line": 51
+        },
+        {
+          "heading": "11. Career Model — Income Projections are unrealistic",
+          "level": 3,
+          "line": 53
+        },
+        {
+          "heading": "✅ Completed",
+          "level": 2,
+          "line": 70
+        },
+        {
+          "heading": "1. Dashboard layout — revisit section design",
+          "level": 3,
+          "line": 72
+        },
+        {
+          "heading": "2. Card density — reduce oversized cards across pages",
+          "level": 3,
+          "line": 76
+        },
+        {
+          "heading": "2. Dashboard — too many full-width cards stacked vertically",
+          "level": 3,
+          "line": 84
+        },
+        {
+          "heading": "3. Current Position — compensation tab is very long",
+          "level": 3,
+          "line": 87
+        },
+        {
+          "heading": "7. Empty states are too large",
+          "level": 3,
+          "line": 95
+        },
+        {
+          "heading": "4. Career Model — paycheck history takes too much space",
+          "level": 3,
+          "line": 99
+        },
+        {
+          "heading": "5. Consistent card sizing across pages",
+          "level": 3,
+          "line": 104
+        },
+        {
+          "heading": "6. Mobile responsiveness",
+          "level": 3,
+          "line": 107
+        },
+        {
+          "heading": "8. Sidebar visual weight",
+          "level": 3,
+          "line": 113
+        },
+        {
+          "heading": "9. Form dialogs — inputs feel spaced out",
+          "level": 3,
+          "line": 117
+        },
+        {
+          "heading": "10. Data tables — row density",
+          "level": 3,
+          "line": 121
+        },
+        {
+          "heading": "💡 Future Ideas",
+          "level": 2,
+          "line": 128
+        },
+        {
+          "heading": "Option B: Distributed Research Navigation",
+          "level": 3,
+          "line": 130
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 24
+      }
+    },
+    {
+      "path": "components.json",
+      "language": "json",
+      "fileCategory": "config",
+      "totalLines": 25,
+      "nonEmptyLines": 25,
+      "sections": [
+        {
+          "heading": "$schema",
+          "level": 1,
+          "line": 2
+        },
+        {
+          "heading": "style",
+          "level": 1,
+          "line": 3
+        },
+        {
+          "heading": "rsc",
+          "level": 1,
+          "line": 4
+        },
+        {
+          "heading": "tsx",
+          "level": 1,
+          "line": 5
+        },
+        {
+          "heading": "tailwind",
+          "level": 1,
+          "line": 6
+        },
+        {
+          "heading": "iconLibrary",
+          "level": 1,
+          "line": 13
+        },
+        {
+          "heading": "rtl",
+          "level": 1,
+          "line": 14
+        },
+        {
+          "heading": "aliases",
+          "level": 1,
+          "line": 15
+        },
+        {
+          "heading": "menuColor",
+          "level": 1,
+          "line": 22
+        },
+        {
+          "heading": "menuAccent",
+          "level": 1,
+          "line": 23
+        },
+        {
+          "heading": "registries",
+          "level": 1,
+          "line": 24
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 11
+      }
+    },
+    {
+      "path": "package.json",
+      "language": "json",
+      "fileCategory": "config",
+      "totalLines": 107,
+      "nonEmptyLines": 107,
+      "sections": [
+        {
+          "heading": "name",
+          "level": 1,
+          "line": 2
+        },
+        {
+          "heading": "version",
+          "level": 1,
+          "line": 3
+        },
+        {
+          "heading": "private",
+          "level": 1,
+          "line": 4
+        },
+        {
+          "heading": "scripts",
+          "level": 1,
+          "line": 5
+        },
+        {
+          "heading": "prisma",
+          "level": 1,
+          "line": 15
+        },
+        {
+          "heading": "dependencies",
+          "level": 1,
+          "line": 18
+        },
+        {
+          "heading": "devDependencies",
+          "level": 1,
+          "line": 88
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 7
+      }
+    },
+    {
+      "path": "tsconfig.json",
+      "language": "json",
+      "fileCategory": "config",
+      "totalLines": 34,
+      "nonEmptyLines": 34,
+      "sections": [
+        {
+          "heading": "compilerOptions",
+          "level": 1,
+          "line": 2
+        },
+        {
+          "heading": "include",
+          "level": 1,
+          "line": 25
+        },
+        {
+          "heading": "exclude",
+          "level": 1,
+          "line": 33
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 3
+      }
+    }
+  ]
+}

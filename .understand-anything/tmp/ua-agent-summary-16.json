@@ -1,0 +1,325 @@
+[
+  {
+    "path": "src/app/api/adzuna/route.ts",
+    "nonEmptyLines": 103,
+    "fns": [
+      {
+        "name": "GET",
+        "start": 27,
+        "end": 117
+      }
+    ],
+    "exports": [
+      "GET"
+    ],
+    "classes": [],
+    "imports": [
+      "src/lib/auth-utils.ts",
+      "src/lib/cache.ts"
+    ]
+  },
+  {
+    "path": "src/app/api/commute/route.ts",
+    "nonEmptyLines": 331,
+    "fns": [
+      {
+        "name": "decodePolyline",
+        "start": 23,
+        "end": 52
+      },
+      {
+        "name": "simplifyGeometry",
+        "start": 56,
+        "end": 68
+      },
+      {
+        "name": "haversineDistanceMi",
+        "start": 82,
+        "end": 95
+      },
+      {
+        "name": "straightLineEstimate",
+        "start": 98,
+        "end": 110
+      },
+      {
+        "name": "tryGoogleDirections",
+        "start": 148,
+        "end": 270
+      },
+      {
+        "name": "tryOsrm",
+        "start": 273,
+        "end": 300
+      },
+      {
+        "name": "GET",
+        "start": 302,
+        "end": 368
+      }
+    ],
+    "exports": [
+      "GET"
+    ],
+    "classes": [],
+    "imports": [
+      "src/lib/auth-utils.ts",
+      "src/lib/cache.ts"
+    ]
+  },
+  {
+    "path": "src/app/api/email-leads/ingest/route.ts",
+    "nonEmptyLines": 119,
+    "fns": [
+      {
+        "name": "POST",
+        "start": 18,
+        "end": 134
+      }
+    ],
+    "exports": [
+      "POST"
+    ],
+    "classes": [],
+    "imports": [
+      "src/lib/cache.ts",
+      "src/lib/email-parser.ts",
+      "src/lib/prisma.ts"
+    ]
+  },
+  {
+    "path": "src/app/api/email-leads/parse/route.ts",
+    "nonEmptyLines": 127,
+    "fns": [
+      {
+        "name": "POST",
+        "start": 13,
+        "end": 139
+      }
+    ],
+    "exports": [
+      "POST"
+    ],
+    "classes": [],
+    "imports": [
+      "src/lib/auth-utils.ts",
+      "src/lib/cache.ts",
+      "src/lib/email-parser.ts",
+      "src/lib/prisma.ts"
+    ]
+  },
+  {
+    "path": "src/app/api/email-leads/sync/route.ts",
+    "nonEmptyLines": 179,
+    "fns": [
+      {
+        "name": "POST",
+        "start": 27,
+        "end": 171
+      },
+      {
+        "name": "extractHtmlBody",
+        "start": 178,
+        "end": 204
+      }
+    ],
+    "exports": [
+      "POST"
+    ],
+    "classes": [],
+    "imports": [
+      "src/lib/auth-utils.ts",
+      "src/lib/cache.ts",
+      "src/lib/email-parser.ts",
+      "src/lib/email.ts",
+      "src/lib/prisma.ts"
+    ]
+  },
+  {
+    "path": "src/app/api/geocode/route.ts",
+    "nonEmptyLines": 76,
+    "fns": [
+      {
+        "name": "GET",
+        "start": 11,
+        "end": 32
+      },
+      {
+        "name": "POST",
+        "start": 47,
+        "end": 92
+      }
+    ],
+    "exports": [
+      "GET",
+      "POST"
+    ],
+    "classes": [],
+    "imports": [
+      "src/lib/auth-utils.ts",
+      "src/lib/cache.ts"
+    ]
+  },
+  {
+    "path": "src/app/api/job-search/route.ts",
+    "nonEmptyLines": 73,
+    "fns": [
+      {
+        "name": "GET",
+        "start": 7,
+        "end": 86
+      }
+    ],
+    "exports": [
+      "GET"
+    ],
+    "classes": [],
+    "imports": [
+      "src/lib/auth-utils.ts",
+      "src/lib/cache.ts"
+    ]
+  },
+  {
+    "path": "src/app/api/nearby-amenities/route.ts",
+    "nonEmptyLines": 72,
+    "fns": [
+      {
+        "name": "POST",
+        "start": 25,
+        "end": 89
+      }
+    ],
+    "exports": [
+      "POST"
+    ],
+    "classes": [],
+    "imports": [
+      "src/lib/auth-utils.ts",
+      "src/lib/cache.ts"
+    ]
+  },
+  {
+    "path": "src/app/api/nearby-buildings/route.ts",
+    "nonEmptyLines": 95,
+    "fns": [
+      {
+        "name": "GET",
+        "start": 23,
+        "end": 75
+      },
+      {
+        "name": "POST",
+        "start": 82,
+        "end": 112
+      }
+    ],
+    "exports": [
+      "GET",
+      "POST"
+    ],
+    "classes": [],
+    "imports": [
+      "src/lib/auth-utils.ts",
+      "src/lib/cache.ts"
+    ]
+  },
+  {
+    "path": "src/app/api/resolve-address/route.ts",
+    "nonEmptyLines": 201,
+    "fns": [
+      {
+        "name": "fetchPlaceDetails",
+        "start": 62,
+        "end": 99
+      },
+      {
+        "name": "GET",
+        "start": 101,
+        "end": 232
+      }
+    ],
+    "exports": [
+      "GET"
+    ],
+    "classes": [],
+    "imports": [
+      "src/lib/auth-utils.ts",
+      "src/lib/cache.ts"
+    ]
+  },
+  {
+    "path": "src/lib/cache.ts",
+    "nonEmptyLines": 47,
+    "fns": [
+      {
+        "name": "cached",
+        "start": 33,
+        "end": 48
+      }
+    ],
+    "exports": [
+      "cached",
+      "TTL"
+    ],
+    "classes": [],
+    "imports": []
+  },
+  {
+    "path": "src/lib/email-parser.ts",
+    "nonEmptyLines": 344,
+    "fns": [
+      {
+        "name": "parseSalary",
+        "start": 36,
+        "end": 51
+      },
+      {
+        "name": "dedupeHash",
+        "start": 54,
+        "end": 64
+      },
+      {
+        "name": "detectSource",
+        "start": 77,
+        "end": 82
+      },
+      {
+        "name": "parseIndeed",
+        "start": 96,
+        "end": 182
+      },
+      {
+        "name": "parseLinkedIn",
+        "start": 189,
+        "end": 228
+      },
+      {
+        "name": "parseGlassdoor",
+        "start": 234,
+        "end": 269
+      },
+      {
+        "name": "parseZipRecruiter",
+        "start": 275,
+        "end": 310
+      },
+      {
+        "name": "parseGeneric",
+        "start": 316,
+        "end": 368
+      },
+      {
+        "name": "parseJobEmail",
+        "start": 384,
+        "end": 407
+      }
+    ],
+    "exports": [
+      "dedupeHash",
+      "detectSource",
+      "parseJobEmail"
+    ],
+    "classes": [],
+    "imports": []
+  }
+]

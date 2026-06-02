@@ -1,0 +1,56 @@
+{
+  "projectRoot": "C:\\Users\\Sory kaba\\OneDrive\\RESUMSIFY\\Personal_Projects\\Dev_Pojects\\resumsify",
+  "batchFiles": [
+    {
+      "path": ".Manual/README.md",
+      "language": "markdown",
+      "sizeLines": 44,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".Manual/_template.md",
+      "language": "markdown",
+      "sizeLines": 51,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".Manual/worklog-bulk-actions.md",
+      "language": "markdown",
+      "sizeLines": 80,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".Manual/worklog-dnd-reorder.md",
+      "language": "markdown",
+      "sizeLines": 78,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".Manual/worklog-folders.md",
+      "language": "markdown",
+      "sizeLines": 78,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".Manual/worklog-notes-three-pane.md",
+      "language": "markdown",
+      "sizeLines": 79,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".Manual/worklog-search.md",
+      "language": "markdown",
+      "sizeLines": 58,
+      "fileCategory": "docs"
+    }
+  ],
+  "batchImportData": {
+    ".Manual/README.md": [],
+    ".Manual/_template.md": [],
+    ".Manual/worklog-bulk-actions.md": [],
+    ".Manual/worklog-dnd-reorder.md": [],
+    ".Manual/worklog-folders.md": [],
+    ".Manual/worklog-notes-three-pane.md": [],
+    ".Manual/worklog-search.md": []
+  }
+}

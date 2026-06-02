@@ -1,0 +1,363 @@
+{
+  "scriptCompleted": true,
+  "filesAnalyzed": 6,
+  "filesSkipped": [],
+  "results": [
+    {
+      "path": ".github/ui/global.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 166,
+      "nonEmptyLines": 129,
+      "sections": [
+        {
+          "heading": "Resumsify Global Component Patterns",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Toolbar Row Pattern",
+          "level": 2,
+          "line": 10
+        },
+        {
+          "heading": "Empty State Pattern",
+          "level": 2,
+          "line": 26
+        },
+        {
+          "heading": "Loading / Busy State Pattern",
+          "level": 2,
+          "line": 42
+        },
+        {
+          "heading": "Destructive Action Pattern",
+          "level": 2,
+          "line": 50
+        },
+        {
+          "heading": "Badge / Chip Pattern",
+          "level": 2,
+          "line": 59
+        },
+        {
+          "heading": "Section Header (sidebar / rail groups)",
+          "level": 2,
+          "line": 67
+        },
+        {
+          "heading": "Searchable Inline Picker Pattern",
+          "level": 2,
+          "line": 75
+        },
+        {
+          "heading": "Focus & Keyboard Accessibility",
+          "level": 2,
+          "line": 92
+        },
+        {
+          "heading": "Dialog Pattern",
+          "level": 2,
+          "line": 100
+        },
+        {
+          "heading": "UX Interaction Rules",
+          "level": 2,
+          "line": 107
+        },
+        {
+          "heading": "R1 — CRUD Completeness",
+          "level": 3,
+          "line": 111
+        },
+        {
+          "heading": "R2 — List → Multi-Select Consideration",
+          "level": 3,
+          "line": 116
+        },
+        {
+          "heading": "R3 — Empty State Completeness",
+          "level": 3,
+          "line": 121
+        },
+        {
+          "heading": "R4 — Async Feedback (mandatory)",
+          "level": 3,
+          "line": 129
+        },
+        {
+          "heading": "R5 — Destructive Clarity",
+          "level": 3,
+          "line": 136
+        },
+        {
+          "heading": "R6 — Form Validation Placement",
+          "level": 3,
+          "line": 142
+        },
+        {
+          "heading": "R7 — Unbounded List Prevention",
+          "level": 3,
+          "line": 148
+        },
+        {
+          "heading": "R8 — Progressive Disclosure",
+          "level": 3,
+          "line": 152
+        },
+        {
+          "heading": "R9 — Keyboard Parity",
+          "level": 3,
+          "line": 157
+        },
+        {
+          "heading": "R10 — Touch Target Floor",
+          "level": 3,
+          "line": 162
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 21
+      }
+    },
+    {
+      "path": ".github/ui/index.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 33,
+      "nonEmptyLines": 25,
+      "sections": [
+        {
+          "heading": "Resumsify UI Design Graph — Index",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Purpose",
+          "level": 2,
+          "line": 5
+        },
+        {
+          "heading": "How to use (mandatory pre-read order)",
+          "level": 2,
+          "line": 9
+        },
+        {
+          "heading": "Feature → File Map",
+          "level": 2,
+          "line": 14
+        },
+        {
+          "heading": "Governance rules (non-negotiable)",
+          "level": 2,
+          "line": 24
+        },
+        {
+          "heading": "How to read token references",
+          "level": 2,
+          "line": 31
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 6
+      }
+    },
+    {
+      "path": ".github/ui/maps.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 15,
+      "nonEmptyLines": 11,
+      "sections": [
+        {
+          "heading": "Resumsify Job Map UI Patterns",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "TODO (capture when first built)",
+          "level": 2,
+          "line": 10
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 2
+      }
+    },
+    {
+      "path": ".github/ui/resume.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 15,
+      "nonEmptyLines": 11,
+      "sections": [
+        {
+          "heading": "Resumsify Resume Builder UI Patterns",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "TODO (capture when first built)",
+          "level": 2,
+          "line": 10
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 2
+      }
+    },
+    {
+      "path": ".github/ui/tokens.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 123,
+      "nonEmptyLines": 94,
+      "sections": [
+        {
+          "heading": "Resumsify UI Tokens — Source of Truth",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Brand Identity",
+          "level": 2,
+          "line": 11
+        },
+        {
+          "heading": "Color Tokens",
+          "level": 2,
+          "line": 18
+        },
+        {
+          "heading": "Button Scale",
+          "level": 2,
+          "line": 41
+        },
+        {
+          "heading": "Icon Scale",
+          "level": 2,
+          "line": 58
+        },
+        {
+          "heading": "Typography Scale",
+          "level": 2,
+          "line": 74
+        },
+        {
+          "heading": "Spacing Scale",
+          "level": 2,
+          "line": 88
+        },
+        {
+          "heading": "Border & Radius",
+          "level": 2,
+          "line": 101
+        },
+        {
+          "heading": "Mention Chip Entity-Type Colors",
+          "level": 2,
+          "line": 114
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 9
+      }
+    },
+    {
+      "path": ".github/ui/worklog.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 180,
+      "nonEmptyLines": 142,
+      "sections": [
+        {
+          "heading": "Resumsify Worklog UI Patterns",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "3-Pane Layout",
+          "level": 2,
+          "line": 10
+        },
+        {
+          "heading": "Note Row Anatomy",
+          "level": 2,
+          "line": 28
+        },
+        {
+          "heading": "Bulk Mode Rules",
+          "level": 2,
+          "line": 54
+        },
+        {
+          "heading": "Folder Tree Pattern",
+          "level": 2,
+          "line": 67
+        },
+        {
+          "heading": "Worklog Toolbar Specifics",
+          "level": 2,
+          "line": 80
+        },
+        {
+          "heading": "Canvas Block Pattern",
+          "level": 2,
+          "line": 94
+        },
+        {
+          "heading": "Inline Mention Chip Pattern",
+          "level": 2,
+          "line": 123
+        },
+        {
+          "heading": "Promotion State Patterns (Phase D)",
+          "level": 2,
+          "line": 146
+        },
+        {
+          "heading": "\"Ready to Promote\" button",
+          "level": 3,
+          "line": 150
+        },
+        {
+          "heading": "\"Already Promoted\" inline indicator",
+          "level": 3,
+          "line": 162
+        },
+        {
+          "heading": "Promotable-entries banner card (position-worklog-tab)",
+          "level": 3,
+          "line": 172
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 12
+      }
+    }
+  ]
+}

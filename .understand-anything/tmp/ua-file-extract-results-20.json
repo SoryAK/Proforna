@@ -1,0 +1,129 @@
+{
+  "scriptCompleted": true,
+  "filesAnalyzed": 3,
+  "filesSkipped": [],
+  "results": [
+    {
+      "path": "src/app/layout.tsx",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 60,
+      "nonEmptyLines": 55,
+      "functions": [
+        {
+          "name": "RootLayout",
+          "startLine": 41,
+          "endLine": 60,
+          "params": [
+            "{\n  children,\n}"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "metadata",
+          "line": 18,
+          "isDefault": false
+        },
+        {
+          "name": "viewport",
+          "line": 33,
+          "isDefault": false
+        },
+        {
+          "name": "RootLayout",
+          "line": 41,
+          "isDefault": true
+        }
+      ],
+      "metrics": {
+        "importCount": 3,
+        "exportCount": 3,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/components/providers.tsx",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 31,
+      "nonEmptyLines": 28,
+      "functions": [
+        {
+          "name": "Providers",
+          "startLine": 8,
+          "endLine": 31,
+          "params": [
+            "{ children }"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "Providers",
+          "line": 8,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "Providers",
+          "callee": "useState",
+          "lineNumber": 9
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 1,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/components/pwa-register.tsx",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 15,
+      "nonEmptyLines": 12,
+      "functions": [
+        {
+          "name": "PwaRegister",
+          "startLine": 5,
+          "endLine": 15,
+          "params": []
+        }
+      ],
+      "exports": [
+        {
+          "name": "PwaRegister",
+          "line": 5,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "PwaRegister",
+          "callee": "useEffect",
+          "lineNumber": 6
+        },
+        {
+          "caller": "PwaRegister",
+          "callee": "navigator.serviceWorker.register(\"/sw.js\").catch",
+          "lineNumber": 8
+        },
+        {
+          "caller": "PwaRegister",
+          "callee": "navigator.serviceWorker.register",
+          "lineNumber": 8
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 1,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    }
+  ]
+}

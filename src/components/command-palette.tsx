@@ -166,7 +166,7 @@ export function CommandPalette() {
           {data?.contacts && data.contacts.length > 0 && (
             <>
               <CommandSeparator />
-              <CommandGroup heading="Contacts">
+              <CommandGroup heading="My Network">
                 {data.contacts.map((c) => (
                   <CommandItem
                     key={c.id}

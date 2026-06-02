@@ -1,0 +1,51 @@
+{
+  "batchIndex": 26,
+  "totalBatches": 34,
+  "files": [
+    {
+      "path": ".github/ui/global.md",
+      "language": "markdown",
+      "sizeLines": 166,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".github/ui/index.md",
+      "language": "markdown",
+      "sizeLines": 33,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".github/ui/maps.md",
+      "language": "markdown",
+      "sizeLines": 15,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".github/ui/resume.md",
+      "language": "markdown",
+      "sizeLines": 15,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".github/ui/tokens.md",
+      "language": "markdown",
+      "sizeLines": 123,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".github/ui/worklog.md",
+      "language": "markdown",
+      "sizeLines": 180,
+      "fileCategory": "docs"
+    }
+  ],
+  "batchImportData": {
+    ".github/ui/global.md": [],
+    ".github/ui/index.md": [],
+    ".github/ui/maps.md": [],
+    ".github/ui/resume.md": [],
+    ".github/ui/tokens.md": [],
+    ".github/ui/worklog.md": []
+  },
+  "neighborMap": {}
+}

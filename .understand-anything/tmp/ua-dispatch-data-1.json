@@ -1,0 +1,1044 @@
+{
+  "batchIndex": 1,
+  "totalBatches": 34,
+  "files": [
+    {
+      "path": "src/app/api/access-requests/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 75,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/access-requests/route.ts",
+      "language": "typescript",
+      "sizeLines": 67,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/activity/route.ts",
+      "language": "typescript",
+      "sizeLines": 33,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/address-overrides/route.ts",
+      "language": "typescript",
+      "sizeLines": 72,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/ai/chat/route.ts",
+      "language": "typescript",
+      "sizeLines": 112,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/ai/context/route.ts",
+      "language": "typescript",
+      "sizeLines": 139,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/ai/models/route.ts",
+      "language": "typescript",
+      "sizeLines": 49,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/analytics/route.ts",
+      "language": "typescript",
+      "sizeLines": 223,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/applications/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 175,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/applications/route.ts",
+      "language": "typescript",
+      "sizeLines": 35,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/asset-types/[id]/documents/route.ts",
+      "language": "typescript",
+      "sizeLines": 98,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/asset-types/[id]/links/route.ts",
+      "language": "typescript",
+      "sizeLines": 97,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/asset-types/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 109,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/asset-types/route.ts",
+      "language": "typescript",
+      "sizeLines": 92,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/attachments/route.ts",
+      "language": "typescript",
+      "sizeLines": 218,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/auth/[...nextauth]/route.ts",
+      "language": "typescript",
+      "sizeLines": 3,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/auth/google/callback/route.ts",
+      "language": "typescript",
+      "sizeLines": 65,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/auth/google/route.ts",
+      "language": "typescript",
+      "sizeLines": 7,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/auth/microsoft/callback/route.ts",
+      "language": "typescript",
+      "sizeLines": 67,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/auth/microsoft/route.ts",
+      "language": "typescript",
+      "sizeLines": 7,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/auth/register/route.ts",
+      "language": "typescript",
+      "sizeLines": 51,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/avatar/route.ts",
+      "language": "typescript",
+      "sizeLines": 52,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/backfill-place-ids/route.ts",
+      "language": "typescript",
+      "sizeLines": 83,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/benefits/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 30,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/benefits/route.ts",
+      "language": "typescript",
+      "sizeLines": 52,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/career-paths/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 82,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/career-paths/route.ts",
+      "language": "typescript",
+      "sizeLines": 50,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/career-snapshots/route.ts",
+      "language": "typescript",
+      "sizeLines": 217,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/cdm/decompose/route.ts",
+      "language": "typescript",
+      "sizeLines": 242,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/cdm/synonyms/route.ts",
+      "language": "typescript",
+      "sizeLines": 151,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/certifications/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 31,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/certifications/route.ts",
+      "language": "typescript",
+      "sizeLines": 22,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/cfm/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 72,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/cfm/route.ts",
+      "language": "typescript",
+      "sizeLines": 388,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/company-lookup/route.ts",
+      "language": "typescript",
+      "sizeLines": 249,
+      "fileCategory": "code"
+    }
+  ],
+  "batchImportData": {
+    "src/app/api/access-requests/[id]/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/access-requests/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/activity/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/address-overrides/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/ai/chat/route.ts": [
+      "src/lib/ai.ts",
+      "src/lib/auth-utils.ts"
+    ],
+    "src/app/api/ai/context/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/ai/models/route.ts": [
+      "src/lib/ai.ts",
+      "src/lib/auth-utils.ts"
+    ],
+    "src/app/api/analytics/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/applications/[id]/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/applications/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/asset-types/[id]/documents/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/asset-types/[id]/links/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/asset-types/[id]/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/asset-types/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/attachments/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/auth/[...nextauth]/route.ts": [
+      "src/lib/auth.ts"
+    ],
+    "src/app/api/auth/google/callback/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/email.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/auth/google/route.ts": [
+      "src/lib/email.ts"
+    ],
+    "src/app/api/auth/microsoft/callback/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/email.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/auth/microsoft/route.ts": [
+      "src/lib/email.ts"
+    ],
+    "src/app/api/auth/register/route.ts": [
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/avatar/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/backfill-place-ids/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/benefits/[id]/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/benefits/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/career-paths/[id]/route.ts": [
+      "src/lib/activity.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/career-paths/route.ts": [
+      "src/lib/activity.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/career-snapshots/route.ts": [
+      "src/lib/activity.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/cdm/decompose/route.ts": [
+      "src/data/soc-codes.json",
+      "src/lib/ai.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/cdm/synonyms/route.ts": [
+      "src/data/soc-codes.json",
+      "src/lib/ai.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/certifications/[id]/route.ts": [
+      "src/lib/activity.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/certifications/route.ts": [
+      "src/lib/activity.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/cfm/[id]/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/cfm/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/employer-alias.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/company-lookup/route.ts": [
+      "src/lib/auth-utils.ts"
+    ]
+  },
+  "neighborMap": {
+    "src/app/api/access-requests/[id]/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/access-requests/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/activity/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/address-overrides/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/ai/chat/route.ts": [
+      {
+        "path": "src/lib/ai.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getAIConfig",
+          "ollamaIsAvailable",
+          "ollamaModels",
+          "ollamaChat",
+          "geminiChat",
+          "aiGenerateJSON"
+        ]
+      },
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      }
+    ],
+    "src/app/api/ai/context/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/ai/models/route.ts": [
+      {
+        "path": "src/lib/ai.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getAIConfig",
+          "ollamaIsAvailable",
+          "ollamaModels",
+          "ollamaChat",
+          "geminiChat",
+          "aiGenerateJSON"
+        ]
+      },
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      }
+    ],
+    "src/app/api/analytics/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/applications/[id]/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/applications/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/asset-types/[id]/documents/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/asset-types/[id]/links/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/asset-types/[id]/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/asset-types/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/attachments/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/auth/[...nextauth]/route.ts": [
+      {
+        "path": "src/lib/auth.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "{ handlers, auth, signIn, signOut }"
+        ]
+      }
+    ],
+    "src/app/api/auth/google/callback/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/email.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getGoogleOAuth2Client",
+          "getGoogleAuthUrl",
+          "getMicrosoftAuthUrl",
+          "exchangeMicrosoftCode",
+          "refreshMicrosoftToken",
+          "getValidGoogleToken"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/auth/google/route.ts": [
+      {
+        "path": "src/lib/email.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getGoogleOAuth2Client",
+          "getGoogleAuthUrl",
+          "getMicrosoftAuthUrl",
+          "exchangeMicrosoftCode",
+          "refreshMicrosoftToken",
+          "getValidGoogleToken"
+        ]
+      }
+    ],
+    "src/app/api/auth/microsoft/callback/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/email.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getGoogleOAuth2Client",
+          "getGoogleAuthUrl",
+          "getMicrosoftAuthUrl",
+          "exchangeMicrosoftCode",
+          "refreshMicrosoftToken",
+          "getValidGoogleToken"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/auth/microsoft/route.ts": [
+      {
+        "path": "src/lib/email.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getGoogleOAuth2Client",
+          "getGoogleAuthUrl",
+          "getMicrosoftAuthUrl",
+          "exchangeMicrosoftCode",
+          "refreshMicrosoftToken",
+          "getValidGoogleToken"
+        ]
+      }
+    ],
+    "src/app/api/auth/register/route.ts": [
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/avatar/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/backfill-place-ids/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/benefits/[id]/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/benefits/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/career-paths/[id]/route.ts": [
+      {
+        "path": "src/lib/activity.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "logActivity"
+        ]
+      },
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/career-paths/route.ts": [
+      {
+        "path": "src/lib/activity.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "logActivity"
+        ]
+      },
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/career-snapshots/route.ts": [
+      {
+        "path": "src/lib/activity.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "logActivity"
+        ]
+      },
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/cdm/decompose/route.ts": [
+      {
+        "path": "src/data/soc-codes.json",
+        "batchIndex": 31,
+        "symbols": []
+      },
+      {
+        "path": "src/lib/ai.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getAIConfig",
+          "ollamaIsAvailable",
+          "ollamaModels",
+          "ollamaChat",
+          "geminiChat",
+          "aiGenerateJSON"
+        ]
+      },
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/cdm/synonyms/route.ts": [
+      {
+        "path": "src/data/soc-codes.json",
+        "batchIndex": 31,
+        "symbols": []
+      },
+      {
+        "path": "src/lib/ai.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getAIConfig",
+          "ollamaIsAvailable",
+          "ollamaModels",
+          "ollamaChat",
+          "geminiChat",
+          "aiGenerateJSON"
+        ]
+      },
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/certifications/[id]/route.ts": [
+      {
+        "path": "src/lib/activity.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "logActivity"
+        ]
+      },
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/certifications/route.ts": [
+      {
+        "path": "src/lib/activity.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "logActivity"
+        ]
+      },
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/cfm/[id]/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/cfm/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/employer-alias.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "normEmployer",
+          "buildAliasResolver"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/company-lookup/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      }
+    ]
+  }
+}

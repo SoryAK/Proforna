@@ -1,0 +1,1087 @@
+{
+  "batchIndex": 4,
+  "totalBatches": 34,
+  "files": [
+    {
+      "path": "src/app/api/learning/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 56,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/learning/generate/route.ts",
+      "language": "typescript",
+      "sizeLines": 187,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/learning/route.ts",
+      "language": "typescript",
+      "sizeLines": 39,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/learning/sessions/route.ts",
+      "language": "typescript",
+      "sizeLines": 100,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/learning/topics/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 43,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/learning/topics/route.ts",
+      "language": "typescript",
+      "sizeLines": 60,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/life-anchors/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 57,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/life-anchors/route.ts",
+      "language": "typescript",
+      "sizeLines": 48,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/map-drawings/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 34,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/map-drawings/layers/route.ts",
+      "language": "typescript",
+      "sizeLines": 96,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/map-drawings/route.ts",
+      "language": "typescript",
+      "sizeLines": 73,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/market-research/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 31,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/market-research/bls/route.ts",
+      "language": "typescript",
+      "sizeLines": 228,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/market-research/occupations/route.ts",
+      "language": "typescript",
+      "sizeLines": 37,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/market-research/route.ts",
+      "language": "typescript",
+      "sizeLines": 34,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/master-gallery/move/route.ts",
+      "language": "typescript",
+      "sizeLines": 129,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/master-gallery/photos/route.ts",
+      "language": "typescript",
+      "sizeLines": 68,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/master-gallery/route.ts",
+      "language": "typescript",
+      "sizeLines": 103,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/milestones/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 28,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/milestones/route.ts",
+      "language": "typescript",
+      "sizeLines": 12,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/onet/import/route.ts",
+      "language": "typescript",
+      "sizeLines": 166,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/onet/ingest-csv/route.ts",
+      "language": "typescript",
+      "sizeLines": 137,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/onet/ingest/route.ts",
+      "language": "typescript",
+      "sizeLines": 164,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/onet/occupation/[code]/route.ts",
+      "language": "typescript",
+      "sizeLines": 82,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/onet/search/route.ts",
+      "language": "typescript",
+      "sizeLines": 36,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/pay-periods/route.ts",
+      "language": "typescript",
+      "sizeLines": 180,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/paycheck-parse/route.ts",
+      "language": "typescript",
+      "sizeLines": 669,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/paycheck-records/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 64,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/paycheck-records/route.ts",
+      "language": "typescript",
+      "sizeLines": 83,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/personal-equipment/bulk-upload/route.ts",
+      "language": "typescript",
+      "sizeLines": 96,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/personal-equipment/duplicate/route.ts",
+      "language": "typescript",
+      "sizeLines": 99,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/personal-equipment/kits/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 158,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/personal-equipment/kits/route.ts",
+      "language": "typescript",
+      "sizeLines": 116,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/personal-equipment/photos/route.ts",
+      "language": "typescript",
+      "sizeLines": 238,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/personal-equipment/route.ts",
+      "language": "typescript",
+      "sizeLines": 182,
+      "fileCategory": "code"
+    }
+  ],
+  "batchImportData": {
+    "src/app/api/learning/[id]/route.ts": [
+      "src/lib/activity.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/learning/generate/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/gemini.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/learning/route.ts": [
+      "src/lib/activity.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/learning/sessions/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/learning/topics/[id]/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/learning/topics/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/life-anchors/[id]/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/life-anchors/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/map-drawings/[id]/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/map-drawings/layers/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/map-drawings/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/market-research/[id]/route.ts": [
+      "src/lib/activity.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/market-research/bls/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/market-research/occupations/route.ts": [
+      "src/data/soc-codes.json",
+      "src/lib/auth-utils.ts"
+    ],
+    "src/app/api/market-research/route.ts": [
+      "src/lib/activity.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/master-gallery/move/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/master-gallery/photos/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/master-gallery/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/milestones/[id]/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/milestones/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/onet/import/route.ts": [
+      "src/lib/activity.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/onet.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/onet/ingest-csv/route.ts": [
+      "src/lib/activity.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/onet.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/onet/ingest/route.ts": [
+      "src/lib/activity.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/onet.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/onet/occupation/[code]/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/onet.ts"
+    ],
+    "src/app/api/onet/search/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/onet.ts"
+    ],
+    "src/app/api/pay-periods/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/paycheck-parse/route.ts": [
+      "src/lib/auth-utils.ts"
+    ],
+    "src/app/api/paycheck-records/[id]/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/paycheck-records/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/personal-equipment/bulk-upload/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/personal-equipment/duplicate/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/personal-equipment/kits/[id]/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/personal-equipment/kits/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/personal-equipment/photos/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/auto-log.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/personal-equipment/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ]
+  },
+  "neighborMap": {
+    "src/app/api/learning/[id]/route.ts": [
+      {
+        "path": "src/lib/activity.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "logActivity"
+        ]
+      },
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/learning/generate/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/gemini.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "callGemini",
+          "geminiErrorMessage"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/learning/route.ts": [
+      {
+        "path": "src/lib/activity.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "logActivity"
+        ]
+      },
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/learning/sessions/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/learning/topics/[id]/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/learning/topics/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/life-anchors/[id]/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/life-anchors/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/map-drawings/[id]/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/map-drawings/layers/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/map-drawings/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/market-research/[id]/route.ts": [
+      {
+        "path": "src/lib/activity.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "logActivity"
+        ]
+      },
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/market-research/bls/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/market-research/occupations/route.ts": [
+      {
+        "path": "src/data/soc-codes.json",
+        "batchIndex": 31,
+        "symbols": []
+      },
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      }
+    ],
+    "src/app/api/market-research/route.ts": [
+      {
+        "path": "src/lib/activity.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "logActivity"
+        ]
+      },
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/master-gallery/move/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/master-gallery/photos/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/master-gallery/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/milestones/[id]/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/milestones/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/onet/import/route.ts": [
+      {
+        "path": "src/lib/activity.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "logActivity"
+        ]
+      },
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/onet.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "listAllOccupations",
+          "getOccupationOverview",
+          "getOccupationSkills",
+          "getOccupationKnowledge",
+          "getOccupationAbilities",
+          "getOccupationWorkActivities",
+          "getOccupationTechnology",
+          "searchOccupations",
+          "SOC_CLUSTER_MAP",
+          "getClusterForSoc"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/onet/ingest-csv/route.ts": [
+      {
+        "path": "src/lib/activity.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "logActivity"
+        ]
+      },
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/onet.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "listAllOccupations",
+          "getOccupationOverview",
+          "getOccupationSkills",
+          "getOccupationKnowledge",
+          "getOccupationAbilities",
+          "getOccupationWorkActivities",
+          "getOccupationTechnology",
+          "searchOccupations",
+          "SOC_CLUSTER_MAP",
+          "getClusterForSoc"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/onet/ingest/route.ts": [
+      {
+        "path": "src/lib/activity.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "logActivity"
+        ]
+      },
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/onet.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "listAllOccupations",
+          "getOccupationOverview",
+          "getOccupationSkills",
+          "getOccupationKnowledge",
+          "getOccupationAbilities",
+          "getOccupationWorkActivities",
+          "getOccupationTechnology",
+          "searchOccupations",
+          "SOC_CLUSTER_MAP",
+          "getClusterForSoc"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/onet/occupation/[code]/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/onet.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "listAllOccupations",
+          "getOccupationOverview",
+          "getOccupationSkills",
+          "getOccupationKnowledge",
+          "getOccupationAbilities",
+          "getOccupationWorkActivities",
+          "getOccupationTechnology",
+          "searchOccupations",
+          "SOC_CLUSTER_MAP",
+          "getClusterForSoc"
+        ]
+      }
+    ],
+    "src/app/api/onet/search/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/onet.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "listAllOccupations",
+          "getOccupationOverview",
+          "getOccupationSkills",
+          "getOccupationKnowledge",
+          "getOccupationAbilities",
+          "getOccupationWorkActivities",
+          "getOccupationTechnology",
+          "searchOccupations",
+          "SOC_CLUSTER_MAP",
+          "getClusterForSoc"
+        ]
+      }
+    ],
+    "src/app/api/pay-periods/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/paycheck-parse/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      }
+    ],
+    "src/app/api/paycheck-records/[id]/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/paycheck-records/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/personal-equipment/bulk-upload/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/personal-equipment/duplicate/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/personal-equipment/kits/[id]/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/personal-equipment/kits/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/personal-equipment/photos/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/auto-log.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "ensureAutoLog"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/personal-equipment/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ]
+  }
+}

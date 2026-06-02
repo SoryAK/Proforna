@@ -99,6 +99,7 @@ export const NAV_SECTIONS = [
   {
     label: "Resources",
     items: [
+      { label: "My Network", href: "/contacts", icon: "Users" },
       { label: "My Docs", href: "/docs", icon: "FolderOpen" },
       { label: "Inventory", href: "/inventory", icon: "Boxes" },
       { label: "Asset Library", href: "/asset-types", icon: "BookOpen" },
@@ -119,8 +120,6 @@ export const NAV_SECTIONS = [
     items: [
       { label: "Job Search", href: "/job-search", icon: "Search" },
       { label: "Worker Rights", href: "/worker-rights", icon: "Shield" },
-      { label: "Integrations", href: "/integrations", icon: "Plug" },
-      { label: "Portal Settings", href: "/portal-settings", icon: "Globe" },
     ],
   },
 ] as const;

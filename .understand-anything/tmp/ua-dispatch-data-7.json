@@ -1,0 +1,1765 @@
+{
+  "batchIndex": 7,
+  "totalBatches": 34,
+  "files": [
+    {
+      "path": "src/app/api/work-history/route.ts",
+      "language": "typescript",
+      "sizeLines": 47,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/work-history/search/route.ts",
+      "language": "typescript",
+      "sizeLines": 314,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/work-logs/bulk/route.ts",
+      "language": "typescript",
+      "sizeLines": 122,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/work-logs/drafts/route.ts",
+      "language": "typescript",
+      "sizeLines": 169,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/work-logs/folders/reorder/route.test.ts",
+      "language": "typescript",
+      "sizeLines": 250,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/work-logs/folders/reorder/route.ts",
+      "language": "typescript",
+      "sizeLines": 164,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/work-logs/mention-search/route.test.ts",
+      "language": "typescript",
+      "sizeLines": 221,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/work-logs/mention-search/route.ts",
+      "language": "typescript",
+      "sizeLines": 174,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/work-logs/photos/reconcile/route.ts",
+      "language": "typescript",
+      "sizeLines": 77,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/work-logs/photos/route.ts",
+      "language": "typescript",
+      "sizeLines": 173,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/work-logs/preferences/route.ts",
+      "language": "typescript",
+      "sizeLines": 159,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/work-logs/reorder/route.test.ts",
+      "language": "typescript",
+      "sizeLines": 178,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/work-logs/reorder/route.ts",
+      "language": "typescript",
+      "sizeLines": 112,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/work-logs/templates/route.ts",
+      "language": "typescript",
+      "sizeLines": 78,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/worker-rights/route.ts",
+      "language": "typescript",
+      "sizeLines": 121,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/activity.ts",
+      "language": "typescript",
+      "sizeLines": 15,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/ai.ts",
+      "language": "typescript",
+      "sizeLines": 259,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/auth-utils.ts",
+      "language": "typescript",
+      "sizeLines": 21,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/auth.ts",
+      "language": "typescript",
+      "sizeLines": 104,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/auto-log.ts",
+      "language": "typescript",
+      "sizeLines": 147,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/edm.ts",
+      "language": "typescript",
+      "sizeLines": 123,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/email.ts",
+      "language": "typescript",
+      "sizeLines": 112,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/employer-alias.ts",
+      "language": "typescript",
+      "sizeLines": 28,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/gemini.ts",
+      "language": "typescript",
+      "sizeLines": 99,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/github-events.ts",
+      "language": "typescript",
+      "sizeLines": 117,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/ics.ts",
+      "language": "typescript",
+      "sizeLines": 100,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/onet.ts",
+      "language": "typescript",
+      "sizeLines": 245,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/prisma.ts",
+      "language": "typescript",
+      "sizeLines": 7,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/resume-pdf-template.tsx",
+      "language": "typescript",
+      "sizeLines": 277,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/rss.ts",
+      "language": "typescript",
+      "sizeLines": 282,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/proxy.ts",
+      "language": "typescript",
+      "sizeLines": 44,
+      "fileCategory": "code"
+    }
+  ],
+  "batchImportData": {
+    "src/app/api/work-history/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/work-history/search/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/work-logs/bulk/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/work-logs/drafts/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/work-logs/folders/reorder/route.test.ts": [
+      "src/app/api/work-logs/folders/reorder/route.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts",
+      "src/lib/worklog-folders.ts"
+    ],
+    "src/app/api/work-logs/folders/reorder/route.ts": [
+      "src/lib/activity.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts",
+      "src/lib/worklog-folders.ts"
+    ],
+    "src/app/api/work-logs/mention-search/route.test.ts": [
+      "src/app/api/work-logs/mention-search/route.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/work-logs/mention-search/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/work-logs/photos/reconcile/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/work-logs/photos/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/work-logs/preferences/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/work-logs/reorder/route.test.ts": [
+      "src/app/api/work-logs/reorder/route.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/work-logs/reorder/route.ts": [
+      "src/lib/activity.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/work-logs/templates/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/worker-rights/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/gemini.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/lib/activity.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/lib/ai.ts": [],
+    "src/lib/auth-utils.ts": [
+      "src/lib/auth.ts"
+    ],
+    "src/lib/auth.ts": [
+      "src/lib/prisma.ts"
+    ],
+    "src/lib/auto-log.ts": [
+      "src/lib/prisma.ts"
+    ],
+    "src/lib/edm.ts": [],
+    "src/lib/email.ts": [],
+    "src/lib/employer-alias.ts": [
+      "src/lib/prisma.ts"
+    ],
+    "src/lib/gemini.ts": [],
+    "src/lib/github-events.ts": [],
+    "src/lib/ics.ts": [],
+    "src/lib/onet.ts": [],
+    "src/lib/prisma.ts": [],
+    "src/lib/resume-pdf-template.tsx": [],
+    "src/lib/rss.ts": [],
+    "src/proxy.ts": [
+      "src/lib/auth.ts"
+    ]
+  },
+  "neighborMap": {
+    "src/app/api/work-logs/folders/reorder/route.test.ts": [
+      {
+        "path": "src/lib/worklog-folders.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "FOLDER_MAX_DEPTH",
+          "FOLDER_NAME_MAX",
+          "buildFolderTree",
+          "flattenFolderTree",
+          "collectDescendantIds",
+          "wouldCreateCycle",
+          "depthOfParent",
+          "validateFolderName",
+          "assertNoCycle",
+          "getDepth"
+        ]
+      }
+    ],
+    "src/app/api/work-logs/folders/reorder/route.ts": [
+      {
+        "path": "src/lib/worklog-folders.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "FOLDER_MAX_DEPTH",
+          "FOLDER_NAME_MAX",
+          "buildFolderTree",
+          "flattenFolderTree",
+          "collectDescendantIds",
+          "wouldCreateCycle",
+          "depthOfParent",
+          "validateFolderName",
+          "assertNoCycle",
+          "getDepth"
+        ]
+      }
+    ],
+    "src/lib/activity.ts": [
+      {
+        "path": "src/app/api/career-paths/[id]/route.ts",
+        "batchIndex": 1,
+        "symbols": [
+          "GET",
+          "PATCH",
+          "DELETE"
+        ]
+      },
+      {
+        "path": "src/app/api/career-paths/route.ts",
+        "batchIndex": 1,
+        "symbols": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/career-snapshots/route.ts",
+        "batchIndex": 1,
+        "symbols": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/certifications/[id]/route.ts",
+        "batchIndex": 1,
+        "symbols": [
+          "PATCH",
+          "DELETE"
+        ]
+      },
+      {
+        "path": "src/app/api/certifications/route.ts",
+        "batchIndex": 1,
+        "symbols": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/contacts/[id]/route.ts",
+        "batchIndex": 2,
+        "symbols": [
+          "PATCH",
+          "DELETE"
+        ]
+      },
+      {
+        "path": "src/app/api/contacts/route.ts",
+        "batchIndex": 2,
+        "symbols": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/documents/[id]/route.ts",
+        "batchIndex": 2,
+        "symbols": [
+          "GET",
+          "PATCH",
+          "DELETE"
+        ]
+      },
+      {
+        "path": "src/app/api/documents/route.ts",
+        "batchIndex": 2,
+        "symbols": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/goals/[id]/route.ts",
+        "batchIndex": 3,
+        "symbols": [
+          "PATCH",
+          "DELETE"
+        ]
+      },
+      {
+        "path": "src/app/api/goals/route.ts",
+        "batchIndex": 3,
+        "symbols": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/import/route.ts",
+        "batchIndex": 3,
+        "symbols": [
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/interactive-resumes/[id]/route.ts",
+        "batchIndex": 3,
+        "symbols": [
+          "GET",
+          "PATCH",
+          "DELETE"
+        ]
+      },
+      {
+        "path": "src/app/api/interactive-resumes/route.ts",
+        "batchIndex": 3,
+        "symbols": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/interviews/[id]/route.ts",
+        "batchIndex": 3,
+        "symbols": [
+          "PATCH",
+          "DELETE"
+        ]
+      },
+      {
+        "path": "src/app/api/interviews/route.ts",
+        "batchIndex": 3,
+        "symbols": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/learning/[id]/route.ts",
+        "batchIndex": 4,
+        "symbols": [
+          "GET",
+          "PATCH",
+          "DELETE"
+        ]
+      },
+      {
+        "path": "src/app/api/learning/route.ts",
+        "batchIndex": 4,
+        "symbols": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/market-research/[id]/route.ts",
+        "batchIndex": 4,
+        "symbols": [
+          "DELETE",
+          "PATCH"
+        ]
+      },
+      {
+        "path": "src/app/api/market-research/route.ts",
+        "batchIndex": 4,
+        "symbols": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/onet/import/route.ts",
+        "batchIndex": 4,
+        "symbols": [
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/onet/ingest-csv/route.ts",
+        "batchIndex": 4,
+        "symbols": [
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/onet/ingest/route.ts",
+        "batchIndex": 4,
+        "symbols": [
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/research-feeds/[id]/route.ts",
+        "batchIndex": 5,
+        "symbols": [
+          "DELETE",
+          "PATCH"
+        ]
+      },
+      {
+        "path": "src/app/api/research-feeds/route.ts",
+        "batchIndex": 5,
+        "symbols": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/resumes/[id]/route.ts",
+        "batchIndex": 5,
+        "symbols": [
+          "PATCH",
+          "DELETE"
+        ]
+      },
+      {
+        "path": "src/app/api/resumes/route.ts",
+        "batchIndex": 5,
+        "symbols": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/skill-graph/[id]/route.ts",
+        "batchIndex": 5,
+        "symbols": [
+          "GET",
+          "PATCH",
+          "DELETE"
+        ]
+      },
+      {
+        "path": "src/app/api/skill-graph/auto-evidence/route.ts",
+        "batchIndex": 5,
+        "symbols": [
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/skill-graph/edges/route.ts",
+        "batchIndex": 5,
+        "symbols": [
+          "POST",
+          "DELETE"
+        ]
+      },
+      {
+        "path": "src/app/api/skill-graph/evidence/route.ts",
+        "batchIndex": 6,
+        "symbols": [
+          "POST",
+          "DELETE"
+        ]
+      },
+      {
+        "path": "src/app/api/skill-graph/ingest/route.ts",
+        "batchIndex": 6,
+        "symbols": [
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/skill-graph/occupations/[id]/route.ts",
+        "batchIndex": 6,
+        "symbols": [
+          "GET",
+          "PATCH",
+          "DELETE"
+        ]
+      },
+      {
+        "path": "src/app/api/skill-graph/occupations/route.ts",
+        "batchIndex": 6,
+        "symbols": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/skill-graph/route.ts",
+        "batchIndex": 6,
+        "symbols": [
+          "GET",
+          "POST",
+          "DELETE"
+        ]
+      },
+      {
+        "path": "src/app/api/skill-graph/scaffold/refresh/route.ts",
+        "batchIndex": 6,
+        "symbols": [
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/skill-graph/scaffold/route.ts",
+        "batchIndex": 6,
+        "symbols": [
+          "GET",
+          "POST",
+          "DELETE"
+        ]
+      },
+      {
+        "path": "src/app/api/skill-graph/sync-profile/route.ts",
+        "batchIndex": 6,
+        "symbols": [
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/skills/[id]/route.ts",
+        "batchIndex": 6,
+        "symbols": [
+          "PATCH",
+          "DELETE"
+        ]
+      },
+      {
+        "path": "src/app/api/skills/route.ts",
+        "batchIndex": 6,
+        "symbols": [
+          "GET",
+          "POST"
+        ]
+      }
+    ],
+    "src/lib/ai.ts": [
+      {
+        "path": "src/app/api/ai/chat/route.ts",
+        "batchIndex": 1,
+        "symbols": [
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/ai/models/route.ts",
+        "batchIndex": 1,
+        "symbols": [
+          "GET"
+        ]
+      },
+      {
+        "path": "src/app/api/cdm/decompose/route.ts",
+        "batchIndex": 1,
+        "symbols": [
+          "POST",
+          "GET"
+        ]
+      },
+      {
+        "path": "src/app/api/cdm/synonyms/route.ts",
+        "batchIndex": 1,
+        "symbols": [
+          "POST",
+          "GET"
+        ]
+      },
+      {
+        "path": "src/app/api/job-parse/route.ts",
+        "batchIndex": 3,
+        "symbols": [
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/resume-parse/route.ts",
+        "batchIndex": 5,
+        "symbols": [
+          "POST"
+        ]
+      }
+    ],
+    "src/lib/auth-utils.ts": [
+      {
+        "path": "src/app/api/work-logs/[id]/route.ts",
+        "batchIndex": 18,
+        "symbols": [
+          "PUT",
+          "DELETE"
+        ]
+      },
+      {
+        "path": "src/app/api/email-leads/sync/route.ts",
+        "batchIndex": 16,
+        "symbols": [
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/integrations/[id]/sync/route.ts",
+        "batchIndex": 3,
+        "symbols": [
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/cdm/decompose/route.ts",
+        "batchIndex": 1,
+        "symbols": [
+          "POST",
+          "GET"
+        ]
+      },
+      {
+        "path": "src/app/api/cdm/synonyms/route.ts",
+        "batchIndex": 1,
+        "symbols": [
+          "POST",
+          "GET"
+        ]
+      },
+      {
+        "path": "src/app/api/email-leads/parse/route.ts",
+        "batchIndex": 16,
+        "symbols": [
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/gallery/annotations/route.ts",
+        "batchIndex": 15,
+        "symbols": [
+          "GET",
+          "POST",
+          "PATCH",
+          "DELETE"
+        ]
+      },
+      {
+        "path": "src/app/api/onet/import/route.ts",
+        "batchIndex": 4,
+        "symbols": [
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/onet/ingest-csv/route.ts",
+        "batchIndex": 4,
+        "symbols": [
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/onet/ingest/route.ts",
+        "batchIndex": 4,
+        "symbols": [
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/research-feeds/route.ts",
+        "batchIndex": 5,
+        "symbols": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/skill-graph/auto-evidence/route.ts",
+        "batchIndex": 5,
+        "symbols": [
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/skill-graph/ingest/route.ts",
+        "batchIndex": 6,
+        "symbols": [
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/skill-graph/scaffold/refresh/route.ts",
+        "batchIndex": 6,
+        "symbols": [
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/skill-graph/scaffold/route.ts",
+        "batchIndex": 6,
+        "symbols": [
+          "GET",
+          "POST",
+          "DELETE"
+        ]
+      },
+      {
+        "path": "src/app/api/work-logs/route.ts",
+        "batchIndex": 18,
+        "symbols": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/work-logs/search/route.ts",
+        "batchIndex": 8,
+        "symbols": [
+          "GET"
+        ]
+      },
+      {
+        "path": "src/app/api/auth/google/callback/route.ts",
+        "batchIndex": 1,
+        "symbols": [
+          "GET"
+        ]
+      },
+      {
+        "path": "src/app/api/auth/microsoft/callback/route.ts",
+        "batchIndex": 1,
+        "symbols": [
+          "GET"
+        ]
+      },
+      {
+        "path": "src/app/api/career-paths/[id]/route.ts",
+        "batchIndex": 1,
+        "symbols": [
+          "GET",
+          "PATCH",
+          "DELETE"
+        ]
+      },
+      {
+        "path": "src/app/api/career-paths/route.ts",
+        "batchIndex": 1,
+        "symbols": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/career-snapshots/route.ts",
+        "batchIndex": 1,
+        "symbols": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/certifications/[id]/route.ts",
+        "batchIndex": 1,
+        "symbols": [
+          "PATCH",
+          "DELETE"
+        ]
+      },
+      {
+        "path": "src/app/api/certifications/route.ts",
+        "batchIndex": 1,
+        "symbols": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/cfm/route.ts",
+        "batchIndex": 1,
+        "symbols": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/contacts/[id]/route.ts",
+        "batchIndex": 2,
+        "symbols": [
+          "PATCH",
+          "DELETE"
+        ]
+      },
+      {
+        "path": "src/app/api/contacts/route.ts",
+        "batchIndex": 2,
+        "symbols": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/documents/[id]/route.ts",
+        "batchIndex": 2,
+        "symbols": [
+          "GET",
+          "PATCH",
+          "DELETE"
+        ]
+      },
+      {
+        "path": "src/app/api/documents/route.ts",
+        "batchIndex": 2,
+        "symbols": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/emails/route.ts",
+        "batchIndex": 2,
+        "symbols": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/employer-alias/route.ts",
+        "batchIndex": 2,
+        "symbols": [
+          "GET",
+          "POST",
+          "DELETE"
+        ]
+      },
+      {
+        "path": "src/app/api/gallery/annotations/comments/route.ts",
+        "batchIndex": 15,
+        "symbols": [
+          "GET",
+          "POST",
+          "PATCH",
+          "DELETE"
+        ]
+      },
+      {
+        "path": "src/app/api/goals/[id]/route.ts",
+        "batchIndex": 3,
+        "symbols": [
+          "PATCH",
+          "DELETE"
+        ]
+      },
+      {
+        "path": "src/app/api/goals/route.ts",
+        "batchIndex": 3,
+        "symbols": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/import/route.ts",
+        "batchIndex": 3,
+        "symbols": [
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/income-history/route.ts",
+        "batchIndex": 3,
+        "symbols": [
+          "GET"
+        ]
+      },
+      {
+        "path": "src/app/api/interactive-resumes/[id]/route.ts",
+        "batchIndex": 3,
+        "symbols": [
+          "GET",
+          "PATCH",
+          "DELETE"
+        ]
+      },
+      {
+        "path": "src/app/api/interactive-resumes/route.ts",
+        "batchIndex": 3,
+        "symbols": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/interviews/[id]/route.ts",
+        "batchIndex": 3,
+        "symbols": [
+          "PATCH",
+          "DELETE"
+        ]
+      },
+      {
+        "path": "src/app/api/interviews/route.ts",
+        "batchIndex": 3,
+        "symbols": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/job-assets/photos/route.ts",
+        "batchIndex": 3,
+        "symbols": [
+          "GET",
+          "POST",
+          "PATCH",
+          "PUT",
+          "DELETE"
+        ]
+      },
+      {
+        "path": "src/app/api/learning/[id]/route.ts",
+        "batchIndex": 4,
+        "symbols": [
+          "GET",
+          "PATCH",
+          "DELETE"
+        ]
+      },
+      {
+        "path": "src/app/api/learning/generate/route.ts",
+        "batchIndex": 4,
+        "symbols": [
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/learning/route.ts",
+        "batchIndex": 4,
+        "symbols": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/market-research/[id]/route.ts",
+        "batchIndex": 4,
+        "symbols": [
+          "DELETE",
+          "PATCH"
+        ]
+      },
+      {
+        "path": "src/app/api/market-research/route.ts",
+        "batchIndex": 4,
+        "symbols": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/offer-compare/route.ts",
+        "batchIndex": 15,
+        "symbols": [
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/personal-equipment/photos/route.ts",
+        "batchIndex": 4,
+        "symbols": [
+          "GET",
+          "POST",
+          "PATCH",
+          "PUT",
+          "DELETE"
+        ]
+      },
+      {
+        "path": "src/app/api/profile/compensation/route.ts",
+        "batchIndex": 15,
+        "symbols": [
+          "GET",
+          "PUT"
+        ]
+      },
+      {
+        "path": "src/app/api/research-articles/fetch/route.ts",
+        "batchIndex": 5,
+        "symbols": [
+          "POST"
+        ]
+      }
+    ],
+    "src/lib/auth.ts": [
+      {
+        "path": "src/app/api/auth/[...nextauth]/route.ts",
+        "batchIndex": 1,
+        "symbols": [
+          "{ GET, POST }"
+        ]
+      }
+    ],
+    "src/lib/auto-log.ts": [
+      {
+        "path": "src/app/api/integrations/[id]/sync/route.ts",
+        "batchIndex": 3,
+        "symbols": [
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/job-assets/photos/route.ts",
+        "batchIndex": 3,
+        "symbols": [
+          "GET",
+          "POST",
+          "PATCH",
+          "PUT",
+          "DELETE"
+        ]
+      },
+      {
+        "path": "src/app/api/personal-equipment/photos/route.ts",
+        "batchIndex": 4,
+        "symbols": [
+          "GET",
+          "POST",
+          "PATCH",
+          "PUT",
+          "DELETE"
+        ]
+      }
+    ],
+    "src/lib/edm.ts": [
+      {
+        "path": "src/app/api/skill-graph/edm/route.ts",
+        "batchIndex": 5,
+        "symbols": [
+          "POST",
+          "GET"
+        ]
+      }
+    ],
+    "src/lib/email.ts": [
+      {
+        "path": "src/app/api/auth/google/callback/route.ts",
+        "batchIndex": 1,
+        "symbols": [
+          "GET"
+        ]
+      },
+      {
+        "path": "src/app/api/auth/google/route.ts",
+        "batchIndex": 1,
+        "symbols": [
+          "GET"
+        ]
+      },
+      {
+        "path": "src/app/api/auth/microsoft/callback/route.ts",
+        "batchIndex": 1,
+        "symbols": [
+          "GET"
+        ]
+      },
+      {
+        "path": "src/app/api/auth/microsoft/route.ts",
+        "batchIndex": 1,
+        "symbols": [
+          "GET"
+        ]
+      },
+      {
+        "path": "src/app/api/email-leads/sync/route.ts",
+        "batchIndex": 16,
+        "symbols": [
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/emails/route.ts",
+        "batchIndex": 2,
+        "symbols": [
+          "GET",
+          "POST"
+        ]
+      }
+    ],
+    "src/lib/employer-alias.ts": [
+      {
+        "path": "src/app/api/cfm/route.ts",
+        "batchIndex": 1,
+        "symbols": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/employer-alias/route.ts",
+        "batchIndex": 2,
+        "symbols": [
+          "GET",
+          "POST",
+          "DELETE"
+        ]
+      },
+      {
+        "path": "src/app/api/income-history/route.ts",
+        "batchIndex": 3,
+        "symbols": [
+          "GET"
+        ]
+      }
+    ],
+    "src/lib/gemini.ts": [
+      {
+        "path": "src/app/api/employment-report/upload/route.ts",
+        "batchIndex": 2,
+        "symbols": [
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/google-news/route.ts",
+        "batchIndex": 3,
+        "symbols": [
+          "GET"
+        ]
+      },
+      {
+        "path": "src/app/api/google-scholar/route.ts",
+        "batchIndex": 3,
+        "symbols": [
+          "GET"
+        ]
+      },
+      {
+        "path": "src/app/api/interview-prep/route.ts",
+        "batchIndex": 3,
+        "symbols": [
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/learning/generate/route.ts",
+        "batchIndex": 4,
+        "symbols": [
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/skill-graph/auto-evidence/route.ts",
+        "batchIndex": 5,
+        "symbols": [
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/skill-graph/ingest/route.ts",
+        "batchIndex": 6,
+        "symbols": [
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/skill-graph/scaffold/refresh/route.ts",
+        "batchIndex": 6,
+        "symbols": [
+          "POST"
+        ]
+      }
+    ],
+    "src/lib/github-events.ts": [
+      {
+        "path": "src/app/api/integrations/[id]/sync/route.ts",
+        "batchIndex": 3,
+        "symbols": [
+          "POST"
+        ]
+      }
+    ],
+    "src/lib/ics.ts": [
+      {
+        "path": "src/app/api/integrations/[id]/sync/route.ts",
+        "batchIndex": 3,
+        "symbols": [
+          "POST"
+        ]
+      }
+    ],
+    "src/lib/onet.ts": [
+      {
+        "path": "src/app/api/onet/import/route.ts",
+        "batchIndex": 4,
+        "symbols": [
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/onet/ingest-csv/route.ts",
+        "batchIndex": 4,
+        "symbols": [
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/onet/ingest/route.ts",
+        "batchIndex": 4,
+        "symbols": [
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/onet/occupation/[code]/route.ts",
+        "batchIndex": 4,
+        "symbols": [
+          "GET"
+        ]
+      },
+      {
+        "path": "src/app/api/onet/search/route.ts",
+        "batchIndex": 4,
+        "symbols": [
+          "GET"
+        ]
+      }
+    ],
+    "src/lib/prisma.ts": [
+      {
+        "path": "src/app/api/work-logs/[id]/route.ts",
+        "batchIndex": 18,
+        "symbols": [
+          "PUT",
+          "DELETE"
+        ]
+      },
+      {
+        "path": "src/app/api/email-leads/sync/route.ts",
+        "batchIndex": 16,
+        "symbols": [
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/integrations/[id]/sync/route.ts",
+        "batchIndex": 3,
+        "symbols": [
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/cdm/decompose/route.ts",
+        "batchIndex": 1,
+        "symbols": [
+          "POST",
+          "GET"
+        ]
+      },
+      {
+        "path": "src/app/api/cdm/synonyms/route.ts",
+        "batchIndex": 1,
+        "symbols": [
+          "POST",
+          "GET"
+        ]
+      },
+      {
+        "path": "src/app/api/email-leads/parse/route.ts",
+        "batchIndex": 16,
+        "symbols": [
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/gallery/annotations/route.ts",
+        "batchIndex": 15,
+        "symbols": [
+          "GET",
+          "POST",
+          "PATCH",
+          "DELETE"
+        ]
+      },
+      {
+        "path": "src/app/api/onet/import/route.ts",
+        "batchIndex": 4,
+        "symbols": [
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/onet/ingest-csv/route.ts",
+        "batchIndex": 4,
+        "symbols": [
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/onet/ingest/route.ts",
+        "batchIndex": 4,
+        "symbols": [
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/research-feeds/route.ts",
+        "batchIndex": 5,
+        "symbols": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/skill-graph/auto-evidence/route.ts",
+        "batchIndex": 5,
+        "symbols": [
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/skill-graph/ingest/route.ts",
+        "batchIndex": 6,
+        "symbols": [
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/skill-graph/scaffold/refresh/route.ts",
+        "batchIndex": 6,
+        "symbols": [
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/skill-graph/scaffold/route.ts",
+        "batchIndex": 6,
+        "symbols": [
+          "GET",
+          "POST",
+          "DELETE"
+        ]
+      },
+      {
+        "path": "src/app/api/work-logs/route.ts",
+        "batchIndex": 18,
+        "symbols": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/work-logs/search/route.ts",
+        "batchIndex": 8,
+        "symbols": [
+          "GET"
+        ]
+      },
+      {
+        "path": "src/app/jobs/[slug]/page.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "JobDetailPage"
+        ]
+      },
+      {
+        "path": "src/app/api/auth/google/callback/route.ts",
+        "batchIndex": 1,
+        "symbols": [
+          "GET"
+        ]
+      },
+      {
+        "path": "src/app/api/auth/microsoft/callback/route.ts",
+        "batchIndex": 1,
+        "symbols": [
+          "GET"
+        ]
+      },
+      {
+        "path": "src/app/api/career-paths/[id]/route.ts",
+        "batchIndex": 1,
+        "symbols": [
+          "GET",
+          "PATCH",
+          "DELETE"
+        ]
+      },
+      {
+        "path": "src/app/api/career-paths/route.ts",
+        "batchIndex": 1,
+        "symbols": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/career-snapshots/route.ts",
+        "batchIndex": 1,
+        "symbols": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/certifications/[id]/route.ts",
+        "batchIndex": 1,
+        "symbols": [
+          "PATCH",
+          "DELETE"
+        ]
+      },
+      {
+        "path": "src/app/api/certifications/route.ts",
+        "batchIndex": 1,
+        "symbols": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/cfm/route.ts",
+        "batchIndex": 1,
+        "symbols": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/contacts/[id]/route.ts",
+        "batchIndex": 2,
+        "symbols": [
+          "PATCH",
+          "DELETE"
+        ]
+      },
+      {
+        "path": "src/app/api/contacts/route.ts",
+        "batchIndex": 2,
+        "symbols": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/documents/[id]/route.ts",
+        "batchIndex": 2,
+        "symbols": [
+          "GET",
+          "PATCH",
+          "DELETE"
+        ]
+      },
+      {
+        "path": "src/app/api/documents/route.ts",
+        "batchIndex": 2,
+        "symbols": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/email-leads/ingest/route.ts",
+        "batchIndex": 16,
+        "symbols": [
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/emails/route.ts",
+        "batchIndex": 2,
+        "symbols": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/employer-alias/route.ts",
+        "batchIndex": 2,
+        "symbols": [
+          "GET",
+          "POST",
+          "DELETE"
+        ]
+      },
+      {
+        "path": "src/app/api/gallery/annotations/comments/route.ts",
+        "batchIndex": 15,
+        "symbols": [
+          "GET",
+          "POST",
+          "PATCH",
+          "DELETE"
+        ]
+      },
+      {
+        "path": "src/app/api/goals/[id]/route.ts",
+        "batchIndex": 3,
+        "symbols": [
+          "PATCH",
+          "DELETE"
+        ]
+      },
+      {
+        "path": "src/app/api/goals/route.ts",
+        "batchIndex": 3,
+        "symbols": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/import/route.ts",
+        "batchIndex": 3,
+        "symbols": [
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/income-history/route.ts",
+        "batchIndex": 3,
+        "symbols": [
+          "GET"
+        ]
+      },
+      {
+        "path": "src/app/api/interactive-resumes/[id]/route.ts",
+        "batchIndex": 3,
+        "symbols": [
+          "GET",
+          "PATCH",
+          "DELETE"
+        ]
+      },
+      {
+        "path": "src/app/api/interactive-resumes/route.ts",
+        "batchIndex": 3,
+        "symbols": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/interviews/[id]/route.ts",
+        "batchIndex": 3,
+        "symbols": [
+          "PATCH",
+          "DELETE"
+        ]
+      },
+      {
+        "path": "src/app/api/interviews/route.ts",
+        "batchIndex": 3,
+        "symbols": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/job-assets/photos/route.ts",
+        "batchIndex": 3,
+        "symbols": [
+          "GET",
+          "POST",
+          "PATCH",
+          "PUT",
+          "DELETE"
+        ]
+      },
+      {
+        "path": "src/app/api/learning/[id]/route.ts",
+        "batchIndex": 4,
+        "symbols": [
+          "GET",
+          "PATCH",
+          "DELETE"
+        ]
+      },
+      {
+        "path": "src/app/api/learning/generate/route.ts",
+        "batchIndex": 4,
+        "symbols": [
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/learning/route.ts",
+        "batchIndex": 4,
+        "symbols": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/market-research/[id]/route.ts",
+        "batchIndex": 4,
+        "symbols": [
+          "DELETE",
+          "PATCH"
+        ]
+      },
+      {
+        "path": "src/app/api/market-research/route.ts",
+        "batchIndex": 4,
+        "symbols": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/offer-compare/route.ts",
+        "batchIndex": 15,
+        "symbols": [
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/personal-equipment/photos/route.ts",
+        "batchIndex": 4,
+        "symbols": [
+          "GET",
+          "POST",
+          "PATCH",
+          "PUT",
+          "DELETE"
+        ]
+      }
+    ],
+    "src/lib/resume-pdf-template.tsx": [
+      {
+        "path": "src/app/api/resume-export/pdf/route.ts",
+        "batchIndex": 5,
+        "symbols": [
+          "GET"
+        ]
+      }
+    ],
+    "src/lib/rss.ts": [
+      {
+        "path": "src/app/api/research-articles/fetch/route.ts",
+        "batchIndex": 5,
+        "symbols": [
+          "POST"
+        ]
+      },
+      {
+        "path": "src/app/api/research-feeds/route.ts",
+        "batchIndex": 5,
+        "symbols": [
+          "GET",
+          "POST"
+        ]
+      },
+      {
+        "path": "src/components/industry-research.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "IndustryResearch"
+        ]
+      }
+    ]
+  }
+}

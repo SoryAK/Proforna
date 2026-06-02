@@ -1,0 +1,634 @@
+{
+  "scriptCompleted": true,
+  "filesAnalyzed": 7,
+  "filesSkipped": [],
+  "results": [
+    {
+      "path": ".github/agents/axiom.agent.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 44,
+      "nonEmptyLines": 36,
+      "sections": [
+        {
+          "heading": "Axiom — Backend / API Engineer",
+          "level": 1,
+          "line": 7
+        },
+        {
+          "heading": "Session Start (required every session)",
+          "level": 2,
+          "line": 11
+        },
+        {
+          "heading": "Identity",
+          "level": 2,
+          "line": 17
+        },
+        {
+          "heading": "Critical Rules — Prisma",
+          "level": 2,
+          "line": 24
+        },
+        {
+          "heading": "Critical Rules — Route Handlers",
+          "level": 2,
+          "line": 30
+        },
+        {
+          "heading": "Critical Rules — Security",
+          "level": 2,
+          "line": 36
+        },
+        {
+          "heading": "Critical Rules — General",
+          "level": 2,
+          "line": 41
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 7
+      }
+    },
+    {
+      "path": ".github/agents/echo.agent.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 44,
+      "nonEmptyLines": 36,
+      "sections": [
+        {
+          "heading": "Echo — QA / Testing",
+          "level": 1,
+          "line": 7
+        },
+        {
+          "heading": "Session Start (required every session)",
+          "level": 2,
+          "line": 11
+        },
+        {
+          "heading": "Identity",
+          "level": 2,
+          "line": 17
+        },
+        {
+          "heading": "Critical Rules — DO NOT TOUCH",
+          "level": 2,
+          "line": 22
+        },
+        {
+          "heading": "Critical Rules — Testing",
+          "level": 2,
+          "line": 28
+        },
+        {
+          "heading": "Critical Rules — Security Checklist (every PR)",
+          "level": 2,
+          "line": 34
+        },
+        {
+          "heading": "Critical Rules — TypeScript",
+          "level": 2,
+          "line": 41
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 7
+      }
+    },
+    {
+      "path": ".github/agents/nova.agent.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 38,
+      "nonEmptyLines": 31,
+      "sections": [
+        {
+          "heading": "Nova — Frontend Engineer",
+          "level": 1,
+          "line": 7
+        },
+        {
+          "heading": "Session Start (required every session)",
+          "level": 2,
+          "line": 11
+        },
+        {
+          "heading": "Identity",
+          "level": 2,
+          "line": 17
+        },
+        {
+          "heading": "Critical Rules — shadcn/ui v2 (@base-ui/react)",
+          "level": 2,
+          "line": 22
+        },
+        {
+          "heading": "Critical Rules — Tiptap 3",
+          "level": 2,
+          "line": 28
+        },
+        {
+          "heading": "Critical Rules — General",
+          "level": 2,
+          "line": 33
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 6
+      }
+    },
+    {
+      "path": ".github/agents/ralph.agent.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 34,
+      "nonEmptyLines": 28,
+      "sections": [
+        {
+          "heading": "Ralph — Issue Triage & Watch",
+          "level": 1,
+          "line": 7
+        },
+        {
+          "heading": "Session Start (required every session)",
+          "level": 2,
+          "line": 11
+        },
+        {
+          "heading": "Identity",
+          "level": 2,
+          "line": 16
+        },
+        {
+          "heading": "Routing Table",
+          "level": 2,
+          "line": 20
+        },
+        {
+          "heading": "Critical Rules",
+          "level": 2,
+          "line": 29
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 5
+      }
+    },
+    {
+      "path": ".github/agents/rex.agent.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 35,
+      "nonEmptyLines": 29,
+      "sections": [
+        {
+          "heading": "Rex — Lead / Architect",
+          "level": 1,
+          "line": 7
+        },
+        {
+          "heading": "Session Start (required every session)",
+          "level": 2,
+          "line": 11
+        },
+        {
+          "heading": "Identity",
+          "level": 2,
+          "line": 17
+        },
+        {
+          "heading": "Critical Rules",
+          "level": 2,
+          "line": 22
+        },
+        {
+          "heading": "Routing",
+          "level": 2,
+          "line": 30
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 5
+      }
+    },
+    {
+      "path": ".github/agents/scribe.agent.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 36,
+      "nonEmptyLines": 30,
+      "sections": [
+        {
+          "heading": "Scribe — Documentation Specialist",
+          "level": 1,
+          "line": 7
+        },
+        {
+          "heading": "Session Start (required every session)",
+          "level": 2,
+          "line": 11
+        },
+        {
+          "heading": "Identity",
+          "level": 2,
+          "line": 17
+        },
+        {
+          "heading": "Critical Rules",
+          "level": 2,
+          "line": 27
+        },
+        {
+          "heading": "Handoff Naming",
+          "level": 2,
+          "line": 35
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 5
+      }
+    },
+    {
+      "path": ".github/agents/squad.agent.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 1325,
+      "nonEmptyLines": 960,
+      "sections": [
+        {
+          "heading": "Coordinator Identity",
+          "level": 3,
+          "line": 10
+        },
+        {
+          "heading": "Init Mode — Phase 1: Propose the Team",
+          "level": 2,
+          "line": 31
+        },
+        {
+          "heading": "Init Mode — Phase 2: Create the Team",
+          "level": 2,
+          "line": 63
+        },
+        {
+          "heading": "Team Mode",
+          "level": 2,
+          "line": 97
+        },
+        {
+          "heading": "Personal Squad (Ambient Discovery)",
+          "level": 3,
+          "line": 123
+        },
+        {
+          "heading": "Issue Awareness",
+          "level": 3,
+          "line": 139
+        },
+        {
+          "heading": "Acknowledge Immediately — \"Feels Heard\"",
+          "level": 3,
+          "line": 161
+        },
+        {
+          "heading": "Role Emoji in Task Descriptions",
+          "level": 3,
+          "line": 175
+        },
+        {
+          "heading": "Directive Capture",
+          "level": 3,
+          "line": 209
+        },
+        {
+          "heading": "Routing",
+          "level": 3,
+          "line": 236
+        },
+        {
+          "heading": "Consult Mode Detection",
+          "level": 3,
+          "line": 263
+        },
+        {
+          "heading": "Skill Confidence Lifecycle",
+          "level": 3,
+          "line": 271
+        },
+        {
+          "heading": "Response Mode Selection",
+          "level": 3,
+          "line": 283
+        },
+        {
+          "heading": "Per-Agent Model Selection",
+          "level": 3,
+          "line": 355
+        },
+        {
+          "heading": "Client Compatibility",
+          "level": 3,
+          "line": 455
+        },
+        {
+          "heading": "Platform Detection",
+          "level": 4,
+          "line": 459
+        },
+        {
+          "heading": "VS Code Spawn Adaptations",
+          "level": 4,
+          "line": 471
+        },
+        {
+          "heading": "Feature Degradation Table",
+          "level": 4,
+          "line": 485
+        },
+        {
+          "heading": "SQL Tool Caveat",
+          "level": 4,
+          "line": 496
+        },
+        {
+          "heading": "MCP Integration",
+          "level": 3,
+          "line": 500
+        },
+        {
+          "heading": "Detection",
+          "level": 4,
+          "line": 506
+        },
+        {
+          "heading": "Passing MCP Context to Spawned Agents",
+          "level": 4,
+          "line": 517
+        },
+        {
+          "heading": "Routing MCP-Dependent Tasks",
+          "level": 4,
+          "line": 521
+        },
+        {
+          "heading": "Graceful Degradation",
+          "level": 4,
+          "line": 527
+        },
+        {
+          "heading": "Eager Execution Philosophy",
+          "level": 3,
+          "line": 535
+        },
+        {
+          "heading": "Mode Selection — Background is the Default",
+          "level": 3,
+          "line": 546
+        },
+        {
+          "heading": "Parallel Fan-Out",
+          "level": 3,
+          "line": 571
+        },
+        {
+          "heading": "Shared File Architecture — Drop-Box Pattern",
+          "level": 3,
+          "line": 596
+        },
+        {
+          "heading": "Worktree Awareness",
+          "level": 3,
+          "line": 615
+        },
+        {
+          "heading": "Worktree Lifecycle Management",
+          "level": 3,
+          "line": 656
+        },
+        {
+          "heading": "Orchestration Logging",
+          "level": 3,
+          "line": 689
+        },
+        {
+          "heading": "Pre-Spawn: Worktree Setup",
+          "level": 3,
+          "line": 697
+        },
+        {
+          "heading": "How to Spawn an Agent",
+          "level": 3,
+          "line": 744
+        },
+        {
+          "heading": "❌ What NOT to Do (Anti-Patterns)",
+          "level": 3,
+          "line": 837
+        },
+        {
+          "heading": "After Agent Work",
+          "level": 3,
+          "line": 847
+        },
+        {
+          "heading": "Ceremonies",
+          "level": 3,
+          "line": 902
+        },
+        {
+          "heading": "Adding Team Members",
+          "level": 3,
+          "line": 916
+        },
+        {
+          "heading": "Removing Team Members",
+          "level": 3,
+          "line": 927
+        },
+        {
+          "heading": "Plugin Marketplace",
+          "level": 3,
+          "line": 936
+        },
+        {
+          "heading": "Source of Truth Hierarchy",
+          "level": 2,
+          "line": 948
+        },
+        {
+          "heading": "Casting & Persistent Naming",
+          "level": 2,
+          "line": 976
+        },
+        {
+          "heading": "Universe Allowlist",
+          "level": 3,
+          "line": 980
+        },
+        {
+          "heading": "Name Allocation",
+          "level": 3,
+          "line": 990
+        },
+        {
+          "heading": "Overflow Handling",
+          "level": 3,
+          "line": 1003
+        },
+        {
+          "heading": "Casting State Files",
+          "level": 3,
+          "line": 1013
+        },
+        {
+          "heading": "Migration — Already-Squadified Repos",
+          "level": 3,
+          "line": 1019
+        },
+        {
+          "heading": "Constraints",
+          "level": 2,
+          "line": 1030
+        },
+        {
+          "heading": "Reviewer Rejection Protocol",
+          "level": 2,
+          "line": 1043
+        },
+        {
+          "heading": "Reviewer Rejection Lockout Semantics — Strict Lockout",
+          "level": 3,
+          "line": 1054
+        },
+        {
+          "heading": "Multi-Agent Artifact Format",
+          "level": 2,
+          "line": 1068
+        },
+        {
+          "heading": "Constraint Budget Tracking",
+          "level": 2,
+          "line": 1079
+        },
+        {
+          "heading": "GitHub Issues Mode",
+          "level": 2,
+          "line": 1090
+        },
+        {
+          "heading": "Prerequisites",
+          "level": 3,
+          "line": 1094
+        },
+        {
+          "heading": "Triggers",
+          "level": 3,
+          "line": 1102
+        },
+        {
+          "heading": "Ralph — Work Monitor",
+          "level": 2,
+          "line": 1115
+        },
+        {
+          "heading": "Roster Entry",
+          "level": 3,
+          "line": 1125
+        },
+        {
+          "heading": "Triggers",
+          "level": 3,
+          "line": 1129
+        },
+        {
+          "heading": "Watch Mode (`squad watch`)",
+          "level": 3,
+          "line": 1192
+        },
+        {
+          "heading": "Ralph State",
+          "level": 3,
+          "line": 1216
+        },
+        {
+          "heading": "Ralph on the Board",
+          "level": 3,
+          "line": 1224
+        },
+        {
+          "heading": "Integration with Follow-Up Work",
+          "level": 3,
+          "line": 1240
+        },
+        {
+          "heading": "Connecting to a Repo",
+          "level": 3,
+          "line": 1255
+        },
+        {
+          "heading": "Issue → PR → Merge Lifecycle",
+          "level": 3,
+          "line": 1261
+        },
+        {
+          "heading": "PRD Mode",
+          "level": 2,
+          "line": 1269
+        },
+        {
+          "heading": "Triggers",
+          "level": 3,
+          "line": 1275
+        },
+        {
+          "heading": "Human Team Members",
+          "level": 2,
+          "line": 1288
+        },
+        {
+          "heading": "Copilot Coding Agent Member",
+          "level": 2,
+          "line": 1302
+        },
+        {
+          "heading": "⚠️ Routing Enforcement Reminder",
+          "level": 2,
+          "line": 1317
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 68
+      }
+    }
+  ]
+}

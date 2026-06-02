@@ -18,7 +18,22 @@
         "2026-05-28: Sidebar at src/components/sidebar.tsx — w-72 (288px), text-base nav font, h-5 w-5 icons — committed May 2026",
         "2026-05-28: Mobile sheet width w-72 (was w-56)",
         "2026-05-28: App shell route at src/app/(app)/",
-        "2026-05-28: Providers at src/components/providers.tsx"
+        "2026-05-28: Providers at src/components/providers.tsx",
+        "2026-06-02: Sidebar Portal Settings Dialog uses sm:max-w-6xl to override shadcn DialogContent base sm:max-w-sm — same-breakpoint tailwind-merge dedup required. Full dims: w-[90vw] max-w-6xl sm:max-w-6xl h-[85vh] p-0 overflow-hidden flex flex-col gap-0",
+        "2026-06-02: Portal Settings entry points: sidebar expanded user card gear button (h-6 w-6 rounded-full border bg-background) + standalone /portal-settings route. No Settings button on dashboard profile-banner.",
+        "2026-06-02: NAV_SECTIONS label 'Contacts' renamed to 'My Network' — href /contacts unchanged. Display labels live only in constants.ts NAV_SECTIONS."
+      ]
+    },
+    {
+    {
+      "name": "PortalSettingsPanel",
+      "entityType": "component",
+      "observations": [
+        "2026-06-02: src/components/portal-settings-panel.tsx — VS Code-style two-pane settings layout (nav rail w-48 + flex-1 content pane)",
+        "2026-06-02: Dual-mount: renders inside Sidebar Dialog AND standalone at /portal-settings route — no prop differences",
+        "2026-06-02: Dirty tracking uses skipDirtyRef (useRef) to suppress false-dirty on initial profile load. Set skipDirtyRef.current=true before setForm() in profile useEffect; dirty useEffect must be declared AFTER form useState to avoid TDZ crash",
+        "2026-06-02: Sticky save footer hidden when activeSection === 'access' — access token section has no form fields to save",
+        "2026-06-02: Both nav rail and content pane use scrollbar-thin (defined in globals.css)"
       ]
     }
   ],
@@ -26,6 +41,7 @@
     { "from": "AuthDomain", "relationType": "gates", "to": "LayoutShellDomain" },
     { "from": "LayoutShellDomain", "relationType": "hosts", "to": "WorklogDomain" },
     { "from": "LayoutShellDomain", "relationType": "hosts", "to": "JobMapDomain" },
-    { "from": "LayoutShellDomain", "relationType": "hosts", "to": "JobBoardDomain" }
+    { "from": "LayoutShellDomain", "relationType": "hosts", "to": "JobBoardDomain" },
+    { "from": "LayoutShellDomain", "relationType": "hosts", "to": "PortalSettingsPanel" }
   ]
 }

@@ -1,0 +1,56 @@
+{
+  "projectRoot": "C:\\Users\\Sory kaba\\OneDrive\\RESUMSIFY\\Personal_Projects\\Dev_Pojects\\resumsify",
+  "batchFiles": [
+    {
+      "path": ".github/agents/axiom.agent.md",
+      "language": "markdown",
+      "sizeLines": 44,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".github/agents/echo.agent.md",
+      "language": "markdown",
+      "sizeLines": 44,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".github/agents/nova.agent.md",
+      "language": "markdown",
+      "sizeLines": 38,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".github/agents/ralph.agent.md",
+      "language": "markdown",
+      "sizeLines": 34,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".github/agents/rex.agent.md",
+      "language": "markdown",
+      "sizeLines": 35,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".github/agents/scribe.agent.md",
+      "language": "markdown",
+      "sizeLines": 36,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".github/agents/squad.agent.md",
+      "language": "markdown",
+      "sizeLines": 1325,
+      "fileCategory": "docs"
+    }
+  ],
+  "batchImportData": {
+    ".github/agents/axiom.agent.md": [],
+    ".github/agents/echo.agent.md": [],
+    ".github/agents/nova.agent.md": [],
+    ".github/agents/ralph.agent.md": [],
+    ".github/agents/rex.agent.md": [],
+    ".github/agents/scribe.agent.md": [],
+    ".github/agents/squad.agent.md": []
+  }
+}

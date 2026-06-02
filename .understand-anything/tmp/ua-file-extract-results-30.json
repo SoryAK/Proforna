@@ -1,0 +1,1179 @@
+{
+  "scriptCompleted": true,
+  "filesAnalyzed": 17,
+  "filesSkipped": [],
+  "results": [
+    {
+      "path": "docs/adr/0001-record-architecture-decisions.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 80,
+      "nonEmptyLines": 54,
+      "sections": [
+        {
+          "heading": "0001 — Record Architecture Decisions",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Context and Problem Statement",
+          "level": 2,
+          "line": 8
+        },
+        {
+          "heading": "Decision Drivers",
+          "level": 2,
+          "line": 19
+        },
+        {
+          "heading": "Considered Options",
+          "level": 2,
+          "line": 26
+        },
+        {
+          "heading": "Decision Outcome",
+          "level": 2,
+          "line": 33
+        },
+        {
+          "heading": "Positive Consequences",
+          "level": 3,
+          "line": 37
+        },
+        {
+          "heading": "Negative Consequences",
+          "level": 3,
+          "line": 43
+        },
+        {
+          "heading": "Pros and Cons of the Options",
+          "level": 2,
+          "line": 48
+        },
+        {
+          "heading": "Option A — ADRs in `docs/adr/` (MADR)",
+          "level": 3,
+          "line": 50
+        },
+        {
+          "heading": "Option B — Single running `DECISIONS.md`",
+          "level": 3,
+          "line": 57
+        },
+        {
+          "heading": "Option C — Commit messages / PR descriptions only",
+          "level": 3,
+          "line": 63
+        },
+        {
+          "heading": "Option D — External tool (Notion etc.)",
+          "level": 3,
+          "line": 70
+        },
+        {
+          "heading": "Links / References",
+          "level": 2,
+          "line": 77
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 13
+      }
+    },
+    {
+      "path": "docs/adr/0002-nextjs-16-turbopack.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 78,
+      "nonEmptyLines": 53,
+      "sections": [
+        {
+          "heading": "0002 — Use Next.js 16 with Turbopack",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Context and Problem Statement",
+          "level": 2,
+          "line": 8
+        },
+        {
+          "heading": "Decision Drivers",
+          "level": 2,
+          "line": 14
+        },
+        {
+          "heading": "Considered Options",
+          "level": 2,
+          "line": 22
+        },
+        {
+          "heading": "Decision Outcome",
+          "level": 2,
+          "line": 29
+        },
+        {
+          "heading": "Positive Consequences",
+          "level": 3,
+          "line": 33
+        },
+        {
+          "heading": "Negative Consequences",
+          "level": 3,
+          "line": 40
+        },
+        {
+          "heading": "Pros and Cons of the Options",
+          "level": 2,
+          "line": 46
+        },
+        {
+          "heading": "Option A — Next.js 16 + Turbopack",
+          "level": 3,
+          "line": 48
+        },
+        {
+          "heading": "Option B — Next.js 15 + Webpack",
+          "level": 3,
+          "line": 56
+        },
+        {
+          "heading": "Option C — Vite + React Router + separate API server",
+          "level": 3,
+          "line": 62
+        },
+        {
+          "heading": "Option D — Remix / React Router 7",
+          "level": 3,
+          "line": 69
+        },
+        {
+          "heading": "Links / References",
+          "level": 2,
+          "line": 75
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 13
+      }
+    },
+    {
+      "path": "docs/adr/0003-prisma-v6-over-v7.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 75,
+      "nonEmptyLines": 50,
+      "sections": [
+        {
+          "heading": "0003 — Pin Prisma to v6 instead of v7",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Context and Problem Statement",
+          "level": 2,
+          "line": 8
+        },
+        {
+          "heading": "Decision Drivers",
+          "level": 2,
+          "line": 14
+        },
+        {
+          "heading": "Considered Options",
+          "level": 2,
+          "line": 21
+        },
+        {
+          "heading": "Decision Outcome",
+          "level": 2,
+          "line": 28
+        },
+        {
+          "heading": "Positive Consequences",
+          "level": 3,
+          "line": 32
+        },
+        {
+          "heading": "Negative Consequences",
+          "level": 3,
+          "line": 39
+        },
+        {
+          "heading": "Pros and Cons of the Options",
+          "level": 2,
+          "line": 45
+        },
+        {
+          "heading": "Option A — Prisma v6.19.2 (current)",
+          "level": 3,
+          "line": 47
+        },
+        {
+          "heading": "Option B — Prisma v7 + new generator",
+          "level": 3,
+          "line": 53
+        },
+        {
+          "heading": "Option C — Prisma v7 + legacy generator config",
+          "level": 3,
+          "line": 60
+        },
+        {
+          "heading": "Option D — Drizzle / Kysely",
+          "level": 3,
+          "line": 66
+        },
+        {
+          "heading": "Links / References",
+          "level": 2,
+          "line": 72
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 13
+      }
+    },
+    {
+      "path": "docs/adr/0004-shadcn-ui-v2-base-ui.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 71,
+      "nonEmptyLines": 48,
+      "sections": [
+        {
+          "heading": "0004 — Adopt shadcn/ui v2 (base-ui) over Radix",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Context and Problem Statement",
+          "level": 2,
+          "line": 8
+        },
+        {
+          "heading": "Decision Drivers",
+          "level": 2,
+          "line": 14
+        },
+        {
+          "heading": "Considered Options",
+          "level": 2,
+          "line": 21
+        },
+        {
+          "heading": "Decision Outcome",
+          "level": 2,
+          "line": 27
+        },
+        {
+          "heading": "Positive Consequences",
+          "level": 3,
+          "line": 31
+        },
+        {
+          "heading": "Negative Consequences",
+          "level": 3,
+          "line": 37
+        },
+        {
+          "heading": "Pros and Cons of the Options",
+          "level": 2,
+          "line": 44
+        },
+        {
+          "heading": "Option A — shadcn/ui v2 (base-ui)",
+          "level": 3,
+          "line": 46
+        },
+        {
+          "heading": "Option B — Stay on shadcn/ui v1 (Radix)",
+          "level": 3,
+          "line": 54
+        },
+        {
+          "heading": "Option C — Move to Mantine / MUI / custom",
+          "level": 3,
+          "line": 61
+        },
+        {
+          "heading": "Links / References",
+          "level": 2,
+          "line": 68
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 12
+      }
+    },
+    {
+      "path": "docs/adr/0005-google-maps-js-api-loader-v2.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 74,
+      "nonEmptyLines": 49,
+      "sections": [
+        {
+          "heading": "0005 — Use @googlemaps/js-api-loader v2 Standalone API",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Context and Problem Statement",
+          "level": 2,
+          "line": 8
+        },
+        {
+          "heading": "Decision Drivers",
+          "level": 2,
+          "line": 14
+        },
+        {
+          "heading": "Considered Options",
+          "level": 2,
+          "line": 21
+        },
+        {
+          "heading": "Decision Outcome",
+          "level": 2,
+          "line": 28
+        },
+        {
+          "heading": "Positive Consequences",
+          "level": 3,
+          "line": 32
+        },
+        {
+          "heading": "Negative Consequences",
+          "level": 3,
+          "line": 38
+        },
+        {
+          "heading": "Pros and Cons of the Options",
+          "level": 2,
+          "line": 44
+        },
+        {
+          "heading": "Option A — js-api-loader v2 standalone API",
+          "level": 3,
+          "line": 46
+        },
+        {
+          "heading": "Option B — Pin to v1",
+          "level": 3,
+          "line": 53
+        },
+        {
+          "heading": "Option C — Roll our own script tag injection",
+          "level": 3,
+          "line": 59
+        },
+        {
+          "heading": "Option D — `@react-google-maps/api`",
+          "level": 3,
+          "line": 65
+        },
+        {
+          "heading": "Links / References",
+          "level": 2,
+          "line": 71
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 13
+      }
+    },
+    {
+      "path": "docs/adr/0006-job-map-view-preset-hot-swap.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 88,
+      "nonEmptyLines": 61,
+      "sections": [
+        {
+          "heading": "0006 — Job-Map View-Preset Hot-Swap Pattern",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Context and Problem Statement",
+          "level": 2,
+          "line": 8
+        },
+        {
+          "heading": "Decision Drivers",
+          "level": 2,
+          "line": 16
+        },
+        {
+          "heading": "Considered Options",
+          "level": 2,
+          "line": 23
+        },
+        {
+          "heading": "Decision Outcome",
+          "level": 2,
+          "line": 30
+        },
+        {
+          "heading": "Positive Consequences",
+          "level": 3,
+          "line": 36
+        },
+        {
+          "heading": "Negative Consequences",
+          "level": 3,
+          "line": 43
+        },
+        {
+          "heading": "Pros and Cons of the Options",
+          "level": 2,
+          "line": 50
+        },
+        {
+          "heading": "Option A — Overlay inside map container (chosen)",
+          "level": 3,
+          "line": 52
+        },
+        {
+          "heading": "Option B — Route-based switching",
+          "level": 3,
+          "line": 60
+        },
+        {
+          "heading": "Option C — Side-by-side split",
+          "level": 3,
+          "line": 67
+        },
+        {
+          "heading": "Option D — Bottom panel embedding",
+          "level": 3,
+          "line": 73
+        },
+        {
+          "heading": "Links / References",
+          "level": 2,
+          "line": 79
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 13
+      }
+    },
+    {
+      "path": "docs/adr/0007-worklog-notes-three-pane-redesign.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 39,
+      "nonEmptyLines": 25,
+      "sections": [
+        {
+          "heading": "0007 - Worklog Notes Three-Pane Redesign",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Status",
+          "level": 2,
+          "line": 3
+        },
+        {
+          "heading": "Context",
+          "level": 2,
+          "line": 7
+        },
+        {
+          "heading": "Decision",
+          "level": 2,
+          "line": 15
+        },
+        {
+          "heading": "Consequences",
+          "level": 2,
+          "line": 25
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 5
+      }
+    },
+    {
+      "path": "docs/adr/0008-worklog-capture-acceleration-and-draft-persistence.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 41,
+      "nonEmptyLines": 27,
+      "sections": [
+        {
+          "heading": "0008 - Worklog Capture Acceleration and Draft Persistence",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Status",
+          "level": 2,
+          "line": 3
+        },
+        {
+          "heading": "Context",
+          "level": 2,
+          "line": 7
+        },
+        {
+          "heading": "Decision",
+          "level": 2,
+          "line": 17
+        },
+        {
+          "heading": "Consequences",
+          "level": 2,
+          "line": 27
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 5
+      }
+    },
+    {
+      "path": "docs/adr/0009-worklog-server-backed-draft-sync.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 41,
+      "nonEmptyLines": 27,
+      "sections": [
+        {
+          "heading": "0009 - Worklog Server-Backed Draft Sync",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Status",
+          "level": 2,
+          "line": 3
+        },
+        {
+          "heading": "Context",
+          "level": 2,
+          "line": 7
+        },
+        {
+          "heading": "Decision",
+          "level": 2,
+          "line": 17
+        },
+        {
+          "heading": "Consequences",
+          "level": 2,
+          "line": 27
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 5
+      }
+    },
+    {
+      "path": "docs/adr/0010-tiptap-yjs-worklog-editor.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 66,
+      "nonEmptyLines": 52,
+      "sections": [
+        {
+          "heading": "10. Adopt Tiptap 3 + Y.js for Worklog editor and offline support",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Status",
+          "level": 2,
+          "line": 3
+        },
+        {
+          "heading": "Context",
+          "level": 2,
+          "line": 6
+        },
+        {
+          "heading": "Decision",
+          "level": 2,
+          "line": 32
+        },
+        {
+          "heading": "Consequences",
+          "level": 2,
+          "line": 52
+        },
+        {
+          "heading": "Pros",
+          "level": 3,
+          "line": 54
+        },
+        {
+          "heading": "Cons / Trade-offs",
+          "level": 3,
+          "line": 61
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 7
+      }
+    },
+    {
+      "path": "docs/adr/0011-postgres-tsvector-worklog-search.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 99,
+      "nonEmptyLines": 73,
+      "sections": [
+        {
+          "heading": "Postgres tsvector for Worklog Full-Text Search",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Context and Problem Statement",
+          "level": 2,
+          "line": 8
+        },
+        {
+          "heading": "Decision Drivers",
+          "level": 2,
+          "line": 20
+        },
+        {
+          "heading": "Considered Options",
+          "level": 2,
+          "line": 28
+        },
+        {
+          "heading": "Decision Outcome",
+          "level": 2,
+          "line": 35
+        },
+        {
+          "heading": "Positive Consequences",
+          "level": 3,
+          "line": 43
+        },
+        {
+          "heading": "Negative Consequences",
+          "level": 3,
+          "line": 52
+        },
+        {
+          "heading": "Pros and Cons of the Options",
+          "level": 2,
+          "line": 62
+        },
+        {
+          "heading": "Option A — Postgres tsvector + GIN, GENERATED STORED",
+          "level": 3,
+          "line": 64
+        },
+        {
+          "heading": "Option B — Application-maintained tsvector via trigger or save hook",
+          "level": 3,
+          "line": 74
+        },
+        {
+          "heading": "Option C — External search service (Meilisearch / Typesense / Elastic)",
+          "level": 3,
+          "line": 80
+        },
+        {
+          "heading": "Option D — Client-side `includes()` over a full fetch",
+          "level": 3,
+          "line": 87
+        },
+        {
+          "heading": "Links / References",
+          "level": 2,
+          "line": 94
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 13
+      }
+    },
+    {
+      "path": "docs/adr/0011-worklog-promotion-ai-extraction-pipeline.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 109,
+      "nonEmptyLines": 81,
+      "sections": [
+        {
+          "heading": "0011 — Worklog Promotion: AI-Assisted Extraction Pipeline",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Context and Problem Statement",
+          "level": 2,
+          "line": 8
+        },
+        {
+          "heading": "Decision Drivers",
+          "level": 2,
+          "line": 17
+        },
+        {
+          "heading": "Considered Options",
+          "level": 2,
+          "line": 24
+        },
+        {
+          "heading": "Decision Outcome",
+          "level": 2,
+          "line": 30
+        },
+        {
+          "heading": "Positive Consequences",
+          "level": 3,
+          "line": 34
+        },
+        {
+          "heading": "Negative Consequences",
+          "level": 3,
+          "line": 40
+        },
+        {
+          "heading": "Detailed Pipeline Design (for implementation sprint)",
+          "level": 2,
+          "line": 48
+        },
+        {
+          "heading": "Step 1 — Entity Extraction",
+          "level": 3,
+          "line": 50
+        },
+        {
+          "heading": "Step 2 — Sanitization",
+          "level": 3,
+          "line": 58
+        },
+        {
+          "heading": "Step 3 — Targeted Clarification Questions",
+          "level": 3,
+          "line": 65
+        },
+        {
+          "heading": "Step 4 — Skill Node Mapping",
+          "level": 3,
+          "line": 71
+        },
+        {
+          "heading": "Step 5 — Résumé-Ready Draft Generation",
+          "level": 3,
+          "line": 78
+        },
+        {
+          "heading": "Step 6 — Human Review & Edit",
+          "level": 3,
+          "line": 90
+        },
+        {
+          "heading": "Boundary Conditions & Rules",
+          "level": 2,
+          "line": 95
+        },
+        {
+          "heading": "Links",
+          "level": 2,
+          "line": 105
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 16
+      }
+    },
+    {
+      "path": "docs/adr/0011-worklog-user-defined-folders.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 81,
+      "nonEmptyLines": 63,
+      "sections": [
+        {
+          "heading": "11. Worklog user-defined folder tree",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Status",
+          "level": 2,
+          "line": 5
+        },
+        {
+          "heading": "Context",
+          "level": 2,
+          "line": 9
+        },
+        {
+          "heading": "Decision",
+          "level": 2,
+          "line": 53
+        },
+        {
+          "heading": "Consequences",
+          "level": 2,
+          "line": 60
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 5
+      }
+    },
+    {
+      "path": "docs/adr/0012-asset-library-knowledge-backbone.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 230,
+      "nonEmptyLines": 185,
+      "sections": [
+        {
+          "heading": "0012 — Asset Library as Knowledge Backbone",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Context and Problem Statement",
+          "level": 2,
+          "line": 8
+        },
+        {
+          "heading": "Decision Drivers",
+          "level": 2,
+          "line": 29
+        },
+        {
+          "heading": "Considered Options",
+          "level": 2,
+          "line": 36
+        },
+        {
+          "heading": "Decision Outcome",
+          "level": 2,
+          "line": 42
+        },
+        {
+          "heading": "Positive Consequences",
+          "level": 3,
+          "line": 46
+        },
+        {
+          "heading": "Negative Consequences",
+          "level": 3,
+          "line": 53
+        },
+        {
+          "heading": "Data Model Design",
+          "level": 2,
+          "line": 61
+        },
+        {
+          "heading": "New: `AssetType` (generic equipment class)",
+          "level": 3,
+          "line": 63
+        },
+        {
+          "heading": "Modified: `JobAsset` (site-specific instance)",
+          "level": 3,
+          "line": 85
+        },
+        {
+          "heading": "New: `AssetDocument`",
+          "level": 3,
+          "line": 98
+        },
+        {
+          "heading": "New: `AssetLink`",
+          "level": 3,
+          "line": 113
+        },
+        {
+          "heading": "New: `AssetSkill` (asset type ↔ skill node mapping)",
+          "level": 3,
+          "line": 127
+        },
+        {
+          "heading": "New: `Procedure` (repeatable SOP — see also ADR-0013)",
+          "level": 3,
+          "line": 138
+        },
+        {
+          "heading": "Architectural Rules",
+          "level": 2,
+          "line": 180
+        },
+        {
+          "heading": "Worklog Integration",
+          "level": 2,
+          "line": 193
+        },
+        {
+          "heading": "Sprint Sequence",
+          "level": 2,
+          "line": 203
+        },
+        {
+          "heading": "Sprint 1 — Asset Library Foundation",
+          "level": 3,
+          "line": 205
+        },
+        {
+          "heading": "Sprint 2 — Procedures",
+          "level": 3,
+          "line": 212
+        },
+        {
+          "heading": "Sprint 3 — AI Integration",
+          "level": 3,
+          "line": 218
+        },
+        {
+          "heading": "Links",
+          "level": 2,
+          "line": 226
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 21
+      }
+    },
+    {
+      "path": "docs/adr/0012-w2.1-dnd-context-and-tree-strategy.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 41,
+      "nonEmptyLines": 29,
+      "sections": [
+        {
+          "heading": "0012 — W2.1: DnD Context Placement and Sortable Tree Strategy",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Context",
+          "level": 2,
+          "line": 7
+        },
+        {
+          "heading": "Decision",
+          "level": 2,
+          "line": 18
+        },
+        {
+          "heading": "Consequences",
+          "level": 2,
+          "line": 23
+        },
+        {
+          "heading": "AD-2 Pros",
+          "level": 3,
+          "line": 25
+        },
+        {
+          "heading": "AD-2 Cons",
+          "level": 3,
+          "line": 30
+        },
+        {
+          "heading": "AD-4 Pros",
+          "level": 3,
+          "line": 34
+        },
+        {
+          "heading": "AD-4 Cons",
+          "level": 3,
+          "line": 39
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 8
+      }
+    },
+    {
+      "path": "docs/adr/README.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 52,
+      "nonEmptyLines": 37,
+      "sections": [
+        {
+          "heading": "Architecture Decision Records",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Format",
+          "level": 2,
+          "line": 7
+        },
+        {
+          "heading": "File Naming",
+          "level": 2,
+          "line": 11
+        },
+        {
+          "heading": "Index",
+          "level": 2,
+          "line": 20
+        },
+        {
+          "heading": "How to Add a New ADR",
+          "level": 2,
+          "line": 35
+        },
+        {
+          "heading": "When to Write an ADR",
+          "level": 2,
+          "line": 43
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 6
+      }
+    },
+    {
+      "path": "docs/adr/template.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 57,
+      "nonEmptyLines": 35,
+      "sections": [
+        {
+          "heading": "{Short title of the decision}",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Context and Problem Statement",
+          "level": 2,
+          "line": 8
+        },
+        {
+          "heading": "Decision Drivers",
+          "level": 2,
+          "line": 12
+        },
+        {
+          "heading": "Considered Options",
+          "level": 2,
+          "line": 18
+        },
+        {
+          "heading": "Decision Outcome",
+          "level": 2,
+          "line": 24
+        },
+        {
+          "heading": "Positive Consequences",
+          "level": 3,
+          "line": 28
+        },
+        {
+          "heading": "Negative Consequences",
+          "level": 3,
+          "line": 32
+        },
+        {
+          "heading": "Pros and Cons of the Options",
+          "level": 2,
+          "line": 36
+        },
+        {
+          "heading": "Option A — {name}",
+          "level": 3,
+          "line": 38
+        },
+        {
+          "heading": "Option B — {name}",
+          "level": 3,
+          "line": 45
+        },
+        {
+          "heading": "Option C — {name}",
+          "level": 3,
+          "line": 50
+        },
+        {
+          "heading": "Links / References",
+          "level": 2,
+          "line": 55
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 12
+      }
+    }
+  ]
+}

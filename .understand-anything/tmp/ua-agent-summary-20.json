@@ -1,0 +1,56 @@
+[
+  {
+    "path": "src/app/layout.tsx",
+    "nonEmptyLines": 55,
+    "fns": [
+      {
+        "name": "RootLayout",
+        "start": 41,
+        "end": 60
+      }
+    ],
+    "exports": [
+      "metadata",
+      "viewport",
+      "RootLayout"
+    ],
+    "classes": [],
+    "imports": [
+      "src/app/globals.css",
+      "src/components/providers.tsx",
+      "src/components/pwa-register.tsx"
+    ]
+  },
+  {
+    "path": "src/components/providers.tsx",
+    "nonEmptyLines": 28,
+    "fns": [
+      {
+        "name": "Providers",
+        "start": 8,
+        "end": 31
+      }
+    ],
+    "exports": [
+      "Providers"
+    ],
+    "classes": [],
+    "imports": []
+  },
+  {
+    "path": "src/components/pwa-register.tsx",
+    "nonEmptyLines": 12,
+    "fns": [
+      {
+        "name": "PwaRegister",
+        "start": 5,
+        "end": 15
+      }
+    ],
+    "exports": [
+      "PwaRegister"
+    ],
+    "classes": [],
+    "imports": []
+  }
+]

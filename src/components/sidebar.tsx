@@ -34,6 +34,8 @@ import {
   ChevronRight,
   LogOut,
   User,
+  Users,
+  Settings,
 } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
@@ -44,6 +46,8 @@ import {
   SheetContent,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { PortalSettingsPanel } from "@/components/portal-settings-panel";
 import { NotificationBell } from "@/components/notification-bell";
 import { QuickLogTrigger } from "@/components/quick-log-dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -51,6 +55,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 const iconMap: Record<string, React.ElementType> = {
   Home,
   Building2,
+  Users,
   Search,
   TrendingUp,
   BarChart3,
@@ -81,8 +86,8 @@ function NavLinks({ onNavigate, collapsed }: { onNavigate?: () => void; collapse
   const isItemActive = (href: string) =>
     href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(href);
 
-  const activeClass = "bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300";
-  const inactiveClass = "text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200";
+  const activeClass = "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-100";
+  const inactiveClass = "text-muted-foreground hover:bg-accent hover:text-accent-foreground";
 
   const renderItem = (item: { label: string; href: string; icon: string }) => {
     const Icon = iconMap[item.icon];
@@ -125,8 +130,8 @@ function NavLinks({ onNavigate, collapsed }: { onNavigate?: () => void; collapse
                 className={cn(
                   "rounded-lg px-2 py-2.5 transition-colors",
                   isActive
-                    ? "bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300"
-                    : "text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300"
+                    ? "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-100"
+                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                 )}
               >
                 <ChevronDown className={cn("h-4 w-4 transition-transform", jobsOpen ? "rotate-0" : "-rotate-90")} />
@@ -140,7 +145,7 @@ function NavLinks({ onNavigate, collapsed }: { onNavigate?: () => void; collapse
                   key={job.id}
                   href={`/experience/${job.id}`}
                   onClick={onNavigate}
-                  className="block rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-gray-800 dark:hover:text-gray-200 transition-colors truncate"
+                  className="block rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors truncate"
                 >
                   <span className="font-medium text-foreground">{job.title || job.company}</span>
                   <span className="text-muted-foreground"> · {job.company}</span>
@@ -249,6 +254,8 @@ export function Sidebar() {
     return localStorage.getItem("sidebar-collapsed") === "true";
   });
 
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
   const toggle = () => {
     setCollapsed((prev) => {
       const next = !prev;
@@ -283,11 +290,18 @@ export function Sidebar() {
             >
               <ChevronRight className="h-3 w-3" />
             </button>
+            <button
+              onClick={() => setSettingsOpen(true)}
+              title="Portal Settings"
+              className="absolute -top-1 -right-1 flex items-center justify-center h-5 w-5 rounded-full border bg-background text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shadow-sm"
+            >
+              <Settings className="h-3 w-3" />
+            </button>
           </div>
         </div>
       ) : (
         <div className="px-3 pt-3 pb-3">
-          <div className="bg-background/95 backdrop-blur-sm border rounded-xl shadow-sm flex items-start gap-3 p-3">
+          <div className="border rounded-xl flex items-center gap-3 p-3">
             <Link href="/profile" className="shrink-0">
               {avatarSrc ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -300,10 +314,14 @@ export function Sidebar() {
             </Link>
             <div className="flex-1 min-w-0">
               <p className="text-base font-semibold truncate">{displayName ?? "You"}</p>
-              {headline && (
-                <p className="text-sm text-primary line-clamp-2 mt-0.5">{headline}</p>
-              )}
             </div>
+            <button
+              onClick={() => setSettingsOpen(true)}
+              title="Portal Settings"
+              className="flex items-center justify-center h-6 w-6 rounded-full border bg-background text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0"
+            >
+              <Settings className="h-3 w-3" />
+            </button>
             <button
               onClick={toggle}
               title="Collapse sidebar"
@@ -332,11 +350,23 @@ export function Sidebar() {
           </Button>
         </div>
         {!collapsed && (
-          <p className="text-xs text-gray-500 dark:text-gray-500">
+            <p className="text-xs text-muted-foreground">
             Career Tracker v1.0
           </p>
         )}
       </div>
+
+      {/* Portal Settings Dialog */}
+      <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
+        <DialogContent className="w-[90vw] max-w-6xl sm:max-w-6xl h-[85vh] p-0 overflow-hidden flex flex-col gap-0">
+          <DialogHeader className="px-6 py-4 border-b shrink-0">
+            <DialogTitle>Portal Settings</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-hidden">
+            <PortalSettingsPanel />
+          </div>
+        </DialogContent>
+      </Dialog>
     </aside>
   );
 }

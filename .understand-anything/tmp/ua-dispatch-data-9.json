@@ -1,0 +1,1192 @@
+{
+  "batchIndex": 9,
+  "totalBatches": 34,
+  "files": [
+    {
+      "path": "src/components/worklog/hooks/use-autosave.ts",
+      "language": "typescript",
+      "sizeLines": 181,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/hooks/use-worklog-create-flow.ts",
+      "language": "typescript",
+      "sizeLines": 139,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/hooks/use-worklog-data.ts",
+      "language": "typescript",
+      "sizeLines": 127,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/hooks/use-worklog-deep-links.ts",
+      "language": "typescript",
+      "sizeLines": 100,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/hooks/use-worklog-dnd.ts",
+      "language": "typescript",
+      "sizeLines": 207,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/hooks/use-worklog-drafts.ts",
+      "language": "typescript",
+      "sizeLines": 103,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/hooks/use-worklog-filters.ts",
+      "language": "typescript",
+      "sizeLines": 157,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/hooks/use-worklog-folders.ts",
+      "language": "typescript",
+      "sizeLines": 113,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/hooks/use-worklog-keyboard-nav.ts",
+      "language": "typescript",
+      "sizeLines": 200,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/hooks/use-worklog-mutations.ts",
+      "language": "typescript",
+      "sizeLines": 194,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/hooks/use-worklog-preferences.ts",
+      "language": "typescript",
+      "sizeLines": 93,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/hooks/use-worklog-selection.ts",
+      "language": "typescript",
+      "sizeLines": 102,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/hooks/use-worklog-stats.ts",
+      "language": "typescript",
+      "sizeLines": 28,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/hooks/use-worklog-visible-logs.ts",
+      "language": "typescript",
+      "sizeLines": 119,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/mention-node-view.tsx",
+      "language": "typescript",
+      "sizeLines": 62,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/mention-suggestion-popup.tsx",
+      "language": "typescript",
+      "sizeLines": 188,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/photo-node-view.tsx",
+      "language": "typescript",
+      "sizeLines": 131,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/slash-command-menu.tsx",
+      "language": "typescript",
+      "sizeLines": 280,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/worklog-bulk-action-bar.tsx",
+      "language": "typescript",
+      "sizeLines": 163,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/worklog-defaults-dialog.tsx",
+      "language": "typescript",
+      "sizeLines": 209,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/worklog-dnd-provider.test.ts",
+      "language": "typescript",
+      "sizeLines": 123,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/worklog-dnd-provider.tsx",
+      "language": "typescript",
+      "sizeLines": 80,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/worklog-editor-toolbar.tsx",
+      "language": "typescript",
+      "sizeLines": 264,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/worklog-editor.tsx",
+      "language": "typescript",
+      "sizeLines": 540,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/worklog-folder-tree-items.tsx",
+      "language": "typescript",
+      "sizeLines": 173,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/worklog-folder-tree.tsx",
+      "language": "typescript",
+      "sizeLines": 509,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/worklog-folders-rail.tsx",
+      "language": "typescript",
+      "sizeLines": 446,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/worklog-heatmap.tsx",
+      "language": "typescript",
+      "sizeLines": 77,
+      "fileCategory": "code"
+    }
+  ],
+  "batchImportData": {
+    "src/components/worklog/hooks/use-autosave.ts": [],
+    "src/components/worklog/hooks/use-worklog-create-flow.ts": [
+      "src/components/worklog/worklog-folders-rail.tsx",
+      "src/types/worklog.ts"
+    ],
+    "src/components/worklog/hooks/use-worklog-data.ts": [
+      "src/components/asset-picker.tsx",
+      "src/components/equipment-picker.tsx",
+      "src/lib/worklog/worklog-cache.ts",
+      "src/types/worklog.ts"
+    ],
+    "src/components/worklog/hooks/use-worklog-deep-links.ts": [
+      "src/components/worklog/worklog-folders-rail.tsx",
+      "src/types/worklog.ts"
+    ],
+    "src/components/worklog/hooks/use-worklog-dnd.ts": [
+      "src/components/worklog/hooks/use-worklog-folders.ts",
+      "src/components/worklog/hooks/use-worklog-mutations.ts",
+      "src/types/worklog.ts"
+    ],
+    "src/components/worklog/hooks/use-worklog-drafts.ts": [],
+    "src/components/worklog/hooks/use-worklog-filters.ts": [
+      "src/types/worklog.ts"
+    ],
+    "src/components/worklog/hooks/use-worklog-folders.ts": [
+      "src/types/worklog.ts"
+    ],
+    "src/components/worklog/hooks/use-worklog-keyboard-nav.ts": [
+      "src/components/worklog/worklog-note-reader.tsx",
+      "src/types/worklog.ts"
+    ],
+    "src/components/worklog/hooks/use-worklog-mutations.ts": [
+      "src/components/worklog/hooks/use-worklog-folders.ts",
+      "src/types/worklog.ts"
+    ],
+    "src/components/worklog/hooks/use-worklog-preferences.ts": [
+      "src/types/worklog.ts"
+    ],
+    "src/components/worklog/hooks/use-worklog-selection.ts": [],
+    "src/components/worklog/hooks/use-worklog-stats.ts": [
+      "src/components/worklog/heatmap-utils.ts",
+      "src/types/worklog.ts"
+    ],
+    "src/components/worklog/hooks/use-worklog-visible-logs.ts": [
+      "src/components/worklog/hooks/use-worklog-filters.ts",
+      "src/components/worklog/hooks/use-worklog-folders.ts",
+      "src/components/worklog/worklog-folders-rail.tsx",
+      "src/lib/worklog-folders.ts",
+      "src/types/worklog.ts"
+    ],
+    "src/components/worklog/mention-node-view.tsx": [
+      "src/lib/utils.ts",
+      "src/lib/worklog/tiptap/mention-node.ts"
+    ],
+    "src/components/worklog/mention-suggestion-popup.tsx": [
+      "src/lib/utils.ts",
+      "src/lib/worklog/tiptap/mention-node.ts"
+    ],
+    "src/components/worklog/photo-node-view.tsx": [
+      "src/lib/utils.ts",
+      "src/lib/worklog/photo-upload.ts"
+    ],
+    "src/components/worklog/slash-command-menu.tsx": [
+      "src/lib/utils.ts",
+      "src/lib/worklog/tiptap/slash-commands.tsx"
+    ],
+    "src/components/worklog/worklog-bulk-action-bar.tsx": [
+      "src/components/ui/button.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/worklog/hooks/use-worklog-folders.ts",
+      "src/components/worklog/worklog-move-to-folder-dialog.tsx",
+      "src/lib/utils.ts"
+    ],
+    "src/components/worklog/worklog-defaults-dialog.tsx": [
+      "src/components/ui/button.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/worklog/constants.ts",
+      "src/lib/worklog-shifts.ts",
+      "src/types/worklog.ts"
+    ],
+    "src/components/worklog/worklog-dnd-provider.test.ts": [
+      "src/components/worklog/hooks/use-worklog-dnd.ts",
+      "src/components/worklog/worklog-dnd-provider.tsx"
+    ],
+    "src/components/worklog/worklog-dnd-provider.tsx": [
+      "src/components/worklog/hooks/use-worklog-data.ts",
+      "src/components/worklog/hooks/use-worklog-dnd.ts",
+      "src/components/worklog/hooks/use-worklog-folders.ts"
+    ],
+    "src/components/worklog/worklog-editor-toolbar.tsx": [
+      "src/components/ui/button.tsx",
+      "src/components/ui/dropdown-menu.tsx",
+      "src/components/ui/input.tsx",
+      "src/lib/worklog/tiptap/mood-block.ts",
+      "src/lib/worklog/tiptap/slash-commands.tsx",
+      "src/lib/worklog/tiptap/tag-mention.ts",
+      "src/types/worklog.ts"
+    ],
+    "src/components/worklog/worklog-editor.tsx": [
+      "src/components/worklog/slash-command-menu.tsx",
+      "src/components/worklog/worklog-editor-toolbar.tsx",
+      "src/lib/utils.ts",
+      "src/lib/worklog/photo-upload.ts",
+      "src/lib/worklog/prosemirror-to-text.ts",
+      "src/lib/worklog/tiptap/canvas-node.ts",
+      "src/lib/worklog/tiptap/mention-node.ts",
+      "src/lib/worklog/tiptap/mood-block.ts",
+      "src/lib/worklog/tiptap/photo-node.ts",
+      "src/lib/worklog/tiptap/shift-block.ts",
+      "src/lib/worklog/tiptap/slash-commands.tsx",
+      "src/lib/worklog/tiptap/tag-mention.ts",
+      "src/lib/worklog/yjs-provider.ts",
+      "src/types/worklog.ts"
+    ],
+    "src/components/worklog/worklog-folder-tree-items.tsx": [
+      "src/components/worklog/hooks/use-worklog-folders.ts",
+      "src/components/worklog/worklog-folder-delete-dialog.tsx",
+      "src/components/worklog/worklog-folder-tree.tsx",
+      "src/components/worklog/worklog-move-to-folder-dialog.tsx",
+      "src/lib/worklog-folders.ts",
+      "src/types/worklog.ts"
+    ],
+    "src/components/worklog/worklog-folder-tree.tsx": [
+      "src/components/ui/dropdown-menu.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/popover.tsx",
+      "src/components/worklog/constants.ts",
+      "src/lib/utils.ts",
+      "src/lib/worklog-folders.ts",
+      "src/types/worklog.ts"
+    ],
+    "src/components/worklog/worklog-folders-rail.tsx": [
+      "src/components/worklog/constants.ts",
+      "src/components/worklog/worklog-folder-tree-items.tsx",
+      "src/components/worklog/worklog-heatmap.tsx",
+      "src/lib/utils.ts",
+      "src/types/worklog.ts"
+    ],
+    "src/components/worklog/worklog-heatmap.tsx": [
+      "src/components/ui/button.tsx",
+      "src/components/worklog/heatmap-utils.ts",
+      "src/lib/utils.ts",
+      "src/types/worklog.ts"
+    ]
+  },
+  "neighborMap": {
+    "src/components/worklog/hooks/use-autosave.ts": [
+      {
+        "path": "src/components/worklog/worklog-note-reader.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "WorklogNoteReader"
+        ]
+      }
+    ],
+    "src/components/worklog/hooks/use-worklog-create-flow.ts": [
+      {
+        "path": "src/types/worklog.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "EquipmentItem",
+          "JobAsset"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-page.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "WorklogPage"
+        ]
+      }
+    ],
+    "src/components/worklog/hooks/use-worklog-data.ts": [
+      {
+        "path": "src/components/asset-picker.tsx",
+        "batchIndex": 8,
+        "symbols": [
+          "ASSET_TYPES",
+          "ASSET_STATUS",
+          "AssetPicker"
+        ]
+      },
+      {
+        "path": "src/components/equipment-picker.tsx",
+        "batchIndex": 8,
+        "symbols": [
+          "EQUIPMENT_CATEGORIES",
+          "EQUIPMENT_CONDITIONS",
+          "EquipmentPicker"
+        ]
+      },
+      {
+        "path": "src/lib/worklog/worklog-cache.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "CACHE_TTL_MS",
+          "cacheGetAllLogs",
+          "cacheReplaceAllLogs",
+          "cacheClear"
+        ]
+      },
+      {
+        "path": "src/types/worklog.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "EquipmentItem",
+          "JobAsset"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-page.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "WorklogPage"
+        ]
+      }
+    ],
+    "src/components/worklog/hooks/use-worklog-deep-links.ts": [
+      {
+        "path": "src/types/worklog.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "EquipmentItem",
+          "JobAsset"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-page.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "WorklogPage"
+        ]
+      }
+    ],
+    "src/components/worklog/hooks/use-worklog-dnd.ts": [
+      {
+        "path": "src/types/worklog.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "EquipmentItem",
+          "JobAsset"
+        ]
+      }
+    ],
+    "src/components/worklog/hooks/use-worklog-drafts.ts": [
+      {
+        "path": "src/components/worklog/worklog-note-reader.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "WorklogNoteReader"
+        ]
+      }
+    ],
+    "src/components/worklog/hooks/use-worklog-filters.ts": [
+      {
+        "path": "src/types/worklog.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "EquipmentItem",
+          "JobAsset"
+        ]
+      }
+    ],
+    "src/components/worklog/hooks/use-worklog-folders.ts": [
+      {
+        "path": "src/types/worklog.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "EquipmentItem",
+          "JobAsset"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-note-meta-strip.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "WorklogNoteMetaStrip"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-notes-list.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "WorklogNotesList"
+        ]
+      }
+    ],
+    "src/components/worklog/hooks/use-worklog-keyboard-nav.ts": [
+      {
+        "path": "src/components/worklog/worklog-note-reader.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "WorklogNoteReader"
+        ]
+      },
+      {
+        "path": "src/types/worklog.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "EquipmentItem",
+          "JobAsset"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-page.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "WorklogPage"
+        ]
+      }
+    ],
+    "src/components/worklog/hooks/use-worklog-mutations.ts": [
+      {
+        "path": "src/types/worklog.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "EquipmentItem",
+          "JobAsset"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-notes-list.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "WorklogNotesList"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-page.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "WorklogPage"
+        ]
+      }
+    ],
+    "src/components/worklog/hooks/use-worklog-preferences.ts": [
+      {
+        "path": "src/types/worklog.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "EquipmentItem",
+          "JobAsset"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-page.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "WorklogPage"
+        ]
+      }
+    ],
+    "src/components/worklog/hooks/use-worklog-selection.ts": [
+      {
+        "path": "src/components/worklog/worklog-page.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "WorklogPage"
+        ]
+      }
+    ],
+    "src/components/worklog/hooks/use-worklog-stats.ts": [
+      {
+        "path": "src/components/worklog/heatmap-utils.ts",
+        "batchIndex": 8,
+        "symbols": [
+          "buildHeatmap",
+          "intensityClass",
+          "calcStreak"
+        ]
+      },
+      {
+        "path": "src/types/worklog.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "EquipmentItem",
+          "JobAsset"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-page.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "WorklogPage"
+        ]
+      }
+    ],
+    "src/components/worklog/hooks/use-worklog-visible-logs.ts": [
+      {
+        "path": "src/lib/worklog-folders.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "FOLDER_MAX_DEPTH",
+          "FOLDER_NAME_MAX",
+          "buildFolderTree",
+          "flattenFolderTree",
+          "collectDescendantIds",
+          "wouldCreateCycle",
+          "depthOfParent",
+          "validateFolderName",
+          "assertNoCycle",
+          "getDepth"
+        ]
+      },
+      {
+        "path": "src/types/worklog.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "EquipmentItem",
+          "JobAsset"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-page.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "WorklogPage"
+        ]
+      }
+    ],
+    "src/components/worklog/mention-node-view.tsx": [
+      {
+        "path": "src/lib/utils.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "cn"
+        ]
+      },
+      {
+        "path": "src/lib/worklog/tiptap/mention-node.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "ENTITY_TYPE_CONFIG",
+          "MentionNode"
+        ]
+      }
+    ],
+    "src/components/worklog/mention-suggestion-popup.tsx": [
+      {
+        "path": "src/lib/utils.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "cn"
+        ]
+      },
+      {
+        "path": "src/lib/worklog/tiptap/mention-node.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "ENTITY_TYPE_CONFIG",
+          "MentionNode"
+        ]
+      }
+    ],
+    "src/components/worklog/photo-node-view.tsx": [
+      {
+        "path": "src/lib/utils.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "cn"
+        ]
+      },
+      {
+        "path": "src/lib/worklog/photo-upload.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "uploadBodyPhoto",
+          "patchBodyPhotoCaption",
+          "reconcileBodyPhotos"
+        ]
+      },
+      {
+        "path": "src/lib/worklog/tiptap/photo-node.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "PhotoNode"
+        ]
+      }
+    ],
+    "src/components/worklog/slash-command-menu.tsx": [
+      {
+        "path": "src/lib/utils.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "cn"
+        ]
+      },
+      {
+        "path": "src/lib/worklog/tiptap/slash-commands.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "SLASH_COMMANDS",
+          "filterSlashCommands",
+          "SlashCommands"
+        ]
+      }
+    ],
+    "src/components/worklog/worklog-bulk-action-bar.tsx": [
+      {
+        "path": "src/components/ui/button.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Button",
+          "buttonVariants"
+        ]
+      },
+      {
+        "path": "src/components/ui/dialog.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Dialog",
+          "DialogClose",
+          "DialogContent",
+          "DialogDescription",
+          "DialogFooter",
+          "DialogHeader",
+          "DialogOverlay",
+          "DialogPortal",
+          "DialogTitle",
+          "DialogTrigger"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-move-to-folder-dialog.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "WorklogMoveToFolderDialog"
+        ]
+      },
+      {
+        "path": "src/lib/utils.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "cn"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-page.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "WorklogPage"
+        ]
+      }
+    ],
+    "src/components/worklog/worklog-defaults-dialog.tsx": [
+      {
+        "path": "src/components/ui/button.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Button",
+          "buttonVariants"
+        ]
+      },
+      {
+        "path": "src/components/ui/dialog.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Dialog",
+          "DialogClose",
+          "DialogContent",
+          "DialogDescription",
+          "DialogFooter",
+          "DialogHeader",
+          "DialogOverlay",
+          "DialogPortal",
+          "DialogTitle",
+          "DialogTrigger"
+        ]
+      },
+      {
+        "path": "src/components/ui/input.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Input"
+        ]
+      },
+      {
+        "path": "src/components/ui/label.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Label"
+        ]
+      },
+      {
+        "path": "src/components/ui/select.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Select",
+          "SelectContent",
+          "SelectGroup",
+          "SelectItem",
+          "SelectLabel",
+          "SelectScrollDownButton",
+          "SelectScrollUpButton",
+          "SelectSeparator",
+          "SelectTrigger",
+          "SelectValue"
+        ]
+      },
+      {
+        "path": "src/components/worklog/constants.ts",
+        "batchIndex": 8,
+        "symbols": [
+          "CATEGORIES",
+          "MOODS",
+          "dateLabel",
+          "DND_DROP_TARGET_CLASS",
+          "DND_ACTIVE_ROW_CLASS"
+        ]
+      },
+      {
+        "path": "src/lib/worklog-shifts.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "minutesFromTimeLabel",
+          "timeLabelFromMinutes",
+          "localDateAndMinuteFromIso",
+          "computeWorkdayDateLocal",
+          "toIsoFromLocalDateTime",
+          "toIsoFromLocalDate"
+        ]
+      },
+      {
+        "path": "src/types/worklog.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "EquipmentItem",
+          "JobAsset"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-page.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "WorklogPage"
+        ]
+      }
+    ],
+    "src/components/worklog/worklog-dnd-provider.tsx": [
+      {
+        "path": "src/components/worklog/worklog-page.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "WorklogPage"
+        ]
+      }
+    ],
+    "src/components/worklog/worklog-editor-toolbar.tsx": [
+      {
+        "path": "src/components/ui/button.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Button",
+          "buttonVariants"
+        ]
+      },
+      {
+        "path": "src/components/ui/dropdown-menu.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "DropdownMenu",
+          "DropdownMenuPortal",
+          "DropdownMenuTrigger",
+          "DropdownMenuContent",
+          "DropdownMenuGroup",
+          "DropdownMenuLabel",
+          "DropdownMenuItem",
+          "DropdownMenuCheckboxItem",
+          "DropdownMenuRadioGroup",
+          "DropdownMenuRadioItem",
+          "DropdownMenuSeparator",
+          "DropdownMenuShortcut",
+          "DropdownMenuSub",
+          "DropdownMenuSubTrigger",
+          "DropdownMenuSubContent"
+        ]
+      },
+      {
+        "path": "src/components/ui/input.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Input"
+        ]
+      },
+      {
+        "path": "src/lib/worklog/tiptap/mood-block.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "MoodBlock"
+        ]
+      },
+      {
+        "path": "src/lib/worklog/tiptap/slash-commands.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "SLASH_COMMANDS",
+          "filterSlashCommands",
+          "SlashCommands"
+        ]
+      },
+      {
+        "path": "src/lib/worklog/tiptap/tag-mention.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "normalizeTagLabel",
+          "TagMention"
+        ]
+      },
+      {
+        "path": "src/types/worklog.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "EquipmentItem",
+          "JobAsset"
+        ]
+      }
+    ],
+    "src/components/worklog/worklog-editor.tsx": [
+      {
+        "path": "src/lib/utils.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "cn"
+        ]
+      },
+      {
+        "path": "src/lib/worklog/photo-upload.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "uploadBodyPhoto",
+          "patchBodyPhotoCaption",
+          "reconcileBodyPhotos"
+        ]
+      },
+      {
+        "path": "src/lib/worklog/prosemirror-to-text.ts",
+        "batchIndex": 18,
+        "symbols": [
+          "proseMirrorDocToPlainText",
+          "extractMentionAssetIds",
+          "plainTextToProseMirrorDoc"
+        ]
+      },
+      {
+        "path": "src/lib/worklog/tiptap/canvas-node.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "CanvasNode"
+        ]
+      },
+      {
+        "path": "src/lib/worklog/tiptap/mention-node.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "ENTITY_TYPE_CONFIG",
+          "MentionNode"
+        ]
+      },
+      {
+        "path": "src/lib/worklog/tiptap/mood-block.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "MoodBlock"
+        ]
+      },
+      {
+        "path": "src/lib/worklog/tiptap/photo-node.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "PhotoNode"
+        ]
+      },
+      {
+        "path": "src/lib/worklog/tiptap/shift-block.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "ShiftBlock"
+        ]
+      },
+      {
+        "path": "src/lib/worklog/tiptap/slash-commands.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "SLASH_COMMANDS",
+          "filterSlashCommands",
+          "SlashCommands"
+        ]
+      },
+      {
+        "path": "src/lib/worklog/tiptap/tag-mention.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "normalizeTagLabel",
+          "TagMention"
+        ]
+      },
+      {
+        "path": "src/lib/worklog/yjs-provider.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "getWorklogYHandle",
+          "_resetWorklogYRegistryForTests"
+        ]
+      },
+      {
+        "path": "src/types/worklog.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "EquipmentItem",
+          "JobAsset"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-note-reader.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "WorklogNoteReader"
+        ]
+      }
+    ],
+    "src/components/worklog/worklog-folder-tree-items.tsx": [
+      {
+        "path": "src/components/worklog/worklog-folder-delete-dialog.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "WorklogFolderDeleteDialog"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-move-to-folder-dialog.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "WorklogMoveToFolderDialog"
+        ]
+      },
+      {
+        "path": "src/lib/worklog-folders.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "FOLDER_MAX_DEPTH",
+          "FOLDER_NAME_MAX",
+          "buildFolderTree",
+          "flattenFolderTree",
+          "collectDescendantIds",
+          "wouldCreateCycle",
+          "depthOfParent",
+          "validateFolderName",
+          "assertNoCycle",
+          "getDepth"
+        ]
+      },
+      {
+        "path": "src/types/worklog.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "EquipmentItem",
+          "JobAsset"
+        ]
+      }
+    ],
+    "src/components/worklog/worklog-folder-tree.tsx": [
+      {
+        "path": "src/components/ui/dropdown-menu.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "DropdownMenu",
+          "DropdownMenuPortal",
+          "DropdownMenuTrigger",
+          "DropdownMenuContent",
+          "DropdownMenuGroup",
+          "DropdownMenuLabel",
+          "DropdownMenuItem",
+          "DropdownMenuCheckboxItem",
+          "DropdownMenuRadioGroup",
+          "DropdownMenuRadioItem",
+          "DropdownMenuSeparator",
+          "DropdownMenuShortcut",
+          "DropdownMenuSub",
+          "DropdownMenuSubTrigger",
+          "DropdownMenuSubContent"
+        ]
+      },
+      {
+        "path": "src/components/ui/input.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Input"
+        ]
+      },
+      {
+        "path": "src/components/ui/popover.tsx",
+        "batchIndex": 8,
+        "symbols": [
+          "Popover",
+          "PopoverContent",
+          "PopoverDescription",
+          "PopoverHeader",
+          "PopoverTitle",
+          "PopoverTrigger"
+        ]
+      },
+      {
+        "path": "src/components/worklog/constants.ts",
+        "batchIndex": 8,
+        "symbols": [
+          "CATEGORIES",
+          "MOODS",
+          "dateLabel",
+          "DND_DROP_TARGET_CLASS",
+          "DND_ACTIVE_ROW_CLASS"
+        ]
+      },
+      {
+        "path": "src/lib/utils.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "cn"
+        ]
+      },
+      {
+        "path": "src/lib/worklog-folders.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "FOLDER_MAX_DEPTH",
+          "FOLDER_NAME_MAX",
+          "buildFolderTree",
+          "flattenFolderTree",
+          "collectDescendantIds",
+          "wouldCreateCycle",
+          "depthOfParent",
+          "validateFolderName",
+          "assertNoCycle",
+          "getDepth"
+        ]
+      },
+      {
+        "path": "src/types/worklog.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "EquipmentItem",
+          "JobAsset"
+        ]
+      }
+    ],
+    "src/components/worklog/worklog-folders-rail.tsx": [
+      {
+        "path": "src/components/worklog/constants.ts",
+        "batchIndex": 8,
+        "symbols": [
+          "CATEGORIES",
+          "MOODS",
+          "dateLabel",
+          "DND_DROP_TARGET_CLASS",
+          "DND_ACTIVE_ROW_CLASS"
+        ]
+      },
+      {
+        "path": "src/lib/utils.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "cn"
+        ]
+      },
+      {
+        "path": "src/types/worklog.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "EquipmentItem",
+          "JobAsset"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-page.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "WorklogPage"
+        ]
+      }
+    ],
+    "src/components/worklog/worklog-heatmap.tsx": [
+      {
+        "path": "src/components/ui/button.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Button",
+          "buttonVariants"
+        ]
+      },
+      {
+        "path": "src/components/worklog/heatmap-utils.ts",
+        "batchIndex": 8,
+        "symbols": [
+          "buildHeatmap",
+          "intensityClass",
+          "calcStreak"
+        ]
+      },
+      {
+        "path": "src/lib/utils.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "cn"
+        ]
+      },
+      {
+        "path": "src/types/worklog.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "EquipmentItem",
+          "JobAsset"
+        ]
+      }
+    ]
+  }
+}

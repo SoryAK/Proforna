@@ -1,0 +1,1057 @@
+{
+  "batchIndex": 5,
+  "totalBatches": 34,
+  "files": [
+    {
+      "path": "src/app/api/personal-equipment/shares/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 25,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/personal-equipment/shares/public/[token]/route.ts",
+      "language": "typescript",
+      "sizeLines": 69,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/personal-equipment/shares/route.ts",
+      "language": "typescript",
+      "sizeLines": 85,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/portal/route.ts",
+      "language": "typescript",
+      "sizeLines": 152,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/profile/route.ts",
+      "language": "typescript",
+      "sizeLines": 111,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/publish/route.ts",
+      "language": "typescript",
+      "sizeLines": 175,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/recruiter-flags/route.ts",
+      "language": "typescript",
+      "sizeLines": 89,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/reminders/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 52,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/reminders/route.ts",
+      "language": "typescript",
+      "sizeLines": 52,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/research-articles/[id]/extract/route.ts",
+      "language": "typescript",
+      "sizeLines": 63,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/research-articles/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 46,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/research-articles/fetch/route.ts",
+      "language": "typescript",
+      "sizeLines": 76,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/research-articles/route.ts",
+      "language": "typescript",
+      "sizeLines": 49,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/research-feeds/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 39,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/research-feeds/route.ts",
+      "language": "typescript",
+      "sizeLines": 62,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/residences/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 51,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/residences/route.ts",
+      "language": "typescript",
+      "sizeLines": 49,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/resume-export/docx/route.ts",
+      "language": "typescript",
+      "sizeLines": 317,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/resume-export/pdf/route.ts",
+      "language": "typescript",
+      "sizeLines": 89,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/resume-import-save/route.ts",
+      "language": "typescript",
+      "sizeLines": 199,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/resume-parse/route.ts",
+      "language": "typescript",
+      "sizeLines": 198,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/resumes/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 31,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/resumes/route.ts",
+      "language": "typescript",
+      "sizeLines": 22,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/reverse-geocode/route.ts",
+      "language": "typescript",
+      "sizeLines": 27,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/saved-searches/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 57,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/saved-searches/route.ts",
+      "language": "typescript",
+      "sizeLines": 46,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/search/route.ts",
+      "language": "typescript",
+      "sizeLines": 44,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/seed/route.ts",
+      "language": "typescript",
+      "sizeLines": 253,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/single-use-links/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 24,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/single-use-links/route.ts",
+      "language": "typescript",
+      "sizeLines": 50,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/skill-gap-suggestions/route.ts",
+      "language": "typescript",
+      "sizeLines": 79,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/skill-graph/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 65,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/skill-graph/auto-evidence/route.ts",
+      "language": "typescript",
+      "sizeLines": 237,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/skill-graph/edges/route.ts",
+      "language": "typescript",
+      "sizeLines": 62,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/skill-graph/edm/route.ts",
+      "language": "typescript",
+      "sizeLines": 593,
+      "fileCategory": "code"
+    }
+  ],
+  "batchImportData": {
+    "src/app/api/personal-equipment/shares/[id]/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/personal-equipment/shares/public/[token]/route.ts": [
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/personal-equipment/shares/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/portal/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/profile/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/publish/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/recruiter-flags/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/reminders/[id]/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/reminders/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/research-articles/[id]/extract/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/research-articles/[id]/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/research-articles/fetch/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts",
+      "src/lib/rss.ts"
+    ],
+    "src/app/api/research-articles/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/research-feeds/[id]/route.ts": [
+      "src/lib/activity.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/research-feeds/route.ts": [
+      "src/lib/activity.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts",
+      "src/lib/rss.ts"
+    ],
+    "src/app/api/residences/[id]/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/residences/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/resume-export/docx/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/resume-export/pdf/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts",
+      "src/lib/resume-pdf-template.tsx"
+    ],
+    "src/app/api/resume-import-save/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/resume-parse/route.ts": [
+      "src/lib/ai.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/resumes/[id]/route.ts": [
+      "src/lib/activity.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/resumes/route.ts": [
+      "src/lib/activity.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/reverse-geocode/route.ts": [
+      "src/lib/auth-utils.ts"
+    ],
+    "src/app/api/saved-searches/[id]/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/saved-searches/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/search/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/seed/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/single-use-links/[id]/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/single-use-links/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/skill-gap-suggestions/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/skill-graph/[id]/route.ts": [
+      "src/lib/activity.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/skill-graph/auto-evidence/route.ts": [
+      "src/lib/activity.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/gemini.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/skill-graph/edges/route.ts": [
+      "src/lib/activity.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/skill-graph/edm/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/edm.ts",
+      "src/lib/prisma.ts"
+    ]
+  },
+  "neighborMap": {
+    "src/app/api/personal-equipment/shares/[id]/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/personal-equipment/shares/public/[token]/route.ts": [
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/personal-equipment/shares/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/portal/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/profile/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/publish/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/recruiter-flags/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/reminders/[id]/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/reminders/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/research-articles/[id]/extract/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/research-articles/[id]/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/research-articles/fetch/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      },
+      {
+        "path": "src/lib/rss.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "fetchAndParseFeed",
+          "stripHtml"
+        ]
+      }
+    ],
+    "src/app/api/research-articles/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/research-feeds/[id]/route.ts": [
+      {
+        "path": "src/lib/activity.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "logActivity"
+        ]
+      },
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/research-feeds/route.ts": [
+      {
+        "path": "src/lib/activity.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "logActivity"
+        ]
+      },
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      },
+      {
+        "path": "src/lib/rss.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "fetchAndParseFeed",
+          "stripHtml"
+        ]
+      }
+    ],
+    "src/app/api/residences/[id]/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/residences/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/resume-export/docx/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/resume-export/pdf/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      },
+      {
+        "path": "src/lib/resume-pdf-template.tsx",
+        "batchIndex": 7,
+        "symbols": [
+          "ResumePdfDocument"
+        ]
+      }
+    ],
+    "src/app/api/resume-import-save/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/resume-parse/route.ts": [
+      {
+        "path": "src/lib/ai.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getAIConfig",
+          "ollamaIsAvailable",
+          "ollamaModels",
+          "ollamaChat",
+          "geminiChat",
+          "aiGenerateJSON"
+        ]
+      },
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/resumes/[id]/route.ts": [
+      {
+        "path": "src/lib/activity.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "logActivity"
+        ]
+      },
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/resumes/route.ts": [
+      {
+        "path": "src/lib/activity.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "logActivity"
+        ]
+      },
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/reverse-geocode/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      }
+    ],
+    "src/app/api/saved-searches/[id]/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/saved-searches/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/search/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/seed/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/single-use-links/[id]/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/single-use-links/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/skill-gap-suggestions/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/skill-graph/[id]/route.ts": [
+      {
+        "path": "src/lib/activity.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "logActivity"
+        ]
+      },
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/skill-graph/auto-evidence/route.ts": [
+      {
+        "path": "src/lib/activity.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "logActivity"
+        ]
+      },
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/gemini.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "callGemini",
+          "geminiErrorMessage"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/skill-graph/edges/route.ts": [
+      {
+        "path": "src/lib/activity.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "logActivity"
+        ]
+      },
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ],
+    "src/app/api/skill-graph/edm/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/edm.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "EDM_ZONES",
+          "ZONE_BASE_INTENSITY",
+          "EDM_CATEGORIES",
+          "EDM_EXPOSURE_TYPES",
+          "tenureFactor",
+          "effectiveIntensity",
+          "accumulatedIntensity",
+          "zoneToNodeType"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      }
+    ]
+  }
+}

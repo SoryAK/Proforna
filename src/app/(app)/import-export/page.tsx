@@ -20,7 +20,7 @@ const EXPORT_TYPES = [
   { type: "full-json", label: "Full Backup (JSON)", icon: FileJson, description: "Complete export of all data" },
   { type: "applications", label: "Applications (CSV)", icon: FileSpreadsheet, description: "Job applications" },
   { type: "interviews", label: "Interviews (CSV)", icon: FileSpreadsheet, description: "Interview records" },
-  { type: "contacts", label: "Contacts (CSV)", icon: FileSpreadsheet, description: "Network contacts" },
+  { type: "contacts", label: "My Network (CSV)", icon: FileSpreadsheet, description: "Network contacts" },
   { type: "skills", label: "Skills (CSV)", icon: FileSpreadsheet, description: "Skills inventory" },
   { type: "goals", label: "Goals (CSV)", icon: FileSpreadsheet, description: "Career goals & milestones" },
 ];

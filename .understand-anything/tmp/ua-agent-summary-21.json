@@ -1,0 +1,116 @@
+[
+  {
+    "path": "src/components/job-map-google.tsx",
+    "nonEmptyLines": 1993,
+    "fns": [
+      {
+        "name": "makePinSvg",
+        "start": 224,
+        "end": 240
+      },
+      {
+        "name": "JobMapGoogle",
+        "start": 288,
+        "end": 2182
+      }
+    ],
+    "exports": [
+      "JobMapGoogle"
+    ],
+    "classes": [],
+    "imports": [
+      "src/data/state-tax-zones.ts",
+      "src/lib/taxes.ts"
+    ]
+  },
+  {
+    "path": "src/data/state-tax-zones.ts",
+    "nonEmptyLines": 303,
+    "fns": [
+      {
+        "name": "getTaxZoneColor",
+        "start": 257,
+        "end": 264
+      },
+      {
+        "name": "getTaxTierLabel",
+        "start": 267,
+        "end": 274
+      },
+      {
+        "name": "formatTaxRate",
+        "start": 277,
+        "end": 280
+      },
+      {
+        "name": "getPropTaxColor",
+        "start": 283,
+        "end": 290
+      },
+      {
+        "name": "getPropTaxTierLabel",
+        "start": 293,
+        "end": 300
+      },
+      {
+        "name": "formatPropTaxAnnual",
+        "start": 303,
+        "end": 306
+      }
+    ],
+    "exports": [
+      "STATE_TAX_BY_NAME",
+      "REF_HOME_VALUE",
+      "CITY_TAX_MARKERS",
+      "COUNTY_PROP_TAX_MARKERS",
+      "getTaxZoneColor",
+      "getTaxTierLabel",
+      "formatTaxRate",
+      "getPropTaxColor",
+      "getPropTaxTierLabel",
+      "formatPropTaxAnnual",
+      "TAX_ZONE_LEGEND"
+    ],
+    "classes": [],
+    "imports": []
+  },
+  {
+    "path": "src/lib/taxes.ts",
+    "nonEmptyLines": 321,
+    "fns": [
+      {
+        "name": "resolveState",
+        "start": 199,
+        "end": 214
+      },
+      {
+        "name": "resolveCity",
+        "start": 216,
+        "end": 227
+      },
+      {
+        "name": "estimateTaxes",
+        "start": 253,
+        "end": 334
+      },
+      {
+        "name": "quickTakeHome",
+        "start": 337,
+        "end": 342
+      },
+      {
+        "name": "formatSalaryCompact",
+        "start": 345,
+        "end": 348
+      }
+    ],
+    "exports": [
+      "resolveState",
+      "estimateTaxes",
+      "quickTakeHome",
+      "formatSalaryCompact"
+    ],
+    "classes": [],
+    "imports": []
+  }
+]

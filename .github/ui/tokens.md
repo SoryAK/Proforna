@@ -1,6 +1,6 @@
 # Resumsify UI Tokens — Source of Truth
 
-Last updated: 2026-05-25
+Last updated: 2026-06-02
 
 > This file is the single source of truth for all design tokens.
 > Feature files reference these tokens. They never redefine them.
@@ -33,6 +33,7 @@ Last updated: 2026-05-25
 | `state.promote-action` | `text-amber-600 hover:text-amber-700 hover:bg-amber-50` | `dark:hover:bg-amber-950/30` | "Promote" CTA button — notable entries ready to promote |
 | `state.promote-surface` | `bg-amber-50/60 border-amber-300/40` | `dark:bg-amber-950/20 dark:border-amber-700/40` | Card/banner surface for promotable-entry callouts |
 | `state.promoted` | `text-emerald-700` | `dark:text-emerald-300` | Inline "Promoted" indicator — entry already promoted to career event |
+| `state.dirty` | `h-1.5 w-1.5 rounded-full bg-orange-400 inline-block` | *(same)* | Unsaved changes dot — inline in Save button, always orange-400 |
 | `surface.toolbar` | `bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60` | — | Sticky toolbars and top bars |
 | `surface.hover` | `hover:bg-accent/40` | — | Row hover state |
 

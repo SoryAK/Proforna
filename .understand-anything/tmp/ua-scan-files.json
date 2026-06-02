@@ -1,0 +1,3757 @@
+{
+  "scriptCompleted": true,
+  "files": [
+    {
+      "path": ".copilot/mcp-config.json",
+      "language": "json",
+      "sizeLines": 8,
+      "fileCategory": "config"
+    },
+    {
+      "path": ".features/_TEMPLATE.md",
+      "language": "markdown",
+      "sizeLines": 38,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".features/applications/applications.md",
+      "language": "markdown",
+      "sizeLines": 53,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".features/career-analytics/career-analytics.md",
+      "language": "markdown",
+      "sizeLines": 56,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".features/career-analytics/career-directional-model.md",
+      "language": "markdown",
+      "sizeLines": 382,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".features/company-deep-dive/company-deep-dive.md",
+      "language": "markdown",
+      "sizeLines": 82,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".features/current-position/current-position.md",
+      "language": "markdown",
+      "sizeLines": 59,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".features/dashboard/dashboard.md",
+      "language": "markdown",
+      "sizeLines": 52,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".features/documents/documents.md",
+      "language": "markdown",
+      "sizeLines": 47,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".features/email/email.md",
+      "language": "markdown",
+      "sizeLines": 51,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".features/experience-diffusion-model/experience-diffusion-model.md",
+      "language": "markdown",
+      "sizeLines": 310,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".features/job-search/focus-mode-cleanup.md",
+      "language": "markdown",
+      "sizeLines": 216,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".features/job-search/job-search.md",
+      "language": "markdown",
+      "sizeLines": 60,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".features/job-search/multi-query-search.md",
+      "language": "markdown",
+      "sizeLines": 133,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".features/learning/learning.md",
+      "language": "markdown",
+      "sizeLines": 42,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".features/portal/portal.md",
+      "language": "markdown",
+      "sizeLines": 52,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".features/README.md",
+      "language": "markdown",
+      "sizeLines": 19,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".features/research/research.md",
+      "language": "markdown",
+      "sizeLines": 48,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".features/resumes/resumes.md",
+      "language": "markdown",
+      "sizeLines": 43,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".features/worker-rights/worker-rights.md",
+      "language": "markdown",
+      "sizeLines": 37,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".gitattributes",
+      "language": "unknown",
+      "sizeLines": 5,
+      "fileCategory": "code"
+    },
+    {
+      "path": ".github/agents/axiom.agent.md",
+      "language": "markdown",
+      "sizeLines": 44,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".github/agents/echo.agent.md",
+      "language": "markdown",
+      "sizeLines": 44,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".github/agents/nova.agent.md",
+      "language": "markdown",
+      "sizeLines": 38,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".github/agents/ralph.agent.md",
+      "language": "markdown",
+      "sizeLines": 34,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".github/agents/rex.agent.md",
+      "language": "markdown",
+      "sizeLines": 35,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".github/agents/scribe.agent.md",
+      "language": "markdown",
+      "sizeLines": 36,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".github/agents/squad.agent.md",
+      "language": "markdown",
+      "sizeLines": 1325,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".github/copilot-instructions.md",
+      "language": "markdown",
+      "sizeLines": 155,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".github/ui/global.md",
+      "language": "markdown",
+      "sizeLines": 166,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".github/ui/index.md",
+      "language": "markdown",
+      "sizeLines": 33,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".github/ui/maps.md",
+      "language": "markdown",
+      "sizeLines": 15,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".github/ui/resume.md",
+      "language": "markdown",
+      "sizeLines": 15,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".github/ui/tokens.md",
+      "language": "markdown",
+      "sizeLines": 123,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".github/ui/worklog.md",
+      "language": "markdown",
+      "sizeLines": 180,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".github/workflows/squad-heartbeat.yml",
+      "language": "yaml",
+      "sizeLines": 167,
+      "fileCategory": "infra"
+    },
+    {
+      "path": ".github/workflows/squad-issue-assign.yml",
+      "language": "yaml",
+      "sizeLines": 161,
+      "fileCategory": "infra"
+    },
+    {
+      "path": ".github/workflows/squad-triage.yml",
+      "language": "yaml",
+      "sizeLines": 262,
+      "fileCategory": "infra"
+    },
+    {
+      "path": ".github/workflows/sync-squad-labels.yml",
+      "language": "yaml",
+      "sizeLines": 171,
+      "fileCategory": "infra"
+    },
+    {
+      "path": ".Manual/_template.md",
+      "language": "markdown",
+      "sizeLines": 51,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".Manual/README.md",
+      "language": "markdown",
+      "sizeLines": 44,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".Manual/worklog-bulk-actions.md",
+      "language": "markdown",
+      "sizeLines": 80,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".Manual/worklog-dnd-reorder.md",
+      "language": "markdown",
+      "sizeLines": 78,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".Manual/worklog-folders.md",
+      "language": "markdown",
+      "sizeLines": 78,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".Manual/worklog-notes-three-pane.md",
+      "language": "markdown",
+      "sizeLines": 79,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".Manual/worklog-search.md",
+      "language": "markdown",
+      "sizeLines": 58,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".squad/.first-run",
+      "language": "unknown",
+      "sizeLines": 1,
+      "fileCategory": "code"
+    },
+    {
+      "path": ".squad/casting/history.json",
+      "language": "json",
+      "sizeLines": 4,
+      "fileCategory": "config"
+    },
+    {
+      "path": ".squad/casting/policy.json",
+      "language": "json",
+      "sizeLines": 37,
+      "fileCategory": "config"
+    },
+    {
+      "path": ".squad/casting/registry.json",
+      "language": "json",
+      "sizeLines": 3,
+      "fileCategory": "config"
+    },
+    {
+      "path": ".squad/ceremonies.md",
+      "language": "markdown",
+      "sizeLines": 69,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".squad/config.json",
+      "language": "json",
+      "sizeLines": 2,
+      "fileCategory": "config"
+    },
+    {
+      "path": ".squad/decisions.md",
+      "language": "markdown",
+      "sizeLines": 11,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".squad/identity/now.md",
+      "language": "markdown",
+      "sizeLines": 29,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".squad/identity/wisdom.md",
+      "language": "markdown",
+      "sizeLines": 41,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".squad/routing.md",
+      "language": "markdown",
+      "sizeLines": 47,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".squad/team.md",
+      "language": "markdown",
+      "sizeLines": 28,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".understand-anything/.understandignore",
+      "language": "unknown",
+      "sizeLines": 63,
+      "fileCategory": "code"
+    },
+    {
+      "path": ".understand-anything/tmp/ua-scan-files.json",
+      "language": "json",
+      "sizeLines": 3811,
+      "fileCategory": "config"
+    },
+    {
+      "path": "components.json",
+      "language": "json",
+      "sizeLines": 25,
+      "fileCategory": "config"
+    },
+    {
+      "path": "docs/adr/0001-record-architecture-decisions.md",
+      "language": "markdown",
+      "sizeLines": 80,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/adr/0002-nextjs-16-turbopack.md",
+      "language": "markdown",
+      "sizeLines": 78,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/adr/0003-prisma-v6-over-v7.md",
+      "language": "markdown",
+      "sizeLines": 75,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/adr/0004-shadcn-ui-v2-base-ui.md",
+      "language": "markdown",
+      "sizeLines": 71,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/adr/0005-google-maps-js-api-loader-v2.md",
+      "language": "markdown",
+      "sizeLines": 74,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/adr/0006-job-map-view-preset-hot-swap.md",
+      "language": "markdown",
+      "sizeLines": 88,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/adr/0007-worklog-notes-three-pane-redesign.md",
+      "language": "markdown",
+      "sizeLines": 39,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/adr/0008-worklog-capture-acceleration-and-draft-persistence.md",
+      "language": "markdown",
+      "sizeLines": 41,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/adr/0009-worklog-server-backed-draft-sync.md",
+      "language": "markdown",
+      "sizeLines": 41,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/adr/0010-tiptap-yjs-worklog-editor.md",
+      "language": "markdown",
+      "sizeLines": 66,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/adr/0011-postgres-tsvector-worklog-search.md",
+      "language": "markdown",
+      "sizeLines": 99,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/adr/0011-worklog-promotion-ai-extraction-pipeline.md",
+      "language": "markdown",
+      "sizeLines": 109,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/adr/0011-worklog-user-defined-folders.md",
+      "language": "markdown",
+      "sizeLines": 81,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/adr/0012-asset-library-knowledge-backbone.md",
+      "language": "markdown",
+      "sizeLines": 230,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/adr/0012-w2.1-dnd-context-and-tree-strategy.md",
+      "language": "markdown",
+      "sizeLines": 41,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/adr/README.md",
+      "language": "markdown",
+      "sizeLines": 52,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/adr/template.md",
+      "language": "markdown",
+      "sizeLines": 57,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/plans/skill-graph-revamp.md",
+      "language": "markdown",
+      "sizeLines": 201,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/plans/worklog-w1-w2-roadmap.md",
+      "language": "markdown",
+      "sizeLines": 138,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "eslint.config.mjs",
+      "language": "javascript",
+      "sizeLines": 18,
+      "fileCategory": "code"
+    },
+    {
+      "path": "fix.js",
+      "language": "javascript",
+      "sizeLines": 34,
+      "fileCategory": "code"
+    },
+    {
+      "path": "IMPROVEMENTS.md",
+      "language": "markdown",
+      "sizeLines": 386,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "Improvents.md",
+      "language": "markdown",
+      "sizeLines": 135,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "next.config.ts",
+      "language": "typescript",
+      "sizeLines": 15,
+      "fileCategory": "code"
+    },
+    {
+      "path": "package.json",
+      "language": "json",
+      "sizeLines": 107,
+      "fileCategory": "config"
+    },
+    {
+      "path": "postcss.config.mjs",
+      "language": "javascript",
+      "sizeLines": 7,
+      "fileCategory": "code"
+    },
+    {
+      "path": "prisma/schema.prisma",
+      "language": "prisma",
+      "sizeLines": 2523,
+      "fileCategory": "data"
+    },
+    {
+      "path": "PROJECT_PLAN.md",
+      "language": "markdown",
+      "sizeLines": 254,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "public/data/us-states.json",
+      "language": "json",
+      "sizeLines": 53,
+      "fileCategory": "config"
+    },
+    {
+      "path": "public/manifest.json",
+      "language": "json",
+      "sizeLines": 25,
+      "fileCategory": "config"
+    },
+    {
+      "path": "public/sw.js",
+      "language": "javascript",
+      "sizeLines": 41,
+      "fileCategory": "code"
+    },
+    {
+      "path": "public/uploads/attachments/att-e0dccefb72ab3efb.docx",
+      "language": "docx",
+      "sizeLines": 42,
+      "fileCategory": "code"
+    },
+    {
+      "path": "README.md",
+      "language": "markdown",
+      "sizeLines": 36,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "scripts/check-profile.js",
+      "language": "javascript",
+      "sizeLines": 8,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/activity/page.tsx",
+      "language": "typescript",
+      "sizeLines": 230,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/analytics/page.tsx",
+      "language": "typescript",
+      "sizeLines": 356,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/applications/page.tsx",
+      "language": "typescript",
+      "sizeLines": 1328,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/asset-types/page.tsx",
+      "language": "typescript",
+      "sizeLines": 11,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/career-growth/page.tsx",
+      "language": "typescript",
+      "sizeLines": 435,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/career-model/page.tsx",
+      "language": "typescript",
+      "sizeLines": 3458,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/company/[name]/page.tsx",
+      "language": "typescript",
+      "sizeLines": 69,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/contacts/page.tsx",
+      "language": "typescript",
+      "sizeLines": 411,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/current-position/page.tsx",
+      "language": "typescript",
+      "sizeLines": 1413,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/dashboard/page.tsx",
+      "language": "typescript",
+      "sizeLines": 1278,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/docs/page.tsx",
+      "language": "typescript",
+      "sizeLines": 33,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/documents/page.tsx",
+      "language": "typescript",
+      "sizeLines": 420,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/email/page.tsx",
+      "language": "typescript",
+      "sizeLines": 440,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/experience/[id]/page.tsx",
+      "language": "typescript",
+      "sizeLines": 1327,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/experience/page.tsx",
+      "language": "typescript",
+      "sizeLines": 333,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/experience/verify/page.tsx",
+      "language": "typescript",
+      "sizeLines": 696,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/goals/page.tsx",
+      "language": "typescript",
+      "sizeLines": 515,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/import-export/page.tsx",
+      "language": "typescript",
+      "sizeLines": 207,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/insights/page.tsx",
+      "language": "typescript",
+      "sizeLines": 33,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/integrations/page.tsx",
+      "language": "typescript",
+      "sizeLines": 282,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/interviews/page.tsx",
+      "language": "typescript",
+      "sizeLines": 5,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/inventory/page.tsx",
+      "language": "typescript",
+      "sizeLines": 13,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/job-assets/page.tsx",
+      "language": "typescript",
+      "sizeLines": 13,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/job-postings/page.tsx",
+      "language": "typescript",
+      "sizeLines": 830,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/job-search/page.tsx",
+      "language": "typescript",
+      "sizeLines": 63,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/layout.tsx",
+      "language": "typescript",
+      "sizeLines": 31,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/learning/page.tsx",
+      "language": "typescript",
+      "sizeLines": 703,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/master-gallery/page.tsx",
+      "language": "typescript",
+      "sizeLines": 16,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/offer-compare/page.tsx",
+      "language": "typescript",
+      "sizeLines": 298,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/portal-settings/page.tsx",
+      "language": "typescript",
+      "sizeLines": 1439,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/portal/layout.tsx",
+      "language": "typescript",
+      "sizeLines": 12,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/portal/page.tsx",
+      "language": "typescript",
+      "sizeLines": 648,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/profile/page.tsx",
+      "language": "typescript",
+      "sizeLines": 38,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/research/page.tsx",
+      "language": "typescript",
+      "sizeLines": 50,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/resumes/page.tsx",
+      "language": "typescript",
+      "sizeLines": 749,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/skill-graph/page.tsx",
+      "language": "typescript",
+      "sizeLines": 11,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/skills/page.tsx",
+      "language": "typescript",
+      "sizeLines": 474,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/submissions/page.tsx",
+      "language": "typescript",
+      "sizeLines": 512,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/worker-rights/page.tsx",
+      "language": "typescript",
+      "sizeLines": 606,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/worklog/page.tsx",
+      "language": "typescript",
+      "sizeLines": 17,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/access-requests/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 75,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/access-requests/route.ts",
+      "language": "typescript",
+      "sizeLines": 67,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/activity/route.ts",
+      "language": "typescript",
+      "sizeLines": 33,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/address-overrides/route.ts",
+      "language": "typescript",
+      "sizeLines": 72,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/adzuna/route.ts",
+      "language": "typescript",
+      "sizeLines": 117,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/ai/chat/route.ts",
+      "language": "typescript",
+      "sizeLines": 112,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/ai/context/route.ts",
+      "language": "typescript",
+      "sizeLines": 139,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/ai/models/route.ts",
+      "language": "typescript",
+      "sizeLines": 49,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/analytics/route.ts",
+      "language": "typescript",
+      "sizeLines": 223,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/applications/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 175,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/applications/route.ts",
+      "language": "typescript",
+      "sizeLines": 35,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/asset-types/[id]/documents/route.ts",
+      "language": "typescript",
+      "sizeLines": 98,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/asset-types/[id]/links/route.ts",
+      "language": "typescript",
+      "sizeLines": 97,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/asset-types/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 109,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/asset-types/route.ts",
+      "language": "typescript",
+      "sizeLines": 92,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/attachments/route.ts",
+      "language": "typescript",
+      "sizeLines": 218,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/auth/[...nextauth]/route.ts",
+      "language": "typescript",
+      "sizeLines": 3,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/auth/google/callback/route.ts",
+      "language": "typescript",
+      "sizeLines": 65,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/auth/google/route.ts",
+      "language": "typescript",
+      "sizeLines": 7,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/auth/microsoft/callback/route.ts",
+      "language": "typescript",
+      "sizeLines": 67,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/auth/microsoft/route.ts",
+      "language": "typescript",
+      "sizeLines": 7,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/auth/register/route.ts",
+      "language": "typescript",
+      "sizeLines": 51,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/avatar/route.ts",
+      "language": "typescript",
+      "sizeLines": 52,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/backfill-place-ids/route.ts",
+      "language": "typescript",
+      "sizeLines": 83,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/benefits/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 30,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/benefits/route.ts",
+      "language": "typescript",
+      "sizeLines": 52,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/building-footprints/nearby/route.ts",
+      "language": "typescript",
+      "sizeLines": 93,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/building-footprints/route.ts",
+      "language": "typescript",
+      "sizeLines": 334,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/career-paths/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 82,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/career-paths/route.ts",
+      "language": "typescript",
+      "sizeLines": 50,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/career-snapshots/route.ts",
+      "language": "typescript",
+      "sizeLines": 217,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/cdm/decompose/route.ts",
+      "language": "typescript",
+      "sizeLines": 242,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/cdm/synonyms/route.ts",
+      "language": "typescript",
+      "sizeLines": 151,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/certifications/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 31,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/certifications/route.ts",
+      "language": "typescript",
+      "sizeLines": 22,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/cfm/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 72,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/cfm/route.ts",
+      "language": "typescript",
+      "sizeLines": 388,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/commute-matrix/route.ts",
+      "language": "typescript",
+      "sizeLines": 134,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/commute/route.ts",
+      "language": "typescript",
+      "sizeLines": 368,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/company-lookup/route.ts",
+      "language": "typescript",
+      "sizeLines": 249,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/company-research/dol/route.ts",
+      "language": "typescript",
+      "sizeLines": 81,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/company-research/knowledge-graph/route.ts",
+      "language": "typescript",
+      "sizeLines": 109,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/company-research/news/route.ts",
+      "language": "typescript",
+      "sizeLines": 44,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/company-research/opencorporates/route.ts",
+      "language": "typescript",
+      "sizeLines": 149,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/company-research/osha/route.ts",
+      "language": "typescript",
+      "sizeLines": 87,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/company-research/route.ts",
+      "language": "typescript",
+      "sizeLines": 189,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/company-research/sec/route.ts",
+      "language": "typescript",
+      "sizeLines": 98,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/company-watchlist/route.ts",
+      "language": "typescript",
+      "sizeLines": 47,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/compensation/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 29,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/compensation/route.ts",
+      "language": "typescript",
+      "sizeLines": 50,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/contacts/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 31,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/contacts/route.ts",
+      "language": "typescript",
+      "sizeLines": 22,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/current-position/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 111,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/current-position/route.ts",
+      "language": "typescript",
+      "sizeLines": 117,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/dashboard/route.ts",
+      "language": "typescript",
+      "sizeLines": 190,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/detect-duplicates/route.ts",
+      "language": "typescript",
+      "sizeLines": 97,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/documents/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 60,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/documents/route.ts",
+      "language": "typescript",
+      "sizeLines": 104,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/email-accounts/route.ts",
+      "language": "typescript",
+      "sizeLines": 35,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/email-leads/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 25,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/email-leads/ingest/route.ts",
+      "language": "typescript",
+      "sizeLines": 134,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/email-leads/parse/route.ts",
+      "language": "typescript",
+      "sizeLines": 139,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/email-leads/route.ts",
+      "language": "typescript",
+      "sizeLines": 69,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/email-leads/sync/route.ts",
+      "language": "typescript",
+      "sizeLines": 204,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/email-leads/token/route.ts",
+      "language": "typescript",
+      "sizeLines": 49,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/emails/link/route.ts",
+      "language": "typescript",
+      "sizeLines": 146,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/emails/route.ts",
+      "language": "typescript",
+      "sizeLines": 255,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/employer-alias/route.ts",
+      "language": "typescript",
+      "sizeLines": 185,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/employment-report/compare/route.ts",
+      "language": "typescript",
+      "sizeLines": 321,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/employment-report/import/route.ts",
+      "language": "typescript",
+      "sizeLines": 250,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/employment-report/upload/route.ts",
+      "language": "typescript",
+      "sizeLines": 164,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/equipment-resources/[id]/download/route.ts",
+      "language": "typescript",
+      "sizeLines": 34,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/equipment-resources/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 70,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/equipment-resources/route.ts",
+      "language": "typescript",
+      "sizeLines": 86,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/equipment-search/route.ts",
+      "language": "typescript",
+      "sizeLines": 66,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/equipment/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 57,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/equipment/photos/route.ts",
+      "language": "typescript",
+      "sizeLines": 185,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/equipment/route.ts",
+      "language": "typescript",
+      "sizeLines": 133,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/export/route.ts",
+      "language": "typescript",
+      "sizeLines": 122,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/extract-location/route.ts",
+      "language": "typescript",
+      "sizeLines": 86,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/gallery/albums/route.ts",
+      "language": "typescript",
+      "sizeLines": 168,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/gallery/annotations/comments/route.ts",
+      "language": "typescript",
+      "sizeLines": 102,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/gallery/annotations/route.ts",
+      "language": "typescript",
+      "sizeLines": 260,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/gallery/annotations/upload/route.ts",
+      "language": "typescript",
+      "sizeLines": 44,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/gallery/export/route.ts",
+      "language": "typescript",
+      "sizeLines": 58,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/gallery/route.ts",
+      "language": "typescript",
+      "sizeLines": 335,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/gallery/videos/route.ts",
+      "language": "typescript",
+      "sizeLines": 424,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/gas-prices/route.ts",
+      "language": "typescript",
+      "sizeLines": 131,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/geocode/route.ts",
+      "language": "typescript",
+      "sizeLines": 92,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/goals/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 35,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/goals/route.ts",
+      "language": "typescript",
+      "sizeLines": 33,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/google-news/route.ts",
+      "language": "typescript",
+      "sizeLines": 71,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/google-scholar/route.ts",
+      "language": "typescript",
+      "sizeLines": 84,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/hours-worked/route.ts",
+      "language": "typescript",
+      "sizeLines": 279,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/import/route.ts",
+      "language": "typescript",
+      "sizeLines": 229,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/income-history/route.ts",
+      "language": "typescript",
+      "sizeLines": 77,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/integrations/[id]/sync/route.ts",
+      "language": "typescript",
+      "sizeLines": 104,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/integrations/route.ts",
+      "language": "typescript",
+      "sizeLines": 91,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/interactive-resumes/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 47,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/interactive-resumes/[id]/views/route.ts",
+      "language": "typescript",
+      "sizeLines": 44,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/interactive-resumes/public/[slug]/contact/route.ts",
+      "language": "typescript",
+      "sizeLines": 108,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/interactive-resumes/public/[slug]/route.ts",
+      "language": "typescript",
+      "sizeLines": 363,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/interactive-resumes/route.ts",
+      "language": "typescript",
+      "sizeLines": 36,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/interactive-resumes/view/[slug]/route.ts",
+      "language": "typescript",
+      "sizeLines": 29,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/interest-groups/[id]/items/route.ts",
+      "language": "typescript",
+      "sizeLines": 54,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/interest-groups/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 43,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/interest-groups/route.ts",
+      "language": "typescript",
+      "sizeLines": 30,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/interview-prep/route.ts",
+      "language": "typescript",
+      "sizeLines": 86,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/interview-room/route.ts",
+      "language": "typescript",
+      "sizeLines": 37,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/interview-room/signal/route.ts",
+      "language": "typescript",
+      "sizeLines": 63,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/interviews/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 31,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/interviews/route.ts",
+      "language": "typescript",
+      "sizeLines": 28,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/ir/[slug]/analytics/route.ts",
+      "language": "typescript",
+      "sizeLines": 211,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/ir/events/route.ts",
+      "language": "typescript",
+      "sizeLines": 153,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/irs-return-parse/route.ts",
+      "language": "typescript",
+      "sizeLines": 497,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/isochrone/route.ts",
+      "language": "typescript",
+      "sizeLines": 137,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/job-assets/[id]/documents/route.ts",
+      "language": "typescript",
+      "sizeLines": 98,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/job-assets/[id]/links/route.ts",
+      "language": "typescript",
+      "sizeLines": 97,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/job-assets/photos/route.ts",
+      "language": "typescript",
+      "sizeLines": 246,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/job-assets/route.ts",
+      "language": "typescript",
+      "sizeLines": 181,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/job-board/route.ts",
+      "language": "typescript",
+      "sizeLines": 84,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/job-parse/route.ts",
+      "language": "typescript",
+      "sizeLines": 106,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/job-postings/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 79,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/job-postings/route.ts",
+      "language": "typescript",
+      "sizeLines": 93,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/job-search/route.ts",
+      "language": "typescript",
+      "sizeLines": 86,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/learning/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 56,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/learning/generate/route.ts",
+      "language": "typescript",
+      "sizeLines": 187,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/learning/route.ts",
+      "language": "typescript",
+      "sizeLines": 39,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/learning/sessions/route.ts",
+      "language": "typescript",
+      "sizeLines": 100,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/learning/topics/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 43,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/learning/topics/route.ts",
+      "language": "typescript",
+      "sizeLines": 60,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/life-anchors/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 57,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/life-anchors/route.ts",
+      "language": "typescript",
+      "sizeLines": 48,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/map-drawings/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 34,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/map-drawings/layers/route.ts",
+      "language": "typescript",
+      "sizeLines": 96,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/map-drawings/route.ts",
+      "language": "typescript",
+      "sizeLines": 73,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/market-research/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 31,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/market-research/bls/route.ts",
+      "language": "typescript",
+      "sizeLines": 228,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/market-research/occupations/route.ts",
+      "language": "typescript",
+      "sizeLines": 37,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/market-research/route.ts",
+      "language": "typescript",
+      "sizeLines": 34,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/master-gallery/move/route.ts",
+      "language": "typescript",
+      "sizeLines": 129,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/master-gallery/photos/route.ts",
+      "language": "typescript",
+      "sizeLines": 68,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/master-gallery/route.ts",
+      "language": "typescript",
+      "sizeLines": 103,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/milestones/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 28,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/milestones/route.ts",
+      "language": "typescript",
+      "sizeLines": 12,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/nearby-amenities/route.ts",
+      "language": "typescript",
+      "sizeLines": 89,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/nearby-buildings/route.ts",
+      "language": "typescript",
+      "sizeLines": 112,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/offer-compare/route.ts",
+      "language": "typescript",
+      "sizeLines": 150,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/onet/import/route.ts",
+      "language": "typescript",
+      "sizeLines": 166,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/onet/ingest-csv/route.ts",
+      "language": "typescript",
+      "sizeLines": 137,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/onet/ingest/route.ts",
+      "language": "typescript",
+      "sizeLines": 164,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/onet/occupation/[code]/route.ts",
+      "language": "typescript",
+      "sizeLines": 82,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/onet/search/route.ts",
+      "language": "typescript",
+      "sizeLines": 36,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/pay-periods/route.ts",
+      "language": "typescript",
+      "sizeLines": 180,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/paycheck-parse/route.ts",
+      "language": "typescript",
+      "sizeLines": 669,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/paycheck-records/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 64,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/paycheck-records/route.ts",
+      "language": "typescript",
+      "sizeLines": 83,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/personal-equipment/bulk-upload/route.ts",
+      "language": "typescript",
+      "sizeLines": 96,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/personal-equipment/duplicate/route.ts",
+      "language": "typescript",
+      "sizeLines": 99,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/personal-equipment/kits/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 158,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/personal-equipment/kits/route.ts",
+      "language": "typescript",
+      "sizeLines": 116,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/personal-equipment/photos/route.ts",
+      "language": "typescript",
+      "sizeLines": 238,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/personal-equipment/route.ts",
+      "language": "typescript",
+      "sizeLines": 182,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/personal-equipment/shares/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 25,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/personal-equipment/shares/public/[token]/route.ts",
+      "language": "typescript",
+      "sizeLines": 69,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/personal-equipment/shares/route.ts",
+      "language": "typescript",
+      "sizeLines": 85,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/portal/route.ts",
+      "language": "typescript",
+      "sizeLines": 152,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/profile/compensation/route.ts",
+      "language": "typescript",
+      "sizeLines": 173,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/profile/route.ts",
+      "language": "typescript",
+      "sizeLines": 111,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/publish/route.ts",
+      "language": "typescript",
+      "sizeLines": 175,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/recruiter-flags/route.ts",
+      "language": "typescript",
+      "sizeLines": 89,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/recruiter/list/route.ts",
+      "language": "typescript",
+      "sizeLines": 100,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/recruiter/notes/route.ts",
+      "language": "typescript",
+      "sizeLines": 93,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/recruiter/saves/route.ts",
+      "language": "typescript",
+      "sizeLines": 156,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/reminders/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 52,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/reminders/route.ts",
+      "language": "typescript",
+      "sizeLines": 52,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/research-articles/[id]/extract/route.ts",
+      "language": "typescript",
+      "sizeLines": 63,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/research-articles/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 46,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/research-articles/fetch/route.ts",
+      "language": "typescript",
+      "sizeLines": 76,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/research-articles/route.ts",
+      "language": "typescript",
+      "sizeLines": 49,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/research-feeds/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 39,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/research-feeds/route.ts",
+      "language": "typescript",
+      "sizeLines": 62,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/residences/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 51,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/residences/route.ts",
+      "language": "typescript",
+      "sizeLines": 49,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/resolve-address/route.ts",
+      "language": "typescript",
+      "sizeLines": 232,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/resume-export/docx/route.ts",
+      "language": "typescript",
+      "sizeLines": 317,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/resume-export/pdf/route.ts",
+      "language": "typescript",
+      "sizeLines": 89,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/resume-import-save/route.ts",
+      "language": "typescript",
+      "sizeLines": 199,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/resume-parse/route.ts",
+      "language": "typescript",
+      "sizeLines": 198,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/resumes/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 31,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/resumes/route.ts",
+      "language": "typescript",
+      "sizeLines": 22,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/reverse-geocode/route.ts",
+      "language": "typescript",
+      "sizeLines": 27,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/saved-searches/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 57,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/saved-searches/route.ts",
+      "language": "typescript",
+      "sizeLines": 46,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/search/route.ts",
+      "language": "typescript",
+      "sizeLines": 44,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/seed/route.ts",
+      "language": "typescript",
+      "sizeLines": 253,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/single-use-links/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 24,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/single-use-links/route.ts",
+      "language": "typescript",
+      "sizeLines": 50,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/skill-gap-suggestions/route.ts",
+      "language": "typescript",
+      "sizeLines": 79,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/skill-graph/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 65,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/skill-graph/auto-evidence/route.ts",
+      "language": "typescript",
+      "sizeLines": 237,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/skill-graph/edges/route.ts",
+      "language": "typescript",
+      "sizeLines": 62,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/skill-graph/edm/route.ts",
+      "language": "typescript",
+      "sizeLines": 593,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/skill-graph/evidence/route.ts",
+      "language": "typescript",
+      "sizeLines": 58,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/skill-graph/ingest/route.ts",
+      "language": "typescript",
+      "sizeLines": 194,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/skill-graph/occupations/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 129,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/skill-graph/occupations/fit/route.ts",
+      "language": "typescript",
+      "sizeLines": 153,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/skill-graph/occupations/route.ts",
+      "language": "typescript",
+      "sizeLines": 96,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/skill-graph/route.ts",
+      "language": "typescript",
+      "sizeLines": 124,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/skill-graph/scaffold/refresh/route.ts",
+      "language": "typescript",
+      "sizeLines": 206,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/skill-graph/scaffold/route.ts",
+      "language": "typescript",
+      "sizeLines": 294,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/skill-graph/sync-profile/route.ts",
+      "language": "typescript",
+      "sizeLines": 446,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/skills/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 31,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/skills/route.ts",
+      "language": "typescript",
+      "sizeLines": 22,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/submissions/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 41,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/submissions/[id]/vcard/route.ts",
+      "language": "typescript",
+      "sizeLines": 63,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/submissions/route.ts",
+      "language": "typescript",
+      "sizeLines": 24,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/time-off-entries/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 31,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/time-off-entries/route.ts",
+      "language": "typescript",
+      "sizeLines": 32,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/time-off/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 28,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/time-off/route.ts",
+      "language": "typescript",
+      "sizeLines": 41,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/usajobs/route.ts",
+      "language": "typescript",
+      "sizeLines": 213,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/vehicle-lookup/route.ts",
+      "language": "typescript",
+      "sizeLines": 58,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/w2-parse/route.ts",
+      "language": "typescript",
+      "sizeLines": 529,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/w2-records/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 53,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/w2-records/route.ts",
+      "language": "typescript",
+      "sizeLines": 64,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/walk-score/route.ts",
+      "language": "typescript",
+      "sizeLines": 76,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/work-history/[id]/events/[eventId]/photos/route.ts",
+      "language": "typescript",
+      "sizeLines": 120,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/work-history/[id]/events/[eventId]/route.ts",
+      "language": "typescript",
+      "sizeLines": 86,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/work-history/[id]/events/route.ts",
+      "language": "typescript",
+      "sizeLines": 88,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/work-history/[id]/link/route.ts",
+      "language": "typescript",
+      "sizeLines": 6,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/work-history/[id]/locations/[locId]/photos/route.ts",
+      "language": "typescript",
+      "sizeLines": 96,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/work-history/[id]/locations/[locId]/route.ts",
+      "language": "typescript",
+      "sizeLines": 66,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/work-history/[id]/locations/route.ts",
+      "language": "typescript",
+      "sizeLines": 49,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/work-history/[id]/milestones/route.ts",
+      "language": "typescript",
+      "sizeLines": 77,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/work-history/[id]/notes/route.ts",
+      "language": "typescript",
+      "sizeLines": 70,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/work-history/[id]/rating/route.ts",
+      "language": "typescript",
+      "sizeLines": 52,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/work-history/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 213,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/work-history/[id]/shifts/[shiftId]/route.ts",
+      "language": "typescript",
+      "sizeLines": 72,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/work-history/[id]/shifts/route.ts",
+      "language": "typescript",
+      "sizeLines": 63,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/work-history/route.ts",
+      "language": "typescript",
+      "sizeLines": 47,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/work-history/search/route.ts",
+      "language": "typescript",
+      "sizeLines": 314,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/work-logs/[id]/route.test.ts",
+      "language": "typescript",
+      "sizeLines": 229,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/work-logs/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 184,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/work-logs/bulk/route.ts",
+      "language": "typescript",
+      "sizeLines": 122,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/work-logs/drafts/route.ts",
+      "language": "typescript",
+      "sizeLines": 169,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/work-logs/folders/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 211,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/work-logs/folders/reorder/route.test.ts",
+      "language": "typescript",
+      "sizeLines": 250,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/work-logs/folders/reorder/route.ts",
+      "language": "typescript",
+      "sizeLines": 164,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/work-logs/folders/route.ts",
+      "language": "typescript",
+      "sizeLines": 124,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/work-logs/mention-search/route.test.ts",
+      "language": "typescript",
+      "sizeLines": 221,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/work-logs/mention-search/route.ts",
+      "language": "typescript",
+      "sizeLines": 174,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/work-logs/photos/reconcile/route.ts",
+      "language": "typescript",
+      "sizeLines": 77,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/work-logs/photos/route.ts",
+      "language": "typescript",
+      "sizeLines": 173,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/work-logs/preferences/route.ts",
+      "language": "typescript",
+      "sizeLines": 159,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/work-logs/reorder/route.test.ts",
+      "language": "typescript",
+      "sizeLines": 178,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/work-logs/reorder/route.ts",
+      "language": "typescript",
+      "sizeLines": 112,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/work-logs/route.ts",
+      "language": "typescript",
+      "sizeLines": 223,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/work-logs/search/route.ts",
+      "language": "typescript",
+      "sizeLines": 131,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/work-logs/templates/route.ts",
+      "language": "typescript",
+      "sizeLines": 78,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/worker-rights/route.ts",
+      "language": "typescript",
+      "sizeLines": 121,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/globals.css",
+      "language": "css",
+      "sizeLines": 200,
+      "fileCategory": "markup"
+    },
+    {
+      "path": "src/app/interview/[roomId]/layout.tsx",
+      "language": "typescript",
+      "sizeLines": 7,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/interview/[roomId]/page.tsx",
+      "language": "typescript",
+      "sizeLines": 214,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/jobs/[slug]/page.tsx",
+      "language": "typescript",
+      "sizeLines": 239,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/layout.tsx",
+      "language": "typescript",
+      "sizeLines": 60,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/login/page.tsx",
+      "language": "typescript",
+      "sizeLines": 279,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/onboarding/page.tsx",
+      "language": "typescript",
+      "sizeLines": 833,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/page.tsx",
+      "language": "typescript",
+      "sizeLines": 598,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/r/[slug]/layout.tsx",
+      "language": "typescript",
+      "sizeLines": 3,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/r/[slug]/page.tsx",
+      "language": "typescript",
+      "sizeLines": 900,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/recruiter-saved/page.tsx",
+      "language": "typescript",
+      "sizeLines": 461,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/share/inventory/[token]/page.tsx",
+      "language": "typescript",
+      "sizeLines": 285,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/adaptive-ir-editor.tsx",
+      "language": "typescript",
+      "sizeLines": 337,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/ai-chat.tsx",
+      "language": "typescript",
+      "sizeLines": 568,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/annotation-compare.tsx",
+      "language": "typescript",
+      "sizeLines": 193,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/annotation-editor.tsx",
+      "language": "typescript",
+      "sizeLines": 1592,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/annotation-overlay.tsx",
+      "language": "typescript",
+      "sizeLines": 463,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/annotation-viewer.tsx",
+      "language": "typescript",
+      "sizeLines": 228,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/asset-picker.tsx",
+      "language": "typescript",
+      "sizeLines": 509,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/asset-service-history.tsx",
+      "language": "typescript",
+      "sizeLines": 188,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/asset-type-picker.tsx",
+      "language": "typescript",
+      "sizeLines": 93,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/asset-types-manager.tsx",
+      "language": "typescript",
+      "sizeLines": 903,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/benefits-tracker.tsx",
+      "language": "typescript",
+      "sizeLines": 435,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/bio-card-editor.tsx",
+      "language": "typescript",
+      "sizeLines": 721,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/building-outline-editor.tsx",
+      "language": "typescript",
+      "sizeLines": 589,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/career-analytics-banner.tsx",
+      "language": "typescript",
+      "sizeLines": 39,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/career-direction-model.tsx",
+      "language": "typescript",
+      "sizeLines": 1391,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/command-palette.tsx",
+      "language": "typescript",
+      "sizeLines": 266,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/comments-thread.tsx",
+      "language": "typescript",
+      "sizeLines": 211,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/company-deep-dive.tsx",
+      "language": "typescript",
+      "sizeLines": 1152,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/company-intel.tsx",
+      "language": "typescript",
+      "sizeLines": 716,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/company-news.tsx",
+      "language": "typescript",
+      "sizeLines": 272,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/compensation-editor.tsx",
+      "language": "typescript",
+      "sizeLines": 463,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/compensation-tracker.tsx",
+      "language": "typescript",
+      "sizeLines": 1404,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/equipment-picker.tsx",
+      "language": "typescript",
+      "sizeLines": 446,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/equipment-tracker.tsx",
+      "language": "typescript",
+      "sizeLines": 996,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/equipment-usage-history.tsx",
+      "language": "typescript",
+      "sizeLines": 244,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/floating-panel.tsx",
+      "language": "typescript",
+      "sizeLines": 282,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/gallery-modal.tsx",
+      "language": "typescript",
+      "sizeLines": 1942,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/hours-worked-tracker.tsx",
+      "language": "typescript",
+      "sizeLines": 473,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/immersive-layout.tsx",
+      "language": "typescript",
+      "sizeLines": 80,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/industry-research.tsx",
+      "language": "typescript",
+      "sizeLines": 864,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/interactive-resumes-manager.tsx",
+      "language": "typescript",
+      "sizeLines": 917,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/interview-prep.tsx",
+      "language": "typescript",
+      "sizeLines": 512,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/interview-resume-sidebar.tsx",
+      "language": "typescript",
+      "sizeLines": 288,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/interview-room-launcher.tsx",
+      "language": "typescript",
+      "sizeLines": 262,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/ir-anchored-popover.tsx",
+      "language": "typescript",
+      "sizeLines": 57,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/ir-popout-sheet.tsx",
+      "language": "typescript",
+      "sizeLines": 86,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/job-asset-photos.tsx",
+      "language": "typescript",
+      "sizeLines": 185,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/job-assets-page.tsx",
+      "language": "typescript",
+      "sizeLines": 599,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/job-board.tsx",
+      "language": "typescript",
+      "sizeLines": 350,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/job-interest-groups.tsx",
+      "language": "typescript",
+      "sizeLines": 583,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/job-map-google.tsx",
+      "language": "typescript",
+      "sizeLines": 2191,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/job-map-leaflet.tsx",
+      "language": "typescript",
+      "sizeLines": 902,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/job-map.tsx",
+      "language": "typescript",
+      "sizeLines": 15064,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/job-map/view-preset-switcher.tsx",
+      "language": "typescript",
+      "sizeLines": 78,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/job-map/view-preset.ts",
+      "language": "typescript",
+      "sizeLines": 104,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/job-market-research.tsx",
+      "language": "typescript",
+      "sizeLines": 509,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/layout-shell.tsx",
+      "language": "typescript",
+      "sizeLines": 31,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/learning-tracker.tsx",
+      "language": "typescript",
+      "sizeLines": 673,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/life-anchors-panel.tsx",
+      "language": "typescript",
+      "sizeLines": 532,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/map-drawing-canvas.tsx",
+      "language": "typescript",
+      "sizeLines": 1028,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/map-drawing-panel.tsx",
+      "language": "typescript",
+      "sizeLines": 484,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/master-gallery/bulk-action-bar.tsx",
+      "language": "typescript",
+      "sizeLines": 101,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/master-gallery/embedded-master-folders.tsx",
+      "language": "typescript",
+      "sizeLines": 102,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/master-gallery/embedded-position-gallery.tsx",
+      "language": "typescript",
+      "sizeLines": 495,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/master-gallery/folder-grid.tsx",
+      "language": "typescript",
+      "sizeLines": 194,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/master-gallery/master-gallery-page.tsx",
+      "language": "typescript",
+      "sizeLines": 438,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/master-gallery/move-dialog.tsx",
+      "language": "typescript",
+      "sizeLines": 187,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/master-gallery/photo-detail-drawer.tsx",
+      "language": "typescript",
+      "sizeLines": 218,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/master-gallery/photo-grid.tsx",
+      "language": "typescript",
+      "sizeLines": 122,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/master-gallery/types.ts",
+      "language": "typescript",
+      "sizeLines": 53,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/notification-bell.tsx",
+      "language": "typescript",
+      "sizeLines": 149,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/offer-comparison.tsx",
+      "language": "typescript",
+      "sizeLines": 646,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/onboarding-flow.tsx",
+      "language": "typescript",
+      "sizeLines": 130,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/pay-period-calendar.tsx",
+      "language": "typescript",
+      "sizeLines": 342,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/paycheck-estimator.tsx",
+      "language": "typescript",
+      "sizeLines": 391,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/personal-finance.tsx",
+      "language": "typescript",
+      "sizeLines": 630,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/personal-inventory.tsx",
+      "language": "typescript",
+      "sizeLines": 3895,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/places-autocomplete.tsx",
+      "language": "typescript",
+      "sizeLines": 178,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/position-worklog-tab.tsx",
+      "language": "typescript",
+      "sizeLines": 405,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/providers.tsx",
+      "language": "typescript",
+      "sizeLines": 31,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/pwa-register.tsx",
+      "language": "typescript",
+      "sizeLines": 15,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/quick-log-dialog.tsx",
+      "language": "typescript",
+      "sizeLines": 361,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/recruiter-panel.tsx",
+      "language": "typescript",
+      "sizeLines": 430,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/resume-immersive-map.tsx",
+      "language": "typescript",
+      "sizeLines": 6084,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/resume-work-map.tsx",
+      "language": "typescript",
+      "sizeLines": 428,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/rich-text-editor.tsx",
+      "language": "typescript",
+      "sizeLines": 301,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/scholar-search.tsx",
+      "language": "typescript",
+      "sizeLines": 300,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/sidebar.tsx",
+      "language": "typescript",
+      "sizeLines": 266,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/skill-graph-analytics.tsx",
+      "language": "typescript",
+      "sizeLines": 688,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/skill-graph.tsx",
+      "language": "typescript",
+      "sizeLines": 3499,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/timeoff-tracker.tsx",
+      "language": "typescript",
+      "sizeLines": 568,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/ui/avatar.tsx",
+      "language": "typescript",
+      "sizeLines": 109,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/ui/badge.tsx",
+      "language": "typescript",
+      "sizeLines": 52,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/ui/button.tsx",
+      "language": "typescript",
+      "sizeLines": 62,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/ui/calendar.tsx",
+      "language": "typescript",
+      "sizeLines": 221,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/ui/card.tsx",
+      "language": "typescript",
+      "sizeLines": 103,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/ui/checkbox.tsx",
+      "language": "typescript",
+      "sizeLines": 29,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/ui/command.tsx",
+      "language": "typescript",
+      "sizeLines": 196,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/ui/dialog.tsx",
+      "language": "typescript",
+      "sizeLines": 157,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/ui/dropdown-menu.tsx",
+      "language": "typescript",
+      "sizeLines": 268,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/ui/input-group.tsx",
+      "language": "typescript",
+      "sizeLines": 158,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/ui/input.tsx",
+      "language": "typescript",
+      "sizeLines": 20,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/ui/label.tsx",
+      "language": "typescript",
+      "sizeLines": 20,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/ui/popover.tsx",
+      "language": "typescript",
+      "sizeLines": 90,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/ui/progress.tsx",
+      "language": "typescript",
+      "sizeLines": 83,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/ui/scroll-area.tsx",
+      "language": "typescript",
+      "sizeLines": 55,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/ui/select.tsx",
+      "language": "typescript",
+      "sizeLines": 201,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/ui/separator.tsx",
+      "language": "typescript",
+      "sizeLines": 25,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/ui/sheet.tsx",
+      "language": "typescript",
+      "sizeLines": 135,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/ui/skeleton.tsx",
+      "language": "typescript",
+      "sizeLines": 13,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/ui/switch.tsx",
+      "language": "typescript",
+      "sizeLines": 32,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/ui/table.tsx",
+      "language": "typescript",
+      "sizeLines": 116,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/ui/tabs.tsx",
+      "language": "typescript",
+      "sizeLines": 82,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/ui/tag-input.tsx",
+      "language": "typescript",
+      "sizeLines": 220,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/ui/textarea.tsx",
+      "language": "typescript",
+      "sizeLines": 18,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/ui/tooltip.tsx",
+      "language": "typescript",
+      "sizeLines": 66,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/uniform-body-map.tsx",
+      "language": "typescript",
+      "sizeLines": 375,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/video-call.tsx",
+      "language": "typescript",
+      "sizeLines": 373,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/work-history-shift-manager.tsx",
+      "language": "typescript",
+      "sizeLines": 195,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/work-log-tracker.tsx",
+      "language": "typescript",
+      "sizeLines": 663,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/canvas-dialog.tsx",
+      "language": "typescript",
+      "sizeLines": 154,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/canvas-node-view.tsx",
+      "language": "typescript",
+      "sizeLines": 170,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/constants.ts",
+      "language": "typescript",
+      "sizeLines": 67,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/heatmap-utils.ts",
+      "language": "typescript",
+      "sizeLines": 71,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/hooks/use-autosave.ts",
+      "language": "typescript",
+      "sizeLines": 181,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/hooks/use-worklog-create-flow.ts",
+      "language": "typescript",
+      "sizeLines": 139,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/hooks/use-worklog-data.ts",
+      "language": "typescript",
+      "sizeLines": 127,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/hooks/use-worklog-deep-links.ts",
+      "language": "typescript",
+      "sizeLines": 100,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/hooks/use-worklog-dnd.ts",
+      "language": "typescript",
+      "sizeLines": 207,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/hooks/use-worklog-drafts.ts",
+      "language": "typescript",
+      "sizeLines": 103,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/hooks/use-worklog-filters.ts",
+      "language": "typescript",
+      "sizeLines": 157,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/hooks/use-worklog-folders.ts",
+      "language": "typescript",
+      "sizeLines": 113,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/hooks/use-worklog-keyboard-nav.ts",
+      "language": "typescript",
+      "sizeLines": 200,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/hooks/use-worklog-mutations.ts",
+      "language": "typescript",
+      "sizeLines": 194,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/hooks/use-worklog-preferences.ts",
+      "language": "typescript",
+      "sizeLines": 93,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/hooks/use-worklog-selection.ts",
+      "language": "typescript",
+      "sizeLines": 102,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/hooks/use-worklog-stats.ts",
+      "language": "typescript",
+      "sizeLines": 28,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/hooks/use-worklog-visible-logs.ts",
+      "language": "typescript",
+      "sizeLines": 119,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/mention-node-view.tsx",
+      "language": "typescript",
+      "sizeLines": 62,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/mention-suggestion-popup.tsx",
+      "language": "typescript",
+      "sizeLines": 188,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/photo-node-view.tsx",
+      "language": "typescript",
+      "sizeLines": 131,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/promote-to-event-dialog.tsx",
+      "language": "typescript",
+      "sizeLines": 226,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/quick-capture-dialog.tsx",
+      "language": "typescript",
+      "sizeLines": 249,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/slash-command-menu.tsx",
+      "language": "typescript",
+      "sizeLines": 280,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/worklog-bulk-action-bar.tsx",
+      "language": "typescript",
+      "sizeLines": 163,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/worklog-defaults-dialog.tsx",
+      "language": "typescript",
+      "sizeLines": 209,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/worklog-dnd-provider.test.ts",
+      "language": "typescript",
+      "sizeLines": 123,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/worklog-dnd-provider.tsx",
+      "language": "typescript",
+      "sizeLines": 80,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/worklog-editor-toolbar.tsx",
+      "language": "typescript",
+      "sizeLines": 264,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/worklog-editor.tsx",
+      "language": "typescript",
+      "sizeLines": 540,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/worklog-folder-delete-dialog.tsx",
+      "language": "typescript",
+      "sizeLines": 162,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/worklog-folder-tree-items.tsx",
+      "language": "typescript",
+      "sizeLines": 173,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/worklog-folder-tree.tsx",
+      "language": "typescript",
+      "sizeLines": 509,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/worklog-folders-rail.tsx",
+      "language": "typescript",
+      "sizeLines": 446,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/worklog-heatmap.tsx",
+      "language": "typescript",
+      "sizeLines": 77,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/worklog-move-to-folder-dialog.tsx",
+      "language": "typescript",
+      "sizeLines": 207,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/worklog-note-meta-strip.tsx",
+      "language": "typescript",
+      "sizeLines": 496,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/worklog-note-reader.tsx",
+      "language": "typescript",
+      "sizeLines": 586,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/worklog-note-view.tsx",
+      "language": "typescript",
+      "sizeLines": 424,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/worklog-notes-list.tsx",
+      "language": "typescript",
+      "sizeLines": 491,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/worklog-page.tsx",
+      "language": "typescript",
+      "sizeLines": 487,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/worklog-photo-section.tsx",
+      "language": "typescript",
+      "sizeLines": 107,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/worklog-search-palette.tsx",
+      "language": "typescript",
+      "sizeLines": 246,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/worklog-template-editor.tsx",
+      "language": "typescript",
+      "sizeLines": 172,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/worklog-template-picker-dialog.tsx",
+      "language": "typescript",
+      "sizeLines": 94,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/worklog-templates-tab.tsx",
+      "language": "typescript",
+      "sizeLines": 99,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/worklog-toolbar.tsx",
+      "language": "typescript",
+      "sizeLines": 340,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/data/All_Occupations.csv",
+      "language": "csv",
+      "sizeLines": 1017,
+      "fileCategory": "data"
+    },
+    {
+      "path": "src/data/onet-skill-scaffold.json",
+      "language": "json",
+      "sizeLines": 4158,
+      "fileCategory": "config"
+    },
+    {
+      "path": "src/data/soc-codes.json",
+      "language": "json",
+      "sizeLines": 147,
+      "fileCategory": "config"
+    },
+    {
+      "path": "src/data/state-tax-zones.ts",
+      "language": "typescript",
+      "sizeLines": 318,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/activity.ts",
+      "language": "typescript",
+      "sizeLines": 15,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/ai.ts",
+      "language": "typescript",
+      "sizeLines": 259,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/auth-utils.ts",
+      "language": "typescript",
+      "sizeLines": 21,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/auth.ts",
+      "language": "typescript",
+      "sizeLines": 104,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/auto-log.ts",
+      "language": "typescript",
+      "sizeLines": 147,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/cache.ts",
+      "language": "typescript",
+      "sizeLines": 56,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/col.ts",
+      "language": "typescript",
+      "sizeLines": 165,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/constants.ts",
+      "language": "typescript",
+      "sizeLines": 106,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/edm.ts",
+      "language": "typescript",
+      "sizeLines": 123,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/email-parser.ts",
+      "language": "typescript",
+      "sizeLines": 407,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/email.ts",
+      "language": "typescript",
+      "sizeLines": 112,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/employer-alias.ts",
+      "language": "typescript",
+      "sizeLines": 28,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/gemini.ts",
+      "language": "typescript",
+      "sizeLines": 99,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/github-events.ts",
+      "language": "typescript",
+      "sizeLines": 117,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/ics.ts",
+      "language": "typescript",
+      "sizeLines": 100,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/interview-rooms.ts",
+      "language": "typescript",
+      "sizeLines": 93,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/money.ts",
+      "language": "typescript",
+      "sizeLines": 36,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/onet.ts",
+      "language": "typescript",
+      "sizeLines": 245,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/prisma.ts",
+      "language": "typescript",
+      "sizeLines": 7,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/rate-limit.ts",
+      "language": "typescript",
+      "sizeLines": 53,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/recruiter-cookie.ts",
+      "language": "typescript",
+      "sizeLines": 37,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/resume-pdf-template.tsx",
+      "language": "typescript",
+      "sizeLines": 277,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/rss.ts",
+      "language": "typescript",
+      "sizeLines": 282,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/sanitize-html.ts",
+      "language": "typescript",
+      "sizeLines": 24,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/taxes.ts",
+      "language": "typescript",
+      "sizeLines": 348,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/use-ir-analytics.ts",
+      "language": "typescript",
+      "sizeLines": 124,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/utils.ts",
+      "language": "typescript",
+      "sizeLines": 6,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/worklog-folders.test.ts",
+      "language": "typescript",
+      "sizeLines": 118,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/worklog-folders.ts",
+      "language": "typescript",
+      "sizeLines": 190,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/worklog-shifts.ts",
+      "language": "typescript",
+      "sizeLines": 75,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/worklog/content-json.ts",
+      "language": "typescript",
+      "sizeLines": 51,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/worklog/parse-snapshot.test.ts",
+      "language": "typescript",
+      "sizeLines": 82,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/worklog/parse-snapshot.ts",
+      "language": "typescript",
+      "sizeLines": 16,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/worklog/photo-upload.ts",
+      "language": "typescript",
+      "sizeLines": 96,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/worklog/prosemirror-to-text.test.ts",
+      "language": "typescript",
+      "sizeLines": 544,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/worklog/prosemirror-to-text.ts",
+      "language": "typescript",
+      "sizeLines": 244,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/worklog/tiptap/canvas-node.ts",
+      "language": "typescript",
+      "sizeLines": 100,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/worklog/tiptap/extract-tags.ts",
+      "language": "typescript",
+      "sizeLines": 52,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/worklog/tiptap/mention-node.ts",
+      "language": "typescript",
+      "sizeLines": 266,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/worklog/tiptap/mood-block.ts",
+      "language": "typescript",
+      "sizeLines": 78,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/worklog/tiptap/photo-node.ts",
+      "language": "typescript",
+      "sizeLines": 117,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/worklog/tiptap/shift-block.ts",
+      "language": "typescript",
+      "sizeLines": 92,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/worklog/tiptap/slash-commands.tsx",
+      "language": "typescript",
+      "sizeLines": 247,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/worklog/tiptap/tag-mention.ts",
+      "language": "typescript",
+      "sizeLines": 113,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/worklog/worklog-cache.ts",
+      "language": "typescript",
+      "sizeLines": 108,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/worklog/yjs-provider.ts",
+      "language": "typescript",
+      "sizeLines": 71,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/proxy.ts",
+      "language": "typescript",
+      "sizeLines": 44,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/types/leaflet-heat.d.ts",
+      "language": "typescript",
+      "sizeLines": 15,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/types/worklog.ts",
+      "language": "typescript",
+      "sizeLines": 160,
+      "fileCategory": "code"
+    },
+    {
+      "path": "TESTING.md",
+      "language": "markdown",
+      "sizeLines": 296,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "tsconfig.json",
+      "language": "json",
+      "sizeLines": 34,
+      "fileCategory": "config"
+    },
+    {
+      "path": "UI_UX_IMPROVEMENTS.md",
+      "language": "markdown",
+      "sizeLines": 139,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "vitest.config.ts",
+      "language": "typescript",
+      "sizeLines": 15,
+      "fileCategory": "code"
+    }
+  ],
+  "totalFiles": 621,
+  "filteredByIgnore": 225,
+  "estimatedComplexity": "very-large",
+  "stats": {
+    "filesScanned": 621,
+    "byCategory": {
+      "config": 13,
+      "docs": 71,
+      "code": 530,
+      "infra": 4,
+      "data": 2,
+      "markup": 1
+    },
+    "byLanguage": {
+      "json": 13,
+      "markdown": 71,
+      "unknown": 3,
+      "yaml": 4,
+      "javascript": 5,
+      "typescript": 521,
+      "prisma": 1,
+      "docx": 1,
+      "css": 1,
+      "csv": 1
+    }
+  }
+}

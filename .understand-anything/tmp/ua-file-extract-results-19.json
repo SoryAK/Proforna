@@ -1,0 +1,484 @@
+{
+  "scriptCompleted": true,
+  "filesAnalyzed": 3,
+  "filesSkipped": [],
+  "results": [
+    {
+      "path": "src/app/api/interview-room/route.ts",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 37,
+      "nonEmptyLines": 29,
+      "functions": [
+        {
+          "name": "POST",
+          "startLine": 7,
+          "endLine": 19,
+          "params": [
+            "req"
+          ]
+        },
+        {
+          "name": "GET",
+          "startLine": 22,
+          "endLine": 37,
+          "params": [
+            "req"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "POST",
+          "line": 7,
+          "isDefault": false
+        },
+        {
+          "name": "GET",
+          "line": 22,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "POST",
+          "callee": "getUserId",
+          "lineNumber": 8
+        },
+        {
+          "caller": "POST",
+          "callee": "NextResponse.json",
+          "lineNumber": 9
+        },
+        {
+          "caller": "POST",
+          "callee": "req.json",
+          "lineNumber": 11
+        },
+        {
+          "caller": "POST",
+          "callee": "body.hostName.trim",
+          "lineNumber": 12
+        },
+        {
+          "caller": "POST",
+          "callee": "uuid().slice",
+          "lineNumber": 15
+        },
+        {
+          "caller": "POST",
+          "callee": "uuid",
+          "lineNumber": 15
+        },
+        {
+          "caller": "POST",
+          "callee": "createRoom",
+          "lineNumber": 16
+        },
+        {
+          "caller": "POST",
+          "callee": "NextResponse.json",
+          "lineNumber": 18
+        },
+        {
+          "caller": "GET",
+          "callee": "getUserId",
+          "lineNumber": 23
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 24
+        },
+        {
+          "caller": "GET",
+          "callee": "req.nextUrl.searchParams.get",
+          "lineNumber": 26
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 28
+        },
+        {
+          "caller": "GET",
+          "callee": "getRoomInfo",
+          "lineNumber": 31
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 33
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 36
+        }
+      ],
+      "metrics": {
+        "importCount": 2,
+        "exportCount": 2,
+        "functionCount": 2,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/app/api/interview-room/signal/route.ts",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 63,
+      "nonEmptyLines": 52,
+      "functions": [
+        {
+          "name": "POST",
+          "startLine": 9,
+          "endLine": 44,
+          "params": [
+            "req"
+          ]
+        },
+        {
+          "name": "GET",
+          "startLine": 50,
+          "endLine": 63,
+          "params": [
+            "req"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "POST",
+          "line": 9,
+          "isDefault": false
+        },
+        {
+          "name": "GET",
+          "line": 50,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "POST",
+          "callee": "getUserId",
+          "lineNumber": 10
+        },
+        {
+          "caller": "POST",
+          "callee": "NextResponse.json",
+          "lineNumber": 11
+        },
+        {
+          "caller": "POST",
+          "callee": "req.json",
+          "lineNumber": 13
+        },
+        {
+          "caller": "POST",
+          "callee": "NextResponse.json",
+          "lineNumber": 22
+        },
+        {
+          "caller": "POST",
+          "callee": "joinRoom",
+          "lineNumber": 26
+        },
+        {
+          "caller": "POST",
+          "callee": "NextResponse.json",
+          "lineNumber": 28
+        },
+        {
+          "caller": "POST",
+          "callee": "NextResponse.json",
+          "lineNumber": 30
+        },
+        {
+          "caller": "POST",
+          "callee": "pushSignal",
+          "lineNumber": 34
+        },
+        {
+          "caller": "POST",
+          "callee": "NextResponse.json",
+          "lineNumber": 35
+        },
+        {
+          "caller": "POST",
+          "callee": "leaveRoom",
+          "lineNumber": 39
+        },
+        {
+          "caller": "POST",
+          "callee": "NextResponse.json",
+          "lineNumber": 40
+        },
+        {
+          "caller": "POST",
+          "callee": "NextResponse.json",
+          "lineNumber": 43
+        },
+        {
+          "caller": "GET",
+          "callee": "getUserId",
+          "lineNumber": 51
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 52
+        },
+        {
+          "caller": "GET",
+          "callee": "req.nextUrl.searchParams.get",
+          "lineNumber": 54
+        },
+        {
+          "caller": "GET",
+          "callee": "req.nextUrl.searchParams.get",
+          "lineNumber": 55
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 58
+        },
+        {
+          "caller": "GET",
+          "callee": "drainSignals",
+          "lineNumber": 61
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 62
+        }
+      ],
+      "metrics": {
+        "importCount": 2,
+        "exportCount": 2,
+        "functionCount": 2,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/lib/interview-rooms.ts",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 93,
+      "nonEmptyLines": 83,
+      "functions": [
+        {
+          "name": "createRoom",
+          "startLine": 18,
+          "endLine": 29,
+          "params": [
+            "id",
+            "hostName",
+            "resumeSlug"
+          ]
+        },
+        {
+          "name": "getRoom",
+          "startLine": 31,
+          "endLine": 33,
+          "params": [
+            "id"
+          ]
+        },
+        {
+          "name": "joinRoom",
+          "startLine": 35,
+          "endLine": 42,
+          "params": [
+            "roomId",
+            "peerId"
+          ]
+        },
+        {
+          "name": "pushSignal",
+          "startLine": 44,
+          "endLine": 55,
+          "params": [
+            "roomId",
+            "fromPeerId",
+            "signal"
+          ]
+        },
+        {
+          "name": "drainSignals",
+          "startLine": 57,
+          "endLine": 63,
+          "params": [
+            "roomId",
+            "peerId"
+          ]
+        },
+        {
+          "name": "leaveRoom",
+          "startLine": 65,
+          "endLine": 73,
+          "params": [
+            "roomId",
+            "peerId"
+          ]
+        },
+        {
+          "name": "getRoomInfo",
+          "startLine": 75,
+          "endLine": 85,
+          "params": [
+            "roomId"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "createRoom",
+          "line": 18,
+          "isDefault": false
+        },
+        {
+          "name": "getRoom",
+          "line": 31,
+          "isDefault": false
+        },
+        {
+          "name": "joinRoom",
+          "line": 35,
+          "isDefault": false
+        },
+        {
+          "name": "pushSignal",
+          "line": 44,
+          "isDefault": false
+        },
+        {
+          "name": "drainSignals",
+          "line": 57,
+          "isDefault": false
+        },
+        {
+          "name": "leaveRoom",
+          "line": 65,
+          "isDefault": false
+        },
+        {
+          "name": "getRoomInfo",
+          "line": 75,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "createRoom",
+          "callee": "Date.now",
+          "lineNumber": 23
+        },
+        {
+          "caller": "createRoom",
+          "callee": "rooms.set",
+          "lineNumber": 27
+        },
+        {
+          "caller": "getRoom",
+          "callee": "rooms.get",
+          "lineNumber": 32
+        },
+        {
+          "caller": "joinRoom",
+          "callee": "rooms.get",
+          "lineNumber": 36
+        },
+        {
+          "caller": "joinRoom",
+          "callee": "room.peers.has",
+          "lineNumber": 38
+        },
+        {
+          "caller": "joinRoom",
+          "callee": "room.peers.add",
+          "lineNumber": 39
+        },
+        {
+          "caller": "joinRoom",
+          "callee": "room.signals.has",
+          "lineNumber": 40
+        },
+        {
+          "caller": "joinRoom",
+          "callee": "room.signals.set",
+          "lineNumber": 40
+        },
+        {
+          "caller": "pushSignal",
+          "callee": "rooms.get",
+          "lineNumber": 45
+        },
+        {
+          "caller": "pushSignal",
+          "callee": "room.signals.get",
+          "lineNumber": 50
+        },
+        {
+          "caller": "pushSignal",
+          "callee": "queue.push",
+          "lineNumber": 51
+        },
+        {
+          "caller": "pushSignal",
+          "callee": "room.signals.set",
+          "lineNumber": 52
+        },
+        {
+          "caller": "drainSignals",
+          "callee": "rooms.get",
+          "lineNumber": 58
+        },
+        {
+          "caller": "drainSignals",
+          "callee": "room.signals.get",
+          "lineNumber": 60
+        },
+        {
+          "caller": "drainSignals",
+          "callee": "room.signals.set",
+          "lineNumber": 61
+        },
+        {
+          "caller": "leaveRoom",
+          "callee": "rooms.get",
+          "lineNumber": 66
+        },
+        {
+          "caller": "leaveRoom",
+          "callee": "room.peers.delete",
+          "lineNumber": 68
+        },
+        {
+          "caller": "leaveRoom",
+          "callee": "room.signals.delete",
+          "lineNumber": 69
+        },
+        {
+          "caller": "leaveRoom",
+          "callee": "rooms.delete",
+          "lineNumber": 71
+        },
+        {
+          "caller": "getRoomInfo",
+          "callee": "rooms.get",
+          "lineNumber": 76
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 7,
+        "functionCount": 7,
+        "classCount": 0
+      }
+    }
+  ]
+}

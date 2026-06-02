@@ -1,0 +1,2599 @@
+{
+  "scriptCompleted": true,
+  "stats": {
+    "filesScanned": 621,
+    "filesWithImports": 447,
+    "totalEdges": 1521
+  },
+  "importMap": {
+    ".copilot/mcp-config.json": [],
+    ".features/_TEMPLATE.md": [],
+    ".features/applications/applications.md": [],
+    ".features/career-analytics/career-analytics.md": [],
+    ".features/career-analytics/career-directional-model.md": [],
+    ".features/company-deep-dive/company-deep-dive.md": [],
+    ".features/current-position/current-position.md": [],
+    ".features/dashboard/dashboard.md": [],
+    ".features/documents/documents.md": [],
+    ".features/email/email.md": [],
+    ".features/experience-diffusion-model/experience-diffusion-model.md": [],
+    ".features/job-search/focus-mode-cleanup.md": [],
+    ".features/job-search/job-search.md": [],
+    ".features/job-search/multi-query-search.md": [],
+    ".features/learning/learning.md": [],
+    ".features/portal/portal.md": [],
+    ".features/README.md": [],
+    ".features/research/research.md": [],
+    ".features/resumes/resumes.md": [],
+    ".features/worker-rights/worker-rights.md": [],
+    ".gitattributes": [],
+    ".github/agents/axiom.agent.md": [],
+    ".github/agents/echo.agent.md": [],
+    ".github/agents/nova.agent.md": [],
+    ".github/agents/ralph.agent.md": [],
+    ".github/agents/rex.agent.md": [],
+    ".github/agents/scribe.agent.md": [],
+    ".github/agents/squad.agent.md": [],
+    ".github/copilot-instructions.md": [],
+    ".github/ui/global.md": [],
+    ".github/ui/index.md": [],
+    ".github/ui/maps.md": [],
+    ".github/ui/resume.md": [],
+    ".github/ui/tokens.md": [],
+    ".github/ui/worklog.md": [],
+    ".github/workflows/squad-heartbeat.yml": [],
+    ".github/workflows/squad-issue-assign.yml": [],
+    ".github/workflows/squad-triage.yml": [],
+    ".github/workflows/sync-squad-labels.yml": [],
+    ".Manual/_template.md": [],
+    ".Manual/README.md": [],
+    ".Manual/worklog-bulk-actions.md": [],
+    ".Manual/worklog-dnd-reorder.md": [],
+    ".Manual/worklog-folders.md": [],
+    ".Manual/worklog-notes-three-pane.md": [],
+    ".Manual/worklog-search.md": [],
+    ".squad/.first-run": [],
+    ".squad/casting/history.json": [],
+    ".squad/casting/policy.json": [],
+    ".squad/casting/registry.json": [],
+    ".squad/ceremonies.md": [],
+    ".squad/config.json": [],
+    ".squad/decisions.md": [],
+    ".squad/identity/now.md": [],
+    ".squad/identity/wisdom.md": [],
+    ".squad/routing.md": [],
+    ".squad/team.md": [],
+    ".understand-anything/.understandignore": [],
+    ".understand-anything/tmp/ua-scan-files.json": [],
+    "components.json": [],
+    "docs/adr/0001-record-architecture-decisions.md": [],
+    "docs/adr/0002-nextjs-16-turbopack.md": [],
+    "docs/adr/0003-prisma-v6-over-v7.md": [],
+    "docs/adr/0004-shadcn-ui-v2-base-ui.md": [],
+    "docs/adr/0005-google-maps-js-api-loader-v2.md": [],
+    "docs/adr/0006-job-map-view-preset-hot-swap.md": [],
+    "docs/adr/0007-worklog-notes-three-pane-redesign.md": [],
+    "docs/adr/0008-worklog-capture-acceleration-and-draft-persistence.md": [],
+    "docs/adr/0009-worklog-server-backed-draft-sync.md": [],
+    "docs/adr/0010-tiptap-yjs-worklog-editor.md": [],
+    "docs/adr/0011-postgres-tsvector-worklog-search.md": [],
+    "docs/adr/0011-worklog-promotion-ai-extraction-pipeline.md": [],
+    "docs/adr/0011-worklog-user-defined-folders.md": [],
+    "docs/adr/0012-asset-library-knowledge-backbone.md": [],
+    "docs/adr/0012-w2.1-dnd-context-and-tree-strategy.md": [],
+    "docs/adr/README.md": [],
+    "docs/adr/template.md": [],
+    "docs/plans/skill-graph-revamp.md": [],
+    "docs/plans/worklog-w1-w2-roadmap.md": [],
+    "eslint.config.mjs": [],
+    "fix.js": [],
+    "IMPROVEMENTS.md": [],
+    "Improvents.md": [],
+    "next.config.ts": [],
+    "package.json": [],
+    "postcss.config.mjs": [],
+    "prisma/schema.prisma": [],
+    "PROJECT_PLAN.md": [],
+    "public/data/us-states.json": [],
+    "public/manifest.json": [],
+    "public/sw.js": [],
+    "public/uploads/attachments/att-e0dccefb72ab3efb.docx": [],
+    "README.md": [],
+    "scripts/check-profile.js": [],
+    "src/app/(app)/activity/page.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/skeleton.tsx"
+    ],
+    "src/app/(app)/analytics/page.tsx": [
+      "src/components/career-analytics-banner.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/skeleton.tsx",
+      "src/lib/constants.ts"
+    ],
+    "src/app/(app)/applications/page.tsx": [
+      "src/components/interview-prep.tsx",
+      "src/components/offer-comparison.tsx",
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/checkbox.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/dropdown-menu.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/separator.tsx",
+      "src/components/ui/skeleton.tsx",
+      "src/components/ui/table.tsx",
+      "src/components/ui/tabs.tsx",
+      "src/components/ui/textarea.tsx",
+      "src/lib/constants.ts",
+      "src/lib/utils.ts"
+    ],
+    "src/app/(app)/asset-types/page.tsx": [
+      "src/components/asset-types-manager.tsx"
+    ],
+    "src/app/(app)/career-growth/page.tsx": [
+      "src/app/(app)/career-model/page.tsx",
+      "src/app/(app)/goals/page.tsx",
+      "src/components/career-direction-model.tsx",
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/progress.tsx",
+      "src/components/ui/skeleton.tsx"
+    ],
+    "src/app/(app)/career-model/page.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/separator.tsx",
+      "src/components/ui/switch.tsx",
+      "src/components/ui/table.tsx"
+    ],
+    "src/app/(app)/company/[name]/page.tsx": [
+      "src/components/company-deep-dive.tsx",
+      "src/components/ui/button.tsx"
+    ],
+    "src/app/(app)/contacts/page.tsx": [
+      "src/components/ui/avatar.tsx",
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/checkbox.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/dropdown-menu.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/skeleton.tsx",
+      "src/components/ui/textarea.tsx",
+      "src/lib/constants.ts",
+      "src/lib/utils.ts"
+    ],
+    "src/app/(app)/current-position/page.tsx": [
+      "src/components/benefits-tracker.tsx",
+      "src/components/company-intel.tsx",
+      "src/components/compensation-tracker.tsx",
+      "src/components/equipment-tracker.tsx",
+      "src/components/hours-worked-tracker.tsx",
+      "src/components/pay-period-calendar.tsx",
+      "src/components/paycheck-estimator.tsx",
+      "src/components/position-worklog-tab.tsx",
+      "src/components/timeoff-tracker.tsx",
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/separator.tsx",
+      "src/components/ui/switch.tsx",
+      "src/components/ui/tabs.tsx",
+      "src/components/ui/textarea.tsx",
+      "src/components/work-history-shift-manager.tsx"
+    ],
+    "src/app/(app)/dashboard/page.tsx": [
+      "src/app/(app)/experience/page.tsx",
+      "src/app/(app)/resumes/page.tsx",
+      "src/app/(app)/skills/page.tsx",
+      "src/components/onboarding-flow.tsx",
+      "src/components/pay-period-calendar.tsx",
+      "src/components/personal-finance.tsx",
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/progress.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/separator.tsx",
+      "src/components/ui/tabs.tsx",
+      "src/components/ui/textarea.tsx",
+      "src/lib/constants.ts",
+      "src/lib/utils.ts"
+    ],
+    "src/app/(app)/docs/page.tsx": [
+      "src/app/(app)/documents/page.tsx",
+      "src/app/(app)/import-export/page.tsx",
+      "src/components/ui/tabs.tsx"
+    ],
+    "src/app/(app)/documents/page.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/skeleton.tsx",
+      "src/components/ui/textarea.tsx"
+    ],
+    "src/app/(app)/email/page.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/separator.tsx",
+      "src/components/ui/skeleton.tsx"
+    ],
+    "src/app/(app)/experience/[id]/page.tsx": [
+      "src/components/benefits-tracker.tsx",
+      "src/components/company-intel.tsx",
+      "src/components/compensation-tracker.tsx",
+      "src/components/position-worklog-tab.tsx",
+      "src/components/timeoff-tracker.tsx",
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/separator.tsx",
+      "src/components/ui/skeleton.tsx",
+      "src/components/ui/switch.tsx",
+      "src/components/ui/tabs.tsx",
+      "src/components/ui/textarea.tsx",
+      "src/components/work-history-shift-manager.tsx"
+    ],
+    "src/app/(app)/experience/page.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/separator.tsx",
+      "src/components/ui/skeleton.tsx"
+    ],
+    "src/app/(app)/experience/verify/page.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/checkbox.tsx",
+      "src/components/ui/progress.tsx",
+      "src/components/ui/separator.tsx"
+    ],
+    "src/app/(app)/goals/page.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/dropdown-menu.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/progress.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/skeleton.tsx",
+      "src/components/ui/textarea.tsx",
+      "src/lib/constants.ts",
+      "src/lib/utils.ts"
+    ],
+    "src/app/(app)/import-export/page.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx"
+    ],
+    "src/app/(app)/insights/page.tsx": [
+      "src/app/(app)/activity/page.tsx",
+      "src/app/(app)/analytics/page.tsx",
+      "src/components/ui/tabs.tsx"
+    ],
+    "src/app/(app)/integrations/page.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/switch.tsx"
+    ],
+    "src/app/(app)/interviews/page.tsx": [],
+    "src/app/(app)/inventory/page.tsx": [
+      "src/components/personal-inventory.tsx"
+    ],
+    "src/app/(app)/job-assets/page.tsx": [
+      "src/components/job-assets-page.tsx"
+    ],
+    "src/app/(app)/job-postings/page.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/switch.tsx",
+      "src/components/ui/textarea.tsx"
+    ],
+    "src/app/(app)/job-search/page.tsx": [
+      "src/app/(app)/applications/page.tsx",
+      "src/app/(app)/contacts/page.tsx",
+      "src/app/(app)/email/page.tsx",
+      "src/app/(app)/submissions/page.tsx",
+      "src/components/interview-room-launcher.tsx",
+      "src/components/job-board.tsx",
+      "src/components/job-interest-groups.tsx",
+      "src/components/job-map.tsx",
+      "src/components/ui/tabs.tsx"
+    ],
+    "src/app/(app)/layout.tsx": [
+      "src/components/layout-shell.tsx"
+    ],
+    "src/app/(app)/learning/page.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/checkbox.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/progress.tsx",
+      "src/components/ui/skeleton.tsx",
+      "src/lib/utils.ts"
+    ],
+    "src/app/(app)/master-gallery/page.tsx": [
+      "src/components/master-gallery/master-gallery-page.tsx"
+    ],
+    "src/app/(app)/offer-compare/page.tsx": [
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/textarea.tsx"
+    ],
+    "src/app/(app)/portal-settings/page.tsx": [
+      "src/components/compensation-editor.tsx",
+      "src/components/places-autocomplete.tsx",
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/separator.tsx",
+      "src/components/ui/switch.tsx",
+      "src/components/ui/textarea.tsx",
+      "src/lib/constants.ts"
+    ],
+    "src/app/(app)/portal/layout.tsx": [],
+    "src/app/(app)/portal/page.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/textarea.tsx",
+      "src/lib/constants.ts"
+    ],
+    "src/app/(app)/profile/page.tsx": [
+      "src/app/(app)/experience/page.tsx",
+      "src/app/(app)/resumes/page.tsx",
+      "src/app/(app)/skills/page.tsx",
+      "src/components/ui/tabs.tsx"
+    ],
+    "src/app/(app)/research/page.tsx": [
+      "src/components/company-news.tsx",
+      "src/components/industry-research.tsx",
+      "src/components/job-market-research.tsx",
+      "src/components/learning-tracker.tsx",
+      "src/components/scholar-search.tsx",
+      "src/components/ui/tabs.tsx"
+    ],
+    "src/app/(app)/resumes/page.tsx": [
+      "src/components/adaptive-ir-editor.tsx",
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/dropdown-menu.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/scroll-area.tsx",
+      "src/components/ui/skeleton.tsx",
+      "src/components/ui/textarea.tsx"
+    ],
+    "src/app/(app)/skill-graph/page.tsx": [
+      "src/components/career-analytics-banner.tsx",
+      "src/components/skill-graph.tsx"
+    ],
+    "src/app/(app)/skills/page.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/dropdown-menu.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/progress.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/skeleton.tsx",
+      "src/components/ui/tabs.tsx",
+      "src/lib/constants.ts",
+      "src/lib/utils.ts"
+    ],
+    "src/app/(app)/submissions/page.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/checkbox.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/select.tsx",
+      "src/lib/constants.ts",
+      "src/lib/utils.ts"
+    ],
+    "src/app/(app)/worker-rights/page.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/textarea.tsx"
+    ],
+    "src/app/(app)/worklog/page.tsx": [
+      "src/components/career-analytics-banner.tsx",
+      "src/components/worklog/worklog-page.tsx"
+    ],
+    "src/app/api/access-requests/[id]/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/access-requests/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/activity/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/address-overrides/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/adzuna/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/cache.ts"
+    ],
+    "src/app/api/ai/chat/route.ts": [
+      "src/lib/ai.ts",
+      "src/lib/auth-utils.ts"
+    ],
+    "src/app/api/ai/context/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/ai/models/route.ts": [
+      "src/lib/ai.ts",
+      "src/lib/auth-utils.ts"
+    ],
+    "src/app/api/analytics/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/applications/[id]/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/applications/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/asset-types/[id]/documents/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/asset-types/[id]/links/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/asset-types/[id]/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/asset-types/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/attachments/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/auth/[...nextauth]/route.ts": [
+      "src/lib/auth.ts"
+    ],
+    "src/app/api/auth/google/callback/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/email.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/auth/google/route.ts": [
+      "src/lib/email.ts"
+    ],
+    "src/app/api/auth/microsoft/callback/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/email.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/auth/microsoft/route.ts": [
+      "src/lib/email.ts"
+    ],
+    "src/app/api/auth/register/route.ts": [
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/avatar/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/backfill-place-ids/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/benefits/[id]/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/benefits/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/building-footprints/nearby/route.ts": [],
+    "src/app/api/building-footprints/route.ts": [],
+    "src/app/api/career-paths/[id]/route.ts": [
+      "src/lib/activity.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/career-paths/route.ts": [
+      "src/lib/activity.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/career-snapshots/route.ts": [
+      "src/lib/activity.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/cdm/decompose/route.ts": [
+      "src/data/soc-codes.json",
+      "src/lib/ai.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/cdm/synonyms/route.ts": [
+      "src/data/soc-codes.json",
+      "src/lib/ai.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/certifications/[id]/route.ts": [
+      "src/lib/activity.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/certifications/route.ts": [
+      "src/lib/activity.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/cfm/[id]/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/cfm/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/employer-alias.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/commute-matrix/route.ts": [],
+    "src/app/api/commute/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/cache.ts"
+    ],
+    "src/app/api/company-lookup/route.ts": [
+      "src/lib/auth-utils.ts"
+    ],
+    "src/app/api/company-research/dol/route.ts": [
+      "src/lib/auth-utils.ts"
+    ],
+    "src/app/api/company-research/knowledge-graph/route.ts": [
+      "src/lib/auth-utils.ts"
+    ],
+    "src/app/api/company-research/news/route.ts": [],
+    "src/app/api/company-research/opencorporates/route.ts": [
+      "src/lib/auth-utils.ts"
+    ],
+    "src/app/api/company-research/osha/route.ts": [
+      "src/lib/auth-utils.ts"
+    ],
+    "src/app/api/company-research/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/company-research/sec/route.ts": [
+      "src/lib/auth-utils.ts"
+    ],
+    "src/app/api/company-watchlist/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/compensation/[id]/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/compensation/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/contacts/[id]/route.ts": [
+      "src/lib/activity.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/contacts/route.ts": [
+      "src/lib/activity.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/current-position/[id]/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/current-position/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/dashboard/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/detect-duplicates/route.ts": [],
+    "src/app/api/documents/[id]/route.ts": [
+      "src/lib/activity.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/documents/route.ts": [
+      "src/lib/activity.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/email-accounts/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/email-leads/[id]/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/email-leads/ingest/route.ts": [
+      "src/lib/cache.ts",
+      "src/lib/email-parser.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/email-leads/parse/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/cache.ts",
+      "src/lib/email-parser.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/email-leads/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/email-leads/sync/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/cache.ts",
+      "src/lib/email-parser.ts",
+      "src/lib/email.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/email-leads/token/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/emails/link/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/emails/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/email.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/employer-alias/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/employer-alias.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/employment-report/compare/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/employment-report/import/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/employment-report/upload/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/gemini.ts"
+    ],
+    "src/app/api/equipment-resources/[id]/download/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/equipment-resources/[id]/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/equipment-resources/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/equipment-search/route.ts": [
+      "src/lib/auth-utils.ts"
+    ],
+    "src/app/api/equipment/[id]/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/equipment/photos/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/equipment/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/export/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/extract-location/route.ts": [],
+    "src/app/api/gallery/albums/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/gallery/annotations/comments/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts",
+      "src/lib/rate-limit.ts"
+    ],
+    "src/app/api/gallery/annotations/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts",
+      "src/lib/rate-limit.ts",
+      "src/lib/sanitize-html.ts"
+    ],
+    "src/app/api/gallery/annotations/upload/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/rate-limit.ts"
+    ],
+    "src/app/api/gallery/export/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/gallery/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/gallery/videos/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/gas-prices/route.ts": [],
+    "src/app/api/geocode/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/cache.ts"
+    ],
+    "src/app/api/goals/[id]/route.ts": [
+      "src/lib/activity.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/goals/route.ts": [
+      "src/lib/activity.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/google-news/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/gemini.ts"
+    ],
+    "src/app/api/google-scholar/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/gemini.ts"
+    ],
+    "src/app/api/hours-worked/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/import/route.ts": [
+      "src/lib/activity.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/income-history/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/employer-alias.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/integrations/[id]/sync/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/auto-log.ts",
+      "src/lib/github-events.ts",
+      "src/lib/ics.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/integrations/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/interactive-resumes/[id]/route.ts": [
+      "src/lib/activity.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/interactive-resumes/[id]/views/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/interactive-resumes/public/[slug]/contact/route.ts": [
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/interactive-resumes/public/[slug]/route.ts": [
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/interactive-resumes/route.ts": [
+      "src/lib/activity.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/interactive-resumes/view/[slug]/route.ts": [
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/interest-groups/[id]/items/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/interest-groups/[id]/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/interest-groups/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/interview-prep/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/gemini.ts"
+    ],
+    "src/app/api/interview-room/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/interview-rooms.ts"
+    ],
+    "src/app/api/interview-room/signal/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/interview-rooms.ts"
+    ],
+    "src/app/api/interviews/[id]/route.ts": [
+      "src/lib/activity.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/interviews/route.ts": [
+      "src/lib/activity.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/ir/[slug]/analytics/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/ir/events/route.ts": [
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/irs-return-parse/route.ts": [
+      "src/lib/auth-utils.ts"
+    ],
+    "src/app/api/isochrone/route.ts": [],
+    "src/app/api/job-assets/[id]/documents/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/job-assets/[id]/links/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/job-assets/photos/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/auto-log.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/job-assets/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/job-board/route.ts": [
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/job-parse/route.ts": [
+      "src/lib/ai.ts",
+      "src/lib/auth-utils.ts"
+    ],
+    "src/app/api/job-postings/[id]/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/job-postings/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/job-search/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/cache.ts"
+    ],
+    "src/app/api/learning/[id]/route.ts": [
+      "src/lib/activity.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/learning/generate/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/gemini.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/learning/route.ts": [
+      "src/lib/activity.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/learning/sessions/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/learning/topics/[id]/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/learning/topics/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/life-anchors/[id]/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/life-anchors/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/map-drawings/[id]/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/map-drawings/layers/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/map-drawings/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/market-research/[id]/route.ts": [
+      "src/lib/activity.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/market-research/bls/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/market-research/occupations/route.ts": [
+      "src/data/soc-codes.json",
+      "src/lib/auth-utils.ts"
+    ],
+    "src/app/api/market-research/route.ts": [
+      "src/lib/activity.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/master-gallery/move/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/master-gallery/photos/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/master-gallery/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/milestones/[id]/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/milestones/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/nearby-amenities/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/cache.ts"
+    ],
+    "src/app/api/nearby-buildings/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/cache.ts"
+    ],
+    "src/app/api/offer-compare/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts",
+      "src/lib/rate-limit.ts"
+    ],
+    "src/app/api/onet/import/route.ts": [
+      "src/lib/activity.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/onet.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/onet/ingest-csv/route.ts": [
+      "src/lib/activity.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/onet.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/onet/ingest/route.ts": [
+      "src/lib/activity.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/onet.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/onet/occupation/[code]/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/onet.ts"
+    ],
+    "src/app/api/onet/search/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/onet.ts"
+    ],
+    "src/app/api/pay-periods/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/paycheck-parse/route.ts": [
+      "src/lib/auth-utils.ts"
+    ],
+    "src/app/api/paycheck-records/[id]/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/paycheck-records/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/personal-equipment/bulk-upload/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/personal-equipment/duplicate/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/personal-equipment/kits/[id]/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/personal-equipment/kits/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/personal-equipment/photos/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/auto-log.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/personal-equipment/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/personal-equipment/shares/[id]/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/personal-equipment/shares/public/[token]/route.ts": [
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/personal-equipment/shares/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/portal/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/profile/compensation/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts",
+      "src/lib/rate-limit.ts"
+    ],
+    "src/app/api/profile/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/publish/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/recruiter-flags/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/recruiter/list/route.ts": [
+      "src/lib/prisma.ts",
+      "src/lib/recruiter-cookie.ts"
+    ],
+    "src/app/api/recruiter/notes/route.ts": [
+      "src/lib/prisma.ts",
+      "src/lib/rate-limit.ts",
+      "src/lib/recruiter-cookie.ts"
+    ],
+    "src/app/api/recruiter/saves/route.ts": [
+      "src/lib/prisma.ts",
+      "src/lib/rate-limit.ts",
+      "src/lib/recruiter-cookie.ts"
+    ],
+    "src/app/api/reminders/[id]/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/reminders/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/research-articles/[id]/extract/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/research-articles/[id]/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/research-articles/fetch/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts",
+      "src/lib/rss.ts"
+    ],
+    "src/app/api/research-articles/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/research-feeds/[id]/route.ts": [
+      "src/lib/activity.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/research-feeds/route.ts": [
+      "src/lib/activity.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts",
+      "src/lib/rss.ts"
+    ],
+    "src/app/api/residences/[id]/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/residences/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/resolve-address/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/cache.ts"
+    ],
+    "src/app/api/resume-export/docx/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/resume-export/pdf/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts",
+      "src/lib/resume-pdf-template.tsx"
+    ],
+    "src/app/api/resume-import-save/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/resume-parse/route.ts": [
+      "src/lib/ai.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/resumes/[id]/route.ts": [
+      "src/lib/activity.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/resumes/route.ts": [
+      "src/lib/activity.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/reverse-geocode/route.ts": [
+      "src/lib/auth-utils.ts"
+    ],
+    "src/app/api/saved-searches/[id]/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/saved-searches/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/search/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/seed/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/single-use-links/[id]/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/single-use-links/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/skill-gap-suggestions/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/skill-graph/[id]/route.ts": [
+      "src/lib/activity.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/skill-graph/auto-evidence/route.ts": [
+      "src/lib/activity.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/gemini.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/skill-graph/edges/route.ts": [
+      "src/lib/activity.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/skill-graph/edm/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/edm.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/skill-graph/evidence/route.ts": [
+      "src/lib/activity.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/skill-graph/ingest/route.ts": [
+      "src/lib/activity.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/gemini.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/skill-graph/occupations/[id]/route.ts": [
+      "src/lib/activity.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/skill-graph/occupations/fit/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/skill-graph/occupations/route.ts": [
+      "src/lib/activity.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/skill-graph/route.ts": [
+      "src/lib/activity.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/skill-graph/scaffold/refresh/route.ts": [
+      "src/lib/activity.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/gemini.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/skill-graph/scaffold/route.ts": [
+      "src/data/onet-skill-scaffold.json",
+      "src/lib/activity.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/skill-graph/sync-profile/route.ts": [
+      "src/lib/activity.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/skills/[id]/route.ts": [
+      "src/lib/activity.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/skills/route.ts": [
+      "src/lib/activity.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/submissions/[id]/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/submissions/[id]/vcard/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/submissions/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/time-off-entries/[id]/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/time-off-entries/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/time-off/[id]/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/time-off/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/usajobs/route.ts": [
+      "src/lib/auth-utils.ts"
+    ],
+    "src/app/api/vehicle-lookup/route.ts": [],
+    "src/app/api/w2-parse/route.ts": [
+      "src/lib/auth-utils.ts"
+    ],
+    "src/app/api/w2-records/[id]/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/w2-records/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/walk-score/route.ts": [
+      "src/lib/auth-utils.ts"
+    ],
+    "src/app/api/work-history/[id]/events/[eventId]/photos/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/work-history/[id]/events/[eventId]/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/work-history/[id]/events/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/work-history/[id]/link/route.ts": [],
+    "src/app/api/work-history/[id]/locations/[locId]/photos/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/work-history/[id]/locations/[locId]/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/work-history/[id]/locations/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/work-history/[id]/milestones/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/work-history/[id]/notes/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/work-history/[id]/rating/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/work-history/[id]/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/work-history/[id]/shifts/[shiftId]/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts",
+      "src/lib/worklog-shifts.ts"
+    ],
+    "src/app/api/work-history/[id]/shifts/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts",
+      "src/lib/worklog-shifts.ts"
+    ],
+    "src/app/api/work-history/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/work-history/search/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/work-logs/[id]/route.test.ts": [
+      "src/app/api/work-logs/[id]/route.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/work-logs/[id]/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts",
+      "src/lib/worklog-shifts.ts",
+      "src/lib/worklog/content-json.ts",
+      "src/lib/worklog/prosemirror-to-text.ts"
+    ],
+    "src/app/api/work-logs/bulk/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/work-logs/drafts/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/work-logs/folders/[id]/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts",
+      "src/lib/worklog-folders.ts"
+    ],
+    "src/app/api/work-logs/folders/reorder/route.test.ts": [
+      "src/app/api/work-logs/folders/reorder/route.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts",
+      "src/lib/worklog-folders.ts"
+    ],
+    "src/app/api/work-logs/folders/reorder/route.ts": [
+      "src/lib/activity.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts",
+      "src/lib/worklog-folders.ts"
+    ],
+    "src/app/api/work-logs/folders/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts",
+      "src/lib/worklog-folders.ts"
+    ],
+    "src/app/api/work-logs/mention-search/route.test.ts": [
+      "src/app/api/work-logs/mention-search/route.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/work-logs/mention-search/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/work-logs/photos/reconcile/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/work-logs/photos/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/work-logs/preferences/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/work-logs/reorder/route.test.ts": [
+      "src/app/api/work-logs/reorder/route.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/work-logs/reorder/route.ts": [
+      "src/lib/activity.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/work-logs/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts",
+      "src/lib/worklog-shifts.ts",
+      "src/lib/worklog/content-json.ts"
+    ],
+    "src/app/api/work-logs/search/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts",
+      "src/lib/worklog-folders.ts",
+      "src/types/worklog.ts"
+    ],
+    "src/app/api/work-logs/templates/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/worker-rights/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/gemini.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/globals.css": [],
+    "src/app/interview/[roomId]/layout.tsx": [],
+    "src/app/interview/[roomId]/page.tsx": [
+      "src/components/interview-resume-sidebar.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/video-call.tsx"
+    ],
+    "src/app/jobs/[slug]/page.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/layout.tsx": [
+      "src/app/globals.css",
+      "src/components/providers.tsx",
+      "src/components/pwa-register.tsx"
+    ],
+    "src/app/login/page.tsx": [
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/separator.tsx"
+    ],
+    "src/app/onboarding/page.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/textarea.tsx"
+    ],
+    "src/app/page.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx"
+    ],
+    "src/app/r/[slug]/layout.tsx": [],
+    "src/app/r/[slug]/page.tsx": [
+      "src/components/resume-immersive-map.tsx",
+      "src/components/resume-work-map.tsx"
+    ],
+    "src/app/recruiter-saved/page.tsx": [],
+    "src/app/share/inventory/[token]/page.tsx": [],
+    "src/components/adaptive-ir-editor.tsx": [
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/skeleton.tsx",
+      "src/components/ui/switch.tsx"
+    ],
+    "src/components/ai-chat.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/textarea.tsx"
+    ],
+    "src/components/annotation-compare.tsx": [
+      "src/components/annotation-overlay.tsx"
+    ],
+    "src/components/annotation-editor.tsx": [
+      "src/components/annotation-compare.tsx",
+      "src/components/annotation-overlay.tsx",
+      "src/components/comments-thread.tsx",
+      "src/components/rich-text-editor.tsx"
+    ],
+    "src/components/annotation-overlay.tsx": [],
+    "src/components/annotation-viewer.tsx": [
+      "src/components/annotation-overlay.tsx",
+      "src/lib/sanitize-html.ts"
+    ],
+    "src/components/asset-picker.tsx": [
+      "src/components/asset-service-history.tsx",
+      "src/components/asset-type-picker.tsx",
+      "src/components/asset-types-manager.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/checkbox.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/textarea.tsx",
+      "src/lib/utils.ts"
+    ],
+    "src/components/asset-service-history.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/lib/utils.ts"
+    ],
+    "src/components/asset-type-picker.tsx": [
+      "src/components/asset-types-manager.tsx",
+      "src/components/ui/input.tsx"
+    ],
+    "src/components/asset-types-manager.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/textarea.tsx",
+      "src/lib/utils.ts"
+    ],
+    "src/components/benefits-tracker.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/separator.tsx",
+      "src/components/ui/textarea.tsx"
+    ],
+    "src/components/bio-card-editor.tsx": [
+      "src/components/ui/button.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/textarea.tsx"
+    ],
+    "src/components/building-outline-editor.tsx": [],
+    "src/components/career-analytics-banner.tsx": [
+      "src/lib/utils.ts"
+    ],
+    "src/components/career-direction-model.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/dropdown-menu.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/progress.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/separator.tsx",
+      "src/components/ui/skeleton.tsx",
+      "src/components/ui/textarea.tsx"
+    ],
+    "src/components/command-palette.tsx": [
+      "src/components/ui/command.tsx",
+      "src/components/worklog/quick-capture-dialog.tsx"
+    ],
+    "src/components/comments-thread.tsx": [],
+    "src/components/company-deep-dive.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/progress.tsx",
+      "src/components/ui/separator.tsx",
+      "src/components/ui/skeleton.tsx",
+      "src/components/ui/tabs.tsx"
+    ],
+    "src/components/company-intel.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/separator.tsx",
+      "src/components/ui/skeleton.tsx",
+      "src/components/ui/textarea.tsx"
+    ],
+    "src/components/company-news.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/separator.tsx"
+    ],
+    "src/components/compensation-editor.tsx": [
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/switch.tsx",
+      "src/components/ui/textarea.tsx"
+    ],
+    "src/components/compensation-tracker.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/separator.tsx",
+      "src/components/ui/textarea.tsx"
+    ],
+    "src/components/equipment-picker.tsx": [
+      "src/components/ui/button.tsx",
+      "src/components/ui/checkbox.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/textarea.tsx",
+      "src/lib/utils.ts"
+    ],
+    "src/components/equipment-tracker.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/textarea.tsx"
+    ],
+    "src/components/equipment-usage-history.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/lib/utils.ts"
+    ],
+    "src/components/floating-panel.tsx": [
+      "src/lib/utils.ts"
+    ],
+    "src/components/gallery-modal.tsx": [
+      "src/components/annotation-editor.tsx"
+    ],
+    "src/components/hours-worked-tracker.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/separator.tsx",
+      "src/components/ui/tabs.tsx"
+    ],
+    "src/components/immersive-layout.tsx": [],
+    "src/components/industry-research.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/skeleton.tsx",
+      "src/components/ui/tooltip.tsx",
+      "src/lib/rss.ts"
+    ],
+    "src/components/interactive-resumes-manager.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/dropdown-menu.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/skeleton.tsx",
+      "src/components/ui/switch.tsx",
+      "src/components/ui/textarea.tsx"
+    ],
+    "src/components/interview-prep.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/separator.tsx",
+      "src/components/ui/tabs.tsx",
+      "src/components/ui/textarea.tsx"
+    ],
+    "src/components/interview-resume-sidebar.tsx": [],
+    "src/components/interview-room-launcher.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/select.tsx"
+    ],
+    "src/components/ir-anchored-popover.tsx": [
+      "src/lib/utils.ts"
+    ],
+    "src/components/ir-popout-sheet.tsx": [],
+    "src/components/job-asset-photos.tsx": [
+      "src/components/ui/button.tsx",
+      "src/lib/utils.ts"
+    ],
+    "src/components/job-assets-page.tsx": [
+      "src/components/asset-service-history.tsx",
+      "src/components/asset-type-picker.tsx",
+      "src/components/asset-types-manager.tsx",
+      "src/components/job-asset-photos.tsx",
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/textarea.tsx",
+      "src/lib/utils.ts"
+    ],
+    "src/components/job-board.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/select.tsx"
+    ],
+    "src/components/job-interest-groups.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/checkbox.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/separator.tsx"
+    ],
+    "src/components/job-map-google.tsx": [
+      "src/data/state-tax-zones.ts",
+      "src/lib/taxes.ts"
+    ],
+    "src/components/job-map-leaflet.tsx": [],
+    "src/components/job-map.tsx": [
+      "src/app/(app)/analytics/page.tsx",
+      "src/components/bio-card-editor.tsx",
+      "src/components/company-deep-dive.tsx",
+      "src/components/gallery-modal.tsx",
+      "src/components/immersive-layout.tsx",
+      "src/components/ir-anchored-popover.tsx",
+      "src/components/ir-popout-sheet.tsx",
+      "src/components/job-map/view-preset-switcher.tsx",
+      "src/components/job-map/view-preset.ts",
+      "src/components/life-anchors-panel.tsx",
+      "src/components/map-drawing-canvas.tsx",
+      "src/components/master-gallery/embedded-master-folders.tsx",
+      "src/components/master-gallery/embedded-position-gallery.tsx",
+      "src/components/personal-inventory.tsx",
+      "src/components/places-autocomplete.tsx",
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/dropdown-menu.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/popover.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/separator.tsx",
+      "src/components/ui/switch.tsx",
+      "src/components/ui/textarea.tsx",
+      "src/components/uniform-body-map.tsx",
+      "src/components/worklog/worklog-page.tsx",
+      "src/data/state-tax-zones.ts",
+      "src/lib/taxes.ts"
+    ],
+    "src/components/job-map/view-preset-switcher.tsx": [
+      "src/components/job-map/view-preset.ts"
+    ],
+    "src/components/job-map/view-preset.ts": [],
+    "src/components/job-market-research.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/skeleton.tsx"
+    ],
+    "src/components/layout-shell.tsx": [
+      "src/components/ai-chat.tsx",
+      "src/components/command-palette.tsx",
+      "src/components/quick-log-dialog.tsx",
+      "src/components/sidebar.tsx"
+    ],
+    "src/components/learning-tracker.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/dropdown-menu.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/progress.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/skeleton.tsx",
+      "src/components/ui/textarea.tsx"
+    ],
+    "src/components/life-anchors-panel.tsx": [
+      "src/components/places-autocomplete.tsx",
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/select.tsx"
+    ],
+    "src/components/map-drawing-canvas.tsx": [],
+    "src/components/map-drawing-panel.tsx": [
+      "src/components/map-drawing-canvas.tsx"
+    ],
+    "src/components/master-gallery/bulk-action-bar.tsx": [],
+    "src/components/master-gallery/embedded-master-folders.tsx": [
+      "src/components/master-gallery/types.ts"
+    ],
+    "src/components/master-gallery/embedded-position-gallery.tsx": [
+      "src/components/master-gallery/folder-grid.tsx",
+      "src/components/master-gallery/photo-detail-drawer.tsx",
+      "src/components/master-gallery/photo-grid.tsx",
+      "src/components/master-gallery/types.ts"
+    ],
+    "src/components/master-gallery/folder-grid.tsx": [
+      "src/components/master-gallery/types.ts"
+    ],
+    "src/components/master-gallery/master-gallery-page.tsx": [
+      "src/components/master-gallery/bulk-action-bar.tsx",
+      "src/components/master-gallery/folder-grid.tsx",
+      "src/components/master-gallery/move-dialog.tsx",
+      "src/components/master-gallery/photo-detail-drawer.tsx",
+      "src/components/master-gallery/photo-grid.tsx",
+      "src/components/master-gallery/types.ts"
+    ],
+    "src/components/master-gallery/move-dialog.tsx": [
+      "src/components/master-gallery/types.ts"
+    ],
+    "src/components/master-gallery/photo-detail-drawer.tsx": [
+      "src/components/master-gallery/types.ts"
+    ],
+    "src/components/master-gallery/photo-grid.tsx": [
+      "src/components/master-gallery/types.ts"
+    ],
+    "src/components/master-gallery/types.ts": [],
+    "src/components/notification-bell.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/popover.tsx"
+    ],
+    "src/components/offer-comparison.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/separator.tsx"
+    ],
+    "src/components/onboarding-flow.tsx": [
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx"
+    ],
+    "src/components/pay-period-calendar.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/tooltip.tsx"
+    ],
+    "src/components/paycheck-estimator.tsx": [
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/separator.tsx"
+    ],
+    "src/components/personal-finance.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/separator.tsx",
+      "src/lib/money.ts"
+    ],
+    "src/components/personal-inventory.tsx": [
+      "src/components/equipment-usage-history.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/switch.tsx",
+      "src/components/ui/tag-input.tsx",
+      "src/components/ui/textarea.tsx"
+    ],
+    "src/components/places-autocomplete.tsx": [
+      "src/components/ui/input.tsx"
+    ],
+    "src/components/position-worklog-tab.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/worklog/promote-to-event-dialog.tsx",
+      "src/lib/utils.ts"
+    ],
+    "src/components/providers.tsx": [],
+    "src/components/pwa-register.tsx": [],
+    "src/components/quick-log-dialog.tsx": [
+      "src/components/ui/tag-input.tsx",
+      "src/components/worklog/constants.ts",
+      "src/types/worklog.ts"
+    ],
+    "src/components/recruiter-panel.tsx": [],
+    "src/components/resume-immersive-map.tsx": [
+      "src/components/annotation-overlay.tsx",
+      "src/components/annotation-viewer.tsx",
+      "src/components/immersive-layout.tsx",
+      "src/components/ir-popout-sheet.tsx",
+      "src/components/recruiter-panel.tsx",
+      "src/lib/use-ir-analytics.ts"
+    ],
+    "src/components/resume-work-map.tsx": [],
+    "src/components/rich-text-editor.tsx": [],
+    "src/components/scholar-search.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/input.tsx"
+    ],
+    "src/components/sidebar.tsx": [
+      "src/components/notification-bell.tsx",
+      "src/components/quick-log-dialog.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/sheet.tsx",
+      "src/lib/constants.ts",
+      "src/lib/utils.ts"
+    ],
+    "src/components/skill-graph-analytics.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/tooltip.tsx"
+    ],
+    "src/components/skill-graph.tsx": [
+      "src/components/skill-graph-analytics.tsx",
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/dropdown-menu.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/skeleton.tsx",
+      "src/components/ui/textarea.tsx"
+    ],
+    "src/components/timeoff-tracker.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/progress.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/separator.tsx",
+      "src/components/ui/textarea.tsx"
+    ],
+    "src/components/ui/avatar.tsx": [
+      "src/lib/utils.ts"
+    ],
+    "src/components/ui/badge.tsx": [
+      "src/lib/utils.ts"
+    ],
+    "src/components/ui/button.tsx": [
+      "src/lib/utils.ts"
+    ],
+    "src/components/ui/calendar.tsx": [
+      "src/components/ui/button.tsx",
+      "src/lib/utils.ts"
+    ],
+    "src/components/ui/card.tsx": [
+      "src/lib/utils.ts"
+    ],
+    "src/components/ui/checkbox.tsx": [
+      "src/lib/utils.ts"
+    ],
+    "src/components/ui/command.tsx": [
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input-group.tsx",
+      "src/lib/utils.ts"
+    ],
+    "src/components/ui/dialog.tsx": [
+      "src/components/ui/button.tsx",
+      "src/lib/utils.ts"
+    ],
+    "src/components/ui/dropdown-menu.tsx": [
+      "src/lib/utils.ts"
+    ],
+    "src/components/ui/input-group.tsx": [
+      "src/components/ui/button.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/textarea.tsx",
+      "src/lib/utils.ts"
+    ],
+    "src/components/ui/input.tsx": [
+      "src/lib/utils.ts"
+    ],
+    "src/components/ui/label.tsx": [
+      "src/lib/utils.ts"
+    ],
+    "src/components/ui/popover.tsx": [
+      "src/lib/utils.ts"
+    ],
+    "src/components/ui/progress.tsx": [
+      "src/lib/utils.ts"
+    ],
+    "src/components/ui/scroll-area.tsx": [
+      "src/lib/utils.ts"
+    ],
+    "src/components/ui/select.tsx": [
+      "src/lib/utils.ts"
+    ],
+    "src/components/ui/separator.tsx": [
+      "src/lib/utils.ts"
+    ],
+    "src/components/ui/sheet.tsx": [
+      "src/components/ui/button.tsx",
+      "src/lib/utils.ts"
+    ],
+    "src/components/ui/skeleton.tsx": [
+      "src/lib/utils.ts"
+    ],
+    "src/components/ui/switch.tsx": [
+      "src/lib/utils.ts"
+    ],
+    "src/components/ui/table.tsx": [
+      "src/lib/utils.ts"
+    ],
+    "src/components/ui/tabs.tsx": [
+      "src/lib/utils.ts"
+    ],
+    "src/components/ui/tag-input.tsx": [
+      "src/lib/utils.ts"
+    ],
+    "src/components/ui/textarea.tsx": [
+      "src/lib/utils.ts"
+    ],
+    "src/components/ui/tooltip.tsx": [
+      "src/lib/utils.ts"
+    ],
+    "src/components/uniform-body-map.tsx": [
+      "src/lib/utils.ts"
+    ],
+    "src/components/video-call.tsx": [
+      "src/components/ui/button.tsx"
+    ],
+    "src/components/work-history-shift-manager.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/lib/worklog-shifts.ts",
+      "src/types/worklog.ts"
+    ],
+    "src/components/work-log-tracker.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/switch.tsx",
+      "src/components/ui/textarea.tsx"
+    ],
+    "src/components/worklog/canvas-dialog.tsx": [
+      "src/components/ui/button.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/lib/worklog/parse-snapshot.ts"
+    ],
+    "src/components/worklog/canvas-node-view.tsx": [
+      "src/components/ui/button.tsx",
+      "src/lib/utils.ts",
+      "src/lib/worklog/tiptap/canvas-node.ts"
+    ],
+    "src/components/worklog/constants.ts": [],
+    "src/components/worklog/heatmap-utils.ts": [
+      "src/types/worklog.ts"
+    ],
+    "src/components/worklog/hooks/use-autosave.ts": [],
+    "src/components/worklog/hooks/use-worklog-create-flow.ts": [
+      "src/components/worklog/worklog-folders-rail.tsx",
+      "src/types/worklog.ts"
+    ],
+    "src/components/worklog/hooks/use-worklog-data.ts": [
+      "src/components/asset-picker.tsx",
+      "src/components/equipment-picker.tsx",
+      "src/lib/worklog/worklog-cache.ts",
+      "src/types/worklog.ts"
+    ],
+    "src/components/worklog/hooks/use-worklog-deep-links.ts": [
+      "src/components/worklog/worklog-folders-rail.tsx",
+      "src/types/worklog.ts"
+    ],
+    "src/components/worklog/hooks/use-worklog-dnd.ts": [
+      "src/components/worklog/hooks/use-worklog-folders.ts",
+      "src/components/worklog/hooks/use-worklog-mutations.ts",
+      "src/types/worklog.ts"
+    ],
+    "src/components/worklog/hooks/use-worklog-drafts.ts": [],
+    "src/components/worklog/hooks/use-worklog-filters.ts": [
+      "src/types/worklog.ts"
+    ],
+    "src/components/worklog/hooks/use-worklog-folders.ts": [
+      "src/types/worklog.ts"
+    ],
+    "src/components/worklog/hooks/use-worklog-keyboard-nav.ts": [
+      "src/components/worklog/worklog-note-reader.tsx",
+      "src/types/worklog.ts"
+    ],
+    "src/components/worklog/hooks/use-worklog-mutations.ts": [
+      "src/components/worklog/hooks/use-worklog-folders.ts",
+      "src/types/worklog.ts"
+    ],
+    "src/components/worklog/hooks/use-worklog-preferences.ts": [
+      "src/types/worklog.ts"
+    ],
+    "src/components/worklog/hooks/use-worklog-selection.ts": [],
+    "src/components/worklog/hooks/use-worklog-stats.ts": [
+      "src/components/worklog/heatmap-utils.ts",
+      "src/types/worklog.ts"
+    ],
+    "src/components/worklog/hooks/use-worklog-visible-logs.ts": [
+      "src/components/worklog/hooks/use-worklog-filters.ts",
+      "src/components/worklog/hooks/use-worklog-folders.ts",
+      "src/components/worklog/worklog-folders-rail.tsx",
+      "src/lib/worklog-folders.ts",
+      "src/types/worklog.ts"
+    ],
+    "src/components/worklog/mention-node-view.tsx": [
+      "src/lib/utils.ts",
+      "src/lib/worklog/tiptap/mention-node.ts"
+    ],
+    "src/components/worklog/mention-suggestion-popup.tsx": [
+      "src/lib/utils.ts",
+      "src/lib/worklog/tiptap/mention-node.ts"
+    ],
+    "src/components/worklog/photo-node-view.tsx": [
+      "src/lib/utils.ts",
+      "src/lib/worklog/photo-upload.ts"
+    ],
+    "src/components/worklog/promote-to-event-dialog.tsx": [
+      "src/components/ui/button.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/textarea.tsx"
+    ],
+    "src/components/worklog/quick-capture-dialog.tsx": [
+      "src/components/ui/button.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/textarea.tsx",
+      "src/components/worklog/constants.ts",
+      "src/types/worklog.ts"
+    ],
+    "src/components/worklog/slash-command-menu.tsx": [
+      "src/lib/utils.ts",
+      "src/lib/worklog/tiptap/slash-commands.tsx"
+    ],
+    "src/components/worklog/worklog-bulk-action-bar.tsx": [
+      "src/components/ui/button.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/worklog/hooks/use-worklog-folders.ts",
+      "src/components/worklog/worklog-move-to-folder-dialog.tsx",
+      "src/lib/utils.ts"
+    ],
+    "src/components/worklog/worklog-defaults-dialog.tsx": [
+      "src/components/ui/button.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/worklog/constants.ts",
+      "src/lib/worklog-shifts.ts",
+      "src/types/worklog.ts"
+    ],
+    "src/components/worklog/worklog-dnd-provider.test.ts": [
+      "src/components/worklog/hooks/use-worklog-dnd.ts",
+      "src/components/worklog/worklog-dnd-provider.tsx"
+    ],
+    "src/components/worklog/worklog-dnd-provider.tsx": [
+      "src/components/worklog/hooks/use-worklog-data.ts",
+      "src/components/worklog/hooks/use-worklog-dnd.ts",
+      "src/components/worklog/hooks/use-worklog-folders.ts"
+    ],
+    "src/components/worklog/worklog-editor-toolbar.tsx": [
+      "src/components/ui/button.tsx",
+      "src/components/ui/dropdown-menu.tsx",
+      "src/components/ui/input.tsx",
+      "src/lib/worklog/tiptap/mood-block.ts",
+      "src/lib/worklog/tiptap/slash-commands.tsx",
+      "src/lib/worklog/tiptap/tag-mention.ts",
+      "src/types/worklog.ts"
+    ],
+    "src/components/worklog/worklog-editor.tsx": [
+      "src/components/worklog/slash-command-menu.tsx",
+      "src/components/worklog/worklog-editor-toolbar.tsx",
+      "src/lib/utils.ts",
+      "src/lib/worklog/photo-upload.ts",
+      "src/lib/worklog/prosemirror-to-text.ts",
+      "src/lib/worklog/tiptap/canvas-node.ts",
+      "src/lib/worklog/tiptap/mention-node.ts",
+      "src/lib/worklog/tiptap/mood-block.ts",
+      "src/lib/worklog/tiptap/photo-node.ts",
+      "src/lib/worklog/tiptap/shift-block.ts",
+      "src/lib/worklog/tiptap/slash-commands.tsx",
+      "src/lib/worklog/tiptap/tag-mention.ts",
+      "src/lib/worklog/yjs-provider.ts",
+      "src/types/worklog.ts"
+    ],
+    "src/components/worklog/worklog-folder-delete-dialog.tsx": [
+      "src/components/ui/button.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx"
+    ],
+    "src/components/worklog/worklog-folder-tree-items.tsx": [
+      "src/components/worklog/hooks/use-worklog-folders.ts",
+      "src/components/worklog/worklog-folder-delete-dialog.tsx",
+      "src/components/worklog/worklog-folder-tree.tsx",
+      "src/components/worklog/worklog-move-to-folder-dialog.tsx",
+      "src/lib/worklog-folders.ts",
+      "src/types/worklog.ts"
+    ],
+    "src/components/worklog/worklog-folder-tree.tsx": [
+      "src/components/ui/dropdown-menu.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/popover.tsx",
+      "src/components/worklog/constants.ts",
+      "src/lib/utils.ts",
+      "src/lib/worklog-folders.ts",
+      "src/types/worklog.ts"
+    ],
+    "src/components/worklog/worklog-folders-rail.tsx": [
+      "src/components/worklog/constants.ts",
+      "src/components/worklog/worklog-folder-tree-items.tsx",
+      "src/components/worklog/worklog-heatmap.tsx",
+      "src/lib/utils.ts",
+      "src/types/worklog.ts"
+    ],
+    "src/components/worklog/worklog-heatmap.tsx": [
+      "src/components/ui/button.tsx",
+      "src/components/worklog/heatmap-utils.ts",
+      "src/lib/utils.ts",
+      "src/types/worklog.ts"
+    ],
+    "src/components/worklog/worklog-move-to-folder-dialog.tsx": [
+      "src/components/ui/button.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx",
+      "src/lib/worklog-folders.ts",
+      "src/types/worklog.ts"
+    ],
+    "src/components/worklog/worklog-note-meta-strip.tsx": [
+      "src/components/ui/button.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/worklog/constants.ts",
+      "src/components/worklog/hooks/use-worklog-folders.ts",
+      "src/components/worklog/worklog-move-to-folder-dialog.tsx",
+      "src/lib/utils.ts",
+      "src/lib/worklog-shifts.ts",
+      "src/types/worklog.ts"
+    ],
+    "src/components/worklog/worklog-note-reader.tsx": [
+      "src/components/asset-picker.tsx",
+      "src/components/equipment-picker.tsx",
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/tag-input.tsx",
+      "src/components/worklog/hooks/use-autosave.ts",
+      "src/components/worklog/hooks/use-worklog-drafts.ts",
+      "src/components/worklog/promote-to-event-dialog.tsx",
+      "src/components/worklog/worklog-editor.tsx",
+      "src/components/worklog/worklog-note-meta-strip.tsx",
+      "src/components/worklog/worklog-note-view.tsx",
+      "src/components/worklog/worklog-photo-section.tsx",
+      "src/lib/utils.ts",
+      "src/lib/worklog-shifts.ts",
+      "src/lib/worklog/tiptap/extract-tags.ts",
+      "src/types/worklog.ts"
+    ],
+    "src/components/worklog/worklog-note-view.tsx": [
+      "src/lib/utils.ts"
+    ],
+    "src/components/worklog/worklog-notes-list.tsx": [
+      "src/components/worklog/constants.ts",
+      "src/components/worklog/hooks/use-worklog-folders.ts",
+      "src/components/worklog/hooks/use-worklog-mutations.ts",
+      "src/components/worklog/worklog-move-to-folder-dialog.tsx",
+      "src/lib/utils.ts",
+      "src/types/worklog.ts"
+    ],
+    "src/components/worklog/worklog-page.tsx": [
+      "src/components/ui/button.tsx",
+      "src/components/ui/scroll-area.tsx",
+      "src/components/worklog/constants.ts",
+      "src/components/worklog/hooks/use-worklog-create-flow.ts",
+      "src/components/worklog/hooks/use-worklog-data.ts",
+      "src/components/worklog/hooks/use-worklog-deep-links.ts",
+      "src/components/worklog/hooks/use-worklog-keyboard-nav.ts",
+      "src/components/worklog/hooks/use-worklog-mutations.ts",
+      "src/components/worklog/hooks/use-worklog-preferences.ts",
+      "src/components/worklog/hooks/use-worklog-selection.ts",
+      "src/components/worklog/hooks/use-worklog-stats.ts",
+      "src/components/worklog/hooks/use-worklog-visible-logs.ts",
+      "src/components/worklog/worklog-bulk-action-bar.tsx",
+      "src/components/worklog/worklog-defaults-dialog.tsx",
+      "src/components/worklog/worklog-dnd-provider.tsx",
+      "src/components/worklog/worklog-folders-rail.tsx",
+      "src/components/worklog/worklog-note-reader.tsx",
+      "src/components/worklog/worklog-notes-list.tsx",
+      "src/components/worklog/worklog-search-palette.tsx",
+      "src/components/worklog/worklog-template-editor.tsx",
+      "src/components/worklog/worklog-template-picker-dialog.tsx",
+      "src/components/worklog/worklog-templates-tab.tsx",
+      "src/components/worklog/worklog-toolbar.tsx",
+      "src/lib/utils.ts",
+      "src/types/worklog.ts"
+    ],
+    "src/components/worklog/worklog-photo-section.tsx": [
+      "src/components/ui/label.tsx",
+      "src/types/worklog.ts"
+    ],
+    "src/components/worklog/worklog-search-palette.tsx": [
+      "src/components/ui/dialog.tsx",
+      "src/lib/utils.ts"
+    ],
+    "src/components/worklog/worklog-template-editor.tsx": [
+      "src/components/asset-picker.tsx",
+      "src/components/equipment-picker.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/tag-input.tsx",
+      "src/components/worklog/constants.ts",
+      "src/types/worklog.ts"
+    ],
+    "src/components/worklog/worklog-template-picker-dialog.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/scroll-area.tsx",
+      "src/components/worklog/constants.ts",
+      "src/lib/utils.ts",
+      "src/types/worklog.ts"
+    ],
+    "src/components/worklog/worklog-templates-tab.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/worklog/constants.ts",
+      "src/lib/utils.ts",
+      "src/types/worklog.ts"
+    ],
+    "src/components/worklog/worklog-toolbar.tsx": [
+      "src/components/asset-picker.tsx",
+      "src/components/equipment-picker.tsx",
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/worklog/constants.ts",
+      "src/lib/utils.ts",
+      "src/types/worklog.ts"
+    ],
+    "src/data/All_Occupations.csv": [],
+    "src/data/onet-skill-scaffold.json": [],
+    "src/data/soc-codes.json": [],
+    "src/data/state-tax-zones.ts": [],
+    "src/lib/activity.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/lib/ai.ts": [],
+    "src/lib/auth-utils.ts": [
+      "src/lib/auth.ts"
+    ],
+    "src/lib/auth.ts": [
+      "src/lib/prisma.ts"
+    ],
+    "src/lib/auto-log.ts": [
+      "src/lib/prisma.ts"
+    ],
+    "src/lib/cache.ts": [],
+    "src/lib/col.ts": [],
+    "src/lib/constants.ts": [],
+    "src/lib/edm.ts": [],
+    "src/lib/email-parser.ts": [],
+    "src/lib/email.ts": [],
+    "src/lib/employer-alias.ts": [
+      "src/lib/prisma.ts"
+    ],
+    "src/lib/gemini.ts": [],
+    "src/lib/github-events.ts": [],
+    "src/lib/ics.ts": [],
+    "src/lib/interview-rooms.ts": [],
+    "src/lib/money.ts": [],
+    "src/lib/onet.ts": [],
+    "src/lib/prisma.ts": [],
+    "src/lib/rate-limit.ts": [],
+    "src/lib/recruiter-cookie.ts": [],
+    "src/lib/resume-pdf-template.tsx": [],
+    "src/lib/rss.ts": [],
+    "src/lib/sanitize-html.ts": [],
+    "src/lib/taxes.ts": [],
+    "src/lib/use-ir-analytics.ts": [],
+    "src/lib/utils.ts": [],
+    "src/lib/worklog-folders.test.ts": [
+      "src/lib/worklog-folders.ts"
+    ],
+    "src/lib/worklog-folders.ts": [
+      "src/types/worklog.ts"
+    ],
+    "src/lib/worklog-shifts.ts": [],
+    "src/lib/worklog/content-json.ts": [],
+    "src/lib/worklog/parse-snapshot.test.ts": [
+      "src/lib/worklog/parse-snapshot.ts"
+    ],
+    "src/lib/worklog/parse-snapshot.ts": [],
+    "src/lib/worklog/photo-upload.ts": [],
+    "src/lib/worklog/prosemirror-to-text.test.ts": [
+      "src/lib/worklog/prosemirror-to-text.ts"
+    ],
+    "src/lib/worklog/prosemirror-to-text.ts": [],
+    "src/lib/worklog/tiptap/canvas-node.ts": [
+      "src/components/worklog/canvas-node-view.tsx"
+    ],
+    "src/lib/worklog/tiptap/extract-tags.ts": [],
+    "src/lib/worklog/tiptap/mention-node.ts": [
+      "src/components/worklog/mention-node-view.tsx",
+      "src/components/worklog/mention-suggestion-popup.tsx"
+    ],
+    "src/lib/worklog/tiptap/mood-block.ts": [],
+    "src/lib/worklog/tiptap/photo-node.ts": [
+      "src/components/worklog/photo-node-view.tsx"
+    ],
+    "src/lib/worklog/tiptap/shift-block.ts": [],
+    "src/lib/worklog/tiptap/slash-commands.tsx": [],
+    "src/lib/worklog/tiptap/tag-mention.ts": [],
+    "src/lib/worklog/worklog-cache.ts": [
+      "src/types/worklog.ts"
+    ],
+    "src/lib/worklog/yjs-provider.ts": [],
+    "src/proxy.ts": [
+      "src/lib/auth.ts"
+    ],
+    "src/types/leaflet-heat.d.ts": [],
+    "src/types/worklog.ts": [],
+    "TESTING.md": [],
+    "tsconfig.json": [],
+    "UI_UX_IMPROVEMENTS.md": [],
+    "vitest.config.ts": []
+  }
+}

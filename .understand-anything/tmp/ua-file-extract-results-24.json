@@ -1,0 +1,280 @@
+{
+  "scriptCompleted": true,
+  "filesAnalyzed": 3,
+  "filesSkipped": [],
+  "results": [
+    {
+      "path": ".features/job-search/focus-mode-cleanup.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 216,
+      "nonEmptyLines": 158,
+      "sections": [
+        {
+          "heading": "Job Search Focus Panel — Cleanup & Redesign",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Current State Audit",
+          "level": 2,
+          "line": 9
+        },
+        {
+          "heading": "Header (lines 4268–4385)",
+          "level": 3,
+          "line": 13
+        },
+        {
+          "heading": "Scrollable sections — uses native `<details>/<summary>`",
+          "level": 3,
+          "line": 19
+        },
+        {
+          "heading": "Footer",
+          "level": 3,
+          "line": 33
+        },
+        {
+          "heading": "Proposed Changes",
+          "level": 2,
+          "line": 39
+        },
+        {
+          "heading": "1. Convert `<details>/<summary>` → Custom Accordion",
+          "level": 3,
+          "line": 41
+        },
+        {
+          "heading": "2. Header Redesign — \"Score Strip\"",
+          "level": 3,
+          "line": 53
+        },
+        {
+          "heading": "3. Location Section — Split into \"Address\" + \"Verify\"",
+          "level": 3,
+          "line": 76
+        },
+        {
+          "heading": "4. Commute Section — Surface Yearly Cost in Summary",
+          "level": 3,
+          "line": 99
+        },
+        {
+          "heading": "5. Anchors → \"Life Impact\" Rename + Net Salary Prominence",
+          "level": 3,
+          "line": 112
+        },
+        {
+          "heading": "6. Compensation Section — Bring Tax Breakdown Out of Dialog",
+          "level": 3,
+          "line": 127
+        },
+        {
+          "heading": "7. Footer CTA Cleanup",
+          "level": 3,
+          "line": 149
+        },
+        {
+          "heading": "8. Visual Consistency Fixes",
+          "level": 3,
+          "line": 171
+        },
+        {
+          "heading": "Implementation Order",
+          "level": 2,
+          "line": 182
+        },
+        {
+          "heading": "Out of Scope (see company-deep-dive.md)",
+          "level": 2,
+          "line": 197
+        },
+        {
+          "heading": "Files Changed",
+          "level": 2,
+          "line": 200
+        },
+        {
+          "heading": "Test Plan",
+          "level": 2,
+          "line": 203
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 18
+      }
+    },
+    {
+      "path": ".features/job-search/job-search.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 60,
+      "nonEmptyLines": 49,
+      "sections": [
+        {
+          "heading": "Feature: Job Search",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Overview",
+          "level": 2,
+          "line": 3
+        },
+        {
+          "heading": "Sub-features",
+          "level": 3,
+          "line": 11
+        },
+        {
+          "heading": "Test Plan",
+          "level": 2,
+          "line": 19
+        },
+        {
+          "heading": "Setup / Prerequisites",
+          "level": 3,
+          "line": 21
+        },
+        {
+          "heading": "Manual Tests",
+          "level": 3,
+          "line": 26
+        },
+        {
+          "heading": "Edge Cases",
+          "level": 3,
+          "line": 42
+        },
+        {
+          "heading": "Known Issues",
+          "level": 2,
+          "line": 48
+        },
+        {
+          "heading": "Changelog",
+          "level": 2,
+          "line": 54
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 9
+      }
+    },
+    {
+      "path": ".features/job-search/multi-query-search.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 133,
+      "nonEmptyLines": 101,
+      "sections": [
+        {
+          "heading": "Feature: Multi-Query Job Search",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Status: Planned",
+          "level": 2,
+          "line": 3
+        },
+        {
+          "heading": "Vision",
+          "level": 2,
+          "line": 5
+        },
+        {
+          "heading": "The Pipeline",
+          "level": 2,
+          "line": 13
+        },
+        {
+          "heading": "Layers",
+          "level": 2,
+          "line": 29
+        },
+        {
+          "heading": "Layer 1 — Multi-Query Data (Foundation)",
+          "level": 3,
+          "line": 31
+        },
+        {
+          "heading": "Layer 2 — Cross-Reference Intelligence",
+          "level": 3,
+          "line": 40
+        },
+        {
+          "heading": "Layer 3 — Area Intelligence",
+          "level": 3,
+          "line": 46
+        },
+        {
+          "heading": "Layer 4 — Career Bridging (connects to CDM)",
+          "level": 3,
+          "line": 52
+        },
+        {
+          "heading": "Architecture Considerations",
+          "level": 2,
+          "line": 59
+        },
+        {
+          "heading": "Pre-requisite: Refactor job-map.tsx",
+          "level": 3,
+          "line": 61
+        },
+        {
+          "heading": "Data model",
+          "level": 3,
+          "line": 66
+        },
+        {
+          "heading": "API cost",
+          "level": 3,
+          "line": 85
+        },
+        {
+          "heading": "Visual design",
+          "level": 3,
+          "line": 90
+        },
+        {
+          "heading": "Deduplication",
+          "level": 3,
+          "line": 96
+        },
+        {
+          "heading": "Risks & Mitigations",
+          "level": 2,
+          "line": 103
+        },
+        {
+          "heading": "Build Order",
+          "level": 2,
+          "line": 116
+        },
+        {
+          "heading": "Success Criteria",
+          "level": 2,
+          "line": 127
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 18
+      }
+    }
+  ]
+}

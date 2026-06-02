@@ -1,0 +1,787 @@
+[
+  {
+    "path": "src/components/industry-research.tsx",
+    "nonEmptyLines": 817,
+    "fns": [
+      {
+        "name": "IndustryResearch",
+        "start": 134,
+        "end": 864
+      }
+    ],
+    "exports": [
+      "IndustryResearch"
+    ],
+    "classes": [],
+    "imports": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/skeleton.tsx",
+      "src/components/ui/tooltip.tsx",
+      "src/lib/rss.ts"
+    ]
+  },
+  {
+    "path": "src/components/interactive-resumes-manager.tsx",
+    "nonEmptyLines": 875,
+    "fns": [
+      {
+        "name": "InteractiveResumesManager",
+        "start": 156,
+        "end": 917
+      }
+    ],
+    "exports": [
+      "InteractiveResumesManager"
+    ],
+    "classes": [],
+    "imports": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/dropdown-menu.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/skeleton.tsx",
+      "src/components/ui/switch.tsx",
+      "src/components/ui/textarea.tsx"
+    ]
+  },
+  {
+    "path": "src/components/interview-prep.tsx",
+    "nonEmptyLines": 485,
+    "fns": [
+      {
+        "name": "InterviewPrepDialog",
+        "start": 103,
+        "end": 512
+      }
+    ],
+    "exports": [
+      "InterviewPrepDialog"
+    ],
+    "classes": [],
+    "imports": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/separator.tsx",
+      "src/components/ui/tabs.tsx",
+      "src/components/ui/textarea.tsx"
+    ]
+  },
+  {
+    "path": "src/components/interview-resume-sidebar.tsx",
+    "nonEmptyLines": 266,
+    "fns": [
+      {
+        "name": "Section",
+        "start": 90,
+        "end": 117
+      },
+      {
+        "name": "InteractiveResumeSidebar",
+        "start": 119,
+        "end": 288
+      }
+    ],
+    "exports": [
+      "InteractiveResumeSidebar"
+    ],
+    "classes": [],
+    "imports": []
+  },
+  {
+    "path": "src/components/interview-room-launcher.tsx",
+    "nonEmptyLines": 242,
+    "fns": [
+      {
+        "name": "InterviewRoomLauncher",
+        "start": 42,
+        "end": 262
+      }
+    ],
+    "exports": [
+      "InterviewRoomLauncher"
+    ],
+    "classes": [],
+    "imports": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/select.tsx"
+    ]
+  },
+  {
+    "path": "src/components/job-asset-photos.tsx",
+    "nonEmptyLines": 173,
+    "fns": [
+      {
+        "name": "JobAssetPhotos",
+        "start": 21,
+        "end": 185
+      }
+    ],
+    "exports": [
+      "JobAssetPhotos"
+    ],
+    "classes": [],
+    "imports": [
+      "src/components/ui/button.tsx",
+      "src/lib/utils.ts"
+    ]
+  },
+  {
+    "path": "src/components/job-assets-page.tsx",
+    "nonEmptyLines": 564,
+    "fns": [
+      {
+        "name": "JobAssetsPage",
+        "start": 79,
+        "end": 321
+      },
+      {
+        "name": "AssetDetailModal",
+        "start": 323,
+        "end": 504
+      },
+      {
+        "name": "CreateAssetModal",
+        "start": 506,
+        "end": 595
+      }
+    ],
+    "exports": [
+      "JobAssetsPage"
+    ],
+    "classes": [],
+    "imports": [
+      "src/components/asset-service-history.tsx",
+      "src/components/asset-type-picker.tsx",
+      "src/components/asset-types-manager.tsx",
+      "src/components/job-asset-photos.tsx",
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/textarea.tsx",
+      "src/lib/utils.ts"
+    ]
+  },
+  {
+    "path": "src/components/job-board.tsx",
+    "nonEmptyLines": 325,
+    "fns": [
+      {
+        "name": "JobBoard",
+        "start": 94,
+        "end": 350
+      }
+    ],
+    "exports": [
+      "JobBoard"
+    ],
+    "classes": [],
+    "imports": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/select.tsx"
+    ]
+  },
+  {
+    "path": "src/components/job-interest-groups.tsx",
+    "nonEmptyLines": 548,
+    "fns": [
+      {
+        "name": "JobInterestGroups",
+        "start": 77,
+        "end": 583
+      }
+    ],
+    "exports": [
+      "JobInterestGroups"
+    ],
+    "classes": [],
+    "imports": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/checkbox.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/separator.tsx"
+    ]
+  },
+  {
+    "path": "src/components/job-map.tsx",
+    "nonEmptyLines": 14420,
+    "fns": [
+      {
+        "name": "formatJobDescription",
+        "start": 203,
+        "end": 235
+      },
+      {
+        "name": "pointInRing",
+        "start": 348,
+        "end": 358
+      },
+      {
+        "name": "loadJobIntentStates",
+        "start": 554,
+        "end": 564
+      },
+      {
+        "name": "loadKpiSlots",
+        "start": 586,
+        "end": 597
+      },
+      {
+        "name": "JobMap",
+        "start": 628,
+        "end": 7848
+      },
+      {
+        "name": "DetailEditSection",
+        "start": 7852,
+        "end": 7864
+      },
+      {
+        "name": "BenefitsToggle",
+        "start": 7870,
+        "end": 7895
+      },
+      {
+        "name": "WorkHistoryPanel",
+        "start": 8123,
+        "end": 14823
+      },
+      {
+        "name": "QuickCommuteEditDialog",
+        "start": 14826,
+        "end": 15064
+      }
+    ],
+    "exports": [
+      "JobMap"
+    ],
+    "classes": [],
+    "imports": [
+      "src/app/(app)/analytics/page.tsx",
+      "src/components/bio-card-editor.tsx",
+      "src/components/company-deep-dive.tsx",
+      "src/components/gallery-modal.tsx",
+      "src/components/immersive-layout.tsx",
+      "src/components/ir-anchored-popover.tsx",
+      "src/components/ir-popout-sheet.tsx",
+      "src/components/job-map/view-preset-switcher.tsx",
+      "src/components/job-map/view-preset.ts",
+      "src/components/life-anchors-panel.tsx",
+      "src/components/map-drawing-canvas.tsx",
+      "src/components/master-gallery/embedded-master-folders.tsx",
+      "src/components/master-gallery/embedded-position-gallery.tsx",
+      "src/components/personal-inventory.tsx",
+      "src/components/places-autocomplete.tsx",
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/dropdown-menu.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/popover.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/separator.tsx",
+      "src/components/ui/switch.tsx",
+      "src/components/ui/textarea.tsx",
+      "src/components/uniform-body-map.tsx",
+      "src/components/worklog/worklog-page.tsx",
+      "src/data/state-tax-zones.ts",
+      "src/lib/taxes.ts"
+    ]
+  },
+  {
+    "path": "src/components/job-map/view-preset-switcher.tsx",
+    "nonEmptyLines": 73,
+    "fns": [
+      {
+        "name": "ViewPresetSwitcher",
+        "start": 30,
+        "end": 78
+      }
+    ],
+    "exports": [
+      "ViewPresetSwitcher"
+    ],
+    "classes": [],
+    "imports": [
+      "src/components/job-map/view-preset.ts"
+    ]
+  },
+  {
+    "path": "src/components/job-map/view-preset.ts",
+    "nonEmptyLines": 91,
+    "fns": [
+      {
+        "name": "loadViewPreset",
+        "start": 62,
+        "end": 69
+      },
+      {
+        "name": "saveViewPreset",
+        "start": 71,
+        "end": 74
+      },
+      {
+        "name": "loadPresetTweaks",
+        "start": 76,
+        "end": 89
+      },
+      {
+        "name": "savePresetTweaks",
+        "start": 91,
+        "end": 96
+      },
+      {
+        "name": "resetAllPresets",
+        "start": 98,
+        "end": 104
+      }
+    ],
+    "exports": [
+      "VIEW_PRESETS",
+      "PRESET_META",
+      "PRESET_DEFAULT_RATIO",
+      "DEFAULT_VIEW_PRESET",
+      "loadViewPreset",
+      "saveViewPreset",
+      "loadPresetTweaks",
+      "savePresetTweaks",
+      "resetAllPresets"
+    ],
+    "classes": [],
+    "imports": []
+  },
+  {
+    "path": "src/components/job-market-research.tsx",
+    "nonEmptyLines": 478,
+    "fns": [
+      {
+        "name": "JobMarketResearch",
+        "start": 90,
+        "end": 509
+      }
+    ],
+    "exports": [
+      "JobMarketResearch"
+    ],
+    "classes": [],
+    "imports": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/skeleton.tsx"
+    ]
+  },
+  {
+    "path": "src/components/learning-tracker.tsx",
+    "nonEmptyLines": 629,
+    "fns": [
+      {
+        "name": "LearningTracker",
+        "start": 136,
+        "end": 673
+      }
+    ],
+    "exports": [
+      "LearningTracker"
+    ],
+    "classes": [],
+    "imports": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/dropdown-menu.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/progress.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/skeleton.tsx",
+      "src/components/ui/textarea.tsx"
+    ]
+  },
+  {
+    "path": "src/components/life-anchors-panel.tsx",
+    "nonEmptyLines": 499,
+    "fns": [
+      {
+        "name": "geocodeAddress",
+        "start": 73,
+        "end": 89
+      },
+      {
+        "name": "LifeAnchorsPanel",
+        "start": 103,
+        "end": 532
+      }
+    ],
+    "exports": [
+      "LifeAnchorsPanel"
+    ],
+    "classes": [],
+    "imports": [
+      "src/components/places-autocomplete.tsx",
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/select.tsx"
+    ]
+  },
+  {
+    "path": "src/components/offer-comparison.tsx",
+    "nonEmptyLines": 585,
+    "fns": [
+      {
+        "name": "computeGrossAnnual",
+        "start": 142,
+        "end": 158
+      },
+      {
+        "name": "OfferComparison",
+        "start": 164,
+        "end": 646
+      }
+    ],
+    "exports": [
+      "OfferComparison"
+    ],
+    "classes": [],
+    "imports": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/separator.tsx"
+    ]
+  },
+  {
+    "path": "src/components/onboarding-flow.tsx",
+    "nonEmptyLines": 120,
+    "fns": [
+      {
+        "name": "OnboardingFlow",
+        "start": 15,
+        "end": 129
+      }
+    ],
+    "exports": [
+      "OnboardingFlow"
+    ],
+    "classes": [],
+    "imports": [
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx"
+    ]
+  },
+  {
+    "path": "src/components/pay-period-calendar.tsx",
+    "nonEmptyLines": 306,
+    "fns": [
+      {
+        "name": "PayPeriodCalendar",
+        "start": 66,
+        "end": 342
+      }
+    ],
+    "exports": [
+      "PayPeriodCalendar"
+    ],
+    "classes": [],
+    "imports": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/tooltip.tsx"
+    ]
+  },
+  {
+    "path": "src/components/paycheck-estimator.tsx",
+    "nonEmptyLines": 362,
+    "fns": [
+      {
+        "name": "PaycheckEstimator",
+        "start": 46,
+        "end": 391
+      }
+    ],
+    "exports": [
+      "PaycheckEstimator"
+    ],
+    "classes": [],
+    "imports": [
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/separator.tsx"
+    ]
+  },
+  {
+    "path": "src/components/personal-finance.tsx",
+    "nonEmptyLines": 591,
+    "fns": [
+      {
+        "name": "PersonalFinance",
+        "start": 141,
+        "end": 630
+      }
+    ],
+    "exports": [
+      "PersonalFinance"
+    ],
+    "classes": [],
+    "imports": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/separator.tsx",
+      "src/lib/money.ts"
+    ]
+  },
+  {
+    "path": "src/components/personal-inventory.tsx",
+    "nonEmptyLines": 3751,
+    "fns": [
+      {
+        "name": "loadUiPrefs",
+        "start": 183,
+        "end": 202
+      },
+      {
+        "name": "Highlight",
+        "start": 227,
+        "end": 251
+      },
+      {
+        "name": "PhotoView",
+        "start": 275,
+        "end": 303
+      },
+      {
+        "name": "CropModal",
+        "start": 305,
+        "end": 491
+      },
+      {
+        "name": "ConditionBadge",
+        "start": 493,
+        "end": 531
+      },
+      {
+        "name": "OwnershipBadge",
+        "start": 533,
+        "end": 571
+      },
+      {
+        "name": "ShareModal",
+        "start": 587,
+        "end": 905
+      },
+      {
+        "name": "PersonalInventory",
+        "start": 907,
+        "end": 3895
+      }
+    ],
+    "exports": [
+      "PersonalInventory"
+    ],
+    "classes": [],
+    "imports": [
+      "src/components/equipment-usage-history.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/switch.tsx",
+      "src/components/ui/tag-input.tsx",
+      "src/components/ui/textarea.tsx"
+    ]
+  },
+  {
+    "path": "src/components/places-autocomplete.tsx",
+    "nonEmptyLines": 159,
+    "fns": [
+      {
+        "name": "PlacesAutocomplete",
+        "start": 38,
+        "end": 178
+      }
+    ],
+    "exports": [
+      "PlacesAutocomplete"
+    ],
+    "classes": [],
+    "imports": [
+      "src/components/ui/input.tsx"
+    ]
+  },
+  {
+    "path": "src/components/position-worklog-tab.tsx",
+    "nonEmptyLines": 387,
+    "fns": [
+      {
+        "name": "calcPositionStreak",
+        "start": 75,
+        "end": 85
+      },
+      {
+        "name": "MiniActivityStrip",
+        "start": 88,
+        "end": 122
+      },
+      {
+        "name": "PositionWorklogTab",
+        "start": 125,
+        "end": 405
+      }
+    ],
+    "exports": [
+      "PositionWorklogTab"
+    ],
+    "classes": [],
+    "imports": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/worklog/promote-to-event-dialog.tsx",
+      "src/lib/utils.ts"
+    ]
+  },
+  {
+    "path": "src/components/scholar-search.tsx",
+    "nonEmptyLines": 275,
+    "fns": [
+      {
+        "name": "ScholarSearch",
+        "start": 50,
+        "end": 300
+      }
+    ],
+    "exports": [
+      "ScholarSearch"
+    ],
+    "classes": [],
+    "imports": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/input.tsx"
+    ]
+  },
+  {
+    "path": "src/components/skill-graph-analytics.tsx",
+    "nonEmptyLines": 632,
+    "fns": [
+      {
+        "name": "Bar",
+        "start": 125,
+        "end": 136
+      },
+      {
+        "name": "SkillGraphAnalytics",
+        "start": 140,
+        "end": 688
+      }
+    ],
+    "exports": [
+      "SkillGraphAnalytics"
+    ],
+    "classes": [],
+    "imports": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/tooltip.tsx"
+    ]
+  },
+  {
+    "path": "src/components/skill-graph.tsx",
+    "nonEmptyLines": 3303,
+    "fns": [
+      {
+        "name": "SkillGraph",
+        "start": 321,
+        "end": 3499
+      }
+    ],
+    "exports": [
+      "SkillGraph"
+    ],
+    "classes": [],
+    "imports": [
+      "src/components/skill-graph-analytics.tsx",
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/dropdown-menu.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/skeleton.tsx",
+      "src/components/ui/textarea.tsx"
+    ]
+  },
+  {
+    "path": "src/components/timeoff-tracker.tsx",
+    "nonEmptyLines": 539,
+    "fns": [
+      {
+        "name": "TimeOffTracker",
+        "start": 104,
+        "end": 568
+      }
+    ],
+    "exports": [
+      "TimeOffTracker"
+    ],
+    "classes": [],
+    "imports": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/progress.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/separator.tsx",
+      "src/components/ui/textarea.tsx"
+    ]
+  }
+]

@@ -18,6 +18,7 @@ It is a graph, not a monolithic document. Read only what is relevant to your cur
 | App-wide tokens (colors, scale, brand) | `tokens.md` | Active |
 | Shared component patterns (buttons, states, layouts) | `global.md` | Active |
 | Worklog (3-pane notes shell) | `worklog.md` | Active |
+| Sidebar navigation shell | `sidebar.md` | Active |
 | Resume builder | `resume.md` | Stub |
 | Job map | `maps.md` | Stub |
 

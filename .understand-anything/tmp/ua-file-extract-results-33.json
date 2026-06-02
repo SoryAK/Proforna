@@ -1,0 +1,2515 @@
+{
+  "scriptCompleted": true,
+  "filesAnalyzed": 25,
+  "filesSkipped": [],
+  "results": [
+    {
+      "path": "docs/plans/worklog-w1-w2-roadmap.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 138,
+      "nonEmptyLines": 105,
+      "sections": [
+        {
+          "heading": "Worklog W1 + W2 — Sprint Roadmap",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Sprint W1 — Foundations",
+          "level": 2,
+          "line": 12
+        },
+        {
+          "heading": "W1.1 Refactor `worklog-page.tsx` (716 → ≤ 600)",
+          "level": 3,
+          "line": 14
+        },
+        {
+          "heading": "W1.2 Full-text search (after refactor)",
+          "level": 3,
+          "line": 31
+        },
+        {
+          "heading": "W1.3 Bulk multi-select",
+          "level": 3,
+          "line": 55
+        },
+        {
+          "heading": "Sprint W2 — Organization power",
+          "level": 2,
+          "line": 71
+        },
+        {
+          "heading": "W2.1 Drag-and-drop reorder & reparent",
+          "level": 3,
+          "line": 73
+        },
+        {
+          "heading": "W2.2 Pinned notes",
+          "level": 3,
+          "line": 85
+        },
+        {
+          "heading": "W2.3 Folder colors",
+          "level": 3,
+          "line": 100
+        },
+        {
+          "heading": "W2.4 Filter chips",
+          "level": 3,
+          "line": 105
+        },
+        {
+          "heading": "Out of scope (deferred)",
+          "level": 2,
+          "line": 114
+        },
+        {
+          "heading": "Risk register",
+          "level": 2,
+          "line": 124
+        },
+        {
+          "heading": "References",
+          "level": 2,
+          "line": 135
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 13
+      }
+    },
+    {
+      "path": "eslint.config.mjs",
+      "language": "javascript",
+      "fileCategory": "code",
+      "totalLines": 18,
+      "nonEmptyLines": 16,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "fix.js",
+      "language": "javascript",
+      "fileCategory": "code",
+      "totalLines": 34,
+      "nonEmptyLines": 28,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "next.config.ts",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 15,
+      "nonEmptyLines": 13,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "postcss.config.mjs",
+      "language": "javascript",
+      "fileCategory": "code",
+      "totalLines": 7,
+      "nonEmptyLines": 6,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "prisma/schema.prisma",
+      "language": "prisma",
+      "fileCategory": "data",
+      "totalLines": 2523,
+      "nonEmptyLines": 2166,
+      "metrics": {}
+    },
+    {
+      "path": "public/data/us-states.json",
+      "language": "json",
+      "fileCategory": "config",
+      "totalLines": 54,
+      "nonEmptyLines": 54,
+      "sections": [
+        {
+          "heading": "type",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "features",
+          "level": 1,
+          "line": 1
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 2
+      }
+    },
+    {
+      "path": "public/manifest.json",
+      "language": "json",
+      "fileCategory": "config",
+      "totalLines": 25,
+      "nonEmptyLines": 25,
+      "sections": [
+        {
+          "heading": "name",
+          "level": 1,
+          "line": 2
+        },
+        {
+          "heading": "short_name",
+          "level": 1,
+          "line": 3
+        },
+        {
+          "heading": "description",
+          "level": 1,
+          "line": 4
+        },
+        {
+          "heading": "start_url",
+          "level": 1,
+          "line": 5
+        },
+        {
+          "heading": "display",
+          "level": 1,
+          "line": 6
+        },
+        {
+          "heading": "background_color",
+          "level": 1,
+          "line": 7
+        },
+        {
+          "heading": "theme_color",
+          "level": 1,
+          "line": 8
+        },
+        {
+          "heading": "orientation",
+          "level": 1,
+          "line": 9
+        },
+        {
+          "heading": "categories",
+          "level": 1,
+          "line": 10
+        },
+        {
+          "heading": "icons",
+          "level": 1,
+          "line": 11
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 10
+      }
+    },
+    {
+      "path": "public/sw.js",
+      "language": "javascript",
+      "fileCategory": "code",
+      "totalLines": 41,
+      "nonEmptyLines": 35,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "public/uploads/attachments/att-e0dccefb72ab3efb.docx",
+      "language": "docx",
+      "fileCategory": "code",
+      "totalLines": 43,
+      "nonEmptyLines": 42,
+      "metrics": {}
+    },
+    {
+      "path": "scripts/check-profile.js",
+      "language": "javascript",
+      "fileCategory": "code",
+      "totalLines": 8,
+      "nonEmptyLines": 8,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/app/(app)/interviews/page.tsx",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 5,
+      "nonEmptyLines": 4,
+      "functions": [
+        {
+          "name": "InterviewsPage",
+          "startLine": 3,
+          "endLine": 5,
+          "params": []
+        }
+      ],
+      "exports": [
+        {
+          "name": "InterviewsPage",
+          "line": 3,
+          "isDefault": true
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "InterviewsPage",
+          "callee": "redirect",
+          "lineNumber": 4
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 1,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/app/(app)/portal/layout.tsx",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 12,
+      "nonEmptyLines": 11,
+      "functions": [
+        {
+          "name": "PortalLayout",
+          "startLine": 6,
+          "endLine": 12,
+          "params": [
+            "{\r\n  children,\r\n}"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "metadata",
+          "line": 1,
+          "isDefault": false
+        },
+        {
+          "name": "PortalLayout",
+          "line": 6,
+          "isDefault": true
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 2,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/app/api/building-footprints/nearby/route.ts",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 93,
+      "nonEmptyLines": 83,
+      "functions": [
+        {
+          "name": "GET",
+          "startLine": 29,
+          "endLine": 93,
+          "params": [
+            "request"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "GET",
+          "line": 29,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "GET",
+          "callee": "Number",
+          "lineNumber": 31
+        },
+        {
+          "caller": "GET",
+          "callee": "url.searchParams.get",
+          "lineNumber": 31
+        },
+        {
+          "caller": "GET",
+          "callee": "Number",
+          "lineNumber": 32
+        },
+        {
+          "caller": "GET",
+          "callee": "url.searchParams.get",
+          "lineNumber": 32
+        },
+        {
+          "caller": "GET",
+          "callee": "Math.min",
+          "lineNumber": 33
+        },
+        {
+          "caller": "GET",
+          "callee": "Math.max",
+          "lineNumber": 33
+        },
+        {
+          "caller": "GET",
+          "callee": "Number",
+          "lineNumber": 33
+        },
+        {
+          "caller": "GET",
+          "callee": "url.searchParams.get",
+          "lineNumber": 33
+        },
+        {
+          "caller": "GET",
+          "callee": "Number.isFinite",
+          "lineNumber": 35
+        },
+        {
+          "caller": "GET",
+          "callee": "Number.isFinite",
+          "lineNumber": 35
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 36
+        },
+        {
+          "caller": "GET",
+          "callee": "fetch",
+          "lineNumber": 42
+        },
+        {
+          "caller": "GET",
+          "callee": "encodeURIComponent",
+          "lineNumber": 45
+        },
+        {
+          "caller": "GET",
+          "callee": "AbortSignal.timeout",
+          "lineNumber": 46
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 49
+        },
+        {
+          "caller": "GET",
+          "callee": "res.json",
+          "lineNumber": 51
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 53
+        },
+        {
+          "caller": "GET",
+          "callee": "nodes.set",
+          "lineNumber": 60
+        },
+        {
+          "caller": "GET",
+          "callee": "ways.push",
+          "lineNumber": 62
+        },
+        {
+          "caller": "GET",
+          "callee": "ways\r\n    .map((w) => {\r\n      const ring = w.nodeIds.map((nid) => nodes.get(nid)).filter(Boolean) as LatLng[];\r\n      if (ring.length < 3) return null;\r\n      // Centroid for distance sorting.\r\n      let sLat = 0, sLng = 0;\r\n      for (const p of ring) { sLat += p.lat; sLng += p.lng; }\r\n      const centroid = { lat: sLat / ring.length, lng: sLng / ring.length };\r\n      const dLat = (centroid.lat - lat) * 111320;\r\n      const dLng = (centroid.lng - lng) * 111320 * Math.cos((lat * Math.PI) / 180);\r\n      const distance = Math.sqrt(dLat * dLat + dLng * dLng);\r\n      return {\r\n        wayId: w.id,\r\n        ring,\r\n        name: w.tags.name ?? null,\r\n        operator: w.tags.operator ?? null,\r\n        brand: w.tags.brand ?? null,\r\n        addr:\r\n          [w.tags[\"addr:housenumber\"], w.tags[\"addr:street\"]].filter(Boolean).join(\" \") || null,\r\n        distanceM: Math.round(distance),\r\n      };\r\n    })\r\n    .filter((b): b is NonNullable<typeof b> => b !== null)\r\n    .sort((a, b) => a.distanceM - b.distanceM)\r\n    .slice",
+          "lineNumber": 66
+        },
+        {
+          "caller": "GET",
+          "callee": "ways\r\n    .map((w) => {\r\n      const ring = w.nodeIds.map((nid) => nodes.get(nid)).filter(Boolean) as LatLng[];\r\n      if (ring.length < 3) return null;\r\n      // Centroid for distance sorting.\r\n      let sLat = 0, sLng = 0;\r\n      for (const p of ring) { sLat += p.lat; sLng += p.lng; }\r\n      const centroid = { lat: sLat / ring.length, lng: sLng / ring.length };\r\n      const dLat = (centroid.lat - lat) * 111320;\r\n      const dLng = (centroid.lng - lng) * 111320 * Math.cos((lat * Math.PI) / 180);\r\n      const distance = Math.sqrt(dLat * dLat + dLng * dLng);\r\n      return {\r\n        wayId: w.id,\r\n        ring,\r\n        name: w.tags.name ?? null,\r\n        operator: w.tags.operator ?? null,\r\n        brand: w.tags.brand ?? null,\r\n        addr:\r\n          [w.tags[\"addr:housenumber\"], w.tags[\"addr:street\"]].filter(Boolean).join(\" \") || null,\r\n        distanceM: Math.round(distance),\r\n      };\r\n    })\r\n    .filter((b): b is NonNullable<typeof b> => b !== null)\r\n    .sort",
+          "lineNumber": 66
+        },
+        {
+          "caller": "GET",
+          "callee": "ways\r\n    .map((w) => {\r\n      const ring = w.nodeIds.map((nid) => nodes.get(nid)).filter(Boolean) as LatLng[];\r\n      if (ring.length < 3) return null;\r\n      // Centroid for distance sorting.\r\n      let sLat = 0, sLng = 0;\r\n      for (const p of ring) { sLat += p.lat; sLng += p.lng; }\r\n      const centroid = { lat: sLat / ring.length, lng: sLng / ring.length };\r\n      const dLat = (centroid.lat - lat) * 111320;\r\n      const dLng = (centroid.lng - lng) * 111320 * Math.cos((lat * Math.PI) / 180);\r\n      const distance = Math.sqrt(dLat * dLat + dLng * dLng);\r\n      return {\r\n        wayId: w.id,\r\n        ring,\r\n        name: w.tags.name ?? null,\r\n        operator: w.tags.operator ?? null,\r\n        brand: w.tags.brand ?? null,\r\n        addr:\r\n          [w.tags[\"addr:housenumber\"], w.tags[\"addr:street\"]].filter(Boolean).join(\" \") || null,\r\n        distanceM: Math.round(distance),\r\n      };\r\n    })\r\n    .filter",
+          "lineNumber": 66
+        },
+        {
+          "caller": "GET",
+          "callee": "ways\r\n    .map",
+          "lineNumber": 66
+        },
+        {
+          "caller": "GET",
+          "callee": "w.nodeIds.map((nid) => nodes.get(nid)).filter",
+          "lineNumber": 68
+        },
+        {
+          "caller": "GET",
+          "callee": "w.nodeIds.map",
+          "lineNumber": 68
+        },
+        {
+          "caller": "GET",
+          "callee": "nodes.get",
+          "lineNumber": 68
+        },
+        {
+          "caller": "GET",
+          "callee": "Math.cos",
+          "lineNumber": 75
+        },
+        {
+          "caller": "GET",
+          "callee": "Math.sqrt",
+          "lineNumber": 76
+        },
+        {
+          "caller": "GET",
+          "callee": "[w.tags[\"addr:housenumber\"], w.tags[\"addr:street\"]].filter(Boolean).join",
+          "lineNumber": 84
+        },
+        {
+          "caller": "GET",
+          "callee": "[w.tags[\"addr:housenumber\"], w.tags[\"addr:street\"]].filter",
+          "lineNumber": 84
+        },
+        {
+          "caller": "GET",
+          "callee": "Math.round",
+          "lineNumber": 85
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 92
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 1,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/app/api/building-footprints/route.ts",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 334,
+      "nonEmptyLines": 299,
+      "functions": [
+        {
+          "name": "cacheKey",
+          "startLine": 38,
+          "endLine": 38,
+          "params": [
+            "lat",
+            "lng"
+          ]
+        },
+        {
+          "name": "pointInRing",
+          "startLine": 50,
+          "endLine": 61,
+          "params": [
+            "pt",
+            "ring"
+          ]
+        },
+        {
+          "name": "ringCentroid",
+          "startLine": 63,
+          "endLine": 67,
+          "params": [
+            "ring"
+          ]
+        },
+        {
+          "name": "metersBetween",
+          "startLine": 70,
+          "endLine": 77,
+          "params": [
+            "a",
+            "b"
+          ]
+        },
+        {
+          "name": "parseOverpass",
+          "startLine": 87,
+          "endLine": 101,
+          "params": [
+            "data"
+          ]
+        },
+        {
+          "name": "ringFromWay",
+          "startLine": 103,
+          "endLine": 105,
+          "params": [
+            "way",
+            "nodes"
+          ]
+        },
+        {
+          "name": "pickPrimary",
+          "startLine": 108,
+          "endLine": 137,
+          "params": [
+            "coord",
+            "ways",
+            "nodes"
+          ]
+        },
+        {
+          "name": "findCampusSiblings",
+          "startLine": 140,
+          "endLine": 169,
+          "params": [
+            "primary",
+            "primaryRing",
+            "ways",
+            "nodes"
+          ]
+        },
+        {
+          "name": "POST",
+          "startLine": 175,
+          "endLine": 334,
+          "params": [
+            "request"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "POST",
+          "line": 175,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "cacheKey",
+          "callee": "lat.toFixed",
+          "lineNumber": 38
+        },
+        {
+          "caller": "cacheKey",
+          "callee": "lng.toFixed",
+          "lineNumber": 38
+        },
+        {
+          "caller": "metersBetween",
+          "callee": "Math.cos",
+          "lineNumber": 75
+        },
+        {
+          "caller": "metersBetween",
+          "callee": "Math.sqrt",
+          "lineNumber": 76
+        },
+        {
+          "caller": "parseOverpass",
+          "callee": "nodes.set",
+          "lineNumber": 92
+        },
+        {
+          "caller": "parseOverpass",
+          "callee": "ways.push",
+          "lineNumber": 94
+        },
+        {
+          "caller": "parseOverpass",
+          "callee": "ways.push",
+          "lineNumber": 97
+        },
+        {
+          "caller": "ringFromWay",
+          "callee": "way.nodeIds.map((nid) => nodes.get(nid)).filter",
+          "lineNumber": 104
+        },
+        {
+          "caller": "ringFromWay",
+          "callee": "way.nodeIds.map",
+          "lineNumber": 104
+        },
+        {
+          "caller": "ringFromWay",
+          "callee": "nodes.get",
+          "lineNumber": 104
+        },
+        {
+          "caller": "pickPrimary",
+          "callee": "ringFromWay",
+          "lineNumber": 115
+        },
+        {
+          "caller": "pickPrimary",
+          "callee": "pointInRing",
+          "lineNumber": 118
+        },
+        {
+          "caller": "pickPrimary",
+          "callee": "metersBetween",
+          "lineNumber": 126
+        },
+        {
+          "caller": "findCampusSiblings",
+          "callee": "matchValues.set",
+          "lineNumber": 149
+        },
+        {
+          "caller": "findCampusSiblings",
+          "callee": "ringCentroid",
+          "lineNumber": 153
+        },
+        {
+          "caller": "findCampusSiblings",
+          "callee": "ringFromWay",
+          "lineNumber": 163
+        },
+        {
+          "caller": "findCampusSiblings",
+          "callee": "metersBetween",
+          "lineNumber": 165
+        },
+        {
+          "caller": "findCampusSiblings",
+          "callee": "ringCentroid",
+          "lineNumber": 165
+        },
+        {
+          "caller": "findCampusSiblings",
+          "callee": "siblings.push",
+          "lineNumber": 166
+        },
+        {
+          "caller": "POST",
+          "callee": "request.json",
+          "lineNumber": 176
+        },
+        {
+          "caller": "POST",
+          "callee": "Math.min",
+          "lineNumber": 178
+        },
+        {
+          "caller": "POST",
+          "callee": "Math.max",
+          "lineNumber": 178
+        },
+        {
+          "caller": "POST",
+          "callee": "Number",
+          "lineNumber": 178
+        },
+        {
+          "caller": "POST",
+          "callee": "Array.isArray",
+          "lineNumber": 181
+        },
+        {
+          "caller": "POST",
+          "callee": "NextResponse.json",
+          "lineNumber": 182
+        },
+        {
+          "caller": "POST",
+          "callee": "coordinates.slice",
+          "lineNumber": 185
+        },
+        {
+          "caller": "withCustom",
+          "callee": "(c.customRings ?? []).filter",
+          "lineNumber": 190
+        },
+        {
+          "caller": "withCustom",
+          "callee": "Array.isArray",
+          "lineNumber": 190
+        },
+        {
+          "caller": "POST",
+          "callee": "(c.wayIds ?? []).filter",
+          "lineNumber": 202
+        },
+        {
+          "caller": "POST",
+          "callee": "Number.isFinite",
+          "lineNumber": 202
+        },
+        {
+          "caller": "POST",
+          "callee": "Number.isFinite",
+          "lineNumber": 203
+        },
+        {
+          "caller": "POST",
+          "callee": "Number",
+          "lineNumber": 203
+        },
+        {
+          "caller": "POST",
+          "callee": "Array.from",
+          "lineNumber": 204
+        },
+        {
+          "caller": "POST",
+          "callee": "remaining.push",
+          "lineNumber": 206
+        },
+        {
+          "caller": "POST",
+          "callee": "multiNeed.push",
+          "lineNumber": 209
+        },
+        {
+          "caller": "POST",
+          "callee": "ids.forEach",
+          "lineNumber": 211
+        },
+        {
+          "caller": "POST",
+          "callee": "needWayLookupIds.add",
+          "lineNumber": 211
+        },
+        {
+          "caller": "POST",
+          "callee": "ids.forEach",
+          "lineNumber": 213
+        },
+        {
+          "caller": "POST",
+          "callee": "wayCache.has",
+          "lineNumber": 213
+        },
+        {
+          "caller": "POST",
+          "callee": "needWayLookupIds.add",
+          "lineNumber": 213
+        },
+        {
+          "caller": "POST",
+          "callee": "Array.from(needWayLookupIds).join",
+          "lineNumber": 218
+        },
+        {
+          "caller": "POST",
+          "callee": "Array.from",
+          "lineNumber": 218
+        },
+        {
+          "caller": "POST",
+          "callee": "fetch",
+          "lineNumber": 221
+        },
+        {
+          "caller": "POST",
+          "callee": "encodeURIComponent",
+          "lineNumber": 224
+        },
+        {
+          "caller": "POST",
+          "callee": "AbortSignal.timeout",
+          "lineNumber": 225
+        },
+        {
+          "caller": "POST",
+          "callee": "res.json",
+          "lineNumber": 228
+        },
+        {
+          "caller": "POST",
+          "callee": "parseOverpass",
+          "lineNumber": 229
+        },
+        {
+          "caller": "POST",
+          "callee": "needWayLookupIds.has",
+          "lineNumber": 231
+        },
+        {
+          "caller": "POST",
+          "callee": "ringFromWay",
+          "lineNumber": 232
+        },
+        {
+          "caller": "POST",
+          "callee": "wayCache.set",
+          "lineNumber": 233
+        },
+        {
+          "caller": "POST",
+          "callee": "wayIds.filter",
+          "lineNumber": 244
+        },
+        {
+          "caller": "POST",
+          "callee": "wayCache.get",
+          "lineNumber": 246
+        },
+        {
+          "caller": "POST",
+          "callee": "polygons.push",
+          "lineNumber": 247
+        },
+        {
+          "caller": "POST",
+          "callee": "results.push",
+          "lineNumber": 253
+        },
+        {
+          "caller": "POST",
+          "callee": "withCustom",
+          "lineNumber": 253
+        },
+        {
+          "caller": "POST",
+          "callee": "remaining.push",
+          "lineNumber": 255
+        },
+        {
+          "caller": "POST",
+          "callee": "results.push",
+          "lineNumber": 258
+        },
+        {
+          "caller": "POST",
+          "callee": "withCustom",
+          "lineNumber": 258
+        },
+        {
+          "caller": "POST",
+          "callee": "results.push",
+          "lineNumber": 266
+        },
+        {
+          "caller": "POST",
+          "callee": "withCustom",
+          "lineNumber": 266
+        },
+        {
+          "caller": "POST",
+          "callee": "cacheKey",
+          "lineNumber": 269
+        },
+        {
+          "caller": "POST",
+          "callee": "coordCache.get",
+          "lineNumber": 270
+        },
+        {
+          "caller": "POST",
+          "callee": "results.push",
+          "lineNumber": 272
+        },
+        {
+          "caller": "POST",
+          "callee": "withCustom",
+          "lineNumber": 272
+        },
+        {
+          "caller": "POST",
+          "callee": "toFetch.push",
+          "lineNumber": 274
+        },
+        {
+          "caller": "POST",
+          "callee": "toFetch.map",
+          "lineNumber": 280
+        },
+        {
+          "caller": "POST",
+          "callee": "unionParts.join",
+          "lineNumber": 283
+        },
+        {
+          "caller": "POST",
+          "callee": "fetch",
+          "lineNumber": 286
+        },
+        {
+          "caller": "POST",
+          "callee": "encodeURIComponent",
+          "lineNumber": 289
+        },
+        {
+          "caller": "POST",
+          "callee": "AbortSignal.timeout",
+          "lineNumber": 290
+        },
+        {
+          "caller": "POST",
+          "callee": "console.warn",
+          "lineNumber": 294
+        },
+        {
+          "caller": "POST",
+          "callee": "res.text().catch",
+          "lineNumber": 294
+        },
+        {
+          "caller": "POST",
+          "callee": "res.text",
+          "lineNumber": 294
+        },
+        {
+          "caller": "POST",
+          "callee": "cacheKey",
+          "lineNumber": 296
+        },
+        {
+          "caller": "POST",
+          "callee": "coordCache.set",
+          "lineNumber": 297
+        },
+        {
+          "caller": "POST",
+          "callee": "results.push",
+          "lineNumber": 298
+        },
+        {
+          "caller": "POST",
+          "callee": "withCustom",
+          "lineNumber": 298
+        },
+        {
+          "caller": "POST",
+          "callee": "res.json",
+          "lineNumber": 301
+        },
+        {
+          "caller": "POST",
+          "callee": "parseOverpass",
+          "lineNumber": 302
+        },
+        {
+          "caller": "POST",
+          "callee": "pickPrimary",
+          "lineNumber": 305
+        },
+        {
+          "caller": "POST",
+          "callee": "coordCache.set",
+          "lineNumber": 308
+        },
+        {
+          "caller": "POST",
+          "callee": "cacheKey",
+          "lineNumber": 308
+        },
+        {
+          "caller": "POST",
+          "callee": "results.push",
+          "lineNumber": 309
+        },
+        {
+          "caller": "POST",
+          "callee": "withCustom",
+          "lineNumber": 309
+        },
+        {
+          "caller": "POST",
+          "callee": "findCampusSiblings",
+          "lineNumber": 312
+        },
+        {
+          "caller": "POST",
+          "callee": "coordCache.set",
+          "lineNumber": 318
+        },
+        {
+          "caller": "POST",
+          "callee": "cacheKey",
+          "lineNumber": 318
+        },
+        {
+          "caller": "POST",
+          "callee": "wayCache.set",
+          "lineNumber": 319
+        },
+        {
+          "caller": "POST",
+          "callee": "results.push",
+          "lineNumber": 320
+        },
+        {
+          "caller": "POST",
+          "callee": "withCustom",
+          "lineNumber": 320
+        },
+        {
+          "caller": "POST",
+          "callee": "console.warn",
+          "lineNumber": 324
+        },
+        {
+          "caller": "POST",
+          "callee": "cacheKey",
+          "lineNumber": 326
+        },
+        {
+          "caller": "POST",
+          "callee": "coordCache.set",
+          "lineNumber": 327
+        },
+        {
+          "caller": "POST",
+          "callee": "results.push",
+          "lineNumber": 328
+        },
+        {
+          "caller": "POST",
+          "callee": "withCustom",
+          "lineNumber": 328
+        },
+        {
+          "caller": "POST",
+          "callee": "NextResponse.json",
+          "lineNumber": 333
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 1,
+        "functionCount": 9,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/app/api/commute-matrix/route.ts",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 134,
+      "nonEmptyLines": 113,
+      "functions": [
+        {
+          "name": "POST",
+          "startLine": 30,
+          "endLine": 134,
+          "params": [
+            "req"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "POST",
+          "line": 30,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "POST",
+          "callee": "NextResponse.json",
+          "lineNumber": 32
+        },
+        {
+          "caller": "POST",
+          "callee": "req.json",
+          "lineNumber": 37
+        },
+        {
+          "caller": "POST",
+          "callee": "NextResponse.json",
+          "lineNumber": 39
+        },
+        {
+          "caller": "POST",
+          "callee": "NextResponse.json",
+          "lineNumber": 45
+        },
+        {
+          "caller": "POST",
+          "callee": "VALID_MODES.has",
+          "lineNumber": 47
+        },
+        {
+          "caller": "POST",
+          "callee": "NextResponse.json",
+          "lineNumber": 48
+        },
+        {
+          "caller": "POST",
+          "callee": "[...VALID_MODES].join",
+          "lineNumber": 48
+        },
+        {
+          "caller": "POST",
+          "callee": "Array.isArray",
+          "lineNumber": 50
+        },
+        {
+          "caller": "POST",
+          "callee": "NextResponse.json",
+          "lineNumber": 51
+        },
+        {
+          "caller": "POST",
+          "callee": "NextResponse.json",
+          "lineNumber": 54
+        },
+        {
+          "caller": "POST",
+          "callee": "NextResponse.json",
+          "lineNumber": 60
+        },
+        {
+          "caller": "POST",
+          "callee": "lat.toFixed",
+          "lineNumber": 65
+        },
+        {
+          "caller": "POST",
+          "callee": "lng.toFixed",
+          "lineNumber": 65
+        },
+        {
+          "caller": "POST",
+          "callee": "cache.get",
+          "lineNumber": 66
+        },
+        {
+          "caller": "POST",
+          "callee": "Date.now",
+          "lineNumber": 67
+        },
+        {
+          "caller": "POST",
+          "callee": "NextResponse.json",
+          "lineNumber": 72
+        },
+        {
+          "caller": "POST",
+          "callee": "destinations.slice",
+          "lineNumber": 81
+        },
+        {
+          "caller": "POST",
+          "callee": "chunk.map",
+          "lineNumber": 86
+        },
+        {
+          "caller": "POST",
+          "callee": "fetch",
+          "lineNumber": 89
+        },
+        {
+          "caller": "POST",
+          "callee": "JSON.stringify",
+          "lineNumber": 97
+        },
+        {
+          "caller": "POST",
+          "callee": "chunk.map",
+          "lineNumber": 100
+        },
+        {
+          "caller": "POST",
+          "callee": "res.text",
+          "lineNumber": 107
+        },
+        {
+          "caller": "POST",
+          "callee": "console.error",
+          "lineNumber": 108
+        },
+        {
+          "caller": "POST",
+          "callee": "NextResponse.json",
+          "lineNumber": 109
+        },
+        {
+          "caller": "POST",
+          "callee": "res.json",
+          "lineNumber": 112
+        },
+        {
+          "caller": "POST",
+          "callee": "console.error",
+          "lineNumber": 116
+        },
+        {
+          "caller": "POST",
+          "callee": "NextResponse.json",
+          "lineNumber": 117
+        },
+        {
+          "caller": "POST",
+          "callee": "chunk.forEach",
+          "lineNumber": 120
+        },
+        {
+          "caller": "POST",
+          "callee": "Math.round",
+          "lineNumber": 123
+        },
+        {
+          "caller": "POST",
+          "callee": "cache.set",
+          "lineNumber": 127
+        },
+        {
+          "caller": "POST",
+          "callee": "Date.now",
+          "lineNumber": 127
+        },
+        {
+          "caller": "POST",
+          "callee": "NextResponse.json",
+          "lineNumber": 129
+        },
+        {
+          "caller": "POST",
+          "callee": "console.error",
+          "lineNumber": 131
+        },
+        {
+          "caller": "POST",
+          "callee": "NextResponse.json",
+          "lineNumber": 132
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 1,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/app/api/company-research/news/route.ts",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 44,
+      "nonEmptyLines": 37,
+      "functions": [
+        {
+          "name": "GET",
+          "startLine": 3,
+          "endLine": 33,
+          "params": [
+            "req"
+          ]
+        },
+        {
+          "name": "tagContent",
+          "startLine": 35,
+          "endLine": 44,
+          "params": [
+            "xml",
+            "tag"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "GET",
+          "line": 3,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "GET",
+          "callee": "req.nextUrl.searchParams.get",
+          "lineNumber": 4
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 5
+        },
+        {
+          "caller": "GET",
+          "callee": "encodeURIComponent",
+          "lineNumber": 8
+        },
+        {
+          "caller": "GET",
+          "callee": "fetch",
+          "lineNumber": 9
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 10
+        },
+        {
+          "caller": "GET",
+          "callee": "res.text",
+          "lineNumber": 12
+        },
+        {
+          "caller": "GET",
+          "callee": "itemRegex.exec",
+          "lineNumber": 18
+        },
+        {
+          "caller": "GET",
+          "callee": "tagContent",
+          "lineNumber": 20
+        },
+        {
+          "caller": "GET",
+          "callee": "tagContent",
+          "lineNumber": 21
+        },
+        {
+          "caller": "GET",
+          "callee": "tagContent",
+          "lineNumber": 22
+        },
+        {
+          "caller": "GET",
+          "callee": "tagContent",
+          "lineNumber": 23
+        },
+        {
+          "caller": "GET",
+          "callee": "items.push",
+          "lineNumber": 25
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 29
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 31
+        },
+        {
+          "caller": "tagContent",
+          "callee": "cdataRe.exec",
+          "lineNumber": 38
+        },
+        {
+          "caller": "tagContent",
+          "callee": "cdataMatch[1].trim",
+          "lineNumber": 39
+        },
+        {
+          "caller": "tagContent",
+          "callee": "re.exec",
+          "lineNumber": 42
+        },
+        {
+          "caller": "tagContent",
+          "callee": "m[1].trim",
+          "lineNumber": 43
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 1,
+        "functionCount": 2,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/app/api/detect-duplicates/route.ts",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 97,
+      "nonEmptyLines": 80,
+      "functions": [
+        {
+          "name": "normalize",
+          "startLine": 12,
+          "endLine": 14,
+          "params": [
+            "s"
+          ]
+        },
+        {
+          "name": "tokenSimilarity",
+          "startLine": 17,
+          "endLine": 24,
+          "params": [
+            "a",
+            "b"
+          ]
+        },
+        {
+          "name": "extractCity",
+          "startLine": 27,
+          "endLine": 30,
+          "params": [
+            "location"
+          ]
+        },
+        {
+          "name": "POST",
+          "startLine": 46,
+          "endLine": 97,
+          "params": [
+            "req"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "POST",
+          "line": 46,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "normalize",
+          "callee": "s.toLowerCase().replace(/[^a-z0-9\\s]/g, \"\").replace(/\\s+/g, \" \").trim",
+          "lineNumber": 13
+        },
+        {
+          "caller": "normalize",
+          "callee": "s.toLowerCase().replace(/[^a-z0-9\\s]/g, \"\").replace",
+          "lineNumber": 13
+        },
+        {
+          "caller": "normalize",
+          "callee": "s.toLowerCase().replace",
+          "lineNumber": 13
+        },
+        {
+          "caller": "normalize",
+          "callee": "s.toLowerCase",
+          "lineNumber": 13
+        },
+        {
+          "caller": "tokenSimilarity",
+          "callee": "normalize(a).split(\" \").filter",
+          "lineNumber": 18
+        },
+        {
+          "caller": "tokenSimilarity",
+          "callee": "normalize(a).split",
+          "lineNumber": 18
+        },
+        {
+          "caller": "tokenSimilarity",
+          "callee": "normalize",
+          "lineNumber": 18
+        },
+        {
+          "caller": "tokenSimilarity",
+          "callee": "normalize(b).split(\" \").filter",
+          "lineNumber": 19
+        },
+        {
+          "caller": "tokenSimilarity",
+          "callee": "normalize(b).split",
+          "lineNumber": 19
+        },
+        {
+          "caller": "tokenSimilarity",
+          "callee": "normalize",
+          "lineNumber": 19
+        },
+        {
+          "caller": "tokenSimilarity",
+          "callee": "tb.has",
+          "lineNumber": 22
+        },
+        {
+          "caller": "tokenSimilarity",
+          "callee": "Math.max",
+          "lineNumber": 23
+        },
+        {
+          "caller": "extractCity",
+          "callee": "location.match",
+          "lineNumber": 28
+        },
+        {
+          "caller": "extractCity",
+          "callee": "m[1].trim().toLowerCase",
+          "lineNumber": 29
+        },
+        {
+          "caller": "extractCity",
+          "callee": "m[1].trim",
+          "lineNumber": 29
+        },
+        {
+          "caller": "extractCity",
+          "callee": "location.toLowerCase().trim",
+          "lineNumber": 29
+        },
+        {
+          "caller": "extractCity",
+          "callee": "location.toLowerCase",
+          "lineNumber": 29
+        },
+        {
+          "caller": "POST",
+          "callee": "req.json",
+          "lineNumber": 47
+        },
+        {
+          "caller": "POST",
+          "callee": "NextResponse.json",
+          "lineNumber": 48
+        },
+        {
+          "caller": "POST",
+          "callee": "jobs.slice",
+          "lineNumber": 51
+        },
+        {
+          "caller": "POST",
+          "callee": "assigned.has",
+          "lineNumber": 57
+        },
+        {
+          "caller": "POST",
+          "callee": "assigned.has",
+          "lineNumber": 61
+        },
+        {
+          "caller": "POST",
+          "callee": "tokenSimilarity",
+          "lineNumber": 63
+        },
+        {
+          "caller": "POST",
+          "callee": "extractCity",
+          "lineNumber": 66
+        },
+        {
+          "caller": "POST",
+          "callee": "extractCity",
+          "lineNumber": 67
+        },
+        {
+          "caller": "POST",
+          "callee": "cityA.includes",
+          "lineNumber": 68
+        },
+        {
+          "caller": "POST",
+          "callee": "cityB.includes",
+          "lineNumber": 68
+        },
+        {
+          "caller": "POST",
+          "callee": "tokenSimilarity",
+          "lineNumber": 74
+        },
+        {
+          "caller": "POST",
+          "callee": "capped[i].description!.slice",
+          "lineNumber": 75
+        },
+        {
+          "caller": "POST",
+          "callee": "capped[j].description!.slice",
+          "lineNumber": 76
+        },
+        {
+          "caller": "POST",
+          "callee": "cluster.push",
+          "lineNumber": 81
+        },
+        {
+          "caller": "POST",
+          "callee": "assigned.add",
+          "lineNumber": 82
+        },
+        {
+          "caller": "POST",
+          "callee": "assigned.add",
+          "lineNumber": 87
+        },
+        {
+          "caller": "POST",
+          "callee": "groups.push",
+          "lineNumber": 88
+        },
+        {
+          "caller": "POST",
+          "callee": "extractCity",
+          "lineNumber": 91
+        },
+        {
+          "caller": "POST",
+          "callee": "NextResponse.json",
+          "lineNumber": 96
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 1,
+        "functionCount": 4,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/app/api/extract-location/route.ts",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 86,
+      "nonEmptyLines": 73,
+      "functions": [
+        {
+          "name": "isValidState",
+          "startLine": 35,
+          "endLine": 37,
+          "params": [
+            "s"
+          ]
+        },
+        {
+          "name": "extractState",
+          "startLine": 40,
+          "endLine": 43,
+          "params": [
+            "loc"
+          ]
+        },
+        {
+          "name": "POST",
+          "startLine": 45,
+          "endLine": 86,
+          "params": [
+            "req"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "POST",
+          "line": 45,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "isValidState",
+          "callee": "US_STATES.has",
+          "lineNumber": 36
+        },
+        {
+          "caller": "isValidState",
+          "callee": "s.trim().toUpperCase",
+          "lineNumber": 36
+        },
+        {
+          "caller": "isValidState",
+          "callee": "s.trim",
+          "lineNumber": 36
+        },
+        {
+          "caller": "extractState",
+          "callee": "loc.match",
+          "lineNumber": 41
+        },
+        {
+          "caller": "extractState",
+          "callee": "m[1].toUpperCase",
+          "lineNumber": 42
+        },
+        {
+          "caller": "POST",
+          "callee": "req.json",
+          "lineNumber": 46
+        },
+        {
+          "caller": "POST",
+          "callee": "NextResponse.json",
+          "lineNumber": 47
+        },
+        {
+          "caller": "POST",
+          "callee": "re.exec",
+          "lineNumber": 56
+        },
+        {
+          "caller": "POST",
+          "callee": "match[1].trim().replace",
+          "lineNumber": 57
+        },
+        {
+          "caller": "POST",
+          "callee": "match[1].trim",
+          "lineNumber": 57
+        },
+        {
+          "caller": "POST",
+          "callee": "extractState",
+          "lineNumber": 58
+        },
+        {
+          "caller": "POST",
+          "callee": "isValidState",
+          "lineNumber": 59
+        },
+        {
+          "caller": "POST",
+          "callee": "raw.toLowerCase",
+          "lineNumber": 61
+        },
+        {
+          "caller": "POST",
+          "callee": "seen.has",
+          "lineNumber": 62
+        },
+        {
+          "caller": "POST",
+          "callee": "seen.add",
+          "lineNumber": 63
+        },
+        {
+          "caller": "POST",
+          "callee": "company.toLowerCase().replace",
+          "lineNumber": 67
+        },
+        {
+          "caller": "POST",
+          "callee": "company.toLowerCase",
+          "lineNumber": 67
+        },
+        {
+          "caller": "POST",
+          "callee": "raw.toLowerCase().replace",
+          "lineNumber": 68
+        },
+        {
+          "caller": "POST",
+          "callee": "raw.toLowerCase",
+          "lineNumber": 68
+        },
+        {
+          "caller": "POST",
+          "callee": "locLower.includes",
+          "lineNumber": 69
+        },
+        {
+          "caller": "POST",
+          "callee": "compLower.includes",
+          "lineNumber": 69
+        },
+        {
+          "caller": "POST",
+          "callee": "results.push",
+          "lineNumber": 72
+        },
+        {
+          "caller": "POST",
+          "callee": "results.some",
+          "lineNumber": 76
+        },
+        {
+          "caller": "POST",
+          "callee": "NextResponse.json",
+          "lineNumber": 82
+        },
+        {
+          "caller": "POST",
+          "callee": "results.map",
+          "lineNumber": 83
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 1,
+        "functionCount": 3,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/app/api/gas-prices/route.ts",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 131,
+      "nonEmptyLines": 114,
+      "functions": [
+        {
+          "name": "fetchEIA",
+          "startLine": 53,
+          "endLine": 71,
+          "params": [
+            "duoarea"
+          ]
+        },
+        {
+          "name": "GET",
+          "startLine": 73,
+          "endLine": 131,
+          "params": [
+            "req"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "GET",
+          "line": 73,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "fetchEIA",
+          "callee": "url.searchParams.set",
+          "lineNumber": 55
+        },
+        {
+          "caller": "fetchEIA",
+          "callee": "url.searchParams.set",
+          "lineNumber": 56
+        },
+        {
+          "caller": "fetchEIA",
+          "callee": "url.searchParams.set",
+          "lineNumber": 57
+        },
+        {
+          "caller": "fetchEIA",
+          "callee": "url.searchParams.set",
+          "lineNumber": 58
+        },
+        {
+          "caller": "fetchEIA",
+          "callee": "url.searchParams.set",
+          "lineNumber": 59
+        },
+        {
+          "caller": "fetchEIA",
+          "callee": "url.searchParams.set",
+          "lineNumber": 60
+        },
+        {
+          "caller": "fetchEIA",
+          "callee": "url.searchParams.set",
+          "lineNumber": 61
+        },
+        {
+          "caller": "fetchEIA",
+          "callee": "url.searchParams.set",
+          "lineNumber": 62
+        },
+        {
+          "caller": "fetchEIA",
+          "callee": "url.searchParams.set",
+          "lineNumber": 63
+        },
+        {
+          "caller": "fetchEIA",
+          "callee": "fetch",
+          "lineNumber": 65
+        },
+        {
+          "caller": "fetchEIA",
+          "callee": "url.toString",
+          "lineNumber": 65
+        },
+        {
+          "caller": "fetchEIA",
+          "callee": "res.json",
+          "lineNumber": 67
+        },
+        {
+          "caller": "GET",
+          "callee": "req.nextUrl.searchParams.get(\"state\")?.toUpperCase",
+          "lineNumber": 74
+        },
+        {
+          "caller": "GET",
+          "callee": "req.nextUrl.searchParams.get",
+          "lineNumber": 74
+        },
+        {
+          "caller": "GET",
+          "callee": "/^[A-Z]{2}$/.test",
+          "lineNumber": 75
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 76
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 80
+        },
+        {
+          "caller": "GET",
+          "callee": "cache.get",
+          "lineNumber": 84
+        },
+        {
+          "caller": "GET",
+          "callee": "Date.now",
+          "lineNumber": 85
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 86
+        },
+        {
+          "caller": "GET",
+          "callee": "fetchEIA",
+          "lineNumber": 93
+        },
+        {
+          "caller": "GET",
+          "callee": "fetchEIA",
+          "lineNumber": 100
+        },
+        {
+          "caller": "GET",
+          "callee": "fetchEIA",
+          "lineNumber": 107
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 112
+        },
+        {
+          "caller": "GET",
+          "callee": "parseFloat",
+          "lineNumber": 117
+        },
+        {
+          "caller": "GET",
+          "callee": "Date.now",
+          "lineNumber": 120
+        },
+        {
+          "caller": "GET",
+          "callee": "cache.set",
+          "lineNumber": 123
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 125
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 129
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 1,
+        "functionCount": 2,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/app/api/isochrone/route.ts",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 137,
+      "nonEmptyLines": 120,
+      "functions": [
+        {
+          "name": "buildTimeRanges",
+          "startLine": 36,
+          "endLine": 56,
+          "params": [
+            "miles",
+            "mode"
+          ]
+        },
+        {
+          "name": "GET",
+          "startLine": 58,
+          "endLine": 137,
+          "params": [
+            "req"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "GET",
+          "line": 58,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "buildTimeRanges",
+          "callee": "Math.min",
+          "lineNumber": 38
+        },
+        {
+          "caller": "buildTimeRanges",
+          "callee": "Math.ceil",
+          "lineNumber": 38
+        },
+        {
+          "caller": "buildTimeRanges",
+          "callee": "ranges.push",
+          "lineNumber": 49
+        },
+        {
+          "caller": "buildTimeRanges",
+          "callee": "ranges.push",
+          "lineNumber": 53
+        },
+        {
+          "caller": "buildTimeRanges",
+          "callee": "ranges.slice",
+          "lineNumber": 55
+        },
+        {
+          "caller": "GET",
+          "callee": "parseFloat",
+          "lineNumber": 60
+        },
+        {
+          "caller": "GET",
+          "callee": "sp.get",
+          "lineNumber": 60
+        },
+        {
+          "caller": "GET",
+          "callee": "parseFloat",
+          "lineNumber": 61
+        },
+        {
+          "caller": "GET",
+          "callee": "sp.get",
+          "lineNumber": 61
+        },
+        {
+          "caller": "GET",
+          "callee": "parseFloat",
+          "lineNumber": 62
+        },
+        {
+          "caller": "GET",
+          "callee": "sp.get",
+          "lineNumber": 62
+        },
+        {
+          "caller": "GET",
+          "callee": "sp.get",
+          "lineNumber": 63
+        },
+        {
+          "caller": "GET",
+          "callee": "isNaN",
+          "lineNumber": 65
+        },
+        {
+          "caller": "GET",
+          "callee": "isNaN",
+          "lineNumber": 65
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 66
+        },
+        {
+          "caller": "GET",
+          "callee": "isNaN",
+          "lineNumber": 68
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 69
+        },
+        {
+          "caller": "GET",
+          "callee": "VALID_MODES.has",
+          "lineNumber": 71
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 72
+        },
+        {
+          "caller": "GET",
+          "callee": "[...VALID_MODES].join",
+          "lineNumber": 72
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 75
+        },
+        {
+          "caller": "GET",
+          "callee": "buildTimeRanges",
+          "lineNumber": 78
+        },
+        {
+          "caller": "GET",
+          "callee": "lat.toFixed",
+          "lineNumber": 79
+        },
+        {
+          "caller": "GET",
+          "callee": "lng.toFixed",
+          "lineNumber": 79
+        },
+        {
+          "caller": "GET",
+          "callee": "rangesArr.join",
+          "lineNumber": 79
+        },
+        {
+          "caller": "GET",
+          "callee": "cache.get",
+          "lineNumber": 80
+        },
+        {
+          "caller": "GET",
+          "callee": "Date.now",
+          "lineNumber": 81
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 82
+        },
+        {
+          "caller": "GET",
+          "callee": "fetch",
+          "lineNumber": 88
+        },
+        {
+          "caller": "GET",
+          "callee": "JSON.stringify",
+          "lineNumber": 96
+        },
+        {
+          "caller": "GET",
+          "callee": "res.text",
+          "lineNumber": 106
+        },
+        {
+          "caller": "GET",
+          "callee": "console.error",
+          "lineNumber": 107
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 108
+        },
+        {
+          "caller": "GET",
+          "callee": "res.json",
+          "lineNumber": 111
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 114
+        },
+        {
+          "caller": "GET",
+          "callee": "features.map",
+          "lineNumber": 120
+        },
+        {
+          "caller": "GET",
+          "callee": "Math.round",
+          "lineNumber": 121
+        },
+        {
+          "caller": "GET",
+          "callee": "cache.set",
+          "lineNumber": 129
+        },
+        {
+          "caller": "GET",
+          "callee": "Date.now",
+          "lineNumber": 129
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 131
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 135
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 1,
+        "functionCount": 2,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/app/api/vehicle-lookup/route.ts",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 58,
+      "nonEmptyLines": 53,
+      "functions": [
+        {
+          "name": "GET",
+          "startLine": 5,
+          "endLine": 58,
+          "params": [
+            "req"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "GET",
+          "line": 5,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "GET",
+          "callee": "searchParams.get",
+          "lineNumber": 7
+        },
+        {
+          "caller": "GET",
+          "callee": "searchParams.get",
+          "lineNumber": 8
+        },
+        {
+          "caller": "GET",
+          "callee": "searchParams.get",
+          "lineNumber": 9
+        },
+        {
+          "caller": "GET",
+          "callee": "searchParams.get",
+          "lineNumber": 10
+        },
+        {
+          "caller": "GET",
+          "callee": "searchParams.get",
+          "lineNumber": 11
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 20
+        },
+        {
+          "caller": "GET",
+          "callee": "encodeURIComponent",
+          "lineNumber": 21
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 24
+        },
+        {
+          "caller": "GET",
+          "callee": "encodeURIComponent",
+          "lineNumber": 25
+        },
+        {
+          "caller": "GET",
+          "callee": "encodeURIComponent",
+          "lineNumber": 25
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 29
+        },
+        {
+          "caller": "GET",
+          "callee": "encodeURIComponent",
+          "lineNumber": 30
+        },
+        {
+          "caller": "GET",
+          "callee": "encodeURIComponent",
+          "lineNumber": 30
+        },
+        {
+          "caller": "GET",
+          "callee": "encodeURIComponent",
+          "lineNumber": 30
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 33
+        },
+        {
+          "caller": "GET",
+          "callee": "/^\\d+$/.test",
+          "lineNumber": 35
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 35
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 42
+        },
+        {
+          "caller": "GET",
+          "callee": "fetch",
+          "lineNumber": 46
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 50
+        },
+        {
+          "caller": "GET",
+          "callee": "res.json",
+          "lineNumber": 51
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 52
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 56
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 1,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/app/api/work-history/[id]/link/route.ts",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 6,
+      "nonEmptyLines": 5,
+      "functions": [
+        {
+          "name": "PATCH",
+          "startLine": 4,
+          "endLine": 6,
+          "params": []
+        }
+      ],
+      "exports": [
+        {
+          "name": "PATCH",
+          "line": 4,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "PATCH",
+          "callee": "NextResponse.json",
+          "lineNumber": 5
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 1,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/app/globals.css",
+      "language": "css",
+      "fileCategory": "markup",
+      "totalLines": 200,
+      "nonEmptyLines": 192,
+      "metrics": {}
+    },
+    {
+      "path": "src/app/interview/[roomId]/layout.tsx",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 7,
+      "nonEmptyLines": 7,
+      "functions": [
+        {
+          "name": "InterviewRoomLayout",
+          "startLine": 1,
+          "endLine": 7,
+          "params": [
+            "{\r\n  children,\r\n}"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "InterviewRoomLayout",
+          "line": 1,
+          "isDefault": true
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 1,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    }
+  ]
+}

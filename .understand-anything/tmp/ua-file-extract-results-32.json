@@ -1,0 +1,1558 @@
+{
+  "scriptCompleted": true,
+  "filesAnalyzed": 25,
+  "filesSkipped": [],
+  "results": [
+    {
+      "path": ".copilot/mcp-config.json",
+      "language": "json",
+      "fileCategory": "config",
+      "totalLines": 8,
+      "nonEmptyLines": 8,
+      "sections": [
+        {
+          "heading": "mcpServers",
+          "level": 1,
+          "line": 2
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 1
+      }
+    },
+    {
+      "path": ".features/_TEMPLATE.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 38,
+      "nonEmptyLines": 28,
+      "sections": [
+        {
+          "heading": "Feature: [Feature Name]",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Overview",
+          "level": 2,
+          "line": 3
+        },
+        {
+          "heading": "Test Plan",
+          "level": 2,
+          "line": 11
+        },
+        {
+          "heading": "Setup / Prerequisites",
+          "level": 3,
+          "line": 13
+        },
+        {
+          "heading": "Manual Tests",
+          "level": 3,
+          "line": 17
+        },
+        {
+          "heading": "Edge Cases",
+          "level": 3,
+          "line": 23
+        },
+        {
+          "heading": "Known Issues",
+          "level": 2,
+          "line": 26
+        },
+        {
+          "heading": "Changelog",
+          "level": 2,
+          "line": 33
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 8
+      }
+    },
+    {
+      "path": ".features/applications/applications.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 53,
+      "nonEmptyLines": 42,
+      "sections": [
+        {
+          "heading": "Feature: Applications",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Overview",
+          "level": 2,
+          "line": 3
+        },
+        {
+          "heading": "Sub-features",
+          "level": 3,
+          "line": 11
+        },
+        {
+          "heading": "Test Plan",
+          "level": 2,
+          "line": 18
+        },
+        {
+          "heading": "Setup / Prerequisites",
+          "level": 3,
+          "line": 20
+        },
+        {
+          "heading": "Manual Tests",
+          "level": 3,
+          "line": 25
+        },
+        {
+          "heading": "Edge Cases",
+          "level": 3,
+          "line": 37
+        },
+        {
+          "heading": "Known Issues",
+          "level": 2,
+          "line": 42
+        },
+        {
+          "heading": "Changelog",
+          "level": 2,
+          "line": 48
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 9
+      }
+    },
+    {
+      "path": ".features/career-analytics/career-analytics.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 56,
+      "nonEmptyLines": 45,
+      "sections": [
+        {
+          "heading": "Feature: Career Analytics",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Overview",
+          "level": 2,
+          "line": 3
+        },
+        {
+          "heading": "Sub-features",
+          "level": 3,
+          "line": 11
+        },
+        {
+          "heading": "Test Plan",
+          "level": 2,
+          "line": 18
+        },
+        {
+          "heading": "Setup / Prerequisites",
+          "level": 3,
+          "line": 20
+        },
+        {
+          "heading": "Manual Tests",
+          "level": 3,
+          "line": 25
+        },
+        {
+          "heading": "Edge Cases",
+          "level": 3,
+          "line": 37
+        },
+        {
+          "heading": "Known Issues",
+          "level": 2,
+          "line": 43
+        },
+        {
+          "heading": "Changelog",
+          "level": 2,
+          "line": 49
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 9
+      }
+    },
+    {
+      "path": ".features/career-analytics/career-directional-model.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 382,
+      "nonEmptyLines": 297,
+      "sections": [
+        {
+          "heading": "Feature: Career Directional Model (CDM)",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Status: Planned",
+          "level": 2,
+          "line": 3
+        },
+        {
+          "heading": "Vision",
+          "level": 2,
+          "line": 5
+        },
+        {
+          "heading": "The Pipeline",
+          "level": 2,
+          "line": 20
+        },
+        {
+          "heading": "Pillar 1: Skill Decomposition Tree",
+          "level": 2,
+          "line": 34
+        },
+        {
+          "heading": "Concept",
+          "level": 3,
+          "line": 36
+        },
+        {
+          "heading": "Data Model",
+          "level": 3,
+          "line": 61
+        },
+        {
+          "heading": "Generation Strategy",
+          "level": 3,
+          "line": 89
+        },
+        {
+          "heading": "Pillar 2: Title Synonym Intelligence",
+          "level": 2,
+          "line": 100
+        },
+        {
+          "heading": "The Problem",
+          "level": 3,
+          "line": 102
+        },
+        {
+          "heading": "Approach",
+          "level": 3,
+          "line": 111
+        },
+        {
+          "heading": "Building the Synonym Database",
+          "level": 3,
+          "line": 133
+        },
+        {
+          "heading": "Integration with Job Search",
+          "level": 3,
+          "line": 140
+        },
+        {
+          "heading": "Pillar 3: Position Mapping",
+          "level": 2,
+          "line": 149
+        },
+        {
+          "heading": "Concept",
+          "level": 3,
+          "line": 151
+        },
+        {
+          "heading": "Existing Infrastructure",
+          "level": 3,
+          "line": 158
+        },
+        {
+          "heading": "What's Missing",
+          "level": 3,
+          "line": 167
+        },
+        {
+          "heading": "CDM → Job Search Integration",
+          "level": 2,
+          "line": 180
+        },
+        {
+          "heading": "What CDM Provides to Job Search",
+          "level": 3,
+          "line": 184
+        },
+        {
+          "heading": "Auto-Search Pipeline Flow",
+          "level": 3,
+          "line": 209
+        },
+        {
+          "heading": "API Design",
+          "level": 2,
+          "line": 222
+        },
+        {
+          "heading": "New Routes Needed",
+          "level": 3,
+          "line": 224
+        },
+        {
+          "heading": "Existing Routes (already working)",
+          "level": 3,
+          "line": 234
+        },
+        {
+          "heading": "Prisma Model Changes",
+          "level": 2,
+          "line": 244
+        },
+        {
+          "heading": "Build Order",
+          "level": 2,
+          "line": 295
+        },
+        {
+          "heading": "Phase 1 — Skill Decomposition (Foundation)",
+          "level": 3,
+          "line": 297
+        },
+        {
+          "heading": "Phase 2 — Title Synonyms",
+          "level": 3,
+          "line": 303
+        },
+        {
+          "heading": "Phase 3 — Position Mapping",
+          "level": 3,
+          "line": 309
+        },
+        {
+          "heading": "Phase 4 — Job Search Integration",
+          "level": 3,
+          "line": 315
+        },
+        {
+          "heading": "Existing Component Reference",
+          "level": 2,
+          "line": 323
+        },
+        {
+          "heading": "Test Plan",
+          "level": 2,
+          "line": 333
+        },
+        {
+          "heading": "Setup / Prerequisites",
+          "level": 3,
+          "line": 335
+        },
+        {
+          "heading": "Manual Tests",
+          "level": 3,
+          "line": 340
+        },
+        {
+          "heading": "Edge Cases",
+          "level": 3,
+          "line": 352
+        },
+        {
+          "heading": "Risks & Mitigations",
+          "level": 2,
+          "line": 360
+        },
+        {
+          "heading": "Known Issues",
+          "level": 2,
+          "line": 372
+        },
+        {
+          "heading": "Changelog",
+          "level": 2,
+          "line": 378
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 37
+      }
+    },
+    {
+      "path": ".features/company-deep-dive/company-deep-dive.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 82,
+      "nonEmptyLines": 68,
+      "sections": [
+        {
+          "heading": "Company Deep Dive — Bulk Feature Update",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Existing Foundation",
+          "level": 2,
+          "line": 10
+        },
+        {
+          "heading": "Improvements",
+          "level": 2,
+          "line": 20
+        },
+        {
+          "heading": "1. Google Places Data in Deep Dive",
+          "level": 3,
+          "line": 22
+        },
+        {
+          "heading": "2. Company News Tab",
+          "level": 3,
+          "line": 30
+        },
+        {
+          "heading": "3. Salary Benchmarking vs Market",
+          "level": 3,
+          "line": 40
+        },
+        {
+          "heading": "4. Company Watchlist / Tracking",
+          "level": 3,
+          "line": 50
+        },
+        {
+          "heading": "5. Side-by-Side Company Comparison",
+          "level": 3,
+          "line": 59
+        },
+        {
+          "heading": "6. Dedicated Company Page",
+          "level": 3,
+          "line": 69
+        },
+        {
+          "heading": "Migration Required",
+          "level": 2,
+          "line": 81
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 10
+      }
+    },
+    {
+      "path": ".features/current-position/current-position.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 59,
+      "nonEmptyLines": 48,
+      "sections": [
+        {
+          "heading": "Feature: Current Position",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Overview",
+          "level": 2,
+          "line": 3
+        },
+        {
+          "heading": "Sub-features",
+          "level": 3,
+          "line": 11
+        },
+        {
+          "heading": "Test Plan",
+          "level": 2,
+          "line": 22
+        },
+        {
+          "heading": "Setup / Prerequisites",
+          "level": 3,
+          "line": 24
+        },
+        {
+          "heading": "Manual Tests",
+          "level": 3,
+          "line": 28
+        },
+        {
+          "heading": "Edge Cases",
+          "level": 3,
+          "line": 41
+        },
+        {
+          "heading": "Known Issues",
+          "level": 2,
+          "line": 46
+        },
+        {
+          "heading": "Changelog",
+          "level": 2,
+          "line": 52
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 9
+      }
+    },
+    {
+      "path": ".features/dashboard/dashboard.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 52,
+      "nonEmptyLines": 41,
+      "sections": [
+        {
+          "heading": "Feature: Dashboard",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Overview",
+          "level": 2,
+          "line": 3
+        },
+        {
+          "heading": "Sub-features",
+          "level": 3,
+          "line": 11
+        },
+        {
+          "heading": "Test Plan",
+          "level": 2,
+          "line": 18
+        },
+        {
+          "heading": "Setup / Prerequisites",
+          "level": 3,
+          "line": 20
+        },
+        {
+          "heading": "Manual Tests",
+          "level": 3,
+          "line": 25
+        },
+        {
+          "heading": "Edge Cases",
+          "level": 3,
+          "line": 37
+        },
+        {
+          "heading": "Known Issues",
+          "level": 2,
+          "line": 42
+        },
+        {
+          "heading": "Changelog",
+          "level": 2,
+          "line": 48
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 9
+      }
+    },
+    {
+      "path": ".features/documents/documents.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 47,
+      "nonEmptyLines": 36,
+      "sections": [
+        {
+          "heading": "Feature: Documents",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Overview",
+          "level": 2,
+          "line": 3
+        },
+        {
+          "heading": "Sub-features",
+          "level": 3,
+          "line": 11
+        },
+        {
+          "heading": "Test Plan",
+          "level": 2,
+          "line": 16
+        },
+        {
+          "heading": "Setup / Prerequisites",
+          "level": 3,
+          "line": 18
+        },
+        {
+          "heading": "Manual Tests",
+          "level": 3,
+          "line": 21
+        },
+        {
+          "heading": "Edge Cases",
+          "level": 3,
+          "line": 31
+        },
+        {
+          "heading": "Known Issues",
+          "level": 2,
+          "line": 36
+        },
+        {
+          "heading": "Changelog",
+          "level": 2,
+          "line": 42
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 9
+      }
+    },
+    {
+      "path": ".features/email/email.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 51,
+      "nonEmptyLines": 40,
+      "sections": [
+        {
+          "heading": "Feature: Email",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Overview",
+          "level": 2,
+          "line": 3
+        },
+        {
+          "heading": "Sub-features",
+          "level": 3,
+          "line": 11
+        },
+        {
+          "heading": "Test Plan",
+          "level": 2,
+          "line": 18
+        },
+        {
+          "heading": "Setup / Prerequisites",
+          "level": 3,
+          "line": 20
+        },
+        {
+          "heading": "Manual Tests",
+          "level": 3,
+          "line": 25
+        },
+        {
+          "heading": "Edge Cases",
+          "level": 3,
+          "line": 36
+        },
+        {
+          "heading": "Known Issues",
+          "level": 2,
+          "line": 41
+        },
+        {
+          "heading": "Changelog",
+          "level": 2,
+          "line": 47
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 9
+      }
+    },
+    {
+      "path": ".features/experience-diffusion-model/experience-diffusion-model.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 310,
+      "nonEmptyLines": 233,
+      "sections": [
+        {
+          "heading": "Feature: Experience Diffusion Model (EDM)",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Overview",
+          "level": 2,
+          "line": 3
+        },
+        {
+          "heading": "Core Concepts",
+          "level": 2,
+          "line": 17
+        },
+        {
+          "heading": "The Four Zones",
+          "level": 3,
+          "line": 19
+        },
+        {
+          "heading": "Tenure Factor",
+          "level": 3,
+          "line": 30
+        },
+        {
+          "heading": "Effective Intensity",
+          "level": 3,
+          "line": 44
+        },
+        {
+          "heading": "Accumulated Intensity (Diminishing Returns)",
+          "level": 3,
+          "line": 52
+        },
+        {
+          "heading": "Exposure Categories",
+          "level": 3,
+          "line": 62
+        },
+        {
+          "heading": "Exposure Types",
+          "level": 3,
+          "line": 73
+        },
+        {
+          "heading": "Zone Classification (What Goes Where)",
+          "level": 2,
+          "line": 84
+        },
+        {
+          "heading": "From WorkHistory records:",
+          "level": 3,
+          "line": 86
+        },
+        {
+          "heading": "From CurrentPosition records:",
+          "level": 3,
+          "line": 99
+        },
+        {
+          "heading": "Visualization",
+          "level": 2,
+          "line": 109
+        },
+        {
+          "heading": "Accumulated View (default)",
+          "level": 3,
+          "line": 111
+        },
+        {
+          "heading": "Per-Role Splat View",
+          "level": 3,
+          "line": 117
+        },
+        {
+          "heading": "Transferable Skills",
+          "level": 3,
+          "line": 124
+        },
+        {
+          "heading": "Legend Panel",
+          "level": 3,
+          "line": 130
+        },
+        {
+          "heading": "Data Flow",
+          "level": 2,
+          "line": 139
+        },
+        {
+          "heading": "Test Plan",
+          "level": 2,
+          "line": 165
+        },
+        {
+          "heading": "Setup / Prerequisites",
+          "level": 3,
+          "line": 167
+        },
+        {
+          "heading": "Manual Tests",
+          "level": 3,
+          "line": 172
+        },
+        {
+          "heading": "Edge Cases",
+          "level": 3,
+          "line": 186
+        },
+        {
+          "heading": "Known Issues",
+          "level": 2,
+          "line": 192
+        },
+        {
+          "heading": "Role Instance Topology (Planned)",
+          "level": 2,
+          "line": 201
+        },
+        {
+          "heading": "Problem",
+          "level": 3,
+          "line": 203
+        },
+        {
+          "heading": "Architecture: Collapsible Hierarchical Grouping",
+          "level": 3,
+          "line": 207
+        },
+        {
+          "heading": "Grouping Key",
+          "level": 3,
+          "line": 232
+        },
+        {
+          "heading": "Identity Model",
+          "level": 3,
+          "line": 244
+        },
+        {
+          "heading": "Detail Panel for Role Instance",
+          "level": 3,
+          "line": 255
+        },
+        {
+          "heading": "Relationship to Existing Occupations",
+          "level": 3,
+          "line": 265
+        },
+        {
+          "heading": "Title Synonym Engine (Future — Tier 3)",
+          "level": 3,
+          "line": 274
+        },
+        {
+          "heading": "Implementation Phases",
+          "level": 3,
+          "line": 288
+        },
+        {
+          "heading": "Changelog",
+          "level": 2,
+          "line": 302
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 33
+      }
+    },
+    {
+      "path": ".features/learning/learning.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 42,
+      "nonEmptyLines": 31,
+      "sections": [
+        {
+          "heading": "Feature: Learning",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Overview",
+          "level": 2,
+          "line": 3
+        },
+        {
+          "heading": "Sub-features",
+          "level": 3,
+          "line": 11
+        },
+        {
+          "heading": "Test Plan",
+          "level": 2,
+          "line": 15
+        },
+        {
+          "heading": "Setup / Prerequisites",
+          "level": 3,
+          "line": 17
+        },
+        {
+          "heading": "Manual Tests",
+          "level": 3,
+          "line": 20
+        },
+        {
+          "heading": "Edge Cases",
+          "level": 3,
+          "line": 28
+        },
+        {
+          "heading": "Known Issues",
+          "level": 2,
+          "line": 32
+        },
+        {
+          "heading": "Changelog",
+          "level": 2,
+          "line": 38
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 9
+      }
+    },
+    {
+      "path": ".features/portal/portal.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 52,
+      "nonEmptyLines": 41,
+      "sections": [
+        {
+          "heading": "Feature: Portal",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Overview",
+          "level": 2,
+          "line": 3
+        },
+        {
+          "heading": "Sub-features",
+          "level": 3,
+          "line": 11
+        },
+        {
+          "heading": "Test Plan",
+          "level": 2,
+          "line": 18
+        },
+        {
+          "heading": "Setup / Prerequisites",
+          "level": 3,
+          "line": 20
+        },
+        {
+          "heading": "Manual Tests",
+          "level": 3,
+          "line": 24
+        },
+        {
+          "heading": "Edge Cases",
+          "level": 3,
+          "line": 35
+        },
+        {
+          "heading": "Known Issues",
+          "level": 2,
+          "line": 40
+        },
+        {
+          "heading": "Changelog",
+          "level": 2,
+          "line": 46
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 9
+      }
+    },
+    {
+      "path": ".features/README.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 19,
+      "nonEmptyLines": 15,
+      "sections": [
+        {
+          "heading": "Feature Documentation",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "File naming",
+          "level": 2,
+          "line": 5
+        },
+        {
+          "heading": "Template sections",
+          "level": 2,
+          "line": 8
+        },
+        {
+          "heading": "Workflow",
+          "level": 2,
+          "line": 16
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 4
+      }
+    },
+    {
+      "path": ".features/research/research.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 48,
+      "nonEmptyLines": 37,
+      "sections": [
+        {
+          "heading": "Feature: Research",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Overview",
+          "level": 2,
+          "line": 3
+        },
+        {
+          "heading": "Sub-features",
+          "level": 3,
+          "line": 11
+        },
+        {
+          "heading": "Test Plan",
+          "level": 2,
+          "line": 18
+        },
+        {
+          "heading": "Setup / Prerequisites",
+          "level": 3,
+          "line": 20
+        },
+        {
+          "heading": "Manual Tests",
+          "level": 3,
+          "line": 24
+        },
+        {
+          "heading": "Edge Cases",
+          "level": 3,
+          "line": 33
+        },
+        {
+          "heading": "Known Issues",
+          "level": 2,
+          "line": 38
+        },
+        {
+          "heading": "Changelog",
+          "level": 2,
+          "line": 44
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 9
+      }
+    },
+    {
+      "path": ".features/resumes/resumes.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 43,
+      "nonEmptyLines": 32,
+      "sections": [
+        {
+          "heading": "Feature: Resumes",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Overview",
+          "level": 2,
+          "line": 3
+        },
+        {
+          "heading": "Sub-features",
+          "level": 3,
+          "line": 11
+        },
+        {
+          "heading": "Test Plan",
+          "level": 2,
+          "line": 15
+        },
+        {
+          "heading": "Setup / Prerequisites",
+          "level": 3,
+          "line": 17
+        },
+        {
+          "heading": "Manual Tests",
+          "level": 3,
+          "line": 20
+        },
+        {
+          "heading": "Edge Cases",
+          "level": 3,
+          "line": 28
+        },
+        {
+          "heading": "Known Issues",
+          "level": 2,
+          "line": 32
+        },
+        {
+          "heading": "Changelog",
+          "level": 2,
+          "line": 38
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 9
+      }
+    },
+    {
+      "path": ".features/worker-rights/worker-rights.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 37,
+      "nonEmptyLines": 26,
+      "sections": [
+        {
+          "heading": "Feature: Worker Rights",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Overview",
+          "level": 2,
+          "line": 3
+        },
+        {
+          "heading": "Sub-features",
+          "level": 3,
+          "line": 11
+        },
+        {
+          "heading": "Test Plan",
+          "level": 2,
+          "line": 14
+        },
+        {
+          "heading": "Setup / Prerequisites",
+          "level": 3,
+          "line": 16
+        },
+        {
+          "heading": "Manual Tests",
+          "level": 3,
+          "line": 19
+        },
+        {
+          "heading": "Edge Cases",
+          "level": 3,
+          "line": 24
+        },
+        {
+          "heading": "Known Issues",
+          "level": 2,
+          "line": 27
+        },
+        {
+          "heading": "Changelog",
+          "level": 2,
+          "line": 33
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 9
+      }
+    },
+    {
+      "path": ".gitattributes",
+      "language": "unknown",
+      "fileCategory": "code",
+      "totalLines": 5,
+      "nonEmptyLines": 5,
+      "metrics": {}
+    },
+    {
+      "path": ".github/copilot-instructions.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 156,
+      "nonEmptyLines": 137,
+      "sections": [
+        {
+          "heading": "Execution Rules:",
+          "level": 3,
+          "line": 32
+        },
+        {
+          "heading": "Skill: Architectural Guardrail",
+          "level": 3,
+          "line": 37
+        },
+        {
+          "heading": "Skill: ADR Author",
+          "level": 3,
+          "line": 43
+        },
+        {
+          "heading": "Skill: Manual Engineer",
+          "level": 3,
+          "line": 54
+        },
+        {
+          "heading": "Skill: The Griller",
+          "level": 3,
+          "line": 64
+        },
+        {
+          "heading": "Skill: UI Design Graph",
+          "level": 3,
+          "line": 70
+        },
+        {
+          "heading": "Advanced Engineering Skills",
+          "level": 2,
+          "line": 79
+        },
+        {
+          "heading": "Skill: Security Sentinel",
+          "level": 3,
+          "line": 81
+        },
+        {
+          "heading": "Skill: Performance Pro",
+          "level": 3,
+          "line": 90
+        },
+        {
+          "heading": "Skill: Architectural Reviewer",
+          "level": 3,
+          "line": 99
+        },
+        {
+          "heading": "Skill: Modularity Auditor",
+          "level": 3,
+          "line": 108
+        },
+        {
+          "heading": "Skill: Code Style Enforcer",
+          "level": 3,
+          "line": 117
+        },
+        {
+          "heading": "Skill: UI/UX Critic",
+          "level": 3,
+          "line": 123
+        },
+        {
+          "heading": "Skill: Handoff Architect",
+          "level": 3,
+          "line": 131
+        },
+        {
+          "heading": "Skill: UI Graph Keeper",
+          "level": 3,
+          "line": 146
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 15
+      }
+    },
+    {
+      "path": ".squad/.first-run",
+      "language": "unknown",
+      "fileCategory": "code",
+      "totalLines": 1,
+      "nonEmptyLines": 1,
+      "metrics": {}
+    },
+    {
+      "path": ".squad/identity/now.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 29,
+      "nonEmptyLines": 24,
+      "sections": [
+        {
+          "heading": "What We're Focused On",
+          "level": 1,
+          "line": 7
+        },
+        {
+          "heading": "Active Work",
+          "level": 2,
+          "line": 11
+        },
+        {
+          "heading": "Completed (W1)",
+          "level": 2,
+          "line": 15
+        },
+        {
+          "heading": "Project: Resumsify",
+          "level": 2,
+          "line": 20
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 4
+      }
+    },
+    {
+      "path": ".squad/identity/wisdom.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 41,
+      "nonEmptyLines": 25,
+      "sections": [
+        {
+          "heading": "Team Wisdom",
+          "level": 1,
+          "line": 5
+        },
+        {
+          "heading": "Patterns",
+          "level": 2,
+          "line": 9
+        },
+        {
+          "heading": "Architecture",
+          "level": 2,
+          "line": 33
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 3
+      }
+    },
+    {
+      "path": ".understand-anything/.understandignore",
+      "language": "unknown",
+      "fileCategory": "code",
+      "totalLines": 63,
+      "nonEmptyLines": 57,
+      "metrics": {}
+    },
+    {
+      "path": ".understand-anything/tmp/ua-scan-files.json",
+      "language": "json",
+      "fileCategory": "config",
+      "totalLines": 3757,
+      "nonEmptyLines": 3757,
+      "sections": [
+        {
+          "heading": "scriptCompleted",
+          "level": 1,
+          "line": 2
+        },
+        {
+          "heading": "files",
+          "level": 1,
+          "line": 3
+        },
+        {
+          "heading": "totalFiles",
+          "level": 1,
+          "line": 3731
+        },
+        {
+          "heading": "filteredByIgnore",
+          "level": 1,
+          "line": 3732
+        },
+        {
+          "heading": "estimatedComplexity",
+          "level": 1,
+          "line": 3733
+        },
+        {
+          "heading": "stats",
+          "level": 1,
+          "line": 3734
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 6
+      }
+    },
+    {
+      "path": "docs/plans/skill-graph-revamp.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 201,
+      "nonEmptyLines": 155,
+      "sections": [
+        {
+          "heading": "Skill Graph Revamp — Development Plan",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "1. Context & Motivation",
+          "level": 2,
+          "line": 11
+        },
+        {
+          "heading": "2. Hard Blocker (must come first)",
+          "level": 2,
+          "line": 28
+        },
+        {
+          "heading": "3. Proposed Module Structure (Sprint 0 deliverable)",
+          "level": 2,
+          "line": 34
+        },
+        {
+          "heading": "4. Sprint Breakdown",
+          "level": 2,
+          "line": 64
+        },
+        {
+          "heading": "Sprint 0 — Refactor (foundation)",
+          "level": 3,
+          "line": 66
+        },
+        {
+          "heading": "Sprint 1 — Visual & Findability Wins",
+          "level": 3,
+          "line": 84
+        },
+        {
+          "heading": "Sprint 2 — Career Flow Alternate View",
+          "level": 3,
+          "line": 100
+        },
+        {
+          "heading": "Sprint 3 — Node Detail Panel + LLM Summaries",
+          "level": 3,
+          "line": 114
+        },
+        {
+          "heading": "Sprint 4 — Guided Tour / Onboarding",
+          "level": 3,
+          "line": 134
+        },
+        {
+          "heading": "Sprint 5 — Diff / Impact View (stretch)",
+          "level": 3,
+          "line": 147
+        },
+        {
+          "heading": "5. Out of Scope (explicit rejections)",
+          "level": 2,
+          "line": 160
+        },
+        {
+          "heading": "6. Sequencing & Sizing (rough)",
+          "level": 2,
+          "line": 169
+        },
+        {
+          "heading": "7. Open Questions (resolve before Sprint 0 kickoff)",
+          "level": 2,
+          "line": 184
+        },
+        {
+          "heading": "8. References",
+          "level": 2,
+          "line": 193
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 15
+      }
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "batchIndex": 20,
+  "totalBatches": 34,
+  "files": [
+    {
+      "path": "src/app/layout.tsx",
+      "language": "typescript",
+      "sizeLines": 60,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/providers.tsx",
+      "language": "typescript",
+      "sizeLines": 31,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/pwa-register.tsx",
+      "language": "typescript",
+      "sizeLines": 15,
+      "fileCategory": "code"
+    }
+  ],
+  "batchImportData": {
+    "src/app/layout.tsx": [
+      "src/app/globals.css",
+      "src/components/providers.tsx",
+      "src/components/pwa-register.tsx"
+    ],
+    "src/components/providers.tsx": [],
+    "src/components/pwa-register.tsx": []
+  },
+  "neighborMap": {
+    "src/app/layout.tsx": [
+      {
+        "path": "src/app/globals.css",
+        "batchIndex": 33,
+        "symbols": []
+      }
+    ]
+  }
+}

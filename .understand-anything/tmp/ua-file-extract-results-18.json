@@ -1,0 +1,1271 @@
+{
+  "scriptCompleted": true,
+  "filesAnalyzed": 6,
+  "filesSkipped": [],
+  "results": [
+    {
+      "path": "src/app/api/work-logs/[id]/route.test.ts",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 229,
+      "nonEmptyLines": 187,
+      "functions": [
+        {
+          "name": "makeRequest",
+          "startLine": 45,
+          "endLine": 52,
+          "params": [
+            "id",
+            "body"
+          ]
+        },
+        {
+          "name": "existingLog",
+          "startLine": 55,
+          "endLine": 63,
+          "params": [
+            "assetIds"
+          ]
+        },
+        {
+          "name": "docWithMentions",
+          "startLine": 66,
+          "endLine": 81,
+          "params": [
+            "assetIds",
+            "nonAssetIds"
+          ]
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "makeRequest",
+          "callee": "JSON.stringify",
+          "lineNumber": 49
+        },
+        {
+          "caller": "makeRequest",
+          "callee": "Promise.resolve",
+          "lineNumber": 51
+        },
+        {
+          "caller": "docWithMentions",
+          "callee": "assetIds.map",
+          "lineNumber": 68
+        },
+        {
+          "caller": "docWithMentions",
+          "callee": "nonAssetIds.map",
+          "lineNumber": 72
+        }
+      ],
+      "metrics": {
+        "importCount": 3,
+        "exportCount": 0,
+        "functionCount": 3,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/app/api/work-logs/[id]/route.ts",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 184,
+      "nonEmptyLines": 165,
+      "functions": [
+        {
+          "name": "hasOwn",
+          "startLine": 8,
+          "endLine": 10,
+          "params": [
+            "body",
+            "key"
+          ]
+        },
+        {
+          "name": "deriveWorkdayIso",
+          "startLine": 19,
+          "endLine": 27,
+          "params": [
+            "dateIso",
+            "shift"
+          ]
+        },
+        {
+          "name": "PUT",
+          "startLine": 30,
+          "endLine": 164,
+          "params": [
+            "request",
+            "{\r\n params }"
+          ]
+        },
+        {
+          "name": "DELETE",
+          "startLine": 167,
+          "endLine": 184,
+          "params": [
+            "_request",
+            "{\r\n params }"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "PUT",
+          "line": 30,
+          "isDefault": false
+        },
+        {
+          "name": "DELETE",
+          "line": 167,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "hasOwn",
+          "callee": "Object.prototype.hasOwnProperty.call",
+          "lineNumber": 9
+        },
+        {
+          "caller": "deriveWorkdayIso",
+          "callee": "localDateAndMinuteFromIso",
+          "lineNumber": 20
+        },
+        {
+          "caller": "deriveWorkdayIso",
+          "callee": "computeWorkdayDateLocal",
+          "lineNumber": 21
+        },
+        {
+          "caller": "deriveWorkdayIso",
+          "callee": "new Date(`${workday}T00:00:00`).toISOString",
+          "lineNumber": 26
+        },
+        {
+          "caller": "PUT",
+          "callee": "getUserId",
+          "lineNumber": 35
+        },
+        {
+          "caller": "PUT",
+          "callee": "NextResponse.json",
+          "lineNumber": 36
+        },
+        {
+          "caller": "PUT",
+          "callee": "request.json",
+          "lineNumber": 39
+        },
+        {
+          "caller": "PUT",
+          "callee": "prisma.workLog.findFirst",
+          "lineNumber": 41
+        },
+        {
+          "caller": "PUT",
+          "callee": "NextResponse.json",
+          "lineNumber": 45
+        },
+        {
+          "caller": "PUT",
+          "callee": "hasOwn",
+          "lineNumber": 48
+        },
+        {
+          "caller": "PUT",
+          "callee": "validateContentJson",
+          "lineNumber": 49
+        },
+        {
+          "caller": "PUT",
+          "callee": "NextResponse.json",
+          "lineNumber": 51
+        },
+        {
+          "caller": "PUT",
+          "callee": "hasOwn",
+          "lineNumber": 60
+        },
+        {
+          "caller": "PUT",
+          "callee": "extractMentionAssetIds",
+          "lineNumber": 61
+        },
+        {
+          "caller": "PUT",
+          "callee": "hasOwn",
+          "lineNumber": 66
+        },
+        {
+          "caller": "PUT",
+          "callee": "Array.isArray",
+          "lineNumber": 66
+        },
+        {
+          "caller": "PUT",
+          "callee": "(body.assetIds as unknown[]).filter",
+          "lineNumber": 67
+        },
+        {
+          "caller": "PUT",
+          "callee": "hasOwn",
+          "lineNumber": 71
+        },
+        {
+          "caller": "PUT",
+          "callee": "Array.from",
+          "lineNumber": 72
+        },
+        {
+          "caller": "PUT",
+          "callee": "hasOwn",
+          "lineNumber": 75
+        },
+        {
+          "caller": "PUT",
+          "callee": "String",
+          "lineNumber": 76
+        },
+        {
+          "caller": "PUT",
+          "callee": "hasOwn",
+          "lineNumber": 80
+        },
+        {
+          "caller": "PUT",
+          "callee": "String",
+          "lineNumber": 81
+        },
+        {
+          "caller": "PUT",
+          "callee": "prisma.workHistoryShift.findFirst",
+          "lineNumber": 83
+        },
+        {
+          "caller": "PUT",
+          "callee": "NextResponse.json",
+          "lineNumber": 88
+        },
+        {
+          "caller": "PUT",
+          "callee": "NextResponse.json",
+          "lineNumber": 91
+        },
+        {
+          "caller": "PUT",
+          "callee": "prisma.workHistoryShift.findFirst",
+          "lineNumber": 95
+        },
+        {
+          "caller": "PUT",
+          "callee": "hasOwn",
+          "lineNumber": 103
+        },
+        {
+          "caller": "PUT",
+          "callee": "prisma.workLogFolder.findFirst",
+          "lineNumber": 104
+        },
+        {
+          "caller": "PUT",
+          "callee": "String",
+          "lineNumber": 105
+        },
+        {
+          "caller": "PUT",
+          "callee": "NextResponse.json",
+          "lineNumber": 109
+        },
+        {
+          "caller": "PUT",
+          "callee": "hasOwn",
+          "lineNumber": 113
+        },
+        {
+          "caller": "PUT",
+          "callee": "new Date(String(body.date)).toISOString",
+          "lineNumber": 114
+        },
+        {
+          "caller": "PUT",
+          "callee": "String",
+          "lineNumber": 114
+        },
+        {
+          "caller": "PUT",
+          "callee": "existing.date.toISOString",
+          "lineNumber": 115
+        },
+        {
+          "caller": "PUT",
+          "callee": "deriveWorkdayIso",
+          "lineNumber": 117
+        },
+        {
+          "caller": "PUT",
+          "callee": "hasOwn",
+          "lineNumber": 120
+        },
+        {
+          "caller": "PUT",
+          "callee": "String",
+          "lineNumber": 120
+        },
+        {
+          "caller": "PUT",
+          "callee": "hasOwn",
+          "lineNumber": 121
+        },
+        {
+          "caller": "PUT",
+          "callee": "hasOwn",
+          "lineNumber": 122
+        },
+        {
+          "caller": "PUT",
+          "callee": "hasOwn",
+          "lineNumber": 123
+        },
+        {
+          "caller": "PUT",
+          "callee": "hasOwn",
+          "lineNumber": 126
+        },
+        {
+          "caller": "PUT",
+          "callee": "hasOwn",
+          "lineNumber": 127
+        },
+        {
+          "caller": "PUT",
+          "callee": "parseFloat",
+          "lineNumber": 128
+        },
+        {
+          "caller": "PUT",
+          "callee": "String",
+          "lineNumber": 128
+        },
+        {
+          "caller": "PUT",
+          "callee": "hasOwn",
+          "lineNumber": 130
+        },
+        {
+          "caller": "PUT",
+          "callee": "hasOwn",
+          "lineNumber": 131
+        },
+        {
+          "caller": "PUT",
+          "callee": "hasOwn",
+          "lineNumber": 132
+        },
+        {
+          "caller": "PUT",
+          "callee": "hasOwn",
+          "lineNumber": 133
+        },
+        {
+          "caller": "PUT",
+          "callee": "hasOwn",
+          "lineNumber": 136
+        },
+        {
+          "caller": "PUT",
+          "callee": "String",
+          "lineNumber": 137
+        },
+        {
+          "caller": "PUT",
+          "callee": "hasOwn",
+          "lineNumber": 139
+        },
+        {
+          "caller": "PUT",
+          "callee": "String",
+          "lineNumber": 140
+        },
+        {
+          "caller": "PUT",
+          "callee": "hasOwn",
+          "lineNumber": 141
+        },
+        {
+          "caller": "PUT",
+          "callee": "hasOwn",
+          "lineNumber": 141
+        },
+        {
+          "caller": "PUT",
+          "callee": "hasOwn",
+          "lineNumber": 141
+        },
+        {
+          "caller": "PUT",
+          "callee": "hasOwn",
+          "lineNumber": 144
+        },
+        {
+          "caller": "PUT",
+          "callee": "hasOwn",
+          "lineNumber": 145
+        },
+        {
+          "caller": "PUT",
+          "callee": "hasOwn",
+          "lineNumber": 146
+        },
+        {
+          "caller": "PUT",
+          "callee": "Array.isArray",
+          "lineNumber": 147
+        },
+        {
+          "caller": "PUT",
+          "callee": "hasOwn",
+          "lineNumber": 150
+        },
+        {
+          "caller": "PUT",
+          "callee": "String",
+          "lineNumber": 151
+        },
+        {
+          "caller": "PUT",
+          "callee": "prisma.workLog.update",
+          "lineNumber": 155
+        },
+        {
+          "caller": "PUT",
+          "callee": "NextResponse.json",
+          "lineNumber": 160
+        },
+        {
+          "caller": "PUT",
+          "callee": "NextResponse.json",
+          "lineNumber": 162
+        },
+        {
+          "caller": "PUT",
+          "callee": "String",
+          "lineNumber": 162
+        },
+        {
+          "caller": "DELETE",
+          "callee": "getUserId",
+          "lineNumber": 172
+        },
+        {
+          "caller": "DELETE",
+          "callee": "NextResponse.json",
+          "lineNumber": 173
+        },
+        {
+          "caller": "DELETE",
+          "callee": "prisma.workLog.findFirst",
+          "lineNumber": 176
+        },
+        {
+          "caller": "DELETE",
+          "callee": "NextResponse.json",
+          "lineNumber": 177
+        },
+        {
+          "caller": "DELETE",
+          "callee": "prisma.workLog.delete",
+          "lineNumber": 179
+        },
+        {
+          "caller": "DELETE",
+          "callee": "NextResponse.json",
+          "lineNumber": 180
+        },
+        {
+          "caller": "DELETE",
+          "callee": "NextResponse.json",
+          "lineNumber": 182
+        },
+        {
+          "caller": "DELETE",
+          "callee": "String",
+          "lineNumber": 182
+        }
+      ],
+      "metrics": {
+        "importCount": 5,
+        "exportCount": 2,
+        "functionCount": 4,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/app/api/work-logs/route.ts",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 223,
+      "nonEmptyLines": 203,
+      "functions": [
+        {
+          "name": "deriveWorkdayIso",
+          "startLine": 14,
+          "endLine": 22,
+          "params": [
+            "dateIso",
+            "shift"
+          ]
+        },
+        {
+          "name": "GET",
+          "startLine": 27,
+          "endLine": 96,
+          "params": [
+            "request"
+          ]
+        },
+        {
+          "name": "POST",
+          "startLine": 99,
+          "endLine": 223,
+          "params": [
+            "request"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "GET",
+          "line": 27,
+          "isDefault": false
+        },
+        {
+          "name": "POST",
+          "line": 99,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "deriveWorkdayIso",
+          "callee": "localDateAndMinuteFromIso",
+          "lineNumber": 15
+        },
+        {
+          "caller": "deriveWorkdayIso",
+          "callee": "computeWorkdayDateLocal",
+          "lineNumber": 16
+        },
+        {
+          "caller": "deriveWorkdayIso",
+          "callee": "new Date(`${workday}T00:00:00`).toISOString",
+          "lineNumber": 21
+        },
+        {
+          "caller": "GET",
+          "callee": "getUserId",
+          "lineNumber": 28
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 29
+        },
+        {
+          "caller": "GET",
+          "callee": "searchParams.get",
+          "lineNumber": 32
+        },
+        {
+          "caller": "GET",
+          "callee": "searchParams.get",
+          "lineNumber": 33
+        },
+        {
+          "caller": "GET",
+          "callee": "searchParams.get",
+          "lineNumber": 34
+        },
+        {
+          "caller": "GET",
+          "callee": "searchParams.get",
+          "lineNumber": 35
+        },
+        {
+          "caller": "GET",
+          "callee": "searchParams.get",
+          "lineNumber": 36
+        },
+        {
+          "caller": "GET",
+          "callee": "searchParams.get",
+          "lineNumber": 37
+        },
+        {
+          "caller": "GET",
+          "callee": "searchParams.get",
+          "lineNumber": 38
+        },
+        {
+          "caller": "GET",
+          "callee": "searchParams.get",
+          "lineNumber": 39
+        },
+        {
+          "caller": "GET",
+          "callee": "searchParams.get",
+          "lineNumber": 40
+        },
+        {
+          "caller": "GET",
+          "callee": "searchParams.get",
+          "lineNumber": 76
+        },
+        {
+          "caller": "GET",
+          "callee": "prisma.workLog.findMany",
+          "lineNumber": 81
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 95
+        },
+        {
+          "caller": "POST",
+          "callee": "getUserId",
+          "lineNumber": 100
+        },
+        {
+          "caller": "POST",
+          "callee": "NextResponse.json",
+          "lineNumber": 101
+        },
+        {
+          "caller": "POST",
+          "callee": "request.json",
+          "lineNumber": 104
+        },
+        {
+          "caller": "POST",
+          "callee": "NextResponse.json",
+          "lineNumber": 127
+        },
+        {
+          "caller": "POST",
+          "callee": "validateContentJson",
+          "lineNumber": 130
+        },
+        {
+          "caller": "POST",
+          "callee": "NextResponse.json",
+          "lineNumber": 132
+        },
+        {
+          "caller": "POST",
+          "callee": "prisma.workHistory.findFirst",
+          "lineNumber": 137
+        },
+        {
+          "caller": "POST",
+          "callee": "NextResponse.json",
+          "lineNumber": 142
+        },
+        {
+          "caller": "POST",
+          "callee": "prisma.workLogTemplate.findFirst",
+          "lineNumber": 148
+        },
+        {
+          "caller": "POST",
+          "callee": "NextResponse.json",
+          "lineNumber": 153
+        },
+        {
+          "caller": "POST",
+          "callee": "prisma.workHistoryShift.findFirst",
+          "lineNumber": 159
+        },
+        {
+          "caller": "POST",
+          "callee": "NextResponse.json",
+          "lineNumber": 164
+        },
+        {
+          "caller": "POST",
+          "callee": "NextResponse.json",
+          "lineNumber": 167
+        },
+        {
+          "caller": "POST",
+          "callee": "prisma.workLogFolder.findFirst",
+          "lineNumber": 173
+        },
+        {
+          "caller": "POST",
+          "callee": "NextResponse.json",
+          "lineNumber": 178
+        },
+        {
+          "caller": "POST",
+          "callee": "new Date(date).toISOString",
+          "lineNumber": 182
+        },
+        {
+          "caller": "POST",
+          "callee": "deriveWorkdayIso",
+          "lineNumber": 183
+        },
+        {
+          "caller": "POST",
+          "callee": "prisma.workLog.create",
+          "lineNumber": 185
+        },
+        {
+          "caller": "POST",
+          "callee": "parseFloat",
+          "lineNumber": 196
+        },
+        {
+          "caller": "POST",
+          "callee": "String",
+          "lineNumber": 196
+        },
+        {
+          "caller": "POST",
+          "callee": "Array.isArray",
+          "lineNumber": 203
+        },
+        {
+          "caller": "POST",
+          "callee": "Array.isArray",
+          "lineNumber": 204
+        },
+        {
+          "caller": "POST",
+          "callee": "prisma.workLogTemplate\r\n        .update({\r\n          where: { id: templateId },\r\n          data: { useCount: { increment: 1 }, lastUsedAt: new Date() },\r\n        })\r\n        .catch",
+          "lineNumber": 211
+        },
+        {
+          "caller": "POST",
+          "callee": "prisma.workLogTemplate\r\n        .update",
+          "lineNumber": 211
+        },
+        {
+          "caller": "POST",
+          "callee": "NextResponse.json",
+          "lineNumber": 219
+        },
+        {
+          "caller": "POST",
+          "callee": "NextResponse.json",
+          "lineNumber": 221
+        },
+        {
+          "caller": "POST",
+          "callee": "String",
+          "lineNumber": 221
+        }
+      ],
+      "metrics": {
+        "importCount": 4,
+        "exportCount": 2,
+        "functionCount": 3,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/lib/worklog/content-json.ts",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 51,
+      "nonEmptyLines": 45,
+      "functions": [
+        {
+          "name": "validateContentJson",
+          "startLine": 22,
+          "endLine": 51,
+          "params": [
+            "input"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "validateContentJson",
+          "line": 22,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "validateContentJson",
+          "callee": "Array.isArray",
+          "lineNumber": 26
+        },
+        {
+          "caller": "validateContentJson",
+          "callee": "Array.isArray",
+          "lineNumber": 33
+        },
+        {
+          "caller": "validateContentJson",
+          "callee": "JSON.stringify",
+          "lineNumber": 39
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 1,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/lib/worklog/prosemirror-to-text.test.ts",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 544,
+      "nonEmptyLines": 489,
+      "metrics": {
+        "importCount": 1,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/lib/worklog/prosemirror-to-text.ts",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 244,
+      "nonEmptyLines": 231,
+      "functions": [
+        {
+          "name": "proseMirrorDocToPlainText",
+          "startLine": 32,
+          "endLine": 42,
+          "params": [
+            "doc"
+          ]
+        },
+        {
+          "name": "walk",
+          "startLine": 44,
+          "endLine": 129,
+          "params": [
+            "node",
+            "lines",
+            "prefix"
+          ]
+        },
+        {
+          "name": "walkListItem",
+          "startLine": 131,
+          "endLine": 149,
+          "params": [
+            "item",
+            "lines",
+            "prefix"
+          ]
+        },
+        {
+          "name": "collectInlineText",
+          "startLine": 151,
+          "endLine": 182,
+          "params": [
+            "node"
+          ]
+        },
+        {
+          "name": "formatShiftWindow",
+          "startLine": 184,
+          "endLine": 187,
+          "params": [
+            "start",
+            "end"
+          ]
+        },
+        {
+          "name": "formatMinute",
+          "startLine": 189,
+          "endLine": 195,
+          "params": [
+            "m"
+          ]
+        },
+        {
+          "name": "extractMentionAssetIds",
+          "startLine": 202,
+          "endLine": 209,
+          "params": [
+            "doc"
+          ]
+        },
+        {
+          "name": "collectAssetMentions",
+          "startLine": 211,
+          "endLine": 221,
+          "params": [
+            "node",
+            "ids"
+          ]
+        },
+        {
+          "name": "plainTextToProseMirrorDoc",
+          "startLine": 224,
+          "endLine": 244,
+          "params": [
+            "text"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "proseMirrorDocToPlainText",
+          "line": 32,
+          "isDefault": false
+        },
+        {
+          "name": "extractMentionAssetIds",
+          "line": 202,
+          "isDefault": false
+        },
+        {
+          "name": "plainTextToProseMirrorDoc",
+          "line": 224,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "proseMirrorDocToPlainText",
+          "callee": "Array.isArray",
+          "lineNumber": 35
+        },
+        {
+          "caller": "proseMirrorDocToPlainText",
+          "callee": "walk",
+          "lineNumber": 38
+        },
+        {
+          "caller": "proseMirrorDocToPlainText",
+          "callee": "lines.join(\"\\n\").replace(/\\n{3,}/g, \"\\n\\n\").trim",
+          "lineNumber": 41
+        },
+        {
+          "caller": "proseMirrorDocToPlainText",
+          "callee": "lines.join(\"\\n\").replace",
+          "lineNumber": 41
+        },
+        {
+          "caller": "proseMirrorDocToPlainText",
+          "callee": "lines.join",
+          "lineNumber": 41
+        },
+        {
+          "caller": "walk",
+          "callee": "lines.push",
+          "lineNumber": 50
+        },
+        {
+          "caller": "walk",
+          "callee": "lines.push",
+          "lineNumber": 57
+        },
+        {
+          "caller": "walk",
+          "callee": "lines.push",
+          "lineNumber": 60
+        },
+        {
+          "caller": "walk",
+          "callee": "lines.push",
+          "lineNumber": 63
+        },
+        {
+          "caller": "walk",
+          "callee": "lines.push",
+          "lineNumber": 69
+        },
+        {
+          "caller": "walk",
+          "callee": "formatShiftWindow",
+          "lineNumber": 75
+        },
+        {
+          "caller": "walk",
+          "callee": "lines.push",
+          "lineNumber": 79
+        },
+        {
+          "caller": "walk",
+          "callee": "lines.push",
+          "lineNumber": 85
+        },
+        {
+          "caller": "walk",
+          "callee": "lines.push",
+          "lineNumber": 90
+        },
+        {
+          "caller": "walk",
+          "callee": "lines.push",
+          "lineNumber": 95
+        },
+        {
+          "caller": "walk",
+          "callee": "items.forEach",
+          "lineNumber": 102
+        },
+        {
+          "caller": "walk",
+          "callee": "walkListItem",
+          "lineNumber": 112
+        },
+        {
+          "caller": "walk",
+          "callee": "BLOCK_TYPES.has",
+          "lineNumber": 117
+        },
+        {
+          "caller": "walk",
+          "callee": "collectInlineText",
+          "lineNumber": 118
+        },
+        {
+          "caller": "walk",
+          "callee": "lines.push",
+          "lineNumber": 119
+        },
+        {
+          "caller": "walk",
+          "callee": "lines.push",
+          "lineNumber": 120
+        },
+        {
+          "caller": "walk",
+          "callee": "Array.isArray",
+          "lineNumber": 124
+        },
+        {
+          "caller": "walk",
+          "callee": "walk",
+          "lineNumber": 125
+        },
+        {
+          "caller": "walkListItem",
+          "callee": "Array.isArray",
+          "lineNumber": 132
+        },
+        {
+          "caller": "walkListItem",
+          "callee": "lines.push",
+          "lineNumber": 133
+        },
+        {
+          "caller": "walkListItem",
+          "callee": "BLOCK_TYPES.has",
+          "lineNumber": 139
+        },
+        {
+          "caller": "walkListItem",
+          "callee": "collectInlineText",
+          "lineNumber": 140
+        },
+        {
+          "caller": "walkListItem",
+          "callee": "parts.push",
+          "lineNumber": 141
+        },
+        {
+          "caller": "walkListItem",
+          "callee": "parts.push",
+          "lineNumber": 143
+        },
+        {
+          "caller": "walkListItem",
+          "callee": "Array.isArray",
+          "lineNumber": 144
+        },
+        {
+          "caller": "walkListItem",
+          "callee": "parts.push",
+          "lineNumber": 145
+        },
+        {
+          "caller": "walkListItem",
+          "callee": "collectInlineText",
+          "lineNumber": 145
+        },
+        {
+          "caller": "walkListItem",
+          "callee": "lines.push",
+          "lineNumber": 148
+        },
+        {
+          "caller": "walkListItem",
+          "callee": "parts.join(\" \").trim",
+          "lineNumber": 148
+        },
+        {
+          "caller": "walkListItem",
+          "callee": "parts.join",
+          "lineNumber": 148
+        },
+        {
+          "caller": "collectInlineText",
+          "callee": "Array.isArray",
+          "lineNumber": 152
+        },
+        {
+          "caller": "collectInlineText",
+          "callee": "parts.push",
+          "lineNumber": 156
+        },
+        {
+          "caller": "collectInlineText",
+          "callee": "parts.push",
+          "lineNumber": 158
+        },
+        {
+          "caller": "collectInlineText",
+          "callee": "formatShiftWindow",
+          "lineNumber": 162
+        },
+        {
+          "caller": "collectInlineText",
+          "callee": "parts.push",
+          "lineNumber": 166
+        },
+        {
+          "caller": "collectInlineText",
+          "callee": "parts.push",
+          "lineNumber": 170
+        },
+        {
+          "caller": "collectInlineText",
+          "callee": "parts.push",
+          "lineNumber": 173
+        },
+        {
+          "caller": "collectInlineText",
+          "callee": "parts.push",
+          "lineNumber": 176
+        },
+        {
+          "caller": "collectInlineText",
+          "callee": "parts.push",
+          "lineNumber": 178
+        },
+        {
+          "caller": "collectInlineText",
+          "callee": "collectInlineText",
+          "lineNumber": 178
+        },
+        {
+          "caller": "collectInlineText",
+          "callee": "parts.join",
+          "lineNumber": 181
+        },
+        {
+          "caller": "formatShiftWindow",
+          "callee": "formatMinute",
+          "lineNumber": 186
+        },
+        {
+          "caller": "formatShiftWindow",
+          "callee": "formatMinute",
+          "lineNumber": 186
+        },
+        {
+          "caller": "formatMinute",
+          "callee": "Math.floor",
+          "lineNumber": 190
+        },
+        {
+          "caller": "formatMinute",
+          "callee": "String(m % 60).padStart",
+          "lineNumber": 191
+        },
+        {
+          "caller": "formatMinute",
+          "callee": "String",
+          "lineNumber": 191
+        },
+        {
+          "caller": "extractMentionAssetIds",
+          "callee": "Array.isArray",
+          "lineNumber": 205
+        },
+        {
+          "caller": "extractMentionAssetIds",
+          "callee": "collectAssetMentions",
+          "lineNumber": 207
+        },
+        {
+          "caller": "extractMentionAssetIds",
+          "callee": "Array.from",
+          "lineNumber": 208
+        },
+        {
+          "caller": "collectAssetMentions",
+          "callee": "ids.add",
+          "lineNumber": 215
+        },
+        {
+          "caller": "collectAssetMentions",
+          "callee": "Array.isArray",
+          "lineNumber": 218
+        },
+        {
+          "caller": "collectAssetMentions",
+          "callee": "collectAssetMentions",
+          "lineNumber": 219
+        },
+        {
+          "caller": "plainTextToProseMirrorDoc",
+          "callee": "(text ?? \"\").replace",
+          "lineNumber": 225
+        },
+        {
+          "caller": "plainTextToProseMirrorDoc",
+          "callee": "trimmed.split",
+          "lineNumber": 229
+        },
+        {
+          "caller": "plainTextToProseMirrorDoc",
+          "callee": "paragraphs.map",
+          "lineNumber": 232
+        },
+        {
+          "caller": "plainTextToProseMirrorDoc",
+          "callee": "p.split",
+          "lineNumber": 233
+        },
+        {
+          "caller": "plainTextToProseMirrorDoc",
+          "callee": "lines.forEach",
+          "lineNumber": 235
+        },
+        {
+          "caller": "plainTextToProseMirrorDoc",
+          "callee": "inline.push",
+          "lineNumber": 236
+        },
+        {
+          "caller": "plainTextToProseMirrorDoc",
+          "callee": "inline.push",
+          "lineNumber": 237
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 3,
+        "functionCount": 9,
+        "classCount": 0
+      }
+    }
+  ]
+}

@@ -1,0 +1,329 @@
+{
+  "scriptCompleted": true,
+  "filesAnalyzed": 7,
+  "filesSkipped": [],
+  "results": [
+    {
+      "path": ".Manual/README.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 44,
+      "nonEmptyLines": 30,
+      "sections": [
+        {
+          "heading": "Resumsify Industry Manual",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "When to Add or Update an Entry",
+          "level": 2,
+          "line": 7
+        },
+        {
+          "heading": "Template",
+          "level": 2,
+          "line": 13
+        },
+        {
+          "heading": "File Naming",
+          "level": 2,
+          "line": 23
+        },
+        {
+          "heading": "Index",
+          "level": 2,
+          "line": 31
+        },
+        {
+          "heading": "Style Rules",
+          "level": 2,
+          "line": 38
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 6
+      }
+    },
+    {
+      "path": ".Manual/_template.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 51,
+      "nonEmptyLines": 33,
+      "sections": [
+        {
+          "heading": "{Feature Name}",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "1. Functional Description",
+          "level": 2,
+          "line": 13
+        },
+        {
+          "heading": "2. Internal Workflow",
+          "level": 2,
+          "line": 19
+        },
+        {
+          "heading": "3. Configuration / Params",
+          "level": 2,
+          "line": 30
+        },
+        {
+          "heading": "4. Known Constraints",
+          "level": 2,
+          "line": 39
+        },
+        {
+          "heading": "5. Future / Deferred",
+          "level": 2,
+          "line": 47
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 6
+      }
+    },
+    {
+      "path": ".Manual/worklog-bulk-actions.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 80,
+      "nonEmptyLines": 74,
+      "sections": [
+        {
+          "heading": "Worklog — Bulk Multi-Select (Move / Delete)",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Feature Name",
+          "level": 2,
+          "line": 3
+        },
+        {
+          "heading": "Functional Description",
+          "level": 2,
+          "line": 6
+        },
+        {
+          "heading": "Internal Workflow",
+          "level": 2,
+          "line": 13
+        },
+        {
+          "heading": "Configuration / Params",
+          "level": 2,
+          "line": 49
+        },
+        {
+          "heading": "Known Constraints",
+          "level": 2,
+          "line": 58
+        },
+        {
+          "heading": "Related",
+          "level": 2,
+          "line": 76
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 7
+      }
+    },
+    {
+      "path": ".Manual/worklog-dnd-reorder.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 78,
+      "nonEmptyLines": 54,
+      "sections": [
+        {
+          "heading": "Worklog Notes & Folder Drag-and-Drop Reorder",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "1. Functional Description",
+          "level": 2,
+          "line": 16
+        },
+        {
+          "heading": "2. Internal Workflow",
+          "level": 2,
+          "line": 29
+        },
+        {
+          "heading": "3. Configuration / Params",
+          "level": 2,
+          "line": 54
+        },
+        {
+          "heading": "4. Known Constraints",
+          "level": 2,
+          "line": 67
+        },
+        {
+          "heading": "5. Future / Deferred",
+          "level": 2,
+          "line": 75
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 6
+      }
+    },
+    {
+      "path": ".Manual/worklog-folders.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 78,
+      "nonEmptyLines": 67,
+      "sections": [
+        {
+          "heading": "WorkLog User-Defined Folders",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Feature Name",
+          "level": 2,
+          "line": 3
+        },
+        {
+          "heading": "Functional Description",
+          "level": 2,
+          "line": 6
+        },
+        {
+          "heading": "Internal Workflow",
+          "level": 2,
+          "line": 31
+        },
+        {
+          "heading": "Configuration / Params",
+          "level": 2,
+          "line": 58
+        },
+        {
+          "heading": "Known Constraints",
+          "level": 2,
+          "line": 68
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 6
+      }
+    },
+    {
+      "path": ".Manual/worklog-notes-three-pane.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 79,
+      "nonEmptyLines": 61,
+      "sections": [
+        {
+          "heading": "Worklog Notes Three-Pane Experience",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "1. Feature Name",
+          "level": 2,
+          "line": 8
+        },
+        {
+          "heading": "2. Functional Description",
+          "level": 2,
+          "line": 12
+        },
+        {
+          "heading": "3. Internal Workflow",
+          "level": 2,
+          "line": 31
+        },
+        {
+          "heading": "4. Configuration/Params",
+          "level": 2,
+          "line": 56
+        },
+        {
+          "heading": "5. Known Constraints",
+          "level": 2,
+          "line": 72
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 6
+      }
+    },
+    {
+      "path": ".Manual/worklog-search.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 58,
+      "nonEmptyLines": 49,
+      "sections": [
+        {
+          "heading": "Feature: Worklog Full-Text Search Palette (W1.2)",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Functional Description",
+          "level": 2,
+          "line": 3
+        },
+        {
+          "heading": "Internal Workflow",
+          "level": 2,
+          "line": 15
+        },
+        {
+          "heading": "Configuration / Params",
+          "level": 2,
+          "line": 36
+        },
+        {
+          "heading": "Known Constraints",
+          "level": 2,
+          "line": 48
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 5
+      }
+    }
+  ]
+}

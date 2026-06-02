@@ -1,0 +1,661 @@
+[
+  {
+    "path": "src/components/worklog/worklog-move-to-folder-dialog.tsx",
+    "nonEmptyLines": 190,
+    "fns": [
+      {
+        "name": "WorklogMoveToFolderDialog",
+        "start": 39,
+        "end": 207
+      }
+    ],
+    "exports": [
+      "WorklogMoveToFolderDialog"
+    ],
+    "imports": [
+      "src/components/ui/button.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx",
+      "src/lib/worklog-folders.ts",
+      "src/types/worklog.ts"
+    ]
+  },
+  {
+    "path": "src/components/worklog/worklog-note-meta-strip.tsx",
+    "nonEmptyLines": 479,
+    "fns": [
+      {
+        "name": "WorklogNoteMetaStrip",
+        "start": 77,
+        "end": 492
+      }
+    ],
+    "exports": [
+      "WorklogNoteMetaStrip"
+    ],
+    "imports": [
+      "src/components/ui/button.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/worklog/constants.ts",
+      "src/components/worklog/hooks/use-worklog-folders.ts",
+      "src/components/worklog/worklog-move-to-folder-dialog.tsx",
+      "src/lib/utils.ts",
+      "src/lib/worklog-shifts.ts",
+      "src/types/worklog.ts"
+    ]
+  },
+  {
+    "path": "src/components/worklog/worklog-note-reader.tsx",
+    "nonEmptyLines": 549,
+    "fns": [],
+    "exports": [
+      "WorklogNoteReader"
+    ],
+    "imports": [
+      "src/components/asset-picker.tsx",
+      "src/components/equipment-picker.tsx",
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/tag-input.tsx",
+      "src/components/worklog/hooks/use-autosave.ts",
+      "src/components/worklog/hooks/use-worklog-drafts.ts",
+      "src/components/worklog/promote-to-event-dialog.tsx",
+      "src/components/worklog/worklog-editor.tsx",
+      "src/components/worklog/worklog-note-meta-strip.tsx",
+      "src/components/worklog/worklog-note-view.tsx",
+      "src/components/worklog/worklog-photo-section.tsx",
+      "src/lib/utils.ts",
+      "src/lib/worklog-shifts.ts",
+      "src/lib/worklog/tiptap/extract-tags.ts",
+      "src/types/worklog.ts"
+    ]
+  },
+  {
+    "path": "src/components/worklog/worklog-note-view.tsx",
+    "nonEmptyLines": 395,
+    "fns": [
+      {
+        "name": "formatShiftWindow",
+        "start": 29,
+        "end": 39
+      },
+      {
+        "name": "WorklogNoteView",
+        "start": 62,
+        "end": 97
+      },
+      {
+        "name": "RenderBlock",
+        "start": 112,
+        "end": 300
+      },
+      {
+        "name": "RenderInlineNode",
+        "start": 323,
+        "end": 380
+      },
+      {
+        "name": "applyMarks",
+        "start": 382,
+        "end": 424
+      }
+    ],
+    "exports": [
+      "WorklogNoteView"
+    ],
+    "imports": [
+      "src/lib/utils.ts"
+    ]
+  },
+  {
+    "path": "src/components/worklog/worklog-notes-list.tsx",
+    "nonEmptyLines": 464,
+    "fns": [
+      {
+        "name": "SortableNoteWrapper",
+        "start": 70,
+        "end": 83
+      },
+      {
+        "name": "groupLogs",
+        "start": 94,
+        "end": 120
+      },
+      {
+        "name": "WorklogNotesList",
+        "start": 122,
+        "end": 491
+      }
+    ],
+    "exports": [
+      "WorklogNotesList"
+    ],
+    "imports": [
+      "src/components/worklog/constants.ts",
+      "src/components/worklog/hooks/use-worklog-folders.ts",
+      "src/components/worklog/hooks/use-worklog-mutations.ts",
+      "src/components/worklog/worklog-move-to-folder-dialog.tsx",
+      "src/lib/utils.ts",
+      "src/types/worklog.ts"
+    ]
+  },
+  {
+    "path": "src/components/worklog/worklog-page.tsx",
+    "nonEmptyLines": 457,
+    "fns": [
+      {
+        "name": "WorklogPage",
+        "start": 62,
+        "end": 487
+      }
+    ],
+    "exports": [
+      "WorklogPage"
+    ],
+    "imports": [
+      "src/components/ui/button.tsx",
+      "src/components/ui/scroll-area.tsx",
+      "src/components/worklog/constants.ts",
+      "src/components/worklog/hooks/use-worklog-create-flow.ts",
+      "src/components/worklog/hooks/use-worklog-data.ts",
+      "src/components/worklog/hooks/use-worklog-deep-links.ts",
+      "src/components/worklog/hooks/use-worklog-keyboard-nav.ts",
+      "src/components/worklog/hooks/use-worklog-mutations.ts",
+      "src/components/worklog/hooks/use-worklog-preferences.ts",
+      "src/components/worklog/hooks/use-worklog-selection.ts",
+      "src/components/worklog/hooks/use-worklog-stats.ts",
+      "src/components/worklog/hooks/use-worklog-visible-logs.ts",
+      "src/components/worklog/worklog-bulk-action-bar.tsx",
+      "src/components/worklog/worklog-defaults-dialog.tsx",
+      "src/components/worklog/worklog-dnd-provider.tsx",
+      "src/components/worklog/worklog-folders-rail.tsx",
+      "src/components/worklog/worklog-note-reader.tsx",
+      "src/components/worklog/worklog-notes-list.tsx",
+      "src/components/worklog/worklog-search-palette.tsx",
+      "src/components/worklog/worklog-template-editor.tsx",
+      "src/components/worklog/worklog-template-picker-dialog.tsx",
+      "src/components/worklog/worklog-templates-tab.tsx",
+      "src/components/worklog/worklog-toolbar.tsx",
+      "src/lib/utils.ts",
+      "src/types/worklog.ts"
+    ]
+  },
+  {
+    "path": "src/components/worklog/worklog-photo-section.tsx",
+    "nonEmptyLines": 98,
+    "fns": [
+      {
+        "name": "WorklogPhotoSection",
+        "start": 23,
+        "end": 107
+      }
+    ],
+    "exports": [
+      "WorklogPhotoSection"
+    ],
+    "imports": [
+      "src/components/ui/label.tsx",
+      "src/types/worklog.ts"
+    ]
+  },
+  {
+    "path": "src/components/worklog/worklog-search-palette.tsx",
+    "nonEmptyLines": 225,
+    "fns": [
+      {
+        "name": "sanitizeSnippet",
+        "start": 55,
+        "end": 65
+      },
+      {
+        "name": "WorklogSearchPalette",
+        "start": 67,
+        "end": 246
+      }
+    ],
+    "exports": [
+      "WorklogSearchPalette"
+    ],
+    "imports": [
+      "src/components/ui/dialog.tsx",
+      "src/lib/utils.ts"
+    ]
+  },
+  {
+    "path": "src/components/worklog/worklog-template-editor.tsx",
+    "nonEmptyLines": 164,
+    "fns": [
+      {
+        "name": "WorklogTemplateEditor",
+        "start": 34,
+        "end": 172
+      }
+    ],
+    "exports": [
+      "WorklogTemplateEditor"
+    ],
+    "imports": [
+      "src/components/asset-picker.tsx",
+      "src/components/equipment-picker.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/tag-input.tsx",
+      "src/components/worklog/constants.ts",
+      "src/types/worklog.ts"
+    ]
+  },
+  {
+    "path": "src/components/worklog/worklog-template-picker-dialog.tsx",
+    "nonEmptyLines": 90,
+    "fns": [
+      {
+        "name": "WorklogTemplatePickerDialog",
+        "start": 32,
+        "end": 94
+      }
+    ],
+    "exports": [
+      "WorklogTemplatePickerDialog"
+    ],
+    "imports": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/scroll-area.tsx",
+      "src/components/worklog/constants.ts",
+      "src/lib/utils.ts",
+      "src/types/worklog.ts"
+    ]
+  },
+  {
+    "path": "src/components/worklog/worklog-templates-tab.tsx",
+    "nonEmptyLines": 95,
+    "fns": [
+      {
+        "name": "WorklogTemplatesTab",
+        "start": 28,
+        "end": 99
+      }
+    ],
+    "exports": [
+      "WorklogTemplatesTab"
+    ],
+    "imports": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/worklog/constants.ts",
+      "src/lib/utils.ts",
+      "src/types/worklog.ts"
+    ]
+  },
+  {
+    "path": "src/components/worklog/worklog-toolbar.tsx",
+    "nonEmptyLines": 314,
+    "fns": [
+      {
+        "name": "WorklogToolbar",
+        "start": 63,
+        "end": 340
+      }
+    ],
+    "exports": [
+      "WorklogToolbar"
+    ],
+    "imports": [
+      "src/components/asset-picker.tsx",
+      "src/components/equipment-picker.tsx",
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/worklog/constants.ts",
+      "src/lib/utils.ts",
+      "src/types/worklog.ts"
+    ]
+  },
+  {
+    "path": "src/lib/utils.ts",
+    "nonEmptyLines": 5,
+    "fns": [
+      {
+        "name": "cn",
+        "start": 4,
+        "end": 6
+      }
+    ],
+    "exports": [
+      "cn"
+    ],
+    "imports": []
+  },
+  {
+    "path": "src/lib/worklog-folders.test.ts",
+    "nonEmptyLines": 104,
+    "fns": [],
+    "exports": [],
+    "imports": [
+      "src/lib/worklog-folders.ts"
+    ]
+  },
+  {
+    "path": "src/lib/worklog-folders.ts",
+    "nonEmptyLines": 177,
+    "fns": [
+      {
+        "name": "buildFolderTree",
+        "start": 27,
+        "end": 50
+      },
+      {
+        "name": "flattenFolderTree",
+        "start": 53,
+        "end": 63
+      },
+      {
+        "name": "collectDescendantIds",
+        "start": 69,
+        "end": 91
+      },
+      {
+        "name": "wouldCreateCycle",
+        "start": 98,
+        "end": 107
+      },
+      {
+        "name": "depthOfParent",
+        "start": 110,
+        "end": 125
+      },
+      {
+        "name": "validateFolderName",
+        "start": 131,
+        "end": 136
+      },
+      {
+        "name": "assertNoCycle",
+        "start": 152,
+        "end": 169
+      },
+      {
+        "name": "getDepth",
+        "start": 178,
+        "end": 190
+      }
+    ],
+    "exports": [
+      "FOLDER_MAX_DEPTH",
+      "FOLDER_NAME_MAX",
+      "buildFolderTree",
+      "flattenFolderTree",
+      "collectDescendantIds",
+      "wouldCreateCycle",
+      "depthOfParent",
+      "validateFolderName",
+      "assertNoCycle",
+      "getDepth"
+    ],
+    "imports": [
+      "src/types/worklog.ts"
+    ]
+  },
+  {
+    "path": "src/lib/worklog-shifts.ts",
+    "nonEmptyLines": 63,
+    "fns": [
+      {
+        "name": "minutesFromTimeLabel",
+        "start": 10,
+        "end": 19
+      },
+      {
+        "name": "timeLabelFromMinutes",
+        "start": 21,
+        "end": 24
+      },
+      {
+        "name": "localDateAndMinuteFromIso",
+        "start": 26,
+        "end": 32
+      },
+      {
+        "name": "computeWorkdayDateLocal",
+        "start": 40,
+        "end": 59
+      },
+      {
+        "name": "toIsoFromLocalDateTime",
+        "start": 61,
+        "end": 68
+      },
+      {
+        "name": "toIsoFromLocalDate",
+        "start": 70,
+        "end": 75
+      }
+    ],
+    "exports": [
+      "minutesFromTimeLabel",
+      "timeLabelFromMinutes",
+      "localDateAndMinuteFromIso",
+      "computeWorkdayDateLocal",
+      "toIsoFromLocalDateTime",
+      "toIsoFromLocalDate"
+    ],
+    "imports": []
+  },
+  {
+    "path": "src/lib/worklog/photo-upload.ts",
+    "nonEmptyLines": 88,
+    "fns": [
+      {
+        "name": "uploadBodyPhoto",
+        "start": 20,
+        "end": 55
+      },
+      {
+        "name": "readImageDimensions",
+        "start": 57,
+        "end": 72
+      },
+      {
+        "name": "patchBodyPhotoCaption",
+        "start": 75,
+        "end": 84
+      },
+      {
+        "name": "reconcileBodyPhotos",
+        "start": 87,
+        "end": 96
+      }
+    ],
+    "exports": [
+      "uploadBodyPhoto",
+      "patchBodyPhotoCaption",
+      "reconcileBodyPhotos"
+    ],
+    "imports": []
+  },
+  {
+    "path": "src/lib/worklog/tiptap/canvas-node.ts",
+    "nonEmptyLines": 90,
+    "fns": [],
+    "exports": [
+      "CanvasNode"
+    ],
+    "imports": [
+      "src/components/worklog/canvas-node-view.tsx"
+    ]
+  },
+  {
+    "path": "src/lib/worklog/tiptap/extract-tags.ts",
+    "nonEmptyLines": 48,
+    "fns": [
+      {
+        "name": "extractTagsFromDoc",
+        "start": 17,
+        "end": 21
+      },
+      {
+        "name": "walk",
+        "start": 23,
+        "end": 33
+      },
+      {
+        "name": "mergeEditorTags",
+        "start": 41,
+        "end": 52
+      }
+    ],
+    "exports": [
+      "extractTagsFromDoc",
+      "mergeEditorTags"
+    ],
+    "imports": []
+  },
+  {
+    "path": "src/lib/worklog/tiptap/mention-node.ts",
+    "nonEmptyLines": 233,
+    "fns": [],
+    "exports": [
+      "ENTITY_TYPE_CONFIG",
+      "MentionNode"
+    ],
+    "imports": [
+      "src/components/worklog/mention-node-view.tsx",
+      "src/components/worklog/mention-suggestion-popup.tsx"
+    ]
+  },
+  {
+    "path": "src/lib/worklog/tiptap/mood-block.ts",
+    "nonEmptyLines": 66,
+    "fns": [],
+    "exports": [
+      "MoodBlock"
+    ],
+    "imports": []
+  },
+  {
+    "path": "src/lib/worklog/tiptap/photo-node.ts",
+    "nonEmptyLines": 106,
+    "fns": [],
+    "exports": [
+      "PhotoNode"
+    ],
+    "imports": [
+      "src/components/worklog/photo-node-view.tsx"
+    ]
+  },
+  {
+    "path": "src/lib/worklog/tiptap/shift-block.ts",
+    "nonEmptyLines": 81,
+    "fns": [],
+    "exports": [
+      "ShiftBlock"
+    ],
+    "imports": []
+  },
+  {
+    "path": "src/lib/worklog/tiptap/slash-commands.tsx",
+    "nonEmptyLines": 237,
+    "fns": [
+      {
+        "name": "filterSlashCommands",
+        "start": 168,
+        "end": 183
+      }
+    ],
+    "exports": [
+      "SLASH_COMMANDS",
+      "filterSlashCommands",
+      "SlashCommands"
+    ],
+    "imports": []
+  },
+  {
+    "path": "src/lib/worklog/tiptap/tag-mention.ts",
+    "nonEmptyLines": 102,
+    "fns": [
+      {
+        "name": "normalizeTagLabel",
+        "start": 27,
+        "end": 35
+      }
+    ],
+    "exports": [
+      "normalizeTagLabel",
+      "TagMention"
+    ],
+    "imports": []
+  },
+  {
+    "path": "src/lib/worklog/worklog-cache.ts",
+    "nonEmptyLines": 96,
+    "fns": [
+      {
+        "name": "db",
+        "start": 42,
+        "end": 54
+      },
+      {
+        "name": "cacheGetAllLogs",
+        "start": 62,
+        "end": 76
+      },
+      {
+        "name": "cacheReplaceAllLogs",
+        "start": 82,
+        "end": 94
+      },
+      {
+        "name": "cacheClear",
+        "start": 97,
+        "end": 108
+      }
+    ],
+    "exports": [
+      "CACHE_TTL_MS",
+      "cacheGetAllLogs",
+      "cacheReplaceAllLogs",
+      "cacheClear"
+    ],
+    "imports": [
+      "src/types/worklog.ts"
+    ]
+  },
+  {
+    "path": "src/lib/worklog/yjs-provider.ts",
+    "nonEmptyLines": 62,
+    "fns": [
+      {
+        "name": "getWorklogYHandle",
+        "start": 33,
+        "end": 66
+      },
+      {
+        "name": "_resetWorklogYRegistryForTests",
+        "start": 69,
+        "end": 71
+      }
+    ],
+    "exports": [
+      "getWorklogYHandle",
+      "_resetWorklogYRegistryForTests"
+    ],
+    "imports": []
+  },
+  {
+    "path": "src/types/worklog.ts",
+    "nonEmptyLines": 149,
+    "fns": [],
+    "exports": [
+      "EquipmentItem",
+      "JobAsset"
+    ],
+    "imports": []
+  }
+]

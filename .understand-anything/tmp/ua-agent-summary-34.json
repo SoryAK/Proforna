@@ -1,0 +1,239 @@
+[
+  {
+    "path": "src/app/r/[slug]/layout.tsx",
+    "nonEmptyLines": 3,
+    "fns": [
+      {
+        "name": "RLayout",
+        "start": 1,
+        "end": 3
+      }
+    ],
+    "exports": [
+      "RLayout"
+    ],
+    "classes": [],
+    "imports": []
+  },
+  {
+    "path": "src/app/recruiter-saved/page.tsx",
+    "nonEmptyLines": 433,
+    "fns": [
+      {
+        "name": "fmtMoney",
+        "start": 47,
+        "end": 66
+      },
+      {
+        "name": "RecruiterSavedPage",
+        "start": 118,
+        "end": 461
+      }
+    ],
+    "exports": [
+      "RecruiterSavedPage"
+    ],
+    "classes": [],
+    "imports": []
+  },
+  {
+    "path": "src/app/share/inventory/[token]/page.tsx",
+    "nonEmptyLines": 270,
+    "fns": [
+      {
+        "name": "PhotoView",
+        "start": 56,
+        "end": 79
+      },
+      {
+        "name": "SharedInventoryPage",
+        "start": 81,
+        "end": 285
+      }
+    ],
+    "exports": [
+      "SharedInventoryPage"
+    ],
+    "classes": [],
+    "imports": []
+  },
+  {
+    "path": "src/components/building-outline-editor.tsx",
+    "nonEmptyLines": 554,
+    "fns": [
+      {
+        "name": "BuildingOutlineEditor",
+        "start": 38,
+        "end": 589
+      }
+    ],
+    "exports": [
+      "BuildingOutlineEditor"
+    ],
+    "classes": [],
+    "imports": []
+  },
+  {
+    "path": "src/components/job-map-leaflet.tsx",
+    "nonEmptyLines": 836,
+    "fns": [
+      {
+        "name": "svgIcon",
+        "start": 20,
+        "end": 43
+      },
+      {
+        "name": "FitBounds",
+        "start": 173,
+        "end": 186
+      },
+      {
+        "name": "FlyToSelected",
+        "start": 189,
+        "end": 228
+      },
+      {
+        "name": "FitRoute",
+        "start": 231,
+        "end": 246
+      },
+      {
+        "name": "PanDetector",
+        "start": 249,
+        "end": 276
+      },
+      {
+        "name": "HeatmapLayer",
+        "start": 303,
+        "end": 367
+      },
+      {
+        "name": "JobMapLeaflet",
+        "start": 369,
+        "end": 731
+      },
+      {
+        "name": "SearchAreaButton",
+        "start": 734,
+        "end": 790
+      },
+      {
+        "name": "MapControls",
+        "start": 793,
+        "end": 902
+      }
+    ],
+    "exports": [
+      "JobMapLeaflet"
+    ],
+    "classes": [],
+    "imports": []
+  },
+  {
+    "path": "src/components/map-drawing-canvas.tsx",
+    "nonEmptyLines": 928,
+    "fns": [
+      {
+        "name": "polygonArea",
+        "start": 128,
+        "end": 140
+      },
+      {
+        "name": "formatArea",
+        "start": 150,
+        "end": 167
+      }
+    ],
+    "exports": [],
+    "classes": [],
+    "imports": []
+  },
+  {
+    "path": "src/components/map-drawing-panel.tsx",
+    "nonEmptyLines": 451,
+    "fns": [
+      {
+        "name": "MapDrawingPanel",
+        "start": 87,
+        "end": 484
+      }
+    ],
+    "exports": [
+      "MapDrawingPanel"
+    ],
+    "classes": [],
+    "imports": [
+      "src/components/map-drawing-canvas.tsx"
+    ]
+  },
+  {
+    "path": "src/lib/col.ts",
+    "nonEmptyLines": 154,
+    "fns": [
+      {
+        "name": "getCOL",
+        "start": 88,
+        "end": 109
+      },
+      {
+        "name": "compareCOL",
+        "start": 116,
+        "end": 139
+      },
+      {
+        "name": "getMonthlyCosts",
+        "start": 156,
+        "end": 165
+      }
+    ],
+    "exports": [
+      "getCOL",
+      "compareCOL",
+      "getMonthlyCosts"
+    ],
+    "classes": [],
+    "imports": []
+  },
+  {
+    "path": "src/lib/worklog/parse-snapshot.test.ts",
+    "nonEmptyLines": 66,
+    "fns": [],
+    "exports": [],
+    "classes": [],
+    "imports": [
+      "src/lib/worklog/parse-snapshot.ts"
+    ]
+  },
+  {
+    "path": "src/lib/worklog/parse-snapshot.ts",
+    "nonEmptyLines": 15,
+    "fns": [
+      {
+        "name": "parseSnapshot",
+        "start": 7,
+        "end": 16
+      }
+    ],
+    "exports": [
+      "parseSnapshot"
+    ],
+    "classes": [],
+    "imports": []
+  },
+  {
+    "path": "src/types/leaflet-heat.d.ts",
+    "nonEmptyLines": 14,
+    "fns": [],
+    "exports": [],
+    "classes": [],
+    "imports": []
+  },
+  {
+    "path": "vitest.config.ts",
+    "nonEmptyLines": 14,
+    "fns": [],
+    "exports": [],
+    "classes": [],
+    "imports": []
+  }
+]

@@ -1,0 +1,172 @@
+{
+  "scriptCompleted": true,
+  "filesAnalyzed": 5,
+  "filesSkipped": [],
+  "results": [
+    {
+      "path": ".squad/ceremonies.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 69,
+      "nonEmptyLines": 54,
+      "sections": [
+        {
+          "heading": "Ceremonies",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Design Review",
+          "level": 2,
+          "line": 5
+        },
+        {
+          "heading": "Retrospective",
+          "level": 2,
+          "line": 25
+        },
+        {
+          "heading": "Retrospective with Enforcement",
+          "level": 2,
+          "line": 46
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 4
+      }
+    },
+    {
+      "path": ".squad/config.json",
+      "language": "json",
+      "fileCategory": "config",
+      "totalLines": 3,
+      "nonEmptyLines": 3,
+      "sections": [
+        {
+          "heading": "version",
+          "level": 1,
+          "line": 2
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 1
+      }
+    },
+    {
+      "path": ".squad/decisions.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 11,
+      "nonEmptyLines": 7,
+      "sections": [
+        {
+          "heading": "Squad Decisions",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Active Decisions",
+          "level": 2,
+          "line": 3
+        },
+        {
+          "heading": "Governance",
+          "level": 2,
+          "line": 7
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 3
+      }
+    },
+    {
+      "path": ".squad/routing.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 47,
+      "nonEmptyLines": 38,
+      "sections": [
+        {
+          "heading": "Work Routing",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Routing Table",
+          "level": 2,
+          "line": 5
+        },
+        {
+          "heading": "Issue Routing",
+          "level": 2,
+          "line": 22
+        },
+        {
+          "heading": "How Issue Assignment Works",
+          "level": 3,
+          "line": 32
+        },
+        {
+          "heading": "Rules",
+          "level": 2,
+          "line": 39
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 5
+      }
+    },
+    {
+      "path": ".squad/team.md",
+      "language": "markdown",
+      "fileCategory": "docs",
+      "totalLines": 28,
+      "nonEmptyLines": 21,
+      "sections": [
+        {
+          "heading": "Squad Team",
+          "level": 1,
+          "line": 1
+        },
+        {
+          "heading": "Coordinator",
+          "level": 2,
+          "line": 5
+        },
+        {
+          "heading": "Members",
+          "level": 2,
+          "line": 11
+        },
+        {
+          "heading": "Project Context",
+          "level": 2,
+          "line": 22
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 4
+      }
+    }
+  ]
+}

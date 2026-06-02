@@ -1,0 +1,126 @@
+{
+  "projectRoot": "C:\\Users\\Sory kaba\\OneDrive\\RESUMSIFY\\Personal_Projects\\Dev_Pojects\\resumsify",
+  "batchFiles": [
+    {
+      "path": "docs/adr/0001-record-architecture-decisions.md",
+      "language": "markdown",
+      "sizeLines": 80,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/adr/0002-nextjs-16-turbopack.md",
+      "language": "markdown",
+      "sizeLines": 78,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/adr/0003-prisma-v6-over-v7.md",
+      "language": "markdown",
+      "sizeLines": 75,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/adr/0004-shadcn-ui-v2-base-ui.md",
+      "language": "markdown",
+      "sizeLines": 71,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/adr/0005-google-maps-js-api-loader-v2.md",
+      "language": "markdown",
+      "sizeLines": 74,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/adr/0006-job-map-view-preset-hot-swap.md",
+      "language": "markdown",
+      "sizeLines": 88,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/adr/0007-worklog-notes-three-pane-redesign.md",
+      "language": "markdown",
+      "sizeLines": 39,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/adr/0008-worklog-capture-acceleration-and-draft-persistence.md",
+      "language": "markdown",
+      "sizeLines": 41,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/adr/0009-worklog-server-backed-draft-sync.md",
+      "language": "markdown",
+      "sizeLines": 41,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/adr/0010-tiptap-yjs-worklog-editor.md",
+      "language": "markdown",
+      "sizeLines": 66,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/adr/0011-postgres-tsvector-worklog-search.md",
+      "language": "markdown",
+      "sizeLines": 99,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/adr/0011-worklog-promotion-ai-extraction-pipeline.md",
+      "language": "markdown",
+      "sizeLines": 109,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/adr/0011-worklog-user-defined-folders.md",
+      "language": "markdown",
+      "sizeLines": 81,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/adr/0012-asset-library-knowledge-backbone.md",
+      "language": "markdown",
+      "sizeLines": 230,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/adr/0012-w2.1-dnd-context-and-tree-strategy.md",
+      "language": "markdown",
+      "sizeLines": 41,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/adr/README.md",
+      "language": "markdown",
+      "sizeLines": 52,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "docs/adr/template.md",
+      "language": "markdown",
+      "sizeLines": 57,
+      "fileCategory": "docs"
+    }
+  ],
+  "batchImportData": {
+    "docs/adr/0001-record-architecture-decisions.md": [],
+    "docs/adr/0002-nextjs-16-turbopack.md": [],
+    "docs/adr/0003-prisma-v6-over-v7.md": [],
+    "docs/adr/0004-shadcn-ui-v2-base-ui.md": [],
+    "docs/adr/0005-google-maps-js-api-loader-v2.md": [],
+    "docs/adr/0006-job-map-view-preset-hot-swap.md": [],
+    "docs/adr/0007-worklog-notes-three-pane-redesign.md": [],
+    "docs/adr/0008-worklog-capture-acceleration-and-draft-persistence.md": [],
+    "docs/adr/0009-worklog-server-backed-draft-sync.md": [],
+    "docs/adr/0010-tiptap-yjs-worklog-editor.md": [],
+    "docs/adr/0011-postgres-tsvector-worklog-search.md": [],
+    "docs/adr/0011-worklog-promotion-ai-extraction-pipeline.md": [],
+    "docs/adr/0011-worklog-user-defined-folders.md": [],
+    "docs/adr/0012-asset-library-knowledge-backbone.md": [],
+    "docs/adr/0012-w2.1-dnd-context-and-tree-strategy.md": [],
+    "docs/adr/README.md": [],
+    "docs/adr/template.md": []
+  }
+}

@@ -1,0 +1,198 @@
+[
+  {
+    "path": "src/app/(app)/master-gallery/page.tsx",
+    "nonEmptyLines": 14,
+    "fns": [
+      {
+        "name": "Page",
+        "start": 8,
+        "end": 16
+      }
+    ],
+    "exports": [
+      "metadata",
+      "Page"
+    ],
+    "classes": [],
+    "imports": [
+      "src/components/master-gallery/master-gallery-page.tsx"
+    ]
+  },
+  {
+    "path": "src/components/master-gallery/bulk-action-bar.tsx",
+    "nonEmptyLines": 93,
+    "fns": [
+      {
+        "name": "BulkActionBar",
+        "start": 16,
+        "end": 101
+      }
+    ],
+    "exports": [
+      "BulkActionBar"
+    ],
+    "classes": [],
+    "imports": []
+  },
+  {
+    "path": "src/components/master-gallery/embedded-master-folders.tsx",
+    "nonEmptyLines": 94,
+    "fns": [
+      {
+        "name": "EmbeddedMasterFolders",
+        "start": 20,
+        "end": 102
+      }
+    ],
+    "exports": [
+      "EmbeddedMasterFolders"
+    ],
+    "classes": [],
+    "imports": [
+      "src/components/master-gallery/types.ts"
+    ]
+  },
+  {
+    "path": "src/components/master-gallery/embedded-position-gallery.tsx",
+    "nonEmptyLines": 460,
+    "fns": [
+      {
+        "name": "EmbeddedPositionGallery",
+        "start": 44,
+        "end": 495
+      }
+    ],
+    "exports": [
+      "EmbeddedPositionGallery"
+    ],
+    "classes": [],
+    "imports": [
+      "src/components/master-gallery/folder-grid.tsx",
+      "src/components/master-gallery/photo-detail-drawer.tsx",
+      "src/components/master-gallery/photo-grid.tsx",
+      "src/components/master-gallery/types.ts"
+    ]
+  },
+  {
+    "path": "src/components/master-gallery/folder-grid.tsx",
+    "nonEmptyLines": 184,
+    "fns": [
+      {
+        "name": "JobFolder",
+        "start": 12,
+        "end": 65
+      },
+      {
+        "name": "AlbumFolder",
+        "start": 72,
+        "end": 107
+      },
+      {
+        "name": "RootFolderGrid",
+        "start": 116,
+        "end": 155
+      },
+      {
+        "name": "PositionFolderGrid",
+        "start": 163,
+        "end": 194
+      }
+    ],
+    "exports": [
+      "RootFolderGrid",
+      "PositionFolderGrid"
+    ],
+    "classes": [],
+    "imports": [
+      "src/components/master-gallery/types.ts"
+    ]
+  },
+  {
+    "path": "src/components/master-gallery/master-gallery-page.tsx",
+    "nonEmptyLines": 411,
+    "fns": [
+      {
+        "name": "MasterGalleryPage",
+        "start": 27,
+        "end": 438
+      }
+    ],
+    "exports": [
+      "MasterGalleryPage"
+    ],
+    "classes": [],
+    "imports": [
+      "src/components/master-gallery/bulk-action-bar.tsx",
+      "src/components/master-gallery/folder-grid.tsx",
+      "src/components/master-gallery/move-dialog.tsx",
+      "src/components/master-gallery/photo-detail-drawer.tsx",
+      "src/components/master-gallery/photo-grid.tsx",
+      "src/components/master-gallery/types.ts"
+    ]
+  },
+  {
+    "path": "src/components/master-gallery/move-dialog.tsx",
+    "nonEmptyLines": 177,
+    "fns": [
+      {
+        "name": "MoveDialog",
+        "start": 24,
+        "end": 187
+      }
+    ],
+    "exports": [
+      "MoveDialog"
+    ],
+    "classes": [],
+    "imports": [
+      "src/components/master-gallery/types.ts"
+    ]
+  },
+  {
+    "path": "src/components/master-gallery/photo-detail-drawer.tsx",
+    "nonEmptyLines": 203,
+    "fns": [
+      {
+        "name": "PhotoDetailDrawer",
+        "start": 23,
+        "end": 218
+      }
+    ],
+    "exports": [
+      "PhotoDetailDrawer"
+    ],
+    "classes": [],
+    "imports": [
+      "src/components/master-gallery/types.ts"
+    ]
+  },
+  {
+    "path": "src/components/master-gallery/photo-grid.tsx",
+    "nonEmptyLines": 115,
+    "fns": [
+      {
+        "name": "PhotoGrid",
+        "start": 19,
+        "end": 122
+      }
+    ],
+    "exports": [
+      "PhotoGrid"
+    ],
+    "classes": [],
+    "imports": [
+      "src/components/master-gallery/types.ts"
+    ]
+  },
+  {
+    "path": "src/components/master-gallery/types.ts",
+    "nonEmptyLines": 47,
+    "fns": [],
+    "exports": [
+      "UNFILED_ALBUM_ID",
+      "BANNERS_VIEW"
+    ],
+    "classes": [],
+    "imports": []
+  }
+]

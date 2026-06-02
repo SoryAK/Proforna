@@ -1,0 +1,442 @@
+{
+  "projectRoot": "C:\\Users\\Sory kaba\\OneDrive\\RESUMSIFY\\Personal_Projects\\Dev_Pojects\\resumsify",
+  "batchFiles": [
+    {
+      "path": "src/app/(app)/activity/page.tsx",
+      "language": "typescript",
+      "sizeLines": 230,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/analytics/page.tsx",
+      "language": "typescript",
+      "sizeLines": 356,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/applications/page.tsx",
+      "language": "typescript",
+      "sizeLines": 1328,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/asset-types/page.tsx",
+      "language": "typescript",
+      "sizeLines": 11,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/career-growth/page.tsx",
+      "language": "typescript",
+      "sizeLines": 435,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/career-model/page.tsx",
+      "language": "typescript",
+      "sizeLines": 3458,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/company/[name]/page.tsx",
+      "language": "typescript",
+      "sizeLines": 69,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/contacts/page.tsx",
+      "language": "typescript",
+      "sizeLines": 411,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/current-position/page.tsx",
+      "language": "typescript",
+      "sizeLines": 1413,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/dashboard/page.tsx",
+      "language": "typescript",
+      "sizeLines": 1278,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/docs/page.tsx",
+      "language": "typescript",
+      "sizeLines": 33,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/documents/page.tsx",
+      "language": "typescript",
+      "sizeLines": 420,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/email/page.tsx",
+      "language": "typescript",
+      "sizeLines": 440,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/experience/[id]/page.tsx",
+      "language": "typescript",
+      "sizeLines": 1327,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/experience/page.tsx",
+      "language": "typescript",
+      "sizeLines": 333,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/experience/verify/page.tsx",
+      "language": "typescript",
+      "sizeLines": 696,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/goals/page.tsx",
+      "language": "typescript",
+      "sizeLines": 515,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/import-export/page.tsx",
+      "language": "typescript",
+      "sizeLines": 207,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/insights/page.tsx",
+      "language": "typescript",
+      "sizeLines": 33,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/integrations/page.tsx",
+      "language": "typescript",
+      "sizeLines": 282,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/inventory/page.tsx",
+      "language": "typescript",
+      "sizeLines": 13,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/job-assets/page.tsx",
+      "language": "typescript",
+      "sizeLines": 13,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/job-postings/page.tsx",
+      "language": "typescript",
+      "sizeLines": 830,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/job-search/page.tsx",
+      "language": "typescript",
+      "sizeLines": 63,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/learning/page.tsx",
+      "language": "typescript",
+      "sizeLines": 703,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/offer-compare/page.tsx",
+      "language": "typescript",
+      "sizeLines": 298,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/portal-settings/page.tsx",
+      "language": "typescript",
+      "sizeLines": 1439,
+      "fileCategory": "code"
+    }
+  ],
+  "batchImportData": {
+    "src/app/(app)/activity/page.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/skeleton.tsx"
+    ],
+    "src/app/(app)/analytics/page.tsx": [
+      "src/components/career-analytics-banner.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/skeleton.tsx",
+      "src/lib/constants.ts"
+    ],
+    "src/app/(app)/applications/page.tsx": [
+      "src/components/interview-prep.tsx",
+      "src/components/offer-comparison.tsx",
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/checkbox.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/dropdown-menu.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/separator.tsx",
+      "src/components/ui/skeleton.tsx",
+      "src/components/ui/table.tsx",
+      "src/components/ui/tabs.tsx",
+      "src/components/ui/textarea.tsx",
+      "src/lib/constants.ts",
+      "src/lib/utils.ts"
+    ],
+    "src/app/(app)/asset-types/page.tsx": [
+      "src/components/asset-types-manager.tsx"
+    ],
+    "src/app/(app)/career-growth/page.tsx": [
+      "src/app/(app)/career-model/page.tsx",
+      "src/app/(app)/goals/page.tsx",
+      "src/components/career-direction-model.tsx",
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/progress.tsx",
+      "src/components/ui/skeleton.tsx"
+    ],
+    "src/app/(app)/career-model/page.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/separator.tsx",
+      "src/components/ui/switch.tsx",
+      "src/components/ui/table.tsx"
+    ],
+    "src/app/(app)/company/[name]/page.tsx": [
+      "src/components/company-deep-dive.tsx",
+      "src/components/ui/button.tsx"
+    ],
+    "src/app/(app)/contacts/page.tsx": [
+      "src/components/ui/avatar.tsx",
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/checkbox.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/dropdown-menu.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/skeleton.tsx",
+      "src/components/ui/textarea.tsx",
+      "src/lib/constants.ts",
+      "src/lib/utils.ts"
+    ],
+    "src/app/(app)/current-position/page.tsx": [
+      "src/components/benefits-tracker.tsx",
+      "src/components/company-intel.tsx",
+      "src/components/compensation-tracker.tsx",
+      "src/components/equipment-tracker.tsx",
+      "src/components/hours-worked-tracker.tsx",
+      "src/components/pay-period-calendar.tsx",
+      "src/components/paycheck-estimator.tsx",
+      "src/components/position-worklog-tab.tsx",
+      "src/components/timeoff-tracker.tsx",
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/separator.tsx",
+      "src/components/ui/switch.tsx",
+      "src/components/ui/tabs.tsx",
+      "src/components/ui/textarea.tsx",
+      "src/components/work-history-shift-manager.tsx"
+    ],
+    "src/app/(app)/dashboard/page.tsx": [
+      "src/app/(app)/experience/page.tsx",
+      "src/app/(app)/resumes/page.tsx",
+      "src/app/(app)/skills/page.tsx",
+      "src/components/onboarding-flow.tsx",
+      "src/components/pay-period-calendar.tsx",
+      "src/components/personal-finance.tsx",
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/progress.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/separator.tsx",
+      "src/components/ui/tabs.tsx",
+      "src/components/ui/textarea.tsx",
+      "src/lib/constants.ts",
+      "src/lib/utils.ts"
+    ],
+    "src/app/(app)/docs/page.tsx": [
+      "src/app/(app)/documents/page.tsx",
+      "src/app/(app)/import-export/page.tsx",
+      "src/components/ui/tabs.tsx"
+    ],
+    "src/app/(app)/documents/page.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/skeleton.tsx",
+      "src/components/ui/textarea.tsx"
+    ],
+    "src/app/(app)/email/page.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/separator.tsx",
+      "src/components/ui/skeleton.tsx"
+    ],
+    "src/app/(app)/experience/[id]/page.tsx": [
+      "src/components/benefits-tracker.tsx",
+      "src/components/company-intel.tsx",
+      "src/components/compensation-tracker.tsx",
+      "src/components/position-worklog-tab.tsx",
+      "src/components/timeoff-tracker.tsx",
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/separator.tsx",
+      "src/components/ui/skeleton.tsx",
+      "src/components/ui/switch.tsx",
+      "src/components/ui/tabs.tsx",
+      "src/components/ui/textarea.tsx",
+      "src/components/work-history-shift-manager.tsx"
+    ],
+    "src/app/(app)/experience/page.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/separator.tsx",
+      "src/components/ui/skeleton.tsx"
+    ],
+    "src/app/(app)/experience/verify/page.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/checkbox.tsx",
+      "src/components/ui/progress.tsx",
+      "src/components/ui/separator.tsx"
+    ],
+    "src/app/(app)/goals/page.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/dropdown-menu.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/progress.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/skeleton.tsx",
+      "src/components/ui/textarea.tsx",
+      "src/lib/constants.ts",
+      "src/lib/utils.ts"
+    ],
+    "src/app/(app)/import-export/page.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx"
+    ],
+    "src/app/(app)/insights/page.tsx": [
+      "src/app/(app)/activity/page.tsx",
+      "src/app/(app)/analytics/page.tsx",
+      "src/components/ui/tabs.tsx"
+    ],
+    "src/app/(app)/integrations/page.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/switch.tsx"
+    ],
+    "src/app/(app)/inventory/page.tsx": [
+      "src/components/personal-inventory.tsx"
+    ],
+    "src/app/(app)/job-assets/page.tsx": [
+      "src/components/job-assets-page.tsx"
+    ],
+    "src/app/(app)/job-postings/page.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/switch.tsx",
+      "src/components/ui/textarea.tsx"
+    ],
+    "src/app/(app)/job-search/page.tsx": [
+      "src/app/(app)/applications/page.tsx",
+      "src/app/(app)/contacts/page.tsx",
+      "src/app/(app)/email/page.tsx",
+      "src/app/(app)/submissions/page.tsx",
+      "src/components/interview-room-launcher.tsx",
+      "src/components/job-board.tsx",
+      "src/components/job-interest-groups.tsx",
+      "src/components/job-map.tsx",
+      "src/components/ui/tabs.tsx"
+    ],
+    "src/app/(app)/learning/page.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/checkbox.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/progress.tsx",
+      "src/components/ui/skeleton.tsx",
+      "src/lib/utils.ts"
+    ],
+    "src/app/(app)/offer-compare/page.tsx": [
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/textarea.tsx"
+    ],
+    "src/app/(app)/portal-settings/page.tsx": [
+      "src/components/compensation-editor.tsx",
+      "src/components/places-autocomplete.tsx",
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/separator.tsx",
+      "src/components/ui/switch.tsx",
+      "src/components/ui/textarea.tsx",
+      "src/lib/constants.ts"
+    ]
+  }
+}
