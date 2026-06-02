@@ -1,0 +1,687 @@
+[
+  {
+    "path": "src/app/(app)/portal/page.tsx",
+    "nonEmptyLines": 625,
+    "fns": [
+      {
+        "name": "PortalPage",
+        "start": 100,
+        "end": 648
+      }
+    ],
+    "exports": [
+      "PortalPage"
+    ],
+    "imports": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/textarea.tsx",
+      "src/lib/constants.ts"
+    ]
+  },
+  {
+    "path": "src/app/(app)/profile/page.tsx",
+    "nonEmptyLines": 33,
+    "fns": [
+      {
+        "name": "ProfilePage",
+        "start": 9,
+        "end": 38
+      }
+    ],
+    "exports": [
+      "ProfilePage"
+    ],
+    "imports": [
+      "src/app/(app)/experience/page.tsx",
+      "src/app/(app)/resumes/page.tsx",
+      "src/app/(app)/skills/page.tsx",
+      "src/components/ui/tabs.tsx"
+    ]
+  },
+  {
+    "path": "src/app/(app)/research/page.tsx",
+    "nonEmptyLines": 45,
+    "fns": [
+      {
+        "name": "ResearchPage",
+        "start": 11,
+        "end": 50
+      }
+    ],
+    "exports": [
+      "ResearchPage"
+    ],
+    "imports": [
+      "src/components/company-news.tsx",
+      "src/components/industry-research.tsx",
+      "src/components/job-market-research.tsx",
+      "src/components/learning-tracker.tsx",
+      "src/components/scholar-search.tsx",
+      "src/components/ui/tabs.tsx"
+    ]
+  },
+  {
+    "path": "src/app/(app)/resumes/page.tsx",
+    "nonEmptyLines": 712,
+    "fns": [
+      {
+        "name": "ResumesPage",
+        "start": 51,
+        "end": 749
+      }
+    ],
+    "exports": [
+      "ResumesPage"
+    ],
+    "imports": [
+      "src/components/adaptive-ir-editor.tsx",
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/dropdown-menu.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/scroll-area.tsx",
+      "src/components/ui/skeleton.tsx",
+      "src/components/ui/textarea.tsx"
+    ]
+  },
+  {
+    "path": "src/app/(app)/skills/page.tsx",
+    "nonEmptyLines": 447,
+    "fns": [
+      {
+        "name": "SkillsPage",
+        "start": 85,
+        "end": 474
+      }
+    ],
+    "exports": [
+      "SkillsPage"
+    ],
+    "imports": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/dropdown-menu.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/progress.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/skeleton.tsx",
+      "src/components/ui/tabs.tsx",
+      "src/lib/constants.ts",
+      "src/lib/utils.ts"
+    ]
+  },
+  {
+    "path": "src/app/(app)/submissions/page.tsx",
+    "nonEmptyLines": 490,
+    "fns": [
+      {
+        "name": "SubmissionsPage",
+        "start": 70,
+        "end": 512
+      }
+    ],
+    "exports": [
+      "SubmissionsPage"
+    ],
+    "imports": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/checkbox.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/select.tsx",
+      "src/lib/constants.ts",
+      "src/lib/utils.ts"
+    ]
+  },
+  {
+    "path": "src/app/(app)/worker-rights/page.tsx",
+    "nonEmptyLines": 573,
+    "fns": [
+      {
+        "name": "RenderMarkdown",
+        "start": 116,
+        "end": 148
+      },
+      {
+        "name": "InlineFormat",
+        "start": 150,
+        "end": 179
+      },
+      {
+        "name": "WorkerRightsPage",
+        "start": 181,
+        "end": 576
+      },
+      {
+        "name": "ResourceLink",
+        "start": 578,
+        "end": 606
+      }
+    ],
+    "exports": [
+      "WorkerRightsPage"
+    ],
+    "imports": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/textarea.tsx"
+    ]
+  },
+  {
+    "path": "src/app/interview/[roomId]/page.tsx",
+    "nonEmptyLines": 198,
+    "fns": [
+      {
+        "name": "InterviewRoomPage",
+        "start": 28,
+        "end": 214
+      }
+    ],
+    "exports": [
+      "InterviewRoomPage"
+    ],
+    "imports": [
+      "src/components/interview-resume-sidebar.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/video-call.tsx"
+    ]
+  },
+  {
+    "path": "src/app/jobs/[slug]/page.tsx",
+    "nonEmptyLines": 222,
+    "fns": [
+      {
+        "name": "JobDetailPage",
+        "start": 49,
+        "end": 239
+      }
+    ],
+    "exports": [
+      "JobDetailPage"
+    ],
+    "imports": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/lib/prisma.ts"
+    ]
+  },
+  {
+    "path": "src/app/login/page.tsx",
+    "nonEmptyLines": 259,
+    "fns": [
+      {
+        "name": "LoginPage",
+        "start": 14,
+        "end": 20
+      },
+      {
+        "name": "LoginContent",
+        "start": 22,
+        "end": 279
+      }
+    ],
+    "exports": [
+      "LoginPage"
+    ],
+    "imports": [
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/separator.tsx"
+    ]
+  },
+  {
+    "path": "src/app/onboarding/page.tsx",
+    "nonEmptyLines": 790,
+    "fns": [
+      {
+        "name": "OnboardingPage",
+        "start": 34,
+        "end": 833
+      }
+    ],
+    "exports": [
+      "OnboardingPage"
+    ],
+    "imports": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/textarea.tsx"
+    ]
+  },
+  {
+    "path": "src/app/page.tsx",
+    "nonEmptyLines": 535,
+    "fns": [
+      {
+        "name": "LandingPage",
+        "start": 19,
+        "end": 598
+      }
+    ],
+    "exports": [
+      "LandingPage"
+    ],
+    "imports": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx"
+    ]
+  },
+  {
+    "path": "src/components/adaptive-ir-editor.tsx",
+    "nonEmptyLines": 315,
+    "fns": [
+      {
+        "name": "AdaptiveIrEditor",
+        "start": 77,
+        "end": 337
+      }
+    ],
+    "exports": [
+      "AdaptiveIrEditor"
+    ],
+    "imports": [
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/skeleton.tsx",
+      "src/components/ui/switch.tsx"
+    ]
+  },
+  {
+    "path": "src/components/ai-chat.tsx",
+    "nonEmptyLines": 525,
+    "fns": [
+      {
+        "name": "AIChat",
+        "start": 43,
+        "end": 568
+      }
+    ],
+    "exports": [
+      "AIChat"
+    ],
+    "imports": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/textarea.tsx"
+    ]
+  },
+  {
+    "path": "src/components/asset-type-picker.tsx",
+    "nonEmptyLines": 87,
+    "fns": [
+      {
+        "name": "AssetTypePicker",
+        "start": 17,
+        "end": 93
+      }
+    ],
+    "exports": [
+      "AssetTypePicker"
+    ],
+    "imports": [
+      "src/components/asset-types-manager.tsx",
+      "src/components/ui/input.tsx"
+    ]
+  },
+  {
+    "path": "src/components/asset-types-manager.tsx",
+    "nonEmptyLines": 849,
+    "fns": [
+      {
+        "name": "AssetTypesManager",
+        "start": 118,
+        "end": 299
+      },
+      {
+        "name": "CreateTypeDialog",
+        "start": 303,
+        "end": 408
+      },
+      {
+        "name": "TypeDetailDialog",
+        "start": 412,
+        "end": 665
+      },
+      {
+        "name": "EditTypeForm",
+        "start": 669,
+        "end": 752
+      },
+      {
+        "name": "AddDocumentForm",
+        "start": 756,
+        "end": 832
+      },
+      {
+        "name": "AddLinkForm",
+        "start": 836,
+        "end": 903
+      }
+    ],
+    "exports": [
+      "ASSET_CATEGORIES",
+      "AssetTypesManager"
+    ],
+    "imports": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/textarea.tsx",
+      "src/lib/utils.ts"
+    ]
+  },
+  {
+    "path": "src/components/benefits-tracker.tsx",
+    "nonEmptyLines": 417,
+    "fns": [
+      {
+        "name": "BenefitsTracker",
+        "start": 88,
+        "end": 435
+      }
+    ],
+    "exports": [
+      "BenefitsTracker"
+    ],
+    "imports": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/separator.tsx",
+      "src/components/ui/textarea.tsx"
+    ]
+  },
+  {
+    "path": "src/components/bio-card-editor.tsx",
+    "nonEmptyLines": 691,
+    "fns": [
+      {
+        "name": "fmtRel",
+        "start": 94,
+        "end": 107
+      },
+      {
+        "name": "BioCardEditor",
+        "start": 110,
+        "end": 721
+      }
+    ],
+    "exports": [
+      "BioCardEditor"
+    ],
+    "imports": [
+      "src/components/ui/button.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/textarea.tsx"
+    ]
+  },
+  {
+    "path": "src/components/career-direction-model.tsx",
+    "nonEmptyLines": 1309,
+    "fns": [
+      {
+        "name": "BLSWageComparison",
+        "start": 225,
+        "end": 331
+      },
+      {
+        "name": "CareerDirectionModel",
+        "start": 335,
+        "end": 1391
+      }
+    ],
+    "exports": [
+      "CareerDirectionModel"
+    ],
+    "imports": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/dropdown-menu.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/progress.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/separator.tsx",
+      "src/components/ui/skeleton.tsx",
+      "src/components/ui/textarea.tsx"
+    ]
+  },
+  {
+    "path": "src/components/company-deep-dive.tsx",
+    "nonEmptyLines": 1093,
+    "fns": [
+      {
+        "name": "categorizeRole",
+        "start": 99,
+        "end": 117
+      },
+      {
+        "name": "computeAnalytics",
+        "start": 132,
+        "end": 217
+      },
+      {
+        "name": "CompanyDeepDive",
+        "start": 235,
+        "end": 1152
+      }
+    ],
+    "exports": [
+      "CompanyDeepDive"
+    ],
+    "imports": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/progress.tsx",
+      "src/components/ui/separator.tsx",
+      "src/components/ui/skeleton.tsx",
+      "src/components/ui/tabs.tsx"
+    ]
+  },
+  {
+    "path": "src/components/company-intel.tsx",
+    "nonEmptyLines": 690,
+    "fns": [
+      {
+        "name": "CompanyIntel",
+        "start": 121,
+        "end": 716
+      }
+    ],
+    "exports": [
+      "CompanyIntel"
+    ],
+    "imports": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/separator.tsx",
+      "src/components/ui/skeleton.tsx",
+      "src/components/ui/textarea.tsx"
+    ]
+  },
+  {
+    "path": "src/components/company-news.tsx",
+    "nonEmptyLines": 250,
+    "fns": [
+      {
+        "name": "CompanyNews",
+        "start": 46,
+        "end": 272
+      }
+    ],
+    "exports": [
+      "CompanyNews"
+    ],
+    "imports": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/separator.tsx"
+    ]
+  },
+  {
+    "path": "src/components/compensation-editor.tsx",
+    "nonEmptyLines": 441,
+    "fns": [
+      {
+        "name": "CompensationEditor",
+        "start": 82,
+        "end": 463
+      }
+    ],
+    "exports": [
+      "CompensationEditor"
+    ],
+    "imports": [
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/switch.tsx",
+      "src/components/ui/textarea.tsx"
+    ]
+  },
+  {
+    "path": "src/components/compensation-tracker.tsx",
+    "nonEmptyLines": 1346,
+    "fns": [
+      {
+        "name": "CompensationTracker",
+        "start": 148,
+        "end": 1404
+      }
+    ],
+    "exports": [
+      "CompensationTracker"
+    ],
+    "imports": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/separator.tsx",
+      "src/components/ui/textarea.tsx"
+    ]
+  },
+  {
+    "path": "src/components/equipment-tracker.tsx",
+    "nonEmptyLines": 950,
+    "fns": [
+      {
+        "name": "ResourcesPanel",
+        "start": 146,
+        "end": 256
+      },
+      {
+        "name": "EquipmentTracker",
+        "start": 258,
+        "end": 996
+      }
+    ],
+    "exports": [
+      "EquipmentTracker"
+    ],
+    "imports": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/textarea.tsx"
+    ]
+  },
+  {
+    "path": "src/components/equipment-usage-history.tsx",
+    "nonEmptyLines": 230,
+    "fns": [
+      {
+        "name": "EquipmentUsageHistory",
+        "start": 44,
+        "end": 244
+      }
+    ],
+    "exports": [
+      "EquipmentUsageHistory"
+    ],
+    "imports": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/lib/utils.ts"
+    ]
+  },
+  {
+    "path": "src/components/hours-worked-tracker.tsx",
+    "nonEmptyLines": 455,
+    "fns": [
+      {
+        "name": "StatCard",
+        "start": 93,
+        "end": 124
+      },
+      {
+        "name": "CoverageBar",
+        "start": 126,
+        "end": 148
+      },
+      {
+        "name": "HoursWorkedTracker",
+        "start": 150,
+        "end": 473
+      }
+    ],
+    "exports": [
+      "HoursWorkedTracker"
+    ],
+    "imports": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/separator.tsx",
+      "src/components/ui/tabs.tsx"
+    ]
+  }
+]

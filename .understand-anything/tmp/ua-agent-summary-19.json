@@ -1,0 +1,104 @@
+[
+  {
+    "path": "src/app/api/interview-room/route.ts",
+    "nonEmptyLines": 29,
+    "fns": [
+      {
+        "name": "POST",
+        "start": 7,
+        "end": 19
+      },
+      {
+        "name": "GET",
+        "start": 22,
+        "end": 37
+      }
+    ],
+    "exports": [
+      "POST",
+      "GET"
+    ],
+    "classes": [],
+    "imports": [
+      "src/lib/auth-utils.ts",
+      "src/lib/interview-rooms.ts"
+    ]
+  },
+  {
+    "path": "src/app/api/interview-room/signal/route.ts",
+    "nonEmptyLines": 52,
+    "fns": [
+      {
+        "name": "POST",
+        "start": 9,
+        "end": 44
+      },
+      {
+        "name": "GET",
+        "start": 50,
+        "end": 63
+      }
+    ],
+    "exports": [
+      "POST",
+      "GET"
+    ],
+    "classes": [],
+    "imports": [
+      "src/lib/auth-utils.ts",
+      "src/lib/interview-rooms.ts"
+    ]
+  },
+  {
+    "path": "src/lib/interview-rooms.ts",
+    "nonEmptyLines": 83,
+    "fns": [
+      {
+        "name": "createRoom",
+        "start": 18,
+        "end": 29
+      },
+      {
+        "name": "getRoom",
+        "start": 31,
+        "end": 33
+      },
+      {
+        "name": "joinRoom",
+        "start": 35,
+        "end": 42
+      },
+      {
+        "name": "pushSignal",
+        "start": 44,
+        "end": 55
+      },
+      {
+        "name": "drainSignals",
+        "start": 57,
+        "end": 63
+      },
+      {
+        "name": "leaveRoom",
+        "start": 65,
+        "end": 73
+      },
+      {
+        "name": "getRoomInfo",
+        "start": 75,
+        "end": 85
+      }
+    ],
+    "exports": [
+      "createRoom",
+      "getRoom",
+      "joinRoom",
+      "pushSignal",
+      "drainSignals",
+      "leaveRoom",
+      "getRoomInfo"
+    ],
+    "classes": [],
+    "imports": []
+  }
+]

@@ -1,0 +1,17 @@
+{
+  "entities": [
+    {
+      "name": "InterviewDomain",
+      "entityType": "domain",
+      "observations": [
+        "2026-05-28: App route at src/app/interview/",
+        "2026-05-28: Components: src/components/interview-prep.tsx, src/components/interview-room-launcher.tsx, src/components/video-call.tsx",
+        "2026-05-28: API routes under src/app/api/interview-prep/, src/app/api/interview-room/, src/app/api/interviews/",
+        "2026-05-28: Interview rooms lib at src/lib/interview-rooms.ts"
+      ]
+    }
+  ],
+  "relations": [
+    { "from": "InterviewDomain", "relationType": "depends-on", "to": "ResumeDomain" }
+  ]
+}

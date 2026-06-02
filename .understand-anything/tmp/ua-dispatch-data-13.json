@@ -1,0 +1,2338 @@
+{
+  "batchIndex": 13,
+  "totalBatches": 34,
+  "files": [
+    {
+      "path": "src/components/industry-research.tsx",
+      "language": "typescript",
+      "sizeLines": 864,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/interactive-resumes-manager.tsx",
+      "language": "typescript",
+      "sizeLines": 917,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/interview-prep.tsx",
+      "language": "typescript",
+      "sizeLines": 512,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/interview-resume-sidebar.tsx",
+      "language": "typescript",
+      "sizeLines": 288,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/interview-room-launcher.tsx",
+      "language": "typescript",
+      "sizeLines": 262,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/job-asset-photos.tsx",
+      "language": "typescript",
+      "sizeLines": 185,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/job-assets-page.tsx",
+      "language": "typescript",
+      "sizeLines": 599,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/job-board.tsx",
+      "language": "typescript",
+      "sizeLines": 350,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/job-interest-groups.tsx",
+      "language": "typescript",
+      "sizeLines": 583,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/job-map.tsx",
+      "language": "typescript",
+      "sizeLines": 15064,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/job-map/view-preset-switcher.tsx",
+      "language": "typescript",
+      "sizeLines": 78,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/job-map/view-preset.ts",
+      "language": "typescript",
+      "sizeLines": 104,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/job-market-research.tsx",
+      "language": "typescript",
+      "sizeLines": 509,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/learning-tracker.tsx",
+      "language": "typescript",
+      "sizeLines": 673,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/life-anchors-panel.tsx",
+      "language": "typescript",
+      "sizeLines": 532,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/offer-comparison.tsx",
+      "language": "typescript",
+      "sizeLines": 646,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/onboarding-flow.tsx",
+      "language": "typescript",
+      "sizeLines": 130,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/pay-period-calendar.tsx",
+      "language": "typescript",
+      "sizeLines": 342,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/paycheck-estimator.tsx",
+      "language": "typescript",
+      "sizeLines": 391,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/personal-finance.tsx",
+      "language": "typescript",
+      "sizeLines": 630,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/personal-inventory.tsx",
+      "language": "typescript",
+      "sizeLines": 3895,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/places-autocomplete.tsx",
+      "language": "typescript",
+      "sizeLines": 178,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/position-worklog-tab.tsx",
+      "language": "typescript",
+      "sizeLines": 405,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/scholar-search.tsx",
+      "language": "typescript",
+      "sizeLines": 300,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/skill-graph-analytics.tsx",
+      "language": "typescript",
+      "sizeLines": 688,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/skill-graph.tsx",
+      "language": "typescript",
+      "sizeLines": 3499,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/timeoff-tracker.tsx",
+      "language": "typescript",
+      "sizeLines": 568,
+      "fileCategory": "code"
+    }
+  ],
+  "batchImportData": {
+    "src/components/industry-research.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/skeleton.tsx",
+      "src/components/ui/tooltip.tsx",
+      "src/lib/rss.ts"
+    ],
+    "src/components/interactive-resumes-manager.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/dropdown-menu.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/skeleton.tsx",
+      "src/components/ui/switch.tsx",
+      "src/components/ui/textarea.tsx"
+    ],
+    "src/components/interview-prep.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/separator.tsx",
+      "src/components/ui/tabs.tsx",
+      "src/components/ui/textarea.tsx"
+    ],
+    "src/components/interview-resume-sidebar.tsx": [],
+    "src/components/interview-room-launcher.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/select.tsx"
+    ],
+    "src/components/job-asset-photos.tsx": [
+      "src/components/ui/button.tsx",
+      "src/lib/utils.ts"
+    ],
+    "src/components/job-assets-page.tsx": [
+      "src/components/asset-service-history.tsx",
+      "src/components/asset-type-picker.tsx",
+      "src/components/asset-types-manager.tsx",
+      "src/components/job-asset-photos.tsx",
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/textarea.tsx",
+      "src/lib/utils.ts"
+    ],
+    "src/components/job-board.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/select.tsx"
+    ],
+    "src/components/job-interest-groups.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/checkbox.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/separator.tsx"
+    ],
+    "src/components/job-map.tsx": [
+      "src/app/(app)/analytics/page.tsx",
+      "src/components/bio-card-editor.tsx",
+      "src/components/company-deep-dive.tsx",
+      "src/components/gallery-modal.tsx",
+      "src/components/immersive-layout.tsx",
+      "src/components/ir-anchored-popover.tsx",
+      "src/components/ir-popout-sheet.tsx",
+      "src/components/job-map/view-preset-switcher.tsx",
+      "src/components/job-map/view-preset.ts",
+      "src/components/life-anchors-panel.tsx",
+      "src/components/map-drawing-canvas.tsx",
+      "src/components/master-gallery/embedded-master-folders.tsx",
+      "src/components/master-gallery/embedded-position-gallery.tsx",
+      "src/components/personal-inventory.tsx",
+      "src/components/places-autocomplete.tsx",
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/dropdown-menu.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/popover.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/separator.tsx",
+      "src/components/ui/switch.tsx",
+      "src/components/ui/textarea.tsx",
+      "src/components/uniform-body-map.tsx",
+      "src/components/worklog/worklog-page.tsx",
+      "src/data/state-tax-zones.ts",
+      "src/lib/taxes.ts"
+    ],
+    "src/components/job-map/view-preset-switcher.tsx": [
+      "src/components/job-map/view-preset.ts"
+    ],
+    "src/components/job-map/view-preset.ts": [],
+    "src/components/job-market-research.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/skeleton.tsx"
+    ],
+    "src/components/learning-tracker.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/dropdown-menu.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/progress.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/skeleton.tsx",
+      "src/components/ui/textarea.tsx"
+    ],
+    "src/components/life-anchors-panel.tsx": [
+      "src/components/places-autocomplete.tsx",
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/select.tsx"
+    ],
+    "src/components/offer-comparison.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/separator.tsx"
+    ],
+    "src/components/onboarding-flow.tsx": [
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx"
+    ],
+    "src/components/pay-period-calendar.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/tooltip.tsx"
+    ],
+    "src/components/paycheck-estimator.tsx": [
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/separator.tsx"
+    ],
+    "src/components/personal-finance.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/separator.tsx",
+      "src/lib/money.ts"
+    ],
+    "src/components/personal-inventory.tsx": [
+      "src/components/equipment-usage-history.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/switch.tsx",
+      "src/components/ui/tag-input.tsx",
+      "src/components/ui/textarea.tsx"
+    ],
+    "src/components/places-autocomplete.tsx": [
+      "src/components/ui/input.tsx"
+    ],
+    "src/components/position-worklog-tab.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/worklog/promote-to-event-dialog.tsx",
+      "src/lib/utils.ts"
+    ],
+    "src/components/scholar-search.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/input.tsx"
+    ],
+    "src/components/skill-graph-analytics.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/tooltip.tsx"
+    ],
+    "src/components/skill-graph.tsx": [
+      "src/components/skill-graph-analytics.tsx",
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/dropdown-menu.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/skeleton.tsx",
+      "src/components/ui/textarea.tsx"
+    ],
+    "src/components/timeoff-tracker.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/progress.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/separator.tsx",
+      "src/components/ui/textarea.tsx"
+    ]
+  },
+  "neighborMap": {
+    "src/components/industry-research.tsx": [
+      {
+        "path": "src/components/ui/badge.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Badge",
+          "badgeVariants"
+        ]
+      },
+      {
+        "path": "src/components/ui/button.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Button",
+          "buttonVariants"
+        ]
+      },
+      {
+        "path": "src/components/ui/card.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Card",
+          "CardHeader",
+          "CardFooter",
+          "CardTitle",
+          "CardAction",
+          "CardDescription",
+          "CardContent"
+        ]
+      },
+      {
+        "path": "src/components/ui/dialog.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Dialog",
+          "DialogClose",
+          "DialogContent",
+          "DialogDescription",
+          "DialogFooter",
+          "DialogHeader",
+          "DialogOverlay",
+          "DialogPortal",
+          "DialogTitle",
+          "DialogTrigger"
+        ]
+      },
+      {
+        "path": "src/components/ui/input.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Input"
+        ]
+      },
+      {
+        "path": "src/components/ui/label.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Label"
+        ]
+      },
+      {
+        "path": "src/components/ui/select.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Select",
+          "SelectContent",
+          "SelectGroup",
+          "SelectItem",
+          "SelectLabel",
+          "SelectScrollDownButton",
+          "SelectScrollUpButton",
+          "SelectSeparator",
+          "SelectTrigger",
+          "SelectValue"
+        ]
+      },
+      {
+        "path": "src/components/ui/skeleton.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Skeleton"
+        ]
+      },
+      {
+        "path": "src/components/ui/tooltip.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Tooltip",
+          "TooltipTrigger",
+          "TooltipContent",
+          "TooltipProvider"
+        ]
+      },
+      {
+        "path": "src/lib/rss.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "fetchAndParseFeed",
+          "stripHtml"
+        ]
+      },
+      {
+        "path": "src/app/(app)/research/page.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "ResearchPage"
+        ]
+      }
+    ],
+    "src/components/interactive-resumes-manager.tsx": [
+      {
+        "path": "src/components/ui/badge.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Badge",
+          "badgeVariants"
+        ]
+      },
+      {
+        "path": "src/components/ui/button.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Button",
+          "buttonVariants"
+        ]
+      },
+      {
+        "path": "src/components/ui/card.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Card",
+          "CardHeader",
+          "CardFooter",
+          "CardTitle",
+          "CardAction",
+          "CardDescription",
+          "CardContent"
+        ]
+      },
+      {
+        "path": "src/components/ui/dialog.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Dialog",
+          "DialogClose",
+          "DialogContent",
+          "DialogDescription",
+          "DialogFooter",
+          "DialogHeader",
+          "DialogOverlay",
+          "DialogPortal",
+          "DialogTitle",
+          "DialogTrigger"
+        ]
+      },
+      {
+        "path": "src/components/ui/dropdown-menu.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "DropdownMenu",
+          "DropdownMenuPortal",
+          "DropdownMenuTrigger",
+          "DropdownMenuContent",
+          "DropdownMenuGroup",
+          "DropdownMenuLabel",
+          "DropdownMenuItem",
+          "DropdownMenuCheckboxItem",
+          "DropdownMenuRadioGroup",
+          "DropdownMenuRadioItem",
+          "DropdownMenuSeparator",
+          "DropdownMenuShortcut",
+          "DropdownMenuSub",
+          "DropdownMenuSubTrigger",
+          "DropdownMenuSubContent"
+        ]
+      },
+      {
+        "path": "src/components/ui/input.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Input"
+        ]
+      },
+      {
+        "path": "src/components/ui/label.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Label"
+        ]
+      },
+      {
+        "path": "src/components/ui/select.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Select",
+          "SelectContent",
+          "SelectGroup",
+          "SelectItem",
+          "SelectLabel",
+          "SelectScrollDownButton",
+          "SelectScrollUpButton",
+          "SelectSeparator",
+          "SelectTrigger",
+          "SelectValue"
+        ]
+      },
+      {
+        "path": "src/components/ui/skeleton.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Skeleton"
+        ]
+      },
+      {
+        "path": "src/components/ui/switch.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Switch"
+        ]
+      },
+      {
+        "path": "src/components/ui/textarea.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Textarea"
+        ]
+      }
+    ],
+    "src/components/interview-prep.tsx": [
+      {
+        "path": "src/components/ui/badge.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Badge",
+          "badgeVariants"
+        ]
+      },
+      {
+        "path": "src/components/ui/button.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Button",
+          "buttonVariants"
+        ]
+      },
+      {
+        "path": "src/components/ui/dialog.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Dialog",
+          "DialogClose",
+          "DialogContent",
+          "DialogDescription",
+          "DialogFooter",
+          "DialogHeader",
+          "DialogOverlay",
+          "DialogPortal",
+          "DialogTitle",
+          "DialogTrigger"
+        ]
+      },
+      {
+        "path": "src/components/ui/label.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Label"
+        ]
+      },
+      {
+        "path": "src/components/ui/separator.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Separator"
+        ]
+      },
+      {
+        "path": "src/components/ui/tabs.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Tabs",
+          "TabsList",
+          "TabsTrigger",
+          "TabsContent",
+          "tabsListVariants"
+        ]
+      },
+      {
+        "path": "src/components/ui/textarea.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Textarea"
+        ]
+      },
+      {
+        "path": "src/app/(app)/applications/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "ApplicationsPage"
+        ]
+      }
+    ],
+    "src/components/interview-resume-sidebar.tsx": [
+      {
+        "path": "src/app/interview/[roomId]/page.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "InterviewRoomPage"
+        ]
+      }
+    ],
+    "src/components/interview-room-launcher.tsx": [
+      {
+        "path": "src/components/ui/badge.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Badge",
+          "badgeVariants"
+        ]
+      },
+      {
+        "path": "src/components/ui/button.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Button",
+          "buttonVariants"
+        ]
+      },
+      {
+        "path": "src/components/ui/card.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Card",
+          "CardHeader",
+          "CardFooter",
+          "CardTitle",
+          "CardAction",
+          "CardDescription",
+          "CardContent"
+        ]
+      },
+      {
+        "path": "src/components/ui/dialog.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Dialog",
+          "DialogClose",
+          "DialogContent",
+          "DialogDescription",
+          "DialogFooter",
+          "DialogHeader",
+          "DialogOverlay",
+          "DialogPortal",
+          "DialogTitle",
+          "DialogTrigger"
+        ]
+      },
+      {
+        "path": "src/components/ui/input.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Input"
+        ]
+      },
+      {
+        "path": "src/components/ui/select.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Select",
+          "SelectContent",
+          "SelectGroup",
+          "SelectItem",
+          "SelectLabel",
+          "SelectScrollDownButton",
+          "SelectScrollUpButton",
+          "SelectSeparator",
+          "SelectTrigger",
+          "SelectValue"
+        ]
+      },
+      {
+        "path": "src/app/(app)/job-search/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "JobSearchPage"
+        ]
+      }
+    ],
+    "src/components/job-asset-photos.tsx": [
+      {
+        "path": "src/components/ui/button.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Button",
+          "buttonVariants"
+        ]
+      },
+      {
+        "path": "src/lib/utils.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "cn"
+        ]
+      }
+    ],
+    "src/components/job-assets-page.tsx": [
+      {
+        "path": "src/components/asset-service-history.tsx",
+        "batchIndex": 8,
+        "symbols": [
+          "AssetServiceHistory"
+        ]
+      },
+      {
+        "path": "src/components/asset-type-picker.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "AssetTypePicker"
+        ]
+      },
+      {
+        "path": "src/components/asset-types-manager.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "ASSET_CATEGORIES",
+          "AssetTypesManager"
+        ]
+      },
+      {
+        "path": "src/components/ui/badge.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Badge",
+          "badgeVariants"
+        ]
+      },
+      {
+        "path": "src/components/ui/button.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Button",
+          "buttonVariants"
+        ]
+      },
+      {
+        "path": "src/components/ui/card.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Card",
+          "CardHeader",
+          "CardFooter",
+          "CardTitle",
+          "CardAction",
+          "CardDescription",
+          "CardContent"
+        ]
+      },
+      {
+        "path": "src/components/ui/dialog.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Dialog",
+          "DialogClose",
+          "DialogContent",
+          "DialogDescription",
+          "DialogFooter",
+          "DialogHeader",
+          "DialogOverlay",
+          "DialogPortal",
+          "DialogTitle",
+          "DialogTrigger"
+        ]
+      },
+      {
+        "path": "src/components/ui/input.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Input"
+        ]
+      },
+      {
+        "path": "src/components/ui/label.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Label"
+        ]
+      },
+      {
+        "path": "src/components/ui/textarea.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Textarea"
+        ]
+      },
+      {
+        "path": "src/lib/utils.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "cn"
+        ]
+      },
+      {
+        "path": "src/app/(app)/job-assets/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "metadata",
+          "Page"
+        ]
+      }
+    ],
+    "src/components/job-board.tsx": [
+      {
+        "path": "src/components/ui/badge.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Badge",
+          "badgeVariants"
+        ]
+      },
+      {
+        "path": "src/components/ui/button.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Button",
+          "buttonVariants"
+        ]
+      },
+      {
+        "path": "src/components/ui/card.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Card",
+          "CardHeader",
+          "CardFooter",
+          "CardTitle",
+          "CardAction",
+          "CardDescription",
+          "CardContent"
+        ]
+      },
+      {
+        "path": "src/components/ui/input.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Input"
+        ]
+      },
+      {
+        "path": "src/components/ui/select.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Select",
+          "SelectContent",
+          "SelectGroup",
+          "SelectItem",
+          "SelectLabel",
+          "SelectScrollDownButton",
+          "SelectScrollUpButton",
+          "SelectSeparator",
+          "SelectTrigger",
+          "SelectValue"
+        ]
+      },
+      {
+        "path": "src/app/(app)/job-search/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "JobSearchPage"
+        ]
+      }
+    ],
+    "src/components/job-interest-groups.tsx": [
+      {
+        "path": "src/components/ui/badge.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Badge",
+          "badgeVariants"
+        ]
+      },
+      {
+        "path": "src/components/ui/button.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Button",
+          "buttonVariants"
+        ]
+      },
+      {
+        "path": "src/components/ui/card.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Card",
+          "CardHeader",
+          "CardFooter",
+          "CardTitle",
+          "CardAction",
+          "CardDescription",
+          "CardContent"
+        ]
+      },
+      {
+        "path": "src/components/ui/checkbox.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Checkbox"
+        ]
+      },
+      {
+        "path": "src/components/ui/dialog.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Dialog",
+          "DialogClose",
+          "DialogContent",
+          "DialogDescription",
+          "DialogFooter",
+          "DialogHeader",
+          "DialogOverlay",
+          "DialogPortal",
+          "DialogTitle",
+          "DialogTrigger"
+        ]
+      },
+      {
+        "path": "src/components/ui/input.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Input"
+        ]
+      },
+      {
+        "path": "src/components/ui/separator.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Separator"
+        ]
+      },
+      {
+        "path": "src/app/(app)/job-search/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "JobSearchPage"
+        ]
+      }
+    ],
+    "src/components/job-map.tsx": [
+      {
+        "path": "src/app/(app)/analytics/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "AnalyticsPage"
+        ]
+      },
+      {
+        "path": "src/components/bio-card-editor.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "BioCardEditor"
+        ]
+      },
+      {
+        "path": "src/components/company-deep-dive.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "CompanyDeepDive"
+        ]
+      },
+      {
+        "path": "src/components/gallery-modal.tsx",
+        "batchIndex": 15,
+        "symbols": [
+          "GalleryModal"
+        ]
+      },
+      {
+        "path": "src/components/immersive-layout.tsx",
+        "batchIndex": 15,
+        "symbols": [
+          "SIDEBAR_CARD_CHROME",
+          "ImmersiveLayout"
+        ]
+      },
+      {
+        "path": "src/components/ir-anchored-popover.tsx",
+        "batchIndex": 8,
+        "symbols": [
+          "IrAnchoredPopover"
+        ]
+      },
+      {
+        "path": "src/components/ir-popout-sheet.tsx",
+        "batchIndex": 15,
+        "symbols": [
+          "IrPopoutSheet"
+        ]
+      },
+      {
+        "path": "src/components/map-drawing-canvas.tsx",
+        "batchIndex": 34,
+        "symbols": []
+      },
+      {
+        "path": "src/components/master-gallery/embedded-master-folders.tsx",
+        "batchIndex": 17,
+        "symbols": [
+          "EmbeddedMasterFolders"
+        ]
+      },
+      {
+        "path": "src/components/master-gallery/embedded-position-gallery.tsx",
+        "batchIndex": 17,
+        "symbols": [
+          "EmbeddedPositionGallery"
+        ]
+      },
+      {
+        "path": "src/components/ui/badge.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Badge",
+          "badgeVariants"
+        ]
+      },
+      {
+        "path": "src/components/ui/button.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Button",
+          "buttonVariants"
+        ]
+      },
+      {
+        "path": "src/components/ui/card.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Card",
+          "CardHeader",
+          "CardFooter",
+          "CardTitle",
+          "CardAction",
+          "CardDescription",
+          "CardContent"
+        ]
+      },
+      {
+        "path": "src/components/ui/dialog.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Dialog",
+          "DialogClose",
+          "DialogContent",
+          "DialogDescription",
+          "DialogFooter",
+          "DialogHeader",
+          "DialogOverlay",
+          "DialogPortal",
+          "DialogTitle",
+          "DialogTrigger"
+        ]
+      },
+      {
+        "path": "src/components/ui/dropdown-menu.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "DropdownMenu",
+          "DropdownMenuPortal",
+          "DropdownMenuTrigger",
+          "DropdownMenuContent",
+          "DropdownMenuGroup",
+          "DropdownMenuLabel",
+          "DropdownMenuItem",
+          "DropdownMenuCheckboxItem",
+          "DropdownMenuRadioGroup",
+          "DropdownMenuRadioItem",
+          "DropdownMenuSeparator",
+          "DropdownMenuShortcut",
+          "DropdownMenuSub",
+          "DropdownMenuSubTrigger",
+          "DropdownMenuSubContent"
+        ]
+      },
+      {
+        "path": "src/components/ui/input.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Input"
+        ]
+      },
+      {
+        "path": "src/components/ui/label.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Label"
+        ]
+      },
+      {
+        "path": "src/components/ui/popover.tsx",
+        "batchIndex": 8,
+        "symbols": [
+          "Popover",
+          "PopoverContent",
+          "PopoverDescription",
+          "PopoverHeader",
+          "PopoverTitle",
+          "PopoverTrigger"
+        ]
+      },
+      {
+        "path": "src/components/ui/select.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Select",
+          "SelectContent",
+          "SelectGroup",
+          "SelectItem",
+          "SelectLabel",
+          "SelectScrollDownButton",
+          "SelectScrollUpButton",
+          "SelectSeparator",
+          "SelectTrigger",
+          "SelectValue"
+        ]
+      },
+      {
+        "path": "src/components/ui/separator.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Separator"
+        ]
+      },
+      {
+        "path": "src/components/ui/switch.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Switch"
+        ]
+      },
+      {
+        "path": "src/components/ui/textarea.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Textarea"
+        ]
+      },
+      {
+        "path": "src/components/uniform-body-map.tsx",
+        "batchIndex": 8,
+        "symbols": [
+          "CATEGORIES",
+          "ZONE_LABELS",
+          "UniformBodyMap",
+          "UniformMapPopup"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-page.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "WorklogPage"
+        ]
+      },
+      {
+        "path": "src/data/state-tax-zones.ts",
+        "batchIndex": 21,
+        "symbols": [
+          "STATE_TAX_BY_NAME",
+          "REF_HOME_VALUE",
+          "CITY_TAX_MARKERS",
+          "COUNTY_PROP_TAX_MARKERS",
+          "getTaxZoneColor",
+          "getTaxTierLabel",
+          "formatTaxRate",
+          "getPropTaxColor",
+          "getPropTaxTierLabel",
+          "formatPropTaxAnnual",
+          "TAX_ZONE_LEGEND"
+        ]
+      },
+      {
+        "path": "src/lib/taxes.ts",
+        "batchIndex": 21,
+        "symbols": [
+          "resolveState",
+          "estimateTaxes",
+          "quickTakeHome",
+          "formatSalaryCompact"
+        ]
+      },
+      {
+        "path": "src/app/(app)/job-search/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "JobSearchPage"
+        ]
+      }
+    ],
+    "src/components/job-market-research.tsx": [
+      {
+        "path": "src/components/ui/badge.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Badge",
+          "badgeVariants"
+        ]
+      },
+      {
+        "path": "src/components/ui/button.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Button",
+          "buttonVariants"
+        ]
+      },
+      {
+        "path": "src/components/ui/card.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Card",
+          "CardHeader",
+          "CardFooter",
+          "CardTitle",
+          "CardAction",
+          "CardDescription",
+          "CardContent"
+        ]
+      },
+      {
+        "path": "src/components/ui/input.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Input"
+        ]
+      },
+      {
+        "path": "src/components/ui/skeleton.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Skeleton"
+        ]
+      },
+      {
+        "path": "src/app/(app)/research/page.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "ResearchPage"
+        ]
+      }
+    ],
+    "src/components/learning-tracker.tsx": [
+      {
+        "path": "src/components/ui/badge.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Badge",
+          "badgeVariants"
+        ]
+      },
+      {
+        "path": "src/components/ui/button.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Button",
+          "buttonVariants"
+        ]
+      },
+      {
+        "path": "src/components/ui/card.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Card",
+          "CardHeader",
+          "CardFooter",
+          "CardTitle",
+          "CardAction",
+          "CardDescription",
+          "CardContent"
+        ]
+      },
+      {
+        "path": "src/components/ui/dialog.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Dialog",
+          "DialogClose",
+          "DialogContent",
+          "DialogDescription",
+          "DialogFooter",
+          "DialogHeader",
+          "DialogOverlay",
+          "DialogPortal",
+          "DialogTitle",
+          "DialogTrigger"
+        ]
+      },
+      {
+        "path": "src/components/ui/dropdown-menu.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "DropdownMenu",
+          "DropdownMenuPortal",
+          "DropdownMenuTrigger",
+          "DropdownMenuContent",
+          "DropdownMenuGroup",
+          "DropdownMenuLabel",
+          "DropdownMenuItem",
+          "DropdownMenuCheckboxItem",
+          "DropdownMenuRadioGroup",
+          "DropdownMenuRadioItem",
+          "DropdownMenuSeparator",
+          "DropdownMenuShortcut",
+          "DropdownMenuSub",
+          "DropdownMenuSubTrigger",
+          "DropdownMenuSubContent"
+        ]
+      },
+      {
+        "path": "src/components/ui/input.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Input"
+        ]
+      },
+      {
+        "path": "src/components/ui/label.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Label"
+        ]
+      },
+      {
+        "path": "src/components/ui/progress.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Progress",
+          "ProgressTrack",
+          "ProgressIndicator",
+          "ProgressLabel",
+          "ProgressValue"
+        ]
+      },
+      {
+        "path": "src/components/ui/select.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Select",
+          "SelectContent",
+          "SelectGroup",
+          "SelectItem",
+          "SelectLabel",
+          "SelectScrollDownButton",
+          "SelectScrollUpButton",
+          "SelectSeparator",
+          "SelectTrigger",
+          "SelectValue"
+        ]
+      },
+      {
+        "path": "src/components/ui/skeleton.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Skeleton"
+        ]
+      },
+      {
+        "path": "src/components/ui/textarea.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Textarea"
+        ]
+      },
+      {
+        "path": "src/app/(app)/research/page.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "ResearchPage"
+        ]
+      }
+    ],
+    "src/components/life-anchors-panel.tsx": [
+      {
+        "path": "src/components/ui/badge.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Badge",
+          "badgeVariants"
+        ]
+      },
+      {
+        "path": "src/components/ui/button.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Button",
+          "buttonVariants"
+        ]
+      },
+      {
+        "path": "src/components/ui/card.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Card",
+          "CardHeader",
+          "CardFooter",
+          "CardTitle",
+          "CardAction",
+          "CardDescription",
+          "CardContent"
+        ]
+      },
+      {
+        "path": "src/components/ui/input.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Input"
+        ]
+      },
+      {
+        "path": "src/components/ui/label.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Label"
+        ]
+      },
+      {
+        "path": "src/components/ui/select.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Select",
+          "SelectContent",
+          "SelectGroup",
+          "SelectItem",
+          "SelectLabel",
+          "SelectScrollDownButton",
+          "SelectScrollUpButton",
+          "SelectSeparator",
+          "SelectTrigger",
+          "SelectValue"
+        ]
+      }
+    ],
+    "src/components/offer-comparison.tsx": [
+      {
+        "path": "src/components/ui/badge.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Badge",
+          "badgeVariants"
+        ]
+      },
+      {
+        "path": "src/components/ui/button.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Button",
+          "buttonVariants"
+        ]
+      },
+      {
+        "path": "src/components/ui/card.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Card",
+          "CardHeader",
+          "CardFooter",
+          "CardTitle",
+          "CardAction",
+          "CardDescription",
+          "CardContent"
+        ]
+      },
+      {
+        "path": "src/components/ui/dialog.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Dialog",
+          "DialogClose",
+          "DialogContent",
+          "DialogDescription",
+          "DialogFooter",
+          "DialogHeader",
+          "DialogOverlay",
+          "DialogPortal",
+          "DialogTitle",
+          "DialogTrigger"
+        ]
+      },
+      {
+        "path": "src/components/ui/input.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Input"
+        ]
+      },
+      {
+        "path": "src/components/ui/label.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Label"
+        ]
+      },
+      {
+        "path": "src/components/ui/select.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Select",
+          "SelectContent",
+          "SelectGroup",
+          "SelectItem",
+          "SelectLabel",
+          "SelectScrollDownButton",
+          "SelectScrollUpButton",
+          "SelectSeparator",
+          "SelectTrigger",
+          "SelectValue"
+        ]
+      },
+      {
+        "path": "src/components/ui/separator.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Separator"
+        ]
+      },
+      {
+        "path": "src/app/(app)/applications/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "ApplicationsPage"
+        ]
+      }
+    ],
+    "src/components/onboarding-flow.tsx": [
+      {
+        "path": "src/components/ui/button.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Button",
+          "buttonVariants"
+        ]
+      },
+      {
+        "path": "src/components/ui/card.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Card",
+          "CardHeader",
+          "CardFooter",
+          "CardTitle",
+          "CardAction",
+          "CardDescription",
+          "CardContent"
+        ]
+      },
+      {
+        "path": "src/app/(app)/dashboard/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "DashboardPage"
+        ]
+      }
+    ],
+    "src/components/pay-period-calendar.tsx": [
+      {
+        "path": "src/components/ui/badge.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Badge",
+          "badgeVariants"
+        ]
+      },
+      {
+        "path": "src/components/ui/button.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Button",
+          "buttonVariants"
+        ]
+      },
+      {
+        "path": "src/components/ui/card.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Card",
+          "CardHeader",
+          "CardFooter",
+          "CardTitle",
+          "CardAction",
+          "CardDescription",
+          "CardContent"
+        ]
+      },
+      {
+        "path": "src/components/ui/tooltip.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Tooltip",
+          "TooltipTrigger",
+          "TooltipContent",
+          "TooltipProvider"
+        ]
+      },
+      {
+        "path": "src/app/(app)/current-position/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "CurrentPositionPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/dashboard/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "DashboardPage"
+        ]
+      }
+    ],
+    "src/components/paycheck-estimator.tsx": [
+      {
+        "path": "src/components/ui/button.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Button",
+          "buttonVariants"
+        ]
+      },
+      {
+        "path": "src/components/ui/card.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Card",
+          "CardHeader",
+          "CardFooter",
+          "CardTitle",
+          "CardAction",
+          "CardDescription",
+          "CardContent"
+        ]
+      },
+      {
+        "path": "src/components/ui/input.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Input"
+        ]
+      },
+      {
+        "path": "src/components/ui/label.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Label"
+        ]
+      },
+      {
+        "path": "src/components/ui/separator.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Separator"
+        ]
+      },
+      {
+        "path": "src/app/(app)/current-position/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "CurrentPositionPage"
+        ]
+      }
+    ],
+    "src/components/personal-finance.tsx": [
+      {
+        "path": "src/components/ui/badge.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Badge",
+          "badgeVariants"
+        ]
+      },
+      {
+        "path": "src/components/ui/button.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Button",
+          "buttonVariants"
+        ]
+      },
+      {
+        "path": "src/components/ui/card.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Card",
+          "CardHeader",
+          "CardFooter",
+          "CardTitle",
+          "CardAction",
+          "CardDescription",
+          "CardContent"
+        ]
+      },
+      {
+        "path": "src/components/ui/input.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Input"
+        ]
+      },
+      {
+        "path": "src/components/ui/label.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Label"
+        ]
+      },
+      {
+        "path": "src/components/ui/select.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Select",
+          "SelectContent",
+          "SelectGroup",
+          "SelectItem",
+          "SelectLabel",
+          "SelectScrollDownButton",
+          "SelectScrollUpButton",
+          "SelectSeparator",
+          "SelectTrigger",
+          "SelectValue"
+        ]
+      },
+      {
+        "path": "src/components/ui/separator.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Separator"
+        ]
+      },
+      {
+        "path": "src/lib/money.ts",
+        "batchIndex": 14,
+        "symbols": [
+          "usd",
+          "toDollars",
+          "sumDollars",
+          "subtractDollars",
+          "fmtMoney"
+        ]
+      },
+      {
+        "path": "src/app/(app)/dashboard/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "DashboardPage"
+        ]
+      }
+    ],
+    "src/components/personal-inventory.tsx": [
+      {
+        "path": "src/components/equipment-usage-history.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "EquipmentUsageHistory"
+        ]
+      },
+      {
+        "path": "src/components/ui/button.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Button",
+          "buttonVariants"
+        ]
+      },
+      {
+        "path": "src/components/ui/card.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Card",
+          "CardHeader",
+          "CardFooter",
+          "CardTitle",
+          "CardAction",
+          "CardDescription",
+          "CardContent"
+        ]
+      },
+      {
+        "path": "src/components/ui/input.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Input"
+        ]
+      },
+      {
+        "path": "src/components/ui/label.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Label"
+        ]
+      },
+      {
+        "path": "src/components/ui/select.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Select",
+          "SelectContent",
+          "SelectGroup",
+          "SelectItem",
+          "SelectLabel",
+          "SelectScrollDownButton",
+          "SelectScrollUpButton",
+          "SelectSeparator",
+          "SelectTrigger",
+          "SelectValue"
+        ]
+      },
+      {
+        "path": "src/components/ui/switch.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Switch"
+        ]
+      },
+      {
+        "path": "src/components/ui/tag-input.tsx",
+        "batchIndex": 8,
+        "symbols": [
+          "TagInput"
+        ]
+      },
+      {
+        "path": "src/components/ui/textarea.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Textarea"
+        ]
+      },
+      {
+        "path": "src/app/(app)/inventory/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "metadata",
+          "InventoryPage"
+        ]
+      }
+    ],
+    "src/components/places-autocomplete.tsx": [
+      {
+        "path": "src/components/ui/input.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Input"
+        ]
+      },
+      {
+        "path": "src/app/(app)/portal-settings/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "PortalSettingsPage"
+        ]
+      }
+    ],
+    "src/components/position-worklog-tab.tsx": [
+      {
+        "path": "src/components/ui/badge.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Badge",
+          "badgeVariants"
+        ]
+      },
+      {
+        "path": "src/components/ui/button.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Button",
+          "buttonVariants"
+        ]
+      },
+      {
+        "path": "src/components/ui/card.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Card",
+          "CardHeader",
+          "CardFooter",
+          "CardTitle",
+          "CardAction",
+          "CardDescription",
+          "CardContent"
+        ]
+      },
+      {
+        "path": "src/components/worklog/promote-to-event-dialog.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "PromoteToEventDialog"
+        ]
+      },
+      {
+        "path": "src/lib/utils.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "cn"
+        ]
+      },
+      {
+        "path": "src/app/(app)/current-position/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "CurrentPositionPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/experience/[id]/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "ExperienceDetailPage"
+        ]
+      }
+    ],
+    "src/components/scholar-search.tsx": [
+      {
+        "path": "src/components/ui/badge.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Badge",
+          "badgeVariants"
+        ]
+      },
+      {
+        "path": "src/components/ui/button.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Button",
+          "buttonVariants"
+        ]
+      },
+      {
+        "path": "src/components/ui/card.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Card",
+          "CardHeader",
+          "CardFooter",
+          "CardTitle",
+          "CardAction",
+          "CardDescription",
+          "CardContent"
+        ]
+      },
+      {
+        "path": "src/components/ui/input.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Input"
+        ]
+      },
+      {
+        "path": "src/app/(app)/research/page.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "ResearchPage"
+        ]
+      }
+    ],
+    "src/components/skill-graph-analytics.tsx": [
+      {
+        "path": "src/components/ui/badge.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Badge",
+          "badgeVariants"
+        ]
+      },
+      {
+        "path": "src/components/ui/card.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Card",
+          "CardHeader",
+          "CardFooter",
+          "CardTitle",
+          "CardAction",
+          "CardDescription",
+          "CardContent"
+        ]
+      },
+      {
+        "path": "src/components/ui/tooltip.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Tooltip",
+          "TooltipTrigger",
+          "TooltipContent",
+          "TooltipProvider"
+        ]
+      }
+    ],
+    "src/components/skill-graph.tsx": [
+      {
+        "path": "src/components/ui/badge.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Badge",
+          "badgeVariants"
+        ]
+      },
+      {
+        "path": "src/components/ui/button.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Button",
+          "buttonVariants"
+        ]
+      },
+      {
+        "path": "src/components/ui/card.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Card",
+          "CardHeader",
+          "CardFooter",
+          "CardTitle",
+          "CardAction",
+          "CardDescription",
+          "CardContent"
+        ]
+      },
+      {
+        "path": "src/components/ui/dialog.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Dialog",
+          "DialogClose",
+          "DialogContent",
+          "DialogDescription",
+          "DialogFooter",
+          "DialogHeader",
+          "DialogOverlay",
+          "DialogPortal",
+          "DialogTitle",
+          "DialogTrigger"
+        ]
+      },
+      {
+        "path": "src/components/ui/dropdown-menu.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "DropdownMenu",
+          "DropdownMenuPortal",
+          "DropdownMenuTrigger",
+          "DropdownMenuContent",
+          "DropdownMenuGroup",
+          "DropdownMenuLabel",
+          "DropdownMenuItem",
+          "DropdownMenuCheckboxItem",
+          "DropdownMenuRadioGroup",
+          "DropdownMenuRadioItem",
+          "DropdownMenuSeparator",
+          "DropdownMenuShortcut",
+          "DropdownMenuSub",
+          "DropdownMenuSubTrigger",
+          "DropdownMenuSubContent"
+        ]
+      },
+      {
+        "path": "src/components/ui/input.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Input"
+        ]
+      },
+      {
+        "path": "src/components/ui/label.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Label"
+        ]
+      },
+      {
+        "path": "src/components/ui/select.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Select",
+          "SelectContent",
+          "SelectGroup",
+          "SelectItem",
+          "SelectLabel",
+          "SelectScrollDownButton",
+          "SelectScrollUpButton",
+          "SelectSeparator",
+          "SelectTrigger",
+          "SelectValue"
+        ]
+      },
+      {
+        "path": "src/components/ui/skeleton.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Skeleton"
+        ]
+      },
+      {
+        "path": "src/components/ui/textarea.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Textarea"
+        ]
+      },
+      {
+        "path": "src/app/(app)/skill-graph/page.tsx",
+        "batchIndex": 8,
+        "symbols": [
+          "SkillGraphPage"
+        ]
+      }
+    ],
+    "src/components/timeoff-tracker.tsx": [
+      {
+        "path": "src/components/ui/badge.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Badge",
+          "badgeVariants"
+        ]
+      },
+      {
+        "path": "src/components/ui/button.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Button",
+          "buttonVariants"
+        ]
+      },
+      {
+        "path": "src/components/ui/card.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Card",
+          "CardHeader",
+          "CardFooter",
+          "CardTitle",
+          "CardAction",
+          "CardDescription",
+          "CardContent"
+        ]
+      },
+      {
+        "path": "src/components/ui/dialog.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Dialog",
+          "DialogClose",
+          "DialogContent",
+          "DialogDescription",
+          "DialogFooter",
+          "DialogHeader",
+          "DialogOverlay",
+          "DialogPortal",
+          "DialogTitle",
+          "DialogTrigger"
+        ]
+      },
+      {
+        "path": "src/components/ui/input.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Input"
+        ]
+      },
+      {
+        "path": "src/components/ui/label.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Label"
+        ]
+      },
+      {
+        "path": "src/components/ui/progress.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Progress",
+          "ProgressTrack",
+          "ProgressIndicator",
+          "ProgressLabel",
+          "ProgressValue"
+        ]
+      },
+      {
+        "path": "src/components/ui/select.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Select",
+          "SelectContent",
+          "SelectGroup",
+          "SelectItem",
+          "SelectLabel",
+          "SelectScrollDownButton",
+          "SelectScrollUpButton",
+          "SelectSeparator",
+          "SelectTrigger",
+          "SelectValue"
+        ]
+      },
+      {
+        "path": "src/components/ui/separator.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Separator"
+        ]
+      },
+      {
+        "path": "src/components/ui/textarea.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Textarea"
+        ]
+      },
+      {
+        "path": "src/app/(app)/current-position/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "CurrentPositionPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/experience/[id]/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "ExperienceDetailPage"
+        ]
+      }
+    ]
+  }
+}

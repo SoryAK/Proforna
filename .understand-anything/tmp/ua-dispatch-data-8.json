@@ -1,0 +1,1090 @@
+{
+  "batchIndex": 8,
+  "totalBatches": 34,
+  "files": [
+    {
+      "path": "src/app/(app)/layout.tsx",
+      "language": "typescript",
+      "sizeLines": 31,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/skill-graph/page.tsx",
+      "language": "typescript",
+      "sizeLines": 11,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/(app)/worklog/page.tsx",
+      "language": "typescript",
+      "sizeLines": 17,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/work-logs/folders/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 211,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/work-logs/folders/route.ts",
+      "language": "typescript",
+      "sizeLines": 124,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/work-logs/search/route.ts",
+      "language": "typescript",
+      "sizeLines": 131,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/asset-picker.tsx",
+      "language": "typescript",
+      "sizeLines": 509,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/asset-service-history.tsx",
+      "language": "typescript",
+      "sizeLines": 188,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/career-analytics-banner.tsx",
+      "language": "typescript",
+      "sizeLines": 39,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/command-palette.tsx",
+      "language": "typescript",
+      "sizeLines": 266,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/equipment-picker.tsx",
+      "language": "typescript",
+      "sizeLines": 446,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/floating-panel.tsx",
+      "language": "typescript",
+      "sizeLines": 282,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/ir-anchored-popover.tsx",
+      "language": "typescript",
+      "sizeLines": 57,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/layout-shell.tsx",
+      "language": "typescript",
+      "sizeLines": 31,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/notification-bell.tsx",
+      "language": "typescript",
+      "sizeLines": 149,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/quick-log-dialog.tsx",
+      "language": "typescript",
+      "sizeLines": 361,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/sidebar.tsx",
+      "language": "typescript",
+      "sizeLines": 266,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/ui/avatar.tsx",
+      "language": "typescript",
+      "sizeLines": 109,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/ui/calendar.tsx",
+      "language": "typescript",
+      "sizeLines": 221,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/ui/command.tsx",
+      "language": "typescript",
+      "sizeLines": 196,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/ui/popover.tsx",
+      "language": "typescript",
+      "sizeLines": 90,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/ui/scroll-area.tsx",
+      "language": "typescript",
+      "sizeLines": 55,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/ui/sheet.tsx",
+      "language": "typescript",
+      "sizeLines": 135,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/ui/tag-input.tsx",
+      "language": "typescript",
+      "sizeLines": 220,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/uniform-body-map.tsx",
+      "language": "typescript",
+      "sizeLines": 375,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/canvas-node-view.tsx",
+      "language": "typescript",
+      "sizeLines": 170,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/constants.ts",
+      "language": "typescript",
+      "sizeLines": 67,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/heatmap-utils.ts",
+      "language": "typescript",
+      "sizeLines": 71,
+      "fileCategory": "code"
+    }
+  ],
+  "batchImportData": {
+    "src/app/(app)/layout.tsx": [
+      "src/components/layout-shell.tsx"
+    ],
+    "src/app/(app)/skill-graph/page.tsx": [
+      "src/components/career-analytics-banner.tsx",
+      "src/components/skill-graph.tsx"
+    ],
+    "src/app/(app)/worklog/page.tsx": [
+      "src/components/career-analytics-banner.tsx",
+      "src/components/worklog/worklog-page.tsx"
+    ],
+    "src/app/api/work-logs/folders/[id]/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts",
+      "src/lib/worklog-folders.ts"
+    ],
+    "src/app/api/work-logs/folders/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts",
+      "src/lib/worklog-folders.ts"
+    ],
+    "src/app/api/work-logs/search/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts",
+      "src/lib/worklog-folders.ts",
+      "src/types/worklog.ts"
+    ],
+    "src/components/asset-picker.tsx": [
+      "src/components/asset-service-history.tsx",
+      "src/components/asset-type-picker.tsx",
+      "src/components/asset-types-manager.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/checkbox.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/textarea.tsx",
+      "src/lib/utils.ts"
+    ],
+    "src/components/asset-service-history.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/lib/utils.ts"
+    ],
+    "src/components/career-analytics-banner.tsx": [
+      "src/lib/utils.ts"
+    ],
+    "src/components/command-palette.tsx": [
+      "src/components/ui/command.tsx",
+      "src/components/worklog/quick-capture-dialog.tsx"
+    ],
+    "src/components/equipment-picker.tsx": [
+      "src/components/ui/button.tsx",
+      "src/components/ui/checkbox.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/textarea.tsx",
+      "src/lib/utils.ts"
+    ],
+    "src/components/floating-panel.tsx": [
+      "src/lib/utils.ts"
+    ],
+    "src/components/ir-anchored-popover.tsx": [
+      "src/lib/utils.ts"
+    ],
+    "src/components/layout-shell.tsx": [
+      "src/components/ai-chat.tsx",
+      "src/components/command-palette.tsx",
+      "src/components/quick-log-dialog.tsx",
+      "src/components/sidebar.tsx"
+    ],
+    "src/components/notification-bell.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/popover.tsx"
+    ],
+    "src/components/quick-log-dialog.tsx": [
+      "src/components/ui/tag-input.tsx",
+      "src/components/worklog/constants.ts",
+      "src/types/worklog.ts"
+    ],
+    "src/components/sidebar.tsx": [
+      "src/components/notification-bell.tsx",
+      "src/components/quick-log-dialog.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/sheet.tsx",
+      "src/lib/constants.ts",
+      "src/lib/utils.ts"
+    ],
+    "src/components/ui/avatar.tsx": [
+      "src/lib/utils.ts"
+    ],
+    "src/components/ui/calendar.tsx": [
+      "src/components/ui/button.tsx",
+      "src/lib/utils.ts"
+    ],
+    "src/components/ui/command.tsx": [
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input-group.tsx",
+      "src/lib/utils.ts"
+    ],
+    "src/components/ui/popover.tsx": [
+      "src/lib/utils.ts"
+    ],
+    "src/components/ui/scroll-area.tsx": [
+      "src/lib/utils.ts"
+    ],
+    "src/components/ui/sheet.tsx": [
+      "src/components/ui/button.tsx",
+      "src/lib/utils.ts"
+    ],
+    "src/components/ui/tag-input.tsx": [
+      "src/lib/utils.ts"
+    ],
+    "src/components/uniform-body-map.tsx": [
+      "src/lib/utils.ts"
+    ],
+    "src/components/worklog/canvas-node-view.tsx": [
+      "src/components/ui/button.tsx",
+      "src/lib/utils.ts",
+      "src/lib/worklog/tiptap/canvas-node.ts"
+    ],
+    "src/components/worklog/constants.ts": [],
+    "src/components/worklog/heatmap-utils.ts": [
+      "src/types/worklog.ts"
+    ]
+  },
+  "neighborMap": {
+    "src/app/(app)/skill-graph/page.tsx": [
+      {
+        "path": "src/components/skill-graph.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "SkillGraph"
+        ]
+      }
+    ],
+    "src/app/(app)/worklog/page.tsx": [
+      {
+        "path": "src/components/worklog/worklog-page.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "WorklogPage"
+        ]
+      }
+    ],
+    "src/app/api/work-logs/folders/[id]/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      },
+      {
+        "path": "src/lib/worklog-folders.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "FOLDER_MAX_DEPTH",
+          "FOLDER_NAME_MAX",
+          "buildFolderTree",
+          "flattenFolderTree",
+          "collectDescendantIds",
+          "wouldCreateCycle",
+          "depthOfParent",
+          "validateFolderName",
+          "assertNoCycle",
+          "getDepth"
+        ]
+      }
+    ],
+    "src/app/api/work-logs/folders/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      },
+      {
+        "path": "src/lib/worklog-folders.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "FOLDER_MAX_DEPTH",
+          "FOLDER_NAME_MAX",
+          "buildFolderTree",
+          "flattenFolderTree",
+          "collectDescendantIds",
+          "wouldCreateCycle",
+          "depthOfParent",
+          "validateFolderName",
+          "assertNoCycle",
+          "getDepth"
+        ]
+      }
+    ],
+    "src/app/api/work-logs/search/route.ts": [
+      {
+        "path": "src/lib/auth-utils.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "getUserId",
+          "getAuthUserId"
+        ]
+      },
+      {
+        "path": "src/lib/prisma.ts",
+        "batchIndex": 7,
+        "symbols": [
+          "prisma"
+        ]
+      },
+      {
+        "path": "src/lib/worklog-folders.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "FOLDER_MAX_DEPTH",
+          "FOLDER_NAME_MAX",
+          "buildFolderTree",
+          "flattenFolderTree",
+          "collectDescendantIds",
+          "wouldCreateCycle",
+          "depthOfParent",
+          "validateFolderName",
+          "assertNoCycle",
+          "getDepth"
+        ]
+      },
+      {
+        "path": "src/types/worklog.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "EquipmentItem",
+          "JobAsset"
+        ]
+      }
+    ],
+    "src/components/asset-picker.tsx": [
+      {
+        "path": "src/components/asset-type-picker.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "AssetTypePicker"
+        ]
+      },
+      {
+        "path": "src/components/asset-types-manager.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "ASSET_CATEGORIES",
+          "AssetTypesManager"
+        ]
+      },
+      {
+        "path": "src/components/ui/button.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Button",
+          "buttonVariants"
+        ]
+      },
+      {
+        "path": "src/components/ui/checkbox.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Checkbox"
+        ]
+      },
+      {
+        "path": "src/components/ui/dialog.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Dialog",
+          "DialogClose",
+          "DialogContent",
+          "DialogDescription",
+          "DialogFooter",
+          "DialogHeader",
+          "DialogOverlay",
+          "DialogPortal",
+          "DialogTitle",
+          "DialogTrigger"
+        ]
+      },
+      {
+        "path": "src/components/ui/input.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Input"
+        ]
+      },
+      {
+        "path": "src/components/ui/label.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Label"
+        ]
+      },
+      {
+        "path": "src/components/ui/textarea.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Textarea"
+        ]
+      },
+      {
+        "path": "src/lib/utils.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "cn"
+        ]
+      },
+      {
+        "path": "src/components/worklog/hooks/use-worklog-data.ts",
+        "batchIndex": 9,
+        "symbols": [
+          "useWorklogData"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-note-reader.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "WorklogNoteReader"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-template-editor.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "WorklogTemplateEditor"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-toolbar.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "WorklogToolbar"
+        ]
+      }
+    ],
+    "src/components/asset-service-history.tsx": [
+      {
+        "path": "src/components/ui/badge.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Badge",
+          "badgeVariants"
+        ]
+      },
+      {
+        "path": "src/lib/utils.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "cn"
+        ]
+      },
+      {
+        "path": "src/components/job-assets-page.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "JobAssetsPage"
+        ]
+      }
+    ],
+    "src/components/career-analytics-banner.tsx": [
+      {
+        "path": "src/lib/utils.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "cn"
+        ]
+      },
+      {
+        "path": "src/app/(app)/analytics/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "AnalyticsPage"
+        ]
+      }
+    ],
+    "src/components/command-palette.tsx": [
+      {
+        "path": "src/components/worklog/quick-capture-dialog.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "QuickCaptureDialog"
+        ]
+      }
+    ],
+    "src/components/equipment-picker.tsx": [
+      {
+        "path": "src/components/ui/button.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Button",
+          "buttonVariants"
+        ]
+      },
+      {
+        "path": "src/components/ui/checkbox.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Checkbox"
+        ]
+      },
+      {
+        "path": "src/components/ui/dialog.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Dialog",
+          "DialogClose",
+          "DialogContent",
+          "DialogDescription",
+          "DialogFooter",
+          "DialogHeader",
+          "DialogOverlay",
+          "DialogPortal",
+          "DialogTitle",
+          "DialogTrigger"
+        ]
+      },
+      {
+        "path": "src/components/ui/input.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Input"
+        ]
+      },
+      {
+        "path": "src/components/ui/label.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Label"
+        ]
+      },
+      {
+        "path": "src/components/ui/textarea.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Textarea"
+        ]
+      },
+      {
+        "path": "src/lib/utils.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "cn"
+        ]
+      },
+      {
+        "path": "src/components/worklog/hooks/use-worklog-data.ts",
+        "batchIndex": 9,
+        "symbols": [
+          "useWorklogData"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-note-reader.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "WorklogNoteReader"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-template-editor.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "WorklogTemplateEditor"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-toolbar.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "WorklogToolbar"
+        ]
+      }
+    ],
+    "src/components/floating-panel.tsx": [
+      {
+        "path": "src/lib/utils.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "cn"
+        ]
+      }
+    ],
+    "src/components/ir-anchored-popover.tsx": [
+      {
+        "path": "src/lib/utils.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "cn"
+        ]
+      },
+      {
+        "path": "src/components/job-map.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "JobMap"
+        ]
+      }
+    ],
+    "src/components/layout-shell.tsx": [
+      {
+        "path": "src/components/ai-chat.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "AIChat"
+        ]
+      }
+    ],
+    "src/components/notification-bell.tsx": [
+      {
+        "path": "src/components/ui/badge.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Badge",
+          "badgeVariants"
+        ]
+      },
+      {
+        "path": "src/components/ui/button.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Button",
+          "buttonVariants"
+        ]
+      }
+    ],
+    "src/components/quick-log-dialog.tsx": [
+      {
+        "path": "src/types/worklog.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "EquipmentItem",
+          "JobAsset"
+        ]
+      }
+    ],
+    "src/components/sidebar.tsx": [
+      {
+        "path": "src/components/ui/button.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Button",
+          "buttonVariants"
+        ]
+      },
+      {
+        "path": "src/lib/constants.ts",
+        "batchIndex": 14,
+        "symbols": [
+          "APPLICATION_STATUSES",
+          "STATUS_LABELS",
+          "STATUS_COLORS",
+          "INTERVIEW_TYPES",
+          "INTERVIEW_STATUSES",
+          "JOB_TYPES",
+          "RELATIONSHIP_TYPES",
+          "SKILL_CATEGORIES",
+          "PROFICIENCY_LEVELS",
+          "GOAL_STATUSES",
+          "PRIORITIES",
+          "AVAILABILITY_STATUSES",
+          "AVAILABILITY_LABELS",
+          "AVAILABILITY_COLORS",
+          "SUBMISSION_STATUSES",
+          "SUBMISSION_LABELS",
+          "SUBMISSION_COLORS",
+          "NAV_ITEMS"
+        ]
+      },
+      {
+        "path": "src/lib/utils.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "cn"
+        ]
+      }
+    ],
+    "src/components/ui/avatar.tsx": [
+      {
+        "path": "src/lib/utils.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "cn"
+        ]
+      },
+      {
+        "path": "src/app/(app)/contacts/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "ContactsPage"
+        ]
+      }
+    ],
+    "src/components/ui/calendar.tsx": [
+      {
+        "path": "src/components/ui/button.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Button",
+          "buttonVariants"
+        ]
+      },
+      {
+        "path": "src/lib/utils.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "cn"
+        ]
+      }
+    ],
+    "src/components/ui/command.tsx": [
+      {
+        "path": "src/components/ui/dialog.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Dialog",
+          "DialogClose",
+          "DialogContent",
+          "DialogDescription",
+          "DialogFooter",
+          "DialogHeader",
+          "DialogOverlay",
+          "DialogPortal",
+          "DialogTitle",
+          "DialogTrigger"
+        ]
+      },
+      {
+        "path": "src/components/ui/input-group.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "InputGroup",
+          "InputGroupAddon",
+          "InputGroupButton",
+          "InputGroupText",
+          "InputGroupInput",
+          "InputGroupTextarea"
+        ]
+      },
+      {
+        "path": "src/lib/utils.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "cn"
+        ]
+      }
+    ],
+    "src/components/ui/popover.tsx": [
+      {
+        "path": "src/lib/utils.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "cn"
+        ]
+      },
+      {
+        "path": "src/components/job-map.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "JobMap"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-folder-tree.tsx",
+        "batchIndex": 9,
+        "symbols": [
+          "WorklogFolderTree",
+          "computeDeleteBlastRadius"
+        ]
+      }
+    ],
+    "src/components/ui/scroll-area.tsx": [
+      {
+        "path": "src/lib/utils.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "cn"
+        ]
+      },
+      {
+        "path": "src/app/(app)/resumes/page.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "ResumesPage"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-page.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "WorklogPage"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-template-picker-dialog.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "WorklogTemplatePickerDialog"
+        ]
+      }
+    ],
+    "src/components/ui/sheet.tsx": [
+      {
+        "path": "src/components/ui/button.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Button",
+          "buttonVariants"
+        ]
+      },
+      {
+        "path": "src/lib/utils.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "cn"
+        ]
+      }
+    ],
+    "src/components/ui/tag-input.tsx": [
+      {
+        "path": "src/lib/utils.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "cn"
+        ]
+      },
+      {
+        "path": "src/components/personal-inventory.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "PersonalInventory"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-note-reader.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "WorklogNoteReader"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-template-editor.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "WorklogTemplateEditor"
+        ]
+      }
+    ],
+    "src/components/uniform-body-map.tsx": [
+      {
+        "path": "src/lib/utils.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "cn"
+        ]
+      },
+      {
+        "path": "src/components/job-map.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "JobMap"
+        ]
+      }
+    ],
+    "src/components/worklog/canvas-node-view.tsx": [
+      {
+        "path": "src/components/ui/button.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "Button",
+          "buttonVariants"
+        ]
+      },
+      {
+        "path": "src/lib/utils.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "cn"
+        ]
+      },
+      {
+        "path": "src/lib/worklog/tiptap/canvas-node.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "CanvasNode"
+        ]
+      }
+    ],
+    "src/components/worklog/constants.ts": [
+      {
+        "path": "src/components/worklog/quick-capture-dialog.tsx",
+        "batchIndex": 14,
+        "symbols": [
+          "QuickCaptureDialog"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-defaults-dialog.tsx",
+        "batchIndex": 9,
+        "symbols": [
+          "WorklogDefaultsDialog"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-folder-tree.tsx",
+        "batchIndex": 9,
+        "symbols": [
+          "WorklogFolderTree",
+          "computeDeleteBlastRadius"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-folders-rail.tsx",
+        "batchIndex": 9,
+        "symbols": [
+          "FolderSelection",
+          "WorklogFoldersRail"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-note-meta-strip.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "WorklogNoteMetaStrip"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-notes-list.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "WorklogNotesList"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-page.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "WorklogPage"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-template-editor.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "WorklogTemplateEditor"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-template-picker-dialog.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "WorklogTemplatePickerDialog"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-templates-tab.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "WorklogTemplatesTab"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-toolbar.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "WorklogToolbar"
+        ]
+      }
+    ],
+    "src/components/worklog/heatmap-utils.ts": [
+      {
+        "path": "src/types/worklog.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "EquipmentItem",
+          "JobAsset"
+        ]
+      },
+      {
+        "path": "src/components/worklog/hooks/use-worklog-stats.ts",
+        "batchIndex": 9,
+        "symbols": [
+          "useWorklogStats"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-heatmap.tsx",
+        "batchIndex": 9,
+        "symbols": [
+          "WorklogHeatmap"
+        ]
+      }
+    ]
+  }
+}

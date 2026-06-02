@@ -1,0 +1,19 @@
+{
+  "entities": [
+    {
+      "name": "WorklogDomain",
+      "entityType": "domain",
+      "observations": [
+        "2026-05-28: Primary entry point is src/components/worklog/worklog-page.tsx",
+        "2026-05-28: Editor is src/components/worklog/worklog-editor.tsx (Tiptap 3 + Yjs, StarterKit with undoRedo:false)",
+        "2026-05-28: Three-pane layout: folders-rail (left) + notes-list (center) + editor/reader (right)",
+        "2026-05-28: Draft persistence via server-backed sync — ADR-0009. Draft flush race condition if editor unmounts before debounce fires.",
+        "2026-05-28: Inline photo support (Phase 2b) and read-mode renderer (Phase 2c) confirmed working as of May 2026",
+        "2026-05-28: API routes under src/app/api/work-logs/. Hooks under src/components/worklog/hooks/"
+      ]
+    }
+  ],
+  "relations": [
+    { "from": "WorklogDomain", "relationType": "depends-on", "to": "JobMapDomain" }
+  ]
+}

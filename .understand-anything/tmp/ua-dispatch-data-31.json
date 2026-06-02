@@ -1,0 +1,67 @@
+{
+  "batchIndex": 31,
+  "totalBatches": 34,
+  "files": [
+    {
+      "path": "src/data/All_Occupations.csv",
+      "language": "csv",
+      "sizeLines": 1017,
+      "fileCategory": "data"
+    },
+    {
+      "path": "src/data/onet-skill-scaffold.json",
+      "language": "json",
+      "sizeLines": 4158,
+      "fileCategory": "config"
+    },
+    {
+      "path": "src/data/soc-codes.json",
+      "language": "json",
+      "sizeLines": 147,
+      "fileCategory": "config"
+    }
+  ],
+  "batchImportData": {
+    "src/data/All_Occupations.csv": [],
+    "src/data/onet-skill-scaffold.json": [],
+    "src/data/soc-codes.json": []
+  },
+  "neighborMap": {
+    "src/data/onet-skill-scaffold.json": [
+      {
+        "path": "src/app/api/skill-graph/scaffold/route.ts",
+        "batchIndex": 6,
+        "symbols": [
+          "GET",
+          "POST",
+          "DELETE"
+        ]
+      }
+    ],
+    "src/data/soc-codes.json": [
+      {
+        "path": "src/app/api/cdm/decompose/route.ts",
+        "batchIndex": 1,
+        "symbols": [
+          "POST",
+          "GET"
+        ]
+      },
+      {
+        "path": "src/app/api/cdm/synonyms/route.ts",
+        "batchIndex": 1,
+        "symbols": [
+          "POST",
+          "GET"
+        ]
+      },
+      {
+        "path": "src/app/api/market-research/occupations/route.ts",
+        "batchIndex": 4,
+        "symbols": [
+          "GET"
+        ]
+      }
+    ]
+  }
+}

@@ -108,6 +108,16 @@ interface AmenityPin {
   emoji: string;
 }
 
+interface CareerEventMarker {
+  id: string;
+  title: string;
+  date: string;
+  location: string;
+  lat: number;
+  lng: number;
+  photos?: string[];
+}
+
 interface Props {
   jobs: MapJob[];
   center: [number, number];
@@ -128,7 +138,7 @@ interface Props {
   showStateTax?: boolean;
   showCityTax?: boolean;
   showCountyPropTax?: boolean;
-  tileStyle?: "osm" | "google-roadmap" | "google-satellite" | "google-hybrid";
+  tileStyle?: "google-roadmap" | "google-satellite" | "google-hybrid";
   resolvedCoords?: [number, number] | null;
   highlightedIds?: string[];
   anchorRoutes?: AnchorRoute[];
@@ -154,6 +164,8 @@ interface Props {
   workHistorySubLocations?: WorkHistorySubLocation[];
   showCareerPath?: boolean;
   focusedWorkHistoryId?: string | null;
+  /** When set, the matching work-history marker pulses (driven by row hover in the side list). */
+  hoveredWorkHistoryId?: string | null;
   /** When true, the focused work-history pin is hidden so the building polygon
    *  can take over as the visual marker (item #10 — high-zoom outline mode). */
   hideFocusedWorkHistoryMarker?: boolean;
@@ -167,6 +179,7 @@ interface Props {
   onCursorMove?: (coords: { lat: number; lng: number } | null) => void;
   showWorkHistory?: boolean;
   onToggleWorkHistory?: () => void;
+  eventMarkers?: CareerEventMarker[];
 }
 
 /* ── Helpers ── */
@@ -201,7 +214,6 @@ const ANCHOR_EMOJI: Record<string, string> = {
 };
 
 const TILE_STYLE_MAP: Record<string, string> = {
-  osm: "roadmap",
   "google-roadmap": "roadmap",
   "google-satellite": "satellite",
   "google-hybrid": "hybrid",
@@ -318,6 +330,7 @@ export default function JobMapGoogle({
   workHistorySubLocations = [],
   showCareerPath = false,
   focusedWorkHistoryId = null,
+  hoveredWorkHistoryId = null,
   hideFocusedWorkHistoryMarker = false,
   concurrentWorkHistoryIds,
   onSelectWorkHistory,
@@ -329,6 +342,7 @@ export default function JobMapGoogle({
   onCursorMove,
   showWorkHistory = false,
   onToggleWorkHistory,
+  eventMarkers = [],
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
@@ -355,6 +369,7 @@ export default function JobMapGoogle({
   const officeCircleRef = useRef<google.maps.Circle | null>(null);
   const amenityMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
   const companyLocMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
+  const eventMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
   const amenityCircleRef = useRef<google.maps.Circle | null>(null);
   const isochronePolysRef = useRef<google.maps.Polygon[]>([]);
   const jobLookupRef = useRef<Map<google.maps.marker.AdvancedMarkerElement, MapJob>>(new Map());
@@ -824,7 +839,6 @@ export default function JobMapGoogle({
         buildCityMarkers();
         buildCountyMarkers();
 
-        // Rebuild on zoom change (show/hide labels + cities + counties based on zoom)
         taxZoneZoomListenerRef.current = map.addListener("zoom_changed", () => {
           buildStateLabels();
           buildCityMarkers();
@@ -832,40 +846,66 @@ export default function JobMapGoogle({
         });
       })();
     } else {
-      cancelled = true;
-      // Close any open tax info popup
-      info?.close();
-
-      // Remove state polygon features
-      for (const f of taxZoneFeaturesRef.current) {
-        try { map.data.remove(f); } catch { /* already removed */ }
-      }
+      for (const f of taxZoneFeaturesRef.current) map.data.remove(f);
       taxZoneFeaturesRef.current = [];
-
-      // Remove click listener
-      taxZoneListenerRef.current?.remove();
-      taxZoneListenerRef.current = null;
-
-      // Remove zoom listener
-      taxZoneZoomListenerRef.current?.remove();
-      taxZoneZoomListenerRef.current = null;
-
-      // Remove state labels
+      if (taxZoneListenerRef.current) {
+        google.maps.event.removeListener(taxZoneListenerRef.current);
+        taxZoneListenerRef.current = null;
+      }
+      if (taxZoneZoomListenerRef.current) {
+        google.maps.event.removeListener(taxZoneZoomListenerRef.current);
+        taxZoneZoomListenerRef.current = null;
+      }
       for (const m of taxZoneLabelsRef.current) m.map = null;
       taxZoneLabelsRef.current = [];
-
-      // Remove city markers
       for (const m of taxZoneCityMarkersRef.current) m.map = null;
       taxZoneCityMarkersRef.current = [];
-
-      // Remove county property tax markers
       for (const m of taxZoneCountyMarkersRef.current) m.map = null;
       taxZoneCountyMarkersRef.current = [];
-
-      // Reset data layer style
-      map.data.setStyle({});
     }
+
+    return () => { cancelled = true; };
   }, [showTaxZones, showStateTax, showCityTax, showCountyPropTax, ready]);
+
+  /* ── Event markers (career events with location) ── */
+  useEffect(() => {
+    eventMarkersRef.current.forEach((m) => (m.map = null));
+    eventMarkersRef.current = [];
+    if (!mapRef.current || eventMarkers.length === 0) return;
+    const map = mapRef.current;
+    eventMarkers.forEach((ev) => {
+      const el = document.createElement("div");
+      el.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:#d946ef;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.25);font-size:15px;line-height:1;cursor:pointer;transition:transform 0.15s;overflow:visible;" title="${escapeHtml(ev.title)} — ${ev.date}">📸</div>`;
+      el.addEventListener("mouseenter", () => {
+        const info = infoRef.current;
+        if (info && mapRef.current) {
+          let photoHtml = "";
+          if (ev.photos && ev.photos.length > 0) {
+            photoHtml = `<img src='${ev.photos[0]}' style='width:100%;max-width:180px;max-height:80px;object-fit:cover;margin-bottom:4px;border-radius:6px;' />`;
+          }
+          info.setContent(
+            `<div style='font-size:11px;max-width:210px;line-height:1.4;overflow:hidden;'>${photoHtml}<div style='font-weight:700;font-size:12px;color:#d946ef'>${escapeHtml(ev.title)}</div><div style='color:#6b7280;margin-top:1px'>${ev.date}</div><div style='color:#9ca3af;font-size:10px;margin-top:2px;'>${escapeHtml(ev.location)}</div></div>`
+          );
+          stripInfoWindowPadding();
+          info.open({ map: mapRef.current, anchor: marker });
+        }
+      });
+      el.addEventListener("mouseleave", () => {
+        infoRef.current?.close();
+      });
+      const marker = new google.maps.marker.AdvancedMarkerElement({
+        position: { lat: ev.lat, lng: ev.lng },
+        map,
+        content: el,
+        zIndex: 1200,
+      });
+      eventMarkersRef.current.push(marker);
+    });
+    return () => {
+      eventMarkersRef.current.forEach((m) => (m.map = null));
+      eventMarkersRef.current = [];
+    };
+  }, [eventMarkers, ready]);
 
   /* ── Heatmap layer ── */
   useEffect(() => {
@@ -1327,7 +1367,7 @@ export default function JobMapGoogle({
         : commuteMin === -1
         ? `<div style="color:#9ca3af;font-weight:500">🚗 Unreachable</div>`
         : "";
-      const infoContent = `<div style="font-size:11px;max-width:200px;line-height:1.4;padding:2px 0">
+      const infoContent = `<div style="font-size:11px;max-width:200px;line-height:1.4;padding:8px 10px 7px;box-sizing:border-box;">
         <div style="font-weight:700;font-size:12px;color:#111">${escapeHtml(job.title)}</div>
         <div style="color:#6b7280;margin-top:1px">${escapeHtml(job.company)}</div>
         ${salaryStr}${commuteStr}
@@ -1605,7 +1645,7 @@ export default function JobMapGoogle({
     el.addEventListener("mouseenter", () => {
       const info = infoRef.current;
       if (info && mapRef.current) {
-        info.setContent(`<div style="font-size:11px;max-width:200px;line-height:1.4;padding:2px 0">
+        info.setContent(`<div style="font-size:11px;max-width:200px;line-height:1.4;padding:8px 10px 7px;box-sizing:border-box;">
           <div style="font-weight:700;font-size:12px;color:#111">🏠 ${escapeHtml(residenceMarker.label)}</div>
           <div style="color:#6b7280;margin-top:1px">${escapeHtml(residenceMarker.address)}</div>
           <div style="color:#9ca3af;margin-top:2px;font-size:10px">Residence</div>
@@ -1683,6 +1723,41 @@ export default function JobMapGoogle({
     };
   }, [hideFocusedWorkHistoryMarker, focusedWorkHistoryId, workHistoryMarkers]);
 
+  /* ── Hover-row → pulse matching work-history marker ─────────────────────────
+   * When the user hovers a row in the side WorkHistoryPanel, the parent passes
+   * `hoveredWorkHistoryId` so we can pulse just that marker. We mutate the
+   * inner pin element's transform/filter directly (cheap, no re-render).
+   * Coexists with the concurrent-highlight effect by only touching markers it
+   * doesn't currently own, and by saving/restoring the prior inline styles. */
+  useEffect(() => {
+    if (!hoveredWorkHistoryId) return;
+    const el = whMarkerElementsRef.current.get(hoveredWorkHistoryId);
+    if (!el) return;
+    const inner = el.firstElementChild as HTMLElement | null;
+    if (!inner) return;
+    const prevTransform = inner.style.transform;
+    const prevFilter = inner.style.filter;
+    const prevAnimation = inner.style.animation;
+    const prevZ = el.style.zIndex;
+    inner.style.transform = "scale(1.25)";
+    inner.style.filter = "drop-shadow(0 0 8px rgba(99,102,241,0.85))";
+    inner.style.animation = "wh-row-hover-pulse 1.2s ease-in-out infinite";
+    el.style.zIndex = "2000";
+    // Inject keyframes once
+    if (typeof document !== "undefined" && !document.getElementById("wh-row-hover-pulse-style")) {
+      const style = document.createElement("style");
+      style.id = "wh-row-hover-pulse-style";
+      style.textContent = "@keyframes wh-row-hover-pulse{0%,100%{transform:scale(1.2)}50%{transform:scale(1.35)}}";
+      document.head.appendChild(style);
+    }
+    return () => {
+      inner.style.transform = prevTransform;
+      inner.style.filter = prevFilter;
+      inner.style.animation = prevAnimation;
+      el.style.zIndex = prevZ;
+    };
+  }, [hoveredWorkHistoryId]);
+
   /* ── Work History sub-location markers (smaller pins + dashed lines to parent) ── */
   useEffect(() => {
     subLocationMarkersRef.current.forEach((m) => (m.map = null));
@@ -1690,6 +1765,17 @@ export default function JobMapGoogle({
     subLocationLinesRef.current.forEach((l) => l.setMap(null));
     subLocationLinesRef.current = [];
     if (!mapRef.current || workHistorySubLocations.length === 0) return;
+    const map = mapRef.current;
+    const shouldShowSubLocationPins = () => (map.getZoom() ?? 0) > 14;
+    const applySubLocationVisibility = () => {
+      const visibleMap = shouldShowSubLocationPins() ? map : null;
+      subLocationMarkersRef.current.forEach((m) => {
+        if (m.map !== visibleMap) m.map = visibleMap;
+      });
+      subLocationLinesRef.current.forEach((l) => {
+        if (l.getMap() !== visibleMap) l.setMap(visibleMap);
+      });
+    };
 
     const typeEmoji: Record<string, string> = {
       "daily-workplace": "🏢",
@@ -1703,6 +1789,31 @@ export default function JobMapGoogle({
       const emoji = typeEmoji[loc.type] ?? "📍";
       const photos = loc.photos ?? [];
       const hasPhotos = photos.length > 0;
+
+      const line = new google.maps.Polyline({
+        path: [
+          { lat: loc.parentLat, lng: loc.parentLng },
+          { lat: loc.lat, lng: loc.lng },
+        ],
+        geodesic: true,
+        strokeColor: "#9ca3af",
+        strokeOpacity: 0,
+        strokeWeight: 2,
+        icons: [{
+          icon: {
+            path: "M 0,-1 0,1",
+            strokeOpacity: 0.85,
+            strokeWeight: 2,
+            scale: 1,
+          },
+          offset: "0",
+          repeat: "10px",
+        }],
+        map: shouldShowSubLocationPins() ? map : null,
+        zIndex: 1720,
+      });
+      subLocationLinesRef.current.push(line);
+
       const el = document.createElement("div");
       el.style.overflow = "visible";
       if (hasPhotos) {
@@ -1726,7 +1837,7 @@ export default function JobMapGoogle({
 
       const marker = new google.maps.marker.AdvancedMarkerElement({
         position: { lat: loc.lat, lng: loc.lng },
-        map: mapRef.current,
+        map: shouldShowSubLocationPins() ? map : null,
         content: el,
         zIndex: 1750,
       });
@@ -1737,7 +1848,7 @@ export default function JobMapGoogle({
         ? `<div style="display:flex;gap:3px;margin-top:4px;flex-wrap:wrap">${photos.map((p) => `<img src="${escapeHtml(p)}" style="width:40px;height:40px;border-radius:4px;object-fit:cover;border:1px solid #e5e7eb" />`).join("")}</div>
            <div style="color:#f59e0b;margin-top:2px;font-size:9px">📷 ${photos.length}/5 photos</div>`
         : "";
-      const infoContent = `<div style="font-size:11px;max-width:220px;line-height:1.4;padding:2px 0">
+      const infoContent = `<div style="font-size:11px;max-width:220px;line-height:1.4;padding:8px 10px 7px;box-sizing:border-box;">
         <div style="font-weight:700;font-size:12px;color:#111">${emoji} ${escapeHtml(loc.label)}</div>
         <div style="color:#6b7280;margin-top:1px">${typeLabel}</div>
         <div style="display:flex;align-items:center;gap:4px;margin-top:2px">
@@ -1775,6 +1886,17 @@ export default function JobMapGoogle({
 
       subLocationMarkersRef.current.push(marker);
     });
+
+    const zoomListener = map.addListener("zoom_changed", applySubLocationVisibility);
+    applySubLocationVisibility();
+
+    return () => {
+      zoomListener.remove();
+      subLocationMarkersRef.current.forEach((m) => (m.map = null));
+      subLocationMarkersRef.current = [];
+      subLocationLinesRef.current.forEach((l) => l.setMap(null));
+      subLocationLinesRef.current = [];
+    };
   }, [workHistorySubLocations, ready]);
 
   /* ── Office location markers ── */
@@ -1896,7 +2018,7 @@ export default function JobMapGoogle({
 
       marker.addListener("gmp-click", () => {
         if (infoRef.current && mapRef.current) {
-          infoRef.current.setContent(`<div style="max-width:200px"><strong style="font-size:12px">${loc.name}</strong><p style="font-size:11px;color:#666;margin:2px 0 0">${loc.address}</p></div>`);
+          infoRef.current.setContent(`<div style="max-width:200px;padding:8px 10px 7px;box-sizing:border-box;"><strong style="font-size:12px">${loc.name}</strong><p style="font-size:11px;color:#666;margin:2px 0 0">${loc.address}</p></div>`);
           infoRef.current.open({ map: mapRef.current, anchor: marker });
         }
       });
@@ -2000,7 +2122,8 @@ export default function JobMapGoogle({
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth="2"><path d="M5 12h14" /></svg>
           </button>
         </div>
-        {/* Mode toggle: Work History ↔ Job Search */}
+        {/* Mode toggle: Work History ↔ Job Search — hidden when mode is locked */}
+        {onToggleWorkHistory && (
         <div className="rounded-lg overflow-hidden shadow-md border border-gray-300">
           <button
             onClick={onToggleWorkHistory}
@@ -2023,6 +2146,7 @@ export default function JobMapGoogle({
             )}
           </button>
         </div>
+        )}
         <div className="rounded-lg overflow-hidden shadow-md border border-gray-300">
           <button
             onClick={handleLocate}

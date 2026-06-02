@@ -2,8 +2,10 @@
 
 import { useState, useMemo, useCallback, useEffect, useRef, Fragment } from "react";
 import { createPortal } from "react-dom";
+import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { PlacesAutocomplete } from "@/components/places-autocomplete";
+import { SIDEBAR_CARD_CHROME } from "@/components/immersive-layout";
 import type { DrawingSettings, DrawingCanvasHandle, SerializedDrawing } from "@/components/map-drawing-canvas";
 import {
   Search,
@@ -88,10 +90,8 @@ import {
   Paperclip,
   Wrench,
   Boxes,
-  GripVertical,
   Brain,
   Maximize2,
-  Minus,
   LayoutGrid,
   FolderOpen,
   Info,
@@ -104,7 +104,11 @@ import {
 import { toast } from "sonner";
 import { GalleryModal } from "@/components/gallery-modal";
 import type { GalleryPhoto as GalleryPhotoType } from "@/components/gallery-modal";
+import { EmbeddedMasterFolders } from "@/components/master-gallery/embedded-master-folders";
+import { EmbeddedPositionGallery } from "@/components/master-gallery/embedded-position-gallery";
 import { PersonalInventory } from "@/components/personal-inventory";
+import IrPopoutSheet from "@/components/ir-popout-sheet";
+import IrAnchoredPopover from "@/components/ir-anchored-popover";
 import { BioCardEditor } from "@/components/bio-card-editor";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -139,6 +143,19 @@ import {
 import dynamic from "next/dynamic";
 import { CompanyDeepDive, type DeepDiveJob } from "@/components/company-deep-dive";
 import { UniformBodyMap, UniformMapPopup, type UniformData } from "@/components/uniform-body-map";
+import { WorklogPage } from "@/components/worklog/worklog-page";
+import AnalyticsPage from "@/app/(app)/analytics/page";
+import { ViewPresetSwitcher } from "@/components/job-map/view-preset-switcher";
+import {
+  loadViewPreset,
+  saveViewPreset,
+  loadPresetTweaks,
+  savePresetTweaks,
+  resetAllPresets,
+  PRESET_DEFAULT_RATIO,
+  type ViewPreset,
+  type PresetTweaks,
+} from "@/components/job-map/view-preset";
 
 /* ── Types ── */
 interface MapJob {
@@ -511,29 +528,10 @@ const JOB_INTENT_KEY = "resumsify:job-intent-states";
 const PANEL_GALLERY_VIEW_KEY = "resumsify:panel-gallery-view";
 const WORK_HISTORY_PANEL_PREFS_KEY = "resumsify:work-history-panel-prefs";
 const WORK_HISTORY_OVERLAPS_KEY = "resumsify:work-history-overlaps";
+const WORK_HISTORY_CAREER_PATH_KEY = "resumsify:work-history-career-path";
 const WORK_HISTORY_KPI_SLOTS_KEY = "resumsify:work-history-kpi-slots";
 const KPI_MAX_SLOTS = 8;
 const DEFAULT_KPI_SLOTS = ["tenure", "roles", "miles", "cities", "rtg", "rtn"];
-
-const INVENTORY_PANEL_KEY = "resumsify:inventory-panel-v1";
-type InventoryPanelState = { x: number; y: number; w: number; h: number; minimized: boolean };
-const INVENTORY_PANEL_DEFAULTS: InventoryPanelState = { x: 80, y: 80, w: 720, h: 560, minimized: false };
-const INVENTORY_PANEL_MIN = { w: 360, h: 240 };
-function loadInventoryPanel(): InventoryPanelState {
-  if (typeof window === "undefined") return { ...INVENTORY_PANEL_DEFAULTS };
-  try {
-    const raw = JSON.parse(localStorage.getItem(INVENTORY_PANEL_KEY) || "null");
-    if (!raw || typeof raw !== "object") return { ...INVENTORY_PANEL_DEFAULTS };
-    const n = (v: unknown, d: number) => (typeof v === "number" && Number.isFinite(v) ? v : d);
-    return {
-      x: Math.max(0, n(raw.x, INVENTORY_PANEL_DEFAULTS.x)),
-      y: Math.max(0, n(raw.y, INVENTORY_PANEL_DEFAULTS.y)),
-      w: Math.max(INVENTORY_PANEL_MIN.w, n(raw.w, INVENTORY_PANEL_DEFAULTS.w)),
-      h: Math.max(INVENTORY_PANEL_MIN.h, n(raw.h, INVENTORY_PANEL_DEFAULTS.h)),
-      minimized: !!raw.minimized,
-    };
-  } catch { return { ...INVENTORY_PANEL_DEFAULTS }; }
-}
 
 type JobIntent = "interested" | "applied" | "interviewing" | "waiting" | "rejected" | "not-fit";
 
@@ -566,7 +564,7 @@ function loadJobIntentStates(): Record<string, JobIntent> {
   } catch { return {}; }
 }
 
-function loadWorkHistoryPanelPrefs(): { tab?: "list" | "timeline" | "compare"; lastMainTab?: "list" | "timeline"; showTimeFilterPanel?: boolean } {
+function loadWorkHistoryPanelPrefs(): { tab?: "list" | "timeline" | "compare"; lastMainTab?: "list" | "timeline"; showTimeFilterPanel?: boolean; showPay?: boolean; useTimelineStyle?: boolean } {
   if (typeof window === "undefined") return {};
   try {
     return JSON.parse(localStorage.getItem(WORK_HISTORY_PANEL_PREFS_KEY) || "{}");
@@ -628,7 +626,7 @@ function saveJobPref<K extends keyof JobSearchPrefs>(key: K, value: JobSearchPre
 }
 
 /* ── Component ── */
-export function JobMap() {
+export function JobMap({ initialMode = "job-search", lockedMode = false }: { initialMode?: "work-history" | "job-search"; lockedMode?: boolean } = {}) {
   // Load saved preferences once on mount
   const [savedPrefs] = useState(() => loadJobPrefs());
   const queryClient = useQueryClient();
@@ -666,6 +664,77 @@ export function JobMap() {
   const [showDetails, setShowDetails] = useState(false);
   const [viewMode, setViewMode] = useState<"map" | "list">(() => (savedPrefs.viewMode as "map" | "list") || "map");
   const [expandedDescs, setExpandedDescs] = useState<Set<string>>(new Set());
+  /* Work Mapping resizable split */
+  const [workMapHeightRatio, setWorkMapHeightRatio] = useState(() => {
+    try { return parseFloat(localStorage.getItem("work-map:height-ratio") ?? "0.65"); } catch { return 0.65; }
+  });
+  const [workMapCardsCollapsed, setWorkMapCardsCollapsed] = useState(false);
+  /* View preset for the under-map frame (map | worklog | analytics).
+     Switching presets auto-flips the bottom-frame ratio to that preset's last
+     tweak (or its default), giving embedded surfaces room to breathe. */
+  const [viewPreset, setViewPresetState] = useState<ViewPreset>("map");
+  const presetTweaksRef = useRef<Record<ViewPreset, PresetTweaks>>({
+    map: {}, worklog: {}, analytics: {},
+  });
+  // Hydrate viewPreset + per-preset tweaks once on mount, applying the
+  // restored ratio for whatever preset the user left us on.
+  useEffect(() => {
+    const tweaks = loadPresetTweaks();
+    presetTweaksRef.current = tweaks;
+    const preset = loadViewPreset();
+    setViewPresetState(preset);
+    const ratio = tweaks[preset]?.ratio ?? PRESET_DEFAULT_RATIO[preset];
+    setWorkMapHeightRatio(ratio);
+    if (typeof tweaks[preset]?.collapsed === "boolean") {
+      setWorkMapCardsCollapsed(tweaks[preset]!.collapsed!);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const setViewPreset = useCallback((next: ViewPreset) => {
+    setViewPresetState((prev) => {
+      if (prev === next) return prev;
+      // Persist the current preset's tweaks before switching.
+      const t = { ...presetTweaksRef.current };
+      t[prev] = {
+        ...t[prev],
+        ratio: workMapHeightRatio,
+        collapsed: workMapCardsCollapsed,
+      };
+      presetTweaksRef.current = t;
+      savePresetTweaks(t);
+      saveViewPreset(next);
+      // Apply incoming preset's tweaks (or its default ratio).
+      const nextRatio = t[next]?.ratio ?? PRESET_DEFAULT_RATIO[next];
+      setWorkMapHeightRatio(nextRatio);
+      if (typeof t[next]?.collapsed === "boolean") {
+        setWorkMapCardsCollapsed(t[next]!.collapsed!);
+      }
+      try { localStorage.setItem("work-map:height-ratio", nextRatio.toString()); } catch {}
+      return next;
+    });
+  }, [workMapHeightRatio, workMapCardsCollapsed]);
+  const handleResetAllPresets = useCallback(() => {
+    if (typeof window !== "undefined") {
+      const ok = window.confirm(
+        "Reset all view-preset tweaks? This clears per-preset layout and collapsed states.",
+      );
+      if (!ok) return;
+    }
+    resetAllPresets();
+    presetTweaksRef.current = { map: {}, worklog: {}, analytics: {} };
+    setViewPresetState("map");
+    setWorkMapHeightRatio(PRESET_DEFAULT_RATIO.map);
+    setWorkMapCardsCollapsed(false);
+    try { localStorage.setItem("work-map:height-ratio", PRESET_DEFAULT_RATIO.map.toString()); } catch {}
+  }, []);
+  /* Work Mapping aside host — when set, WorkHistoryPanel portals its bio card + work-history list into this element so the map sits to the right of the aside (matches IR layout). Using state-as-ref so the initial mount triggers a re-render once the host is attached. */
+  const [workMapAsideHost, setWorkMapAsideHost] = useState<HTMLDivElement | null>(null);
+  /* Bottom gallery host — when set, WorkHistoryPanel portals the gallery toggle button into this action-bar slot. State-as-ref pattern (same as workMapAsideHost). */
+  const [bottomGalleryHost, setBottomGalleryHost] = useState<HTMLDivElement | null>(null);
+  /* Map gallery host — absolutely-positioned overlay inside the map container; WorkHistoryPanel portals the gallery slide-in panel here. */
+  const [mapGalleryHost, setMapGalleryHost] = useState<HTMLDivElement | null>(null);
+  /* Bottom side-panel host — when set, WorkHistoryPanel portals the attachments / skills / equipment toggle + content into this action-bar slot. */
+  const [bottomSidePanelHost, setBottomSidePanelHost] = useState<HTMLDivElement | null>(null);
   /* Map overlays */
   const [showHeatmap, setShowHeatmap] = useState(() => savedPrefs.showHeatmap ?? false);
 
@@ -675,7 +744,12 @@ export function JobMap() {
   const [showStateTax, setShowStateTax] = useState(() => savedPrefs.showStateTax ?? true);
   const [showCityTax, setShowCityTax] = useState(() => savedPrefs.showCityTax ?? true);
   const [showCountyPropTax, setShowCountyPropTax] = useState(() => savedPrefs.showCountyPropTax ?? true);
-  const [tileStyle, setTileStyle] = useState<"osm" | "google-roadmap" | "google-satellite" | "google-hybrid">(() => (savedPrefs.tileStyle as "osm" | "google-roadmap" | "google-satellite" | "google-hybrid") || "osm");
+  const [tileStyle, setTileStyle] = useState<"google-roadmap" | "google-satellite" | "google-hybrid">(() => {
+    const saved = savedPrefs.tileStyle;
+    if (saved === "google-satellite") return "google-satellite";
+    if (saved === "google-hybrid") return "google-hybrid";
+    return "google-roadmap";
+  });
 
   /* ── Drawing mode ── */
   const [drawingActive, setDrawingActive] = useState(false);
@@ -754,6 +828,66 @@ export function JobMap() {
   useEffect(() => { saveJobPref("showCityTax", showCityTax); }, [showCityTax]);
   useEffect(() => { saveJobPref("showCountyPropTax", showCountyPropTax); }, [showCountyPropTax]);
   useEffect(() => { saveJobPref("commuteMode", commuteMode); }, [commuteMode]);
+
+  /* ── Work Mapping split resize handlers ── */
+  const handleWorkMapSplitMouseDown = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    const startClientY = event.clientY;
+    const containerRef = document.querySelector('.work-map-container') as HTMLElement | null;
+    if (!containerRef) return;
+    const startHeight = containerRef.clientHeight;
+    const container = containerRef.parentElement;
+    if (!container) return;
+    const totalHeight = container.clientHeight;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const deltaY = e.clientY - startClientY;
+      const newHeight = Math.max(300, Math.min(totalHeight - 100, startHeight + deltaY));
+      const newRatio = newHeight / totalHeight;
+      setWorkMapHeightRatio(Math.max(0.3, Math.min(0.9, newRatio)));
+    };
+
+    const handleMouseUp = () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      try { localStorage.setItem('work-map:height-ratio', workMapHeightRatio.toString()); } catch {}
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  }, [workMapHeightRatio]);
+
+  const handleWorkMapSplitTouchStart = useCallback((event: React.TouchEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    const touch = event.touches[0];
+    if (!touch) return;
+    const startClientY = touch.clientY;
+    const containerRef = document.querySelector('.work-map-container') as HTMLElement | null;
+    if (!containerRef) return;
+    const startHeight = containerRef.clientHeight;
+    const container = containerRef.parentElement;
+    if (!container) return;
+    const totalHeight = container.clientHeight;
+
+    const handleTouchMove = (e: TouchEvent) => {
+      e.preventDefault();
+      const touch = e.touches[0];
+      if (!touch) return;
+      const deltaY = touch.clientY - startClientY;
+      const newHeight = Math.max(300, Math.min(totalHeight - 100, startHeight + deltaY));
+      const newRatio = newHeight / totalHeight;
+      setWorkMapHeightRatio(Math.max(0.3, Math.min(0.9, newRatio)));
+    };
+
+    const handleTouchEnd = () => {
+      document.removeEventListener('touchmove', handleTouchMove);
+      document.removeEventListener('touchend', handleTouchEnd);
+      try { localStorage.setItem('work-map:height-ratio', workMapHeightRatio.toString()); } catch {}
+    };
+
+    document.addEventListener('touchmove', handleTouchMove, { passive: false });
+    document.addEventListener('touchend', handleTouchEnd);
+  }, [workMapHeightRatio]);
 
   /* ── Drawing: map ready → store ref + observe container size ── */
   const handleMapReady = useCallback((map: google.maps.Map) => {
@@ -1121,10 +1255,15 @@ export function JobMap() {
 
   /* ── Time Filter (year-month slider) ── */
   const [timeFilter, setTimeFilter] = useState<string | null>(null); // e.g. "2022-06" or null for "all time"
-  const [showWorkHistory, setShowWorkHistory] = useState(false);
-  const [showWorkHistoryPanel, setShowWorkHistoryPanel] = useState(false);
-  const [showCareerPath, setShowCareerPath] = useState(false);
+  const [showWorkHistory, setShowWorkHistory] = useState(() => initialMode === "work-history");
+  const [showWorkHistoryPanel, setShowWorkHistoryPanel] = useState(() => initialMode === "work-history");
+  const [showCareerPath, setShowCareerPath] = useState(() => {
+    if (typeof window === "undefined") return false;
+    try { return localStorage.getItem(WORK_HISTORY_CAREER_PATH_KEY) === "1"; } catch { return false; }
+  });
   const [showOverlaps, setShowOverlaps] = useState(() => loadWorkHistoryOverlapsDefault());
+  // Events from the focused work history item (lifted from WorkHistoryPanel via onEventsChange)
+  const [mappableEvents, setMappableEvents] = useState<{ id: string; title: string; startDate: string | null; location: string | null; lat?: number | null; lng?: number | null; photos?: { filePath: string }[] }[]>([]);
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
@@ -1133,8 +1272,12 @@ export function JobMap() {
       // ignore quota/permission issues
     }
   }, [showOverlaps]);
+  useEffect(() => {
+    try { localStorage.setItem(WORK_HISTORY_CAREER_PATH_KEY, showCareerPath ? "1" : "0"); } catch {}
+  }, [showCareerPath]);
   const [showSweetSpot, setShowSweetSpot] = useState(true);
   const [focusedWorkHistoryId, setFocusedWorkHistoryId] = useState<string | null>(null);
+  const [hoveredWorkHistoryId, setHoveredWorkHistoryId] = useState<string | null>(null);
   const [outlineEditorOpen, setOutlineEditorOpen] = useState(false);
   const preWorkHistoryZoomRef = useRef<{ lat: number; lng: number; zoom: number } | null>(null);
   const [pinDropMode, setPinDropMode] = useState(false);
@@ -4200,123 +4343,144 @@ export function JobMap() {
       <div
         className={
           showWorkHistory
-            ? "fixed inset-0 z-[60] flex gap-0 bg-background"
+            ? "fixed inset-0 z-[60] flex bg-background"
             : "flex gap-3 h-[calc(100vh-220px)] min-h-[500px]"
         }
       >
+        {/* Work Mapping aside host — receives the bio card + work-history list via portal so the map sits to the right of the aside (matches IR layout) */}
+        {showWorkHistory && (
+          <aside
+            ref={setWorkMapAsideHost}
+            className="order-1 w-[min(26rem,calc(100vw-24px))] lg:w-[28rem] xl:w-[32rem] shrink-0 border-r border-white/10 bg-background/70 backdrop-blur-md overflow-y-auto p-3 flex flex-col gap-2.5"
+          />
+        )}
+        {/* Center column wrapper. `display: contents` in non-Work-Mapping mode keeps the existing flex-row layout (map + sidebar as siblings of outer). */}
+        <div className={showWorkHistory ? "order-2 flex-1 flex flex-col min-w-0" : "contents"}>
         {/* Map */}
         <div
           ref={mapContainerRef}
-          className={
-            showWorkHistory
-              ? "flex-1 overflow-hidden bg-muted relative"
-              : "flex-1 rounded-xl overflow-hidden border bg-muted relative"
-          }
+          className={showWorkHistory ? "work-map-container flex-1 overflow-hidden bg-muted relative rounded-2xl m-2 mb-0 border" : "jobmap-map-container flex-1 overflow-hidden bg-muted relative"}
+          style={showWorkHistory ? { height: `${Math.round(workMapHeightRatio * 100)}%` } : undefined}
         >
+          {/* Pass event markers to the map */}
           <LeafletMap
-              jobs={sortedJobs}
-              center={
-                sortedJobs.length > 0
-                  ? [sortedJobs[0].lat, sortedJobs[0].lng] as [number, number]
-                  : DEFAULT_CENTER
-              }
-              selectedId={selectedJob?.id ?? null}
-              onSelect={(job: MapJob) => { setSelectedJob(job); setShowDetails(false); }}
-              meanSalary={meanSalary}
-              searchCenter={searchCenter}
-              radiusMiles={Number(radius)}
-              onSearchArea={handleSearchArea}
-              onViewChange={handleViewChange}
-              routeGeometry={commuteInfo?.geometry ?? null}
-              transitSteps={commuteInfo?.transitSteps}
-              anchorRoutes={showAnchors ? anchorRoutesForMap : []}
-              anchorMarkers={showAnchors ? anchorMarkersForMap : []}
-              showHeatmap={showHeatmap}
-              showTraffic={showTraffic}
-              showTransit={showTransit}
-              showTaxZones={showTaxZones}
-              showStateTax={showStateTax}
-              showCityTax={showCityTax}
-              showCountyPropTax={showCountyPropTax}
-              tileStyle={tileStyle}
-              resolvedCoords={effectiveJobCoords}
-              highlightedIds={pagedJobs.map((j) => j.id)}
-              sweetSpot={showAnchors && showSweetSpot ? sweetSpot : null}
-              officeLocations={resolvedAddress?.allLocations}
-              onSelectOffice={(office) => {
-                setResolvedAddress((prev) => prev ? {
-                  ...prev,
-                  address: office.address,
-                  lat: office.lat,
-                  lng: office.lng,
-                  name: office.name,
-                  confidence: "high",
-                } : null);
-                toast.success(`Selected: ${office.name || office.address}`);
-              }}
-              enabledAnchorIds={enabledAnchors}
-              onToggleAnchor={(anchorId) => setEnabledAnchors((prev) => {
-                const next = new Set(prev);
-                next.has(anchorId) ? next.delete(anchorId) : next.add(anchorId);
-                return next;
-              })}
-              dimmedIds={dimmedIds}
-              workHistoryMarkers={workHistoryMarkersForMap}
-              workHistorySubLocations={workHistorySubLocationsForMap}
-              showCareerPath={showCareerPath}
-              focusedWorkHistoryId={focusedWorkHistoryId}
-              hideFocusedWorkHistoryMarker={hideFocusedWorkHistoryMarker}
-              concurrentWorkHistoryIds={showOverlaps ? concurrentWorkHistoryIds : undefined}
-              residenceMarker={residenceMarkerForMap}
-              pinDropMode={pinDropMode}
-              companyLocationMarkers={companyLocs}
-              showWorkHistory={showWorkHistory}
-              onToggleWorkHistory={() => {
-                if (showWorkHistory && !showWorkHistoryPanel) {
-                  setShowWorkHistoryPanel(true);
-                } else if (showWorkHistory && showWorkHistoryPanel) {
-                  setShowWorkHistory(false);
-                  setShowWorkHistoryPanel(false);
-                } else {
-                  setShowWorkHistory(true);
-                  setShowWorkHistoryPanel(true);
-                }
-              }}
-              onMapClick={(coords) => {
-                setPinDropCoords(coords);
-                setPinDropMode(false);
-              }}
-              onSelectWorkHistory={(marker) => {
-                // Remember current map position for snap-back
-                if (searchCenter) {
-                  preWorkHistoryZoomRef.current = { lat: searchCenter[0], lng: searchCenter[1], zoom: 11 };
-                }
-                // Determine the work history entry id
-                const whId = "parentId" in marker ? marker.parentId : marker.id;
-                setFocusedWorkHistoryId(whId);
+            jobs={sortedJobs}
+            center={
+              sortedJobs.length > 0
+                ? [sortedJobs[0].lat, sortedJobs[0].lng] as [number, number]
+                : DEFAULT_CENTER
+            }
+            selectedId={selectedJob?.id ?? null}
+            onSelect={(job: MapJob) => { setSelectedJob(job); setShowDetails(false); }}
+            meanSalary={meanSalary}
+            searchCenter={searchCenter}
+            radiusMiles={Number(radius)}
+            onSearchArea={handleSearchArea}
+            onViewChange={handleViewChange}
+            routeGeometry={commuteInfo?.geometry ?? null}
+            transitSteps={commuteInfo?.transitSteps}
+            anchorRoutes={showAnchors ? anchorRoutesForMap : []}
+            anchorMarkers={showAnchors ? anchorMarkersForMap : []}
+            showHeatmap={showHeatmap}
+            showTraffic={showTraffic}
+            showTransit={showTransit}
+            showTaxZones={showTaxZones}
+            showStateTax={showStateTax}
+            showCityTax={showCityTax}
+            showCountyPropTax={showCountyPropTax}
+            tileStyle={tileStyle}
+            resolvedCoords={effectiveJobCoords}
+            highlightedIds={pagedJobs.map((j) => j.id)}
+            sweetSpot={showAnchors && showSweetSpot ? sweetSpot : null}
+            officeLocations={resolvedAddress?.allLocations}
+            onSelectOffice={(office) => {
+              setResolvedAddress((prev) => prev ? {
+                ...prev,
+                address: office.address,
+                lat: office.lat,
+                lng: office.lng,
+                name: office.name,
+                confidence: "high",
+              } : null);
+              toast.success(`Selected: ${office.name || office.address}`);
+            }}
+            enabledAnchorIds={enabledAnchors}
+            onToggleAnchor={(anchorId) => setEnabledAnchors((prev) => {
+              const next = new Set(prev);
+              next.has(anchorId) ? next.delete(anchorId) : next.add(anchorId);
+              return next;
+            })}
+            dimmedIds={dimmedIds}
+            workHistoryMarkers={workHistoryMarkersForMap}
+            workHistorySubLocations={workHistorySubLocationsForMap}
+            showCareerPath={showCareerPath}
+            focusedWorkHistoryId={focusedWorkHistoryId}
+            hoveredWorkHistoryId={hoveredWorkHistoryId}
+            hideFocusedWorkHistoryMarker={hideFocusedWorkHistoryMarker}
+            concurrentWorkHistoryIds={showOverlaps ? concurrentWorkHistoryIds : undefined}
+            residenceMarker={residenceMarkerForMap}
+            pinDropMode={pinDropMode}
+            companyLocationMarkers={companyLocs}
+            showWorkHistory={showWorkHistory}
+            onToggleWorkHistory={lockedMode ? undefined : () => {
+              if (showWorkHistory && !showWorkHistoryPanel) {
                 setShowWorkHistoryPanel(true);
+              } else if (showWorkHistory && showWorkHistoryPanel) {
+                setShowWorkHistory(false);
+                setShowWorkHistoryPanel(false);
+              } else {
                 setShowWorkHistory(true);
-                // Zoom handled by the map component itself
-              }}
-              onClusterHover={(jobs, position) => {
-                if (clusterHoverTimer.current) clearTimeout(clusterHoverTimer.current);
-                setClusterPreview({ jobs, position });
-              }}
-              onClusterHoverEnd={() => {
-                clusterHoverTimer.current = setTimeout(() => setClusterPreview(null), 300);
-              }}
-              isochroneRings={isochroneEnabled ? mergedIsochroneRings : null}
-              commuteTimesMap={isochroneEnabled ? commuteTimesMap : null}
-              amenityPins={amenityPinsForMap}
-              amenityRadius={amenityRadiusForMap}
-              zoomTarget={zoomTarget}
-              amenityCategories={AMENITY_CATEGORIES}
-              activeAmenities={activeAmenities}
-              amenityLoading={amenityLoading}
-              onToggleAmenity={toggleAmenityCategory}
-              onMapReady={handleMapReady}
-              onCursorMove={setCursorCoords}
-            />
+                setShowWorkHistoryPanel(true);
+              }
+            }}
+            onMapClick={(coords) => {
+              setPinDropCoords(coords);
+              setPinDropMode(false);
+            }}
+            onSelectWorkHistory={(marker) => {
+              // Remember current map position for snap-back
+              if (searchCenter) {
+                preWorkHistoryZoomRef.current = { lat: searchCenter[0], lng: searchCenter[1], zoom: 11 };
+              }
+              // Determine the work history entry id
+              const whId = "parentId" in marker ? marker.parentId : marker.id;
+              setFocusedWorkHistoryId(whId);
+              setShowWorkHistoryPanel(true);
+              setShowWorkHistory(true);
+              // Zoom handled by the map component itself
+            }}
+            onClusterHover={(jobs, position) => {
+              if (clusterHoverTimer.current) clearTimeout(clusterHoverTimer.current);
+              setClusterPreview({ jobs, position });
+            }}
+            onClusterHoverEnd={() => {
+              clusterHoverTimer.current = setTimeout(() => setClusterPreview(null), 300);
+            }}
+            isochroneRings={isochroneEnabled ? mergedIsochroneRings : null}
+            commuteTimesMap={isochroneEnabled ? commuteTimesMap : null}
+            amenityPins={amenityPinsForMap}
+            amenityRadius={amenityRadiusForMap}
+            zoomTarget={zoomTarget}
+            amenityCategories={AMENITY_CATEGORIES}
+            activeAmenities={activeAmenities}
+            amenityLoading={amenityLoading}
+            onToggleAmenity={toggleAmenityCategory}
+            onMapReady={handleMapReady}
+            onCursorMove={setCursorCoords}
+            eventMarkers={useMemo(() => {
+              return mappableEvents
+                .filter((e) => typeof e.lat === "number" && typeof e.lng === "number" && !isNaN(e.lat!) && !isNaN(e.lng!))
+                .map((e) => ({
+                  id: e.id,
+                  title: e.title,
+                  date: e.startDate ?? "",
+                  location: e.location ?? "",
+                  lat: e.lat!,
+                  lng: e.lng!,
+                  photos: e.photos?.map((p) => p.filePath),
+                }));
+            }, [mappableEvents])}
+          />
 
           {/* ── Drawing canvas overlay (always mounted when there are drawings) ── */}
           {(drawingActive || (scopeFilteredDrawings && scopeFilteredDrawings.length > 0)) && (
@@ -4358,6 +4522,9 @@ export function JobMap() {
               />
           )}
 
+          {/* ── Gallery slide-in overlay host (right side of map, clipped by overflow-hidden) ── */}
+          <div ref={setMapGalleryHost} className="absolute inset-0 pointer-events-none overflow-hidden z-[1300]" />
+
           {/* ── Dev info overlay (bottom-left) ── */}
           <div className="absolute bottom-2 left-2 z-[1050] bg-black/70 text-green-400 font-mono text-[10px] leading-tight rounded px-2 py-1.5 pointer-events-none select-none max-w-[260px]">
             <div>Zoom: {mapZoom}</div>
@@ -4372,8 +4539,8 @@ export function JobMap() {
             )}
           </div>
 
-          {/* ── Map layer controls (bottom-right, above zoom) ── */}
-          <div className="absolute bottom-6 right-[60px] z-[1050] flex flex-row gap-2 pointer-events-auto">
+          {/* ── Map layer controls (bottom-right, same plane as zoom buttons) ── */}
+          <div className="absolute bottom-6 right-[60px] z-[1000] flex flex-row gap-2 pointer-events-auto">
             <div className="rounded-lg overflow-hidden shadow-md border border-gray-300 flex flex-row">
               <button
                 type="button"
@@ -4434,7 +4601,7 @@ export function JobMap() {
               </Popover>
               <Popover>
                 <PopoverTrigger
-                  title="Commute zone"
+                  title="Commute Zone"
                   className={`flex items-center justify-center w-10 h-10 border-r border-gray-200 cursor-pointer transition-colors ${isochroneEnabled ? "bg-blue-50" : "bg-white hover:bg-gray-50"}`}
                 >
                   {isochroneLoading
@@ -4489,7 +4656,7 @@ export function JobMap() {
                                         style={{ backgroundColor: `hsl(${h}, 75%, 45%)`, opacity: 0.8 }}
                                       />
                                       <span className="text-[10px]">
-                                        {i === 0 ? `0 – ${ring.minutes}` : `${arr[i - 1].minutes} – ${ring.minutes}`} min
+                                        {i === 0 ? `0 - ${ring.minutes}` : `${arr[i - 1].minutes} - ${ring.minutes}`} min
                                       </span>
                                     </div>
                                   );
@@ -4512,8 +4679,7 @@ export function JobMap() {
                 <PopoverContent className="w-40 p-2" align="end" side="left">
                   <div className="space-y-0.5">
                     {([
-                      { value: "osm", label: "OSM" },
-                      { value: "google-roadmap", label: "Google Road" },
+                      { value: "google-roadmap", label: "Roadmap" },
                       { value: "google-satellite", label: "Satellite" },
                       { value: "google-hybrid", label: "Hybrid" },
                     ] as const).map((opt) => (
@@ -4580,44 +4746,6 @@ export function JobMap() {
             </div>
           )}
 
-          {/* ── Floating Life Anchors panel on map ── */}
-          {showAnchorsPanel && (
-            <div className="absolute top-3 left-3 z-[1100] bg-background/95 backdrop-blur-md border rounded-xl shadow-xl p-3 w-80 max-h-[50vh] overflow-y-auto scrollbar-thin pointer-events-auto">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-semibold flex items-center gap-1.5">
-                  <Anchor className="h-4 w-4 text-violet-500" /> Life Anchors
-                </span>
-                <button type="button" className="text-muted-foreground hover:text-foreground" onClick={() => setShowAnchorsPanel(false)}>
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-              {/* Sweet Spot toggle */}
-              <label className="flex items-center justify-between gap-2 mb-2 px-0.5">
-                <span className="text-xs text-muted-foreground">Show Sweet Spot radius</span>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={showSweetSpot}
-                  onClick={() => setShowSweetSpot((p) => !p)}
-                  className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${showSweetSpot ? 'bg-violet-500' : 'bg-muted'}`}
-                >
-                  <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm transform transition-transform ${showSweetSpot ? 'translate-x-4' : 'translate-x-0'}`} />
-                </button>
-              </label>
-              <LifeAnchorsPanel
-                compact
-                defaultAddress={where}
-                onAnchorsChange={() => queryClient.invalidateQueries({ queryKey: ["life-anchors"] })}
-                enabledAnchorIds={enabledAnchors}
-                onToggleAnchor={(id) => setEnabledAnchors((prev) => {
-                  const next = new Set(prev);
-                  next.has(id) ? next.delete(id) : next.add(id);
-                  return next;
-                })}
-              />
-            </div>
-          )}
-
           {/* ── Floating Work History panel on map ── */}
           {showWorkHistoryPanel && (
             <WorkHistoryPanel
@@ -4673,7 +4801,13 @@ export function JobMap() {
                 setFocusedWorkHistoryId(item.id);
                 setZoomTarget({ lat: item.lat, lng: item.lng, zoom: 17 });
               }}
+              onHoverJob={setHoveredWorkHistoryId}
               mapContainer={mapContainerRef.current}
+              asideHost={workMapAsideHost}
+              bottomGalleryHost={bottomGalleryHost}
+              mapGalleryHost={mapGalleryHost}
+              bottomSidePanelHost={bottomSidePanelHost}
+              onEventsChange={setMappableEvents}
             />
           )}
 
@@ -5966,11 +6100,155 @@ export function JobMap() {
               </div>
             </div>
           )}
+          {/* Hot-swap overlay: when the user picks a non-map preset, cover
+              the map with the selected surface. Keeping the map mounted under
+              the overlay preserves Leaflet state (center, zoom, layers).
+              z-[1300] sits above all in-map floating controls (zoom buttons,
+              tile-style/anchor/tax clusters at z-[1050..1200]). */}
+          {showWorkHistory && viewPreset !== "map" && (
+            <div className="absolute inset-0 z-[1300] overflow-y-auto bg-background rounded-2xl">
+              {viewPreset === "worklog" && <WorklogPage compact />}
+              {viewPreset === "analytics" && <AnalyticsPage compact />}
+            </div>
+          )}
         </div>
+
+        {/* Resize Handle + Action Bar (Work Mapping mode only) */}
+        {showWorkHistory && (
+          <div className="shrink-0">
+            <button
+              type="button"
+              aria-label="Resize work map and action bar"
+              onMouseDown={handleWorkMapSplitMouseDown}
+              onTouchStart={handleWorkMapSplitTouchStart}
+              className="group flex h-3 w-full cursor-row-resize touch-none select-none items-center justify-center"
+            >
+              <span className="h-1.5 w-16 rounded-full bg-border/70 transition-colors group-hover:bg-primary/40" />
+            </button>
+
+            <div className="border-t border-border/60 bg-background/90 backdrop-blur-md px-3 py-2.5 overflow-y-auto">
+              <div className="rounded-xl border border-border/70 bg-card/70 px-3 py-2.5 shadow-sm">
+                <div className="mb-2.5 flex items-center justify-between gap-2">
+                  <div className="min-w-0 flex items-center gap-2">
+                    <Zap className="h-4 w-4 text-indigo-500 shrink-0" />
+                    <ViewPresetSwitcher
+                      current={viewPreset}
+                      onChange={setViewPreset}
+                      onResetAll={handleResetAllPresets}
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 px-2"
+                    onClick={() => setWorkMapCardsCollapsed((v) => !v)}
+                    title={workMapCardsCollapsed ? "Expand" : "Collapse"}
+                  >
+                    {workMapCardsCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+                  </Button>
+                </div>
+
+                {!workMapCardsCollapsed && (
+                  <div className="space-y-2.5">
+                    {viewPreset === "map" && (
+                      <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-border/60 bg-background/70 p-2">
+                    {!lockedMode && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={showWorkHistoryPanel ? "default" : "outline"}
+                      className="h-7 text-xs"
+                      onClick={() => setShowWorkHistoryPanel((p) => !p)}
+                    >
+                      <Briefcase className="h-3.5 w-3.5 mr-1" />
+                      Work History
+                    </Button>
+                    )}
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={showAnchors ? "default" : "outline"}
+                      className="h-7 text-xs"
+                      onClick={() => {
+                        if (showAnchors && !showAnchorsPanel) {
+                          setShowAnchorsPanel(true);
+                        } else if (showAnchors && showAnchorsPanel) {
+                          setShowAnchors(false);
+                          setShowAnchorsPanel(false);
+                        } else {
+                          setShowAnchors(true);
+                          setShowAnchorsPanel(true);
+                        }
+                      }}
+                    >
+                      <Anchor className="h-3.5 w-3.5 mr-1" />
+                      Life Anchors
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={drawingActive ? "default" : "outline"}
+                      className="h-7 text-xs"
+                      onClick={() => setDrawingActive((p) => !p)}
+                    >
+                      <PaintbrushVertical className="h-3.5 w-3.5 mr-1" />
+                      Drawing Tools
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={isochroneEnabled ? "default" : "outline"}
+                      className="h-7 text-xs"
+                      onClick={() => {
+                        if (!isochroneEnabled && !homeAnchor) {
+                          toast.error("Set a Home anchor first (Life Anchors panel)");
+                          return;
+                        }
+                        setIsochroneEnabled((p) => !p);
+                      }}
+                    >
+                      <Route className="h-3.5 w-3.5 mr-1" />
+                      Commute Zone
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={tileStyle !== "google-roadmap" ? "default" : "outline"}
+                      className="h-7 text-xs"
+                      onClick={() => {
+                        const next = tileStyle === "google-roadmap"
+                          ? "google-satellite"
+                          : tileStyle === "google-satellite"
+                            ? "google-hybrid"
+                            : "google-roadmap";
+                        setTileStyle(next);
+                      }}
+                    >
+                      <Layers className="h-3.5 w-3.5 mr-1" />
+                      {tileStyle === "google-satellite" ? "Satellite" : tileStyle === "google-hybrid" ? "Hybrid" : "Roadmap"}
+                    </Button>
+                      </div>
+                    )}
+
+                    {viewPreset === "map" && (
+                      <div className="space-y-1.5">
+                        <div ref={setBottomGalleryHost} />
+                        <div ref={setBottomSidePanelHost} />
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+        </div>
+        {/* /center column wrapper */}
 
         {/* Sidebar — sort/filter + job list / detail (hidden in full-screen work-mapping mode) */}
         {!showWorkHistory && (
-        <div className="w-[380px] shrink-0 flex flex-col">
+          <div className="w-[380px] shrink-0 flex flex-col">
           {/* Sort & filter controls */}
           {searched && geoJobs.length > 0 && (
             <div className="space-y-2 mb-2">
@@ -7447,106 +7725,128 @@ export function JobMap() {
         document.body,
       )}
 
-      {/* Right-click outline editor popover (per-outline note + color customization) */}
-      {outlineEdit && typeof document !== "undefined" && createPortal(
-        <>
-          {/* Backdrop to capture outside-clicks */}
-          <div
-            onClick={() => !outlineEditSaving && setOutlineEdit(null)}
-            onContextMenu={(e) => { e.preventDefault(); if (!outlineEditSaving) setOutlineEdit(null); }}
-            style={{ position: "fixed", inset: 0, zIndex: 10000, background: "transparent" }}
-          />
-          <div
-            style={{
-              position: "fixed",
-              left: outlineEdit.x,
-              top: outlineEdit.y,
-              width: 280,
-              zIndex: 10001,
-              background: "white",
-              borderRadius: 10,
-              boxShadow: "0 10px 30px rgba(0,0,0,0.2)",
-              border: "1px solid rgba(0,0,0,0.08)",
-              padding: 10,
-              fontSize: 12,
-              color: "#111",
-            }}
-            onClick={(e) => e.stopPropagation()}
-            onContextMenu={(e) => e.preventDefault()}
+      {/* ── Life Anchors popout sheet ── */}
+      <IrPopoutSheet
+        open={showAnchorsPanel}
+        onClose={() => setShowAnchorsPanel(false)}
+        title="Life Anchors"
+        icon={<Anchor className="h-4 w-4 text-violet-500" />}
+        side="left"
+        zIndexClassName="z-[1100]"
+        maxWidthClassName="max-w-sm"
+        bodyClassName="max-h-[min(70vh,560px)] overflow-y-auto px-3 py-3 scrollbar-thin"
+      >
+        {/* Sweet Spot toggle */}
+        <label className="flex items-center justify-between gap-2 mb-2 px-0.5">
+          <span className="text-xs text-muted-foreground">Show Sweet Spot radius</span>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={showSweetSpot}
+            onClick={() => setShowSweetSpot((p) => !p)}
+            className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${showSweetSpot ? "bg-violet-500" : "bg-muted"}`}
           >
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-              <span style={{ fontWeight: 600, fontSize: 12 }}>
-                Edit outline {outlineEdit.locationLabel ? <span style={{ color: "#6b7280", fontWeight: 400 }}>· {outlineEdit.locationLabel}</span> : <span style={{ color: "#6b7280", fontWeight: 400 }}>· Building</span>}
-              </span>
-              <button
-                type="button"
-                onClick={() => setOutlineEdit(null)}
-                style={{ background: "transparent", border: "none", cursor: "pointer", color: "#6b7280", padding: 2 }}
-                aria-label="Close"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </div>
-            <label style={{ display: "block", fontSize: 10, color: "#6b7280", marginBottom: 3 }}>Hover note (max 280)</label>
-            <textarea
-              value={outlineEdit.note}
-              onChange={(e) => setOutlineEdit((s) => s ? { ...s, note: e.target.value.slice(0, 280) } : s)}
-              maxLength={280}
-              rows={3}
-              placeholder={outlineEdit.locationId ? "Leave blank to inherit job note…" : "e.g. Led migration — https://example.com/case"}
-              style={{
-                width: "100%", boxSizing: "border-box", padding: 6, border: "1px solid #e5e7eb", borderRadius: 6,
-                fontSize: 11, resize: "none", outline: "none", fontFamily: "inherit",
-              }}
-            />
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#9ca3af", marginTop: 2 }}>
-              <span>{outlineEdit.note.length}/280</span>
-            </div>
-            <div style={{ marginTop: 8 }}>
-              <label style={{ display: "block", fontSize: 10, color: "#6b7280", marginBottom: 3 }}>Outline color</label>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                <input
-                  type="color"
-                  value={outlineEdit.color || "#10b981"}
-                  onChange={(e) => setOutlineEdit((s) => s ? { ...s, color: e.target.value.toLowerCase() } : s)}
-                  style={{ width: 28, height: 24, border: "1px solid #e5e7eb", borderRadius: 4, cursor: "pointer", padding: 0, background: "transparent" }}
+            <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm transform transition-transform ${showSweetSpot ? "translate-x-4" : "translate-x-0"}`} />
+          </button>
+        </label>
+        <LifeAnchorsPanel
+          compact
+          defaultAddress={where}
+          onAnchorsChange={() => queryClient.invalidateQueries({ queryKey: ["life-anchors"] })}
+          enabledAnchorIds={enabledAnchors}
+          onToggleAnchor={(id) => setEnabledAnchors((prev) => {
+            const next = new Set(prev);
+            next.has(id) ? next.delete(id) : next.add(id);
+            return next;
+          })}
+        />
+      </IrPopoutSheet>
+
+      {/* Right-click outline editor popover (per-outline note + color customization) */}
+      {outlineEdit && (
+        <IrAnchoredPopover
+          open
+          x={outlineEdit.x}
+          y={outlineEdit.y}
+          onClose={() => setOutlineEdit(null)}
+          canClose={!outlineEditSaving}
+          panelClassName="w-[280px] rounded-xl border bg-background p-2.5 text-xs text-foreground shadow-2xl"
+        >
+          <div className="mb-1.5 flex items-center justify-between">
+            <span className="text-xs font-semibold">
+              Edit outline{" "}
+              {outlineEdit.locationLabel ? (
+                <span className="font-normal text-muted-foreground">· {outlineEdit.locationLabel}</span>
+              ) : (
+                <span className="font-normal text-muted-foreground">· Building</span>
+              )}
+            </span>
+            <button
+              type="button"
+              onClick={() => setOutlineEdit(null)}
+              className="rounded p-0.5 text-muted-foreground hover:text-foreground"
+              aria-label="Close"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+
+          <label className="mb-1 block text-[10px] text-muted-foreground">Hover note (max 280)</label>
+          <textarea
+            value={outlineEdit.note}
+            onChange={(e) => setOutlineEdit((s) => s ? { ...s, note: e.target.value.slice(0, 280) } : s)}
+            maxLength={280}
+            rows={3}
+            placeholder={outlineEdit.locationId ? "Leave blank to inherit job note…" : "e.g. Led migration - https://example.com/case"}
+            className="w-full resize-none rounded-md border bg-background px-1.5 py-1 text-[11px] outline-none focus:ring-2 focus:ring-primary/30"
+          />
+          <div className="mt-0.5 flex justify-between text-[10px] text-muted-foreground">
+            <span>{outlineEdit.note.length}/280</span>
+          </div>
+
+          <div className="mt-2">
+            <label className="mb-1 block text-[10px] text-muted-foreground">Outline color</label>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <input
+                type="color"
+                value={outlineEdit.color || "#10b981"}
+                onChange={(e) => setOutlineEdit((s) => s ? { ...s, color: e.target.value.toLowerCase() } : s)}
+                className="h-6 w-7 cursor-pointer rounded border bg-transparent p-0"
+              />
+              {["#10b981", "#3b82f6", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"].map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setOutlineEdit((s) => s ? { ...s, color: c } : s)}
+                  title={c}
+                  className="h-[18px] w-[18px] rounded"
+                  style={{
+                    background: c,
+                    border: outlineEdit.color === c ? "2px solid #111" : "1px solid rgba(0,0,0,0.1)",
+                  }}
                 />
-                {/* Preset swatches */}
-                {["#10b981", "#3b82f6", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"].map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => setOutlineEdit((s) => s ? { ...s, color: c } : s)}
-                    title={c}
-                    style={{
-                      width: 18, height: 18, borderRadius: 4, background: c, cursor: "pointer",
-                      border: outlineEdit.color === c ? "2px solid #111" : "1px solid rgba(0,0,0,0.1)",
-                      padding: 0,
-                    }}
-                  />
-                ))}
-                {outlineEdit.color && (
-                  <button
-                    type="button"
-                    onClick={() => setOutlineEdit((s) => s ? { ...s, color: "" } : s)}
-                    style={{ fontSize: 10, color: "#6b7280", background: "transparent", border: "none", cursor: "pointer", textDecoration: "underline" }}
-                  >
-                    {outlineEdit.locationId ? "Inherit" : "Default"}
-                  </button>
-                )}
-              </div>
-            </div>
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 6, marginTop: 10 }}>
-              <Button size="sm" variant="ghost" className="h-6 text-xs" disabled={outlineEditSaving} onClick={() => setOutlineEdit(null)}>
-                Cancel
-              </Button>
-              <Button size="sm" className="h-6 text-xs" disabled={outlineEditSaving} onClick={saveOutlineEdit}>
-                {outlineEditSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save"}
-              </Button>
+              ))}
+              {outlineEdit.color && (
+                <button
+                  type="button"
+                  onClick={() => setOutlineEdit((s) => s ? { ...s, color: "" } : s)}
+                  className="text-[10px] text-muted-foreground underline hover:text-foreground"
+                >
+                  {outlineEdit.locationId ? "Inherit" : "Default"}
+                </button>
+              )}
             </div>
           </div>
-        </>,
-        document.body,
+
+          <div className="mt-2.5 flex justify-end gap-1.5">
+            <Button size="sm" variant="ghost" className="h-6 text-xs" disabled={outlineEditSaving} onClick={() => setOutlineEdit(null)}>
+              Cancel
+            </Button>
+            <Button size="sm" className="h-6 text-xs" disabled={outlineEditSaving} onClick={saveOutlineEdit}>
+              {outlineEditSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save"}
+            </Button>
+          </div>
+        </IrAnchoredPopover>
       )}
     </div>
   );
@@ -7814,11 +8114,22 @@ const KPI_CATALOG: KpiMetric[] = [
 
 const KPI_CATALOG_BY_KEY: Record<string, KpiMetric> = Object.fromEntries(KPI_CATALOG.map((m) => [m.key, m]));
 
+/**
+ * MaybePortal — renders children into `target` when provided, otherwise inline.
+ * Used by WorkHistoryPanel so the aside (bio card + work-history list) can be
+ * mounted in the parent's flex-sibling sidebar host while map-overlay popups
+ * stay anchored to the map container.
+ */
+function MaybePortal({ target, children }: { target: HTMLElement | null; children: React.ReactNode }) {
+  if (!target) return <>{children}</>;
+  return createPortal(children, target);
+}
+
 function WorkHistoryPanel({
   items, onClose, onAdded, onDeleted, showCareerPath, onToggleCareerPath, showOverlaps, onToggleOverlaps, focusedId, onExitFocus,
-  pinDropMode, pinDropCoords, onStartPinDrop, onCancelPinDrop, onClearPinDrop, onFocusJob,
+  pinDropMode, pinDropCoords, onStartPinDrop, onCancelPinDrop, onClearPinDrop, onFocusJob, onHoverJob,
   residences, activeResidence, timeFilter, timeRange, onTimeFilterChange, onResidenceAdded, onResidenceDeleted,
-  hiddenTypes, onToggleType, mapContainer, bannerSlideshowEnabled,
+  hiddenTypes, onToggleType, mapContainer, bannerSlideshowEnabled, asideHost, onEventsChange, bottomGalleryHost, mapGalleryHost, bottomSidePanelHost,
 }: {
   items: { id: string; type?: string; company: string; title: string | null; address: string; lat: number; lng: number; startDate: string | null; endDate: string | null; locations: { id: string; label: string; type: string; address: string; lat: number; lng: number; isPrimary: boolean; includeInOutline?: boolean; closed?: boolean; placeId?: string | null; skills?: string | null; startDate?: string | null; endDate?: string | null; photos?: string | null; coverImage?: string | null; coverImageY?: number | null }[];
     degree?: string | null; major?: string | null; gpa?: number | null;
@@ -7853,6 +8164,7 @@ function WorkHistoryPanel({
   onClearPinDrop: () => void;
   onExitFocus: () => void;
   onFocusJob: (item: { id: string; lat: number; lng: number }) => void;
+  onHoverJob?: (id: string | null) => void;
   residences: { id: string; label: string; address: string; lat: number; lng: number; placeId?: string | null; startDate: string | null; endDate: string | null; isCurrent: boolean }[];
   activeResidence: { id: string; label: string; address: string; lat: number; lng: number; startDate: string | null; endDate: string | null; isCurrent: boolean } | null;
   timeFilter: string | null;
@@ -7864,6 +8176,16 @@ function WorkHistoryPanel({
   onToggleType: (type: string) => void;
   mapContainer: HTMLElement | null;
   bannerSlideshowEnabled: boolean;
+  /** Optional flex-sibling sidebar host. When provided, the bio card + work-history list portals into it instead of overlaying the map. */
+  asideHost?: HTMLElement | null;
+  /** Optional host element for the gallery toggle button in the action bar. */
+  bottomGalleryHost?: HTMLElement | null;
+  /** Optional overlay host div inside the map container. WorkHistoryPanel portals the gallery slide-in panel here. */
+  mapGalleryHost?: HTMLDivElement | null;
+  /** Optional host element for the bottom attachments/skills/equipment panel strip. When provided, WorkHistoryPanel portals its panel toggle + content into this action-bar slot. */
+  bottomSidePanelHost?: HTMLElement | null;
+  /** Called whenever the focused item's events change (so the map can show event markers). */
+  onEventsChange?: (events: { id: string; title: string; startDate: string | null; location: string | null; lat?: number | null; lng?: number | null; photos?: { filePath: string }[] }[]) => void;
 }) {
   const [adding, setAdding] = useState(false);
   const [addType, setAddType] = useState<"job" | "school" | "military" | "volunteer" | "internship" | "self-employed" | "unemployed">("job");
@@ -7955,8 +8277,7 @@ function WorkHistoryPanel({
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [searchOpen]);
-  // Reset selection whenever results change
-  useEffect(() => { setSearchSelectedIndex(0); }, [searchQuery]);
+  // (Stable selection on result change is handled below, after `flatHits`.)
   // Scroll-to + flash effect for deep-linked search hits. Polls briefly so
   // it works even when the target panel mounts a tick after the search
   // modal closes (e.g. PersonalInventory data still loading).
@@ -7980,13 +8301,7 @@ function WorkHistoryPanel({
     timeoutId = window.setTimeout(tick, 60);
     return () => { if (timeoutId !== undefined) window.clearTimeout(timeoutId); };
   }, [searchHighlight]);
-  const [useTimelineStyle, setUseTimelineStyle] = useState<boolean>(() => {
-    if (typeof window === "undefined") return false;
-    try { return localStorage.getItem("resumsify:work-history-timeline-style") === "1"; } catch { return false; }
-  });
-  useEffect(() => {
-    try { localStorage.setItem("resumsify:work-history-timeline-style", useTimelineStyle ? "1" : "0"); } catch {}
-  }, [useTimelineStyle]);
+  const [useTimelineStyle, setUseTimelineStyle] = useState<boolean>(() => !!loadWorkHistoryPanelPrefs().useTimelineStyle);
   const [kpiSlots, setKpiSlots] = useState<string[]>(() => loadKpiSlots());
   useEffect(() => {
     try { localStorage.setItem(WORK_HISTORY_KPI_SLOTS_KEY, JSON.stringify(kpiSlots)); } catch {}
@@ -8000,81 +8315,11 @@ function WorkHistoryPanel({
   }, []);
   const resetKpiSlots = useCallback(() => setKpiSlots([...DEFAULT_KPI_SLOTS]), []);
   const [showInventoryOverview, setShowInventoryOverview] = useState(false);
-  const [inventoryPanel, setInventoryPanel] = useState<InventoryPanelState>(() => loadInventoryPanel());
-  const [showInventorySnapMenu, setShowInventorySnapMenu] = useState(false);
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try { localStorage.setItem(INVENTORY_PANEL_KEY, JSON.stringify(inventoryPanel)); } catch { /* noop */ }
-  }, [inventoryPanel]);
-  const inventoryDragRef = useRef<{ mode: "move" | "resize"; startX: number; startY: number; originX: number; originY: number; originW: number; originH: number } | null>(null);
-  const onInventoryDragStart = useCallback((e: React.PointerEvent) => {
-    e.preventDefault();
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    inventoryDragRef.current = {
-      mode: "move",
-      startX: e.clientX,
-      startY: e.clientY,
-      originX: inventoryPanel.x,
-      originY: inventoryPanel.y,
-      originW: inventoryPanel.w,
-      originH: inventoryPanel.h,
-    };
-  }, [inventoryPanel]);
-  const onInventoryResizeStart = useCallback((e: React.PointerEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    inventoryDragRef.current = {
-      mode: "resize",
-      startX: e.clientX,
-      startY: e.clientY,
-      originX: inventoryPanel.x,
-      originY: inventoryPanel.y,
-      originW: inventoryPanel.w,
-      originH: inventoryPanel.h,
-    };
-  }, [inventoryPanel]);
-  const onInventoryDragMove = useCallback((e: React.PointerEvent) => {
-    const drag = inventoryDragRef.current;
-    if (!drag) return;
-    const dx = e.clientX - drag.startX;
-    const dy = e.clientY - drag.startY;
-    if (drag.mode === "move") {
-      const maxX = Math.max(0, window.innerWidth - 80);
-      const maxY = Math.max(0, window.innerHeight - 60);
-      setInventoryPanel((p) => ({
-        ...p,
-        x: Math.min(maxX, Math.max(0, drag.originX + dx)),
-        y: Math.min(maxY, Math.max(0, drag.originY + dy)),
-      }));
-    } else {
-      const maxW = Math.max(INVENTORY_PANEL_MIN.w, window.innerWidth - drag.originX - 8);
-      const maxH = Math.max(INVENTORY_PANEL_MIN.h, window.innerHeight - drag.originY - 8);
-      setInventoryPanel((p) => ({
-        ...p,
-        w: Math.min(maxW, Math.max(INVENTORY_PANEL_MIN.w, drag.originW + dx)),
-        h: Math.min(maxH, Math.max(INVENTORY_PANEL_MIN.h, drag.originH + dy)),
-      }));
-    }
-  }, []);
-  const onInventoryDragEnd = useCallback(() => { inventoryDragRef.current = null; }, []);
-  const snapInventoryToCorner = useCallback((corner: "tl" | "tr" | "bl" | "br") => {
-    setInventoryPanel((p) => {
-      const margin = 16;
-      const w = p.w;
-      const h = p.minimized ? 44 : p.h;
-      const vw = typeof window !== "undefined" ? window.innerWidth : 1280;
-      const vh = typeof window !== "undefined" ? window.innerHeight : 800;
-      const x = corner === "tl" || corner === "bl" ? margin : Math.max(margin, vw - w - margin);
-      const y = corner === "tl" || corner === "tr" ? margin : Math.max(margin, vh - h - margin);
-      return { ...p, x, y };
-    });
-    setShowInventorySnapMenu(false);
-  }, []);
   const [lastMainTab, setLastMainTab] = useState<"list" | "timeline">(() => {
     return loadWorkHistoryPanelPrefs().lastMainTab === "timeline" ? "timeline" : "list";
   });
   const [showTimeFilterPanel, setShowTimeFilterPanel] = useState(() => !!loadWorkHistoryPanelPrefs().showTimeFilterPanel);
+  const [showPay, setShowPay] = useState(() => { const p = loadWorkHistoryPanelPrefs(); return p.showPay !== false; });
   // Collapsible sections in list view
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
   const toggleListSection = (key: string) => setCollapsedSections((prev) => { const s = new Set(prev); if (s.has(key)) s.delete(key); else s.add(key); return s; });
@@ -8135,12 +8380,12 @@ function WorkHistoryPanel({
     try {
       localStorage.setItem(
         WORK_HISTORY_PANEL_PREFS_KEY,
-        JSON.stringify({ tab, lastMainTab, showTimeFilterPanel }),
+        JSON.stringify({ tab, lastMainTab, showTimeFilterPanel, showPay, useTimelineStyle }),
       );
     } catch {
       // ignore quota/permission issues
     }
-  }, [tab, lastMainTab, showTimeFilterPanel]);
+  }, [tab, lastMainTab, showTimeFilterPanel, showPay, useTimelineStyle]);
 
   useEffect(() => {
     if (tab !== "compare") setLastMainTab(tab);
@@ -8180,8 +8425,7 @@ function WorkHistoryPanel({
   }, [activeResidence, timeFilter, items]);
 
   // Sub-location state
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [addingLocFor, setAddingLocFor] = useState<string | null>(null);
+
   const [locLabel, setLocLabel] = useState("");
   const [locType, setLocType] = useState("daily-workplace");
   const [customLocType, setCustomLocType] = useState("");
@@ -8440,7 +8684,6 @@ function WorkHistoryPanel({
       if (!res.ok) throw new Error("Failed to add");
       toast.success("Location added");
       setLocLabel(""); setLocType("daily-workplace"); setCustomLocType(""); setLocAddress(""); setLocCoords(null); setLocPlaceId(null);
-      setAddingLocFor(null);
       onAdded();
     } catch { toast.error("Failed to add location"); } finally { setLocSaving(false); }
   }
@@ -8464,8 +8707,18 @@ function WorkHistoryPanel({
   // List view: sorted + filtered
   const listItems = useMemo(() => {
     let arr = [...items];
-    if (listSort === "newest") arr.sort((a, b) => (b.startDate ?? "9999").localeCompare(a.startDate ?? "9999"));
-    else if (listSort === "oldest") arr.sort((a, b) => (a.startDate ?? "0000").localeCompare(b.startDate ?? "0000"));
+    if (listSort === "newest") arr.sort((a, b) => {
+      const aCurr = a.endDate == null ? 1 : 0;
+      const bCurr = b.endDate == null ? 1 : 0;
+      if (aCurr !== bCurr) return bCurr - aCurr;
+      return (b.startDate ?? "9999").localeCompare(a.startDate ?? "9999");
+    });
+    else if (listSort === "oldest") arr.sort((a, b) => {
+      const aCurr = a.endDate == null ? 1 : 0;
+      const bCurr = b.endDate == null ? 1 : 0;
+      if (aCurr !== bCurr) return aCurr - bCurr;
+      return (a.startDate ?? "0000").localeCompare(b.startDate ?? "0000");
+    });
     else if (listSort === "tenure") arr.sort((a, b) => calcTenureMonths(b.startDate, b.endDate) - calcTenureMonths(a.startDate, a.endDate));
     if (listSearch.trim()) {
       const q = listSearch.trim().toLowerCase();
@@ -8494,6 +8747,15 @@ function WorkHistoryPanel({
     targetKind?: "equipment" | "attachment" | "galleryPhoto" | "annotation" | "personalEquipment" | "personalEquipmentPhoto";
     targetId?: string;
     targetPhotoId?: string;
+    /** Optional preview thumbnail for image-bearing hits. */
+    thumbnailUrl?: string | null;
+    /** Optional focal/zoom/orientation data so we can frame the thumb the same way the source UI does. */
+    thumbFocalX?: number | null;
+    thumbFocalY?: number | null;
+    thumbZoom?: number | null;
+    thumbRotation?: number | null;
+    thumbFlipH?: boolean | null;
+    thumbFlipV?: boolean | null;
     Icon: React.ComponentType<{ className?: string }>;
     iconClass?: string;
     score: number;
@@ -8512,9 +8774,16 @@ function WorkHistoryPanel({
     targetKind?: "equipment" | "attachment" | "galleryPhoto" | "annotation" | "personalEquipment" | "personalEquipmentPhoto";
     targetId?: string;
     targetPhotoId?: string;
+    thumbnailUrl?: string | null;
+    thumbFocalX?: number | null;
+    thumbFocalY?: number | null;
+    thumbZoom?: number | null;
+    thumbRotation?: number | null;
+    thumbFlipH?: boolean | null;
+    thumbFlipV?: boolean | null;
   };
   const debouncedSearchQuery = searchQuery.trim();
-  const { data: serverSearchData } = useQuery<{ hits: ServerSearchHit[] }>({
+  const { data: serverSearchData, isFetching: serverSearchFetching } = useQuery<{ hits: ServerSearchHit[] }>({
     queryKey: ["work-history-search", debouncedSearchQuery],
     queryFn: () =>
       fetch(`/api/work-history/search?q=${encodeURIComponent(debouncedSearchQuery)}`).then((r) => r.json()),
@@ -8543,6 +8812,13 @@ function WorkHistoryPanel({
       targetKind: h.targetKind,
       targetId: h.targetId,
       targetPhotoId: h.targetPhotoId,
+      thumbnailUrl: h.thumbnailUrl ?? null,
+      thumbFocalX: h.thumbFocalX ?? null,
+      thumbFocalY: h.thumbFocalY ?? null,
+      thumbZoom: h.thumbZoom ?? null,
+      thumbRotation: h.thumbRotation ?? null,
+      thumbFlipH: h.thumbFlipH ?? null,
+      thumbFlipV: h.thumbFlipV ?? null,
       ...iconFor(h.group),
       score: 3,
     }));
@@ -8651,6 +8927,72 @@ function WorkHistoryPanel({
     }
     return out;
   }, [localSearchHits, serverSearchHits]);
+
+  // ── Search modal: per-group ordering + cap state ──
+  const SEARCH_GROUP_ORDER = useMemo(() => ["Work", "Education", "Field", "Sub-location", "Tools", "Files", "Photos", "Notes", "Inventory"] as const, []);
+  const SEARCH_GROUP_CAP = 25;
+  const SEARCH_VISIBLE_CAP = 500;
+  const [expandedSearchGroups, setExpandedSearchGroups] = useState<Set<string>>(new Set());
+  const [lastSearchGroup, setLastSearchGroup] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    try { return localStorage.getItem("resumsify:work-history-last-search-group"); } catch { return null; }
+  });
+  // Reset per-session expansions whenever the modal closes or query changes
+  useEffect(() => { setExpandedSearchGroups(new Set()); }, [searchQuery, searchOpen]);
+
+  const orderedSearchGroups = useMemo(() => {
+    const base = SEARCH_GROUP_ORDER
+      .map((g) => ({ group: g as string, hits: searchHits.filter((h) => h.group === g) }))
+      .filter((g) => g.hits.length > 0);
+    if (lastSearchGroup) {
+      const idx = base.findIndex((g) => g.group === lastSearchGroup);
+      if (idx > 0) {
+        const [pinned] = base.splice(idx, 1);
+        base.unshift(pinned);
+      }
+    }
+    return base;
+  }, [searchHits, lastSearchGroup, SEARCH_GROUP_ORDER]);
+
+  const visibleSearchHits = useMemo(() => {
+    const out: WHSearchHit[] = [];
+    for (const g of orderedSearchGroups) {
+      const cap = expandedSearchGroups.has(g.group) ? g.hits.length : Math.min(SEARCH_GROUP_CAP, g.hits.length);
+      for (let i = 0; i < cap && out.length < SEARCH_VISIBLE_CAP; i++) out.push(g.hits[i]);
+      if (out.length >= SEARCH_VISIBLE_CAP) break;
+    }
+    return out;
+  }, [orderedSearchGroups, expandedSearchGroups]);
+
+  // Stable selection across keystrokes: keep the same hit selected when possible.
+  const prevVisibleHitsRef = useRef<WHSearchHit[]>([]);
+  useEffect(() => {
+    const prev = prevVisibleHitsRef.current;
+    prevVisibleHitsRef.current = visibleSearchHits;
+    setSearchSelectedIndex((idx) => {
+      if (visibleSearchHits.length === 0) return 0;
+      const prevHit = prev[idx];
+      if (!prevHit) return 0;
+      const newIdx = visibleSearchHits.findIndex((h) => h.key === prevHit.key);
+      if (newIdx >= 0) return newIdx;
+      return Math.min(idx, visibleSearchHits.length - 1);
+    });
+  }, [visibleSearchHits]);
+
+  // Auto-scroll the selected search result into view when navigating with arrow keys.
+  useEffect(() => {
+    if (!searchOpen) return;
+    const hit = visibleSearchHits[searchSelectedIndex];
+    if (!hit) return;
+    // Defer to next frame so the DOM reflects the latest list before measuring.
+    const id = window.requestAnimationFrame(() => {
+      const el = document.getElementById(`wh-hit-${hit.key}`);
+      if (el && typeof el.scrollIntoView === "function") {
+        el.scrollIntoView({ block: "nearest", inline: "nearest" });
+      }
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, [searchSelectedIndex, visibleSearchHits, searchOpen]);
 
   // Overlap map: for each item, which other items overlap in time
   const overlapMap = useMemo(() => {
@@ -8789,6 +9131,10 @@ function WorkHistoryPanel({
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   const [focusTab, setFocusTab] = useState<"overview" | "edit">("overview");
   const [sidePanel, setSidePanel] = useState<"gallery" | "attachments" | "skills" | "equipment" | null>(null);
+  const [showBottomGallery, setShowBottomGallery] = useState(true);
+  // In-panel "step into a job" without focusing the map / work-history.
+  // null → master folder grid; string → that position's photos in-panel.
+  const [panelPositionId, setPanelPositionId] = useState<string | null>(null);
   const [panelGalleryView, setPanelGalleryView] = useState<"photos" | "albums">(() => {
     if (typeof window === "undefined") return "photos";
     const saved = localStorage.getItem(PANEL_GALLERY_VIEW_KEY);
@@ -8862,6 +9208,77 @@ function WorkHistoryPanel({
     if (res.ok) setMatchedPosition(await res.json());
     queryClient.invalidateQueries({ queryKey: ["work-history"] });
   }, [focusedItem, queryClient]);
+
+  const handleGalleryPhotoUpload = useCallback(async (file: File, opts?: { albumName?: string; isCover?: boolean }) => {
+    if (!focusedItem) return false;
+    setPanelBusy(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("positionId", focusedItem.id);
+      if (opts?.albumName) fd.append("albumName", opts.albumName);
+      if (opts?.isCover === true) fd.append("isCover", "true");
+      const res = await fetch("/api/gallery", { method: "POST", body: fd });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        toast.error(`${file.name}: ${data?.error || "upload failed"}`);
+        return false;
+      }
+      await refreshFocusedPosition();
+      return true;
+    } catch (error) {
+      toast.error(`${file.name}: ${String(error)}`);
+      return false;
+    } finally {
+      setPanelBusy(false);
+    }
+  }, [focusedItem, refreshFocusedPosition]);
+
+  const handleGalleryAlbumUpload = useCallback(async (files: File[], albumName: string) => {
+    if (!focusedItem || files.length === 0) return;
+    setPanelBusy(true);
+    const toastId = toast.loading(`Uploading 0/${files.length} to "${albumName}"…`);
+    let done = 0;
+    let failed = 0;
+    const concurrency = 3;
+    let currentIndex = 0;
+    const workers = Array.from({ length: Math.min(concurrency, files.length) }, async () => {
+      while (currentIndex < files.length) {
+        const nextIndex = currentIndex++;
+        const ok = await handleGalleryPhotoUpload(files[nextIndex], { albumName, isCover: false });
+        if (ok) done++; else failed++;
+        toast.loading(`Uploading ${done + failed}/${files.length} to "${albumName}"…`, { id: toastId });
+      }
+    });
+    try {
+      await Promise.all(workers);
+      await refreshFocusedPosition();
+      if (failed === 0) {
+        toast.success(`Uploaded ${done} photo${done === 1 ? "" : "s"} to "${albumName}"`, { id: toastId });
+      } else {
+        toast.warning(`Uploaded ${done} of ${files.length}; ${failed} failed`, { id: toastId });
+      }
+    } finally {
+      setPanelBusy(false);
+    }
+  }, [focusedItem, handleGalleryPhotoUpload, refreshFocusedPosition]);
+
+  const handleGalleryBannerToggle = useCallback(async (photoId: string, next: boolean) => {
+    setPanelBusy(true);
+    try {
+      const res = await fetch("/api/gallery", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: photoId, isBanner: next }),
+      });
+      if (!res.ok) throw new Error();
+      await refreshFocusedPosition();
+    } catch {
+      toast.error("Failed to update");
+    } finally {
+      setPanelBusy(false);
+    }
+  }, [refreshFocusedPosition]);
 
   const handleEquipmentPhotoUpload = useCallback(async (equipmentId: string, file: File, isFirst: boolean) => {
     if (!confirmMediaUpload("equipment")) return false;
@@ -9458,6 +9875,267 @@ function WorkHistoryPanel({
     { value: "other", label: "Other", icon: "📌" },
   ] as const;
 
+  // ── Feature E2: Career Events (richer than Milestones — has date range, narrative, metrics, skills) ──
+  interface WHEventPhoto { id: string; filePath: string; fileName: string; caption: string | null; sortOrder: number }
+  interface WHEvent {
+    id: string;
+    title: string;
+    description: string | null;
+    category: string;
+    startDate: string | null; // ISO string
+    endDate: string | null;   // ISO string
+    location: string | null;
+    lat?: number | null;
+    lng?: number | null;
+    metrics: string | null;
+    photos?: WHEventPhoto[];
+  }
+  const [events, setEvents] = useState<WHEvent[]>([]);
+  // Notify parent (JobMap) whenever events change so it can render map markers
+  useEffect(() => { onEventsChange?.(events); }, [events, onEventsChange]);
+  const [eventsLoading, setEventsLoading] = useState(false);
+  const [newEvTitle, setNewEvTitle] = useState("");
+  const [newEvCategory, setNewEvCategory] = useState("company_event");
+  const [newEvStartDate, setNewEvStartDate] = useState("");
+  const [newEvEndDate, setNewEvEndDate] = useState("");
+  const [newEvLocation, setNewEvLocation] = useState("");
+  const [newEvLat, setNewEvLat] = useState<number | null>(null);
+  const [newEvLng, setNewEvLng] = useState<number | null>(null);
+  const [newEvGeoLoading, setNewEvGeoLoading] = useState(false);
+  const [newEvDescription, setNewEvDescription] = useState("");
+  const [newEvMetrics, setNewEvMetrics] = useState("");
+  const [newEvExpanded, setNewEvExpanded] = useState(false);
+  const [evSaving, setEvSaving] = useState(false);
+  const [uploadingPhotoEvtId, setUploadingPhotoEvtId] = useState<string | null>(null);
+  const [editingEvId, setEditingEvId] = useState<string | null>(null);
+  const [editEvDraft, setEditEvDraft] = useState<{ title: string; category: string; startDate: string; endDate: string; location: string; lat?: number | null; lng?: number | null; metrics: string; description: string }>({ title: "", category: "company_event", startDate: "", endDate: "", location: "", lat: null, lng: null, metrics: "", description: "" });
+  const [editEvGeoLoading, setEditEvGeoLoading] = useState(false);
+  // Auto-geocode for new event location (debounced 500ms)
+  useEffect(() => {
+    if (!newEvLocation) {
+      setNewEvLat(null);
+      setNewEvLng(null);
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      setNewEvGeoLoading(true);
+      geocodeOverride(newEvLocation).then((geo) => {
+        if (!cancelled) {
+          setNewEvLat(geo?.lat ?? null);
+          setNewEvLng(geo?.lng ?? null);
+        }
+      }).finally(() => { if (!cancelled) setNewEvGeoLoading(false); });
+    }, 500);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [newEvLocation]);
+
+  // Auto-geocode for edit event location (debounced 500ms)
+  useEffect(() => {
+    if (!editingEvId) return;
+    if (!editEvDraft.location) {
+      setEditEvDraft((d) => ({ ...d, lat: null, lng: null }));
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      setEditEvGeoLoading(true);
+      geocodeOverride(editEvDraft.location).then((geo) => {
+        if (!cancelled) {
+          setEditEvDraft((d) => ({ ...d, lat: geo?.lat ?? null, lng: geo?.lng ?? null }));
+        }
+      }).finally(() => { if (!cancelled) setEditEvGeoLoading(false); });
+    }, 500);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [editEvDraft.location, editingEvId]);
+  const [editEvSaving, setEditEvSaving] = useState(false);
+
+  useEffect(() => {
+    if (!focusedItem) return;
+    let cancelled = false;
+    (async () => {
+      setEventsLoading(true);
+      try {
+        const res = await fetch(`/api/work-history/${focusedItem.id}/events`);
+        if (res.ok && !cancelled) setEvents(await res.json());
+      } catch { /* silent */ } finally { if (!cancelled) setEventsLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, [focusedItem]);
+
+  async function handleAddEvent() {
+    if (!focusedItem || !newEvTitle.trim()) return;
+    setEvSaving(true);
+    try {
+      let lat = newEvLat;
+      let lng = newEvLng;
+      // If location is set but no lat/lng, geocode it
+      if (newEvLocation && (lat == null || lng == null)) {
+        const geo = await geocodeOverride(newEvLocation);
+        if (geo && geo.lat && geo.lng) {
+          lat = geo.lat;
+          lng = geo.lng;
+          setNewEvLat(lat);
+          setNewEvLng(lng);
+        }
+      }
+      const res = await fetch(`/api/work-history/${focusedItem.id}/events`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: newEvTitle.trim(),
+          category: newEvCategory,
+          startDate: newEvStartDate || null,
+          endDate: newEvEndDate || null,
+          location: newEvLocation || null,
+          lat: lat ?? null,
+          lng: lng ?? null,
+          description: newEvDescription.trim() || null,
+          metrics: newEvMetrics.trim() || null,
+        }),
+      });
+      if (res.ok) {
+        const ev = await res.json();
+        setEvents((prev) => [...prev, ev].sort((a, b) => (a.startDate ?? "9999").localeCompare(b.startDate ?? "9999")));
+        setNewEvTitle("");
+        setNewEvCategory("company_event");
+        setNewEvStartDate("");
+        setNewEvEndDate("");
+        setNewEvLocation("");
+        setNewEvLat(null);
+        setNewEvLng(null);
+        setNewEvDescription("");
+        setNewEvMetrics("");
+        setNewEvExpanded(false);
+        toast.success("Event added");
+      } else {
+        const err = await res.json().catch(() => ({}));
+        toast.error(err?.error || "Failed to add event");
+      }
+    } catch { toast.error("Failed to add event"); } finally { setEvSaving(false); }
+  }
+
+  async function handleDeleteEvent(eventId: string) {
+    if (!focusedItem) return;
+    try {
+      const res = await fetch(`/api/work-history/${focusedItem.id}/events/${eventId}`, { method: "DELETE" });
+      if (res.ok) {
+        setEvents((prev) => prev.filter((e) => e.id !== eventId));
+      } else {
+        toast.error("Failed to delete event");
+      }
+    } catch { toast.error("Failed to delete event"); }
+  }
+
+  async function handleUploadEventPhoto(eventId: string, file: File) {
+    if (!focusedItem) return;
+    setUploadingPhotoEvtId(eventId);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch(`/api/work-history/${focusedItem.id}/events/${eventId}/photos`, {
+        method: "POST",
+        body: fd,
+      });
+      if (res.ok) {
+        const photo: WHEventPhoto = await res.json();
+        setEvents((prev) => prev.map((e) => e.id === eventId
+          ? { ...e, photos: [...(e.photos ?? []), photo] }
+          : e));
+        toast.success("Photo added");
+      } else {
+        const err = await res.json().catch(() => ({}));
+        toast.error(err?.error || "Failed to upload photo");
+      }
+    } catch { toast.error("Failed to upload photo"); } finally { setUploadingPhotoEvtId(null); }
+  }
+
+  function startEditEvent(ev: WHEvent) {
+    setEditingEvId(ev.id);
+    setEditEvDraft({
+      title: ev.title,
+      category: ev.category || "company_event",
+      startDate: ev.startDate ?? "",
+      endDate: ev.endDate ?? "",
+      location: ev.location ?? "",
+      lat: ev.lat ?? null,
+      lng: ev.lng ?? null,
+      metrics: ev.metrics ?? "",
+      description: ev.description ?? "",
+    });
+  }
+
+  function cancelEditEvent() {
+    setEditingEvId(null);
+  }
+
+  async function handleSaveEditEvent(eventId: string) {
+    if (!focusedItem) return;
+    if (!editEvDraft.title.trim()) { toast.error("Title is required"); return; }
+    setEditEvSaving(true);
+    try {
+      let lat = editEvDraft.lat;
+      let lng = editEvDraft.lng;
+      if (editEvDraft.location && (lat == null || lng == null)) {
+        const geo = await geocodeOverride(editEvDraft.location);
+        if (geo && geo.lat && geo.lng) {
+          lat = geo.lat;
+          lng = geo.lng;
+        }
+      }
+      const res = await fetch(`/api/work-history/${focusedItem.id}/events/${eventId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: editEvDraft.title.trim(),
+          category: editEvDraft.category,
+          startDate: editEvDraft.startDate || null,
+          endDate: editEvDraft.endDate || null,
+          location: editEvDraft.location || null,
+          lat: lat ?? null,
+          lng: lng ?? null,
+          metrics: editEvDraft.metrics.trim() || null,
+          description: editEvDraft.description.trim() || null,
+        }),
+      });
+      if (res.ok) {
+        const updated: WHEvent = await res.json();
+        setEvents((prev) => prev.map((e) => e.id === eventId ? { ...e, ...updated, photos: updated.photos ?? e.photos } : e)
+          .sort((a, b) => (a.startDate ?? "9999").localeCompare(b.startDate ?? "9999")));
+        setEditingEvId(null);
+        toast.success("Event updated");
+      } else {
+        const err = await res.json().catch(() => ({}));
+        toast.error(err?.error || "Failed to update event");
+      }
+    } catch { toast.error("Failed to update event"); } finally { setEditEvSaving(false); }
+  }
+
+  async function handleDeleteEventPhoto(eventId: string, photoId: string) {
+    if (!focusedItem) return;
+    try {
+      const res = await fetch(`/api/work-history/${focusedItem.id}/events/${eventId}/photos?photoId=${encodeURIComponent(photoId)}`, { method: "DELETE" });
+      if (res.ok) {
+        setEvents((prev) => prev.map((e) => e.id === eventId
+          ? { ...e, photos: (e.photos ?? []).filter((p) => p.id !== photoId) }
+          : e));
+      } else {
+        toast.error("Failed to delete photo");
+      }
+    } catch { toast.error("Failed to delete photo"); }
+  }
+
+  const EVENT_CATEGORIES = [
+    { value: "company_event",  label: "Company event",  icon: "🎉", bg: "bg-fuchsia-100 dark:bg-fuchsia-900/30", text: "text-fuchsia-700 dark:text-fuchsia-300" },
+    { value: "field_day",      label: "Field day",      icon: "⛺", bg: "bg-lime-100 dark:bg-lime-900/30",       text: "text-lime-700 dark:text-lime-300" },
+    { value: "emergency",      label: "Emergency",      icon: "🚨", bg: "bg-red-100 dark:bg-red-900/30",         text: "text-red-700 dark:text-red-300" },
+    { value: "news_event",     label: "News event",     icon: "📰", bg: "bg-amber-100 dark:bg-amber-900/30",     text: "text-amber-700 dark:text-amber-300" },
+    { value: "social",         label: "Social",         icon: "🍻", bg: "bg-blue-100 dark:bg-blue-900/30",       text: "text-blue-700 dark:text-blue-300" },
+    { value: "conference",     label: "Conference",     icon: "🎤", bg: "bg-indigo-100 dark:bg-indigo-900/30",   text: "text-indigo-700 dark:text-indigo-300" },
+    { value: "training",       label: "Training",       icon: "🎓", bg: "bg-violet-100 dark:bg-violet-900/30",   text: "text-violet-700 dark:text-violet-300" },
+    { value: "other",          label: "Other",          icon: "📌", bg: "bg-slate-100 dark:bg-slate-900/30",     text: "text-slate-700 dark:text-slate-300" },
+  ] as const;
+
   // ── Sub-location edit / delete ──
   const [expandedLocId, setExpandedLocId] = useState<string | null>(null);
   const [editingLocId, setEditingLocId] = useState<string | null>(null);
@@ -9654,14 +10332,23 @@ function WorkHistoryPanel({
     return (
       <div className="flex gap-0.5">
         {[1, 2, 3, 4, 5].map((n) => (
-          <button key={n} type="button" onClick={() => onChange(value === n ? 0 : n)} className={`text-sm transition-colors ${n <= value ? "text-amber-400" : "text-muted-foreground/30 hover:text-amber-300"}`}>
+          <button
+            key={n}
+            type="button"
+            className={
+              n <= value
+                ? "text-amber-500 hover:text-amber-600"
+                : "text-muted-foreground hover:text-amber-400"
+            }
+            onClick={() => onChange(n)}
+            aria-label={`Rate ${n} star${n > 1 ? "s" : ""}`}
+          >
             ★
           </button>
         ))}
       </div>
     );
   }
-
   return (
     <>
     {/* ── Uniform Map Popup ── */}
@@ -9669,7 +10356,7 @@ function WorkHistoryPanel({
       let ud: UniformData | null = null;
       try { ud = JSON.parse(focusedItem.uniformData); } catch { /* ignore */ }
       return ud ? (
-        <div className="absolute top-3 z-[1200] pointer-events-auto" style={{ left: "calc(12px + 384px + 12px)" }}>
+        <div className="absolute top-3 left-3 z-[1200] pointer-events-auto">
           <UniformMapPopup
             data={ud}
             companyName={focusedItem.company}
@@ -9678,12 +10365,15 @@ function WorkHistoryPanel({
         </div>
       ) : null;
     })()} 
-    {/* ── Main Card (with bio card stacked above) ── */}
-    <div className="absolute top-3 left-3 z-[1100] flex flex-col gap-2 pointer-events-none max-h-[calc(100vh-24px)]">
+    {/* ── Main Card (with bio card stacked above) — portals into asideHost when provided so map starts to the right of the aside (matches IR layout) ── */}
+    <MaybePortal target={asideHost ?? null}>
+    <div className={asideHost
+      ? "relative w-full h-full flex flex-col gap-2.5"
+      : "absolute top-0 left-0 bottom-0 z-[1100] flex flex-col gap-2.5 pointer-events-none w-[min(26rem,calc(100vw-24px))] lg:w-[28rem] border-r border-white/10 bg-background/70 backdrop-blur-md p-3 overflow-y-auto scrollbar-thin"}>
       <div className="pointer-events-auto">
         <BioCardEditor />
       </div>
-      <div className="bg-background/95 backdrop-blur-md border rounded-xl shadow-xl p-3 w-96 max-h-[60vh] overflow-y-auto scrollbar-thin pointer-events-auto">
+      <div className={`${SIDEBAR_CARD_CHROME} w-full flex-1 min-h-0 overflow-y-auto scrollbar-thin pointer-events-auto`}>
 
       {/* ── Focused Detail View ── */}
       {focusedItem ? (
@@ -9692,7 +10382,7 @@ function WorkHistoryPanel({
             <button type="button" className="text-muted-foreground hover:text-foreground shrink-0" onClick={onExitFocus} title="Back to all">
               <ChevronLeft className="h-4 w-4" />
             </button>
-            <span className="text-sm font-semibold truncate">{focusedItem.company}</span>
+            <span className="text-sm font-semibold truncate text-muted-foreground">Work History</span>
             <div className="ml-auto flex items-center gap-1 shrink-0">
               {focusTab === "overview" && (
                 <button
@@ -10002,7 +10692,7 @@ function WorkHistoryPanel({
                 <div className="p-2.5 space-y-1.5">
                 {/* Row 1 — Company + type badges + company size */}
                 <div className="flex items-center gap-1.5 flex-wrap">
-                  {isSchool ? <GraduationCap className="h-3.5 w-3.5 text-violet-500 shrink-0" /> : isSelfEmployed ? <span className="text-xs shrink-0">🧑‍💻</span> : isUnemployed ? <Search className="h-3.5 w-3.5 text-red-500 shrink-0" /> : <Briefcase className={`h-3.5 w-3.5 shrink-0 ${isInternship ? "text-cyan-600" : "text-gray-500"}`} />}
+                  {isSchool ? <GraduationCap className="h-3.5 w-3.5 text-violet-500 shrink-0" /> : isSelfEmployed ? <span className="text-xs shrink-0">🧑‍💻</span> : isUnemployed ? <Search className="h-3.5 w-3.5 text-red-500 shrink-0" /> : null}
                   <span className="text-sm font-semibold">{focusedItem.company}</span>
                   {focusedItem.scheduleType && <span className="text-[10px] bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded capitalize">{focusedItem.scheduleType.replace("-", " ")}</span>}
                   {focusedItem.workMode && <span className="text-[10px] bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded capitalize">{focusedItem.workMode}{focusedItem.hybridDays != null ? ` ${focusedItem.hybridDays}d` : ""}</span>}
@@ -10118,12 +10808,14 @@ function WorkHistoryPanel({
 
           {/* ── Quick-access toolbar (horizontal icon strip) ── */}
           <div className="flex items-center gap-1 px-1">
-            {([
+            {(([
               { key: "gallery" as const, icon: Images, label: "Gallery", color: "text-pink-500", activeColor: "bg-pink-500/10 text-pink-500" },
               { key: "attachments" as const, icon: Paperclip, label: "Attachments", color: "text-amber-500", activeColor: "bg-amber-500/10 text-amber-500" },
               { key: "skills" as const, icon: Brain, label: "Skills", color: "text-violet-500", activeColor: "bg-violet-500/10 text-violet-500" },
               { key: "equipment" as const, icon: Wrench, label: "Equipment", color: "text-cyan-500", activeColor: "bg-cyan-500/10 text-cyan-500" },
-            ] as const).map(({ key, icon: Icon, label, activeColor }) => (
+            ] as const)
+              .filter(({ key }) => !["gallery", "attachments", "skills", "equipment"].includes(key))
+              .map(({ key, icon: Icon, label, activeColor }) => (
               <button
                 key={key}
                 type="button"
@@ -10134,7 +10826,7 @@ function WorkHistoryPanel({
                 <Icon className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">{label}</span>
               </button>
-            ))}
+            )))}
           </div>
 
           {/* ── Inline panel (expands below toolbar) ── */}
@@ -10166,8 +10858,9 @@ function WorkHistoryPanel({
                     fd.append("file", file);
                     fd.append("positionId", focusedItem.id);
                     if (opts?.albumName) fd.append("albumName", opts.albumName);
-                    const setCover = opts?.isCover ?? (galleryPhotos.length === 0);
-                    if (setCover) fd.append("isCover", "true");
+                    // Cover is never auto-assigned. The user explicitly sets it via
+                    // the "Set as cover" action or the dedicated banner uploader.
+                    if (opts?.isCover === true) fd.append("isCover", "true");
                     const res = await fetch("/api/gallery", { method: "POST", body: fd });
                     if (res.ok) return true;
                     const data = await res.json().catch(() => ({}));
@@ -10442,428 +11135,6 @@ function WorkHistoryPanel({
                         })}
                       </div>
                     )}
-                  </div>
-                );
-              })()}
-
-              {sidePanel === "attachments" && (() => {
-                const atts = matchedPosition?.attachments ?? [];
-                const catLabels: Record<string, string> = { "offer-letter": "Offer Letter", w2: "W-2", "pay-stub": "Pay Stub", contract: "Contract", cert: "Certificate", review: "Review", other: "Other" };
-                const fmtSize = (b: number) => b < 1024 ? `${b} B` : b < 1024 * 1024 ? `${(b / 1024).toFixed(1)} KB` : `${(b / (1024 * 1024)).toFixed(1)} MB`;
-                const uploadAtt = async (file: File) => {
-                  if (!focusedItem) return;
-                  const label = prompt("Label for this file:", file.name.replace(/\.[^.]+$/, ""));
-                  if (!label?.trim()) return;
-                  const cat = prompt("Category (offer-letter, w2, pay-stub, contract, cert, review, other):", "other") || "other";
-                  setPanelBusy(true);
-                  try {
-                    const fd = new FormData();
-                    fd.append("file", file);
-                    fd.append("positionId", focusedItem.id);
-                    fd.append("label", label.trim());
-                    fd.append("category", cat.trim());
-                    const res = await fetch("/api/attachments", { method: "POST", body: fd });
-                    if (res.ok) {
-                      const posRes = await fetch(`/api/current-position/${focusedItem.id}`);
-                      if (posRes.ok) setMatchedPosition(await posRes.json());
-                      queryClient.invalidateQueries({ queryKey: ["work-history"] });
-                    }
-                  } finally { setPanelBusy(false); }
-                };
-                const deleteAtt = async (id: string) => {
-                  if (!confirm("Delete this attachment?")) return;
-                  setPanelBusy(true);
-                  try {
-                    const res = await fetch(`/api/attachments?id=${id}`, { method: "DELETE" });
-                    if (res.ok && focusedItem) {
-                      const posRes = await fetch(`/api/current-position/${focusedItem.id}`);
-                      if (posRes.ok) setMatchedPosition(await posRes.json());
-                      queryClient.invalidateQueries({ queryKey: ["work-history"] });
-                    }
-                  } finally { setPanelBusy(false); }
-                };
-                const editAtt = async (a: { id: string; label: string; category: string }) => {
-                  if (!focusedItem) return;
-                  const label = prompt("Label:", a.label);
-                  if (label === null) return;
-                  const category = prompt("Category (offer-letter, w2, pay-stub, contract, cert, review, other):", a.category) || a.category;
-                  await fetch("/api/attachments", {
-                    method: "PATCH",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ id: a.id, label: label.trim() || a.label, category: category.trim() }),
-                  });
-                  const posRes = await fetch(`/api/current-position/${focusedItem.id}`);
-                  if (posRes.ok) setMatchedPosition(await posRes.json());
-                  queryClient.invalidateQueries({ queryKey: ["work-history"] });
-                };
-                return (
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Paperclip className="h-3.5 w-3.5 text-amber-500" />
-                      <span className="text-xs font-semibold">Attachments</span>
-                      <span className="ml-auto text-[10px] text-muted-foreground">{atts.length} file{atts.length !== 1 ? "s" : ""}</span>
-                      <label className="cursor-pointer p-0.5 rounded hover:bg-amber-500/10 text-amber-500 transition-colors" title="Upload file">
-                        <Plus className="h-3.5 w-3.5" />
-                        <input type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.jpg,.jpeg,.png,.webp" className="hidden" onChange={async (e) => {
-                          const file = e.target.files?.[0];
-                          if (file) await uploadAtt(file);
-                          e.target.value = "";
-                        }} />
-                      </label>
-                    </div>
-                    {atts.length === 0 ? (
-                      <p className="text-[11px] text-muted-foreground text-center py-4">No attachments yet. Click + to upload offer letters, W-2s, pay stubs, and more.</p>
-                    ) : (
-                      <div className="space-y-1">
-                        {atts.map((a) => (
-                          <div key={a.id} data-search-highlight-id={`attachment:${a.id}`} className="group flex items-center gap-2 rounded-md border bg-background/60 px-2 py-1.5">
-                            <FileText className="h-3.5 w-3.5 text-amber-500 shrink-0" />
-                            <div className="min-w-0 flex-1">
-                              <p className="text-[11px] font-medium truncate">{a.label}</p>
-                              <p className="text-[10px] text-muted-foreground">{catLabels[a.category] ?? a.category} · {fmtSize(a.fileSize)}</p>
-                            </div>
-                            <button type="button" className="p-0.5 rounded hover:bg-muted opacity-0 group-hover:opacity-100 transition-opacity" title="Edit" onClick={() => editAtt(a)}>
-                              <Pencil className="h-3 w-3 text-muted-foreground" />
-                            </button>
-                            <a href={a.filePath} target="_blank" rel="noopener noreferrer" download className="p-0.5 rounded hover:bg-muted opacity-0 group-hover:opacity-100 transition-opacity" title="Download">
-                              <Download className="h-3 w-3 text-muted-foreground" />
-                            </a>
-                            <button type="button" className="p-0.5 rounded hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-opacity" title="Delete" onClick={() => deleteAtt(a.id)}>
-                              <Trash2 className="h-3 w-3 text-red-500" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
-
-              {sidePanel === "skills" && (() => {
-                const used: string[] = focusedItem.skillsUsed ? (() => { try { return JSON.parse(focusedItem.skillsUsed); } catch { return []; } })() : [];
-                const gained: string[] = focusedItem.skillsGained ? (() => { try { return JSON.parse(focusedItem.skillsGained); } catch { return []; } })() : [];
-                const tech = matchedPosition?.techStack?.split(",").map((t: string) => t.trim()).filter(Boolean) ?? [];
-                const hasContent = used.length > 0 || gained.length > 0 || tech.length > 0;
-
-                const addSkill = async (field: "skillsUsed" | "skillsGained", current: string[]) => {
-                  const name = prompt(field === "skillsUsed" ? "Skill used:" : "Skill gained:");
-                  if (!name?.trim() || !focusedItem) return;
-                  const updated = [...current, name.trim()];
-                  await fetch(`/api/current-position/${focusedItem.id}`, {
-                    method: "PATCH",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ [field]: JSON.stringify(updated) }),
-                  });
-                  queryClient.invalidateQueries({ queryKey: ["work-history"] });
-                  const res = await fetch(`/api/current-position/${focusedItem.id}`);
-                  if (res.ok) setMatchedPosition(await res.json());
-                };
-
-                const removeSkill = async (field: "skillsUsed" | "skillsGained", current: string[], index: number) => {
-                  const updated = current.filter((_, i) => i !== index);
-                  await fetch(`/api/current-position/${focusedItem.id}`, {
-                    method: "PATCH",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ [field]: JSON.stringify(updated) }),
-                  });
-                  queryClient.invalidateQueries({ queryKey: ["work-history"] });
-                  const res = await fetch(`/api/current-position/${focusedItem.id}`);
-                  if (res.ok) setMatchedPosition(await res.json());
-                };
-
-                const addTech = async () => {
-                  const name = prompt("Tech stack item:");
-                  if (!name?.trim() || !focusedItem) return;
-                  const updated = [...tech, name.trim()].join(", ");
-                  await fetch(`/api/current-position/${focusedItem.id}`, {
-                    method: "PATCH",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ techStack: updated }),
-                  });
-                  const res = await fetch(`/api/current-position/${focusedItem.id}`);
-                  if (res.ok) setMatchedPosition(await res.json());
-                };
-
-                return (
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Brain className="h-3.5 w-3.5 text-violet-500" />
-                      <span className="text-xs font-semibold">Skills</span>
-                      <span className="ml-auto text-[10px] text-muted-foreground">{used.length + gained.length + tech.length}</span>
-                    </div>
-                    {!hasContent ? (
-                      <p className="text-[11px] text-muted-foreground text-center py-4">No skills logged yet. Use the buttons below to add.</p>
-                    ) : null}
-                    <div className="space-y-2">
-                      <div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Tech Stack</span>
-                          <button type="button" className="p-0.5 rounded hover:bg-cyan-500/10 text-cyan-500 transition-colors" title="Add tech" onClick={addTech}><Plus className="h-3 w-3" /></button>
-                        </div>
-                        {tech.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mt-0.5">
-                            {tech.map((t: string, i: number) => (
-                              <span key={i} className="group/pill px-1.5 py-0.5 rounded-md bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 text-[10px] inline-flex items-center gap-0.5">
-                                {t}
-                                <button type="button" className="opacity-0 group-hover/pill:opacity-100 transition-opacity" onClick={async () => {
-                                  const newName = prompt("Edit tech:", t);
-                                  if (newName === null) return;
-                                  const updated = newName.trim() ? tech.map((x: string, j: number) => j === i ? newName.trim() : x) : tech.filter((_: string, j: number) => j !== i);
-                                  await fetch(`/api/current-position/${focusedItem.id}`, {
-                                    method: "PATCH", headers: { "Content-Type": "application/json" },
-                                    body: JSON.stringify({ techStack: updated.join(", ") }),
-                                  });
-                                  const res = await fetch(`/api/current-position/${focusedItem.id}`);
-                                  if (res.ok) setMatchedPosition(await res.json());
-                                  queryClient.invalidateQueries({ queryKey: ["work-history"] });
-                                }} title="Edit (clear to remove)"><Pencil className="h-2.5 w-2.5" /></button>
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                      <div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Skills Used</span>
-                          <button type="button" className="p-0.5 rounded hover:bg-violet-500/10 text-violet-500 transition-colors" title="Add skill used" onClick={() => addSkill("skillsUsed", used)}><Plus className="h-3 w-3" /></button>
-                        </div>
-                        {used.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mt-0.5">
-                            {used.map((s, i) => (
-                              <span key={i} className="group px-1.5 py-0.5 rounded-md bg-violet-500/10 text-violet-600 dark:text-violet-400 text-[10px] inline-flex items-center gap-0.5">
-                                {s}
-                                <button type="button" className="opacity-0 group-hover:opacity-100 transition-opacity" onClick={async () => {
-                                  const newName = prompt("Edit skill:", s);
-                                  if (newName === null) return;
-                                  const updated = newName.trim() ? used.map((x, j) => j === i ? newName.trim() : x) : used.filter((_, j) => j !== i);
-                                  await fetch(`/api/current-position/${focusedItem.id}`, {
-                                    method: "PATCH", headers: { "Content-Type": "application/json" },
-                                    body: JSON.stringify({ skillsUsed: JSON.stringify(updated) }),
-                                  });
-                                  queryClient.invalidateQueries({ queryKey: ["work-history"] });
-                                  const res = await fetch(`/api/current-position/${focusedItem.id}`);
-                                  if (res.ok) setMatchedPosition(await res.json());
-                                }} title="Edit (clear to remove)"><Pencil className="h-2.5 w-2.5" /></button>
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                      <div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Skills Gained</span>
-                          <button type="button" className="p-0.5 rounded hover:bg-emerald-500/10 text-emerald-500 transition-colors" title="Add skill gained" onClick={() => addSkill("skillsGained", gained)}><Plus className="h-3 w-3" /></button>
-                        </div>
-                        {gained.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mt-0.5">
-                            {gained.map((s, i) => (
-                              <span key={i} className="group px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] inline-flex items-center gap-0.5">
-                                {s}
-                                <button type="button" className="opacity-0 group-hover:opacity-100 transition-opacity" onClick={async () => {
-                                  const newName = prompt("Edit skill:", s);
-                                  if (newName === null) return;
-                                  const updated = newName.trim() ? gained.map((x, j) => j === i ? newName.trim() : x) : gained.filter((_, j) => j !== i);
-                                  await fetch(`/api/current-position/${focusedItem.id}`, {
-                                    method: "PATCH", headers: { "Content-Type": "application/json" },
-                                    body: JSON.stringify({ skillsGained: JSON.stringify(updated) }),
-                                  });
-                                  queryClient.invalidateQueries({ queryKey: ["work-history"] });
-                                  const res = await fetch(`/api/current-position/${focusedItem.id}`);
-                                  if (res.ok) setMatchedPosition(await res.json());
-                                }} title="Edit (clear to remove)"><Pencil className="h-2.5 w-2.5" /></button>
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {sidePanel === "equipment" && (() => {
-                const allEquip = matchedPosition?.equipment ?? [];
-                const used = allEquip.filter(e => e.usage !== "worked-on");
-                const workedOn = allEquip.filter(e => e.usage === "worked-on");
-
-                const addEquipment = async (usage: "used" | "worked-on") => {
-                  const name = prompt(usage === "used" ? "Equipment/tool name (assigned to you):" : "Equipment/tool name (you worked on):");
-                  if (!name?.trim() || !focusedItem) return;
-                  await fetch("/api/equipment", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ positionId: focusedItem.id, name: name.trim(), usage }),
-                  });
-                  const res = await fetch(`/api/current-position/${focusedItem.id}`);
-                  if (res.ok) setMatchedPosition(await res.json());
-                };
-
-                const uploadEquipmentPhoto = async (equipmentId: string, file: File, isFirst: boolean) => {
-                  await handleEquipmentPhotoUpload(equipmentId, file, isFirst);
-                };
-
-                const deleteEquipmentPhoto = async (photoId: string) => {
-                  await handleEquipmentPhotoDelete(photoId);
-                };
-
-                const setEquipmentCover = async (photoId: string) => {
-                  await handleEquipmentPhotoSetCover(photoId);
-                };
-
-                const editEquipmentPhotoCaption = async (photo: { id: string; caption?: string | null }) => {
-                  await handleEquipmentPhotoCaption(photo.id, photo.caption);
-                };
-
-                const deleteEquip = async (id: string) => {
-                  if (!focusedItem || !confirm("Delete this equipment?")) return;
-                  setPanelBusy(true);
-                  try {
-                    const res = await fetch(`/api/equipment?id=${id}`, { method: "DELETE" });
-                    if (res.ok) {
-                      const posRes = await fetch(`/api/current-position/${focusedItem.id}`);
-                      if (posRes.ok) setMatchedPosition(await posRes.json());
-                      queryClient.invalidateQueries({ queryKey: ["work-history"] });
-                    }
-                  } finally { setPanelBusy(false); }
-                };
-
-                const editEquip = async (e: { id: string; name: string; category: string; condition: string; manufacturer?: string | null; model?: string | null; notes?: string | null }) => {
-                  if (!focusedItem) return;
-                  const name = prompt("Name:", e.name);
-                  if (name === null) return;
-                  const category = prompt("Category (hardware, software, vehicle, tool, other):", e.category) || e.category;
-                  const manufacturer = prompt("Manufacturer:", e.manufacturer ?? "") ?? "";
-                  const model = prompt("Model:", e.model ?? "") ?? "";
-                  const condition = prompt("Condition (good, fair, poor):", e.condition) || e.condition;
-                  const notes = prompt("Notes:", e.notes ?? "") ?? "";
-                  await fetch("/api/equipment", {
-                    method: "PATCH",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ id: e.id, name: name.trim() || e.name, category, manufacturer, model, condition, notes }),
-                  });
-                  const res = await fetch(`/api/current-position/${focusedItem.id}`);
-                  if (res.ok) setMatchedPosition(await res.json());
-                  queryClient.invalidateQueries({ queryKey: ["work-history"] });
-                };
-
-                const EquipCard = ({ e }: { e: { id: string; name: string; category: string; usage: string; manufacturer?: string | null; model?: string | null; condition: string; notes?: string | null; photos?: { id: string; filePath: string; caption?: string | null; isCover: boolean }[] } }) => (
-                  <div data-search-highlight-id={`equipment:${e.id}`} className="group rounded-md border p-1.5 text-[11px] space-y-0.5">
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium">{e.name}</span>
-                      <div className="flex items-center gap-0.5">
-                        <span className={`px-1 py-0.5 rounded text-[9px] ${e.condition === "good" ? "bg-emerald-500/10 text-emerald-600" : e.condition === "fair" ? "bg-amber-500/10 text-amber-600" : "bg-red-500/10 text-red-600"}`}>
-                          {e.condition}
-                        </span>
-                        <button type="button" className="p-0.5 rounded hover:bg-muted opacity-0 group-hover:opacity-100 transition-opacity" title="Edit" onClick={() => editEquip(e)}>
-                          <Pencil className="h-2.5 w-2.5 text-muted-foreground" />
-                        </button>
-                        <button type="button" className="p-0.5 rounded hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-opacity" title="Delete" onClick={() => deleteEquip(e.id)}>
-                          <Trash2 className="h-2.5 w-2.5 text-red-500" />
-                        </button>
-                      </div>
-                    </div>
-                    <div className="text-muted-foreground">
-                      {e.category}{e.manufacturer ? ` · ${e.manufacturer}` : ""}{e.model ? ` ${e.model}` : ""}
-                    </div>
-                    {e.notes && <div className="text-muted-foreground italic">{e.notes}</div>}
-                    <div className="pt-1">
-                      <div className="flex items-center gap-1 mb-1">
-                        <Camera className="h-3 w-3 text-cyan-500" />
-                        <span className="text-[10px] text-muted-foreground">Photos {(e.photos?.length ?? 0)}/3</span>
-                        {(e.photos?.length ?? 0) < 3 && (
-                          <label className="ml-auto cursor-pointer p-0.5 rounded hover:bg-cyan-500/10 text-cyan-500" title="Add photo">
-                            <Plus className="h-3 w-3" />
-                            <input
-                              type="file"
-                              accept="image/*"
-                              className="hidden"
-                              onChange={async (ev) => {
-                                const file = ev.target.files?.[0];
-                                if (!file) return;
-                                await uploadEquipmentPhoto(e.id, file, (e.photos?.length ?? 0) === 0);
-                                ev.target.value = "";
-                              }}
-                            />
-                          </label>
-                        )}
-                      </div>
-                      {(e.photos?.length ?? 0) > 0 ? (
-                        <div className="grid grid-cols-3 gap-1">
-                          {e.photos!.map((p) => (
-                            <div
-                              key={p.id}
-                              role="button"
-                              tabIndex={0}
-                              className="group/p relative aspect-square rounded overflow-hidden bg-muted cursor-pointer"
-                              onClick={() => setEquipmentPhotoViewer({ equipmentId: e.id, index: e.photos!.findIndex((photo) => photo.id === p.id) })}
-                              onKeyDown={(ev) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); setEquipmentPhotoViewer({ equipmentId: e.id, index: e.photos!.findIndex((photo) => photo.id === p.id) }); } }}
-                            >
-                              <img src={p.filePath} alt={p.caption ?? e.name} className="w-full h-full object-cover" />
-                              {p.isCover && <Star className="absolute top-0.5 left-0.5 h-2.5 w-2.5 text-yellow-400 fill-yellow-400" />}
-                              <div className="absolute inset-x-0 bottom-0 bg-black/50 px-0.5 py-0.5 text-[8px] text-white truncate">
-                                {p.caption || "photo"}
-                              </div>
-                              <div className="absolute top-0.5 right-0.5 flex gap-0.5 opacity-0 group-hover/p:opacity-100 transition-opacity">
-                                <button type="button" className="p-0.5 rounded bg-black/50 hover:bg-yellow-500/30" title="Set cover" onClick={(ev) => { ev.stopPropagation(); setEquipmentCover(p.id); }}>
-                                  <Star className="h-2 w-2 text-yellow-300" />
-                                </button>
-                                <button type="button" className="p-0.5 rounded bg-black/50 hover:bg-blue-500/30" title="Edit caption" onClick={(ev) => { ev.stopPropagation(); editEquipmentPhotoCaption(p); }}>
-                                  <Pencil className="h-2 w-2 text-blue-300" />
-                                </button>
-                                <button type="button" className="p-0.5 rounded bg-black/50 hover:bg-red-500/30" title="Delete photo" onClick={(ev) => { ev.stopPropagation(); deleteEquipmentPhoto(p.id); }}>
-                                  <Trash2 className="h-2 w-2 text-red-300" />
-                                </button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-[10px] text-muted-foreground">No photos added yet.</p>
-                      )}
-                      <p className="pt-1 text-[10px] text-muted-foreground/80">
-                        Keep equipment visuals clean of faces, serial numbers, customer info, and proprietary displays.
-                      </p>
-                    </div>
-                  </div>
-                );
-
-                return (
-                  <div className="space-y-3">
-                    {/* Assigned / Used */}
-                    <div className="space-y-1.5">
-                      <div className="flex items-center gap-2">
-                        <Wrench className="h-3.5 w-3.5 text-cyan-500" />
-                        <span className="text-xs font-semibold">Assigned to Me</span>
-                        <span className="ml-auto text-[10px] text-muted-foreground">{used.length}</span>
-                        <button type="button" className="p-0.5 rounded hover:bg-cyan-500/10 text-cyan-500 transition-colors" title="Add equipment you used" onClick={() => addEquipment("used")}><Plus className="h-3 w-3" /></button>
-                      </div>
-                      {used.length === 0 ? (
-                        <p className="text-[11px] text-muted-foreground text-center py-2">No tools assigned. Click + to add.</p>
-                      ) : (
-                        <div className="space-y-1">
-                          {used.map(e => <EquipCard key={e.id} e={e} />)}
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="border-t" />
-
-                    {/* Worked On / Maintained */}
-                    <div className="space-y-1.5">
-                      <div className="flex items-center gap-2">
-                        <Settings className="h-3.5 w-3.5 text-orange-500" />
-                        <span className="text-xs font-semibold">Worked On</span>
-                        <span className="ml-auto text-[10px] text-muted-foreground">{workedOn.length}</span>
-                        <button type="button" className="p-0.5 rounded hover:bg-orange-500/10 text-orange-500 transition-colors" title="Add equipment you worked on" onClick={() => addEquipment("worked-on")}><Plus className="h-3 w-3" /></button>
-                      </div>
-                      {workedOn.length === 0 ? (
-                        <p className="text-[11px] text-muted-foreground text-center py-2">No equipment logged. Click + to add.</p>
-                      ) : (
-                        <div className="space-y-1">
-                          {workedOn.map(e => <EquipCard key={e.id} e={e} />)}
-                        </div>
-                      )}
-                    </div>
                   </div>
                 );
               })()}
@@ -11465,6 +11736,56 @@ function WorkHistoryPanel({
             );
           })()}
 
+          {/* ── Career Events (read-only overview) ── */}
+          {(eventsLoading || events.length > 0) && (
+            <div className="rounded-lg border overflow-hidden">
+              <button type="button" className="w-full flex items-center justify-between p-2 hover:bg-muted/30 transition-colors" onClick={() => toggleSection("events-ov")}>
+                <span className="text-[13px] font-medium flex items-center gap-1.5">
+                  <Zap className="h-3.5 w-3.5 text-fuchsia-500" /> Events
+                  {events.length > 0 && <span className="text-[10px] bg-fuchsia-100 dark:bg-fuchsia-900/30 text-fuchsia-700 dark:text-fuchsia-300 px-1.5 py-0.5 rounded-full">{events.length}</span>}
+                </span>
+                {expandedSections.has("events-ov") ? <ChevronUp className="h-3 w-3 text-muted-foreground" /> : <ChevronDown className="h-3 w-3 text-muted-foreground" />}
+              </button>
+              {expandedSections.has("events-ov") && (
+                <div className="px-2 pb-2">
+                  {eventsLoading ? (
+                    <div className="flex items-center justify-center py-2"><Loader2 className="h-3 w-3 animate-spin text-muted-foreground" /></div>
+                  ) : (
+                    <div className="relative pl-3 border-l-2 border-fuchsia-200 dark:border-fuchsia-800 space-y-2.5">
+                      {events.map((ev) => {
+                        const cat = EVENT_CATEGORIES.find((c) => c.value === ev.category) ?? EVENT_CATEGORIES[0];
+                        const photos = ev.photos ?? [];
+                        return (
+                          <div key={ev.id} className="relative">
+                            <div className="absolute -left-[19px] top-0.5 w-3 h-3 rounded-full bg-fuchsia-400 border-2 border-background flex items-center justify-center text-[7px]">{cat.icon}</div>
+                            <p className="text-xs font-medium truncate">{ev.title}</p>
+                            <p className="text-[11px] text-muted-foreground flex flex-wrap items-center gap-x-1.5">
+                              <span className={`inline-block px-1 rounded ${cat.bg} ${cat.text}`}>{cat.label}</span>
+                              {ev.location && <span className="inline-flex items-center gap-0.5"><MapPin className="h-2.5 w-2.5" />{ev.location}</span>}
+                              {ev.startDate && <span>{new Date(ev.startDate).toLocaleDateString(undefined, { dateStyle: "medium" })}</span>}
+                            </p>
+                            {ev.metrics && <p className="text-[11px] text-emerald-600 dark:text-emerald-400">📈 {ev.metrics}</p>}
+                            {photos.length > 0 && (
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {photos.slice(0, 4).map((p) => (
+                                  <span key={p.id} className="h-10 w-10 rounded overflow-hidden ring-1 ring-border bg-muted inline-block relative">
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img src={p.filePath} alt={p.caption ?? ""} loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover" />
+                                  </span>
+                                ))}
+                                {photos.length > 4 && <span className="h-10 w-10 rounded bg-muted/60 ring-1 ring-border flex items-center justify-center text-[10px] text-muted-foreground">+{photos.length - 4}</span>}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           </>)}
           {/* ═══ END OVERVIEW TAB ═══ */}
 
@@ -11601,6 +11922,239 @@ function WorkHistoryPanel({
                   </div>
                   <Button size="sm" className="w-full h-6 text-xs" disabled={msSaving || !newMsTitle.trim() || !newMsDate} onClick={handleAddMilestone}>
                     {msSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <><Plus className="h-2.5 w-2.5 mr-0.5" /> Add Milestone</>}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ── Feature E2: Career Events ── */}
+          <div className="rounded-lg border overflow-hidden">
+            <button type="button" className="w-full flex items-center justify-between p-2 hover:bg-muted/30 transition-colors" onClick={() => toggleSection("events")}>
+              <span className="text-[13px] font-medium flex items-center gap-1.5">
+                <Zap className="h-3.5 w-3.5 text-fuchsia-500" /> Events
+                {events.length > 0 && <span className="text-[13px] bg-fuchsia-100 dark:bg-fuchsia-900/30 text-fuchsia-700 dark:text-fuchsia-300 px-1 rounded">{events.length}</span>}
+              </span>
+              {expandedSections.has("events") ? <ChevronUp className="h-3 w-3 text-muted-foreground" /> : <ChevronDown className="h-3 w-3 text-muted-foreground" />}
+            </button>
+            {expandedSections.has("events") && (
+              <div className="px-2 pb-2 space-y-1.5">
+                <p className="text-[10px] text-muted-foreground italic">Things you participated in — company dinners, field days, emergencies, news moments. Add photos for each.</p>
+                {eventsLoading && <Loader2 className="h-3 w-3 animate-spin mx-auto" />}
+                {events.length > 0 && (
+                  <div className="relative pl-3 border-l-2 border-fuchsia-200 dark:border-fuchsia-800 space-y-2.5">
+                    {events.map((ev) => {
+                      const cat = EVENT_CATEGORIES.find((c) => c.value === ev.category) ?? EVENT_CATEGORIES[0];
+                      const range = ev.startDate && ev.endDate
+                        ? `${ev.startDate} → ${ev.endDate}`
+                        : ev.startDate || ev.endDate || "—";
+                      const photos = ev.photos ?? [];
+                      const isUploading = uploadingPhotoEvtId === ev.id;
+                      const isEditing = editingEvId === ev.id;
+                      return (
+                        <div key={ev.id} className="relative group">
+                          <div className="absolute -left-[19px] top-0.5 w-3 h-3 rounded-full bg-fuchsia-400 border-2 border-background flex items-center justify-center text-[7px]">{cat.icon}</div>
+                          {isEditing ? (
+                            <div className="space-y-1 rounded border border-fuchsia-300 dark:border-fuchsia-700 bg-fuchsia-50/40 dark:bg-fuchsia-950/20 p-1.5">
+                              <Input
+                                value={editEvDraft.title}
+                                onChange={(e) => setEditEvDraft((d) => ({ ...d, title: e.target.value }))}
+                                placeholder="Title"
+                                className="h-6 text-xs"
+                              />
+                              <div className="flex gap-1">
+                                <Select value={editEvDraft.category} onValueChange={(v) => setEditEvDraft((d) => ({ ...d, category: v ?? "company_event" }))}>
+                                  <SelectTrigger className="h-6 text-xs flex-1"><SelectValue /></SelectTrigger>
+                                  <SelectContent>
+                                    {EVENT_CATEGORIES.map((c) => (
+                                      <SelectItem key={c.value} value={c.value} className="text-xs">{c.icon} {c.label}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div className="flex gap-1">
+                                <Input type="datetime-local" value={editEvDraft.startDate} onChange={(e) => setEditEvDraft((d) => ({ ...d, startDate: e.target.value }))} className="h-6 text-xs flex-1" />
+                                <Input type="datetime-local" value={editEvDraft.endDate} onChange={(e) => setEditEvDraft((d) => ({ ...d, endDate: e.target.value }))} className="h-6 text-xs flex-1" />
+                              </div>
+                              <div className="relative">
+                                <Input
+                                  value={editEvDraft.location}
+                                  onChange={(e) => setEditEvDraft((d) => ({ ...d, location: e.target.value }))}
+                                  placeholder="Location (e.g. HQ, City, Venue)"
+                                  className="h-6 text-xs pr-6"
+                                />
+                                {editEvDraft.location && (
+                                  <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] leading-none">
+                                    {editEvGeoLoading ? <Loader2 className="h-2.5 w-2.5 animate-spin text-muted-foreground" /> : editEvDraft.lat != null ? "📍" : <span className="text-muted-foreground">?</span>}
+                                  </span>
+                                )}
+                              </div>
+                              <Input
+                                value={editEvDraft.metrics}
+                                onChange={(e) => setEditEvDraft((d) => ({ ...d, metrics: e.target.value }))}
+                                placeholder="Stats (optional)"
+                                className="h-6 text-xs"
+                              />
+                              <textarea
+                                value={editEvDraft.description}
+                                onChange={(e) => setEditEvDraft((d) => ({ ...d, description: e.target.value }))}
+                                placeholder="What happened? (optional)"
+                                rows={3}
+                                className="w-full text-xs rounded border bg-background px-2 py-1 resize-none"
+                              />
+                              <div className="flex gap-1 justify-end">
+                                <Button size="sm" variant="outline" className="h-6 px-2 text-xs" disabled={editEvSaving} onClick={cancelEditEvent}>Cancel</Button>
+                                <Button size="sm" className="h-6 px-2 text-xs" disabled={editEvSaving || !editEvDraft.title.trim()} onClick={() => handleSaveEditEvent(ev.id)}>
+                                  {editEvSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save"}
+                                </Button>
+                              </div>
+                            </div>
+                          ) : (
+                          <div className="flex items-start justify-between gap-1">
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs font-medium truncate">{ev.title}</p>
+                              <p className="text-xs text-muted-foreground flex flex-wrap gap-1 items-center">
+                                <span className={`inline-block px-1 rounded ${cat.bg} ${cat.text}`}>{cat.label}</span>
+                                {ev.location && <span className="inline-block px-1 rounded bg-slate-100 dark:bg-slate-900/30 text-slate-700 dark:text-slate-300">{ev.location}</span>}
+                                <span className="ml-1">
+                                  · {ev.startDate ? new Date(ev.startDate).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "—"}
+                                  {ev.endDate && ` → ${new Date(ev.endDate).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}`}
+                                </span>
+                              </p>
+                              {ev.metrics && (
+                                <p className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-0.5">📈 {ev.metrics}</p>
+                              )}
+                              {ev.description && (
+                                <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-3 whitespace-pre-line">{ev.description}</p>
+                              )}
+                              {/* Photo strip */}
+                              <div className="mt-1 flex flex-wrap gap-1">
+                                {photos.map((p) => (
+                                  <span key={p.id} className="relative group/photo h-12 w-12 rounded overflow-hidden ring-1 ring-border bg-muted">
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img src={p.filePath} alt={p.caption ?? ""} loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover" />
+                                    <button
+                                      type="button"
+                                      onClick={(e) => { e.stopPropagation(); handleDeleteEventPhoto(ev.id, p.id); }}
+                                      className="absolute top-0.5 right-0.5 h-3.5 w-3.5 rounded-full bg-background/90 text-red-500 opacity-0 group-hover/photo:opacity-100 transition-opacity flex items-center justify-center"
+                                      aria-label="Delete photo"
+                                    >
+                                      <X className="h-2 w-2" />
+                                    </button>
+                                  </span>
+                                ))}
+                                <label className="h-12 w-12 rounded border border-dashed border-muted-foreground/40 flex items-center justify-center cursor-pointer hover:bg-muted/30 transition-colors text-muted-foreground">
+                                  {isUploading ? (
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  ) : (
+                                    <Camera className="h-3.5 w-3.5" />
+                                  )}
+                                  <input
+                                    type="file"
+                                    accept="image/png,image/jpeg,image/webp,image/gif"
+                                    className="hidden"
+                                    disabled={isUploading}
+                                    onChange={(e) => {
+                                      const f = e.target.files?.[0];
+                                      if (f) handleUploadEventPhoto(ev.id, f);
+                                      e.target.value = "";
+                                    }}
+                                  />
+                                </label>
+                              </div>
+                            </div>
+                            <div className="flex flex-col gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button
+                                type="button"
+                                className="text-muted-foreground hover:text-fuchsia-600"
+                                onClick={() => startEditEvent(ev)}
+                                aria-label="Edit event"
+                              >
+                                <Pencil className="h-2.5 w-2.5" />
+                              </button>
+                              <button
+                                type="button"
+                                className="text-muted-foreground hover:text-red-500"
+                                onClick={() => handleDeleteEvent(ev.id)}
+                                aria-label="Delete event"
+                              >
+                                <X className="h-2.5 w-2.5" />
+                              </button>
+                            </div>
+                          </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                {/* Add event form */}
+                <div className="space-y-1 pt-1 border-t">
+                  <Input
+                    value={newEvTitle}
+                    onChange={(e) => setNewEvTitle(e.target.value)}
+                    placeholder="Event (e.g. Summer field day, Fire evacuation drill)"
+                    className="h-6 text-xs"
+                  />
+                  <div className="flex gap-1">
+                    <Select value={newEvCategory} onValueChange={(v) => setNewEvCategory(v ?? "project")}>
+                      <SelectTrigger className="h-6 text-xs flex-1"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {EVENT_CATEGORIES.map((c) => (
+                          <SelectItem key={c.value} value={c.value} className="text-xs">{c.icon} {c.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <button
+                      type="button"
+                      className="h-6 px-1.5 text-[11px] rounded border hover:bg-muted/30 text-muted-foreground"
+                      onClick={() => setNewEvExpanded((v) => !v)}
+                      aria-expanded={newEvExpanded}
+                    >
+                      {newEvExpanded ? "Less" : "More"}
+                    </button>
+                  </div>
+                  <div className="flex gap-1">
+                    <Input type="datetime-local" value={newEvStartDate} onChange={(e) => setNewEvStartDate(e.target.value)} className="h-6 text-xs flex-1" placeholder="Start" />
+                    <Input type="datetime-local" value={newEvEndDate} onChange={(e) => setNewEvEndDate(e.target.value)} className="h-6 text-xs flex-1" placeholder="End" />
+                  </div>
+                  <div className="relative">
+                    <Input
+                      value={newEvLocation}
+                      onChange={(e) => setNewEvLocation(e.target.value)}
+                      placeholder="Location (e.g. HQ, City, Venue)"
+                      className="h-6 text-xs pr-6"
+                    />
+                    {newEvLocation && (
+                      <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] leading-none">
+                        {newEvGeoLoading ? <Loader2 className="h-2.5 w-2.5 animate-spin text-muted-foreground" /> : newEvLat != null ? "📍" : <span className="text-muted-foreground">?</span>}
+                      </span>
+                    )}
+                  </div>
+                  {newEvExpanded && (
+                    <>
+                      <Input
+                        value={newEvMetrics}
+                        onChange={(e) => setNewEvMetrics(e.target.value)}
+                        placeholder="Stats (e.g. 200 attendees, raised $5k)"
+                        className="h-6 text-xs"
+                      />
+                      <textarea
+                        value={newEvDescription}
+                        onChange={(e) => setNewEvDescription(e.target.value)}
+                        placeholder="What happened? Who was there? (optional)"
+                        rows={3}
+                        className="w-full text-xs rounded border bg-background px-2 py-1 resize-none"
+                      />
+                    </>
+                  )}
+                  <Button
+                    size="sm"
+                    className="w-full h-6 text-xs"
+                    disabled={evSaving || !newEvTitle.trim()}
+                    onClick={handleAddEvent}
+                  >
+                    {evSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <><Plus className="h-2.5 w-2.5 mr-0.5" /> Add Event</>}
                   </Button>
                 </div>
               </div>
@@ -12055,36 +12609,12 @@ function WorkHistoryPanel({
           </>)}
           {/* ═══ END EDIT TAB ═══ */}
 
-          {/* Exit button */}
-          <button type="button" className="w-full text-xs text-muted-foreground hover:text-foreground flex items-center justify-center gap-1 py-1.5 rounded-md hover:bg-muted/50 transition-colors" onClick={onExitFocus}>
-            <ChevronLeft className="h-3 w-3" /> Back to all work history
-          </button>
         </div>
       ) : (
       <>
       <div className="flex items-center justify-between mb-2">
-        <span className="text-sm font-semibold flex items-center gap-1.5">
-          <Briefcase className="h-4 w-4 text-gray-500" /> Work History
-        </span>
+        <span className="text-base font-semibold pl-1.5">Work History</span>
         <div className="relative flex items-center gap-1">
-          {(() => {
-            const isMac =
-              typeof navigator !== "undefined" && /Mac|iPod|iPhone|iPad/.test(navigator.platform);
-            const label = isMac ? "⌘ /" : "Ctrl /";
-            return (
-              <button
-                type="button"
-                className="flex items-center gap-1 text-muted-foreground hover:text-foreground"
-                title={`Search work history (${label})`}
-                onClick={() => setSearchOpen(true)}
-              >
-                <Search className="h-4 w-4" />
-                <kbd className="hidden md:inline-flex items-center rounded border bg-muted/50 px-1 py-0 text-[9px] font-mono leading-none h-4">
-                  {label}
-                </kbd>
-              </button>
-            );
-          })()}
           <button
             type="button"
             className="text-muted-foreground hover:text-foreground"
@@ -12095,19 +12625,7 @@ function WorkHistoryPanel({
           </button>
           <button
             type="button"
-            className={`transition-colors ${showPanelSettings ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
-            title="Panel settings"
-            onClick={() => {
-              setShowPanelSettings((p) => !p);
-              setShowTypeFilterPanel(false);
-              setShowMoreMenu(false);
-            }}
-          >
-            <Settings className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            className={`transition-colors ${showMoreMenu ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
+            className={`transition-colors ${(showMoreMenu || showPanelSettings) ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
             title="More options"
             onClick={() => {
               setShowMoreMenu((p) => !p);
@@ -12178,39 +12696,71 @@ function WorkHistoryPanel({
                 )}
                 <span className="flex-1">Import from experience</span>
               </button>
+              <div className="my-1 h-px bg-border/60" />
+              <button
+                type="button"
+                className="w-full flex items-center gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-muted/40 text-left"
+                onClick={() => {
+                  setShowPanelSettings(true);
+                  setShowMoreMenu(false);
+                }}
+              >
+                <Settings className="h-3.5 w-3.5 shrink-0" />
+                <span className="flex-1">Panel settings</span>
+              </button>
             </div>
           )}
 
-          {showPanelSettings && (
-            <div className="absolute right-0 top-7 z-[1200] w-60 rounded-lg border bg-background/95 backdrop-blur-md shadow-xl p-2 space-y-1.5 max-h-[70vh] overflow-y-auto scrollbar-thin">
-              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide px-1">Panel Settings</p>
-              <button
-                type="button"
-                className="w-full flex items-center justify-between rounded-md px-2 py-1 text-xs hover:bg-muted/40"
-                onClick={onToggleCareerPath}
-              >
-                <span className="flex items-center gap-1.5"><Route className="h-3.5 w-3.5" /> Career Path Line</span>
-                <span className={`text-[11px] ${showCareerPath ? "text-blue-600" : "text-muted-foreground"}`}>{showCareerPath ? "On" : "Off"}</span>
-              </button>
-              <button
-                type="button"
-                className="w-full flex items-center justify-between rounded-md px-2 py-1 text-xs hover:bg-muted/40"
-                onClick={onToggleOverlaps}
-              >
-                <span className="flex items-center gap-1.5"><Zap className="h-3.5 w-3.5" /> Concurrent Badges</span>
-                <span className={`text-[11px] ${showOverlaps ? "text-cyan-600" : "text-muted-foreground"}`}>{showOverlaps ? "On" : "Off"}</span>
-              </button>
-              <button
-                type="button"
-                className="w-full flex items-center justify-between rounded-md px-2 py-1 text-xs hover:bg-muted/40"
-                onClick={() => setUseTimelineStyle((p) => !p)}
-              >
-                <span className="flex items-center gap-1.5"><GitCommitVertical className="h-3.5 w-3.5" /> Timeline Style</span>
-                <span className={`text-[11px] ${useTimelineStyle ? "text-primary" : "text-muted-foreground"}`}>{useTimelineStyle ? "On" : "Off"}</span>
-              </button>
-              <div className="pt-1.5 mt-1.5 border-t border-border/60">
-                <div className="flex items-center justify-between px-1 mb-1">
-                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+          <Dialog open={showPanelSettings} onOpenChange={setShowPanelSettings}>
+            <DialogContent className="sm:max-w-md gap-0 p-0 overflow-hidden">
+              <DialogHeader className="px-4 pt-4 pb-3 border-b">
+                <DialogTitle className="text-sm">Panel Settings</DialogTitle>
+              </DialogHeader>
+              <div className="px-4 py-4 space-y-4 overflow-y-auto max-h-[65vh] scrollbar-thin">
+              {/* Display toggles — 3-col icon tile grid */}
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Display</p>
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  className={`flex flex-col items-center gap-1 rounded-lg border px-1.5 py-2 text-[10px] transition-colors ${showCareerPath ? "border-blue-500/40 bg-blue-500/10 text-blue-600 dark:text-blue-400" : "border-border/60 bg-muted/30 text-muted-foreground hover:bg-muted/50"}`}
+                  onClick={onToggleCareerPath}
+                >
+                  <Route className="h-3.5 w-3.5" />
+                  <span className="leading-tight text-center">Career Path</span>
+                  <span className={`text-[9px] font-medium ${showCareerPath ? "text-blue-500" : "text-muted-foreground/60"}`}>{showCareerPath ? "On" : "Off"}</span>
+                </button>
+                <button
+                  type="button"
+                  className={`flex flex-col items-center gap-1 rounded-lg border px-1.5 py-2 text-[10px] transition-colors ${showOverlaps ? "border-cyan-500/40 bg-cyan-500/10 text-cyan-600 dark:text-cyan-400" : "border-border/60 bg-muted/30 text-muted-foreground hover:bg-muted/50"}`}
+                  onClick={onToggleOverlaps}
+                >
+                  <Zap className="h-3.5 w-3.5" />
+                  <span className="leading-tight text-center">Concurrent</span>
+                  <span className={`text-[9px] font-medium ${showOverlaps ? "text-cyan-500" : "text-muted-foreground/60"}`}>{showOverlaps ? "On" : "Off"}</span>
+                </button>
+                <button
+                  type="button"
+                  className={`flex flex-col items-center gap-1 rounded-lg border px-1.5 py-2 text-[10px] transition-colors ${useTimelineStyle ? "border-primary/40 bg-primary/10 text-primary" : "border-border/60 bg-muted/30 text-muted-foreground hover:bg-muted/50"}`}
+                  onClick={() => setUseTimelineStyle((p) => !p)}
+                >
+                  <GitCommitVertical className="h-3.5 w-3.5" />
+                  <span className="leading-tight text-center">Timeline</span>
+                  <span className={`text-[9px] font-medium ${useTimelineStyle ? "text-primary" : "text-muted-foreground/60"}`}>{useTimelineStyle ? "On" : "Off"}</span>
+                </button>
+                <button
+                  type="button"
+                  className={`flex flex-col items-center gap-1 rounded-lg border px-1.5 py-2 text-[10px] transition-colors ${showPay ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "border-border/60 bg-muted/30 text-muted-foreground hover:bg-muted/50"}`}
+                  onClick={() => setShowPay((p) => !p)}
+                >
+                  <DollarSign className="h-3.5 w-3.5" />
+                  <span className="leading-tight text-center">Show Pay</span>
+                  <span className={`text-[9px] font-medium ${showPay ? "text-emerald-500" : "text-muted-foreground/60"}`}>{showPay ? "On" : "Off"}</span>
+                </button>
+              </div>
+              {/* Stat Slots — 2-col chip grid per group */}
+              <div className="pt-2 border-t border-border/60">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
                     Stat Slots ({kpiSlots.length}/{KPI_MAX_SLOTS})
                   </p>
                   <button
@@ -12221,39 +12771,45 @@ function WorkHistoryPanel({
                     Reset
                   </button>
                 </div>
-                <p className="text-[10px] text-muted-foreground px-1 mb-1.5 leading-snug">
-                  Pick which metrics show in the stats card. Click to add/remove.
-                </p>
                 {(["Career", "Compensation", "Lifestyle", "Composition", "Skills"] as const).map((group) => {
                   const inGroup = KPI_CATALOG.filter((m) => m.group === group);
                   return (
-                    <div key={group} className="mb-1.5">
-                      <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/70 px-1 mb-0.5">{group}</p>
-                      {inGroup.map((m) => {
-                        const selected = kpiSlots.includes(m.key);
-                        const order = selected ? kpiSlots.indexOf(m.key) + 1 : null;
-                        const atCap = !selected && kpiSlots.length >= KPI_MAX_SLOTS;
-                        return (
-                          <button
-                            key={m.key}
-                            type="button"
-                            disabled={atCap}
-                            className={`w-full flex items-center justify-between rounded-md px-2 py-1 text-xs hover:bg-muted/40 ${atCap ? "opacity-40 cursor-not-allowed" : ""}`}
-                            onClick={() => toggleKpiSlot(m.key)}
-                          >
-                            <span className="truncate">{m.label}</span>
-                            <span className={`text-[10px] ml-2 shrink-0 ${selected ? "text-primary font-medium" : "text-muted-foreground"}`}>
-                              {selected ? `✓ #${order}` : (atCap ? "max" : "+")}
-                            </span>
-                          </button>
-                        );
-                      })}
+                    <div key={group} className="mb-2">
+                      <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/70 mb-1">{group}</p>
+                      <div className="grid grid-cols-2 gap-1">
+                        {inGroup.map((m) => {
+                          const selected = kpiSlots.includes(m.key);
+                          const order = selected ? kpiSlots.indexOf(m.key) + 1 : null;
+                          const atCap = !selected && kpiSlots.length >= KPI_MAX_SLOTS;
+                          return (
+                            <button
+                              key={m.key}
+                              type="button"
+                              disabled={atCap}
+                              className={`flex items-center justify-between rounded px-1.5 py-1 text-[10px] border transition-colors ${
+                                selected
+                                  ? "bg-primary/10 text-primary border-primary/30"
+                                  : atCap
+                                    ? "opacity-40 cursor-not-allowed bg-muted/30 border-border/40 text-muted-foreground"
+                                    : "bg-muted/30 border-border/40 text-muted-foreground hover:bg-muted/60"
+                              }`}
+                              onClick={() => toggleKpiSlot(m.key)}
+                            >
+                              <span className="truncate mr-1">{m.label}</span>
+                              <span className={`shrink-0 font-medium ${selected ? "text-primary" : "text-muted-foreground/50"}`}>
+                                {selected ? `#${order}` : atCap ? "·" : "+"}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
                   );
                 })}
               </div>
-            </div>
-          )}
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
@@ -12282,12 +12838,12 @@ function WorkHistoryPanel({
           n === 4 ? "grid-cols-4" :
           n <= 6 ? "grid-cols-3" : "grid-cols-4";
         return (
-          <div className="mb-2.5 p-2 rounded-lg bg-muted/40 border">
-            <div className={`grid ${colsClass} gap-x-1 gap-y-1.5`}>
+          <div className="mb-2.5 p-2.5 rounded-lg bg-muted/40 border">
+            <div className={`grid ${colsClass} gap-x-2 gap-y-2`}>
               {rendered.map((m) => (
                 <div key={m.key} className="text-center min-w-0">
-                  <p className="text-[10px] text-muted-foreground truncate" title={m.label}>{m.label}</p>
-                  <p className={`text-sm font-semibold truncate ${m.color ?? ""}`} title={m.value}>{m.value}</p>
+                  <p className="text-xs text-muted-foreground truncate" title={m.label}>{m.label}</p>
+                  <p className={`text-base font-semibold truncate ${m.color ?? ""}`} title={m.value}>{m.value}</p>
                 </div>
               ))}
             </div>
@@ -12391,25 +12947,42 @@ function WorkHistoryPanel({
       </div>
       )}
 
-      {/* Recruiter-style scoped search modal (Cmd/Ctrl+K) */}
-      {searchOpen && typeof document !== "undefined" && (() => {
+      {/* Recruiter-style scoped search modal (Cmd/Ctrl+/) */}
+      {searchOpen && (() => {
         // Highlight matched substrings (case-insensitive) in a string.
         const terms = searchQuery.trim().toLowerCase().split(/\s+/).filter((t) => t.length >= 2);
         const highlight = (text: string): React.ReactNode => {
           if (!text || terms.length === 0) return text;
           const escaped = terms.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
-          const re = new RegExp(`(${escaped.join("|")})`, "gi");
-          const parts = text.split(re);
-          return parts.map((p, i) => re.test(p)
+          // Use a non-global regex for split (we still capture) and a separate one for testing
+          // to avoid `lastIndex` carryover bugs with the /g flag.
+          const splitRe = new RegExp(`(${escaped.join("|")})`, "i");
+          const testRe = new RegExp(`^(?:${escaped.join("|")})$`, "i");
+          const parts = text.split(splitRe);
+          return parts.map((p, i) => testRe.test(p)
             ? <mark key={i} className="bg-yellow-500/30 text-foreground rounded-sm px-0.5">{p}</mark>
             : <span key={i}>{p}</span>);
         };
-        // Flatten ordered hits for keyboard navigation
-        const orderedGroups = (["Work", "Education", "Field", "Sub-location", "Tools", "Files", "Photos", "Notes", "Inventory"] as const)
-          .map((g) => ({ group: g, hits: searchHits.filter((h) => h.group === g) }))
-          .filter((g) => g.hits.length > 0);
-        const flatHits = orderedGroups.flatMap((g) => g.hits);
+        // Use precomputed/memoized hits + groups (with stable selection, per-group cap, and last-group memory).
+        const orderedGroups = orderedSearchGroups;
+        const flatHits = visibleSearchHits;
+        const groupTint: Record<string, string> = {
+          Work: "bg-blue-500/15",
+          Education: "bg-violet-500/15",
+          Field: "bg-indigo-500/15",
+          "Sub-location": "bg-teal-500/15",
+          Tools: "bg-cyan-500/15",
+          Files: "bg-slate-500/15",
+          Photos: "bg-pink-500/15",
+          Notes: "bg-emerald-500/15",
+          Inventory: "bg-amber-500/15",
+        };
         const focusHit = (h: WHSearchHit) => {
+          // Remember which group the user picks from so it floats up next time.
+          try {
+            setLastSearchGroup(h.group);
+            localStorage.setItem("resumsify:work-history-last-search-group", h.group);
+          } catch {}
           // For Inventory hits the item lives outside any job — open the
           // floating Tools & Inventory panel and let PersonalInventory open
           // the matched item via its `openItemId` prop.
@@ -12422,7 +12995,11 @@ function WorkHistoryPanel({
             // Auto-open the side panel tab that matches the hit type.
             if (h.group === "Tools")       setSidePanel("equipment");
             else if (h.group === "Files")  setSidePanel("attachments");
-            else if (h.group === "Photos" || h.group === "Notes") setSidePanel("gallery");
+            else if (h.group === "Photos" || h.group === "Notes") {
+              setShowBottomGallery(true);
+              setPanelGalleryView("photos");
+              setSidePanel(null);
+            }
             // Try to actually open the matched item once its panel data loads.
             if (h.targetKind === "equipment" && h.targetId) {
               setPendingSearchOpen({ kind: "equipment", id: h.targetId });
@@ -12448,22 +13025,27 @@ function WorkHistoryPanel({
             .map((i) => i.company)
             .filter(Boolean)
         )).slice(0, 4);
-        return createPortal(
-          <div
-            className="fixed inset-0 z-[2100] flex items-start justify-center pt-[10vh] px-4 bg-background/40 backdrop-blur-sm"
-            onClick={() => setSearchOpen(false)}
-          >
-            <div
-              className="w-full max-w-2xl rounded-2xl bg-background border shadow-2xl overflow-hidden"
-              onClick={(e) => e.stopPropagation()}
+        return (
+          <Dialog open={searchOpen} onOpenChange={setSearchOpen}>
+            <DialogContent
+              showCloseButton={false}
+              aria-label="Search work history"
+              className="top-[40%] left-1/2 -translate-x-1/2 -translate-y-1/2 !w-[min(94vw,68rem)] !max-w-[min(94vw,68rem)] sm:!max-w-[min(94vw,68rem)] rounded-2xl bg-background border shadow-2xl overflow-hidden p-0"
             >
               <div className="flex items-center gap-2 px-4 py-3 border-b">
-                <Search className="h-4 w-4 text-muted-foreground shrink-0" />
+                {serverSearchFetching && searchQuery.trim().length >= 2
+                  ? <Loader2 className="h-4 w-4 text-muted-foreground shrink-0 animate-spin" />
+                  : <Search className="h-4 w-4 text-muted-foreground shrink-0" />}
                 <input
                   type="text"
                   autoFocus
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
+                  role="combobox"
+                  aria-expanded={flatHits.length > 0}
+                  aria-controls="wh-search-listbox"
+                  aria-activedescendant={flatHits[searchSelectedIndex] ? `wh-hit-${flatHits[searchSelectedIndex].key}` : undefined}
+                  aria-autocomplete="list"
                   onKeyDown={(e) => {
                     if (flatHits.length === 0) return;
                     if (e.key === "ArrowDown") {
@@ -12495,7 +13077,7 @@ function WorkHistoryPanel({
                   Esc
                 </kbd>
               </div>
-              <div className="max-h-[60vh] overflow-y-auto">
+              <div className="h-[60vh] overflow-y-auto">
                 {searchQuery.trim().length < 2 ? (
                   <div className="px-4 py-6 text-sm text-muted-foreground">
                     {recentChips.length > 0 && (
@@ -12537,6 +13119,12 @@ function WorkHistoryPanel({
                     <div className="text-center pt-2 pb-4 opacity-80">
                       <Search className="h-5 w-5 mx-auto mb-2 opacity-40" />
                       <p className="text-xs">Search across companies, roles, accomplishments, skills, sub-locations, tools, files, photos, annotations, and personal inventory.</p>
+                      <div className="mt-3 flex items-center justify-center gap-2 text-[10px] text-muted-foreground/70">
+                        <span className="flex items-center gap-1"><kbd className="rounded border bg-background px-1 font-mono">↑↓</kbd> navigate</span>
+                        <span className="flex items-center gap-1"><kbd className="rounded border bg-background px-1 font-mono">⏎</kbd> open</span>
+                        <span className="flex items-center gap-1"><kbd className="rounded border bg-background px-1 font-mono">Esc</kbd> close</span>
+                        <span className="flex items-center gap-1"><kbd className="rounded border bg-background px-1 font-mono">⌘/Ctrl</kbd> + <kbd className="rounded border bg-background px-1 font-mono">/</kbd> toggle</span>
+                      </div>
                     </div>
                   </div>
                 ) : searchHits.length === 0 ? (
@@ -12544,41 +13132,146 @@ function WorkHistoryPanel({
                     No matches for &ldquo;{searchQuery}&rdquo;.
                   </div>
                 ) : (
-                  <ul className="divide-y">
-                    {orderedGroups.map(({ group, hits: groupHits }) => (
-                      <li key={group} className="py-1">
-                        <div className="px-4 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground bg-muted/30">
-                          {group} <span className="opacity-60 font-normal">({groupHits.length})</span>
-                        </div>
-                        <ul>
-                          {groupHits.map((h) => {
-                            const flatIdx = flatHits.indexOf(h);
-                            const isSelected = flatIdx === searchSelectedIndex;
-                            return (
-                              <li key={h.key}>
+                  <ul id="wh-search-listbox" role="listbox" className="divide-y">
+                    {orderedGroups.map(({ group, hits: groupHits }) => {
+                      const isExpanded = expandedSearchGroups.has(group);
+                      const shownHits = isExpanded ? groupHits : groupHits.slice(0, SEARCH_GROUP_CAP);
+                      const hiddenCount = groupHits.length - shownHits.length;
+                      return (
+                        <li key={group} className="py-1">
+                          <div className="px-4 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground bg-muted/30">
+                            {group} <span className="opacity-60 font-normal">({groupHits.length})</span>
+                          </div>
+                          <ul>
+                            {shownHits.map((h) => {
+                              const flatIdx = flatHits.indexOf(h);
+                              const isSelected = flatIdx === searchSelectedIndex;
+                              const tint = groupTint[h.group] || "bg-muted";
+                              return (
+                                <li key={h.key} role="option" aria-selected={isSelected} id={`wh-hit-${h.key}`}>
+                                  <button
+                                    type="button"
+                                    onClick={() => focusHit(h)}
+                                    onMouseEnter={() => { if (flatIdx >= 0) setSearchSelectedIndex(flatIdx); }}
+                                    className={`group relative w-full flex items-start gap-3 px-4 py-2.5 text-left transition-colors ${isSelected ? "bg-muted/60" : "hover:bg-muted/40"}`}
+                                  >
+                                    {h.thumbnailUrl ? (() => {
+                                      const fx = h.thumbFocalX ?? 50;
+                                      const fy = h.thumbFocalY ?? 50;
+                                      const z = h.thumbZoom ?? 1;
+                                      const r = h.thumbRotation ?? 0;
+                                      const sx = h.thumbFlipH ? -1 : 1;
+                                      const sy = h.thumbFlipV ? -1 : 1;
+                                      return (
+                                        <span className={`relative h-20 w-20 mt-0.5 shrink-0 overflow-hidden rounded-md ring-1 ring-border ${tint}`}>
+                                          <span
+                                            className="absolute inset-0"
+                                            style={{
+                                              transform: `rotate(${r}deg) scaleX(${sx}) scaleY(${sy})`,
+                                              transformOrigin: "center center",
+                                            }}
+                                          >
+                                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                                            <img
+                                              src={h.thumbnailUrl}
+                                              alt=""
+                                              loading="lazy"
+                                              decoding="async"
+                                              className="absolute inset-0 h-full w-full object-cover"
+                                              style={{
+                                                objectPosition: `${fx}% ${fy}%`,
+                                                transform: `scale(${z})`,
+                                                transformOrigin: `${fx}% ${fy}%`,
+                                              }}
+                                            />
+                                          </span>
+                                          <h.Icon className={`absolute bottom-1 right-1 h-5 w-5 rounded-full bg-background p-0.5 ring-1 ring-border ${h.iconClass || "text-muted-foreground"}`} />
+                                        </span>
+                                      );
+                                    })() : (
+                                      <span className={`relative h-8 w-8 mt-0.5 shrink-0 inline-flex items-center justify-center rounded-md ring-1 ring-border ${tint}`}>
+                                        <h.Icon className={`h-4 w-4 ${h.iconClass || "text-muted-foreground"}`} />
+                                      </span>
+                                    )}
+                                    <div className="flex-1 min-w-0">
+                                      <div className="text-sm font-medium truncate">{highlight(h.title)}</div>
+                                      {h.subtitle && (
+                                        <div className="text-xs text-muted-foreground truncate">{highlight(h.subtitle)}</div>
+                                      )}
+                                      {h.snippet && (
+                                        <div className="text-xs text-muted-foreground/90 mt-0.5 line-clamp-2">{highlight(h.snippet)}</div>
+                                      )}
+                                    </div>
+                                    {/* Hover preview anchored next to the row's thumbnail (near the mouse) */}
+                                    {h.thumbnailUrl && (() => {
+                                      const fx = h.thumbFocalX ?? 50;
+                                      const fy = h.thumbFocalY ?? 50;
+                                      const z = h.thumbZoom ?? 1;
+                                      const r = h.thumbRotation ?? 0;
+                                      const sx = h.thumbFlipH ? -1 : 1;
+                                      const sy = h.thumbFlipV ? -1 : 1;
+                                      return (
+                                        <span className="pointer-events-none absolute left-[6.25rem] top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity z-50">
+                                          <span className="relative block w-48 h-48 rounded-lg overflow-hidden ring-1 ring-border shadow-2xl bg-popover">
+                                            <span
+                                              className="absolute inset-0"
+                                              style={{
+                                                transform: `rotate(${r}deg) scaleX(${sx}) scaleY(${sy})`,
+                                                transformOrigin: "center center",
+                                              }}
+                                            >
+                                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                                              <img
+                                                src={h.thumbnailUrl}
+                                                alt=""
+                                                decoding="async"
+                                                className="absolute inset-0 w-full h-full object-cover"
+                                                style={{
+                                                  objectPosition: `${fx}% ${fy}%`,
+                                                  transform: `scale(${z})`,
+                                                  transformOrigin: `${fx}% ${fy}%`,
+                                                }}
+                                              />
+                                            </span>
+                                          </span>
+                                        </span>
+                                      );
+                                    })()}
+                                  </button>
+                                </li>
+                              );
+                            })}
+                            {hiddenCount > 0 && (
+                              <li>
                                 <button
                                   type="button"
-                                  onClick={() => focusHit(h)}
-                                  onMouseEnter={() => setSearchSelectedIndex(flatIdx)}
-                                  className={`w-full flex items-start gap-3 px-4 py-2.5 text-left transition-colors ${isSelected ? "bg-muted/60" : "hover:bg-muted/40"}`}
+                                  onClick={() => setExpandedSearchGroups((prev) => { const n = new Set(prev); n.add(group); return n; })}
+                                  className="w-full text-left px-4 py-1.5 text-[11px] text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors"
                                 >
-                                  <h.Icon className={`h-4 w-4 mt-0.5 shrink-0 ${h.iconClass || "text-muted-foreground"}`} />
-                                  <div className="flex-1 min-w-0">
-                                    <div className="text-sm font-medium truncate">{highlight(h.title)}</div>
-                                    {h.subtitle && (
-                                      <div className="text-xs text-muted-foreground truncate">{highlight(h.subtitle)}</div>
-                                    )}
-                                    {h.snippet && (
-                                      <div className="text-xs text-muted-foreground/90 mt-0.5 line-clamp-2">{highlight(h.snippet)}</div>
-                                    )}
-                                  </div>
+                                  Show all {groupHits.length} in {group} →
                                 </button>
                               </li>
-                            );
-                          })}
-                        </ul>
+                            )}
+                            {isExpanded && groupHits.length > SEARCH_GROUP_CAP && (
+                              <li>
+                                <button
+                                  type="button"
+                                  onClick={() => setExpandedSearchGroups((prev) => { const n = new Set(prev); n.delete(group); return n; })}
+                                  className="w-full text-left px-4 py-1.5 text-[11px] text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors"
+                                >
+                                  Collapse {group}
+                                </button>
+                              </li>
+                            )}
+                          </ul>
+                        </li>
+                      );
+                    })}
+                    {searchHits.length > visibleSearchHits.length && (
+                      <li className="px-4 py-2 text-[11px] text-muted-foreground bg-muted/20">
+                        Showing {visibleSearchHits.length} of {searchHits.length} results — refine your query to narrow further.
                       </li>
-                    ))}
+                    )}
                   </ul>
                 )}
               </div>
@@ -12595,109 +13288,10 @@ function WorkHistoryPanel({
                   <span className="ml-auto">Press <kbd className="rounded border bg-background px-1 font-mono">⏎</kbd> after typing to open the top result</span>
                 )}
               </div>
-            </div>
-          </div>,
-          document.body,
+            </DialogContent>
+          </Dialog>
         );
       })()}
-
-      {showInventoryOverview && typeof document !== "undefined" && createPortal(
-        <div
-          className="fixed z-[2000] flex flex-col bg-background border rounded-xl shadow-2xl select-none"
-          style={{
-            left: inventoryPanel.x,
-            top: inventoryPanel.y,
-            width: inventoryPanel.w,
-            height: inventoryPanel.minimized ? undefined : inventoryPanel.h,
-            maxWidth: "calc(100vw - 16px)",
-            maxHeight: "calc(100vh - 16px)",
-          }}
-          onPointerMove={onInventoryDragMove}
-          onPointerUp={onInventoryDragEnd}
-          onPointerCancel={onInventoryDragEnd}
-        >
-          <div
-            className="flex items-center gap-2 px-3 py-2 border-b cursor-grab active:cursor-grabbing bg-muted/40 rounded-t-xl"
-            onPointerDown={onInventoryDragStart}
-            onDoubleClick={() => setInventoryPanel((p) => ({ ...p, minimized: !p.minimized }))}
-          >
-            <GripVertical className="h-4 w-4 text-muted-foreground" />
-            <Boxes className="h-4 w-4 text-emerald-600" />
-            <div className="flex-1 text-sm font-semibold">My Tools & Inventory</div>
-            <div className="relative">
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); setShowInventorySnapMenu((v) => !v); }}
-                onPointerDown={(e) => e.stopPropagation()}
-                className="text-muted-foreground hover:text-foreground p-0.5 rounded hover:bg-muted"
-                title="Snap to corner"
-              >
-                <Maximize2 className="h-3.5 w-3.5" />
-              </button>
-              {showInventorySnapMenu && (
-                <div
-                  className="absolute right-0 top-6 z-[2100] grid grid-cols-2 gap-1 p-1.5 rounded-lg border bg-background shadow-xl"
-                  onPointerDown={(e) => e.stopPropagation()}
-                >
-                  <button type="button" onClick={() => snapInventoryToCorner("tl")} className="h-7 w-7 rounded border hover:bg-muted flex items-center justify-center" title="Top-left">
-                    <span className="block h-2 w-2 bg-foreground/70 rounded-sm -translate-x-1 -translate-y-1" />
-                  </button>
-                  <button type="button" onClick={() => snapInventoryToCorner("tr")} className="h-7 w-7 rounded border hover:bg-muted flex items-center justify-center" title="Top-right">
-                    <span className="block h-2 w-2 bg-foreground/70 rounded-sm translate-x-1 -translate-y-1" />
-                  </button>
-                  <button type="button" onClick={() => snapInventoryToCorner("bl")} className="h-7 w-7 rounded border hover:bg-muted flex items-center justify-center" title="Bottom-left">
-                    <span className="block h-2 w-2 bg-foreground/70 rounded-sm -translate-x-1 translate-y-1" />
-                  </button>
-                  <button type="button" onClick={() => snapInventoryToCorner("br")} className="h-7 w-7 rounded border hover:bg-muted flex items-center justify-center" title="Bottom-right">
-                    <span className="block h-2 w-2 bg-foreground/70 rounded-sm translate-x-1 translate-y-1" />
-                  </button>
-                </div>
-              )}
-            </div>
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); setInventoryPanel((p) => ({ ...p, minimized: !p.minimized })); }}
-              onPointerDown={(e) => e.stopPropagation()}
-              className="text-muted-foreground hover:text-foreground p-0.5 rounded hover:bg-muted"
-              title={inventoryPanel.minimized ? "Restore" : "Minimize"}
-            >
-              {inventoryPanel.minimized ? <Square className="h-3.5 w-3.5" /> : <Minus className="h-3.5 w-3.5" />}
-            </button>
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); setShowInventoryOverview(false); }}
-              onPointerDown={(e) => e.stopPropagation()}
-              className="text-muted-foreground hover:text-foreground p-0.5 rounded hover:bg-muted"
-              title="Close"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-          {!inventoryPanel.minimized && (
-            <>
-              <div className="flex-1 overflow-y-auto p-3 scrollbar-thin">
-                <PersonalInventory
-                  focusedPositionId={focusedItem?.id ?? null}
-                  focusedPositionLabel={focusedItem ? `${focusedItem.role || "Position"} @ ${focusedItem.company}` : null}
-                  openItemId={pendingSearchOpen?.kind === "personalEquipment" ? pendingSearchOpen.id : null}
-                  onItemOpened={() => setPendingSearchOpen(null)}
-                />
-              </div>
-              <div
-                onPointerDown={onInventoryResizeStart}
-                className="absolute bottom-0 right-0 h-4 w-4 cursor-nwse-resize"
-                title="Drag to resize"
-                style={{
-                  background:
-                    "linear-gradient(135deg, transparent 0%, transparent 50%, hsl(var(--muted-foreground) / 0.5) 50%, hsl(var(--muted-foreground) / 0.5) 60%, transparent 60%, transparent 70%, hsl(var(--muted-foreground) / 0.5) 70%, hsl(var(--muted-foreground) / 0.5) 80%, transparent 80%)",
-                  borderBottomRightRadius: "0.75rem",
-                }}
-              />
-            </>
-          )}
-        </div>,
-        document.body,
-      )}
 
       {/* Add form */}
       {adding && (
@@ -12748,16 +13342,16 @@ function WorkHistoryPanel({
       {items.length > 0 && (
         <div className="relative flex items-center gap-1.5 mb-2">
           <div className="relative flex-1">
-            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground pointer-events-none" />
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
             <Input
               value={listSearch}
               onChange={(e) => setListSearch(e.target.value)}
               placeholder="Search…"
-              className="h-6 text-xs pl-6 pr-2"
+              className="h-8 text-sm pl-8 pr-2"
             />
             {listSearch && (
-              <button type="button" className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" onClick={() => setListSearch("")}>
-                <X className="h-2.5 w-2.5" />
+              <button type="button" className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" onClick={() => setListSearch("")}>
+                <X className="h-3 w-3" />
               </button>
             )}
           </div>
@@ -12990,10 +13584,10 @@ function WorkHistoryPanel({
                     className="flex items-center gap-1.5 w-full py-1 px-1 rounded hover:bg-muted/50 transition-colors"
                     onClick={() => toggleListSection(sec.key)}
                   >
-                    <span className="text-xs">{sec.emoji}</span>
-                    <span className="text-sm font-semibold">{sec.label}</span>
-                    <span className="text-[13px] text-muted-foreground">({sec.items.length})</span>
-                    <ChevronDown className={`h-3 w-3 ml-auto text-muted-foreground transition-transform ${collapsedSections.has(sec.key) ? "-rotate-90" : ""}`} />
+                    <span className="text-sm">{sec.emoji}</span>
+                    <span className="text-base font-semibold">{sec.label}</span>
+                    <span className="text-sm text-muted-foreground">({sec.items.length})</span>
+                    <ChevronDown className={`h-3.5 w-3.5 ml-auto text-muted-foreground transition-transform ${collapsedSections.has(sec.key) ? "-rotate-90" : ""}`} />
                   </button>
                 )}
                 {!collapsedSections.has(sec.key) && (
@@ -13021,45 +13615,69 @@ function WorkHistoryPanel({
               </div>
             </div>
           ) : (
-            <div key={w.id} className={`rounded-md hover:bg-muted/50 group ${useTimelineStyle ? "relative" : ""}`}>
+            <div
+              key={w.id}
+              role="button"
+              tabIndex={0}
+              aria-label={`Focus ${w.company}`}
+              className={`rounded-md cursor-pointer hover:bg-muted/50 focus:bg-muted/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 group ${focusedId === w.id ? "bg-muted/70 ring-1 ring-primary/40" : ""} ${useTimelineStyle ? "relative" : ""}`}
+              onMouseEnter={() => onHoverJob?.(w.id)}
+              onMouseLeave={() => onHoverJob?.(null)}
+              onClick={() => onFocusJob(w)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onFocusJob(w);
+                }
+              }}
+            >
               {useTimelineStyle && (
-                <span
-                  className={`absolute -left-[21px] top-3 h-2.5 w-2.5 rounded-full ring-2 ring-background ${
-                    w.type === "school" ? "bg-violet-500" :
-                    w.type === "internship" ? "bg-cyan-500" :
-                    w.type === "volunteer" ? "bg-amber-500" :
-                    w.type === "military" ? "bg-emerald-500" :
-                    w.type === "self-employed" ? "bg-amber-700" :
-                    w.type === "unemployed" ? "bg-red-500" :
-                    "bg-blue-500"
-                  }`}
-                />
+                <>
+                  {w.endDate == null && (
+                    <span className={`absolute -left-[26px] top-[7px] h-5 w-5 rounded-full animate-ping opacity-75 ${
+                      w.type === "school" ? "bg-violet-400" :
+                      w.type === "internship" ? "bg-cyan-400" :
+                      w.type === "volunteer" ? "bg-amber-400" :
+                      w.type === "military" ? "bg-emerald-400" :
+                      w.type === "self-employed" ? "bg-amber-600" :
+                      w.type === "unemployed" ? "bg-red-400" :
+                      "bg-blue-400"
+                    }`} />
+                  )}
+                  <span
+                    className={`absolute -left-[21px] top-3 h-2.5 w-2.5 rounded-full ring-2 ring-background ${
+                      w.type === "school" ? "bg-violet-500" :
+                      w.type === "internship" ? "bg-cyan-500" :
+                      w.type === "volunteer" ? "bg-amber-500" :
+                      w.type === "military" ? "bg-emerald-500" :
+                      w.type === "self-employed" ? "bg-amber-700" :
+                      w.type === "unemployed" ? "bg-red-500" :
+                      "bg-blue-500"
+                    }`}
+                  />
+                </>
               )}
-              <div className="flex items-start justify-between gap-2 p-1.5">
+              <div className="flex items-start justify-between gap-2 p-2">
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1 flex-wrap">
-                    {(w.locations?.length ?? 0) > 0 && (
-                      <button type="button" className="shrink-0 text-muted-foreground hover:text-foreground transition-transform" onClick={() => setExpandedId(expandedId === w.id ? null : w.id)}>
-                        <ChevronDown className={`h-3 w-3 transition-transform ${expandedId === w.id ? "" : "-rotate-90"}`} />
-                      </button>
-                    )}
-                    <p className="text-sm font-medium cursor-pointer hover:underline shrink-0" onClick={() => onFocusJob(w)}>{w.company}</p>
-                    {w.scheduleType && <span className="text-[10px] bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded capitalize">{w.scheduleType.replace(/_/g, " ")}</span>}
-                    {w.workMode && <span className="text-[10px] bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded capitalize">{w.workMode}{w.hybridDays != null ? ` ${w.hybridDays}d` : ""}</span>}
-                    {w.industry && <span className="text-[10px] bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-1.5 py-0.5 rounded">{w.industry}</span>}
-                    {w.salaryAmount != null && (
-                      <span className="ml-auto shrink-0 text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <p className="text-base font-medium shrink-0">{w.company}</p>
+                    {w.endDate == null && <span className="text-[10px] font-semibold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 rounded-full border border-emerald-500/30 shrink-0">CURRENT</span>}
+                    {w.scheduleType && <span className="text-[11px] bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded capitalize">{w.scheduleType.replace(/_/g, " ")}</span>}
+                    {w.workMode && <span className="text-[11px] bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded capitalize">{w.workMode}{w.hybridDays != null ? ` ${w.hybridDays}d` : ""}</span>}
+                    {w.industry && <span className="text-[11px] bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-1.5 py-0.5 rounded">{w.industry}</span>}
+                    {showPay && w.salaryAmount != null && (
+                      <span className="ml-auto shrink-0 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
                         {w.salaryCurrency === "USD" || !w.salaryCurrency ? "$" : w.salaryCurrency}{w.salaryType === "hourly" ? `${w.salaryAmount}/hr` : w.salaryAmount >= 1000 ? `${Math.round(w.salaryAmount / 1000)}k` : w.salaryAmount}
                       </span>
                     )}
                   </div>
                   {w.type === "school" ? (
-                    (w.degree || w.major) && <p className="text-xs text-muted-foreground truncate">{w.degree}{w.degree && w.major ? " in " : ""}{w.major}</p>
+                    (w.degree || w.major) && <p className="text-sm text-muted-foreground truncate">{w.degree}{w.degree && w.major ? " in " : ""}{w.major}</p>
                   ) : (
-                    w.title && <p className="text-xs text-muted-foreground truncate">{w.title}</p>
+                    w.title && <p className="text-sm text-muted-foreground truncate">{w.title}</p>
                   )}
                   {(w.type !== "unemployed" || w.startDate || w.endDate) && (
-                    <p className="text-xs text-muted-foreground truncate">
+                    <p className="text-sm text-muted-foreground truncate">
                       {w.type !== "unemployed" && shortAddress(w.address)}
                       {w.type !== "unemployed" && (w.startDate || w.endDate) && " · "}
                       {(w.startDate || w.endDate) && `${formatYearMonth(w.startDate) ?? "?"} – ${w.endDate ? (formatYearMonth(w.endDate) ?? w.endDate) : "Present"}`}
@@ -13068,11 +13686,11 @@ function WorkHistoryPanel({
                   )}
                   {activeResidence && timeFilter && w.type !== "unemployed" && (() => {
                     const ct = commuteTimes.get(w.id);
-                    if (ct) return <p className="text-[13px] text-blue-600 dark:text-blue-400">🏠 {ct.durationMin} min · {ct.distanceMi} mi</p>;
+                    if (ct) return <p className="text-sm text-blue-600 dark:text-blue-400">🏠 {ct.durationMin} min · {ct.distanceMi} mi</p>;
                     const dLat = (w.lat - activeResidence.lat) * 69;
                     const dLng = (w.lng - activeResidence.lng) * 69 * Math.cos(((w.lat + activeResidence.lat) / 2) * Math.PI / 180);
                     const dist = Math.round(Math.sqrt(dLat * dLat + dLng * dLng));
-                    return dist > 1 ? <p className="text-[13px] text-muted-foreground">🏠 ~{dist} mi</p> : null;
+                    return dist > 1 ? <p className="text-sm text-muted-foreground">🏠 ~{dist} mi</p> : null;
                   })()}
                   {showOverlaps && overlapMap.has(w.id) && (
                     <div className="flex flex-wrap gap-0.5 mt-0.5">
@@ -13085,136 +13703,43 @@ function WorkHistoryPanel({
                   )}
                 </div>
                 <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button type="button" className="text-muted-foreground hover:text-blue-500" title="Add location" onClick={() => { setAddingLocFor(addingLocFor === w.id ? null : w.id); setExpandedId(w.id); }}>
-                    <MapPin className="h-3 w-3" />
+                  <button type="button" className="relative text-muted-foreground hover:text-blue-500" title={(w.locations?.length ?? 0) > 0 ? `${w.locations.length} location${w.locations.length === 1 ? "" : "s"} — click to focus` : "Open in focus mode"} onClick={(e) => { e.stopPropagation(); onFocusJob(w); }}>
+                    <MapPin className="h-3.5 w-3.5" />
+                    {(w.locations?.length ?? 0) > 0 && (
+                      <span className="absolute -top-1.5 -right-1.5 min-w-[14px] h-3.5 rounded-full bg-blue-500 text-[8px] text-white flex items-center justify-center font-medium leading-none px-0.5">
+                        {(w.locations?.length ?? 0) > 9 ? "9+" : w.locations.length}
+                      </span>
+                    )}
                   </button>
-                  <button type="button" className="text-muted-foreground hover:text-foreground" onClick={() => startEdit(w)}>
-                    <Pencil className="h-3 w-3" />
+                  <button type="button" className="text-muted-foreground hover:text-foreground" onClick={(e) => { e.stopPropagation(); startEdit(w); }}>
+                    <Pencil className="h-3.5 w-3.5" />
                   </button>
-                  <button type="button" className="text-muted-foreground hover:text-red-500" onClick={() => handleDelete(w.id)}>
-                    <Trash2 className="h-3 w-3" />
+                  <button type="button" className="text-muted-foreground hover:text-red-500" onClick={(e) => { e.stopPropagation(); handleDelete(w.id); }}>
+                    <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 </div>
               </div>
 
-              {/* Expanded sub-locations */}
-              <div className={`grid transition-all duration-200 ease-in-out ${expandedId === w.id ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
-                <div className="overflow-hidden">
-                {expandedId === w.id && (
-                <div className="px-1.5 pb-1.5 space-y-1" ref={(el) => { if (el && expandedId === w.id) el.scrollIntoView({ behavior: "smooth", block: "nearest" }); }}>
-                  {(w.locations ?? []).length > 0 && (
-                    <div className="pl-2 border-l-2 border-muted space-y-1">
-                      {w.locations.map((loc) => {
-                        const photos: string[] = (() => { try { return loc.photos ? JSON.parse(loc.photos) : []; } catch { return []; } })();
-                        return (
-                        <div key={loc.id} className="space-y-1 group/loc">
-                          <div className="flex items-start justify-between gap-1">
-                            <div className="min-w-0">
-                              <p className="text-xs font-medium truncate">{loc.label}</p>
-                              <div className="flex items-center gap-1">
-                                <p className="text-[13px] text-muted-foreground truncate">{loc.address}</p>
-                                <button type="button" className="shrink-0 p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground opacity-0 group-hover/loc:opacity-100 transition-opacity" title="Copy address" onClick={() => { navigator.clipboard.writeText(loc.address); toast.success("Address copied"); }}>
-                                  <Copy className="h-2.5 w-2.5" />
-                                </button>
-                              </div>
-                              {loc.lat != null && loc.lng != null && (
-                                <div className="flex items-center gap-1">
-                                  <p className="text-xs text-muted-foreground font-mono">📍 {Number(loc.lat).toFixed(5)}, {Number(loc.lng).toFixed(5)}</p>
-                                  <button type="button" className="shrink-0 p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground opacity-0 group-hover/loc:opacity-100 transition-opacity" title="Copy coordinates" onClick={() => { navigator.clipboard.writeText(`${Number(loc.lat).toFixed(5)}, ${Number(loc.lng).toFixed(5)}`); toast.success("Coordinates copied"); }}>
-                                    <Copy className="h-2 w-2" />
-                                  </button>
-                                </div>
-                              )}
-                              <span className="text-[13px] bg-muted px-1 rounded">{LOC_TYPES.find((t) => t.value === loc.type)?.label ?? loc.type}</span>
-                            </div>
-                            <button type="button" className="text-muted-foreground hover:text-red-500 opacity-0 group-hover/loc:opacity-100 transition-opacity shrink-0" onClick={() => handleDeleteLocation(w.id, loc.id)}>
-                              <Trash2 className="h-2.5 w-2.5" />
-                            </button>
-                          </div>
-
-                          {/* Photo gallery */}
-                          <div className="flex flex-wrap gap-1 items-center">
-                            {photos.map((url) => (
-                              <div key={url} className="relative group/photo w-10 h-10 rounded overflow-hidden border">
-                                <img src={url} alt="" className="w-full h-full object-cover" />
-                                <button
-                                  type="button"
-                                  className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover/photo:opacity-100 transition-opacity"
-                                  onClick={() => handlePhotoDelete(w.id, loc.id, url)}
-                                >
-                                  <X className="h-3 w-3 text-white" />
-                                </button>
-                              </div>
-                            ))}
-                            {photos.length < 5 && (
-                              <>
-                                <input
-                                  type="file"
-                                  accept="image/jpeg,image/png,image/webp,image/gif"
-                                  className="hidden"
-                                  ref={(el) => { photoInputRefs.current[loc.id] = el; }}
-                                  onChange={(e) => {
-                                    const f = e.target.files?.[0];
-                                    if (f) handlePhotoUpload(w.id, loc.id, f);
-                                    e.target.value = "";
-                                  }}
-                                />
-                                <button
-                                  type="button"
-                                  className="w-10 h-10 rounded border border-dashed border-muted-foreground/40 flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-foreground transition-colors"
-                                  onClick={() => photoInputRefs.current[loc.id]?.click()}
-                                  disabled={uploadingPhotoFor === loc.id}
-                                >
-                                  {uploadingPhotoFor === loc.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Camera className="h-3 w-3" />}
-                                </button>
-                              </>
-                            )}
-                            {photos.length > 0 && (
-                              <span className="text-xs text-muted-foreground">📷 {photos.length}/5</span>
-                            )}
-                          </div>
-                        </div>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {/* Add sub-location form */}
-                  {addingLocFor === w.id && (
-                    <div className="space-y-1.5 p-1.5 border rounded bg-muted/20">
-                      <Input placeholder="Label (e.g. Downtown office) *" value={locLabel} onChange={(e) => setLocLabel(e.target.value)} className="h-6 text-xs" />
-                      <select value={locType} onChange={(e) => { setLocType(e.target.value); if (e.target.value !== "custom") setCustomLocType(""); }} className="w-full h-6 text-xs rounded border bg-background px-1">
-                        {LOC_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-                      </select>
-                      {locType === "custom" && (
-                        <Input value={customLocType} onChange={(e) => setCustomLocType(e.target.value)} placeholder="Type name (e.g. Warehouse)" className="h-6 text-xs" />
-                      )}
-                      <PlacesAutocomplete value={locAddress} onChange={(v) => { setLocAddress(v); setLocCoords(null); setLocPlaceId(null); }} onPlaceSelect={handleLocPlaceSelect} placeholder="Address *" className="h-6 text-xs" types={[]} />
-                      <div className="flex gap-1">
-                        <Button size="sm" className="flex-1 h-6 text-xs" onClick={() => handleAddLocation(w.id)} disabled={locSaving || (locType === "custom" && !customLocType.trim())}>
-                          {locSaving ? <Loader2 className="h-2.5 w-2.5 animate-spin mr-0.5" /> : <Plus className="h-2.5 w-2.5 mr-0.5" />}
-                          Add
-                        </Button>
-                        <Button size="sm" variant="ghost" className="h-6 text-xs" onClick={() => setAddingLocFor(null)}>Cancel</Button>
-                      </div>
-                    </div>
-                  )}
-
-                  {addingLocFor !== w.id && (
-                    <button type="button" className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-0.5" onClick={() => setAddingLocFor(w.id)}>
-                      <Plus className="h-2.5 w-2.5" /> Add location
-                    </button>
-                  )}
-                </div>
-              )}
-                </div>
-              </div>
             </div>
           ))}
                   </div>
                 )}
               </div>
             ))}
+            {sections.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-10 text-center gap-2">
+                {items.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No work history added yet</p>
+                ) : (
+                  <>
+                    <p className="text-sm text-muted-foreground">No entries match</p>
+                    {listSearch && (
+                      <button type="button" className="text-xs text-primary hover:underline" onClick={() => setListSearch("")}>Clear search</button>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
           </div>
         );
       })()}
@@ -13358,10 +13883,11 @@ function WorkHistoryPanel({
       )}
     </div>
     </div>
+    </MaybePortal>
 
     {/* ── Locations Popover (floating below header) ── */}
     {focusedItem && showLocationsPopover && (focusedItem.locations ?? []).length > 0 && (
-      <div className="absolute top-[52px] left-[calc(0.75rem+24rem-12rem)] z-[1150] bg-background/95 backdrop-blur-md border rounded-xl shadow-xl p-2.5 w-72 max-h-[40vh] overflow-y-auto scrollbar-thin pointer-events-auto">
+      <div className="absolute top-[52px] left-3 z-[1150] bg-background/95 backdrop-blur-md border rounded-xl shadow-xl p-2.5 w-72 max-h-[40vh] overflow-y-auto scrollbar-thin pointer-events-auto">
         {(() => {
           const locs = focusedItem.locations;
           const currentIdx = expandedLocId ? locs.findIndex((l) => l.id === expandedLocId) : -1;
@@ -13527,6 +14053,721 @@ function WorkHistoryPanel({
       </div>
     )}
 
+      {/* ── My Tools & Inventory popout sheet ── */}
+      <IrPopoutSheet
+        open={showInventoryOverview}
+        onClose={() => setShowInventoryOverview(false)}
+        title="My Tools & Inventory"
+        icon={<Boxes className="h-4 w-4 text-emerald-600" />}
+        maxWidthClassName="max-w-[min(92vw,1000px)]"
+        bodyClassName="max-h-[min(82vh,860px)] overflow-y-auto px-4 py-3 scrollbar-thin"
+      >
+        <PersonalInventory
+          focusedPositionId={focusedItem?.id ?? null}
+          focusedPositionLabel={focusedItem ? `${focusedItem.role || "Position"} @ ${focusedItem.company}` : null}
+          openItemId={pendingSearchOpen?.kind === "personalEquipment" ? pendingSearchOpen.id : null}
+          onItemOpened={() => setPendingSearchOpen(null)}
+        />
+      </IrPopoutSheet>
+      {/* ── Gallery toggle button (portals into action-bar slot) ──
+          Visible in both overview and focused-job modes. No badge — the
+          numeric chip read like a notification, which it isn't. */}
+      {bottomGalleryHost != null && (
+        <MaybePortal target={bottomGalleryHost}>
+          <button
+            type="button"
+            onClick={() => setShowBottomGallery((v) => !v)}
+            className={`inline-flex items-center gap-1 h-7 px-2.5 rounded-md border text-xs font-medium transition-colors ${showBottomGallery ? "bg-primary text-primary-foreground border-primary" : "bg-background hover:bg-accent text-foreground border-border"}`}
+          >
+            <Images className="h-3.5 w-3.5 shrink-0" />
+            Gallery
+          </button>
+        </MaybePortal>
+      )}
+      {/* ── Gallery slide-in panel (portals into the map overlay host; slides in from the right edge of the map) ──
+          Three modes:
+            • focusedItem set       → existing per-position gallery (also used when the user has focused a job from elsewhere)
+            • panelPositionId set   → in-panel position gallery (upload / edit / delete WITHOUT map+work-history focus)
+            • neither               → embedded master gallery folder grid.
+          Clicking a folder sets panelPositionId — quick browse mode.
+          The "Show on map" button inside the position view escalates to onFocusJob. */}
+      {mapGalleryHost != null && (
+        <MaybePortal target={mapGalleryHost}>
+          <div
+            className={`absolute bottom-0 right-0 top-[40%] w-[55%] pointer-events-auto flex flex-col bg-background/[.97] backdrop-blur-md border-l border-t border-border rounded-tl-xl shadow-2xl transition-transform duration-300 ease-in-out ${showBottomGallery ? "translate-x-0" : "translate-x-full"}`}
+          >
+            {!focusedItem && !panelPositionId && showBottomGallery && (
+              <>
+                <div className="flex items-center gap-1.5 px-3 py-2.5 border-b border-border bg-background/95 shrink-0">
+                  <Images className="h-3.5 w-3.5 text-pink-500 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold truncate">Master Gallery</p>
+                    <p className="text-[10px] text-muted-foreground">Pick a job to step in</p>
+                  </div>
+                  {/* Open full /master-gallery page (where cross-job move,
+                      Banner Photos virtual folder, and other power-user
+                      tools live). Uploads aren't surfaced here because
+                      they require a target job. */}
+                  <Link
+                    href="/master-gallery"
+                    className="p-1 rounded hover:bg-pink-500/10 text-pink-500 transition-colors shrink-0"
+                    title="Open full Master Gallery"
+                  >
+                    <Maximize2 className="h-3.5 w-3.5" />
+                  </Link>
+                  <button type="button" className="p-1 rounded hover:bg-muted transition-colors shrink-0" title="Close" onClick={() => setShowBottomGallery(false)}>
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+                <EmbeddedMasterFolders
+                  onSelectJob={(positionId) => setPanelPositionId(positionId)}
+                />
+              </>
+            )}
+            {!focusedItem && panelPositionId && showBottomGallery && (() => {
+              const pos = items.find((i) => i.id === panelPositionId);
+              return (
+                <EmbeddedPositionGallery
+                  key={panelPositionId}
+                  positionId={panelPositionId}
+                  companyName={pos?.company ?? "Position"}
+                  onBack={() => setPanelPositionId(null)}
+                  onClose={() => setShowBottomGallery(false)}
+                  onOpenInMap={pos ? () => {
+                    setPanelPositionId(null);
+                    onFocusJob({ id: pos.id, lat: pos.lat, lng: pos.lng });
+                  } : undefined}
+                />
+              );
+            })()}
+            {focusedItem && (() => {
+              const galleryPhotos = matchedPosition?.galleryPhotos ?? [];
+              const galleryAlbums = matchedPosition?.galleryAlbums ?? [];
+              const totalCount = galleryPhotos.length;
+              const getAlbumCount = (albumId: string | null) => galleryPhotos.filter((p) => (p.albumId ?? null) === albumId).length;
+              const getAlbumCover = (albumId: string | null) => galleryPhotos.find((p) => (p.albumId ?? null) === albumId) ?? null;
+              const parseTags = (raw?: string | null): string[] => { if (!raw) return []; try { return JSON.parse(raw); } catch { return []; } };
+              const parseMarkers = (raw?: string | null): unknown[] => { if (!raw) return []; try { return JSON.parse(raw); } catch { return []; } };
+              return (
+                <>
+                  {/* ── Sticky header ── */}
+                  <div className="flex items-center gap-1.5 px-3 py-2.5 border-b border-border bg-background/95 shrink-0">
+                    <button type="button" className="p-1 -ml-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0" title="Back to all jobs" onClick={onExitFocus}>
+                      <ChevronLeft className="h-3.5 w-3.5" />
+                    </button>
+                    <Images className="h-3.5 w-3.5 text-pink-500 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold truncate">{focusedItem.company}</p>
+                      <p className="text-[10px] text-muted-foreground">{totalCount} photo{totalCount === 1 ? "" : "s"}</p>
+                    </div>
+                    {/* Photos / Albums toggle */}
+                    <div className="flex items-center gap-0.5 rounded-md border border-border/60 bg-muted/40 p-0.5 shrink-0">
+                      <button type="button" title="Photos view" onClick={() => setPanelGalleryView("photos")} className={`p-0.5 rounded transition-colors ${panelGalleryView === "photos" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
+                        <LayoutGrid className="h-3 w-3" />
+                      </button>
+                      <button type="button" title="Albums view" onClick={() => setPanelGalleryView("albums")} className={`p-0.5 rounded transition-colors ${panelGalleryView === "albums" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
+                        <FolderOpen className="h-3 w-3" />
+                      </button>
+                    </div>
+                    {/* Open full lightbox */}
+                    {galleryPhotos.length > 0 && (
+                      <button type="button" className="p-1 rounded hover:bg-pink-500/10 text-pink-500 transition-colors shrink-0" title="Open full-screen viewer" onClick={() => { setGalleryModalIdx(0); setShowBottomGallery(false); }}>
+                        <Maximize2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                    {/* Upload: single */}
+                    <label className="cursor-pointer p-1 rounded hover:bg-pink-500/10 text-pink-500 transition-colors shrink-0" title="Add photos">
+                      <Plus className="h-3.5 w-3.5" />
+                      <input type="file" accept="image/*" multiple className="hidden" onChange={async (e) => {
+                        const files = e.target.files;
+                        if (!files?.length) return;
+                        if (!confirmMediaUpload("gallery")) { e.target.value = ""; return; }
+                        for (const file of Array.from(files)) await handleGalleryPhotoUpload(file);
+                        e.target.value = "";
+                      }} />
+                    </label>
+                    {/* Upload: album */}
+                    <label className="cursor-pointer p-1 rounded hover:bg-pink-500/10 text-pink-500 transition-colors shrink-0" title="Upload album">
+                      <FolderPlus className="h-3.5 w-3.5" />
+                      <input type="file" accept="image/*" multiple className="hidden" onChange={async (e) => {
+                        const files = e.target.files ? Array.from(e.target.files) : [];
+                        e.target.value = "";
+                        if (!files.length || !confirmMediaUpload("gallery")) return;
+                        const defaultName = `Album ${new Date().toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}`;
+                        const name = window.prompt(`Album name for these ${files.length} photo${files.length === 1 ? "" : "s"}:`, defaultName);
+                        const trimmed = name?.trim();
+                        if (!trimmed) return;
+                        await handleGalleryAlbumUpload(files, trimmed.slice(0, 80));
+                      }} />
+                    </label>
+                    {/* Upload: folder */}
+                    <label className="hidden md:inline-flex cursor-pointer p-1 rounded hover:bg-pink-500/10 text-pink-500 transition-colors shrink-0" title="Upload folder">
+                      <FolderOpen className="h-3.5 w-3.5" />
+                      <input type="file" multiple className="hidden"
+                        {...({ webkitdirectory: "", directory: "" } as Record<string, string>)}
+                        onChange={async (e) => {
+                          const all = e.target.files ? Array.from(e.target.files) : [];
+                          e.target.value = "";
+                          const images = all.filter((f) => f.type.startsWith("image/"));
+                          const skipped = all.length - images.length;
+                          if (images.length === 0) { if (all.length > 0) toast.error("No images found in that folder."); return; }
+                          if (!confirmMediaUpload("gallery")) return;
+                          const firstRel = (images[0] as File & { webkitRelativePath?: string }).webkitRelativePath || "";
+                          const folderName = firstRel.split("/")[0] || "Folder";
+                          const name = window.prompt(
+                            `Album name for ${images.length} photo${images.length === 1 ? "" : "s"}${skipped > 0 ? ` (${skipped} non-image file${skipped === 1 ? "" : "s"} skipped)` : ""}:`,
+                            folderName,
+                          );
+                          const trimmed = name?.trim();
+                          if (!trimmed) return;
+                          await handleGalleryAlbumUpload(images, trimmed.slice(0, 80));
+                        }}
+                      />
+                    </label>
+                    {/* Close */}
+                    <button type="button" className="p-1 rounded hover:bg-muted transition-colors text-muted-foreground shrink-0" title="Close gallery" onClick={() => setShowBottomGallery(false)}>
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+
+                  {/* ── Scrollable body ── */}
+                  <div className="flex-1 overflow-y-auto p-2.5 space-y-2.5">
+                    <p className="text-[10px] text-muted-foreground/70">Avoid uploading faces, serial numbers, proprietary screens, or customer-sensitive images.</p>
+                    {totalCount === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-10 gap-2 text-center">
+                        <Images className="h-8 w-8 text-muted-foreground/30" />
+                        <p className="text-[11px] text-muted-foreground">No photos yet.</p>
+                        <p className="text-[10px] text-muted-foreground/60">Use the + button above to add them.</p>
+                      </div>
+                    ) : panelGalleryView === "photos" ? (
+                      <div className="grid grid-cols-3 gap-1.5">
+                        {galleryPhotos.map((p, i) => {
+                          const tagCount = parseTags(p.tags).length;
+                          const markerCount = parseMarkers(p.markers).length;
+                          return (
+                            <div key={p.id} data-search-highlight-id={`galleryPhoto:${p.id}`} className="group/photo relative rounded-md overflow-hidden aspect-square bg-muted cursor-pointer" onClick={() => { setGalleryModalIdx(i); setShowBottomGallery(false); }}>
+                              <img src={p.filePath} alt={p.caption || p.fileName} className="w-full h-full object-cover" />
+                              {p.isCover && <div className="absolute top-0.5 left-0.5"><Star className="h-3 w-3 text-yellow-400 fill-yellow-400 drop-shadow" /></div>}
+                              <button
+                                type="button"
+                                title={p.isBanner ? "Remove from banner gallery" : "Add to banner gallery"}
+                                className={`absolute ${p.isCover ? "top-4" : "top-0.5"} left-0.5 p-0.5 rounded ${p.isBanner ? "bg-amber-400/90 text-white" : "bg-black/35 text-white/70 hover:text-white opacity-0 group-hover/photo:opacity-100"} transition-all`}
+                                onClick={async (e) => { e.stopPropagation(); await handleGalleryBannerToggle(p.id, !p.isBanner); }}
+                              >
+                                <Images className="h-2.5 w-2.5" />
+                              </button>
+                              {(tagCount > 0 || markerCount > 0) && (
+                                <div className="absolute top-0.5 right-0.5 flex gap-0.5">
+                                  {tagCount > 0 && <span className="px-1 py-0.5 rounded-full bg-pink-500/80 text-white text-[8px] font-bold leading-none">{tagCount}</span>}
+                                  {markerCount > 0 && <span className="px-1 py-0.5 rounded-full bg-blue-500/80 text-white text-[8px] font-bold leading-none">{markerCount}</span>}
+                                </div>
+                              )}
+                              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-1 opacity-0 group-hover/photo:opacity-100 transition-opacity">
+                                <span className="text-[9px] text-white truncate block">{p.caption || (p.isCover ? "Cover" : p.fileName)}</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-2">
+                        {[{ id: "__all", name: "All Photos", count: totalCount }, { id: "__unassigned", name: "Unassigned", count: getAlbumCount(null) }, ...galleryAlbums.map((a) => ({ id: a.id, name: a.name, count: getAlbumCount(a.id) }))].map((album) => {
+                          const cover = album.id === "__all" ? (galleryPhotos[0]?.filePath ?? null) : album.id === "__unassigned" ? (getAlbumCover(null)?.filePath ?? null) : (getAlbumCover(album.id)?.filePath ?? null);
+                          return (
+                            <button
+                              key={album.id}
+                              type="button"
+                              className="group relative rounded-md overflow-hidden bg-muted border border-border/60 hover:border-pink-500/40 text-left transition-colors"
+                              onClick={() => {
+                                if (album.id === "__all") {
+                                  if (galleryPhotos.length > 0) { setGalleryModalIdx(0); setShowBottomGallery(false); }
+                                  return;
+                                }
+                                const idx = album.id === "__unassigned"
+                                  ? galleryPhotos.findIndex((p) => !p.albumId)
+                                  : galleryPhotos.findIndex((p) => p.albumId === album.id);
+                                if (idx >= 0) { setGalleryModalIdx(idx); setShowBottomGallery(false); }
+                              }}
+                            >
+                              <div className="aspect-video bg-muted/60">
+                                {cover ? <img src={cover} alt={album.name} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-[10px] text-muted-foreground">No cover</div>}
+                              </div>
+                              <div className="p-1.5">
+                                <p className="text-[10px] font-semibold truncate">{album.name}</p>
+                                <p className="text-[9px] text-muted-foreground">{album.count} photo{album.count !== 1 ? "s" : ""}</p>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+        </MaybePortal>
+      )}
+      {/* ── Bottom side-panel strip (portals attachments / skills / equipment into action-bar host when provided) ── */}
+      {bottomSidePanelHost != null && focusedItem && (
+        <MaybePortal target={bottomSidePanelHost}>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Button
+              type="button"
+              size="sm"
+              variant={sidePanel === "attachments" ? "default" : "outline"}
+              className="h-7 text-xs"
+              onClick={() => setSidePanel((p) => p === "attachments" ? null : "attachments")}
+            >
+              <Paperclip className="h-3.5 w-3.5 mr-1" />
+              Attachments
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={sidePanel === "skills" ? "default" : "outline"}
+              className="h-7 text-xs"
+              onClick={() => setSidePanel((p) => p === "skills" ? null : "skills")}
+            >
+              <Brain className="h-3.5 w-3.5 mr-1" />
+              Skills
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={sidePanel === "equipment" ? "default" : "outline"}
+              className="h-7 text-xs"
+              onClick={() => setSidePanel((p) => p === "equipment" ? null : "equipment")}
+            >
+              <Wrench className="h-3.5 w-3.5 mr-1" />
+              Equipment
+            </Button>
+          </div>
+          {(sidePanel === "attachments" || sidePanel === "skills" || sidePanel === "equipment") && (
+            <div className="mt-2 rounded-lg border bg-background/85 backdrop-blur-sm p-2.5 space-y-2">
+              {sidePanel === "attachments" && (() => {
+                const atts = matchedPosition?.attachments ?? [];
+                const catLabels: Record<string, string> = { "offer-letter": "Offer Letter", w2: "W-2", "pay-stub": "Pay Stub", contract: "Contract", cert: "Certificate", review: "Review", other: "Other" };
+                const fmtSize = (b: number) => b < 1024 ? `${b} B` : b < 1024 * 1024 ? `${(b / 1024).toFixed(1)} KB` : `${(b / (1024 * 1024)).toFixed(1)} MB`;
+                const uploadAtt = async (file: File) => {
+                  if (!focusedItem) return;
+                  const label = prompt("Label for this file:", file.name.replace(/\.[^.]+$/, ""));
+                  if (!label?.trim()) return;
+                  const cat = prompt("Category (offer-letter, w2, pay-stub, contract, cert, review, other):", "other") || "other";
+                  setPanelBusy(true);
+                  try {
+                    const fd = new FormData();
+                    fd.append("file", file);
+                    fd.append("positionId", focusedItem.id);
+                    fd.append("label", label.trim());
+                    fd.append("category", cat.trim());
+                    const res = await fetch("/api/attachments", { method: "POST", body: fd });
+                    if (res.ok) {
+                      const posRes = await fetch(`/api/current-position/${focusedItem.id}`);
+                      if (posRes.ok) setMatchedPosition(await posRes.json());
+                      queryClient.invalidateQueries({ queryKey: ["work-history"] });
+                    }
+                  } finally { setPanelBusy(false); }
+                };
+                const deleteAtt = async (id: string) => {
+                  if (!confirm("Delete this attachment?")) return;
+                  setPanelBusy(true);
+                  try {
+                    const res = await fetch(`/api/attachments?id=${id}`, { method: "DELETE" });
+                    if (res.ok && focusedItem) {
+                      const posRes = await fetch(`/api/current-position/${focusedItem.id}`);
+                      if (posRes.ok) setMatchedPosition(await posRes.json());
+                      queryClient.invalidateQueries({ queryKey: ["work-history"] });
+                    }
+                  } finally { setPanelBusy(false); }
+                };
+                const editAtt = async (a: { id: string; label: string; category: string }) => {
+                  if (!focusedItem) return;
+                  const label = prompt("Label:", a.label);
+                  if (label === null) return;
+                  const category = prompt("Category (offer-letter, w2, pay-stub, contract, cert, review, other):", a.category) || a.category;
+                  await fetch("/api/attachments", {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ id: a.id, label: label.trim() || a.label, category: category.trim() }),
+                  });
+                  const posRes = await fetch(`/api/current-position/${focusedItem.id}`);
+                  if (posRes.ok) setMatchedPosition(await posRes.json());
+                  queryClient.invalidateQueries({ queryKey: ["work-history"] });
+                };
+                return (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Paperclip className="h-3.5 w-3.5 text-amber-500" />
+                      <span className="text-xs font-semibold">Attachments</span>
+                      <span className="ml-auto text-[10px] text-muted-foreground">{atts.length} file{atts.length !== 1 ? "s" : ""}</span>
+                      <label className="cursor-pointer p-0.5 rounded hover:bg-amber-500/10 text-amber-500 transition-colors" title="Upload file">
+                        <Plus className="h-3.5 w-3.5" />
+                        <input type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.jpg,.jpeg,.png,.webp" className="hidden" onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (file) await uploadAtt(file);
+                          e.target.value = "";
+                        }} />
+                      </label>
+                    </div>
+                    {atts.length === 0 ? (
+                      <p className="text-[11px] text-muted-foreground text-center py-4">No attachments yet. Click + to upload offer letters, W-2s, pay stubs, and more.</p>
+                    ) : (
+                      <div className="space-y-1">
+                        {atts.map((a) => (
+                          <div key={a.id} data-search-highlight-id={`attachment:${a.id}`} className="group flex items-center gap-2 rounded-md border bg-background/60 px-2 py-1.5">
+                            <FileText className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[11px] font-medium truncate">{a.label}</p>
+                              <p className="text-[10px] text-muted-foreground">{catLabels[a.category] ?? a.category} · {fmtSize(a.fileSize)}</p>
+                            </div>
+                            <button type="button" className="p-0.5 rounded hover:bg-muted opacity-0 group-hover:opacity-100 transition-opacity" title="Edit" onClick={() => editAtt(a)}>
+                              <Pencil className="h-3 w-3 text-muted-foreground" />
+                            </button>
+                            <a href={a.filePath} target="_blank" rel="noopener noreferrer" download className="p-0.5 rounded hover:bg-muted opacity-0 group-hover:opacity-100 transition-opacity" title="Download">
+                              <Download className="h-3 w-3 text-muted-foreground" />
+                            </a>
+                            <button type="button" className="p-0.5 rounded hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-opacity" title="Delete" onClick={() => deleteAtt(a.id)}>
+                              <Trash2 className="h-3 w-3 text-red-500" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+              {sidePanel === "skills" && (() => {
+                const used: string[] = focusedItem.skillsUsed ? (() => { try { return JSON.parse(focusedItem.skillsUsed); } catch { return []; } })() : [];
+                const gained: string[] = focusedItem.skillsGained ? (() => { try { return JSON.parse(focusedItem.skillsGained); } catch { return []; } })() : [];
+                const tech = matchedPosition?.techStack?.split(",").map((t: string) => t.trim()).filter(Boolean) ?? [];
+                const hasContent = used.length > 0 || gained.length > 0 || tech.length > 0;
+
+                const addSkill = async (field: "skillsUsed" | "skillsGained", current: string[]) => {
+                  const name = prompt(field === "skillsUsed" ? "Skill used:" : "Skill gained:");
+                  if (!name?.trim() || !focusedItem) return;
+                  const updated = [...current, name.trim()];
+                  await fetch(`/api/current-position/${focusedItem.id}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ [field]: JSON.stringify(updated) }),
+                  });
+                  queryClient.invalidateQueries({ queryKey: ["work-history"] });
+                  const res = await fetch(`/api/current-position/${focusedItem.id}`);
+                  if (res.ok) setMatchedPosition(await res.json());
+                };
+
+                const removeSkill = async (field: "skillsUsed" | "skillsGained", current: string[], index: number) => {
+                  const updated = current.filter((_, i) => i !== index);
+                  await fetch(`/api/current-position/${focusedItem.id}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ [field]: JSON.stringify(updated) }),
+                  });
+                  queryClient.invalidateQueries({ queryKey: ["work-history"] });
+                  const res = await fetch(`/api/current-position/${focusedItem.id}`);
+                  if (res.ok) setMatchedPosition(await res.json());
+                };
+
+                const addTech = async () => {
+                  const name = prompt("Tech stack item:");
+                  if (!name?.trim() || !focusedItem) return;
+                  const updated = [...tech, name.trim()].join(", ");
+                  await fetch(`/api/current-position/${focusedItem.id}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ techStack: updated }),
+                  });
+                  const res = await fetch(`/api/current-position/${focusedItem.id}`);
+                  if (res.ok) setMatchedPosition(await res.json());
+                };
+
+                return (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Brain className="h-3.5 w-3.5 text-violet-500" />
+                      <span className="text-xs font-semibold">Skills</span>
+                      <span className="ml-auto text-[10px] text-muted-foreground">{used.length + gained.length + tech.length}</span>
+                    </div>
+                    {!hasContent ? (
+                      <p className="text-[11px] text-muted-foreground text-center py-4">No skills logged yet. Use the buttons below to add.</p>
+                    ) : null}
+                    <div className="space-y-2">
+                      <div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Tech Stack</span>
+                          <button type="button" className="p-0.5 rounded hover:bg-cyan-500/10 text-cyan-500 transition-colors" title="Add tech" onClick={addTech}><Plus className="h-3 w-3" /></button>
+                        </div>
+                        {tech.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-0.5">
+                            {tech.map((t: string, i: number) => (
+                              <span key={i} className="group/pill px-1.5 py-0.5 rounded-md bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 text-[10px] inline-flex items-center gap-0.5">
+                                {t}
+                                <button type="button" className="opacity-0 group-hover/pill:opacity-100 transition-opacity" onClick={async () => {
+                                  const newName = prompt("Edit tech:", t);
+                                  if (newName === null) return;
+                                  const updated = newName.trim() ? tech.map((x: string, j: number) => j === i ? newName.trim() : x) : tech.filter((_: string, j: number) => j !== i);
+                                  await fetch(`/api/current-position/${focusedItem.id}`, {
+                                    method: "PATCH", headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ techStack: updated.join(", ") }),
+                                  });
+                                  const res = await fetch(`/api/current-position/${focusedItem.id}`);
+                                  if (res.ok) setMatchedPosition(await res.json());
+                                  queryClient.invalidateQueries({ queryKey: ["work-history"] });
+                                }} title="Edit (clear to remove)"><Pencil className="h-2.5 w-2.5" /></button>
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Skills Used</span>
+                          <button type="button" className="p-0.5 rounded hover:bg-violet-500/10 text-violet-500 transition-colors" title="Add skill used" onClick={() => addSkill("skillsUsed", used)}><Plus className="h-3 w-3" /></button>
+                        </div>
+                        {used.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-0.5">
+                            {used.map((s, i) => (
+                              <span key={i} className="group px-1.5 py-0.5 rounded-md bg-violet-500/10 text-violet-600 dark:text-violet-400 text-[10px] inline-flex items-center gap-0.5">
+                                {s}
+                                <button type="button" className="opacity-0 group-hover:opacity-100 transition-opacity" onClick={async () => {
+                                  const newName = prompt("Edit skill:", s);
+                                  if (newName === null) return;
+                                  const updated = newName.trim() ? used.map((x, j) => j === i ? newName.trim() : x) : used.filter((_, j) => j !== i);
+                                  await fetch(`/api/current-position/${focusedItem.id}`, {
+                                    method: "PATCH", headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ skillsUsed: JSON.stringify(updated) }),
+                                  });
+                                  queryClient.invalidateQueries({ queryKey: ["work-history"] });
+                                  const res = await fetch(`/api/current-position/${focusedItem.id}`);
+                                  if (res.ok) setMatchedPosition(await res.json());
+                                }} title="Edit (clear to remove)"><Pencil className="h-2.5 w-2.5" /></button>
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Skills Gained</span>
+                          <button type="button" className="p-0.5 rounded hover:bg-emerald-500/10 text-emerald-500 transition-colors" title="Add skill gained" onClick={() => addSkill("skillsGained", gained)}><Plus className="h-3 w-3" /></button>
+                        </div>
+                        {gained.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-0.5">
+                            {gained.map((s, i) => (
+                              <span key={i} className="group px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] inline-flex items-center gap-0.5">
+                                {s}
+                                <button type="button" className="opacity-0 group-hover:opacity-100 transition-opacity" onClick={async () => {
+                                  const newName = prompt("Edit skill:", s);
+                                  if (newName === null) return;
+                                  const updated = newName.trim() ? gained.map((x, j) => j === i ? newName.trim() : x) : gained.filter((_, j) => j !== i);
+                                  await fetch(`/api/current-position/${focusedItem.id}`, {
+                                    method: "PATCH", headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ skillsGained: JSON.stringify(updated) }),
+                                  });
+                                  queryClient.invalidateQueries({ queryKey: ["work-history"] });
+                                  const res = await fetch(`/api/current-position/${focusedItem.id}`);
+                                  if (res.ok) setMatchedPosition(await res.json());
+                                }} title="Edit (clear to remove)"><Pencil className="h-2.5 w-2.5" /></button>
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+              {sidePanel === "equipment" && (() => {
+                const allEquip = matchedPosition?.equipment ?? [];
+                const used = allEquip.filter(e => e.usage !== "worked-on");
+                const workedOn = allEquip.filter(e => e.usage === "worked-on");
+
+                const addEquipment = async (usage: "used" | "worked-on") => {
+                  const name = prompt(usage === "used" ? "Equipment/tool name (assigned to you):" : "Equipment/tool name (you worked on):");
+                  if (!name?.trim() || !focusedItem) return;
+                  await fetch("/api/equipment", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ positionId: focusedItem.id, name: name.trim(), usage }),
+                  });
+                  const res = await fetch(`/api/current-position/${focusedItem.id}`);
+                  if (res.ok) setMatchedPosition(await res.json());
+                };
+
+                const uploadEquipmentPhoto = async (equipmentId: string, file: File, isFirst: boolean) => {
+                  await handleEquipmentPhotoUpload(equipmentId, file, isFirst);
+                };
+
+                const deleteEquipmentPhoto = async (photoId: string) => {
+                  await handleEquipmentPhotoDelete(photoId);
+                };
+
+                const setEquipmentCover = async (photoId: string) => {
+                  await handleEquipmentPhotoSetCover(photoId);
+                };
+
+                const editEquipmentPhotoCaption = async (photo: { id: string; caption?: string | null }) => {
+                  await handleEquipmentPhotoCaption(photo.id, photo.caption);
+                };
+
+                const deleteEquip = async (id: string) => {
+                  if (!focusedItem || !confirm("Delete this equipment?")) return;
+                  setPanelBusy(true);
+                  try {
+                    const res = await fetch(`/api/equipment?id=${id}`, { method: "DELETE" });
+                    if (res.ok) {
+                      const posRes = await fetch(`/api/current-position/${focusedItem.id}`);
+                      if (posRes.ok) setMatchedPosition(await posRes.json());
+                      queryClient.invalidateQueries({ queryKey: ["work-history"] });
+                    }
+                  } finally { setPanelBusy(false); }
+                };
+
+                const editEquip = async (e: { id: string; name: string; category: string; condition: string; manufacturer?: string | null; model?: string | null; notes?: string | null }) => {
+                  if (!focusedItem) return;
+                  const name = prompt("Name:", e.name);
+                  if (name === null) return;
+                  const category = prompt("Category (hardware, software, vehicle, tool, other):", e.category) || e.category;
+                  const manufacturer = prompt("Manufacturer:", e.manufacturer ?? "") ?? "";
+                  const model = prompt("Model:", e.model ?? "") ?? "";
+                  const condition = prompt("Condition (good, fair, poor):", e.condition) || e.condition;
+                  const notes = prompt("Notes:", e.notes ?? "") ?? "";
+                  await fetch("/api/equipment", {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ id: e.id, name: name.trim() || e.name, category, manufacturer, model, condition, notes }),
+                  });
+                  const res = await fetch(`/api/current-position/${focusedItem.id}`);
+                  if (res.ok) setMatchedPosition(await res.json());
+                  queryClient.invalidateQueries({ queryKey: ["work-history"] });
+                };
+
+                const EquipCard = ({ e }: { e: { id: string; name: string; category: string; usage: string; manufacturer?: string | null; model?: string | null; condition: string; notes?: string | null; photos?: { id: string; filePath: string; caption?: string | null; isCover: boolean }[] } }) => (
+                  <div data-search-highlight-id={`equipment:${e.id}`} className="group rounded-md border p-1.5 text-[11px] space-y-0.5">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">{e.name}</span>
+                      <div className="flex items-center gap-0.5">
+                        <span className={`px-1 py-0.5 rounded text-[9px] ${e.condition === "good" ? "bg-emerald-500/10 text-emerald-600" : e.condition === "fair" ? "bg-amber-500/10 text-amber-600" : "bg-red-500/10 text-red-600"}`}>
+                          {e.condition}
+                        </span>
+                        <button type="button" className="p-0.5 rounded hover:bg-muted opacity-0 group-hover:opacity-100 transition-opacity" title="Edit" onClick={() => editEquip(e)}>
+                          <Pencil className="h-2.5 w-2.5 text-muted-foreground" />
+                        </button>
+                        <button type="button" className="p-0.5 rounded hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-opacity" title="Delete" onClick={() => deleteEquip(e.id)}>
+                          <Trash2 className="h-2.5 w-2.5 text-red-500" />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="text-muted-foreground">
+                      {e.category}{e.manufacturer ? ` · ${e.manufacturer}` : ""}{e.model ? ` ${e.model}` : ""}
+                    </div>
+                    {e.notes && <div className="text-muted-foreground italic">{e.notes}</div>}
+                    <div className="pt-1">
+                      <div className="flex items-center gap-1 mb-1">
+                        <Camera className="h-3 w-3 text-cyan-500" />
+                        <span className="text-[10px] text-muted-foreground">Photos {(e.photos?.length ?? 0)}/3</span>
+                        {(e.photos?.length ?? 0) < 3 && (
+                          <label className="ml-auto cursor-pointer p-0.5 rounded hover:bg-cyan-500/10 text-cyan-500" title="Add photo">
+                            <Plus className="h-3 w-3" />
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={async (ev) => {
+                                const file = ev.target.files?.[0];
+                                if (!file) return;
+                                await uploadEquipmentPhoto(e.id, file, (e.photos?.length ?? 0) === 0);
+                                ev.target.value = "";
+                              }}
+                            />
+                          </label>
+                        )}
+                      </div>
+                      {(e.photos?.length ?? 0) > 0 ? (
+                        <div className="grid grid-cols-3 gap-1">
+                          {e.photos!.map((p) => (
+                            <div
+                              key={p.id}
+                              role="button"
+                              tabIndex={0}
+                              className="group/p relative aspect-square rounded overflow-hidden bg-muted cursor-pointer"
+                              onClick={() => setEquipmentPhotoViewer({ equipmentId: e.id, index: e.photos!.findIndex((photo) => photo.id === p.id) })}
+                              onKeyDown={(ev) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); setEquipmentPhotoViewer({ equipmentId: e.id, index: e.photos!.findIndex((photo) => photo.id === p.id) }); } }}
+                            >
+                              <img src={p.filePath} alt={p.caption ?? e.name} className="w-full h-full object-cover" />
+                              {p.isCover && <Star className="absolute top-0.5 left-0.5 h-2.5 w-2.5 text-yellow-400 fill-yellow-400" />}
+                              <div className="absolute inset-x-0 bottom-0 bg-black/50 px-0.5 py-0.5 text-[8px] text-white truncate">
+                                {p.caption || "photo"}
+                              </div>
+                              <div className="absolute top-0.5 right-0.5 flex gap-0.5 opacity-0 group-hover/p:opacity-100 transition-opacity">
+                                <button type="button" className="p-0.5 rounded bg-black/50 hover:bg-yellow-500/30" title="Set cover" onClick={(ev) => { ev.stopPropagation(); setEquipmentCover(p.id); }}>
+                                  <Star className="h-2 w-2 text-yellow-300" />
+                                </button>
+                                <button type="button" className="p-0.5 rounded bg-black/50 hover:bg-blue-500/30" title="Edit caption" onClick={(ev) => { ev.stopPropagation(); editEquipmentPhotoCaption(p); }}>
+                                  <Pencil className="h-2 w-2 text-blue-300" />
+                                </button>
+                                <button type="button" className="p-0.5 rounded bg-black/50 hover:bg-red-500/30" title="Delete photo" onClick={(ev) => { ev.stopPropagation(); deleteEquipmentPhoto(p.id); }}>
+                                  <Trash2 className="h-2 w-2 text-red-300" />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-[10px] text-muted-foreground">No photos added yet.</p>
+                      )}
+                      <p className="pt-1 text-[10px] text-muted-foreground/80">
+                        Keep equipment visuals clean of faces, serial numbers, customer info, and proprietary displays.
+                      </p>
+                    </div>
+                  </div>
+                );
+
+                return (
+                  <div className="space-y-3">
+                    {/* Assigned / Used */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <Wrench className="h-3.5 w-3.5 text-cyan-500" />
+                        <span className="text-xs font-semibold">Assigned to Me</span>
+                        <span className="ml-auto text-[10px] text-muted-foreground">{used.length}</span>
+                        <button type="button" className="p-0.5 rounded hover:bg-cyan-500/10 text-cyan-500 transition-colors" title="Add equipment you used" onClick={() => addEquipment("used")}><Plus className="h-3 w-3" /></button>
+                      </div>
+                      {used.length === 0 ? (
+                        <p className="text-[11px] text-muted-foreground text-center py-2">No tools assigned. Click + to add.</p>
+                      ) : (
+                        <div className="space-y-1">
+                          {used.map(e => <EquipCard key={e.id} e={e} />)}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="border-t" />
+
+                    {/* Worked On / Maintained */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <Settings className="h-3.5 w-3.5 text-orange-500" />
+                        <span className="text-xs font-semibold">Worked On</span>
+                        <span className="ml-auto text-[10px] text-muted-foreground">{workedOn.length}</span>
+                        <button type="button" className="p-0.5 rounded hover:bg-orange-500/10 text-orange-500 transition-colors" title="Add equipment you worked on" onClick={() => addEquipment("worked-on")}><Plus className="h-3 w-3" /></button>
+                      </div>
+                      {workedOn.length === 0 ? (
+                        <p className="text-[11px] text-muted-foreground text-center py-2">No equipment logged. Click + to add.</p>
+                      ) : (
+                        <div className="space-y-1">
+                          {workedOn.map(e => <EquipCard key={e.id} e={e} />)}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+        </MaybePortal>
+      )}
     </>
   );
 }

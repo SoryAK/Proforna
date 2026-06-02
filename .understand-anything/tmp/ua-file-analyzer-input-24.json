@@ -1,0 +1,28 @@
+{
+  "projectRoot": "C:\\Users\\Sory kaba\\OneDrive\\RESUMSIFY\\Personal_Projects\\Dev_Pojects\\resumsify",
+  "batchFiles": [
+    {
+      "path": ".features/job-search/focus-mode-cleanup.md",
+      "language": "markdown",
+      "sizeLines": 216,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".features/job-search/job-search.md",
+      "language": "markdown",
+      "sizeLines": 60,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".features/job-search/multi-query-search.md",
+      "language": "markdown",
+      "sizeLines": 133,
+      "fileCategory": "docs"
+    }
+  ],
+  "batchImportData": {
+    ".features/job-search/focus-mode-cleanup.md": [],
+    ".features/job-search/job-search.md": [],
+    ".features/job-search/multi-query-search.md": []
+  }
+}

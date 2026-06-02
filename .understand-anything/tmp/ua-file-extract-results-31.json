@@ -1,0 +1,65 @@
+{
+  "scriptCompleted": true,
+  "filesAnalyzed": 3,
+  "filesSkipped": [],
+  "results": [
+    {
+      "path": "src/data/All_Occupations.csv",
+      "language": "csv",
+      "fileCategory": "data",
+      "totalLines": 1017,
+      "nonEmptyLines": 1017,
+      "metrics": {}
+    },
+    {
+      "path": "src/data/onet-skill-scaffold.json",
+      "language": "json",
+      "fileCategory": "config",
+      "totalLines": 4159,
+      "nonEmptyLines": 4159,
+      "sections": [
+        {
+          "heading": "version",
+          "level": 1,
+          "line": 2
+        },
+        {
+          "heading": "generatedAt",
+          "level": 1,
+          "line": 3
+        },
+        {
+          "heading": "source",
+          "level": 1,
+          "line": 4
+        },
+        {
+          "heading": "clusters",
+          "level": 1,
+          "line": 5
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 4
+      }
+    },
+    {
+      "path": "src/data/soc-codes.json",
+      "language": "json",
+      "fileCategory": "config",
+      "totalLines": 147,
+      "nonEmptyLines": 147,
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0,
+        "sectionCount": 0
+      }
+    }
+  ]
+}

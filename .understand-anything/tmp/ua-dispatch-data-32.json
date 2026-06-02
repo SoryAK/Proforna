@@ -1,0 +1,184 @@
+{
+  "batchIndex": 32,
+  "totalBatches": 34,
+  "files": [
+    {
+      "path": ".copilot/mcp-config.json",
+      "language": "json",
+      "sizeLines": 8,
+      "fileCategory": "config"
+    },
+    {
+      "path": ".features/_TEMPLATE.md",
+      "language": "markdown",
+      "sizeLines": 38,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".features/applications/applications.md",
+      "language": "markdown",
+      "sizeLines": 53,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".features/career-analytics/career-analytics.md",
+      "language": "markdown",
+      "sizeLines": 56,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".features/career-analytics/career-directional-model.md",
+      "language": "markdown",
+      "sizeLines": 382,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".features/company-deep-dive/company-deep-dive.md",
+      "language": "markdown",
+      "sizeLines": 82,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".features/current-position/current-position.md",
+      "language": "markdown",
+      "sizeLines": 59,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".features/dashboard/dashboard.md",
+      "language": "markdown",
+      "sizeLines": 52,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".features/documents/documents.md",
+      "language": "markdown",
+      "sizeLines": 47,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".features/email/email.md",
+      "language": "markdown",
+      "sizeLines": 51,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".features/experience-diffusion-model/experience-diffusion-model.md",
+      "language": "markdown",
+      "sizeLines": 310,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".features/learning/learning.md",
+      "language": "markdown",
+      "sizeLines": 42,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".features/portal/portal.md",
+      "language": "markdown",
+      "sizeLines": 52,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".features/README.md",
+      "language": "markdown",
+      "sizeLines": 19,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".features/research/research.md",
+      "language": "markdown",
+      "sizeLines": 48,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".features/resumes/resumes.md",
+      "language": "markdown",
+      "sizeLines": 43,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".features/worker-rights/worker-rights.md",
+      "language": "markdown",
+      "sizeLines": 37,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".gitattributes",
+      "language": "unknown",
+      "sizeLines": 5,
+      "fileCategory": "code"
+    },
+    {
+      "path": ".github/copilot-instructions.md",
+      "language": "markdown",
+      "sizeLines": 155,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".squad/.first-run",
+      "language": "unknown",
+      "sizeLines": 1,
+      "fileCategory": "code"
+    },
+    {
+      "path": ".squad/identity/now.md",
+      "language": "markdown",
+      "sizeLines": 29,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".squad/identity/wisdom.md",
+      "language": "markdown",
+      "sizeLines": 41,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".understand-anything/.understandignore",
+      "language": "unknown",
+      "sizeLines": 63,
+      "fileCategory": "code"
+    },
+    {
+      "path": ".understand-anything/tmp/ua-scan-files.json",
+      "language": "json",
+      "sizeLines": 3811,
+      "fileCategory": "config"
+    },
+    {
+      "path": "docs/plans/skill-graph-revamp.md",
+      "language": "markdown",
+      "sizeLines": 201,
+      "fileCategory": "docs"
+    }
+  ],
+  "batchImportData": {
+    ".copilot/mcp-config.json": [],
+    ".features/_TEMPLATE.md": [],
+    ".features/applications/applications.md": [],
+    ".features/career-analytics/career-analytics.md": [],
+    ".features/career-analytics/career-directional-model.md": [],
+    ".features/company-deep-dive/company-deep-dive.md": [],
+    ".features/current-position/current-position.md": [],
+    ".features/dashboard/dashboard.md": [],
+    ".features/documents/documents.md": [],
+    ".features/email/email.md": [],
+    ".features/experience-diffusion-model/experience-diffusion-model.md": [],
+    ".features/learning/learning.md": [],
+    ".features/portal/portal.md": [],
+    ".features/README.md": [],
+    ".features/research/research.md": [],
+    ".features/resumes/resumes.md": [],
+    ".features/worker-rights/worker-rights.md": [],
+    ".gitattributes": [],
+    ".github/copilot-instructions.md": [],
+    ".squad/.first-run": [],
+    ".squad/identity/now.md": [],
+    ".squad/identity/wisdom.md": [],
+    ".understand-anything/.understandignore": [],
+    ".understand-anything/tmp/ua-scan-files.json": [],
+    "docs/plans/skill-graph-revamp.md": []
+  },
+  "neighborMap": {}
+}

@@ -1,0 +1,17 @@
+{
+  "entities": [
+    {
+      "name": "CompensationDomain",
+      "entityType": "domain",
+      "observations": [
+        "2026-05-28: Components: src/components/compensation-editor.tsx, src/components/compensation-tracker.tsx, src/components/paycheck-estimator.tsx",
+        "2026-05-28: API routes under src/app/api/compensation/, src/app/api/paycheck-records/, src/app/api/pay-periods/, src/app/api/income-history/",
+        "2026-05-28: W2 parsing at src/app/api/w2-parse/, src/app/api/w2-records/",
+        "2026-05-28: Money utilities at src/lib/money.ts, tax logic at src/lib/taxes.ts"
+      ]
+    }
+  ],
+  "relations": [
+    { "from": "CompensationDomain", "relationType": "depends-on", "to": "ProfileDomain" }
+  ]
+}

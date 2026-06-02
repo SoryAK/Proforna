@@ -1,0 +1,72 @@
+{
+  "batchIndex": 29,
+  "totalBatches": 34,
+  "files": [
+    {
+      "path": "IMPROVEMENTS.md",
+      "language": "markdown",
+      "sizeLines": 386,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "Improvents.md",
+      "language": "markdown",
+      "sizeLines": 135,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "PROJECT_PLAN.md",
+      "language": "markdown",
+      "sizeLines": 254,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "README.md",
+      "language": "markdown",
+      "sizeLines": 36,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "TESTING.md",
+      "language": "markdown",
+      "sizeLines": 296,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "UI_UX_IMPROVEMENTS.md",
+      "language": "markdown",
+      "sizeLines": 139,
+      "fileCategory": "docs"
+    },
+    {
+      "path": "components.json",
+      "language": "json",
+      "sizeLines": 25,
+      "fileCategory": "config"
+    },
+    {
+      "path": "package.json",
+      "language": "json",
+      "sizeLines": 107,
+      "fileCategory": "config"
+    },
+    {
+      "path": "tsconfig.json",
+      "language": "json",
+      "sizeLines": 34,
+      "fileCategory": "config"
+    }
+  ],
+  "batchImportData": {
+    "IMPROVEMENTS.md": [],
+    "Improvents.md": [],
+    "PROJECT_PLAN.md": [],
+    "README.md": [],
+    "TESTING.md": [],
+    "UI_UX_IMPROVEMENTS.md": [],
+    "components.json": [],
+    "package.json": [],
+    "tsconfig.json": []
+  },
+  "neighborMap": {}
+}

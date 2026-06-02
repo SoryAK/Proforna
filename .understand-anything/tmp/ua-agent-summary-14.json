@@ -1,0 +1,916 @@
+[
+  {
+    "path": "src/components/ui/badge.tsx",
+    "nonEmptyLines": 48,
+    "fns": [
+      {
+        "name": "Badge",
+        "start": 30,
+        "end": 50
+      }
+    ],
+    "exports": [
+      "Badge",
+      "badgeVariants"
+    ],
+    "classes": [],
+    "imports": [
+      "src/lib/utils.ts"
+    ]
+  },
+  {
+    "path": "src/components/ui/button.tsx",
+    "nonEmptyLines": 57,
+    "fns": [
+      {
+        "name": "Button",
+        "start": 45,
+        "end": 60
+      }
+    ],
+    "exports": [
+      "Button",
+      "buttonVariants"
+    ],
+    "classes": [],
+    "imports": [
+      "src/lib/utils.ts"
+    ]
+  },
+  {
+    "path": "src/components/ui/card.tsx",
+    "nonEmptyLines": 94,
+    "fns": [
+      {
+        "name": "Card",
+        "start": 5,
+        "end": 21
+      },
+      {
+        "name": "CardHeader",
+        "start": 23,
+        "end": 34
+      },
+      {
+        "name": "CardTitle",
+        "start": 36,
+        "end": 47
+      },
+      {
+        "name": "CardDescription",
+        "start": 49,
+        "end": 57
+      },
+      {
+        "name": "CardAction",
+        "start": 59,
+        "end": 70
+      },
+      {
+        "name": "CardContent",
+        "start": 72,
+        "end": 80
+      },
+      {
+        "name": "CardFooter",
+        "start": 82,
+        "end": 93
+      }
+    ],
+    "exports": [
+      "Card",
+      "CardHeader",
+      "CardFooter",
+      "CardTitle",
+      "CardAction",
+      "CardDescription",
+      "CardContent"
+    ],
+    "classes": [],
+    "imports": [
+      "src/lib/utils.ts"
+    ]
+  },
+  {
+    "path": "src/components/ui/checkbox.tsx",
+    "nonEmptyLines": 25,
+    "fns": [
+      {
+        "name": "Checkbox",
+        "start": 8,
+        "end": 27
+      }
+    ],
+    "exports": [
+      "Checkbox"
+    ],
+    "classes": [],
+    "imports": [
+      "src/lib/utils.ts"
+    ]
+  },
+  {
+    "path": "src/components/ui/dialog.tsx",
+    "nonEmptyLines": 144,
+    "fns": [
+      {
+        "name": "Dialog",
+        "start": 10,
+        "end": 12
+      },
+      {
+        "name": "DialogTrigger",
+        "start": 14,
+        "end": 16
+      },
+      {
+        "name": "DialogPortal",
+        "start": 18,
+        "end": 20
+      },
+      {
+        "name": "DialogClose",
+        "start": 22,
+        "end": 24
+      },
+      {
+        "name": "DialogOverlay",
+        "start": 26,
+        "end": 40
+      },
+      {
+        "name": "DialogContent",
+        "start": 42,
+        "end": 81
+      },
+      {
+        "name": "DialogHeader",
+        "start": 83,
+        "end": 91
+      },
+      {
+        "name": "DialogFooter",
+        "start": 93,
+        "end": 118
+      },
+      {
+        "name": "DialogTitle",
+        "start": 120,
+        "end": 128
+      },
+      {
+        "name": "DialogDescription",
+        "start": 130,
+        "end": 144
+      }
+    ],
+    "exports": [
+      "Dialog",
+      "DialogClose",
+      "DialogContent",
+      "DialogDescription",
+      "DialogFooter",
+      "DialogHeader",
+      "DialogOverlay",
+      "DialogPortal",
+      "DialogTitle",
+      "DialogTrigger"
+    ],
+    "classes": [],
+    "imports": [
+      "src/components/ui/button.tsx",
+      "src/lib/utils.ts"
+    ]
+  },
+  {
+    "path": "src/components/ui/dropdown-menu.tsx",
+    "nonEmptyLines": 250,
+    "fns": [
+      {
+        "name": "DropdownMenu",
+        "start": 9,
+        "end": 11
+      },
+      {
+        "name": "DropdownMenuPortal",
+        "start": 13,
+        "end": 15
+      },
+      {
+        "name": "DropdownMenuTrigger",
+        "start": 17,
+        "end": 19
+      },
+      {
+        "name": "DropdownMenuContent",
+        "start": 21,
+        "end": 50
+      },
+      {
+        "name": "DropdownMenuGroup",
+        "start": 52,
+        "end": 54
+      },
+      {
+        "name": "DropdownMenuLabel",
+        "start": 56,
+        "end": 74
+      },
+      {
+        "name": "DropdownMenuItem",
+        "start": 76,
+        "end": 97
+      },
+      {
+        "name": "DropdownMenuSub",
+        "start": 99,
+        "end": 101
+      },
+      {
+        "name": "DropdownMenuSubTrigger",
+        "start": 103,
+        "end": 125
+      },
+      {
+        "name": "DropdownMenuSubContent",
+        "start": 127,
+        "end": 146
+      },
+      {
+        "name": "DropdownMenuCheckboxItem",
+        "start": 148,
+        "end": 180
+      },
+      {
+        "name": "DropdownMenuRadioGroup",
+        "start": 182,
+        "end": 189
+      },
+      {
+        "name": "DropdownMenuRadioItem",
+        "start": 191,
+        "end": 221
+      },
+      {
+        "name": "DropdownMenuSeparator",
+        "start": 223,
+        "end": 234
+      },
+      {
+        "name": "DropdownMenuShortcut",
+        "start": 236,
+        "end": 250
+      }
+    ],
+    "exports": [
+      "DropdownMenu",
+      "DropdownMenuPortal",
+      "DropdownMenuTrigger",
+      "DropdownMenuContent",
+      "DropdownMenuGroup",
+      "DropdownMenuLabel",
+      "DropdownMenuItem",
+      "DropdownMenuCheckboxItem",
+      "DropdownMenuRadioGroup",
+      "DropdownMenuRadioItem",
+      "DropdownMenuSeparator",
+      "DropdownMenuShortcut",
+      "DropdownMenuSub",
+      "DropdownMenuSubTrigger",
+      "DropdownMenuSubContent"
+    ],
+    "classes": [],
+    "imports": [
+      "src/lib/utils.ts"
+    ]
+  },
+  {
+    "path": "src/components/ui/input-group.tsx",
+    "nonEmptyLines": 147,
+    "fns": [
+      {
+        "name": "InputGroup",
+        "start": 11,
+        "end": 23
+      },
+      {
+        "name": "InputGroupAddon",
+        "start": 46,
+        "end": 66
+      },
+      {
+        "name": "InputGroupButton",
+        "start": 86,
+        "end": 105
+      },
+      {
+        "name": "InputGroupText",
+        "start": 107,
+        "end": 117
+      },
+      {
+        "name": "InputGroupInput",
+        "start": 119,
+        "end": 133
+      },
+      {
+        "name": "InputGroupTextarea",
+        "start": 135,
+        "end": 149
+      }
+    ],
+    "exports": [
+      "InputGroup",
+      "InputGroupAddon",
+      "InputGroupButton",
+      "InputGroupText",
+      "InputGroupInput",
+      "InputGroupTextarea"
+    ],
+    "classes": [],
+    "imports": [
+      "src/components/ui/button.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/textarea.tsx",
+      "src/lib/utils.ts"
+    ]
+  },
+  {
+    "path": "src/components/ui/input.tsx",
+    "nonEmptyLines": 17,
+    "fns": [
+      {
+        "name": "Input",
+        "start": 6,
+        "end": 18
+      }
+    ],
+    "exports": [
+      "Input"
+    ],
+    "classes": [],
+    "imports": [
+      "src/lib/utils.ts"
+    ]
+  },
+  {
+    "path": "src/components/ui/label.tsx",
+    "nonEmptyLines": 16,
+    "fns": [
+      {
+        "name": "Label",
+        "start": 7,
+        "end": 18
+      }
+    ],
+    "exports": [
+      "Label"
+    ],
+    "classes": [],
+    "imports": [
+      "src/lib/utils.ts"
+    ]
+  },
+  {
+    "path": "src/components/ui/progress.tsx",
+    "nonEmptyLines": 75,
+    "fns": [
+      {
+        "name": "Progress",
+        "start": 7,
+        "end": 26
+      },
+      {
+        "name": "ProgressTrack",
+        "start": 28,
+        "end": 39
+      },
+      {
+        "name": "ProgressIndicator",
+        "start": 41,
+        "end": 52
+      },
+      {
+        "name": "ProgressLabel",
+        "start": 54,
+        "end": 62
+      },
+      {
+        "name": "ProgressValue",
+        "start": 64,
+        "end": 75
+      }
+    ],
+    "exports": [
+      "Progress",
+      "ProgressTrack",
+      "ProgressIndicator",
+      "ProgressLabel",
+      "ProgressValue"
+    ],
+    "classes": [],
+    "imports": [
+      "src/lib/utils.ts"
+    ]
+  },
+  {
+    "path": "src/components/ui/select.tsx",
+    "nonEmptyLines": 188,
+    "fns": [
+      {
+        "name": "SelectGroup",
+        "start": 11,
+        "end": 19
+      },
+      {
+        "name": "SelectValue",
+        "start": 21,
+        "end": 29
+      },
+      {
+        "name": "SelectTrigger",
+        "start": 31,
+        "end": 57
+      },
+      {
+        "name": "SelectContent",
+        "start": 59,
+        "end": 96
+      },
+      {
+        "name": "SelectLabel",
+        "start": 98,
+        "end": 109
+      },
+      {
+        "name": "SelectItem",
+        "start": 111,
+        "end": 137
+      },
+      {
+        "name": "SelectSeparator",
+        "start": 139,
+        "end": 150
+      },
+      {
+        "name": "SelectScrollUpButton",
+        "start": 152,
+        "end": 169
+      },
+      {
+        "name": "SelectScrollDownButton",
+        "start": 171,
+        "end": 188
+      }
+    ],
+    "exports": [
+      "Select",
+      "SelectContent",
+      "SelectGroup",
+      "SelectItem",
+      "SelectLabel",
+      "SelectScrollDownButton",
+      "SelectScrollUpButton",
+      "SelectSeparator",
+      "SelectTrigger",
+      "SelectValue"
+    ],
+    "classes": [],
+    "imports": [
+      "src/lib/utils.ts"
+    ]
+  },
+  {
+    "path": "src/components/ui/separator.tsx",
+    "nonEmptyLines": 21,
+    "fns": [
+      {
+        "name": "Separator",
+        "start": 7,
+        "end": 23
+      }
+    ],
+    "exports": [
+      "Separator"
+    ],
+    "classes": [],
+    "imports": [
+      "src/lib/utils.ts"
+    ]
+  },
+  {
+    "path": "src/components/ui/skeleton.tsx",
+    "nonEmptyLines": 11,
+    "fns": [
+      {
+        "name": "Skeleton",
+        "start": 3,
+        "end": 11
+      }
+    ],
+    "exports": [
+      "Skeleton"
+    ],
+    "classes": [],
+    "imports": [
+      "src/lib/utils.ts"
+    ]
+  },
+  {
+    "path": "src/components/ui/switch.tsx",
+    "nonEmptyLines": 28,
+    "fns": [
+      {
+        "name": "Switch",
+        "start": 7,
+        "end": 30
+      }
+    ],
+    "exports": [
+      "Switch"
+    ],
+    "classes": [],
+    "imports": [
+      "src/lib/utils.ts"
+    ]
+  },
+  {
+    "path": "src/components/ui/table.tsx",
+    "nonEmptyLines": 105,
+    "fns": [
+      {
+        "name": "Table",
+        "start": 7,
+        "end": 20
+      },
+      {
+        "name": "TableHeader",
+        "start": 22,
+        "end": 30
+      },
+      {
+        "name": "TableBody",
+        "start": 32,
+        "end": 40
+      },
+      {
+        "name": "TableFooter",
+        "start": 42,
+        "end": 53
+      },
+      {
+        "name": "TableRow",
+        "start": 55,
+        "end": 66
+      },
+      {
+        "name": "TableHead",
+        "start": 68,
+        "end": 79
+      },
+      {
+        "name": "TableCell",
+        "start": 81,
+        "end": 92
+      },
+      {
+        "name": "TableCaption",
+        "start": 94,
+        "end": 105
+      }
+    ],
+    "exports": [
+      "Table",
+      "TableHeader",
+      "TableBody",
+      "TableFooter",
+      "TableHead",
+      "TableRow",
+      "TableCell",
+      "TableCaption"
+    ],
+    "classes": [],
+    "imports": [
+      "src/lib/utils.ts"
+    ]
+  },
+  {
+    "path": "src/components/ui/tabs.tsx",
+    "nonEmptyLines": 74,
+    "fns": [
+      {
+        "name": "Tabs",
+        "start": 8,
+        "end": 24
+      },
+      {
+        "name": "TabsList",
+        "start": 41,
+        "end": 54
+      },
+      {
+        "name": "TabsTrigger",
+        "start": 56,
+        "end": 70
+      },
+      {
+        "name": "TabsContent",
+        "start": 72,
+        "end": 80
+      }
+    ],
+    "exports": [
+      "Tabs",
+      "TabsList",
+      "TabsTrigger",
+      "TabsContent",
+      "tabsListVariants"
+    ],
+    "classes": [],
+    "imports": [
+      "src/lib/utils.ts"
+    ]
+  },
+  {
+    "path": "src/components/ui/textarea.tsx",
+    "nonEmptyLines": 15,
+    "fns": [
+      {
+        "name": "Textarea",
+        "start": 5,
+        "end": 16
+      }
+    ],
+    "exports": [
+      "Textarea"
+    ],
+    "classes": [],
+    "imports": [
+      "src/lib/utils.ts"
+    ]
+  },
+  {
+    "path": "src/components/ui/tooltip.tsx",
+    "nonEmptyLines": 59,
+    "fns": [
+      {
+        "name": "TooltipProvider",
+        "start": 7,
+        "end": 18
+      },
+      {
+        "name": "Tooltip",
+        "start": 20,
+        "end": 22
+      },
+      {
+        "name": "TooltipTrigger",
+        "start": 24,
+        "end": 26
+      },
+      {
+        "name": "TooltipContent",
+        "start": 28,
+        "end": 64
+      }
+    ],
+    "exports": [
+      "Tooltip",
+      "TooltipTrigger",
+      "TooltipContent",
+      "TooltipProvider"
+    ],
+    "classes": [],
+    "imports": [
+      "src/lib/utils.ts"
+    ]
+  },
+  {
+    "path": "src/components/video-call.tsx",
+    "nonEmptyLines": 332,
+    "fns": [
+      {
+        "name": "VideoCall",
+        "start": 24,
+        "end": 373
+      }
+    ],
+    "exports": [
+      "VideoCall"
+    ],
+    "classes": [],
+    "imports": [
+      "src/components/ui/button.tsx"
+    ]
+  },
+  {
+    "path": "src/components/work-history-shift-manager.tsx",
+    "nonEmptyLines": 180,
+    "fns": [
+      {
+        "name": "WorkHistoryShiftManager",
+        "start": 15,
+        "end": 195
+      }
+    ],
+    "exports": [
+      "WorkHistoryShiftManager"
+    ],
+    "classes": [],
+    "imports": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/lib/worklog-shifts.ts",
+      "src/types/worklog.ts"
+    ]
+  },
+  {
+    "path": "src/components/work-log-tracker.tsx",
+    "nonEmptyLines": 630,
+    "fns": [
+      {
+        "name": "WorkLogTracker",
+        "start": 153,
+        "end": 663
+      }
+    ],
+    "exports": [
+      "WorkLogTracker"
+    ],
+    "classes": [],
+    "imports": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/switch.tsx",
+      "src/components/ui/textarea.tsx"
+    ]
+  },
+  {
+    "path": "src/components/worklog/canvas-dialog.tsx",
+    "nonEmptyLines": 137,
+    "fns": [
+      {
+        "name": "CanvasDialog",
+        "start": 49,
+        "end": 132
+      },
+      {
+        "name": "CanvasThumbnail",
+        "start": 143,
+        "end": 154
+      }
+    ],
+    "exports": [
+      "CanvasDialog",
+      "CanvasThumbnail"
+    ],
+    "classes": [],
+    "imports": [
+      "src/components/ui/button.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/lib/worklog/parse-snapshot.ts"
+    ]
+  },
+  {
+    "path": "src/components/worklog/promote-to-event-dialog.tsx",
+    "nonEmptyLines": 209,
+    "fns": [
+      {
+        "name": "PromoteToEventDialog",
+        "start": 62,
+        "end": 226
+      }
+    ],
+    "exports": [
+      "PromoteToEventDialog"
+    ],
+    "classes": [],
+    "imports": [
+      "src/components/ui/button.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/textarea.tsx"
+    ]
+  },
+  {
+    "path": "src/components/worklog/quick-capture-dialog.tsx",
+    "nonEmptyLines": 230,
+    "fns": [
+      {
+        "name": "QuickCaptureDialog",
+        "start": 57,
+        "end": 249
+      }
+    ],
+    "exports": [
+      "QuickCaptureDialog"
+    ],
+    "classes": [],
+    "imports": [
+      "src/components/ui/button.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/textarea.tsx",
+      "src/components/worklog/constants.ts",
+      "src/types/worklog.ts"
+    ]
+  },
+  {
+    "path": "src/components/worklog/worklog-folder-delete-dialog.tsx",
+    "nonEmptyLines": 149,
+    "fns": [
+      {
+        "name": "WorklogFolderDeleteDialog",
+        "start": 30,
+        "end": 162
+      }
+    ],
+    "exports": [
+      "WorklogFolderDeleteDialog"
+    ],
+    "classes": [],
+    "imports": [
+      "src/components/ui/button.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx"
+    ]
+  },
+  {
+    "path": "src/lib/constants.ts",
+    "nonEmptyLines": 88,
+    "fns": [],
+    "exports": [
+      "APPLICATION_STATUSES",
+      "STATUS_LABELS",
+      "STATUS_COLORS",
+      "INTERVIEW_TYPES",
+      "INTERVIEW_STATUSES",
+      "JOB_TYPES",
+      "RELATIONSHIP_TYPES",
+      "SKILL_CATEGORIES",
+      "PROFICIENCY_LEVELS",
+      "GOAL_STATUSES",
+      "PRIORITIES",
+      "AVAILABILITY_STATUSES",
+      "AVAILABILITY_LABELS",
+      "AVAILABILITY_COLORS",
+      "SUBMISSION_STATUSES",
+      "SUBMISSION_LABELS",
+      "SUBMISSION_COLORS",
+      "NAV_ITEMS"
+    ],
+    "classes": [],
+    "imports": []
+  },
+  {
+    "path": "src/lib/money.ts",
+    "nonEmptyLines": 30,
+    "fns": [
+      {
+        "name": "usd",
+        "start": 9,
+        "end": 11
+      },
+      {
+        "name": "toDollars",
+        "start": 14,
+        "end": 16
+      },
+      {
+        "name": "sumDollars",
+        "start": 19,
+        "end": 23
+      },
+      {
+        "name": "subtractDollars",
+        "start": 26,
+        "end": 28
+      },
+      {
+        "name": "fmtMoney",
+        "start": 31,
+        "end": 36
+      }
+    ],
+    "exports": [
+      "usd",
+      "toDollars",
+      "sumDollars",
+      "subtractDollars",
+      "fmtMoney"
+    ],
+    "classes": [],
+    "imports": []
+  }
+]

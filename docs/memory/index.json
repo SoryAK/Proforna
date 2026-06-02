@@ -1,0 +1,25 @@
+{
+  "version": "1.0",
+  "project": "Resumsify",
+  "last_updated": "2026-06-02",
+  "description": "Domain memory graph backup. MCP graph is the live index. This folder is the git-backed source of truth. Rebuild MCP from these files if lost.",
+  "rebuild_protocol": "For each shard: read entities + relations, run mcp_memory_create_entities then mcp_memory_create_relations.",
+  "shards": {
+    "WorklogDomain": "worklog.json",
+    "JobMapDomain": "job-map.json",
+    "WorkHistoryDomain": "job-map.json",
+    "ProfileDomain": "profile.json",
+    "ResumeDomain": "resume.json",
+    "AnnotationDomain": "resume.json",
+    "JobBoardDomain": "job-board.json",
+    "AuthDomain": "auth-layout.json",
+    "LayoutShellDomain": "auth-layout.json",
+    "CompensationDomain": "compensation.json",
+    "SkillGraphDomain": "skills-career.json",
+    "CareerAnalyticsDomain": "skills-career.json",
+    "GalleryDomain": "gallery.json",
+    "InterviewDomain": "interview.json",
+    "AIServicesLayer": "ai-services.json",
+    "PortalSettingsPanel": "auth-layout.json"
+  }
+}

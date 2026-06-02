@@ -1,0 +1,28 @@
+{
+  "projectRoot": "C:\\Users\\Sory kaba\\OneDrive\\RESUMSIFY\\Personal_Projects\\Dev_Pojects\\resumsify",
+  "batchFiles": [
+    {
+      "path": "src/data/All_Occupations.csv",
+      "language": "csv",
+      "sizeLines": 1017,
+      "fileCategory": "data"
+    },
+    {
+      "path": "src/data/onet-skill-scaffold.json",
+      "language": "json",
+      "sizeLines": 4158,
+      "fileCategory": "config"
+    },
+    {
+      "path": "src/data/soc-codes.json",
+      "language": "json",
+      "sizeLines": 147,
+      "fileCategory": "config"
+    }
+  ],
+  "batchImportData": {
+    "src/data/All_Occupations.csv": [],
+    "src/data/onet-skill-scaffold.json": [],
+    "src/data/soc-codes.json": []
+  }
+}

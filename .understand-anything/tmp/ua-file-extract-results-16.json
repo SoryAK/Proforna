@@ -1,0 +1,3177 @@
+{
+  "scriptCompleted": true,
+  "filesAnalyzed": 12,
+  "filesSkipped": [],
+  "results": [
+    {
+      "path": "src/app/api/adzuna/route.ts",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 117,
+      "nonEmptyLines": 103,
+      "functions": [
+        {
+          "name": "GET",
+          "startLine": 27,
+          "endLine": 117,
+          "params": [
+            "req"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "GET",
+          "line": 27,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "GET",
+          "callee": "getUserId",
+          "lineNumber": 28
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 30
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 33
+        },
+        {
+          "caller": "GET",
+          "callee": "searchParams.get",
+          "lineNumber": 39
+        },
+        {
+          "caller": "GET",
+          "callee": "searchParams.get",
+          "lineNumber": 40
+        },
+        {
+          "caller": "GET",
+          "callee": "searchParams.get",
+          "lineNumber": 41
+        },
+        {
+          "caller": "GET",
+          "callee": "searchParams.get",
+          "lineNumber": 42
+        },
+        {
+          "caller": "GET",
+          "callee": "query.trim",
+          "lineNumber": 44
+        },
+        {
+          "caller": "GET",
+          "callee": "where.trim",
+          "lineNumber": 44
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 45
+        },
+        {
+          "caller": "GET",
+          "callee": "cached",
+          "lineNumber": 53
+        },
+        {
+          "caller": "GET",
+          "callee": "url.searchParams.set",
+          "lineNumber": 55
+        },
+        {
+          "caller": "GET",
+          "callee": "url.searchParams.set",
+          "lineNumber": 56
+        },
+        {
+          "caller": "GET",
+          "callee": "url.searchParams.set",
+          "lineNumber": 57
+        },
+        {
+          "caller": "GET",
+          "callee": "query.trim",
+          "lineNumber": 58
+        },
+        {
+          "caller": "GET",
+          "callee": "url.searchParams.set",
+          "lineNumber": 58
+        },
+        {
+          "caller": "GET",
+          "callee": "query.trim",
+          "lineNumber": 58
+        },
+        {
+          "caller": "GET",
+          "callee": "where.trim",
+          "lineNumber": 59
+        },
+        {
+          "caller": "GET",
+          "callee": "url.searchParams.set",
+          "lineNumber": 59
+        },
+        {
+          "caller": "GET",
+          "callee": "where.trim",
+          "lineNumber": 59
+        },
+        {
+          "caller": "GET",
+          "callee": "url.searchParams.set",
+          "lineNumber": 60
+        },
+        {
+          "caller": "GET",
+          "callee": "url.searchParams.set",
+          "lineNumber": 61
+        },
+        {
+          "caller": "GET",
+          "callee": "fetch",
+          "lineNumber": 63
+        },
+        {
+          "caller": "GET",
+          "callee": "url.toString",
+          "lineNumber": 63
+        },
+        {
+          "caller": "GET",
+          "callee": "res.text",
+          "lineNumber": 65
+        },
+        {
+          "caller": "GET",
+          "callee": "res.json",
+          "lineNumber": 69
+        },
+        {
+          "caller": "GET",
+          "callee": "((data.results ?? []) as AdzunaResult[]).map",
+          "lineNumber": 71
+        },
+        {
+          "caller": "GET",
+          "callee": "String",
+          "lineNumber": 72
+        },
+        {
+          "caller": "GET",
+          "callee": "query.toLowerCase().split(/\\s+/).filter",
+          "lineNumber": 91
+        },
+        {
+          "caller": "GET",
+          "callee": "query.toLowerCase().split",
+          "lineNumber": 91
+        },
+        {
+          "caller": "GET",
+          "callee": "query.toLowerCase",
+          "lineNumber": 91
+        },
+        {
+          "caller": "GET",
+          "callee": "jobs.sort",
+          "lineNumber": 92
+        },
+        {
+          "caller": "GET",
+          "callee": "a.title.toLowerCase",
+          "lineNumber": 93
+        },
+        {
+          "caller": "GET",
+          "callee": "b.title.toLowerCase",
+          "lineNumber": 94
+        },
+        {
+          "caller": "GET",
+          "callee": "kw.some",
+          "lineNumber": 95
+        },
+        {
+          "caller": "GET",
+          "callee": "aTitle.includes",
+          "lineNumber": 95
+        },
+        {
+          "caller": "GET",
+          "callee": "kw.some",
+          "lineNumber": 96
+        },
+        {
+          "caller": "GET",
+          "callee": "bTitle.includes",
+          "lineNumber": 96
+        },
+        {
+          "caller": "GET",
+          "callee": "Number",
+          "lineNumber": 104
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 109
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 112
+        }
+      ],
+      "metrics": {
+        "importCount": 2,
+        "exportCount": 1,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/app/api/commute/route.ts",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 368,
+      "nonEmptyLines": 331,
+      "functions": [
+        {
+          "name": "decodePolyline",
+          "startLine": 23,
+          "endLine": 52,
+          "params": [
+            "encoded",
+            "precision"
+          ]
+        },
+        {
+          "name": "simplifyGeometry",
+          "startLine": 56,
+          "endLine": 68,
+          "params": [
+            "coords",
+            "maxPoints"
+          ]
+        },
+        {
+          "name": "fetchWithTimeout",
+          "startLine": 71,
+          "endLine": 79,
+          "params": [
+            "url",
+            "ms"
+          ]
+        },
+        {
+          "name": "haversineDistanceMi",
+          "startLine": 82,
+          "endLine": 95,
+          "params": [
+            "lat1",
+            "lng1",
+            "lat2",
+            "lng2"
+          ]
+        },
+        {
+          "name": "straightLineEstimate",
+          "startLine": 98,
+          "endLine": 110,
+          "params": [
+            "fromLat",
+            "fromLng",
+            "toLat",
+            "toLng",
+            "mode"
+          ]
+        },
+        {
+          "name": "tryGoogleDirections",
+          "startLine": 148,
+          "endLine": 270,
+          "params": [
+            "fromLat",
+            "fromLng",
+            "toLat",
+            "toLng",
+            "mode",
+            "wantGeometry",
+            "opts"
+          ]
+        },
+        {
+          "name": "tryOsrm",
+          "startLine": 273,
+          "endLine": 300,
+          "params": [
+            "fromLat",
+            "fromLng",
+            "toLat",
+            "toLng",
+            "wantGeometry"
+          ]
+        },
+        {
+          "name": "GET",
+          "startLine": 302,
+          "endLine": 368,
+          "params": [
+            "req"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "GET",
+          "line": 302,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "decodePolyline",
+          "callee": "Math.pow",
+          "lineNumber": 25
+        },
+        {
+          "caller": "decodePolyline",
+          "callee": "encoded.charCodeAt",
+          "lineNumber": 34
+        },
+        {
+          "caller": "decodePolyline",
+          "callee": "encoded.charCodeAt",
+          "lineNumber": 43
+        },
+        {
+          "caller": "decodePolyline",
+          "callee": "coords.push",
+          "lineNumber": 49
+        },
+        {
+          "caller": "simplifyGeometry",
+          "callee": "result.push",
+          "lineNumber": 64
+        },
+        {
+          "caller": "simplifyGeometry",
+          "callee": "Math.round",
+          "lineNumber": 64
+        },
+        {
+          "caller": "simplifyGeometry",
+          "callee": "result.push",
+          "lineNumber": 66
+        },
+        {
+          "caller": "fetchWithTimeout",
+          "callee": "setTimeout",
+          "lineNumber": 73
+        },
+        {
+          "caller": "fetchWithTimeout",
+          "callee": "controller.abort",
+          "lineNumber": 73
+        },
+        {
+          "caller": "fetchWithTimeout",
+          "callee": "fetch",
+          "lineNumber": 75
+        },
+        {
+          "caller": "fetchWithTimeout",
+          "callee": "clearTimeout",
+          "lineNumber": 77
+        },
+        {
+          "caller": "haversineDistanceMi",
+          "callee": "Math.sin",
+          "lineNumber": 90
+        },
+        {
+          "caller": "haversineDistanceMi",
+          "callee": "Math.cos",
+          "lineNumber": 91
+        },
+        {
+          "caller": "haversineDistanceMi",
+          "callee": "Math.cos",
+          "lineNumber": 92
+        },
+        {
+          "caller": "haversineDistanceMi",
+          "callee": "Math.sin",
+          "lineNumber": 93
+        },
+        {
+          "caller": "haversineDistanceMi",
+          "callee": "Math.atan2",
+          "lineNumber": 94
+        },
+        {
+          "caller": "haversineDistanceMi",
+          "callee": "Math.sqrt",
+          "lineNumber": 94
+        },
+        {
+          "caller": "haversineDistanceMi",
+          "callee": "Math.sqrt",
+          "lineNumber": 94
+        },
+        {
+          "caller": "straightLineEstimate",
+          "callee": "haversineDistanceMi",
+          "lineNumber": 103
+        },
+        {
+          "caller": "straightLineEstimate",
+          "callee": "Math.round",
+          "lineNumber": 107
+        },
+        {
+          "caller": "straightLineEstimate",
+          "callee": "Math.round",
+          "lineNumber": 108
+        },
+        {
+          "caller": "tryGoogleDirections",
+          "callee": "url.searchParams.set",
+          "lineNumber": 162
+        },
+        {
+          "caller": "tryGoogleDirections",
+          "callee": "url.searchParams.set",
+          "lineNumber": 163
+        },
+        {
+          "caller": "tryGoogleDirections",
+          "callee": "url.searchParams.set",
+          "lineNumber": 164
+        },
+        {
+          "caller": "tryGoogleDirections",
+          "callee": "url.searchParams.set",
+          "lineNumber": 165
+        },
+        {
+          "caller": "tryGoogleDirections",
+          "callee": "url.searchParams.set",
+          "lineNumber": 166
+        },
+        {
+          "caller": "tryGoogleDirections",
+          "callee": "url.searchParams.set",
+          "lineNumber": 167
+        },
+        {
+          "caller": "tryGoogleDirections",
+          "callee": "url.searchParams.set",
+          "lineNumber": 171
+        },
+        {
+          "caller": "tryGoogleDirections",
+          "callee": "String",
+          "lineNumber": 171
+        },
+        {
+          "caller": "tryGoogleDirections",
+          "callee": "fetchWithTimeout",
+          "lineNumber": 175
+        },
+        {
+          "caller": "tryGoogleDirections",
+          "callee": "url.toString",
+          "lineNumber": 175
+        },
+        {
+          "caller": "tryGoogleDirections",
+          "callee": "res.json",
+          "lineNumber": 176
+        },
+        {
+          "caller": "tryGoogleDirections",
+          "callee": "data.routes.map",
+          "lineNumber": 181
+        },
+        {
+          "caller": "tryGoogleDirections",
+          "callee": "Math.round",
+          "lineNumber": 184
+        },
+        {
+          "caller": "tryGoogleDirections",
+          "callee": "Math.round",
+          "lineNumber": 185
+        },
+        {
+          "caller": "tryGoogleDirections",
+          "callee": "Math.round",
+          "lineNumber": 189
+        },
+        {
+          "caller": "tryGoogleDirections",
+          "callee": "decodePolyline",
+          "lineNumber": 197
+        },
+        {
+          "caller": "tryGoogleDirections",
+          "callee": "stepCoords.push",
+          "lineNumber": 199
+        },
+        {
+          "caller": "tryGoogleDirections",
+          "callee": "decoded.slice",
+          "lineNumber": 199
+        },
+        {
+          "caller": "tryGoogleDirections",
+          "callee": "simplifyGeometry",
+          "lineNumber": 203
+        },
+        {
+          "caller": "tryGoogleDirections",
+          "callee": "simplifyGeometry",
+          "lineNumber": 208
+        },
+        {
+          "caller": "tryGoogleDirections",
+          "callee": "decodePolyline",
+          "lineNumber": 208
+        },
+        {
+          "caller": "tryGoogleDirections",
+          "callee": "leg.steps.map",
+          "lineNumber": 214
+        },
+        {
+          "caller": "tryGoogleDirections",
+          "callee": "Math.round",
+          "lineNumber": 217
+        },
+        {
+          "caller": "tryGoogleDirections",
+          "callee": "Math.round",
+          "lineNumber": 218
+        },
+        {
+          "caller": "tryGoogleDirections",
+          "callee": "simplifyGeometry",
+          "lineNumber": 221
+        },
+        {
+          "caller": "tryGoogleDirections",
+          "callee": "decodePolyline",
+          "lineNumber": 221
+        },
+        {
+          "caller": "tryGoogleDirections",
+          "callee": "step.html_instructions?.replace",
+          "lineNumber": 224
+        },
+        {
+          "caller": "tryGoogleDirections",
+          "callee": "opt.transitSteps.filter",
+          "lineNumber": 247
+        },
+        {
+          "caller": "tryGoogleDirections",
+          "callee": "transitLegs.map((s) => s.lineShort || s.lineName || \"\").filter(Boolean).join",
+          "lineNumber": 248
+        },
+        {
+          "caller": "tryGoogleDirections",
+          "callee": "transitLegs.map((s) => s.lineShort || s.lineName || \"\").filter",
+          "lineNumber": 248
+        },
+        {
+          "caller": "tryGoogleDirections",
+          "callee": "transitLegs.map",
+          "lineNumber": 248
+        },
+        {
+          "caller": "tryOsrm",
+          "callee": "fetchWithTimeout",
+          "lineNumber": 281
+        },
+        {
+          "caller": "tryOsrm",
+          "callee": "res.json",
+          "lineNumber": 282
+        },
+        {
+          "caller": "tryOsrm",
+          "callee": "Math.round",
+          "lineNumber": 287
+        },
+        {
+          "caller": "tryOsrm",
+          "callee": "Math.round",
+          "lineNumber": 288
+        },
+        {
+          "caller": "tryOsrm",
+          "callee": "decodePolyline",
+          "lineNumber": 293
+        },
+        {
+          "caller": "tryOsrm",
+          "callee": "simplifyGeometry",
+          "lineNumber": 294
+        },
+        {
+          "caller": "GET",
+          "callee": "getUserId",
+          "lineNumber": 303
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 305
+        },
+        {
+          "caller": "GET",
+          "callee": "sp.get",
+          "lineNumber": 308
+        },
+        {
+          "caller": "GET",
+          "callee": "sp.get",
+          "lineNumber": 309
+        },
+        {
+          "caller": "GET",
+          "callee": "sp.get",
+          "lineNumber": 310
+        },
+        {
+          "caller": "GET",
+          "callee": "sp.get",
+          "lineNumber": 311
+        },
+        {
+          "caller": "GET",
+          "callee": "sp.get",
+          "lineNumber": 312
+        },
+        {
+          "caller": "GET",
+          "callee": "sp.get",
+          "lineNumber": 313
+        },
+        {
+          "caller": "GET",
+          "callee": "sp.get",
+          "lineNumber": 314
+        },
+        {
+          "caller": "GET",
+          "callee": "sp.get",
+          "lineNumber": 315
+        },
+        {
+          "caller": "GET",
+          "callee": "sp.get",
+          "lineNumber": 316
+        },
+        {
+          "caller": "GET",
+          "callee": "VALID_MODES.includes",
+          "lineNumber": 317
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 322
+        },
+        {
+          "caller": "GET",
+          "callee": "[fromLat, fromLng, toLat, toLng].map",
+          "lineNumber": 328
+        },
+        {
+          "caller": "GET",
+          "callee": "coords.some",
+          "lineNumber": 329
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 330
+        },
+        {
+          "caller": "GET",
+          "callee": "cached",
+          "lineNumber": 340
+        },
+        {
+          "caller": "GET",
+          "callee": "tryGoogleDirections",
+          "lineNumber": 342
+        },
+        {
+          "caller": "GET",
+          "callee": "Number",
+          "lineNumber": 347
+        },
+        {
+          "caller": "GET",
+          "callee": "tryOsrm",
+          "lineNumber": 354
+        },
+        {
+          "caller": "GET",
+          "callee": "straightLineEstimate",
+          "lineNumber": 359
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 362
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 364
+        },
+        {
+          "caller": "GET",
+          "callee": "straightLineEstimate",
+          "lineNumber": 365
+        }
+      ],
+      "metrics": {
+        "importCount": 2,
+        "exportCount": 1,
+        "functionCount": 8,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/app/api/email-leads/ingest/route.ts",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 134,
+      "nonEmptyLines": 119,
+      "functions": [
+        {
+          "name": "POST",
+          "startLine": 18,
+          "endLine": 134,
+          "params": [
+            "req"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "POST",
+          "line": 18,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "POST",
+          "callee": "req.nextUrl.searchParams.get",
+          "lineNumber": 20
+        },
+        {
+          "caller": "POST",
+          "callee": "NextResponse.json",
+          "lineNumber": 22
+        },
+        {
+          "caller": "POST",
+          "callee": "prisma.user.findUnique",
+          "lineNumber": 25
+        },
+        {
+          "caller": "POST",
+          "callee": "NextResponse.json",
+          "lineNumber": 30
+        },
+        {
+          "caller": "POST",
+          "callee": "req.headers.get",
+          "lineNumber": 37
+        },
+        {
+          "caller": "POST",
+          "callee": "ct.includes",
+          "lineNumber": 39
+        },
+        {
+          "caller": "POST",
+          "callee": "req.json",
+          "lineNumber": 40
+        },
+        {
+          "caller": "POST",
+          "callee": "ct.includes",
+          "lineNumber": 42
+        },
+        {
+          "caller": "POST",
+          "callee": "ct.includes",
+          "lineNumber": 42
+        },
+        {
+          "caller": "POST",
+          "callee": "req.formData",
+          "lineNumber": 44
+        },
+        {
+          "caller": "POST",
+          "callee": "form.get",
+          "lineNumber": 45
+        },
+        {
+          "caller": "POST",
+          "callee": "form.get",
+          "lineNumber": 45
+        },
+        {
+          "caller": "POST",
+          "callee": "req.text",
+          "lineNumber": 48
+        },
+        {
+          "caller": "POST",
+          "callee": "NextResponse.json",
+          "lineNumber": 52
+        },
+        {
+          "caller": "POST",
+          "callee": "NextResponse.json",
+          "lineNumber": 57
+        },
+        {
+          "caller": "POST",
+          "callee": "parseJobEmail",
+          "lineNumber": 61
+        },
+        {
+          "caller": "POST",
+          "callee": "NextResponse.json",
+          "lineNumber": 63
+        },
+        {
+          "caller": "POST",
+          "callee": "parsed.map((l) => l.location).filter",
+          "lineNumber": 67
+        },
+        {
+          "caller": "POST",
+          "callee": "parsed.map",
+          "lineNumber": 67
+        },
+        {
+          "caller": "POST",
+          "callee": "uniqueLocs.slice",
+          "lineNumber": 70
+        },
+        {
+          "caller": "POST",
+          "callee": "await cached",
+          "lineNumber": 72
+        },
+        {
+          "caller": "POST",
+          "callee": "setTimeout",
+          "lineNumber": 76
+        },
+        {
+          "caller": "POST",
+          "callee": "encodeURIComponent",
+          "lineNumber": 77
+        },
+        {
+          "caller": "POST",
+          "callee": "fetch",
+          "lineNumber": 78
+        },
+        {
+          "caller": "POST",
+          "callee": "res.json",
+          "lineNumber": 82
+        },
+        {
+          "caller": "POST",
+          "callee": "parseFloat",
+          "lineNumber": 84
+        },
+        {
+          "caller": "POST",
+          "callee": "parseFloat",
+          "lineNumber": 84
+        },
+        {
+          "caller": "POST",
+          "callee": "Date.now",
+          "lineNumber": 96
+        },
+        {
+          "caller": "POST",
+          "callee": "dedupeHash",
+          "lineNumber": 101
+        },
+        {
+          "caller": "POST",
+          "callee": "prisma.emailLead.upsert",
+          "lineNumber": 105
+        },
+        {
+          "caller": "POST",
+          "callee": "result.createdAt.getTime",
+          "lineNumber": 125
+        },
+        {
+          "caller": "POST",
+          "callee": "Date.now",
+          "lineNumber": 125
+        },
+        {
+          "caller": "POST",
+          "callee": "NextResponse.json",
+          "lineNumber": 133
+        }
+      ],
+      "metrics": {
+        "importCount": 3,
+        "exportCount": 1,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/app/api/email-leads/parse/route.ts",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 139,
+      "nonEmptyLines": 127,
+      "functions": [
+        {
+          "name": "POST",
+          "startLine": 13,
+          "endLine": 139,
+          "params": [
+            "req"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "POST",
+          "line": 13,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "POST",
+          "callee": "getUserId",
+          "lineNumber": 14
+        },
+        {
+          "caller": "POST",
+          "callee": "NextResponse.json",
+          "lineNumber": 16
+        },
+        {
+          "caller": "POST",
+          "callee": "req.json",
+          "lineNumber": 18
+        },
+        {
+          "caller": "POST",
+          "callee": "NextResponse.json",
+          "lineNumber": 22
+        },
+        {
+          "caller": "POST",
+          "callee": "NextResponse.json",
+          "lineNumber": 30
+        },
+        {
+          "caller": "POST",
+          "callee": "parseJobEmail",
+          "lineNumber": 37
+        },
+        {
+          "caller": "POST",
+          "callee": "NextResponse.json",
+          "lineNumber": 39
+        },
+        {
+          "caller": "POST",
+          "callee": "parsed.map((l) => l.location).filter",
+          "lineNumber": 49
+        },
+        {
+          "caller": "POST",
+          "callee": "parsed.map",
+          "lineNumber": 49
+        },
+        {
+          "caller": "POST",
+          "callee": "uniqueLocs.slice",
+          "lineNumber": 52
+        },
+        {
+          "caller": "POST",
+          "callee": "await cached",
+          "lineNumber": 54
+        },
+        {
+          "caller": "POST",
+          "callee": "setTimeout",
+          "lineNumber": 58
+        },
+        {
+          "caller": "POST",
+          "callee": "encodeURIComponent",
+          "lineNumber": 59
+        },
+        {
+          "caller": "POST",
+          "callee": "fetch",
+          "lineNumber": 60
+        },
+        {
+          "caller": "POST",
+          "callee": "res.json",
+          "lineNumber": 64
+        },
+        {
+          "caller": "POST",
+          "callee": "parseFloat",
+          "lineNumber": 67
+        },
+        {
+          "caller": "POST",
+          "callee": "parseFloat",
+          "lineNumber": 68
+        },
+        {
+          "caller": "POST",
+          "callee": "Date.now",
+          "lineNumber": 81
+        },
+        {
+          "caller": "POST",
+          "callee": "dedupeHash",
+          "lineNumber": 87
+        },
+        {
+          "caller": "POST",
+          "callee": "prisma.emailLead.upsert",
+          "lineNumber": 91
+        },
+        {
+          "caller": "POST",
+          "callee": "result.createdAt.getTime",
+          "lineNumber": 120
+        },
+        {
+          "caller": "POST",
+          "callee": "Date.now",
+          "lineNumber": 120
+        },
+        {
+          "caller": "POST",
+          "callee": "storedLeads.push",
+          "lineNumber": 126
+        },
+        {
+          "caller": "POST",
+          "callee": "NextResponse.json",
+          "lineNumber": 133
+        }
+      ],
+      "metrics": {
+        "importCount": 4,
+        "exportCount": 1,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/app/api/email-leads/sync/route.ts",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 204,
+      "nonEmptyLines": 179,
+      "functions": [
+        {
+          "name": "POST",
+          "startLine": 27,
+          "endLine": 171,
+          "params": []
+        },
+        {
+          "name": "extractHtmlBody",
+          "startLine": 178,
+          "endLine": 204,
+          "params": [
+            "payload"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "POST",
+          "line": 27,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "POST",
+          "callee": "getUserId",
+          "lineNumber": 28
+        },
+        {
+          "caller": "POST",
+          "callee": "NextResponse.json",
+          "lineNumber": 30
+        },
+        {
+          "caller": "POST",
+          "callee": "prisma.emailAccount.findFirst",
+          "lineNumber": 34
+        },
+        {
+          "caller": "POST",
+          "callee": "NextResponse.json",
+          "lineNumber": 38
+        },
+        {
+          "caller": "POST",
+          "callee": "getValidGoogleToken",
+          "lineNumber": 45
+        },
+        {
+          "caller": "POST",
+          "callee": "prisma.emailAccount.update",
+          "lineNumber": 48
+        },
+        {
+          "caller": "POST",
+          "callee": "google.gmail",
+          "lineNumber": 57
+        },
+        {
+          "caller": "POST",
+          "callee": "JOB_ALERT_SENDERS.map((s) => `from:${s}`).join",
+          "lineNumber": 60
+        },
+        {
+          "caller": "POST",
+          "callee": "JOB_ALERT_SENDERS.map",
+          "lineNumber": 60
+        },
+        {
+          "caller": "POST",
+          "callee": "gmail.users.messages.list",
+          "lineNumber": 64
+        },
+        {
+          "caller": "POST",
+          "callee": "(list.data.messages ?? []).map",
+          "lineNumber": 70
+        },
+        {
+          "caller": "POST",
+          "callee": "NextResponse.json",
+          "lineNumber": 72
+        },
+        {
+          "caller": "POST",
+          "callee": "Date.now",
+          "lineNumber": 79
+        },
+        {
+          "caller": "POST",
+          "callee": "messageIds.slice",
+          "lineNumber": 82
+        },
+        {
+          "caller": "POST",
+          "callee": "Promise.all",
+          "lineNumber": 83
+        },
+        {
+          "caller": "POST",
+          "callee": "batch.map",
+          "lineNumber": 84
+        },
+        {
+          "caller": "POST",
+          "callee": "gmail.users.messages.get",
+          "lineNumber": 85
+        },
+        {
+          "caller": "POST",
+          "callee": "extractHtmlBody",
+          "lineNumber": 91
+        },
+        {
+          "caller": "POST",
+          "callee": "parseJobEmail",
+          "lineNumber": 95
+        },
+        {
+          "caller": "POST",
+          "callee": "leads.map((l) => l.location).filter",
+          "lineNumber": 101
+        },
+        {
+          "caller": "POST",
+          "callee": "leads.map",
+          "lineNumber": 101
+        },
+        {
+          "caller": "POST",
+          "callee": "uniqueLocs.slice",
+          "lineNumber": 104
+        },
+        {
+          "caller": "POST",
+          "callee": "await cached",
+          "lineNumber": 106
+        },
+        {
+          "caller": "POST",
+          "callee": "setTimeout",
+          "lineNumber": 110
+        },
+        {
+          "caller": "POST",
+          "callee": "encodeURIComponent",
+          "lineNumber": 111
+        },
+        {
+          "caller": "POST",
+          "callee": "fetch",
+          "lineNumber": 112
+        },
+        {
+          "caller": "POST",
+          "callee": "res.json",
+          "lineNumber": 116
+        },
+        {
+          "caller": "POST",
+          "callee": "parseFloat",
+          "lineNumber": 118
+        },
+        {
+          "caller": "POST",
+          "callee": "parseFloat",
+          "lineNumber": 118
+        },
+        {
+          "caller": "POST",
+          "callee": "dedupeHash",
+          "lineNumber": 131
+        },
+        {
+          "caller": "POST",
+          "callee": "prisma.emailLead.upsert",
+          "lineNumber": 135
+        },
+        {
+          "caller": "POST",
+          "callee": "result.createdAt.getTime",
+          "lineNumber": 155
+        },
+        {
+          "caller": "POST",
+          "callee": "Date.now",
+          "lineNumber": 155
+        },
+        {
+          "caller": "POST",
+          "callee": "NextResponse.json",
+          "lineNumber": 165
+        },
+        {
+          "caller": "extractHtmlBody",
+          "callee": "Buffer.from(payload.body.data, \"base64url\").toString",
+          "lineNumber": 183
+        },
+        {
+          "caller": "extractHtmlBody",
+          "callee": "Buffer.from",
+          "lineNumber": 183
+        },
+        {
+          "caller": "extractHtmlBody",
+          "callee": "Buffer.from(part.body.data, \"base64url\").toString",
+          "lineNumber": 191
+        },
+        {
+          "caller": "extractHtmlBody",
+          "callee": "Buffer.from",
+          "lineNumber": 191
+        },
+        {
+          "caller": "extractHtmlBody",
+          "callee": "part.mimeType?.startsWith",
+          "lineNumber": 196
+        },
+        {
+          "caller": "extractHtmlBody",
+          "callee": "extractHtmlBody",
+          "lineNumber": 197
+        }
+      ],
+      "metrics": {
+        "importCount": 5,
+        "exportCount": 1,
+        "functionCount": 2,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/app/api/geocode/route.ts",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 92,
+      "nonEmptyLines": 76,
+      "functions": [
+        {
+          "name": "GET",
+          "startLine": 11,
+          "endLine": 32,
+          "params": [
+            "req"
+          ]
+        },
+        {
+          "name": "POST",
+          "startLine": 47,
+          "endLine": 92,
+          "params": [
+            "req"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "GET",
+          "line": 11,
+          "isDefault": false
+        },
+        {
+          "name": "POST",
+          "line": 47,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "GET",
+          "callee": "getUserId",
+          "lineNumber": 12
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 14
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 17
+        },
+        {
+          "caller": "GET",
+          "callee": "req.nextUrl.searchParams.get",
+          "lineNumber": 19
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 21
+        },
+        {
+          "caller": "GET",
+          "callee": "encodeURIComponent",
+          "lineNumber": 23
+        },
+        {
+          "caller": "GET",
+          "callee": "fetch",
+          "lineNumber": 24
+        },
+        {
+          "caller": "GET",
+          "callee": "res.json",
+          "lineNumber": 25
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 29
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 31
+        },
+        {
+          "caller": "POST",
+          "callee": "getUserId",
+          "lineNumber": 48
+        },
+        {
+          "caller": "POST",
+          "callee": "NextResponse.json",
+          "lineNumber": 50
+        },
+        {
+          "caller": "POST",
+          "callee": "req.json",
+          "lineNumber": 52
+        },
+        {
+          "caller": "POST",
+          "callee": "Array.isArray",
+          "lineNumber": 55
+        },
+        {
+          "caller": "POST",
+          "callee": "NextResponse.json",
+          "lineNumber": 56
+        },
+        {
+          "caller": "POST",
+          "callee": "[...new Set(locations.map((l: string) => l.trim()).filter(Boolean))].slice",
+          "lineNumber": 62
+        },
+        {
+          "caller": "POST",
+          "callee": "locations.map((l: string) => l.trim()).filter",
+          "lineNumber": 62
+        },
+        {
+          "caller": "POST",
+          "callee": "locations.map",
+          "lineNumber": 62
+        },
+        {
+          "caller": "POST",
+          "callee": "l.trim",
+          "lineNumber": 62
+        },
+        {
+          "caller": "POST",
+          "callee": "await cached",
+          "lineNumber": 68
+        },
+        {
+          "caller": "POST",
+          "callee": "setTimeout",
+          "lineNumber": 70
+        },
+        {
+          "caller": "POST",
+          "callee": "encodeURIComponent",
+          "lineNumber": 71
+        },
+        {
+          "caller": "POST",
+          "callee": "fetch",
+          "lineNumber": 72
+        },
+        {
+          "caller": "POST",
+          "callee": "res.json",
+          "lineNumber": 76
+        },
+        {
+          "caller": "POST",
+          "callee": "parseFloat",
+          "lineNumber": 79
+        },
+        {
+          "caller": "POST",
+          "callee": "parseFloat",
+          "lineNumber": 80
+        },
+        {
+          "caller": "POST",
+          "callee": "NextResponse.json",
+          "lineNumber": 91
+        }
+      ],
+      "metrics": {
+        "importCount": 2,
+        "exportCount": 2,
+        "functionCount": 2,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/app/api/job-search/route.ts",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 86,
+      "nonEmptyLines": 73,
+      "functions": [
+        {
+          "name": "GET",
+          "startLine": 7,
+          "endLine": 86,
+          "params": [
+            "req"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "GET",
+          "line": 7,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "GET",
+          "callee": "getUserId",
+          "lineNumber": 8
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 9
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 12
+        },
+        {
+          "caller": "GET",
+          "callee": "searchParams.get",
+          "lineNumber": 19
+        },
+        {
+          "caller": "GET",
+          "callee": "searchParams.get",
+          "lineNumber": 20
+        },
+        {
+          "caller": "GET",
+          "callee": "searchParams.get",
+          "lineNumber": 21
+        },
+        {
+          "caller": "GET",
+          "callee": "query.trim",
+          "lineNumber": 23
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 24
+        },
+        {
+          "caller": "GET",
+          "callee": "cached",
+          "lineNumber": 33
+        },
+        {
+          "caller": "GET",
+          "callee": "url.searchParams.set",
+          "lineNumber": 35
+        },
+        {
+          "caller": "GET",
+          "callee": "url.searchParams.set",
+          "lineNumber": 36
+        },
+        {
+          "caller": "GET",
+          "callee": "url.searchParams.set",
+          "lineNumber": 37
+        },
+        {
+          "caller": "GET",
+          "callee": "url.searchParams.set",
+          "lineNumber": 38
+        },
+        {
+          "caller": "GET",
+          "callee": "url.searchParams.set",
+          "lineNumber": 39
+        },
+        {
+          "caller": "GET",
+          "callee": "fetch",
+          "lineNumber": 41
+        },
+        {
+          "caller": "GET",
+          "callee": "url.toString",
+          "lineNumber": 41
+        },
+        {
+          "caller": "GET",
+          "callee": "response.text",
+          "lineNumber": 44
+        },
+        {
+          "caller": "GET",
+          "callee": "response.json",
+          "lineNumber": 48
+        },
+        {
+          "caller": "GET",
+          "callee": "(data.jobs_results ?? []).map",
+          "lineNumber": 50
+        },
+        {
+          "caller": "GET",
+          "callee": "(\r\n            (job.apply_options as Array<Record<string, unknown>>) ?? []\r\n          ).map",
+          "lineNumber": 60
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 78
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 81
+        }
+      ],
+      "metrics": {
+        "importCount": 2,
+        "exportCount": 1,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/app/api/nearby-amenities/route.ts",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 89,
+      "nonEmptyLines": 72,
+      "functions": [
+        {
+          "name": "POST",
+          "startLine": 25,
+          "endLine": 89,
+          "params": [
+            "req"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "POST",
+          "line": 25,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "POST",
+          "callee": "getUserId",
+          "lineNumber": 26
+        },
+        {
+          "caller": "POST",
+          "callee": "NextResponse.json",
+          "lineNumber": 28
+        },
+        {
+          "caller": "POST",
+          "callee": "NextResponse.json",
+          "lineNumber": 31
+        },
+        {
+          "caller": "POST",
+          "callee": "req.json",
+          "lineNumber": 33
+        },
+        {
+          "caller": "POST",
+          "callee": "Array.isArray",
+          "lineNumber": 41
+        },
+        {
+          "caller": "POST",
+          "callee": "NextResponse.json",
+          "lineNumber": 42
+        },
+        {
+          "caller": "POST",
+          "callee": "categories.filter",
+          "lineNumber": 45
+        },
+        {
+          "caller": "POST",
+          "callee": "NextResponse.json",
+          "lineNumber": 47
+        },
+        {
+          "caller": "POST",
+          "callee": "Math.min",
+          "lineNumber": 50
+        },
+        {
+          "caller": "POST",
+          "callee": "Math.max",
+          "lineNumber": 50
+        },
+        {
+          "caller": "POST",
+          "callee": "Math.round",
+          "lineNumber": 53
+        },
+        {
+          "caller": "POST",
+          "callee": "Math.round",
+          "lineNumber": 54
+        },
+        {
+          "caller": "POST",
+          "callee": "cached",
+          "lineNumber": 62
+        },
+        {
+          "caller": "POST",
+          "callee": "url.searchParams.set",
+          "lineNumber": 64
+        },
+        {
+          "caller": "POST",
+          "callee": "url.searchParams.set",
+          "lineNumber": 65
+        },
+        {
+          "caller": "POST",
+          "callee": "String",
+          "lineNumber": 65
+        },
+        {
+          "caller": "POST",
+          "callee": "url.searchParams.set",
+          "lineNumber": 66
+        },
+        {
+          "caller": "POST",
+          "callee": "url.searchParams.set",
+          "lineNumber": 67
+        },
+        {
+          "caller": "POST",
+          "callee": "fetch",
+          "lineNumber": 69
+        },
+        {
+          "caller": "POST",
+          "callee": "url.toString",
+          "lineNumber": 69
+        },
+        {
+          "caller": "POST",
+          "callee": "res.json",
+          "lineNumber": 71
+        },
+        {
+          "caller": "POST",
+          "callee": "((data.results ?? []) as Array<{\r\n        name: string;\r\n        geometry: { location: { lat: number; lng: number } };\r\n        rating?: number;\r\n      }>)\r\n        .slice(0, 15) // cap to avoid pin overload\r\n        .map",
+          "lineNumber": 73
+        },
+        {
+          "caller": "POST",
+          "callee": "((data.results ?? []) as Array<{\r\n        name: string;\r\n        geometry: { location: { lat: number; lng: number } };\r\n        rating?: number;\r\n      }>)\r\n        .slice",
+          "lineNumber": 73
+        },
+        {
+          "caller": "POST",
+          "callee": "NextResponse.json",
+          "lineNumber": 88
+        }
+      ],
+      "metrics": {
+        "importCount": 2,
+        "exportCount": 1,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/app/api/nearby-buildings/route.ts",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 112,
+      "nonEmptyLines": 95,
+      "functions": [
+        {
+          "name": "GET",
+          "startLine": 23,
+          "endLine": 75,
+          "params": [
+            "req"
+          ]
+        },
+        {
+          "name": "POST",
+          "startLine": 82,
+          "endLine": 112,
+          "params": [
+            "req"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "GET",
+          "line": 23,
+          "isDefault": false
+        },
+        {
+          "name": "POST",
+          "line": 82,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "GET",
+          "callee": "getUserId",
+          "lineNumber": 24
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 26
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 29
+        },
+        {
+          "caller": "GET",
+          "callee": "searchParams.get(\"query\")?.trim",
+          "lineNumber": 32
+        },
+        {
+          "caller": "GET",
+          "callee": "searchParams.get",
+          "lineNumber": 32
+        },
+        {
+          "caller": "GET",
+          "callee": "parseFloat",
+          "lineNumber": 33
+        },
+        {
+          "caller": "GET",
+          "callee": "searchParams.get",
+          "lineNumber": 33
+        },
+        {
+          "caller": "GET",
+          "callee": "parseFloat",
+          "lineNumber": 34
+        },
+        {
+          "caller": "GET",
+          "callee": "searchParams.get",
+          "lineNumber": 34
+        },
+        {
+          "caller": "GET",
+          "callee": "Math.min",
+          "lineNumber": 35
+        },
+        {
+          "caller": "GET",
+          "callee": "Math.max",
+          "lineNumber": 35
+        },
+        {
+          "caller": "GET",
+          "callee": "parseInt",
+          "lineNumber": 35
+        },
+        {
+          "caller": "GET",
+          "callee": "searchParams.get",
+          "lineNumber": 35
+        },
+        {
+          "caller": "GET",
+          "callee": "isNaN",
+          "lineNumber": 37
+        },
+        {
+          "caller": "GET",
+          "callee": "isNaN",
+          "lineNumber": 37
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 38
+        },
+        {
+          "caller": "GET",
+          "callee": "Math.round",
+          "lineNumber": 41
+        },
+        {
+          "caller": "GET",
+          "callee": "Math.round",
+          "lineNumber": 42
+        },
+        {
+          "caller": "GET",
+          "callee": "query.toLowerCase",
+          "lineNumber": 43
+        },
+        {
+          "caller": "GET",
+          "callee": "await cached",
+          "lineNumber": 45
+        },
+        {
+          "caller": "GET",
+          "callee": "url.searchParams.set",
+          "lineNumber": 47
+        },
+        {
+          "caller": "GET",
+          "callee": "url.searchParams.set",
+          "lineNumber": 48
+        },
+        {
+          "caller": "GET",
+          "callee": "url.searchParams.set",
+          "lineNumber": 49
+        },
+        {
+          "caller": "GET",
+          "callee": "String",
+          "lineNumber": 49
+        },
+        {
+          "caller": "GET",
+          "callee": "url.searchParams.set",
+          "lineNumber": 50
+        },
+        {
+          "caller": "GET",
+          "callee": "fetch",
+          "lineNumber": 52
+        },
+        {
+          "caller": "GET",
+          "callee": "url.toString",
+          "lineNumber": 52
+        },
+        {
+          "caller": "GET",
+          "callee": "res.json",
+          "lineNumber": 54
+        },
+        {
+          "caller": "GET",
+          "callee": "((data.results ?? []) as Array<{\r\n      place_id: string;\r\n      name: string;\r\n      formatted_address: string;\r\n      geometry: { location: { lat: number; lng: number } };\r\n      types?: string[];\r\n    }>)\r\n      .slice(0, 20)\r\n      .map",
+          "lineNumber": 56
+        },
+        {
+          "caller": "GET",
+          "callee": "((data.results ?? []) as Array<{\r\n      place_id: string;\r\n      name: string;\r\n      formatted_address: string;\r\n      geometry: { location: { lat: number; lng: number } };\r\n      types?: string[];\r\n    }>)\r\n      .slice",
+          "lineNumber": 56
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 74
+        },
+        {
+          "caller": "POST",
+          "callee": "getUserId",
+          "lineNumber": 83
+        },
+        {
+          "caller": "POST",
+          "callee": "NextResponse.json",
+          "lineNumber": 85
+        },
+        {
+          "caller": "POST",
+          "callee": "NextResponse.json",
+          "lineNumber": 88
+        },
+        {
+          "caller": "POST",
+          "callee": "req.json",
+          "lineNumber": 90
+        },
+        {
+          "caller": "POST",
+          "callee": "body.placeId?.trim",
+          "lineNumber": 91
+        },
+        {
+          "caller": "POST",
+          "callee": "NextResponse.json",
+          "lineNumber": 93
+        },
+        {
+          "caller": "POST",
+          "callee": "encodeURIComponent",
+          "lineNumber": 95
+        },
+        {
+          "caller": "POST",
+          "callee": "fetch",
+          "lineNumber": 96
+        },
+        {
+          "caller": "POST",
+          "callee": "NextResponse.json",
+          "lineNumber": 98
+        },
+        {
+          "caller": "POST",
+          "callee": "res.json",
+          "lineNumber": 100
+        },
+        {
+          "caller": "POST",
+          "callee": "NextResponse.json",
+          "lineNumber": 102
+        },
+        {
+          "caller": "POST",
+          "callee": "NextResponse.json",
+          "lineNumber": 105
+        }
+      ],
+      "metrics": {
+        "importCount": 2,
+        "exportCount": 2,
+        "functionCount": 2,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/app/api/resolve-address/route.ts",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 232,
+      "nonEmptyLines": 201,
+      "functions": [
+        {
+          "name": "fetchPlaceDetails",
+          "startLine": 62,
+          "endLine": 99,
+          "params": [
+            "placeId"
+          ]
+        },
+        {
+          "name": "GET",
+          "startLine": 101,
+          "endLine": 232,
+          "params": [
+            "req"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "GET",
+          "line": 101,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "fetchPlaceDetails",
+          "callee": "fetch",
+          "lineNumber": 71
+        },
+        {
+          "caller": "fetchPlaceDetails",
+          "callee": "res.json",
+          "lineNumber": 74
+        },
+        {
+          "caller": "fetchPlaceDetails",
+          "callee": "r.reviews?.map",
+          "lineNumber": 89
+        },
+        {
+          "caller": "GET",
+          "callee": "getUserId",
+          "lineNumber": 102
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 104
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 107
+        },
+        {
+          "caller": "GET",
+          "callee": "searchParams.get",
+          "lineNumber": 113
+        },
+        {
+          "caller": "GET",
+          "callee": "searchParams.get(\"address\")?.trim",
+          "lineNumber": 117
+        },
+        {
+          "caller": "GET",
+          "callee": "searchParams.get",
+          "lineNumber": 117
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 119
+        },
+        {
+          "caller": "GET",
+          "callee": "address.toLowerCase",
+          "lineNumber": 121
+        },
+        {
+          "caller": "GET",
+          "callee": "await cached",
+          "lineNumber": 123
+        },
+        {
+          "caller": "GET",
+          "callee": "url.searchParams.set",
+          "lineNumber": 125
+        },
+        {
+          "caller": "GET",
+          "callee": "url.searchParams.set",
+          "lineNumber": 126
+        },
+        {
+          "caller": "GET",
+          "callee": "fetch",
+          "lineNumber": 128
+        },
+        {
+          "caller": "GET",
+          "callee": "url.toString",
+          "lineNumber": 128
+        },
+        {
+          "caller": "GET",
+          "callee": "res.json",
+          "lineNumber": 131
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 146
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 147
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 149
+        },
+        {
+          "caller": "GET",
+          "callee": "searchParams.get(\"company\")?.trim",
+          "lineNumber": 154
+        },
+        {
+          "caller": "GET",
+          "callee": "searchParams.get",
+          "lineNumber": 154
+        },
+        {
+          "caller": "GET",
+          "callee": "searchParams.get(\"location\")?.trim",
+          "lineNumber": 155
+        },
+        {
+          "caller": "GET",
+          "callee": "searchParams.get",
+          "lineNumber": 155
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 158
+        },
+        {
+          "caller": "GET",
+          "callee": "query.toLowerCase",
+          "lineNumber": 164
+        },
+        {
+          "caller": "GET",
+          "callee": "await cached",
+          "lineNumber": 167
+        },
+        {
+          "caller": "GET",
+          "callee": "url.searchParams.set",
+          "lineNumber": 171
+        },
+        {
+          "caller": "GET",
+          "callee": "url.searchParams.set",
+          "lineNumber": 172
+        },
+        {
+          "caller": "GET",
+          "callee": "url.searchParams.set",
+          "lineNumber": 173
+        },
+        {
+          "caller": "GET",
+          "callee": "fetch",
+          "lineNumber": 175
+        },
+        {
+          "caller": "GET",
+          "callee": "url.toString",
+          "lineNumber": 175
+        },
+        {
+          "caller": "GET",
+          "callee": "res.json",
+          "lineNumber": 178
+        },
+        {
+          "caller": "GET",
+          "callee": "place.name?.toLowerCase().includes",
+          "lineNumber": 187
+        },
+        {
+          "caller": "GET",
+          "callee": "place.name?.toLowerCase",
+          "lineNumber": 187
+        },
+        {
+          "caller": "GET",
+          "callee": "company.toLowerCase",
+          "lineNumber": 187
+        },
+        {
+          "caller": "GET",
+          "callee": "data.results.slice(0, 10).map((p: any) => ({\r\n            address: p.formatted_address ?? \"\",\r\n            lat: p.geometry?.location?.lat ?? 0,\r\n            lng: p.geometry?.location?.lng ?? 0,\r\n            name: p.name ?? null,\r\n          })).filter",
+          "lineNumber": 193
+        },
+        {
+          "caller": "GET",
+          "callee": "data.results.slice(0, 10).map",
+          "lineNumber": 193
+        },
+        {
+          "caller": "GET",
+          "callee": "data.results.slice",
+          "lineNumber": 193
+        },
+        {
+          "caller": "GET",
+          "callee": "fetchPlaceDetails",
+          "lineNumber": 202
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 220
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 225
+        },
+        {
+          "caller": "GET",
+          "callee": "NextResponse.json",
+          "lineNumber": 227
+        }
+      ],
+      "metrics": {
+        "importCount": 2,
+        "exportCount": 1,
+        "functionCount": 2,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/lib/cache.ts",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 56,
+      "nonEmptyLines": 47,
+      "functions": [
+        {
+          "name": "evictExpired",
+          "startLine": 20,
+          "endLine": 25,
+          "params": []
+        },
+        {
+          "name": "cached",
+          "startLine": 33,
+          "endLine": 48,
+          "params": [
+            "key",
+            "ttlMs",
+            "fn"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "cached",
+          "line": 33,
+          "isDefault": false
+        },
+        {
+          "name": "TTL",
+          "line": 51,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "evictExpired",
+          "callee": "Date.now",
+          "lineNumber": 21
+        },
+        {
+          "caller": "evictExpired",
+          "callee": "store.delete",
+          "lineNumber": 23
+        },
+        {
+          "caller": "cached",
+          "callee": "store.get",
+          "lineNumber": 38
+        },
+        {
+          "caller": "cached",
+          "callee": "Date.now",
+          "lineNumber": 39
+        },
+        {
+          "caller": "cached",
+          "callee": "fn",
+          "lineNumber": 41
+        },
+        {
+          "caller": "cached",
+          "callee": "evictExpired",
+          "lineNumber": 44
+        },
+        {
+          "caller": "cached",
+          "callee": "store.set",
+          "lineNumber": 46
+        },
+        {
+          "caller": "cached",
+          "callee": "Date.now",
+          "lineNumber": 46
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 2,
+        "functionCount": 2,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/lib/email-parser.ts",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 407,
+      "nonEmptyLines": 344,
+      "functions": [
+        {
+          "name": "decodeQuotedPrintable",
+          "startLine": 22,
+          "endLine": 28,
+          "params": [
+            "text"
+          ]
+        },
+        {
+          "name": "stripHtml",
+          "startLine": 31,
+          "endLine": 33,
+          "params": [
+            "html"
+          ]
+        },
+        {
+          "name": "parseSalary",
+          "startLine": 36,
+          "endLine": 51,
+          "params": [
+            "text"
+          ]
+        },
+        {
+          "name": "dedupeHash",
+          "startLine": 54,
+          "endLine": 64,
+          "params": [
+            "title",
+            "company",
+            "location"
+          ]
+        },
+        {
+          "name": "detectSource",
+          "startLine": 77,
+          "endLine": 82,
+          "params": [
+            "emailBody"
+          ]
+        },
+        {
+          "name": "parseIndeed",
+          "startLine": 96,
+          "endLine": 182,
+          "params": [
+            "html"
+          ]
+        },
+        {
+          "name": "parseLinkedIn",
+          "startLine": 189,
+          "endLine": 228,
+          "params": [
+            "html"
+          ]
+        },
+        {
+          "name": "parseGlassdoor",
+          "startLine": 234,
+          "endLine": 269,
+          "params": [
+            "html"
+          ]
+        },
+        {
+          "name": "parseZipRecruiter",
+          "startLine": 275,
+          "endLine": 310,
+          "params": [
+            "html"
+          ]
+        },
+        {
+          "name": "parseGeneric",
+          "startLine": 316,
+          "endLine": 368,
+          "params": [
+            "html"
+          ]
+        },
+        {
+          "name": "parseJobEmail",
+          "startLine": 384,
+          "endLine": 407,
+          "params": [
+            "emailBody"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "dedupeHash",
+          "line": 54,
+          "isDefault": false
+        },
+        {
+          "name": "detectSource",
+          "line": 77,
+          "isDefault": false
+        },
+        {
+          "name": "parseJobEmail",
+          "line": 384,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "decodeQuotedPrintable",
+          "callee": "text\r\n    .replace(/=\\r?\\n/g, \"\")  // Remove soft line breaks\r\n    .replace",
+          "lineNumber": 23
+        },
+        {
+          "caller": "decodeQuotedPrintable",
+          "callee": "text\r\n    .replace",
+          "lineNumber": 23
+        },
+        {
+          "caller": "decodeQuotedPrintable",
+          "callee": "String.fromCharCode",
+          "lineNumber": 26
+        },
+        {
+          "caller": "decodeQuotedPrintable",
+          "callee": "parseInt",
+          "lineNumber": 26
+        },
+        {
+          "caller": "stripHtml",
+          "callee": "html.replace(/<[^>]+>/g, \" \").replace(/&nbsp;/gi, \" \").replace(/&amp;/gi, \"&\").replace(/&lt;/gi, \"<\").replace(/&gt;/gi, \">\").replace(/&#\\d+;/g, \"\").replace(/\\s+/g, \" \").trim",
+          "lineNumber": 32
+        },
+        {
+          "caller": "stripHtml",
+          "callee": "html.replace(/<[^>]+>/g, \" \").replace(/&nbsp;/gi, \" \").replace(/&amp;/gi, \"&\").replace(/&lt;/gi, \"<\").replace(/&gt;/gi, \">\").replace(/&#\\d+;/g, \"\").replace",
+          "lineNumber": 32
+        },
+        {
+          "caller": "stripHtml",
+          "callee": "html.replace(/<[^>]+>/g, \" \").replace(/&nbsp;/gi, \" \").replace(/&amp;/gi, \"&\").replace(/&lt;/gi, \"<\").replace(/&gt;/gi, \">\").replace",
+          "lineNumber": 32
+        },
+        {
+          "caller": "stripHtml",
+          "callee": "html.replace(/<[^>]+>/g, \" \").replace(/&nbsp;/gi, \" \").replace(/&amp;/gi, \"&\").replace(/&lt;/gi, \"<\").replace",
+          "lineNumber": 32
+        },
+        {
+          "caller": "stripHtml",
+          "callee": "html.replace(/<[^>]+>/g, \" \").replace(/&nbsp;/gi, \" \").replace(/&amp;/gi, \"&\").replace",
+          "lineNumber": 32
+        },
+        {
+          "caller": "stripHtml",
+          "callee": "html.replace(/<[^>]+>/g, \" \").replace(/&nbsp;/gi, \" \").replace",
+          "lineNumber": 32
+        },
+        {
+          "caller": "stripHtml",
+          "callee": "html.replace(/<[^>]+>/g, \" \").replace",
+          "lineNumber": 32
+        },
+        {
+          "caller": "stripHtml",
+          "callee": "html.replace",
+          "lineNumber": 32
+        },
+        {
+          "caller": "parseSalary",
+          "callee": "text.match",
+          "lineNumber": 39
+        },
+        {
+          "caller": "parseSalary",
+          "callee": "nums.map((n) => {\r\n    let v = Number(n.replace(/[$,]/g, \"\"));\r\n    if (/[kK]/.test(n)) v *= 1000;\r\n    // If value < 200, likely hourly — annualize (×2080)\r\n    if (v > 0 && v < 200) v *= 2080;\r\n    return v;\r\n  }).filter",
+          "lineNumber": 40
+        },
+        {
+          "caller": "parseSalary",
+          "callee": "nums.map",
+          "lineNumber": 40
+        },
+        {
+          "caller": "parseSalary",
+          "callee": "Number",
+          "lineNumber": 41
+        },
+        {
+          "caller": "parseSalary",
+          "callee": "n.replace",
+          "lineNumber": 41
+        },
+        {
+          "caller": "parseSalary",
+          "callee": "/[kK]/.test",
+          "lineNumber": 42
+        },
+        {
+          "caller": "dedupeHash",
+          "callee": "`${title}|${company}|${location}`.toLowerCase().replace(/\\s+/g, \" \").trim",
+          "lineNumber": 55
+        },
+        {
+          "caller": "dedupeHash",
+          "callee": "`${title}|${company}|${location}`.toLowerCase().replace",
+          "lineNumber": 55
+        },
+        {
+          "caller": "dedupeHash",
+          "callee": "`${title}|${company}|${location}`.toLowerCase",
+          "lineNumber": 55
+        },
+        {
+          "caller": "dedupeHash",
+          "callee": "raw.charCodeAt",
+          "lineNumber": 59
+        },
+        {
+          "caller": "dedupeHash",
+          "callee": "Math.abs(hash).toString",
+          "lineNumber": 63
+        },
+        {
+          "caller": "dedupeHash",
+          "callee": "Math.abs",
+          "lineNumber": 63
+        },
+        {
+          "caller": "detectSource",
+          "callee": "Object.entries",
+          "lineNumber": 78
+        },
+        {
+          "caller": "detectSource",
+          "callee": "patterns.some",
+          "lineNumber": 79
+        },
+        {
+          "caller": "detectSource",
+          "callee": "p.test",
+          "lineNumber": 79
+        },
+        {
+          "caller": "parseIndeed",
+          "callee": "html.matchAll",
+          "lineNumber": 101
+        },
+        {
+          "caller": "parseIndeed",
+          "callee": "allLinks.filter",
+          "lineNumber": 104
+        },
+        {
+          "caller": "parseIndeed",
+          "callee": "stripHtml",
+          "lineNumber": 106
+        },
+        {
+          "caller": "parseIndeed",
+          "callee": "/unsubscribe|manage\\s*alert|view\\s*all|sign\\s*in|privacy|terms|see\\s*all|update|settings|logo/i.test",
+          "lineNumber": 107
+        },
+        {
+          "caller": "parseIndeed",
+          "callee": "/pagead|viewjob|rc\\/clk|jk=/i.test",
+          "lineNumber": 110
+        },
+        {
+          "caller": "parseIndeed",
+          "callee": "stripHtml",
+          "lineNumber": 116
+        },
+        {
+          "caller": "parseIndeed",
+          "callee": "html.indexOf",
+          "lineNumber": 119
+        },
+        {
+          "caller": "parseIndeed",
+          "callee": "html.indexOf",
+          "lineNumber": 121
+        },
+        {
+          "caller": "parseIndeed",
+          "callee": "html.slice",
+          "lineNumber": 123
+        },
+        {
+          "caller": "parseIndeed",
+          "callee": "Math.min",
+          "lineNumber": 123
+        },
+        {
+          "caller": "parseIndeed",
+          "callee": "stripHtml",
+          "lineNumber": 124
+        },
+        {
+          "caller": "parseIndeed",
+          "callee": "blockText.match",
+          "lineNumber": 128
+        },
+        {
+          "caller": "parseIndeed",
+          "callee": "blockText.indexOf",
+          "lineNumber": 136
+        },
+        {
+          "caller": "parseIndeed",
+          "callee": "blockText.slice(0, locIdx).trim",
+          "lineNumber": 137
+        },
+        {
+          "caller": "parseIndeed",
+          "callee": "blockText.slice",
+          "lineNumber": 137
+        },
+        {
+          "caller": "parseIndeed",
+          "callee": "before\r\n        .replace(/\\d+\\.\\d+\\s*(out of \\d+\\s*stars?)?/gi, \"\")\r\n        .replace(/\\s+/g, \" \")\r\n        .trim",
+          "lineNumber": 139
+        },
+        {
+          "caller": "parseIndeed",
+          "callee": "before\r\n        .replace(/\\d+\\.\\d+\\s*(out of \\d+\\s*stars?)?/gi, \"\")\r\n        .replace",
+          "lineNumber": 139
+        },
+        {
+          "caller": "parseIndeed",
+          "callee": "before\r\n        .replace",
+          "lineNumber": 139
+        },
+        {
+          "caller": "parseIndeed",
+          "callee": "cleaned.split(/\\s{2,}|[|·]/).map(s => s.trim()).filter",
+          "lineNumber": 144
+        },
+        {
+          "caller": "parseIndeed",
+          "callee": "cleaned.split(/\\s{2,}|[|·]/).map",
+          "lineNumber": 144
+        },
+        {
+          "caller": "parseIndeed",
+          "callee": "cleaned.split",
+          "lineNumber": 144
+        },
+        {
+          "caller": "parseIndeed",
+          "callee": "s.trim",
+          "lineNumber": 144
+        },
+        {
+          "caller": "parseIndeed",
+          "callee": "blockText.split(/\\s{2,}/).map(s => s.trim()).filter",
+          "lineNumber": 148
+        },
+        {
+          "caller": "parseIndeed",
+          "callee": "blockText.split(/\\s{2,}/).map",
+          "lineNumber": 148
+        },
+        {
+          "caller": "parseIndeed",
+          "callee": "blockText.split",
+          "lineNumber": 148
+        },
+        {
+          "caller": "parseIndeed",
+          "callee": "s.trim",
+          "lineNumber": 148
+        },
+        {
+          "caller": "parseIndeed",
+          "callee": "parseSalary",
+          "lineNumber": 153
+        },
+        {
+          "caller": "parseIndeed",
+          "callee": "blockText.slice",
+          "lineNumber": 153
+        },
+        {
+          "caller": "parseIndeed",
+          "callee": "blockText.split(/\\s{2,}/).filter",
+          "lineNumber": 157
+        },
+        {
+          "caller": "parseIndeed",
+          "callee": "blockText.split",
+          "lineNumber": 157
+        },
+        {
+          "caller": "parseIndeed",
+          "callee": "chunk.includes",
+          "lineNumber": 160
+        },
+        {
+          "caller": "parseIndeed",
+          "callee": "/^\\$[\\d,]/.test",
+          "lineNumber": 161
+        },
+        {
+          "caller": "parseIndeed",
+          "callee": "/easily apply|apply now/i.test",
+          "lineNumber": 162
+        },
+        {
+          "caller": "parseIndeed",
+          "callee": "leads.push",
+          "lineNumber": 168
+        },
+        {
+          "caller": "parseIndeed",
+          "callee": "company.slice",
+          "lineNumber": 170
+        },
+        {
+          "caller": "parseIndeed",
+          "callee": "location.slice",
+          "lineNumber": 171
+        },
+        {
+          "caller": "parseIndeed",
+          "callee": "url.startsWith",
+          "lineNumber": 174
+        },
+        {
+          "caller": "parseIndeed",
+          "callee": "description.slice",
+          "lineNumber": 176
+        },
+        {
+          "caller": "parseLinkedIn",
+          "callee": "html.matchAll",
+          "lineNumber": 193
+        },
+        {
+          "caller": "parseLinkedIn",
+          "callee": "stripHtml",
+          "lineNumber": 198
+        },
+        {
+          "caller": "parseLinkedIn",
+          "callee": "blockText.split(/\\s{2,}/).map((s) => s.trim()).filter",
+          "lineNumber": 201
+        },
+        {
+          "caller": "parseLinkedIn",
+          "callee": "blockText.split(/\\s{2,}/).map",
+          "lineNumber": 201
+        },
+        {
+          "caller": "parseLinkedIn",
+          "callee": "blockText.split",
+          "lineNumber": 201
+        },
+        {
+          "caller": "parseLinkedIn",
+          "callee": "s.trim",
+          "lineNumber": 201
+        },
+        {
+          "caller": "parseLinkedIn",
+          "callee": "/unsubscribe|view all|manage/i.test",
+          "lineNumber": 205
+        },
+        {
+          "caller": "parseLinkedIn",
+          "callee": "parseSalary",
+          "lineNumber": 211
+        },
+        {
+          "caller": "parseLinkedIn",
+          "callee": "leads.push",
+          "lineNumber": 214
+        },
+        {
+          "caller": "parseLinkedIn",
+          "callee": "company.slice",
+          "lineNumber": 216
+        },
+        {
+          "caller": "parseLinkedIn",
+          "callee": "location.slice",
+          "lineNumber": 217
+        },
+        {
+          "caller": "parseGlassdoor",
+          "callee": "html.matchAll",
+          "lineNumber": 238
+        },
+        {
+          "caller": "parseGlassdoor",
+          "callee": "stripHtml",
+          "lineNumber": 242
+        },
+        {
+          "caller": "parseGlassdoor",
+          "callee": "blockText.split(/\\s{2,}/).map((s) => s.trim()).filter",
+          "lineNumber": 243
+        },
+        {
+          "caller": "parseGlassdoor",
+          "callee": "blockText.split(/\\s{2,}/).map",
+          "lineNumber": 243
+        },
+        {
+          "caller": "parseGlassdoor",
+          "callee": "blockText.split",
+          "lineNumber": 243
+        },
+        {
+          "caller": "parseGlassdoor",
+          "callee": "s.trim",
+          "lineNumber": 243
+        },
+        {
+          "caller": "parseGlassdoor",
+          "callee": "/unsubscribe|view|manage|sign/i.test",
+          "lineNumber": 247
+        },
+        {
+          "caller": "parseGlassdoor",
+          "callee": "parseSalary",
+          "lineNumber": 252
+        },
+        {
+          "caller": "parseGlassdoor",
+          "callee": "leads.push",
+          "lineNumber": 255
+        },
+        {
+          "caller": "parseGlassdoor",
+          "callee": "company.slice",
+          "lineNumber": 257
+        },
+        {
+          "caller": "parseGlassdoor",
+          "callee": "location.slice",
+          "lineNumber": 258
+        },
+        {
+          "caller": "parseZipRecruiter",
+          "callee": "html.matchAll",
+          "lineNumber": 279
+        },
+        {
+          "caller": "parseZipRecruiter",
+          "callee": "stripHtml",
+          "lineNumber": 283
+        },
+        {
+          "caller": "parseZipRecruiter",
+          "callee": "blockText.split(/\\s{2,}/).map((s) => s.trim()).filter",
+          "lineNumber": 284
+        },
+        {
+          "caller": "parseZipRecruiter",
+          "callee": "blockText.split(/\\s{2,}/).map",
+          "lineNumber": 284
+        },
+        {
+          "caller": "parseZipRecruiter",
+          "callee": "blockText.split",
+          "lineNumber": 284
+        },
+        {
+          "caller": "parseZipRecruiter",
+          "callee": "s.trim",
+          "lineNumber": 284
+        },
+        {
+          "caller": "parseZipRecruiter",
+          "callee": "/unsubscribe|view|manage|sign/i.test",
+          "lineNumber": 288
+        },
+        {
+          "caller": "parseZipRecruiter",
+          "callee": "parseSalary",
+          "lineNumber": 293
+        },
+        {
+          "caller": "parseZipRecruiter",
+          "callee": "leads.push",
+          "lineNumber": 296
+        },
+        {
+          "caller": "parseZipRecruiter",
+          "callee": "company.slice",
+          "lineNumber": 298
+        },
+        {
+          "caller": "parseZipRecruiter",
+          "callee": "location.slice",
+          "lineNumber": 299
+        },
+        {
+          "caller": "parseGeneric",
+          "callee": "html.matchAll",
+          "lineNumber": 321
+        },
+        {
+          "caller": "parseGeneric",
+          "callee": "stripHtml",
+          "lineNumber": 325
+        },
+        {
+          "caller": "parseGeneric",
+          "callee": "/unsubscribe|manage|privacy|terms|view in browser|logo|update|settings|help/i.test",
+          "lineNumber": 328
+        },
+        {
+          "caller": "parseGeneric",
+          "callee": "/^https?:\\/\\//.test",
+          "lineNumber": 329
+        },
+        {
+          "caller": "parseGeneric",
+          "callee": "linkText.split",
+          "lineNumber": 332
+        },
+        {
+          "caller": "parseGeneric",
+          "callee": "/^[A-Z]/.test",
+          "lineNumber": 334
+        },
+        {
+          "caller": "parseGeneric",
+          "callee": "html.indexOf",
+          "lineNumber": 337
+        },
+        {
+          "caller": "parseGeneric",
+          "callee": "stripHtml",
+          "lineNumber": 338
+        },
+        {
+          "caller": "parseGeneric",
+          "callee": "html.slice",
+          "lineNumber": 338
+        },
+        {
+          "caller": "parseGeneric",
+          "callee": "surrounding.match",
+          "lineNumber": 341
+        },
+        {
+          "caller": "parseGeneric",
+          "callee": "parseSalary",
+          "lineNumber": 342
+        },
+        {
+          "caller": "parseGeneric",
+          "callee": "surrounding.slice",
+          "lineNumber": 342
+        },
+        {
+          "caller": "parseGeneric",
+          "callee": "surrounding.slice(linkText.length).trim",
+          "lineNumber": 345
+        },
+        {
+          "caller": "parseGeneric",
+          "callee": "surrounding.slice",
+          "lineNumber": 345
+        },
+        {
+          "caller": "parseGeneric",
+          "callee": "afterTitle.match",
+          "lineNumber": 346
+        },
+        {
+          "caller": "parseGeneric",
+          "callee": "leads.push",
+          "lineNumber": 348
+        },
+        {
+          "caller": "parseGeneric",
+          "callee": "companyMatch?.[1]?.slice",
+          "lineNumber": 350
+        },
+        {
+          "caller": "parseGeneric",
+          "callee": "locMatch?.[1]?.slice",
+          "lineNumber": 351
+        },
+        {
+          "caller": "parseGeneric",
+          "callee": "leads.filter",
+          "lineNumber": 362
+        },
+        {
+          "caller": "parseGeneric",
+          "callee": "l.title.toLowerCase",
+          "lineNumber": 363
+        },
+        {
+          "caller": "parseGeneric",
+          "callee": "seen.has",
+          "lineNumber": 364
+        },
+        {
+          "caller": "parseGeneric",
+          "callee": "seen.add",
+          "lineNumber": 365
+        },
+        {
+          "caller": "parseJobEmail",
+          "callee": "/=[0-9A-Fa-f]{2}/.test",
+          "lineNumber": 387
+        },
+        {
+          "caller": "parseJobEmail",
+          "callee": "decodeQuotedPrintable",
+          "lineNumber": 388
+        },
+        {
+          "caller": "parseJobEmail",
+          "callee": "detectSource",
+          "lineNumber": 391
+        },
+        {
+          "caller": "parseJobEmail",
+          "callee": "parser",
+          "lineNumber": 397
+        },
+        {
+          "caller": "parseJobEmail",
+          "callee": "parseGeneric",
+          "lineNumber": 402
+        },
+        {
+          "caller": "parseJobEmail",
+          "callee": "leads.filter",
+          "lineNumber": 406
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 3,
+        "functionCount": 11,
+        "classCount": 0
+      }
+    }
+  ]
+}

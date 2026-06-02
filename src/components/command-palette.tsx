@@ -18,6 +18,10 @@ import {
   BookOpen,
   FolderOpen,
   Boxes,
+  Cog,
+  NotebookPen,
+  Images,
+  PlusCircle,
 } from "lucide-react";
 import {
   CommandDialog,
@@ -29,6 +33,7 @@ import {
   CommandItem,
   CommandSeparator,
 } from "@/components/ui/command";
+import { QuickCaptureDialog } from "@/components/worklog/quick-capture-dialog";
 
 const NAV_PAGES = [
   { label: "Home", href: "/", icon: Home },
@@ -36,6 +41,10 @@ const NAV_PAGES = [
   { label: "Job Search", href: "/job-search", icon: Search },
   { label: "Career Analytics", href: "/career-growth", icon: TrendingUp },
   { label: "Personal Inventory", href: "/inventory", icon: Boxes },
+  { label: "Asset Library", href: "/asset-types", icon: BookOpen },
+  { label: "Job Assets", href: "/job-assets", icon: Cog },
+  { label: "Master Gallery", href: "/master-gallery", icon: Images },
+  { label: "Worklog", href: "/worklog", icon: NotebookPen },
   { label: "Insights", href: "/insights", icon: BarChart3 },
   { label: "Research", href: "/research", icon: BookOpen },
   { label: "Documents", href: "/docs", icon: FolderOpen },
@@ -47,16 +56,31 @@ interface SearchResults {
   contacts: { id: string; name: string; company: string | null }[];
   goals: { id: string; title: string }[];
   skills: { id: string; name: string; category: string }[];
+  worklogs: {
+    id: string;
+    title: string;
+    date: string;
+    tags: string | null;
+    isNotable: boolean;
+    content: string | null;
+  }[];
 }
 
 export function CommandPalette() {
   const [open, setOpen] = useState(false);
+  const [quickCaptureOpen, setQuickCaptureOpen] = useState(false);
   const router = useRouter();
 
-  // Keyboard shortcut
+  // Keyboard shortcuts
+  //  - Cmd/Ctrl+K → toggle the global command palette.
+  //  - We deliberately don't add a second global hotkey for QuickCapture: the
+  //    obvious choices (Cmd+Shift+N / Cmd+N) are claimed by the browser
+  //    (new incognito / new window) and preventDefault doesn't fight that
+  //    reliably. QuickCapture is exposed via Cmd+K → "New worklog".
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+      const mod = e.metaKey || e.ctrlKey;
+      if (mod && !e.shiftKey && e.key === "k") {
         e.preventDefault();
         setOpen((o) => !o);
       }
@@ -82,14 +106,30 @@ export function CommandPalette() {
   );
 
   return (
-    <CommandDialog open={open} onOpenChange={setOpen}>
-      <Command>
-        <CommandInput placeholder="Search pages, applications, contacts, goals..." />
-        <CommandList>
-          <CommandEmpty>No results found.</CommandEmpty>
+    <>
+      <CommandDialog open={open} onOpenChange={setOpen}>
+        <Command>
+          <CommandInput placeholder="Search pages, applications, contacts, goals, worklogs..." />
+          <CommandList>
+            <CommandEmpty>No results found.</CommandEmpty>
 
-          {/* Pages */}
-          <CommandGroup heading="Pages">
+            {/* Quick actions */}
+            <CommandGroup heading="Actions">
+              <CommandItem
+                value="new worklog quick capture note"
+                onSelect={() => {
+                  setOpen(false);
+                  setQuickCaptureOpen(true);
+                }}
+              >
+                <PlusCircle className="mr-2 h-4 w-4 text-muted-foreground" />
+                New worklog
+              </CommandItem>
+            </CommandGroup>
+            <CommandSeparator />
+
+            {/* Pages */}
+            <CommandGroup heading="Pages">
             {NAV_PAGES.map((page) => {
               const Icon = page.icon;
               return (
@@ -126,7 +166,7 @@ export function CommandPalette() {
           {data?.contacts && data.contacts.length > 0 && (
             <>
               <CommandSeparator />
-              <CommandGroup heading="Contacts">
+              <CommandGroup heading="My Network">
                 {data.contacts.map((c) => (
                   <CommandItem
                     key={c.id}
@@ -183,8 +223,44 @@ export function CommandPalette() {
               </CommandGroup>
             </>
           )}
+
+          {/* Worklogs — PRIVATE, owner-only. */}
+          {data?.worklogs && data.worklogs.length > 0 && (
+            <>
+              <CommandSeparator />
+              <CommandGroup heading="Worklogs">
+                {data.worklogs.map((w) => {
+                  const date = new Date(w.date);
+                  const dateLabel = date.toLocaleDateString(undefined, {
+                    month: "short",
+                    day: "numeric",
+                    year: "2-digit",
+                  });
+                  return (
+                    <CommandItem
+                      key={w.id}
+                      // value is what cmdk fuzzy-matches against — include title + tags + content snippet
+                      value={`worklog ${w.title} ${w.tags ?? ""} ${(w.content ?? "").slice(0, 200)}`}
+                      onSelect={() => navigate(`/worklog?focus=${w.id}`)}
+                    >
+                      <NotebookPen className="mr-2 h-4 w-4 text-muted-foreground" />
+                      <span className="truncate">{w.title}</span>
+                      {w.isNotable && (
+                        <span className="ml-1 text-yellow-500" title="Notable">★</span>
+                      )}
+                      <span className="ml-auto pl-2 text-xs text-muted-foreground shrink-0">
+                        {dateLabel}
+                      </span>
+                    </CommandItem>
+                  );
+                })}
+              </CommandGroup>
+            </>
+          )}
         </CommandList>
       </Command>
     </CommandDialog>
+    <QuickCaptureDialog open={quickCaptureOpen} onOpenChange={setQuickCaptureOpen} />
+    </>
   );
 }

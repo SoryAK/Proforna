@@ -1,0 +1,28 @@
+{
+  "projectRoot": "C:\\Users\\Sory kaba\\OneDrive\\RESUMSIFY\\Personal_Projects\\Dev_Pojects\\resumsify",
+  "batchFiles": [
+    {
+      "path": ".squad/casting/history.json",
+      "language": "json",
+      "sizeLines": 4,
+      "fileCategory": "config"
+    },
+    {
+      "path": ".squad/casting/policy.json",
+      "language": "json",
+      "sizeLines": 37,
+      "fileCategory": "config"
+    },
+    {
+      "path": ".squad/casting/registry.json",
+      "language": "json",
+      "sizeLines": 3,
+      "fileCategory": "config"
+    }
+  ],
+  "batchImportData": {
+    ".squad/casting/history.json": [],
+    ".squad/casting/policy.json": [],
+    ".squad/casting/registry.json": []
+  }
+}

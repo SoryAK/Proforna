@@ -32,6 +32,7 @@ import {
   STATUS_LABELS,
   type ApplicationStatus,
 } from "@/lib/constants";
+import { CareerAnalyticsBanner } from "@/components/career-analytics-banner";
 
 interface AnalyticsData {
   total: number;
@@ -60,7 +61,7 @@ const STATUS_PIE_COLORS: Record<string, string> = {
   withdrawn: "#f97316",
 };
 
-export default function AnalyticsPage() {
+export default function AnalyticsPage({ compact = false }: { compact?: boolean } = {}) {
   const { data, isLoading } = useQuery<AnalyticsData>({
     queryKey: ["analytics"],
     queryFn: () => fetch("/api/analytics").then((r) => r.json()),
@@ -68,7 +69,7 @@ export default function AnalyticsPage() {
 
   if (isLoading || !data) {
     return (
-      <div className="p-6 space-y-4">
+      <div className={compact ? "p-3 space-y-3" : "p-6 space-y-4"}>
         <Skeleton className="h-10 w-64" />
         <div className="grid grid-cols-4 gap-4">
           {Array.from({ length: 8 }).map((_, i) => (
@@ -92,16 +93,19 @@ export default function AnalyticsPage() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="border-b px-4 py-3">
-        <h1 className="text-xl font-bold flex items-center gap-2">
-          <BarChart3 className="h-5 w-5" /> Analytics
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Job search performance &amp; insights
-        </p>
-      </div>
+      {!compact && (
+        <div className="border-b px-4 py-3">
+          <h1 className="text-xl font-bold flex items-center gap-2">
+            <BarChart3 className="h-5 w-5" /> Analytics
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Job search performance &amp; insights
+          </p>
+        </div>
+      )}
 
-      <div className="flex-1 overflow-auto p-6 space-y-6">
+      <div className={compact ? "flex-1 overflow-auto p-3 space-y-3" : "flex-1 overflow-auto p-6 space-y-6"}>
+        <CareerAnalyticsBanner section="jobsearch" />
         {/* ── KPI Cards ── */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <StatCard

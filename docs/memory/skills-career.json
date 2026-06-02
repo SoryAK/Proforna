@@ -1,0 +1,27 @@
+{
+  "entities": [
+    {
+      "name": "SkillGraphDomain",
+      "entityType": "domain",
+      "observations": [
+        "2026-05-28: Components: src/components/skill-graph.tsx, src/components/skill-graph-analytics.tsx",
+        "2026-05-28: API routes under src/app/api/skill-graph/, src/app/api/skills/, src/app/api/skill-gap-suggestions/",
+        "2026-05-28: O*NET integration at src/lib/onet.ts, src/app/api/onet/"
+      ]
+    },
+    {
+      "name": "CareerAnalyticsDomain",
+      "entityType": "domain",
+      "observations": [
+        "2026-05-28: Components: src/components/career-analytics-banner.tsx, src/components/career-direction-model.tsx",
+        "2026-05-28: API routes under src/app/api/career-analytics/, src/app/api/career-paths/, src/app/api/career-snapshots/",
+        "2026-05-28: Analytics banner visible on dashboard — entry point for career trajectory insights"
+      ]
+    }
+  ],
+  "relations": [
+    { "from": "SkillGraphDomain", "relationType": "depends-on", "to": "WorkHistoryDomain" },
+    { "from": "CareerAnalyticsDomain", "relationType": "depends-on", "to": "WorkHistoryDomain" },
+    { "from": "CareerAnalyticsDomain", "relationType": "depends-on", "to": "SkillGraphDomain" }
+  ]
+}

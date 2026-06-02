@@ -1,0 +1,42 @@
+{
+  "projectRoot": "C:\\Users\\Sory kaba\\OneDrive\\RESUMSIFY\\Personal_Projects\\Dev_Pojects\\resumsify",
+  "batchFiles": [
+    {
+      "path": ".squad/ceremonies.md",
+      "language": "markdown",
+      "sizeLines": 69,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".squad/config.json",
+      "language": "json",
+      "sizeLines": 2,
+      "fileCategory": "config"
+    },
+    {
+      "path": ".squad/decisions.md",
+      "language": "markdown",
+      "sizeLines": 11,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".squad/routing.md",
+      "language": "markdown",
+      "sizeLines": 47,
+      "fileCategory": "docs"
+    },
+    {
+      "path": ".squad/team.md",
+      "language": "markdown",
+      "sizeLines": 28,
+      "fileCategory": "docs"
+    }
+  ],
+  "batchImportData": {
+    ".squad/ceremonies.md": [],
+    ".squad/config.json": [],
+    ".squad/decisions.md": [],
+    ".squad/routing.md": [],
+    ".squad/team.md": []
+  }
+}

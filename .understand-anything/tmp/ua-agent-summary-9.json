@@ -1,0 +1,594 @@
+[
+  {
+    "path": "src/components/worklog/hooks/use-autosave.ts",
+    "nonEmptyLines": 168,
+    "fns": [
+      {
+        "name": "readPersistedValue",
+        "start": 33,
+        "end": 52
+      },
+      {
+        "name": "readAutosaveDraft",
+        "start": 54,
+        "end": 56
+      },
+      {
+        "name": "persistValue",
+        "start": 58,
+        "end": 70
+      },
+      {
+        "name": "useAutosaveField",
+        "start": 72,
+        "end": 181
+      }
+    ],
+    "exports": [
+      "readAutosaveDraft",
+      "useAutosaveField"
+    ],
+    "imports": []
+  },
+  {
+    "path": "src/components/worklog/hooks/use-worklog-create-flow.ts",
+    "nonEmptyLines": 129,
+    "fns": [
+      {
+        "name": "useWorklogCreateFlow",
+        "start": 33,
+        "end": 139
+      }
+    ],
+    "exports": [
+      "useWorklogCreateFlow"
+    ],
+    "imports": [
+      "src/components/worklog/worklog-folders-rail.tsx",
+      "src/types/worklog.ts"
+    ]
+  },
+  {
+    "path": "src/components/worklog/hooks/use-worklog-data.ts",
+    "nonEmptyLines": 114,
+    "fns": [
+      {
+        "name": "fetchArrayOrThrow",
+        "start": 19,
+        "end": 30
+      },
+      {
+        "name": "useWorklogData",
+        "start": 32,
+        "end": 127
+      }
+    ],
+    "exports": [
+      "useWorklogData"
+    ],
+    "imports": [
+      "src/components/asset-picker.tsx",
+      "src/components/equipment-picker.tsx",
+      "src/lib/worklog/worklog-cache.ts",
+      "src/types/worklog.ts"
+    ]
+  },
+  {
+    "path": "src/components/worklog/hooks/use-worklog-deep-links.ts",
+    "nonEmptyLines": 90,
+    "fns": [
+      {
+        "name": "useWorklogDeepLinks",
+        "start": 31,
+        "end": 100
+      }
+    ],
+    "exports": [
+      "useWorklogDeepLinks"
+    ],
+    "imports": [
+      "src/components/worklog/worklog-folders-rail.tsx",
+      "src/types/worklog.ts"
+    ]
+  },
+  {
+    "path": "src/components/worklog/hooks/use-worklog-dnd.ts",
+    "nonEmptyLines": 164,
+    "fns": [
+      {
+        "name": "parseType",
+        "start": 47,
+        "end": 51
+      },
+      {
+        "name": "stripPrefix",
+        "start": 53,
+        "end": 55
+      },
+      {
+        "name": "useWorklogDnd",
+        "start": 61,
+        "end": 207
+      }
+    ],
+    "exports": [
+      "parseType",
+      "stripPrefix",
+      "useWorklogDnd"
+    ],
+    "imports": [
+      "src/components/worklog/hooks/use-worklog-folders.ts",
+      "src/components/worklog/hooks/use-worklog-mutations.ts",
+      "src/types/worklog.ts"
+    ]
+  },
+  {
+    "path": "src/components/worklog/hooks/use-worklog-drafts.ts",
+    "nonEmptyLines": 94,
+    "fns": [
+      {
+        "name": "useWorklogDrafts",
+        "start": 15,
+        "end": 103
+      }
+    ],
+    "exports": [
+      "useWorklogDrafts"
+    ],
+    "imports": []
+  },
+  {
+    "path": "src/components/worklog/hooks/use-worklog-filters.ts",
+    "nonEmptyLines": 147,
+    "fns": [
+      {
+        "name": "isRoutineDay",
+        "start": 32,
+        "end": 43
+      },
+      {
+        "name": "useWorklogFilters",
+        "start": 45,
+        "end": 157
+      }
+    ],
+    "exports": [
+      "useWorklogFilters"
+    ],
+    "imports": [
+      "src/types/worklog.ts"
+    ]
+  },
+  {
+    "path": "src/components/worklog/hooks/use-worklog-folders.ts",
+    "nonEmptyLines": 104,
+    "fns": [
+      {
+        "name": "useWorklogFolders",
+        "start": 22,
+        "end": 113
+      }
+    ],
+    "exports": [
+      "useWorklogFolders"
+    ],
+    "imports": [
+      "src/types/worklog.ts"
+    ]
+  },
+  {
+    "path": "src/components/worklog/hooks/use-worklog-keyboard-nav.ts",
+    "nonEmptyLines": 181,
+    "fns": [
+      {
+        "name": "useWorklogKeyboardNav",
+        "start": 50,
+        "end": 200
+      }
+    ],
+    "exports": [
+      "useWorklogKeyboardNav"
+    ],
+    "imports": [
+      "src/components/worklog/worklog-note-reader.tsx",
+      "src/types/worklog.ts"
+    ]
+  },
+  {
+    "path": "src/components/worklog/hooks/use-worklog-mutations.ts",
+    "nonEmptyLines": 176,
+    "fns": [
+      {
+        "name": "useWorklogMutations",
+        "start": 18,
+        "end": 194
+      }
+    ],
+    "exports": [
+      "useWorklogMutations"
+    ],
+    "imports": [
+      "src/components/worklog/hooks/use-worklog-folders.ts",
+      "src/types/worklog.ts"
+    ]
+  },
+  {
+    "path": "src/components/worklog/hooks/use-worklog-preferences.ts",
+    "nonEmptyLines": 83,
+    "fns": [
+      {
+        "name": "useWorklogPreferences",
+        "start": 20,
+        "end": 93
+      }
+    ],
+    "exports": [
+      "useWorklogPreferences"
+    ],
+    "imports": [
+      "src/types/worklog.ts"
+    ]
+  },
+  {
+    "path": "src/components/worklog/hooks/use-worklog-selection.ts",
+    "nonEmptyLines": 92,
+    "fns": [
+      {
+        "name": "useWorklogSelection",
+        "start": 38,
+        "end": 102
+      }
+    ],
+    "exports": [
+      "useWorklogSelection"
+    ],
+    "imports": []
+  },
+  {
+    "path": "src/components/worklog/hooks/use-worklog-stats.ts",
+    "nonEmptyLines": 23,
+    "fns": [
+      {
+        "name": "useWorklogStats",
+        "start": 11,
+        "end": 28
+      }
+    ],
+    "exports": [
+      "useWorklogStats"
+    ],
+    "imports": [
+      "src/components/worklog/heatmap-utils.ts",
+      "src/types/worklog.ts"
+    ]
+  },
+  {
+    "path": "src/components/worklog/hooks/use-worklog-visible-logs.ts",
+    "nonEmptyLines": 113,
+    "fns": [
+      {
+        "name": "useWorklogVisibleLogs",
+        "start": 19,
+        "end": 119
+      }
+    ],
+    "exports": [
+      "useWorklogVisibleLogs"
+    ],
+    "imports": [
+      "src/components/worklog/hooks/use-worklog-filters.ts",
+      "src/components/worklog/hooks/use-worklog-folders.ts",
+      "src/components/worklog/worklog-folders-rail.tsx",
+      "src/lib/worklog-folders.ts",
+      "src/types/worklog.ts"
+    ]
+  },
+  {
+    "path": "src/components/worklog/mention-node-view.tsx",
+    "nonEmptyLines": 56,
+    "fns": [
+      {
+        "name": "MentionNodeView",
+        "start": 25,
+        "end": 62
+      }
+    ],
+    "exports": [
+      "MentionNodeView"
+    ],
+    "imports": [
+      "src/lib/utils.ts",
+      "src/lib/worklog/tiptap/mention-node.ts"
+    ]
+  },
+  {
+    "path": "src/components/worklog/mention-suggestion-popup.tsx",
+    "nonEmptyLines": 173,
+    "fns": [],
+    "exports": [
+      "MentionSuggestionPopup"
+    ],
+    "imports": [
+      "src/lib/utils.ts",
+      "src/lib/worklog/tiptap/mention-node.ts"
+    ]
+  },
+  {
+    "path": "src/components/worklog/photo-node-view.tsx",
+    "nonEmptyLines": 119,
+    "fns": [
+      {
+        "name": "PhotoNodeView",
+        "start": 26,
+        "end": 131
+      }
+    ],
+    "exports": [
+      "PhotoNodeView"
+    ],
+    "imports": [
+      "src/lib/utils.ts",
+      "src/lib/worklog/photo-upload.ts"
+    ]
+  },
+  {
+    "path": "src/components/worklog/slash-command-menu.tsx",
+    "nonEmptyLines": 258,
+    "fns": [
+      {
+        "name": "createSlashCommandRender",
+        "start": 225,
+        "end": 280
+      }
+    ],
+    "exports": [
+      "SlashCommandMenu",
+      "createSlashCommandRender"
+    ],
+    "imports": [
+      "src/lib/utils.ts",
+      "src/lib/worklog/tiptap/slash-commands.tsx"
+    ]
+  },
+  {
+    "path": "src/components/worklog/worklog-bulk-action-bar.tsx",
+    "nonEmptyLines": 150,
+    "fns": [
+      {
+        "name": "WorklogBulkActionBar",
+        "start": 36,
+        "end": 163
+      }
+    ],
+    "exports": [
+      "WorklogBulkActionBar"
+    ],
+    "imports": [
+      "src/components/ui/button.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/worklog/hooks/use-worklog-folders.ts",
+      "src/components/worklog/worklog-move-to-folder-dialog.tsx",
+      "src/lib/utils.ts"
+    ]
+  },
+  {
+    "path": "src/components/worklog/worklog-defaults-dialog.tsx",
+    "nonEmptyLines": 193,
+    "fns": [
+      {
+        "name": "WorklogDefaultsDialog",
+        "start": 26,
+        "end": 209
+      }
+    ],
+    "exports": [
+      "WorklogDefaultsDialog"
+    ],
+    "imports": [
+      "src/components/ui/button.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/worklog/constants.ts",
+      "src/lib/worklog-shifts.ts",
+      "src/types/worklog.ts"
+    ]
+  },
+  {
+    "path": "src/components/worklog/worklog-dnd-provider.test.ts",
+    "nonEmptyLines": 102,
+    "fns": [],
+    "exports": [],
+    "imports": [
+      "src/components/worklog/hooks/use-worklog-dnd.ts",
+      "src/components/worklog/worklog-dnd-provider.tsx"
+    ]
+  },
+  {
+    "path": "src/components/worklog/worklog-dnd-provider.tsx",
+    "nonEmptyLines": 71,
+    "fns": [
+      {
+        "name": "resolveGhosts",
+        "start": 24,
+        "end": 36
+      },
+      {
+        "name": "WorklogDndProvider",
+        "start": 42,
+        "end": 80
+      }
+    ],
+    "exports": [
+      "resolveGhosts",
+      "WorklogDndProvider"
+    ],
+    "imports": [
+      "src/components/worklog/hooks/use-worklog-data.ts",
+      "src/components/worklog/hooks/use-worklog-dnd.ts",
+      "src/components/worklog/hooks/use-worklog-folders.ts"
+    ]
+  },
+  {
+    "path": "src/components/worklog/worklog-editor-toolbar.tsx",
+    "nonEmptyLines": 249,
+    "fns": [
+      {
+        "name": "WorklogEditorToolbar",
+        "start": 53,
+        "end": 239
+      },
+      {
+        "name": "ToolbarBtn",
+        "start": 241,
+        "end": 264
+      }
+    ],
+    "exports": [
+      "WorklogEditorToolbar"
+    ],
+    "imports": [
+      "src/components/ui/button.tsx",
+      "src/components/ui/dropdown-menu.tsx",
+      "src/components/ui/input.tsx",
+      "src/lib/worklog/tiptap/mood-block.ts",
+      "src/lib/worklog/tiptap/slash-commands.tsx",
+      "src/lib/worklog/tiptap/tag-mention.ts",
+      "src/types/worklog.ts"
+    ]
+  },
+  {
+    "path": "src/components/worklog/worklog-editor.tsx",
+    "nonEmptyLines": 508,
+    "fns": [],
+    "exports": [
+      "WorklogEditor",
+      "proseMirrorDocToPlainText"
+    ],
+    "imports": [
+      "src/components/worklog/slash-command-menu.tsx",
+      "src/components/worklog/worklog-editor-toolbar.tsx",
+      "src/lib/utils.ts",
+      "src/lib/worklog/photo-upload.ts",
+      "src/lib/worklog/prosemirror-to-text.ts",
+      "src/lib/worklog/tiptap/canvas-node.ts",
+      "src/lib/worklog/tiptap/mention-node.ts",
+      "src/lib/worklog/tiptap/mood-block.ts",
+      "src/lib/worklog/tiptap/photo-node.ts",
+      "src/lib/worklog/tiptap/shift-block.ts",
+      "src/lib/worklog/tiptap/slash-commands.tsx",
+      "src/lib/worklog/tiptap/tag-mention.ts",
+      "src/lib/worklog/yjs-provider.ts",
+      "src/types/worklog.ts"
+    ]
+  },
+  {
+    "path": "src/components/worklog/worklog-folder-tree-items.tsx",
+    "nonEmptyLines": 160,
+    "fns": [
+      {
+        "name": "WorklogFolderTreeItems",
+        "start": 44,
+        "end": 173
+      }
+    ],
+    "exports": [
+      "WorklogFolderTreeItems"
+    ],
+    "imports": [
+      "src/components/worklog/hooks/use-worklog-folders.ts",
+      "src/components/worklog/worklog-folder-delete-dialog.tsx",
+      "src/components/worklog/worklog-folder-tree.tsx",
+      "src/components/worklog/worklog-move-to-folder-dialog.tsx",
+      "src/lib/worklog-folders.ts",
+      "src/types/worklog.ts"
+    ]
+  },
+  {
+    "path": "src/components/worklog/worklog-folder-tree.tsx",
+    "nonEmptyLines": 485,
+    "fns": [
+      {
+        "name": "SortableFolderWrapper",
+        "start": 75,
+        "end": 93
+      },
+      {
+        "name": "WorklogFolderTree",
+        "start": 95,
+        "end": 489
+      },
+      {
+        "name": "computeDeleteBlastRadius",
+        "start": 495,
+        "end": 509
+      }
+    ],
+    "exports": [
+      "WorklogFolderTree",
+      "computeDeleteBlastRadius"
+    ],
+    "imports": [
+      "src/components/ui/dropdown-menu.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/popover.tsx",
+      "src/components/worklog/constants.ts",
+      "src/lib/utils.ts",
+      "src/lib/worklog-folders.ts",
+      "src/types/worklog.ts"
+    ]
+  },
+  {
+    "path": "src/components/worklog/worklog-folders-rail.tsx",
+    "nonEmptyLines": 425,
+    "fns": [
+      {
+        "name": "StatsStrip",
+        "start": 43,
+        "end": 96
+      },
+      {
+        "name": "FolderRow",
+        "start": 146,
+        "end": 191
+      },
+      {
+        "name": "WorklogFoldersRail",
+        "start": 193,
+        "end": 447
+      }
+    ],
+    "exports": [
+      "FolderSelection",
+      "WorklogFoldersRail"
+    ],
+    "imports": [
+      "src/components/worklog/constants.ts",
+      "src/components/worklog/worklog-folder-tree-items.tsx",
+      "src/components/worklog/worklog-heatmap.tsx",
+      "src/lib/utils.ts",
+      "src/types/worklog.ts"
+    ]
+  },
+  {
+    "path": "src/components/worklog/worklog-heatmap.tsx",
+    "nonEmptyLines": 73,
+    "fns": [
+      {
+        "name": "WorklogHeatmap",
+        "start": 28,
+        "end": 77
+      }
+    ],
+    "exports": [
+      "WorklogHeatmap"
+    ],
+    "imports": [
+      "src/components/ui/button.tsx",
+      "src/components/worklog/heatmap-utils.ts",
+      "src/lib/utils.ts",
+      "src/types/worklog.ts"
+    ]
+  }
+]

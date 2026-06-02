@@ -1,0 +1,149 @@
+[
+  {
+    "path": "src/app/api/work-logs/[id]/route.test.ts",
+    "nonEmptyLines": 187,
+    "fns": [
+      {
+        "name": "docWithMentions",
+        "start": 66,
+        "end": 81
+      }
+    ],
+    "exports": [],
+    "classes": [],
+    "imports": [
+      "src/app/api/work-logs/[id]/route.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ]
+  },
+  {
+    "path": "src/app/api/work-logs/[id]/route.ts",
+    "nonEmptyLines": 165,
+    "fns": [
+      {
+        "name": "PUT",
+        "start": 30,
+        "end": 164
+      },
+      {
+        "name": "DELETE",
+        "start": 167,
+        "end": 184
+      }
+    ],
+    "exports": [
+      "PUT",
+      "DELETE"
+    ],
+    "classes": [],
+    "imports": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts",
+      "src/lib/worklog-shifts.ts",
+      "src/lib/worklog/content-json.ts",
+      "src/lib/worklog/prosemirror-to-text.ts"
+    ]
+  },
+  {
+    "path": "src/app/api/work-logs/route.ts",
+    "nonEmptyLines": 203,
+    "fns": [
+      {
+        "name": "GET",
+        "start": 27,
+        "end": 96
+      },
+      {
+        "name": "POST",
+        "start": 99,
+        "end": 223
+      }
+    ],
+    "exports": [
+      "GET",
+      "POST"
+    ],
+    "classes": [],
+    "imports": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts",
+      "src/lib/worklog-shifts.ts",
+      "src/lib/worklog/content-json.ts"
+    ]
+  },
+  {
+    "path": "src/lib/worklog/content-json.ts",
+    "nonEmptyLines": 45,
+    "fns": [
+      {
+        "name": "validateContentJson",
+        "start": 22,
+        "end": 51
+      }
+    ],
+    "exports": [
+      "validateContentJson"
+    ],
+    "classes": [],
+    "imports": []
+  },
+  {
+    "path": "src/lib/worklog/prosemirror-to-text.test.ts",
+    "nonEmptyLines": 489,
+    "fns": [],
+    "exports": [],
+    "classes": [],
+    "imports": [
+      "src/lib/worklog/prosemirror-to-text.ts"
+    ]
+  },
+  {
+    "path": "src/lib/worklog/prosemirror-to-text.ts",
+    "nonEmptyLines": 231,
+    "fns": [
+      {
+        "name": "proseMirrorDocToPlainText",
+        "start": 32,
+        "end": 42
+      },
+      {
+        "name": "walk",
+        "start": 44,
+        "end": 129
+      },
+      {
+        "name": "walkListItem",
+        "start": 131,
+        "end": 149
+      },
+      {
+        "name": "collectInlineText",
+        "start": 151,
+        "end": 182
+      },
+      {
+        "name": "extractMentionAssetIds",
+        "start": 202,
+        "end": 209
+      },
+      {
+        "name": "collectAssetMentions",
+        "start": 211,
+        "end": 221
+      },
+      {
+        "name": "plainTextToProseMirrorDoc",
+        "start": 224,
+        "end": 244
+      }
+    ],
+    "exports": [
+      "proseMirrorDocToPlainText",
+      "extractMentionAssetIds",
+      "plainTextToProseMirrorDoc"
+    ],
+    "classes": [],
+    "imports": []
+  }
+]

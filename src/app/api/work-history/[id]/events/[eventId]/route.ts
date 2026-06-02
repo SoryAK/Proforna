@@ -12,7 +12,7 @@ export async function PATCH(
 
   const { id, eventId } = await params;
   const body = await req.json();
-  const { title, description, category, startDate, endDate, metrics, skillNodeIds } = body;
+  const { title, description, category, startDate, endDate, metrics, location, skillNodeIds } = body;
 
   // Verify ownership
   const existing = await prisma.careerEvent.findFirst({
@@ -20,7 +20,10 @@ export async function PATCH(
   });
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const validCategories = ["project", "milestone", "responsibility", "training", "outcome", "context_shift"];
+  const validCategories = [
+    "project", "milestone", "responsibility", "training", "outcome", "context_shift",
+    "company_event", "field_day", "emergency", "news_event", "social", "conference", "other",
+  ];
 
   const updated = await prisma.$transaction(async (tx) => {
     // Update the event itself
@@ -30,8 +33,9 @@ export async function PATCH(
         ...(title != null && { title: String(title).trim().slice(0, 200) }),
         ...(description !== undefined && { description: description ? String(description).slice(0, 2000) : null }),
         ...(category != null && validCategories.includes(category) && { category }),
-        ...(startDate !== undefined && { startDate: startDate ? String(startDate).slice(0, 7) : null }),
-        ...(endDate !== undefined && { endDate: endDate ? String(endDate).slice(0, 7) : null }),
+        ...(startDate !== undefined && { startDate: startDate ? new Date(startDate) : null }),
+        ...(endDate !== undefined && { endDate: endDate ? new Date(endDate) : null }),
+        ...(location !== undefined && { location: location ? String(location).slice(0, 200) : null }),
         ...(metrics !== undefined && { metrics: metrics ? String(metrics).slice(0, 500) : null }),
       },
     });
@@ -51,7 +55,10 @@ export async function PATCH(
 
     return tx.careerEvent.findUnique({
       where: { id: eventId },
-      include: { skills: { include: { skillNode: { select: { id: true, name: true, type: true } } } } },
+      include: {
+        skills: { include: { skillNode: { select: { id: true, name: true, type: true } } } },
+        photos: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] },
+      },
     });
   });
 

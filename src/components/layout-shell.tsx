@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { Sidebar, MobileHeader } from "@/components/sidebar";
 import { CommandPalette } from "@/components/command-palette";
 import { AIChat } from "@/components/ai-chat";
+import { QuickLogDialog } from "@/components/quick-log-dialog";
 
 export function LayoutShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -24,6 +25,7 @@ export function LayoutShell({ children }: { children: React.ReactNode }) {
       </div>
       <CommandPalette />
       <AIChat />
+      <QuickLogDialog />
     </div>
   );
 }

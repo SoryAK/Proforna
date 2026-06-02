@@ -1,0 +1,27 @@
+{
+  "entities": [
+    {
+      "name": "ResumeDomain",
+      "entityType": "domain",
+      "observations": [
+        "2026-05-28: Primary component is src/components/interactive-resumes-manager.tsx",
+        "2026-05-28: Adaptive IR editor at src/components/adaptive-ir-editor.tsx",
+        "2026-05-28: API routes under src/app/api/resumes/, src/app/api/interactive-resumes/, src/app/api/ir/",
+        "2026-05-28: Resume export at src/app/api/resume-export/, PDF template at src/lib/resume-pdf-template.tsx",
+        "2026-05-28: Interview-resume sidebar at src/components/interview-resume-sidebar.tsx"
+      ]
+    },
+    {
+      "name": "AnnotationDomain",
+      "entityType": "domain",
+      "observations": [
+        "2026-05-28: Components: src/components/annotation-editor.tsx, annotation-viewer.tsx, annotation-overlay.tsx, annotation-compare.tsx",
+        "2026-05-28: Used for document markup (resumes, offer letters etc.)"
+      ]
+    }
+  ],
+  "relations": [
+    { "from": "ResumeDomain", "relationType": "depends-on", "to": "ProfileDomain" },
+    { "from": "AnnotationDomain", "relationType": "depends-on", "to": "ResumeDomain" }
+  ]
+}

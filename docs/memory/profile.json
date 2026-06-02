@@ -1,0 +1,18 @@
+{
+  "entities": [
+    {
+      "name": "ProfileDomain",
+      "entityType": "domain",
+      "observations": [
+        "2026-05-28: Primary component is src/components/bio-card-editor.tsx",
+        "2026-05-28: BioCardEditor is self-contained — fetches /api/profile, /api/profile/compensation, /api/publish internally",
+        "2026-05-28: Starts collapsed by default (avatar + name + headline + location + salary chip ~80px)",
+        "2026-05-28: Has pencil edit icon + chevron expand/collapse + Publish button strip at top",
+        "2026-05-28: API routes under src/app/api/profile/ and src/app/api/publish/"
+      ]
+    }
+  ],
+  "relations": [
+    { "from": "ProfileDomain", "relationType": "mounts-via-portal", "to": "JobMapDomain" }
+  ]
+}

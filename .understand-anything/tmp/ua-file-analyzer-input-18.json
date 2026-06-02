@@ -1,0 +1,66 @@
+{
+  "projectRoot": "C:\\Users\\Sory kaba\\OneDrive\\RESUMSIFY\\Personal_Projects\\Dev_Pojects\\resumsify",
+  "batchFiles": [
+    {
+      "path": "src/app/api/work-logs/[id]/route.test.ts",
+      "language": "typescript",
+      "sizeLines": 229,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/work-logs/[id]/route.ts",
+      "language": "typescript",
+      "sizeLines": 184,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/work-logs/route.ts",
+      "language": "typescript",
+      "sizeLines": 223,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/worklog/content-json.ts",
+      "language": "typescript",
+      "sizeLines": 51,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/worklog/prosemirror-to-text.test.ts",
+      "language": "typescript",
+      "sizeLines": 544,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/worklog/prosemirror-to-text.ts",
+      "language": "typescript",
+      "sizeLines": 244,
+      "fileCategory": "code"
+    }
+  ],
+  "batchImportData": {
+    "src/app/api/work-logs/[id]/route.test.ts": [
+      "src/app/api/work-logs/[id]/route.ts",
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/work-logs/[id]/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts",
+      "src/lib/worklog-shifts.ts",
+      "src/lib/worklog/content-json.ts",
+      "src/lib/worklog/prosemirror-to-text.ts"
+    ],
+    "src/app/api/work-logs/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts",
+      "src/lib/worklog-shifts.ts",
+      "src/lib/worklog/content-json.ts"
+    ],
+    "src/lib/worklog/content-json.ts": [],
+    "src/lib/worklog/prosemirror-to-text.test.ts": [
+      "src/lib/worklog/prosemirror-to-text.ts"
+    ],
+    "src/lib/worklog/prosemirror-to-text.ts": []
+  }
+}

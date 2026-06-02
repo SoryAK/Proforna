@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { EquipmentUsageHistory } from "@/components/equipment-usage-history";
 import {
   ArrowDownAZ,
   Boxes,
@@ -16,6 +17,7 @@ import {
   Download,
   Drill,
   Crop,
+  Copy,
   Eye,
   EyeOff,
   FlipHorizontal,
@@ -931,7 +933,9 @@ export function PersonalInventory({
   const [dragActive, setDragActive] = useState(false);
   const [draftsOnly, setDraftsOnly] = useState(false);
   const bulkFileInputRef = useRef<HTMLInputElement>(null);
-  const [bulkMenu, setBulkMenu] = useState<null | "category" | "ownership" | "condition" | "crop" | "kit">(null);
+  const [bulkMenu, setBulkMenu] = useState<null | "category" | "ownership" | "condition" | "crop" | "kit" | "tag" | "untag">(null);
+  const [bulkTagDraft, setBulkTagDraft] = useState<string[]>([]);
+  const [bulkUntagDraft, setBulkUntagDraft] = useState<string[]>([]);
   const [lightbox, setLightbox] = useState<{ item: Item; index: number } | null>(null);
   // Lightbox image manipulation (session-only, doesn't persist)
   const [lbZoom, setLbZoom] = useState(1);
@@ -946,6 +950,8 @@ export function PersonalInventory({
   const [dragPhotoId, setDragPhotoId] = useState<string | null>(null);
   const [reorderBusy, setReorderBusy] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
+  const [hoveredPhotoId, setHoveredPhotoId] = useState<string | null>(null);
+  const [hoveredCardId, setHoveredCardId] = useState<string | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
   const [editingDragActive, setEditingDragActive] = useState(false);
   const [inlinePopover, setInlinePopover] = useState<null | { itemId: string; field: "condition" | "ownership" }>(null);
@@ -1326,6 +1332,25 @@ export function PersonalInventory({
       await load();
     } catch (err) {
       toast.error("Delete failed");
+      console.error(err);
+    }
+  }
+
+  async function duplicateItem(item: Item, withPhotos = true) {
+    const tid = toast.loading(`Duplicating "${item.name}"…`);
+    try {
+      const res = await fetch("/api/personal-equipment/duplicate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: item.id, withPhotos }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const created: Item = await res.json();
+      toast.success(`Duplicated → "${created.name}"`, { id: tid });
+      await load();
+      setEditing(created);
+    } catch (err) {
+      toast.error("Duplicate failed", { id: tid });
       console.error(err);
     }
   }
@@ -2278,24 +2303,105 @@ export function PersonalInventory({
                 </div>
               )}
             </div>
-            <Button size="sm" variant="outline" className="h-7 text-xs" disabled={bulkBusy} onClick={() => {
-              const raw = window.prompt("Add tags (comma-separated)");
-              if (raw == null) return;
-              const tags = raw.split(",").map((t) => t.trim()).filter(Boolean);
-              if (tags.length === 0) return;
-              bulkPatch({ tagsAdd: tags }, `Tagged \"${tags.join(", ")}\" on`);
-            }}>
-              <Tag className="h-3 w-3 mr-1" /> Tag
-            </Button>
-            <Button size="sm" variant="outline" className="h-7 text-xs" disabled={bulkBusy} onClick={() => {
-              const raw = window.prompt("Remove tags (comma-separated)");
-              if (raw == null) return;
-              const tags = raw.split(",").map((t) => t.trim()).filter(Boolean);
-              if (tags.length === 0) return;
-              bulkPatch({ tagsRemove: tags }, `Removed \"${tags.join(", ")}\" from`);
-            }}>
-              <X className="h-3 w-3 mr-1" /> Untag
-            </Button>
+            <div className="relative">
+              <Button size="sm" variant="outline" className="h-7 text-xs" disabled={bulkBusy} onClick={() => { setBulkMenu(bulkMenu === "tag" ? null : "tag"); setBulkTagDraft([]); }}>
+                <Tag className="h-3 w-3 mr-1" /> Tag
+              </Button>
+              {bulkMenu === "tag" && (
+                <div className="absolute z-30 mt-1 left-0 w-72 rounded-md border bg-popover shadow-md p-2 space-y-2">
+                  <div className="text-[11px] text-muted-foreground">Add tags to {selected.size} item{selected.size === 1 ? "" : "s"}</div>
+                  <TagInput
+                    value={bulkTagDraft}
+                    onChange={setBulkTagDraft}
+                    suggestions={Object.keys(tagCounts)}
+                    placeholder="Type a tag, press Enter"
+                    showIcon={false}
+                  />
+                  <div className="flex justify-end gap-1">
+                    <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { setBulkMenu(null); setBulkTagDraft([]); }}>Cancel</Button>
+                    <Button
+                      size="sm"
+                      className="h-7 text-xs"
+                      disabled={bulkTagDraft.length === 0 || bulkBusy}
+                      onClick={() => {
+                        const tags = [...bulkTagDraft];
+                        setBulkTagDraft([]);
+                        bulkPatch({ tagsAdd: tags }, `Tagged "${tags.join(", ")}" on`);
+                      }}
+                    >
+                      Add
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="relative">
+              <Button size="sm" variant="outline" className="h-7 text-xs" disabled={bulkBusy} onClick={() => {
+                if (bulkMenu === "untag") { setBulkMenu(null); return; }
+                // Pre-populate suggestions from tags actually present on the selection
+                setBulkMenu("untag");
+                setBulkUntagDraft([]);
+              }}>
+                <X className="h-3 w-3 mr-1" /> Untag
+              </Button>
+              {bulkMenu === "untag" && (() => {
+                const selectionTagCounts: Record<string, number> = {};
+                for (const it of items) {
+                  if (!selected.has(it.id)) continue;
+                  for (const t of it.tags ?? []) selectionTagCounts[t] = (selectionTagCounts[t] ?? 0) + 1;
+                }
+                const selectionTags = Object.keys(selectionTagCounts).sort((a, b) => selectionTagCounts[b] - selectionTagCounts[a]);
+                return (
+                  <div className="absolute z-30 mt-1 left-0 w-72 rounded-md border bg-popover shadow-md p-2 space-y-2">
+                    <div className="text-[11px] text-muted-foreground">Remove tags from {selected.size} item{selected.size === 1 ? "" : "s"}</div>
+                    {selectionTags.length === 0 ? (
+                      <div className="text-xs text-muted-foreground py-2 text-center">No tags on selected items</div>
+                    ) : (
+                      <>
+                        <div className="flex flex-wrap gap-1 max-h-32 overflow-auto">
+                          {selectionTags.map((t) => {
+                            const active = bulkUntagDraft.includes(t);
+                            return (
+                              <button
+                                key={t}
+                                type="button"
+                                onClick={() => setBulkUntagDraft((d) => active ? d.filter((x) => x !== t) : [...d, t])}
+                                className={`px-2 py-0.5 rounded-full text-[11px] border ${active ? "bg-red-500/15 border-red-500/40 text-red-700 dark:text-red-300" : "bg-muted/40 hover:bg-muted border-transparent"}`}
+                              >
+                                {t} <span className="opacity-60">({selectionTagCounts[t]})</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <TagInput
+                          value={bulkUntagDraft}
+                          onChange={setBulkUntagDraft}
+                          suggestions={selectionTags}
+                          placeholder="Or type to add"
+                          showIcon={false}
+                        />
+                        <div className="flex justify-end gap-1">
+                          <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { setBulkMenu(null); setBulkUntagDraft([]); }}>Cancel</Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            className="h-7 text-xs"
+                            disabled={bulkUntagDraft.length === 0 || bulkBusy}
+                            onClick={() => {
+                              const tags = [...bulkUntagDraft];
+                              setBulkUntagDraft([]);
+                              bulkPatch({ tagsRemove: tags }, `Removed "${tags.join(", ")}" from`);
+                            }}
+                          >
+                            Remove
+                          </Button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
 
             {/* Kits — save selection as a new kit, or add selection to an existing kit */}
             <div className="relative">
@@ -2499,6 +2605,9 @@ export function PersonalInventory({
                                 <button type="button" className="p-1 rounded hover:bg-muted" onClick={() => setEditing(item)} title="Edit">
                                   <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
                                 </button>
+                                <button type="button" className="p-1 rounded hover:bg-muted" onClick={() => duplicateItem(item)} title="Duplicate">
+                                  <Copy className="h-3.5 w-3.5 text-muted-foreground" />
+                                </button>
                                 <button type="button" className="p-1 rounded hover:bg-red-500/10" onClick={() => deleteItem(item.id)} title="Delete">
                                   <Trash2 className="h-3.5 w-3.5 text-red-500" />
                                 </button>
@@ -2560,6 +2669,9 @@ export function PersonalInventory({
                                 <button type="button" className="p-1 rounded hover:bg-muted" onClick={(e) => { e.stopPropagation(); setEditing(item); }} title="Edit">
                                   <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
                                 </button>
+                                <button type="button" className="p-1 rounded hover:bg-muted" onClick={(e) => { e.stopPropagation(); duplicateItem(item); }} title="Duplicate">
+                                  <Copy className="h-3.5 w-3.5 text-muted-foreground" />
+                                </button>
                                 <button type="button" className="p-1 rounded hover:bg-red-500/10" onClick={(e) => { e.stopPropagation(); deleteItem(item.id); }} title="Delete">
                                   <Trash2 className="h-3.5 w-3.5 text-red-500" />
                                 </button>
@@ -2613,6 +2725,7 @@ export function PersonalInventory({
                   const cover = item.photos.find((p) => p.isCover) ?? item.photos[0];
                   const isSel = selected.has(item.id);
                   const isFocused = focusedIndex !== null && sorted[focusedIndex]?.id === item.id;
+                  const isHovered = hoveredCardId === item.id;
                   const price = item.currentValue ?? item.purchasePrice;
                   const subtitle = [item.manufacturer, item.model].filter(Boolean).join(" ");
                   return (
@@ -2621,7 +2734,9 @@ export function PersonalInventory({
                       data-inv-row={item.id}
                       data-search-highlight-id={`personalEquipment:${item.id}`}
                       onClick={() => setViewing({ item, index: 0 })}
-                      className={`overflow-hidden group relative border-border/60 hover:border-foreground/30 hover:shadow-md transition-all duration-200 p-0 gap-0 cursor-pointer ${isSel ? "ring-2 ring-foreground/40" : ""} ${isFocused ? "ring-2 ring-cyan-500/70" : ""}`}
+                      onMouseEnter={() => setHoveredCardId(item.id)}
+                      onMouseLeave={() => setHoveredCardId((cur) => (cur === item.id ? null : cur))}
+                      className={`overflow-hidden relative border-border/60 hover:border-foreground/30 hover:shadow-md transition-all duration-200 p-0 gap-0 cursor-pointer ${isSel ? "ring-2 ring-foreground/40" : ""} ${isFocused ? "ring-2 ring-cyan-500/70" : ""}`}
                     >
                       {/* Image area */}
                       <div
@@ -2654,7 +2769,7 @@ export function PersonalInventory({
                           checked={isSel}
                           onChange={() => toggleSelect(item.id)}
                           onClick={(e) => e.stopPropagation()}
-                          className={`absolute top-2 left-2 z-10 h-4 w-4 cursor-pointer rounded bg-background/90 ring-1 ring-border ${isSel ? "opacity-100" : "opacity-0 group-hover:opacity-100"} transition-opacity`}
+                          className={`absolute top-2 left-2 z-10 h-4 w-4 cursor-pointer rounded bg-background/90 ring-1 ring-border ${isSel || isHovered ? "opacity-100" : "opacity-0"} transition-opacity`}
                           aria-label={`Select ${item.name}`}
                         />
 
@@ -2687,42 +2802,50 @@ export function PersonalInventory({
                         </div>
 
                         {/* Hover action bar */}
-                        <div className="absolute bottom-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className={`absolute bottom-1.5 right-1.5 left-1.5 z-20 flex items-center justify-end gap-0.5 rounded-full bg-black/65 backdrop-blur-sm ring-1 ring-white/15 px-1 py-0.5 shadow-lg transition-opacity ${isHovered ? "opacity-100" : "opacity-0 pointer-events-none"}`}>
                           {focusedPositionId && (
                             <button
                               type="button"
-                              className="h-7 w-7 rounded-full bg-white/90 hover:bg-emerald-500 hover:text-white flex items-center justify-center shadow-sm disabled:opacity-50"
+                              className="h-6 w-6 shrink-0 rounded-full text-white/95 hover:bg-emerald-500 hover:text-white flex items-center justify-center disabled:opacity-50"
                               onClick={(e) => { e.stopPropagation(); assignToPosition(item); }}
                               disabled={assigningId === item.id}
                               title={`Add to ${focusedPositionLabel ?? "focused job"}`}
                             >
-                              <Briefcase className="h-3.5 w-3.5" />
+                              <Briefcase className="h-3 w-3" />
                             </button>
                           )}
                           <button
                             type="button"
-                            className="h-7 w-7 rounded-full bg-white/90 hover:bg-foreground hover:text-background flex items-center justify-center shadow-sm"
+                            className="h-6 w-6 shrink-0 rounded-full text-white/95 hover:bg-white hover:text-foreground flex items-center justify-center"
                             onClick={(e) => { e.stopPropagation(); setEditing(item); }}
                             title="Edit"
                           >
-                            <Pencil className="h-3.5 w-3.5" />
+                            <Pencil className="h-3 w-3" />
+                          </button>
+                          <button
+                            type="button"
+                            className="h-6 w-6 shrink-0 rounded-full text-white/95 hover:bg-sky-500 hover:text-white flex items-center justify-center"
+                            onClick={(e) => { e.stopPropagation(); duplicateItem(item); }}
+                            title="Duplicate"
+                          >
+                            <Copy className="h-3 w-3" />
                           </button>
                           {cover && (
                             <button
                               type="button"
-                              className="h-7 w-7 rounded-full bg-white/90 hover:bg-violet-500 hover:text-white flex items-center justify-center shadow-sm"
+                              className="h-6 w-6 shrink-0 rounded-full text-white/95 hover:bg-violet-500 hover:text-white flex items-center justify-center"
                               onClick={(e) => { e.stopPropagation(); setCropping({ item, photoId: cover.id }); }}
                               title="Adjust crop"
                             >
-                              <Crop className="h-3.5 w-3.5" />
+                              <Crop className="h-3 w-3" />
                             </button>
                           )}
                           <label
-                            className="h-7 w-7 rounded-full bg-white/90 hover:bg-cyan-500 hover:text-white flex items-center justify-center shadow-sm cursor-pointer"
+                            className="h-6 w-6 shrink-0 rounded-full text-white/95 hover:bg-cyan-500 hover:text-white flex items-center justify-center cursor-pointer"
                             onClick={(e) => e.stopPropagation()}
                             title="Add photo"
                           >
-                            <Upload className="h-3.5 w-3.5" />
+                            <Upload className="h-3 w-3" />
                             <input
                               type="file"
                               accept="image/*"
@@ -2738,11 +2861,11 @@ export function PersonalInventory({
                           </label>
                           <button
                             type="button"
-                            className="h-7 w-7 rounded-full bg-white/90 hover:bg-red-500 hover:text-white flex items-center justify-center shadow-sm"
+                            className="h-6 w-6 shrink-0 rounded-full text-white/95 hover:bg-red-500 hover:text-white flex items-center justify-center"
                             onClick={(e) => { e.stopPropagation(); deleteItem(item.id); }}
                             title="Delete"
                           >
-                            <Trash2 className="h-3.5 w-3.5" />
+                            <Trash2 className="h-3 w-3" />
                           </button>
                         </div>
                       </div>
@@ -3162,10 +3285,14 @@ export function PersonalInventory({
                   <p className="text-xs text-muted-foreground">No photos yet.</p>
                 ) : (
                   <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
-                    {editing.photos!.map((p, idx) => (
+                    {editing.photos!.map((p, idx) => {
+                      const isPhotoHovered = hoveredPhotoId === p.id;
+                      return (
                       <div
                         key={p.id}
                         draggable
+                        onMouseEnter={() => setHoveredPhotoId(p.id)}
+                        onMouseLeave={() => setHoveredPhotoId((cur) => (cur === p.id ? null : cur))}
                         onDragStart={() => setDragPhotoId(p.id)}
                         onDragOver={(e) => e.preventDefault()}
                         onDrop={(e) => {
@@ -3183,7 +3310,7 @@ export function PersonalInventory({
                           void reorderPhotos(editing.id, ids);
                         }}
                         onDragEnd={() => setDragPhotoId(null)}
-                        className={`relative group/p aspect-square rounded border overflow-hidden bg-muted ${dragPhotoId === p.id ? "opacity-40" : ""} ${reorderBusy ? "pointer-events-none" : ""}`}
+                        className={`relative aspect-square rounded border overflow-hidden bg-muted ${dragPhotoId === p.id ? "opacity-40" : ""} ${reorderBusy ? "pointer-events-none" : ""}`}
                       >
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <PhotoView
@@ -3195,13 +3322,13 @@ export function PersonalInventory({
                             if (fresh) setLightbox({ item: fresh, index: idx });
                           }}
                         />
-                        <span className="absolute top-1 right-1 p-0.5 rounded bg-black/50 text-white opacity-0 group-hover/p:opacity-100 transition-opacity cursor-grab active:cursor-grabbing" title="Drag to reorder">
+                        <span className={`absolute top-1 right-1 p-0.5 rounded bg-black/50 text-white transition-opacity cursor-grab active:cursor-grabbing ${isPhotoHovered ? "opacity-100" : "opacity-0"}`} title="Drag to reorder">
                           <GripVertical className="h-3 w-3" />
                         </span>
                         {p.isCover && (
                           <Star className="absolute top-1 left-1 h-3.5 w-3.5 text-yellow-400 fill-yellow-400" />
                         )}
-                        <div className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-1 opacity-0 group-hover/p:opacity-100 bg-black/70 transition-opacity py-1">
+                        <div className={`absolute inset-x-0 bottom-0 flex items-center justify-center gap-1 bg-black/70 transition-opacity py-1 ${isPhotoHovered ? "opacity-100" : "opacity-0 pointer-events-none"}`}>
                           {!p.isCover && editing.id && (
                             <button
                               type="button"
@@ -3238,7 +3365,8 @@ export function PersonalInventory({
                           )}
                         </div>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
                 <p className="text-[10px] text-muted-foreground/80">
@@ -3579,6 +3707,15 @@ export function PersonalInventory({
                       <p className="text-sm whitespace-pre-wrap text-foreground/90">{item.notes}</p>
                     </div>
                   )}
+
+                  {/* ── Worklog usage history (item #19 Phase A) ── */}
+                  <div className="pt-2 border-t border-border">
+                    <EquipmentUsageHistory
+                      equipmentId={item.id}
+                      equipmentName={item.name}
+                      limit={5}
+                    />
+                  </div>
 
                   {focusedPositionId && (
                     <div className="pt-2 border-t border-border">

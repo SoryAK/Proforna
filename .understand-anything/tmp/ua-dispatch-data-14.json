@@ -1,0 +1,3846 @@
+{
+  "batchIndex": 14,
+  "totalBatches": 34,
+  "files": [
+    {
+      "path": "src/components/ui/badge.tsx",
+      "language": "typescript",
+      "sizeLines": 52,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/ui/button.tsx",
+      "language": "typescript",
+      "sizeLines": 62,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/ui/card.tsx",
+      "language": "typescript",
+      "sizeLines": 103,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/ui/checkbox.tsx",
+      "language": "typescript",
+      "sizeLines": 29,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/ui/dialog.tsx",
+      "language": "typescript",
+      "sizeLines": 157,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/ui/dropdown-menu.tsx",
+      "language": "typescript",
+      "sizeLines": 268,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/ui/input-group.tsx",
+      "language": "typescript",
+      "sizeLines": 158,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/ui/input.tsx",
+      "language": "typescript",
+      "sizeLines": 20,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/ui/label.tsx",
+      "language": "typescript",
+      "sizeLines": 20,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/ui/progress.tsx",
+      "language": "typescript",
+      "sizeLines": 83,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/ui/select.tsx",
+      "language": "typescript",
+      "sizeLines": 201,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/ui/separator.tsx",
+      "language": "typescript",
+      "sizeLines": 25,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/ui/skeleton.tsx",
+      "language": "typescript",
+      "sizeLines": 13,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/ui/switch.tsx",
+      "language": "typescript",
+      "sizeLines": 32,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/ui/table.tsx",
+      "language": "typescript",
+      "sizeLines": 116,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/ui/tabs.tsx",
+      "language": "typescript",
+      "sizeLines": 82,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/ui/textarea.tsx",
+      "language": "typescript",
+      "sizeLines": 18,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/ui/tooltip.tsx",
+      "language": "typescript",
+      "sizeLines": 66,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/video-call.tsx",
+      "language": "typescript",
+      "sizeLines": 373,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/work-history-shift-manager.tsx",
+      "language": "typescript",
+      "sizeLines": 195,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/work-log-tracker.tsx",
+      "language": "typescript",
+      "sizeLines": 663,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/canvas-dialog.tsx",
+      "language": "typescript",
+      "sizeLines": 154,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/promote-to-event-dialog.tsx",
+      "language": "typescript",
+      "sizeLines": 226,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/quick-capture-dialog.tsx",
+      "language": "typescript",
+      "sizeLines": 249,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/worklog/worklog-folder-delete-dialog.tsx",
+      "language": "typescript",
+      "sizeLines": 162,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/constants.ts",
+      "language": "typescript",
+      "sizeLines": 106,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/money.ts",
+      "language": "typescript",
+      "sizeLines": 36,
+      "fileCategory": "code"
+    }
+  ],
+  "batchImportData": {
+    "src/components/ui/badge.tsx": [
+      "src/lib/utils.ts"
+    ],
+    "src/components/ui/button.tsx": [
+      "src/lib/utils.ts"
+    ],
+    "src/components/ui/card.tsx": [
+      "src/lib/utils.ts"
+    ],
+    "src/components/ui/checkbox.tsx": [
+      "src/lib/utils.ts"
+    ],
+    "src/components/ui/dialog.tsx": [
+      "src/components/ui/button.tsx",
+      "src/lib/utils.ts"
+    ],
+    "src/components/ui/dropdown-menu.tsx": [
+      "src/lib/utils.ts"
+    ],
+    "src/components/ui/input-group.tsx": [
+      "src/components/ui/button.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/textarea.tsx",
+      "src/lib/utils.ts"
+    ],
+    "src/components/ui/input.tsx": [
+      "src/lib/utils.ts"
+    ],
+    "src/components/ui/label.tsx": [
+      "src/lib/utils.ts"
+    ],
+    "src/components/ui/progress.tsx": [
+      "src/lib/utils.ts"
+    ],
+    "src/components/ui/select.tsx": [
+      "src/lib/utils.ts"
+    ],
+    "src/components/ui/separator.tsx": [
+      "src/lib/utils.ts"
+    ],
+    "src/components/ui/skeleton.tsx": [
+      "src/lib/utils.ts"
+    ],
+    "src/components/ui/switch.tsx": [
+      "src/lib/utils.ts"
+    ],
+    "src/components/ui/table.tsx": [
+      "src/lib/utils.ts"
+    ],
+    "src/components/ui/tabs.tsx": [
+      "src/lib/utils.ts"
+    ],
+    "src/components/ui/textarea.tsx": [
+      "src/lib/utils.ts"
+    ],
+    "src/components/ui/tooltip.tsx": [
+      "src/lib/utils.ts"
+    ],
+    "src/components/video-call.tsx": [
+      "src/components/ui/button.tsx"
+    ],
+    "src/components/work-history-shift-manager.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/lib/worklog-shifts.ts",
+      "src/types/worklog.ts"
+    ],
+    "src/components/work-log-tracker.tsx": [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/card.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/switch.tsx",
+      "src/components/ui/textarea.tsx"
+    ],
+    "src/components/worklog/canvas-dialog.tsx": [
+      "src/components/ui/button.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/lib/worklog/parse-snapshot.ts"
+    ],
+    "src/components/worklog/promote-to-event-dialog.tsx": [
+      "src/components/ui/button.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/label.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/textarea.tsx"
+    ],
+    "src/components/worklog/quick-capture-dialog.tsx": [
+      "src/components/ui/button.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx",
+      "src/components/ui/select.tsx",
+      "src/components/ui/textarea.tsx",
+      "src/components/worklog/constants.ts",
+      "src/types/worklog.ts"
+    ],
+    "src/components/worklog/worklog-folder-delete-dialog.tsx": [
+      "src/components/ui/button.tsx",
+      "src/components/ui/dialog.tsx",
+      "src/components/ui/input.tsx"
+    ],
+    "src/lib/constants.ts": [],
+    "src/lib/money.ts": []
+  },
+  "neighborMap": {
+    "src/components/ui/badge.tsx": [
+      {
+        "path": "src/lib/utils.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "cn"
+        ]
+      },
+      {
+        "path": "src/components/job-map.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "JobMap"
+        ]
+      },
+      {
+        "path": "src/app/(app)/current-position/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "CurrentPositionPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/applications/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "ApplicationsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/dashboard/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "DashboardPage"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-note-reader.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "WorklogNoteReader"
+        ]
+      },
+      {
+        "path": "src/app/(app)/experience/[id]/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "ExperienceDetailPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/contacts/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "ContactsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/skills/page.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "SkillsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/goals/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "GoalsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/resumes/page.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "ResumesPage"
+        ]
+      },
+      {
+        "path": "src/components/career-direction-model.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "CareerDirectionModel"
+        ]
+      },
+      {
+        "path": "src/components/job-assets-page.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "JobAssetsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/portal-settings/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "PortalSettingsPage"
+        ]
+      },
+      {
+        "path": "src/components/asset-types-manager.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "ASSET_CATEGORIES",
+          "AssetTypesManager"
+        ]
+      },
+      {
+        "path": "src/components/learning-tracker.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "LearningTracker"
+        ]
+      },
+      {
+        "path": "src/components/skill-graph.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "SkillGraph"
+        ]
+      },
+      {
+        "path": "src/components/timeoff-tracker.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "TimeOffTracker"
+        ]
+      },
+      {
+        "path": "src/components/benefits-tracker.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "BenefitsTracker"
+        ]
+      },
+      {
+        "path": "src/components/compensation-tracker.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "CompensationTracker"
+        ]
+      },
+      {
+        "path": "src/components/industry-research.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "IndustryResearch"
+        ]
+      },
+      {
+        "path": "src/components/interactive-resumes-manager.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "InteractiveResumesManager"
+        ]
+      },
+      {
+        "path": "src/app/(app)/career-model/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "CareerModelPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/documents/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "DocumentsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/submissions/page.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "SubmissionsPage"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-toolbar.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "WorklogToolbar"
+        ]
+      },
+      {
+        "path": "src/app/(app)/job-postings/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "JobPostingsPage"
+        ]
+      },
+      {
+        "path": "src/components/company-deep-dive.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "CompanyDeepDive"
+        ]
+      },
+      {
+        "path": "src/components/equipment-tracker.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "EquipmentTracker"
+        ]
+      },
+      {
+        "path": "src/components/offer-comparison.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "OfferComparison"
+        ]
+      },
+      {
+        "path": "src/components/personal-finance.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "PersonalFinance"
+        ]
+      },
+      {
+        "path": "src/app/(app)/career-growth/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "CareerGrowthPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/learning/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "LearningPage"
+        ]
+      },
+      {
+        "path": "src/components/company-intel.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "CompanyIntel"
+        ]
+      },
+      {
+        "path": "src/components/interview-prep.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "InterviewPrepDialog"
+        ]
+      },
+      {
+        "path": "src/components/job-interest-groups.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "JobInterestGroups"
+        ]
+      },
+      {
+        "path": "src/components/life-anchors-panel.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "LifeAnchorsPanel"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-template-picker-dialog.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "WorklogTemplatePickerDialog"
+        ]
+      },
+      {
+        "path": "src/app/(app)/email/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "EmailPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/experience/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "ExperiencePage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/portal/page.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "PortalPage"
+        ]
+      },
+      {
+        "path": "src/components/interview-room-launcher.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "InterviewRoomLauncher"
+        ]
+      },
+      {
+        "path": "src/components/position-worklog-tab.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "PositionWorklogTab"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-templates-tab.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "WorklogTemplatesTab"
+        ]
+      },
+      {
+        "path": "src/app/(app)/activity/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "ActivityPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/experience/verify/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "VerifyEmploymentPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/integrations/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "IntegrationsPage"
+        ]
+      },
+      {
+        "path": "src/app/onboarding/page.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "OnboardingPage"
+        ]
+      },
+      {
+        "path": "src/components/company-news.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "CompanyNews"
+        ]
+      },
+      {
+        "path": "src/components/job-board.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "JobBoard"
+        ]
+      }
+    ],
+    "src/components/ui/button.tsx": [
+      {
+        "path": "src/lib/utils.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "cn"
+        ]
+      },
+      {
+        "path": "src/components/job-map.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "JobMap"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-page.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "WorklogPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/current-position/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "CurrentPositionPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/applications/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "ApplicationsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/dashboard/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "DashboardPage"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-note-reader.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "WorklogNoteReader"
+        ]
+      },
+      {
+        "path": "src/app/(app)/experience/[id]/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "ExperienceDetailPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/contacts/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "ContactsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/skills/page.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "SkillsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/goals/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "GoalsPage"
+        ]
+      },
+      {
+        "path": "src/components/asset-picker.tsx",
+        "batchIndex": 8,
+        "symbols": [
+          "ASSET_TYPES",
+          "ASSET_STATUS",
+          "AssetPicker"
+        ]
+      },
+      {
+        "path": "src/app/(app)/resumes/page.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "ResumesPage"
+        ]
+      },
+      {
+        "path": "src/components/career-direction-model.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "CareerDirectionModel"
+        ]
+      },
+      {
+        "path": "src/components/job-assets-page.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "JobAssetsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/portal-settings/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "PortalSettingsPage"
+        ]
+      },
+      {
+        "path": "src/components/asset-types-manager.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "ASSET_CATEGORIES",
+          "AssetTypesManager"
+        ]
+      },
+      {
+        "path": "src/components/learning-tracker.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "LearningTracker"
+        ]
+      },
+      {
+        "path": "src/components/skill-graph.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "SkillGraph"
+        ]
+      },
+      {
+        "path": "src/components/timeoff-tracker.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "TimeOffTracker"
+        ]
+      },
+      {
+        "path": "src/components/benefits-tracker.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "BenefitsTracker"
+        ]
+      },
+      {
+        "path": "src/components/compensation-tracker.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "CompensationTracker"
+        ]
+      },
+      {
+        "path": "src/components/equipment-picker.tsx",
+        "batchIndex": 8,
+        "symbols": [
+          "EQUIPMENT_CATEGORIES",
+          "EQUIPMENT_CONDITIONS",
+          "EquipmentPicker"
+        ]
+      },
+      {
+        "path": "src/components/industry-research.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "IndustryResearch"
+        ]
+      },
+      {
+        "path": "src/components/interactive-resumes-manager.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "InteractiveResumesManager"
+        ]
+      },
+      {
+        "path": "src/components/personal-inventory.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "PersonalInventory"
+        ]
+      },
+      {
+        "path": "src/app/(app)/career-model/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "CareerModelPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/documents/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "DocumentsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/submissions/page.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "SubmissionsPage"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-note-meta-strip.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "WorklogNoteMetaStrip"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-template-editor.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "WorklogTemplateEditor"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-toolbar.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "WorklogToolbar"
+        ]
+      },
+      {
+        "path": "src/app/(app)/job-postings/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "JobPostingsPage"
+        ]
+      },
+      {
+        "path": "src/components/company-deep-dive.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "CompanyDeepDive"
+        ]
+      },
+      {
+        "path": "src/components/equipment-tracker.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "EquipmentTracker"
+        ]
+      },
+      {
+        "path": "src/components/offer-comparison.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "OfferComparison"
+        ]
+      },
+      {
+        "path": "src/components/personal-finance.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "PersonalFinance"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-defaults-dialog.tsx",
+        "batchIndex": 9,
+        "symbols": [
+          "WorklogDefaultsDialog"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-move-to-folder-dialog.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "WorklogMoveToFolderDialog"
+        ]
+      },
+      {
+        "path": "src/app/(app)/career-growth/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "CareerGrowthPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/learning/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "LearningPage"
+        ]
+      },
+      {
+        "path": "src/components/adaptive-ir-editor.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "AdaptiveIrEditor"
+        ]
+      },
+      {
+        "path": "src/components/company-intel.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "CompanyIntel"
+        ]
+      },
+      {
+        "path": "src/components/compensation-editor.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "CompensationEditor"
+        ]
+      },
+      {
+        "path": "src/components/interview-prep.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "InterviewPrepDialog"
+        ]
+      },
+      {
+        "path": "src/components/job-interest-groups.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "JobInterestGroups"
+        ]
+      },
+      {
+        "path": "src/components/life-anchors-panel.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "LifeAnchorsPanel"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-editor-toolbar.tsx",
+        "batchIndex": 9,
+        "symbols": [
+          "WorklogEditorToolbar"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-template-picker-dialog.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "WorklogTemplatePickerDialog"
+        ]
+      },
+      {
+        "path": "src/app/(app)/email/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "EmailPage"
+        ]
+      }
+    ],
+    "src/components/ui/card.tsx": [
+      {
+        "path": "src/lib/utils.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "cn"
+        ]
+      },
+      {
+        "path": "src/components/job-map.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "JobMap"
+        ]
+      },
+      {
+        "path": "src/app/(app)/current-position/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "CurrentPositionPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/applications/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "ApplicationsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/dashboard/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "DashboardPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/experience/[id]/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "ExperienceDetailPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/contacts/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "ContactsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/skills/page.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "SkillsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/goals/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "GoalsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/resumes/page.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "ResumesPage"
+        ]
+      },
+      {
+        "path": "src/components/career-direction-model.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "CareerDirectionModel"
+        ]
+      },
+      {
+        "path": "src/components/job-assets-page.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "JobAssetsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/portal-settings/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "PortalSettingsPage"
+        ]
+      },
+      {
+        "path": "src/components/asset-types-manager.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "ASSET_CATEGORIES",
+          "AssetTypesManager"
+        ]
+      },
+      {
+        "path": "src/components/learning-tracker.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "LearningTracker"
+        ]
+      },
+      {
+        "path": "src/components/skill-graph.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "SkillGraph"
+        ]
+      },
+      {
+        "path": "src/components/timeoff-tracker.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "TimeOffTracker"
+        ]
+      },
+      {
+        "path": "src/components/benefits-tracker.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "BenefitsTracker"
+        ]
+      },
+      {
+        "path": "src/components/compensation-tracker.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "CompensationTracker"
+        ]
+      },
+      {
+        "path": "src/components/industry-research.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "IndustryResearch"
+        ]
+      },
+      {
+        "path": "src/components/interactive-resumes-manager.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "InteractiveResumesManager"
+        ]
+      },
+      {
+        "path": "src/components/personal-inventory.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "PersonalInventory"
+        ]
+      },
+      {
+        "path": "src/app/(app)/career-model/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "CareerModelPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/documents/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "DocumentsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/submissions/page.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "SubmissionsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/job-postings/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "JobPostingsPage"
+        ]
+      },
+      {
+        "path": "src/components/company-deep-dive.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "CompanyDeepDive"
+        ]
+      },
+      {
+        "path": "src/components/equipment-tracker.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "EquipmentTracker"
+        ]
+      },
+      {
+        "path": "src/components/offer-comparison.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "OfferComparison"
+        ]
+      },
+      {
+        "path": "src/components/personal-finance.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "PersonalFinance"
+        ]
+      },
+      {
+        "path": "src/app/(app)/career-growth/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "CareerGrowthPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/learning/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "LearningPage"
+        ]
+      },
+      {
+        "path": "src/components/adaptive-ir-editor.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "AdaptiveIrEditor"
+        ]
+      },
+      {
+        "path": "src/components/company-intel.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "CompanyIntel"
+        ]
+      },
+      {
+        "path": "src/components/compensation-editor.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "CompensationEditor"
+        ]
+      },
+      {
+        "path": "src/components/job-interest-groups.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "JobInterestGroups"
+        ]
+      },
+      {
+        "path": "src/components/life-anchors-panel.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "LifeAnchorsPanel"
+        ]
+      },
+      {
+        "path": "src/app/(app)/email/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "EmailPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/experience/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "ExperiencePage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/portal/page.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "PortalPage"
+        ]
+      },
+      {
+        "path": "src/components/interview-room-launcher.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "InterviewRoomLauncher"
+        ]
+      },
+      {
+        "path": "src/components/position-worklog-tab.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "PositionWorklogTab"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-templates-tab.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "WorklogTemplatesTab"
+        ]
+      },
+      {
+        "path": "src/app/(app)/activity/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "ActivityPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/analytics/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "AnalyticsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/experience/verify/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "VerifyEmploymentPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/integrations/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "IntegrationsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/offer-compare/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "OfferComparePage"
+        ]
+      },
+      {
+        "path": "src/app/onboarding/page.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "OnboardingPage"
+        ]
+      },
+      {
+        "path": "src/components/company-news.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "CompanyNews"
+        ]
+      }
+    ],
+    "src/components/ui/checkbox.tsx": [
+      {
+        "path": "src/lib/utils.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "cn"
+        ]
+      },
+      {
+        "path": "src/app/(app)/applications/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "ApplicationsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/contacts/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "ContactsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/experience/verify/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "VerifyEmploymentPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/learning/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "LearningPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/submissions/page.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "SubmissionsPage"
+        ]
+      },
+      {
+        "path": "src/components/asset-picker.tsx",
+        "batchIndex": 8,
+        "symbols": [
+          "ASSET_TYPES",
+          "ASSET_STATUS",
+          "AssetPicker"
+        ]
+      },
+      {
+        "path": "src/components/equipment-picker.tsx",
+        "batchIndex": 8,
+        "symbols": [
+          "EQUIPMENT_CATEGORIES",
+          "EQUIPMENT_CONDITIONS",
+          "EquipmentPicker"
+        ]
+      },
+      {
+        "path": "src/components/job-interest-groups.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "JobInterestGroups"
+        ]
+      }
+    ],
+    "src/components/ui/dialog.tsx": [
+      {
+        "path": "src/lib/utils.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "cn"
+        ]
+      },
+      {
+        "path": "src/app/(app)/applications/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "ApplicationsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/career-model/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "CareerModelPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/contacts/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "ContactsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/current-position/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "CurrentPositionPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/dashboard/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "DashboardPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/documents/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "DocumentsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/experience/[id]/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "ExperienceDetailPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/goals/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "GoalsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/job-postings/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "JobPostingsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/learning/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "LearningPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/resumes/page.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "ResumesPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/skills/page.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "SkillsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/submissions/page.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "SubmissionsPage"
+        ]
+      },
+      {
+        "path": "src/components/asset-picker.tsx",
+        "batchIndex": 8,
+        "symbols": [
+          "ASSET_TYPES",
+          "ASSET_STATUS",
+          "AssetPicker"
+        ]
+      },
+      {
+        "path": "src/components/asset-types-manager.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "ASSET_CATEGORIES",
+          "AssetTypesManager"
+        ]
+      },
+      {
+        "path": "src/components/benefits-tracker.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "BenefitsTracker"
+        ]
+      },
+      {
+        "path": "src/components/career-direction-model.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "CareerDirectionModel"
+        ]
+      },
+      {
+        "path": "src/components/compensation-tracker.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "CompensationTracker"
+        ]
+      },
+      {
+        "path": "src/components/equipment-picker.tsx",
+        "batchIndex": 8,
+        "symbols": [
+          "EQUIPMENT_CATEGORIES",
+          "EQUIPMENT_CONDITIONS",
+          "EquipmentPicker"
+        ]
+      },
+      {
+        "path": "src/components/equipment-tracker.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "EquipmentTracker"
+        ]
+      },
+      {
+        "path": "src/components/industry-research.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "IndustryResearch"
+        ]
+      },
+      {
+        "path": "src/components/interactive-resumes-manager.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "InteractiveResumesManager"
+        ]
+      },
+      {
+        "path": "src/components/interview-prep.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "InterviewPrepDialog"
+        ]
+      },
+      {
+        "path": "src/components/interview-room-launcher.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "InterviewRoomLauncher"
+        ]
+      },
+      {
+        "path": "src/components/job-assets-page.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "JobAssetsPage"
+        ]
+      },
+      {
+        "path": "src/components/job-interest-groups.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "JobInterestGroups"
+        ]
+      },
+      {
+        "path": "src/components/job-map.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "JobMap"
+        ]
+      },
+      {
+        "path": "src/components/learning-tracker.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "LearningTracker"
+        ]
+      },
+      {
+        "path": "src/components/offer-comparison.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "OfferComparison"
+        ]
+      },
+      {
+        "path": "src/components/skill-graph.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "SkillGraph"
+        ]
+      },
+      {
+        "path": "src/components/timeoff-tracker.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "TimeOffTracker"
+        ]
+      },
+      {
+        "path": "src/components/ui/command.tsx",
+        "batchIndex": 8,
+        "symbols": [
+          "Command",
+          "CommandDialog",
+          "CommandInput",
+          "CommandList",
+          "CommandEmpty",
+          "CommandGroup",
+          "CommandItem",
+          "CommandShortcut",
+          "CommandSeparator"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-bulk-action-bar.tsx",
+        "batchIndex": 9,
+        "symbols": [
+          "WorklogBulkActionBar"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-defaults-dialog.tsx",
+        "batchIndex": 9,
+        "symbols": [
+          "WorklogDefaultsDialog"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-move-to-folder-dialog.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "WorklogMoveToFolderDialog"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-search-palette.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "WorklogSearchPalette"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-template-editor.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "WorklogTemplateEditor"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-template-picker-dialog.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "WorklogTemplatePickerDialog"
+        ]
+      }
+    ],
+    "src/components/ui/dropdown-menu.tsx": [
+      {
+        "path": "src/lib/utils.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "cn"
+        ]
+      },
+      {
+        "path": "src/app/(app)/applications/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "ApplicationsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/contacts/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "ContactsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/goals/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "GoalsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/resumes/page.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "ResumesPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/skills/page.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "SkillsPage"
+        ]
+      },
+      {
+        "path": "src/components/career-direction-model.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "CareerDirectionModel"
+        ]
+      },
+      {
+        "path": "src/components/interactive-resumes-manager.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "InteractiveResumesManager"
+        ]
+      },
+      {
+        "path": "src/components/job-map.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "JobMap"
+        ]
+      },
+      {
+        "path": "src/components/learning-tracker.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "LearningTracker"
+        ]
+      },
+      {
+        "path": "src/components/skill-graph.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "SkillGraph"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-editor-toolbar.tsx",
+        "batchIndex": 9,
+        "symbols": [
+          "WorklogEditorToolbar"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-folder-tree.tsx",
+        "batchIndex": 9,
+        "symbols": [
+          "WorklogFolderTree",
+          "computeDeleteBlastRadius"
+        ]
+      }
+    ],
+    "src/components/ui/input-group.tsx": [
+      {
+        "path": "src/lib/utils.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "cn"
+        ]
+      },
+      {
+        "path": "src/components/ui/command.tsx",
+        "batchIndex": 8,
+        "symbols": [
+          "Command",
+          "CommandDialog",
+          "CommandInput",
+          "CommandList",
+          "CommandEmpty",
+          "CommandGroup",
+          "CommandItem",
+          "CommandShortcut",
+          "CommandSeparator"
+        ]
+      }
+    ],
+    "src/components/ui/input.tsx": [
+      {
+        "path": "src/lib/utils.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "cn"
+        ]
+      },
+      {
+        "path": "src/components/job-map.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "JobMap"
+        ]
+      },
+      {
+        "path": "src/app/(app)/current-position/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "CurrentPositionPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/applications/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "ApplicationsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/dashboard/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "DashboardPage"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-note-reader.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "WorklogNoteReader"
+        ]
+      },
+      {
+        "path": "src/app/(app)/experience/[id]/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "ExperienceDetailPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/contacts/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "ContactsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/skills/page.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "SkillsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/goals/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "GoalsPage"
+        ]
+      },
+      {
+        "path": "src/components/asset-picker.tsx",
+        "batchIndex": 8,
+        "symbols": [
+          "ASSET_TYPES",
+          "ASSET_STATUS",
+          "AssetPicker"
+        ]
+      },
+      {
+        "path": "src/app/(app)/resumes/page.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "ResumesPage"
+        ]
+      },
+      {
+        "path": "src/components/career-direction-model.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "CareerDirectionModel"
+        ]
+      },
+      {
+        "path": "src/components/job-assets-page.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "JobAssetsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/portal-settings/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "PortalSettingsPage"
+        ]
+      },
+      {
+        "path": "src/components/asset-types-manager.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "ASSET_CATEGORIES",
+          "AssetTypesManager"
+        ]
+      },
+      {
+        "path": "src/components/learning-tracker.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "LearningTracker"
+        ]
+      },
+      {
+        "path": "src/components/skill-graph.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "SkillGraph"
+        ]
+      },
+      {
+        "path": "src/components/timeoff-tracker.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "TimeOffTracker"
+        ]
+      },
+      {
+        "path": "src/components/benefits-tracker.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "BenefitsTracker"
+        ]
+      },
+      {
+        "path": "src/components/compensation-tracker.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "CompensationTracker"
+        ]
+      },
+      {
+        "path": "src/components/equipment-picker.tsx",
+        "batchIndex": 8,
+        "symbols": [
+          "EQUIPMENT_CATEGORIES",
+          "EQUIPMENT_CONDITIONS",
+          "EquipmentPicker"
+        ]
+      },
+      {
+        "path": "src/components/industry-research.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "IndustryResearch"
+        ]
+      },
+      {
+        "path": "src/components/interactive-resumes-manager.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "InteractiveResumesManager"
+        ]
+      },
+      {
+        "path": "src/components/personal-inventory.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "PersonalInventory"
+        ]
+      },
+      {
+        "path": "src/app/(app)/career-model/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "CareerModelPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/documents/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "DocumentsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/submissions/page.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "SubmissionsPage"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-note-meta-strip.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "WorklogNoteMetaStrip"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-template-editor.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "WorklogTemplateEditor"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-toolbar.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "WorklogToolbar"
+        ]
+      },
+      {
+        "path": "src/app/(app)/job-postings/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "JobPostingsPage"
+        ]
+      },
+      {
+        "path": "src/components/equipment-tracker.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "EquipmentTracker"
+        ]
+      },
+      {
+        "path": "src/components/offer-comparison.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "OfferComparison"
+        ]
+      },
+      {
+        "path": "src/components/personal-finance.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "PersonalFinance"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-defaults-dialog.tsx",
+        "batchIndex": 9,
+        "symbols": [
+          "WorklogDefaultsDialog"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-move-to-folder-dialog.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "WorklogMoveToFolderDialog"
+        ]
+      },
+      {
+        "path": "src/components/adaptive-ir-editor.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "AdaptiveIrEditor"
+        ]
+      },
+      {
+        "path": "src/components/compensation-editor.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "CompensationEditor"
+        ]
+      },
+      {
+        "path": "src/components/job-interest-groups.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "JobInterestGroups"
+        ]
+      },
+      {
+        "path": "src/components/life-anchors-panel.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "LifeAnchorsPanel"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-editor-toolbar.tsx",
+        "batchIndex": 9,
+        "symbols": [
+          "WorklogEditorToolbar"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-folder-tree.tsx",
+        "batchIndex": 9,
+        "symbols": [
+          "WorklogFolderTree",
+          "computeDeleteBlastRadius"
+        ]
+      },
+      {
+        "path": "src/app/(app)/email/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "EmailPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/portal/page.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "PortalPage"
+        ]
+      },
+      {
+        "path": "src/components/interview-room-launcher.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "InterviewRoomLauncher"
+        ]
+      },
+      {
+        "path": "src/app/(app)/integrations/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "IntegrationsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/offer-compare/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "OfferComparePage"
+        ]
+      },
+      {
+        "path": "src/app/onboarding/page.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "OnboardingPage"
+        ]
+      },
+      {
+        "path": "src/components/bio-card-editor.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "BioCardEditor"
+        ]
+      }
+    ],
+    "src/components/ui/label.tsx": [
+      {
+        "path": "src/lib/utils.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "cn"
+        ]
+      },
+      {
+        "path": "src/app/(app)/applications/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "ApplicationsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/career-model/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "CareerModelPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/contacts/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "ContactsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/current-position/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "CurrentPositionPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/dashboard/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "DashboardPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/documents/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "DocumentsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/experience/[id]/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "ExperienceDetailPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/goals/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "GoalsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/integrations/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "IntegrationsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/job-postings/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "JobPostingsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/offer-compare/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "OfferComparePage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/portal-settings/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "PortalSettingsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/resumes/page.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "ResumesPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/skills/page.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "SkillsPage"
+        ]
+      },
+      {
+        "path": "src/app/login/page.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "LoginPage"
+        ]
+      },
+      {
+        "path": "src/app/onboarding/page.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "OnboardingPage"
+        ]
+      },
+      {
+        "path": "src/components/adaptive-ir-editor.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "AdaptiveIrEditor"
+        ]
+      },
+      {
+        "path": "src/components/asset-picker.tsx",
+        "batchIndex": 8,
+        "symbols": [
+          "ASSET_TYPES",
+          "ASSET_STATUS",
+          "AssetPicker"
+        ]
+      },
+      {
+        "path": "src/components/asset-types-manager.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "ASSET_CATEGORIES",
+          "AssetTypesManager"
+        ]
+      },
+      {
+        "path": "src/components/benefits-tracker.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "BenefitsTracker"
+        ]
+      },
+      {
+        "path": "src/components/bio-card-editor.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "BioCardEditor"
+        ]
+      },
+      {
+        "path": "src/components/career-direction-model.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "CareerDirectionModel"
+        ]
+      },
+      {
+        "path": "src/components/compensation-editor.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "CompensationEditor"
+        ]
+      },
+      {
+        "path": "src/components/compensation-tracker.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "CompensationTracker"
+        ]
+      },
+      {
+        "path": "src/components/equipment-picker.tsx",
+        "batchIndex": 8,
+        "symbols": [
+          "EQUIPMENT_CATEGORIES",
+          "EQUIPMENT_CONDITIONS",
+          "EquipmentPicker"
+        ]
+      },
+      {
+        "path": "src/components/equipment-tracker.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "EquipmentTracker"
+        ]
+      },
+      {
+        "path": "src/components/industry-research.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "IndustryResearch"
+        ]
+      },
+      {
+        "path": "src/components/interactive-resumes-manager.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "InteractiveResumesManager"
+        ]
+      },
+      {
+        "path": "src/components/interview-prep.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "InterviewPrepDialog"
+        ]
+      },
+      {
+        "path": "src/components/job-assets-page.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "JobAssetsPage"
+        ]
+      },
+      {
+        "path": "src/components/job-map.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "JobMap"
+        ]
+      },
+      {
+        "path": "src/components/learning-tracker.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "LearningTracker"
+        ]
+      },
+      {
+        "path": "src/components/life-anchors-panel.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "LifeAnchorsPanel"
+        ]
+      },
+      {
+        "path": "src/components/offer-comparison.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "OfferComparison"
+        ]
+      },
+      {
+        "path": "src/components/paycheck-estimator.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "PaycheckEstimator"
+        ]
+      },
+      {
+        "path": "src/components/personal-finance.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "PersonalFinance"
+        ]
+      },
+      {
+        "path": "src/components/personal-inventory.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "PersonalInventory"
+        ]
+      },
+      {
+        "path": "src/components/skill-graph.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "SkillGraph"
+        ]
+      },
+      {
+        "path": "src/components/timeoff-tracker.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "TimeOffTracker"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-defaults-dialog.tsx",
+        "batchIndex": 9,
+        "symbols": [
+          "WorklogDefaultsDialog"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-photo-section.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "WorklogPhotoSection"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-template-editor.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "WorklogTemplateEditor"
+        ]
+      }
+    ],
+    "src/components/ui/progress.tsx": [
+      {
+        "path": "src/lib/utils.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "cn"
+        ]
+      },
+      {
+        "path": "src/app/(app)/career-growth/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "CareerGrowthPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/dashboard/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "DashboardPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/experience/verify/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "VerifyEmploymentPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/goals/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "GoalsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/learning/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "LearningPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/skills/page.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "SkillsPage"
+        ]
+      },
+      {
+        "path": "src/components/career-direction-model.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "CareerDirectionModel"
+        ]
+      },
+      {
+        "path": "src/components/company-deep-dive.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "CompanyDeepDive"
+        ]
+      },
+      {
+        "path": "src/components/learning-tracker.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "LearningTracker"
+        ]
+      },
+      {
+        "path": "src/components/timeoff-tracker.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "TimeOffTracker"
+        ]
+      }
+    ],
+    "src/components/ui/select.tsx": [
+      {
+        "path": "src/lib/utils.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "cn"
+        ]
+      },
+      {
+        "path": "src/app/(app)/activity/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "ActivityPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/applications/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "ApplicationsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/contacts/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "ContactsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/current-position/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "CurrentPositionPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/dashboard/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "DashboardPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/documents/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "DocumentsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/experience/[id]/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "ExperienceDetailPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/goals/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "GoalsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/job-postings/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "JobPostingsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/offer-compare/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "OfferComparePage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/portal-settings/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "PortalSettingsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/portal/page.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "PortalPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/skills/page.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "SkillsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/submissions/page.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "SubmissionsPage"
+        ]
+      },
+      {
+        "path": "src/components/adaptive-ir-editor.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "AdaptiveIrEditor"
+        ]
+      },
+      {
+        "path": "src/components/ai-chat.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "AIChat"
+        ]
+      },
+      {
+        "path": "src/components/benefits-tracker.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "BenefitsTracker"
+        ]
+      },
+      {
+        "path": "src/components/bio-card-editor.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "BioCardEditor"
+        ]
+      },
+      {
+        "path": "src/components/career-direction-model.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "CareerDirectionModel"
+        ]
+      },
+      {
+        "path": "src/components/compensation-editor.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "CompensationEditor"
+        ]
+      },
+      {
+        "path": "src/components/compensation-tracker.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "CompensationTracker"
+        ]
+      },
+      {
+        "path": "src/components/equipment-tracker.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "EquipmentTracker"
+        ]
+      },
+      {
+        "path": "src/components/industry-research.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "IndustryResearch"
+        ]
+      },
+      {
+        "path": "src/components/interactive-resumes-manager.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "InteractiveResumesManager"
+        ]
+      },
+      {
+        "path": "src/components/interview-room-launcher.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "InterviewRoomLauncher"
+        ]
+      },
+      {
+        "path": "src/components/job-board.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "JobBoard"
+        ]
+      },
+      {
+        "path": "src/components/job-map.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "JobMap"
+        ]
+      },
+      {
+        "path": "src/components/learning-tracker.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "LearningTracker"
+        ]
+      },
+      {
+        "path": "src/components/life-anchors-panel.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "LifeAnchorsPanel"
+        ]
+      },
+      {
+        "path": "src/components/offer-comparison.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "OfferComparison"
+        ]
+      },
+      {
+        "path": "src/components/personal-finance.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "PersonalFinance"
+        ]
+      },
+      {
+        "path": "src/components/personal-inventory.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "PersonalInventory"
+        ]
+      },
+      {
+        "path": "src/components/skill-graph.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "SkillGraph"
+        ]
+      },
+      {
+        "path": "src/components/timeoff-tracker.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "TimeOffTracker"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-defaults-dialog.tsx",
+        "batchIndex": 9,
+        "symbols": [
+          "WorklogDefaultsDialog"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-note-meta-strip.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "WorklogNoteMetaStrip"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-toolbar.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "WorklogToolbar"
+        ]
+      }
+    ],
+    "src/components/ui/separator.tsx": [
+      {
+        "path": "src/lib/utils.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "cn"
+        ]
+      },
+      {
+        "path": "src/app/(app)/applications/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "ApplicationsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/career-model/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "CareerModelPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/current-position/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "CurrentPositionPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/dashboard/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "DashboardPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/email/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "EmailPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/experience/[id]/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "ExperienceDetailPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/experience/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "ExperiencePage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/experience/verify/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "VerifyEmploymentPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/portal-settings/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "PortalSettingsPage"
+        ]
+      },
+      {
+        "path": "src/app/login/page.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "LoginPage"
+        ]
+      },
+      {
+        "path": "src/components/benefits-tracker.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "BenefitsTracker"
+        ]
+      },
+      {
+        "path": "src/components/career-direction-model.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "CareerDirectionModel"
+        ]
+      },
+      {
+        "path": "src/components/company-deep-dive.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "CompanyDeepDive"
+        ]
+      },
+      {
+        "path": "src/components/company-intel.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "CompanyIntel"
+        ]
+      },
+      {
+        "path": "src/components/company-news.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "CompanyNews"
+        ]
+      },
+      {
+        "path": "src/components/compensation-tracker.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "CompensationTracker"
+        ]
+      },
+      {
+        "path": "src/components/hours-worked-tracker.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "HoursWorkedTracker"
+        ]
+      },
+      {
+        "path": "src/components/interview-prep.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "InterviewPrepDialog"
+        ]
+      },
+      {
+        "path": "src/components/job-interest-groups.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "JobInterestGroups"
+        ]
+      },
+      {
+        "path": "src/components/job-map.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "JobMap"
+        ]
+      },
+      {
+        "path": "src/components/offer-comparison.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "OfferComparison"
+        ]
+      },
+      {
+        "path": "src/components/paycheck-estimator.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "PaycheckEstimator"
+        ]
+      },
+      {
+        "path": "src/components/personal-finance.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "PersonalFinance"
+        ]
+      },
+      {
+        "path": "src/components/timeoff-tracker.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "TimeOffTracker"
+        ]
+      }
+    ],
+    "src/components/ui/skeleton.tsx": [
+      {
+        "path": "src/lib/utils.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "cn"
+        ]
+      },
+      {
+        "path": "src/app/(app)/activity/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "ActivityPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/analytics/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "AnalyticsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/applications/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "ApplicationsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/career-growth/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "CareerGrowthPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/contacts/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "ContactsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/documents/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "DocumentsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/email/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "EmailPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/experience/[id]/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "ExperienceDetailPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/experience/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "ExperiencePage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/goals/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "GoalsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/learning/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "LearningPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/resumes/page.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "ResumesPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/skills/page.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "SkillsPage"
+        ]
+      },
+      {
+        "path": "src/components/adaptive-ir-editor.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "AdaptiveIrEditor"
+        ]
+      },
+      {
+        "path": "src/components/career-direction-model.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "CareerDirectionModel"
+        ]
+      },
+      {
+        "path": "src/components/company-deep-dive.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "CompanyDeepDive"
+        ]
+      },
+      {
+        "path": "src/components/company-intel.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "CompanyIntel"
+        ]
+      },
+      {
+        "path": "src/components/industry-research.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "IndustryResearch"
+        ]
+      },
+      {
+        "path": "src/components/interactive-resumes-manager.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "InteractiveResumesManager"
+        ]
+      },
+      {
+        "path": "src/components/job-market-research.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "JobMarketResearch"
+        ]
+      },
+      {
+        "path": "src/components/learning-tracker.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "LearningTracker"
+        ]
+      },
+      {
+        "path": "src/components/skill-graph.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "SkillGraph"
+        ]
+      }
+    ],
+    "src/components/ui/switch.tsx": [
+      {
+        "path": "src/lib/utils.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "cn"
+        ]
+      },
+      {
+        "path": "src/app/(app)/career-model/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "CareerModelPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/current-position/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "CurrentPositionPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/experience/[id]/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "ExperienceDetailPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/integrations/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "IntegrationsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/job-postings/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "JobPostingsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/portal-settings/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "PortalSettingsPage"
+        ]
+      },
+      {
+        "path": "src/components/adaptive-ir-editor.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "AdaptiveIrEditor"
+        ]
+      },
+      {
+        "path": "src/components/compensation-editor.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "CompensationEditor"
+        ]
+      },
+      {
+        "path": "src/components/interactive-resumes-manager.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "InteractiveResumesManager"
+        ]
+      },
+      {
+        "path": "src/components/job-map.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "JobMap"
+        ]
+      },
+      {
+        "path": "src/components/personal-inventory.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "PersonalInventory"
+        ]
+      }
+    ],
+    "src/components/ui/table.tsx": [
+      {
+        "path": "src/lib/utils.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "cn"
+        ]
+      },
+      {
+        "path": "src/app/(app)/applications/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "ApplicationsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/career-model/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "CareerModelPage"
+        ]
+      }
+    ],
+    "src/components/ui/tabs.tsx": [
+      {
+        "path": "src/lib/utils.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "cn"
+        ]
+      },
+      {
+        "path": "src/app/(app)/applications/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "ApplicationsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/current-position/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "CurrentPositionPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/dashboard/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "DashboardPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/docs/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "DocumentsHubPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/experience/[id]/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "ExperienceDetailPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/insights/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "InsightsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/job-search/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "JobSearchPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/profile/page.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "ProfilePage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/research/page.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "ResearchPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/skills/page.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "SkillsPage"
+        ]
+      },
+      {
+        "path": "src/components/company-deep-dive.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "CompanyDeepDive"
+        ]
+      },
+      {
+        "path": "src/components/hours-worked-tracker.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "HoursWorkedTracker"
+        ]
+      },
+      {
+        "path": "src/components/interview-prep.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "InterviewPrepDialog"
+        ]
+      }
+    ],
+    "src/components/ui/textarea.tsx": [
+      {
+        "path": "src/lib/utils.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "cn"
+        ]
+      },
+      {
+        "path": "src/app/(app)/applications/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "ApplicationsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/contacts/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "ContactsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/current-position/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "CurrentPositionPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/dashboard/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "DashboardPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/documents/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "DocumentsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/experience/[id]/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "ExperienceDetailPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/goals/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "GoalsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/job-postings/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "JobPostingsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/offer-compare/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "OfferComparePage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/portal-settings/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "PortalSettingsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/portal/page.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "PortalPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/resumes/page.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "ResumesPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/worker-rights/page.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "WorkerRightsPage"
+        ]
+      },
+      {
+        "path": "src/app/onboarding/page.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "OnboardingPage"
+        ]
+      },
+      {
+        "path": "src/components/ai-chat.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "AIChat"
+        ]
+      },
+      {
+        "path": "src/components/asset-picker.tsx",
+        "batchIndex": 8,
+        "symbols": [
+          "ASSET_TYPES",
+          "ASSET_STATUS",
+          "AssetPicker"
+        ]
+      },
+      {
+        "path": "src/components/asset-types-manager.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "ASSET_CATEGORIES",
+          "AssetTypesManager"
+        ]
+      },
+      {
+        "path": "src/components/benefits-tracker.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "BenefitsTracker"
+        ]
+      },
+      {
+        "path": "src/components/bio-card-editor.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "BioCardEditor"
+        ]
+      },
+      {
+        "path": "src/components/career-direction-model.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "CareerDirectionModel"
+        ]
+      },
+      {
+        "path": "src/components/company-intel.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "CompanyIntel"
+        ]
+      },
+      {
+        "path": "src/components/compensation-editor.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "CompensationEditor"
+        ]
+      },
+      {
+        "path": "src/components/compensation-tracker.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "CompensationTracker"
+        ]
+      },
+      {
+        "path": "src/components/equipment-picker.tsx",
+        "batchIndex": 8,
+        "symbols": [
+          "EQUIPMENT_CATEGORIES",
+          "EQUIPMENT_CONDITIONS",
+          "EquipmentPicker"
+        ]
+      },
+      {
+        "path": "src/components/equipment-tracker.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "EquipmentTracker"
+        ]
+      },
+      {
+        "path": "src/components/interactive-resumes-manager.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "InteractiveResumesManager"
+        ]
+      },
+      {
+        "path": "src/components/interview-prep.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "InterviewPrepDialog"
+        ]
+      },
+      {
+        "path": "src/components/job-assets-page.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "JobAssetsPage"
+        ]
+      },
+      {
+        "path": "src/components/job-map.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "JobMap"
+        ]
+      },
+      {
+        "path": "src/components/learning-tracker.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "LearningTracker"
+        ]
+      },
+      {
+        "path": "src/components/personal-inventory.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "PersonalInventory"
+        ]
+      },
+      {
+        "path": "src/components/skill-graph.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "SkillGraph"
+        ]
+      },
+      {
+        "path": "src/components/timeoff-tracker.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "TimeOffTracker"
+        ]
+      }
+    ],
+    "src/components/ui/tooltip.tsx": [
+      {
+        "path": "src/lib/utils.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "cn"
+        ]
+      },
+      {
+        "path": "src/components/industry-research.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "IndustryResearch"
+        ]
+      },
+      {
+        "path": "src/components/pay-period-calendar.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "PayPeriodCalendar"
+        ]
+      },
+      {
+        "path": "src/components/skill-graph-analytics.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "SkillGraphAnalytics"
+        ]
+      }
+    ],
+    "src/components/video-call.tsx": [
+      {
+        "path": "src/app/interview/[roomId]/page.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "InterviewRoomPage"
+        ]
+      }
+    ],
+    "src/components/work-history-shift-manager.tsx": [
+      {
+        "path": "src/lib/worklog-shifts.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "minutesFromTimeLabel",
+          "timeLabelFromMinutes",
+          "localDateAndMinuteFromIso",
+          "computeWorkdayDateLocal",
+          "toIsoFromLocalDateTime",
+          "toIsoFromLocalDate"
+        ]
+      },
+      {
+        "path": "src/types/worklog.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "EquipmentItem",
+          "JobAsset"
+        ]
+      },
+      {
+        "path": "src/app/(app)/current-position/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "CurrentPositionPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/experience/[id]/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "ExperienceDetailPage"
+        ]
+      }
+    ],
+    "src/components/worklog/canvas-dialog.tsx": [
+      {
+        "path": "src/lib/worklog/parse-snapshot.ts",
+        "batchIndex": 34,
+        "symbols": [
+          "parseSnapshot"
+        ]
+      }
+    ],
+    "src/components/worklog/promote-to-event-dialog.tsx": [
+      {
+        "path": "src/components/position-worklog-tab.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "PositionWorklogTab"
+        ]
+      },
+      {
+        "path": "src/components/worklog/worklog-note-reader.tsx",
+        "batchIndex": 10,
+        "symbols": [
+          "WorklogNoteReader"
+        ]
+      }
+    ],
+    "src/components/worklog/quick-capture-dialog.tsx": [
+      {
+        "path": "src/components/worklog/constants.ts",
+        "batchIndex": 8,
+        "symbols": [
+          "CATEGORIES",
+          "MOODS",
+          "dateLabel",
+          "DND_DROP_TARGET_CLASS",
+          "DND_ACTIVE_ROW_CLASS"
+        ]
+      },
+      {
+        "path": "src/types/worklog.ts",
+        "batchIndex": 10,
+        "symbols": [
+          "EquipmentItem",
+          "JobAsset"
+        ]
+      },
+      {
+        "path": "src/components/command-palette.tsx",
+        "batchIndex": 8,
+        "symbols": [
+          "CommandPalette"
+        ]
+      }
+    ],
+    "src/components/worklog/worklog-folder-delete-dialog.tsx": [
+      {
+        "path": "src/components/worklog/worklog-folder-tree-items.tsx",
+        "batchIndex": 9,
+        "symbols": [
+          "WorklogFolderTreeItems"
+        ]
+      }
+    ],
+    "src/lib/constants.ts": [
+      {
+        "path": "src/app/(app)/analytics/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "AnalyticsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/applications/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "ApplicationsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/contacts/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "ContactsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/dashboard/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "DashboardPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/goals/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "GoalsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/portal-settings/page.tsx",
+        "batchIndex": 11,
+        "symbols": [
+          "PortalSettingsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/portal/page.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "PortalPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/skills/page.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "SkillsPage"
+        ]
+      },
+      {
+        "path": "src/app/(app)/submissions/page.tsx",
+        "batchIndex": 12,
+        "symbols": [
+          "SubmissionsPage"
+        ]
+      },
+      {
+        "path": "src/components/sidebar.tsx",
+        "batchIndex": 8,
+        "symbols": [
+          "Sidebar",
+          "MobileHeader"
+        ]
+      }
+    ],
+    "src/lib/money.ts": [
+      {
+        "path": "src/components/personal-finance.tsx",
+        "batchIndex": 13,
+        "symbols": [
+          "PersonalFinance"
+        ]
+      }
+    ]
+  }
+}

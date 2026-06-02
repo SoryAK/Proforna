@@ -1,0 +1,35 @@
+{
+  "projectRoot": "C:\\Users\\Sory kaba\\OneDrive\\RESUMSIFY\\Personal_Projects\\Dev_Pojects\\resumsify",
+  "batchFiles": [
+    {
+      "path": ".github/workflows/squad-heartbeat.yml",
+      "language": "yaml",
+      "sizeLines": 167,
+      "fileCategory": "infra"
+    },
+    {
+      "path": ".github/workflows/squad-issue-assign.yml",
+      "language": "yaml",
+      "sizeLines": 161,
+      "fileCategory": "infra"
+    },
+    {
+      "path": ".github/workflows/squad-triage.yml",
+      "language": "yaml",
+      "sizeLines": 262,
+      "fileCategory": "infra"
+    },
+    {
+      "path": ".github/workflows/sync-squad-labels.yml",
+      "language": "yaml",
+      "sizeLines": 171,
+      "fileCategory": "infra"
+    }
+  ],
+  "batchImportData": {
+    ".github/workflows/squad-heartbeat.yml": [],
+    ".github/workflows/squad-issue-assign.yml": [],
+    ".github/workflows/squad-triage.yml": [],
+    ".github/workflows/sync-squad-labels.yml": []
+  }
+}

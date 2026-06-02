@@ -1,0 +1,18 @@
+{
+  "entities": [
+    {
+      "name": "JobBoardDomain",
+      "entityType": "domain",
+      "observations": [
+        "2026-05-28: Primary component is src/components/job-board.tsx",
+        "2026-05-28: API routes under src/app/api/job-board/, src/app/api/job-search/, src/app/api/job-postings/",
+        "2026-05-28: External job sources: Adzuna (src/app/api/adzuna/), USAJobs (src/app/api/usajobs/)",
+        "2026-05-28: Job parsing at src/app/api/job-parse/",
+        "2026-05-28: Saved searches at src/app/api/saved-searches/"
+      ]
+    }
+  ],
+  "relations": [
+    { "from": "JobBoardDomain", "relationType": "depends-on", "to": "ProfileDomain" }
+  ]
+}

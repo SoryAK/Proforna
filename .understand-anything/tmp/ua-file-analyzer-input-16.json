@@ -1,0 +1,127 @@
+{
+  "projectRoot": "C:\\Users\\Sory kaba\\OneDrive\\RESUMSIFY\\Personal_Projects\\Dev_Pojects\\resumsify",
+  "batchFiles": [
+    {
+      "path": "src/app/api/adzuna/route.ts",
+      "language": "typescript",
+      "sizeLines": 117,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/commute/route.ts",
+      "language": "typescript",
+      "sizeLines": 368,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/email-leads/ingest/route.ts",
+      "language": "typescript",
+      "sizeLines": 134,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/email-leads/parse/route.ts",
+      "language": "typescript",
+      "sizeLines": 139,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/email-leads/sync/route.ts",
+      "language": "typescript",
+      "sizeLines": 204,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/geocode/route.ts",
+      "language": "typescript",
+      "sizeLines": 92,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/job-search/route.ts",
+      "language": "typescript",
+      "sizeLines": 86,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/nearby-amenities/route.ts",
+      "language": "typescript",
+      "sizeLines": 89,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/nearby-buildings/route.ts",
+      "language": "typescript",
+      "sizeLines": 112,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/resolve-address/route.ts",
+      "language": "typescript",
+      "sizeLines": 232,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/cache.ts",
+      "language": "typescript",
+      "sizeLines": 56,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/email-parser.ts",
+      "language": "typescript",
+      "sizeLines": 407,
+      "fileCategory": "code"
+    }
+  ],
+  "batchImportData": {
+    "src/app/api/adzuna/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/cache.ts"
+    ],
+    "src/app/api/commute/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/cache.ts"
+    ],
+    "src/app/api/email-leads/ingest/route.ts": [
+      "src/lib/cache.ts",
+      "src/lib/email-parser.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/email-leads/parse/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/cache.ts",
+      "src/lib/email-parser.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/email-leads/sync/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/cache.ts",
+      "src/lib/email-parser.ts",
+      "src/lib/email.ts",
+      "src/lib/prisma.ts"
+    ],
+    "src/app/api/geocode/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/cache.ts"
+    ],
+    "src/app/api/job-search/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/cache.ts"
+    ],
+    "src/app/api/nearby-amenities/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/cache.ts"
+    ],
+    "src/app/api/nearby-buildings/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/cache.ts"
+    ],
+    "src/app/api/resolve-address/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/cache.ts"
+    ],
+    "src/lib/cache.ts": [],
+    "src/lib/email-parser.ts": []
+  }
+}

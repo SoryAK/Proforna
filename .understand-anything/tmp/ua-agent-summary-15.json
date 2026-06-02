@@ -1,0 +1,705 @@
+[
+  {
+    "path": "src/app/api/gallery/annotations/comments/route.ts",
+    "nonEmptyLines": 83,
+    "fns": [
+      {
+        "name": "GET",
+        "start": 18,
+        "end": 34
+      },
+      {
+        "name": "POST",
+        "start": 37,
+        "end": 59
+      },
+      {
+        "name": "PATCH",
+        "start": 62,
+        "end": 82
+      },
+      {
+        "name": "DELETE",
+        "start": 85,
+        "end": 102
+      }
+    ],
+    "exports": [
+      "GET",
+      "POST",
+      "PATCH",
+      "DELETE"
+    ],
+    "classes": [],
+    "imports": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts",
+      "src/lib/rate-limit.ts"
+    ]
+  },
+  {
+    "path": "src/app/api/gallery/annotations/route.ts",
+    "nonEmptyLines": 230,
+    "fns": [
+      {
+        "name": "validateGeometry",
+        "start": 19,
+        "end": 78
+      },
+      {
+        "name": "GET",
+        "start": 95,
+        "end": 111
+      },
+      {
+        "name": "POST",
+        "start": 115,
+        "end": 154
+      },
+      {
+        "name": "PATCH",
+        "start": 158,
+        "end": 244
+      },
+      {
+        "name": "DELETE",
+        "start": 247,
+        "end": 260
+      }
+    ],
+    "exports": [
+      "GET",
+      "POST",
+      "PATCH",
+      "DELETE"
+    ],
+    "classes": [],
+    "imports": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts",
+      "src/lib/rate-limit.ts",
+      "src/lib/sanitize-html.ts"
+    ]
+  },
+  {
+    "path": "src/app/api/gallery/annotations/upload/route.ts",
+    "nonEmptyLines": 37,
+    "fns": [
+      {
+        "name": "POST",
+        "start": 13,
+        "end": 44
+      }
+    ],
+    "exports": [
+      "POST"
+    ],
+    "classes": [],
+    "imports": [
+      "src/lib/auth-utils.ts",
+      "src/lib/rate-limit.ts"
+    ]
+  },
+  {
+    "path": "src/app/api/offer-compare/route.ts",
+    "nonEmptyLines": 131,
+    "fns": [
+      {
+        "name": "POST",
+        "start": 22,
+        "end": 150
+      }
+    ],
+    "exports": [
+      "POST"
+    ],
+    "classes": [],
+    "imports": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts",
+      "src/lib/rate-limit.ts"
+    ]
+  },
+  {
+    "path": "src/app/api/profile/compensation/route.ts",
+    "nonEmptyLines": 155,
+    "fns": [
+      {
+        "name": "jsonArray",
+        "start": 11,
+        "end": 22
+      },
+      {
+        "name": "GET",
+        "start": 33,
+        "end": 51
+      },
+      {
+        "name": "PUT",
+        "start": 54,
+        "end": 164
+      }
+    ],
+    "exports": [
+      "GET",
+      "PUT"
+    ],
+    "classes": [],
+    "imports": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts",
+      "src/lib/rate-limit.ts"
+    ]
+  },
+  {
+    "path": "src/app/api/recruiter/list/route.ts",
+    "nonEmptyLines": 92,
+    "fns": [
+      {
+        "name": "GET",
+        "start": 10,
+        "end": 92
+      }
+    ],
+    "exports": [
+      "GET"
+    ],
+    "classes": [],
+    "imports": [
+      "src/lib/prisma.ts",
+      "src/lib/recruiter-cookie.ts"
+    ]
+  },
+  {
+    "path": "src/app/api/recruiter/notes/route.ts",
+    "nonEmptyLines": 79,
+    "fns": [
+      {
+        "name": "resolveSlug",
+        "start": 19,
+        "end": 30
+      },
+      {
+        "name": "GET",
+        "start": 32,
+        "end": 48
+      },
+      {
+        "name": "PUT",
+        "start": 50,
+        "end": 93
+      }
+    ],
+    "exports": [
+      "GET",
+      "PUT"
+    ],
+    "classes": [],
+    "imports": [
+      "src/lib/prisma.ts",
+      "src/lib/rate-limit.ts",
+      "src/lib/recruiter-cookie.ts"
+    ]
+  },
+  {
+    "path": "src/app/api/recruiter/saves/route.ts",
+    "nonEmptyLines": 134,
+    "fns": [
+      {
+        "name": "resolveSlug",
+        "start": 35,
+        "end": 46
+      },
+      {
+        "name": "GET",
+        "start": 48,
+        "end": 65
+      },
+      {
+        "name": "POST",
+        "start": 67,
+        "end": 109
+      },
+      {
+        "name": "PATCH",
+        "start": 111,
+        "end": 141
+      },
+      {
+        "name": "DELETE",
+        "start": 143,
+        "end": 156
+      }
+    ],
+    "exports": [
+      "GET",
+      "POST",
+      "PATCH",
+      "DELETE"
+    ],
+    "classes": [],
+    "imports": [
+      "src/lib/prisma.ts",
+      "src/lib/rate-limit.ts",
+      "src/lib/recruiter-cookie.ts"
+    ]
+  },
+  {
+    "path": "src/app/r/[slug]/page.tsx",
+    "nonEmptyLines": 857,
+    "fns": [
+      {
+        "name": "ExpandableSection",
+        "start": 205,
+        "end": 256
+      },
+      {
+        "name": "AccessRequestForm",
+        "start": 259,
+        "end": 356
+      },
+      {
+        "name": "StealthBanner",
+        "start": 359,
+        "end": 373
+      },
+      {
+        "name": "InteractiveResumePage",
+        "start": 375,
+        "end": 900
+      }
+    ],
+    "exports": [
+      "InteractiveResumePage"
+    ],
+    "classes": [],
+    "imports": [
+      "src/components/resume-immersive-map.tsx",
+      "src/components/resume-work-map.tsx"
+    ]
+  },
+  {
+    "path": "src/components/annotation-compare.tsx",
+    "nonEmptyLines": 177,
+    "fns": [
+      {
+        "name": "ComparePane",
+        "start": 39,
+        "end": 146
+      },
+      {
+        "name": "AnnotationCompare",
+        "start": 148,
+        "end": 193
+      }
+    ],
+    "exports": [
+      "AnnotationCompare"
+    ],
+    "classes": [],
+    "imports": [
+      "src/components/annotation-overlay.tsx"
+    ]
+  },
+  {
+    "path": "src/components/annotation-editor.tsx",
+    "nonEmptyLines": 1523,
+    "fns": [
+      {
+        "name": "AnnotationEditor",
+        "start": 135,
+        "end": 1293
+      },
+      {
+        "name": "applyDrag",
+        "start": 1299,
+        "end": 1374
+      },
+      {
+        "name": "SaveStatusPill",
+        "start": 1385,
+        "end": 1419
+      },
+      {
+        "name": "SelectionHandles",
+        "start": 1421,
+        "end": 1530
+      },
+      {
+        "name": "TagInput",
+        "start": 1532,
+        "end": 1592
+      }
+    ],
+    "exports": [
+      "AnnotationEditor"
+    ],
+    "classes": [],
+    "imports": [
+      "src/components/annotation-compare.tsx",
+      "src/components/annotation-overlay.tsx",
+      "src/components/comments-thread.tsx",
+      "src/components/rich-text-editor.tsx"
+    ]
+  },
+  {
+    "path": "src/components/annotation-overlay.tsx",
+    "nonEmptyLines": 449,
+    "fns": [
+      {
+        "name": "AnnotationOverlay",
+        "start": 62,
+        "end": 463
+      }
+    ],
+    "exports": [
+      "AnnotationOverlay"
+    ],
+    "classes": [],
+    "imports": []
+  },
+  {
+    "path": "src/components/annotation-viewer.tsx",
+    "nonEmptyLines": 216,
+    "fns": [
+      {
+        "name": "AnnotationViewer",
+        "start": 30,
+        "end": 228
+      }
+    ],
+    "exports": [
+      "AnnotationViewer"
+    ],
+    "classes": [],
+    "imports": [
+      "src/components/annotation-overlay.tsx",
+      "src/lib/sanitize-html.ts"
+    ]
+  },
+  {
+    "path": "src/components/comments-thread.tsx",
+    "nonEmptyLines": 199,
+    "fns": [
+      {
+        "name": "timeAgo",
+        "start": 25,
+        "end": 36
+      },
+      {
+        "name": "CommentsThread",
+        "start": 38,
+        "end": 211
+      }
+    ],
+    "exports": [
+      "CommentsThread"
+    ],
+    "classes": [],
+    "imports": []
+  },
+  {
+    "path": "src/components/gallery-modal.tsx",
+    "nonEmptyLines": 1814,
+    "fns": [
+      {
+        "name": "GalleryModal",
+        "start": 142,
+        "end": 1916
+      },
+      {
+        "name": "KeyboardHandler",
+        "start": 1919,
+        "end": 1931
+      }
+    ],
+    "exports": [
+      "GalleryModal"
+    ],
+    "classes": [],
+    "imports": [
+      "src/components/annotation-editor.tsx"
+    ]
+  },
+  {
+    "path": "src/components/immersive-layout.tsx",
+    "nonEmptyLines": 73,
+    "fns": [
+      {
+        "name": "ImmersiveLayout",
+        "start": 41,
+        "end": 78
+      }
+    ],
+    "exports": [
+      "SIDEBAR_CARD_CHROME",
+      "ImmersiveLayout"
+    ],
+    "classes": [],
+    "imports": []
+  },
+  {
+    "path": "src/components/ir-popout-sheet.tsx",
+    "nonEmptyLines": 79,
+    "fns": [
+      {
+        "name": "IrPopoutSheet",
+        "start": 20,
+        "end": 86
+      }
+    ],
+    "exports": [
+      "IrPopoutSheet"
+    ],
+    "classes": [],
+    "imports": []
+  },
+  {
+    "path": "src/components/recruiter-panel.tsx",
+    "nonEmptyLines": 405,
+    "fns": [
+      {
+        "name": "RecruiterPanel",
+        "start": 33,
+        "end": 430
+      }
+    ],
+    "exports": [
+      "RecruiterPanel"
+    ],
+    "classes": [],
+    "imports": []
+  },
+  {
+    "path": "src/components/resume-immersive-map.tsx",
+    "nonEmptyLines": 5803,
+    "fns": [
+      {
+        "name": "recencyRingColor",
+        "start": 321,
+        "end": 331
+      },
+      {
+        "name": "fmtRelative",
+        "start": 423,
+        "end": 435
+      },
+      {
+        "name": "fmtCompAmount",
+        "start": 438,
+        "end": 469
+      },
+      {
+        "name": "formatCompChip",
+        "start": 472,
+        "end": 492
+      },
+      {
+        "name": "employmentShort",
+        "start": 494,
+        "end": 504
+      },
+      {
+        "name": "employmentLabel",
+        "start": 516,
+        "end": 526
+      },
+      {
+        "name": "ResumeImmersiveMap",
+        "start": 539,
+        "end": 3181
+      },
+      {
+        "name": "TimelineScrubber",
+        "start": 3185,
+        "end": 3358
+      },
+      {
+        "name": "ImmersiveMapView",
+        "start": 3360,
+        "end": 4270
+      },
+      {
+        "name": "MapStyleButton",
+        "start": 4274,
+        "end": 4337
+      },
+      {
+        "name": "RecruiterBriefPanel",
+        "start": 4347,
+        "end": 4608
+      },
+      {
+        "name": "BriefSection",
+        "start": 4610,
+        "end": 4620
+      },
+      {
+        "name": "WorkHistoryViewerPanel",
+        "start": 4624,
+        "end": 4874
+      },
+      {
+        "name": "ToolsInventoryPanel",
+        "start": 4912,
+        "end": 5025
+      },
+      {
+        "name": "ToolDetailModal",
+        "start": 5027,
+        "end": 5183
+      },
+      {
+        "name": "FocusCard",
+        "start": 5198,
+        "end": 5953
+      },
+      {
+        "name": "Section",
+        "start": 5955,
+        "end": 5965
+      },
+      {
+        "name": "SectionsDrawer",
+        "start": 5987,
+        "end": 6084
+      }
+    ],
+    "exports": [
+      "ResumeImmersiveMap"
+    ],
+    "classes": [],
+    "imports": [
+      "src/components/annotation-overlay.tsx",
+      "src/components/annotation-viewer.tsx",
+      "src/components/immersive-layout.tsx",
+      "src/components/ir-popout-sheet.tsx",
+      "src/components/recruiter-panel.tsx",
+      "src/lib/use-ir-analytics.ts"
+    ]
+  },
+  {
+    "path": "src/components/resume-work-map.tsx",
+    "nonEmptyLines": 391,
+    "fns": [
+      {
+        "name": "ResumeWorkMap",
+        "start": 135,
+        "end": 225
+      },
+      {
+        "name": "MapView",
+        "start": 239,
+        "end": 384
+      },
+      {
+        "name": "ListView",
+        "start": 388,
+        "end": 428
+      }
+    ],
+    "exports": [
+      "ResumeWorkMap"
+    ],
+    "classes": [],
+    "imports": []
+  },
+  {
+    "path": "src/components/rich-text-editor.tsx",
+    "nonEmptyLines": 288,
+    "fns": [
+      {
+        "name": "uploadImage",
+        "start": 74,
+        "end": 86
+      },
+      {
+        "name": "RichTextEditor",
+        "start": 88,
+        "end": 301
+      }
+    ],
+    "exports": [
+      "RichTextEditor"
+    ],
+    "classes": [],
+    "imports": []
+  },
+  {
+    "path": "src/lib/rate-limit.ts",
+    "nonEmptyLines": 48,
+    "fns": [
+      {
+        "name": "checkRateLimit",
+        "start": 35,
+        "end": 53
+      }
+    ],
+    "exports": [
+      "checkRateLimit"
+    ],
+    "classes": [],
+    "imports": []
+  },
+  {
+    "path": "src/lib/recruiter-cookie.ts",
+    "nonEmptyLines": 31,
+    "fns": [
+      {
+        "name": "readRecruiterId",
+        "start": 20,
+        "end": 23
+      },
+      {
+        "name": "getOrCreateRecruiterId",
+        "start": 25,
+        "end": 27
+      },
+      {
+        "name": "setRecruiterCookie",
+        "start": 29,
+        "end": 37
+      }
+    ],
+    "exports": [
+      "RECRUITER_COOKIE",
+      "readRecruiterId",
+      "getOrCreateRecruiterId",
+      "setRecruiterCookie"
+    ],
+    "classes": [],
+    "imports": []
+  },
+  {
+    "path": "src/lib/sanitize-html.ts",
+    "nonEmptyLines": 21,
+    "fns": [
+      {
+        "name": "sanitizeAnnotationHtml",
+        "start": 16,
+        "end": 24
+      }
+    ],
+    "exports": [
+      "sanitizeAnnotationHtml"
+    ],
+    "classes": [],
+    "imports": []
+  },
+  {
+    "path": "src/lib/use-ir-analytics.ts",
+    "nonEmptyLines": 110,
+    "fns": [
+      {
+        "name": "useIrAnalytics",
+        "start": 42,
+        "end": 124
+      }
+    ],
+    "exports": [
+      "useIrAnalytics"
+    ],
+    "classes": [],
+    "imports": []
+  }
+]

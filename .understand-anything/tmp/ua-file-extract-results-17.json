@@ -1,0 +1,1598 @@
+{
+  "scriptCompleted": true,
+  "filesAnalyzed": 10,
+  "filesSkipped": [],
+  "results": [
+    {
+      "path": "src/app/(app)/master-gallery/page.tsx",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 16,
+      "nonEmptyLines": 14,
+      "functions": [
+        {
+          "name": "Page",
+          "startLine": 8,
+          "endLine": 16,
+          "params": []
+        }
+      ],
+      "exports": [
+        {
+          "name": "metadata",
+          "line": 4,
+          "isDefault": false
+        },
+        {
+          "name": "Page",
+          "line": 8,
+          "isDefault": true
+        }
+      ],
+      "metrics": {
+        "importCount": 1,
+        "exportCount": 2,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/components/master-gallery/bulk-action-bar.tsx",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 101,
+      "nonEmptyLines": 93,
+      "functions": [
+        {
+          "name": "BulkActionBar",
+          "startLine": 16,
+          "endLine": 101,
+          "params": [
+            "{\r\n  count,\r\n  anyBanner,\r\n  onClear,\r\n  onMove,\r\n  onToggleBanner,\r\n  onDelete,\r\n}"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "BulkActionBar",
+          "line": 16,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "BulkActionBar",
+          "callee": "useState",
+          "lineNumber": 25
+        },
+        {
+          "caller": "BulkActionBar",
+          "callee": "useState",
+          "lineNumber": 26
+        },
+        {
+          "caller": "BulkActionBar",
+          "callee": "useEffect",
+          "lineNumber": 28
+        },
+        {
+          "caller": "BulkActionBar",
+          "callee": "setMounted",
+          "lineNumber": 30
+        },
+        {
+          "caller": "BulkActionBar",
+          "callee": "requestAnimationFrame",
+          "lineNumber": 31
+        },
+        {
+          "caller": "BulkActionBar",
+          "callee": "requestAnimationFrame",
+          "lineNumber": 31
+        },
+        {
+          "caller": "BulkActionBar",
+          "callee": "setVisible",
+          "lineNumber": 31
+        },
+        {
+          "caller": "BulkActionBar",
+          "callee": "setVisible",
+          "lineNumber": 34
+        },
+        {
+          "caller": "BulkActionBar",
+          "callee": "setTimeout",
+          "lineNumber": 35
+        },
+        {
+          "caller": "BulkActionBar",
+          "callee": "setMounted",
+          "lineNumber": 35
+        },
+        {
+          "caller": "BulkActionBar",
+          "callee": "clearTimeout",
+          "lineNumber": 36
+        },
+        {
+          "caller": "BulkActionBar",
+          "callee": "useMemo",
+          "lineNumber": 39
+        },
+        {
+          "caller": "BulkActionBar",
+          "callee": "[\r\n        \"fixed bottom-3 left-1/2 z-[1200] w-[calc(100vw-1.25rem)] max-w-[42rem] -translate-x-1/2\",\r\n        \"rounded-xl border border-border bg-background/95 px-2.5 py-2 shadow-2xl backdrop-blur-md\",\r\n        \"transition-all duration-200 ease-out\",\r\n        visible ? \"translate-y-0 opacity-100\" : \"translate-y-3 opacity-0\",\r\n      ].join",
+          "lineNumber": 50
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 1,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/components/master-gallery/embedded-master-folders.tsx",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 102,
+      "nonEmptyLines": 94,
+      "functions": [
+        {
+          "name": "EmbeddedMasterFolders",
+          "startLine": 20,
+          "endLine": 102,
+          "params": [
+            "{ onSelectJob }"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "EmbeddedMasterFolders",
+          "line": 20,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "EmbeddedMasterFolders",
+          "callee": "useQuery",
+          "lineNumber": 21
+        },
+        {
+          "caller": "EmbeddedMasterFolders",
+          "callee": "fetch",
+          "lineNumber": 24
+        },
+        {
+          "caller": "EmbeddedMasterFolders",
+          "callee": "r.json",
+          "lineNumber": 26
+        },
+        {
+          "caller": "EmbeddedMasterFolders",
+          "callee": "positions.map",
+          "lineNumber": 55
+        },
+        {
+          "caller": "EmbeddedMasterFolders",
+          "callee": "onSelectJob",
+          "lineNumber": 58
+        }
+      ],
+      "metrics": {
+        "importCount": 1,
+        "exportCount": 1,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/components/master-gallery/embedded-position-gallery.tsx",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 495,
+      "nonEmptyLines": 460,
+      "functions": [
+        {
+          "name": "EmbeddedPositionGallery",
+          "startLine": 44,
+          "endLine": 495,
+          "params": [
+            "{\r\n  positionId,\r\n  companyName,\r\n  onBack,\r\n  onClose,\r\n  onOpenInMap,\r\n}"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "EmbeddedPositionGallery",
+          "line": 44,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "EmbeddedPositionGallery",
+          "callee": "useQueryClient",
+          "lineNumber": 51
+        },
+        {
+          "caller": "EmbeddedPositionGallery",
+          "callee": "useState",
+          "lineNumber": 52
+        },
+        {
+          "caller": "EmbeddedPositionGallery",
+          "callee": "useState",
+          "lineNumber": 55
+        },
+        {
+          "caller": "EmbeddedPositionGallery",
+          "callee": "useState",
+          "lineNumber": 56
+        },
+        {
+          "caller": "EmbeddedPositionGallery",
+          "callee": "useState",
+          "lineNumber": 57
+        },
+        {
+          "caller": "EmbeddedPositionGallery",
+          "callee": "useState",
+          "lineNumber": 58
+        },
+        {
+          "caller": "EmbeddedPositionGallery",
+          "callee": "useQuery",
+          "lineNumber": 62
+        },
+        {
+          "caller": "EmbeddedPositionGallery",
+          "callee": "fetch",
+          "lineNumber": 65
+        },
+        {
+          "caller": "EmbeddedPositionGallery",
+          "callee": "r.json",
+          "lineNumber": 67
+        },
+        {
+          "caller": "EmbeddedPositionGallery",
+          "callee": "useMemo",
+          "lineNumber": 70
+        },
+        {
+          "caller": "EmbeddedPositionGallery",
+          "callee": "tree?.positions.find",
+          "lineNumber": 71
+        },
+        {
+          "caller": "EmbeddedPositionGallery",
+          "callee": "useQuery",
+          "lineNumber": 84
+        },
+        {
+          "caller": "EmbeddedPositionGallery",
+          "callee": "qs.set",
+          "lineNumber": 88
+        },
+        {
+          "caller": "EmbeddedPositionGallery",
+          "callee": "fetch",
+          "lineNumber": 89
+        },
+        {
+          "caller": "EmbeddedPositionGallery",
+          "callee": "qs.toString",
+          "lineNumber": 89
+        },
+        {
+          "caller": "EmbeddedPositionGallery",
+          "callee": "r.json",
+          "lineNumber": 91
+        },
+        {
+          "caller": "EmbeddedPositionGallery",
+          "callee": "useQuery",
+          "lineNumber": 97
+        },
+        {
+          "caller": "EmbeddedPositionGallery",
+          "callee": "fetch",
+          "lineNumber": 100
+        },
+        {
+          "caller": "EmbeddedPositionGallery",
+          "callee": "r.json",
+          "lineNumber": 104
+        },
+        {
+          "caller": "EmbeddedPositionGallery",
+          "callee": "useMemo",
+          "lineNumber": 109
+        },
+        {
+          "caller": "EmbeddedPositionGallery",
+          "callee": "allPhotos.filter",
+          "lineNumber": 110
+        },
+        {
+          "caller": "EmbeddedPositionGallery",
+          "callee": "useCallback",
+          "lineNumber": 114
+        },
+        {
+          "caller": "EmbeddedPositionGallery",
+          "callee": "qc.invalidateQueries",
+          "lineNumber": 115
+        },
+        {
+          "caller": "EmbeddedPositionGallery",
+          "callee": "useMutation",
+          "lineNumber": 118
+        },
+        {
+          "caller": "EmbeddedPositionGallery",
+          "callee": "fetch",
+          "lineNumber": 123
+        },
+        {
+          "caller": "EmbeddedPositionGallery",
+          "callee": "JSON.stringify",
+          "lineNumber": 126
+        },
+        {
+          "caller": "EmbeddedPositionGallery",
+          "callee": "r.json",
+          "lineNumber": 129
+        },
+        {
+          "caller": "EmbeddedPositionGallery",
+          "callee": "useMutation",
+          "lineNumber": 134
+        },
+        {
+          "caller": "EmbeddedPositionGallery",
+          "callee": "fetch",
+          "lineNumber": 136
+        },
+        {
+          "caller": "EmbeddedPositionGallery",
+          "callee": "JSON.stringify",
+          "lineNumber": 139
+        },
+        {
+          "caller": "EmbeddedPositionGallery",
+          "callee": "r.json",
+          "lineNumber": 142
+        },
+        {
+          "caller": "EmbeddedPositionGallery",
+          "callee": "setSelectedIds",
+          "lineNumber": 145
+        },
+        {
+          "caller": "EmbeddedPositionGallery",
+          "callee": "invalidate",
+          "lineNumber": 146
+        },
+        {
+          "caller": "uploadFiles",
+          "callee": "setUploading",
+          "lineNumber": 157
+        },
+        {
+          "caller": "uploadFiles",
+          "callee": "fd.set",
+          "lineNumber": 161
+        },
+        {
+          "caller": "uploadFiles",
+          "callee": "fd.set",
+          "lineNumber": 162
+        },
+        {
+          "caller": "uploadFiles",
+          "callee": "fd.set",
+          "lineNumber": 163
+        },
+        {
+          "caller": "uploadFiles",
+          "callee": "fd.set",
+          "lineNumber": 164
+        },
+        {
+          "caller": "uploadFiles",
+          "callee": "fetch",
+          "lineNumber": 165
+        },
+        {
+          "caller": "uploadFiles",
+          "callee": "console.error",
+          "lineNumber": 166
+        },
+        {
+          "caller": "uploadFiles",
+          "callee": "invalidate",
+          "lineNumber": 168
+        },
+        {
+          "caller": "uploadFiles",
+          "callee": "setUploading",
+          "lineNumber": 170
+        },
+        {
+          "caller": "handleSingleUpload",
+          "callee": "uploadFiles",
+          "lineNumber": 182
+        },
+        {
+          "caller": "handleSingleUpload",
+          "callee": "Array.from",
+          "lineNumber": 182
+        },
+        {
+          "caller": "handleAlbumUpload",
+          "callee": "new Date().toLocaleDateString",
+          "lineNumber": 187
+        },
+        {
+          "caller": "handleAlbumUpload",
+          "callee": "window.prompt",
+          "lineNumber": 188
+        },
+        {
+          "caller": "handleAlbumUpload",
+          "callee": "name?.trim",
+          "lineNumber": 192
+        },
+        {
+          "caller": "handleAlbumUpload",
+          "callee": "uploadFiles",
+          "lineNumber": 194
+        },
+        {
+          "caller": "handleAlbumUpload",
+          "callee": "Array.from",
+          "lineNumber": 194
+        },
+        {
+          "caller": "handleAlbumUpload",
+          "callee": "trimmed.slice",
+          "lineNumber": 194
+        },
+        {
+          "caller": "handleFolderUpload",
+          "callee": "Array.from",
+          "lineNumber": 198
+        },
+        {
+          "caller": "handleFolderUpload",
+          "callee": "all.filter",
+          "lineNumber": 199
+        },
+        {
+          "caller": "handleFolderUpload",
+          "callee": "f.type.startsWith",
+          "lineNumber": 199
+        },
+        {
+          "caller": "handleFolderUpload",
+          "callee": "firstRel.split",
+          "lineNumber": 204
+        },
+        {
+          "caller": "handleFolderUpload",
+          "callee": "window.prompt",
+          "lineNumber": 205
+        },
+        {
+          "caller": "handleFolderUpload",
+          "callee": "name?.trim",
+          "lineNumber": 209
+        },
+        {
+          "caller": "handleFolderUpload",
+          "callee": "uploadFiles",
+          "lineNumber": 211
+        },
+        {
+          "caller": "handleFolderUpload",
+          "callee": "trimmed.slice",
+          "lineNumber": 211
+        },
+        {
+          "caller": "toggleSelect",
+          "callee": "setSelectedIds",
+          "lineNumber": 215
+        },
+        {
+          "caller": "toggleSelect",
+          "callee": "next.has",
+          "lineNumber": 217
+        },
+        {
+          "caller": "toggleSelect",
+          "callee": "next.delete",
+          "lineNumber": 217
+        },
+        {
+          "caller": "toggleSelect",
+          "callee": "next.add",
+          "lineNumber": 218
+        },
+        {
+          "caller": "EmbeddedPositionGallery",
+          "callee": "photos.filter",
+          "lineNumber": 222
+        },
+        {
+          "caller": "EmbeddedPositionGallery",
+          "callee": "selectedIds.has",
+          "lineNumber": 222
+        },
+        {
+          "caller": "EmbeddedPositionGallery",
+          "callee": "selectedPhotos.some",
+          "lineNumber": 223
+        },
+        {
+          "caller": "handleBulkDelete",
+          "callee": "confirm",
+          "lineNumber": 228
+        },
+        {
+          "caller": "handleBulkDelete",
+          "callee": "deletePhotos.mutate",
+          "lineNumber": 233
+        },
+        {
+          "caller": "handleBulkDelete",
+          "callee": "Array.from",
+          "lineNumber": 233
+        },
+        {
+          "caller": "handleBulkBanner",
+          "callee": "Promise.all",
+          "lineNumber": 238
+        },
+        {
+          "caller": "handleBulkBanner",
+          "callee": "Array.from(selectedIds).map",
+          "lineNumber": 239
+        },
+        {
+          "caller": "handleBulkBanner",
+          "callee": "Array.from",
+          "lineNumber": 239
+        },
+        {
+          "caller": "handleBulkBanner",
+          "callee": "savePhoto.mutateAsync",
+          "lineNumber": 240
+        },
+        {
+          "caller": "handleBulkBanner",
+          "callee": "setSelectedIds",
+          "lineNumber": 243
+        },
+        {
+          "caller": "EmbeddedPositionGallery",
+          "callee": "photos.find",
+          "lineNumber": 247
+        },
+        {
+          "caller": "handleHeaderBack",
+          "callee": "setCurrentAlbumId",
+          "lineNumber": 254
+        },
+        {
+          "caller": "handleHeaderBack",
+          "callee": "setView",
+          "lineNumber": 255
+        },
+        {
+          "caller": "handleHeaderBack",
+          "callee": "setSelectedIds",
+          "lineNumber": 256
+        },
+        {
+          "caller": "handleHeaderBack",
+          "callee": "onBack",
+          "lineNumber": 259
+        },
+        {
+          "caller": "EmbeddedPositionGallery",
+          "callee": "position?.albums.find",
+          "lineNumber": 265
+        },
+        {
+          "caller": "EmbeddedPositionGallery",
+          "callee": "setView",
+          "lineNumber": 298
+        },
+        {
+          "caller": "EmbeddedPositionGallery",
+          "callee": "setView",
+          "lineNumber": 306
+        },
+        {
+          "caller": "EmbeddedPositionGallery",
+          "callee": "setOpenPhotoId",
+          "lineNumber": 318
+        },
+        {
+          "caller": "EmbeddedPositionGallery",
+          "callee": "handleSingleUpload",
+          "lineNumber": 342
+        },
+        {
+          "caller": "EmbeddedPositionGallery",
+          "callee": "handleAlbumUpload",
+          "lineNumber": 360
+        },
+        {
+          "caller": "EmbeddedPositionGallery",
+          "callee": "handleFolderUpload",
+          "lineNumber": 378
+        },
+        {
+          "caller": "EmbeddedPositionGallery",
+          "callee": "setCurrentAlbumId",
+          "lineNumber": 420
+        },
+        {
+          "caller": "EmbeddedPositionGallery",
+          "callee": "setView",
+          "lineNumber": 421
+        },
+        {
+          "caller": "EmbeddedPositionGallery",
+          "callee": "setSelectedIds",
+          "lineNumber": 422
+        },
+        {
+          "caller": "EmbeddedPositionGallery",
+          "callee": "setOpenPhotoId",
+          "lineNumber": 442
+        },
+        {
+          "caller": "EmbeddedPositionGallery",
+          "callee": "setSelectedIds",
+          "lineNumber": 454
+        },
+        {
+          "caller": "EmbeddedPositionGallery",
+          "callee": "setOpenPhotoId",
+          "lineNumber": 484
+        },
+        {
+          "caller": "EmbeddedPositionGallery",
+          "callee": "savePhoto.mutateAsync",
+          "lineNumber": 486
+        },
+        {
+          "caller": "EmbeddedPositionGallery",
+          "callee": "deletePhotos.mutateAsync",
+          "lineNumber": 489
+        },
+        {
+          "caller": "EmbeddedPositionGallery",
+          "callee": "setOpenPhotoId",
+          "lineNumber": 490
+        }
+      ],
+      "metrics": {
+        "importCount": 4,
+        "exportCount": 1,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/components/master-gallery/folder-grid.tsx",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 194,
+      "nonEmptyLines": 184,
+      "functions": [
+        {
+          "name": "JobFolder",
+          "startLine": 12,
+          "endLine": 65,
+          "params": [
+            "{ position, onOpen }"
+          ]
+        },
+        {
+          "name": "AlbumFolder",
+          "startLine": 72,
+          "endLine": 107,
+          "params": [
+            "{ album, onOpen }"
+          ]
+        },
+        {
+          "name": "RootFolderGrid",
+          "startLine": 116,
+          "endLine": 155,
+          "params": [
+            "{\r\n  positions,\r\n  bannerCount,\r\n  onOpenPosition,\r\n  onOpenBanners,\r\n}"
+          ]
+        },
+        {
+          "name": "PositionFolderGrid",
+          "startLine": 163,
+          "endLine": 194,
+          "params": [
+            "{\r\n  position,\r\n  unfiledCount,\r\n  onOpenAlbum,\r\n}"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "RootFolderGrid",
+          "line": 116,
+          "isDefault": false
+        },
+        {
+          "name": "PositionFolderGrid",
+          "line": 163,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "JobFolder",
+          "callee": "new Date(position.startDate).getFullYear",
+          "lineNumber": 14
+        },
+        {
+          "caller": "JobFolder",
+          "callee": "new Date(position.endDate).getFullYear",
+          "lineNumber": 16
+        },
+        {
+          "caller": "JobFolder",
+          "callee": "onOpen",
+          "lineNumber": 23
+        },
+        {
+          "caller": "AlbumFolder",
+          "callee": "onOpen",
+          "lineNumber": 75
+        },
+        {
+          "caller": "RootFolderGrid",
+          "callee": "positions.map",
+          "lineNumber": 140
+        },
+        {
+          "caller": "PositionFolderGrid",
+          "callee": "position.albums.map",
+          "lineNumber": 188
+        }
+      ],
+      "metrics": {
+        "importCount": 1,
+        "exportCount": 2,
+        "functionCount": 4,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/components/master-gallery/master-gallery-page.tsx",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 438,
+      "nonEmptyLines": 411,
+      "functions": [
+        {
+          "name": "MasterGalleryPage",
+          "startLine": 27,
+          "endLine": 438,
+          "params": []
+        }
+      ],
+      "exports": [
+        {
+          "name": "MasterGalleryPage",
+          "line": 27,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "MasterGalleryPage",
+          "callee": "useRouter",
+          "lineNumber": 28
+        },
+        {
+          "caller": "MasterGalleryPage",
+          "callee": "useSearchParams",
+          "lineNumber": 29
+        },
+        {
+          "caller": "MasterGalleryPage",
+          "callee": "useQueryClient",
+          "lineNumber": 30
+        },
+        {
+          "caller": "MasterGalleryPage",
+          "callee": "params.get",
+          "lineNumber": 32
+        },
+        {
+          "caller": "MasterGalleryPage",
+          "callee": "params.get",
+          "lineNumber": 33
+        },
+        {
+          "caller": "MasterGalleryPage",
+          "callee": "params.get",
+          "lineNumber": 34
+        },
+        {
+          "caller": "MasterGalleryPage",
+          "callee": "useState",
+          "lineNumber": 36
+        },
+        {
+          "caller": "MasterGalleryPage",
+          "callee": "useState",
+          "lineNumber": 37
+        },
+        {
+          "caller": "MasterGalleryPage",
+          "callee": "useState",
+          "lineNumber": 38
+        },
+        {
+          "caller": "MasterGalleryPage",
+          "callee": "useState",
+          "lineNumber": 39
+        },
+        {
+          "caller": "MasterGalleryPage",
+          "callee": "useQuery",
+          "lineNumber": 42
+        },
+        {
+          "caller": "MasterGalleryPage",
+          "callee": "fetch",
+          "lineNumber": 45
+        },
+        {
+          "caller": "MasterGalleryPage",
+          "callee": "r.json",
+          "lineNumber": 47
+        },
+        {
+          "caller": "MasterGalleryPage",
+          "callee": "useMemo",
+          "lineNumber": 52
+        },
+        {
+          "caller": "MasterGalleryPage",
+          "callee": "useQuery",
+          "lineNumber": 61
+        },
+        {
+          "caller": "MasterGalleryPage",
+          "callee": "qs.set",
+          "lineNumber": 67
+        },
+        {
+          "caller": "MasterGalleryPage",
+          "callee": "qs.set",
+          "lineNumber": 69
+        },
+        {
+          "caller": "MasterGalleryPage",
+          "callee": "qs.set",
+          "lineNumber": 70
+        },
+        {
+          "caller": "MasterGalleryPage",
+          "callee": "fetch",
+          "lineNumber": 72
+        },
+        {
+          "caller": "MasterGalleryPage",
+          "callee": "r.json",
+          "lineNumber": 74
+        },
+        {
+          "caller": "MasterGalleryPage",
+          "callee": "tree?.positions.find",
+          "lineNumber": 79
+        },
+        {
+          "caller": "MasterGalleryPage",
+          "callee": "currentPosition.albums.find",
+          "lineNumber": 82
+        },
+        {
+          "caller": "MasterGalleryPage",
+          "callee": "useCallback",
+          "lineNumber": 86
+        },
+        {
+          "caller": "MasterGalleryPage",
+          "callee": "qc.invalidateQueries",
+          "lineNumber": 87
+        },
+        {
+          "caller": "MasterGalleryPage",
+          "callee": "useMutation",
+          "lineNumber": 90
+        },
+        {
+          "caller": "MasterGalleryPage",
+          "callee": "fetch",
+          "lineNumber": 95
+        },
+        {
+          "caller": "MasterGalleryPage",
+          "callee": "JSON.stringify",
+          "lineNumber": 98
+        },
+        {
+          "caller": "MasterGalleryPage",
+          "callee": "r.json",
+          "lineNumber": 101
+        },
+        {
+          "caller": "MasterGalleryPage",
+          "callee": "useMutation",
+          "lineNumber": 106
+        },
+        {
+          "caller": "MasterGalleryPage",
+          "callee": "fetch",
+          "lineNumber": 108
+        },
+        {
+          "caller": "MasterGalleryPage",
+          "callee": "JSON.stringify",
+          "lineNumber": 111
+        },
+        {
+          "caller": "MasterGalleryPage",
+          "callee": "r.json",
+          "lineNumber": 114
+        },
+        {
+          "caller": "MasterGalleryPage",
+          "callee": "setSelectedIds",
+          "lineNumber": 117
+        },
+        {
+          "caller": "MasterGalleryPage",
+          "callee": "setSelectionMode",
+          "lineNumber": 118
+        },
+        {
+          "caller": "MasterGalleryPage",
+          "callee": "invalidateAll",
+          "lineNumber": 119
+        },
+        {
+          "caller": "MasterGalleryPage",
+          "callee": "useMutation",
+          "lineNumber": 125
+        },
+        {
+          "caller": "MasterGalleryPage",
+          "callee": "vars.sourcePositionIds.every",
+          "lineNumber": 133
+        },
+        {
+          "caller": "MasterGalleryPage",
+          "callee": "fetch",
+          "lineNumber": 135
+        },
+        {
+          "caller": "MasterGalleryPage",
+          "callee": "JSON.stringify",
+          "lineNumber": 138
+        },
+        {
+          "caller": "MasterGalleryPage",
+          "callee": "r.json",
+          "lineNumber": 145
+        },
+        {
+          "caller": "MasterGalleryPage",
+          "callee": "fetch",
+          "lineNumber": 147
+        },
+        {
+          "caller": "MasterGalleryPage",
+          "callee": "JSON.stringify",
+          "lineNumber": 150
+        },
+        {
+          "caller": "MasterGalleryPage",
+          "callee": "r.json",
+          "lineNumber": 157
+        },
+        {
+          "caller": "MasterGalleryPage",
+          "callee": "setSelectedIds",
+          "lineNumber": 160
+        },
+        {
+          "caller": "MasterGalleryPage",
+          "callee": "setSelectionMode",
+          "lineNumber": 161
+        },
+        {
+          "caller": "MasterGalleryPage",
+          "callee": "invalidateAll",
+          "lineNumber": 162
+        },
+        {
+          "caller": "goRoot",
+          "callee": "router.push",
+          "lineNumber": 167
+        },
+        {
+          "caller": "goBanners",
+          "callee": "router.push",
+          "lineNumber": 168
+        },
+        {
+          "caller": "goJob",
+          "callee": "router.push",
+          "lineNumber": 169
+        },
+        {
+          "caller": "goAlbum",
+          "callee": "router.push",
+          "lineNumber": 171
+        },
+        {
+          "caller": "toggleSelect",
+          "callee": "setSelectedIds",
+          "lineNumber": 175
+        },
+        {
+          "caller": "toggleSelect",
+          "callee": "next.has",
+          "lineNumber": 177
+        },
+        {
+          "caller": "toggleSelect",
+          "callee": "next.delete",
+          "lineNumber": 177
+        },
+        {
+          "caller": "toggleSelect",
+          "callee": "next.add",
+          "lineNumber": 178
+        },
+        {
+          "caller": "clearSelection",
+          "callee": "setSelectedIds",
+          "lineNumber": 182
+        },
+        {
+          "caller": "clearSelection",
+          "callee": "setSelectionMode",
+          "lineNumber": 183
+        },
+        {
+          "caller": "MasterGalleryPage",
+          "callee": "photos.filter",
+          "lineNumber": 185
+        },
+        {
+          "caller": "MasterGalleryPage",
+          "callee": "selectedIds.has",
+          "lineNumber": 185
+        },
+        {
+          "caller": "MasterGalleryPage",
+          "callee": "selectedPhotos.some",
+          "lineNumber": 186
+        },
+        {
+          "caller": "MasterGalleryPage",
+          "callee": "Array.from",
+          "lineNumber": 187
+        },
+        {
+          "caller": "MasterGalleryPage",
+          "callee": "selectedPhotos.map",
+          "lineNumber": 188
+        },
+        {
+          "caller": "handleBulkDelete",
+          "callee": "confirm",
+          "lineNumber": 195
+        },
+        {
+          "caller": "handleBulkDelete",
+          "callee": "deletePhotos.mutate",
+          "lineNumber": 200
+        },
+        {
+          "caller": "handleBulkDelete",
+          "callee": "Array.from",
+          "lineNumber": 200
+        },
+        {
+          "caller": "handleBulkBanner",
+          "callee": "Promise.all",
+          "lineNumber": 206
+        },
+        {
+          "caller": "handleBulkBanner",
+          "callee": "Array.from(selectedIds).map",
+          "lineNumber": 207
+        },
+        {
+          "caller": "handleBulkBanner",
+          "callee": "Array.from",
+          "lineNumber": 207
+        },
+        {
+          "caller": "handleBulkBanner",
+          "callee": "savePhoto.mutateAsync",
+          "lineNumber": 208
+        },
+        {
+          "caller": "handleBulkBanner",
+          "callee": "clearSelection",
+          "lineNumber": 211
+        },
+        {
+          "caller": "handleMoveConfirm",
+          "callee": "movePhotos.mutateAsync",
+          "lineNumber": 218
+        },
+        {
+          "caller": "handleMoveConfirm",
+          "callee": "Array.from",
+          "lineNumber": 219
+        },
+        {
+          "caller": "MasterGalleryPage",
+          "callee": "goJob",
+          "lineNumber": 250
+        },
+        {
+          "caller": "MasterGalleryPage",
+          "callee": "setOpenPhotoId",
+          "lineNumber": 308
+        },
+        {
+          "caller": "MasterGalleryPage",
+          "callee": "currentPosition.albums.reduce",
+          "lineNumber": 316
+        },
+        {
+          "caller": "MasterGalleryPage",
+          "callee": "setOpenPhotoId",
+          "lineNumber": 337
+        },
+        {
+          "caller": "MasterGalleryPage",
+          "callee": "setOpenPhotoId",
+          "lineNumber": 353
+        },
+        {
+          "caller": "MasterGalleryPage",
+          "callee": "photos.find",
+          "lineNumber": 368
+        },
+        {
+          "caller": "MasterGalleryPage",
+          "callee": "setSelectionMode",
+          "lineNumber": 387
+        },
+        {
+          "caller": "MasterGalleryPage",
+          "callee": "setSelectedIds",
+          "lineNumber": 388
+        },
+        {
+          "caller": "MasterGalleryPage",
+          "callee": "setMoveOpen",
+          "lineNumber": 410
+        },
+        {
+          "caller": "MasterGalleryPage",
+          "callee": "setMoveOpen",
+          "lineNumber": 422
+        },
+        {
+          "caller": "MasterGalleryPage",
+          "callee": "setOpenPhotoId",
+          "lineNumber": 428
+        },
+        {
+          "caller": "MasterGalleryPage",
+          "callee": "savePhoto.mutateAsync",
+          "lineNumber": 430
+        },
+        {
+          "caller": "MasterGalleryPage",
+          "callee": "deletePhotos.mutateAsync",
+          "lineNumber": 433
+        }
+      ],
+      "metrics": {
+        "importCount": 6,
+        "exportCount": 1,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/components/master-gallery/move-dialog.tsx",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 187,
+      "nonEmptyLines": 177,
+      "functions": [
+        {
+          "name": "MoveDialog",
+          "startLine": 24,
+          "endLine": 187,
+          "params": [
+            "{\r\n  open,\r\n  photoCount,\r\n  positions,\r\n  currentPositionId,\r\n  onClose,\r\n  onConfirm,\r\n}"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "MoveDialog",
+          "line": 24,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "MoveDialog",
+          "callee": "useState",
+          "lineNumber": 32
+        },
+        {
+          "caller": "MoveDialog",
+          "callee": "useState",
+          "lineNumber": 35
+        },
+        {
+          "caller": "MoveDialog",
+          "callee": "useState",
+          "lineNumber": 36
+        },
+        {
+          "caller": "MoveDialog",
+          "callee": "positions.find",
+          "lineNumber": 40
+        },
+        {
+          "caller": "handleConfirm",
+          "callee": "setSubmitting",
+          "lineNumber": 44
+        },
+        {
+          "caller": "handleConfirm",
+          "callee": "onConfirm",
+          "lineNumber": 46
+        },
+        {
+          "caller": "handleConfirm",
+          "callee": "onClose",
+          "lineNumber": 50
+        },
+        {
+          "caller": "handleConfirm",
+          "callee": "setSelectedPositionId",
+          "lineNumber": 51
+        },
+        {
+          "caller": "handleConfirm",
+          "callee": "setSelectedAlbumId",
+          "lineNumber": 52
+        },
+        {
+          "caller": "handleConfirm",
+          "callee": "setSubmitting",
+          "lineNumber": 54
+        },
+        {
+          "caller": "MoveDialog",
+          "callee": "e.stopPropagation",
+          "lineNumber": 65
+        },
+        {
+          "caller": "MoveDialog",
+          "callee": "positions.map",
+          "lineNumber": 90
+        },
+        {
+          "caller": "MoveDialog",
+          "callee": "setSelectedPositionId",
+          "lineNumber": 97
+        },
+        {
+          "caller": "MoveDialog",
+          "callee": "setSelectedAlbumId",
+          "lineNumber": 98
+        },
+        {
+          "caller": "MoveDialog",
+          "callee": "setSelectedAlbumId",
+          "lineNumber": 137
+        },
+        {
+          "caller": "MoveDialog",
+          "callee": "selectedPosition.albums.map",
+          "lineNumber": 146
+        },
+        {
+          "caller": "MoveDialog",
+          "callee": "setSelectedAlbumId",
+          "lineNumber": 149
+        }
+      ],
+      "metrics": {
+        "importCount": 1,
+        "exportCount": 1,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/components/master-gallery/photo-detail-drawer.tsx",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 218,
+      "nonEmptyLines": 203,
+      "functions": [
+        {
+          "name": "PhotoDetailDrawer",
+          "startLine": 23,
+          "endLine": 218,
+          "params": [
+            "{\r\n  photo,\r\n  onClose,\r\n  onSave,\r\n  onDelete,\r\n}"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "PhotoDetailDrawer",
+          "line": 23,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "PhotoDetailDrawer",
+          "callee": "useState",
+          "lineNumber": 30
+        },
+        {
+          "caller": "PhotoDetailDrawer",
+          "callee": "useState",
+          "lineNumber": 31
+        },
+        {
+          "caller": "PhotoDetailDrawer",
+          "callee": "useState",
+          "lineNumber": 32
+        },
+        {
+          "caller": "PhotoDetailDrawer",
+          "callee": "useState",
+          "lineNumber": 33
+        },
+        {
+          "caller": "PhotoDetailDrawer",
+          "callee": "useState",
+          "lineNumber": 34
+        },
+        {
+          "caller": "PhotoDetailDrawer",
+          "callee": "useEffect",
+          "lineNumber": 36
+        },
+        {
+          "caller": "PhotoDetailDrawer",
+          "callee": "setCaption",
+          "lineNumber": 38
+        },
+        {
+          "caller": "PhotoDetailDrawer",
+          "callee": "setIsBanner",
+          "lineNumber": 39
+        },
+        {
+          "caller": "PhotoDetailDrawer",
+          "callee": "setIsCover",
+          "lineNumber": 40
+        },
+        {
+          "caller": "PhotoDetailDrawer",
+          "callee": "setIsPrivate",
+          "lineNumber": 41
+        },
+        {
+          "caller": "handleSave",
+          "callee": "setSaving",
+          "lineNumber": 54
+        },
+        {
+          "caller": "handleSave",
+          "callee": "onSave",
+          "lineNumber": 56
+        },
+        {
+          "caller": "handleSave",
+          "callee": "setSaving",
+          "lineNumber": 58
+        },
+        {
+          "caller": "handleDelete",
+          "callee": "confirm",
+          "lineNumber": 63
+        },
+        {
+          "caller": "handleDelete",
+          "callee": "setSaving",
+          "lineNumber": 64
+        },
+        {
+          "caller": "handleDelete",
+          "callee": "onDelete",
+          "lineNumber": 66
+        },
+        {
+          "caller": "handleDelete",
+          "callee": "onClose",
+          "lineNumber": 67
+        },
+        {
+          "caller": "handleDelete",
+          "callee": "setSaving",
+          "lineNumber": 69
+        },
+        {
+          "caller": "PhotoDetailDrawer",
+          "callee": "e.stopPropagation",
+          "lineNumber": 85
+        },
+        {
+          "caller": "PhotoDetailDrawer",
+          "callee": "e.stopPropagation",
+          "lineNumber": 106
+        },
+        {
+          "caller": "PhotoDetailDrawer",
+          "callee": "setCaption",
+          "lineNumber": 137
+        },
+        {
+          "caller": "PhotoDetailDrawer",
+          "callee": "setIsBanner",
+          "lineNumber": 155
+        },
+        {
+          "caller": "PhotoDetailDrawer",
+          "callee": "setIsCover",
+          "lineNumber": 169
+        },
+        {
+          "caller": "PhotoDetailDrawer",
+          "callee": "setIsPrivate",
+          "lineNumber": 183
+        },
+        {
+          "caller": "PhotoDetailDrawer",
+          "callee": "new Date(photo.createdAt).toLocaleDateString",
+          "lineNumber": 192
+        }
+      ],
+      "metrics": {
+        "importCount": 1,
+        "exportCount": 1,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/components/master-gallery/photo-grid.tsx",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 122,
+      "nonEmptyLines": 115,
+      "functions": [
+        {
+          "name": "PhotoGrid",
+          "startLine": 19,
+          "endLine": 122,
+          "params": [
+            "{\r\n  photos,\r\n  selectedIds,\r\n  selectionMode,\r\n  showLocation,\r\n  onToggleSelect,\r\n  onOpenPhoto,\r\n}"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "PhotoGrid",
+          "line": 19,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "PhotoGrid",
+          "callee": "photos.map",
+          "lineNumber": 37
+        },
+        {
+          "caller": "PhotoGrid",
+          "callee": "selectedIds.has",
+          "lineNumber": 38
+        },
+        {
+          "caller": "PhotoGrid",
+          "callee": "onToggleSelect",
+          "lineNumber": 50
+        },
+        {
+          "caller": "PhotoGrid",
+          "callee": "onOpenPhoto",
+          "lineNumber": 52
+        },
+        {
+          "caller": "PhotoGrid",
+          "callee": "e.stopPropagation",
+          "lineNumber": 97
+        },
+        {
+          "caller": "PhotoGrid",
+          "callee": "onToggleSelect",
+          "lineNumber": 98
+        }
+      ],
+      "metrics": {
+        "importCount": 1,
+        "exportCount": 1,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/components/master-gallery/types.ts",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 53,
+      "nonEmptyLines": 47,
+      "exports": [
+        {
+          "name": "UNFILED_ALBUM_ID",
+          "line": 50,
+          "isDefault": false
+        },
+        {
+          "name": "BANNERS_VIEW",
+          "line": 53,
+          "isDefault": false
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 2,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    }
+  ]
+}

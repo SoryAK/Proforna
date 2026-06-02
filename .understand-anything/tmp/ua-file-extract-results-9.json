@@ -1,0 +1,5311 @@
+{
+  "scriptCompleted": true,
+  "filesAnalyzed": 28,
+  "filesSkipped": [],
+  "results": [
+    {
+      "path": "src/components/worklog/hooks/use-autosave.ts",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 181,
+      "nonEmptyLines": 168,
+      "functions": [
+        {
+          "name": "readPersistedValue",
+          "startLine": 33,
+          "endLine": 52,
+          "params": [
+            "persistKey",
+            "ttlMs"
+          ]
+        },
+        {
+          "name": "readAutosaveDraft",
+          "startLine": 54,
+          "endLine": 56,
+          "params": [
+            "persistKey",
+            "ttlMs"
+          ]
+        },
+        {
+          "name": "persistValue",
+          "startLine": 58,
+          "endLine": 70,
+          "params": [
+            "persistKey",
+            "value"
+          ]
+        },
+        {
+          "name": "useAutosaveField",
+          "startLine": 72,
+          "endLine": 181,
+          "params": [
+            "remote",
+            "commit",
+            "opts"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "readAutosaveDraft",
+          "line": 54,
+          "isDefault": false
+        },
+        {
+          "name": "useAutosaveField",
+          "line": 72,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "readPersistedValue",
+          "callee": "window.localStorage.getItem",
+          "lineNumber": 36
+        },
+        {
+          "caller": "readPersistedValue",
+          "callee": "JSON.parse",
+          "lineNumber": 38
+        },
+        {
+          "caller": "readPersistedValue",
+          "callee": "window.localStorage.removeItem",
+          "lineNumber": 40
+        },
+        {
+          "caller": "readPersistedValue",
+          "callee": "Date.now",
+          "lineNumber": 43
+        },
+        {
+          "caller": "readPersistedValue",
+          "callee": "window.localStorage.removeItem",
+          "lineNumber": 44
+        },
+        {
+          "caller": "readPersistedValue",
+          "callee": "window.localStorage.removeItem",
+          "lineNumber": 49
+        },
+        {
+          "caller": "readAutosaveDraft",
+          "callee": "readPersistedValue",
+          "lineNumber": 55
+        },
+        {
+          "caller": "persistValue",
+          "callee": "Date.now",
+          "lineNumber": 63
+        },
+        {
+          "caller": "persistValue",
+          "callee": "window.localStorage.setItem",
+          "lineNumber": 66
+        },
+        {
+          "caller": "persistValue",
+          "callee": "JSON.stringify",
+          "lineNumber": 66
+        },
+        {
+          "caller": "useAutosaveField",
+          "callee": "useState",
+          "lineNumber": 96
+        },
+        {
+          "caller": "useAutosaveField",
+          "callee": "useState",
+          "lineNumber": 97
+        },
+        {
+          "caller": "useAutosaveField",
+          "callee": "useRef",
+          "lineNumber": 98
+        },
+        {
+          "caller": "useAutosaveField",
+          "callee": "useRef",
+          "lineNumber": 99
+        },
+        {
+          "caller": "useAutosaveField",
+          "callee": "useRef",
+          "lineNumber": 100
+        },
+        {
+          "caller": "useAutosaveField",
+          "callee": "useEffect",
+          "lineNumber": 104
+        },
+        {
+          "caller": "useAutosaveField",
+          "callee": "equal",
+          "lineNumber": 105
+        },
+        {
+          "caller": "useAutosaveField",
+          "callee": "setValue",
+          "lineNumber": 107
+        },
+        {
+          "caller": "flush",
+          "callee": "clearTimeout",
+          "lineNumber": 117
+        },
+        {
+          "caller": "flush",
+          "callee": "equal",
+          "lineNumber": 120
+        },
+        {
+          "caller": "flush",
+          "callee": "setIsSaving",
+          "lineNumber": 122
+        },
+        {
+          "caller": "flush",
+          "callee": "Promise.resolve(commit(value)).then(() => {\r\n        if (onCommitSuccess) void onCommitSuccess();\r\n      }).catch(() => {}).finally",
+          "lineNumber": 123
+        },
+        {
+          "caller": "flush",
+          "callee": "Promise.resolve(commit(value)).then(() => {\r\n        if (onCommitSuccess) void onCommitSuccess();\r\n      }).catch",
+          "lineNumber": 123
+        },
+        {
+          "caller": "flush",
+          "callee": "Promise.resolve(commit(value)).then",
+          "lineNumber": 123
+        },
+        {
+          "caller": "flush",
+          "callee": "Promise.resolve",
+          "lineNumber": 123
+        },
+        {
+          "caller": "flush",
+          "callee": "commit",
+          "lineNumber": 123
+        },
+        {
+          "caller": "flush",
+          "callee": "onCommitSuccess",
+          "lineNumber": 124
+        },
+        {
+          "caller": "flush",
+          "callee": "setIsSaving",
+          "lineNumber": 126
+        },
+        {
+          "caller": "flush",
+          "callee": "persistValue",
+          "lineNumber": 128
+        },
+        {
+          "caller": "useAutosaveField",
+          "callee": "useEffect",
+          "lineNumber": 133
+        },
+        {
+          "caller": "useAutosaveField",
+          "callee": "clearTimeout",
+          "lineNumber": 136
+        },
+        {
+          "caller": "useAutosaveField",
+          "callee": "equal",
+          "lineNumber": 137
+        },
+        {
+          "caller": "useAutosaveField",
+          "callee": "setIsSaving",
+          "lineNumber": 139
+        },
+        {
+          "caller": "useAutosaveField",
+          "callee": "Promise.resolve(commit(value)).then(() => {\r\n            if (onCommitSuccess) void onCommitSuccess();\r\n          }).catch(() => {}).finally",
+          "lineNumber": 140
+        },
+        {
+          "caller": "useAutosaveField",
+          "callee": "Promise.resolve(commit(value)).then(() => {\r\n            if (onCommitSuccess) void onCommitSuccess();\r\n          }).catch",
+          "lineNumber": 140
+        },
+        {
+          "caller": "useAutosaveField",
+          "callee": "Promise.resolve(commit(value)).then",
+          "lineNumber": 140
+        },
+        {
+          "caller": "useAutosaveField",
+          "callee": "Promise.resolve",
+          "lineNumber": 140
+        },
+        {
+          "caller": "useAutosaveField",
+          "callee": "commit",
+          "lineNumber": 140
+        },
+        {
+          "caller": "useAutosaveField",
+          "callee": "onCommitSuccess",
+          "lineNumber": 141
+        },
+        {
+          "caller": "useAutosaveField",
+          "callee": "setIsSaving",
+          "lineNumber": 143
+        },
+        {
+          "caller": "useAutosaveField",
+          "callee": "clearTimeout",
+          "lineNumber": 147
+        },
+        {
+          "caller": "onChange",
+          "callee": "setValue",
+          "lineNumber": 153
+        },
+        {
+          "caller": "onChange",
+          "callee": "persistValue",
+          "lineNumber": 154
+        },
+        {
+          "caller": "onChange",
+          "callee": "clearTimeout",
+          "lineNumber": 155
+        },
+        {
+          "caller": "onChange",
+          "callee": "setTimeout",
+          "lineNumber": 157
+        },
+        {
+          "caller": "onChange",
+          "callee": "onDraftChange",
+          "lineNumber": 158
+        },
+        {
+          "caller": "onChange",
+          "callee": "clearTimeout",
+          "lineNumber": 162
+        },
+        {
+          "caller": "onChange",
+          "callee": "setTimeout",
+          "lineNumber": 163
+        },
+        {
+          "caller": "onChange",
+          "callee": "equal",
+          "lineNumber": 164
+        },
+        {
+          "caller": "onChange",
+          "callee": "setIsSaving",
+          "lineNumber": 166
+        },
+        {
+          "caller": "onChange",
+          "callee": "Promise.resolve(commit(next)).finally",
+          "lineNumber": 167
+        },
+        {
+          "caller": "onChange",
+          "callee": "Promise.resolve",
+          "lineNumber": 167
+        },
+        {
+          "caller": "onChange",
+          "callee": "commit",
+          "lineNumber": 167
+        },
+        {
+          "caller": "onChange",
+          "callee": "setIsSaving",
+          "lineNumber": 168
+        },
+        {
+          "caller": "onChange",
+          "callee": "persistValue",
+          "lineNumber": 170
+        },
+        {
+          "caller": "onBlur",
+          "callee": "flush",
+          "lineNumber": 177
+        },
+        {
+          "caller": "useAutosaveField",
+          "callee": "equal",
+          "lineNumber": 180
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 2,
+        "functionCount": 4,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/components/worklog/hooks/use-worklog-create-flow.ts",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 139,
+      "nonEmptyLines": 129,
+      "functions": [
+        {
+          "name": "useWorklogCreateFlow",
+          "startLine": 33,
+          "endLine": 139,
+          "params": [
+            "{\r\n  logs,\r\n  defaults,\r\n  saveLog,\r\n  setActiveFolder,\r\n  setSelectedNoteId,\r\n  setMobileShowReader,\r\n  closeTemplatePicker,\r\n}"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "useWorklogCreateFlow",
+          "line": 33,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "useWorklogCreateFlow",
+          "callee": "useCallback",
+          "lineNumber": 42
+        },
+        {
+          "caller": "useWorklogCreateFlow",
+          "callee": "new Date().toISOString",
+          "lineNumber": 55
+        },
+        {
+          "caller": "useWorklogCreateFlow",
+          "callee": "saveLog.mutateAsync",
+          "lineNumber": 70
+        },
+        {
+          "caller": "useWorklogCreateFlow",
+          "callee": "setActiveFolder",
+          "lineNumber": 71
+        },
+        {
+          "caller": "useWorklogCreateFlow",
+          "callee": "setSelectedNoteId",
+          "lineNumber": 72
+        },
+        {
+          "caller": "useWorklogCreateFlow",
+          "callee": "setMobileShowReader",
+          "lineNumber": 73
+        },
+        {
+          "caller": "useWorklogCreateFlow",
+          "callee": "useCallback",
+          "lineNumber": 81
+        },
+        {
+          "caller": "useWorklogCreateFlow",
+          "callee": "createBlankNote",
+          "lineNumber": 82
+        },
+        {
+          "caller": "useWorklogCreateFlow",
+          "callee": "useCallback",
+          "lineNumber": 85
+        },
+        {
+          "caller": "useWorklogCreateFlow",
+          "callee": "createBlankNote",
+          "lineNumber": 87
+        },
+        {
+          "caller": "useWorklogCreateFlow",
+          "callee": "useCallback",
+          "lineNumber": 99
+        },
+        {
+          "caller": "useWorklogCreateFlow",
+          "callee": "createBlankNote",
+          "lineNumber": 102
+        },
+        {
+          "caller": "useWorklogCreateFlow",
+          "callee": "useCallback",
+          "lineNumber": 117
+        },
+        {
+          "caller": "useWorklogCreateFlow",
+          "callee": "closeTemplatePicker",
+          "lineNumber": 119
+        },
+        {
+          "caller": "useWorklogCreateFlow",
+          "callee": "createBlankNote",
+          "lineNumber": 120
+        }
+      ],
+      "metrics": {
+        "importCount": 2,
+        "exportCount": 1,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/components/worklog/hooks/use-worklog-data.ts",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 127,
+      "nonEmptyLines": 114,
+      "functions": [
+        {
+          "name": "fetchArrayOrThrow",
+          "startLine": 19,
+          "endLine": 30,
+          "params": [
+            "url"
+          ]
+        },
+        {
+          "name": "useWorklogData",
+          "startLine": 32,
+          "endLine": 127,
+          "params": []
+        }
+      ],
+      "exports": [
+        {
+          "name": "useWorklogData",
+          "line": 32,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "fetchArrayOrThrow",
+          "callee": "fetch",
+          "lineNumber": 20
+        },
+        {
+          "caller": "fetchArrayOrThrow",
+          "callee": "r.text",
+          "lineNumber": 22
+        },
+        {
+          "caller": "fetchArrayOrThrow",
+          "callee": "r.json",
+          "lineNumber": 25
+        },
+        {
+          "caller": "fetchArrayOrThrow",
+          "callee": "Array.isArray",
+          "lineNumber": 26
+        },
+        {
+          "caller": "useWorklogData",
+          "callee": "useState",
+          "lineNumber": 35
+        },
+        {
+          "caller": "useWorklogData",
+          "callee": "useEffect",
+          "lineNumber": 36
+        },
+        {
+          "caller": "useWorklogData",
+          "callee": "cacheGetAllLogs().then",
+          "lineNumber": 38
+        },
+        {
+          "caller": "useWorklogData",
+          "callee": "cacheGetAllLogs",
+          "lineNumber": 38
+        },
+        {
+          "caller": "useWorklogData",
+          "callee": "setCachedLogs",
+          "lineNumber": 40
+        },
+        {
+          "caller": "useWorklogData",
+          "callee": "useQuery",
+          "lineNumber": 51
+        },
+        {
+          "caller": "useWorklogData",
+          "callee": "fetchArrayOrThrow",
+          "lineNumber": 53
+        },
+        {
+          "caller": "useWorklogData",
+          "callee": "useEffect",
+          "lineNumber": 62
+        },
+        {
+          "caller": "useWorklogData",
+          "callee": "cacheReplaceAllLogs",
+          "lineNumber": 64
+        },
+        {
+          "caller": "useWorklogData",
+          "callee": "useQuery",
+          "lineNumber": 67
+        },
+        {
+          "caller": "useWorklogData",
+          "callee": "fetchArrayOrThrow",
+          "lineNumber": 69
+        },
+        {
+          "caller": "useWorklogData",
+          "callee": "useQuery",
+          "lineNumber": 72
+        },
+        {
+          "caller": "useWorklogData",
+          "callee": "fetchArrayOrThrow",
+          "lineNumber": 74
+        },
+        {
+          "caller": "useWorklogData",
+          "callee": "useQuery",
+          "lineNumber": 78
+        },
+        {
+          "caller": "useWorklogData",
+          "callee": "fetch",
+          "lineNumber": 81
+        },
+        {
+          "caller": "useWorklogData",
+          "callee": "r.json",
+          "lineNumber": 83
+        },
+        {
+          "caller": "useWorklogData",
+          "callee": "useQuery",
+          "lineNumber": 88
+        },
+        {
+          "caller": "useWorklogData",
+          "callee": "fetch",
+          "lineNumber": 91
+        },
+        {
+          "caller": "useWorklogData",
+          "callee": "r.json",
+          "lineNumber": 93
+        },
+        {
+          "caller": "useWorklogData",
+          "callee": "useMemo",
+          "lineNumber": 98
+        },
+        {
+          "caller": "useWorklogData",
+          "callee": "positions.forEach",
+          "lineNumber": 100
+        },
+        {
+          "caller": "useWorklogData",
+          "callee": "m.set",
+          "lineNumber": 100
+        },
+        {
+          "caller": "useWorklogData",
+          "callee": "useMemo",
+          "lineNumber": 104
+        },
+        {
+          "caller": "useWorklogData",
+          "callee": "equipment.forEach",
+          "lineNumber": 106
+        },
+        {
+          "caller": "useWorklogData",
+          "callee": "m.set",
+          "lineNumber": 106
+        },
+        {
+          "caller": "useWorklogData",
+          "callee": "useMemo",
+          "lineNumber": 110
+        },
+        {
+          "caller": "useWorklogData",
+          "callee": "assets.forEach",
+          "lineNumber": 112
+        },
+        {
+          "caller": "useWorklogData",
+          "callee": "m.set",
+          "lineNumber": 112
+        }
+      ],
+      "metrics": {
+        "importCount": 4,
+        "exportCount": 1,
+        "functionCount": 2,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/components/worklog/hooks/use-worklog-deep-links.ts",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 100,
+      "nonEmptyLines": 90,
+      "functions": [
+        {
+          "name": "useWorklogDeepLinks",
+          "startLine": 31,
+          "endLine": 100,
+          "params": [
+            "logs",
+            "actions"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "useWorklogDeepLinks",
+          "line": 31,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "useWorklogDeepLinks",
+          "callee": "useSearchParams",
+          "lineNumber": 32
+        },
+        {
+          "caller": "useWorklogDeepLinks",
+          "callee": "useRouter",
+          "lineNumber": 33
+        },
+        {
+          "caller": "useWorklogDeepLinks",
+          "callee": "searchParams.get",
+          "lineNumber": 35
+        },
+        {
+          "caller": "useWorklogDeepLinks",
+          "callee": "searchParams.get",
+          "lineNumber": 36
+        },
+        {
+          "caller": "useWorklogDeepLinks",
+          "callee": "searchParams.get",
+          "lineNumber": 37
+        },
+        {
+          "caller": "useWorklogDeepLinks",
+          "callee": "searchParams.get",
+          "lineNumber": 38
+        },
+        {
+          "caller": "useWorklogDeepLinks",
+          "callee": "searchParams.get",
+          "lineNumber": 39
+        },
+        {
+          "caller": "useWorklogDeepLinks",
+          "callee": "searchParams.get",
+          "lineNumber": 40
+        },
+        {
+          "caller": "useWorklogDeepLinks",
+          "callee": "useEffect",
+          "lineNumber": 43
+        },
+        {
+          "caller": "useWorklogDeepLinks",
+          "callee": "logs.find",
+          "lineNumber": 45
+        },
+        {
+          "caller": "useWorklogDeepLinks",
+          "callee": "actions.setSelectedDate",
+          "lineNumber": 47
+        },
+        {
+          "caller": "useWorklogDeepLinks",
+          "callee": "actions.clearAllFilters",
+          "lineNumber": 48
+        },
+        {
+          "caller": "useWorklogDeepLinks",
+          "callee": "actions.setActiveFolder",
+          "lineNumber": 49
+        },
+        {
+          "caller": "useWorklogDeepLinks",
+          "callee": "actions.setSelectedNoteId",
+          "lineNumber": 50
+        },
+        {
+          "caller": "useWorklogDeepLinks",
+          "callee": "setTimeout",
+          "lineNumber": 51
+        },
+        {
+          "caller": "useWorklogDeepLinks",
+          "callee": "router.replace",
+          "lineNumber": 52
+        },
+        {
+          "caller": "useWorklogDeepLinks",
+          "callee": "clearTimeout",
+          "lineNumber": 54
+        },
+        {
+          "caller": "useWorklogDeepLinks",
+          "callee": "useEffect",
+          "lineNumber": 59
+        },
+        {
+          "caller": "useWorklogDeepLinks",
+          "callee": "actions.setActiveFolder",
+          "lineNumber": 61
+        },
+        {
+          "caller": "useWorklogDeepLinks",
+          "callee": "actions.setFilterPositionId",
+          "lineNumber": 62
+        },
+        {
+          "caller": "useWorklogDeepLinks",
+          "callee": "setTimeout",
+          "lineNumber": 63
+        },
+        {
+          "caller": "useWorklogDeepLinks",
+          "callee": "router.replace",
+          "lineNumber": 63
+        },
+        {
+          "caller": "useWorklogDeepLinks",
+          "callee": "clearTimeout",
+          "lineNumber": 64
+        },
+        {
+          "caller": "useWorklogDeepLinks",
+          "callee": "useEffect",
+          "lineNumber": 69
+        },
+        {
+          "caller": "useWorklogDeepLinks",
+          "callee": "actions.setActiveFolder",
+          "lineNumber": 71
+        },
+        {
+          "caller": "useWorklogDeepLinks",
+          "callee": "actions.setFilterEquipmentId",
+          "lineNumber": 72
+        },
+        {
+          "caller": "useWorklogDeepLinks",
+          "callee": "setTimeout",
+          "lineNumber": 73
+        },
+        {
+          "caller": "useWorklogDeepLinks",
+          "callee": "router.replace",
+          "lineNumber": 73
+        },
+        {
+          "caller": "useWorklogDeepLinks",
+          "callee": "clearTimeout",
+          "lineNumber": 74
+        },
+        {
+          "caller": "useWorklogDeepLinks",
+          "callee": "useEffect",
+          "lineNumber": 79
+        },
+        {
+          "caller": "useWorklogDeepLinks",
+          "callee": "actions.setActiveFolder",
+          "lineNumber": 81
+        },
+        {
+          "caller": "useWorklogDeepLinks",
+          "callee": "actions.setFilterAssetId",
+          "lineNumber": 82
+        },
+        {
+          "caller": "useWorklogDeepLinks",
+          "callee": "setTimeout",
+          "lineNumber": 83
+        },
+        {
+          "caller": "useWorklogDeepLinks",
+          "callee": "router.replace",
+          "lineNumber": 83
+        },
+        {
+          "caller": "useWorklogDeepLinks",
+          "callee": "clearTimeout",
+          "lineNumber": 84
+        },
+        {
+          "caller": "useWorklogDeepLinks",
+          "callee": "useEffect",
+          "lineNumber": 89
+        },
+        {
+          "caller": "useWorklogDeepLinks",
+          "callee": "actions.setActiveFolder",
+          "lineNumber": 91
+        },
+        {
+          "caller": "useWorklogDeepLinks",
+          "callee": "actions.createBlankNote",
+          "lineNumber": 92
+        },
+        {
+          "caller": "useWorklogDeepLinks",
+          "callee": "setTimeout",
+          "lineNumber": 93
+        },
+        {
+          "caller": "useWorklogDeepLinks",
+          "callee": "router.replace",
+          "lineNumber": 93
+        },
+        {
+          "caller": "useWorklogDeepLinks",
+          "callee": "clearTimeout",
+          "lineNumber": 94
+        }
+      ],
+      "metrics": {
+        "importCount": 2,
+        "exportCount": 1,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/components/worklog/hooks/use-worklog-dnd.ts",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 207,
+      "nonEmptyLines": 164,
+      "functions": [
+        {
+          "name": "parseType",
+          "startLine": 47,
+          "endLine": 51,
+          "params": [
+            "id"
+          ]
+        },
+        {
+          "name": "stripPrefix",
+          "startLine": 53,
+          "endLine": 55,
+          "params": [
+            "id"
+          ]
+        },
+        {
+          "name": "useWorklogDnd",
+          "startLine": 61,
+          "endLine": 207,
+          "params": []
+        }
+      ],
+      "exports": [
+        {
+          "name": "parseType",
+          "line": 47,
+          "isDefault": false
+        },
+        {
+          "name": "stripPrefix",
+          "line": 53,
+          "isDefault": false
+        },
+        {
+          "name": "useWorklogDnd",
+          "line": 61,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "parseType",
+          "callee": "id.startsWith",
+          "lineNumber": 48
+        },
+        {
+          "caller": "parseType",
+          "callee": "id.startsWith",
+          "lineNumber": 49
+        },
+        {
+          "caller": "stripPrefix",
+          "callee": "id.replace",
+          "lineNumber": 54
+        },
+        {
+          "caller": "useWorklogDnd",
+          "callee": "useQueryClient",
+          "lineNumber": 62
+        },
+        {
+          "caller": "useWorklogDnd",
+          "callee": "useWorklogMutations",
+          "lineNumber": 63
+        },
+        {
+          "caller": "useWorklogDnd",
+          "callee": "useState",
+          "lineNumber": 65
+        },
+        {
+          "caller": "useWorklogDnd",
+          "callee": "useState",
+          "lineNumber": 66
+        },
+        {
+          "caller": "useWorklogDnd",
+          "callee": "useSensors",
+          "lineNumber": 68
+        },
+        {
+          "caller": "useWorklogDnd",
+          "callee": "useSensor",
+          "lineNumber": 69
+        },
+        {
+          "caller": "useWorklogDnd",
+          "callee": "useSensor",
+          "lineNumber": 70
+        },
+        {
+          "caller": "useWorklogDnd",
+          "callee": "parseType",
+          "lineNumber": 73
+        },
+        {
+          "caller": "useWorklogDnd",
+          "callee": "overId?.startsWith",
+          "lineNumber": 74
+        },
+        {
+          "caller": "onDragStart",
+          "callee": "setActiveId",
+          "lineNumber": 81
+        },
+        {
+          "caller": "onDragStart",
+          "callee": "String",
+          "lineNumber": 81
+        },
+        {
+          "caller": "onDragOver",
+          "callee": "setOverId",
+          "lineNumber": 85
+        },
+        {
+          "caller": "onDragOver",
+          "callee": "String",
+          "lineNumber": 85
+        },
+        {
+          "caller": "onDragCancel",
+          "callee": "setActiveId",
+          "lineNumber": 89
+        },
+        {
+          "caller": "onDragCancel",
+          "callee": "setOverId",
+          "lineNumber": 90
+        },
+        {
+          "caller": "onDragEnd",
+          "callee": "setActiveId",
+          "lineNumber": 95
+        },
+        {
+          "caller": "onDragEnd",
+          "callee": "setOverId",
+          "lineNumber": 96
+        },
+        {
+          "caller": "onDragEnd",
+          "callee": "String",
+          "lineNumber": 98
+        },
+        {
+          "caller": "onDragEnd",
+          "callee": "String",
+          "lineNumber": 99
+        },
+        {
+          "caller": "onDragEnd",
+          "callee": "parseType",
+          "lineNumber": 103
+        },
+        {
+          "caller": "onDragEnd",
+          "callee": "stripPrefix",
+          "lineNumber": 109
+        },
+        {
+          "caller": "onDragEnd",
+          "callee": "over.startsWith",
+          "lineNumber": 113
+        },
+        {
+          "caller": "onDragEnd",
+          "callee": "stripPrefix",
+          "lineNumber": 114
+        },
+        {
+          "caller": "onDragEnd",
+          "callee": "over.startsWith",
+          "lineNumber": 115
+        },
+        {
+          "caller": "onDragEnd",
+          "callee": "over.startsWith",
+          "lineNumber": 117
+        },
+        {
+          "caller": "onDragEnd",
+          "callee": "stripPrefix",
+          "lineNumber": 118
+        },
+        {
+          "caller": "onDragEnd",
+          "callee": "qc.getQueryData",
+          "lineNumber": 119
+        },
+        {
+          "caller": "onDragEnd",
+          "callee": "notes.find",
+          "lineNumber": 120
+        },
+        {
+          "caller": "onDragEnd",
+          "callee": "qc.getQueryData",
+          "lineNumber": 123
+        },
+        {
+          "caller": "onDragEnd",
+          "callee": "notes\r\n        .filter((n) => (n.folderId ?? null) === targetFolderId)\r\n        .sort",
+          "lineNumber": 126
+        },
+        {
+          "caller": "onDragEnd",
+          "callee": "notes\r\n        .filter",
+          "lineNumber": 126
+        },
+        {
+          "caller": "onDragEnd",
+          "callee": "notes.find",
+          "lineNumber": 130
+        },
+        {
+          "caller": "onDragEnd",
+          "callee": "siblings.filter",
+          "lineNumber": 134
+        },
+        {
+          "caller": "onDragEnd",
+          "callee": "over.startsWith",
+          "lineNumber": 138
+        },
+        {
+          "caller": "onDragEnd",
+          "callee": "stripPrefix",
+          "lineNumber": 139
+        },
+        {
+          "caller": "onDragEnd",
+          "callee": "siblings.findIndex",
+          "lineNumber": 140
+        },
+        {
+          "caller": "onDragEnd",
+          "callee": "siblings.splice",
+          "lineNumber": 144
+        },
+        {
+          "caller": "onDragEnd",
+          "callee": "siblings.map",
+          "lineNumber": 147
+        },
+        {
+          "caller": "onDragEnd",
+          "callee": "reordered\r\n        .filter((n) => {\r\n          const orig = notes.find((o) => o.id === n.id);\r\n          return orig && (orig.sortOrder !== n.sortOrder || (orig.folderId ?? null) !== targetFolderId);\r\n        })\r\n        .map",
+          "lineNumber": 150
+        },
+        {
+          "caller": "onDragEnd",
+          "callee": "reordered\r\n        .filter",
+          "lineNumber": 150
+        },
+        {
+          "caller": "onDragEnd",
+          "callee": "notes.find",
+          "lineNumber": 152
+        },
+        {
+          "caller": "onDragEnd",
+          "callee": "reorderNotes.mutate",
+          "lineNumber": 158
+        },
+        {
+          "caller": "onDragEnd",
+          "callee": "over.startsWith",
+          "lineNumber": 166
+        },
+        {
+          "caller": "onDragEnd",
+          "callee": "stripPrefix",
+          "lineNumber": 168
+        },
+        {
+          "caller": "onDragEnd",
+          "callee": "stripPrefix",
+          "lineNumber": 169
+        },
+        {
+          "caller": "onDragEnd",
+          "callee": "qc.getQueryData",
+          "lineNumber": 171
+        },
+        {
+          "caller": "onDragEnd",
+          "callee": "folders.find",
+          "lineNumber": 174
+        },
+        {
+          "caller": "onDragEnd",
+          "callee": "folders.find",
+          "lineNumber": 175
+        },
+        {
+          "caller": "onDragEnd",
+          "callee": "folders\r\n        .filter((f) => (f.parentId ?? null) === sharedParent)\r\n        .sort",
+          "lineNumber": 183
+        },
+        {
+          "caller": "onDragEnd",
+          "callee": "folders\r\n        .filter",
+          "lineNumber": 183
+        },
+        {
+          "caller": "onDragEnd",
+          "callee": "siblings.filter",
+          "lineNumber": 187
+        },
+        {
+          "caller": "onDragEnd",
+          "callee": "siblings.findIndex",
+          "lineNumber": 189
+        },
+        {
+          "caller": "onDragEnd",
+          "callee": "siblings.splice",
+          "lineNumber": 190
+        },
+        {
+          "caller": "onDragEnd",
+          "callee": "siblings.map",
+          "lineNumber": 192
+        },
+        {
+          "caller": "onDragEnd",
+          "callee": "reordered\r\n        .filter((f) => {\r\n          const orig = folders.find((o) => o.id === f.id);\r\n          return orig && orig.sortOrder !== f.sortOrder;\r\n        })\r\n        .map",
+          "lineNumber": 194
+        },
+        {
+          "caller": "onDragEnd",
+          "callee": "reordered\r\n        .filter",
+          "lineNumber": 194
+        },
+        {
+          "caller": "onDragEnd",
+          "callee": "folders.find",
+          "lineNumber": 196
+        },
+        {
+          "caller": "onDragEnd",
+          "callee": "reorderFolders.mutate",
+          "lineNumber": 202
+        }
+      ],
+      "metrics": {
+        "importCount": 3,
+        "exportCount": 3,
+        "functionCount": 3,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/components/worklog/hooks/use-worklog-drafts.ts",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 103,
+      "nonEmptyLines": 94,
+      "functions": [
+        {
+          "name": "useWorklogDrafts",
+          "startLine": 15,
+          "endLine": 103,
+          "params": [
+            "workLogId"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "useWorklogDrafts",
+          "line": 15,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "useWorklogDrafts",
+          "callee": "useQueryClient",
+          "lineNumber": 16
+        },
+        {
+          "caller": "useWorklogDrafts",
+          "callee": "useQuery",
+          "lineNumber": 18
+        },
+        {
+          "caller": "useWorklogDrafts",
+          "callee": "fetch",
+          "lineNumber": 21
+        },
+        {
+          "caller": "useWorklogDrafts",
+          "callee": "encodeURIComponent",
+          "lineNumber": 21
+        },
+        {
+          "caller": "useWorklogDrafts",
+          "callee": "res.text",
+          "lineNumber": 22
+        },
+        {
+          "caller": "useWorklogDrafts",
+          "callee": "res.json",
+          "lineNumber": 23
+        },
+        {
+          "caller": "useWorklogDrafts",
+          "callee": "useMemo",
+          "lineNumber": 28
+        },
+        {
+          "caller": "useWorklogDrafts",
+          "callee": "useMutation",
+          "lineNumber": 36
+        },
+        {
+          "caller": "useWorklogDrafts",
+          "callee": "fetch",
+          "lineNumber": 38
+        },
+        {
+          "caller": "useWorklogDrafts",
+          "callee": "JSON.stringify",
+          "lineNumber": 41
+        },
+        {
+          "caller": "useWorklogDrafts",
+          "callee": "res.text",
+          "lineNumber": 43
+        },
+        {
+          "caller": "useWorklogDrafts",
+          "callee": "res.json",
+          "lineNumber": 44
+        },
+        {
+          "caller": "useWorklogDrafts",
+          "callee": "qc.cancelQueries",
+          "lineNumber": 47
+        },
+        {
+          "caller": "useWorklogDrafts",
+          "callee": "qc.getQueryData",
+          "lineNumber": 48
+        },
+        {
+          "caller": "useWorklogDrafts",
+          "callee": "new Date().toISOString",
+          "lineNumber": 49
+        },
+        {
+          "caller": "useWorklogDrafts",
+          "callee": "qc.setQueryData",
+          "lineNumber": 50
+        },
+        {
+          "caller": "useWorklogDrafts",
+          "callee": "old.filter",
+          "lineNumber": 51
+        },
+        {
+          "caller": "useWorklogDrafts",
+          "callee": "qc.setQueryData",
+          "lineNumber": 65
+        },
+        {
+          "caller": "useWorklogDrafts",
+          "callee": "qc.invalidateQueries",
+          "lineNumber": 68
+        },
+        {
+          "caller": "useWorklogDrafts",
+          "callee": "useMutation",
+          "lineNumber": 72
+        },
+        {
+          "caller": "useWorklogDrafts",
+          "callee": "qs.set",
+          "lineNumber": 75
+        },
+        {
+          "caller": "useWorklogDrafts",
+          "callee": "fetch",
+          "lineNumber": 76
+        },
+        {
+          "caller": "useWorklogDrafts",
+          "callee": "qs.toString",
+          "lineNumber": 76
+        },
+        {
+          "caller": "useWorklogDrafts",
+          "callee": "res.text",
+          "lineNumber": 77
+        },
+        {
+          "caller": "useWorklogDrafts",
+          "callee": "res.json",
+          "lineNumber": 78
+        },
+        {
+          "caller": "useWorklogDrafts",
+          "callee": "qc.cancelQueries",
+          "lineNumber": 81
+        },
+        {
+          "caller": "useWorklogDrafts",
+          "callee": "qc.getQueryData",
+          "lineNumber": 82
+        },
+        {
+          "caller": "useWorklogDrafts",
+          "callee": "qc.setQueryData",
+          "lineNumber": 83
+        },
+        {
+          "caller": "useWorklogDrafts",
+          "callee": "old.filter",
+          "lineNumber": 85
+        },
+        {
+          "caller": "useWorklogDrafts",
+          "callee": "qc.setQueryData",
+          "lineNumber": 90
+        },
+        {
+          "caller": "useWorklogDrafts",
+          "callee": "qc.invalidateQueries",
+          "lineNumber": 93
+        },
+        {
+          "caller": "useWorklogDrafts",
+          "callee": "saveDraft.mutate",
+          "lineNumber": 100
+        },
+        {
+          "caller": "useWorklogDrafts",
+          "callee": "clearDraft.mutate",
+          "lineNumber": 101
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 1,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/components/worklog/hooks/use-worklog-filters.ts",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 157,
+      "nonEmptyLines": 147,
+      "functions": [
+        {
+          "name": "isRoutineDay",
+          "startLine": 32,
+          "endLine": 43,
+          "params": [
+            "logs"
+          ]
+        },
+        {
+          "name": "useWorklogFilters",
+          "startLine": 45,
+          "endLine": 157,
+          "params": [
+            "logs"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "useWorklogFilters",
+          "line": 45,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "useWorklogFilters",
+          "callee": "useState",
+          "lineNumber": 46
+        },
+        {
+          "caller": "useWorklogFilters",
+          "callee": "useState",
+          "lineNumber": 47
+        },
+        {
+          "caller": "useWorklogFilters",
+          "callee": "useState",
+          "lineNumber": 48
+        },
+        {
+          "caller": "useWorklogFilters",
+          "callee": "useState",
+          "lineNumber": 49
+        },
+        {
+          "caller": "useWorklogFilters",
+          "callee": "useState",
+          "lineNumber": 50
+        },
+        {
+          "caller": "useWorklogFilters",
+          "callee": "useMemo",
+          "lineNumber": 52
+        },
+        {
+          "caller": "useWorklogFilters",
+          "callee": "logs.filter",
+          "lineNumber": 53
+        },
+        {
+          "caller": "useWorklogFilters",
+          "callee": "(l.equipmentIds ?? []).includes",
+          "lineNumber": 60
+        },
+        {
+          "caller": "useWorklogFilters",
+          "callee": "(l.assetIds ?? []).includes",
+          "lineNumber": 61
+        },
+        {
+          "caller": "useWorklogFilters",
+          "callee": "useMemo",
+          "lineNumber": 66
+        },
+        {
+          "caller": "useWorklogFilters",
+          "callee": "format",
+          "lineNumber": 69
+        },
+        {
+          "caller": "useWorklogFilters",
+          "callee": "startOfDay",
+          "lineNumber": 69
+        },
+        {
+          "caller": "useWorklogFilters",
+          "callee": "parseISO",
+          "lineNumber": 69
+        },
+        {
+          "caller": "useWorklogFilters",
+          "callee": "map.has",
+          "lineNumber": 70
+        },
+        {
+          "caller": "useWorklogFilters",
+          "callee": "map.set",
+          "lineNumber": 70
+        },
+        {
+          "caller": "useWorklogFilters",
+          "callee": "map.get(key)!.push",
+          "lineNumber": 71
+        },
+        {
+          "caller": "useWorklogFilters",
+          "callee": "map.get",
+          "lineNumber": 71
+        },
+        {
+          "caller": "useWorklogFilters",
+          "callee": "Array.from(map.entries())\r\n      .sort((a, b) => (a[0] < b[0] ? 1 : -1))\r\n      .map",
+          "lineNumber": 73
+        },
+        {
+          "caller": "useWorklogFilters",
+          "callee": "Array.from(map.entries())\r\n      .sort",
+          "lineNumber": 73
+        },
+        {
+          "caller": "useWorklogFilters",
+          "callee": "Array.from",
+          "lineNumber": 73
+        },
+        {
+          "caller": "useWorklogFilters",
+          "callee": "map.entries",
+          "lineNumber": 73
+        },
+        {
+          "caller": "useWorklogFilters",
+          "callee": "parseISO",
+          "lineNumber": 75
+        },
+        {
+          "caller": "useWorklogFilters",
+          "callee": "useMemo",
+          "lineNumber": 78
+        },
+        {
+          "caller": "useWorklogFilters",
+          "callee": "isRoutineDay",
+          "lineNumber": 83
+        },
+        {
+          "caller": "useWorklogFilters",
+          "callee": "out.push",
+          "lineNumber": 85
+        },
+        {
+          "caller": "useWorklogFilters",
+          "callee": "isRoutineDay",
+          "lineNumber": 94
+        },
+        {
+          "caller": "useWorklogFilters",
+          "callee": "differenceInCalendarDays",
+          "lineNumber": 96
+        },
+        {
+          "caller": "useWorklogFilters",
+          "callee": "run.push",
+          "lineNumber": 97
+        },
+        {
+          "caller": "useWorklogFilters",
+          "callee": "run.reduce",
+          "lineNumber": 101
+        },
+        {
+          "caller": "useWorklogFilters",
+          "callee": "d.logs.reduce",
+          "lineNumber": 102
+        },
+        {
+          "caller": "useWorklogFilters",
+          "callee": "out.push",
+          "lineNumber": 105
+        },
+        {
+          "caller": "useWorklogFilters",
+          "callee": "out.push",
+          "lineNumber": 115
+        },
+        {
+          "caller": "clearAll",
+          "callee": "setFilterPositionId",
+          "lineNumber": 130
+        },
+        {
+          "caller": "clearAll",
+          "callee": "setFilterCategory",
+          "lineNumber": 131
+        },
+        {
+          "caller": "clearAll",
+          "callee": "setFilterNotable",
+          "lineNumber": 132
+        },
+        {
+          "caller": "clearAll",
+          "callee": "setFilterEquipmentId",
+          "lineNumber": 133
+        },
+        {
+          "caller": "clearAll",
+          "callee": "setFilterAssetId",
+          "lineNumber": 134
+        }
+      ],
+      "metrics": {
+        "importCount": 1,
+        "exportCount": 1,
+        "functionCount": 2,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/components/worklog/hooks/use-worklog-folders.ts",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 113,
+      "nonEmptyLines": 104,
+      "functions": [
+        {
+          "name": "useWorklogFolders",
+          "startLine": 22,
+          "endLine": 113,
+          "params": []
+        }
+      ],
+      "exports": [
+        {
+          "name": "useWorklogFolders",
+          "line": 22,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "useWorklogFolders",
+          "callee": "useQueryClient",
+          "lineNumber": 23
+        },
+        {
+          "caller": "useWorklogFolders",
+          "callee": "useQuery",
+          "lineNumber": 25
+        },
+        {
+          "caller": "useWorklogFolders",
+          "callee": "fetch",
+          "lineNumber": 28
+        },
+        {
+          "caller": "useWorklogFolders",
+          "callee": "res.text",
+          "lineNumber": 29
+        },
+        {
+          "caller": "useWorklogFolders",
+          "callee": "res.json",
+          "lineNumber": 30
+        },
+        {
+          "caller": "useWorklogFolders",
+          "callee": "useMutation",
+          "lineNumber": 35
+        },
+        {
+          "caller": "useWorklogFolders",
+          "callee": "fetch",
+          "lineNumber": 37
+        },
+        {
+          "caller": "useWorklogFolders",
+          "callee": "JSON.stringify",
+          "lineNumber": 40
+        },
+        {
+          "caller": "useWorklogFolders",
+          "callee": "res.text",
+          "lineNumber": 42
+        },
+        {
+          "caller": "useWorklogFolders",
+          "callee": "res.json",
+          "lineNumber": 43
+        },
+        {
+          "caller": "useWorklogFolders",
+          "callee": "qc.invalidateQueries",
+          "lineNumber": 45
+        },
+        {
+          "caller": "useWorklogFolders",
+          "callee": "useMutation",
+          "lineNumber": 48
+        },
+        {
+          "caller": "useWorklogFolders",
+          "callee": "fetch",
+          "lineNumber": 53
+        },
+        {
+          "caller": "useWorklogFolders",
+          "callee": "JSON.stringify",
+          "lineNumber": 56
+        },
+        {
+          "caller": "useWorklogFolders",
+          "callee": "res.text",
+          "lineNumber": 58
+        },
+        {
+          "caller": "useWorklogFolders",
+          "callee": "res.json",
+          "lineNumber": 59
+        },
+        {
+          "caller": "useWorklogFolders",
+          "callee": "qc.cancelQueries",
+          "lineNumber": 63
+        },
+        {
+          "caller": "useWorklogFolders",
+          "callee": "qc.getQueryData",
+          "lineNumber": 64
+        },
+        {
+          "caller": "useWorklogFolders",
+          "callee": "qc.setQueryData",
+          "lineNumber": 66
+        },
+        {
+          "caller": "useWorklogFolders",
+          "callee": "previous.folders.map",
+          "lineNumber": 68
+        },
+        {
+          "caller": "useWorklogFolders",
+          "callee": "qc.setQueryData",
+          "lineNumber": 76
+        },
+        {
+          "caller": "useWorklogFolders",
+          "callee": "qc.invalidateQueries",
+          "lineNumber": 78
+        },
+        {
+          "caller": "useWorklogFolders",
+          "callee": "useMutation",
+          "lineNumber": 81
+        },
+        {
+          "caller": "useWorklogFolders",
+          "callee": "fetch",
+          "lineNumber": 89
+        },
+        {
+          "caller": "useWorklogFolders",
+          "callee": "res.text",
+          "lineNumber": 96
+        },
+        {
+          "caller": "useWorklogFolders",
+          "callee": "res.json",
+          "lineNumber": 97
+        },
+        {
+          "caller": "useWorklogFolders",
+          "callee": "qc.invalidateQueries",
+          "lineNumber": 100
+        },
+        {
+          "caller": "useWorklogFolders",
+          "callee": "qc.invalidateQueries",
+          "lineNumber": 101
+        }
+      ],
+      "metrics": {
+        "importCount": 1,
+        "exportCount": 1,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/components/worklog/hooks/use-worklog-keyboard-nav.ts",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 200,
+      "nonEmptyLines": 181,
+      "functions": [
+        {
+          "name": "useWorklogKeyboardNav",
+          "startLine": 50,
+          "endLine": 200,
+          "params": [
+            "{\r\n  railPaneRef,\r\n  listPaneRef,\r\n  viewPaneRef,\r\n  openSearchPalette,\r\n  readerRef,\r\n  visibleLogs,\r\n  selectedNoteId,\r\n  hasSelectedLog,\r\n  setSelectedNoteId,\r\n  setMobileShowReader,\r\n  inTemplatesView,\r\n  startBlank,\r\n}"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "useWorklogKeyboardNav",
+          "line": 50,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "useWorklogKeyboardNav",
+          "callee": "useCallback",
+          "lineNumber": 64
+        },
+        {
+          "caller": "useWorklogKeyboardNav",
+          "callee": "railPaneRef.current?.querySelector",
+          "lineNumber": 67
+        },
+        {
+          "caller": "useWorklogKeyboardNav",
+          "callee": "btn.focus",
+          "lineNumber": 69
+        },
+        {
+          "caller": "useWorklogKeyboardNav",
+          "callee": "listPaneRef.current?.querySelector",
+          "lineNumber": 75
+        },
+        {
+          "caller": "useWorklogKeyboardNav",
+          "callee": "lb.focus",
+          "lineNumber": 77
+        },
+        {
+          "caller": "useWorklogKeyboardNav",
+          "callee": "readerRef.current?.focusTitle",
+          "lineNumber": 83
+        },
+        {
+          "caller": "useWorklogKeyboardNav",
+          "callee": "useCallback",
+          "lineNumber": 89
+        },
+        {
+          "caller": "useWorklogKeyboardNav",
+          "callee": "railPaneRef.current?.contains",
+          "lineNumber": 92
+        },
+        {
+          "caller": "useWorklogKeyboardNav",
+          "callee": "listPaneRef.current?.contains",
+          "lineNumber": 93
+        },
+        {
+          "caller": "useWorklogKeyboardNav",
+          "callee": "viewPaneRef.current?.contains",
+          "lineNumber": 94
+        },
+        {
+          "caller": "useWorklogKeyboardNav",
+          "callee": "useCallback",
+          "lineNumber": 98
+        },
+        {
+          "caller": "useWorklogKeyboardNav",
+          "callee": "detectActivePane",
+          "lineNumber": 100
+        },
+        {
+          "caller": "useWorklogKeyboardNav",
+          "callee": "PANE_ORDER.indexOf",
+          "lineNumber": 101
+        },
+        {
+          "caller": "useWorklogKeyboardNav",
+          "callee": "focusPane",
+          "lineNumber": 105
+        },
+        {
+          "caller": "useWorklogKeyboardNav",
+          "callee": "useEffect",
+          "lineNumber": 111
+        },
+        {
+          "caller": "isTypingTarget",
+          "callee": "target.tagName.toLowerCase",
+          "lineNumber": 114
+        },
+        {
+          "caller": "handleShortcuts",
+          "callee": "isTypingTarget",
+          "lineNumber": 127
+        },
+        {
+          "caller": "handleShortcuts",
+          "callee": "e.key.toLowerCase",
+          "lineNumber": 129
+        },
+        {
+          "caller": "handleShortcuts",
+          "callee": "e.preventDefault",
+          "lineNumber": 130
+        },
+        {
+          "caller": "handleShortcuts",
+          "callee": "readerRef.current?.flushAutosave",
+          "lineNumber": 131
+        },
+        {
+          "caller": "handleShortcuts",
+          "callee": "e.preventDefault",
+          "lineNumber": 141
+        },
+        {
+          "caller": "handleShortcuts",
+          "callee": "cyclePane",
+          "lineNumber": 142
+        },
+        {
+          "caller": "handleShortcuts",
+          "callee": "e.preventDefault",
+          "lineNumber": 149
+        },
+        {
+          "caller": "handleShortcuts",
+          "callee": "openSearchPalette",
+          "lineNumber": 150
+        },
+        {
+          "caller": "handleShortcuts",
+          "callee": "e.key.toLowerCase",
+          "lineNumber": 155
+        },
+        {
+          "caller": "handleShortcuts",
+          "callee": "e.preventDefault",
+          "lineNumber": 156
+        },
+        {
+          "caller": "handleShortcuts",
+          "callee": "startBlank",
+          "lineNumber": 157
+        },
+        {
+          "caller": "handleShortcuts",
+          "callee": "visibleLogs.findIndex",
+          "lineNumber": 162
+        },
+        {
+          "caller": "handleShortcuts",
+          "callee": "e.key.toLowerCase",
+          "lineNumber": 165
+        },
+        {
+          "caller": "handleShortcuts",
+          "callee": "e.preventDefault",
+          "lineNumber": 166
+        },
+        {
+          "caller": "handleShortcuts",
+          "callee": "Math.min",
+          "lineNumber": 167
+        },
+        {
+          "caller": "handleShortcuts",
+          "callee": "setSelectedNoteId",
+          "lineNumber": 169
+        },
+        {
+          "caller": "handleShortcuts",
+          "callee": "setMobileShowReader",
+          "lineNumber": 170
+        },
+        {
+          "caller": "handleShortcuts",
+          "callee": "e.key.toLowerCase",
+          "lineNumber": 174
+        },
+        {
+          "caller": "handleShortcuts",
+          "callee": "e.preventDefault",
+          "lineNumber": 175
+        },
+        {
+          "caller": "handleShortcuts",
+          "callee": "Math.max",
+          "lineNumber": 176
+        },
+        {
+          "caller": "handleShortcuts",
+          "callee": "setSelectedNoteId",
+          "lineNumber": 178
+        },
+        {
+          "caller": "handleShortcuts",
+          "callee": "setMobileShowReader",
+          "lineNumber": 179
+        },
+        {
+          "caller": "useWorklogKeyboardNav",
+          "callee": "window.addEventListener",
+          "lineNumber": 185
+        },
+        {
+          "caller": "useWorklogKeyboardNav",
+          "callee": "window.removeEventListener",
+          "lineNumber": 186
+        }
+      ],
+      "metrics": {
+        "importCount": 2,
+        "exportCount": 1,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/components/worklog/hooks/use-worklog-mutations.ts",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 194,
+      "nonEmptyLines": 176,
+      "functions": [
+        {
+          "name": "useWorklogMutations",
+          "startLine": 18,
+          "endLine": 194,
+          "params": [
+            "cb"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "useWorklogMutations",
+          "line": 18,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "useWorklogMutations",
+          "callee": "useQueryClient",
+          "lineNumber": 19
+        },
+        {
+          "caller": "useWorklogMutations",
+          "callee": "useMutation",
+          "lineNumber": 21
+        },
+        {
+          "caller": "useWorklogMutations",
+          "callee": "fetch",
+          "lineNumber": 25
+        },
+        {
+          "caller": "useWorklogMutations",
+          "callee": "JSON.stringify",
+          "lineNumber": 28
+        },
+        {
+          "caller": "useWorklogMutations",
+          "callee": "res.text",
+          "lineNumber": 30
+        },
+        {
+          "caller": "useWorklogMutations",
+          "callee": "res.json",
+          "lineNumber": 31
+        },
+        {
+          "caller": "useWorklogMutations",
+          "callee": "qc.cancelQueries",
+          "lineNumber": 36
+        },
+        {
+          "caller": "useWorklogMutations",
+          "callee": "qc.getQueryData",
+          "lineNumber": 37
+        },
+        {
+          "caller": "useWorklogMutations",
+          "callee": "qc.setQueryData",
+          "lineNumber": 39
+        },
+        {
+          "caller": "useWorklogMutations",
+          "callee": "old.map",
+          "lineNumber": 40
+        },
+        {
+          "caller": "useWorklogMutations",
+          "callee": "new Date().toISOString",
+          "lineNumber": 45
+        },
+        {
+          "caller": "useWorklogMutations",
+          "callee": "qc.setQueryData",
+          "lineNumber": 54
+        },
+        {
+          "caller": "useWorklogMutations",
+          "callee": "qc.invalidateQueries",
+          "lineNumber": 58
+        },
+        {
+          "caller": "useWorklogMutations",
+          "callee": "qc.invalidateQueries",
+          "lineNumber": 59
+        },
+        {
+          "caller": "useWorklogMutations",
+          "callee": "cb.onSaveLogSuccess",
+          "lineNumber": 60
+        },
+        {
+          "caller": "useWorklogMutations",
+          "callee": "useMutation",
+          "lineNumber": 64
+        },
+        {
+          "caller": "useWorklogMutations",
+          "callee": "fetch",
+          "lineNumber": 66
+        },
+        {
+          "caller": "useWorklogMutations",
+          "callee": "res.text",
+          "lineNumber": 67
+        },
+        {
+          "caller": "useWorklogMutations",
+          "callee": "qc.invalidateQueries",
+          "lineNumber": 69
+        },
+        {
+          "caller": "useWorklogMutations",
+          "callee": "useMutation",
+          "lineNumber": 72
+        },
+        {
+          "caller": "useWorklogMutations",
+          "callee": "fetch",
+          "lineNumber": 76
+        },
+        {
+          "caller": "useWorklogMutations",
+          "callee": "JSON.stringify",
+          "lineNumber": 79
+        },
+        {
+          "caller": "useWorklogMutations",
+          "callee": "res.text",
+          "lineNumber": 81
+        },
+        {
+          "caller": "useWorklogMutations",
+          "callee": "res.json",
+          "lineNumber": 82
+        },
+        {
+          "caller": "useWorklogMutations",
+          "callee": "qc.invalidateQueries",
+          "lineNumber": 85
+        },
+        {
+          "caller": "useWorklogMutations",
+          "callee": "cb.onSaveTemplateSuccess",
+          "lineNumber": 86
+        },
+        {
+          "caller": "useWorklogMutations",
+          "callee": "useMutation",
+          "lineNumber": 90
+        },
+        {
+          "caller": "useWorklogMutations",
+          "callee": "fetch",
+          "lineNumber": 92
+        },
+        {
+          "caller": "useWorklogMutations",
+          "callee": "res.text",
+          "lineNumber": 93
+        },
+        {
+          "caller": "useWorklogMutations",
+          "callee": "qc.invalidateQueries",
+          "lineNumber": 95
+        },
+        {
+          "caller": "useWorklogMutations",
+          "callee": "useMutation",
+          "lineNumber": 103
+        },
+        {
+          "caller": "useWorklogMutations",
+          "callee": "fetch",
+          "lineNumber": 109
+        },
+        {
+          "caller": "useWorklogMutations",
+          "callee": "JSON.stringify",
+          "lineNumber": 112
+        },
+        {
+          "caller": "useWorklogMutations",
+          "callee": "res.text",
+          "lineNumber": 114
+        },
+        {
+          "caller": "useWorklogMutations",
+          "callee": "res.json",
+          "lineNumber": 115
+        },
+        {
+          "caller": "useWorklogMutations",
+          "callee": "qc.invalidateQueries",
+          "lineNumber": 118
+        },
+        {
+          "caller": "useWorklogMutations",
+          "callee": "qc.invalidateQueries",
+          "lineNumber": 119
+        },
+        {
+          "caller": "useWorklogMutations",
+          "callee": "useMutation",
+          "lineNumber": 123
+        },
+        {
+          "caller": "useWorklogMutations",
+          "callee": "fetch",
+          "lineNumber": 127
+        },
+        {
+          "caller": "useWorklogMutations",
+          "callee": "JSON.stringify",
+          "lineNumber": 130
+        },
+        {
+          "caller": "useWorklogMutations",
+          "callee": "res.text",
+          "lineNumber": 132
+        },
+        {
+          "caller": "useWorklogMutations",
+          "callee": "res.json",
+          "lineNumber": 133
+        },
+        {
+          "caller": "useWorklogMutations",
+          "callee": "qc.cancelQueries",
+          "lineNumber": 136
+        },
+        {
+          "caller": "useWorklogMutations",
+          "callee": "qc.getQueryData",
+          "lineNumber": 137
+        },
+        {
+          "caller": "useWorklogMutations",
+          "callee": "qc.setQueryData",
+          "lineNumber": 139
+        },
+        {
+          "caller": "useWorklogMutations",
+          "callee": "items.map",
+          "lineNumber": 140
+        },
+        {
+          "caller": "useWorklogMutations",
+          "callee": "old.map",
+          "lineNumber": 141
+        },
+        {
+          "caller": "useWorklogMutations",
+          "callee": "patchMap.get",
+          "lineNumber": 142
+        },
+        {
+          "caller": "useWorklogMutations",
+          "callee": "qc.setQueryData",
+          "lineNumber": 151
+        },
+        {
+          "caller": "useWorklogMutations",
+          "callee": "qc.invalidateQueries",
+          "lineNumber": 153
+        },
+        {
+          "caller": "useWorklogMutations",
+          "callee": "useMutation",
+          "lineNumber": 156
+        },
+        {
+          "caller": "useWorklogMutations",
+          "callee": "fetch",
+          "lineNumber": 160
+        },
+        {
+          "caller": "useWorklogMutations",
+          "callee": "JSON.stringify",
+          "lineNumber": 163
+        },
+        {
+          "caller": "useWorklogMutations",
+          "callee": "res.text",
+          "lineNumber": 165
+        },
+        {
+          "caller": "useWorklogMutations",
+          "callee": "res.json",
+          "lineNumber": 166
+        },
+        {
+          "caller": "useWorklogMutations",
+          "callee": "qc.cancelQueries",
+          "lineNumber": 169
+        },
+        {
+          "caller": "useWorklogMutations",
+          "callee": "qc.getQueryData",
+          "lineNumber": 170
+        },
+        {
+          "caller": "useWorklogMutations",
+          "callee": "qc.setQueryData",
+          "lineNumber": 172
+        },
+        {
+          "caller": "useWorklogMutations",
+          "callee": "items.map",
+          "lineNumber": 174
+        },
+        {
+          "caller": "useWorklogMutations",
+          "callee": "old.folders.map",
+          "lineNumber": 177
+        },
+        {
+          "caller": "useWorklogMutations",
+          "callee": "patchMap.get",
+          "lineNumber": 178
+        },
+        {
+          "caller": "useWorklogMutations",
+          "callee": "qc.setQueryData",
+          "lineNumber": 188
+        },
+        {
+          "caller": "useWorklogMutations",
+          "callee": "qc.invalidateQueries",
+          "lineNumber": 190
+        }
+      ],
+      "metrics": {
+        "importCount": 2,
+        "exportCount": 1,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/components/worklog/hooks/use-worklog-preferences.ts",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 93,
+      "nonEmptyLines": 83,
+      "functions": [
+        {
+          "name": "useWorklogPreferences",
+          "startLine": 20,
+          "endLine": 93,
+          "params": [
+            "positionMap",
+            "opts"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "useWorklogPreferences",
+          "line": 20,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "useWorklogPreferences",
+          "callee": "useQueryClient",
+          "lineNumber": 24
+        },
+        {
+          "caller": "useWorklogPreferences",
+          "callee": "useQuery",
+          "lineNumber": 26
+        },
+        {
+          "caller": "useWorklogPreferences",
+          "callee": "fetch",
+          "lineNumber": 29
+        },
+        {
+          "caller": "useWorklogPreferences",
+          "callee": "r.text",
+          "lineNumber": 30
+        },
+        {
+          "caller": "useWorklogPreferences",
+          "callee": "r.json",
+          "lineNumber": 31
+        },
+        {
+          "caller": "useWorklogPreferences",
+          "callee": "useQuery",
+          "lineNumber": 36
+        },
+        {
+          "caller": "useWorklogPreferences",
+          "callee": "fetch",
+          "lineNumber": 39
+        },
+        {
+          "caller": "useWorklogPreferences",
+          "callee": "r.text",
+          "lineNumber": 40
+        },
+        {
+          "caller": "useWorklogPreferences",
+          "callee": "r.json",
+          "lineNumber": 41
+        },
+        {
+          "caller": "useWorklogPreferences",
+          "callee": "useMemo",
+          "lineNumber": 47
+        },
+        {
+          "caller": "useWorklogPreferences",
+          "callee": "positionMap.get",
+          "lineNumber": 49
+        },
+        {
+          "caller": "useWorklogPreferences",
+          "callee": "defaultShifts.find",
+          "lineNumber": 52
+        },
+        {
+          "caller": "useWorklogPreferences",
+          "callee": "useMutation",
+          "lineNumber": 65
+        },
+        {
+          "caller": "useWorklogPreferences",
+          "callee": "fetch",
+          "lineNumber": 67
+        },
+        {
+          "caller": "useWorklogPreferences",
+          "callee": "JSON.stringify",
+          "lineNumber": 70
+        },
+        {
+          "caller": "useWorklogPreferences",
+          "callee": "r.text",
+          "lineNumber": 72
+        },
+        {
+          "caller": "useWorklogPreferences",
+          "callee": "r.json",
+          "lineNumber": 73
+        },
+        {
+          "caller": "useWorklogPreferences",
+          "callee": "queryClient.setQueryData",
+          "lineNumber": 76
+        },
+        {
+          "caller": "useWorklogPreferences",
+          "callee": "queryClient.invalidateQueries",
+          "lineNumber": 77
+        },
+        {
+          "caller": "useWorklogPreferences",
+          "callee": "opts.onSaveSuccess",
+          "lineNumber": 80
+        },
+        {
+          "caller": "useWorklogPreferences",
+          "callee": "toast.success",
+          "lineNumber": 81
+        },
+        {
+          "caller": "useWorklogPreferences",
+          "callee": "toast.error",
+          "lineNumber": 83
+        }
+      ],
+      "metrics": {
+        "importCount": 1,
+        "exportCount": 1,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/components/worklog/hooks/use-worklog-selection.ts",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 102,
+      "nonEmptyLines": 92,
+      "functions": [
+        {
+          "name": "useWorklogSelection",
+          "startLine": 38,
+          "endLine": 102,
+          "params": []
+        }
+      ],
+      "exports": [
+        {
+          "name": "useWorklogSelection",
+          "line": 38,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "useWorklogSelection",
+          "callee": "useState",
+          "lineNumber": 39
+        },
+        {
+          "caller": "useWorklogSelection",
+          "callee": "useRef",
+          "lineNumber": 40
+        },
+        {
+          "caller": "useWorklogSelection",
+          "callee": "useCallback",
+          "lineNumber": 42
+        },
+        {
+          "caller": "useWorklogSelection",
+          "callee": "selectedIds.has",
+          "lineNumber": 42
+        },
+        {
+          "caller": "useWorklogSelection",
+          "callee": "useCallback",
+          "lineNumber": 44
+        },
+        {
+          "caller": "useWorklogSelection",
+          "callee": "setSelectedIds",
+          "lineNumber": 45
+        },
+        {
+          "caller": "useWorklogSelection",
+          "callee": "next.has",
+          "lineNumber": 47
+        },
+        {
+          "caller": "useWorklogSelection",
+          "callee": "next.delete",
+          "lineNumber": 47
+        },
+        {
+          "caller": "useWorklogSelection",
+          "callee": "next.add",
+          "lineNumber": 48
+        },
+        {
+          "caller": "useWorklogSelection",
+          "callee": "useCallback",
+          "lineNumber": 54
+        },
+        {
+          "caller": "useWorklogSelection",
+          "callee": "toggle",
+          "lineNumber": 59
+        },
+        {
+          "caller": "useWorklogSelection",
+          "callee": "orderedIds.indexOf",
+          "lineNumber": 62
+        },
+        {
+          "caller": "useWorklogSelection",
+          "callee": "orderedIds.indexOf",
+          "lineNumber": 63
+        },
+        {
+          "caller": "useWorklogSelection",
+          "callee": "toggle",
+          "lineNumber": 65
+        },
+        {
+          "caller": "useWorklogSelection",
+          "callee": "setSelectedIds",
+          "lineNumber": 69
+        },
+        {
+          "caller": "useWorklogSelection",
+          "callee": "next.add",
+          "lineNumber": 71
+        },
+        {
+          "caller": "useWorklogSelection",
+          "callee": "useCallback",
+          "lineNumber": 80
+        },
+        {
+          "caller": "useWorklogSelection",
+          "callee": "setSelectedIds",
+          "lineNumber": 81
+        },
+        {
+          "caller": "useWorklogSelection",
+          "callee": "useCallback",
+          "lineNumber": 85
+        },
+        {
+          "caller": "useWorklogSelection",
+          "callee": "setSelectedIds",
+          "lineNumber": 86
+        },
+        {
+          "caller": "useWorklogSelection",
+          "callee": "useMemo",
+          "lineNumber": 90
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 1,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/components/worklog/hooks/use-worklog-stats.ts",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 28,
+      "nonEmptyLines": 23,
+      "functions": [
+        {
+          "name": "useWorklogStats",
+          "startLine": 11,
+          "endLine": 28,
+          "params": [
+            "logs"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "useWorklogStats",
+          "line": 11,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "useWorklogStats",
+          "callee": "useMemo",
+          "lineNumber": 12
+        },
+        {
+          "caller": "useWorklogStats",
+          "callee": "calcStreak",
+          "lineNumber": 12
+        },
+        {
+          "caller": "useWorklogStats",
+          "callee": "useMemo",
+          "lineNumber": 14
+        },
+        {
+          "caller": "useWorklogStats",
+          "callee": "logs.filter",
+          "lineNumber": 16
+        },
+        {
+          "caller": "useWorklogStats",
+          "callee": "parseISO",
+          "lineNumber": 17
+        },
+        {
+          "caller": "useWorklogStats",
+          "callee": "d.getMonth",
+          "lineNumber": 18
+        },
+        {
+          "caller": "useWorklogStats",
+          "callee": "now.getMonth",
+          "lineNumber": 18
+        },
+        {
+          "caller": "useWorklogStats",
+          "callee": "d.getFullYear",
+          "lineNumber": 18
+        },
+        {
+          "caller": "useWorklogStats",
+          "callee": "now.getFullYear",
+          "lineNumber": 18
+        },
+        {
+          "caller": "useWorklogStats",
+          "callee": "useMemo",
+          "lineNumber": 22
+        },
+        {
+          "caller": "useWorklogStats",
+          "callee": "logs.filter",
+          "lineNumber": 23
+        }
+      ],
+      "metrics": {
+        "importCount": 2,
+        "exportCount": 1,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/components/worklog/hooks/use-worklog-visible-logs.ts",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 119,
+      "nonEmptyLines": 113,
+      "functions": [
+        {
+          "name": "useWorklogVisibleLogs",
+          "startLine": 19,
+          "endLine": 119,
+          "params": [
+            "logs",
+            "activeFolder",
+            "selectedDate",
+            "search"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "useWorklogVisibleLogs",
+          "line": 19,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "useWorklogVisibleLogs",
+          "callee": "useWorklogFilters",
+          "lineNumber": 37
+        },
+        {
+          "caller": "useWorklogVisibleLogs",
+          "callee": "useEffect",
+          "lineNumber": 42
+        },
+        {
+          "caller": "useWorklogVisibleLogs",
+          "callee": "setFilterCategory",
+          "lineNumber": 44
+        },
+        {
+          "caller": "useWorklogVisibleLogs",
+          "callee": "setFilterNotable",
+          "lineNumber": 45
+        },
+        {
+          "caller": "useWorklogVisibleLogs",
+          "callee": "setFilterCategory",
+          "lineNumber": 47
+        },
+        {
+          "caller": "useWorklogVisibleLogs",
+          "callee": "setFilterNotable",
+          "lineNumber": 48
+        },
+        {
+          "caller": "useWorklogVisibleLogs",
+          "callee": "setFilterCategory",
+          "lineNumber": 50
+        },
+        {
+          "caller": "useWorklogVisibleLogs",
+          "callee": "setFilterNotable",
+          "lineNumber": 51
+        },
+        {
+          "caller": "useWorklogVisibleLogs",
+          "callee": "useWorklogFolders",
+          "lineNumber": 56
+        },
+        {
+          "caller": "useWorklogVisibleLogs",
+          "callee": "useMemo",
+          "lineNumber": 58
+        },
+        {
+          "caller": "useWorklogVisibleLogs",
+          "callee": "out.filter",
+          "lineNumber": 61
+        },
+        {
+          "caller": "useWorklogVisibleLogs",
+          "callee": "out.filter",
+          "lineNumber": 63
+        },
+        {
+          "caller": "useWorklogVisibleLogs",
+          "callee": "collectDescendantIds",
+          "lineNumber": 65
+        },
+        {
+          "caller": "useWorklogVisibleLogs",
+          "callee": "out.filter",
+          "lineNumber": 66
+        },
+        {
+          "caller": "useWorklogVisibleLogs",
+          "callee": "ids.has",
+          "lineNumber": 66
+        },
+        {
+          "caller": "useWorklogVisibleLogs",
+          "callee": "out.filter",
+          "lineNumber": 68
+        },
+        {
+          "caller": "useWorklogVisibleLogs",
+          "callee": "out.filter",
+          "lineNumber": 71
+        },
+        {
+          "caller": "useWorklogVisibleLogs",
+          "callee": "out.filter",
+          "lineNumber": 72
+        },
+        {
+          "caller": "useWorklogVisibleLogs",
+          "callee": "out.filter",
+          "lineNumber": 75
+        },
+        {
+          "caller": "useWorklogVisibleLogs",
+          "callee": "(l.equipmentIds ?? []).includes",
+          "lineNumber": 75
+        },
+        {
+          "caller": "useWorklogVisibleLogs",
+          "callee": "out.filter",
+          "lineNumber": 78
+        },
+        {
+          "caller": "useWorklogVisibleLogs",
+          "callee": "(l.assetIds ?? []).includes",
+          "lineNumber": 78
+        },
+        {
+          "caller": "useWorklogVisibleLogs",
+          "callee": "out.filter",
+          "lineNumber": 81
+        },
+        {
+          "caller": "useWorklogVisibleLogs",
+          "callee": "out.filter",
+          "lineNumber": 84
+        },
+        {
+          "caller": "useWorklogVisibleLogs",
+          "callee": "isSameDay",
+          "lineNumber": 84
+        },
+        {
+          "caller": "useWorklogVisibleLogs",
+          "callee": "parseISO",
+          "lineNumber": 84
+        },
+        {
+          "caller": "useWorklogVisibleLogs",
+          "callee": "search.trim().toLowerCase",
+          "lineNumber": 86
+        },
+        {
+          "caller": "useWorklogVisibleLogs",
+          "callee": "search.trim",
+          "lineNumber": 86
+        },
+        {
+          "caller": "useWorklogVisibleLogs",
+          "callee": "out.filter",
+          "lineNumber": 88
+        },
+        {
+          "caller": "useWorklogVisibleLogs",
+          "callee": "`${l.title ?? \"\"} ${l.content ?? \"\"} ${l.tags ?? \"\"}`.toLowerCase",
+          "lineNumber": 89
+        },
+        {
+          "caller": "useWorklogVisibleLogs",
+          "callee": "hay.includes",
+          "lineNumber": 90
+        }
+      ],
+      "metrics": {
+        "importCount": 5,
+        "exportCount": 1,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/components/worklog/mention-node-view.tsx",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 62,
+      "nonEmptyLines": 56,
+      "functions": [
+        {
+          "name": "MentionNodeView",
+          "startLine": 25,
+          "endLine": 62,
+          "params": [
+            "{ node, selected }"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "MentionNodeView",
+          "line": 25,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "MentionNodeView",
+          "callee": "useQuery",
+          "lineNumber": 29
+        },
+        {
+          "caller": "MentionNodeView",
+          "callee": "fetch",
+          "lineNumber": 33
+        },
+        {
+          "caller": "MentionNodeView",
+          "callee": "params.toString",
+          "lineNumber": 33
+        },
+        {
+          "caller": "MentionNodeView",
+          "callee": "res.json",
+          "lineNumber": 35
+        },
+        {
+          "caller": "MentionNodeView",
+          "callee": "Boolean",
+          "lineNumber": 41
+        },
+        {
+          "caller": "MentionNodeView",
+          "callee": "cn",
+          "lineNumber": 50
+        }
+      ],
+      "metrics": {
+        "importCount": 2,
+        "exportCount": 1,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/components/worklog/mention-suggestion-popup.tsx",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 188,
+      "nonEmptyLines": 173,
+      "exports": [
+        {
+          "name": "MentionSuggestionPopup",
+          "line": 48,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "onKeyDown",
+          "callee": "setSelectedIdx",
+          "lineNumber": 69
+        },
+        {
+          "caller": "onKeyDown",
+          "callee": "Math.min",
+          "lineNumber": 69
+        },
+        {
+          "caller": "onKeyDown",
+          "callee": "setSelectedIdx",
+          "lineNumber": 73
+        },
+        {
+          "caller": "onKeyDown",
+          "callee": "Math.max",
+          "lineNumber": 73
+        },
+        {
+          "caller": "onKeyDown",
+          "callee": "command",
+          "lineNumber": 79
+        }
+      ],
+      "metrics": {
+        "importCount": 2,
+        "exportCount": 1,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/components/worklog/photo-node-view.tsx",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 131,
+      "nonEmptyLines": 119,
+      "functions": [
+        {
+          "name": "PhotoNodeView",
+          "startLine": 26,
+          "endLine": 131,
+          "params": [
+            "props"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "PhotoNodeView",
+          "line": 26,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "PhotoNodeView",
+          "callee": "useState",
+          "lineNumber": 37
+        },
+        {
+          "caller": "PhotoNodeView",
+          "callee": "useRef",
+          "lineNumber": 38
+        },
+        {
+          "caller": "PhotoNodeView",
+          "callee": "useRef",
+          "lineNumber": 39
+        },
+        {
+          "caller": "PhotoNodeView",
+          "callee": "useEffect",
+          "lineNumber": 42
+        },
+        {
+          "caller": "PhotoNodeView",
+          "callee": "setCaption",
+          "lineNumber": 45
+        },
+        {
+          "caller": "PhotoNodeView",
+          "callee": "useCallback",
+          "lineNumber": 52
+        },
+        {
+          "caller": "PhotoNodeView",
+          "callee": "value.trim",
+          "lineNumber": 54
+        },
+        {
+          "caller": "PhotoNodeView",
+          "callee": "updateAttributes",
+          "lineNumber": 55
+        },
+        {
+          "caller": "PhotoNodeView",
+          "callee": "patchBodyPhotoCaption",
+          "lineNumber": 59
+        },
+        {
+          "caller": "onCaptionChange",
+          "callee": "setCaption",
+          "lineNumber": 68
+        },
+        {
+          "caller": "onCaptionChange",
+          "callee": "clearTimeout",
+          "lineNumber": 69
+        },
+        {
+          "caller": "onCaptionChange",
+          "callee": "setTimeout",
+          "lineNumber": 70
+        },
+        {
+          "caller": "onCaptionChange",
+          "callee": "flushCaption",
+          "lineNumber": 70
+        },
+        {
+          "caller": "onCaptionBlur",
+          "callee": "clearTimeout",
+          "lineNumber": 75
+        },
+        {
+          "caller": "onCaptionBlur",
+          "callee": "flushCaption",
+          "lineNumber": 78
+        },
+        {
+          "caller": "PhotoNodeView",
+          "callee": "cn",
+          "lineNumber": 90
+        },
+        {
+          "caller": "PhotoNodeView",
+          "callee": "cn",
+          "lineNumber": 121
+        }
+      ],
+      "metrics": {
+        "importCount": 2,
+        "exportCount": 1,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/components/worklog/slash-command-menu.tsx",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 280,
+      "nonEmptyLines": 258,
+      "functions": [
+        {
+          "name": "createSlashCommandRender",
+          "startLine": 225,
+          "endLine": 280,
+          "params": []
+        }
+      ],
+      "exports": [
+        {
+          "name": "SlashCommandMenu",
+          "line": 216,
+          "isDefault": false
+        },
+        {
+          "name": "createSlashCommandRender",
+          "line": 225,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "onKeyDown",
+          "callee": "setSelectedIndex",
+          "lineNumber": 98
+        },
+        {
+          "caller": "onKeyDown",
+          "callee": "setSelectedIndex",
+          "lineNumber": 102
+        },
+        {
+          "caller": "onKeyDown",
+          "callee": "onSelect",
+          "lineNumber": 107
+        },
+        {
+          "caller": "mount",
+          "callee": "document.createElement",
+          "lineNumber": 232
+        },
+        {
+          "caller": "mount",
+          "callee": "document.body.appendChild",
+          "lineNumber": 235
+        },
+        {
+          "caller": "mount",
+          "callee": "createRoot",
+          "lineNumber": 236
+        },
+        {
+          "caller": "mount",
+          "callee": "renderMenu",
+          "lineNumber": 237
+        },
+        {
+          "caller": "renderMenu",
+          "callee": "props.clientRect",
+          "lineNumber": 242
+        },
+        {
+          "caller": "renderMenu",
+          "callee": "root.render",
+          "lineNumber": 243
+        },
+        {
+          "caller": "renderMenu",
+          "callee": "props.command",
+          "lineNumber": 251
+        },
+        {
+          "caller": "unmount",
+          "callee": "root?.unmount",
+          "lineNumber": 258
+        },
+        {
+          "caller": "unmount",
+          "callee": "container?.remove",
+          "lineNumber": 260
+        },
+        {
+          "caller": "onStart",
+          "callee": "mount",
+          "lineNumber": 267
+        },
+        {
+          "caller": "onUpdate",
+          "callee": "renderMenu",
+          "lineNumber": 270
+        },
+        {
+          "caller": "onKeyDown",
+          "callee": "handleRef.current?.onKeyDown",
+          "lineNumber": 273
+        },
+        {
+          "caller": "onExit",
+          "callee": "unmount",
+          "lineNumber": 276
+        }
+      ],
+      "metrics": {
+        "importCount": 2,
+        "exportCount": 2,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/components/worklog/worklog-bulk-action-bar.tsx",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 163,
+      "nonEmptyLines": 150,
+      "functions": [
+        {
+          "name": "WorklogBulkActionBar",
+          "startLine": 36,
+          "endLine": 163,
+          "params": [
+            "{\r\n  count,\r\n  onMove,\r\n  onDelete,\r\n  onClear,\r\n  busy = false,\r\n}"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "WorklogBulkActionBar",
+          "line": 36,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "WorklogBulkActionBar",
+          "callee": "useState",
+          "lineNumber": 43
+        },
+        {
+          "caller": "WorklogBulkActionBar",
+          "callee": "useState",
+          "lineNumber": 44
+        },
+        {
+          "caller": "WorklogBulkActionBar",
+          "callee": "useWorklogFolders",
+          "lineNumber": 45
+        },
+        {
+          "caller": "WorklogBulkActionBar",
+          "callee": "useEffect",
+          "lineNumber": 50
+        },
+        {
+          "caller": "onKey",
+          "callee": "onClear",
+          "lineNumber": 53
+        },
+        {
+          "caller": "WorklogBulkActionBar",
+          "callee": "window.addEventListener",
+          "lineNumber": 56
+        },
+        {
+          "caller": "WorklogBulkActionBar",
+          "callee": "window.removeEventListener",
+          "lineNumber": 57
+        },
+        {
+          "caller": "WorklogBulkActionBar",
+          "callee": "cn",
+          "lineNumber": 67
+        },
+        {
+          "caller": "WorklogBulkActionBar",
+          "callee": "setMoveOpen",
+          "lineNumber": 82
+        },
+        {
+          "caller": "WorklogBulkActionBar",
+          "callee": "setDeleteOpen",
+          "lineNumber": 93
+        },
+        {
+          "caller": "WorklogBulkActionBar",
+          "callee": "setMoveOpen",
+          "lineNumber": 123
+        },
+        {
+          "caller": "WorklogBulkActionBar",
+          "callee": "onMove",
+          "lineNumber": 124
+        },
+        {
+          "caller": "WorklogBulkActionBar",
+          "callee": "createFolder.mutateAsync",
+          "lineNumber": 127
+        },
+        {
+          "caller": "WorklogBulkActionBar",
+          "callee": "setDeleteOpen",
+          "lineNumber": 145
+        },
+        {
+          "caller": "WorklogBulkActionBar",
+          "callee": "onDelete",
+          "lineNumber": 151
+        },
+        {
+          "caller": "WorklogBulkActionBar",
+          "callee": "setDeleteOpen",
+          "lineNumber": 152
+        }
+      ],
+      "metrics": {
+        "importCount": 5,
+        "exportCount": 1,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/components/worklog/worklog-defaults-dialog.tsx",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 209,
+      "nonEmptyLines": 193,
+      "functions": [
+        {
+          "name": "WorklogDefaultsDialog",
+          "startLine": 26,
+          "endLine": 209,
+          "params": [
+            "props"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "WorklogDefaultsDialog",
+          "line": 26,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "WorklogDefaultsDialog",
+          "callee": "useState",
+          "lineNumber": 38
+        },
+        {
+          "caller": "WorklogDefaultsDialog",
+          "callee": "useEffect",
+          "lineNumber": 40
+        },
+        {
+          "caller": "WorklogDefaultsDialog",
+          "callee": "setDraft",
+          "lineNumber": 41
+        },
+        {
+          "caller": "WorklogDefaultsDialog",
+          "callee": "useMemo",
+          "lineNumber": 44
+        },
+        {
+          "caller": "WorklogDefaultsDialog",
+          "callee": "positions.filter",
+          "lineNumber": 45
+        },
+        {
+          "caller": "WorklogDefaultsDialog",
+          "callee": "useMemo",
+          "lineNumber": 49
+        },
+        {
+          "caller": "WorklogDefaultsDialog",
+          "callee": "shifts.filter",
+          "lineNumber": 50
+        },
+        {
+          "caller": "WorklogDefaultsDialog",
+          "callee": "setDraft",
+          "lineNumber": 67
+        },
+        {
+          "caller": "WorklogDefaultsDialog",
+          "callee": "companyOptions.map",
+          "lineNumber": 79
+        },
+        {
+          "caller": "WorklogDefaultsDialog",
+          "callee": "setDraft",
+          "lineNumber": 94
+        },
+        {
+          "caller": "WorklogDefaultsDialog",
+          "callee": "shiftOptions.map",
+          "lineNumber": 114
+        },
+        {
+          "caller": "WorklogDefaultsDialog",
+          "callee": "timeLabelFromMinutes",
+          "lineNumber": 116
+        },
+        {
+          "caller": "WorklogDefaultsDialog",
+          "callee": "timeLabelFromMinutes",
+          "lineNumber": 116
+        },
+        {
+          "caller": "WorklogDefaultsDialog",
+          "callee": "setDraft",
+          "lineNumber": 129
+        },
+        {
+          "caller": "WorklogDefaultsDialog",
+          "callee": "Object.entries(CATEGORIES).map",
+          "lineNumber": 139
+        },
+        {
+          "caller": "WorklogDefaultsDialog",
+          "callee": "Object.entries",
+          "lineNumber": 139
+        },
+        {
+          "caller": "WorklogDefaultsDialog",
+          "callee": "setDraft",
+          "lineNumber": 153
+        },
+        {
+          "caller": "WorklogDefaultsDialog",
+          "callee": "MOODS.map",
+          "lineNumber": 164
+        },
+        {
+          "caller": "WorklogDefaultsDialog",
+          "callee": "e.target.value.trim",
+          "lineNumber": 182
+        },
+        {
+          "caller": "WorklogDefaultsDialog",
+          "callee": "setDraft",
+          "lineNumber": 183
+        },
+        {
+          "caller": "WorklogDefaultsDialog",
+          "callee": "Number",
+          "lineNumber": 185
+        },
+        {
+          "caller": "WorklogDefaultsDialog",
+          "callee": "onOpenChange",
+          "lineNumber": 199
+        },
+        {
+          "caller": "WorklogDefaultsDialog",
+          "callee": "onSave",
+          "lineNumber": 202
+        }
+      ],
+      "metrics": {
+        "importCount": 8,
+        "exportCount": 1,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/components/worklog/worklog-dnd-provider.test.ts",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 123,
+      "nonEmptyLines": 102,
+      "metrics": {
+        "importCount": 2,
+        "exportCount": 0,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/components/worklog/worklog-dnd-provider.tsx",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 80,
+      "nonEmptyLines": 71,
+      "functions": [
+        {
+          "name": "resolveGhosts",
+          "startLine": 24,
+          "endLine": 36,
+          "params": [
+            "activeId",
+            "activeType",
+            "logs",
+            "folders"
+          ]
+        },
+        {
+          "name": "WorklogDndProvider",
+          "startLine": 42,
+          "endLine": 80,
+          "params": [
+            "{ children }"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "resolveGhosts",
+          "line": 24,
+          "isDefault": false
+        },
+        {
+          "name": "WorklogDndProvider",
+          "line": 42,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "resolveGhosts",
+          "callee": "activeId.replace",
+          "lineNumber": 30
+        },
+        {
+          "caller": "resolveGhosts",
+          "callee": "logs.find",
+          "lineNumber": 32
+        },
+        {
+          "caller": "resolveGhosts",
+          "callee": "folders.find",
+          "lineNumber": 34
+        },
+        {
+          "caller": "WorklogDndProvider",
+          "callee": "useWorklogDnd",
+          "lineNumber": 44
+        },
+        {
+          "caller": "WorklogDndProvider",
+          "callee": "useWorklogData",
+          "lineNumber": 48
+        },
+        {
+          "caller": "WorklogDndProvider",
+          "callee": "useWorklogFolders",
+          "lineNumber": 49
+        },
+        {
+          "caller": "WorklogDndProvider",
+          "callee": "resolveGhosts",
+          "lineNumber": 51
+        }
+      ],
+      "metrics": {
+        "importCount": 3,
+        "exportCount": 2,
+        "functionCount": 2,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/components/worklog/worklog-editor-toolbar.tsx",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 264,
+      "nonEmptyLines": 249,
+      "functions": [
+        {
+          "name": "WorklogEditorToolbar",
+          "startLine": 53,
+          "endLine": 239,
+          "params": [
+            "{ editor, shifts, slashCommands }"
+          ]
+        },
+        {
+          "name": "ToolbarBtn",
+          "startLine": 241,
+          "endLine": 264,
+          "params": [
+            "{\r\n  active,\r\n  onClick,\r\n  title,\r\n  children,\r\n}"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "WorklogEditorToolbar",
+          "line": 53,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "WorklogEditorToolbar",
+          "callee": "useState",
+          "lineNumber": 54
+        },
+        {
+          "caller": "insertShift",
+          "callee": "editor\r\n      .chain()\r\n      .focus()\r\n      .insertShiftBlock({\r\n        shiftId: shift.id,\r\n        label: shift.name,\r\n        startMinute: shift.startMinute,\r\n        endMinute: shift.endMinute,\r\n      })\r\n      .run",
+          "lineNumber": 58
+        },
+        {
+          "caller": "insertShift",
+          "callee": "editor\r\n      .chain()\r\n      .focus()\r\n      .insertShiftBlock",
+          "lineNumber": 58
+        },
+        {
+          "caller": "insertShift",
+          "callee": "editor\r\n      .chain()\r\n      .focus",
+          "lineNumber": 58
+        },
+        {
+          "caller": "insertShift",
+          "callee": "editor\r\n      .chain",
+          "lineNumber": 58
+        },
+        {
+          "caller": "insertMood",
+          "callee": "editor.chain().focus().insertMoodBlock({ value }).run",
+          "lineNumber": 71
+        },
+        {
+          "caller": "insertMood",
+          "callee": "editor.chain().focus().insertMoodBlock",
+          "lineNumber": 71
+        },
+        {
+          "caller": "insertMood",
+          "callee": "editor.chain().focus",
+          "lineNumber": 71
+        },
+        {
+          "caller": "insertMood",
+          "callee": "editor.chain",
+          "lineNumber": 71
+        },
+        {
+          "caller": "commitTag",
+          "callee": "normalizeTagLabel",
+          "lineNumber": 75
+        },
+        {
+          "caller": "commitTag",
+          "callee": "editor.chain().focus().insertTag({ label }).run",
+          "lineNumber": 77
+        },
+        {
+          "caller": "commitTag",
+          "callee": "editor.chain().focus().insertTag",
+          "lineNumber": 77
+        },
+        {
+          "caller": "commitTag",
+          "callee": "editor.chain().focus",
+          "lineNumber": 77
+        },
+        {
+          "caller": "commitTag",
+          "callee": "editor.chain",
+          "lineNumber": 77
+        },
+        {
+          "caller": "commitTag",
+          "callee": "setTagDraft",
+          "lineNumber": 78
+        },
+        {
+          "caller": "WorklogEditorToolbar",
+          "callee": "editor.isActive",
+          "lineNumber": 85
+        },
+        {
+          "caller": "WorklogEditorToolbar",
+          "callee": "editor.chain().focus().toggleBold().run",
+          "lineNumber": 86
+        },
+        {
+          "caller": "WorklogEditorToolbar",
+          "callee": "editor.chain().focus().toggleBold",
+          "lineNumber": 86
+        },
+        {
+          "caller": "WorklogEditorToolbar",
+          "callee": "editor.chain().focus",
+          "lineNumber": 86
+        },
+        {
+          "caller": "WorklogEditorToolbar",
+          "callee": "editor.chain",
+          "lineNumber": 86
+        },
+        {
+          "caller": "WorklogEditorToolbar",
+          "callee": "editor.isActive",
+          "lineNumber": 92
+        },
+        {
+          "caller": "WorklogEditorToolbar",
+          "callee": "editor.chain().focus().toggleItalic().run",
+          "lineNumber": 93
+        },
+        {
+          "caller": "WorklogEditorToolbar",
+          "callee": "editor.chain().focus().toggleItalic",
+          "lineNumber": 93
+        },
+        {
+          "caller": "WorklogEditorToolbar",
+          "callee": "editor.chain().focus",
+          "lineNumber": 93
+        },
+        {
+          "caller": "WorklogEditorToolbar",
+          "callee": "editor.chain",
+          "lineNumber": 93
+        },
+        {
+          "caller": "WorklogEditorToolbar",
+          "callee": "editor.isActive",
+          "lineNumber": 99
+        },
+        {
+          "caller": "WorklogEditorToolbar",
+          "callee": "editor.chain().focus().toggleHeading({ level: 2 }).run",
+          "lineNumber": 100
+        },
+        {
+          "caller": "WorklogEditorToolbar",
+          "callee": "editor.chain().focus().toggleHeading",
+          "lineNumber": 100
+        },
+        {
+          "caller": "WorklogEditorToolbar",
+          "callee": "editor.chain().focus",
+          "lineNumber": 100
+        },
+        {
+          "caller": "WorklogEditorToolbar",
+          "callee": "editor.chain",
+          "lineNumber": 100
+        },
+        {
+          "caller": "WorklogEditorToolbar",
+          "callee": "editor.isActive",
+          "lineNumber": 106
+        },
+        {
+          "caller": "WorklogEditorToolbar",
+          "callee": "editor.chain().focus().toggleBulletList().run",
+          "lineNumber": 107
+        },
+        {
+          "caller": "WorklogEditorToolbar",
+          "callee": "editor.chain().focus().toggleBulletList",
+          "lineNumber": 107
+        },
+        {
+          "caller": "WorklogEditorToolbar",
+          "callee": "editor.chain().focus",
+          "lineNumber": 107
+        },
+        {
+          "caller": "WorklogEditorToolbar",
+          "callee": "editor.chain",
+          "lineNumber": 107
+        },
+        {
+          "caller": "WorklogEditorToolbar",
+          "callee": "shifts.map",
+          "lineNumber": 132
+        },
+        {
+          "caller": "WorklogEditorToolbar",
+          "callee": "insertShift",
+          "lineNumber": 133
+        },
+        {
+          "caller": "WorklogEditorToolbar",
+          "callee": "MOOD_OPTIONS.map",
+          "lineNumber": 156
+        },
+        {
+          "caller": "WorklogEditorToolbar",
+          "callee": "insertMood",
+          "lineNumber": 157
+        },
+        {
+          "caller": "WorklogEditorToolbar",
+          "callee": "setTagDraft",
+          "lineNumber": 179
+        },
+        {
+          "caller": "WorklogEditorToolbar",
+          "callee": "e.preventDefault",
+          "lineNumber": 182
+        },
+        {
+          "caller": "WorklogEditorToolbar",
+          "callee": "commitTag",
+          "lineNumber": 183
+        },
+        {
+          "caller": "WorklogEditorToolbar",
+          "callee": "commandList.map",
+          "lineNumber": 216
+        },
+        {
+          "caller": "WorklogEditorToolbar",
+          "callee": "cmd.run",
+          "lineNumber": 226
+        }
+      ],
+      "metrics": {
+        "importCount": 7,
+        "exportCount": 1,
+        "functionCount": 2,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/components/worklog/worklog-editor.tsx",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 540,
+      "nonEmptyLines": 508,
+      "exports": [
+        {
+          "name": "WorklogEditor",
+          "line": 103,
+          "isDefault": false
+        },
+        {
+          "name": "proseMirrorDocToPlainText",
+          "line": 540,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "flush",
+          "callee": "bodyRef.current?.flush",
+          "lineNumber": 130
+        },
+        {
+          "caller": "focus",
+          "callee": "bodyRef.current?.focus",
+          "lineNumber": 133
+        },
+        {
+          "caller": "emitState",
+          "callee": "onStateRef.current",
+          "lineNumber": 272
+        },
+        {
+          "caller": "collectBodyPhotoIds",
+          "callee": "targetEditor.state.doc.descendants",
+          "lineNumber": 278
+        },
+        {
+          "caller": "collectBodyPhotoIds",
+          "callee": "ids.push",
+          "lineNumber": 281
+        },
+        {
+          "caller": "uploadAndInsertPhoto",
+          "callee": "uploadBodyPhoto",
+          "lineNumber": 298
+        },
+        {
+          "caller": "uploadAndInsertPhoto",
+          "callee": "targetEditor.chain().focus",
+          "lineNumber": 307
+        },
+        {
+          "caller": "uploadAndInsertPhoto",
+          "callee": "targetEditor.chain",
+          "lineNumber": 307
+        },
+        {
+          "caller": "uploadAndInsertPhoto",
+          "callee": "chain.deleteRange",
+          "lineNumber": 308
+        },
+        {
+          "caller": "uploadAndInsertPhoto",
+          "callee": "chain.insertContent({ type: \"photo\", attrs }).run",
+          "lineNumber": 309
+        },
+        {
+          "caller": "uploadAndInsertPhoto",
+          "callee": "chain.insertContent",
+          "lineNumber": 309
+        },
+        {
+          "caller": "uploadAndInsertPhoto",
+          "callee": "console.error",
+          "lineNumber": 313
+        },
+        {
+          "caller": "uploadAndInsertPhoto",
+          "callee": "window.alert",
+          "lineNumber": 315
+        },
+        {
+          "caller": "pickAndInsertPhoto",
+          "callee": "input.click",
+          "lineNumber": 326
+        },
+        {
+          "caller": "runSave",
+          "callee": "clearTimeout",
+          "lineNumber": 362
+        },
+        {
+          "caller": "runSave",
+          "callee": "emitState",
+          "lineNumber": 366
+        },
+        {
+          "caller": "runSave",
+          "callee": "onSaveRef.current",
+          "lineNumber": 368
+        },
+        {
+          "caller": "runSave",
+          "callee": "emitState",
+          "lineNumber": 372
+        },
+        {
+          "caller": "handlePaste",
+          "callee": "Array.from(event.clipboardData?.files ?? []).filter",
+          "lineNumber": 420
+        },
+        {
+          "caller": "handlePaste",
+          "callee": "Array.from",
+          "lineNumber": 420
+        },
+        {
+          "caller": "handlePaste",
+          "callee": "f.type.startsWith",
+          "lineNumber": 420
+        },
+        {
+          "caller": "handlePaste",
+          "callee": "event.preventDefault",
+          "lineNumber": 424
+        },
+        {
+          "caller": "handlePaste",
+          "callee": "uploadAndInsertPhoto",
+          "lineNumber": 425
+        },
+        {
+          "caller": "handleDrop",
+          "callee": "Array.from(dt.files ?? []).filter",
+          "lineNumber": 431
+        },
+        {
+          "caller": "handleDrop",
+          "callee": "Array.from",
+          "lineNumber": 431
+        },
+        {
+          "caller": "handleDrop",
+          "callee": "f.type.startsWith",
+          "lineNumber": 431
+        },
+        {
+          "caller": "handleDrop",
+          "callee": "event.preventDefault",
+          "lineNumber": 435
+        },
+        {
+          "caller": "handleDrop",
+          "callee": "view.posAtCoords",
+          "lineNumber": 436
+        },
+        {
+          "caller": "handleDrop",
+          "callee": "ed.chain().focus().setTextSelection(dropPos.pos).run",
+          "lineNumber": 437
+        },
+        {
+          "caller": "handleDrop",
+          "callee": "ed.chain().focus().setTextSelection",
+          "lineNumber": 437
+        },
+        {
+          "caller": "handleDrop",
+          "callee": "ed.chain().focus",
+          "lineNumber": 437
+        },
+        {
+          "caller": "handleDrop",
+          "callee": "ed.chain",
+          "lineNumber": 437
+        },
+        {
+          "caller": "handleDrop",
+          "callee": "uploadAndInsertPhoto",
+          "lineNumber": 438
+        },
+        {
+          "caller": "onUpdate",
+          "callee": "emitState",
+          "lineNumber": 444
+        },
+        {
+          "caller": "onUpdate",
+          "callee": "clearTimeout",
+          "lineNumber": 445
+        },
+        {
+          "caller": "onUpdate",
+          "callee": "setTimeout",
+          "lineNumber": 446
+        },
+        {
+          "caller": "onUpdate",
+          "callee": "runSave",
+          "lineNumber": 447
+        },
+        {
+          "caller": "onUpdate",
+          "callee": "editor.getJSON",
+          "lineNumber": 447
+        },
+        {
+          "caller": "onUpdate",
+          "callee": "editor.getText",
+          "lineNumber": 447
+        },
+        {
+          "caller": "flush",
+          "callee": "runSave",
+          "lineNumber": 491
+        },
+        {
+          "caller": "flush",
+          "callee": "editor.getJSON",
+          "lineNumber": 491
+        },
+        {
+          "caller": "flush",
+          "callee": "editor.getText",
+          "lineNumber": 491
+        },
+        {
+          "caller": "flush",
+          "callee": "collectBodyPhotoIds",
+          "lineNumber": 494
+        },
+        {
+          "caller": "flush",
+          "callee": "reconcileBodyPhotos",
+          "lineNumber": 495
+        },
+        {
+          "caller": "focus",
+          "callee": "editor?.commands.focus",
+          "lineNumber": 498
+        }
+      ],
+      "metrics": {
+        "importCount": 14,
+        "exportCount": 2,
+        "functionCount": 0,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/components/worklog/worklog-folder-tree-items.tsx",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 173,
+      "nonEmptyLines": 160,
+      "functions": [
+        {
+          "name": "WorklogFolderTreeItems",
+          "startLine": 44,
+          "endLine": 173,
+          "params": [
+            "{\r\n  selected,\r\n  onSelect,\r\n  compact,\r\n  onActivate,\r\n}"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "WorklogFolderTreeItems",
+          "line": 44,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "WorklogFolderTreeItems",
+          "callee": "useWorklogFolders",
+          "lineNumber": 51
+        },
+        {
+          "caller": "WorklogFolderTreeItems",
+          "callee": "useMemo",
+          "lineNumber": 53
+        },
+        {
+          "caller": "WorklogFolderTreeItems",
+          "callee": "buildFolderTree",
+          "lineNumber": 54
+        },
+        {
+          "caller": "WorklogFolderTreeItems",
+          "callee": "flattenFolderTree(tree).map",
+          "lineNumber": 55
+        },
+        {
+          "caller": "WorklogFolderTreeItems",
+          "callee": "flattenFolderTree",
+          "lineNumber": 55
+        },
+        {
+          "caller": "WorklogFolderTreeItems",
+          "callee": "useState",
+          "lineNumber": 58
+        },
+        {
+          "caller": "WorklogFolderTreeItems",
+          "callee": "useState",
+          "lineNumber": 59
+        },
+        {
+          "caller": "handleCreateRoot",
+          "callee": "window.prompt",
+          "lineNumber": 62
+        },
+        {
+          "caller": "handleCreateRoot",
+          "callee": "validateFolderName",
+          "lineNumber": 64
+        },
+        {
+          "caller": "handleCreateRoot",
+          "callee": "window.alert",
+          "lineNumber": 66
+        },
+        {
+          "caller": "handleCreateRoot",
+          "callee": "createFolder.mutateAsync",
+          "lineNumber": 69
+        },
+        {
+          "caller": "handleCreateRoot",
+          "callee": "name.trim",
+          "lineNumber": 69
+        },
+        {
+          "caller": "handleCreateChild",
+          "callee": "window.prompt",
+          "lineNumber": 73
+        },
+        {
+          "caller": "handleCreateChild",
+          "callee": "validateFolderName",
+          "lineNumber": 75
+        },
+        {
+          "caller": "handleCreateChild",
+          "callee": "window.alert",
+          "lineNumber": 77
+        },
+        {
+          "caller": "handleCreateChild",
+          "callee": "createFolder.mutateAsync",
+          "lineNumber": 80
+        },
+        {
+          "caller": "handleCreateChild",
+          "callee": "name.trim",
+          "lineNumber": 80
+        },
+        {
+          "caller": "WorklogFolderTreeItems",
+          "callee": "folders.find",
+          "lineNumber": 84
+        },
+        {
+          "caller": "WorklogFolderTreeItems",
+          "callee": "computeDeleteBlastRadius",
+          "lineNumber": 87
+        },
+        {
+          "caller": "WorklogFolderTreeItems",
+          "callee": "folders.find",
+          "lineNumber": 91
+        },
+        {
+          "caller": "WorklogFolderTreeItems",
+          "callee": "onSelect",
+          "lineNumber": 123
+        },
+        {
+          "caller": "WorklogFolderTreeItems",
+          "callee": "onSelect",
+          "lineNumber": 124
+        },
+        {
+          "caller": "WorklogFolderTreeItems",
+          "callee": "updateFolder.mutateAsync",
+          "lineNumber": 126
+        },
+        {
+          "caller": "WorklogFolderTreeItems",
+          "callee": "handleCreateChild",
+          "lineNumber": 127
+        },
+        {
+          "caller": "WorklogFolderTreeItems",
+          "callee": "setMoveTargetId",
+          "lineNumber": 128
+        },
+        {
+          "caller": "WorklogFolderTreeItems",
+          "callee": "setDeleteTargetId",
+          "lineNumber": 129
+        },
+        {
+          "caller": "WorklogFolderTreeItems",
+          "callee": "setMoveTargetId",
+          "lineNumber": 136
+        },
+        {
+          "caller": "WorklogFolderTreeItems",
+          "callee": "updateFolder.mutateAsync",
+          "lineNumber": 143
+        },
+        {
+          "caller": "WorklogFolderTreeItems",
+          "callee": "window.alert",
+          "lineNumber": 145
+        },
+        {
+          "caller": "WorklogFolderTreeItems",
+          "callee": "String",
+          "lineNumber": 145
+        },
+        {
+          "caller": "WorklogFolderTreeItems",
+          "callee": "setMoveTargetId",
+          "lineNumber": 147
+        },
+        {
+          "caller": "WorklogFolderTreeItems",
+          "callee": "setDeleteTargetId",
+          "lineNumber": 152
+        },
+        {
+          "caller": "WorklogFolderTreeItems",
+          "callee": "deleteFolder.mutateAsync",
+          "lineNumber": 160
+        },
+        {
+          "caller": "WorklogFolderTreeItems",
+          "callee": "onSelect",
+          "lineNumber": 163
+        },
+        {
+          "caller": "WorklogFolderTreeItems",
+          "callee": "setDeleteTargetId",
+          "lineNumber": 165
+        },
+        {
+          "caller": "WorklogFolderTreeItems",
+          "callee": "window.alert",
+          "lineNumber": 167
+        },
+        {
+          "caller": "WorklogFolderTreeItems",
+          "callee": "String",
+          "lineNumber": 167
+        }
+      ],
+      "metrics": {
+        "importCount": 6,
+        "exportCount": 1,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/components/worklog/worklog-folder-tree.tsx",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 509,
+      "nonEmptyLines": 485,
+      "functions": [
+        {
+          "name": "SortableFolderWrapper",
+          "startLine": 75,
+          "endLine": 93,
+          "params": [
+            "{ id, children }"
+          ]
+        },
+        {
+          "name": "WorklogFolderTree",
+          "startLine": 95,
+          "endLine": 489,
+          "params": [
+            "props"
+          ]
+        },
+        {
+          "name": "computeDeleteBlastRadius",
+          "startLine": 495,
+          "endLine": 509,
+          "params": [
+            "folders",
+            "folderId"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "WorklogFolderTree",
+          "line": 95,
+          "isDefault": false
+        },
+        {
+          "name": "computeDeleteBlastRadius",
+          "line": 495,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "SortableFolderWrapper",
+          "callee": "useSortable",
+          "lineNumber": 76
+        },
+        {
+          "caller": "SortableFolderWrapper",
+          "callee": "CSS.Transform.toString",
+          "lineNumber": 83
+        },
+        {
+          "caller": "WorklogFolderTree",
+          "callee": "useMemo",
+          "lineNumber": 111
+        },
+        {
+          "caller": "WorklogFolderTree",
+          "callee": "buildFolderTree",
+          "lineNumber": 111
+        },
+        {
+          "caller": "WorklogFolderTree",
+          "callee": "useState",
+          "lineNumber": 114
+        },
+        {
+          "caller": "WorklogFolderTree",
+          "callee": "useRef",
+          "lineNumber": 115
+        },
+        {
+          "caller": "WorklogFolderTree",
+          "callee": "useEffect",
+          "lineNumber": 116
+        },
+        {
+          "caller": "WorklogFolderTree",
+          "callee": "window.localStorage.getItem",
+          "lineNumber": 120
+        },
+        {
+          "caller": "WorklogFolderTree",
+          "callee": "JSON.parse",
+          "lineNumber": 122
+        },
+        {
+          "caller": "WorklogFolderTree",
+          "callee": "Array.isArray",
+          "lineNumber": 123
+        },
+        {
+          "caller": "WorklogFolderTree",
+          "callee": "setExpanded",
+          "lineNumber": 123
+        },
+        {
+          "caller": "WorklogFolderTree",
+          "callee": "useEffect",
+          "lineNumber": 129
+        },
+        {
+          "caller": "WorklogFolderTree",
+          "callee": "window.localStorage.setItem",
+          "lineNumber": 132
+        },
+        {
+          "caller": "WorklogFolderTree",
+          "callee": "JSON.stringify",
+          "lineNumber": 132
+        },
+        {
+          "caller": "WorklogFolderTree",
+          "callee": "Array.from",
+          "lineNumber": 132
+        },
+        {
+          "caller": "WorklogFolderTree",
+          "callee": "useEffect",
+          "lineNumber": 139
+        },
+        {
+          "caller": "WorklogFolderTree",
+          "callee": "folders.map",
+          "lineNumber": 141
+        },
+        {
+          "caller": "WorklogFolderTree",
+          "callee": "byId.get",
+          "lineNumber": 143
+        },
+        {
+          "caller": "WorklogFolderTree",
+          "callee": "seen.has",
+          "lineNumber": 145
+        },
+        {
+          "caller": "WorklogFolderTree",
+          "callee": "seen.add",
+          "lineNumber": 146
+        },
+        {
+          "caller": "WorklogFolderTree",
+          "callee": "toOpen.push",
+          "lineNumber": 147
+        },
+        {
+          "caller": "WorklogFolderTree",
+          "callee": "byId.get",
+          "lineNumber": 148
+        },
+        {
+          "caller": "WorklogFolderTree",
+          "callee": "setExpanded",
+          "lineNumber": 151
+        },
+        {
+          "caller": "WorklogFolderTree",
+          "callee": "next.add",
+          "lineNumber": 153
+        },
+        {
+          "caller": "toggle",
+          "callee": "setExpanded",
+          "lineNumber": 160
+        },
+        {
+          "caller": "toggle",
+          "callee": "next.has",
+          "lineNumber": 162
+        },
+        {
+          "caller": "toggle",
+          "callee": "next.delete",
+          "lineNumber": 162
+        },
+        {
+          "caller": "toggle",
+          "callee": "next.add",
+          "lineNumber": 163
+        },
+        {
+          "caller": "handleCreate",
+          "callee": "setExpanded",
+          "lineNumber": 171
+        },
+        {
+          "caller": "handleCreate",
+          "callee": "prev.has",
+          "lineNumber": 172
+        },
+        {
+          "caller": "handleCreate",
+          "callee": "next.add",
+          "lineNumber": 174
+        },
+        {
+          "caller": "handleCreate",
+          "callee": "onCreate",
+          "lineNumber": 178
+        },
+        {
+          "caller": "WorklogFolderTree",
+          "callee": "useState",
+          "lineNumber": 182
+        },
+        {
+          "caller": "WorklogFolderTree",
+          "callee": "useState",
+          "lineNumber": 183
+        },
+        {
+          "caller": "WorklogFolderTree",
+          "callee": "useState",
+          "lineNumber": 184
+        },
+        {
+          "caller": "startRename",
+          "callee": "setRenamingId",
+          "lineNumber": 187
+        },
+        {
+          "caller": "startRename",
+          "callee": "setRenameDraft",
+          "lineNumber": 188
+        },
+        {
+          "caller": "startRename",
+          "callee": "setRenameError",
+          "lineNumber": 189
+        },
+        {
+          "caller": "commitRename",
+          "callee": "validateFolderName",
+          "lineNumber": 193
+        },
+        {
+          "caller": "commitRename",
+          "callee": "setRenameError",
+          "lineNumber": 195
+        },
+        {
+          "caller": "commitRename",
+          "callee": "onRename",
+          "lineNumber": 198
+        },
+        {
+          "caller": "commitRename",
+          "callee": "renameDraft.trim",
+          "lineNumber": 198
+        },
+        {
+          "caller": "commitRename",
+          "callee": "setRenamingId",
+          "lineNumber": 199
+        },
+        {
+          "caller": "renderNode",
+          "callee": "expanded.has",
+          "lineNumber": 205
+        },
+        {
+          "caller": "renderNode",
+          "callee": "Math.min",
+          "lineNumber": 209
+        },
+        {
+          "caller": "renderNode",
+          "callee": "cn",
+          "lineNumber": 215
+        },
+        {
+          "caller": "renderNode",
+          "callee": "toggle",
+          "lineNumber": 226
+        },
+        {
+          "caller": "renderNode",
+          "callee": "cn",
+          "lineNumber": 229
+        },
+        {
+          "caller": "renderNode",
+          "callee": "cn",
+          "lineNumber": 236
+        },
+        {
+          "caller": "renderNode",
+          "callee": "setRenameDraft",
+          "lineNumber": 247
+        },
+        {
+          "caller": "renderNode",
+          "callee": "setRenameError",
+          "lineNumber": 248
+        },
+        {
+          "caller": "renderNode",
+          "callee": "commitRename",
+          "lineNumber": 250
+        },
+        {
+          "caller": "renderNode",
+          "callee": "e.preventDefault",
+          "lineNumber": 253
+        },
+        {
+          "caller": "renderNode",
+          "callee": "commitRename",
+          "lineNumber": 254
+        },
+        {
+          "caller": "renderNode",
+          "callee": "e.preventDefault",
+          "lineNumber": 256
+        },
+        {
+          "caller": "renderNode",
+          "callee": "setRenamingId",
+          "lineNumber": 257
+        },
+        {
+          "caller": "renderNode",
+          "callee": "onSelectFolder",
+          "lineNumber": 273
+        },
+        {
+          "caller": "renderNode",
+          "callee": "e.preventDefault",
+          "lineNumber": 276
+        },
+        {
+          "caller": "renderNode",
+          "callee": "onSelectFolder",
+          "lineNumber": 277
+        },
+        {
+          "caller": "renderNode",
+          "callee": "onActivate",
+          "lineNumber": 278
+        },
+        {
+          "caller": "renderNode",
+          "callee": "cn",
+          "lineNumber": 292
+        },
+        {
+          "caller": "renderNode",
+          "callee": "cn",
+          "lineNumber": 307
+        },
+        {
+          "caller": "renderNode",
+          "callee": "e.stopPropagation",
+          "lineNumber": 317
+        },
+        {
+          "caller": "renderNode",
+          "callee": "handleCreate",
+          "lineNumber": 322
+        },
+        {
+          "caller": "renderNode",
+          "callee": "startRename",
+          "lineNumber": 326
+        },
+        {
+          "caller": "renderNode",
+          "callee": "onRequestMove",
+          "lineNumber": 330
+        },
+        {
+          "caller": "renderNode",
+          "callee": "onRequestDelete",
+          "lineNumber": 336
+        },
+        {
+          "caller": "renderNode",
+          "callee": "node.children.map",
+          "lineNumber": 349
+        },
+        {
+          "caller": "renderNode",
+          "callee": "renderNode",
+          "lineNumber": 349
+        },
+        {
+          "caller": "WorklogFolderTree",
+          "callee": "cn",
+          "lineNumber": 376
+        },
+        {
+          "caller": "WorklogFolderTree",
+          "callee": "cn",
+          "lineNumber": 387
+        },
+        {
+          "caller": "WorklogFolderTree",
+          "callee": "handleCreate",
+          "lineNumber": 412
+        },
+        {
+          "caller": "WorklogFolderTree",
+          "callee": "tree.map",
+          "lineNumber": 425
+        },
+        {
+          "caller": "WorklogFolderTree",
+          "callee": "renderNode",
+          "lineNumber": 425
+        },
+        {
+          "caller": "WorklogFolderTree",
+          "callee": "cn",
+          "lineNumber": 442
+        },
+        {
+          "caller": "WorklogFolderTree",
+          "callee": "e.preventDefault",
+          "lineNumber": 456
+        },
+        {
+          "caller": "WorklogFolderTree",
+          "callee": "onSelectUnfiled",
+          "lineNumber": 457
+        },
+        {
+          "caller": "WorklogFolderTree",
+          "callee": "onActivate",
+          "lineNumber": 458
+        },
+        {
+          "caller": "WorklogFolderTree",
+          "callee": "cn",
+          "lineNumber": 467
+        },
+        {
+          "caller": "WorklogFolderTree",
+          "callee": "tree.map",
+          "lineNumber": 480
+        },
+        {
+          "caller": "WorklogFolderTree",
+          "callee": "renderNode",
+          "lineNumber": 480
+        },
+        {
+          "caller": "computeDeleteBlastRadius",
+          "callee": "collectDescendantIds",
+          "lineNumber": 499
+        },
+        {
+          "caller": "computeDeleteBlastRadius",
+          "callee": "ids.has",
+          "lineNumber": 503
+        }
+      ],
+      "metrics": {
+        "importCount": 7,
+        "exportCount": 2,
+        "functionCount": 3,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/components/worklog/worklog-folders-rail.tsx",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 447,
+      "nonEmptyLines": 425,
+      "functions": [
+        {
+          "name": "StatsStrip",
+          "startLine": 43,
+          "endLine": 96,
+          "params": [
+            "{\n  streak,\n  totalThisMonth,\n  notableCount,\n  onJumpToToday,\n  onOpenActivity,\n  onSelectNotable,\n}"
+          ]
+        },
+        {
+          "name": "isSelected",
+          "startLine": 121,
+          "endLine": 130,
+          "params": [
+            "sel",
+            "target"
+          ]
+        },
+        {
+          "name": "FolderRow",
+          "startLine": 146,
+          "endLine": 191,
+          "params": [
+            "{ icon, label, count, active, onClick, compact, iconColorClass, dim, onActivate }"
+          ]
+        },
+        {
+          "name": "WorklogFoldersRail",
+          "startLine": 193,
+          "endLine": 447,
+          "params": [
+            "{\n  logs,\n  templatesCount,\n  selected,\n  onSelect,\n  selectedDate,\n  onSelectDate,\n  streak,\n  totalThisMonth,\n  notableCount,\n  compact,\n  onActivate,\n}"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "FolderSelection",
+          "line": 99,
+          "isDefault": false
+        },
+        {
+          "name": "WorklogFoldersRail",
+          "line": 193,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "FolderRow",
+          "callee": "e.preventDefault",
+          "lineNumber": 158
+        },
+        {
+          "caller": "FolderRow",
+          "callee": "onClick",
+          "lineNumber": 159
+        },
+        {
+          "caller": "FolderRow",
+          "callee": "onActivate",
+          "lineNumber": 160
+        },
+        {
+          "caller": "FolderRow",
+          "callee": "cn",
+          "lineNumber": 165
+        },
+        {
+          "caller": "FolderRow",
+          "callee": "cn",
+          "lineNumber": 175
+        },
+        {
+          "caller": "FolderRow",
+          "callee": "cn",
+          "lineNumber": 180
+        },
+        {
+          "caller": "WorklogFoldersRail",
+          "callee": "useMemo",
+          "lineNumber": 206
+        },
+        {
+          "caller": "WorklogFoldersRail",
+          "callee": "m.set",
+          "lineNumber": 209
+        },
+        {
+          "caller": "WorklogFoldersRail",
+          "callee": "m.get",
+          "lineNumber": 209
+        },
+        {
+          "caller": "WorklogFoldersRail",
+          "callee": "useRef",
+          "lineNumber": 215
+        },
+        {
+          "caller": "WorklogFoldersRail",
+          "callee": "useState",
+          "lineNumber": 216
+        },
+        {
+          "caller": "WorklogFoldersRail",
+          "callee": "useEffect",
+          "lineNumber": 217
+        },
+        {
+          "caller": "WorklogFoldersRail",
+          "callee": "window.localStorage.getItem",
+          "lineNumber": 219
+        },
+        {
+          "caller": "WorklogFoldersRail",
+          "callee": "setActivityOpen",
+          "lineNumber": 220
+        },
+        {
+          "caller": "WorklogFoldersRail",
+          "callee": "useEffect",
+          "lineNumber": 225
+        },
+        {
+          "caller": "WorklogFoldersRail",
+          "callee": "window.localStorage.setItem",
+          "lineNumber": 227
+        },
+        {
+          "caller": "WorklogFoldersRail",
+          "callee": "useRef",
+          "lineNumber": 234
+        },
+        {
+          "caller": "WorklogFoldersRail",
+          "callee": "useState",
+          "lineNumber": 235
+        },
+        {
+          "caller": "WorklogFoldersRail",
+          "callee": "useEffect",
+          "lineNumber": 236
+        },
+        {
+          "caller": "WorklogFoldersRail",
+          "callee": "window.localStorage.getItem",
+          "lineNumber": 238
+        },
+        {
+          "caller": "WorklogFoldersRail",
+          "callee": "setCategoriesOpen",
+          "lineNumber": 240
+        },
+        {
+          "caller": "WorklogFoldersRail",
+          "callee": "useEffect",
+          "lineNumber": 245
+        },
+        {
+          "caller": "WorklogFoldersRail",
+          "callee": "window.localStorage.setItem",
+          "lineNumber": 247
+        },
+        {
+          "caller": "WorklogFoldersRail",
+          "callee": "useRef",
+          "lineNumber": 255
+        },
+        {
+          "caller": "handleNavKey",
+          "callee": "Array.from",
+          "lineNumber": 263
+        },
+        {
+          "caller": "handleNavKey",
+          "callee": "container.querySelectorAll",
+          "lineNumber": 264
+        },
+        {
+          "caller": "handleNavKey",
+          "callee": "rows.indexOf",
+          "lineNumber": 268
+        },
+        {
+          "caller": "handleNavKey",
+          "callee": "e.preventDefault",
+          "lineNumber": 274
+        },
+        {
+          "caller": "handleNavKey",
+          "callee": "rows[nextIdx]?.focus",
+          "lineNumber": 275
+        },
+        {
+          "caller": "openActivity",
+          "callee": "setActivityOpen",
+          "lineNumber": 280
+        },
+        {
+          "caller": "openActivity",
+          "callee": "requestAnimationFrame",
+          "lineNumber": 282
+        },
+        {
+          "caller": "openActivity",
+          "callee": "activityRef.current?.scrollIntoView",
+          "lineNumber": 283
+        },
+        {
+          "caller": "jumpToToday",
+          "callee": "onSelectDate",
+          "lineNumber": 288
+        },
+        {
+          "caller": "selectNotable",
+          "callee": "onSelect",
+          "lineNumber": 290
+        },
+        {
+          "caller": "WorklogFoldersRail",
+          "callee": "cn",
+          "lineNumber": 294
+        },
+        {
+          "caller": "WorklogFoldersRail",
+          "callee": "cn",
+          "lineNumber": 303
+        },
+        {
+          "caller": "WorklogFoldersRail",
+          "callee": "cn",
+          "lineNumber": 308
+        },
+        {
+          "caller": "WorklogFoldersRail",
+          "callee": "isSelected",
+          "lineNumber": 313
+        },
+        {
+          "caller": "WorklogFoldersRail",
+          "callee": "onSelect",
+          "lineNumber": 314
+        },
+        {
+          "caller": "WorklogFoldersRail",
+          "callee": "cn",
+          "lineNumber": 319
+        },
+        {
+          "caller": "WorklogFoldersRail",
+          "callee": "isSelected",
+          "lineNumber": 322
+        },
+        {
+          "caller": "WorklogFoldersRail",
+          "callee": "onSelect",
+          "lineNumber": 323
+        },
+        {
+          "caller": "WorklogFoldersRail",
+          "callee": "setCategoriesOpen",
+          "lineNumber": 342
+        },
+        {
+          "caller": "WorklogFoldersRail",
+          "callee": "Object.entries(CATEGORIES).map",
+          "lineNumber": 350
+        },
+        {
+          "caller": "WorklogFoldersRail",
+          "callee": "Object.entries",
+          "lineNumber": 350
+        },
+        {
+          "caller": "WorklogFoldersRail",
+          "callee": "categoryCounts.get",
+          "lineNumber": 352
+        },
+        {
+          "caller": "WorklogFoldersRail",
+          "callee": "isSelected",
+          "lineNumber": 359
+        },
+        {
+          "caller": "WorklogFoldersRail",
+          "callee": "onSelect",
+          "lineNumber": 360
+        },
+        {
+          "caller": "WorklogFoldersRail",
+          "callee": "Object.entries(CATEGORIES).map",
+          "lineNumber": 373
+        },
+        {
+          "caller": "WorklogFoldersRail",
+          "callee": "Object.entries",
+          "lineNumber": 373
+        },
+        {
+          "caller": "WorklogFoldersRail",
+          "callee": "categoryCounts.get",
+          "lineNumber": 375
+        },
+        {
+          "caller": "WorklogFoldersRail",
+          "callee": "isSelected",
+          "lineNumber": 382
+        },
+        {
+          "caller": "WorklogFoldersRail",
+          "callee": "onSelect",
+          "lineNumber": 383
+        },
+        {
+          "caller": "WorklogFoldersRail",
+          "callee": "cn",
+          "lineNumber": 400
+        },
+        {
+          "caller": "WorklogFoldersRail",
+          "callee": "isSelected",
+          "lineNumber": 405
+        },
+        {
+          "caller": "WorklogFoldersRail",
+          "callee": "onSelect",
+          "lineNumber": 406
+        },
+        {
+          "caller": "WorklogFoldersRail",
+          "callee": "setActivityOpen",
+          "lineNumber": 427
+        }
+      ],
+      "metrics": {
+        "importCount": 5,
+        "exportCount": 2,
+        "functionCount": 4,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/components/worklog/worklog-heatmap.tsx",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 77,
+      "nonEmptyLines": 73,
+      "functions": [
+        {
+          "name": "WorklogHeatmap",
+          "startLine": 28,
+          "endLine": 77,
+          "params": [
+            "{ logs, selectedDate, onSelectDate }"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "WorklogHeatmap",
+          "line": 28,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "WorklogHeatmap",
+          "callee": "useMemo",
+          "lineNumber": 29
+        },
+        {
+          "caller": "WorklogHeatmap",
+          "callee": "buildHeatmap",
+          "lineNumber": 29
+        },
+        {
+          "caller": "WorklogHeatmap",
+          "callee": "onSelectDate",
+          "lineNumber": 37
+        },
+        {
+          "caller": "WorklogHeatmap",
+          "callee": "weeks.map",
+          "lineNumber": 45
+        },
+        {
+          "caller": "WorklogHeatmap",
+          "callee": "w.map",
+          "lineNumber": 47
+        },
+        {
+          "caller": "WorklogHeatmap",
+          "callee": "isSameDay",
+          "lineNumber": 48
+        },
+        {
+          "caller": "WorklogHeatmap",
+          "callee": "onSelectDate",
+          "lineNumber": 52
+        },
+        {
+          "caller": "WorklogHeatmap",
+          "callee": "format",
+          "lineNumber": 53
+        },
+        {
+          "caller": "WorklogHeatmap",
+          "callee": "cn",
+          "lineNumber": 54
+        },
+        {
+          "caller": "WorklogHeatmap",
+          "callee": "intensityClass",
+          "lineNumber": 56
+        }
+      ],
+      "metrics": {
+        "importCount": 4,
+        "exportCount": 1,
+        "functionCount": 1,
+        "classCount": 0
+      }
+    }
+  ]
+}

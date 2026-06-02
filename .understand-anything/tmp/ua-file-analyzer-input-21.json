@@ -1,0 +1,31 @@
+{
+  "projectRoot": "C:\\Users\\Sory kaba\\OneDrive\\RESUMSIFY\\Personal_Projects\\Dev_Pojects\\resumsify",
+  "batchFiles": [
+    {
+      "path": "src/components/job-map-google.tsx",
+      "language": "typescript",
+      "sizeLines": 2191,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/data/state-tax-zones.ts",
+      "language": "typescript",
+      "sizeLines": 318,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/taxes.ts",
+      "language": "typescript",
+      "sizeLines": 348,
+      "fileCategory": "code"
+    }
+  ],
+  "batchImportData": {
+    "src/components/job-map-google.tsx": [
+      "src/data/state-tax-zones.ts",
+      "src/lib/taxes.ts"
+    ],
+    "src/data/state-tax-zones.ts": [],
+    "src/lib/taxes.ts": []
+  }
+}

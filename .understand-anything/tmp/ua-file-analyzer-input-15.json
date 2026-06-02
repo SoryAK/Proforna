@@ -1,0 +1,235 @@
+{
+  "projectRoot": "C:\\Users\\Sory kaba\\OneDrive\\RESUMSIFY\\Personal_Projects\\Dev_Pojects\\resumsify",
+  "batchFiles": [
+    {
+      "path": "src/app/api/gallery/annotations/comments/route.ts",
+      "language": "typescript",
+      "sizeLines": 102,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/gallery/annotations/route.ts",
+      "language": "typescript",
+      "sizeLines": 260,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/gallery/annotations/upload/route.ts",
+      "language": "typescript",
+      "sizeLines": 44,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/offer-compare/route.ts",
+      "language": "typescript",
+      "sizeLines": 150,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/profile/compensation/route.ts",
+      "language": "typescript",
+      "sizeLines": 173,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/recruiter/list/route.ts",
+      "language": "typescript",
+      "sizeLines": 100,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/recruiter/notes/route.ts",
+      "language": "typescript",
+      "sizeLines": 93,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/api/recruiter/saves/route.ts",
+      "language": "typescript",
+      "sizeLines": 156,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/app/r/[slug]/page.tsx",
+      "language": "typescript",
+      "sizeLines": 900,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/annotation-compare.tsx",
+      "language": "typescript",
+      "sizeLines": 193,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/annotation-editor.tsx",
+      "language": "typescript",
+      "sizeLines": 1592,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/annotation-overlay.tsx",
+      "language": "typescript",
+      "sizeLines": 463,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/annotation-viewer.tsx",
+      "language": "typescript",
+      "sizeLines": 228,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/comments-thread.tsx",
+      "language": "typescript",
+      "sizeLines": 211,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/gallery-modal.tsx",
+      "language": "typescript",
+      "sizeLines": 1942,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/immersive-layout.tsx",
+      "language": "typescript",
+      "sizeLines": 80,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/ir-popout-sheet.tsx",
+      "language": "typescript",
+      "sizeLines": 86,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/recruiter-panel.tsx",
+      "language": "typescript",
+      "sizeLines": 430,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/resume-immersive-map.tsx",
+      "language": "typescript",
+      "sizeLines": 6084,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/resume-work-map.tsx",
+      "language": "typescript",
+      "sizeLines": 428,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/components/rich-text-editor.tsx",
+      "language": "typescript",
+      "sizeLines": 301,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/rate-limit.ts",
+      "language": "typescript",
+      "sizeLines": 53,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/recruiter-cookie.ts",
+      "language": "typescript",
+      "sizeLines": 37,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/sanitize-html.ts",
+      "language": "typescript",
+      "sizeLines": 24,
+      "fileCategory": "code"
+    },
+    {
+      "path": "src/lib/use-ir-analytics.ts",
+      "language": "typescript",
+      "sizeLines": 124,
+      "fileCategory": "code"
+    }
+  ],
+  "batchImportData": {
+    "src/app/api/gallery/annotations/comments/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts",
+      "src/lib/rate-limit.ts"
+    ],
+    "src/app/api/gallery/annotations/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts",
+      "src/lib/rate-limit.ts",
+      "src/lib/sanitize-html.ts"
+    ],
+    "src/app/api/gallery/annotations/upload/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/rate-limit.ts"
+    ],
+    "src/app/api/offer-compare/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts",
+      "src/lib/rate-limit.ts"
+    ],
+    "src/app/api/profile/compensation/route.ts": [
+      "src/lib/auth-utils.ts",
+      "src/lib/prisma.ts",
+      "src/lib/rate-limit.ts"
+    ],
+    "src/app/api/recruiter/list/route.ts": [
+      "src/lib/prisma.ts",
+      "src/lib/recruiter-cookie.ts"
+    ],
+    "src/app/api/recruiter/notes/route.ts": [
+      "src/lib/prisma.ts",
+      "src/lib/rate-limit.ts",
+      "src/lib/recruiter-cookie.ts"
+    ],
+    "src/app/api/recruiter/saves/route.ts": [
+      "src/lib/prisma.ts",
+      "src/lib/rate-limit.ts",
+      "src/lib/recruiter-cookie.ts"
+    ],
+    "src/app/r/[slug]/page.tsx": [
+      "src/components/resume-immersive-map.tsx",
+      "src/components/resume-work-map.tsx"
+    ],
+    "src/components/annotation-compare.tsx": [
+      "src/components/annotation-overlay.tsx"
+    ],
+    "src/components/annotation-editor.tsx": [
+      "src/components/annotation-compare.tsx",
+      "src/components/annotation-overlay.tsx",
+      "src/components/comments-thread.tsx",
+      "src/components/rich-text-editor.tsx"
+    ],
+    "src/components/annotation-overlay.tsx": [],
+    "src/components/annotation-viewer.tsx": [
+      "src/components/annotation-overlay.tsx",
+      "src/lib/sanitize-html.ts"
+    ],
+    "src/components/comments-thread.tsx": [],
+    "src/components/gallery-modal.tsx": [
+      "src/components/annotation-editor.tsx"
+    ],
+    "src/components/immersive-layout.tsx": [],
+    "src/components/ir-popout-sheet.tsx": [],
+    "src/components/recruiter-panel.tsx": [],
+    "src/components/resume-immersive-map.tsx": [
+      "src/components/annotation-overlay.tsx",
+      "src/components/annotation-viewer.tsx",
+      "src/components/immersive-layout.tsx",
+      "src/components/ir-popout-sheet.tsx",
+      "src/components/recruiter-panel.tsx",
+      "src/lib/use-ir-analytics.ts"
+    ],
+    "src/components/resume-work-map.tsx": [],
+    "src/components/rich-text-editor.tsx": [],
+    "src/lib/rate-limit.ts": [],
+    "src/lib/recruiter-cookie.ts": [],
+    "src/lib/sanitize-html.ts": [],
+    "src/lib/use-ir-analytics.ts": []
+  }
+}

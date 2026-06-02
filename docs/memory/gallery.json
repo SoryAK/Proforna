@@ -1,0 +1,17 @@
+{
+  "entities": [
+    {
+      "name": "GalleryDomain",
+      "entityType": "domain",
+      "observations": [
+        "2026-05-28: Components under src/components/master-gallery/",
+        "2026-05-28: API routes under src/app/api/master-gallery/, src/app/api/gallery/",
+        "2026-05-28: Asset management: src/components/asset-picker.tsx, asset-types-manager.tsx, job-assets-page.tsx",
+        "2026-05-28: Location photos at src/app/api/location-photos/"
+      ]
+    }
+  ],
+  "relations": [
+    { "from": "GalleryDomain", "relationType": "depends-on", "to": "WorklogDomain" }
+  ]
+}

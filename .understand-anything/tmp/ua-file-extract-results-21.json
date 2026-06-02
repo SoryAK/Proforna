@@ -1,0 +1,3371 @@
+{
+  "scriptCompleted": true,
+  "filesAnalyzed": 3,
+  "filesSkipped": [],
+  "results": [
+    {
+      "path": "src/components/job-map-google.tsx",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 2191,
+      "nonEmptyLines": 1993,
+      "functions": [
+        {
+          "name": "ensureOptions",
+          "startLine": 14,
+          "endLine": 19,
+          "params": []
+        },
+        {
+          "name": "salaryColor",
+          "startLine": 186,
+          "endLine": 192,
+          "params": [
+            "min",
+            "max",
+            "mean"
+          ]
+        },
+        {
+          "name": "commuteColor",
+          "startLine": 195,
+          "endLine": 200,
+          "params": [
+            "minutes",
+            "maxMinutes"
+          ]
+        },
+        {
+          "name": "formatSalary",
+          "startLine": 202,
+          "endLine": 204,
+          "params": [
+            "n"
+          ]
+        },
+        {
+          "name": "escapeHtml",
+          "startLine": 206,
+          "endLine": 208,
+          "params": [
+            "s"
+          ]
+        },
+        {
+          "name": "makePinSvg",
+          "startLine": 224,
+          "endLine": 240,
+          "params": [
+            "color",
+            "selected",
+            "highlighted",
+            "dimmed"
+          ]
+        },
+        {
+          "name": "makeClusterSvg",
+          "startLine": 242,
+          "endLine": 247,
+          "params": [
+            "count"
+          ]
+        },
+        {
+          "name": "whTenureMonths",
+          "startLine": 250,
+          "endLine": 255,
+          "params": [
+            "startDate",
+            "endDate"
+          ]
+        },
+        {
+          "name": "whMarkerSize",
+          "startLine": 257,
+          "endLine": 264,
+          "params": [
+            "months"
+          ]
+        },
+        {
+          "name": "whRecencyRingColor",
+          "startLine": 267,
+          "endLine": 276,
+          "params": [
+            "endDate"
+          ]
+        },
+        {
+          "name": "whYearLabel",
+          "startLine": 279,
+          "endLine": 285,
+          "params": [
+            "startDate",
+            "endDate"
+          ]
+        },
+        {
+          "name": "JobMapGoogle",
+          "startLine": 288,
+          "endLine": 2182,
+          "params": [
+            "{\r\n  jobs,\r\n  center,\r\n  selectedId,\r\n  onSelect,\r\n  meanSalary,\r\n  searchCenter,\r\n  radiusMiles,\r\n  onSearchArea,\r\n  onViewChange,\r\n  routeGeometry,\r\n  transitSteps,\r\n  showHeatmap = false,\r\n  heatmapMode = \"density\",\r\n  showTraffic = false,\r\n  showTransit = false,\r\n  showTaxZones = false,\r\n  showStateTax = true,\r\n  showCityTax = true,\r\n  showCountyPropTax = true,\r\n  tileStyle = \"google-roadmap\",\r\n  resolvedCoords = null,\r\n  highlightedIds = [],\r\n  anchorRoutes = [],\r\n  anchorMarkers = [],\r\n  sweetSpot = null,\r\n  officeLocations = [],\r\n  onSelectOffice,\r\n  enabledAnchorIds,\r\n  onToggleAnchor,\r\n  dimmedIds,\r\n  onClusterHover,\r\n  onClusterHoverEnd,\r\n  isochroneRings = null,\r\n  commuteTimesMap = null,\r\n  amenityPins = [],\r\n  amenityRadius = null,\r\n  zoomTarget = null,\r\n  amenityCategories = [],\r\n  activeAmenities: activeAmenitiesProp,\r\n  amenityLoading: amenityLoadingProp,\r\n  onToggleAmenity,\r\n  workHistoryMarkers = [],\r\n  workHistorySubLocations = [],\r\n  showCareerPath = false,\r\n  focusedWorkHistoryId = null,\r\n  hoveredWorkHistoryId = null,\r\n  hideFocusedWorkHistoryMarker = false,\r\n  concurrentWorkHistoryIds,\r\n  onSelectWorkHistory,\r\n  residenceMarker = null,\r\n  pinDropMode = false,\r\n  onMapClick,\r\n  companyLocationMarkers = [],\r\n  onMapReady,\r\n  onCursorMove,\r\n  showWorkHistory = false,\r\n  onToggleWorkHistory,\r\n  eventMarkers = [],\r\n}"
+          ]
+        },
+        {
+          "name": "haversine",
+          "startLine": 2185,
+          "endLine": 2191,
+          "params": [
+            "a",
+            "b"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "JobMapGoogle",
+          "line": 288,
+          "isDefault": true
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "ensureOptions",
+          "callee": "setOptions",
+          "lineNumber": 16
+        },
+        {
+          "caller": "commuteColor",
+          "callee": "Math.min",
+          "lineNumber": 197
+        },
+        {
+          "caller": "commuteColor",
+          "callee": "Math.max",
+          "lineNumber": 197
+        },
+        {
+          "caller": "commuteColor",
+          "callee": "Math.round",
+          "lineNumber": 199
+        },
+        {
+          "caller": "formatSalary",
+          "callee": "Math.round",
+          "lineNumber": 203
+        },
+        {
+          "caller": "escapeHtml",
+          "callee": "s.replace(/&/g, \"&amp;\").replace(/</g, \"&lt;\").replace(/>/g, \"&gt;\").replace",
+          "lineNumber": 207
+        },
+        {
+          "caller": "escapeHtml",
+          "callee": "s.replace(/&/g, \"&amp;\").replace(/</g, \"&lt;\").replace",
+          "lineNumber": 207
+        },
+        {
+          "caller": "escapeHtml",
+          "callee": "s.replace(/&/g, \"&amp;\").replace",
+          "lineNumber": 207
+        },
+        {
+          "caller": "escapeHtml",
+          "callee": "s.replace",
+          "lineNumber": 207
+        },
+        {
+          "caller": "whTenureMonths",
+          "callee": "Math.max",
+          "lineNumber": 254
+        },
+        {
+          "caller": "whTenureMonths",
+          "callee": "e.getFullYear",
+          "lineNumber": 254
+        },
+        {
+          "caller": "whTenureMonths",
+          "callee": "s.getFullYear",
+          "lineNumber": 254
+        },
+        {
+          "caller": "whTenureMonths",
+          "callee": "e.getMonth",
+          "lineNumber": 254
+        },
+        {
+          "caller": "whTenureMonths",
+          "callee": "s.getMonth",
+          "lineNumber": 254
+        },
+        {
+          "caller": "whRecencyRingColor",
+          "callee": "now.getFullYear",
+          "lineNumber": 271
+        },
+        {
+          "caller": "whRecencyRingColor",
+          "callee": "end.getFullYear",
+          "lineNumber": 271
+        },
+        {
+          "caller": "whRecencyRingColor",
+          "callee": "now.getMonth",
+          "lineNumber": 271
+        },
+        {
+          "caller": "whRecencyRingColor",
+          "callee": "end.getMonth",
+          "lineNumber": 271
+        },
+        {
+          "caller": "whYearLabel",
+          "callee": "startDate.slice",
+          "lineNumber": 281
+        },
+        {
+          "caller": "whYearLabel",
+          "callee": "endDate.slice",
+          "lineNumber": 283
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useRef",
+          "lineNumber": 348
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useRef",
+          "lineNumber": 349
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useRef",
+          "lineNumber": 350
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useRef",
+          "lineNumber": 351
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useRef",
+          "lineNumber": 352
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useRef",
+          "lineNumber": 353
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useRef",
+          "lineNumber": 354
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useRef",
+          "lineNumber": 355
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useRef",
+          "lineNumber": 356
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useRef",
+          "lineNumber": 357
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useRef",
+          "lineNumber": 358
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useRef",
+          "lineNumber": 359
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useRef",
+          "lineNumber": 360
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useRef",
+          "lineNumber": 361
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useRef",
+          "lineNumber": 362
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useRef",
+          "lineNumber": 363
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useRef",
+          "lineNumber": 364
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useRef",
+          "lineNumber": 365
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useRef",
+          "lineNumber": 366
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useRef",
+          "lineNumber": 367
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useRef",
+          "lineNumber": 368
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useRef",
+          "lineNumber": 369
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useRef",
+          "lineNumber": 370
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useRef",
+          "lineNumber": 371
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useRef",
+          "lineNumber": 372
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useRef",
+          "lineNumber": 373
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useRef",
+          "lineNumber": 374
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useRef",
+          "lineNumber": 375
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useRef",
+          "lineNumber": 376
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useRef",
+          "lineNumber": 377
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useRef",
+          "lineNumber": 378
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useRef",
+          "lineNumber": 379
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useRef",
+          "lineNumber": 380
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useRef",
+          "lineNumber": 381
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useRef",
+          "lineNumber": 382
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useRef",
+          "lineNumber": 383
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useRef",
+          "lineNumber": 384
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useRef",
+          "lineNumber": 385
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useRef",
+          "lineNumber": 386
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useRef",
+          "lineNumber": 387
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useRef",
+          "lineNumber": 388
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useRef",
+          "lineNumber": 389
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useRef",
+          "lineNumber": 390
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useRef",
+          "lineNumber": 391
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useState",
+          "lineNumber": 394
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useState",
+          "lineNumber": 395
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useRef",
+          "lineNumber": 396
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useState",
+          "lineNumber": 399
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useState",
+          "lineNumber": 400
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useRef",
+          "lineNumber": 403
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useRef",
+          "lineNumber": 405
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useRef",
+          "lineNumber": 407
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useRef",
+          "lineNumber": 409
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useRef",
+          "lineNumber": 410
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useRef",
+          "lineNumber": 412
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useRef",
+          "lineNumber": 415
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useRef",
+          "lineNumber": 417
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useRef",
+          "lineNumber": 419
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useRef",
+          "lineNumber": 421
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useRef",
+          "lineNumber": 423
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useRef",
+          "lineNumber": 425
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useRef",
+          "lineNumber": 427
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useRef",
+          "lineNumber": 429
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useRef",
+          "lineNumber": 431
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useEffect",
+          "lineNumber": 435
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "ensureOptions",
+          "lineNumber": 437
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "(async () => {\r\n      const { Map } = await importLibrary(\"maps\") as google.maps.MapsLibrary;\r\n      await importLibrary(\"marker\"); // loads AdvancedMarkerElement\r\n\r\n      if (cancelled || !containerRef.current) return;\r\n\r\n      const map = new Map(containerRef.current, {\r\n        center: { lat: center[0], lng: center[1] },\r\n        zoom: 10,\r\n        mapId: \"resumsify-job-map\",\r\n        disableDefaultUI: true,\r\n        gestureHandling: \"greedy\",\r\n        mapTypeId: TILE_STYLE_MAP[tileStyle] || \"roadmap\",\r\n      });\r\n\r\n      mapRef.current = map;\r\n      infoRef.current = new google.maps.InfoWindow();\r\n\r\n      // Drag detection\r\n      map.addListener(\"dragstart\", () => { userDragRef.current = true; });\r\n      map.addListener(\"idle\", () => {\r\n        const c = map.getCenter();\r\n        if (!c) return;\r\n        const newCenter: [number, number] = [c.lat(), c.lng()];\r\n        setPanCenter(newCenter);\r\n        onViewChangeRef.current?.(newCenter, map.getZoom() ?? 10);\r\n        if (userDragRef.current && searchCenter) {\r\n          const dist = haversine(searchCenter, newCenter);\r\n          setHasPanned(dist > 25);\r\n          userDragRef.current = false;\r\n        }\r\n      });\r\n\r\n      // Pin-drop / claim mode: click on map → fire onMapClick (with placeId if a POI was clicked)\r\n      map.addListener(\"click\", (e: google.maps.MapMouseEvent & { placeId?: string }) => {\r\n        if (!pinDropModeRef.current || !e.latLng) return;\r\n        onMapClickRef.current?.({ lat: e.latLng.lat(), lng: e.latLng.lng(), placeId: e.placeId ?? undefined });\r\n        // Prevent default info window for POI clicks\r\n        if (e.placeId) (e as any).stop?.();\r\n      });\r\n\r\n      // Cursor coordinate tracking for dev overlay\r\n      map.addListener(\"mousemove\", (e: google.maps.MapMouseEvent) => {\r\n        if (e.latLng) onCursorMoveRef.current?.({ lat: e.latLng.lat(), lng: e.latLng.lng() });\r\n      });\r\n      map.addListener(\"mouseout\", () => { onCursorMoveRef.current?.(null); });\r\n\r\n      setReady(true);\r\n      onMapReady?.(map);\r\n    })",
+          "lineNumber": 441
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "importLibrary",
+          "lineNumber": 442
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "importLibrary",
+          "lineNumber": 443
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "map.addListener",
+          "lineNumber": 460
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "map.addListener",
+          "lineNumber": 461
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "map.getCenter",
+          "lineNumber": 462
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "c.lat",
+          "lineNumber": 464
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "c.lng",
+          "lineNumber": 464
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "setPanCenter",
+          "lineNumber": 465
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "onViewChangeRef.current",
+          "lineNumber": 466
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "map.getZoom",
+          "lineNumber": 466
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "haversine",
+          "lineNumber": 468
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "setHasPanned",
+          "lineNumber": 469
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "map.addListener",
+          "lineNumber": 475
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "onMapClickRef.current",
+          "lineNumber": 477
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "e.latLng.lat",
+          "lineNumber": 477
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "e.latLng.lng",
+          "lineNumber": 477
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "(e as any).stop",
+          "lineNumber": 479
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "map.addListener",
+          "lineNumber": 483
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "onCursorMoveRef.current",
+          "lineNumber": 484
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "e.latLng.lat",
+          "lineNumber": 484
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "e.latLng.lng",
+          "lineNumber": 484
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "map.addListener",
+          "lineNumber": 486
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "onCursorMoveRef.current",
+          "lineNumber": 486
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "setReady",
+          "lineNumber": 488
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "onMapReady",
+          "lineNumber": 489
+        },
+        {
+          "caller": "showWHTooltip",
+          "callee": "anchorEl.getBoundingClientRect",
+          "lineNumber": 501
+        },
+        {
+          "caller": "showWHTooltip",
+          "callee": "outer.getBoundingClientRect",
+          "lineNumber": 502
+        },
+        {
+          "caller": "stripInfoWindowPadding",
+          "callee": "google.maps.event.addListenerOnce",
+          "lineNumber": 519
+        },
+        {
+          "caller": "stripInfoWindowPadding",
+          "callee": "document.querySelector",
+          "lineNumber": 520
+        },
+        {
+          "caller": "stripInfoWindowPadding",
+          "callee": "document.querySelector",
+          "lineNumber": 521
+        },
+        {
+          "caller": "stripInfoWindowPadding",
+          "callee": "iwc.style.setProperty",
+          "lineNumber": 523
+        },
+        {
+          "caller": "stripInfoWindowPadding",
+          "callee": "iwc.style.setProperty",
+          "lineNumber": 524
+        },
+        {
+          "caller": "stripInfoWindowPadding",
+          "callee": "iwd.style.setProperty",
+          "lineNumber": 527
+        },
+        {
+          "caller": "stripInfoWindowPadding",
+          "callee": "iwd.style.setProperty",
+          "lineNumber": 528
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useEffect",
+          "lineNumber": 534
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "mapRef.current.setMapTypeId",
+          "lineNumber": 537
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useEffect",
+          "lineNumber": 541
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "trafficLayerRef.current.setMap",
+          "lineNumber": 547
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "trafficLayerRef.current?.setMap",
+          "lineNumber": 549
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useEffect",
+          "lineNumber": 554
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "transitLayerRef.current.setMap",
+          "lineNumber": 560
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "transitLayerRef.current?.setMap",
+          "lineNumber": 562
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useEffect",
+          "lineNumber": 567
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "(async () => {\r\n        // Fetch real state boundary GeoJSON (cached after first load)\r\n        if (!taxZoneGeoJsonRef.current) {\r\n          try {\r\n            const res = await fetch(\"/data/us-states.json\");\r\n            if (!res.ok) throw new Error(\"Failed to load state boundaries\");\r\n            taxZoneGeoJsonRef.current = await res.json();\r\n          } catch {\r\n            console.warn(\"Tax zones: could not load state boundary data\");\r\n            return;\r\n          }\r\n        }\r\n        if (cancelled || !mapRef.current) return;\r\n\r\n        // Inject tax rate data into each feature's properties\r\n        const geoJson = taxZoneGeoJsonRef.current as {\r\n          type: string;\r\n          features: { type: string; properties: Record<string, unknown>; geometry: unknown }[];\r\n        };\r\n        const enriched = {\r\n          ...geoJson,\r\n          features: geoJson.features\r\n            .filter((f) => STATE_TAX_BY_NAME[f.properties.name as string])\r\n            .map((f) => {\r\n              const info = STATE_TAX_BY_NAME[f.properties.name as string];\r\n              return {\r\n                ...f,\r\n                properties: { ...f.properties, abbr: info.abbr, rate: info.rate, propTaxRate: info.propTaxRate },\r\n              };\r\n            }),\r\n        };\r\n\r\n        const added = map.data.addGeoJson(enriched);\r\n        taxZoneFeaturesRef.current = added;\r\n\r\n        // Style each state by tax rate\r\n        if (showStateTax) {\r\n          map.data.setStyle((feature) => {\r\n            const rate = (feature.getProperty(\"rate\") as number) ?? 0;\r\n            const color = getTaxZoneColor(rate);\r\n            return {\r\n              fillColor: color,\r\n              fillOpacity: 0.22,\r\n              strokeColor: color,\r\n              strokeWeight: 1.5,\r\n              strokeOpacity: 0.6,\r\n            };\r\n          });\r\n        } else {\r\n          map.data.setStyle({ visible: false });\r\n        }\r\n\r\n        // Click state → show tax details in InfoWindow\r\n        taxZoneListenerRef.current = map.data.addListener(\r\n          \"click\",\r\n          (e: google.maps.Data.MouseEvent) => {\r\n            if (!infoRef.current) return;\r\n            const abbr = e.feature.getProperty(\"abbr\") as string;\r\n            const name = e.feature.getProperty(\"name\") as string;\r\n            const rate = (e.feature.getProperty(\"rate\") as number) ?? 0;\r\n            const propRate = (e.feature.getProperty(\"propTaxRate\") as number) ?? 0;\r\n            const tier = getTaxTierLabel(rate);\r\n            const pct = formatTaxRate(rate);\r\n            const color = getTaxZoneColor(rate);\r\n            const propColor = getPropTaxColor(propRate);\r\n            const propAnnual = formatPropTaxAnnual(propRate);\r\n\r\n            // Find any local taxes in this state\r\n            const localCities = CITY_TAX_MARKERS.filter((c) => c.state === abbr);\r\n            const localHtml = localCities.length > 0\r\n              ? `<div style=\"margin-top:6px;padding-top:5px;border-top:1px solid #e5e7eb\">` +\r\n                `<div style=\"font-size:11px;font-weight:600;margin-bottom:3px;color:#7c3aed\">Local/City Taxes:</div>` +\r\n                localCities.map((c) =>\r\n                  `<div style=\"font-size:12px;color:#555;padding:1px 0\">` +\r\n                    `${c.city}: ${c.taxes.map((t) => `${t.name} ${(t.rate * 100).toFixed(1)}%`).join(\", \")}` +\r\n                  `</div>`\r\n                ).join(\"\") +\r\n                `</div>`\r\n              : \"\";\r\n\r\n            infoRef.current.setContent(\r\n              `<div style=\"font-family:system-ui,sans-serif;min-width:200px;padding:2px\">` +\r\n                `<div style=\"font-weight:700;font-size:14px;margin-bottom:4px\">${name} (${abbr})</div>` +\r\n                `<div style=\"display:flex;align-items:center;gap:6px;margin-bottom:2px\">` +\r\n                  `<span style=\"display:inline-block;width:12px;height:12px;border-radius:2px;background:${color}\"></span>` +\r\n                  `<span style=\"font-size:13px\">${tier}</span>` +\r\n                `</div>` +\r\n                `<div style=\"font-size:13px;color:#555\">State Income Tax: <strong>${pct}</strong></div>` +\r\n                (rate === 0\r\n                  ? `<div style=\"font-size:12px;color:#16a34a;margin-top:4px\">No state income tax \\u2014 100% of salary kept at state level</div>`\r\n                  : `<div style=\"font-size:12px;color:#666;margin-top:4px\">Effective rate at ~$80k income (single filer)</div>`) +\r\n                `<div style=\"margin-top:6px;padding-top:5px;border-top:1px solid #e5e7eb\">` +\r\n                  `<div style=\"display:flex;align-items:center;gap:6px;margin-bottom:2px\">` +\r\n                    `<span style=\"display:inline-block;width:12px;height:12px;border-radius:2px;background:${propColor}\"></span>` +\r\n                    `<span style=\"font-size:12px;font-weight:600\">\\ud83c\\udfe0 Property Tax</span>` +\r\n                  `</div>` +\r\n                  `<div style=\"font-size:13px;color:#555\">Median Rate: <strong>${(propRate * 100).toFixed(2)}%</strong></div>` +\r\n                  `<div style=\"font-size:12px;color:#666\">~${propAnnual} on $${(REF_HOME_VALUE / 1000).toFixed(0)}k home</div>` +\r\n                `</div>` +\r\n                localHtml +\r\n              `</div>`\r\n            );\r\n            infoRef.current.setPosition(e.latLng!);\r\n            infoRef.current.open(map);\r\n          }\r\n        );\r\n\r\n        // State abbreviation labels at centroids (only at low–mid zoom)\r\n        await importLibrary(\"marker\");\r\n        if (cancelled || !mapRef.current) return;\r\n\r\n        const buildStateLabels = () => {\r\n          // Remove old labels\r\n          for (const m of taxZoneLabelsRef.current) m.map = null;\r\n          taxZoneLabelsRef.current = [];\r\n\r\n          const zoom = mapRef.current?.getZoom() ?? 5;\r\n          if (zoom > 8 || !showStateTax) return; // hide state labels at high zoom or if toggled off\r\n\r\n          for (const feat of taxZoneFeaturesRef.current) {\r\n            const abbr = feat.getProperty(\"abbr\") as string;\r\n            const rate = (feat.getProperty(\"rate\") as number) ?? 0;\r\n            const color = getTaxZoneColor(rate);\r\n            const pct = formatTaxRate(rate);\r\n\r\n            // Calculate centroid from geometry bounds\r\n            let lat = 0, lng = 0;\r\n            const geom = feat.getGeometry();\r\n            if (geom) {\r\n              const arr: google.maps.LatLng[] = [];\r\n              geom.forEachLatLng((ll) => arr.push(ll));\r\n              if (arr.length > 0) {\r\n                lat = arr.reduce((s, l) => s + l.lat(), 0) / arr.length;\r\n                lng = arr.reduce((s, l) => s + l.lng(), 0) / arr.length;\r\n              }\r\n            }\r\n            if (lat === 0 && lng === 0) continue;\r\n\r\n            const el = document.createElement(\"div\");\r\n            el.style.cssText = `\r\n              font-family:system-ui,sans-serif;font-size:${zoom < 6 ? 10 : 11}px;font-weight:700;\r\n              background:${color};color:#fff;padding:2px 5px;border-radius:4px;\r\n              border:1px solid rgba(255,255,255,0.8);\r\n              text-shadow:0 1px 2px rgba(0,0,0,0.4);white-space:nowrap;\r\n              pointer-events:none;line-height:1.2;\r\n            `;\r\n            el.textContent = `${abbr} ${pct}`;\r\n\r\n            const marker = new google.maps.marker.AdvancedMarkerElement({\r\n              map: mapRef.current!,\r\n              position: { lat, lng },\r\n              content: el,\r\n              zIndex: 900,\r\n            });\r\n            taxZoneLabelsRef.current.push(marker);\r\n          }\r\n        };\r\n\r\n        // Build city tax markers (only visible at zoom >= 7)\r\n        const buildCityMarkers = () => {\r\n          for (const m of taxZoneCityMarkersRef.current) m.map = null;\r\n          taxZoneCityMarkersRef.current = [];\r\n\r\n          const zoom = mapRef.current?.getZoom() ?? 5;\r\n          if (zoom < 7 || !showCityTax) return; // hide city markers at country-level zoom or if toggled off\r\n\r\n          for (const city of CITY_TAX_MARKERS) {\r\n            const totalRate = city.taxes.reduce((s, t) => s + t.rate, 0);\r\n            const label = `${city.city}: +${(totalRate * 100).toFixed(1)}%`;\r\n\r\n            const el = document.createElement(\"div\");\r\n            el.style.cssText = `\r\n              font-family:system-ui,sans-serif;font-size:10px;font-weight:600;\r\n              background:#7c3aed;color:#fff;padding:2px 6px;border-radius:10px;\r\n              border:1.5px solid rgba(255,255,255,0.9);\r\n              text-shadow:0 1px 1px rgba(0,0,0,0.3);white-space:nowrap;\r\n              cursor:pointer;line-height:1.3;\r\n            `;\r\n            el.textContent = label;\r\n\r\n            // Click → show city tax detail\r\n            el.addEventListener(\"click\", () => {\r\n              if (!infoRef.current || !mapRef.current) return;\r\n              const taxLines = city.taxes.map((t) =>\r\n                `<div style=\"font-size:12px;padding:1px 0\">${t.name}: <strong>${(t.rate * 100).toFixed(2)}%</strong></div>`\r\n              ).join(\"\");\r\n              infoRef.current.setContent(\r\n                `<div style=\"font-family:system-ui,sans-serif;min-width:160px;padding:2px\">` +\r\n                  `<div style=\"font-weight:700;font-size:14px;margin-bottom:2px;color:#7c3aed\">${city.city}, ${city.state}</div>` +\r\n                  `<div style=\"font-size:12px;color:#666;margin-bottom:4px\">Local Tax Zone</div>` +\r\n                  taxLines +\r\n                  `<div style=\"font-size:11px;color:#888;margin-top:4px;border-top:1px solid #e5e7eb;padding-top:4px\">` +\r\n                    `These taxes are <em>in addition</em> to state & federal taxes` +\r\n                  `</div>` +\r\n                `</div>`\r\n              );\r\n              infoRef.current.setPosition({ lat: city.lat, lng: city.lng });\r\n              infoRef.current.open(mapRef.current);\r\n            });\r\n\r\n            const marker = new google.maps.marker.AdvancedMarkerElement({\r\n              map: mapRef.current!,\r\n              position: { lat: city.lat, lng: city.lng },\r\n              content: el,\r\n              zIndex: 950,\r\n            });\r\n            taxZoneCityMarkersRef.current.push(marker);\r\n          }\r\n        };\r\n\r\n        // Build county property tax markers (only visible at zoom >= 9)\r\n        const buildCountyMarkers = () => {\r\n          for (const m of taxZoneCountyMarkersRef.current) m.map = null;\r\n          taxZoneCountyMarkersRef.current = [];\r\n\r\n          const zoom = mapRef.current?.getZoom() ?? 5;\r\n          if (zoom < 9 || !showCountyPropTax) return;\r\n\r\n          for (const cty of COUNTY_PROP_TAX_MARKERS) {\r\n            const propColor = getPropTaxColor(cty.rate);\r\n            const pctStr = `${(cty.rate * 100).toFixed(2)}%`;\r\n            const annual = Math.round(cty.rate * cty.medianHome);\r\n\r\n            const el = document.createElement(\"div\");\r\n            el.style.cssText = `\r\n              font-family:system-ui,sans-serif;font-size:10px;font-weight:600;\r\n              background:#0ea5e9;color:#fff;padding:2px 6px;border-radius:10px;\r\n              border:1.5px solid rgba(255,255,255,0.9);\r\n              text-shadow:0 1px 1px rgba(0,0,0,0.3);white-space:nowrap;\r\n              cursor:pointer;line-height:1.3;\r\n            `;\r\n            el.textContent = `\\ud83c\\udfe0 ${cty.county}: ${pctStr}`;\r\n\r\n            el.addEventListener(\"click\", () => {\r\n              if (!infoRef.current || !mapRef.current) return;\r\n              infoRef.current.setContent(\r\n                `<div style=\"font-family:system-ui,sans-serif;min-width:180px;padding:2px\">` +\r\n                  `<div style=\"font-weight:700;font-size:14px;margin-bottom:2px;color:#0ea5e9\">${cty.county}, ${cty.state}</div>` +\r\n                  `<div style=\"font-size:12px;color:#666;margin-bottom:4px\">County Property Tax</div>` +\r\n                  `<div style=\"display:flex;align-items:center;gap:6px;margin-bottom:3px\">` +\r\n                    `<span style=\"display:inline-block;width:12px;height:12px;border-radius:2px;background:${propColor}\"></span>` +\r\n                    `<span style=\"font-size:13px\">Effective Rate: <strong>${pctStr}</strong></span>` +\r\n                  `</div>` +\r\n                  `<div style=\"font-size:12px;color:#555\">Median Home: $${cty.medianHome.toLocaleString()}</div>` +\r\n                  `<div style=\"font-size:12px;color:#555\">Est. Annual: <strong>$${annual.toLocaleString()}/yr</strong></div>` +\r\n                  `<div style=\"font-size:11px;color:#888;margin-top:4px;border-top:1px solid #e5e7eb;padding-top:4px\">` +\r\n                    `Based on county median effective rate` +\r\n                  `</div>` +\r\n                `</div>`\r\n              );\r\n              infoRef.current.setPosition({ lat: cty.lat, lng: cty.lng });\r\n              infoRef.current.open(mapRef.current);\r\n            });\r\n\r\n            const marker = new google.maps.marker.AdvancedMarkerElement({\r\n              map: mapRef.current!,\r\n              position: { lat: cty.lat, lng: cty.lng },\r\n              content: el,\r\n              zIndex: 940,\r\n            });\r\n            taxZoneCountyMarkersRef.current.push(marker);\r\n          }\r\n        };\r\n\r\n        // Initial build\r\n        buildStateLabels();\r\n        buildCityMarkers();\r\n        buildCountyMarkers();\r\n\r\n        taxZoneZoomListenerRef.current = map.addListener(\"zoom_changed\", () => {\r\n          buildStateLabels();\r\n          buildCityMarkers();\r\n          buildCountyMarkers();\r\n        });\r\n      })",
+          "lineNumber": 574
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "fetch",
+          "lineNumber": 578
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "res.json",
+          "lineNumber": 580
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "console.warn",
+          "lineNumber": 582
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "geoJson.features\r\n            .filter((f) => STATE_TAX_BY_NAME[f.properties.name as string])\r\n            .map",
+          "lineNumber": 595
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "geoJson.features\r\n            .filter",
+          "lineNumber": 595
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "map.data.addGeoJson",
+          "lineNumber": 606
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "map.data.setStyle",
+          "lineNumber": 611
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "feature.getProperty",
+          "lineNumber": 612
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "getTaxZoneColor",
+          "lineNumber": 613
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "map.data.setStyle",
+          "lineNumber": 623
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "map.data.addListener",
+          "lineNumber": 627
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "e.feature.getProperty",
+          "lineNumber": 631
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "e.feature.getProperty",
+          "lineNumber": 632
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "e.feature.getProperty",
+          "lineNumber": 633
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "e.feature.getProperty",
+          "lineNumber": 634
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "getTaxTierLabel",
+          "lineNumber": 635
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "formatTaxRate",
+          "lineNumber": 636
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "getTaxZoneColor",
+          "lineNumber": 637
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "getPropTaxColor",
+          "lineNumber": 638
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "formatPropTaxAnnual",
+          "lineNumber": 639
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "CITY_TAX_MARKERS.filter",
+          "lineNumber": 642
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "localCities.map((c) =>\r\n                  `<div style=\"font-size:12px;color:#555;padding:1px 0\">` +\r\n                    `${c.city}: ${c.taxes.map((t) => `${t.name} ${(t.rate * 100).toFixed(1)}%`).join(\", \")}` +\r\n                  `</div>`\r\n                ).join",
+          "lineNumber": 646
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "localCities.map",
+          "lineNumber": 646
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "c.taxes.map((t) => `${t.name} ${(t.rate * 100).toFixed(1)}%`).join",
+          "lineNumber": 648
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "c.taxes.map",
+          "lineNumber": 648
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "(t.rate * 100).toFixed",
+          "lineNumber": 648
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "infoRef.current.setContent",
+          "lineNumber": 654
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "(propRate * 100).toFixed",
+          "lineNumber": 670
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "(REF_HOME_VALUE / 1000).toFixed",
+          "lineNumber": 671
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "infoRef.current.setPosition",
+          "lineNumber": 676
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "infoRef.current.open",
+          "lineNumber": 677
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "importLibrary",
+          "lineNumber": 682
+        },
+        {
+          "caller": "buildStateLabels",
+          "callee": "mapRef.current?.getZoom",
+          "lineNumber": 690
+        },
+        {
+          "caller": "buildStateLabels",
+          "callee": "feat.getProperty",
+          "lineNumber": 694
+        },
+        {
+          "caller": "buildStateLabels",
+          "callee": "feat.getProperty",
+          "lineNumber": 695
+        },
+        {
+          "caller": "buildStateLabels",
+          "callee": "getTaxZoneColor",
+          "lineNumber": 696
+        },
+        {
+          "caller": "buildStateLabels",
+          "callee": "formatTaxRate",
+          "lineNumber": 697
+        },
+        {
+          "caller": "buildStateLabels",
+          "callee": "feat.getGeometry",
+          "lineNumber": 701
+        },
+        {
+          "caller": "buildStateLabels",
+          "callee": "geom.forEachLatLng",
+          "lineNumber": 704
+        },
+        {
+          "caller": "buildStateLabels",
+          "callee": "arr.push",
+          "lineNumber": 704
+        },
+        {
+          "caller": "buildStateLabels",
+          "callee": "arr.reduce",
+          "lineNumber": 706
+        },
+        {
+          "caller": "buildStateLabels",
+          "callee": "l.lat",
+          "lineNumber": 706
+        },
+        {
+          "caller": "buildStateLabels",
+          "callee": "arr.reduce",
+          "lineNumber": 707
+        },
+        {
+          "caller": "buildStateLabels",
+          "callee": "l.lng",
+          "lineNumber": 707
+        },
+        {
+          "caller": "buildStateLabels",
+          "callee": "document.createElement",
+          "lineNumber": 712
+        },
+        {
+          "caller": "buildStateLabels",
+          "callee": "taxZoneLabelsRef.current.push",
+          "lineNumber": 728
+        },
+        {
+          "caller": "buildCityMarkers",
+          "callee": "mapRef.current?.getZoom",
+          "lineNumber": 737
+        },
+        {
+          "caller": "buildCityMarkers",
+          "callee": "city.taxes.reduce",
+          "lineNumber": 741
+        },
+        {
+          "caller": "buildCityMarkers",
+          "callee": "(totalRate * 100).toFixed",
+          "lineNumber": 742
+        },
+        {
+          "caller": "buildCityMarkers",
+          "callee": "document.createElement",
+          "lineNumber": 744
+        },
+        {
+          "caller": "buildCityMarkers",
+          "callee": "el.addEventListener",
+          "lineNumber": 755
+        },
+        {
+          "caller": "buildCityMarkers",
+          "callee": "city.taxes.map((t) =>\r\n                `<div style=\"font-size:12px;padding:1px 0\">${t.name}: <strong>${(t.rate * 100).toFixed(2)}%</strong></div>`\r\n              ).join",
+          "lineNumber": 757
+        },
+        {
+          "caller": "buildCityMarkers",
+          "callee": "city.taxes.map",
+          "lineNumber": 757
+        },
+        {
+          "caller": "buildCityMarkers",
+          "callee": "(t.rate * 100).toFixed",
+          "lineNumber": 758
+        },
+        {
+          "caller": "buildCityMarkers",
+          "callee": "infoRef.current.setContent",
+          "lineNumber": 760
+        },
+        {
+          "caller": "buildCityMarkers",
+          "callee": "infoRef.current.setPosition",
+          "lineNumber": 770
+        },
+        {
+          "caller": "buildCityMarkers",
+          "callee": "infoRef.current.open",
+          "lineNumber": 771
+        },
+        {
+          "caller": "buildCityMarkers",
+          "callee": "taxZoneCityMarkersRef.current.push",
+          "lineNumber": 780
+        },
+        {
+          "caller": "buildCountyMarkers",
+          "callee": "mapRef.current?.getZoom",
+          "lineNumber": 789
+        },
+        {
+          "caller": "buildCountyMarkers",
+          "callee": "getPropTaxColor",
+          "lineNumber": 793
+        },
+        {
+          "caller": "buildCountyMarkers",
+          "callee": "(cty.rate * 100).toFixed",
+          "lineNumber": 794
+        },
+        {
+          "caller": "buildCountyMarkers",
+          "callee": "Math.round",
+          "lineNumber": 795
+        },
+        {
+          "caller": "buildCountyMarkers",
+          "callee": "document.createElement",
+          "lineNumber": 797
+        },
+        {
+          "caller": "buildCountyMarkers",
+          "callee": "el.addEventListener",
+          "lineNumber": 807
+        },
+        {
+          "caller": "buildCountyMarkers",
+          "callee": "infoRef.current.setContent",
+          "lineNumber": 809
+        },
+        {
+          "caller": "buildCountyMarkers",
+          "callee": "cty.medianHome.toLocaleString",
+          "lineNumber": 817
+        },
+        {
+          "caller": "buildCountyMarkers",
+          "callee": "annual.toLocaleString",
+          "lineNumber": 818
+        },
+        {
+          "caller": "buildCountyMarkers",
+          "callee": "infoRef.current.setPosition",
+          "lineNumber": 824
+        },
+        {
+          "caller": "buildCountyMarkers",
+          "callee": "infoRef.current.open",
+          "lineNumber": 825
+        },
+        {
+          "caller": "buildCountyMarkers",
+          "callee": "taxZoneCountyMarkersRef.current.push",
+          "lineNumber": 834
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "buildStateLabels",
+          "lineNumber": 839
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "buildCityMarkers",
+          "lineNumber": 840
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "buildCountyMarkers",
+          "lineNumber": 841
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "map.addListener",
+          "lineNumber": 843
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "buildStateLabels",
+          "lineNumber": 844
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "buildCityMarkers",
+          "lineNumber": 845
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "buildCountyMarkers",
+          "lineNumber": 846
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "map.data.remove",
+          "lineNumber": 850
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "google.maps.event.removeListener",
+          "lineNumber": 853
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "google.maps.event.removeListener",
+          "lineNumber": 857
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useEffect",
+          "lineNumber": 872
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "eventMarkersRef.current.forEach",
+          "lineNumber": 873
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "eventMarkers.forEach",
+          "lineNumber": 877
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "document.createElement",
+          "lineNumber": 878
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "escapeHtml",
+          "lineNumber": 879
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "el.addEventListener",
+          "lineNumber": 880
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "info.setContent",
+          "lineNumber": 887
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "escapeHtml",
+          "lineNumber": 888
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "escapeHtml",
+          "lineNumber": 888
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "stripInfoWindowPadding",
+          "lineNumber": 890
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "info.open",
+          "lineNumber": 891
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "el.addEventListener",
+          "lineNumber": 894
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "infoRef.current?.close",
+          "lineNumber": 895
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "eventMarkersRef.current.push",
+          "lineNumber": 903
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "eventMarkersRef.current.forEach",
+          "lineNumber": 906
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useEffect",
+          "lineNumber": 912
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "(async () => {\r\n        await importLibrary(\"visualization\");\r\n        if (!mapRef.current) return;\r\n        heatmapRef.current?.setMap(null);\r\n\r\n        let data: google.maps.visualization.WeightedLocation[] | google.maps.LatLng[];\r\n        let gradient: string[];\r\n\r\n        if (heatmapMode === \"salary\" && meanSalary && meanSalary > 0) {\r\n          // Salary mode: weight each point by salary relative to mean\r\n          data = jobs.map((j) => {\r\n            const sal = j.salaryMax ?? j.salaryMin ?? 0;\r\n            const weight = sal > 0 ? Math.min(sal / (meanSalary * 2), 1) : 0.05;\r\n            return { location: new google.maps.LatLng(j.lat, j.lng), weight };\r\n          });\r\n          gradient = [\r\n            \"rgba(0,0,0,0)\",\r\n            \"rgba(239,68,68,0.6)\",   // red — low salary\r\n            \"rgba(249,115,22,0.7)\",  // orange\r\n            \"rgba(234,179,8,0.8)\",   // yellow — average\r\n            \"rgba(132,204,22,0.9)\",  // lime\r\n            \"rgba(34,197,94,1)\",     // green — high salary\r\n          ];\r\n        } else if (heatmapMode === \"take-home\" && meanSalary && meanSalary > 0) {\r\n          // Take-home mode: weight by estimated net pay after taxes\r\n          const meanTakeHome = estimateTaxes(meanSalary, \"US\").takeHomePay;\r\n          data = jobs.map((j) => {\r\n            const sal = j.salaryMax ?? j.salaryMin ?? 0;\r\n            if (sal <= 0) return { location: new google.maps.LatLng(j.lat, j.lng), weight: 0.05 };\r\n            const net = estimateTaxes(sal, j.location).takeHomePay;\r\n            const weight = Math.min(net / (meanTakeHome * 2), 1);\r\n            return { location: new google.maps.LatLng(j.lat, j.lng), weight };\r\n          });\r\n          gradient = [\r\n            \"rgba(0,0,0,0)\",\r\n            \"rgba(239,68,68,0.6)\",   // red — low take-home\r\n            \"rgba(234,88,12,0.65)\",  // dark orange\r\n            \"rgba(234,179,8,0.75)\",  // yellow\r\n            \"rgba(16,185,129,0.85)\", // teal\r\n            \"rgba(6,95,70,1)\",       // dark green — high take-home\r\n          ];\r\n        } else {\r\n          // Density mode (default): uniform weight\r\n          data = jobs.map((j) => new google.maps.LatLng(j.lat, j.lng));\r\n          gradient = [\r\n            \"rgba(0,0,0,0)\",\r\n            \"rgba(59,130,246,0.6)\",\r\n            \"rgba(6,182,212,0.7)\",\r\n            \"rgba(34,197,94,0.8)\",\r\n            \"rgba(234,179,8,0.9)\",\r\n            \"rgba(239,68,68,1)\",\r\n          ];\r\n        }\r\n\r\n        heatmapRef.current = new google.maps.visualization.HeatmapLayer({\r\n          data,\r\n          map: mapRef.current,\r\n          radius: 30,\r\n          opacity: 0.6,\r\n          gradient,\r\n        });\r\n      })",
+          "lineNumber": 915
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "importLibrary",
+          "lineNumber": 916
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "heatmapRef.current?.setMap",
+          "lineNumber": 918
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "jobs.map",
+          "lineNumber": 925
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "Math.min",
+          "lineNumber": 927
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "estimateTaxes",
+          "lineNumber": 940
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "jobs.map",
+          "lineNumber": 941
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "estimateTaxes",
+          "lineNumber": 944
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "Math.min",
+          "lineNumber": 945
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "jobs.map",
+          "lineNumber": 958
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "heatmapRef.current?.setMap",
+          "lineNumber": 978
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useMemo",
+          "lineNumber": 983
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "jobs.map((j) => j.id).join",
+          "lineNumber": 983
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "jobs.map",
+          "lineNumber": 983
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useEffect",
+          "lineNumber": 986
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "jobs.forEach",
+          "lineNumber": 993
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "bounds.extend",
+          "lineNumber": 993
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "map.fitBounds",
+          "lineNumber": 994
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useEffect",
+          "lineNumber": 998
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "jobs.find",
+          "lineNumber": 1003
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "map.getZoom",
+          "lineNumber": 1010
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "map.panTo",
+          "lineNumber": 1011
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "map.setZoom",
+          "lineNumber": 1012
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useEffect",
+          "lineNumber": 1016
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useEffect",
+          "lineNumber": 1021
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "polylinesRef.current.forEach",
+          "lineNumber": 1023
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "p.setMap",
+          "lineNumber": 1023
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "transitSteps.map((s) => s.geometry?.length ?? 0).join",
+          "lineNumber": 1032
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "transitSteps.map",
+          "lineNumber": 1032
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "transitSteps.some",
+          "lineNumber": 1040
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "transitSteps.forEach",
+          "lineNumber": 1041
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "step.geometry.map",
+          "lineNumber": 1044
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "line.setOptions",
+          "lineNumber": 1051
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "lines.push",
+          "lineNumber": 1060
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "transitSteps.forEach",
+          "lineNumber": 1066
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "s.geometry?.forEach",
+          "lineNumber": 1066
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "bounds.extend",
+          "lineNumber": 1066
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "map.fitBounds",
+          "lineNumber": 1067
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "routeGeometry.map",
+          "lineNumber": 1071
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "lines.push",
+          "lineNumber": 1077
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "routeGeometry.forEach",
+          "lineNumber": 1082
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "bounds.extend",
+          "lineNumber": 1082
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "map.fitBounds",
+          "lineNumber": 1083
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "anchorRoutes.forEach",
+          "lineNumber": 1088
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "route.geometry.map",
+          "lineNumber": 1090
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "line.setOptions",
+          "lineNumber": 1101
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "lines.push",
+          "lineNumber": 1102
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useEffect",
+          "lineNumber": 1109
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "searchRadiusRef.current?.setMap",
+          "lineNumber": 1110
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useEffect",
+          "lineNumber": 1126
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "p.setMap",
+          "lineNumber": 1128
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "[...isochroneRings].sort",
+          "lineNumber": 1133
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "sorted.forEach",
+          "lineNumber": 1136
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "ring.coordinates.map",
+          "lineNumber": 1138
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "coordRing.map",
+          "lineNumber": 1139
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "innerCoords.map(([lng, lat]) => ({ lat, lng })).reverse",
+          "lineNumber": 1150
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "innerCoords.map",
+          "lineNumber": 1150
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "isochronePolysRef.current.push",
+          "lineNumber": 1169
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useEffect",
+          "lineNumber": 1174
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "sweetSpotCircleRef.current?.setMap",
+          "lineNumber": 1175
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "document.createElement",
+          "lineNumber": 1190
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useEffect",
+          "lineNumber": 1202
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "document.createElement",
+          "lineNumber": 1206
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useMemo",
+          "lineNumber": 1221
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "highlightedIds.join",
+          "lineNumber": 1221
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useMemo",
+          "lineNumber": 1222
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "[...dimmedIds].sort().join",
+          "lineNumber": 1222
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "[...dimmedIds].sort",
+          "lineNumber": 1222
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useMemo",
+          "lineNumber": 1223
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "commuteTimesMap.size.toString",
+          "lineNumber": 1223
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useEffect",
+          "lineNumber": 1225
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "clustererRef.current?.clearMarkers",
+          "lineNumber": 1230
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "jobMarkersRef.current.forEach",
+          "lineNumber": 1231
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "jobs.forEach",
+          "lineNumber": 1239
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "posCount.set",
+          "lineNumber": 1244
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "posCount.get",
+          "lineNumber": 1244
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "Math.max",
+          "lineNumber": 1250
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "Array.from(commuteTimesMap.values()).filter",
+          "lineNumber": 1250
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "Array.from",
+          "lineNumber": 1250
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "commuteTimesMap.values",
+          "lineNumber": 1250
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "jobs.forEach",
+          "lineNumber": 1253
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "commuteTimesMap?.get",
+          "lineNumber": 1255
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "commuteColor",
+          "lineNumber": 1257
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "salaryColor",
+          "lineNumber": 1258
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "highlightedIds.includes",
+          "lineNumber": 1260
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "dimmedIds.has",
+          "lineNumber": 1261
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "posCount.get",
+          "lineNumber": 1265
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "posIndex.get",
+          "lineNumber": 1266
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "posIndex.set",
+          "lineNumber": 1267
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "Math.sqrt",
+          "lineNumber": 1273
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "Math.cos",
+          "lineNumber": 1274
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "Math.sin",
+          "lineNumber": 1274
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "document.createElement",
+          "lineNumber": 1279
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "document.createElement",
+          "lineNumber": 1284
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "makePinSvg",
+          "lineNumber": 1285
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "el.appendChild",
+          "lineNumber": 1286
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "document.createElement",
+          "lineNumber": 1290
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "Object.assign",
+          "lineNumber": 1292
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "cats.forEach",
+          "lineNumber": 1306
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "Math.cos",
+          "lineNumber": 1308
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "Math.sin",
+          "lineNumber": 1309
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "document.createElement",
+          "lineNumber": 1310
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "activeAmenitiesRef.current?.has",
+          "lineNumber": 1311
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "amenityLoadingRef.current?.has",
+          "lineNumber": 1312
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "Object.assign",
+          "lineNumber": 1313
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "btn.addEventListener",
+          "lineNumber": 1327
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "e.stopPropagation",
+          "lineNumber": 1328
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "e.preventDefault",
+          "lineNumber": 1329
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "onToggleAmenityRef.current",
+          "lineNumber": 1330
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "ring.appendChild",
+          "lineNumber": 1332
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "el.appendChild",
+          "lineNumber": 1335
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "el.addEventListener",
+          "lineNumber": 1338
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "ring.querySelectorAll",
+          "lineNumber": 1341
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "btns.forEach",
+          "lineNumber": 1342
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "setTimeout",
+          "lineNumber": 1343
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "el.addEventListener",
+          "lineNumber": 1346
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "ring.querySelectorAll",
+          "lineNumber": 1349
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "btns.forEach",
+          "lineNumber": 1350
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "jobLookup.set",
+          "lineNumber": 1360
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "formatSalary",
+          "lineNumber": 1364
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "formatSalary",
+          "lineNumber": 1364
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "escapeHtml",
+          "lineNumber": 1372
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "escapeHtml",
+          "lineNumber": 1373
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "el.addEventListener",
+          "lineNumber": 1378
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "info.setContent",
+          "lineNumber": 1381
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "stripInfoWindowPadding",
+          "lineNumber": 1382
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "info.open",
+          "lineNumber": 1383
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "el.addEventListener",
+          "lineNumber": 1386
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "infoRef.current?.close",
+          "lineNumber": 1387
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "marker.addListener",
+          "lineNumber": 1391
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "onSelectRef.current",
+          "lineNumber": 1392
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "markers.push",
+          "lineNumber": 1395
+        },
+        {
+          "caller": "render",
+          "callee": "document.createElement",
+          "lineNumber": 1409
+        },
+        {
+          "caller": "render",
+          "callee": "makeClusterSvg",
+          "lineNumber": 1410
+        },
+        {
+          "caller": "render",
+          "callee": "el.addEventListener",
+          "lineNumber": 1414
+        },
+        {
+          "caller": "render",
+          "callee": "jobLookupRef.current.get",
+          "lineNumber": 1418
+        },
+        {
+          "caller": "render",
+          "callee": "clusterJobs.push",
+          "lineNumber": 1419
+        },
+        {
+          "caller": "render",
+          "callee": "onClusterHoverRef.current",
+          "lineNumber": 1422
+        },
+        {
+          "caller": "render",
+          "callee": "position.lat",
+          "lineNumber": 1422
+        },
+        {
+          "caller": "render",
+          "callee": "position.lng",
+          "lineNumber": 1422
+        },
+        {
+          "caller": "render",
+          "callee": "el.addEventListener",
+          "lineNumber": 1426
+        },
+        {
+          "caller": "render",
+          "callee": "onClusterHoverEndRef.current",
+          "lineNumber": 1427
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useEffect",
+          "lineNumber": 1442
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "anchorMarkersRef.current.forEach",
+          "lineNumber": 1443
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "anchorMarkers.forEach",
+          "lineNumber": 1447
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "enabledAnchorIds.has",
+          "lineNumber": 1448
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "document.createElement",
+          "lineNumber": 1450
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "el.addEventListener",
+          "lineNumber": 1453
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "e.preventDefault",
+          "lineNumber": 1454
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "onToggleAnchorRef.current",
+          "lineNumber": 1455
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "anchorMarkersRef.current.push",
+          "lineNumber": 1464
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useEffect",
+          "lineNumber": 1469
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "whClustererRef.current?.clearMarkers",
+          "lineNumber": 1471
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "whClustererRef.current?.setMap",
+          "lineNumber": 1472
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "workHistoryMarkersRef.current.forEach",
+          "lineNumber": 1474
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "whMarkerElementsRef.current.clear",
+          "lineNumber": 1476
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "whMarkerDataRef.current.clear",
+          "lineNumber": 1477
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "workHistoryMarkers.forEach",
+          "lineNumber": 1484
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "whTenureMonths",
+          "lineNumber": 1491
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "whMarkerSize",
+          "lineNumber": 1492
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "whRecencyRingColor",
+          "lineNumber": 1494
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "whYearLabel",
+          "lineNumber": 1498
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "document.createElement",
+          "lineNumber": 1500
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "escapeHtml",
+          "lineNumber": 1503
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "escapeHtml",
+          "lineNumber": 1503
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "escapeHtml",
+          "lineNumber": 1515
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "Math.floor",
+          "lineNumber": 1516
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "escapeHtml",
+          "lineNumber": 1525
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "el.addEventListener",
+          "lineNumber": 1531
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "showWHTooltip",
+          "lineNumber": 1532
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "el.addEventListener",
+          "lineNumber": 1535
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "hideWHTooltip",
+          "lineNumber": 1536
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "marker.addListener",
+          "lineNumber": 1541
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "map.panTo",
+          "lineNumber": 1544
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "map.getZoom",
+          "lineNumber": 1545
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "map.setZoom",
+          "lineNumber": 1546
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "onSelectWorkHistoryRef.current",
+          "lineNumber": 1548
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "workHistoryMarkersRef.current.push",
+          "lineNumber": 1551
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "whMarkerElementsRef.current.set",
+          "lineNumber": 1552
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "whMarkerDataRef.current.set",
+          "lineNumber": 1553
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "whMarkerDataRef.current.get",
+          "lineNumber": 1567
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "typeCounts.set",
+          "lineNumber": 1569
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "typeCounts.get",
+          "lineNumber": 1569
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "[...typeCounts.entries()].sort",
+          "lineNumber": 1571
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "typeCounts.entries",
+          "lineNumber": 1571
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "document.createElement",
+          "lineNumber": 1577
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "workHistoryPathRef.current.forEach",
+          "lineNumber": 1586
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "l.setMap",
+          "lineNumber": 1586
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "careerYearLabelsRef.current.forEach",
+          "lineNumber": 1588
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "Math.max",
+          "lineNumber": 1600
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "e.getFullYear",
+          "lineNumber": 1600
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "s.getFullYear",
+          "lineNumber": 1600
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "e.getMonth",
+          "lineNumber": 1600
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "s.getMonth",
+          "lineNumber": 1600
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "w.startDate.slice",
+          "lineNumber": 1602
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "nodes.push",
+          "lineNumber": 1603
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "Math.min",
+          "lineNumber": 1613
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "Math.max",
+          "lineNumber": 1613
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "Math.round",
+          "lineNumber": 1613
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "workHistoryPathRef.current.push",
+          "lineNumber": 1623
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useEffect",
+          "lineNumber": 1629
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "document.createElement",
+          "lineNumber": 1636
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "escapeHtml",
+          "lineNumber": 1637
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "escapeHtml",
+          "lineNumber": 1637
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "el.addEventListener",
+          "lineNumber": 1646
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "info.setContent",
+          "lineNumber": 1649
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "escapeHtml",
+          "lineNumber": 1650
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "escapeHtml",
+          "lineNumber": 1651
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "stripInfoWindowPadding",
+          "lineNumber": 1654
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "info.open",
+          "lineNumber": 1655
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "el.addEventListener",
+          "lineNumber": 1659
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "infoRef.current?.close",
+          "lineNumber": 1660
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useEffect",
+          "lineNumber": 1668
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "concurrentLinesRef.current.forEach",
+          "lineNumber": 1670
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "l.setMap",
+          "lineNumber": 1670
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "whMarkerElementsRef.current.forEach",
+          "lineNumber": 1674
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "el.querySelectorAll(\".concurrent-halo\").forEach",
+          "lineNumber": 1677
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "el.querySelectorAll",
+          "lineNumber": 1677
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "h.remove",
+          "lineNumber": 1677
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "whMarkerElementsRef.current.forEach",
+          "lineNumber": 1684
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "concurrentWorkHistoryIds!.has",
+          "lineNumber": 1690
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "document.createElement",
+          "lineNumber": 1696
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "inner.appendChild",
+          "lineNumber": 1698
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useEffect",
+          "lineNumber": 1709
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "whMarkerDataRef.current.forEach",
+          "lineNumber": 1714
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useEffect",
+          "lineNumber": 1733
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "whMarkerElementsRef.current.get",
+          "lineNumber": 1735
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "document.getElementById",
+          "lineNumber": 1748
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "document.createElement",
+          "lineNumber": 1749
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "document.head.appendChild",
+          "lineNumber": 1752
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useEffect",
+          "lineNumber": 1763
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "subLocationMarkersRef.current.forEach",
+          "lineNumber": 1764
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "subLocationLinesRef.current.forEach",
+          "lineNumber": 1766
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "l.setMap",
+          "lineNumber": 1766
+        },
+        {
+          "caller": "shouldShowSubLocationPins",
+          "callee": "map.getZoom",
+          "lineNumber": 1770
+        },
+        {
+          "caller": "applySubLocationVisibility",
+          "callee": "shouldShowSubLocationPins",
+          "lineNumber": 1772
+        },
+        {
+          "caller": "applySubLocationVisibility",
+          "callee": "subLocationMarkersRef.current.forEach",
+          "lineNumber": 1773
+        },
+        {
+          "caller": "applySubLocationVisibility",
+          "callee": "subLocationLinesRef.current.forEach",
+          "lineNumber": 1776
+        },
+        {
+          "caller": "applySubLocationVisibility",
+          "callee": "l.getMap",
+          "lineNumber": 1777
+        },
+        {
+          "caller": "applySubLocationVisibility",
+          "callee": "l.setMap",
+          "lineNumber": 1777
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "workHistorySubLocations.forEach",
+          "lineNumber": 1789
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "shouldShowSubLocationPins",
+          "lineNumber": 1813
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "subLocationLinesRef.current.push",
+          "lineNumber": 1816
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "document.createElement",
+          "lineNumber": 1818
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "escapeHtml",
+          "lineNumber": 1822
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "escapeHtml",
+          "lineNumber": 1824
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "escapeHtml",
+          "lineNumber": 1828
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "requestAnimationFrame",
+          "lineNumber": 1831
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "shouldShowSubLocationPins",
+          "lineNumber": 1841
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "loc.type.replace(/-/g, \" \").replace",
+          "lineNumber": 1847
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "loc.type.replace",
+          "lineNumber": 1847
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "c.toUpperCase",
+          "lineNumber": 1847
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "photos.map((p) => `<img src=\"${escapeHtml(p)}\" style=\"width:40px;height:40px;border-radius:4px;object-fit:cover;border:1px solid #e5e7eb\" />`).join",
+          "lineNumber": 1849
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "photos.map",
+          "lineNumber": 1849
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "escapeHtml",
+          "lineNumber": 1849
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "escapeHtml",
+          "lineNumber": 1853
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "escapeHtml",
+          "lineNumber": 1856
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "escapeHtml",
+          "lineNumber": 1857
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "el.addEventListener",
+          "lineNumber": 1863
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "info.setContent",
+          "lineNumber": 1866
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "stripInfoWindowPadding",
+          "lineNumber": 1867
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "info.open",
+          "lineNumber": 1868
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "el.addEventListener",
+          "lineNumber": 1872
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "infoRef.current?.close",
+          "lineNumber": 1873
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "marker.addListener",
+          "lineNumber": 1878
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "map.panTo",
+          "lineNumber": 1881
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "map.getZoom",
+          "lineNumber": 1882
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "map.setZoom",
+          "lineNumber": 1883
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "onSelectWorkHistoryRef.current",
+          "lineNumber": 1885
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "subLocationMarkersRef.current.push",
+          "lineNumber": 1888
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "map.addListener",
+          "lineNumber": 1891
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "applySubLocationVisibility",
+          "lineNumber": 1892
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "zoomListener.remove",
+          "lineNumber": 1895
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "subLocationMarkersRef.current.forEach",
+          "lineNumber": 1896
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "subLocationLinesRef.current.forEach",
+          "lineNumber": 1898
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "l.setMap",
+          "lineNumber": 1898
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useEffect",
+          "lineNumber": 1904
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "officeMarkersRef.current.forEach",
+          "lineNumber": 1905
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "officeCircleRef.current?.setMap",
+          "lineNumber": 1907
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "officeLocations.reduce",
+          "lineNumber": 1911
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "officeLocations.reduce",
+          "lineNumber": 1912
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "officeLocations.reduce",
+          "lineNumber": 1913
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "Math.sqrt",
+          "lineNumber": 1914
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "Math.pow",
+          "lineNumber": 1914
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "Math.pow",
+          "lineNumber": 1914
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "Math.cos",
+          "lineNumber": 1914
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "Math.max",
+          "lineNumber": 1915
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "Math.max",
+          "lineNumber": 1920
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "officeLocations.forEach",
+          "lineNumber": 1928
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "document.createElement",
+          "lineNumber": 1929
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "el.addEventListener",
+          "lineNumber": 1931
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "onSelectOfficeRef.current",
+          "lineNumber": 1931
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "officeMarkersRef.current.push",
+          "lineNumber": 1939
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useEffect",
+          "lineNumber": 1944
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "amenityCircleRef.current?.setMap",
+          "lineNumber": 1945
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "amenityCircleRef.current?.setMap",
+          "lineNumber": 1958
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useEffect",
+          "lineNumber": 1962
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "mapRef.current.panTo",
+          "lineNumber": 1964
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "mapRef.current.setZoom",
+          "lineNumber": 1965
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useEffect",
+          "lineNumber": 1969
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "amenityMarkersRef.current.forEach",
+          "lineNumber": 1970
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "amenityPins.forEach",
+          "lineNumber": 1974
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "document.createElement",
+          "lineNumber": 1975
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "document.createElement",
+          "lineNumber": 1976
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "Object.assign",
+          "lineNumber": 1977
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "el.appendChild",
+          "lineNumber": 1980
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "amenityMarkersRef.current.push",
+          "lineNumber": 1988
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "amenityMarkersRef.current.forEach",
+          "lineNumber": 1990
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useEffect",
+          "lineNumber": 1994
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "companyLocMarkersRef.current.forEach",
+          "lineNumber": 1995
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "companyLocationMarkers.forEach",
+          "lineNumber": 1999
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "document.createElement",
+          "lineNumber": 2000
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "document.createElement",
+          "lineNumber": 2001
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "Object.assign",
+          "lineNumber": 2002
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "el.appendChild",
+          "lineNumber": 2011
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "marker.addListener",
+          "lineNumber": 2020
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "infoRef.current.setContent",
+          "lineNumber": 2022
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "infoRef.current.open",
+          "lineNumber": 2023
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "companyLocMarkersRef.current.push",
+          "lineNumber": 2027
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "companyLocMarkersRef.current.forEach",
+          "lineNumber": 2029
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useEffect",
+          "lineNumber": 2033
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "setHasPanned",
+          "lineNumber": 2033
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useCallback",
+          "lineNumber": 2036
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "onSearchAreaRef.current",
+          "lineNumber": 2038
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "setHasPanned",
+          "lineNumber": 2039
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useState",
+          "lineNumber": 2044
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "useCallback",
+          "lineNumber": 2045
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "map.panTo",
+          "lineNumber": 2049
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "map.setZoom",
+          "lineNumber": 2050
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "setLocating",
+          "lineNumber": 2053
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "navigator.geolocation.getCurrentPosition",
+          "lineNumber": 2054
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "map.panTo",
+          "lineNumber": 2056
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "map.setZoom",
+          "lineNumber": 2057
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "setLocating",
+          "lineNumber": 2058
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "setLocating",
+          "lineNumber": 2060
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "mapRef.current?.setZoom",
+          "lineNumber": 2112
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "mapRef.current.getZoom",
+          "lineNumber": 2112
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "mapRef.current?.setZoom",
+          "lineNumber": 2119
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "mapRef.current.getZoom",
+          "lineNumber": 2119
+        },
+        {
+          "caller": "JobMapGoogle",
+          "callee": "setShowSearchRadius",
+          "lineNumber": 2166
+        },
+        {
+          "caller": "haversine",
+          "callee": "Math.sin",
+          "lineNumber": 2189
+        },
+        {
+          "caller": "haversine",
+          "callee": "Math.cos",
+          "lineNumber": 2189
+        },
+        {
+          "caller": "haversine",
+          "callee": "Math.cos",
+          "lineNumber": 2189
+        },
+        {
+          "caller": "haversine",
+          "callee": "Math.sin",
+          "lineNumber": 2189
+        },
+        {
+          "caller": "haversine",
+          "callee": "Math.atan2",
+          "lineNumber": 2190
+        },
+        {
+          "caller": "haversine",
+          "callee": "Math.sqrt",
+          "lineNumber": 2190
+        },
+        {
+          "caller": "haversine",
+          "callee": "Math.sqrt",
+          "lineNumber": 2190
+        }
+      ],
+      "metrics": {
+        "importCount": 2,
+        "exportCount": 1,
+        "functionCount": 13,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/data/state-tax-zones.ts",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 318,
+      "nonEmptyLines": 303,
+      "functions": [
+        {
+          "name": "getTaxZoneColor",
+          "startLine": 257,
+          "endLine": 264,
+          "params": [
+            "rate"
+          ]
+        },
+        {
+          "name": "getTaxTierLabel",
+          "startLine": 267,
+          "endLine": 274,
+          "params": [
+            "rate"
+          ]
+        },
+        {
+          "name": "formatTaxRate",
+          "startLine": 277,
+          "endLine": 280,
+          "params": [
+            "rate"
+          ]
+        },
+        {
+          "name": "getPropTaxColor",
+          "startLine": 283,
+          "endLine": 290,
+          "params": [
+            "rate"
+          ]
+        },
+        {
+          "name": "getPropTaxTierLabel",
+          "startLine": 293,
+          "endLine": 300,
+          "params": [
+            "rate"
+          ]
+        },
+        {
+          "name": "formatPropTaxAnnual",
+          "startLine": 303,
+          "endLine": 306,
+          "params": [
+            "rate",
+            "homeValue"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "STATE_TAX_BY_NAME",
+          "line": 16,
+          "isDefault": false
+        },
+        {
+          "name": "REF_HOME_VALUE",
+          "line": 73,
+          "isDefault": false
+        },
+        {
+          "name": "CITY_TAX_MARKERS",
+          "line": 84,
+          "isDefault": false
+        },
+        {
+          "name": "COUNTY_PROP_TAX_MARKERS",
+          "line": 126,
+          "isDefault": false
+        },
+        {
+          "name": "getTaxZoneColor",
+          "line": 257,
+          "isDefault": false
+        },
+        {
+          "name": "getTaxTierLabel",
+          "line": 267,
+          "isDefault": false
+        },
+        {
+          "name": "formatTaxRate",
+          "line": 277,
+          "isDefault": false
+        },
+        {
+          "name": "getPropTaxColor",
+          "line": 283,
+          "isDefault": false
+        },
+        {
+          "name": "getPropTaxTierLabel",
+          "line": 293,
+          "isDefault": false
+        },
+        {
+          "name": "formatPropTaxAnnual",
+          "line": 303,
+          "isDefault": false
+        },
+        {
+          "name": "TAX_ZONE_LEGEND",
+          "line": 309,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "formatTaxRate",
+          "callee": "(rate * 100).toFixed",
+          "lineNumber": 279
+        },
+        {
+          "caller": "formatPropTaxAnnual",
+          "callee": "Math.round",
+          "lineNumber": 304
+        },
+        {
+          "caller": "formatPropTaxAnnual",
+          "callee": "annual.toLocaleString",
+          "lineNumber": 305
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 11,
+        "functionCount": 6,
+        "classCount": 0
+      }
+    },
+    {
+      "path": "src/lib/taxes.ts",
+      "language": "typescript",
+      "fileCategory": "code",
+      "totalLines": 348,
+      "nonEmptyLines": 321,
+      "functions": [
+        {
+          "name": "calcBracketTax",
+          "startLine": 173,
+          "endLine": 181,
+          "params": [
+            "taxableIncome",
+            "brackets"
+          ]
+        },
+        {
+          "name": "resolveState",
+          "startLine": 199,
+          "endLine": 214,
+          "params": [
+            "location"
+          ]
+        },
+        {
+          "name": "resolveCity",
+          "startLine": 216,
+          "endLine": 227,
+          "params": [
+            "location"
+          ]
+        },
+        {
+          "name": "estimateTaxes",
+          "startLine": 253,
+          "endLine": 334,
+          "params": [
+            "grossSalary",
+            "location"
+          ]
+        },
+        {
+          "name": "quickTakeHome",
+          "startLine": 337,
+          "endLine": 342,
+          "params": [
+            "salaryMin",
+            "salaryMax",
+            "location"
+          ]
+        },
+        {
+          "name": "formatSalaryCompact",
+          "startLine": 345,
+          "endLine": 348,
+          "params": [
+            "n"
+          ]
+        }
+      ],
+      "exports": [
+        {
+          "name": "resolveState",
+          "line": 199,
+          "isDefault": false
+        },
+        {
+          "name": "estimateTaxes",
+          "line": 253,
+          "isDefault": false
+        },
+        {
+          "name": "quickTakeHome",
+          "line": 337,
+          "isDefault": false
+        },
+        {
+          "name": "formatSalaryCompact",
+          "line": 345,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "calcBracketTax",
+          "callee": "Math.min",
+          "lineNumber": 177
+        },
+        {
+          "caller": "resolveState",
+          "callee": "location.split(\",\").map",
+          "lineNumber": 200
+        },
+        {
+          "caller": "resolveState",
+          "callee": "location.split",
+          "lineNumber": 200
+        },
+        {
+          "caller": "resolveState",
+          "callee": "p.trim",
+          "lineNumber": 200
+        },
+        {
+          "caller": "resolveState",
+          "callee": "parts[parts.length - 1]?.toUpperCase",
+          "lineNumber": 202
+        },
+        {
+          "caller": "resolveState",
+          "callee": "NO_INCOME_TAX_STATES.has",
+          "lineNumber": 203
+        },
+        {
+          "caller": "resolveState",
+          "callee": "part.toLowerCase",
+          "lineNumber": 208
+        },
+        {
+          "caller": "resolveCity",
+          "callee": "location.split(\",\").map",
+          "lineNumber": 217
+        },
+        {
+          "caller": "resolveCity",
+          "callee": "location.split",
+          "lineNumber": 217
+        },
+        {
+          "caller": "resolveCity",
+          "callee": "p.trim().toLowerCase",
+          "lineNumber": 217
+        },
+        {
+          "caller": "resolveCity",
+          "callee": "p.trim",
+          "lineNumber": 217
+        },
+        {
+          "caller": "estimateTaxes",
+          "callee": "resolveState",
+          "lineNumber": 254
+        },
+        {
+          "caller": "estimateTaxes",
+          "callee": "resolveCity",
+          "lineNumber": 255
+        },
+        {
+          "caller": "estimateTaxes",
+          "callee": "Math.max",
+          "lineNumber": 258
+        },
+        {
+          "caller": "estimateTaxes",
+          "callee": "calcBracketTax",
+          "lineNumber": 259
+        },
+        {
+          "caller": "estimateTaxes",
+          "callee": "NO_INCOME_TAX_STATES.has",
+          "lineNumber": 271
+        },
+        {
+          "caller": "estimateTaxes",
+          "callee": "Math.max",
+          "lineNumber": 277
+        },
+        {
+          "caller": "estimateTaxes",
+          "callee": "calcBracketTax",
+          "lineNumber": 278
+        },
+        {
+          "caller": "estimateTaxes",
+          "callee": "Math.min",
+          "lineNumber": 289
+        },
+        {
+          "caller": "estimateTaxes",
+          "callee": "localTaxes.push",
+          "lineNumber": 299
+        },
+        {
+          "caller": "estimateTaxes",
+          "callee": "localTaxes.reduce",
+          "lineNumber": 303
+        },
+        {
+          "caller": "estimateTaxes",
+          "callee": "Math.min",
+          "lineNumber": 309
+        },
+        {
+          "caller": "estimateTaxes",
+          "callee": "Math.min",
+          "lineNumber": 311
+        },
+        {
+          "caller": "quickTakeHome",
+          "callee": "estimateTaxes",
+          "lineNumber": 341
+        },
+        {
+          "caller": "formatSalaryCompact",
+          "callee": "(n / 1000).toFixed",
+          "lineNumber": 346
+        },
+        {
+          "caller": "formatSalaryCompact",
+          "callee": "Math.round",
+          "lineNumber": 347
+        }
+      ],
+      "metrics": {
+        "importCount": 0,
+        "exportCount": 4,
+        "functionCount": 6,
+        "classCount": 0
+      }
+    }
+  ]
+}
