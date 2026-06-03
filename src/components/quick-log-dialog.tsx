@@ -59,7 +59,7 @@ export function QuickLogTrigger(props: ButtonHTMLAttributes<HTMLButtonElement>) 
         openQuickLog();
         onClick?.(e);
       }}
-      className={`inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md bg-violet-50 dark:bg-violet-950/40 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800 hover:bg-violet-100 dark:hover:bg-violet-900/50 transition-colors ${className}`}
+      className={`inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md bg-violet-50 dark:bg-violet-950/40 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800 hover:bg-violet-100 dark:hover:bg-violet-900/50 transition-colors shrink-0 ${className}`}
       title="Quick log (Ctrl+Shift+L)"
     >
       <Zap className="h-3.5 w-3.5 shrink-0" />

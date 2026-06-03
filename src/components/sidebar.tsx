@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, createContext, useContext } from "react";
 import { useTheme } from "next-themes";
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
@@ -59,9 +59,33 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { PortalSettingsPanel } from "@/components/portal-settings-panel";
 import { NotificationBell } from "@/components/notification-bell";
-import { QuickLogTrigger } from "@/components/quick-log-dialog";
 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+
+// ---------------------------------------------------------------------------
+// Sidebar collapsed state — shared between AppHeader (hamburger) and Sidebar
+// ---------------------------------------------------------------------------
+interface SidebarCtx { collapsed: boolean; toggle: () => void; }
+const SidebarContext = createContext<SidebarCtx | null>(null);
+
+export function SidebarProvider({ children }: { children: React.ReactNode }) {
+  const [collapsed, setCollapsed] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem("sidebar-collapsed") === "true";
+  });
+  const toggle = () => setCollapsed((prev) => {
+    const next = !prev;
+    localStorage.setItem("sidebar-collapsed", String(next));
+    return next;
+  });
+  return <SidebarContext.Provider value={{ collapsed, toggle }}>{children}</SidebarContext.Provider>;
+}
+
+function useSidebar() {
+  const ctx = useContext(SidebarContext);
+  if (!ctx) throw new Error("useSidebar must be used within SidebarProvider");
+  return ctx;
+}
 
 const iconMap: Record<string, React.ElementType> = {
   Home,
@@ -249,46 +273,14 @@ function ThemeToggle() {
 
 /** Desktop sidebar — hidden below md */
 export function Sidebar() {
-  const [collapsed, setCollapsed] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return localStorage.getItem("sidebar-collapsed") === "true";
-  });
-
-  const toggle = () => {
-    setCollapsed((prev) => {
-      const next = !prev;
-      localStorage.setItem("sidebar-collapsed", String(next));
-      return next;
-    });
-  };
+  const { collapsed } = useSidebar();
 
   return (
     <aside className={cn(
-      "hidden md:flex h-full flex-col border-r bg-white dark:bg-gray-950 transition-all duration-200",
+      "hidden md:flex h-full flex-col bg-white dark:bg-gray-950 transition-all duration-200 shadow-[1px_0_0_0_rgb(0_0_0/0.06),4px_0_16px_0_rgb(0_0_0/0.04)] dark:shadow-[1px_0_0_0_rgb(255_255_255/0.05),4px_0_24px_0_rgb(0_0_0/0.4)]",
       collapsed ? "w-16" : "w-72"
     )}>
-      {/* Collapse toggle — aligned to header height */}
-      <div className={cn(
-        "flex h-16 items-center border-b",
-        collapsed ? "justify-center" : "justify-end px-4"
-      )}>
-        <button
-          onClick={toggle}
-          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          className="flex items-center justify-center h-7 w-7 rounded-full border bg-background text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shadow-sm"
-        >
-          {collapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronLeft className="h-3.5 w-3.5" />}
-        </button>
-      </div>
-
       <NavLinks collapsed={collapsed} />
-
-      {/* Footer */}
-      <div className="border-t px-4 py-2">
-        {!collapsed && (
-          <p className="text-xs text-muted-foreground">Career Tracker v1.0</p>
-        )}
-      </div>
 
     </aside>
   );
@@ -320,6 +312,7 @@ const NAV_LABEL_MAP: Record<string, string> = NAV_SECTIONS.flatMap((s) => s.item
 
 /** Desktop top header bar — visible on md+ */
 export function AppHeader() {
+  const { collapsed, toggle } = useSidebar();
   const { data: session } = useSession();
   const { data: profile } = useQuery<{ avatarUrl?: string | null; fullName?: string | null; headline?: string | null }>({
     queryKey: ["profile-avatar"],
@@ -335,12 +328,33 @@ export function AppHeader() {
 
   return (
     <>
-      <header className="hidden md:flex h-16 shrink-0 items-center justify-between bg-background border-b border-border pl-6 pr-4">
-        {/* Left: Logo + Name */}
-        <Link href="/dashboard" className="flex items-center gap-2.5 shrink-0">
-          <Image src="/logo-icon.png" alt="Resumsify" width={28} height={28} className="h-7 w-7" />
-          <span className="font-bold text-lg">Resumsify</span>
-        </Link>
+      <header className="hidden md:flex h-16 shrink-0 items-center justify-between bg-white/70 dark:bg-gray-950/70 backdrop-blur-md shadow-[0_1px_0_0_rgb(0_0_0/0.06),0_2px_12px_0_rgb(0_0_0/0.04)] dark:shadow-[0_1px_0_0_rgb(255_255_255/0.05),0_2px_20px_0_rgb(0_0_0/0.5)] z-10 px-4">
+        {/* Left: Hamburger + Logo + Name */}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={toggle}
+            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            className="flex items-center justify-center h-8 w-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+          <Link href="/dashboard" className="flex items-center gap-2.5 shrink-0">
+            <Image src="/logo-icon.png" alt="Resumsify" width={28} height={28} className="h-7 w-7" />
+            <span className="font-bold text-xl">Resumsify</span>
+          </Link>
+        </div>
+
+        {/* Centre: Search bar pill */}
+        <button
+          onClick={() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true, metaKey: true, bubbles: true }))}
+          className="hidden lg:flex items-center gap-2 h-9 w-64 xl:w-80 rounded-lg border border-border/60 bg-muted/40 hover:bg-muted/70 px-3 text-sm text-muted-foreground transition-colors"
+        >
+          <Search className="h-3.5 w-3.5 shrink-0" />
+          <span className="flex-1 text-left">Search…</span>
+          <kbd className="hidden xl:inline-flex items-center gap-0.5 rounded border border-border/60 bg-background px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+            <span>⌘</span><span>K</span>
+          </kbd>
+        </button>
 
         {/* Actions */}
         <div className="flex items-center gap-2">
@@ -447,7 +461,6 @@ export function MobileHeader() {
         <span>Resumsify</span>
       </Link>
       <div className="ml-auto flex items-center gap-1.5">
-        <QuickLogTrigger />
         <NotificationBell />
         <ThemeToggle />
         <Button

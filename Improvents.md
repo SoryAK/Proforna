@@ -133,6 +133,6 @@
 1. The pay calendar needs to change to a regular calendar that can link to other calendars 
 2. I got to look into the recent activity card and might have to repurpose it
 3. The income growth card is so big with little data 
-4. 
+4. Alright I will use the figma page for inspiration t get certain parts of the website right (https://www.figma.com/design/HIYmN0U4Pjqwdn711KF83X/BankDash---Dashboard-UI-Kit---Admin-Template-Dashboard---Admin-Dashboard--Community-?node-id=150-187&t=KY0gHNl7VXe4KWi1-0)
 
 
