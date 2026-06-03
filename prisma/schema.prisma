@@ -406,6 +406,7 @@ model UserProfile {
   preferredRoles     String?
   targetSalaryMin    Int?
   targetSalaryMax    Int?
+  salaryPeriod       String   @default("annual")
   currency           String   @default("USD")
   locationPreference String?
   industryGroup      String?  // SOC major group, e.g. "Computer and Mathematical" — powers scaffold suggestions

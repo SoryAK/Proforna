@@ -101,6 +101,7 @@ export const NAV_SECTIONS = [
     items: [
       { label: "My Network", href: "/contacts", icon: "Users" },
       { label: "My Docs", href: "/docs", icon: "FolderOpen" },
+      { label: "Gallery", href: "/master-gallery", icon: "Images" },
       { label: "Inventory", href: "/inventory", icon: "Boxes" },
       { label: "Asset Library", href: "/asset-types", icon: "BookOpen" },
     ],

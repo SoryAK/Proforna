@@ -75,6 +75,7 @@ interface UserProfile {
   preferredRoles: string | null;
   targetSalaryMin: number | null;
   targetSalaryMax: number | null;
+  salaryPeriod: string;
   currency: string;
   locationPreference: string | null;
   showSkills: boolean;
@@ -218,6 +219,7 @@ export function PortalSettingsPanel() {
     preferredRoles: "",
     targetSalaryMin: "",
     targetSalaryMax: "",
+    salaryPeriod: "annual",
     currency: "USD",
     locationPreference: "",
     showSkills: true,
@@ -263,6 +265,7 @@ export function PortalSettingsPanel() {
         preferredRoles: profile.preferredRoles || "",
         targetSalaryMin: profile.targetSalaryMin?.toString() || "",
         targetSalaryMax: profile.targetSalaryMax?.toString() || "",
+        salaryPeriod: profile.salaryPeriod || "annual",
         currency: profile.currency,
         locationPreference: profile.locationPreference || "",
         showSkills: profile.showSkills,
@@ -338,6 +341,7 @@ export function PortalSettingsPanel() {
       preferredRoles: form.preferredRoles || null,
       targetSalaryMin: form.targetSalaryMin ? parseInt(form.targetSalaryMin) : null,
       targetSalaryMax: form.targetSalaryMax ? parseInt(form.targetSalaryMax) : null,
+      salaryPeriod: form.salaryPeriod,
       currency: form.currency,
       locationPreference: form.locationPreference || null,
       showSkills: form.showSkills,
@@ -584,7 +588,7 @@ export function PortalSettingsPanel() {
 
               <div>
                 <p className="text-sm font-medium mb-3">Salary Expectations</p>
-                <div className="grid gap-4 sm:grid-cols-3">
+                <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-1.5">
                     <Label>Currency</Label>
                     <Select value={form.currency} onValueChange={(v) => setForm({ ...form, currency: v ?? "USD" })}>
@@ -598,12 +602,25 @@ export function PortalSettingsPanel() {
                     </Select>
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="ps-salmin">Min (annual)</Label>
-                    <Input id="ps-salmin" type="number" placeholder="100000" value={form.targetSalaryMin} onChange={(e) => setForm({ ...form, targetSalaryMin: e.target.value })} />
+                    <Label>Pay Period</Label>
+                    <Select value={form.salaryPeriod} onValueChange={(v) => setForm({ ...form, salaryPeriod: v ?? "annual" })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="annual">Annual</SelectItem>
+                        <SelectItem value="monthly">Monthly</SelectItem>
+                        <SelectItem value="hourly">Hourly</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2 mt-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="ps-salmin">Min</Label>
+                    <Input id="ps-salmin" type="number" placeholder={form.salaryPeriod === "hourly" ? "40" : form.salaryPeriod === "monthly" ? "5000" : "100000"} value={form.targetSalaryMin} onChange={(e) => setForm({ ...form, targetSalaryMin: e.target.value })} />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="ps-salmax">Max (annual)</Label>
-                    <Input id="ps-salmax" type="number" placeholder="200000" value={form.targetSalaryMax} onChange={(e) => setForm({ ...form, targetSalaryMax: e.target.value })} />
+                    <Label htmlFor="ps-salmax">Max</Label>
+                    <Input id="ps-salmax" type="number" placeholder={form.salaryPeriod === "hourly" ? "80" : form.salaryPeriod === "monthly" ? "10000" : "200000"} value={form.targetSalaryMax} onChange={(e) => setForm({ ...form, targetSalaryMax: e.target.value })} />
                   </div>
                 </div>
               </div>

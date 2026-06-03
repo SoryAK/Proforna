@@ -21,9 +21,53 @@
         "2026-05-28: Timeline dot pulse animation, CURRENT badge, oldest-sort pins current to bottom — committed May 2026",
         "2026-05-28: Work history shift manager at src/components/work-history-shift-manager.tsx"
       ]
+    },
+    {
+      "name": "JobMap",
+      "entityType": "component",
+      "observations": [
+        "Primary orchestration component for both Work History and Job Search map modes. File: src/components/job-map.tsx.",
+        "Accepts optional props: initialMode ('work-history' | 'job-search') and lockedMode (boolean). Both backward-compatible.",
+        "When lockedMode=true: passes onToggleWorkHistory={undefined} to JobMapGoogle, hides the 'Work History' button in the action bar, and disables mode-switching.",
+        "Entry points: WorkHistoryMap wrapper (/work-map route) and JobSearchMap wrapper (/job-search route). Also used directly in legacy contexts.",
+        "2026-06-02: lockedMode and initialMode props added to support separate dedicated routes."
+      ]
+    },
+    {
+      "name": "WorkHistoryMap",
+      "entityType": "component",
+      "observations": [
+        "Thin wrapper over JobMap. File: src/components/work-history-map.tsx.",
+        "Renders <JobMap initialMode='work-history' lockedMode={true} /> — mode-switcher and toggle button are hidden.",
+        "Used exclusively by /work-map page (src/app/(app)/work-map/page.tsx).",
+        "2026-06-02: created as part of work-map split."
+      ]
+    },
+    {
+      "name": "JobSearchMap",
+      "entityType": "component",
+      "observations": [
+        "Thin wrapper over JobMap. File: src/components/job-search-map.tsx.",
+        "Renders <JobMap initialMode='job-search' lockedMode={true} /> — mode-switcher and toggle button are hidden.",
+        "Used exclusively by /job-search page (src/app/(app)/job-search/page.tsx).",
+        "2026-06-02: created as part of work-map split."
+      ]
+    },
+    {
+      "name": "JobMapGoogle",
+      "entityType": "component",
+      "observations": [
+        "Google Maps implementation layer for JobMap. File: src/components/job-map-google.tsx.",
+        "When lockedMode=true (passed via onToggleWorkHistory={undefined}): hides the mode-switcher overlay button.",
+        "Right-click on polygons is flaky via native listener — drive via window-level contextmenu + hoveredPolyMetaRef pattern.",
+        "2026-06-02: mode-switcher overlay conditionally hidden when lockedMode."
+      ]
     }
   ],
   "relations": [
-    { "from": "WorkHistoryDomain", "relationType": "lives-inside", "to": "JobMapDomain" }
+    { "from": "WorkHistoryDomain", "relationType": "lives-inside", "to": "JobMapDomain" },
+    { "from": "WorkHistoryMap", "relationType": "wraps", "to": "JobMap" },
+    { "from": "JobSearchMap", "relationType": "wraps", "to": "JobMap" },
+    { "from": "JobMap", "relationType": "depends-on", "to": "JobMapGoogle" }
   ]
 }

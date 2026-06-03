@@ -3,15 +3,12 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-  Briefcase,
   CalendarDays,
   TrendingUp,
   Clock,
   Award,
-  ExternalLink,
   ChevronRight,
   AlertTriangle,
-  Newspaper,
   DollarSign,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,40 +16,17 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Progress, ProgressLabel, ProgressValue } from "@/components/ui/progress";
 import {
-  STATUS_LABELS,
-  type ApplicationStatus,
   type AvailabilityStatus,
 } from "@/lib/constants";
 import { formatDistanceToNow, format } from "date-fns";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  Cell,
-} from "recharts";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { OnboardingFlow } from "@/components/onboarding-flow";
 import { PayPeriodCalendar } from "@/components/pay-period-calendar";
 import { ProfileBanner } from "@/components/dashboard/profile-banner";
-import { CareerSection } from "@/components/dashboard/career-section";
 import { EditProfileDialog } from "@/components/dashboard/edit-profile-dialog";
 import type { DashboardData, EditProfileForm } from "@/components/dashboard/types";
-
-const CHART_COLORS: Record<string, string> = {
-  wishlist: "#9ca3af",
-  applied: "#3b82f6",
-  screening: "#eab308",
-  interviewing: "#a855f7",
-  offer: "#22c55e",
-  accepted: "#10b981",
-  rejected: "#ef4444",
-  withdrawn: "#f97316",
-};
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -167,7 +141,7 @@ export default function DashboardPage() {
     );
   }
 
-  const { stats, pipeline, recentActivity, currentPosition, profile, topSkills, certifications, activeGoals, cfm, upcomingInterviewDetails, expiringCertifications, learningSummary, cdmSummary, unreadArticleCount, recentArticles } = data;
+  const { stats, recentActivity, currentPosition, profile, cfm, upcomingInterviewDetails, expiringCertifications } = data;
 
   const availability = (profile?.availability ?? "open_to_work") as AvailabilityStatus;
   const displayName = profile?.fullName || (currentPosition
@@ -184,12 +158,6 @@ export default function DashboardPage() {
     : currentPosition
       ? `${currentPosition.role[0]}${currentPosition.company[0]}`
       : "Me";
-
-  const chartData = pipeline.map((p) => ({
-    name: STATUS_LABELS[p.status as ApplicationStatus] ?? p.status,
-    count: p.count,
-    fill: CHART_COLORS[p.status] ?? "#6b7280",
-  }));
 
   // CFM summary data
   const cfmYears = cfm.incomeYears;
@@ -213,7 +181,7 @@ export default function DashboardPage() {
   const showOnboarding = !hasProfile || !hasPosition || !hasResume;
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6">
+    <div className="max-w-7xl mx-auto space-y-4">
       {/* ━━ Onboarding ━━ */}
       {showOnboarding && (
         <OnboardingFlow
@@ -238,15 +206,15 @@ export default function DashboardPage() {
           onEditClick={openEditDialog}
         />
         <Card>
-          <CardHeader className="pb-2 pt-4 px-5">
-            <CardTitle className="text-base font-semibold flex items-center gap-2">
-              <Clock className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="pb-1.5 pt-3 px-4">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <Clock className="h-3.5 w-3.5 text-muted-foreground" />
               Recent Activity
             </CardTitle>
           </CardHeader>
-          <CardContent className="px-5 pb-4">
+          <CardContent className="px-4 pb-3">
             {recentActivity.length > 0 ? (
-              <div className="space-y-2.5">
+              <div className="space-y-2">
                 {recentActivity.slice(0, 6).map((a) => (
                   <div key={a.id} className="flex items-start gap-2">
                     <Clock className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />
@@ -260,9 +228,9 @@ export default function DashboardPage() {
                 ))}
               </div>
             ) : (
-              <div className="flex flex-col items-center gap-2 py-8 text-center">
-                <Clock className="h-8 w-8 text-muted-foreground/30" />
-                <p className="text-sm font-medium text-muted-foreground">No activity yet</p>
+              <div className="flex flex-col items-center gap-2 py-5 text-center">
+                <Clock className="h-6 w-6 text-muted-foreground/30" />
+                <p className="text-xs font-medium text-muted-foreground">No activity yet</p>
                 <p className="text-xs text-muted-foreground/70">Actions across the app will appear here</p>
               </div>
             )}
@@ -277,21 +245,21 @@ export default function DashboardPage() {
             {/* Upcoming Interviews */}
             {upcomingInterviewDetails.length > 0 && (
               <Card className="border-purple-200 dark:border-purple-800">
-                <CardHeader className="pb-2 pt-4 px-5">
-                  <CardTitle className="text-base font-semibold flex items-center gap-2">
-                    <CalendarDays className="h-4 w-4 text-purple-600" />
+                <CardHeader className="pb-1.5 pt-3 px-4">
+                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                    <CalendarDays className="h-3.5 w-3.5 text-purple-600" />
                     Upcoming Interviews
-                    <Badge className="ml-auto bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300 text-[11px] px-2 py-0.5">
+                    <Badge className="ml-auto bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300 text-[10px] px-1.5 py-0">
                       {upcomingInterviewDetails.length}
                     </Badge>
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="px-5 pb-4">
-                  <div className="space-y-3">
+                <CardContent className="px-4 pb-3">
+                  <div className="space-y-2">
                     {upcomingInterviewDetails.map((iv) => (
-                      <div key={iv.id} className="flex gap-3 rounded-lg border p-3">
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-purple-50 dark:bg-purple-950">
-                          <CalendarDays className="h-4 w-4 text-purple-600" />
+                      <div key={iv.id} className="flex gap-2 rounded-lg border p-2">
+                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-purple-50 dark:bg-purple-950">
+                          <CalendarDays className="h-3.5 w-3.5 text-purple-600" />
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-semibold truncate">
@@ -315,20 +283,20 @@ export default function DashboardPage() {
             {/* Expiring Certs */}
             {expiringCertifications.length > 0 && (
               <Card className="border-amber-200 dark:border-amber-800">
-                <CardHeader className="pb-2 pt-4 px-5">
-                  <CardTitle className="text-base font-semibold flex items-center gap-2">
-                    <AlertTriangle className="h-4 w-4 text-amber-600" />
+                <CardHeader className="pb-1.5 pt-3 px-4">
+                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                    <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
                     Expiring Certifications
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="px-5 pb-4">
-                  <div className="space-y-2.5">
+                <CardContent className="px-4 pb-3">
+                  <div className="space-y-2">
                     {expiringCertifications.map((cert) => {
                       const isExpired = cert.expiryDate && new Date(cert.expiryDate) < new Date();
                       return (
                         <div key={cert.id} className="flex items-center gap-3">
-                          <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${isExpired ? "bg-red-100 dark:bg-red-950" : "bg-amber-100 dark:bg-amber-950"}`}>
-                            <Award className={`h-4 w-4 ${isExpired ? "text-red-600" : "text-amber-600"}`} />
+                          <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${isExpired ? "bg-red-100 dark:bg-red-950" : "bg-amber-100 dark:bg-amber-950"}`}>
+                            <Award className={`h-3.5 w-3.5 ${isExpired ? "text-red-600" : "text-amber-600"}`} />
                           </div>
                           <div className="min-w-0 flex-1">
                             <p className="text-sm font-medium truncate">{cert.name}</p>
@@ -352,22 +320,22 @@ export default function DashboardPage() {
       {currentPosition && (
         <div className="space-y-3">
           <div className="flex items-center gap-2 px-1">
-            <DollarSign className="h-4 w-4 text-orange-600" />
-            <h2 className="text-base font-semibold text-foreground">Financials</h2>
+            <DollarSign className="h-3.5 w-3.5 text-orange-600" />
+            <h2 className="text-sm font-semibold text-foreground">Financials</h2>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-2 sm:grid-cols-2">
             {/* Income Growth */}
             {cfmLatest && (
               <Card>
-                <CardHeader className="pb-2 pt-4 px-5">
+                <CardHeader className="pb-1.5 pt-3 px-4">
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-base font-semibold">Income Growth</CardTitle>
+                    <CardTitle className="text-sm font-semibold">Income Growth</CardTitle>
                     <Link href="/career-model" className="text-xs text-orange-600 hover:underline flex items-center gap-0.5">
                       Details <ChevronRight className="h-3 w-3" />
                     </Link>
                   </div>
                 </CardHeader>
-                <CardContent className="px-5 pb-4 space-y-3">
+                <CardContent className="px-4 pb-3 space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Gross ({cfmLatest.year})</span>
                     <span className="font-semibold">${cfmLatest.grossIncome.toLocaleString()}</span>
@@ -419,158 +387,6 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* ━━ JOB SEARCH ━━ */}
-      {(stats.activeApplications > 0 || chartData.length > 0 || certifications.length > 0) && (
-        <div className="space-y-3">
-          <div className="flex items-center gap-2 px-1">
-            <Briefcase className="h-4 w-4 text-orange-600" />
-            <h2 className="text-base font-semibold text-foreground">Job Search</h2>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {/* Application Pipeline */}
-            {(stats.activeApplications > 0 || chartData.length > 0) && (
-              <Card>
-                <CardHeader className="pb-2 pt-4 px-5">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-base font-semibold">Application Pipeline</CardTitle>
-                    <Link href="/applications" className="text-xs text-orange-600 hover:underline flex items-center gap-0.5">
-                      View all <ChevronRight className="h-3 w-3" />
-                    </Link>
-                  </div>
-                </CardHeader>
-                <CardContent className="px-5 pb-4">
-                  {chartData.length > 0 ? (
-                    <ResponsiveContainer width="100%" height={200}>
-                      <BarChart data={chartData} layout="vertical">
-                        <XAxis type="number" allowDecimals={false} fontSize={11} />
-                        <YAxis type="category" dataKey="name" fontSize={11} width={80} />
-                        <Tooltip />
-                        <Bar dataKey="count" radius={[0, 4, 4, 0]}>
-                          {chartData.map((entry, index) => (
-                            <Cell key={index} fill={entry.fill} />
-                          ))}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  ) : (
-                    <div className="flex flex-col items-center gap-2 py-10 text-center">
-                      <Briefcase className="h-8 w-8 text-muted-foreground/30" />
-                      <p className="text-sm font-medium text-muted-foreground">No applications yet</p>
-                      <Link href="/applications" className="text-xs text-orange-600 hover:underline">Track your first application</Link>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Certifications */}
-            {certifications.length > 0 && (
-              <Card>
-                <CardHeader className="pb-2 pt-4 px-5">
-                  <CardTitle className="text-base font-semibold">Certifications</CardTitle>
-                </CardHeader>
-                <CardContent className="px-5 pb-4">
-                  <div className="space-y-3">
-                    {certifications.map((cert) => (
-                      <div key={cert.id} className="flex gap-3">
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-50 dark:bg-amber-950">
-                          <Award className="h-5 w-5 text-amber-600" />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-sm font-semibold">{cert.name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {cert.issuer} · Issued {format(new Date(cert.issueDate), "MMM yyyy")}
-                            {cert.expiryDate && ` · Expires ${format(new Date(cert.expiryDate), "MMM yyyy")}`}
-                          </p>
-                          {cert.credentialUrl && (
-                            <a href={cert.credentialUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-orange-600 hover:underline flex items-center gap-0.5 mt-0.5">
-                              Show credential <ExternalLink className="h-3 w-3" />
-                            </a>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ━━ CAREER DEVELOPMENT ━━ */}
-      <CareerSection
-        profile={profile}
-        learningSummary={learningSummary}
-        cdmSummary={cdmSummary}
-        activeGoals={activeGoals}
-        topSkills={topSkills}
-        currentPosition={currentPosition}
-        stats={stats}
-      />
-
-      {/* ━━ INDUSTRY NEWS ━━ */}
-      {recentArticles && recentArticles.length > 0 && (
-        <Card>
-          <CardHeader className="pb-2 pt-4 px-5">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base font-semibold flex items-center gap-2">
-                <Newspaper className="h-4 w-4 text-cyan-600" />
-                Industry News
-                {unreadArticleCount > 0 && (
-                  <Badge className="bg-cyan-100 text-cyan-700 dark:bg-cyan-900 dark:text-cyan-300 text-[10px] px-1.5 py-0">
-                    {unreadArticleCount}
-                  </Badge>
-                )}
-              </CardTitle>
-              <Link href="/research" className="text-xs text-orange-600 hover:underline flex items-center gap-0.5">
-                View all <ChevronRight className="h-3 w-3" />
-              </Link>
-            </div>
-          </CardHeader>
-          <CardContent className="px-5 pb-4">
-            <div className="space-y-1">
-              {recentArticles.map((article) => (
-                <a
-                  key={article.id}
-                  href={article.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="group flex gap-3 rounded-lg p-2 transition-colors hover:bg-muted/60"
-                >
-                  {article.imageUrl ? (
-                    <img
-                      src={article.imageUrl}
-                      alt=""
-                      className="h-14 w-20 shrink-0 rounded-md object-cover"
-                      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                    />
-                  ) : (
-                    <div className="flex h-14 w-20 shrink-0 items-center justify-center rounded-md bg-muted">
-                      <Newspaper className="h-5 w-5 text-muted-foreground/50" />
-                    </div>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <p className="line-clamp-2 text-sm font-medium leading-snug group-hover:text-cyan-600 transition-colors">
-                      {article.title}
-                    </p>
-                    <div className="mt-1 flex items-center gap-2 text-[11px] text-muted-foreground">
-                      <span className="truncate">{article.feed.title}</span>
-                      {article.publishedAt && (
-                        <>
-                          <span className="text-muted-foreground/40">·</span>
-                          <span className="shrink-0">{formatDistanceToNow(new Date(article.publishedAt), { addSuffix: true })}</span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                  <ExternalLink className="mt-1 h-3.5 w-3.5 shrink-0 text-muted-foreground/40 opacity-0 transition-opacity group-hover:opacity-100" />
-                </a>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
       {/* Edit Profile Dialog */}
       <EditProfileDialog
         open={editOpen}

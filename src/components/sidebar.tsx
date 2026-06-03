@@ -36,6 +36,7 @@ import {
   User,
   Users,
   Settings,
+  Images,
 } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
@@ -46,10 +47,20 @@ import {
   SheetContent,
   SheetTitle,
 } from "@/components/ui/sheet";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuLabel,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { PortalSettingsPanel } from "@/components/portal-settings-panel";
 import { NotificationBell } from "@/components/notification-bell";
 import { QuickLogTrigger } from "@/components/quick-log-dialog";
+
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const iconMap: Record<string, React.ElementType> = {
@@ -70,6 +81,7 @@ const iconMap: Record<string, React.ElementType> = {
   NotebookPen,
   Globe,
   Plug,
+  Images,
 };
 
 function NavLinks({ onNavigate, collapsed }: { onNavigate?: () => void; collapsed?: boolean }) {
@@ -237,24 +249,10 @@ function ThemeToggle() {
 
 /** Desktop sidebar — hidden below md */
 export function Sidebar() {
-  const { data: session } = useSession();
-  const { data: profile } = useQuery<{ avatarUrl?: string | null; fullName?: string | null; headline?: string | null }>({
-    queryKey: ["profile-avatar"],
-    queryFn: () => fetch("/api/profile").then((r) => r.json()),
-    staleTime: 5 * 60_000,
-  });
-
-  // Prefer the app-uploaded avatar, fall back to OAuth provider photo, then initials
-  const avatarSrc = profile?.avatarUrl ?? session?.user?.image ?? undefined;
-  const displayName = profile?.fullName ?? session?.user?.name ?? null;
-  const headline = profile?.headline ?? null;
-
   const [collapsed, setCollapsed] = useState(() => {
     if (typeof window === "undefined") return false;
     return localStorage.getItem("sidebar-collapsed") === "true";
   });
-
-  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const toggle = () => {
     setCollapsed((prev) => {
@@ -267,13 +265,92 @@ export function Sidebar() {
   return (
     <aside className={cn(
       "hidden md:flex h-full flex-col border-r bg-white dark:bg-gray-950 transition-all duration-200",
-      collapsed ? "w-18" : "w-72"
+      collapsed ? "w-16" : "w-72"
     )}>
-      {/* User identity card — card frame only when expanded */}
-      {collapsed ? (
-        <div className="flex justify-center pt-3 pb-3">
-          <div className="relative">
-            <Link href="/profile" title={displayName ?? "Profile"} className="shrink-0">
+      {/* Collapse toggle — aligned to header height */}
+      <div className={cn(
+        "flex h-16 items-center border-b",
+        collapsed ? "justify-center" : "justify-end px-4"
+      )}>
+        <button
+          onClick={toggle}
+          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          className="flex items-center justify-center h-7 w-7 rounded-full border bg-background text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shadow-sm"
+        >
+          {collapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronLeft className="h-3.5 w-3.5" />}
+        </button>
+      </div>
+
+      <NavLinks collapsed={collapsed} />
+
+      {/* Footer */}
+      <div className="border-t px-4 py-2">
+        {!collapsed && (
+          <p className="text-xs text-muted-foreground">Career Tracker v1.0</p>
+        )}
+      </div>
+
+    </aside>
+  );
+}
+
+/** Theme switcher as a dropdown item */
+function ThemeDropdownItem() {
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  const next = theme === "light" ? "dark" : theme === "dark" ? "system" : "light";
+  const Icon = theme === "dark" ? Moon : theme === "light" ? Sun : Monitor;
+  const label = theme === "dark" ? "Dark mode" : theme === "light" ? "Light mode" : "System theme";
+
+  return (
+    <DropdownMenuItem onSelect={() => setTheme(next)} className="cursor-pointer">
+      {mounted ? <Icon className="h-4 w-4 mr-2" /> : <Sun className="h-4 w-4 mr-2" />}
+      {mounted ? label : "Theme"}
+    </DropdownMenuItem>
+  );
+}
+
+/** Flat nav map: href → label */
+const NAV_LABEL_MAP: Record<string, string> = NAV_SECTIONS.flatMap((s) => s.items).reduce(
+  (acc, item) => ({ ...acc, [item.href]: item.label }),
+  {} as Record<string, string>
+);
+
+/** Desktop top header bar — visible on md+ */
+export function AppHeader() {
+  const { data: session } = useSession();
+  const { data: profile } = useQuery<{ avatarUrl?: string | null; fullName?: string | null; headline?: string | null }>({
+    queryKey: ["profile-avatar"],
+    queryFn: () => fetch("/api/profile").then((r) => r.json()),
+    staleTime: 5 * 60_000,
+  });
+
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
+  const avatarSrc = profile?.avatarUrl ?? session?.user?.image ?? undefined;
+  const displayName = profile?.fullName ?? session?.user?.name ?? null;
+  const headline = profile?.headline ?? null;
+
+  return (
+    <>
+      <header className="hidden md:flex h-16 shrink-0 items-center justify-between bg-background border-b border-border pl-6 pr-4">
+        {/* Left: Logo + Name */}
+        <Link href="/dashboard" className="flex items-center gap-2.5 shrink-0">
+          <Image src="/logo-icon.png" alt="Resumsify" width={28} height={28} className="h-7 w-7" />
+          <span className="font-bold text-lg">Resumsify</span>
+        </Link>
+
+        {/* Actions */}
+        <div className="flex items-center gap-2">
+          <NotificationBell />
+          {/* Divider */}
+          <div className="w-px h-5 bg-border mx-1" aria-hidden="true" />
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              className="flex items-center justify-center h-10 w-10 rounded-full outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:ring-2 hover:ring-primary/40 transition-all duration-150"
+            >
               {avatarSrc ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={avatarSrc} alt={displayName ?? "User"} className="h-10 w-10 rounded-full object-cover ring-2 ring-primary/30" />
@@ -282,79 +359,50 @@ export function Sidebar() {
                   <User className="h-5 w-5 text-primary" />
                 </div>
               )}
-            </Link>
-            <button
-              onClick={toggle}
-              title="Expand sidebar"
-              className="absolute -bottom-1 -right-1 flex items-center justify-center h-5 w-5 rounded-full border bg-background text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shadow-sm"
-            >
-              <ChevronRight className="h-3 w-3" />
-            </button>
-            <button
-              onClick={() => setSettingsOpen(true)}
-              title="Portal Settings"
-              className="absolute -top-1 -right-1 flex items-center justify-center h-5 w-5 rounded-full border bg-background text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shadow-sm"
-            >
-              <Settings className="h-3 w-3" />
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div className="px-3 pt-3 pb-3">
-          <div className="border rounded-xl flex items-center gap-3 p-3">
-            <Link href="/profile" className="shrink-0">
-              {avatarSrc ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={avatarSrc} alt={displayName ?? "User"} className="h-12 w-12 rounded-full object-cover ring-2 ring-primary/30" />
-              ) : (
-                <div className="h-12 w-12 rounded-full bg-primary/10 ring-2 ring-primary/30 flex items-center justify-center">
-                  <User className="h-6 w-6 text-primary" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              {/* Mini user card */}
+              <DropdownMenuGroup>
+                <div className="flex items-center gap-3 px-3 py-2.5">
+                  {avatarSrc ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={avatarSrc} alt={displayName ?? "User"} className="h-9 w-9 rounded-full object-cover shrink-0 ring-2 ring-primary/20" />
+                  ) : (
+                    <div className="h-9 w-9 rounded-full bg-primary/10 ring-2 ring-primary/20 flex items-center justify-center shrink-0">
+                      <User className="h-4 w-4 text-primary" />
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold leading-tight truncate">{displayName ?? "You"}</p>
+                    {headline && (
+                      <p className="text-xs text-muted-foreground leading-tight truncate">{headline}</p>
+                    )}
+                  </div>
                 </div>
-              )}
-            </Link>
-            <div className="flex-1 min-w-0">
-              <p className="text-base font-semibold truncate">{displayName ?? "You"}</p>
-            </div>
-            <button
-              onClick={() => setSettingsOpen(true)}
-              title="Portal Settings"
-              className="flex items-center justify-center h-6 w-6 rounded-full border bg-background text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0"
-            >
-              <Settings className="h-3 w-3" />
-            </button>
-            <button
-              onClick={toggle}
-              title="Collapse sidebar"
-              className="flex items-center justify-center h-6 w-6 rounded-full border bg-background text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0"
-            >
-              <ChevronLeft className="h-3 w-3" />
-            </button>
-          </div>
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+              <DropdownMenuGroup>
+                <DropdownMenuItem render={<Link href="/profile" />}>
+                  <User className="h-4 w-4 mr-2" />
+                  Profile
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => setSettingsOpen(true)}>
+                  <Settings className="h-4 w-4 mr-2" />
+                  Portal Settings
+                </DropdownMenuItem>
+                <ThemeDropdownItem />
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+              <DropdownMenuGroup>
+                <DropdownMenuItem onSelect={() => signOut({ callbackUrl: "/login" })} className="text-destructive focus:text-destructive">
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Sign out
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
-      )}
-
-      <NavLinks collapsed={collapsed} />
-
-      {/* Footer */}
-      <div className={cn("border-t p-3 space-y-2", collapsed && "p-2 flex flex-col items-center space-y-1")}>
-        <div className={cn("flex items-center gap-2", collapsed && "flex-col gap-1")}>
-          <NotificationBell />
-          <ThemeToggle />
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => signOut({ callbackUrl: "/login" })}
-            title="Sign out"
-          >
-            <LogOut className="h-5 w-5" />
-          </Button>
-        </div>
-        {!collapsed && (
-            <p className="text-xs text-muted-foreground">
-            Career Tracker v1.0
-          </p>
-        )}
-      </div>
+      </header>
 
       {/* Portal Settings Dialog */}
       <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
@@ -367,7 +415,7 @@ export function Sidebar() {
           </div>
         </DialogContent>
       </Dialog>
-    </aside>
+    </>
   );
 }
 

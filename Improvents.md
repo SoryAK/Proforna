@@ -129,8 +129,10 @@
     - ⬜ Customer/site rollup view (group assets by `customerName`).
     - ⬜ Asset filter chips on the worklog timeline (filter timeline by asset/asset-type alongside existing date/category filters).
 
-20. I need to find a better way to ho the information for events that the user participated in on the map and more 
-21. I need to find better use for the bottom section of the map 
-22. I meed to change the way the information shows up on the left side because right now its just showing up stacked and making them harder to read 
-23. I need to change the way the uniforms are done 
-24. I need to spend time getting rid of the unneccary icons 
+*** Dasboard Updates ***
+1. The pay calendar needs to change to a regular calendar that can link to other calendars 
+2. I got to look into the recent activity card and might have to repurpose it
+3. The income growth card is so big with little data 
+4. 
+
+

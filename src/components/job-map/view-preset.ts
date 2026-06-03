@@ -1,19 +1,16 @@
 /**
  * View Preset model for the Job Map under-map section.
  *
- * Three presets share the same bottom frame:
- *  - "map":       map-only feature toggles (default on first load)
- *  - "worklog":   embeds the WorklogPage component
- *  - "analytics": embeds the AnalyticsPage component
+ * One preset:
+ *  - "map": map-only feature toggles
  *
  * Per-preset "tweaks" (e.g. action-bar collapsed state, bottom-frame ratio)
- * are persisted independently, so switching presets restores the user's
- * last manual layout for that preset.
+ * are persisted independently.
  */
 
-export type ViewPreset = "map" | "worklog" | "analytics";
+export type ViewPreset = "map";
 
-export const VIEW_PRESETS: ViewPreset[] = ["map", "worklog", "analytics"];
+export const VIEW_PRESETS: ViewPreset[] = ["map"];
 
 export const PRESET_META: Record<
   ViewPreset,
@@ -23,26 +20,13 @@ export const PRESET_META: Record<
     label: "Map",
     description: "Geographic exploration with overlays and drawing tools.",
   },
-  worklog: {
-    label: "Work Log",
-    description: "Daily logs, templates, and activity timeline.",
-  },
-  analytics: {
-    label: "Career Analytics",
-    description: "Career stats, trends, and growth signals.",
-  },
 };
 
 /**
- * Default ratio for the TOP frame, per preset (i.e. how tall the swap surface
- * gets). The top frame is hot-swapped between Map / Work Log / Career Analytics,
- * so all three want roughly the same generous default — the user can still
- * resize per preset and we'll remember it.
+ * Default ratio for the TOP frame.
  */
 export const PRESET_DEFAULT_RATIO: Record<ViewPreset, number> = {
   map: 0.65,
-  worklog: 0.80,
-  analytics: 0.80,
 };
 
 export const DEFAULT_VIEW_PRESET: ViewPreset = "map";
@@ -75,7 +59,7 @@ export function saveViewPreset(p: ViewPreset): void {
 
 export function loadPresetTweaks(): Record<ViewPreset, PresetTweaks> {
   const empty: Record<ViewPreset, PresetTweaks> = {
-    map: {}, worklog: {}, analytics: {},
+    map: {},
   };
   if (typeof window === "undefined") return empty;
   try {

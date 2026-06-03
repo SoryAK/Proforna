@@ -20,6 +20,18 @@ Last updated: 2026-05-26
 - Map Style button: cycles Roadmap → Satellite → Hybrid → Roadmap. Shows current style as label. Active (`variant="default"`) on Satellite or Hybrid; outline on Roadmap (default).
 - Tile styles: `"google-roadmap"` (default) | `"google-satellite"` | `"google-hybrid"`. OSM removed — was a duplicate of roadmap.
 
+## Locked Mode (Dedicated Route Pattern)
+
+- **Trigger:** When a route should always show one map mode with no mode-switching allowed.
+- **Props:** `<JobMap initialMode="work-history" | "job-search" lockedMode={true} />`
+- **Effect on JobMapGoogle:** `onToggleWorkHistory` receives `undefined` → mode-switcher overlay button is hidden (conditional: `{!lockedMode && <button ...>}`).
+- **Effect on action bar in JobMap:** Work History toggle button is suppressed when `lockedMode=true`.
+- **Wrapper components:**
+  - `WorkHistoryMap` (`src/components/work-history-map.tsx`) → used by `/work-map` page
+  - `JobSearchMap` (`src/components/job-search-map.tsx`) → used by `/job-search` page
+- **Nav:** `constants.ts` "Work History" nav item now points to `/work-map` with `Map` icon.
+- **ADR:** See ADR-0006 for view preset context.
+
 ## TODO (capture when first built)
 - Map overlay panel anatomy (position, width, z-index, backdrop)
 - Job pin / marker style (active vs inactive state)

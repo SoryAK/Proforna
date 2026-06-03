@@ -143,19 +143,7 @@ import {
 import dynamic from "next/dynamic";
 import { CompanyDeepDive, type DeepDiveJob } from "@/components/company-deep-dive";
 import { UniformBodyMap, UniformMapPopup, type UniformData } from "@/components/uniform-body-map";
-import { WorklogPage } from "@/components/worklog/worklog-page";
-import AnalyticsPage from "@/app/(app)/analytics/page";
-import { ViewPresetSwitcher } from "@/components/job-map/view-preset-switcher";
-import {
-  loadViewPreset,
-  saveViewPreset,
-  loadPresetTweaks,
-  savePresetTweaks,
-  resetAllPresets,
-  PRESET_DEFAULT_RATIO,
-  type ViewPreset,
-  type PresetTweaks,
-} from "@/components/job-map/view-preset";
+
 
 /* ── Types ── */
 interface MapJob {
@@ -669,64 +657,6 @@ export function JobMap({ initialMode = "job-search", lockedMode = false }: { ini
     try { return parseFloat(localStorage.getItem("work-map:height-ratio") ?? "0.65"); } catch { return 0.65; }
   });
   const [workMapCardsCollapsed, setWorkMapCardsCollapsed] = useState(false);
-  /* View preset for the under-map frame (map | worklog | analytics).
-     Switching presets auto-flips the bottom-frame ratio to that preset's last
-     tweak (or its default), giving embedded surfaces room to breathe. */
-  const [viewPreset, setViewPresetState] = useState<ViewPreset>("map");
-  const presetTweaksRef = useRef<Record<ViewPreset, PresetTweaks>>({
-    map: {}, worklog: {}, analytics: {},
-  });
-  // Hydrate viewPreset + per-preset tweaks once on mount, applying the
-  // restored ratio for whatever preset the user left us on.
-  useEffect(() => {
-    const tweaks = loadPresetTweaks();
-    presetTweaksRef.current = tweaks;
-    const preset = loadViewPreset();
-    setViewPresetState(preset);
-    const ratio = tweaks[preset]?.ratio ?? PRESET_DEFAULT_RATIO[preset];
-    setWorkMapHeightRatio(ratio);
-    if (typeof tweaks[preset]?.collapsed === "boolean") {
-      setWorkMapCardsCollapsed(tweaks[preset]!.collapsed!);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-  const setViewPreset = useCallback((next: ViewPreset) => {
-    setViewPresetState((prev) => {
-      if (prev === next) return prev;
-      // Persist the current preset's tweaks before switching.
-      const t = { ...presetTweaksRef.current };
-      t[prev] = {
-        ...t[prev],
-        ratio: workMapHeightRatio,
-        collapsed: workMapCardsCollapsed,
-      };
-      presetTweaksRef.current = t;
-      savePresetTweaks(t);
-      saveViewPreset(next);
-      // Apply incoming preset's tweaks (or its default ratio).
-      const nextRatio = t[next]?.ratio ?? PRESET_DEFAULT_RATIO[next];
-      setWorkMapHeightRatio(nextRatio);
-      if (typeof t[next]?.collapsed === "boolean") {
-        setWorkMapCardsCollapsed(t[next]!.collapsed!);
-      }
-      try { localStorage.setItem("work-map:height-ratio", nextRatio.toString()); } catch {}
-      return next;
-    });
-  }, [workMapHeightRatio, workMapCardsCollapsed]);
-  const handleResetAllPresets = useCallback(() => {
-    if (typeof window !== "undefined") {
-      const ok = window.confirm(
-        "Reset all view-preset tweaks? This clears per-preset layout and collapsed states.",
-      );
-      if (!ok) return;
-    }
-    resetAllPresets();
-    presetTweaksRef.current = { map: {}, worklog: {}, analytics: {} };
-    setViewPresetState("map");
-    setWorkMapHeightRatio(PRESET_DEFAULT_RATIO.map);
-    setWorkMapCardsCollapsed(false);
-    try { localStorage.setItem("work-map:height-ratio", PRESET_DEFAULT_RATIO.map.toString()); } catch {}
-  }, []);
   /* Work Mapping aside host — when set, WorkHistoryPanel portals its bio card + work-history list into this element so the map sits to the right of the aside (matches IR layout). Using state-as-ref so the initial mount triggers a re-render once the host is attached. */
   const [workMapAsideHost, setWorkMapAsideHost] = useState<HTMLDivElement | null>(null);
   /* Bottom gallery host — when set, WorkHistoryPanel portals the gallery toggle button into this action-bar slot. State-as-ref pattern (same as workMapAsideHost). */
@@ -4347,6 +4277,7 @@ export function JobMap({ initialMode = "job-search", lockedMode = false }: { ini
             : "flex gap-3 h-[calc(100vh-220px)] min-h-[500px]"
         }
       >
+
         {/* Work Mapping aside host — receives the bio card + work-history list via portal so the map sits to the right of the aside (matches IR layout) */}
         {showWorkHistory && (
           <aside
@@ -4808,6 +4739,7 @@ export function JobMap({ initialMode = "job-search", lockedMode = false }: { ini
               mapGalleryHost={mapGalleryHost}
               bottomSidePanelHost={bottomSidePanelHost}
               onEventsChange={setMappableEvents}
+              lockedMode={lockedMode}
             />
           )}
 
@@ -6105,12 +6037,7 @@ export function JobMap({ initialMode = "job-search", lockedMode = false }: { ini
               the overlay preserves Leaflet state (center, zoom, layers).
               z-[1300] sits above all in-map floating controls (zoom buttons,
               tile-style/anchor/tax clusters at z-[1050..1200]). */}
-          {showWorkHistory && viewPreset !== "map" && (
-            <div className="absolute inset-0 z-[1300] overflow-y-auto bg-background rounded-2xl">
-              {viewPreset === "worklog" && <WorklogPage compact />}
-              {viewPreset === "analytics" && <AnalyticsPage compact />}
-            </div>
-          )}
+
         </div>
 
         {/* Resize Handle + Action Bar (Work Mapping mode only) */}
@@ -6131,11 +6058,6 @@ export function JobMap({ initialMode = "job-search", lockedMode = false }: { ini
                 <div className="mb-2.5 flex items-center justify-between gap-2">
                   <div className="min-w-0 flex items-center gap-2">
                     <Zap className="h-4 w-4 text-indigo-500 shrink-0" />
-                    <ViewPresetSwitcher
-                      current={viewPreset}
-                      onChange={setViewPreset}
-                      onResetAll={handleResetAllPresets}
-                    />
                   </div>
                   <Button
                     type="button"
@@ -6151,7 +6073,6 @@ export function JobMap({ initialMode = "job-search", lockedMode = false }: { ini
 
                 {!workMapCardsCollapsed && (
                   <div className="space-y-2.5">
-                    {viewPreset === "map" && (
                       <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-border/60 bg-background/70 p-2">
                     {!lockedMode && (
                     <Button
@@ -6229,14 +6150,11 @@ export function JobMap({ initialMode = "job-search", lockedMode = false }: { ini
                       {tileStyle === "google-satellite" ? "Satellite" : tileStyle === "google-hybrid" ? "Hybrid" : "Roadmap"}
                     </Button>
                       </div>
-                    )}
 
-                    {viewPreset === "map" && (
                       <div className="space-y-1.5">
                         <div ref={setBottomGalleryHost} />
                         <div ref={setBottomSidePanelHost} />
                       </div>
-                    )}
                   </div>
                 )}
               </div>
@@ -8130,6 +8048,7 @@ function WorkHistoryPanel({
   pinDropMode, pinDropCoords, onStartPinDrop, onCancelPinDrop, onClearPinDrop, onFocusJob, onHoverJob,
   residences, activeResidence, timeFilter, timeRange, onTimeFilterChange, onResidenceAdded, onResidenceDeleted,
   hiddenTypes, onToggleType, mapContainer, bannerSlideshowEnabled, asideHost, onEventsChange, bottomGalleryHost, mapGalleryHost, bottomSidePanelHost,
+  lockedMode,
 }: {
   items: { id: string; type?: string; company: string; title: string | null; address: string; lat: number; lng: number; startDate: string | null; endDate: string | null; locations: { id: string; label: string; type: string; address: string; lat: number; lng: number; isPrimary: boolean; includeInOutline?: boolean; closed?: boolean; placeId?: string | null; skills?: string | null; startDate?: string | null; endDate?: string | null; photos?: string | null; coverImage?: string | null; coverImageY?: number | null }[];
     degree?: string | null; major?: string | null; gpa?: number | null;
@@ -8186,6 +8105,8 @@ function WorkHistoryPanel({
   bottomSidePanelHost?: HTMLElement | null;
   /** Called whenever the focused item's events change (so the map can show event markers). */
   onEventsChange?: (events: { id: string; title: string; startDate: string | null; location: string | null; lat?: number | null; lng?: number | null; photos?: { filePath: string }[] }[]) => void;
+  /** When true, show a back-to-dashboard link next to the panel heading. */
+  lockedMode?: boolean;
 }) {
   const [adding, setAdding] = useState(false);
   const [addType, setAddType] = useState<"job" | "school" | "military" | "volunteer" | "internship" | "self-employed" | "unemployed">("job");
@@ -9131,7 +9052,7 @@ function WorkHistoryPanel({
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   const [focusTab, setFocusTab] = useState<"overview" | "edit">("overview");
   const [sidePanel, setSidePanel] = useState<"gallery" | "attachments" | "skills" | "equipment" | null>(null);
-  const [showBottomGallery, setShowBottomGallery] = useState(true);
+  const [showBottomGallery, setShowBottomGallery] = useState(false);
   // In-panel "step into a job" without focusing the map / work-history.
   // null → master folder grid; string → that position's photos in-panel.
   const [panelPositionId, setPanelPositionId] = useState<string | null>(null);
@@ -12613,7 +12534,15 @@ function WorkHistoryPanel({
       ) : (
       <>
       <div className="flex items-center justify-between mb-2">
-        <span className="text-base font-semibold pl-1.5">Work History</span>
+        <div className="flex items-center gap-2 pl-1.5">
+          {lockedMode && (
+            <Link href="/dashboard" className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
+              <Home className="h-3.5 w-3.5" />
+              Dashboard
+            </Link>
+          )}
+          <span className="text-base font-semibold">Work History</span>
+        </div>
         <div className="relative flex items-center gap-1">
           <button
             type="button"

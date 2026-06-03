@@ -72,8 +72,8 @@ export function NotificationBell() {
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger render={<Button variant="ghost" size="icon" className="relative" />}>
-        <Bell className="h-4 w-4" />
+      <PopoverTrigger render={<Button variant="ghost" size="icon" className="relative h-10 w-10" />}>
+        <Bell className="h-5 w-5" />
         {dueReminders.length > 0 && (
           <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
             {dueReminders.length}

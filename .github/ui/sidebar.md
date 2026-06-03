@@ -36,6 +36,7 @@ Last updated: 2026-06-02
 
 - Chevron + sub-links hidden when collapsed
 - Sub-links use `text-sm text-muted-foreground`, indented `ml-7 border-l pl-3`
+- Sub-expansion tracks `/work-map` and `/experience/*` paths (both expand the Jobs accordion)
 
 ---
 

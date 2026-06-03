@@ -52,7 +52,7 @@ export async function PATCH(request: Request) {
       "contactCtaMessage",
       "maxCommuteMiles",
       "availability", "bio", "preferredRoles", "targetSalaryMin", "targetSalaryMax",
-      "currency", "locationPreference", "showSkills", "showResume", "showCertifications",
+      "salaryPeriod", "currency", "locationPreference", "showSkills", "showResume", "showCertifications",
       "showCurrentRole", "portalSlug", "filingStatus", "federalTaxRate", "stateTaxRate",
       "monthlyExpenses",
       // Stealth mode fields

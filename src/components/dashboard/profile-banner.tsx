@@ -49,7 +49,7 @@ export function ProfileBanner({
   return (
     <Card className="overflow-hidden pt-0">
       {/* Dark banner with orange tint */}
-      <div className="relative h-48 sm:h-56 overflow-hidden">
+      <div className="relative h-32 sm:h-40 overflow-hidden">
         <div className="absolute inset-0 bg-slate-900" />
         <div className="absolute inset-0 bg-gradient-to-br from-orange-950/60 via-transparent to-transparent" />
         <div
@@ -72,11 +72,11 @@ export function ProfileBanner({
         </div>
       </div>
 
-      <CardContent className="relative px-6 pb-5 pt-0">
+      <CardContent className="relative px-5 pb-4 pt-0">
         {/* Avatar overlapping banner */}
-        <div className="-mt-20 mb-3 flex items-end gap-5">
+        <div className="-mt-12 mb-2 flex items-end gap-4">
           <div className="relative">
-            <div className="flex h-36 w-36 items-center justify-center rounded-full border-[3px] border-white bg-white shadow-lg ring-2 ring-black/5 overflow-hidden">
+            <div className="flex h-24 w-24 items-center justify-center rounded-full border-[3px] border-white bg-white shadow-lg ring-2 ring-black/5 overflow-hidden">
               {profile?.avatarUrl ? (
                 <img
                   src={profile.avatarUrl}
@@ -84,7 +84,7 @@ export function ProfileBanner({
                   className="h-full w-full object-cover"
                 />
               ) : (
-                <span className="text-4xl font-bold text-orange-600">{initials}</span>
+                <span className="text-2xl font-bold text-orange-600">{initials}</span>
               )}
             </div>
             <div className="absolute -bottom-1 left-1/2 -translate-x-1/2">
@@ -103,7 +103,7 @@ export function ProfileBanner({
         {/* Name + headline */}
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
           <div className="space-y-1">
-            <h1 className="text-2xl font-bold leading-tight">{displayName}</h1>
+            <h1 className="text-xl font-bold leading-tight">{displayName}</h1>
             {headline !== displayName && (
               <p className="text-sm text-muted-foreground max-w-lg">{headline}</p>
             )}
@@ -173,44 +173,6 @@ export function ProfileBanner({
           </div>
         )}
 
-        {/* Stats row */}
-        <div className="my-3 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
-        <div className="flex flex-wrap gap-3 text-sm">
-          <Link
-            href="/applications"
-            className="flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-2 hover:bg-muted transition-colors"
-          >
-            <Briefcase className="h-4 w-4 text-orange-600" />
-            <span className="font-semibold">{stats.totalApplications}</span>
-            <span className="text-muted-foreground">Applications</span>
-          </Link>
-          <Link
-            href="/contacts"
-            className="flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-2 hover:bg-muted transition-colors"
-          >
-            <Users className="h-4 w-4 text-orange-600" />
-            <span className="font-semibold">{stats.contacts}</span>
-            <span className="text-muted-foreground">My Network</span>
-          </Link>
-          <Link
-            href="/skills"
-            className="flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-2 hover:bg-muted transition-colors"
-          >
-            <Zap className="h-4 w-4 text-orange-600" />
-            <span className="font-semibold">{stats.skills}</span>
-            <span className="text-muted-foreground">Skills</span>
-          </Link>
-          {stats.upcomingInterviews > 0 && (
-            <Link
-              href="/applications"
-              className="flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-2 hover:bg-muted transition-colors"
-            >
-              <CalendarDays className="h-4 w-4 text-purple-600" />
-              <span className="font-semibold">{stats.upcomingInterviews}</span>
-              <span className="text-muted-foreground">Interviews</span>
-            </Link>
-          )}
-        </div>
 
         {/* Preferred roles */}
         {profile?.preferredRoles && (
