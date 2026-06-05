@@ -11,9 +11,10 @@ import {
   CheckCircle2,
   AlertCircle,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 const EXPORT_TYPES = [
@@ -96,7 +97,7 @@ export default function ImportExportPage() {
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6">
       <div>
         <h1 className="text-xl font-bold flex items-center gap-2">
           <ArrowDownToLine className="h-5 w-5 text-orange-600" />
@@ -108,51 +109,57 @@ export default function ImportExportPage() {
       </div>
 
       {/* Export section */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Download className="h-5 w-5" />
-            Export Data
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {EXPORT_TYPES.map((et) => {
-              const Icon = et.icon;
-              return (
-                <Button
-                  key={et.type}
-                  variant="outline"
-                  className="h-auto flex flex-col items-start gap-1 p-4 text-left"
-                  onClick={() => handleExport(et.type)}
-                >
-                  <div className="flex items-center gap-2">
-                    <Icon className="h-4 w-4 text-muted-foreground" />
-                    <span className="font-medium">{et.label}</span>
+      <section className="space-y-3">
+        <div className="flex items-center gap-2">
+          <Download className="h-4 w-4 text-muted-foreground" />
+          <h2 className="text-base font-semibold">Export Data</h2>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {EXPORT_TYPES.map((et) => {
+            const Icon = et.icon;
+            return (
+              <Card
+                key={et.type}
+                role="button"
+                tabIndex={0}
+                onClick={() => handleExport(et.type)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    handleExport(et.type);
+                  }
+                }}
+                className={cn(
+                  "group cursor-pointer transition-all hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-1"
+                )}
+                aria-label={`Export ${et.label}`}
+              >
+                <CardContent className="flex items-start gap-3 p-3">
+                  <Icon className="h-8 w-8 shrink-0 text-orange-500" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">{et.label}</p>
+                    <p className="truncate text-xs text-muted-foreground">{et.description}</p>
                   </div>
-                  <span className="text-xs text-muted-foreground">{et.description}</span>
-                </Button>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      </section>
 
       {/* Import section */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Upload className="h-5 w-5" />
-            Import Data
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            Import data from JSON (full backup) or CSV files. Supported CSV formats: applications
-            (company, role, status columns) and contacts (name, email, relationship columns).
-          </p>
+      <section className="space-y-3">
+        <div className="flex items-center gap-2">
+          <Upload className="h-4 w-4 text-muted-foreground" />
+          <h2 className="text-base font-semibold">Import Data</h2>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Import data from JSON (full backup) or CSV files. Supported CSV formats: applications
+          (company, role, status columns) and contacts (name, email, relationship columns).
+        </p>
 
-          <div className="flex items-center gap-3">
+        <div className="rounded-xl border bg-card p-4">
+          <div className="flex flex-wrap items-center gap-3">
             <input
               ref={fileInputRef}
               type="file"
@@ -174,34 +181,41 @@ export default function ImportExportPage() {
               Accepts .json and .csv files
             </span>
           </div>
+        </div>
 
-          {/* Import result */}
-          {lastResult && (
-            <div className={`rounded-lg border p-4 ${lastResult.error ? "border-red-200 bg-red-50 dark:bg-red-950 dark:border-red-800" : "border-green-200 bg-green-50 dark:bg-green-950 dark:border-green-800"}`}>
-              {lastResult.error ? (
-                <div className="flex items-center gap-2 text-red-700 dark:text-red-300">
-                  <AlertCircle className="h-4 w-4" />
-                  <span className="text-sm">{lastResult.error}</span>
+        {/* Import result */}
+        {lastResult && (
+          <div
+            className={cn(
+              "rounded-xl border p-4",
+              lastResult.error
+                ? "border-red-200 bg-red-50 dark:bg-red-950 dark:border-red-800"
+                : "border-green-200 bg-green-50 dark:bg-green-950 dark:border-green-800"
+            )}
+          >
+            {lastResult.error ? (
+              <div className="flex items-center gap-2 text-red-700 dark:text-red-300">
+                <AlertCircle className="h-4 w-4" />
+                <span className="text-sm">{lastResult.error}</span>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-green-700 dark:text-green-300">
+                  <CheckCircle2 className="h-4 w-4" />
+                  <span className="text-sm font-medium">Import successful</span>
                 </div>
-              ) : (
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-green-700 dark:text-green-300">
-                    <CheckCircle2 className="h-4 w-4" />
-                    <span className="text-sm font-medium">Import successful</span>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {Object.entries(lastResult.imported || {}).map(([key, count]) => (
-                      <Badge key={key} variant="secondary">
-                        {count} {key}
-                      </Badge>
-                    ))}
-                  </div>
+                <div className="flex flex-wrap gap-2">
+                  {Object.entries(lastResult.imported || {}).map(([key, count]) => (
+                    <Badge key={key} variant="secondary">
+                      {count} {key}
+                    </Badge>
+                  ))}
                 </div>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+              </div>
+            )}
+          </div>
+        )}
+      </section>
     </div>
   );
 }

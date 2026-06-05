@@ -24,11 +24,22 @@ export async function GET(req: NextRequest) {
   const category = searchParams.get("category");
   const entityType = searchParams.get("entityType");
   const entityId = searchParams.get("entityId");
+  const folderIdParam = searchParams.get("folderId");
 
-  const where: Record<string, string> = {};
+  // Always scope to the authenticated user — fixes horizontal privilege escalation.
+  const where: Record<string, unknown> = { userId };
   if (category) where.category = category;
   if (entityType) where.entityType = entityType;
   if (entityId) where.entityId = entityId;
+  // folderId param semantics:
+  //   absent       → return docs across all folders (used by search/global views)
+  //   "root"       → return docs at root only (folderId IS NULL)
+  //   "<uuid>"     → return docs in that folder
+  if (folderIdParam === "root") {
+    where.folderId = null;
+  } else if (folderIdParam) {
+    where.folderId = folderIdParam;
+  }
 
   const docs = await prisma.document.findMany({
     where,
@@ -42,6 +53,7 @@ export async function GET(req: NextRequest) {
       category: true,
       entityType: true,
       entityId: true,
+      folderId: true,
       notes: true,
       createdAt: true,
     },
@@ -62,6 +74,19 @@ export async function POST(req: NextRequest) {
     const entityType = formData.get("entityType") as string | null;
     const entityId = formData.get("entityId") as string | null;
     const notes = formData.get("notes") as string | null;
+    const folderIdRaw = formData.get("folderId") as string | null;
+    const folderId = folderIdRaw && folderIdRaw !== "root" ? folderIdRaw : null;
+
+    // If folderId is provided, verify it belongs to this user (prevents cross-user folder targeting).
+    if (folderId) {
+      const folder = await prisma.documentFolder.findFirst({
+        where: { id: folderId, userId },
+        select: { id: true },
+      });
+      if (!folder) {
+        return NextResponse.json({ error: "Folder not found" }, { status: 404 });
+      }
+    }
 
     if (!file) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
@@ -82,7 +107,8 @@ export async function POST(req: NextRequest) {
     const base64 = buffer.toString("base64");
 
     const doc = await prisma.document.create({
-      data: { userId,
+      data: {
+        userId,
         name: name || file.name,
         fileName: file.name,
         fileSize: file.size,
@@ -92,6 +118,7 @@ export async function POST(req: NextRequest) {
         entityType: entityType || null,
         entityId: entityId || null,
         notes: notes || null,
+        folderId,
       },
     });
 

@@ -4,26 +4,19 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   CalendarDays,
-  TrendingUp,
   Clock,
   Award,
-  ChevronRight,
   AlertTriangle,
-  DollarSign,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { Progress, ProgressLabel, ProgressValue } from "@/components/ui/progress";
 import {
   type AvailabilityStatus,
 } from "@/lib/constants";
 import { formatDistanceToNow, format } from "date-fns";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { OnboardingFlow } from "@/components/onboarding-flow";
-import { PayPeriodCalendar } from "@/components/pay-period-calendar";
 import { ProfileBanner } from "@/components/dashboard/profile-banner";
 import { EditProfileDialog } from "@/components/dashboard/edit-profile-dialog";
 import type { DashboardData, EditProfileForm } from "@/components/dashboard/types";
@@ -141,7 +134,7 @@ export default function DashboardPage() {
     );
   }
 
-  const { stats, recentActivity, currentPosition, profile, cfm, upcomingInterviewDetails, expiringCertifications } = data;
+  const { stats, recentActivity, currentPosition, profile, upcomingInterviewDetails, expiringCertifications } = data;
 
   const availability = (profile?.availability ?? "open_to_work") as AvailabilityStatus;
   const displayName = profile?.fullName || (currentPosition
@@ -159,21 +152,6 @@ export default function DashboardPage() {
       ? `${currentPosition.role[0]}${currentPosition.company[0]}`
       : "Me";
 
-  // CFM summary data
-  const cfmYears = cfm.incomeYears;
-  const cfmLatest = cfmYears[cfmYears.length - 1] ?? null;
-  const grossChanges = cfmYears.slice(1).map((y, i) =>
-    cfmYears[i].grossIncome > 0
-      ? ((y.grossIncome - cfmYears[i].grossIncome) / cfmYears[i].grossIncome) * 100
-      : 0
-  );
-  const avgGrowth = grossChanges.length > 0
-    ? grossChanges.reduce((a, b) => a + b, 0) / grossChanges.length
-    : 0;
-  const topTier = cfm.wageTiers.length > 0 ? cfm.wageTiers[cfm.wageTiers.length - 1] : null;
-  const tierProgress = topTier && cfmLatest && cfmLatest.grossIncome > 0
-    ? Math.min(100, (cfmLatest.grossIncome / topTier.yearlyRate) * 100)
-    : null;
 
   const hasProfile = Boolean(profile?.fullName);
   const hasPosition = Boolean(currentPosition);
@@ -311,77 +289,6 @@ export default function DashboardPage() {
                   </div>
                 </CardContent>
               </Card>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ━━ FINANCIALS ━━ */}
-      {currentPosition && (
-        <div className="space-y-3">
-          <div className="flex items-center gap-2 px-1">
-            <DollarSign className="h-3.5 w-3.5 text-orange-600" />
-            <h2 className="text-sm font-semibold text-foreground">Financials</h2>
-          </div>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {/* Income Growth */}
-            {cfmLatest && (
-              <Card>
-                <CardHeader className="pb-1.5 pt-3 px-4">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-sm font-semibold">Income Growth</CardTitle>
-                    <Link href="/career-model" className="text-xs text-orange-600 hover:underline flex items-center gap-0.5">
-                      Details <ChevronRight className="h-3 w-3" />
-                    </Link>
-                  </div>
-                </CardHeader>
-                <CardContent className="px-4 pb-3 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Gross ({cfmLatest.year})</span>
-                    <span className="font-semibold">${cfmLatest.grossIncome.toLocaleString()}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Avg Growth</span>
-                    {grossChanges.length > 0 ? (
-                      <span className={`font-semibold flex items-center gap-1 ${avgGrowth >= 0 ? "text-green-600" : "text-red-600"}`}>
-                        {avgGrowth >= 0 ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingUp className="h-3.5 w-3.5 rotate-180" />}
-                        {avgGrowth >= 0 ? "+" : ""}{avgGrowth.toFixed(1)}%
-                      </span>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">Need 2+ years</span>
-                    )}
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Years Tracked</span>
-                    <span className="font-semibold">{cfmYears.length}</span>
-                  </div>
-                  {topTier && tierProgress !== null && (
-                    <>
-                      <Separator />
-                      <div className="space-y-1.5">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="text-muted-foreground">{topTier.label} Goal</span>
-                          <span className="font-medium">{tierProgress.toFixed(0)}%</span>
-                        </div>
-                        <div className="h-2 rounded-full bg-muted overflow-hidden">
-                          <div
-                            className="h-full rounded-full transition-all"
-                            style={{ width: `${tierProgress}%`, backgroundColor: topTier.color }}
-                          />
-                        </div>
-                        <p className="text-xs text-muted-foreground text-right">
-                          ${cfmLatest.grossIncome.toLocaleString()} / ${topTier.yearlyRate.toLocaleString()}
-                        </p>
-                      </div>
-                    </>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Pay Period Calendar */}
-            {currentPosition.payFrequency && (
-              <PayPeriodCalendar compact />
             )}
           </div>
         </div>

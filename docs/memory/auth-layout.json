@@ -15,16 +15,20 @@
       "entityType": "domain",
       "observations": [
         "2026-05-28: Layout shell at src/components/layout-shell.tsx — uses flex-1 for main area, auto-adjusts to sidebar width",
-        "2026-05-28: Sidebar at src/components/sidebar.tsx — w-72 (288px), text-base nav font, h-5 w-5 icons — committed May 2026",
-        "2026-05-28: Mobile sheet width w-72 (was w-56)",
         "2026-05-28: App shell route at src/app/(app)/",
         "2026-05-28: Providers at src/components/providers.tsx",
-        "2026-06-02: Sidebar Portal Settings Dialog uses sm:max-w-6xl to override shadcn DialogContent base sm:max-w-sm — same-breakpoint tailwind-merge dedup required. Full dims: w-[90vw] max-w-6xl sm:max-w-6xl h-[85vh] p-0 overflow-hidden flex flex-col gap-0",
+        "2026-06-01: Sidebar at src/components/sidebar.tsx — collapsed w-18 (72px) / expanded w-72 (288px), toggle persisted to localStorage 'sidebar-collapsed'",
+        "2026-06-01: Collapsed mode: avatar img with ring-2 ring-primary/30, absolute badge toggle button (-bottom-1 -right-1). No card wrapper in collapsed state.",
+        "2026-06-01: Expanded mode: BioCard-inspired identity card (bg-background/95 backdrop-blur-sm border rounded-xl shadow-sm), h-12 w-12 avatar, text-primary headline from profile.headline",
+        "2026-06-01: Nav driven by NAV_SECTIONS in src/lib/constants.ts — 4 groups (null/main, Resources, Career, Tools). Replaces NAV_ITEMS.",
+        "2026-06-01: Collapsed nav items use TooltipProvider+TooltipTrigger(render=<Link>) pattern from @base-ui/react — instant tooltips side=right. No title attr.",
+        "2026-06-01: Active nav items: bg fill only (bg-orange-100 text-orange-700), NO border-l. Section divider label turns text-primary when section has active item.",
+        "2026-06-01: Mobile sheet width w-72 (unchanged)",
+        "2026-06-02: Sidebar Portal Settings Dialog uses sm:max-w-6xl to override shadcn DialogContent base sm:max-w-sm — same-breakpoint tailwind-merge dedup is required. Full dims: w-[90vw] max-w-6xl sm:max-w-6xl h-[85vh] p-0 overflow-hidden flex flex-col gap-0",
         "2026-06-02: Portal Settings entry points: sidebar expanded user card gear button (h-6 w-6 rounded-full border bg-background) + standalone /portal-settings route. No Settings button on dashboard profile-banner.",
-        "2026-06-02: NAV_SECTIONS label 'Contacts' renamed to 'My Network' — href /contacts unchanged. Display labels live only in constants.ts NAV_SECTIONS."
+        "2026-06-02: NAV_SECTIONS label 'Contacts' renamed to 'My Network' — href /contacts unchanged. Display labels live only in constants.ts NAV_SECTIONS, never in routes or data keys."
       ]
     },
-    {
     {
       "name": "PortalSettingsPanel",
       "entityType": "component",

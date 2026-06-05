@@ -20,6 +20,10 @@
     "GalleryDomain": "gallery.json",
     "InterviewDomain": "interview.json",
     "AIServicesLayer": "ai-services.json",
-    "PortalSettingsPanel": "auth-layout.json"
+    "PortalSettingsPanel": "auth-layout.json",
+    "JobMap": "job-map.json",
+    "WorkHistoryMap": "job-map.json",
+    "JobSearchMap": "job-map.json",
+    "JobMapGoogle": "job-map.json"
   }
 }

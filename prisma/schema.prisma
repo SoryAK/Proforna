@@ -35,6 +35,7 @@ model User {
   reminders           Reminder[]
   activityLogs        ActivityLog[]
   documents           Document[]
+  documentFolders     DocumentFolder[]
   submissions         RecruiterSubmission[]
   incomeYears         CareerIncomeYear[]
   wageTiers           WageTier[]
@@ -1510,9 +1511,30 @@ model Document {
   entityType String?
   entityId   String?
   notes      String?
+  folderId   String?
   createdAt  DateTime @default(now())
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user   User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  folder DocumentFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
+
+  @@index([userId, folderId])
+}
+
+model DocumentFolder {
+  id        String   @id @default(uuid())
+  userId    String
+  name      String
+  parentId  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent    DocumentFolder?  @relation("FolderTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children  DocumentFolder[] @relation("FolderTree")
+  documents Document[]
+
+  @@unique([userId, parentId, name])
+  @@index([userId, parentId])
 }
 
 // ─── Research & Market Data ────────────────────────────────────
