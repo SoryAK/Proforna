@@ -1,27 +1,100 @@
 # Resumsify Worklog UI Patterns
 
-Last updated: 2026-05-25
+Last updated: 2026-06-06 (ADR-0014 — worklog home route split)
 
 > References tokens.md and global.md. Never redefine tokens here.
 > Feature-specific rules only — shared rules live in global.md.
 
 ---
 
-## 3-Pane Layout
+## Routes (post-ADR-0014)
 
-```
-grid-cols-1  md:grid-cols-[200px_1fr]  xl:grid-cols-[220px_320px_1fr]
-```
+The worklog feature has two surfaces under a shared `(app)/worklog/layout.tsx`:
 
-| Pane | Width | Ref |
+| Route | Page | Purpose |
 |---|---|---|
-| Left — Folders rail | `220px` on xl, hidden on mobile | `railPaneRef` |
-| Middle — Notes list | `320px` on xl, `1fr` on md | `listPaneRef` |
-| Right — Note reader | `1fr` on xl, hidden on md unless note open | `viewPaneRef` |
+| `/worklog` | [`<WorklogHomeView>`](../../src/components/worklog/home/worklog-home-view.tsx) | Capture-first home — read-only glance + Quick Capture |
+| `/worklog/notes` | [`<WorklogPage>`](../../src/components/worklog/worklog-page.tsx) | 2-pane list+reader (the working surface) |
 
-- Each pane: `min-h-0 overflow-hidden` to prevent scroll bleed into siblings
+The layout file mounts [`<FullBleedShell>`](../../src/components/full-bleed-shell.tsx) once for both routes. The sidebar override from ADR-0013 gates on `pathname.startsWith("/worklog")` so it covers both pages without changes.
+
+---
+
+## `/worklog` home — section composition
+
+```
+WorklogHomeView
+├─ Greeting + summary line          ("Friday, June 6 · 5-day streak · 27 notes …")
+├─ WorklogQuickCapture              hero: title + chip + Save → /worklog/notes?focus=<id>
+├─ WorklogTodayList                 one-liner list of today's notes
+├─ WorklogStatCards                 streak / month / notable (3-card row)
+├─ WorklogFolderGrid                top 8 folders by recent activity + Templates tile
+└─ WorklogRecentList                "Earlier this week" one-liner list (max 8)
+```
+
+- All sections live under `src/components/worklog/home/`. One section per file.
+- Home view is **read-only**: no internal state, no URL params consumed. Every interaction either creates a note (Quick Capture) or routes to `/worklog/notes?…`.
+- Quick Capture submit (ADR-0014 G2 = option B): calls `POST /api/work-logs` directly, then `router.push("/worklog/notes?focus=<id>")`. The existing `useWorklogDeepLinks` hook on the notes page consumes `?focus` and brings the reader into focus.
+- Today / Recent rows reuse the same one-liner shape: category dot · title · optional notable star · preview · time. Density-first per G1 decision.
+- Folder grid limits to **top 8 by recent activity** (most-recent note timestamp). Iterate on this number based on real use; the 8 limit is intentional, not sacred.
+
+---
+
+## `/worklog/notes` — 2-pane list+reader
+
+```
+grid-cols-1 md:grid-cols-[320px_1fr]
+```
+
+| Pane | Width | Ref | Owner |
+|---|---|---|---|
+| Left — Notes list | `320px`, `1fr` on mobile | `listPaneRef` | `WorklogPage` |
+| Right — Note reader | `1fr` on md+, hidden on mobile unless note open | `viewPaneRef` | `WorklogPage` |
+
+- The activity widget no longer mounts here (ADR-0014). It lives only on `/worklog`.
+- Notes list pane is the focused surface for scanning + selecting; reader is the focused surface for editing.
+
+### Compact embed (`<WorklogPage compact />`)
+
+Unchanged from ADR-0013. 3-pane grid `md:grid-cols-[200px_1fr] xl:grid-cols-[220px_320px_1fr]` with internal [`<WorklogFoldersRail>`](../../src/components/worklog/worklog-folders-rail.tsx) and its own `<WorklogDndProvider>`. The compact variant cannot claim the global sidebar so it keeps the rail.
+
+### URL contract (folder selection — ADR-0013)
+
+Applies to `/worklog/notes` only. The home page consumes no URL state.
+
+| Param shape | Selection |
+|---|---|
+| (none) or `?folder=all` | `{ kind: "all" }` |
+| `?folder=notable` | `{ kind: "notable" }` |
+| `?folder=unfiled` | `{ kind: "unfiled" }` |
+| `?folder=category:<key>` | `{ kind: "category", category }` |
+| `?folder=<cuid>` | `{ kind: "folder", folderId }` |
+| `?view=templates` | `{ kind: "templates" }` (overrides folder) |
+| `?focus=<id>` | Open the reader on a specific note (ADR-0014, used by Quick Capture handoff) |
+
+Both `<WorklogPage>` and `<WorklogNavSidebar>` read through [`useFolderSelection()`](../../src/components/worklog/hooks/use-folder-selection.ts). Setter uses `router.push` so back/forward navigates folders. `<WorklogPage compact />` calls `useFolderSelection({ enabled: false })` to fall back to local state. **Cross-route navigation** (clicking a filter row from `/worklog`) uses `selectionToQueryString()` + an explicit `router.push("/worklog/notes?...")` — the hook's setter is bound to the current pathname.
+
+---
+
+## Sidebar (post-ADR-0014)
+
+The override sidebar shows:
+
+1. **Header** — back-arrow (collapse) + "Worklog" link to home
+2. **Home row** — `<Link href="/worklog">` active when `pathname === "/worklog"`
+3. **All notes / Notable / Templates** — filter rows; active state ONLY while on `/worklog/notes`
+4. **Folders** (drag-droppable tree)
+5. **Categories** (collapsible group)
+
+Filter / folder / category clicks navigate **to** `/worklog/notes` when triggered from the home page (cross-route). When already on `/worklog/notes`, they only mutate the URL params via the hook's setter. Same component, two behaviors.
+
+---
+
+## Pane separators
+
+- All panes: `min-h-0 overflow-hidden` to prevent scroll bleed into siblings
 - Pane separator: `tokens.border.pane` (`border-r`)
-- Mobile drill-down: middle pane hides when `mobileShowReader && selectedLog` — reader takes full width
+- Mobile drill-down: notes-list pane hides when `mobileShowReader && selectedLog` — reader takes full width
 
 ---
 

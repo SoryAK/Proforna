@@ -6,14 +6,27 @@
       "observations": [
         "2026-05-28: Primary entry point is src/components/worklog/worklog-page.tsx",
         "2026-05-28: Editor is src/components/worklog/worklog-editor.tsx (Tiptap 3 + Yjs, StarterKit with undoRedo:false)",
-        "2026-05-28: Three-pane layout: folders-rail (left) + notes-list (center) + editor/reader (right)",
+        "2026-05-28: Three-pane layout: folders-rail (left) + notes-list (center) + editor/reader (right) — SUPERSEDED 2026-06-05 by ADR-0013, see below",
         "2026-05-28: Draft persistence via server-backed sync — ADR-0009. Draft flush race condition if editor unmounts before debounce fires.",
         "2026-05-28: Inline photo support (Phase 2b) and read-mode renderer (Phase 2c) confirmed working as of May 2026",
-        "2026-05-28: API routes under src/app/api/work-logs/. Hooks under src/components/worklog/hooks/"
+        "2026-05-28: API routes under src/app/api/work-logs/. Hooks under src/components/worklog/hooks/",
+        "2026-06-05: ADR-0013 — section nav override architecture. Folders/Notable/Templates/Categories moved out of WorklogFoldersRail into the global sidebar via <WorklogNavSidebar>. Sidebar.tsx swaps when pathname.startsWith('/worklog') AND not collapsed. Collapsed sidebar = escape hatch back to top-level nav.",
+        "2026-06-05: /worklog page is now 2-pane (notes-list + reader); rail removed. Activity widget (streak/heatmap/this-month/notable) lives at top of notes-list pane via <WorklogActivityWidget>.",
+        "2026-06-05: <WorklogPage compact /> dashboard embed is UNCHANGED — still 3-pane with internal WorklogFoldersRail + own DnD provider. compact mode opts out of URL state via useFolderSelection({ enabled: false }).",
+        "2026-06-05: Folder selection state is URL-driven via useFolderSelection() hook. URL contract: ?folder=all|notable|unfiled|category:<key>|<cuid> and ?view=templates. Setter uses router.push (back/forward navigates folders). Any new caller mutating folder selection must go through this hook — do not add useState<FolderSelection> back into worklog-page.tsx.",
+        "2026-06-05: WorklogDndProvider is now mounted in LayoutShell (conditionally on /worklog) so the DndContext spans both the override sidebar AND the page. Worklog-page.tsx no longer mounts its own DndProvider in non-compact mode.",
+        "2026-06-05: Open follow-up sprint — 'worklog-as-landing-page' redesign. /worklog would become a curated home (quick-capture hero, today's notes, stat cards, folder grid, recent list) with the existing 2-pane list+reader relocated to /worklog/notes. Mockup at public/mockups/worklog-landing.html. Three open questions: (1) Today section card vs one-liner, (2) routing /worklog/notes vs ?view=notes, (3) Quick Capture inline-save vs escalate-to-editor.",
+        "2026-06-06: ADR-0014 SHIPPED — /worklog split into two routes: /worklog (home, capture-first) and /worklog/notes (existing 2-pane list+reader, moved verbatim). New (app)/worklog/layout.tsx mounts <FullBleedShell> once for both. Sidebar override (ADR-0013) gates on pathname.startsWith('/worklog') so it covers both routes unchanged.",
+        "2026-06-06: WorklogHomeView composes 5 section components in src/components/worklog/home/: worklog-quick-capture (hero, escalates via router.push to /worklog/notes?focus=<id>), worklog-today-list (one-liner today notes), worklog-stat-cards (streak sparkline / month / notable), worklog-folder-grid (top 8 by recent activity + Templates tile), worklog-recent-list (earlier-this-week one-liners). Home is read-only — no internal state, no URL params consumed.",
+        "2026-06-06: <WorklogActivityWidget> REMOVED from /worklog/notes. Lives only on /worklog home now. Worklog-page.tsx no longer imports it.",
+        "2026-06-06: WorklogNavSidebar now has a 'Home' row (<Link href='/worklog'>, active when pathname === '/worklog'). Filter rows (All notes / Notable / Templates / folders / categories) navigate cross-route to /worklog/notes when clicked from /worklog; when already on /worklog/notes they mutate URL params via useFolderSelection setter. Filter active state suppressed on /worklog (the home page does not represent a filter).",
+        "2026-06-06: New helper exported from use-folder-selection.ts: selectionToQueryString(selection) builds the query-string for a target FolderSelection without binding to current pathname — used for cross-route navigation from the worklog home into /worklog/notes."
       ]
     }
   ],
   "relations": [
-    { "from": "WorklogDomain", "relationType": "depends-on", "to": "JobMapDomain" }
+    { "from": "WorklogDomain", "relationType": "depends-on", "to": "JobMapDomain" },
+    { "from": "WorklogDomain", "relationType": "depends-on", "to": "LayoutShellDomain" }
   ]
 }
+

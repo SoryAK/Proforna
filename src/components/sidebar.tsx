@@ -61,6 +61,7 @@ import { PortalSettingsPanel } from "@/components/portal-settings-panel";
 import { NotificationBell } from "@/components/notification-bell";
 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { WorklogNavSidebar } from "@/components/worklog/worklog-nav-sidebar";
 
 // ---------------------------------------------------------------------------
 // Sidebar collapsed state — shared between AppHeader (hamburger) and Sidebar
@@ -273,14 +274,21 @@ function ThemeToggle() {
 
 /** Desktop sidebar — hidden below md */
 export function Sidebar() {
-  const { collapsed } = useSidebar();
+  const { collapsed, toggle } = useSidebar();
+  const pathname = usePathname();
+
+  // ADR-0013: routes can override the sidebar's contents with their own
+  // section-scoped nav. Collapsed sidebar always falls back to the default
+  // top-level icon nav (escape hatch to other top-level routes).
+  const isWorklog = pathname.startsWith("/worklog");
+  const useWorklogOverride = isWorklog && !collapsed;
 
   return (
     <aside className={cn(
       "hidden md:flex h-full flex-col bg-white dark:bg-gray-950 transition-all duration-200 shadow-[1px_0_0_0_rgb(0_0_0/0.06),4px_0_16px_0_rgb(0_0_0/0.04)] dark:shadow-[1px_0_0_0_rgb(255_255_255/0.05),4px_0_24px_0_rgb(0_0_0/0.4)]",
       collapsed ? "w-16" : "w-72"
     )}>
-      <NavLinks collapsed={collapsed} />
+      {useWorklogOverride ? <WorklogNavSidebar onCollapse={toggle} /> : <NavLinks collapsed={collapsed} />}
 
     </aside>
   );

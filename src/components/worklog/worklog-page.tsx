@@ -21,12 +21,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChevronLeft } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import type { Template, WorkLog } from "@/types/worklog";
-import { CATEGORIES } from "@/components/worklog/constants";
 import { useWorklogData } from "@/components/worklog/hooks/use-worklog-data";
 import { useWorklogMutations } from "@/components/worklog/hooks/use-worklog-mutations";
 import { useWorklogDeepLinks } from "@/components/worklog/hooks/use-worklog-deep-links";
@@ -39,14 +35,11 @@ import {
   WorklogFoldersRail,
   type FolderSelection,
 } from "@/components/worklog/worklog-folders-rail";
-import { WorklogNotesList } from "@/components/worklog/worklog-notes-list";
-import {
-  WorklogNoteReader,
-  type WorklogNoteReaderHandle,
-} from "@/components/worklog/worklog-note-reader";
+import { useFolderSelection } from "@/components/worklog/hooks/use-folder-selection";
+import { WorklogNotesAndReader } from "@/components/worklog/worklog-notes-and-reader";
+import { type WorklogNoteReaderHandle } from "@/components/worklog/worklog-note-reader";
 import { WorklogToolbar } from "@/components/worklog/worklog-toolbar";
 import { WorklogDefaultsDialog } from "@/components/worklog/worklog-defaults-dialog";
-import { WorklogTemplatesTab } from "@/components/worklog/worklog-templates-tab";
 import { WorklogTemplateEditor } from "@/components/worklog/worklog-template-editor";
 import { WorklogTemplatePickerDialog } from "@/components/worklog/worklog-template-picker-dialog";
 import { WorklogSearchPalette } from "@/components/worklog/worklog-search-palette";
@@ -68,7 +61,7 @@ export function WorklogPage({ compact = false }: WorklogPageProps = {}) {
   const listPaneRef = useRef<HTMLDivElement | null>(null);
   const viewPaneRef = useRef<HTMLDivElement | null>(null);
 
-  const [activeFolder, setActiveFolder] = useState<FolderSelection>({ kind: "all" });
+  const [activeFolder, setActiveFolder] = useFolderSelection({ enabled: !compact });
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [search, setSearch] = useState("");
@@ -229,7 +222,7 @@ export function WorklogPage({ compact = false }: WorklogPageProps = {}) {
     <div
       className={cn(
         "flex flex-col bg-background",
-        compact ? "h-[calc(100vh-8rem)] rounded-md border overflow-hidden" : "h-[calc(100vh-4rem)]",
+        compact ? "h-[calc(100vh-8rem)] rounded-md border overflow-hidden" : "h-full",
       )}
     >
       <WorklogToolbar
@@ -268,143 +261,108 @@ export function WorklogPage({ compact = false }: WorklogPageProps = {}) {
         onToggleBulkMode={toggleBulkMode}
       />
 
-      {/* 3-pane grid */}
-      <WorklogDndProvider>
-      <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-[200px_1fr] xl:grid-cols-[220px_320px_1fr]">
-        {/* Folders rail */}
-        <div ref={railPaneRef} data-pane="rail" className="hidden md:block min-h-0 overflow-hidden">
-          <WorklogFoldersRail
-            logs={logs}
-            templatesCount={templates.length}
-            selected={activeFolder}
-            onSelect={(f) => {
-              setActiveFolder(f);
-              setSelectedNoteId(null);
-              setSelectedDate(null);
-              selection.clear();
-              setBulkMode(false);
-            }}
-            onActivate={() => focusPane("list")}
-            selectedDate={selectedDate}
-            onSelectDate={setSelectedDate}
-            streak={streak}
-            totalThisMonth={totalThisMonth}
-            notableCount={notableCount}
-          />
-        </div>
-
-        {/* Middle pane: notes list OR templates list */}
-        <div
-          ref={listPaneRef}
-          data-pane="list"
-          className={cn(
-            "min-h-0 border-r flex flex-col",
-            mobileShowReader && selectedLog ? "hidden md:flex" : "flex",
-          )}
-        >
-          {/* Mobile back button when only middle pane shows but we're navigating between groups */}
-          {inTemplatesView ? (
-            <ScrollArea className="h-full">
-              <div className="p-3">
-                <WorklogTemplatesTab
-                  templates={templates}
-                  positionMap={positionMap}
-                  onApply={applyTemplate}
-                  onEdit={(t) => setEditingTemplate(t)}
-                  onDelete={(id) => deleteTemplate.mutate(id)}
-                  onNew={() =>
-                    setEditingTemplate({
-                      name: "",
-                      defaultCategory: "task",
-                      defaultEquipmentIds: [],
-                      defaultAssetIds: [],
-                    })
-                  }
-                />
-              </div>
-            </ScrollArea>
-          ) : (
-            <WorklogNotesList
-              logs={visibleLogs}
-              selectedId={selectedNoteId}
-              onSelect={(id) => {
-                setSelectedNoteId(id);
-                setMobileShowReader(true);
-              }}
-              onActivate={(id) => {
-                setSelectedNoteId(id);
-                setMobileShowReader(true);
-                // Defer one frame so the reader can mount/update before
-                // we hand focus to its title input.
-                requestAnimationFrame(() => focusPane("view"));
-              }}
-              positionMap={positionMap}
-              loading={loadingLogs}
-              emptyMessage={
-                search
-                  ? "No notes match your search"
-                  : activeFolder.kind === "category"
-                    ? `No ${CATEGORIES[activeFolder.category]?.label.toLowerCase() ?? ""} notes yet`
-                    : activeFolder.kind === "notable"
-                      ? "No notable notes yet"
-                      : "No notes yet"
-              }
-              emptyHint={
-                search ? "Try a different keyword." : "Start a note to capture today’s work."
-              }
-              onNew={!search ? startBlank : undefined}
-              selection={bulkMode ? selection : undefined}
-              sortable={activeFolder.kind === "folder" && !bulkMode}
-            />
-          )}
-        </div>
-
-        {/* Right pane: note reader (hidden in templates view) */}
-        {!inTemplatesView && (
-          <div
-            ref={viewPaneRef}
-            data-pane="view"
-            className={cn(
-              "min-h-0 flex flex-col",
-              mobileShowReader && selectedLog ? "flex" : "hidden xl:flex",
-            )}
-          >
-            {/* Mobile back button */}
-            {mobileShowReader && selectedLog && (
-              <div className="xl:hidden flex items-center gap-2 px-3 py-1.5 border-b">
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => setMobileShowReader(false)}
-                  className="h-7 gap-1"
-                >
-                  <ChevronLeft className="h-3.5 w-3.5" /> Back
-                </Button>
-              </div>
-            )}
-            <div className="flex-1 min-h-0">
-              <WorklogNoteReader
-                ref={readerRef}
-                log={selectedLog}
-                positions={positions}
-                equipment={equipment}
-                assets={assets}
-                positionMap={positionMap}
-                tagSuggestions={tagSuggestions}
-                onUpdate={(patch) => saveLog.mutateAsync(patch)}
-                onDelete={(id) => {
-                  deleteLog.mutate(id);
+      {/* Pane grid.
+          - compact (dashboard embed): 3-pane with rail + own WorklogDndProvider.
+          - full /worklog/notes: 2-pane (notes list + reader); rail moved to
+            global sidebar (ADR-0013); DnD provider lives in LayoutShell so it
+            spans the sidebar AND the page.
+          The middle + right pane bodies are extracted into <WorklogNotesAndReader>
+          so the two layouts share one source of truth. */}
+      {compact ? (
+        <WorklogDndProvider>
+          <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-[200px_1fr] xl:grid-cols-[220px_320px_1fr]">
+            {/* Folders rail (compact embed only) */}
+            <div ref={railPaneRef} data-pane="rail" className="hidden md:block min-h-0 overflow-hidden">
+              <WorklogFoldersRail
+                logs={logs}
+                templatesCount={templates.length}
+                selected={activeFolder}
+                onSelect={(f) => {
+                  setActiveFolder(f);
                   setSelectedNoteId(null);
-                  setMobileShowReader(false);
+                  setSelectedDate(null);
+                  selection.clear();
+                  setBulkMode(false);
                 }}
-                onNew={startBlank}
-                hasLogs={logs.length > 0}
+                onActivate={() => focusPane("list")}
+                selectedDate={selectedDate}
+                onSelectDate={setSelectedDate}
+                streak={streak}
+                totalThisMonth={totalThisMonth}
+                notableCount={notableCount}
               />
             </div>
+
+            <WorklogNotesAndReader
+              listPaneRef={listPaneRef}
+              viewPaneRef={viewPaneRef}
+              readerRef={readerRef}
+              readerVisibleBreakpoint="xl"
+              inTemplatesView={inTemplatesView}
+              mobileShowReader={mobileShowReader}
+              setMobileShowReader={setMobileShowReader}
+              visibleLogs={visibleLogs}
+              selectedNoteId={selectedNoteId}
+              setSelectedNoteId={setSelectedNoteId}
+              loadingLogs={loadingLogs}
+              search={search}
+              activeFolder={activeFolder}
+              positionMap={positionMap}
+              startBlank={startBlank}
+              bulkMode={bulkMode}
+              selection={selection}
+              focusPane={focusPane}
+              templates={templates}
+              applyTemplate={applyTemplate}
+              setEditingTemplate={setEditingTemplate}
+              deleteTemplate={deleteTemplate}
+              selectedLog={selectedLog}
+              positions={positions}
+              equipment={equipment}
+              assets={assets}
+              tagSuggestions={tagSuggestions}
+              saveLog={saveLog}
+              deleteLog={deleteLog}
+              logs={logs}
+            />
           </div>
-        )}
-      </div>
-      </WorklogDndProvider>
+        </WorklogDndProvider>
+      ) : (
+        <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-[320px_1fr]">
+          <WorklogNotesAndReader
+            listPaneRef={listPaneRef}
+            viewPaneRef={viewPaneRef}
+            readerRef={readerRef}
+            readerVisibleBreakpoint="md"
+            inTemplatesView={inTemplatesView}
+            mobileShowReader={mobileShowReader}
+            setMobileShowReader={setMobileShowReader}
+            visibleLogs={visibleLogs}
+            selectedNoteId={selectedNoteId}
+            setSelectedNoteId={setSelectedNoteId}
+            loadingLogs={loadingLogs}
+            search={search}
+            activeFolder={activeFolder}
+            positionMap={positionMap}
+            startBlank={startBlank}
+            bulkMode={bulkMode}
+            selection={selection}
+            focusPane={focusPane}
+            templates={templates}
+            applyTemplate={applyTemplate}
+            setEditingTemplate={setEditingTemplate}
+            deleteTemplate={deleteTemplate}
+            selectedLog={selectedLog}
+            positions={positions}
+            equipment={equipment}
+            assets={assets}
+            tagSuggestions={tagSuggestions}
+            saveLog={saveLog}
+            deleteLog={deleteLog}
+            logs={logs}
+          />
+        </div>
+      )}
 
       <WorklogTemplatePickerDialog
         open={showTemplatePicker}

@@ -149,15 +149,6 @@ const CATEGORY_BAR_COLOR: Record<string, string> = {
   other: "bg-slate-400",
 };
 
-function StatTile({ label, value, accent }: { label: string; value: string; accent?: string }) {
-  return (
-    <div className="rounded-md border bg-background px-2 py-1.5">
-      <div className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium leading-none mb-0.5">{label}</div>
-      <div className={`text-sm font-semibold leading-tight ${accent ?? ""}`}>{value}</div>
-    </div>
-  );
-}
-
 type ViewMode = "grid" | "list" | "table";
 type SortMode = "recent" | "name" | "value-desc" | "proficiency-desc";
 type InventoryUiPrefs = {
@@ -196,7 +187,7 @@ function loadUiPrefs(): InventoryUiPrefs {
       ownership: Array.isArray(raw.ownership) ? raw.ownership.filter((s: unknown): s is string => typeof s === "string") : [],
       tags: Array.isArray(raw.tags) ? raw.tags.filter((s: unknown): s is string => typeof s === "string") : [],
       activeKitId: typeof raw.activeKitId === "string" ? raw.activeKitId : null,
-      filtersOpen: typeof raw.filtersOpen === "boolean" ? raw.filtersOpen : true,
+      filtersOpen: typeof raw.filtersOpen === "boolean" ? raw.filtersOpen : false,
     };
   } catch { return { ...DEFAULT_UI_PREFS }; }
 }
@@ -1844,76 +1835,6 @@ export function PersonalInventory({
         </button>
       </div>
 
-      {/* Stats summary */}
-      {items.length > 0 && (
-        <div className="rounded-lg border bg-muted/30 p-3 space-y-2.5">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            <StatTile label="Items" value={items.length.toString()} accent="text-foreground" />
-            <StatTile
-              label="Est. value"
-              value={totalValue > 0 ? `$${totalValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "—"}
-              accent="text-emerald-600"
-            />
-            <StatTile
-              label="Public / Private"
-              value={`${stats.publicCount} / ${stats.privateCount}`}
-              accent="text-foreground"
-            />
-            <StatTile
-              label="With photos"
-              value={`${stats.withPhotos}/${items.length}`}
-              accent={stats.withPhotos === items.length ? "text-emerald-600" : "text-muted-foreground"}
-            />
-          </div>
-
-          {/* Category sparkbar */}
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">By category</span>
-              {stats.avgProficiency !== null && (
-                <span className="text-[10px] text-muted-foreground">
-                  Avg proficiency: <span className="font-medium text-foreground">{stats.avgProficiency.toFixed(1)}/5</span>
-                </span>
-              )}
-            </div>
-            <div className="flex h-2 w-full overflow-hidden rounded-full bg-background border">
-              {CATEGORIES.map((c) => {
-                const n = categoryCounts[c] ?? 0;
-                if (n === 0) return null;
-                const pct = (n / items.length) * 100;
-                return (
-                  <div
-                    key={c}
-                    className={CATEGORY_BAR_COLOR[c] ?? "bg-slate-400"}
-                    style={{ width: `${pct}%` }}
-                    title={`${CATEGORY_LABELS[c]}: ${n}`}
-                  />
-                );
-              })}
-            </div>
-            <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1.5">
-              {CATEGORIES.map((c) => {
-                const n = categoryCounts[c] ?? 0;
-                if (n === 0) return null;
-                return (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => setFilterCategory(filterCategory === c ? "all" : c)}
-                    className={`flex items-center gap-1 text-[10px] transition-opacity ${filterCategory !== "all" && filterCategory !== c ? "opacity-40" : ""} hover:opacity-100`}
-                    title={`Filter by ${CATEGORY_LABELS[c]}`}
-                  >
-                    <span className={`block h-2 w-2 rounded-sm ${CATEGORY_BAR_COLOR[c] ?? "bg-slate-400"}`} />
-                    <span className="text-muted-foreground">{CATEGORY_LABELS[c]}</span>
-                    <span className="font-medium text-foreground">{n}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Filters */}
       <div className="space-y-2">
         <div className="flex flex-wrap items-center gap-2">
@@ -1994,7 +1915,7 @@ export function PersonalInventory({
 
           {/* Filters toggle */}
           {(() => {
-            const filtersOpen = uiPrefs.filtersOpen ?? true;
+            const filtersOpen = uiPrefs.filtersOpen ?? false;
             const activeCount =
               uiPrefs.categories.length +
               uiPrefs.ownership.length +
@@ -2006,7 +1927,7 @@ export function PersonalInventory({
                 size="sm"
                 variant={filtersOpen ? "default" : "outline"}
                 className="h-9"
-                onClick={() => setUiPrefs((p) => ({ ...p, filtersOpen: !(p.filtersOpen ?? true) }))}
+                onClick={() => setUiPrefs((p) => ({ ...p, filtersOpen: !(p.filtersOpen ?? false) }))}
                 title={filtersOpen ? "Hide filters" : "Show filters"}
               >
                 <SlidersHorizontal className="h-3 w-3 mr-1" />
@@ -2023,7 +1944,7 @@ export function PersonalInventory({
         </div>
 
         {/* Chip strip — categories + ownership multi-select */}
-        {(uiPrefs.filtersOpen ?? true) && (
+        {(uiPrefs.filtersOpen ?? false) && (
         <div className="flex flex-wrap gap-1">
           {CATEGORIES.map((c) => {
             const active = uiPrefs.categories.includes(c);
@@ -2086,7 +2007,7 @@ export function PersonalInventory({
         )}
 
         {/* Kits chips (only when kits exist) */}
-        {(uiPrefs.filtersOpen ?? true) && kits.length > 0 && (
+        {(uiPrefs.filtersOpen ?? false) && kits.length > 0 && (
           <div className="flex flex-wrap gap-1 items-center">
             <span className="text-[10px] uppercase tracking-wide text-muted-foreground self-center mr-1">Kits</span>
             {kits.map((k) => {
@@ -2131,7 +2052,7 @@ export function PersonalInventory({
         )}
 
         {/* Tag chips (only render when tags exist) */}
-        {(uiPrefs.filtersOpen ?? true) && Object.keys(tagCounts).length > 0 && (
+        {(uiPrefs.filtersOpen ?? false) && Object.keys(tagCounts).length > 0 && (
           <div className="flex flex-wrap gap-1">
             <span className="text-[10px] uppercase tracking-wide text-muted-foreground self-center mr-1">Tags</span>
             {Object.entries(tagCounts)
@@ -2720,7 +2641,7 @@ export function PersonalInventory({
             }
             // Default: grid (e-commerce style product cards)
             return (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 sm:gap-4">
                 {arr.map((item) => {
                   const cover = item.photos.find((p) => p.isCover) ?? item.photos[0];
                   const isSel = selected.has(item.id);
@@ -2763,13 +2684,24 @@ export function PersonalInventory({
                           </div>
                         )}
 
-                        {/* Top-left: select checkbox */}
+                        {/* Top-left: floating category chip (fades when hovered/selected to make room for the checkbox) */}
+                        <span
+                          className={`absolute top-2 left-2 z-10 inline-flex items-center gap-1.5 rounded-full bg-black/55 backdrop-blur px-2 py-0.5 text-[10px] font-medium text-white/95 ring-1 ring-white/15 transition-opacity ${
+                            isSel || isHovered ? "opacity-0 pointer-events-none" : "opacity-100"
+                          }`}
+                          aria-hidden
+                        >
+                          <span className={`inline-block h-1.5 w-1.5 rounded-full ${CATEGORY_BAR_COLOR[item.category] ?? "bg-slate-400"}`} />
+                          {CATEGORY_LABELS[item.category]}
+                        </span>
+
+                        {/* Top-left: select checkbox (overlays the category chip on hover/selection) */}
                         <input
                           type="checkbox"
                           checked={isSel}
                           onChange={() => toggleSelect(item.id)}
                           onClick={(e) => e.stopPropagation()}
-                          className={`absolute top-2 left-2 z-10 h-4 w-4 cursor-pointer rounded bg-background/90 ring-1 ring-border ${isSel || isHovered ? "opacity-100" : "opacity-0"} transition-opacity`}
+                          className={`absolute top-2 left-2 z-20 h-4 w-4 cursor-pointer rounded bg-background/90 ring-1 ring-border ${isSel || isHovered ? "opacity-100" : "opacity-0"} transition-opacity`}
                           aria-label={`Select ${item.name}`}
                         />
 
@@ -2787,8 +2719,8 @@ export function PersonalInventory({
                           {item.isPrivate ? <Lock className="h-3.5 w-3.5" /> : <Unlock className="h-3.5 w-3.5" />}
                         </button>
 
-                        {/* Bottom-right corner badges */}
-                        <div className="absolute top-2 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1">
+                        {/* Top-center: needs-details ribbon */}
+                        <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-1">
                           {item.isDraft && (
                             <button
                               type="button"
@@ -2800,6 +2732,43 @@ export function PersonalInventory({
                             </button>
                           )}
                         </div>
+
+                        {/* Bottom-left: proficiency star ribbon (only when set) */}
+                        {item.proficiency != null && (
+                          <span
+                            className="absolute bottom-2 left-2 z-10 inline-flex items-center gap-1 rounded-full bg-black/55 backdrop-blur px-2 py-0.5 text-[10px] font-medium text-white/95 ring-1 ring-white/15"
+                            title={`Skill ${item.proficiency}/5`}
+                          >
+                            <Star className="h-2.5 w-2.5 fill-orange-400 text-orange-400" />
+                            {item.proficiency}/5
+                          </span>
+                        )}
+
+                        {/* Bottom-right: condition + ownership stack (only non-default values) */}
+                        {(item.condition !== "good" || item.ownership !== "personal") && (
+                          <div className="absolute bottom-2 right-2 z-10 flex flex-col items-end gap-1">
+                            {item.condition !== "good" && (
+                              <span className="rounded-full ring-1 ring-black/30 shadow-md">
+                                <ConditionBadge
+                                  item={item}
+                                  open={inlinePopover?.itemId === item.id && inlinePopover.field === "condition"}
+                                  onOpen={() => setInlinePopover({ itemId: item.id, field: "condition" })}
+                                  onSelect={(v) => inlinePatch(item.id, "condition", v)}
+                                />
+                              </span>
+                            )}
+                            {item.ownership !== "personal" && (
+                              <span className="rounded-full ring-1 ring-black/30 shadow-md">
+                                <OwnershipBadge
+                                  item={item}
+                                  open={inlinePopover?.itemId === item.id && inlinePopover.field === "ownership"}
+                                  onOpen={() => setInlinePopover({ itemId: item.id, field: "ownership" })}
+                                  onSelect={(v) => inlinePatch(item.id, "ownership", v)}
+                                />
+                              </span>
+                            )}
+                          </div>
+                        )}
 
                         {/* Hover action bar */}
                         <div className={`absolute bottom-1.5 right-1.5 left-1.5 z-20 flex items-center justify-end gap-0.5 rounded-full bg-black/65 backdrop-blur-sm ring-1 ring-white/15 px-1 py-0.5 shadow-lg transition-opacity ${isHovered ? "opacity-100" : "opacity-0 pointer-events-none"}`}>
@@ -2870,89 +2839,27 @@ export function PersonalInventory({
                         </div>
                       </div>
 
-                      {/* Info area */}
-                      <div className="p-3 space-y-2">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0 flex-1">
-                            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium flex items-center gap-1.5">
-                              <span className={`inline-block h-1.5 w-1.5 rounded-full ${CATEGORY_BAR_COLOR[item.category] ?? "bg-slate-400"}`} />
-                              {CATEGORY_LABELS[item.category]}
+                      {/* Info area: name + manufacturer/model on the left, price on the right */}
+                      <div className="p-3 flex items-end justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <h3 className="text-sm font-semibold leading-snug truncate">
+                            <Highlight text={item.name} query={search} />
+                          </h3>
+                          {subtitle && (
+                            <p className="text-[11px] text-muted-foreground truncate mt-0.5">
+                              <Highlight text={subtitle} query={search} />
                             </p>
-                            <h3 className="text-sm font-semibold leading-snug truncate mt-0.5">
-                              <Highlight text={item.name} query={search} />
-                            </h3>
-                            {subtitle && (
-                              <p className="text-[11px] text-muted-foreground truncate">
-                                <Highlight text={subtitle} query={search} />
-                              </p>
-                            )}
-                          </div>
-                          {price != null && (
-                            <div className="text-right shrink-0">
-                              <p className="text-sm font-semibold tabular-nums">
-                                ${Number(price).toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                              </p>
-                              {item.currentValue != null && item.purchasePrice != null && item.currentValue !== item.purchasePrice && (
-                                <p className="text-[10px] text-muted-foreground line-through tabular-nums">
-                                  ${Number(item.purchasePrice).toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                                </p>
-                              )}
-                            </div>
                           )}
                         </div>
-
-                        {/* Proficiency dots + condition pill */}
-                        <div className="flex items-center justify-between gap-2">
-                          {item.proficiency ? (
-                            <div className="flex items-center gap-0.5" title={`Skill ${item.proficiency}/5`}>
-                              {[1, 2, 3, 4, 5].map((n) => (
-                                <span
-                                  key={n}
-                                  className={`h-1.5 w-1.5 rounded-full ${n <= (item.proficiency ?? 0) ? "bg-orange-500" : "bg-muted"}`}
-                                />
-                              ))}
-                            </div>
-                          ) : (
-                            <span className="text-[10px] text-muted-foreground/60">—</span>
-                          )}
-                          <div className="flex items-center gap-1">
-                            <ConditionBadge
-                              item={item}
-                              open={inlinePopover?.itemId === item.id && inlinePopover.field === "condition"}
-                              onOpen={() => setInlinePopover({ itemId: item.id, field: "condition" })}
-                              onSelect={(v) => inlinePatch(item.id, "condition", v)}
-                            />
-                            <OwnershipBadge
-                              item={item}
-                              open={inlinePopover?.itemId === item.id && inlinePopover.field === "ownership"}
-                              onOpen={() => setInlinePopover({ itemId: item.id, field: "ownership" })}
-                              onSelect={(v) => inlinePatch(item.id, "ownership", v)}
-                            />
-                          </div>
-                        </div>
-
-                        {/* Optional meta row: location / serial */}
-                        {(item.location || item.serialNumber) && (
-                          <div className="flex items-center gap-2 text-[10px] text-muted-foreground truncate">
-                            {item.location && (
-                              <span className="truncate">📍 {item.location}</span>
-                            )}
-                            {item.serialNumber && (
-                              <span className="font-mono truncate">SN: {item.serialNumber}</span>
-                            )}
-                          </div>
-                        )}
-
-                        {/* Tags row (compact) */}
-                        {(item.tags ?? []).length > 0 && (
-                          <div className="flex flex-wrap gap-1 pt-0.5">
-                            {(item.tags ?? []).slice(0, 3).map((t) => (
-                              <span key={t} className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-cyan-500/10 text-cyan-600 text-[10px]">
-                                <Tag className="h-2 w-2" />{t}
-                              </span>
-                            ))}
-                            {(item.tags ?? []).length > 3 && (
-                              <span className="text-[10px] text-muted-foreground">+{(item.tags ?? []).length - 3}</span>
+                        {price != null && (
+                          <div className="text-right shrink-0">
+                            <p className="text-base font-bold tabular-nums leading-tight">
+                              ${Number(price).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                            </p>
+                            {item.currentValue != null && item.purchasePrice != null && item.currentValue !== item.purchasePrice && (
+                              <p className="text-[10px] text-muted-foreground line-through tabular-nums">
+                                ${Number(item.purchasePrice).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                              </p>
                             )}
                           </div>
                         )}

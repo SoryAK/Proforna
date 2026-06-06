@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Worklog Landing — Mockup</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { darkMode: "class", theme: { extend: { fontFamily: { sans: ["ui-sans-serif", "system-ui", "Inter", "sans-serif"] } } } };
+  </script>
+  <style>
+    :root { color-scheme: dark; }
+    body { background:#0a0a0a; color:#e5e5e5; font-family:ui-sans-serif,system-ui,"Inter",sans-serif; }
+    .surface-1 { background:#0f0f10; }
+    .surface-2 { background:#161618; }
+    .surface-3 { background:#1c1c1f; }
+    .border-subtle { border-color: rgba(255,255,255,0.08); }
+    .border-soft   { border-color: rgba(255,255,255,0.12); }
+    .accent { color:#fb923c; }
+    .accent-bg { background: rgba(251,146,60,0.12); }
+    .scrollbar-thin::-webkit-scrollbar { width:6px; }
+    .scrollbar-thin::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.12); border-radius:9999px; }
+  </style>
+</head>
+<body class="min-h-screen">
+
+<div class="px-8 py-6 border-b border-subtle">
+  <h1 class="text-2xl font-bold">Worklog · Landing Mockup</h1>
+  <p class="text-sm text-neutral-400 mt-1 max-w-3xl">
+    Read A — `/worklog` becomes a <strong>curated home</strong>. Quick-capture is the front door.
+    Today's work, streak, recent notes, and folder shortcuts are surfaced as cards.
+    The current 2-pane list+reader still exists, but it's a deep-view at <code class="text-orange-300">/worklog/notes</code>
+    reached via "View all notes."
+  </p>
+</div>
+
+<!-- ════════════════════ APP FRAME ════════════════════ -->
+<section class="px-6 py-6">
+  <div class="rounded-lg overflow-hidden border border-soft surface-1" style="height: 920px;">
+
+    <!-- Top bar -->
+    <div class="h-12 flex items-center justify-between px-4 border-b border-subtle surface-2">
+      <div class="flex items-center gap-3">
+        <button class="w-7 h-7 grid place-items-center rounded hover:bg-white/5"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
+        <div class="flex items-center gap-1.5"><div class="w-5 h-5 rounded bg-gradient-to-br from-orange-500 to-purple-600"></div><span class="font-bold text-sm">Resumsify</span></div>
+      </div>
+      <div class="flex-1 max-w-md mx-6">
+        <div class="h-7 rounded bg-white/5 border border-subtle px-2 flex items-center gap-2 text-xs text-neutral-500">
+          <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          Search everything…
+        </div>
+      </div>
+      <div class="w-7 h-7 rounded-full bg-gradient-to-br from-orange-500 to-purple-600 grid place-items-center text-[10px] font-bold">SK</div>
+    </div>
+
+    <!-- Body: sidebar + main -->
+    <div class="flex" style="height: calc(100% - 3rem);">
+
+      <!-- Sidebar (worklog override from previous step) -->
+      <aside class="w-60 shrink-0 border-r border-subtle surface-2 overflow-y-auto scrollbar-thin">
+        <div class="px-3 py-2.5 flex items-center gap-2 border-b border-subtle">
+          <button class="w-6 h-6 grid place-items-center rounded hover:bg-white/5" title="Back to top-level"><svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></button>
+          <div class="flex items-center gap-1.5"><svg class="w-4 h-4 accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span class="text-sm font-semibold">Worklog</span></div>
+        </div>
+        <nav class="px-1 py-2 text-sm">
+          <a href="#" class="flex items-center gap-2 px-2 py-1.5 rounded accent-bg text-orange-300 font-medium"><svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>Home</a>
+          <a href="#" class="flex items-center justify-between px-2 py-1.5 rounded hover:bg-white/5"><span class="flex items-center gap-2"><svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>All notes</span><span class="text-xs text-neutral-400">42</span></a>
+          <a href="#" class="flex items-center justify-between px-2 py-1.5 rounded hover:bg-white/5"><span class="flex items-center gap-2"><svg class="w-3.5 h-3.5 text-amber-400" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15 9 22 9 17 14 19 22 12 18 5 22 7 14 2 9 9 9"/></svg>Notable</span><span class="text-xs text-neutral-400">7</span></a>
+          <a href="#" class="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-white/5"><svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3z"/></svg>Templates</a>
+
+          <div class="text-[10px] font-semibold uppercase tracking-wider text-neutral-500 px-2 pt-3 pb-1 flex items-center justify-between"><span>Folders</span><span class="text-neutral-400 cursor-pointer">+</span></div>
+          <a href="#" class="flex items-center justify-between px-2 py-1.5 rounded hover:bg-white/5"><span class="flex items-center gap-2"><svg class="w-3.5 h-3.5 text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>Field-Kit</span><span class="text-xs text-neutral-400">12</span></a>
+          <a href="#" class="flex items-center justify-between px-2 py-1.5 rounded hover:bg-white/5"><span class="flex items-center gap-2"><svg class="w-3.5 h-3.5 text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>Studio Sessions</span><span class="text-xs text-neutral-400">8</span></a>
+          <a href="#" class="flex items-center justify-between px-2 py-1.5 rounded hover:bg-white/5"><span class="flex items-center gap-2"><svg class="w-3.5 h-3.5 text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>Resume Wins</span><span class="text-xs text-neutral-400">15</span></a>
+
+          <div class="text-[10px] font-semibold uppercase tracking-wider text-neutral-500 px-2 pt-3 pb-1">Categories</div>
+          <a href="#" class="flex items-center justify-between px-2 py-1.5 rounded hover:bg-white/5"><span class="flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>Wins</span><span class="text-xs text-neutral-400">11</span></a>
+          <a href="#" class="flex items-center justify-between px-2 py-1.5 rounded hover:bg-white/5"><span class="flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span>Blockers</span><span class="text-xs text-neutral-400">4</span></a>
+          <a href="#" class="flex items-center justify-between px-2 py-1.5 rounded hover:bg-white/5"><span class="flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-sky-400"></span>Learnings</span><span class="text-xs text-neutral-400">9</span></a>
+        </nav>
+      </aside>
+
+      <!-- ════ MAIN — landing canvas ════ -->
+      <main class="flex-1 overflow-y-auto scrollbar-thin">
+        <div class="max-w-6xl mx-auto px-6 py-6 space-y-6">
+
+          <!-- Greeting + summary line -->
+          <header>
+            <h1 class="text-3xl font-semibold">Friday, June 5</h1>
+            <p class="text-sm text-neutral-400 mt-1">5-day streak · 27 notes this month · 7 notable</p>
+          </header>
+
+          <!-- ════ Quick Capture (the hero) ════ -->
+          <section class="rounded-xl border border-soft bg-gradient-to-br from-orange-500/[0.06] to-transparent p-5">
+            <div class="flex items-center gap-2 mb-3">
+              <svg class="w-4 h-4 text-orange-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 19 7-7 3 3-7 7-3-3z"/><path d="m18 13-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/></svg>
+              <span class="text-sm font-semibold">Capture</span>
+              <span class="text-xs text-neutral-500">⌘N to start a full note</span>
+            </div>
+            <input class="w-full bg-transparent text-2xl placeholder:text-neutral-600 focus:outline-none" placeholder="What did you work on?" />
+            <div class="flex items-center justify-between mt-3 pt-3 border-t border-subtle">
+              <div class="flex items-center gap-2 text-xs text-neutral-400">
+                <button class="px-2 py-1 rounded bg-white/5 hover:bg-white/10 flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>Win</button>
+                <button class="px-2 py-1 rounded bg-white/5 hover:bg-white/10 flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span>Blocker</button>
+                <button class="px-2 py-1 rounded bg-white/5 hover:bg-white/10 flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-sky-400"></span>Learning</button>
+                <button class="px-2 py-1 rounded text-neutral-500 hover:text-neutral-300">+ tag</button>
+              </div>
+              <div class="flex items-center gap-2">
+                <button class="text-xs text-neutral-400 hover:text-neutral-200">Templates</button>
+                <button class="text-xs px-3 py-1 rounded bg-orange-500 text-white font-medium hover:bg-orange-600">Save</button>
+              </div>
+            </div>
+          </section>
+
+          <!-- ════ Today's notes (inline, expandable) ════ -->
+          <section>
+            <div class="flex items-center justify-between mb-3">
+              <h2 class="text-sm font-semibold uppercase tracking-wider text-neutral-400">Today</h2>
+              <span class="text-xs text-neutral-500">3 notes</span>
+            </div>
+            <div class="space-y-1.5">
+              <div class="rounded-lg border border-subtle hover:border-soft transition-colors surface-2 p-4 cursor-pointer">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                    <span class="text-sm font-medium">Shipped folder DnD</span>
+                    <svg class="w-3 h-3 text-amber-400 fill-current" viewBox="0 0 24 24"><polygon points="12 2 15 9 22 9 17 14 19 22 12 18 5 22 7 14 2 9 9 9"/></svg>
+                  </div>
+                  <span class="text-[10px] text-neutral-500">2h ago</span>
+                </div>
+                <p class="text-sm text-neutral-400 mt-1.5 leading-relaxed">Cleaned up the move picker, added optimistic dnd-kit reorder on the documents folder tree. Cascade-delete now lives behind a confirmation that names what gets moved.</p>
+              </div>
+              <div class="rounded-lg border border-subtle hover:border-soft transition-colors surface-2 p-4 cursor-pointer">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <span class="w-1.5 h-1.5 rounded-full bg-sky-400"></span>
+                    <span class="text-sm font-medium">Pattern X is the right call for /worklog</span>
+                  </div>
+                  <span class="text-[10px] text-neutral-500">4h ago</span>
+                </div>
+                <p class="text-sm text-neutral-400 mt-1.5 leading-relaxed">Folders + categories aren't *feature UI* — they're navigation. Moving them into the global sidebar reclaimed ~220px of editor space without losing power.</p>
+              </div>
+              <div class="rounded-lg border border-subtle hover:border-soft transition-colors surface-2 p-4 cursor-pointer">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <span class="w-1.5 h-1.5 rounded-full bg-violet-400"></span>
+                    <span class="text-sm font-medium">Design call: do not switch memory tooling mid-sprint</span>
+                  </div>
+                  <span class="text-[10px] text-neutral-500">5h ago</span>
+                </div>
+                <p class="text-sm text-neutral-400 mt-1.5 leading-relaxed">MemPalace and Open Notebook both parked. ADHD watch fired twice. Right play was the supervisor restart, not a stack swap.</p>
+              </div>
+            </div>
+          </section>
+
+          <!-- ════ Two-column: Streak + Quick links ════ -->
+          <section class="grid grid-cols-3 gap-4">
+            <!-- Streak card -->
+            <div class="rounded-xl border border-soft surface-2 p-4">
+              <div class="flex items-center justify-between mb-3">
+                <h3 class="text-sm font-semibold flex items-center gap-1.5">
+                  <svg class="w-4 h-4 text-orange-400" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L3 14h7l-1 8 10-12h-7z"/></svg>
+                  5-day streak
+                </h3>
+                <span class="text-[10px] text-neutral-500">14 of 21 days</span>
+              </div>
+              <div class="flex gap-0.5">
+                <div class="h-5 flex-1 rounded-sm bg-white/5"></div>
+                <div class="h-5 flex-1 rounded-sm bg-orange-500/30"></div>
+                <div class="h-5 flex-1 rounded-sm bg-orange-500/50"></div>
+                <div class="h-5 flex-1 rounded-sm bg-white/5"></div>
+                <div class="h-5 flex-1 rounded-sm bg-orange-500/40"></div>
+                <div class="h-5 flex-1 rounded-sm bg-orange-500/70"></div>
+                <div class="h-5 flex-1 rounded-sm bg-orange-500/90"></div>
+                <div class="h-5 flex-1 rounded-sm bg-orange-500/30"></div>
+                <div class="h-5 flex-1 rounded-sm bg-white/5"></div>
+                <div class="h-5 flex-1 rounded-sm bg-orange-500/60"></div>
+                <div class="h-5 flex-1 rounded-sm bg-orange-500/40"></div>
+                <div class="h-5 flex-1 rounded-sm bg-orange-500/80"></div>
+                <div class="h-5 flex-1 rounded-sm bg-orange-500 ring-1 ring-orange-300"></div>
+                <div class="h-5 flex-1 rounded-sm bg-white/5"></div>
+              </div>
+              <button class="mt-3 text-xs text-orange-300 hover:text-orange-200 flex items-center gap-1">View 12-week activity →</button>
+            </div>
+
+            <!-- This month -->
+            <div class="rounded-xl border border-soft surface-2 p-4">
+              <h3 class="text-sm font-semibold flex items-center gap-1.5 mb-3">
+                <svg class="w-4 h-4 text-neutral-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/></svg>
+                This month
+              </h3>
+              <div class="text-3xl font-bold tabular-nums">27</div>
+              <div class="text-xs text-neutral-400 mt-1">notes captured · 8 categories</div>
+              <div class="mt-3 flex gap-2">
+                <span class="px-2 py-0.5 rounded text-[10px] bg-emerald-500/15 text-emerald-400">11 wins</span>
+                <span class="px-2 py-0.5 rounded text-[10px] bg-sky-500/15 text-sky-400">9 learnings</span>
+                <span class="px-2 py-0.5 rounded text-[10px] bg-rose-500/15 text-rose-400">4 blockers</span>
+              </div>
+            </div>
+
+            <!-- Notable -->
+            <div class="rounded-xl border border-soft surface-2 p-4">
+              <h3 class="text-sm font-semibold flex items-center gap-1.5 mb-3">
+                <svg class="w-4 h-4 text-amber-400 fill-current" viewBox="0 0 24 24"><polygon points="12 2 15 9 22 9 17 14 19 22 12 18 5 22 7 14 2 9 9 9"/></svg>
+                Notable
+              </h3>
+              <div class="text-3xl font-bold tabular-nums">7</div>
+              <div class="text-xs text-neutral-400 mt-1">ready to promote to your resume</div>
+              <button class="mt-3 text-xs text-orange-300 hover:text-orange-200 flex items-center gap-1">Review notable notes →</button>
+            </div>
+          </section>
+
+          <!-- ════ Folders quick-grid ════ -->
+          <section>
+            <div class="flex items-center justify-between mb-3">
+              <h2 class="text-sm font-semibold uppercase tracking-wider text-neutral-400">Folders</h2>
+              <a href="#" class="text-xs text-neutral-400 hover:text-neutral-200 flex items-center gap-1">Manage <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a>
+            </div>
+            <div class="grid grid-cols-4 gap-3">
+              <a href="#" class="group rounded-lg border border-subtle hover:border-blue-500/50 hover:bg-blue-500/5 transition-colors p-3 flex items-center gap-3">
+                <div class="w-10 h-10 rounded-lg bg-blue-500/15 grid place-items-center"><svg class="w-5 h-5 text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></div>
+                <div class="flex-1 min-w-0">
+                  <div class="text-sm font-medium truncate">Field-Kit</div>
+                  <div class="text-[10px] text-neutral-500">12 notes</div>
+                </div>
+              </a>
+              <a href="#" class="group rounded-lg border border-subtle hover:border-blue-500/50 hover:bg-blue-500/5 transition-colors p-3 flex items-center gap-3">
+                <div class="w-10 h-10 rounded-lg bg-blue-500/15 grid place-items-center"><svg class="w-5 h-5 text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></div>
+                <div class="flex-1 min-w-0"><div class="text-sm font-medium truncate">Studio Sessions</div><div class="text-[10px] text-neutral-500">8 notes</div></div>
+              </a>
+              <a href="#" class="group rounded-lg border border-subtle hover:border-blue-500/50 hover:bg-blue-500/5 transition-colors p-3 flex items-center gap-3">
+                <div class="w-10 h-10 rounded-lg bg-blue-500/15 grid place-items-center"><svg class="w-5 h-5 text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></div>
+                <div class="flex-1 min-w-0"><div class="text-sm font-medium truncate">Resume Wins</div><div class="text-[10px] text-neutral-500">15 notes</div></div>
+              </a>
+              <a href="#" class="group rounded-lg border border-subtle hover:border-purple-500/50 hover:bg-purple-500/5 transition-colors p-3 flex items-center gap-3">
+                <div class="w-10 h-10 rounded-lg bg-purple-500/15 grid place-items-center"><svg class="w-5 h-5 text-purple-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3z"/></svg></div>
+                <div class="flex-1 min-w-0"><div class="text-sm font-medium truncate">Templates</div><div class="text-[10px] text-neutral-500">5 templates</div></div>
+              </a>
+            </div>
+          </section>
+
+          <!-- ════ Recent (compact list) ════ -->
+          <section>
+            <div class="flex items-center justify-between mb-3">
+              <h2 class="text-sm font-semibold uppercase tracking-wider text-neutral-400">Earlier this week</h2>
+              <a href="#" class="text-xs text-orange-300 hover:text-orange-200 flex items-center gap-1">View all notes <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a>
+            </div>
+            <div class="rounded-lg border border-subtle surface-2 divide-y divide-white/[0.05]">
+              <a href="#" class="flex items-center justify-between px-4 py-2.5 hover:bg-white/[0.02]">
+                <div class="flex items-center gap-2 min-w-0">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
+                  <span class="text-sm font-medium truncate">Reviewed Q2 OKRs with manager</span>
+                  <span class="text-xs text-neutral-500 truncate">— Aligned on three tracks. Need to write up by Friday.</span>
+                </div>
+                <span class="text-[10px] text-neutral-500 shrink-0 ml-3">Yesterday</span>
+              </a>
+              <a href="#" class="flex items-center justify-between px-4 py-2.5 hover:bg-white/[0.02]">
+                <div class="flex items-center gap-2 min-w-0">
+                  <span class="w-1.5 h-1.5 rounded-full bg-sky-400 shrink-0"></span>
+                  <span class="text-sm font-medium truncate">Tiptap collab pairing</span>
+                  <span class="text-xs text-neutral-500 truncate">— Y.js network provider trade-offs explored.</span>
+                </div>
+                <span class="text-[10px] text-neutral-500 shrink-0 ml-3">2d</span>
+              </a>
+              <a href="#" class="flex items-center justify-between px-4 py-2.5 hover:bg-white/[0.02]">
+                <div class="flex items-center gap-2 min-w-0">
+                  <span class="w-1.5 h-1.5 rounded-full bg-violet-400 shrink-0"></span>
+                  <span class="text-sm font-medium truncate">Prisma v6 migration: zero-downtime path</span>
+                  <span class="text-xs text-neutral-500 truncate">— Shadow-table swap worked locally; needs replay test.</span>
+                </div>
+                <span class="text-[10px] text-neutral-500 shrink-0 ml-3">3d</span>
+              </a>
+              <a href="#" class="flex items-center justify-between px-4 py-2.5 hover:bg-white/[0.02]">
+                <div class="flex items-center gap-2 min-w-0">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
+                  <span class="text-sm font-medium truncate">Studio session: rough mix</span>
+                  <span class="text-xs text-neutral-500 truncate">— Drum bus comp settled. Need to revisit vocal verb tail.</span>
+                </div>
+                <span class="text-[10px] text-neutral-500 shrink-0 ml-3">May 28</span>
+              </a>
+              <a href="#" class="flex items-center justify-between px-4 py-2.5 hover:bg-white/[0.02]">
+                <div class="flex items-center gap-2 min-w-0">
+                  <span class="w-1.5 h-1.5 rounded-full bg-rose-400 shrink-0"></span>
+                  <span class="text-sm font-medium truncate">Blocker: Vercel build OOM on inventory route</span>
+                  <span class="text-xs text-neutral-500 truncate">— Likely Turbopack image opt regression. Filed.</span>
+                </div>
+                <span class="text-[10px] text-neutral-500 shrink-0 ml-3">May 27</span>
+              </a>
+            </div>
+          </section>
+
+        </div>
+      </main>
+    </div>
+  </div>
+</section>
+
+<!-- Notes about the design -->
+<div class="px-8 py-8 border-t border-subtle space-y-3 max-w-4xl">
+  <h3 class="text-sm font-semibold">Design notes</h3>
+  <ul class="text-sm text-neutral-300 space-y-2 list-disc list-inside">
+    <li><strong class="text-neutral-100">Hero = Quick Capture.</strong> The single most-used action is "I want to log a thought right now." It owns the top of the page.</li>
+    <li><strong class="text-neutral-100">Today section</strong> is the inline reading surface — full text of recent notes, tappable to expand into the editor. No empty pane staring at you.</li>
+    <li><strong class="text-neutral-100">Stat cards</strong> are click-through: streak → opens 12-week heatmap modal; this-month → goes to filtered list; notable → goes to notable list. Same callbacks as today's stats strip, just bigger surfaces.</li>
+    <li><strong class="text-neutral-100">Folders grid</strong> replaces the rail's "Folders" group as a click-through entry. Sidebar still has the full folder tree for quick switching while you're working.</li>
+    <li><strong class="text-neutral-100">"View all notes"</strong> goes to <code class="text-orange-300">/worklog/notes</code> — that's where the existing 2-pane list+reader lives. The detailed scan-and-edit view is preserved, just relocated.</li>
+    <li><strong class="text-neutral-100">Sidebar</strong> stays the override version we just shipped; only "Home" is now an active row alongside All notes / Notable / Templates.</li>
+    <li>Notable star, category dot color, time-ago all reuse existing tokens — nothing new from <code>tokens.md</code>.</li>
+  </ul>
+
+  <h3 class="text-sm font-semibold mt-5">Open questions for you</h3>
+  <ol class="text-sm text-neutral-300 space-y-1 list-decimal list-inside">
+    <li>Does the "Today" inline cards section feel right, or do you want a tighter one-liner list there?</li>
+    <li>Routing: <code class="text-orange-300">/worklog</code> = home, <code class="text-orange-300">/worklog/notes</code> = current 2-pane — OK or different shape?</li>
+    <li>Quick Capture: stay inline (Save adds today's entry), or open into a modal/full editor on Save?</li>
+  </ol>
+</div>
+
+</body>
+</html>

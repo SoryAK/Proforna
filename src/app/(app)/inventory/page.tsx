@@ -6,7 +6,7 @@ export const metadata = {
 
 export default function InventoryPage() {
   return (
-    <div className="container mx-auto p-4 max-w-6xl">
+    <div className="space-y-4">
       <PersonalInventory />
     </div>
   );

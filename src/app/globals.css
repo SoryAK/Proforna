@@ -128,6 +128,14 @@
   }
 }
 
+/* Full-bleed pages opt out of LayoutShell's default padding/centering wrapper.
+   Triggered by <FullBleedShell> setting data-fullbleed="" on the closest <main>. */
+main[data-fullbleed] > .layout-shell-content {
+  padding: 0;
+  max-width: none;
+  height: 100%;
+}
+
 /* Rounded thin scrollbar — visible on hover only */
 .scrollbar-thin {
   scrollbar-width: thin;

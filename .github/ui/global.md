@@ -104,6 +104,56 @@ Clear button:   ml-auto text-muted-foreground hover:text-foreground  (× charact
 - Footer layout: `flex justify-end gap-2` — Cancel left, primary CTA right
 - Destructive CTA: rightmost, `variant="destructive"`
 
+## Page Container Pattern
+
+LayoutShell wraps every page's children in `<main className="flex-1 overflow-y-auto"><div className="layout-shell-content mx-auto p-4 sm:p-6">`. Two patterns are supported:
+
+### Default — padded page
+Page renders normal content. The shell adds `mx-auto p-4 sm:p-6` and the `<main>` scrolls. Use for forms, lists, dashboards, anything that flows top-to-bottom.
+
+### Full-bleed — shell pages
+For pages whose root *is* a chrome (3-pane editor, kanban board, full-canvas map), wrap the page root in `<FullBleedShell>` (`src/components/full-bleed-shell.tsx`). It toggles `data-fullbleed=""` on the closest `<main>` for its lifetime; `globals.css` strips the inner padded div's spacing while the attribute is present.
+
+```tsx
+import { FullBleedShell } from "@/components/full-bleed-shell";
+
+export default function Page() {
+  return (
+    <FullBleedShell>
+      <MyShellRoot />
+    </FullBleedShell>
+  );
+}
+```
+
+Inside `<FullBleedShell>` use `h-full` / `flex-1 min-h-0` — never `h-[calc(100vh-Xrem)]`. The viewport-minus-chrome math fights LayoutShell's flex layout and produces the "framed" look.
+
+**Rule:** never use viewport-relative height (`100vh`, `calc(100vh-…)`) inside a page rendered by LayoutShell. The shell already gives you a fully-sized scroll container; opt into full-bleed when you need to fill it.
+
+## Section Nav Override Pattern (ADR-0013)
+
+A route can replace the global sidebar's contents with section-scoped navigation. Used by `/worklog` (folders + categories live in the sidebar instead of fighting the page chrome). Mechanism:
+
+1. `<Sidebar>` reads `usePathname()`. If the path matches a known override route AND the sidebar is *expanded*, render the section-specific nav component instead of `<NavLinks>`. **Collapsed sidebar always falls back to default top-level nav** — that's the escape hatch to reach other top-level routes.
+2. The override component renders a header row with a back-arrow that calls `useSidebar().toggle()`. Collapsing the sidebar exits the override and shows the global icon nav.
+3. Selection state inside the override lives in **URL search params**, not React state. Both the sidebar and the page read/write through a shared hook (e.g. `useFolderSelection()`) so they render in lockstep.
+4. Drag-and-drop spanning sidebar + page: the route's `DndContext` provider must wrap **both**. `<LayoutShell>` mounts the provider conditionally based on pathname; the page no longer mounts its own.
+
+```tsx
+// in Sidebar.tsx
+const isWorklog = pathname.startsWith("/worklog");
+const useOverride = isWorklog && !collapsed;
+return (
+  <aside className="…">
+    {useOverride ? <WorklogNavSidebar onCollapse={toggle} /> : <NavLinks collapsed={collapsed} />}
+  </aside>
+);
+```
+
+**Don't** fork all the existing nav rendering when adding a new override — write a new section-nav component sibling to `<NavLinks>`.
+**Don't** mount a section-specific DndContext inside the page when the override sidebar drags into it. Lift to `LayoutShell`.
+**Don't** use route-conditional padding inside the override — it inherits the existing sidebar chassis (`bg-white dark:bg-gray-950`, width transitions). Only the contents change.
+
 ## UX Interaction Rules
 
 These are non-negotiable behavioral standards. Apply them across every feature.

@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Inventory card mockup — A/B</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              bg: "#0a0a0a",
+              card: "#0f0f0f",
+              muted: "#1a1a1a",
+              border: "rgba(255,255,255,0.10)",
+              fg: "#fafafa",
+              fgMuted: "rgba(250,250,250,0.55)",
+            },
+          },
+        },
+      };
+    </script>
+    <style>
+      body {
+        font-family: ui-sans-serif, system-ui, sans-serif;
+      }
+      .photo-grad {
+        background: linear-gradient(135deg, #1f2937 0%, #0f172a 100%);
+      }
+      .product-img {
+        background: radial-gradient(circle at 30% 30%, #444 0%, #1a1a1a 60%, #050505 100%);
+      }
+    </style>
+  </head>
+  <body class="bg-bg text-fg min-h-screen">
+    <div class="max-w-7xl mx-auto p-8 space-y-10">
+      <!-- header -->
+      <header class="space-y-2">
+        <div class="text-xs uppercase tracking-wider text-fgMuted">Mockup</div>
+        <h1 class="text-2xl font-bold">Inventory card — current vs proposed</h1>
+        <p class="text-sm text-fgMuted">
+          Same data, two layouts. Hover the proposed cards to see action chrome.
+        </p>
+      </header>
+
+      <!-- =============================================================== -->
+      <!-- CURRENT  -->
+      <!-- =============================================================== -->
+      <section class="space-y-3">
+        <h2 class="text-sm font-semibold uppercase tracking-wider text-fgMuted">
+          A · Current
+        </h2>
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+          <!-- card 1: default item, no extras -->
+          <article class="bg-card rounded-xl border border-border overflow-hidden">
+            <div class="aspect-square product-img relative">
+              <button class="absolute top-2 right-2 h-7 w-7 rounded-full bg-white/85 text-black flex items-center justify-center text-xs">🔒</button>
+            </div>
+            <div class="p-3 space-y-2">
+              <div>
+                <p class="text-[10px] uppercase tracking-wider text-fgMuted font-medium flex items-center gap-1.5">
+                  <span class="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+                  Tool
+                </p>
+                <h3 class="text-sm font-semibold leading-snug truncate mt-0.5">DeWalt 20V Drill</h3>
+                <p class="text-[11px] text-fgMuted truncate">DeWalt DCD771</p>
+              </div>
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-[10px] text-fgMuted">—</span>
+                <div class="flex items-center gap-1">
+                  <!-- defaults hidden now -->
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <!-- card 2: with proficiency, has price -->
+          <article class="bg-card rounded-xl border border-border overflow-hidden">
+            <div class="aspect-square product-img relative">
+              <button class="absolute top-2 right-2 h-7 w-7 rounded-full bg-white/85 text-black flex items-center justify-center text-xs">🔒</button>
+            </div>
+            <div class="p-3 space-y-2">
+              <div class="flex items-start justify-between gap-2">
+                <div class="min-w-0 flex-1">
+                  <p class="text-[10px] uppercase tracking-wider text-fgMuted font-medium flex items-center gap-1.5">
+                    <span class="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+                    Tool
+                  </p>
+                  <h3 class="text-sm font-semibold leading-snug truncate mt-0.5">Festool Track Saw</h3>
+                  <p class="text-[11px] text-fgMuted truncate">Festool TS 55 FEQ</p>
+                </div>
+                <div class="text-right shrink-0">
+                  <p class="text-sm font-semibold tabular-nums">$680</p>
+                </div>
+              </div>
+              <div class="flex items-center justify-between gap-2">
+                <div class="flex items-center gap-0.5" title="Skill 4/5">
+                  <span class="h-1.5 w-1.5 rounded-full bg-orange-500"></span>
+                  <span class="h-1.5 w-1.5 rounded-full bg-orange-500"></span>
+                  <span class="h-1.5 w-1.5 rounded-full bg-orange-500"></span>
+                  <span class="h-1.5 w-1.5 rounded-full bg-orange-500"></span>
+                  <span class="h-1.5 w-1.5 rounded-full bg-muted"></span>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <!-- card 3: non-default condition + non-default ownership -->
+          <article class="bg-card rounded-xl border border-border overflow-hidden">
+            <div class="aspect-square product-img relative">
+              <button class="absolute top-2 right-2 h-7 w-7 rounded-full bg-white/85 text-black flex items-center justify-center text-xs">🔒</button>
+            </div>
+            <div class="p-3 space-y-2">
+              <div class="flex items-start justify-between gap-2">
+                <div class="min-w-0 flex-1">
+                  <p class="text-[10px] uppercase tracking-wider text-fgMuted font-medium flex items-center gap-1.5">
+                    <span class="inline-block h-1.5 w-1.5 rounded-full bg-violet-500"></span>
+                    Hardware
+                  </p>
+                  <h3 class="text-sm font-semibold leading-snug truncate mt-0.5">MacBook Pro 14"</h3>
+                  <p class="text-[11px] text-fgMuted truncate">Apple · M3 Pro</p>
+                </div>
+                <div class="text-right shrink-0">
+                  <p class="text-sm font-semibold tabular-nums">$2,400</p>
+                </div>
+              </div>
+              <div class="flex items-center justify-between gap-2">
+                <div class="flex items-center gap-0.5">
+                  <span class="h-1.5 w-1.5 rounded-full bg-orange-500"></span>
+                  <span class="h-1.5 w-1.5 rounded-full bg-orange-500"></span>
+                  <span class="h-1.5 w-1.5 rounded-full bg-orange-500"></span>
+                  <span class="h-1.5 w-1.5 rounded-full bg-orange-500"></span>
+                  <span class="h-1.5 w-1.5 rounded-full bg-orange-500"></span>
+                </div>
+                <div class="flex items-center gap-1">
+                  <span class="px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-500/15 text-amber-400 border border-amber-500/30">Fair</span>
+                  <span class="px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-500/15 text-blue-400 border border-blue-500/30">Company</span>
+                </div>
+              </div>
+              <div class="flex items-center gap-2 text-[10px] text-fgMuted truncate">
+                <span class="truncate">📍 Office desk</span>
+                <span class="font-mono truncate">SN: C02XX1234</span>
+              </div>
+            </div>
+          </article>
+
+          <!-- card 4: needs details -->
+          <article class="bg-card rounded-xl border border-border overflow-hidden">
+            <div class="aspect-square product-img relative">
+              <div class="absolute top-2 left-1/2 -translate-x-1/2">
+                <button class="px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-500 text-white shadow">Needs details</button>
+              </div>
+              <button class="absolute top-2 right-2 h-7 w-7 rounded-full bg-white/85 text-black flex items-center justify-center text-xs">🔒</button>
+            </div>
+            <div class="p-3 space-y-2">
+              <div>
+                <p class="text-[10px] uppercase tracking-wider text-fgMuted font-medium flex items-center gap-1.5">
+                  <span class="inline-block h-1.5 w-1.5 rounded-full bg-cyan-500"></span>
+                  Instrument
+                </p>
+                <h3 class="text-sm font-semibold leading-snug truncate mt-0.5">Sony A7 IV</h3>
+                <p class="text-[11px] text-fgMuted truncate">Sony</p>
+              </div>
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-[10px] text-fgMuted">—</span>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <!-- =============================================================== -->
+      <!-- PROPOSED -->
+      <!-- =============================================================== -->
+      <section class="space-y-3">
+        <h2 class="text-sm font-semibold uppercase tracking-wider text-fgMuted">
+          B · Proposed (product-card pattern)
+        </h2>
+        <p class="text-sm text-fgMuted max-w-2xl">
+          Status moves to floating image chrome. Info area is just <em>name → 1 detail → price</em>.
+          Empty proficiency is hidden. Non-default condition becomes a corner ribbon. Category becomes a floating chip
+          (no eyebrow row, no row of muted dots).
+        </p>
+
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+          <!-- B1: minimal -->
+          <article class="group bg-card rounded-xl border border-border overflow-hidden hover:border-fg/30 hover:shadow-lg transition-all">
+            <div class="aspect-square product-img relative">
+              <!-- floating category chip -->
+              <span class="absolute top-2 left-2 inline-flex items-center gap-1.5 rounded-full bg-black/55 backdrop-blur px-2 py-0.5 text-[10px] font-medium text-white/95 ring-1 ring-white/15">
+                <span class="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+                Tool
+              </span>
+              <button class="absolute top-2 right-2 h-7 w-7 rounded-full bg-white/85 text-black flex items-center justify-center text-xs">🔒</button>
+            </div>
+            <div class="p-3">
+              <h3 class="text-sm font-semibold leading-snug truncate">DeWalt 20V Drill</h3>
+              <p class="text-[11px] text-fgMuted truncate mt-0.5">DeWalt DCD771</p>
+            </div>
+          </article>
+
+          <!-- B2: proficiency ribbon + price -->
+          <article class="group bg-card rounded-xl border border-border overflow-hidden hover:border-fg/30 hover:shadow-lg transition-all">
+            <div class="aspect-square product-img relative">
+              <span class="absolute top-2 left-2 inline-flex items-center gap-1.5 rounded-full bg-black/55 backdrop-blur px-2 py-0.5 text-[10px] font-medium text-white/95 ring-1 ring-white/15">
+                <span class="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+                Tool
+              </span>
+              <button class="absolute top-2 right-2 h-7 w-7 rounded-full bg-white/85 text-black flex items-center justify-center text-xs">🔒</button>
+              <!-- proficiency ribbon: bottom-left of image -->
+              <span class="absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-full bg-black/55 backdrop-blur px-2 py-0.5 text-[10px] font-medium text-white/95 ring-1 ring-white/15">
+                <span class="text-orange-400">★</span> 4/5
+              </span>
+            </div>
+            <div class="p-3 flex items-end justify-between gap-2">
+              <div class="min-w-0 flex-1">
+                <h3 class="text-sm font-semibold leading-snug truncate">Festool Track Saw</h3>
+                <p class="text-[11px] text-fgMuted truncate mt-0.5">Festool TS 55 FEQ</p>
+              </div>
+              <p class="text-base font-bold tabular-nums shrink-0">$680</p>
+            </div>
+          </article>
+
+          <!-- B3: non-default condition (Fair) + ownership (Company) -->
+          <article class="group bg-card rounded-xl border border-border overflow-hidden hover:border-fg/30 hover:shadow-lg transition-all">
+            <div class="aspect-square product-img relative">
+              <span class="absolute top-2 left-2 inline-flex items-center gap-1.5 rounded-full bg-black/55 backdrop-blur px-2 py-0.5 text-[10px] font-medium text-white/95 ring-1 ring-white/15">
+                <span class="inline-block h-1.5 w-1.5 rounded-full bg-violet-500"></span>
+                Hardware
+              </span>
+              <button class="absolute top-2 right-2 h-7 w-7 rounded-full bg-white/85 text-black flex items-center justify-center text-xs">🔒</button>
+              <!-- proficiency ribbon -->
+              <span class="absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-full bg-black/55 backdrop-blur px-2 py-0.5 text-[10px] font-medium text-white/95 ring-1 ring-white/15">
+                <span class="text-orange-400">★</span> 5/5
+              </span>
+              <!-- condition + ownership stack: bottom-right -->
+              <div class="absolute bottom-2 right-2 flex flex-col items-end gap-1">
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-500/90 text-white ring-1 ring-amber-300/40">Fair</span>
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-500/90 text-white ring-1 ring-blue-300/40">Company</span>
+              </div>
+            </div>
+            <div class="p-3 flex items-end justify-between gap-2">
+              <div class="min-w-0 flex-1">
+                <h3 class="text-sm font-semibold leading-snug truncate">MacBook Pro 14"</h3>
+                <p class="text-[11px] text-fgMuted truncate mt-0.5">Apple · M3 Pro</p>
+              </div>
+              <p class="text-base font-bold tabular-nums shrink-0">$2,400</p>
+            </div>
+          </article>
+
+          <!-- B4: needs details -->
+          <article class="group bg-card rounded-xl border border-border overflow-hidden hover:border-fg/30 hover:shadow-lg transition-all">
+            <div class="aspect-square product-img relative">
+              <span class="absolute top-2 left-2 inline-flex items-center gap-1.5 rounded-full bg-black/55 backdrop-blur px-2 py-0.5 text-[10px] font-medium text-white/95 ring-1 ring-white/15">
+                <span class="inline-block h-1.5 w-1.5 rounded-full bg-cyan-500"></span>
+                Instrument
+              </span>
+              <button class="absolute top-2 right-2 h-7 w-7 rounded-full bg-white/85 text-black flex items-center justify-center text-xs">🔒</button>
+              <!-- needs-details ribbon: bottom-center, primary CTA -->
+              <button class="absolute bottom-2 left-1/2 -translate-x-1/2 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-amber-500 text-white shadow hover:bg-amber-600">
+                Needs details
+              </button>
+            </div>
+            <div class="p-3">
+              <h3 class="text-sm font-semibold leading-snug truncate">Sony A7 IV</h3>
+              <p class="text-[11px] text-fgMuted truncate mt-0.5">Sony</p>
+            </div>
+          </article>
+
+          <!-- B5: long name (truncation check) -->
+          <article class="group bg-card rounded-xl border border-border overflow-hidden hover:border-fg/30 hover:shadow-lg transition-all">
+            <div class="aspect-square product-img relative">
+              <span class="absolute top-2 left-2 inline-flex items-center gap-1.5 rounded-full bg-black/55 backdrop-blur px-2 py-0.5 text-[10px] font-medium text-white/95 ring-1 ring-white/15">
+                <span class="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+                Tool
+              </span>
+              <button class="absolute top-2 right-2 h-7 w-7 rounded-full bg-white/85 text-black flex items-center justify-center text-xs">🔒</button>
+              <span class="absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-full bg-black/55 backdrop-blur px-2 py-0.5 text-[10px] font-medium text-white/95 ring-1 ring-white/15">
+                <span class="text-orange-400">★</span> 3/5
+              </span>
+            </div>
+            <div class="p-3 flex items-end justify-between gap-2">
+              <div class="min-w-0 flex-1">
+                <h3 class="text-sm font-semibold leading-snug truncate">Milwaukee M18 Fuel Hammer Drill / Driver Combo Kit</h3>
+                <p class="text-[11px] text-fgMuted truncate mt-0.5">Milwaukee · 2997-22</p>
+              </div>
+              <p class="text-base font-bold tabular-nums shrink-0">$420</p>
+            </div>
+          </article>
+
+          <!-- B6: no photo placeholder -->
+          <article class="group bg-card rounded-xl border border-border overflow-hidden hover:border-fg/30 hover:shadow-lg transition-all">
+            <div class="aspect-square photo-grad relative flex flex-col items-center justify-center text-fgMuted">
+              <span class="text-3xl opacity-40">📷</span>
+              <span class="text-[10px] uppercase tracking-wide mt-1 opacity-60">No photo</span>
+              <span class="absolute top-2 left-2 inline-flex items-center gap-1.5 rounded-full bg-black/55 backdrop-blur px-2 py-0.5 text-[10px] font-medium text-white/95 ring-1 ring-white/15">
+                <span class="inline-block h-1.5 w-1.5 rounded-full bg-pink-500"></span>
+                Vehicle
+              </span>
+              <button class="absolute top-2 right-2 h-7 w-7 rounded-full bg-white/85 text-black flex items-center justify-center text-xs">🔒</button>
+            </div>
+            <div class="p-3 flex items-end justify-between gap-2">
+              <div class="min-w-0 flex-1">
+                <h3 class="text-sm font-semibold leading-snug truncate">Subaru Outback</h3>
+                <p class="text-[11px] text-fgMuted truncate mt-0.5">2022 · Wilderness</p>
+              </div>
+              <p class="text-base font-bold tabular-nums shrink-0">$32k</p>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <!-- =============================================================== -->
+      <!-- KEY DIFFS -->
+      <!-- =============================================================== -->
+      <section class="rounded-xl border border-border bg-card p-5 space-y-2">
+        <h2 class="text-sm font-semibold uppercase tracking-wider text-fgMuted">Key diffs</h2>
+        <ul class="text-sm space-y-1.5 list-disc list-inside marker:text-fgMuted">
+          <li>Category becomes a floating chip on the image — eyebrow row deleted.</li>
+          <li>Proficiency moves to a star ribbon at the bottom-left of the image. Hidden when null.</li>
+          <li>Non-default condition + ownership stack at the bottom-right of the image as solid pills.</li>
+          <li>Info area is exactly two text rows + price (right-aligned, larger weight).</li>
+          <li>Empty `—` placeholder removed. Cards with no proficiency just don't show a ribbon.</li>
+          <li>Location/serial moves to detail view + hover (not shown here — would expand on hover with a transition).</li>
+        </ul>
+      </section>
+
+      <footer class="text-xs text-fgMuted py-6">
+        Open at <code class="bg-muted px-1.5 py-0.5 rounded">/mockups/inventory-card.html</code> ·
+        delete this file when done. Tailwind via CDN — does not affect production bundle.
+      </footer>
+    </div>
+  </body>
+</html>

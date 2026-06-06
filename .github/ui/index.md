@@ -1,6 +1,6 @@
 # Resumsify UI Design Graph — Index
 
-Last updated: 2026-05-25
+Last updated: 2026-06-06 (ADR-0014 — worklog home route split)
 
 ## Purpose
 This graph is the single navigable source of truth for all UI decisions in Resumsify.
@@ -19,6 +19,7 @@ It is a graph, not a monolithic document. Read only what is relevant to your cur
 | Shared component patterns (buttons, states, layouts) | `global.md` | Active |
 | Worklog (3-pane notes shell) | `worklog.md` | Active |
 | Sidebar navigation shell | `sidebar.md` | Active |
+| Personal Inventory (photo-tile grid + product cards) | `inventory.md` | Active |
 | Resume builder | `resume.md` | Stub |
 | Job map | `maps.md` | Stub |
 

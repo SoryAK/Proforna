@@ -1,17 +1,16 @@
-import { WorklogPage } from "@/components/worklog/worklog-page";
-import { CareerAnalyticsBanner } from "@/components/career-analytics-banner";
+import { WorklogHomeView } from "@/components/worklog/home/worklog-home-view";
 
 export const metadata = {
   title: "Worklog · Resumsify",
 };
 
+/**
+ * `/worklog` — the worklog landing page (ADR-0014). Capture-first home.
+ * `<FullBleedShell>` is provided by the parent worklog layout.
+ *
+ * The list+reader experience now lives at `/worklog/notes`.
+ */
 export default function Page() {
-  return (
-    <div className="flex h-full flex-col">
-      <CareerAnalyticsBanner section="activity" />
-      <div className="flex-1 min-h-0">
-        <WorklogPage />
-      </div>
-    </div>
-  );
+  return <WorklogHomeView />;
 }
+
