@@ -11,7 +11,7 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { FolderInput, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,6 +33,18 @@ export interface WorklogNotesBulkBarProps {
   onClear: () => void;
   /** Disables every action button while a mutation is in flight. */
   busy?: boolean;
+  /**
+   * Optional render slot placed after the bulk action buttons (Move /
+   * Delete) on the right side of the bar. Used by the parent to keep the
+   * view switcher + sort menu visible while a selection is active so the
+   * user doesn't lose those controls mid-bulk-edit.
+   *
+   * TODO(design-review): on small viewports the bulk actions + trailing
+   * controls share one row and can wrap awkwardly. Revisit during the
+   * next design audit — options include stacking, dropdown overflow, or
+   * hiding the trailing slot below a breakpoint.
+   */
+  trailing?: ReactNode;
 }
 
 export function WorklogNotesBulkBar({
@@ -41,6 +53,7 @@ export function WorklogNotesBulkBar({
   onDelete,
   onClear,
   busy = false,
+  trailing,
 }: WorklogNotesBulkBarProps) {
   const [moveOpen, setMoveOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -113,6 +126,14 @@ export function WorklogNotesBulkBar({
             <Trash2 className="h-3.5 w-3.5" />
             Delete
           </Button>
+
+          {/* Trailing render slot — view switcher + sort menu stay visible
+              alongside bulk actions so the user keeps view controls. */}
+          {trailing && (
+            <div className="ml-2 flex items-center gap-1 border-l pl-2">
+              {trailing}
+            </div>
+          )}
         </div>
       </div>
 

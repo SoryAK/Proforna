@@ -63,6 +63,13 @@ export function WorklogNotesGrid({
     [logs, sort, positionMap, folders],
   );
 
+  // Select-all-visible state — mirrors the header checkbox in the table view
+  // so bulk mode is symmetric across list and grid.
+  const allSelected =
+    sortedLogs.length > 0 && sortedLogs.every((l) => selection.isSelected(l.id));
+  const someSelected =
+    !allSelected && sortedLogs.some((l) => selection.isSelected(l.id));
+
   if (loading) {
     return (
       <div className="p-8 text-center text-sm text-muted-foreground">
@@ -92,7 +99,35 @@ export function WorklogNotesGrid({
   }
 
   return (
-    <div className="p-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+    <div className="flex flex-col h-full min-h-0">
+      {/* Select-all-visible row — only when bulk mode is on. Mirrors the
+          equivalent header checkbox in <WorklogNotesTable>. */}
+      {bulkMode && (
+        <div className="px-4 h-9 flex items-center gap-2 border-b text-[11px] text-muted-foreground">
+          <input
+            type="checkbox"
+            aria-label={allSelected ? "Deselect all visible" : "Select all visible"}
+            checked={allSelected}
+            ref={(el) => {
+              if (el) el.indeterminate = someSelected;
+            }}
+            onChange={() => {
+              if (allSelected) selection.clear();
+              else selection.setSelection(sortedLogs.map((l) => l.id));
+            }}
+            className="cursor-pointer"
+          />
+          <span>
+            {allSelected
+              ? `All ${sortedLogs.length} selected`
+              : someSelected
+                ? `${selection.selectedCount} of ${sortedLogs.length} selected`
+                : `Select all ${sortedLogs.length} visible`}
+          </span>
+        </div>
+      )}
+
+      <div className="p-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
       {sortedLogs.map((log) => {
         const isFocused = log.id === selectedFocusId;
         const isChecked = selection.isSelected(log.id);
@@ -192,6 +227,7 @@ export function WorklogNotesGrid({
           </div>
         );
       })}
+      </div>
     </div>
   );
 }

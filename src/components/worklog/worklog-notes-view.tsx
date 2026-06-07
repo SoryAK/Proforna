@@ -159,6 +159,60 @@ export function WorklogNotesView() {
     [selection.selectedIds],
   );
 
+  // Shared view controls (sort menu in grid mode + view switcher). Hoisted
+  // so they can ride alongside the bulk bar OR sit in the regular toolbar —
+  // see ADR-0015 + improvement #4. Keeping these visible during bulk-mode
+  // means the user can still flip list↔grid or change sort while a
+  // selection is active.
+  // TODO(design-review): on small viewports the bulk row gets dense.
+  // Revisit during the next design audit (mirrors the same TODO in
+  // <WorklogNotesBulkBar>'s `trailing` prop).
+  const viewControls = (
+    <>
+      {viewMode === "grid" && (
+        <WorklogNotesSortMenu sort={sort} onSortChange={setSort} />
+      )}
+      <div
+        role="radiogroup"
+        aria-label="View mode"
+        className="flex items-center rounded-md border bg-muted/40"
+      >
+        <button
+          type="button"
+          role="radio"
+          aria-checked={viewMode === "list"}
+          onClick={() => setViewMode("list")}
+          title="List view"
+          className={cn(
+            "h-7 px-2 flex items-center gap-1.5 text-xs rounded-md transition-colors",
+            viewMode === "list"
+              ? "bg-background shadow-sm"
+              : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          <List className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">List</span>
+        </button>
+        <button
+          type="button"
+          role="radio"
+          aria-checked={viewMode === "grid"}
+          onClick={() => setViewMode("grid")}
+          title="Grid view"
+          className={cn(
+            "h-7 px-2 flex items-center gap-1.5 text-xs rounded-md transition-colors",
+            viewMode === "grid"
+              ? "bg-background shadow-sm"
+              : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          <LayoutGrid className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">Grid</span>
+        </button>
+      </div>
+    </>
+  );
+
   return (
     <div className="flex flex-col h-full bg-white dark:bg-gray-950">
       {/* Top bar: bulk-action bar when selection is active, otherwise the
@@ -168,6 +222,7 @@ export function WorklogNotesView() {
           count={selectedCount}
           busy={bulkAction.isPending}
           onClear={selection.clear}
+          trailing={viewControls}
           onMove={async (folderId) => {
             if (selectedIdList.length === 0) return;
             await bulkAction.mutateAsync({
@@ -194,51 +249,7 @@ export function WorklogNotesView() {
               : `${visibleCount} ${visibleCount === 1 ? "note" : "notes"}`}
           </div>
           <div className="flex items-center gap-1">
-            {/* Sort menu — only mounted in grid mode (list view gets sort
-                via column headers). */}
-            {viewMode === "grid" && (
-              <WorklogNotesSortMenu sort={sort} onSortChange={setSort} />
-            )}
-
-            {/* View switcher: List | Grid */}
-            <div
-              role="radiogroup"
-              aria-label="View mode"
-              className="flex items-center rounded-md border bg-muted/40"
-            >
-              <button
-                type="button"
-                role="radio"
-                aria-checked={viewMode === "list"}
-                onClick={() => setViewMode("list")}
-                title="List view"
-                className={cn(
-                  "h-7 px-2 flex items-center gap-1.5 text-xs rounded-md transition-colors",
-                  viewMode === "list"
-                    ? "bg-background shadow-sm"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                <List className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">List</span>
-              </button>
-              <button
-                type="button"
-                role="radio"
-                aria-checked={viewMode === "grid"}
-                onClick={() => setViewMode("grid")}
-                title="Grid view"
-                className={cn(
-                  "h-7 px-2 flex items-center gap-1.5 text-xs rounded-md transition-colors",
-                  viewMode === "grid"
-                    ? "bg-background shadow-sm"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                <LayoutGrid className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Grid</span>
-              </button>
-            </div>
+            {viewControls}
 
             {/* Select-mode toggle: gates row checkboxes */}
             <Button
