@@ -43,8 +43,8 @@ import { useWorklogVisibleLogs } from "@/components/worklog/hooks/use-worklog-vi
 import { useFolderSelection } from "@/components/worklog/hooks/use-folder-selection";
 import {
   WorklogNotesTable,
-  type WorklogNotesTableSortState,
 } from "@/components/worklog/worklog-notes-table";
+import type { WorklogNotesTableSortState } from "@/components/worklog/worklog-notes-shared";
 import { WorklogNotesGrid } from "@/components/worklog/worklog-notes-grid";
 import { WorklogNotesFilterChips } from "@/components/worklog/worklog-notes-filter-chips";
 import { WorklogNotesBulkBar } from "@/components/worklog/worklog-notes-bulk-bar";

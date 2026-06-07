@@ -26,7 +26,7 @@ import {
   positionLabel,
   previewLine,
   type WorklogNotesTableSortState,
-} from "@/components/worklog/worklog-notes-table";
+} from "@/components/worklog/worklog-notes-shared";
 
 export interface WorklogNotesGridProps {
   logs: WorkLog[];

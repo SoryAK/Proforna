@@ -30,31 +30,26 @@ import {
   ExternalLink,
   Star,
 } from "lucide-react";
-import { format, formatDistanceToNowStrict, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
 import { CATEGORIES } from "@/components/worklog/constants";
 import type { UseWorklogSelectionApi } from "@/components/worklog/hooks/use-worklog-selection";
 import type { Position, WorkLog, WorkLogFolderWithCount } from "@/types/worklog";
+import {
+  CATEGORY_DOT,
+  applySort,
+  folderLabel,
+  formatLastEdited,
+  positionLabel,
+  previewLine,
+  type SortColumn,
+  type SortDir,
+  type WorklogNotesTableSortState,
+} from "@/components/worklog/worklog-notes-shared";
 
-export const CATEGORY_DOT: Record<string, string> = {
-  task: "bg-orange-500",
-  project: "bg-purple-500",
-  meeting: "bg-indigo-500",
-  training: "bg-emerald-500",
-  administrative: "bg-slate-400",
-  maintenance: "bg-amber-500",
-  troubleshooting: "bg-cyan-500",
-  "on-call": "bg-red-500",
-  other: "bg-gray-400",
-};
-
-export type SortColumn = "title" | "position" | "folder" | "lastEdited";
-export type SortDir = "asc" | "desc";
-
-export interface WorklogNotesTableSortState {
-  column: SortColumn;
-  dir: SortDir;
-}
+// Re-export for any legacy imports that still reach into the table file.
+// (Prefer importing from worklog-notes-shared directly in new code.)
+export type { SortColumn, SortDir, WorklogNotesTableSortState };
+export { CATEGORY_DOT, applySort, folderLabel, formatLastEdited, positionLabel, previewLine };
 
 export interface WorklogNotesTableProps {
   logs: WorkLog[];
@@ -79,90 +74,6 @@ const COLUMN_GRID_BULK =
   "grid grid-cols-[24px_minmax(0,1fr)_140px_140px_120px_60px] gap-3 items-center";
 const COLUMN_GRID_PLAIN =
   "grid grid-cols-[minmax(0,1fr)_140px_140px_120px_60px] gap-3 items-center";
-
-/** Title-cell preview helper exported for grid reuse. */
-export function previewLine(content: string | null | undefined): string {
-  if (!content) return "";
-  const plain = content.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-  return plain.length > 200 ? `${plain.slice(0, 200)}…` : plain;
-}
-
-/** Format the Last-edited column. Uses relative for ≤ 6 days, absolute beyond. */
-export function formatLastEdited(updatedAt: string | undefined, fallbackDate: string): string {
-  const stamp = updatedAt ?? fallbackDate;
-  if (!stamp) return "—";
-  const d = parseISO(stamp);
-  const days = (Date.now() - d.getTime()) / (1000 * 60 * 60 * 24);
-  if (days < 7) {
-    return formatDistanceToNowStrict(d, { addSuffix: true });
-  }
-  const nowYear = new Date().getFullYear();
-  return d.getFullYear() === nowYear ? format(d, "MMM d") : format(d, "MMM d, yyyy");
-}
-
-/** Position cell text. Italic "No position" when missing. */
-export function positionLabel(positionId: string | null | undefined, map: Map<string, Position>): {
-  text: string;
-  italic: boolean;
-} {
-  if (!positionId) return { text: "No position", italic: true };
-  const p = map.get(positionId);
-  if (!p) return { text: "No position", italic: true };
-  const role = p.title || p.company || "Position";
-  const company = p.title && p.company ? ` · ${p.company}` : "";
-  return { text: `${role}${company}`, italic: false };
-}
-
-/** Folder cell text. Italic "Unfiled" when missing. */
-export function folderLabel(
-  folderId: string | null | undefined,
-  folders: WorkLogFolderWithCount[],
-): { text: string; italic: boolean } {
-  if (!folderId) return { text: "Unfiled", italic: true };
-  const f = folders.find((x) => x.id === folderId);
-  if (!f) return { text: "Unfiled", italic: true };
-  return { text: f.name, italic: false };
-}
-
-/** Sort logs in place per the active sort state. Pure: returns a NEW array. */
-export function applySort(
-  logs: WorkLog[],
-  sort: WorklogNotesTableSortState,
-  positionMap: Map<string, Position>,
-  folders: WorkLogFolderWithCount[],
-): WorkLog[] {
-  const out = [...logs];
-  const dirMul = sort.dir === "asc" ? 1 : -1;
-
-  switch (sort.column) {
-    case "title":
-      out.sort((a, b) => (a.title ?? "").localeCompare(b.title ?? "") * dirMul);
-      break;
-    case "position":
-      out.sort((a, b) => {
-        const aL = positionLabel(a.positionId, positionMap).text.toLowerCase();
-        const bL = positionLabel(b.positionId, positionMap).text.toLowerCase();
-        return aL.localeCompare(bL) * dirMul;
-      });
-      break;
-    case "folder":
-      out.sort((a, b) => {
-        const aL = folderLabel(a.folderId, folders).text.toLowerCase();
-        const bL = folderLabel(b.folderId, folders).text.toLowerCase();
-        return aL.localeCompare(bL) * dirMul;
-      });
-      break;
-    case "lastEdited":
-    default:
-      out.sort((a, b) => {
-        const aT = (a.updatedAt ?? a.date ?? "") as string;
-        const bT = (b.updatedAt ?? b.date ?? "") as string;
-        return aT.localeCompare(bT) * dirMul;
-      });
-      break;
-  }
-  return out;
-}
 
 interface SortHeaderProps {
   label: string;
