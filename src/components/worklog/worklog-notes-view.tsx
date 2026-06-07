@@ -28,7 +28,7 @@
 
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
 import { CheckSquare, LayoutGrid, List, Plus } from "lucide-react";
 import type { WorkLog } from "@/types/worklog";
@@ -167,6 +167,48 @@ export function WorklogNotesView() {
   // TODO(design-review): on small viewports the bulk row gets dense.
   // Revisit during the next design audit (mirrors the same TODO in
   // <WorklogNotesBulkBar>'s `trailing` prop).
+  //
+  // Keyboard model on the View-mode radiogroup (improvement #3): roving
+  // tabindex — only the checked radio is in the tab order; ←/↑ move to
+  // previous, →/↓ to next, Home/End jump to ends, all with wrap. Selection
+  // follows focus (auto-select pattern, mirrors native <input type=radio>).
+  const handleViewModeKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    const order: ViewMode[] = ["list", "grid"];
+    const idx = order.indexOf(viewMode);
+    let next: ViewMode | null = null;
+    switch (e.key) {
+      case "ArrowLeft":
+      case "ArrowUp":
+        next = order[(idx - 1 + order.length) % order.length];
+        break;
+      case "ArrowRight":
+      case "ArrowDown":
+        next = order[(idx + 1) % order.length];
+        break;
+      case "Home":
+        next = order[0];
+        break;
+      case "End":
+        next = order[order.length - 1];
+        break;
+      default:
+        return;
+    }
+    if (next == null || next === viewMode) {
+      e.preventDefault();
+      return;
+    }
+    e.preventDefault();
+    setViewMode(next);
+    // Move DOM focus to the newly checked radio so the roving tabindex
+    // model stays consistent with what the user sees.
+    const root = e.currentTarget;
+    const target = root.querySelector<HTMLButtonElement>(
+      `[data-view-mode="${next}"]`,
+    );
+    target?.focus();
+  };
+
   const viewControls = (
     <>
       {viewMode === "grid" && (
@@ -175,16 +217,20 @@ export function WorklogNotesView() {
       <div
         role="radiogroup"
         aria-label="View mode"
+        onKeyDown={handleViewModeKeyDown}
         className="flex items-center rounded-md border bg-muted/40"
       >
         <button
           type="button"
           role="radio"
           aria-checked={viewMode === "list"}
+          tabIndex={viewMode === "list" ? 0 : -1}
+          data-view-mode="list"
           onClick={() => setViewMode("list")}
           title="List view"
           className={cn(
             "h-7 px-2 flex items-center gap-1.5 text-xs rounded-md transition-colors",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
             viewMode === "list"
               ? "bg-background shadow-sm"
               : "text-muted-foreground hover:text-foreground",
@@ -197,10 +243,13 @@ export function WorklogNotesView() {
           type="button"
           role="radio"
           aria-checked={viewMode === "grid"}
+          tabIndex={viewMode === "grid" ? 0 : -1}
+          data-view-mode="grid"
           onClick={() => setViewMode("grid")}
           title="Grid view"
           className={cn(
             "h-7 px-2 flex items-center gap-1.5 text-xs rounded-md transition-colors",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
             viewMode === "grid"
               ? "bg-background shadow-sm"
               : "text-muted-foreground hover:text-foreground",
