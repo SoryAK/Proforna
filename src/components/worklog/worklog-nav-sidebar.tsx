@@ -95,11 +95,12 @@ function isSelected(sel: FolderSelection, target: FolderSelection): boolean {
 }
 
 export interface WorklogNavSidebarProps {
-  /** Toggle the global sidebar collapsed state (escape hatch to top-level nav). */
-  onCollapse: () => void;
+  /** Swap the worklog feature nav for the global app nav while staying on
+   *  the same URL (does not collapse the sidebar). */
+  onShowGlobal: () => void;
 }
 
-export function WorklogNavSidebar({ onCollapse }: WorklogNavSidebarProps) {
+export function WorklogNavSidebar({ onShowGlobal }: WorklogNavSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [selected, setSelected] = useFolderSelection();
@@ -154,12 +155,14 @@ export function WorklogNavSidebar({ onCollapse }: WorklogNavSidebarProps) {
       aria-label="Worklog navigation"
       className="flex-1 min-h-0 overflow-y-auto scrollbar-thin p-3 space-y-3"
     >
-      {/* Header — back arrow + section title */}
+      {/* Header — back arrow swaps to global app nav (Sidebar component
+          owns the showGlobalNav flag). */}
       <div className="flex items-center gap-2 px-1 -mt-1">
         <button
           type="button"
-          onClick={onCollapse}
+          onClick={onShowGlobal}
           title="Show all sections"
+          aria-label="Show all sections"
           className="flex items-center justify-center h-7 w-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
         >
           <ChevronLeft className="h-4 w-4" />

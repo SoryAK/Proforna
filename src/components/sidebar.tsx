@@ -274,21 +274,53 @@ function ThemeToggle() {
 
 /** Desktop sidebar — hidden below md */
 export function Sidebar() {
-  const { collapsed, toggle } = useSidebar();
+  const { collapsed } = useSidebar();
   const pathname = usePathname();
 
   // ADR-0013: routes can override the sidebar's contents with their own
   // section-scoped nav. Collapsed sidebar always falls back to the default
   // top-level icon nav (escape hatch to other top-level routes).
+  //
+  // `showGlobalNav` lets the user explicitly opt out of the feature nav
+  // *without* collapsing the rail. The back chevron in WorklogNavSidebar
+  // sets it to true; clicking any link in the global rail (including the
+  // Worklog entry itself) flips it back to false; navigating away from
+  // /worklog clears it. Persisted to localStorage so a reload at the same
+  // /worklog URL keeps the global nav visible.
   const isWorklog = pathname.startsWith("/worklog");
-  const useWorklogOverride = isWorklog && !collapsed;
+  const [showGlobalNav, setShowGlobalNav] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem("sidebar-worklog-show-global") === "true";
+  });
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (showGlobalNav) {
+      window.localStorage.setItem("sidebar-worklog-show-global", "true");
+    } else {
+      window.localStorage.removeItem("sidebar-worklog-show-global");
+    }
+  }, [showGlobalNav]);
+  // Pathname leaving /worklog/* resets the override — the flag only carries
+  // meaning while the user is still on a worklog route.
+  useEffect(() => {
+    if (!isWorklog && showGlobalNav) setShowGlobalNav(false);
+  }, [isWorklog, showGlobalNav]);
+
+  const useWorklogOverride = isWorklog && !collapsed && !showGlobalNav;
 
   return (
     <aside className={cn(
       "hidden md:flex h-full flex-col bg-white dark:bg-gray-950 transition-all duration-200 shadow-[1px_0_0_0_rgb(0_0_0/0.06),4px_0_16px_0_rgb(0_0_0/0.04)] dark:shadow-[1px_0_0_0_rgb(255_255_255/0.05),4px_0_24px_0_rgb(0_0_0/0.4)]",
       collapsed ? "w-16" : "w-72"
     )}>
-      {useWorklogOverride ? <WorklogNavSidebar onCollapse={toggle} /> : <NavLinks collapsed={collapsed} />}
+      {useWorklogOverride ? (
+        <WorklogNavSidebar onShowGlobal={() => setShowGlobalNav(true)} />
+      ) : (
+        <NavLinks
+          collapsed={collapsed}
+          onNavigate={() => setShowGlobalNav(false)}
+        />
+      )}
 
     </aside>
   );
