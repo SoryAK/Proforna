@@ -10,7 +10,11 @@
     "start": "next start",
     "lint": "eslint",
     "db:seed": "npx tsx prisma/seed.ts",
-    "db:reset": "npx prisma migrate reset --force"
+    "db:reset": "npx prisma migrate reset --force",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "memory:patch": "node scripts/patch-mcp-memory.js",
+    "memory:patch:check": "node scripts/patch-mcp-memory.js --check"
   },
   "prisma": {
     "seed": "npx tsx prisma/seed.ts"

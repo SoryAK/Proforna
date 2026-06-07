@@ -14,6 +14,8 @@ Full skill definitions live in `.github/instructions/`. This file is the pipelin
 
 **Phase 2: System Integrity** — `security.instructions.md` (API routes) + `logic.instructions.md` · Security Sentinel → Architectural Reviewer. Wait for mitigation before Phase 3.
 
+**Phase 2.5: Test-Driven Development** — `testing.instructions.md` · Applies to `src/lib/**`, `src/app/api/**`, `src/data/**`. TDD Iron Law → RED (failing test + verify) → GREEN (minimal code + verify) → REFACTOR. Bug-Fix Test-First when the trigger is a regression. Skipping a verify step is a compliance failure.
+
 **Phase 3: Logic & UX Validation** — `logic.instructions.md` + `ui.instructions.md` · The Griller → UI/UX Critic → Performance Pro. Chain into a single Interview block.
 
 **Phase 4: Persistence & Wrap-up** — `persistence.instructions.md` · ADR Author → Manual Engineer → Workflow Logger → UI Graph Keeper → Memory Keeper → Handoff Architect.
