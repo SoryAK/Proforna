@@ -48,6 +48,7 @@ import type { WorklogNotesTableSortState } from "@/components/worklog/worklog-no
 import { WorklogNotesGrid } from "@/components/worklog/worklog-notes-grid";
 import { WorklogNotesFilterChips } from "@/components/worklog/worklog-notes-filter-chips";
 import { WorklogNotesBulkBar } from "@/components/worklog/worklog-notes-bulk-bar";
+import { WorklogNotesSortMenu } from "@/components/worklog/worklog-notes-sort-menu";
 
 const DEFAULT_SORT: WorklogNotesTableSortState = {
   column: "lastEdited",
@@ -193,6 +194,12 @@ export function WorklogNotesView() {
               : `${visibleCount} ${visibleCount === 1 ? "note" : "notes"}`}
           </div>
           <div className="flex items-center gap-1">
+            {/* Sort menu — only mounted in grid mode (list view gets sort
+                via column headers). */}
+            {viewMode === "grid" && (
+              <WorklogNotesSortMenu sort={sort} onSortChange={setSort} />
+            )}
+
             {/* View switcher: List | Grid */}
             <div
               role="radiogroup"
