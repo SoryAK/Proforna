@@ -27,11 +27,12 @@ import { CATEGORIES } from "@/components/worklog/constants";
 import { WorklogHeatmap } from "@/components/worklog/worklog-heatmap";
 import { WorklogFolderTreeItems } from "@/components/worklog/worklog-folder-tree-items";
 import type { WorkLog } from "@/types/worklog";
+import { STORAGE_KEYS, migrateLegacyKey } from "@/lib/storage-keys";
 
 /** localStorage key for the Activity disclosure open state. */
-const ACTIVITY_OPEN_KEY = "worklog-rail-activity-open";
+const ACTIVITY_OPEN_KEY = STORAGE_KEYS.worklog.railActivityOpen;
 /** localStorage key for the Categories disclosure open state. */
-const CATEGORIES_OPEN_KEY = "worklog-rail-categories-open";
+const CATEGORIES_OPEN_KEY = STORAGE_KEYS.worklog.railCategoriesOpen;
 
 /**
  * Inline stats strip — was previously its own file but only the rail used it.
@@ -216,6 +217,7 @@ export function WorklogFoldersRail({
   const [activityOpen, setActivityOpen] = useState<boolean>(false);
   useEffect(() => {
     try {
+      migrateLegacyKey(ACTIVITY_OPEN_KEY);
       const raw = window.localStorage.getItem(ACTIVITY_OPEN_KEY);
       if (raw === "1") setActivityOpen(true);
     } catch {
@@ -235,6 +237,7 @@ export function WorklogFoldersRail({
   const [categoriesOpen, setCategoriesOpen] = useState<boolean>(true);
   useEffect(() => {
     try {
+      migrateLegacyKey(CATEGORIES_OPEN_KEY);
       const raw = window.localStorage.getItem(CATEGORIES_OPEN_KEY);
       // Default open (true) — only close if explicitly saved as "0"
       if (raw === "0") setCategoriesOpen(false);

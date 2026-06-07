@@ -49,8 +49,9 @@ import type { WorkLogFolderWithCount } from "@/types/worklog";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { DND_ACTIVE_ROW_CLASS } from "@/components/worklog/constants";
+import { STORAGE_KEYS, migrateLegacyKey } from "@/lib/storage-keys";
 
-const EXPANDED_KEY = "worklog-folder-tree-expanded";
+const EXPANDED_KEY = STORAGE_KEYS.worklog.folderTreeExpanded;
 
 export interface WorklogFolderTreeProps {
   folders: WorkLogFolderWithCount[];
@@ -117,6 +118,7 @@ export function WorklogFolderTree(props: WorklogFolderTreeProps) {
     if (hydrated.current) return;
     hydrated.current = true;
     try {
+      migrateLegacyKey(EXPANDED_KEY);
       const raw = window.localStorage.getItem(EXPANDED_KEY);
       if (raw) {
         const arr = JSON.parse(raw) as string[];

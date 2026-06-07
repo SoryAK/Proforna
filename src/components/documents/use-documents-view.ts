@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import type { Crumb, Doc, DocFolder, FolderTreeNode, ViewMode } from "./types";
 import { DEFAULT_VIEW_MODE, VIEW_MODE_STORAGE_KEY } from "./types";
+import { migrateLegacyKey } from "@/lib/storage-keys";
 
 /**
  * Hook that owns the documents view state:
@@ -28,8 +29,7 @@ export function useDocumentsView() {
   // ── view mode (persisted in localStorage) ──────────────────────────────
   const [viewMode, setViewModeState] = useState<ViewMode>(DEFAULT_VIEW_MODE);
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const stored = window.localStorage.getItem(VIEW_MODE_STORAGE_KEY);
+    if (typeof window === "undefined") return;    migrateLegacyKey(VIEW_MODE_STORAGE_KEY);    const stored = window.localStorage.getItem(VIEW_MODE_STORAGE_KEY);
     if (stored === "grid" || stored === "list") setViewModeState(stored);
   }, []);
   const setViewMode = useCallback((next: ViewMode) => {

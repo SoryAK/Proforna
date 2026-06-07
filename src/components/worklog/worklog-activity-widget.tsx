@@ -17,8 +17,9 @@ import { CalendarDays, ChevronRight, Flame, Star } from "lucide-react";
 import { WorklogHeatmap } from "@/components/worklog/worklog-heatmap";
 import { cn } from "@/lib/utils";
 import type { WorkLog } from "@/types/worklog";
+import { STORAGE_KEYS, migrateLegacyKey } from "@/lib/storage-keys";
 
-const ACTIVITY_OPEN_KEY = "worklog-rail-activity-open";
+const ACTIVITY_OPEN_KEY = STORAGE_KEYS.worklog.railActivityOpen;
 
 export interface WorklogActivityWidgetProps {
   logs: WorkLog[];
@@ -47,6 +48,7 @@ export function WorklogActivityWidget({
   // Hydrate disclosure state from localStorage on mount.
   useEffect(() => {
     try {
+      migrateLegacyKey(ACTIVITY_OPEN_KEY);
       if (window.localStorage.getItem(ACTIVITY_OPEN_KEY) === "1") setOpen(true);
     } catch {
       /* ignore */

@@ -43,5 +43,6 @@ export interface Crumb {
 
 export type ViewMode = "grid" | "list";
 
-export const VIEW_MODE_STORAGE_KEY = "docs-view";
+import { STORAGE_KEYS } from "@/lib/storage-keys";
+export const VIEW_MODE_STORAGE_KEY = STORAGE_KEYS.documents.viewMode;
 export const DEFAULT_VIEW_MODE: ViewMode = "grid";

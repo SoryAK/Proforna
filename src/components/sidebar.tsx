@@ -62,6 +62,7 @@ import { NotificationBell } from "@/components/notification-bell";
 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { WorklogNavSidebar } from "@/components/worklog/worklog-nav-sidebar";
+import { STORAGE_KEYS, migrateLegacyKey } from "@/lib/storage-keys";
 
 // ---------------------------------------------------------------------------
 // Sidebar collapsed state — shared between AppHeader (hamburger) and Sidebar
@@ -72,11 +73,12 @@ const SidebarContext = createContext<SidebarCtx | null>(null);
 export function SidebarProvider({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(() => {
     if (typeof window === "undefined") return false;
-    return localStorage.getItem("sidebar-collapsed") === "true";
+    migrateLegacyKey(STORAGE_KEYS.sidebar.collapsed);
+    return localStorage.getItem(STORAGE_KEYS.sidebar.collapsed) === "true";
   });
   const toggle = () => setCollapsed((prev) => {
     const next = !prev;
-    localStorage.setItem("sidebar-collapsed", String(next));
+    localStorage.setItem(STORAGE_KEYS.sidebar.collapsed, String(next));
     return next;
   });
   return <SidebarContext.Provider value={{ collapsed, toggle }}>{children}</SidebarContext.Provider>;
@@ -290,14 +292,15 @@ export function Sidebar() {
   const isWorklog = pathname.startsWith("/worklog");
   const [showGlobalNav, setShowGlobalNav] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
-    return window.localStorage.getItem("sidebar-worklog-show-global") === "true";
+    migrateLegacyKey(STORAGE_KEYS.sidebar.worklogShowGlobal);
+    return window.localStorage.getItem(STORAGE_KEYS.sidebar.worklogShowGlobal) === "true";
   });
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (showGlobalNav) {
-      window.localStorage.setItem("sidebar-worklog-show-global", "true");
+      window.localStorage.setItem(STORAGE_KEYS.sidebar.worklogShowGlobal, "true");
     } else {
-      window.localStorage.removeItem("sidebar-worklog-show-global");
+      window.localStorage.removeItem(STORAGE_KEYS.sidebar.worklogShowGlobal);
     }
   }, [showGlobalNav]);
   // Pathname leaving /worklog/* resets the override — the flag only carries
