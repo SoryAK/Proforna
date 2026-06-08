@@ -1,0 +1,19 @@
+{
+  "domain": "IntegrationsDomain",
+  "shard": "integrations.json",
+  "entities": [
+    {
+      "name": "IntegrationsDomain",
+      "entityType": "Domain",
+      "observations": [
+        "[2026-06-08] Existing surface at /(app)/integrations/page.tsx + /api/integrations/{route.ts,[id]/sync/route.ts} predates Sprint 6 — originally built for ICS calendar URLs and GitHub public-events polling (no auth required for either). The schema comment on IntegrationConnection already predicted OAuth providers would land in this same row via an encrypted token blob inside config.",
+        "[2026-06-08] Sprint 6A extended the system with Notion OAuth without a schema migration. The IntegrationConnection model's config: Json slot is the extension point — encrypted tokens live under config.tokenRef = { version: 'v1', accessToken: <ciphertext>, refreshToken: null, expiresAt: null, scope: null }. New OAuth providers (OneDrive in 6C, etc.) reuse this exact shape.",
+        "[2026-06-08] POST /api/integrations only accepts ics + github in its ALLOWED_PROVIDERS set. OAuth providers like notion MUST be created via the OAuth callback route, never via POST — this is an intentional security boundary so callers can't fabricate IntegrationConnection rows that bypass token encryption.",
+        "[2026-06-08] AES-256-GCM crypto helper at src/lib/integration-crypto.ts is shared across all OAuth providers. Ciphertext format 'v1:<iv_b64>:<authtag_b64>:<ciphertext_b64>' is version-prefixed so the algorithm can rotate without a data migration. Master key in env var INTEGRATION_TOKEN_KEY — rotating the env key is destructive (all users must reconnect).",
+        "[2026-06-08] OAuth route convention: /api/integrations/<provider>/oauth/start and /api/integrations/<provider>/oauth/callback. State nonce stored in httpOnly Lax cookie named <provider>_oauth_state (10 min max-age), verified + deleted on callback. Page surface signals outcomes via ?<provider>=connected | ?<provider>=error%3D<slug> — the page's useEffect parses by checking flag.startsWith('error=').",
+        "[2026-06-08] UI flag NEXT_PUBLIC_<PROVIDER>_OAUTH_ENABLED gates whether the Connect card renders on /integrations. Inlined at build time — must restart npm run dev when toggling. Connect cards use <a className={buttonVariants(...)}> NOT <Button asChild> (base-ui doesn't support asChild)."
+      ]
+    }
+  ],
+  "relations": []
+}

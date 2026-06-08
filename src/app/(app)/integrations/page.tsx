@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -9,12 +10,12 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Calendar, Github, RefreshCw, Trash2, Plus, CheckCircle2, AlertCircle, Loader2, Plug } from "lucide-react";
+import { Calendar, Github, RefreshCw, Trash2, Plus, CheckCircle2, AlertCircle, Loader2, Plug, NotebookText } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 type Connection = {
   id: string;
-  provider: "ics" | "github" | string;
+  provider: "ics" | "github" | "notion" | string;
   label: string | null;
   config: Record<string, unknown>;
   enabled: boolean;
@@ -32,6 +33,8 @@ async function fetchConnections(): Promise<Connection[]> {
 
 export default function IntegrationsPage() {
   const qc = useQueryClient();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const { data: connections = [], isLoading } = useQuery({
     queryKey: ["integrations"],
     queryFn: fetchConnections,
@@ -41,6 +44,21 @@ export default function IntegrationsPage() {
   const [icsLabel, setIcsLabel] = useState("");
   const [ghUser, setGhUser] = useState("");
   const [ghLabel, setGhLabel] = useState("");
+
+  // Surface Notion OAuth callback outcomes (?notion=connected | ?notion=error=...)
+  // and strip the flag from the URL so refreshes don't repeat the toast.
+  useEffect(() => {
+    const flag = searchParams.get("notion");
+    if (!flag) return;
+    if (flag === "connected") {
+      toast.success("Notion workspace connected");
+      qc.invalidateQueries({ queryKey: ["integrations"] });
+    } else if (flag.startsWith("error=")) {
+      const reason = decodeURIComponent(flag.slice("error=".length)).slice(0, 80);
+      toast.error(`Notion connection failed: ${reason}`);
+    }
+    router.replace("/integrations");
+  }, [searchParams, router, qc]);
 
   const addMut = useMutation({
     mutationFn: async (body: { provider: string; label?: string; config: Record<string, unknown> }) => {
@@ -182,6 +200,29 @@ export default function IntegrationsPage() {
             </Button>
           </CardContent>
         </Card>
+
+        {/* Notion (Sprint 6A — OAuth connect only; import lands in 6B) */}
+        {process.env.NEXT_PUBLIC_NOTION_OAUTH_ENABLED === "1" && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <NotebookText className="w-5 h-5" /> Notion
+              </CardTitle>
+              <CardDescription>
+                Connect a Notion workspace so you can import individual pages into your worklog. We only request read access — the
+                workspace owner picks which pages we can see.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <p className="text-xs text-muted-foreground">
+                You’ll be redirected to Notion to authorize. Complete the connection in this same browser window.
+              </p>
+              <Button render={<a href="/api/integrations/notion/oauth/start" />} className="w-full">
+                <Plus className="w-4 h-4 mr-2" /> Connect Notion
+              </Button>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       <Card>
@@ -202,9 +243,12 @@ export default function IntegrationsPage() {
             <div className="space-y-3">
               {connections.map((c) => {
                 const isIcs = c.provider === "ics";
-                const Icon = isIcs ? Calendar : Github;
+                const isNotion = c.provider === "notion";
+                const Icon = isIcs ? Calendar : isNotion ? NotebookText : Github;
                 const detail = isIcs
                   ? String((c.config as { url?: string }).url ?? "")
+                  : isNotion
+                  ? String((c.config as { workspaceName?: string }).workspaceName ?? "Notion workspace")
                   : `@${String((c.config as { username?: string }).username ?? "")}`;
                 const statusOk = c.lastSyncStatus === "ok";
                 return (
@@ -213,12 +257,14 @@ export default function IntegrationsPage() {
                       <Icon className="w-5 h-5 shrink-0 text-muted-foreground" />
                       <div className="min-w-0">
                         <div className="font-medium flex items-center gap-2">
-                          {c.label || (isIcs ? "Calendar" : "GitHub")}
+                          {c.label || (isIcs ? "Calendar" : isNotion ? "Notion" : "GitHub")}
                           <Badge variant="outline" className="text-xs uppercase">{c.provider}</Badge>
                         </div>
                         <div className="text-xs text-muted-foreground truncate">{detail}</div>
                         <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                          {c.lastSyncedAt ? (
+                          {isNotion ? (
+                            <span>Page import — coming in next release</span>
+                          ) : c.lastSyncedAt ? (
                             <>
                               {statusOk ? (
                                 <CheckCircle2 className="w-3 h-3 text-emerald-600" />
@@ -245,19 +291,21 @@ export default function IntegrationsPage() {
                         />
                         <span className="text-xs text-muted-foreground">{c.enabled ? "On" : "Off"}</span>
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={!c.enabled || (syncMut.isPending && syncMut.variables === c.id)}
-                        onClick={() => syncMut.mutate(c.id)}
-                      >
-                        {syncMut.isPending && syncMut.variables === c.id ? (
-                          <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                        ) : (
-                          <RefreshCw className="w-4 h-4 mr-1" />
-                        )}
-                        Sync now
-                      </Button>
+                      {!isNotion && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={!c.enabled || (syncMut.isPending && syncMut.variables === c.id)}
+                          onClick={() => syncMut.mutate(c.id)}
+                        >
+                          {syncMut.isPending && syncMut.variables === c.id ? (
+                            <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                          ) : (
+                            <RefreshCw className="w-4 h-4 mr-1" />
+                          )}
+                          Sync now
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="sm"
