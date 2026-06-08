@@ -29,12 +29,10 @@ import { useMemo } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, FileText, Home, Inbox, Sparkles, Star } from "lucide-react";
+import { ChevronLeft, FileText, Home, Inbox, Sparkles, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { resolveCategoryMeta } from "@/components/worklog/constants";
-import { useWorklogCategories } from "@/components/worklog/hooks/use-worklog-categories";
-import { WORKLOG_CATEGORY_FALLBACK } from "@/lib/worklog-categories";
 import { WorklogFolderTreeItems } from "@/components/worklog/worklog-folder-tree-items";
+import { WorklogCategoryRows } from "@/components/worklog/worklog-category-rows";
 import {
   useFolderSelection,
   selectionToQueryString,
@@ -145,14 +143,6 @@ export function WorklogNavSidebar({ onShowGlobal }: WorklogNavSidebarProps) {
 
   const notableCount = useMemo(() => logs.filter((l) => l.isNotable).length, [logs]);
 
-  // User-defined categories from Sprint A's WorkLogCategory table, plus the
-  // synthetic "Other" fallback row at the end (parity with WorklogFoldersRail).
-  const { categories: userCategories } = useWorklogCategories();
-  const railCategoryKeys = useMemo(
-    () => [...userCategories.map((c) => c.name), WORKLOG_CATEGORY_FALLBACK],
-    [userCategories],
-  );
-
   // Active state: filter rows are only "active" while ON /worklog/notes — the
   // home page does not represent a filter.
   const isFilterActive = (target: FolderSelection): boolean =>
@@ -232,30 +222,13 @@ export function WorklogNavSidebar({ onShowGlobal }: WorklogNavSidebarProps) {
       />
 
       {/* Categories */}
-      <details open className="group">
-        <summary className="cursor-pointer list-none flex items-center gap-1 pt-1 pb-1 px-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded">
-          <ChevronRight className="h-3 w-3 transition-transform group-open:rotate-90" />
-          Categories
-        </summary>
-        <div role="group" aria-label="Categories" className="space-y-0.5 mt-0.5">
-          {railCategoryKeys.map((key) => {
-            const meta = resolveCategoryMeta(key);
-            const Icon = meta.icon;
-            const count = categoryCounts.get(key) ?? 0;
-            return (
-              <NavRow
-                key={key}
-                icon={<Icon className="h-5 w-5" />}
-                label={meta.label}
-                count={count}
-                active={isFilterActive({ kind: "category", category: key })}
-                onClick={() => navigateTo({ kind: "category", category: key })}
-                dim={count === 0}
-              />
-            );
-          })}
-        </div>
-      </details>
+      <WorklogCategoryRows
+        size="md"
+        selected={onNotesRoute ? selected : { kind: "all" }}
+        onSelect={navigateTo}
+        categoryCounts={categoryCounts}
+        defaultOpen
+      />
     </nav>
   );
 }

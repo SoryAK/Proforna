@@ -28,6 +28,7 @@ import { useWorklogCategories } from "@/components/worklog/hooks/use-worklog-cat
 import { WORKLOG_CATEGORY_FALLBACK } from "@/lib/worklog-categories";
 import { WorklogHeatmap } from "@/components/worklog/worklog-heatmap";
 import { WorklogFolderTreeItems } from "@/components/worklog/worklog-folder-tree-items";
+import { WorklogCategoryRows } from "@/components/worklog/worklog-category-rows";
 import type { WorkLog } from "@/types/worklog";
 import { STORAGE_KEYS, migrateLegacyKey } from "@/lib/storage-keys";
 
@@ -244,27 +245,6 @@ export function WorklogFoldersRail({
     }
   }, [activityOpen]);
 
-  // --- Categories disclosure: persist open/closed across reloads -----------
-  const categoriesRef = useRef<HTMLDetailsElement | null>(null);
-  const [categoriesOpen, setCategoriesOpen] = useState<boolean>(true);
-  useEffect(() => {
-    try {
-      migrateLegacyKey(CATEGORIES_OPEN_KEY);
-      const raw = window.localStorage.getItem(CATEGORIES_OPEN_KEY);
-      // Default open (true) — only close if explicitly saved as "0"
-      if (raw === "0") setCategoriesOpen(false);
-    } catch {
-      /* ignore */
-    }
-  }, []);
-  useEffect(() => {
-    try {
-      window.localStorage.setItem(CATEGORIES_OPEN_KEY, categoriesOpen ? "1" : "0");
-    } catch {
-      /* ignore */
-    }
-  }, [categoriesOpen]);
-
   // --- Keyboard nav between rows (↑/↓/Home/End) ---------------------------
   // Hooked at the scroll container; finds all `[data-rail-row]` buttons.
   const navRef = useRef<HTMLDivElement | null>(null);
@@ -351,37 +331,15 @@ export function WorklogFoldersRail({
 
         {/* Categories ---------------------------------------------------- */}
         {!compact && (
-          <details
-            ref={categoriesRef}
-            open={categoriesOpen}
-            onToggle={(e) => setCategoriesOpen((e.currentTarget as HTMLDetailsElement).open)}
-            className="group"
-          >
-            <summary className="cursor-pointer list-none flex items-center gap-1 pt-3 pb-1 px-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded">
-              <ChevronRight className="h-3 w-3 transition-transform group-open:rotate-90" />
-              Categories
-            </summary>
-            <div role="group" aria-label="Categories" className="space-y-0.5">
-              {railCategoryKeys.map((key) => {
-                const meta = resolveCategoryMeta(key);
-                const Icon = meta.icon;
-                const count = categoryCounts.get(key) ?? 0;
-                return (
-                  <FolderRow
-                    key={key}
-                    icon={<Icon className="h-3.5 w-3.5" />}
-                    label={meta.label}
-                    count={count}
-                    active={isSelected(selected, { kind: "category", category: key })}
-                    onClick={() => onSelect({ kind: "category", category: key })}
-                    onActivate={onActivate}
-                    compact={compact}
-                    dim={count === 0}
-                  />
-                );
-              })}
-            </div>
-          </details>
+          <WorklogCategoryRows
+            size="sm"
+            selected={selected}
+            onSelect={onSelect}
+            categoryCounts={categoryCounts}
+            onActivate={onActivate}
+            defaultOpen
+            persistKey={CATEGORIES_OPEN_KEY}
+          />
         )}
         {compact && <div className="my-1 h-px w-6 bg-border" />}
         {compact && (
