@@ -46,6 +46,9 @@ next-env.d.ts
 *.db
 *.db-journal
 
+# Local-only smoke-test fixtures (ad-hoc files used during manual QA)
+.smoke/
+
 # CodeGraph (local index — junctioned to C:\CodeGraphCache\resumsify to bypass OneDrive)
 .codegraph/
 # Squad: ignore runtime state (logs, inbox, sessions)

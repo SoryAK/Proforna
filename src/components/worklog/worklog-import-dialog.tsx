@@ -312,7 +312,16 @@ export function WorklogImportDialog({ open, onOpenChange }: WorklogImportDialogP
             disabled={folderLocked}
           >
             <SelectTrigger id="import-folder" className="w-[260px]">
-              <SelectValue />
+              {/* Base-UI Select.Value renders the raw `value` by default — which
+                  for our Unfiled row leaks the placeholder string "__unfiled__"
+                  into the trigger. Map the value back to its human label here. */}
+              <SelectValue>
+                {(value) =>
+                  value === UNFILED_VALUE
+                    ? "Unfiled"
+                    : folders.find((f) => f.id === value)?.name ?? "Unfiled"
+                }
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={UNFILED_VALUE}>Unfiled</SelectItem>
