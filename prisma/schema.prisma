@@ -15,76 +15,77 @@ model User {
   email         String?   @unique
   emailVerified DateTime?
   image         String?
-  password      String?   // hashed — only for credentials auth
-  ingestToken   String?   @unique  // unique token for email forwarding webhook
+  password      String? // hashed — only for credentials auth
+  ingestToken   String?   @unique // unique token for email forwarding webhook
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  accounts      Account[]
-  sessions      Session[]
+  accounts Account[]
+  sessions Session[]
 
   // ── App data relations ──
-  profile             UserProfile?
-  applications        JobApplication[]
-  interviews          Interview[]
-  contacts            Contact[]
-  skills              Skill[]
-  certifications      Certification[]
-  resumeVersions      ResumeVersion[]
-  goals               CareerGoal[]
-  reminders           Reminder[]
-  activityLogs        ActivityLog[]
-  documents           Document[]
-  documentFolders     DocumentFolder[]
-  submissions         RecruiterSubmission[]
-  incomeYears         CareerIncomeYear[]
-  wageTiers           WageTier[]
-  emailAccounts       EmailAccount[]
-  interactiveResumes  InteractiveResume[]
-  careerPaths         CareerPath[]
-  careerSnapshots     CareerSnapshot[]
-  learningItems       LearningItem[]
-  learningTopics      LearningTopic[]
-  studySessions       StudySession[]
-  researchFeeds       ResearchFeed[]
-  marketSearches      MarketSearch[]
-  companyProfiles     CompanyProfile[]
-  interestGroups      InterestGroup[]
-  interestGroupItems  InterestGroupItem[]
-  jobPostings         JobPosting[]
-  lifeAnchors         LifeAnchor[]
-  emailLeads          EmailLead[]
-  workHistory         WorkHistory[]
-  recruiterFlags      RecruiterFlag[]
-  addressOverrides    AddressOverride[]
-  companyWatchlist    CompanyWatchlist[]
-  decompositionTrees DecompositionTree[]
-  titleSynonymClusters TitleSynonymCluster[]
-  savedSearches       SavedSearch[]
-  skillNodes          SkillNode[]
-  skillEvidence       SkillEvidence[]
-  scaffoldMeta        ScaffoldMeta[]
-  occupations         Occupation[]
-  occupationInterests UserOccupationInterest[]
-  mapDrawingLayers    MapDrawingLayer[]
-  mapDrawings         MapDrawing[]
-  residences          Residence[]
-  diffusionExposures  DiffusionExposure[]
-  careerEvents        CareerEvent[]
-  employerAliases     EmployerAlias[]
-  personalEquipment   PersonalEquipment[]
+  profile                 UserProfile?
+  applications            JobApplication[]
+  interviews              Interview[]
+  contacts                Contact[]
+  skills                  Skill[]
+  certifications          Certification[]
+  resumeVersions          ResumeVersion[]
+  goals                   CareerGoal[]
+  reminders               Reminder[]
+  activityLogs            ActivityLog[]
+  documents               Document[]
+  documentFolders         DocumentFolder[]
+  submissions             RecruiterSubmission[]
+  incomeYears             CareerIncomeYear[]
+  wageTiers               WageTier[]
+  emailAccounts           EmailAccount[]
+  interactiveResumes      InteractiveResume[]
+  careerPaths             CareerPath[]
+  careerSnapshots         CareerSnapshot[]
+  learningItems           LearningItem[]
+  learningTopics          LearningTopic[]
+  studySessions           StudySession[]
+  researchFeeds           ResearchFeed[]
+  marketSearches          MarketSearch[]
+  companyProfiles         CompanyProfile[]
+  interestGroups          InterestGroup[]
+  interestGroupItems      InterestGroupItem[]
+  jobPostings             JobPosting[]
+  lifeAnchors             LifeAnchor[]
+  emailLeads              EmailLead[]
+  workHistory             WorkHistory[]
+  recruiterFlags          RecruiterFlag[]
+  addressOverrides        AddressOverride[]
+  companyWatchlist        CompanyWatchlist[]
+  decompositionTrees      DecompositionTree[]
+  titleSynonymClusters    TitleSynonymCluster[]
+  savedSearches           SavedSearch[]
+  skillNodes              SkillNode[]
+  skillEvidence           SkillEvidence[]
+  scaffoldMeta            ScaffoldMeta[]
+  occupations             Occupation[]
+  occupationInterests     UserOccupationInterest[]
+  mapDrawingLayers        MapDrawingLayer[]
+  mapDrawings             MapDrawing[]
+  residences              Residence[]
+  diffusionExposures      DiffusionExposure[]
+  careerEvents            CareerEvent[]
+  employerAliases         EmployerAlias[]
+  personalEquipment       PersonalEquipment[]
   personalEquipmentShares PersonalEquipmentShare[]
-  equipmentKits       EquipmentKit[]
-  workLogs            WorkLog[]
-  workLogFolders      WorkLogFolder[]
-  workHistoryShifts   WorkHistoryShift[]
-  workLogDrafts       WorkLogDraft[]
-  workLogTemplates    WorkLogTemplate[]
-  workLogPreference   WorkLogPreference?
-  integrationConnections IntegrationConnection[]
-  jobAssets           JobAsset[]
-  assetTypes          AssetType[]
-  publishedProfile    PublishedProfile?
+  equipmentKits           EquipmentKit[]
+  workLogs                WorkLog[]
+  workLogImports          WorkLogImport[]
+  workLogFolders          WorkLogFolder[]
+  workHistoryShifts       WorkHistoryShift[]
+  workLogDrafts           WorkLogDraft[]
+  workLogTemplates        WorkLogTemplate[]
+  workLogPreference       WorkLogPreference?
+  integrationConnections  IntegrationConnection[]
+  jobAssets               JobAsset[]
+  assetTypes              AssetType[]
+  publishedProfile        PublishedProfile?
 }
 
 model Account {
@@ -128,26 +129,26 @@ model VerificationToken {
 // ─── Job Search & Applications ─────────────────────────────────
 
 model JobApplication {
-  id          String   @id @default(uuid())
-  userId      String
-  company     String
-  role        String
-  url         String?
-  location    String?
-  type        String   @default("remote")
-  status      String   @default("wishlist")
-  salaryMin   Int?
-  salaryMax   Int?
-  currency    String   @default("USD")
-  appliedDate DateTime?
-  notes       String?
+  id                String    @id @default(uuid())
+  userId            String
+  company           String
+  role              String
+  url               String?
+  location          String?
+  type              String    @default("remote")
+  status            String    @default("wishlist")
+  salaryMin         Int?
+  salaryMax         Int?
+  currency          String    @default("USD")
+  appliedDate       DateTime?
+  notes             String?
   offerPayType      String?
   offerPayRate      String?
   offerSalary       Int?
   offerPayFrequency String?
   offerHoursPerWeek Float?
   offerOtHours      Float?
-  offerOtRate       Float?   @default(1.5)
+  offerOtRate       Float?    @default(1.5)
   offerSigningBonus Int?
   offerAnnualBonus  Int?
   offerEquity       String?
@@ -156,10 +157,10 @@ model JobApplication {
   offerHealthCost   Float?
   offerStartDate    DateTime?
   offerNotes        String?
-  ein             String?
-  resumeVersionId String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  ein               String?
+  resumeVersionId   String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   interviews    Interview[]
@@ -168,30 +169,30 @@ model JobApplication {
 }
 
 model Interview {
-  id              String   @id @default(uuid())
-  userId          String
+  id               String   @id @default(uuid())
+  userId           String
   jobApplicationId String
-  type            String   @default("phone")
-  scheduledAt     DateTime
-  durationMinutes Int?     @default(60)
-  location        String?
-  interviewerName String?
-  interviewerRole String?
-  notes           String?
-  status          String   @default("scheduled")
-  rating          Int?
-  prepNotes       String?
-  questions       String?
-  reflection      String?
+  type             String   @default("phone")
+  scheduledAt      DateTime
+  durationMinutes  Int?     @default(60)
+  location         String?
+  interviewerName  String?
+  interviewerRole  String?
+  notes            String?
+  status           String   @default("scheduled")
+  rating           Int?
+  prepNotes        String?
+  questions        String?
+  reflection       String?
   reflectionRating Int?
-  createdAt       DateTime @default(now())
+  createdAt        DateTime @default(now())
 
   user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   jobApplication JobApplication @relation(fields: [jobApplicationId], references: [id], onDelete: Cascade)
 }
 
 model Contact {
-  id              String   @id @default(uuid())
+  id              String    @id @default(uuid())
   userId          String
   name            String
   email           String?
@@ -199,10 +200,10 @@ model Contact {
   company         String?
   role            String?
   linkedinUrl     String?
-  relationship    String   @default("other")
+  relationship    String    @default("other")
   notes           String?
   lastContactedAt DateTime?
-  createdAt       DateTime @default(now())
+  createdAt       DateTime  @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
@@ -265,22 +266,22 @@ model Certification {
 }
 
 model LearningItem {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   userId      String
   title       String
   provider    String?
-  type        String   @default("course")
-  status      String   @default("not_started")
-  progress    Int      @default(0)
+  type        String    @default("course")
+  status      String    @default("not_started")
+  progress    Int       @default(0)
   url         String?
-  hoursSpent  Float    @default(0)
-  cost        Float    @default(0)
+  hoursSpent  Float     @default(0)
+  cost        Float     @default(0)
   completedAt DateTime?
   skills      String?
   notes       String?
   tags        String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
@@ -323,13 +324,13 @@ model InteractiveResume {
 }
 
 model ResumeView {
-  id              String            @id @default(uuid())
+  id              String   @id @default(uuid())
   resumeId        String
   referrer        String?
   userAgent       String?
   sectionsViewed  String?
   durationSeconds Int?
-  createdAt       DateTime          @default(now())
+  createdAt       DateTime @default(now())
 
   resume InteractiveResume @relation(fields: [resumeId], references: [id], onDelete: Cascade)
 }
@@ -341,10 +342,10 @@ model ResumeView {
 model IrViewEvent {
   id              String   @id @default(uuid())
   irSlug          String
-  sessionId       String                          // anonymous-cookie viewer session id
-  accessRequestId String?                         // set when viewer used an approved access token
-  eventType       String                          // view | role_click | contact_open | contact_method_click | education_click | journey_play | session_heartbeat
-  eventData       String?                         // JSON blob of extra context (workItemId, method, etc.)
+  sessionId       String // anonymous-cookie viewer session id
+  accessRequestId String? // set when viewer used an approved access token
+  eventType       String // view | role_click | contact_open | contact_method_click | education_click | journey_play | session_heartbeat
+  eventData       String? // JSON blob of extra context (workItemId, method, etc.)
   referrer        String?
   userAgent       String?
   createdAt       DateTime @default(now())
@@ -357,14 +358,14 @@ model IrViewEvent {
 // Recruiter-side bookmarks of candidate IRs, keyed by an anonymous
 // long-lived `recruiter_id` cookie (no account required).
 model RecruiterSavedCandidate {
-  id          String    @id @default(uuid())
-  viewerKey   String                                  // recruiter_id cookie
-  irSlug      String
-  candidateName String?                               // snapshot at save-time for display
+  id                String    @id @default(uuid())
+  viewerKey         String // recruiter_id cookie
+  irSlug            String
+  candidateName     String? // snapshot at save-time for display
   candidateHeadline String?
-  tag         String?                                 // hot | maybe | no_go | null
-  savedAt     DateTime  @default(now())
-  archivedAt  DateTime?
+  tag               String? // hot | maybe | no_go | null
+  savedAt           DateTime  @default(now())
+  archivedAt        DateTime?
 
   @@unique([viewerKey, irSlug])
   @@index([viewerKey, savedAt])
@@ -375,9 +376,9 @@ model RecruiterSavedCandidate {
 // Recruiter private notes about a candidate IR, keyed by recruiter cookie.
 model RecruiterNote {
   id        String   @id @default(uuid())
-  viewerKey String                                    // recruiter_id cookie
+  viewerKey String // recruiter_id cookie
   irSlug    String
-  body      String                                    // free-form recruiter note
+  body      String // free-form recruiter note
   updatedAt DateTime @updatedAt
   createdAt DateTime @default(now())
 
@@ -388,8 +389,8 @@ model RecruiterNote {
 // ─── Profile & Identity ────────────────────────────────────────
 
 model UserProfile {
-  id                 String   @id @default(uuid())
-  userId             String   @unique
+  id                 String  @id @default(uuid())
+  userId             String  @unique
   fullName           String?
   headline           String?
   email              String?
@@ -400,67 +401,67 @@ model UserProfile {
   linkedinUrl        String?
   githubUrl          String?
   portfolioUrl       String?
-  schedulingUrl      String?   // Calendly/Cal.com/etc — used for "Schedule an interview" CTA
-  contactCtaMessage  String?   // Custom message/disclosure shown atop the "Get in touch" modal
-  availability       String   @default("open_to_work")
+  schedulingUrl      String? // Calendly/Cal.com/etc — used for "Schedule an interview" CTA
+  contactCtaMessage  String? // Custom message/disclosure shown atop the "Get in touch" modal
+  availability       String  @default("open_to_work")
   bio                String?
   preferredRoles     String?
   targetSalaryMin    Int?
   targetSalaryMax    Int?
-  salaryPeriod       String   @default("annual")
-  currency           String   @default("USD")
+  salaryPeriod       String  @default("annual")
+  currency           String  @default("USD")
   locationPreference String?
-  industryGroup      String?  // SOC major group, e.g. "Computer and Mathematical" — powers scaffold suggestions
-  showSkills         Boolean  @default(true)
-  showResume         Boolean  @default(true)
-  showCertifications Boolean  @default(true)
-  showCurrentRole    Boolean  @default(true)
-  portalSlug         String   @default("portal") @unique
+  industryGroup      String? // SOC major group, e.g. "Computer and Mathematical" — powers scaffold suggestions
+  showSkills         Boolean @default(true)
+  showResume         Boolean @default(true)
+  showCertifications Boolean @default(true)
+  showCurrentRole    Boolean @default(true)
+  portalSlug         String  @unique @default("portal")
 
   // ── Adaptive Interactive Resume (IR) ──
   // The IR is a single, profile-driven page at /r/<irSlug>.
   // bio is the canonical summary; irSections controls section visibility/order.
-  irSlug             String?  @unique
-  irTheme            String   @default("modern")
-  irSections         String?                          // JSON: [{type,visible,order,settings?}]
-  irTargetRole       String?                          // optional default headline override for the IR
+  irSlug       String? @unique
+  irTheme      String  @default("modern")
+  irSections   String? // JSON: [{type,visible,order,settings?}]
+  irTargetRole String? // optional default headline override for the IR
 
-  filingStatus       String   @default("single")
-  federalTaxRate     Float?
-  stateTaxRate       Float?
-  monthlyExpenses    String?
+  filingStatus    String  @default("single")
+  federalTaxRate  Float?
+  stateTaxRate    Float?
+  monthlyExpenses String?
 
   // ── Stealth Mode / Privacy ──
-  visibility         String   @default("public")   // public | stealth | anonymous | private
+  visibility          String  @default("public") // public | stealth | anonymous | private
   hideCurrentEmployer Boolean @default(false)
-  anonymousTitle     String?                        // e.g. "Verified Electro-Mechanical Specialist #842"
-  blockedEins        String?                        // JSON array of EINs to block
-  blockedDomains     String?                        // JSON array of email domains to block
+  anonymousTitle      String? // e.g. "Verified Electro-Mechanical Specialist #842"
+  blockedEins         String? // JSON array of EINs to block
+  blockedDomains      String? // JSON array of email domains to block
 
   // ── Home Address ──
-  homeAddress        String?
-  homeLat            Float?
-  homeLng            Float?
-  maxCommuteMiles    Int?     // Max one-way distance owner is willing to commute (used by IR Recruit Mode)
+  homeAddress     String?
+  homeLat         Float?
+  homeLng         Float?
+  maxCommuteMiles Int? // Max one-way distance owner is willing to commute (used by IR Recruit Mode)
 
   // ── Vehicle / Commute ──
-  vehicleYear        String?
-  vehicleMake        String?
-  vehicleModel       String?
-  vehicleId          String?                        // FuelEconomy.gov vehicle ID
-  vehicleMpg         Float?
-  gasPricePerGallon  Float?
-  daysInOffice       Int?
+  vehicleYear       String?
+  vehicleMake       String?
+  vehicleModel      String?
+  vehicleId         String? // FuelEconomy.gov vehicle ID
+  vehicleMpg        Float?
+  gasPricePerGallon Float?
+  daysInOffice      Int?
 
   // ── Display / UX preferences ──
   // Global default for whether the focused-job banner cycles through gallery photos.
   // Per-job overrides live on WorkHistory.bannerSlideshowOverride.
   bannerSlideshowEnabled Boolean @default(true)
 
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user           User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
   accessRequests AccessRequest[]
   singleUseLinks SingleUseLink[]
   compensation   CompensationPreference?
@@ -472,17 +473,17 @@ model UserProfile {
 // UserProfile/CompensationPreference/WorkHistory don't go live until
 // the user explicitly publishes from the work-mapping panel.
 model PublishedProfile {
-  id              String   @id @default(uuid())
-  userId          String   @unique
+  id                   String   @id @default(uuid())
+  userId               String   @unique
   // Snapshot of UserProfile fields shown on the IR
-  profileSnapshot Json
+  profileSnapshot      Json
   // Snapshot of CompensationPreference (sanitized — no hardFloor)
   compensationSnapshot Json?
   // Snapshot of WorkHistory[] with relations (galleryPhotos, attachments, equipment)
-  workHistorySnapshot Json?
-  publishedAt     DateTime @default(now())
+  workHistorySnapshot  Json?
+  publishedAt          DateTime @default(now())
   // Free-form note the user can attach to a publish ("updated headline", etc.)
-  publishNote     String?
+  publishNote          String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
@@ -491,11 +492,11 @@ model PublishedProfile {
 // Candidate-set pay requirements surfaced on the IR so recruiters can
 // self-filter before reaching out. 1:1 with UserProfile.
 model CompensationPreference {
-  id                String   @id @default(uuid())
-  profileId         String   @unique
+  id                String  @id @default(uuid())
+  profileId         String  @unique
   // Public range
-  period            String   @default("annual")   // annual | hourly | monthly
-  currency          String   @default("USD")
+  period            String  @default("annual") // annual | hourly | monthly
+  currency          String  @default("USD")
   salaryMin         Int?
   salaryTarget      Int?
   salaryMax         Int?
@@ -505,19 +506,19 @@ model CompensationPreference {
   // Employment type preferences (JSON string array): full_time | part_time | contract | 1099 | internship | temp
   employmentTypes   String?
   // Openness flags
-  openToRelocation  Boolean  @default(false)
-  openToEquity      Boolean  @default(false)
-  openToBonus       Boolean  @default(true)
-  openToSignOn      Boolean  @default(false)
-  remotePreference  String   @default("any")      // any | remote | hybrid | onsite
+  openToRelocation  Boolean @default(false)
+  openToEquity      Boolean @default(false)
+  openToBonus       Boolean @default(true)
+  openToSignOn      Boolean @default(false)
+  remotePreference  String  @default("any") // any | remote | hybrid | onsite
   // Benefits must-haves (JSON string array): e.g. ["health","401k_match","unlimited_pto"]
   benefitsMustHaves String?
   notes             String?
   // Visibility on the IR: public | recruiters | hidden
-  visibility        String   @default("public")
+  visibility        String  @default("public")
 
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   profile UserProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
 }
@@ -525,21 +526,21 @@ model CompensationPreference {
 // ─── Stealth Mode: Access Requests ─────────────────────────────
 
 model AccessRequest {
-  id            String    @id @default(uuid())
-  profileId     String
-  requesterName String
-  requesterEmail String
-  requesterCompany String?
+  id                String    @id @default(uuid())
+  profileId         String
+  requesterName     String
+  requesterEmail    String
+  requesterCompany  String?
   requesterLinkedin String?
-  message       String?
-  status        String    @default("pending")  // pending | approved | denied
-  approvedAt    DateTime?
-  accessToken   String?   @unique              // magic link token for approved access
-  tokenExpiresAt DateTime?
+  message           String?
+  status            String    @default("pending") // pending | approved | denied
+  approvedAt        DateTime?
+  accessToken       String?   @unique // magic link token for approved access
+  tokenExpiresAt    DateTime?
   // ── Per-share IR overrides (shown only to viewers using this token) ──
-  targetRole    String?                            // override the default headline for this viewer
-  focusSections String?                            // JSON array of section types to highlight
-  createdAt     DateTime  @default(now())
+  targetRole        String? // override the default headline for this viewer
+  focusSections     String? // JSON array of section types to highlight
+  createdAt         DateTime  @default(now())
 
   profile UserProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
 }
@@ -547,17 +548,17 @@ model AccessRequest {
 // ─── Stealth Mode: Single-Use Links ────────────────────────────
 
 model SingleUseLink {
-  id          String    @id @default(uuid())
-  profileId   String
-  token       String    @unique
-  label       String?                           // e.g. "For Recruiter at ABB"
-  viewedAt    DateTime?
-  viewedBy    String?                           // IP or user-agent of viewer
-  expiresAt   DateTime
+  id            String    @id @default(uuid())
+  profileId     String
+  token         String    @unique
+  label         String? // e.g. "For Recruiter at ABB"
+  viewedAt      DateTime?
+  viewedBy      String? // IP or user-agent of viewer
+  expiresAt     DateTime
   // ── Per-share IR overrides ──
-  targetRole    String?                          // override headline for this viewer
-  focusSections String?                          // JSON array of section types to highlight
-  createdAt   DateTime  @default(now())
+  targetRole    String? // override headline for this viewer
+  focusSections String? // JSON array of section types to highlight
+  createdAt     DateTime  @default(now())
 
   profile UserProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
 }
@@ -565,26 +566,26 @@ model SingleUseLink {
 // ─── Equipment & Work Logs ─────────────────────────────────────
 
 model Equipment {
-  id            String    @id @default(uuid())
-  positionId    String
-  name          String
-  category      String    @default("hardware")
-  usage         String    @default("used")     // "used" = assigned to you | "worked-on" = you maintained/operated
-  manufacturer  String?
-  model         String?
-  serialNumber  String?
-  assetTag      String?
-  assignedDate  DateTime?
-  returnedDate  DateTime?
-  condition     String    @default("good")
-  licenseKey    String?
-  version       String?
-  expiresAt     DateTime?
-  notes         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id           String    @id @default(uuid())
+  positionId   String
+  name         String
+  category     String    @default("hardware")
+  usage        String    @default("used") // "used" = assigned to you | "worked-on" = you maintained/operated
+  manufacturer String?
+  model        String?
+  serialNumber String?
+  assetTag     String?
+  assignedDate DateTime?
+  returnedDate DateTime?
+  condition    String    @default("good")
+  licenseKey   String?
+  version      String?
+  expiresAt    DateTime?
+  notes        String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
-  position  WorkHistory   @relation("WorkHistoryEquipment", fields: [positionId], references: [id], onDelete: Cascade)
+  position  WorkHistory         @relation("WorkHistoryEquipment", fields: [positionId], references: [id], onDelete: Cascade)
   resources EquipmentResource[]
   photos    EquipmentPhoto[]
 }
@@ -627,25 +628,25 @@ model PersonalEquipment {
   id            String    @id @default(uuid())
   userId        String
   name          String
-  category      String    @default("tool")        // hardware | software | vehicle | safety | tool | instrument | other
-  ownership     String    @default("personal")    // personal | shared | borrowed | rental
+  category      String    @default("tool") // hardware | software | vehicle | safety | tool | instrument | other
+  ownership     String    @default("personal") // personal | shared | borrowed | rental
   manufacturer  String?
   model         String?
   serialNumber  String?
-  condition     String    @default("good")        // new | good | fair | poor
-  proficiency   Int?                              // 1-5 self-rated
+  condition     String    @default("good") // new | good | fair | poor
+  proficiency   Int? // 1-5 self-rated
   purchaseDate  DateTime?
   purchasePrice Float?
   currentValue  Float?
-  location      String?                           // where it's stored
-  isPrivate     Boolean   @default(true)          // hide from public IR by default
-  isDraft       Boolean   @default(false)         // true when created via bulk-photo upload, awaiting details
+  location      String? // where it's stored
+  isPrivate     Boolean   @default(true) // hide from public IR by default
+  isDraft       Boolean   @default(false) // true when created via bulk-photo upload, awaiting details
   notes         String?
-  tags          String[]  @default([])             // free-text user tags
+  tags          String[]  @default([]) // free-text user tags
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  user   User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user   User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
   photos PersonalEquipmentPhoto[]
   kits   EquipmentKitItem[]
 
@@ -664,8 +665,8 @@ model PersonalEquipmentPhoto {
   sortOrder   Int      @default(0)
   focalX      Int      @default(50) // 0-100, horizontal focal point %
   focalY      Int      @default(50) // 0-100, vertical focal point %
-  zoom        Float    @default(1)  // 1.0 = cover (no extra zoom)
-  rotation    Int      @default(0)  // degrees, multiples of 90 (0/90/180/270)
+  zoom        Float    @default(1) // 1.0 = cover (no extra zoom)
+  rotation    Int      @default(0) // degrees, multiples of 90 (0/90/180/270)
   flipH       Boolean  @default(false)
   flipV       Boolean  @default(false)
   createdAt   DateTime @default(now())
@@ -680,10 +681,10 @@ model PersonalEquipmentPhoto {
 model EquipmentKit {
   id          String   @id @default(uuid())
   userId      String
-  name        String                                   // e.g. "Plumbing kit", "Camping gear"
+  name        String // e.g. "Plumbing kit", "Camping gear"
   description String?
-  color       String?                                  // optional hex/color token for chip
-  icon        String?                                  // optional lucide icon key
+  color       String? // optional hex/color token for chip
+  icon        String? // optional lucide icon key
   isPrivate   Boolean  @default(true)
   sortOrder   Int      @default(0)
   createdAt   DateTime @default(now())
@@ -712,17 +713,17 @@ model EquipmentKitItem {
 }
 
 model PersonalEquipmentShare {
-  id          String    @id @default(uuid())
-  userId      String
-  token       String    @unique
-  label       String?                                   // optional name like "For Bob"
-  scope       String    @default("all")                 // "all" | "selected" | "kit"
-  itemIds     String[]  @default([])                    // when scope = "selected"
-  kitId       String?                                   // when scope = "kit"
-  expiresAt   DateTime?
-  viewCount   Int       @default(0)
+  id           String    @id @default(uuid())
+  userId       String
+  token        String    @unique
+  label        String? // optional name like "For Bob"
+  scope        String    @default("all") // "all" | "selected" | "kit"
+  itemIds      String[]  @default([]) // when scope = "selected"
+  kitId        String? // when scope = "kit"
+  expiresAt    DateTime?
+  viewCount    Int       @default(0)
   lastViewedAt DateTime?
-  createdAt   DateTime  @default(now())
+  createdAt    DateTime  @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -730,55 +731,57 @@ model PersonalEquipmentShare {
 }
 
 model WorkLog {
-  id                       String   @id @default(uuid())
-  userId                   String
-  positionId               String?
-  shiftId                  String?
-  date                     DateTime
-  workdayDate              DateTime?
-  title                    String
-  content                  String?                                  // plain-text projection (search, exports, legacy readers)
-  contentJson              Json?                                    // ProseMirror JSON (rich editor source of truth — Phase 1b)
-  category                 String   @default("task")
-  hours                    Float?
-  tags                     String?
-  accomplishment           Boolean  @default(false)
-  impact                   String?
+  id             String    @id @default(uuid())
+  userId         String
+  positionId     String?
+  shiftId        String?
+  date           DateTime
+  workdayDate    DateTime?
+  title          String
+  content        String? // plain-text projection (search, exports, legacy readers)
+  contentJson    Json? // ProseMirror JSON (rich editor source of truth — Phase 1b)
+  category       String    @default("task")
+  hours          Float?
+  tags           String?
+  accomplishment Boolean   @default(false)
+  impact         String?
 
   // ── Phase A extensions (item #19) ──
-  isNotable                Boolean  @default(false)               // surfaces in highlights feed
-  mood                     String?                                  // optional: happy | neutral | tough (emoji or token)
-  templateId               String?                                  // link to WorkLogTemplate used to create this entry
-  isAutoGenerated          Boolean  @default(false)                // future: implicit logging from photos / calendar / etc.
-  equipmentIds             String[] @default([])                   // PersonalEquipment IDs touched today (Postgres array, simple link)
-  assetIds                 String[] @default([])                   // JobAsset IDs worked on today (employer/customer-owned machines, units, vehicles)
-  promotedToCareerEventId  String?                                  // set when user promotes this entry to a CareerEvent on the IR
-  visibility               String   @default("PRIVATE")            // PRIVATE | TEAM | PUBLIC — only PRIVATE used in Phase A
+  isNotable               Boolean  @default(false) // surfaces in highlights feed
+  mood                    String? // optional: happy | neutral | tough (emoji or token)
+  templateId              String? // link to WorkLogTemplate used to create this entry
+  isAutoGenerated         Boolean  @default(false) // future: implicit logging from photos / calendar / etc.
+  equipmentIds            String[] @default([]) // PersonalEquipment IDs touched today (Postgres array, simple link)
+  assetIds                String[] @default([]) // JobAsset IDs worked on today (employer/customer-owned machines, units, vehicles)
+  promotedToCareerEventId String? // set when user promotes this entry to a CareerEvent on the IR
+  visibility              String   @default("PRIVATE") // PRIVATE | TEAM | PUBLIC — only PRIVATE used in Phase A
 
   // ── Phase B implicit logging (item #19) ──
-  externalSource           String?                                  // null | "ics" | "github" | "google-calendar" | "microsoft-graph"
-  externalId               String?                                  // provider-specific event/commit/PR id (used for dedupe on re-sync)
+  externalSource String? // null | "ics" | "github" | "google-calendar" | "microsoft-graph"
+  externalId     String? // provider-specific event/commit/PR id (used for dedupe on re-sync)
 
   // ── User-defined folder hierarchy (Phase C item #20) ──
-  folderId                 String?
-  sortOrder                Int      @default(0)             // drag-reorder position within folder (W2.1)
+  folderId  String?
+  sortOrder Int     @default(0) // drag-reorder position within folder (W2.1)
 
   // ── Full-text search (W1.2) ──
   // GENERATED STORED tsvector maintained by Postgres — see migration
   // 20260523220000_add_worklog_search_vector. Combines title (A), content (B), tags (C).
-  searchVector             Unsupported("tsvector")? @map("search_vector")
+  searchVector Unsupported("tsvector")? @map("search_vector")
 
-  createdAt                DateTime @default(now())
-  updatedAt                DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  user     User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  position WorkHistory?     @relation("WorkHistoryWorkLogs", fields: [positionId], references: [id], onDelete: Cascade)
+  user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  position WorkHistory?      @relation("WorkHistoryWorkLogs", fields: [positionId], references: [id], onDelete: Cascade)
   shift    WorkHistoryShift? @relation(fields: [shiftId], references: [id], onDelete: SetNull)
-  template WorkLogTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
-  folder   WorkLogFolder?   @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  template WorkLogTemplate?  @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  folder   WorkLogFolder?    @relation(fields: [folderId], references: [id], onDelete: SetNull)
   photos   WorkLogPhoto[]
   drafts   WorkLogDraft[]
+  imports  WorkLogImport[]
 
+  @@unique([userId, externalSource, externalId], map: "WorkLog_external_unique")
   @@index([userId, date])
   @@index([userId, workdayDate])
   @@index([userId, folderId])
@@ -787,7 +790,6 @@ model WorkLog {
   @@index([positionId])
   @@index([templateId])
   @@index([searchVector], type: Gin)
-  @@unique([userId, externalSource, externalId], map: "WorkLog_external_unique")
 }
 
 // User-defined folder tree (adjacency list) for organizing WorkLog notes.
@@ -796,21 +798,49 @@ model WorkLog {
 model WorkLogFolder {
   id        String   @id @default(uuid())
   userId    String
-  name      String                           // 1..80 chars, validated server-side
-  parentId  String?                          // null = root
-  color     String?                          // optional tailwind hue token, e.g. "blue"
-  icon      String?                          // optional lucide icon name (future)
-  sortOrder Int      @default(0)             // reserved for manual drag-reorder (Phase D)
+  name      String // 1..80 chars, validated server-side
+  parentId  String? // null = root
+  color     String? // optional tailwind hue token, e.g. "blue"
+  icon      String? // optional lucide icon name (future)
+  sortOrder Int      @default(0) // reserved for manual drag-reorder (Phase D)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user     User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  parent   WorkLogFolder?   @relation("FolderTree", fields: [parentId], references: [id], onDelete: SetNull)
-  children WorkLogFolder[]  @relation("FolderTree")
+  user     User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent   WorkLogFolder?  @relation("FolderTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children WorkLogFolder[] @relation("FolderTree")
   workLogs WorkLog[]
 
   @@index([userId, parentId])
   @@index([userId, sortOrder])
+}
+
+// Audit + dedupe row for each note-import attempt (Markdown/HTML files,
+// future: Notion/OneNote/etc.). One row per (userId, sourceType, fingerprint)
+// — the unique constraint lets the API detect "user uploaded the same file
+// twice" and return the existing WorkLog instead of creating a duplicate.
+//
+// `droppedBlocks` stores the ImportResult.droppedBlocks payload as JSON so
+// future UI can surface "12 unsupported blocks skipped" without re-parsing.
+model WorkLogImport {
+  id                String    @id @default(uuid())
+  userId            String
+  sourceType        String // "markdown" | "html" | future: "notion" | "onenote"
+  sourceFingerprint String // sha256 hex of source bytes
+  sourceFilename    String? // optional original filename
+  status            String    @default("pending") // "pending" | "succeeded" | "failed"
+  errorMessage      String?
+  droppedBlocks     Json?
+  workLogId         String?   @unique // links to the created WorkLog on success
+  createdAt         DateTime  @default(now())
+  completedAt       DateTime?
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workLog WorkLog? @relation(fields: [workLogId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, sourceType, sourceFingerprint], map: "WorkLogImport_dedupe")
+  @@index([userId, createdAt])
+  @@index([userId, status])
 }
 
 // Reusable shift windows for a specific WorkHistory job.
@@ -819,15 +849,15 @@ model WorkHistoryShift {
   userId        String
   workHistoryId String
   name          String
-  startMinute   Int      // 0..1439
-  endMinute     Int      // 0..1439
+  startMinute   Int // 0..1439
+  endMinute     Int // 0..1439
   isActive      Boolean  @default(true)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  workHistory WorkHistory @relation(fields: [workHistoryId], references: [id], onDelete: Cascade)
-  workLogs    WorkLog[]
+  user                         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workHistory                  WorkHistory         @relation(fields: [workHistoryId], references: [id], onDelete: Cascade)
+  workLogs                     WorkLog[]
   defaultForWorkLogPreferences WorkLogPreference[] @relation("WorkLogPreferenceDefaultShift")
 
   @@index([userId, workHistoryId])
@@ -846,8 +876,8 @@ model WorkLogPreference {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
-  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  defaultPosition WorkHistory?     @relation("WorkLogPreferenceDefaultPosition", fields: [defaultPositionId], references: [id], onDelete: SetNull)
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  defaultPosition WorkHistory?      @relation("WorkLogPreferenceDefaultPosition", fields: [defaultPositionId], references: [id], onDelete: SetNull)
   defaultShift    WorkHistoryShift? @relation("WorkLogPreferenceDefaultShift", fields: [defaultShiftId], references: [id], onDelete: SetNull)
 
   @@index([defaultPositionId])
@@ -902,31 +932,31 @@ model WorkLogPhoto {
 // User-defined reusable presets so most days can be logged in seconds.
 // E.g. "Standard onsite — Acme" = position + category + tags + tools, all pre-filled.
 model WorkLogTemplate {
-  id                     String    @id @default(uuid())
-  userId                 String
-  name                   String                              // e.g. "Standard onsite — Acme"
-  description            String?
-  icon                   String?                              // optional lucide icon key
-  color                  String?                              // optional accent color token
+  id          String  @id @default(uuid())
+  userId      String
+  name        String // e.g. "Standard onsite — Acme"
+  description String?
+  icon        String? // optional lucide icon key
+  color       String? // optional accent color token
 
   // ── Defaults applied when creating a log from this template ──
   defaultPositionId      String?
-  defaultCategory        String    @default("task")
+  defaultCategory        String   @default("task")
   defaultTitle           String?
-  defaultTags            String?                              // comma-separated, mirrors WorkLog.tags
-  defaultEquipmentIds    String[]  @default([])
-  defaultAssetIds        String[]  @default([])
+  defaultTags            String? // comma-separated, mirrors WorkLog.tags
+  defaultEquipmentIds    String[] @default([])
+  defaultAssetIds        String[] @default([])
   defaultMood            String?
-  defaultDurationMinutes Int?                                 // optional default work duration
+  defaultDurationMinutes Int? // optional default work duration
 
-  sortOrder              Int       @default(0)
-  useCount               Int       @default(0)
-  lastUsedAt             DateTime?
+  sortOrder  Int       @default(0)
+  useCount   Int       @default(0)
+  lastUsedAt DateTime?
 
-  createdAt              DateTime  @default(now())
-  updatedAt              DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user     User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   position WorkHistory? @relation("WorkHistoryWorkLogTemplates", fields: [defaultPositionId], references: [id], onDelete: SetNull)
   workLogs WorkLog[]
 
@@ -941,22 +971,22 @@ model WorkLogTemplate {
 // OAuth providers (google-calendar, microsoft-graph, github-oauth) will reuse this row with
 // an additional encrypted token blob in `config` once that work lands.
 model IntegrationConnection {
-  id            String   @id @default(uuid())
-  userId        String
-  provider      String                             // "ics" | "github" | future OAuth provider keys
-  label         String?                            // user-facing nickname ("Work calendar", "@my-handle")
-  config        Json     @default("{}")            // { url?, username?, repoFilter?, scopes?, tokenRef? }
-  enabled       Boolean  @default(true)
-  lastSyncedAt  DateTime?
-  lastSyncStatus String?                           // "ok" | "error: ..."
-  lastSyncCount Int      @default(0)               // # of WorkLog rows touched on the last sync
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id             String    @id @default(uuid())
+  userId         String
+  provider       String // "ics" | "github" | future OAuth provider keys
+  label          String? // user-facing nickname ("Work calendar", "@my-handle")
+  config         Json      @default("{}") // { url?, username?, repoFilter?, scopes?, tokenRef? }
+  enabled        Boolean   @default(true)
+  lastSyncedAt   DateTime?
+  lastSyncStatus String? // "ok" | "error: ..."
+  lastSyncCount  Int       @default(0) // # of WorkLog rows touched on the last sync
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([userId])
   @@unique([userId, provider, label])
+  @@index([userId])
 }
 
 // ─── Job Assets (employer / customer-owned things the user works ON) ────────
@@ -965,35 +995,35 @@ model IntegrationConnection {
 // Building 3 elevator. Tracked so the user can see service history per asset
 // and reference them from worklog entries.
 model JobAsset {
-  id              String    @id @default(uuid())
-  userId          String                                  // owner of the record (the worker)
-  name            String                                  // "Compressor C-204", "Truck 427", "RTU-3"
-  assetTypeId     String?                                 // link to AssetType knowledge profile (replaces old assetType enum)
-  identifier      String?                                 // asset tag / unit # / VIN / serial at the site
-  manufacturer    String?
-  model           String?
-  serialNumber    String?
+  id           String  @id @default(uuid())
+  userId       String // owner of the record (the worker)
+  name         String // "Compressor C-204", "Truck 427", "RTU-3"
+  assetTypeId  String? // link to AssetType knowledge profile (replaces old assetType enum)
+  identifier   String? // asset tag / unit # / VIN / serial at the site
+  manufacturer String?
+  model        String?
+  serialNumber String?
 
   // Where it lives — at most one of these is typically set
-  positionId      String?                                 // belongs to this employer/position
-  customerName    String?                                 // for service techs hitting many customer sites
-  location        String?                                 // "Building 3, Floor 2" / site address
+  positionId   String? // belongs to this employer/position
+  customerName String? // for service techs hitting many customer sites
+  location     String? // "Building 3, Floor 2" / site address
 
-  status          String    @default("active")            // active | retired | out-of-service
-  installedAt     DateTime?
-  commissionedAt  DateTime?
+  status         String    @default("active") // active | retired | out-of-service
+  installedAt    DateTime?
+  commissionedAt DateTime?
 
-  notes           String?
-  tags            String[]  @default([])
-  isPrivate       Boolean   @default(true)
-  isDraft         Boolean   @default(false)
+  notes     String?
+  tags      String[] @default([])
+  isPrivate Boolean  @default(true)
+  isDraft   Boolean  @default(false)
 
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  position  WorkHistory? @relation("WorkHistoryJobAssets", fields: [positionId], references: [id], onDelete: SetNull)
-  type      AssetType?   @relation(fields: [assetTypeId], references: [id], onDelete: SetNull)
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  position  WorkHistory?    @relation("WorkHistoryJobAssets", fields: [positionId], references: [id], onDelete: SetNull)
+  type      AssetType?      @relation(fields: [assetTypeId], references: [id], onDelete: SetNull)
   photos    JobAssetPhoto[]
   documents AssetDocument[]
   links     AssetLink[]
@@ -1029,16 +1059,16 @@ model JobAssetPhoto {
 // ─── Attachments (files linked to a work history entry) ────────
 
 model Attachment {
-  id          String   @id @default(uuid())
-  positionId  String
-  label       String                         // user-facing name, e.g. "Offer Letter"
-  category    String   @default("other")     // "offer-letter" | "w2" | "pay-stub" | "contract" | "cert" | "review" | "other"
-  fileName    String                         // original file name
-  filePath    String                         // server path under /uploads/attachments/
-  fileMime    String                         // e.g. "application/pdf"
-  fileSize    Int                            // bytes
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id         String   @id @default(uuid())
+  positionId String
+  label      String // user-facing name, e.g. "Offer Letter"
+  category   String   @default("other") // "offer-letter" | "w2" | "pay-stub" | "contract" | "cert" | "review" | "other"
+  fileName   String // original file name
+  filePath   String // server path under /uploads/attachments/
+  fileMime   String // e.g. "application/pdf"
+  fileSize   Int // bytes
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   position WorkHistory @relation("WorkHistoryAttachments", fields: [positionId], references: [id], onDelete: Cascade)
 }
@@ -1046,31 +1076,31 @@ model Attachment {
 // ─── Gallery Videos (multiple videos per work history entry) ───
 
 model GalleryVideo {
-  id            String    @id @default(uuid())
-  workHistoryId String
-  albumId       String?
-  filePath      String    // /uploads/gallery/videos/xxx.mp4 OR external URL when isEmbed
-  fileName      String    // original file name or display title for embeds
-  fileMime      String    // video/mp4 etc, or "embed/youtube" | "embed/vimeo" | "embed/loom" | "embed/other"
-  fileSize      Int       // bytes (0 for embeds)
-  posterPath    String?   // optional poster image (or remote thumbnail URL for embeds)
-  durationSec   Float?    // optional duration in seconds
-  width         Int?      // optional intrinsic width
-  height        Int?      // optional intrinsic height
-  isEmbed       Boolean   @default(false)  // true → render iframe / external player
-  embedProvider String?   // youtube | vimeo | loom | other
-  caption       String?
-  isCover       Boolean   @default(false)
-  isFavorite    Boolean   @default(false)
-  isPrivate     Boolean   @default(false)
-  annotationsPublic Boolean @default(true)
-  tags          String?   // JSON array of tag strings
-  dateTaken     DateTime?
-  sortOrder     Int?
-  createdAt     DateTime  @default(now())
+  id                String    @id @default(uuid())
+  workHistoryId     String
+  albumId           String?
+  filePath          String // /uploads/gallery/videos/xxx.mp4 OR external URL when isEmbed
+  fileName          String // original file name or display title for embeds
+  fileMime          String // video/mp4 etc, or "embed/youtube" | "embed/vimeo" | "embed/loom" | "embed/other"
+  fileSize          Int // bytes (0 for embeds)
+  posterPath        String? // optional poster image (or remote thumbnail URL for embeds)
+  durationSec       Float? // optional duration in seconds
+  width             Int? // optional intrinsic width
+  height            Int? // optional intrinsic height
+  isEmbed           Boolean   @default(false) // true → render iframe / external player
+  embedProvider     String? // youtube | vimeo | loom | other
+  caption           String?
+  isCover           Boolean   @default(false)
+  isFavorite        Boolean   @default(false)
+  isPrivate         Boolean   @default(false)
+  annotationsPublic Boolean   @default(true)
+  tags              String? // JSON array of tag strings
+  dateTaken         DateTime?
+  sortOrder         Int?
+  createdAt         DateTime  @default(now())
 
-  workHistory WorkHistory @relation("WorkHistoryGalleryVideos", fields: [workHistoryId], references: [id], onDelete: Cascade)
-  album       GalleryAlbum? @relation("GalleryAlbumVideos", fields: [albumId], references: [id], onDelete: SetNull)
+  workHistory WorkHistory       @relation("WorkHistoryGalleryVideos", fields: [workHistoryId], references: [id], onDelete: Cascade)
+  album       GalleryAlbum?     @relation("GalleryAlbumVideos", fields: [albumId], references: [id], onDelete: SetNull)
   annotations MediaAnnotation[] @relation("GalleryVideoAnnotations")
 
   @@index([workHistoryId])
@@ -1080,29 +1110,29 @@ model GalleryVideo {
 // ─── Gallery Photos (multiple photos per work history entry) ───
 
 model GalleryPhoto {
-  id            String    @id @default(uuid())
-  workHistoryId String
-  albumId       String?
-  filePath      String    // /uploads/gallery/xxx.jpg
-  fileName      String    // original file name
-  fileMime      String    // image/jpeg etc
-  fileSize      Int       // bytes
-  caption       String?   // optional caption
-  isCover       Boolean   @default(false)
-  isFavorite    Boolean   @default(false)
-  isPrivate     Boolean   @default(false)
+  id                String    @id @default(uuid())
+  workHistoryId     String
+  albumId           String?
+  filePath          String // /uploads/gallery/xxx.jpg
+  fileName          String // original file name
+  fileMime          String // image/jpeg etc
+  fileSize          Int // bytes
+  caption           String? // optional caption
+  isCover           Boolean   @default(false)
+  isFavorite        Boolean   @default(false)
+  isPrivate         Boolean   @default(false)
   // Marks photo for inclusion in the work-history banner slideshow.
-  isBanner      Boolean   @default(false)
-  annotationsPublic Boolean @default(true) // when photo is shared, also expose annotations
-  tags          String?   // JSON array of tag strings, e.g. ["welding","safety"]
-  markers       String?   // legacy JSON pins (kept for back-compat); new feature uses MediaAnnotation
-  dateTaken     DateTime?
-  rotation      Int       @default(0)  // 0, 90, 180, 270 — display rotation (non-destructive)
-  sortOrder     Int?
-  createdAt     DateTime  @default(now())
+  isBanner          Boolean   @default(false)
+  annotationsPublic Boolean   @default(true) // when photo is shared, also expose annotations
+  tags              String? // JSON array of tag strings, e.g. ["welding","safety"]
+  markers           String? // legacy JSON pins (kept for back-compat); new feature uses MediaAnnotation
+  dateTaken         DateTime?
+  rotation          Int       @default(0) // 0, 90, 180, 270 — display rotation (non-destructive)
+  sortOrder         Int?
+  createdAt         DateTime  @default(now())
 
-  workHistory WorkHistory @relation("WorkHistoryGallery", fields: [workHistoryId], references: [id], onDelete: Cascade)
-  album       GalleryAlbum? @relation("GalleryAlbumPhotos", fields: [albumId], references: [id], onDelete: SetNull)
+  workHistory WorkHistory       @relation("WorkHistoryGallery", fields: [workHistoryId], references: [id], onDelete: Cascade)
+  album       GalleryAlbum?     @relation("GalleryAlbumPhotos", fields: [albumId], references: [id], onDelete: SetNull)
   annotations MediaAnnotation[] @relation("GalleryPhotoAnnotations")
 
   @@index([workHistoryId])
@@ -1110,41 +1140,41 @@ model GalleryPhoto {
 }
 
 model GalleryAlbum {
-  id            String    @id @default(uuid())
+  id            String   @id @default(uuid())
   workHistoryId String
   name          String
   sortOrder     Int?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  workHistory WorkHistory   @relation("WorkHistoryGalleryAlbums", fields: [workHistoryId], references: [id], onDelete: Cascade)
+  workHistory WorkHistory    @relation("WorkHistoryGalleryAlbums", fields: [workHistoryId], references: [id], onDelete: Cascade)
   photos      GalleryPhoto[] @relation("GalleryAlbumPhotos")
   videos      GalleryVideo[] @relation("GalleryAlbumVideos")
 
-  @@index([workHistoryId])
   @@unique([workHistoryId, name])
+  @@index([workHistoryId])
 }
 
 // ─── Media Annotations (rich shapes + notes on photos/videos) ──
 
 model MediaAnnotation {
-  id              String   @id @default(uuid())
-  photoId         String?
-  videoId         String?
-  kind            String   // "pin" | "rect" | "circle" | "arrow" | "freehand"
-  geometry        String   // JSON; coords normalized 0..1 relative to media
-  title           String?
-  body            String?  // rich-text HTML (tiptap output)
-  color           String   @default("#ef4444")
-  tags            String?  // JSON array of tag strings
-  sortOrder       Int?     // null = not part of tour; numeric = step in tour
-  videoTimestamp  Float?   // seconds; null for photos or persistent video annotations
-  isPrivate       Boolean  @default(false) // override: hide on public surfaces even if photo is public
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id             String   @id @default(uuid())
+  photoId        String?
+  videoId        String?
+  kind           String // "pin" | "rect" | "circle" | "arrow" | "freehand"
+  geometry       String // JSON; coords normalized 0..1 relative to media
+  title          String?
+  body           String? // rich-text HTML (tiptap output)
+  color          String   @default("#ef4444")
+  tags           String? // JSON array of tag strings
+  sortOrder      Int? // null = not part of tour; numeric = step in tour
+  videoTimestamp Float? // seconds; null for photos or persistent video annotations
+  isPrivate      Boolean  @default(false) // override: hide on public surfaces even if photo is public
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  photo GalleryPhoto? @relation("GalleryPhotoAnnotations", fields: [photoId], references: [id], onDelete: Cascade)
-  video GalleryVideo? @relation("GalleryVideoAnnotations", fields: [videoId], references: [id], onDelete: Cascade)
+  photo    GalleryPhoto?            @relation("GalleryPhotoAnnotations", fields: [photoId], references: [id], onDelete: Cascade)
+  video    GalleryVideo?            @relation("GalleryVideoAnnotations", fields: [videoId], references: [id], onDelete: Cascade)
   comments MediaAnnotationComment[] @relation("AnnotationComments")
 
   @@index([photoId])
@@ -1156,8 +1186,8 @@ model MediaAnnotation {
 model MediaAnnotationComment {
   id           String   @id @default(uuid())
   annotationId String
-  authorId     String   // user id of comment author
-  body         String   // plain text or simple markdown
+  authorId     String // user id of comment author
+  body         String // plain text or simple markdown
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -1202,19 +1232,19 @@ model Benefit {
 }
 
 model TimeOffBalance {
-  id        String   @id @default(uuid())
+  id         String   @id @default(uuid())
   positionId String
-  category  String   @default("pto")
-  totalDays Float    @default(0)
-  usedDays  Float    @default(0)
-  year      Int
-  accrual   String   @default("annual")
-  carryOver Float    @default(0)
-  notes     String?
-  createdAt DateTime @default(now())
+  category   String   @default("pto")
+  totalDays  Float    @default(0)
+  usedDays   Float    @default(0)
+  year       Int
+  accrual    String   @default("annual")
+  carryOver  Float    @default(0)
+  notes      String?
+  createdAt  DateTime @default(now())
 
   entries  TimeOffEntry[]
-  position WorkHistory @relation("WorkHistoryTimeOff", fields: [positionId], references: [id], onDelete: Cascade)
+  position WorkHistory    @relation("WorkHistoryTimeOff", fields: [positionId], references: [id], onDelete: Cascade)
 }
 
 model TimeOffEntry {
@@ -1231,27 +1261,27 @@ model TimeOffEntry {
 }
 
 model PaycheckRecord {
-  id              String    @id @default(uuid())
-  positionId      String
-  payPeriodStart  DateTime?
-  payPeriodEnd    DateTime?
-  grossPay        Float?
-  netPay          Float?
-  payRate         Float?
-  regularHours    Float?
-  overtimeHours   Float?
-  ytdGross        Float?
-  ytdNet          Float?
-  ytdFederalTax   Float?
-  ytdStateTax     Float?
-  ytdSocialSec    Float?
-  ytdMedicare     Float?
-  ytdRetirement   Float?
-  ytdHealthIns    Float?
-  ytdTotalDed     Float?
-  taxPercentages  String?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id             String    @id @default(uuid())
+  positionId     String
+  payPeriodStart DateTime?
+  payPeriodEnd   DateTime?
+  grossPay       Float?
+  netPay         Float?
+  payRate        Float?
+  regularHours   Float?
+  overtimeHours  Float?
+  ytdGross       Float?
+  ytdNet         Float?
+  ytdFederalTax  Float?
+  ytdStateTax    Float?
+  ytdSocialSec   Float?
+  ytdMedicare    Float?
+  ytdRetirement  Float?
+  ytdHealthIns   Float?
+  ytdTotalDed    Float?
+  taxPercentages String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   position WorkHistory @relation("WorkHistoryPaychecks", fields: [positionId], references: [id], onDelete: Cascade)
 }
@@ -1259,14 +1289,14 @@ model PaycheckRecord {
 // ─── Career Goals & Planning ───────────────────────────────────
 
 model CareerGoal {
-  id          String   @id @default(uuid())
+  id          String    @id @default(uuid())
   userId      String
   title       String
   description String?
   targetDate  DateTime?
-  status      String   @default("not_started")
-  priority    String   @default("medium")
-  createdAt   DateTime @default(now())
+  status      String    @default("not_started")
+  priority    String    @default("medium")
+  createdAt   DateTime  @default(now())
 
   user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   milestones Milestone[]
@@ -1300,9 +1330,9 @@ model CareerPath {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  user       User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  milestones CareerPathMilestone[]
-  scores     DirectionScore[]
+  user               User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  milestones         CareerPathMilestone[]
+  scores             DirectionScore[]
   decompositionTrees DecompositionTree[]
 }
 
@@ -1369,8 +1399,8 @@ model CareerIncomeYear {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  user     User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  entries  CareerIncomeEntry[]
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entries   CareerIncomeEntry[]
   w2Records W2Record[]
 
   @@unique([userId, year])
@@ -1450,21 +1480,21 @@ model EmailAccount {
 }
 
 model Email {
-  id         String   @id @default(uuid())
-  accountId  String
-  messageId  String
-  subject    String?
-  sender     String
-  recipient  String?
-  date       DateTime
-  snippet    String?
-  body       String?
-  isRead     Boolean  @default(false)
-  labels     String?
+  id            String   @id @default(uuid())
+  accountId     String
+  messageId     String
+  subject       String?
+  sender        String
+  recipient     String?
+  date          DateTime
+  snippet       String?
+  body          String?
+  isRead        Boolean  @default(false)
+  labels        String?
   applicationId String?
-  createdAt  DateTime @default(now())
+  createdAt     DateTime @default(now())
 
-  account    EmailAccount    @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  account     EmailAccount    @relation(fields: [accountId], references: [id], onDelete: Cascade)
   application JobApplication? @relation(fields: [applicationId], references: [id], onDelete: SetNull)
 
   @@unique([accountId, messageId])
@@ -1473,15 +1503,15 @@ model Email {
 // ─── Utility & Tracking ────────────────────────────────────────
 
 model Reminder {
-  id         String   @id @default(uuid())
-  userId     String
-  entityType String
-  entityId   String
-  title      String
-  remindAt   DateTime
-  isDismissed Boolean @default(false)
+  id           String    @id @default(uuid())
+  userId       String
+  entityType   String
+  entityId     String
+  title        String
+  remindAt     DateTime
+  isDismissed  Boolean   @default(false)
   snoozedUntil DateTime?
-  createdAt  DateTime @default(now())
+  createdAt    DateTime  @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
@@ -1540,14 +1570,14 @@ model DocumentFolder {
 // ─── Research & Market Data ────────────────────────────────────
 
 model ResearchFeed {
-  id            String   @id @default(cuid())
+  id            String    @id @default(cuid())
   userId        String
   title         String
   url           String
-  category      String   @default("general")
-  isActive      Boolean  @default(true)
+  category      String    @default("general")
+  isActive      Boolean   @default(true)
   lastFetchedAt DateTime?
-  createdAt     DateTime @default(now())
+  createdAt     DateTime  @default(now())
 
   user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   articles ResearchArticle[]
@@ -1556,61 +1586,61 @@ model ResearchFeed {
 }
 
 model ResearchArticle {
-  id          String   @id @default(cuid())
-  feedId      String
-  title       String
-  url         String
-  source      String?
-  summary     String?
-  content     String?
-  publishedAt DateTime?
-  imageUrl    String?
-  isBookmarked Boolean  @default(false)
-  isRead      Boolean  @default(false)
-  tags        String?
-  createdAt   DateTime @default(now())
+  id           String    @id @default(cuid())
+  feedId       String
+  title        String
+  url          String
+  source       String?
+  summary      String?
+  content      String?
+  publishedAt  DateTime?
+  imageUrl     String?
+  isBookmarked Boolean   @default(false)
+  isRead       Boolean   @default(false)
+  tags         String?
+  createdAt    DateTime  @default(now())
 
   feed ResearchFeed @relation(fields: [feedId], references: [id], onDelete: Cascade)
 }
 
 model MarketSearch {
-  id            String   @id @default(cuid())
+  id            String    @id @default(cuid())
   userId        String
   seriesId      String
   title         String
   occupation    String?
   area          String?
-  dataType      String   @default("wages")
+  dataType      String    @default("wages")
   lastData      String?
   lastFetchedAt DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model CompanyProfile {
-  id              String    @id @default(uuid())
-  userId          String
-  ein             String
-  name            String?
-  address         String?
-  state           String?
-  industry        String?
-  naicsCode       String?
-  website         String?
-  employeeCount   Int?
-  isPublic        Boolean   @default(false)
-  secCIK          String?
-  form5500Data    String?
-  oshaData        String?
-  secData         String?
-  sosData         String?
-  kgData          String?
-  researchNotes   String?
-  lastFetchedAt   DateTime?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id            String    @id @default(uuid())
+  userId        String
+  ein           String
+  name          String?
+  address       String?
+  state         String?
+  industry      String?
+  naicsCode     String?
+  website       String?
+  employeeCount Int?
+  isPublic      Boolean   @default(false)
+  secCIK        String?
+  form5500Data  String?
+  oshaData      String?
+  secData       String?
+  sosData       String?
+  kgData        String?
+  researchNotes String?
+  lastFetchedAt DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -1638,7 +1668,7 @@ model SiteMarketData {
   socCode         String
   region          String   @default("national")
   experienceLevel String   @default("all")
-  periodLabel     String   // e.g. "2026-Q1"
+  periodLabel     String // e.g. "2026-Q1"
   median          Int?
   mean            Int?
   p10             Int?
@@ -1647,8 +1677,8 @@ model SiteMarketData {
   p90             Int?
   low             Int?
   high            Int?
-  rawAnswer       String?  // AI summary text
-  sourcesJson     String?  // JSON array of {title,url,snippet}
+  rawAnswer       String? // AI summary text
+  sourcesJson     String? // JSON array of {title,url,snippet}
   fetchedAt       DateTime @default(now())
   staleAfter      DateTime // fetchedAt + staleness window
 
@@ -1659,15 +1689,15 @@ model SiteMarketData {
 // ─── Micro-Learning ────────────────────────────────────────────
 
 model LearningTopic {
-  id          String   @id @default(uuid())
-  userId      String
-  documentId  String?
-  title       String
-  summary     String
-  content     String
-  order       Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id         String   @id @default(uuid())
+  userId     String
+  documentId String?
+  title      String
+  summary    String
+  content    String
+  order      Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   questions QuizQuestion[]
@@ -1675,13 +1705,13 @@ model LearningTopic {
 }
 
 model QuizQuestion {
-  id           String  @id @default(uuid())
-  topicId      String
-  question     String
-  type         String  @default("multiple_choice") // multiple_choice, true_false
-  optionsJson  String  // JSON array of option strings
-  answer       String
-  explanation  String?
+  id          String  @id @default(uuid())
+  topicId     String
+  question    String
+  type        String  @default("multiple_choice") // multiple_choice, true_false
+  optionsJson String // JSON array of option strings
+  answer      String
+  explanation String?
 
   topic LearningTopic @relation(fields: [topicId], references: [id], onDelete: Cascade)
 }
@@ -1708,7 +1738,7 @@ model InterestGroup {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user  User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user  User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   items InterestGroupItem[]
 
   @@unique([userId, name])
@@ -1718,14 +1748,14 @@ model InterestGroupItem {
   id           String   @id @default(uuid())
   groupId      String
   userId       String
-  jobKey       String   // deterministic key like "google-xxx" or "adzuna-xxx"
+  jobKey       String // deterministic key like "google-xxx" or "adzuna-xxx"
   title        String
   company      String
   location     String?
   url          String?
   salaryMin    Int?
   salaryMax    Int?
-  source       String   // "adzuna" | "google"
+  source       String // "adzuna" | "google"
   description  String?
   thumbnail    String?
   scheduleType String?
@@ -1742,12 +1772,12 @@ model InterestGroupItem {
 model LifeAnchor {
   id        String   @id @default(uuid())
   userId    String
-  label     String   // e.g. "Home", "Spouse's Work", "Kids' School"
+  label     String // e.g. "Home", "Spouse's Work", "Kids' School"
   icon      String   @default("home") // lucide icon name
   address   String
   lat       Float
   lng       Float
-  placeId   String?  // Google Place ID for Feature Layer building highlight
+  placeId   String? // Google Place ID for Feature Layer building highlight
   weight    Int      @default(3) // priority 1-5
   sortOrder Int      @default(0)
   createdAt DateTime @default(now())
@@ -1759,58 +1789,58 @@ model LifeAnchor {
 // ─── Work History (past jobs reference pins) ────────────────────
 
 model WorkHistory {
-  id        String   @id @default(uuid())
-  userId    String
-  type      String   @default("job") // "job" | "school" | "military" | "volunteer"
-  company   String   // company name or institution name
-  title     String?  // job title or degree name
-  address   String
-  lat       Float
-  lng       Float
-  placeId   String?  // Google Place ID for Feature Layer building highlight
-  osmWayId  Int?     // OpenStreetMap way ID for building footprint outline (resolved on first focus, primary building only — kept for back-compat / fast path)
-  osmWayIds Int[]    @default([]) // Explicit list of OSM way IDs to outline (multi-building campus). When non-empty this overrides auto campus-sibling lookup.
+  id              String  @id @default(uuid())
+  userId          String
+  type            String  @default("job") // "job" | "school" | "military" | "volunteer"
+  company         String // company name or institution name
+  title           String? // job title or degree name
+  address         String
+  lat             Float
+  lng             Float
+  placeId         String? // Google Place ID for Feature Layer building highlight
+  osmWayId        Int? // OpenStreetMap way ID for building footprint outline (resolved on first focus, primary building only — kept for back-compat / fast path)
+  osmWayIds       Int[]   @default([]) // Explicit list of OSM way IDs to outline (multi-building campus). When non-empty this overrides auto campus-sibling lookup.
   footprintCustom Json? // Optional hand-drawn polygon rings: Array<Array<{lat:number,lng:number}>>. Appended to OSM rings on render.
-  startDate String?  // e.g. "2020-01" (year-month)
-  endDate   String?  // e.g. "2023-06" or null for "still there"
+  startDate       String? // e.g. "2020-01" (year-month)
+  endDate         String? // e.g. "2023-06" or null for "still there"
 
   // ── Education-specific ──
-  degree    String?  // e.g. "B.S.", "M.S.", "A.A.S.", "High School Diploma"
-  major     String?  // e.g. "Computer Science", "Electrical Engineering"
-  gpa       Float?   // grade point average
+  degree String? // e.g. "B.S.", "M.S.", "A.A.S.", "High School Diploma"
+  major  String? // e.g. "Computer Science", "Electrical Engineering"
+  gpa    Float? // grade point average
 
   // ── Compensation ──
-  salaryAmount    Float?   // annual salary or hourly rate
-  salaryType      String?  // "annual" | "hourly"
-  salaryCurrency  String?  @default("USD")
-  bonusAmount     Float?   // annual bonus
-  equityNotes     String?  // stock options / RSU notes
+  salaryAmount   Float? // annual salary or hourly rate
+  salaryType     String? // "annual" | "hourly"
+  salaryCurrency String? @default("USD")
+  bonusAmount    Float? // annual bonus
+  equityNotes    String? // stock options / RSU notes
 
   // ── Schedule ──
-  workMode        String?  // "on-site" | "hybrid" | "remote"
-  hybridDays      Int?     // days per week on-site (for hybrid)
-  scheduleType    String?  // "full-time" | "part-time" | "contract" | "internship" | "freelance"
-  hoursPerWeek    Float?   // typical hours per week
-  shiftNotes      String?  // shift schedule notes
+  workMode     String? // "on-site" | "hybrid" | "remote"
+  hybridDays   Int? // days per week on-site (for hybrid)
+  scheduleType String? // "full-time" | "part-time" | "contract" | "internship" | "freelance"
+  hoursPerWeek Float? // typical hours per week
+  shiftNotes   String? // shift schedule notes
 
   // ── Benefits ──
-  benefits        String?  // JSON array: ["health","dental","vision","401k","pto","hsa","fsa","life","disability","tuition","gym","stock"]
+  benefits String? // JSON array: ["health","dental","vision","401k","pto","hsa","fsa","life","disability","tuition","gym","stock"]
 
   // ── PTO / Vacation ──
-  ptoDaysOffered  Int?     // PTO days offered per year
-  ptoDaysUsed     Int?     // PTO days actually used
-  ptoNotes        String?  // unlimited PTO, sabbatical, etc.
+  ptoDaysOffered Int? // PTO days offered per year
+  ptoDaysUsed    Int? // PTO days actually used
+  ptoNotes       String? // unlimited PTO, sabbatical, etc.
 
   // ── Work Environment ──
-  companySize     String?  // "startup" | "small" | "mid-market" | "enterprise"
-  department      String?  // department or division
-  teamSize        Int?     // how many people on your team
-  managerName     String?  // who you reported to
+  companySize String? // "startup" | "small" | "mid-market" | "enterprise"
+  department  String? // department or division
+  teamSize    Int? // how many people on your team
+  managerName String? // who you reported to
 
   // ── Skills & Growth ──
-  skillsUsed      String?  // JSON array of skill names used
-  skillsGained    String?  // JSON array of skill names gained
-  promotions      String?  // JSON array: [{"title":"Senior Dev","date":"2022-06"}]
+  skillsUsed   String? // JSON array of skill names used
+  skillsGained String? // JSON array of skill names gained
+  promotions   String? // JSON array: [{"title":"Senior Dev","date":"2022-06"}]
 
   // ── Departure & Reflection ──
   reasonForLeaving String? // "better-offer" | "layoff" | "relocation" | "growth" | "culture" | "personal" | "contract-end" | "other"
@@ -1818,87 +1848,87 @@ model WorkHistory {
   accomplishments  String? // JSON array of key accomplishment strings
 
   // ── Commute (auto-calculated or manual) ──
-  commuteMinutes  Int?     // average one-way commute time
-  commuteDistance Float?   // average one-way distance in miles
-  commuteMode     String?  // "driving" | "transit" | "walking" | "bicycling"
+  commuteMinutes  Int? // average one-way commute time
+  commuteDistance Float? // average one-way distance in miles
+  commuteMode     String? // "driving" | "transit" | "walking" | "bicycling"
 
   // ── Payroll / Employer Detail (absorbed from CurrentPosition) ──
-  isActive        Boolean  @default(false)   // currently employed here
-  location        String?                    // city-level location string
-  description     String?                    // role description
-  responsibilities String?                   // line-separated responsibilities
-  techStack       String?                    // comma-separated tools/tech
-  ein             String?                    // employer identification number
-  legalName       String?                    // legal filing name
-  companySynopsis String?                    // brief company description
-  industry        String?                    // industry sector
-  website         String?                    // company website URL
+  isActive                Boolean  @default(false) // currently employed here
+  location                String? // city-level location string
+  description             String? // role description
+  responsibilities        String? // line-separated responsibilities
+  techStack               String? // comma-separated tools/tech
+  ein                     String? // employer identification number
+  legalName               String? // legal filing name
+  companySynopsis         String? // brief company description
+  industry                String? // industry sector
+  website                 String? // company website URL
   // Set when the company has shut down / no longer in operation. Surfaced as a "Closed" badge.
-  companyClosed   Boolean  @default(false)
+  companyClosed           Boolean  @default(false)
   // Set when this primary work location/branch is closed but the company is still operating.
-  locationClosed  Boolean  @default(false)
-  focus           String?                    // primary role summary
-  schedule        String?                    // free-text schedule (e.g. "Overnight 6pm-6am")
-  payRate         String?                    // base rate string (e.g. "$35.50/hr")
-  payType         String?  @default("salary") // "salary" | "hourly" | "contract"
-  differentials   String?                    // newline-separated pay differentials
-  payFrequency    String?  @default("biweekly") // "weekly" | "biweekly" | "semimonthly" | "monthly"
-  rotatingSchedule Boolean @default(false)   // alternating weekly schedules
-  scheduleBHours  Float?                     // schedule B hours per week
-  otHoursA        Float?                     // overtime hours schedule A
-  otHoursB        Float?                     // overtime hours schedule B
-  otRate          Float?   @default(1.5)     // overtime multiplier
-  annualRaiseMin  Float?                     // min annual raise %
-  annualRaiseMax  Float?                     // max annual raise %
-  estimatorSettings String?                  // JSON blob for paycheck estimator
-  coverImage      String?                    // base64 cover photo
-  coverImageY     Float?   @default(50)      // vertical focal point 0–100 for banner crop
+  locationClosed          Boolean  @default(false)
+  focus                   String? // primary role summary
+  schedule                String? // free-text schedule (e.g. "Overnight 6pm-6am")
+  payRate                 String? // base rate string (e.g. "$35.50/hr")
+  payType                 String?  @default("salary") // "salary" | "hourly" | "contract"
+  differentials           String? // newline-separated pay differentials
+  payFrequency            String?  @default("biweekly") // "weekly" | "biweekly" | "semimonthly" | "monthly"
+  rotatingSchedule        Boolean  @default(false) // alternating weekly schedules
+  scheduleBHours          Float? // schedule B hours per week
+  otHoursA                Float? // overtime hours schedule A
+  otHoursB                Float? // overtime hours schedule B
+  otRate                  Float?   @default(1.5) // overtime multiplier
+  annualRaiseMin          Float? // min annual raise %
+  annualRaiseMax          Float? // max annual raise %
+  estimatorSettings       String? // JSON blob for paycheck estimator
+  coverImage              String? // base64 cover photo
+  coverImageY             Float?   @default(50) // vertical focal point 0–100 for banner crop
   // Per-job override for the global UserProfile.bannerSlideshowEnabled setting.
   // null = use user default; true/false = explicit override.
   bannerSlideshowOverride Boolean?
-  uniformData     String?                    // JSON blob: { enabled, category, zones: { [zoneId]: { item, color, providedBy, notes, photo } } }
-  hoverNote       String?                    // Custom recruiter-facing note shown in the building-outline hover tooltip (item #10 follow-up). Plain text + URLs; ~280 chars.
-  outlineColor    String?                    // Custom hex color (e.g. #10b981) for the building-outline polygon. Null = default emerald.
-  outlineOverrides Json?                     // Per-ring overrides keyed by stable ringKey (first-3-coords of the polygon). Shape: { [ringKey]: { color?: string, note?: string } }. Lets the user color/note individual buildings on a multi-building campus.
+  uniformData             String? // JSON blob: { enabled, category, zones: { [zoneId]: { item, color, providedBy, notes, photo } } }
+  hoverNote               String? // Custom recruiter-facing note shown in the building-outline hover tooltip (item #10 follow-up). Plain text + URLs; ~280 chars.
+  outlineColor            String? // Custom hex color (e.g. #10b981) for the building-outline polygon. Null = default emerald.
+  outlineOverrides        Json? // Per-ring overrides keyed by stable ringKey (first-3-coords of the polygon). Shape: { [ringKey]: { color?: string, note?: string } }. Lets the user color/note individual buildings on a multi-building campus.
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user               User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  locations          WorkHistoryLocation[]
-  notes              WorkHistoryNote[]
-  milestones         WorkHistoryMilestone[]
-  rating             WorkplaceRating?
-  diffusionExposures DiffusionExposure[]
-  careerEvents       CareerEvent[]
-  compensation       CompensationEvent[]     @relation("WorkHistoryCompensation")
-  benefitRecords     Benefit[]               @relation("WorkHistoryBenefits")
-  timeOff            TimeOffBalance[]        @relation("WorkHistoryTimeOff")
-  paychecks          PaycheckRecord[]        @relation("WorkHistoryPaychecks")
-  equipment          Equipment[]             @relation("WorkHistoryEquipment")
-  workLogs           WorkLog[]               @relation("WorkHistoryWorkLogs")
-  shifts             WorkHistoryShift[]
-  defaultForWorkLogPreferences WorkLogPreference[] @relation("WorkLogPreferenceDefaultPosition")
-  workLogTemplates   WorkLogTemplate[]       @relation("WorkHistoryWorkLogTemplates")
-  jobAssets          JobAsset[]              @relation("WorkHistoryJobAssets")
-  attachments        Attachment[]            @relation("WorkHistoryAttachments")
-  galleryPhotos      GalleryPhoto[]          @relation("WorkHistoryGallery")
-  galleryVideos      GalleryVideo[]          @relation("WorkHistoryGalleryVideos")
-  galleryAlbums      GalleryAlbum[]          @relation("WorkHistoryGalleryAlbums")
+  user                         User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  locations                    WorkHistoryLocation[]
+  notes                        WorkHistoryNote[]
+  milestones                   WorkHistoryMilestone[]
+  rating                       WorkplaceRating?
+  diffusionExposures           DiffusionExposure[]
+  careerEvents                 CareerEvent[]
+  compensation                 CompensationEvent[]    @relation("WorkHistoryCompensation")
+  benefitRecords               Benefit[]              @relation("WorkHistoryBenefits")
+  timeOff                      TimeOffBalance[]       @relation("WorkHistoryTimeOff")
+  paychecks                    PaycheckRecord[]       @relation("WorkHistoryPaychecks")
+  equipment                    Equipment[]            @relation("WorkHistoryEquipment")
+  workLogs                     WorkLog[]              @relation("WorkHistoryWorkLogs")
+  shifts                       WorkHistoryShift[]
+  defaultForWorkLogPreferences WorkLogPreference[]    @relation("WorkLogPreferenceDefaultPosition")
+  workLogTemplates             WorkLogTemplate[]      @relation("WorkHistoryWorkLogTemplates")
+  jobAssets                    JobAsset[]             @relation("WorkHistoryJobAssets")
+  attachments                  Attachment[]           @relation("WorkHistoryAttachments")
+  galleryPhotos                GalleryPhoto[]         @relation("WorkHistoryGallery")
+  galleryVideos                GalleryVideo[]         @relation("WorkHistoryGalleryVideos")
+  galleryAlbums                GalleryAlbum[]         @relation("WorkHistoryGalleryAlbums")
 }
 
 // ─── Residence History (where the user lived over time) ─────────
 model Residence {
-  id        String   @id @default(uuid())
+  id        String  @id @default(uuid())
   userId    String
-  label     String   // e.g. "College dorm", "First apartment", "Family home"
+  label     String // e.g. "College dorm", "First apartment", "Family home"
   address   String
   lat       Float
   lng       Float
-  placeId   String?  // Google Place ID
-  startDate String?  // e.g. "2018-08"
-  endDate   String?  // null = still living here
-  isCurrent Boolean  @default(false)
+  placeId   String? // Google Place ID
+  startDate String? // e.g. "2018-08"
+  endDate   String? // null = still living here
+  isCurrent Boolean @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1909,29 +1939,29 @@ model Residence {
 // ─── Work History Locations (sub-locations per job) ─────────────
 
 model WorkHistoryLocation {
-  id            String   @id @default(uuid())
-  workHistoryId String
-  label         String   // e.g. "Downtown satellite office"
-  type          String   @default("daily-workplace") // daily-workplace | main-office | satellite | remote | client-site
-  address       String
-  lat           Float
-  lng           Float
-  placeId       String?  // Google Place ID for Feature Layer building highlight
+  id               String   @id @default(uuid())
+  workHistoryId    String
+  label            String // e.g. "Downtown satellite office"
+  type             String   @default("daily-workplace") // daily-workplace | main-office | satellite | remote | client-site
+  address          String
+  lat              Float
+  lng              Float
+  placeId          String? // Google Place ID for Feature Layer building highlight
   isPrimary        Boolean  @default(false) // used for polyline path
   includeInOutline Boolean  @default(false) // include this sub-location in auto building-outline detection
   // Set when this specific sub-location is closed (the company / other locations may still operate).
   closed           Boolean  @default(false)
-  skills        String?  // JSON array of skill names used at this location
-  photos        String?  // JSON array of photo URLs or base64 data URIs
-  startDate     String?  // optional YYYY-MM period start at this location
-  endDate       String?  // optional YYYY-MM period end at this location
-  hoverNote     String?  // Custom recruiter-facing note shown in the per-location building-outline hover tooltip. Overrides parent WorkHistory.hoverNote when present.
-  outlineColor  String?  // Custom hex color override for this sub-location's polygon. Overrides parent WorkHistory.outlineColor when present.
+  skills           String? // JSON array of skill names used at this location
+  photos           String? // JSON array of photo URLs or base64 data URIs
+  startDate        String? // optional YYYY-MM period start at this location
+  endDate          String? // optional YYYY-MM period end at this location
+  hoverNote        String? // Custom recruiter-facing note shown in the per-location building-outline hover tooltip. Overrides parent WorkHistory.hoverNote when present.
+  outlineColor     String? // Custom hex color override for this sub-location's polygon. Overrides parent WorkHistory.outlineColor when present.
   // Per sub-location cover photo shown in the on-hover popup. When null, the
   // parent WorkHistory.coverImage is used as a fallback.
-  coverImage    String?
-  coverImageY   Float?   @default(50)
-  createdAt     DateTime @default(now())
+  coverImage       String?
+  coverImageY      Float?   @default(50)
+  createdAt        DateTime @default(now())
 
   workHistory WorkHistory @relation(fields: [workHistoryId], references: [id], onDelete: Cascade)
 
@@ -1944,7 +1974,7 @@ model WorkHistoryNote {
   id            String   @id @default(uuid())
   workHistoryId String
   content       String
-  imageUrl      String?  // optional photo URL
+  imageUrl      String? // optional photo URL
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -1961,7 +1991,7 @@ model WorkHistoryMilestone {
   title         String
   description   String?
   type          String   @default("achievement") // promotion | project | certification | award | achievement | other
-  date          String   // "2024-03" year-month format
+  date          String // "2024-03" year-month format
   createdAt     DateTime @default(now())
 
   workHistory WorkHistory @relation(fields: [workHistoryId], references: [id], onDelete: Cascade)
@@ -1990,22 +2020,22 @@ model WorkplaceRating {
 // ─── Email Leads (Job Search) ───────────────────────────────────
 
 model EmailLead {
-  id          String   @id @default(uuid())
+  id          String    @id @default(uuid())
   userId      String
   title       String
   company     String
   location    String
-  lat         Float    @default(0)
-  lng         Float    @default(0)
+  lat         Float     @default(0)
+  lng         Float     @default(0)
   salaryMin   Float?
   salaryMax   Float?
   applyUrl    String?
-  source      String   // indeed, linkedin, glassdoor, ziprecruiter, other
+  source      String // indeed, linkedin, glassdoor, ziprecruiter, other
   emailDate   DateTime?
-  description String   @default("")
-  dedupeHash  String   // hash of title+company+location for dedup
+  description String    @default("")
+  dedupeHash  String // hash of title+company+location for dedup
   expiresAt   DateTime // TTL — auto-prune after this date
-  createdAt   DateTime @default(now())
+  createdAt   DateTime  @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -2016,36 +2046,36 @@ model EmailLead {
 // ─── Company Job Postings ──────────────────────────────────────
 
 model JobPosting {
-  id              String    @id @default(uuid())
-  userId          String?
-  slug            String    @unique @default(uuid())
-  company         String
-  companyLogo     String?
-  role            String
-  department      String?
-  location        String?
-  type            String    @default("remote")  // remote, hybrid, onsite
-  employmentType  String    @default("full_time") // full_time, part_time, contract, internship, temporary
-  experienceLevel String    @default("mid")     // entry, mid, senior, lead, executive
-  salaryMin       Int?
-  salaryMax       Int?
-  currency        String    @default("USD")
-  payFrequency    String    @default("yearly")  // hourly, yearly
-  description     String
-  requirements    String?
-  niceToHave      String?
-  benefits        String?
-  techStack       String?                        // comma-separated
-  applicationUrl  String?                        // external link or null for in-app
-  contactEmail    String?
-  ein             String?
-  isPublished     Boolean   @default(false)
-  isFeatured      Boolean   @default(false)
-  expiresAt       DateTime?
-  viewCount       Int       @default(0)
-  applicationCount Int      @default(0)
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id               String    @id @default(uuid())
+  userId           String?
+  slug             String    @unique @default(uuid())
+  company          String
+  companyLogo      String?
+  role             String
+  department       String?
+  location         String?
+  type             String    @default("remote") // remote, hybrid, onsite
+  employmentType   String    @default("full_time") // full_time, part_time, contract, internship, temporary
+  experienceLevel  String    @default("mid") // entry, mid, senior, lead, executive
+  salaryMin        Int?
+  salaryMax        Int?
+  currency         String    @default("USD")
+  payFrequency     String    @default("yearly") // hourly, yearly
+  description      String
+  requirements     String?
+  niceToHave       String?
+  benefits         String?
+  techStack        String? // comma-separated
+  applicationUrl   String? // external link or null for in-app
+  contactEmail     String?
+  ein              String?
+  isPublished      Boolean   @default(false)
+  isFeatured       Boolean   @default(false)
+  expiresAt        DateTime?
+  viewCount        Int       @default(0)
+  applicationCount Int       @default(0)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
 
@@ -2058,29 +2088,29 @@ model JobPosting {
 
 /// Crowdsourced recruiter flags (Waze-model)
 model RecruiterFlag {
-  id              String   @id @default(uuid())
-  companyNorm     String   // lowercased, trimmed company name
-  userId          String
-  createdAt       DateTime @default(now())
+  id          String   @id @default(uuid())
+  companyNorm String // lowercased, trimmed company name
+  userId      String
+  createdAt   DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([companyNorm, userId])   // one flag per user per company
+  @@unique([companyNorm, userId]) // one flag per user per company
   @@index([companyNorm])
 }
 
 /// Persisted address overrides for map jobs (keyed by external job ID)
 model AddressOverride {
-  id          String   @id @default(uuid())
-  userId      String
-  jobKey      String   // external job id (Adzuna/Google)
-  address     String
-  lat         Float
-  lng         Float
-  landmarkName String?  // resolved landmark at override address
-  source      String   @default("manual") // manual | nlp | landmark-swap
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           String   @id @default(uuid())
+  userId       String
+  jobKey       String // external job id (Adzuna/Google)
+  address      String
+  lat          Float
+  lng          Float
+  landmarkName String? // resolved landmark at override address
+  source       String   @default("manual") // manual | nlp | landmark-swap
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -2094,9 +2124,9 @@ model AddressOverride {
 model SkillDomain {
   id        String   @id @default(cuid())
   name      String
-  parentId  String?  // self-referential hierarchy handled at app level
-  socCodes  String?       // JSON array of SOC codes in this domain
-  keySkills String?       // JSON array of core skill names
+  parentId  String? // self-referential hierarchy handled at app level
+  socCodes  String? // JSON array of SOC codes in this domain
+  keySkills String? // JSON array of core skill names
   createdAt DateTime @default(now())
 
   combinations DomainCombinationDomain[]
@@ -2116,30 +2146,30 @@ model DomainCombinationDomain {
 
 /// A specific combination of skill domains and the roles it unlocks.
 model DomainCombination {
-  id        String   @id @default(cuid())
-  roles     String   // JSON array of role title strings
-  socCodes  String?  // JSON array of SOC codes for those roles
+  id        String                    @id @default(cuid())
+  roles     String // JSON array of role title strings
+  socCodes  String? // JSON array of SOC codes for those roles
   salaryMin Int?
   salaryMax Int?
-  level     String   @default("mid") // entry | mid | senior | lead | executive
+  level     String                    @default("mid") // entry | mid | senior | lead | executive
   treeId    String
-  tree      DecompositionTree @relation(fields: [treeId], references: [id], onDelete: Cascade)
+  tree      DecompositionTree         @relation(fields: [treeId], references: [id], onDelete: Cascade)
   domains   DomainCombinationDomain[]
-  createdAt DateTime @default(now())
+  createdAt DateTime                  @default(now())
 }
 
 /// Root of a skill decomposition tree for a given target role.
 model DecompositionTree {
-  id            String   @id @default(cuid())
+  id            String              @id @default(cuid())
   targetRole    String
   targetSocCode String?
   userId        String
   pathId        String?
   combinations  DomainCombination[]
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
 
-  user User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   path CareerPath? @relation(fields: [pathId], references: [id], onDelete: SetNull)
 
   @@index([userId])
@@ -2150,8 +2180,8 @@ model DecompositionTree {
 model TitleSynonymCluster {
   id             String   @id @default(cuid())
   canonicalTitle String
-  synonyms       String   // JSON array of { title, frequency, companies, regionBias }
-  socCodes       String?  // JSON array
+  synonyms       String // JSON array of { title, frequency, companies, regionBias }
+  socCodes       String? // JSON array
   skillOverlap   Int      @default(0) // 0-100 percentage
   userId         String
   createdAt      DateTime @default(now())
@@ -2164,22 +2194,22 @@ model TitleSynonymCluster {
 }
 
 model SavedSearch {
-  id          String   @id @default(cuid())
-  userId      String
-  name        String
-  query       String   @default("")
-  location    String
-  radius      String   @default("25")
-  source      String   @default("both")
-  lat         Float?
-  lng         Float?
-  filters     String?  // JSON: { minSalary, datePosted, remoteFilter, employmentType, hoursFilter, categoryFilter }
-  lastRunAt   DateTime?
-  lastCount   Int      @default(0)
-  newCount    Int      @default(0)
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String    @id @default(cuid())
+  userId    String
+  name      String
+  query     String    @default("")
+  location  String
+  radius    String    @default("25")
+  source    String    @default("both")
+  lat       Float?
+  lng       Float?
+  filters   String? // JSON: { minSalary, datePosted, remoteFilter, employmentType, hoursFilter, categoryFilter }
+  lastRunAt DateTime?
+  lastCount Int       @default(0)
+  newCount  Int       @default(0)
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -2194,18 +2224,18 @@ model SkillNode {
   userId    String
   name      String
   type      String   @default("technical") // technical | soft | domain | tool
-  source    String   @default("user")      // user | market | ai | onet
-  metadata  String?  // JSON: { socCodes, description, aliases }
+  source    String   @default("user") // user | market | ai | onet
+  metadata  String? // JSON: { socCodes, description, aliases }
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  edgesFrom SkillEdge[]     @relation("EdgeFrom")
-  edgesTo   SkillEdge[]     @relation("EdgeTo")
-  evidence  SkillEvidence[]
+  user                   User                         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  edgesFrom              SkillEdge[]                  @relation("EdgeFrom")
+  edgesTo                SkillEdge[]                  @relation("EdgeTo")
+  evidence               SkillEvidence[]
   occupationRequirements OccupationSkillRequirement[]
-  diffusionExposures DiffusionExposure[]
-  careerEventSkills CareerEventSkill[]
+  diffusionExposures     DiffusionExposure[]
+  careerEventSkills      CareerEventSkill[]
 
   @@unique([userId, name])
   @@index([userId])
@@ -2214,13 +2244,13 @@ model SkillNode {
 
 /// An edge connecting two SkillNodes — typed and weighted.
 model SkillEdge {
-  id       String @id @default(cuid())
-  fromId   String
-  toId     String
-  type     String @default("peer")          // prerequisite | peer | bridge | child | enables
-  weight   Float  @default(1.0)             // market frequency or AI confidence 0-10
-  source   String @default("ai")            // job_posting | onet | ai | user
-  metadata String? // JSON: { jobCount, confidence, reasoning }
+  id        String   @id @default(cuid())
+  fromId    String
+  toId      String
+  type      String   @default("peer") // prerequisite | peer | bridge | child | enables
+  weight    Float    @default(1.0) // market frequency or AI confidence 0-10
+  source    String   @default("ai") // job_posting | onet | ai | user
+  metadata  String? // JSON: { jobCount, confidence, reasoning }
   createdAt DateTime @default(now())
 
   from SkillNode @relation("EdgeFrom", fields: [fromId], references: [id], onDelete: Cascade)
@@ -2233,15 +2263,15 @@ model SkillEdge {
 
 /// Evidence linking a SkillNode to proof artifacts (work history, certs, projects, learning).
 model SkillEvidence {
-  id           String   @id @default(cuid())
+  id           String    @id @default(cuid())
   userId       String
   skillNodeId  String
-  artifactType String   // work_history | certification | learning_item | project | self_assessed
-  artifactId   String   @default(cuid()) // FK to source record, or auto-generated ID for self-assessed
-  strength     Float    @default(50)  // 0-100 evidence strength
+  artifactType String // work_history | certification | learning_item | project | self_assessed
+  artifactId   String    @default(cuid()) // FK to source record, or auto-generated ID for self-assessed
+  strength     Float     @default(50) // 0-100 evidence strength
   notes        String?
   verifiedAt   DateTime?
-  createdAt    DateTime @default(now())
+  createdAt    DateTime  @default(now())
 
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   skillNode SkillNode @relation(fields: [skillNodeId], references: [id], onDelete: Cascade)
@@ -2253,14 +2283,14 @@ model SkillEvidence {
 
 /// Tracks which scaffold cluster was seeded for a user and when, enabling refresh detection.
 model ScaffoldMeta {
-  id           String   @id @default(cuid())
-  userId       String
-  cluster      String   // SOC group name, e.g. "Computer and Mathematical"
-  version      String   // scaffold data version, e.g. "1.0.0"
-  nodesSeeded  Int      @default(0)
-  edgesSeeded  Int      @default(0)
-  seededAt     DateTime @default(now())
-  refreshedAt  DateTime?
+  id          String    @id @default(cuid())
+  userId      String
+  cluster     String // SOC group name, e.g. "Computer and Mathematical"
+  version     String // scaffold data version, e.g. "1.0.0"
+  nodesSeeded Int       @default(0)
+  edgesSeeded Int       @default(0)
+  seededAt    DateTime  @default(now())
+  refreshedAt DateTime?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -2272,18 +2302,18 @@ model ScaffoldMeta {
 
 /// An occupation (job role) aligned to SOC/O*NET, linked to required skills.
 model Occupation {
-  id          String  @id @default(cuid())
+  id          String   @id @default(cuid())
   userId      String
-  socCode     String                       // O*NET SOC code, e.g. "15-1252.00"
-  title       String                       // "Software Developers"
+  socCode     String // O*NET SOC code, e.g. "15-1252.00"
+  title       String // "Software Developers"
   description String?
-  cluster     String                       // scaffold cluster name, e.g. "Computer and Mathematical"
-  source      String  @default("onet")     // onet | ai | user
-  metadata    String?                      // JSON: { bright_outlook, median_wage, growth }
+  cluster     String // scaffold cluster name, e.g. "Computer and Mathematical"
+  source      String   @default("onet") // onet | ai | user
+  metadata    String? // JSON: { bright_outlook, median_wage, growth }
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  user         User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User                         @relation(fields: [userId], references: [id], onDelete: Cascade)
   requirements OccupationSkillRequirement[]
   interests    UserOccupationInterest[]
 
@@ -2294,12 +2324,12 @@ model Occupation {
 
 /// Links an Occupation to a SkillNode with importance and proficiency level.
 model OccupationSkillRequirement {
-  id           String @id @default(cuid())
+  id           String   @id @default(cuid())
   occupationId String
   skillNodeId  String
-  importance   Float  @default(50)   // 0-100, how critical this skill is to the occupation
-  level        Float  @default(3.5)  // 0-7, O*NET proficiency scale
-  source       String @default("onet") // onet | ai | user
+  importance   Float    @default(50) // 0-100, how critical this skill is to the occupation
+  level        Float    @default(3.5) // 0-7, O*NET proficiency scale
+  source       String   @default("onet") // onet | ai | user
   createdAt    DateTime @default(now())
 
   occupation Occupation @relation(fields: [occupationId], references: [id], onDelete: Cascade)
@@ -2312,11 +2342,11 @@ model OccupationSkillRequirement {
 
 /// Tracks a user's interest in or relationship to a specific occupation.
 model UserOccupationInterest {
-  id           String  @id @default(cuid())
+  id           String   @id @default(cuid())
   userId       String
   occupationId String
-  status       String  @default("exploring") // current | target | past | exploring
-  fitScore     Float?                         // auto-calculated career fit 0-100
+  status       String   @default("exploring") // current | target | past | exploring
+  fitScore     Float? // auto-calculated career fit 0-100
   notes        String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -2350,10 +2380,10 @@ model MapDrawing {
   id        String   @id @default(cuid())
   userId    String
   layerId   String?
-  type      String   // freehand | polygon | circle | polyline | rectangle | text | note | emoji | ruler | area
-  data      Json     // Fabric.js serialized object + geo-anchor {fabricJson, anchors: [{lat,lng}]}
+  type      String // freehand | polygon | circle | polyline | rectangle | text | note | emoji | ruler | area
+  data      Json // Fabric.js serialized object + geo-anchor {fabricJson, anchors: [{lat,lng}]}
   color     String   @default("#3B82F6")
-  zoneType  String?  // preferred | avoid | maybe
+  zoneType  String? // preferred | avoid | maybe
   label     String?
   scope     String   @default("global") // global | work-history | work-history:{id} | job:{id}
   visible   Boolean  @default(true)
@@ -2374,17 +2404,17 @@ model MapDrawing {
 /// Zone controls Gaussian falloff: CORE → NEAR → MID → FAR.
 /// Intensity is the raw weight (0.0–1.0) before tenure scaling.
 model DiffusionExposure {
-  id              String   @id @default(cuid())
-  userId          String
-  workHistoryId   String   // the diffusion SOURCE (role)
-  skillNodeId     String   // the exposure TARGET (concept/skill)
+  id            String @id @default(cuid())
+  userId        String
+  workHistoryId String // the diffusion SOURCE (role)
+  skillNodeId   String // the exposure TARGET (concept/skill)
 
-  zone            String   // CORE | NEAR | MID | FAR
-  intensity       Float    // 0.0–1.0 base Gaussian weight before tenure scaling
-  category        String   // skill | process | role_exposure | equipment | domain_concept | industry
-  exposureType    String   // direct | observed | collaborated | ambient
+  zone         String // CORE | NEAR | MID | FAR
+  intensity    Float // 0.0–1.0 base Gaussian weight before tenure scaling
+  category     String // skill | process | role_exposure | equipment | domain_concept | industry
+  exposureType String // direct | observed | collaborated | ambient
 
-  createdAt       DateTime @default(now())
+  createdAt DateTime @default(now())
 
   user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   workHistory WorkHistory @relation(fields: [workHistoryId], references: [id], onDelete: Cascade)
@@ -2402,23 +2432,23 @@ model DiffusionExposure {
 /// A significant event within a work history role — projects, promotions,
 /// incidents, launches, training, etc. Connected to skills via join table.
 model CareerEvent {
-  id              String   @id @default(cuid())
-  userId          String
-  workHistoryId   String
-  title           String   // "Led GCP Migration", "Series B Launch"
-  description     String?  // Full narrative / STAR story
-  category        String   @default("project") // project | milestone | responsibility | training | outcome | context_shift
-  startDate       DateTime?  // Full datetime for timeline
-  endDate         DateTime?  // Full datetime for timeline
-  location        String?    // Freeform location (city, venue, etc)
-  lat             Float?     // Latitude for map display
-  lng             Float?     // Longitude for map display
-  metrics         String?  // Freeform quantified impact: "200 services", "$2M ARR"
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id            String    @id @default(cuid())
+  userId        String
+  workHistoryId String
+  title         String // "Led GCP Migration", "Series B Launch"
+  description   String? // Full narrative / STAR story
+  category      String    @default("project") // project | milestone | responsibility | training | outcome | context_shift
+  startDate     DateTime? // Full datetime for timeline
+  endDate       DateTime? // Full datetime for timeline
+  location      String? // Freeform location (city, venue, etc)
+  lat           Float? // Latitude for map display
+  lng           Float? // Longitude for map display
+  metrics       String? // Freeform quantified impact: "200 services", "$2M ARR"
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
-  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  workHistory WorkHistory @relation(fields: [workHistoryId], references: [id], onDelete: Cascade)
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workHistory WorkHistory        @relation(fields: [workHistoryId], references: [id], onDelete: Cascade)
   skills      CareerEventSkill[]
   photos      CareerEventPhoto[]
 
@@ -2431,7 +2461,7 @@ model CareerEvent {
 model CareerEventPhoto {
   id            String   @id @default(uuid())
   careerEventId String
-  filePath      String   // /uploads/career-events/xxx.jpg
+  filePath      String // /uploads/career-events/xxx.jpg
   fileName      String
   fileMime      String
   fileSize      Int
@@ -2470,8 +2500,8 @@ model CareerEventSkill {
 model EmployerAlias {
   id            String   @id @default(uuid())
   userId        String
-  canonicalName String   // the "real" display name the user chose
-  variantName   String   // an alternate spelling/abbreviation that maps to canonical
+  canonicalName String // the "real" display name the user chose
+  variantName   String // an alternate spelling/abbreviation that maps to canonical
   createdAt     DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -2488,16 +2518,16 @@ model EmployerAlias {
 model AssetType {
   id           String   @id @default(uuid())
   userId       String
-  name         String                        // "Loss-in-Weight Feeder", "Pneumatic Cylinder"
-  category     String   @default("machine")  // machine | vehicle | system | structure | unit | tool | other
+  name         String // "Loss-in-Weight Feeder", "Pneumatic Cylinder"
+  category     String   @default("machine") // machine | vehicle | system | structure | unit | tool | other
   description  String?
-  manufacturer String?                       // set when type is manufacturer-specific (e.g. "Schenck Process")
+  manufacturer String? // set when type is manufacturer-specific (e.g. "Schenck Process")
   tags         String[] @default([])
-  isPublic     Boolean  @default(false)      // reserved for future community sharing — always false in Sprint 1
+  isPublic     Boolean  @default(false) // reserved for future community sharing — always false in Sprint 1
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   instances JobAsset[]
   documents AssetDocument[]
   links     AssetLink[]
@@ -2512,10 +2542,10 @@ model AssetDocument {
   id          String   @id @default(uuid())
   assetTypeId String?
   assetId     String?
-  docType     String   @default("manual")   // manual | wiring_diagram | spec_sheet | safety_sheet | parts_list | other
+  docType     String   @default("manual") // manual | wiring_diagram | spec_sheet | safety_sheet | parts_list | other
   title       String
-  filePath    String?                        // uploaded file (e.g. /uploads/asset-docs/uuid.pdf)
-  url         String?                        // external URL (manufacturer site, Google Drive)
+  filePath    String? // uploaded file (e.g. /uploads/asset-docs/uuid.pdf)
+  url         String? // external URL (manufacturer site, Google Drive)
   notes       String?
   createdAt   DateTime @default(now())
 
@@ -2534,7 +2564,7 @@ model AssetLink {
   assetId     String?
   url         String
   title       String
-  linkType    String   @default("other")    // supplier | video | forum | article | datasheet | other
+  linkType    String   @default("other") // supplier | video | forum | article | datasheet | other
   notes       String?
   createdAt   DateTime @default(now())
 
