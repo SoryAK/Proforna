@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect, createContext, useContext } from "react";
 import { useTheme } from "next-themes";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { NAV_SECTIONS } from "@/lib/constants";
 import {
@@ -340,7 +341,7 @@ function ThemeDropdownItem() {
   const label = theme === "dark" ? "Dark mode" : theme === "light" ? "Light mode" : "System theme";
 
   return (
-    <DropdownMenuItem onSelect={() => setTheme(next)} className="cursor-pointer">
+    <DropdownMenuItem onClick={() => setTheme(next)} className="cursor-pointer">
       {mounted ? <Icon className="h-4 w-4 mr-2" /> : <Sun className="h-4 w-4 mr-2" />}
       {mounted ? label : "Theme"}
     </DropdownMenuItem>
@@ -357,6 +358,10 @@ const NAV_LABEL_MAP: Record<string, string> = NAV_SECTIONS.flatMap((s) => s.item
 export function AppHeader() {
   const { collapsed, toggle } = useSidebar();
   const { data: session } = useSession();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const qc = useQueryClient();
   const { data: profile } = useQuery<{ avatarUrl?: string | null; fullName?: string | null; headline?: string | null }>({
     queryKey: ["profile-avatar"],
     queryFn: () => fetch("/api/profile").then((r) => r.json()),
@@ -364,6 +369,32 @@ export function AppHeader() {
   });
 
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [initialSection, setInitialSection] = useState<"profile" | "integrations">("profile");
+
+  // Deep-link + OAuth callback flag handling.
+  // Owns ?settings=<section> (auto-open dialog on the right tab) and
+  // ?notion=connected | ?notion=error=... (toast + invalidate, then strip flags).
+  useEffect(() => {
+    const settingsFlag = searchParams.get("settings");
+    const notionFlag = searchParams.get("notion");
+    if (!settingsFlag && !notionFlag) return;
+
+    if (settingsFlag === "integrations") {
+      setInitialSection("integrations");
+      setSettingsOpen(true);
+    }
+
+    if (notionFlag === "connected") {
+      toast.success("Notion workspace connected");
+      qc.invalidateQueries({ queryKey: ["integrations"] });
+    } else if (notionFlag && notionFlag.startsWith("error=")) {
+      const reason = decodeURIComponent(notionFlag.slice("error=".length)).slice(0, 80);
+      toast.error(`Notion connection failed: ${reason}`);
+    }
+
+    // Strip flags so refreshes don't re-fire toasts or re-open the dialog.
+    router.replace(pathname);
+  }, [searchParams, router, pathname, qc]);
 
   const avatarSrc = profile?.avatarUrl ?? session?.user?.image ?? undefined;
   const displayName = profile?.fullName ?? session?.user?.name ?? null;
@@ -443,15 +474,15 @@ export function AppHeader() {
                   <User className="h-4 w-4 mr-2" />
                   Profile
                 </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => setSettingsOpen(true)}>
+                <DropdownMenuItem onClick={() => { setInitialSection("profile"); setSettingsOpen(true); }}>
                   <Settings className="h-4 w-4 mr-2" />
-                  Portal Settings
+                  Settings
                 </DropdownMenuItem>
                 <ThemeDropdownItem />
               </DropdownMenuGroup>
               <DropdownMenuSeparator />
               <DropdownMenuGroup>
-                <DropdownMenuItem onSelect={() => signOut({ callbackUrl: "/login" })} className="text-destructive focus:text-destructive">
+                <DropdownMenuItem onClick={() => signOut({ callbackUrl: "/login" })} className="text-destructive focus:text-destructive">
                   <LogOut className="h-4 w-4 mr-2" />
                   Sign out
                 </DropdownMenuItem>
@@ -461,14 +492,14 @@ export function AppHeader() {
         </div>
       </header>
 
-      {/* Portal Settings Dialog */}
+      {/* Settings Dialog */}
       <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
         <DialogContent className="w-[90vw] max-w-6xl sm:max-w-6xl h-[85vh] p-0 overflow-hidden flex flex-col gap-0">
           <DialogHeader className="px-6 py-4 border-b shrink-0">
-            <DialogTitle>Portal Settings</DialogTitle>
+            <DialogTitle>Settings</DialogTitle>
           </DialogHeader>
           <div className="flex-1 overflow-hidden">
-            <PortalSettingsPanel />
+            <PortalSettingsPanel initialSection={initialSection} />
           </div>
         </DialogContent>
       </Dialog>

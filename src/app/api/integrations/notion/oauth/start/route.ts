@@ -19,13 +19,15 @@ export async function GET() {
   const appUrl = process.env.APP_URL ?? "http://localhost:3000";
 
   if (!userId) {
-    return NextResponse.redirect(`${appUrl}/login?next=/integrations`);
+    return NextResponse.redirect(`${appUrl}/login?next=/dashboard%3Fsettings%3Dintegrations`);
   }
 
   const clientId = process.env.NOTION_CLIENT_ID;
   const redirectUri = process.env.NOTION_REDIRECT_URI;
   if (!clientId || !redirectUri) {
-    return NextResponse.redirect(`${appUrl}/integrations?notion=error%3Dnot_configured`);
+    return NextResponse.redirect(
+      `${appUrl}/dashboard?settings=integrations&notion=error%3Dnot_configured`,
+    );
   }
 
   const state = randomBytes(32).toString("base64url");

@@ -47,10 +47,12 @@ import {
   Home,
   Fuel,
   CalendarDays,
+  Plug,
 } from "lucide-react";
 import { PlacesAutocomplete } from "@/components/places-autocomplete";
 import { Separator } from "@/components/ui/separator";
 import { CompensationEditor } from "@/components/compensation-editor";
+import { IntegrationsSection } from "@/components/integrations-section";
 import { cn } from "@/lib/utils";
 import {
   AVAILABILITY_LABELS,
@@ -105,7 +107,7 @@ interface UserProfile {
   daysInOffice: number | null;
 }
 
-type SectionId = "profile" | "availability" | "career" | "visibility" | "stealth" | "commute" | "access";
+type SectionId = "profile" | "availability" | "career" | "visibility" | "stealth" | "commute" | "access" | "integrations";
 const NAV_SECTIONS = [
   { id: "profile" as SectionId, label: "Profile", icon: User },
   { id: "availability" as SectionId, label: "Availability", icon: Activity },
@@ -114,9 +116,15 @@ const NAV_SECTIONS = [
   { id: "stealth" as SectionId, label: "Stealth Mode", icon: ShieldCheck },
   { id: "commute" as SectionId, label: "Commute", icon: Car },
   { id: "access" as SectionId, label: "Access & Links", icon: Link2 },
+  { id: "integrations" as SectionId, label: "Integrations", icon: Plug },
 ];
 
-export function PortalSettingsPanel() {
+interface PortalSettingsPanelProps {
+  /** Section to open initially. Used by deep links (e.g. OAuth callback ?settings=integrations). */
+  initialSection?: SectionId;
+}
+
+export function PortalSettingsPanel({ initialSection = "profile" }: PortalSettingsPanelProps = {}) {
   const queryClient = useQueryClient();
   const [copied, setCopied] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -129,7 +137,7 @@ export function PortalSettingsPanel() {
   const [carOptions, setCarOptions] = useState<{ text: string; value: string }[]>([]);
   const [carLoading, setCarLoading] = useState(false);
   const [showCarPicker, setShowCarPicker] = useState(false);
-  const [activeSection, setActiveSection] = useState<SectionId>("profile");
+  const [activeSection, setActiveSection] = useState<SectionId>(initialSection);
   const [geocodingAddress, setGeocodingAddress] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
   const skipDirtyRef = useRef(false);
@@ -912,9 +920,12 @@ export function PortalSettingsPanel() {
             </>
           )}
 
+          {/* ── INTEGRATIONS ── */}
+          {activeSection === "integrations" && <IntegrationsSection />}
+
         </div>
         </div>
-        {activeSection !== "access" && (
+        {activeSection !== "access" && activeSection !== "integrations" && (
           <div className="shrink-0 border-t px-8 py-3 flex items-center justify-between gap-3 bg-background">
             {isDirty && !saveMutation.isPending ? (
               <p className="text-xs text-muted-foreground">Unsaved changes</p>

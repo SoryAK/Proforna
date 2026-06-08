@@ -149,14 +149,14 @@ export function WorklogNotesFilterChips({
         onClear={() => setFilterPositionId(SENTINEL)}
         renderMenu={() => (
           <>
-            <DropdownMenuItem onSelect={() => setFilterPositionId(SENTINEL)}>
+            <DropdownMenuItem onClick={() => setFilterPositionId(SENTINEL)}>
               All positions
             </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => setFilterPositionId("none")}>
+            <DropdownMenuItem onClick={() => setFilterPositionId("none")}>
               No position
             </DropdownMenuItem>
             {positions.map((p) => (
-              <DropdownMenuItem key={p.id} onSelect={() => setFilterPositionId(p.id)}>
+              <DropdownMenuItem key={p.id} onClick={() => setFilterPositionId(p.id)}>
                 {(p.title || "Position") + (p.company ? ` · ${p.company}` : "")}
               </DropdownMenuItem>
             ))}
@@ -188,14 +188,14 @@ export function WorklogNotesFilterChips({
         onClear={() => setFilterEquipmentId(SENTINEL)}
         renderMenu={() => (
           <>
-            <DropdownMenuItem onSelect={() => setFilterEquipmentId(SENTINEL)}>
+            <DropdownMenuItem onClick={() => setFilterEquipmentId(SENTINEL)}>
               All equipment
             </DropdownMenuItem>
             {equipment.length === 0 ? (
               <DropdownMenuItem disabled>No equipment</DropdownMenuItem>
             ) : (
               equipment.map((e) => (
-                <DropdownMenuItem key={e.id} onSelect={() => setFilterEquipmentId(e.id)}>
+                <DropdownMenuItem key={e.id} onClick={() => setFilterEquipmentId(e.id)}>
                   {e.name}
                 </DropdownMenuItem>
               ))
@@ -211,14 +211,14 @@ export function WorklogNotesFilterChips({
         onClear={() => setFilterAssetId(SENTINEL)}
         renderMenu={() => (
           <>
-            <DropdownMenuItem onSelect={() => setFilterAssetId(SENTINEL)}>
+            <DropdownMenuItem onClick={() => setFilterAssetId(SENTINEL)}>
               All assets
             </DropdownMenuItem>
             {assets.length === 0 ? (
               <DropdownMenuItem disabled>No assets</DropdownMenuItem>
             ) : (
               assets.map((a) => (
-                <DropdownMenuItem key={a.id} onSelect={() => setFilterAssetId(a.id)}>
+                <DropdownMenuItem key={a.id} onClick={() => setFilterAssetId(a.id)}>
                   {a.name}
                 </DropdownMenuItem>
               ))

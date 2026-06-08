@@ -41,7 +41,10 @@
         "2026-06-02: Dual-mount: renders inside Sidebar Dialog AND standalone at /portal-settings route — no prop differences",
         "2026-06-02: Dirty tracking uses skipDirtyRef (useRef) to suppress false-dirty on initial profile load. Set skipDirtyRef.current=true before setForm() in profile useEffect; dirty useEffect must be declared AFTER form useState to avoid TDZ crash",
         "2026-06-02: Sticky save footer hidden when activeSection === 'access' — access token section has no form fields to save",
-        "2026-06-02: Both nav rail and content pane use scrollbar-thin (defined in globals.css)"
+        "2026-06-02: Both nav rail and content pane use scrollbar-thin (defined in globals.css)",
+        "[2026-06-08] Now accepts optional initialSection prop (SectionId, defaults to 'profile'). Sidebar passes initialSection based on URL ?settings= flag so deep-links open the right nav rail tab.",
+        "[2026-06-08] SectionId union extended with 'integrations'. Render block added before closing pane: {activeSection === 'integrations' && <IntegrationsSection />}. Sticky save footer guard now: activeSection !== 'access' && activeSection !== 'integrations' (integrations has its own per-row mutations, no form to save).",
+        "[2026-06-08] Menu label + dialog title changed from 'Portal Settings' to 'Settings' (sidebar.tsx — base-ui Menu.Item onClick handler resets initialSection to 'profile' when opened from the avatar dropdown so it doesn't stick on whatever the URL flag last set)."
       ]
     }
   ],

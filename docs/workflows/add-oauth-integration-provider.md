@@ -9,7 +9,8 @@
 - Prisma v6 with the existing `IntegrationConnection` model (see `prisma/schema.prisma`)
 - NextAuth v5 middleware in `src/proxy.ts` — gates `/api/**` with 401, page routes with redirect to `/login`
 - AES-256-GCM crypto helper in `src/lib/integration-crypto.ts` for at-rest token storage
-- `src/app/(app)/integrations/page.tsx` is the shared UI surface for every provider
+- `src/components/integrations-section.tsx` is the shared UI surface for every provider, rendered inside the unified Settings dialog (`PortalSettingsPanel` → Integrations tab). The legacy `/integrations` route is now a redirect to `/dashboard?settings=integrations`.
+- `src/components/sidebar.tsx` (`AppHeader`) owns the Settings dialog state AND the `?settings=<section>` / `?<provider>=<flag>` URL-flag handling — the section component does not parse search params itself.
 - shadcn/ui v2 (base-ui) — **no `asChild`** on `Button`; use `<Button asChild={false}>` wrapping `<a>` or wrap manually with `<Link className={buttonVariants(...)}>`
 
 ## When this recipe applies
@@ -34,7 +35,7 @@ No schema change required — the `config: Json` slot is the extension point.
 
 1. **ADR.** Draft `docs/adr/00XX-<provider>-integration.md` covering:
    - Token storage decision (env-keyed AES-GCM vs envelope encryption — default to env-keyed)
-   - Where the connect button lives (existing `/integrations` page card)
+   - Where the connect button lives (existing Settings → Integrations section in `src/components/integrations-section.tsx`)
    - Whether the existing POST allowlist accepts the provider (default **no** — only the OAuth callback can create rows for the new provider)
    - Refresh-token lifecycle if the provider returns one (Notion does not; OneDrive does)
 
@@ -44,8 +45,8 @@ No schema change required — the `config: Json` slot is the extension point.
    - Ensure `INTEGRATION_TOKEN_KEY` is already present (shared across providers)
 
 3. **OAuth `start` route** at `src/app/api/integrations/<provider>/oauth/start/route.ts`:
-   - `await getUserId()`; if missing, redirect to `/login?next=/integrations`
-   - Guard on missing client_id/redirect_uri → redirect to `/integrations?notion=error%3Dnot_configured` (note: param shape MUST match the page's `useEffect`)
+   - `await getUserId()`; if missing, redirect to `/login?next=/dashboard%3Fsettings%3Dintegrations`
+   - Guard on missing client_id/redirect_uri → redirect to `/dashboard?settings=integrations&<provider>=error%3Dnot_configured`
    - Generate `randomBytes(32).toString("base64url")` state
    - Set `httpOnly Secure SameSite=Lax` cookie named `<provider>_oauth_state` with `maxAge: 600`
    - Redirect to provider authorize URL with `client_id`, `response_type=code`, `redirect_uri`, `state`
@@ -55,15 +56,15 @@ No schema change required — the `config: Json` slot is the extension point.
    - POST to provider token endpoint; reject on non-OK
    - `encryptToken(access_token)` → build `config.tokenRef`
    - `findFirst({ userId, provider, label }) → update OR create` (upsert pattern; the unique key constraint makes raw upsert awkward)
-   - Redirect to `/integrations?<provider>=connected` or `/integrations?<provider>=error%3D<slug>`
+   - Redirect to `/dashboard?settings=integrations&<provider>=connected` or `/dashboard?settings=integrations&<provider>=error%3D<slug>`
 
 5. **Crypto helper test pattern.** Already covered by `src/lib/integration-crypto.test.ts`. Reuse — do not write a second crypto module.
 
-6. **Page surface.** In `src/app/(app)/integrations/page.tsx`:
-   - Add a `useEffect` that watches `searchParams.get("<provider>")` for `connected` / `error=<slug>` and pops a toast, then calls `router.replace("/integrations")` to strip the flag
+6. **UI surface.** In `src/components/integrations-section.tsx`:
    - Add a Connect card behind `process.env.NEXT_PUBLIC_<PROVIDER>_OAUTH_ENABLED === "1"`
    - Use `<a href="/api/integrations/<provider>/oauth/start">` wrapped in `buttonVariants(...)` — **NOT** `<Button asChild>`
    - Branch the connection-row renderer to handle the new provider's `config` shape
+   - **Do NOT** add a `useEffect` that parses `?<provider>=...` here. The sidebar (`AppHeader` in `src/components/sidebar.tsx`) already owns URL-flag handling for every provider — just extend its existing toast/invalidate switch if you need provider-specific copy.
 
 7. **Tests.** RED → GREEN cycle on the crypto helper happens once. OAuth routes themselves don't get unit tests (they're thin glue around `fetch` + Prisma); smoke-test in the browser end-to-end instead. The "not configured" guard is the easiest smoke path — leave creds blank, click Connect, expect the toast.
 

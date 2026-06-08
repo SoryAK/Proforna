@@ -11,18 +11,20 @@ import { encryptToken } from "@/lib/integration-crypto";
  *   1. Verify state cookie matches `?state=` (CSRF defense).
  *   2. Exchange `?code=` for an access token via Notion's token endpoint.
  *   3. Encrypt the access token and upsert an IntegrationConnection row.
- *   4. Redirect back to /integrations with a status flag.
+ *   4. Redirect back to the Settings dialog (Integrations tab) with a status flag.
  *
  * NEVER log raw tokens. Error redirects carry an opaque `error` slug only.
  */
 export async function GET(req: NextRequest) {
   const appUrl = process.env.APP_URL ?? "http://localhost:3000";
   const back = (slug: string) =>
-    NextResponse.redirect(`${appUrl}/integrations?notion=${slug}`);
+    NextResponse.redirect(
+      `${appUrl}/dashboard?settings=integrations&notion=${slug}`,
+    );
 
   const userId = await getUserId();
   if (!userId) {
-    return NextResponse.redirect(`${appUrl}/login?next=/integrations`);
+    return NextResponse.redirect(`${appUrl}/login?next=/dashboard%3Fsettings%3Dintegrations`);
   }
 
   const code = req.nextUrl.searchParams.get("code");
