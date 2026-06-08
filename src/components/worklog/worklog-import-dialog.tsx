@@ -13,9 +13,13 @@
  *   - Session-only history (Q3=A): rows are state, not persisted.
  *   - Client-side 5 MB cap mirrors the server (so the user gets a fast,
  *     local rejection instead of a 413 round-trip).
+ *   - Sprint 5: clipboard paste (Cmd/Ctrl+V) while the dialog is open
+ *     synthesizes a File from text/html or text/plain (or text/markdown)
+ *     payloads and feeds it through the existing ingestFiles pipeline so the
+ *     row/status state machine is reused as-is.
  *
  * Out of scope for this dialog: cancel-mid-flight, progress bars per file,
- * paste handler (Sprint 5), bulk-retry of failed rows.
+ * image-paste / OCR (parked — see docs/parked-ideas), bulk-retry of failed rows.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -48,6 +52,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useWorklogFolders } from "@/components/worklog/hooks/use-worklog-folders";
 import { fileToSource } from "@/lib/worklog/import/file-to-source";
+import { clipboardToSource } from "@/lib/worklog/import/clipboard-to-source";
 import {
   ImportRequestError,
   useImportMutation,
@@ -285,16 +290,54 @@ export function WorklogImportDialog({ open, onOpenChange }: WorklogImportDialogP
     [ingestFiles],
   );
 
+  // ── clipboard paste wiring (Sprint 5) ──────────────────────
+  // Listens at the DialogContent level so it only fires while the dialog is
+  // open. Pasted files (e.g. dragged-then-copied) reuse the same FileList
+  // path as drop. Pasted text/html or text/plain is synthesized into a
+  // virtual File so the row/status pipeline is identical to a drop.
+  const onPaste = useCallback(
+    (e: React.ClipboardEvent) => {
+      const cb = e.clipboardData;
+      if (!cb) return;
+
+      // Real files in the clipboard (e.g. file-manager copy) → existing path.
+      if (cb.files && cb.files.length > 0) {
+        e.preventDefault();
+        ingestFiles(cb.files);
+        return;
+      }
+
+      const payload = clipboardToSource(cb);
+      if (!payload) return; // nothing usable — let default behavior continue
+      e.preventDefault();
+
+      // Synthesize a File so ingestFiles → fileToSource discriminates on the
+      // synthesized filename extension (matches clipboardToSource's decision).
+      const mime =
+        payload.sourceType === "markdown" ? "text/markdown" : "text/html";
+      const fake = new File([payload.source], payload.sourceFilename, {
+        type: mime,
+      });
+      ingestFiles([fake]);
+    },
+    [ingestFiles],
+  );
+
   const browseClick = () => fileInputRef.current?.click();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
+        {/* onPaste lives on a wrapper div because base-ui's DialogContent
+            does not forward arbitrary DOM event props to its underlying
+            Popup element (Sprint 5 bug surfaced during smoke testing). */}
+        <div onPaste={onPaste} className="contents">
         <DialogHeader>
           <DialogTitle>Import notes</DialogTitle>
           <DialogDescription>
-            Drop Markdown (.md, .markdown) or HTML (.html, .htm) files. Each file
-            becomes a worklog note. Duplicates are detected automatically.
+            Drop Markdown (.md, .markdown) or HTML (.html, .htm) files, or paste
+            text/HTML from your clipboard. Each file becomes a worklog note.
+            Duplicates are detected automatically.
           </DialogDescription>
         </DialogHeader>
 
@@ -364,10 +407,11 @@ export function WorklogImportDialog({ open, onOpenChange }: WorklogImportDialogP
         >
           <Upload className="h-4 w-4" aria-hidden />
           <span>
-            Drop files here, or{" "}
+            Drop files here,{" "}
             <span className="text-foreground underline underline-offset-2">
               browse
             </span>
+            , or paste (⌘V) from your clipboard
           </span>
           <input
             ref={fileInputRef}
@@ -419,6 +463,7 @@ export function WorklogImportDialog({ open, onOpenChange }: WorklogImportDialogP
             {rows.length === 0 ? "Cancel" : "Close"}
           </Button>
         </DialogFooter>
+        </div>
       </DialogContent>
     </Dialog>
   );
