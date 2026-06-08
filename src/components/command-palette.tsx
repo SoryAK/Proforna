@@ -22,6 +22,7 @@ import {
   NotebookPen,
   Images,
   PlusCircle,
+  Upload,
 } from "lucide-react";
 import {
   CommandDialog,
@@ -34,6 +35,7 @@ import {
   CommandSeparator,
 } from "@/components/ui/command";
 import { QuickCaptureDialog } from "@/components/worklog/quick-capture-dialog";
+import { WorklogImportDialog } from "@/components/worklog/worklog-import-dialog";
 
 const NAV_PAGES = [
   { label: "Home", href: "/", icon: Home },
@@ -69,6 +71,7 @@ interface SearchResults {
 export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const [quickCaptureOpen, setQuickCaptureOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const router = useRouter();
 
   // Keyboard shortcuts
@@ -124,6 +127,16 @@ export function CommandPalette() {
               >
                 <PlusCircle className="mr-2 h-4 w-4 text-muted-foreground" />
                 New worklog
+              </CommandItem>
+              <CommandItem
+                value="import notes markdown html file upload"
+                onSelect={() => {
+                  setOpen(false);
+                  setImportOpen(true);
+                }}
+              >
+                <Upload className="mr-2 h-4 w-4 text-muted-foreground" />
+                Import notes…
               </CommandItem>
             </CommandGroup>
             <CommandSeparator />
@@ -241,7 +254,7 @@ export function CommandPalette() {
                       key={w.id}
                       // value is what cmdk fuzzy-matches against — include title + tags + content snippet
                       value={`worklog ${w.title} ${w.tags ?? ""} ${(w.content ?? "").slice(0, 200)}`}
-                      onSelect={() => navigate(`/worklog?focus=${w.id}`)}
+                      onSelect={() => navigate(`/worklog/notes?focus=${w.id}`)}
                     >
                       <NotebookPen className="mr-2 h-4 w-4 text-muted-foreground" />
                       <span className="truncate">{w.title}</span>
@@ -261,6 +274,7 @@ export function CommandPalette() {
       </Command>
     </CommandDialog>
     <QuickCaptureDialog open={quickCaptureOpen} onOpenChange={setQuickCaptureOpen} />
+    <WorklogImportDialog open={importOpen} onOpenChange={setImportOpen} />
     </>
   );
 }

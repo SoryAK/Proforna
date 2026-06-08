@@ -5,22 +5,29 @@
  * Composition:
  *   ┌── Top bar (count · view switcher · Select · "+ New note") OR <BulkBar> ┐
  *   ├── <WorklogNotesFilterChips> (Position · Notable · Equip · Asset)        ┤
- *   └── <WorklogNotesTable>  (list view) OR <WorklogNotesGrid> (card view)  ┘
+ *   ├── <WorklogNotesTable>  (list view) OR <WorklogNotesGrid> (card view)  ┤
+ *   └── <WorklogReaderDrawer> (right rail / mobile sheet) ──────────────────┘
  *
  * The folder picker lives in the global sidebar (ADR-0013); this view reads
  * the URL-driven `activeFolder` via {@link useFolderSelection} so the table
  * automatically scopes to whatever the sidebar has selected.
  *
- * Row click → push to `/worklog/notes/[id]` (full-screen reader). The
- * half-page reader drawer (Phase 5 of ADR-0015) is deferred — for now we
- * route to the dedicated single-note route so the new chrome is shippable
- * end-to-end.
+ * Two-speed open flow (ADR-0015 Phase 5):
+ *   • Row click → sets `?focus=<id>` on the URL → opens the preview drawer.
+ *     The list stays interactive behind it (md+) so the user can skim
+ *     several notes in a row without losing their place.
+ *   • Drawer's "Open" button → escalates to `/worklog/notes/[id]`
+ *     (full-screen, editable). The current list query string (folder, view)
+ *     is forwarded for the reader's back-button.
+ *   • New notes skip the drawer and route straight to the full-screen
+ *     editor — there's nothing to preview yet.
  *
  * Bulk-mode discipline: row checkboxes only render when the user explicitly
  * activates Select mode in the toolbar. Drive-style — keeps the default view
  * uncluttered. The actual <WorklogNotesBulkBar> still slides in when one or
  * more rows are checked (so the bulk toolbar can stay clear when the user
- * has only toggled Select mode but checked nothing yet).
+ * has only toggled Select mode but checked nothing yet). Selecting rows and
+ * previewing a note are compatible — both live alongside each other.
  *
  * `<WorklogPage compact />` continues to serve the dashboard embed
  * unchanged; this view is only mounted at `/worklog/notes`.
@@ -29,8 +36,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type KeyboardEvent } from "react";
-import { useRouter } from "next/navigation";
-import { CheckSquare, LayoutGrid, List, Plus } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { CheckSquare, LayoutGrid, List, Plus, Upload } from "lucide-react";
 import type { WorkLog } from "@/types/worklog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -49,6 +56,8 @@ import { WorklogNotesGrid } from "@/components/worklog/worklog-notes-grid";
 import { WorklogNotesFilterChips } from "@/components/worklog/worklog-notes-filter-chips";
 import { WorklogNotesBulkBar } from "@/components/worklog/worklog-notes-bulk-bar";
 import { WorklogNotesSortMenu } from "@/components/worklog/worklog-notes-sort-menu";
+import { WorklogReaderDrawer } from "@/components/worklog/worklog-reader-drawer";
+import { WorklogImportDialog } from "@/components/worklog/worklog-import-dialog";
 
 const DEFAULT_SORT: WorklogNotesTableSortState = {
   column: "lastEdited",
@@ -59,6 +68,12 @@ type ViewMode = "list" | "grid";
 
 export function WorklogNotesView() {
   const router = useRouter();
+  // Snapshot of the current `/worklog/notes` query string. Forwarded onto
+  // `/worklog/notes/[id]` so the reader's back-button can rebuild the same
+  // list URL (folder + view filters from ADR-0013) instead of dumping the
+  // user back at a clean `/worklog/notes`. ADR-0015 Phase 5/6.
+  const searchParams = useSearchParams();
+  const listReturnQuery = searchParams.toString();
 
   // Data
   const { logs, loadingLogs, positions, equipment, assets, positionMap } =
@@ -88,7 +103,7 @@ export function WorklogNotesView() {
   const selection = useWorklogSelection();
 
   // Mutations
-  const { saveLog, bulkAction } = useWorklogMutations();
+  const { saveLog, bulkAction, deleteLog } = useWorklogMutations();
 
   // Defaults (used to seed new-note creation).
   const { defaults } = useWorklogPreferences(positionMap);
@@ -101,6 +116,10 @@ export function WorklogNotesView() {
 
   // Bulk select mode. When off, no row checkboxes are rendered.
   const [bulkMode, setBulkMode] = useState(false);
+
+  // Import dialog (Sprint 4). Opened from the top-bar button or the global
+  // command palette. Session-only history per ADR/Sprint plan (Q3=A).
+  const [importOpen, setImportOpen] = useState(false);
   const toggleBulkMode = useCallback(() => {
     setBulkMode((prev) => {
       if (prev) selection.clear();
@@ -121,12 +140,54 @@ export function WorklogNotesView() {
     return () => window.removeEventListener("keydown", onKey);
   }, [bulkMode, selection]);
 
-  // Open a note in the dedicated full-screen route.
+  // Drawer-preview state — driven by the `?focus=<id>` URL param so the
+  // drawer survives refresh + back/forward (ADR-0015 Phase 5).
+  const focusId = searchParams.get("focus");
+  const focusedLog = useMemo(
+    () => (focusId ? logs.find((l) => l.id === focusId) ?? null : null),
+    [focusId, logs],
+  );
+  const drawerOpen = focusId !== null;
+
+  // Build a URL preserving every existing query param plus an override.
+  // Used by both row-open (set `focus`) and drawer-close (drop `focus`).
+  const buildNotesUrl = useCallback(
+    (overrides: Record<string, string | null>) => {
+      const next = new URLSearchParams(searchParams.toString());
+      for (const [k, v] of Object.entries(overrides)) {
+        if (v === null) next.delete(k);
+        else next.set(k, v);
+      }
+      const qs = next.toString();
+      return qs ? `/worklog/notes?${qs}` : "/worklog/notes";
+    },
+    [searchParams],
+  );
+
+  // Row click → open preview drawer via `?focus=<id>`. `scroll: false`
+  // prevents the list from jumping to the top when the URL updates.
   const handleOpen = (id: string) => {
-    router.push(`/worklog/notes/${id}`);
+    router.replace(buildNotesUrl({ focus: id }), { scroll: false });
   };
 
-  // Create a blank note and route to its full-screen reader.
+  const handleCloseDrawer = useCallback(() => {
+    router.replace(buildNotesUrl({ focus: null }), { scroll: false });
+  }, [router, buildNotesUrl]);
+
+  // Escalation target for the drawer's "Open" button — full-screen reader
+  // route with the current list query string forwarded for back-nav. Drop
+  // `focus` from the forwarded params so returning doesn't reopen the
+  // drawer over the list.
+  const drawerOpenHref = useMemo(() => {
+    if (!focusId) return null;
+    const forward = new URLSearchParams(searchParams.toString());
+    forward.delete("focus");
+    const qs = forward.toString();
+    return `/worklog/notes/${focusId}${qs ? `?${qs}` : ""}`;
+  }, [focusId, searchParams]);
+
+  // Create a blank note and route directly to its full-screen reader.
+  // New notes skip the preview drawer — there's nothing to preview yet.
   const handleNewNote = async () => {
     try {
       const saved: WorkLog = await saveLog.mutateAsync({
@@ -144,10 +205,19 @@ export function WorklogNotesView() {
         templateId: null,
         isNotable: false,
       });
-      router.push(`/worklog/notes/${saved.id}`);
+      const target = `/worklog/notes/${saved.id}${listReturnQuery ? `?${listReturnQuery}` : ""}`;
+      router.push(target);
     } catch {
       // mutation surfaces errors via React Query toasts
     }
+  };
+
+  // Delete from the drawer — closes the drawer optimistically and lets
+  // the mutation propagate (it'll invalidate `worklogs` and the row will
+  // vanish from the list).
+  const handleDeleteFromDrawer = (id: string) => {
+    handleCloseDrawer();
+    deleteLog.mutate(id);
   };
 
   const selectedCount = selection.selectedCount;
@@ -316,6 +386,18 @@ export function WorklogNotesView() {
 
             <Button
               size="sm"
+              variant="ghost"
+              onClick={() => setImportOpen(true)}
+              aria-label="Import notes from files"
+              title="Import notes from Markdown or HTML files"
+              className="h-7 gap-1.5 text-xs"
+            >
+              <Upload className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Import</span>
+            </Button>
+
+            <Button
+              size="sm"
               onClick={handleNewNote}
               disabled={saveLog.isPending}
             >
@@ -354,7 +436,7 @@ export function WorklogNotesView() {
             onSortChange={setSort}
             selection={selection}
             bulkMode={bulkMode}
-            selectedFocusId={null}
+            selectedFocusId={focusId}
             onOpen={handleOpen}
             onNew={handleNewNote}
           />
@@ -367,12 +449,32 @@ export function WorklogNotesView() {
             sort={sort}
             selection={selection}
             bulkMode={bulkMode}
-            selectedFocusId={null}
+            selectedFocusId={focusId}
             onOpen={handleOpen}
             onNew={handleNewNote}
           />
         )}
       </div>
+
+      {/* Preview drawer (ADR-0015 Phase 5). Renders as a right-anchored
+          panel on md+ and a full-screen sheet on mobile. URL-driven via
+          `?focus=<id>` so the preview survives refresh + back/forward. */}
+      <WorklogReaderDrawer
+        open={drawerOpen}
+        log={focusedLog}
+        loading={loadingLogs}
+        positions={positions}
+        positionMap={positionMap}
+        openHref={drawerOpenHref}
+        onClose={handleCloseDrawer}
+        onDelete={handleDeleteFromDrawer}
+      />
+
+      {/* Sprint 4: file-drop import wizard. Mounted here (not at layout)
+          so it shares the same React Query cache used by the notes view —
+          successful imports invalidate `["worklogs"]` and `["worklog-folders"]`
+          and the list re-renders without a manual refresh. */}
+      <WorklogImportDialog open={importOpen} onOpenChange={setImportOpen} />
     </div>
   );
 }
