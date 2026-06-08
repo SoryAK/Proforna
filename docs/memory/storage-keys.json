@@ -1,0 +1,18 @@
+{
+  "entities": [
+    {
+      "name": "StorageKeysModule",
+      "entityType": "module",
+      "observations": [
+        "2026-06-07: Central localStorage key registry at src/lib/storage-keys.ts. Convention: resumsify:<feature>:<key> (colon-separated app namespace + feature group + kebab-case key). Replaces ad-hoc kebab keys like 'sidebar-collapsed' / 'docs-view' / 'worklog-rail-*'.",
+        "2026-06-07: STORAGE_KEYS object groups every key under a feature ({ sidebar:{}, worklog:{}, documents:{} }). New keys MUST be added there — never hard-code the literal in components.",
+        "2026-06-07: migrateLegacyKey(newKey) is a lazy one-time migrator. Call it from the same useEffect that does the first read. Idempotent and best-effort — silently no-ops in private mode / quota errors. LEGACY_KEY_MAP is the rename ledger; renames register an entry there to keep user state across releases.",
+        "2026-06-07: Out-of-scope (not migrated this pass): ai-chat 'resumsify-ai-*' and gallery-modal 'gallery-settings'. They already use a prefix; merging into the central registry is a separate audit pass when those features are next touched."
+      ]
+    }
+  ],
+  "relations": [
+    { "from": "LayoutShellDomain", "relationType": "depends-on", "to": "StorageKeysModule" },
+    { "from": "WorklogDomain", "relationType": "depends-on", "to": "StorageKeysModule" }
+  ]
+}

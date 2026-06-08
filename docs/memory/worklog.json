@@ -20,13 +20,47 @@
         "2026-06-06: WorklogHomeView composes 5 section components in src/components/worklog/home/: worklog-quick-capture (hero, escalates via router.push to /worklog/notes?focus=<id>), worklog-today-list (one-liner today notes), worklog-stat-cards (streak sparkline / month / notable), worklog-folder-grid (top 8 by recent activity + Templates tile), worklog-recent-list (earlier-this-week one-liners). Home is read-only — no internal state, no URL params consumed.",
         "2026-06-06: <WorklogActivityWidget> REMOVED from /worklog/notes. Lives only on /worklog home now. Worklog-page.tsx no longer imports it.",
         "2026-06-06: WorklogNavSidebar now has a 'Home' row (<Link href='/worklog'>, active when pathname === '/worklog'). Filter rows (All notes / Notable / Templates / folders / categories) navigate cross-route to /worklog/notes when clicked from /worklog; when already on /worklog/notes they mutate URL params via useFolderSelection setter. Filter active state suppressed on /worklog (the home page does not represent a filter).",
-        "2026-06-06: New helper exported from use-folder-selection.ts: selectionToQueryString(selection) builds the query-string for a target FolderSelection without binding to current pathname — used for cross-route navigation from the worklog home into /worklog/notes."
+        "2026-06-06: New helper exported from use-folder-selection.ts: selectionToQueryString(selection) builds the query-string for a target FolderSelection without binding to current pathname — used for cross-route navigation from the worklog home into /worklog/notes.",
+        "2026-06-07: Worklog rail and folder-tree localStorage keys ('worklog-rail-activity-open', 'worklog-rail-categories-open', 'worklog-folder-tree-expanded') migrated to 'resumsify:worklog:*' namespace via central STORAGE_KEYS registry (see StorageKeysModule). Migration is lazy on first mount; legacy keys auto-removed once new key is populated.",
+        "2026-06-07: /worklog/notes document-manager UI (ADR-0015) self-audit complete. View-mode radiogroup now has full ARIA keyboard nav (roving tabindex, arrow keys, Home/End, wrap). Sort menu, select-all in bulk mode, and shared notes module shipped. Reader-as-route navigation deferred to ADR-0015 Phase 5–6.",
+        "2026-06-07: ADR-0015 Phase 5 SHIPPED — reader-as-route + drawer-preview pattern. Two-tier read model: row click opens half-page drawer (read-only preview) at ?focus=<id>; drawer 'Open' button routes to /worklog/notes/[id] full-screen.",
+        "2026-06-07: New components: <WorklogNoteReadView> (pure read-only renderer, no editor mount, used by both drawer and full-screen route) and <WorklogReaderDrawer> (drawer chrome, owns open/close lifecycle).",
+        "2026-06-07: URL contract — `/worklog/notes` (drawer closed), `/worklog/notes?focus=<id>` (drawer open, read mode), `/worklog/notes/[id]` (full-screen, edit). Setter is router.replace(href, {scroll:false}) so back-button escapes the whole preview model, not individual previews. buildNotesUrl() round-trips ALL non-focus params via URLSearchParams.",
+        "2026-06-07: Drawer dimensions — mobile = full sheet (inset-0), desktop = right rail (md:inset-y-0 md:right-0 md:w-[min(600px,50vw)]). Slide animation translate-x-full ↔ translate-x-0 + transition-transform duration-200 ease-out. NOT a Dialog primitive (Dialog focus-trap + scroll-lock fights 'list still interactive while drawer open').",
+        "2026-06-07: Full-screen route width changed max-w-3xl → max-w-5xl mx-auto px-4. Older 3xl felt cramped on modern monitors with the document-manager-style title chrome.",
+        "2026-06-07: Legacy ?focus= callers migrated from /worklog to /worklog/notes — command-palette.tsx, equipment-usage-history.tsx (single-note path only), position-worklog-tab.tsx (single-note path only), worklog/quick-capture-dialog.tsx. ?focusEquipment= and ?focusPosition= deliberately NOT migrated — those are list-filter intents on the legacy /worklog route, semantically opposite of single-note ?focus=.",
+        "2026-06-07: Worklog sidebar font size bumped to match main sidebar (worklog-nav-sidebar.tsx). Visual consistency tweak.",
+        "2026-06-07: Two new ADRs queued — ADR-0016 (note-to-note linking + backlinks, Proposed) and ADR-0017 (worklog version history + visual diff, Proposed). Both build on ADR-0015 drawer as the natural surface for future Backlinks/History tabs."
+      ]
+    },
+    {
+      "name": "WorklogReaderDrawer",
+      "entityType": "component",
+      "observations": [
+        "2026-06-07: Path src/components/worklog/worklog-reader-drawer.tsx. Drawer chrome — owns open/close lifecycle, header (✕ + Open link + kebab DropdownMenu with Delete), body (spinner / empty / WorklogNoteReadView).",
+        "2026-06-07: Receives row object as prop — does NOT fetch data. Reads from the same TanStack Query cache that backs the list, so no duplicate network call.",
+        "2026-06-07: Esc key closes via window-level keydown listener. No focus-trap, no body-scroll-lock — list keyboard nav must keep working while drawer is open.",
+        "2026-06-07: Delete flow — close drawer FIRST (clear ?focus via router.replace), THEN fire delete mutation. Reverse order causes a 'note not found' flash while router.replace is committing.",
+        "2026-06-07: 'Open' link strips `focus` from URL (URLSearchParams clone + delete), forwards every other deep-link param to /worklog/notes/[id]. Cosmetic but signals URL hygiene was thought through."
+      ]
+    },
+    {
+      "name": "WorklogNoteReadView",
+      "entityType": "component",
+      "observations": [
+        "2026-06-07: Path src/components/worklog/worklog-note-read-view.tsx. Pure read-only renderer of a WorkLog row. NO autosave, NO editor mount, NO draft handling.",
+        "2026-06-07: Composition — title + notable star, meta strip (date · category · position · hours · folder · mood), tag Badges, photo grid, body via existing <WorklogNoteView> static reader.",
+        "2026-06-07: Used by BOTH the drawer (preview tier) AND the full-screen route /worklog/notes/[id] (focus tier). One renderer, two surfaces — do NOT fork."
       ]
     }
   ],
   "relations": [
     { "from": "WorklogDomain", "relationType": "depends-on", "to": "JobMapDomain" },
-    { "from": "WorklogDomain", "relationType": "depends-on", "to": "LayoutShellDomain" }
+    { "from": "WorklogDomain", "relationType": "depends-on", "to": "LayoutShellDomain" },
+    { "from": "WorklogDomain", "relationType": "depends-on", "to": "StorageKeysModule" },
+    { "from": "WorklogDomain", "relationType": "contains", "to": "WorklogReaderDrawer" },
+    { "from": "WorklogDomain", "relationType": "contains", "to": "WorklogNoteReadView" },
+    { "from": "WorklogReaderDrawer", "relationType": "embeds", "to": "WorklogNoteReadView" }
   ]
 }
 

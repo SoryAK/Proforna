@@ -34,12 +34,24 @@ applyTo: "**"
   - Non-obvious dependencies (e.g., "WorkHistoryPanel mounts BioCardEditor via portal into asideHost")
   - Design intent that codegraph cannot derive
 - **What NOT to write:** Line numbers, specific values, function signatures codegraph already has, implementation details.
-- **Staleness discipline (HARD GATE):** Tag every observation with the current date. For every domain touched this session, you MUST run `mcp_memory_search_nodes` on that domain before writing the Memory Graph Status line in the handoff. This is not advisory — it is a prerequisite. Writing "no new entities warranted" or "nothing to update" without showing the `mcp_memory_search_nodes` tool call result is a compliance failure, identical in severity to skipping the Post-Edit Scan.
-- **Write protocol:**
-  1. `mcp_memory_create_entities` — domain name, file, kind
-  2. `mcp_memory_create_relations` — "calls", "depends-on", "implements", "mounts-via-portal"
-  3. `mcp_memory_add_observations` — curated conclusions with date tag
-  4. **Shard backup:** After writing to MCP graph, update the corresponding shard file in `docs/memory/`. Check `docs/memory/index.json` to find the right shard. Append new observations to the entity's `observations` array. Commit the shard file with the session commit.
+- **Staleness discipline (HARD GATE):** Tag every observation with the current date. For every domain touched this session, you MUST verify whether the entity already exists in the memory graph before deciding whether to create or update it. Verification protocol:
+  1. **Primary check (canonical name known):** `mcp_memory_open_nodes(["DomainName"])` — exact-match lookup; the only reliable way to confirm presence/absence. Domain canonical names are listed in `docs/memory/index.json`.
+  2. **Discovery check (canonical name unknown):** `mcp_memory_search_nodes("singletoken")` — the upstream `searchNodes` is patched to AND-tokenize whitespace-split queries (see `scripts/patch-mcp-memory.js`), so multi-word queries now work, but single-token queries are still the most robust starting point. Treat search as discovery, not as the verification gate.
+  3. **NEVER** infer "graph is empty" from a `search_nodes` result of zero hits. Always confirm with `open_nodes` before concluding an entity is absent.
+- The Memory Graph Status line in the handoff must show the actual `open_nodes` (or, when discovering, `search_nodes`) tool call result. Writing "no new entities warranted" or "nothing to update" without showing that result is a compliance failure, identical in severity to skipping the Post-Edit Scan.
+- **Write protocol (read-then-write, never blind):**
+  1. **Gate every write with `open_nodes`** — `mcp_memory_open_nodes([entityName])` returns the entity if present, empty list if not. This is the only reliable existence check; never infer existence from a `create_entities` response.
+  2. **If the entity exists** (open_nodes returned it):
+     - `mcp_memory_add_observations` — append new curated conclusions with date tag. Skip if no new observations this session. Calling without prior `open_nodes` confirmation is forbidden — `add_observations` throws on missing entities.
+     - `mcp_memory_create_relations` — idempotent (server-side dedupes by from+to+relationType). Safe to call; emits only new edges.
+  3. **If the entity does NOT exist** (open_nodes returned empty):
+     - `mcp_memory_create_entities` — pass `entityType` plus the initial observations baked in. Verify the response contains your entity name. An empty response means a concurrent write created it; switch to step 2 (`add_observations`) for any observations not in the initial payload.
+     - `mcp_memory_create_relations` — same as above.
+  4. **Shard backup:** After the MCP write, append the same observations to the entity's `observations` array in `docs/memory/<shard>.json`. If this is a new entity, also add the `EntityName: shard.json` line to `docs/memory/index.json`'s `shards` map. Commit the shards with the session commit.
+- **Forbidden write patterns:**
+  - Calling `create_entities` first to "see if it exists" — it silently dedupes by name and returns only the actually-created entities. An empty response is ambiguous (all dupes vs. all created elsewhere) and must never be interpreted as "entity is missing."
+  - Calling `add_observations` without an `open_nodes` confirmation in the same session.
+  - Treating `create_entities`'s response shape as a presence signal of any kind.
 - **Rebuild protocol:** If MCP graph is ever wiped, read `docs/memory/index.json` → for each shard file, run `mcp_memory_create_entities` then `mcp_memory_create_relations` to restore.
 - **Shallow graph rule:** Only write domain/component-level entities, not individual function-level nodes. Shallow graph = durable graph.
 
