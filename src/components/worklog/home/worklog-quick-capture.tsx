@@ -19,7 +19,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Sparkles } from "lucide-react";
-import { CATEGORIES } from "@/components/worklog/constants";
+import { resolveCategoryMeta } from "@/components/worklog/constants";
 import { cn } from "@/lib/utils";
 import type { WorkLog } from "@/types/worklog";
 
@@ -90,7 +90,7 @@ export function WorklogQuickCapture() {
       <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/60">
         <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
           {QUICK_CHIPS.map((chip) => {
-            const meta = CATEGORIES[chip.key];
+            const meta = resolveCategoryMeta(chip.key);
             const active = category === chip.key;
             return (
               <button

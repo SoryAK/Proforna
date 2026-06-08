@@ -31,7 +31,7 @@ import {
   Star,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { CATEGORIES } from "@/components/worklog/constants";
+import { resolveCategoryMeta } from "@/components/worklog/constants";
 import type { UseWorklogSelectionApi } from "@/components/worklog/hooks/use-worklog-selection";
 import type { Position, WorkLog, WorkLogFolderWithCount } from "@/types/worklog";
 import {
@@ -228,7 +228,7 @@ export function WorklogNotesTable({
             const isFocused = log.id === selectedFocusId;
             const isChecked = selection.isSelected(log.id);
             const dotClass = CATEGORY_DOT[log.category] ?? "bg-gray-400";
-            const meta = CATEGORIES[log.category];
+            const meta = resolveCategoryMeta(log.category);
             const preview = previewLine(log.content);
             const pos = positionLabel(log.positionId, positionMap);
             const folder = folderLabel(log.folderId, folders);

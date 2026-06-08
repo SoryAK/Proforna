@@ -8,7 +8,7 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Settings2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -18,7 +18,9 @@ import { TagInput } from "@/components/ui/tag-input";
 import { EquipmentPicker, type EquipmentItem } from "@/components/equipment-picker";
 import { AssetPicker, type JobAsset } from "@/components/asset-picker";
 import type { Template, Position } from "@/types/worklog";
-import { CATEGORIES } from "@/components/worklog/constants";
+import { resolveCategoryMeta } from "@/components/worklog/constants";
+import { useWorklogCategories } from "@/components/worklog/hooks/use-worklog-categories";
+import { WORKLOG_CATEGORY_FALLBACK } from "@/lib/worklog-categories";
 
 export interface WorklogTemplateEditorProps {
   open: boolean;
@@ -42,6 +44,20 @@ export function WorklogTemplateEditor({
   saving,
 }: WorklogTemplateEditorProps) {
   const [draft, setDraft] = useState<Partial<Template>>({});
+
+  // User-defined categories from Sprint A's WorkLogCategory table, plus the
+  // synthetic "Other" fallback so template authors can default to it.
+  const { categories: userCategories } = useWorklogCategories();
+  const categoryOptions = useMemo(
+    () => [
+      ...userCategories.map((c) => ({
+        key: c.name,
+        label: resolveCategoryMeta(c.name).label,
+      })),
+      { key: WORKLOG_CATEGORY_FALLBACK, label: resolveCategoryMeta(WORKLOG_CATEGORY_FALLBACK).label },
+    ],
+    [userCategories],
+  );
   useEffect(() => {
     if (open) setDraft(value ?? {});
   }, [open, value]);
@@ -95,8 +111,8 @@ export function WorklogTemplateEditor({
                 onChange={(e) => update("defaultCategory", e.target.value as Template["defaultCategory"])}
                 className="h-9 w-full rounded-md border bg-background px-2 text-sm"
               >
-                {Object.entries(CATEGORIES).map(([k, c]) => (
-                  <option key={k} value={k}>{c.label}</option>
+                {categoryOptions.map(({ key, label }) => (
+                  <option key={key} value={key}>{label}</option>
                 ))}
               </select>
             </div>

@@ -12,7 +12,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { CheckSquare, Copy, Plus, Search, Settings2, SlidersHorizontal, Sparkles, Star, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,7 +22,9 @@ import { cn } from "@/lib/utils";
 import type { Position } from "@/types/worklog";
 import type { EquipmentItem } from "@/components/equipment-picker";
 import type { JobAsset } from "@/components/asset-picker";
-import { CATEGORIES } from "@/components/worklog/constants";
+import { resolveCategoryMeta } from "@/components/worklog/constants";
+import { useWorklogCategories } from "@/components/worklog/hooks/use-worklog-categories";
+import { WORKLOG_CATEGORY_FALLBACK } from "@/lib/worklog-categories";
 
 export interface WorklogToolbarProps {
   compact?: boolean;
@@ -96,6 +98,20 @@ export function WorklogToolbar(props: WorklogToolbarProps) {
   const [quickTitle, setQuickTitle] = useState("");
   const [quickCategory, setQuickCategory] = useState("task");
   const [quickHours, setQuickHours] = useState("");
+
+  // User-defined categories from Sprint A's WorkLogCategory table, plus the
+  // synthetic "Other" fallback entry so quick-capture can target it directly.
+  const { categories: userCategories } = useWorklogCategories();
+  const categoryOptions = useMemo(
+    () => [
+      ...userCategories.map((c) => ({
+        key: c.name,
+        label: resolveCategoryMeta(c.name).label,
+      })),
+      { key: WORKLOG_CATEGORY_FALLBACK, label: resolveCategoryMeta(WORKLOG_CATEGORY_FALLBACK).label },
+    ],
+    [userCategories],
+  );
 
   function submitQuickCapture() {
     const title = quickTitle.trim();
@@ -241,8 +257,8 @@ export function WorklogToolbar(props: WorklogToolbarProps) {
               <SelectValue placeholder="Category" />
             </SelectTrigger>
             <SelectContent>
-              {Object.entries(CATEGORIES).map(([key, cat]) => (
-                <SelectItem key={key} value={key}>{cat.label}</SelectItem>
+              {categoryOptions.map(({ key, label }) => (
+                <SelectItem key={key} value={key}>{label}</SelectItem>
               ))}
             </SelectContent>
           </Select>

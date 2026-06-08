@@ -14,6 +14,7 @@ import {
   Phone,
   Bug,
   MoreHorizontal,
+  Hash,
   Smile,
   Meh,
   Frown,
@@ -38,6 +39,38 @@ export const CATEGORIES: Record<string, CategoryMeta> = {
   "on-call":       { label: "On-Call",        icon: Phone,         color: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300" },
   other:           { label: "Other",          icon: MoreHorizontal, color: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300" },
 };
+
+/**
+ * Neutral chip used for user-defined categories that aren't in the static
+ * CATEGORIES map. Sprint A introduced the `WorkLogCategory` model so users
+ * can create arbitrary names — the resolver below falls back to this meta
+ * for anything we haven't pre-assigned an icon/color to.
+ */
+const USER_CATEGORY_FALLBACK_META: Omit<CategoryMeta, "label"> = {
+  icon: Hash,
+  color: "bg-muted text-muted-foreground",
+};
+
+/**
+ * Resolve a category NAME to renderable meta (label + icon + color chip).
+ *
+ * - Known seed/legacy names (task, project, meeting, training, …, other)
+ *   return their canonical metadata from `CATEGORIES`.
+ * - Anything else — user-created categories from the `WorkLogCategory` table —
+ *   gets a neutral Hash icon and a muted chip, with the raw name title-cased
+ *   as the label.
+ *
+ * Pure / synchronous — safe to call inline in render loops.
+ */
+export function resolveCategoryMeta(name: string): CategoryMeta {
+  const known = CATEGORIES[name];
+  if (known) return known;
+  return {
+    label: name.charAt(0).toUpperCase() + name.slice(1),
+    icon: USER_CATEGORY_FALLBACK_META.icon,
+    color: USER_CATEGORY_FALLBACK_META.color,
+  };
+}
 
 export interface MoodMeta {
   value: string;

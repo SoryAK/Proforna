@@ -23,7 +23,9 @@ import {
   CalendarDays,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { CATEGORIES } from "@/components/worklog/constants";
+import { resolveCategoryMeta } from "@/components/worklog/constants";
+import { useWorklogCategories } from "@/components/worklog/hooks/use-worklog-categories";
+import { WORKLOG_CATEGORY_FALLBACK } from "@/lib/worklog-categories";
 import { WorklogHeatmap } from "@/components/worklog/worklog-heatmap";
 import { WorklogFolderTreeItems } from "@/components/worklog/worklog-folder-tree-items";
 import type { WorkLog } from "@/types/worklog";
@@ -212,6 +214,16 @@ export function WorklogFoldersRail({
     return m;
   }, [logs]);
 
+  // User-defined categories from the WorkLogCategory table (Sprint A).
+  // The hook returns rows already sorted (sortOrder ASC, name ASC); we
+  // append a synthetic "Other" entry at the end so users can still
+  // navigate to the permanent fallback bucket even though it has no row.
+  const { categories: userCategories } = useWorklogCategories();
+  const railCategoryKeys = useMemo(
+    () => [...userCategories.map((c) => c.name), WORKLOG_CATEGORY_FALLBACK],
+    [userCategories],
+  );
+
   // --- Activity disclosure: persist open/closed across reloads -------------
   const activityRef = useRef<HTMLDetailsElement | null>(null);
   const [activityOpen, setActivityOpen] = useState<boolean>(false);
@@ -350,14 +362,15 @@ export function WorklogFoldersRail({
               Categories
             </summary>
             <div role="group" aria-label="Categories" className="space-y-0.5">
-              {Object.entries(CATEGORIES).map(([key, cat]) => {
-                const Icon = cat.icon;
+              {railCategoryKeys.map((key) => {
+                const meta = resolveCategoryMeta(key);
+                const Icon = meta.icon;
                 const count = categoryCounts.get(key) ?? 0;
                 return (
                   <FolderRow
                     key={key}
                     icon={<Icon className="h-3.5 w-3.5" />}
-                    label={cat.label}
+                    label={meta.label}
                     count={count}
                     active={isSelected(selected, { kind: "category", category: key })}
                     onClick={() => onSelect({ kind: "category", category: key })}
@@ -373,14 +386,15 @@ export function WorklogFoldersRail({
         {compact && <div className="my-1 h-px w-6 bg-border" />}
         {compact && (
           <div role="group" aria-label="Categories" className="space-y-0.5">
-            {Object.entries(CATEGORIES).map(([key, cat]) => {
-              const Icon = cat.icon;
+            {railCategoryKeys.map((key) => {
+              const meta = resolveCategoryMeta(key);
+              const Icon = meta.icon;
               const count = categoryCounts.get(key) ?? 0;
               return (
                 <FolderRow
                   key={key}
                   icon={<Icon className="h-3.5 w-3.5" />}
-                  label={cat.label}
+                  label={meta.label}
                   count={count}
                   active={isSelected(selected, { kind: "category", category: key })}
                   onClick={() => onSelect({ kind: "category", category: key })}

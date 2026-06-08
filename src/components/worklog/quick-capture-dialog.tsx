@@ -15,7 +15,7 @@
  *    user to the full reader for that note.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
@@ -38,7 +38,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { CATEGORIES } from "@/components/worklog/constants";
+import { resolveCategoryMeta } from "@/components/worklog/constants";
+import { useWorklogCategories } from "@/components/worklog/hooks/use-worklog-categories";
+import { WORKLOG_CATEGORY_FALLBACK } from "@/lib/worklog-categories";
 import type { WorklogPreferences } from "@/types/worklog";
 
 interface QuickCaptureDialogProps {
@@ -68,6 +70,21 @@ export function QuickCaptureDialog({ open, onOpenChange }: QuickCaptureDialogPro
     },
     staleTime: 60_000,
   });
+
+  // User-defined categories from Sprint A's WorkLogCategory table. We always
+  // append the synthetic "Other" entry so users can capture into the fallback
+  // bucket even if they haven't defined any custom categories yet.
+  const { categories: userCategories } = useWorklogCategories();
+  const categoryOptions = useMemo(
+    () => [
+      ...userCategories.map((c) => ({
+        key: c.name,
+        label: resolveCategoryMeta(c.name).label,
+      })),
+      { key: WORKLOG_CATEGORY_FALLBACK, label: resolveCategoryMeta(WORKLOG_CATEGORY_FALLBACK).label },
+    ],
+    [userCategories],
+  );
 
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
@@ -122,7 +139,7 @@ export function QuickCaptureDialog({ open, onOpenChange }: QuickCaptureDialogPro
       qc.invalidateQueries({ queryKey: ["work-logs"] });
       qc.invalidateQueries({ queryKey: ["command-palette-search"] });
       onOpenChange(false);
-      router.push(`/worklog?focus=${saved.id}`);
+      router.push(`/worklog/notes?focus=${saved.id}`);
     },
     onError: (e: unknown) => {
       setError(e instanceof Error ? e.message : "Failed to create worklog");
@@ -198,9 +215,9 @@ export function QuickCaptureDialog({ open, onOpenChange }: QuickCaptureDialogPro
                   <SelectValue placeholder="Category" />
                 </SelectTrigger>
                 <SelectContent>
-                  {Object.entries(CATEGORIES).map(([key, meta]) => (
+                  {categoryOptions.map(({ key, label }) => (
                     <SelectItem key={key} value={key}>
-                      {meta.label}
+                      {label}
                     </SelectItem>
                   ))}
                 </SelectContent>

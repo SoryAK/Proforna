@@ -6,7 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CATEGORIES, MOODS } from "@/components/worklog/constants";
+import { MOODS, resolveCategoryMeta } from "@/components/worklog/constants";
+import { useWorklogCategories } from "@/components/worklog/hooks/use-worklog-categories";
+import { WORKLOG_CATEGORY_FALLBACK } from "@/lib/worklog-categories";
 import { timeLabelFromMinutes } from "@/lib/worklog-shifts";
 import type { Position, WorkShift, WorklogPreferences } from "@/types/worklog";
 
@@ -49,6 +51,20 @@ export function WorklogDefaultsDialog(props: WorklogDefaultsDialogProps) {
   const shiftOptions = useMemo(
     () => shifts.filter((s) => s.workHistoryId === draft.defaultPositionId),
     [shifts, draft.defaultPositionId],
+  );
+
+  // User-defined categories from Sprint A's WorkLogCategory table, plus the
+  // synthetic "Other" fallback for users who want to default to it.
+  const { categories: userCategories } = useWorklogCategories();
+  const categoryOptions = useMemo(
+    () => [
+      ...userCategories.map((c) => ({
+        key: c.name,
+        label: resolveCategoryMeta(c.name).label,
+      })),
+      { key: WORKLOG_CATEGORY_FALLBACK, label: resolveCategoryMeta(WORKLOG_CATEGORY_FALLBACK).label },
+    ],
+    [userCategories],
   );
 
   return (
@@ -136,9 +152,9 @@ export function WorklogDefaultsDialog(props: WorklogDefaultsDialogProps) {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {Object.entries(CATEGORIES).map(([k, c]) => (
-                    <SelectItem key={k} value={k}>
-                      {c.label}
+                  {categoryOptions.map(({ key, label }) => (
+                    <SelectItem key={key} value={key}>
+                      {label}
                     </SelectItem>
                   ))}
                 </SelectContent>

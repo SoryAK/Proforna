@@ -31,7 +31,9 @@ import { usePathname, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, FileText, Home, Inbox, Sparkles, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { CATEGORIES } from "@/components/worklog/constants";
+import { resolveCategoryMeta } from "@/components/worklog/constants";
+import { useWorklogCategories } from "@/components/worklog/hooks/use-worklog-categories";
+import { WORKLOG_CATEGORY_FALLBACK } from "@/lib/worklog-categories";
 import { WorklogFolderTreeItems } from "@/components/worklog/worklog-folder-tree-items";
 import {
   useFolderSelection,
@@ -58,9 +60,9 @@ function NavRow({ icon, label, count, active, onClick, iconColorClass, dim }: Na
       onClick={onClick}
       aria-current={active ? "true" : undefined}
       className={cn(
-        "w-full flex items-center gap-2 rounded-md text-sm transition-colors",
+        "w-full flex items-center gap-3 rounded-lg text-base font-medium transition-colors",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
-        "px-2 py-1.25",
+        "px-3 py-2.5",
         active
           ? "bg-orange-100 dark:bg-orange-900/30 text-orange-900 dark:text-orange-100"
           : "hover:bg-accent text-foreground/80 hover:text-foreground",
@@ -143,6 +145,14 @@ export function WorklogNavSidebar({ onShowGlobal }: WorklogNavSidebarProps) {
 
   const notableCount = useMemo(() => logs.filter((l) => l.isNotable).length, [logs]);
 
+  // User-defined categories from Sprint A's WorkLogCategory table, plus the
+  // synthetic "Other" fallback row at the end (parity with WorklogFoldersRail).
+  const { categories: userCategories } = useWorklogCategories();
+  const railCategoryKeys = useMemo(
+    () => [...userCategories.map((c) => c.name), WORKLOG_CATEGORY_FALLBACK],
+    [userCategories],
+  );
+
   // Active state: filter rows are only "active" while ON /worklog/notes — the
   // home page does not represent a filter.
   const isFilterActive = (target: FolderSelection): boolean =>
@@ -182,32 +192,32 @@ export function WorklogNavSidebar({ onShowGlobal }: WorklogNavSidebarProps) {
           href="/worklog"
           aria-current={isHomeActive ? "true" : undefined}
           className={cn(
-            "w-full flex items-center gap-2 rounded-md text-sm transition-colors px-2 py-1.25",
+            "w-full flex items-center gap-3 rounded-lg text-base font-medium transition-colors px-3 py-2.5",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
             isHomeActive
               ? "bg-orange-100 dark:bg-orange-900/30 text-orange-900 dark:text-orange-100"
               : "hover:bg-accent text-foreground/80 hover:text-foreground",
           )}
         >
-          <Home className="h-3.5 w-3.5 flex-shrink-0" />
+          <Home className="h-5 w-5 flex-shrink-0" />
           <span className="truncate">Home</span>
         </Link>
         <NavRow
-          icon={<Inbox className="h-3.5 w-3.5" />}
+          icon={<Inbox className="h-5 w-5" />}
           label="All notes"
           count={logs.length}
           active={isFilterActive({ kind: "all" })}
           onClick={() => navigateTo({ kind: "all" })}
         />
         <NavRow
-          icon={<Star className={cn("h-3.5 w-3.5", notableCount > 0 && "text-amber-500")} />}
+          icon={<Star className={cn("h-5 w-5", notableCount > 0 && "text-amber-500")} />}
           label="Notable"
           count={notableCount}
           active={isFilterActive({ kind: "notable" })}
           onClick={() => navigateTo({ kind: "notable" })}
         />
         <NavRow
-          icon={<Sparkles className="h-3.5 w-3.5" />}
+          icon={<Sparkles className="h-5 w-5" />}
           label="Templates"
           count={templates.length}
           active={isFilterActive({ kind: "templates" })}
@@ -228,14 +238,15 @@ export function WorklogNavSidebar({ onShowGlobal }: WorklogNavSidebarProps) {
           Categories
         </summary>
         <div role="group" aria-label="Categories" className="space-y-0.5 mt-0.5">
-          {Object.entries(CATEGORIES).map(([key, cat]) => {
-            const Icon = cat.icon;
+          {railCategoryKeys.map((key) => {
+            const meta = resolveCategoryMeta(key);
+            const Icon = meta.icon;
             const count = categoryCounts.get(key) ?? 0;
             return (
               <NavRow
                 key={key}
-                icon={<Icon className="h-3.5 w-3.5" />}
-                label={cat.label}
+                icon={<Icon className="h-5 w-5" />}
+                label={meta.label}
                 count={count}
                 active={isFilterActive({ kind: "category", category: key })}
                 onClick={() => navigateTo({ kind: "category", category: key })}

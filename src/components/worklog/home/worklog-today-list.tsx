@@ -20,7 +20,7 @@ import { useQuery } from "@tanstack/react-query";
 import { isToday, parseISO, formatDistanceToNowStrict } from "date-fns";
 import { Star } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { CATEGORIES } from "@/components/worklog/constants";
+import { resolveCategoryMeta } from "@/components/worklog/constants";
 import type { WorkLog } from "@/types/worklog";
 
 const CATEGORY_DOT: Record<string, string> = {
@@ -78,7 +78,7 @@ export function WorklogTodayList() {
     <ul className="rounded-lg border bg-card divide-y divide-border/60">
       {today.map((log) => {
         const dotClass = CATEGORY_DOT[log.category] ?? "bg-gray-400";
-        const meta = CATEGORIES[log.category];
+        const meta = resolveCategoryMeta(log.category);
         const preview = previewLine(log.content);
         return (
           <li key={log.id}>

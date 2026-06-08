@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import type { Template, Position } from "@/types/worklog";
-import { CATEGORIES } from "@/components/worklog/constants";
+import { resolveCategoryMeta } from "@/components/worklog/constants";
 
 export interface WorklogTemplatesTabProps {
   templates: Template[];
@@ -58,8 +58,8 @@ export function WorklogTemplatesTab({
                   <div className="text-xs text-muted-foreground mt-0.5">{t.description}</div>
                 )}
                 <div className="flex flex-wrap items-center gap-1.5 mt-2">
-                  <Badge variant="outline" className={cn("text-[10px]", CATEGORIES[t.defaultCategory]?.color)}>
-                    {CATEGORIES[t.defaultCategory]?.label ?? t.defaultCategory}
+                  <Badge variant="outline" className={cn("text-[10px]", resolveCategoryMeta(t.defaultCategory).color)}>
+                    {resolveCategoryMeta(t.defaultCategory).label}
                   </Badge>
                   {t.defaultPositionId && positionMap.get(t.defaultPositionId) && (
                     <Badge variant="outline" className="text-[10px]">

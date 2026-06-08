@@ -20,7 +20,7 @@ import { ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import { CATEGORIES } from "@/components/worklog/constants";
+import { resolveCategoryMeta } from "@/components/worklog/constants";
 import { WorklogNotesList } from "@/components/worklog/worklog-notes-list";
 import {
   WorklogNoteReader,
@@ -190,7 +190,7 @@ export function WorklogNotesAndReader({
               search
                 ? "No notes match your search"
                 : activeFolder.kind === "category"
-                  ? `No ${CATEGORIES[activeFolder.category]?.label.toLowerCase() ?? ""} notes yet`
+                  ? `No ${resolveCategoryMeta(activeFolder.category).label.toLowerCase()} notes yet`
                   : activeFolder.kind === "notable"
                     ? "No notable notes yet"
                     : "No notes yet"

@@ -15,7 +15,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { format, parseISO } from "date-fns";
 import {
   Briefcase,
@@ -37,7 +37,9 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import type { Position, WorkLog, WorkShift } from "@/types/worklog";
-import { CATEGORIES, MOODS } from "@/components/worklog/constants";
+import { MOODS, resolveCategoryMeta } from "@/components/worklog/constants";
+import { useWorklogCategories } from "@/components/worklog/hooks/use-worklog-categories";
+import { WORKLOG_CATEGORY_FALLBACK } from "@/lib/worklog-categories";
 import {
   minutesFromTimeLabel,
   timeLabelFromMinutes,
@@ -105,7 +107,21 @@ export function WorklogNoteMetaStrip({
     ? folders.find((f) => f.id === log.folderId) ?? null
     : null;
 
-  const cat = CATEGORIES[log.category];
+  // User-defined categories from Sprint A's WorkLogCategory table, plus the
+  // synthetic "Other" fallback so the editor's Select can target it directly.
+  const { categories: userCategories } = useWorklogCategories();
+  const categoryOptions = useMemo(
+    () => [
+      ...userCategories.map((c) => ({
+        key: c.name,
+        label: resolveCategoryMeta(c.name).label,
+      })),
+      { key: WORKLOG_CATEGORY_FALLBACK, label: resolveCategoryMeta(WORKLOG_CATEGORY_FALLBACK).label },
+    ],
+    [userCategories],
+  );
+
+  const cat = resolveCategoryMeta(log.category);
   const CatIcon = cat?.icon;
   const pos = log.positionId ? positionMap.get(log.positionId) : null;
   const selectedShift = shifts.find((s) => s.id === log.shiftId) ?? null;
@@ -377,9 +393,9 @@ export function WorklogNoteMetaStrip({
               </SelectValue>
             </SelectTrigger>
             <SelectContent>
-              {Object.entries(CATEGORIES).map(([k, c]) => (
-                <SelectItem key={k} value={k}>
-                  {c.label}
+              {categoryOptions.map(({ key, label }) => (
+                <SelectItem key={key} value={key}>
+                  {label}
                 </SelectItem>
               ))}
             </SelectContent>

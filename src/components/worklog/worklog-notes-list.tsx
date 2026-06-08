@@ -21,7 +21,7 @@ import { useState } from "react";
 import { format, parseISO, isToday, isYesterday, differenceInDays, startOfDay } from "date-fns";
 import { Star, Briefcase, ImageIcon, FileText, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { CATEGORIES, DND_ACTIVE_ROW_CLASS } from "@/components/worklog/constants";
+import { DND_ACTIVE_ROW_CLASS, resolveCategoryMeta } from "@/components/worklog/constants";
 import { useSortable, SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { WorkLog, Position } from "@/types/worklog";
@@ -319,7 +319,7 @@ export function WorklogNotesList({
             {g.logs.map((l) => {
               const isActive = l.id === selectedId;
               const isChecked = selection ? selection.isSelected(l.id) : false;
-              const cat = CATEGORIES[l.category];
+              const cat = resolveCategoryMeta(l.category);
               const Icon = cat?.icon;
               const pos = l.positionId ? positionMap.get(l.positionId) : null;
               const dateStr = formatRowDate(parseISO(l.date), nowYear);
