@@ -78,6 +78,7 @@ model User {
   workLogs                WorkLog[]
   workLogImports          WorkLogImport[]
   workLogFolders          WorkLogFolder[]
+  workLogCategories       WorkLogCategory[]
   workHistoryShifts       WorkHistoryShift[]
   workLogDrafts           WorkLogDraft[]
   workLogTemplates        WorkLogTemplate[]
@@ -812,6 +813,32 @@ model WorkLogFolder {
   workLogs WorkLog[]
 
   @@index([userId, parentId])
+  @@index([userId, sortOrder])
+}
+
+// User-defined category taxonomy for organizing WorkLog notes. Categories
+// are a second axis next to WorkLogFolder: the folder is a *location* in a
+// tree, the category is a cross-cutting *kind* tag ("task", "project", etc.).
+//
+// `WorkLog.category` continues to hold the category NAME (free-form string),
+// not a FK. This avoids migrating every existing note row and lets renames be
+// a single bulk UPDATE on the user's notes (see /api/work-logs/categories).
+//
+// The reserved name "other" is the permanent fallback bucket — it is never
+// stored as a row in this table. Deleting a category bulk-updates its notes'
+// category field to "other".
+model WorkLogCategory {
+  id        String   @id @default(uuid())
+  userId    String
+  name      String // 1..40 chars, validated server-side; lower-case is recommended for stability
+  sortOrder Int      @default(0) // reserved for future drag-reorder
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Case-sensitive unique-per-user — matches how WorkLog.category strings are stored.
+  @@unique([userId, name])
   @@index([userId, sortOrder])
 }
 
