@@ -324,6 +324,47 @@ export function WorklogCategoryRows({
         </summary>
 
         <div role="group" aria-label="Categories" className="space-y-0.5 mt-0.5">
+          {/* Inline create row — rendered at the TOP for easier access. */}
+          {creating && (
+            <div className="px-2 pb-1">
+              <Input
+                ref={createInputRef}
+                value={createDraft}
+                onChange={(e) => {
+                  setCreateDraft(e.target.value);
+                  if (createError) setCreateError(null);
+                }}
+                onBlur={() => {
+                  // Empty + blur = cancel (consistent with folders prompt UX
+                  // where dismissing without typing aborts).
+                  if (!createDraft.trim()) {
+                    cancelCreate();
+                  } else {
+                    void commitCreate();
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    void commitCreate();
+                  } else if (e.key === "Escape") {
+                    e.preventDefault();
+                    cancelCreate();
+                  }
+                }}
+                placeholder="New category…"
+                maxLength={WORKLOG_CATEGORY_NAME_MAX}
+                className={inputSizeClass}
+                aria-invalid={!!createError}
+              />
+              {createError && (
+                <p className="px-1 pt-0.5 text-[10px] text-destructive">
+                  {createError}
+                </p>
+              )}
+            </div>
+          )}
+
           {rowKeys.map((key) => {
             const meta = resolveCategoryMeta(key);
             const Icon = meta.icon;
@@ -417,47 +458,6 @@ export function WorklogCategoryRows({
               />
             );
           })}
-
-          {/* Inline create row, revealed by the "+" button -------------- */}
-          {creating && (
-            <div className="px-2 pt-1">
-              <Input
-                ref={createInputRef}
-                value={createDraft}
-                onChange={(e) => {
-                  setCreateDraft(e.target.value);
-                  if (createError) setCreateError(null);
-                }}
-                onBlur={() => {
-                  // Empty + blur = cancel (consistent with folders prompt UX
-                  // where dismissing without typing aborts).
-                  if (!createDraft.trim()) {
-                    cancelCreate();
-                  } else {
-                    void commitCreate();
-                  }
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    void commitCreate();
-                  } else if (e.key === "Escape") {
-                    e.preventDefault();
-                    cancelCreate();
-                  }
-                }}
-                placeholder="New category…"
-                maxLength={WORKLOG_CATEGORY_NAME_MAX}
-                className={inputSizeClass}
-                aria-invalid={!!createError}
-              />
-              {createError && (
-                <p className="px-1 pt-0.5 text-[10px] text-destructive">
-                  {createError}
-                </p>
-              )}
-            </div>
-          )}
         </div>
       </details>
 
