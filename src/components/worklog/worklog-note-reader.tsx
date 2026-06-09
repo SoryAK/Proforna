@@ -45,6 +45,7 @@ import { WorklogPhotoSection } from "@/components/worklog/worklog-photo-section"
 import { WorklogEditor, type WorklogEditorHandle } from "@/components/worklog/worklog-editor";
 import { WorklogNoteView } from "@/components/worklog/worklog-note-view";
 import { WorklogNoteMetaStrip } from "@/components/worklog/worklog-note-meta-strip";
+import { WorklogBacklinksPanel } from "@/components/worklog/worklog-backlinks-panel";
 import { extractTagsFromDoc, mergeEditorTags } from "@/lib/worklog/tiptap/extract-tags";
 import { PromoteToEventDialog } from "@/components/worklog/promote-to-event-dialog";
 import {
@@ -458,6 +459,9 @@ const ReaderInner = forwardRef<WorklogNoteReaderHandle, ReaderInnerProps>(functi
               />
             )}
           </div>
+
+          {/* ADR-0016: Backlinks — notes that link here via @n: mentions */}
+          <WorklogBacklinksPanel noteId={log.id} />
 
           {/* Tags — own labelled block */}
           <div className="space-y-1.5">

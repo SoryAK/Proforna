@@ -3,7 +3,11 @@ import { prisma } from "@/lib/prisma";
 import { getUserId } from "@/lib/auth-utils";
 import { computeWorkdayDateLocal, localDateAndMinuteFromIso } from "@/lib/worklog-shifts";
 import { validateContentJson } from "@/lib/worklog/content-json";
-import { extractMentionAssetIds } from "@/lib/worklog/prosemirror-to-text";
+import {
+  extractMentionAssetIds,
+  extractMentionEntityIds,
+} from "@/lib/worklog/prosemirror-to-text";
+import { arraysEqualAsSets } from "@/lib/array-set-equal";
 
 function hasOwn(body: Record<string, unknown>, key: string) {
   return Object.prototype.hasOwnProperty.call(body, key);
@@ -40,7 +44,7 @@ export async function PUT(
 
     const existing = await prisma.workLog.findFirst({
       where: { id, userId },
-      select: { id: true, positionId: true, date: true, shiftId: true, assetIds: true },
+      select: { id: true, positionId: true, date: true, shiftId: true, assetIds: true, linkedNoteIds: true },
     });
     if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
@@ -71,6 +75,25 @@ export async function PUT(
       hasOwn(body, "assetIds") || mentionAssetIds.length > 0
         ? Array.from(new Set([...baseAssetIds, ...mentionAssetIds]))
         : null; // null → leave assetIds column untouched
+
+    // ADR-0016: skip-if-equal guard — don't write the GIN-indexed column when
+    // the resulting set matches what's already stored. Saves an index write
+    // on every autosave that didn't touch mentions.
+    const writeAssetIds: boolean =
+      mergedAssetIds !== null && !arraysEqualAsSets(mergedAssetIds, existing.assetIds);
+
+    // ADR-0016: linkedNoteIds is REPLACEMENT (not additive). The only source
+    // is @n: mentions in contentJson, so removing a chip from the doc must
+    // remove the link. Self-loop guard filters the current note's own id.
+    const linkedNoteIds: string[] | null =
+      hasOwn(body, "contentJson") && validatedContentJson
+        ? extractMentionEntityIds(validatedContentJson, "worklog").filter(
+            (entityId) => entityId !== id,
+          )
+        : null; // null → contentJson absent, leave column untouched
+
+    const writeLinkedNoteIds: boolean =
+      linkedNoteIds !== null && !arraysEqualAsSets(linkedNoteIds, existing.linkedNoteIds);
 
     const nextPositionId = hasOwn(body, "positionId")
       ? (body.positionId ? String(body.positionId) : null)
@@ -146,7 +169,8 @@ export async function PUT(
       ...(hasOwn(body, "equipmentIds")
         ? { equipmentIds: Array.isArray(body.equipmentIds) ? body.equipmentIds : undefined }
         : {}),
-      ...(mergedAssetIds !== null ? { assetIds: mergedAssetIds } : {}),
+      ...(writeAssetIds ? { assetIds: mergedAssetIds! } : {}),
+      ...(writeLinkedNoteIds ? { linkedNoteIds: linkedNoteIds! } : {}),
       ...(hasOwn(body, "folderId")
         ? { folderId: body.folderId ? String(body.folderId) : null }
         : {}),

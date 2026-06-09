@@ -39,10 +39,11 @@ interface PopupProps {
 }
 
 const TYPE_PREFIX_HINTS: Array<{ prefix: string; entityType: MentionEntityType; hint: string }> = [
-  { prefix: "a", entityType: "asset", hint: "@a: Asset" },
-  { prefix: "s", entityType: "skill", hint: "@s: Skill" },
+  { prefix: "a", entityType: "asset",   hint: "@a: Asset"   },
+  { prefix: "s", entityType: "skill",   hint: "@s: Skill"   },
   { prefix: "c", entityType: "company", hint: "@c: Company" },
-  { prefix: "p", entityType: "contact", hint: "@p: Person" },
+  { prefix: "p", entityType: "contact", hint: "@p: Person"  },
+  { prefix: "n", entityType: "worklog", hint: "@n: Note"    },
 ];
 
 export const MentionSuggestionPopup = forwardRef<

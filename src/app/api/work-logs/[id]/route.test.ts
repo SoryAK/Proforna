@@ -52,13 +52,14 @@ function makeRequest(id: string, body: unknown): [Request, { params: Promise<{ i
 }
 
 /** Minimal existing log fixture — shiftId null avoids the shift lookup branch. */
-function existingLog(assetIds: string[] = []) {
+function existingLog(assetIds: string[] = [], linkedNoteIds: string[] = []) {
   return {
     id: "log1",
     positionId: null,
     date: new Date("2026-01-15T08:00:00.000Z"),
     shiftId: null,
     assetIds,
+    linkedNoteIds,
   };
 }
 
@@ -116,7 +117,7 @@ describe("PUT /api/work-logs/[id] — mention-asset merge", () => {
     expect((updateData.assetIds as string[]).length).toBe(2);
   });
 
-  it("does not duplicate an asset ID already in existing assetIds", async () => {
+  it("skip-if-equal: omits assetIds from updateData when extracted set matches existing (ADR-0016)", async () => {
     mockGetUserId.mockResolvedValue("u1");
     mockFindFirst.mockResolvedValue(existingLog(["a1"]) as any);
 
@@ -126,7 +127,9 @@ describe("PUT /api/work-logs/[id] — mention-asset merge", () => {
     await PUT(req, ctx);
 
     const updateData = mockUpdate.mock.calls[0][0].data as Record<string, unknown>;
-    expect((updateData.assetIds as string[])).toEqual(["a1"]);
+    // ADR-0016: when extracted set is set-equal to existing, omit the column
+    // entirely to skip the GIN write on autosave.
+    expect(updateData).not.toHaveProperty("assetIds");
   });
 
   // ── explicit body.assetIds + mentions → full union ────
@@ -225,5 +228,83 @@ describe("PUT /api/work-logs/[id] — mention-asset merge", () => {
     expect(stored).toHaveLength(2);
     expect(stored).toContain("a1");
     expect(stored).toContain("a2");
+  });
+});
+
+// ────────────────────────────────────────────────────
+// ADR-0016 — linkedNoteIds + self-loop + skip-if-equal
+// ────────────────────────────────────────────────────
+
+function emptyDoc() {
+  return { type: "doc", content: [{ type: "paragraph" }] };
+}
+
+describe("PUT /api/work-logs/[id] — ADR-0016 linkedNoteIds", () => {
+  it("populates linkedNoteIds from @n: mentions on save", async () => {
+    mockGetUserId.mockResolvedValue("u1");
+    mockFindFirst.mockResolvedValue(existingLog([], []) as any);
+
+    const [req, ctx] = makeRequest("log1", {
+      contentJson: docWithMentions([], [{ type: "worklog", id: "log-other" }]),
+    });
+    await PUT(req, ctx);
+
+    const updateData = mockUpdate.mock.calls[0][0].data as Record<string, unknown>;
+    expect(updateData.linkedNoteIds).toEqual(["log-other"]);
+  });
+
+  it("self-loop guard: filters current log id from linkedNoteIds at write time", async () => {
+    mockGetUserId.mockResolvedValue("u1");
+    mockFindFirst.mockResolvedValue(existingLog([], []) as any);
+
+    const [req, ctx] = makeRequest("log1", {
+      // Doc references the note being edited (paste/copy edge case bypassing picker).
+      contentJson: docWithMentions([], [{ type: "worklog", id: "log1" }]),
+    });
+    await PUT(req, ctx);
+
+    const updateData = mockUpdate.mock.calls[0][0].data as Record<string, unknown>;
+    if ("linkedNoteIds" in updateData) {
+      expect(updateData.linkedNoteIds).not.toContain("log1");
+      expect(updateData.linkedNoteIds).toEqual([]);
+    }
+    // If skip-if-equal omitted the column entirely, that's also fine — the
+    // guarantee is that "log1" is never persisted into linkedNoteIds.
+  });
+
+  it("skip-if-equal: omits linkedNoteIds when extracted set matches existing", async () => {
+    mockGetUserId.mockResolvedValue("u1");
+    mockFindFirst.mockResolvedValue(existingLog([], ["log-other"]) as any);
+
+    const [req, ctx] = makeRequest("log1", {
+      contentJson: docWithMentions([], [{ type: "worklog", id: "log-other" }]),
+    });
+    await PUT(req, ctx);
+
+    const updateData = mockUpdate.mock.calls[0][0].data as Record<string, unknown>;
+    expect(updateData).not.toHaveProperty("linkedNoteIds");
+  });
+
+  it("replacement semantic: clears linkedNoteIds when chip is removed from doc", async () => {
+    mockGetUserId.mockResolvedValue("u1");
+    mockFindFirst.mockResolvedValue(existingLog([], ["log-old"]) as any);
+
+    // contentJson saved with NO worklog mentions — link should clear, not persist.
+    const [req, ctx] = makeRequest("log1", { contentJson: emptyDoc() });
+    await PUT(req, ctx);
+
+    const updateData = mockUpdate.mock.calls[0][0].data as Record<string, unknown>;
+    expect(updateData.linkedNoteIds).toEqual([]);
+  });
+
+  it("does not touch linkedNoteIds when contentJson is absent from body", async () => {
+    mockGetUserId.mockResolvedValue("u1");
+    mockFindFirst.mockResolvedValue(existingLog([], ["log-old"]) as any);
+
+    const [req, ctx] = makeRequest("log1", { title: "new title" });
+    await PUT(req, ctx);
+
+    const updateData = mockUpdate.mock.calls[0][0].data as Record<string, unknown>;
+    expect(updateData).not.toHaveProperty("linkedNoteIds");
   });
 });

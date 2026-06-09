@@ -7,6 +7,7 @@ import {
   proseMirrorDocToPlainText,
   plainTextToProseMirrorDoc,
   extractMentionAssetIds,
+  extractMentionEntityIds,
 } from "@/lib/worklog/prosemirror-to-text";
 
 // ─────────────────────────────────────────────────────────
@@ -540,5 +541,125 @@ describe("extractMentionAssetIds", () => {
       ],
     };
     expect(extractMentionAssetIds(doc)).toEqual([]);
+  });
+});
+
+// ────────────────────────────────────────────────────────
+// extractMentionEntityIds (ADR-0016 — generalized extractor)
+// ────────────────────────────────────────────────────────
+
+describe("extractMentionEntityIds", () => {
+  // Multi-mention snapshot fixture: doc has one mention of every supported
+  // entity type, mixed top-level paragraphs + nested list items + duplicate
+  // ids. Defends the "future kind dropped silently" failure mode called out
+  // in ADR-0016 §Negative Consequences.
+  const multiMentionDoc = {
+    type: "doc",
+    content: [
+      {
+        type: "paragraph",
+        content: [
+          { type: "text", text: "Working with " },
+          { type: "mention", attrs: { entityType: "asset", entityId: "asset-1", label: "Pump A" } },
+          { type: "text", text: " using " },
+          { type: "mention", attrs: { entityType: "skill", entityId: "skill-1", label: "React" } },
+        ],
+      },
+      {
+        type: "bulletList",
+        content: [
+          {
+            type: "listItem",
+            content: [
+              {
+                type: "paragraph",
+                content: [
+                  { type: "mention", attrs: { entityType: "company", entityId: "co-1", label: "Acme" } },
+                  { type: "text", text: " / " },
+                  { type: "mention", attrs: { entityType: "contact", entityId: "contact-1", label: "Jane" } },
+                ],
+              },
+            ],
+          },
+          {
+            type: "listItem",
+            content: [
+              {
+                type: "paragraph",
+                content: [
+                  { type: "text", text: "See also " },
+                  { type: "mention", attrs: { entityType: "worklog", entityId: "note-7", label: "Yesterday" } },
+                  { type: "text", text: " and " },
+                  { type: "mention", attrs: { entityType: "worklog", entityId: "note-9", label: "Last week" } },
+                  { type: "text", text: " " },
+                  // Duplicate worklog mention — should dedupe.
+                  { type: "mention", attrs: { entityType: "worklog", entityId: "note-7", label: "Yesterday" } },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+
+  it("returns empty array for null/non-doc input regardless of entityType", () => {
+    expect(extractMentionEntityIds(null, "worklog")).toEqual([]);
+    expect(extractMentionEntityIds({ type: "paragraph" }, "asset")).toEqual([]);
+  });
+
+  it("extracts only the requested entityType from a multi-mention doc", () => {
+    expect(extractMentionEntityIds(multiMentionDoc, "asset")).toEqual(["asset-1"]);
+    expect(extractMentionEntityIds(multiMentionDoc, "skill")).toEqual(["skill-1"]);
+    expect(extractMentionEntityIds(multiMentionDoc, "company")).toEqual(["co-1"]);
+    expect(extractMentionEntityIds(multiMentionDoc, "contact")).toEqual(["contact-1"]);
+  });
+
+  it("extracts worklog mentions and dedupes (ADR-0016)", () => {
+    const result = extractMentionEntityIds(multiMentionDoc, "worklog");
+    expect(result).toHaveLength(2);
+    expect(result).toContain("note-7");
+    expect(result).toContain("note-9");
+  });
+
+  it("finds inline-atom mentions nested inside paragraph.content (not just top-level)", () => {
+    const deeplyNested = {
+      type: "doc",
+      content: [
+        {
+          type: "blockquote",
+          content: [
+            {
+              type: "paragraph",
+              content: [
+                { type: "mention", attrs: { entityType: "worklog", entityId: "deep-1", label: "Deep" } },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    expect(extractMentionEntityIds(deeplyNested, "worklog")).toEqual(["deep-1"]);
+  });
+
+  it("ignores mentions missing entityId", () => {
+    const doc = {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [
+            { type: "mention", attrs: { entityType: "worklog", label: "Anonymous" } },
+            { type: "mention", attrs: { entityType: "worklog", entityId: "", label: "Empty" } },
+          ],
+        },
+      ],
+    };
+    expect(extractMentionEntityIds(doc, "worklog")).toEqual([]);
+  });
+
+  it("extractMentionAssetIds remains backward-compatible after generalization", () => {
+    // Same fixture, exercised through the legacy wrapper — must still work.
+    expect(extractMentionAssetIds(multiMentionDoc)).toEqual(["asset-1"]);
   });
 });

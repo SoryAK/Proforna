@@ -23,6 +23,7 @@ import type { WorkLog, WorkLogPhoto, Position } from "@/types/worklog";
 import { MOODS, resolveCategoryMeta } from "@/components/worklog/constants";
 import { useWorklogFolders } from "@/components/worklog/hooks/use-worklog-folders";
 import { WorklogNoteView } from "@/components/worklog/worklog-note-view";
+import { WorklogBacklinksPanel } from "@/components/worklog/worklog-backlinks-panel";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
@@ -174,6 +175,9 @@ export function WorklogNoteReadView({
       <div className="border-t pt-4">
         <WorklogNoteView json={log.contentJson} contentText={log.content} />
       </div>
+
+      {/* ADR-0016: Backlinks panel — notes that link to this one via @n: mentions */}
+      <WorklogBacklinksPanel noteId={log.id} className="mt-4" />
     </div>
   );
 }

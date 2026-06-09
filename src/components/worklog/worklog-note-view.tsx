@@ -22,6 +22,7 @@
 "use client";
 
 import Image from "next/image";
+import { useRouter, usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 // Inline shift-window formatter (matches prosemirror-to-text.ts). Kept local
@@ -339,19 +340,37 @@ function RenderInlineNode({ node }: { node: PmNode }) {
       const a = (node.attrs ?? {}) as Record<string, unknown>;
       const label = typeof a.label === "string" ? a.label : "";
       const entityType = (a.entityType as string) ?? "asset";
+      const entityId = typeof a.entityId === "string" ? a.entityId : "";
       const badgeMap: Record<string, string> = {
         asset: "A",
         skill: "S",
         company: "C",
         contact: "P",
+        worklog: "N",
       };
       const colorMap: Record<string, string> = {
         asset: "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300",
         skill: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300",
         company: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300",
         contact: "bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300",
+        worklog: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300",
       };
       if (!label) return null;
+
+      // ADR-0016: clicking a worklog mention pivots the current page to the
+      // referenced note via the ADR-0015 ?focus= contract. Other entity
+      // types remain non-interactive in read mode.
+      if (entityType === "worklog" && entityId) {
+        return (
+          <WorklogMentionChip
+            label={label}
+            entityId={entityId}
+            badge={badgeMap.worklog}
+            color={colorMap.worklog}
+          />
+        );
+      }
+
       return (
         <span
           className={cn(
@@ -421,4 +440,49 @@ function applyMarks(text: string, marks: PmMark[] | undefined): React.ReactNode 
     }
   }
   return node;
+}
+
+/**
+ * WorklogMentionChip — clickable @n: mention chip in read mode.
+ *
+ * Per ADR-0016 + ADR-0015: clicking pivots the current page to the
+ * referenced note via `?focus=<entityId>`. We use `router.replace`
+ * (not `push`) so the back-stack stays clean — pivoting between linked
+ * notes shouldn't pollute history.
+ */
+function WorklogMentionChip({
+  label,
+  entityId,
+  badge,
+  color,
+}: {
+  label: string;
+  entityId: string;
+  badge: string;
+  color: string;
+}) {
+  const router = useRouter();
+  const pathname = usePathname();
+
+  const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    router.replace(`${pathname}?focus=${entityId}`);
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      className={cn(
+        "inline-flex items-center gap-1 rounded px-1.5 py-0.5 mx-0.5 text-xs font-medium align-middle",
+        "cursor-pointer hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
+        color,
+      )}
+      title={`Open note: ${label}`}
+    >
+      <span className="font-bold opacity-70 text-[10px]">{badge}</span>
+      {label}
+    </button>
+  );
 }

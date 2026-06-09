@@ -34,6 +34,7 @@ Examples: `job-map-view-presets.md`, `worklog-streak-tracking.md`, `resume-pdf-e
 | ------- | ---- | ------ |
 | Worklog Notes Three-Pane Experience | [worklog-notes-three-pane.md](./worklog-notes-three-pane.md) | Shipped |
 | Worklog Notes & Folder Drag-and-Drop Reorder | [worklog-dnd-reorder.md](./worklog-dnd-reorder.md) | Shipped |
+| Note-to-Note Linking and Backlinks | [note-to-note-linking.md](./note-to-note-linking.md) | Shipped |
 | Notion Page Import On-Ramp | [notion-import.md](./notion-import.md) | Shipped |
 | Voice Dictation (Beta) for Worklog Capture | [voice-dictation.md](./voice-dictation.md) | Shipped (Beta) |
 

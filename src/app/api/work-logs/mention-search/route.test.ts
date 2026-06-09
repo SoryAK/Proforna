@@ -24,6 +24,7 @@ vi.mock("@/lib/prisma", () => ({
     skillNode:   { findFirst: vi.fn(), findMany: vi.fn() },
     workHistory: { findFirst: vi.fn(), findMany: vi.fn() },
     contact:     { findFirst: vi.fn(), findMany: vi.fn() },
+    workLog:     { findFirst: vi.fn(), findMany: vi.fn() },
   },
 }));
 
@@ -217,5 +218,103 @@ describe("GET /api/work-logs/mention-search", () => {
     const json = await res.json();
 
     expect(json[0].meta).toBeUndefined();
+  });
+});
+
+// ──────────────────────────────────────────────────────
+// ADR-0016 — worklog branch + excludeId
+// ──────────────────────────────────────────────────────
+
+/**
+ * Build a minimal ProseMirror doc whose first paragraph contains a single
+ * text run — used by the worklog label-derivation logic.
+ */
+function docWithFirstLine(text: string) {
+  return {
+    type: "doc",
+    content: [
+      { type: "paragraph", content: [{ type: "text", text }] },
+    ],
+  };
+}
+
+describe("GET /api/work-logs/mention-search — worklog branch (ADR-0016)", () => {
+  it("returns worklog results with label derived from contentJson first line", async () => {
+    mockGetUserId.mockResolvedValue("u1");
+    vi.mocked(prisma.workLog.findMany).mockResolvedValue([
+      {
+        id: "log-1",
+        contentJson: docWithFirstLine("Today's pump repair notes"),
+        date: new Date("2026-06-09T12:00:00Z"),
+      } as any,
+      {
+        id: "log-2",
+        contentJson: { type: "doc", content: [{ type: "paragraph" }] },
+        date: new Date("2026-06-08T12:00:00Z"),
+      } as any,
+    ]);
+
+    const res = await GET(makeRequest({ type: "worklog", q: "pump" }));
+
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json).toHaveLength(2);
+    expect(json[0]).toMatchObject({ id: "log-1", label: "Today's pump repair notes" });
+    // Empty doc → fallback to a non-empty label (date or similar). Just assert non-empty.
+    expect(json[1].id).toBe("log-2");
+    expect(typeof json[1].label).toBe("string");
+    expect(json[1].label.length).toBeGreaterThan(0);
+  });
+
+  it("existence check (id param) returns the worklog if found", async () => {
+    mockGetUserId.mockResolvedValue("u1");
+    vi.mocked(prisma.workLog.findFirst).mockResolvedValue({
+      id: "log-1",
+      contentJson: docWithFirstLine("Hello"),
+      date: new Date("2026-06-09T12:00:00Z"),
+    } as any);
+
+    const res = await GET(makeRequest({ type: "worklog", id: "log-1" }));
+
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json).toHaveLength(1);
+    expect(json[0]).toMatchObject({ id: "log-1", label: "Hello" });
+  });
+
+  it("existence check returns empty array when worklog is missing or cross-user", async () => {
+    mockGetUserId.mockResolvedValue("u1");
+    vi.mocked(prisma.workLog.findFirst).mockResolvedValue(null);
+
+    const res = await GET(makeRequest({ type: "worklog", id: "missing" }));
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual([]);
+  });
+
+  it("honors excludeId on worklog search (filters self-suggestion)", async () => {
+    mockGetUserId.mockResolvedValue("u1");
+    vi.mocked(prisma.workLog.findMany).mockResolvedValue([] as any);
+
+    await GET(makeRequest({ type: "worklog", q: "foo", excludeId: "log-self" }));
+
+    const call = vi.mocked(prisma.workLog.findMany).mock.calls[0]?.[0] as {
+      where: Record<string, unknown>;
+    };
+    // The where clause must scope to userId AND exclude log-self.
+    expect(call.where.userId).toBe("u1");
+    expect(JSON.stringify(call.where)).toContain("log-self");
+  });
+
+  it("honors excludeId on asset search (cheap, defense-in-depth)", async () => {
+    mockGetUserId.mockResolvedValue("u1");
+    vi.mocked(prisma.jobAsset.findMany).mockResolvedValue([] as any);
+
+    await GET(makeRequest({ type: "asset", q: "pump", excludeId: "asset-self" }));
+
+    const call = vi.mocked(prisma.jobAsset.findMany).mock.calls[0]?.[0] as {
+      where: Record<string, unknown>;
+    };
+    expect(JSON.stringify(call.where)).toContain("asset-self");
   });
 });

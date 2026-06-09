@@ -401,7 +401,7 @@ const EditorBody = forwardRef<WorklogEditorHandle, EditorBodyProps>(function Edi
         TaskItem.configure({ nested: true }),
         PhotoNode,
         CanvasNode,
-        MentionNode,
+        MentionNode.configure({ currentLogId: workLogId }),
         SlashCommands.configure({
           render: createSlashCommandRender(),
           items: slashCommandsWithPhoto,

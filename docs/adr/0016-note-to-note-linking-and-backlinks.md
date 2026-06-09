@@ -1,10 +1,10 @@
 # Note-to-Note Linking + Backlinks Panel
 
-- **Status:** Proposed
+- **Status:** Accepted (2026-06-09)
 - **Date:** 2026-06-07
 - **Deciders:** Sory
 - **Tags:** worklog, editor, schema, search
-- **Related:** [ADR-0010](./0010-tiptap-yjs-worklog-editor.md), [ADR-0011](./0011-postgres-tsvector-worklog-search.md), [ADR-0012](./0012-asset-library-knowledge-backbone.md), [ADR-0015](./0015-worklog-notes-document-manager.md)
+- **Related:** [ADR-0010](./0010-tiptap-yjs-worklog-editor.md), [ADR-0011](./0011-postgres-tsvector-worklog-search.md), [ADR-0012](./0012-asset-library-knowledge-backbone.md), [ADR-0015](./0015-worklog-notes-document-manager.md), [ADR-0018](./0018-tdd-as-first-class-skill.md)
 
 ## Context and Problem Statement
 
@@ -47,12 +47,27 @@ No denormalization. Backlinks query scans `contentJson` JSONB for `mention` node
 
 ## Decision Outcome
 
-**Proposed: Option A.**
+**Accepted (2026-06-09): Option A — minimal scope.**
+
+Phase-0 audit revealed the implementation sketch's "four `*Ids` columns" framing was inaccurate: only `assetIds` is denormalized today. Skills, companies, and contacts have no per-WorkLog `*Ids` projection. Two sub-options surfaced:
+
+- **A.1 — Minimal:** add only `WorkLog.linkedNoteIds` + GIN index. Generalize the extractor signature so a future entity column is a one-line addition.
+- **A.2 — Symmetric:** add `linkedNoteIds` + retroactively add `skillIds`, `companyIds`, `contactIds` + backfill all existing notes via the new extractor.
+
+**Picked A.1.** Rationale: A.2 would build three indexed columns + a one-time backfill in service of features no one has scoped (e.g. "find notes mentioning skill X"). Each future feature can add its column and backfill at the time it's actually built. The pattern we *do* have today is "one column, GIN-indexed, populated on save" — extending it by one slot, not generalizing across four.
+
+Other terms locked at acceptance:
+
+- **Backlink-click navigation:** stays on ADR-0015's `router.replace(?focus=<id>)` contract — single drawer slot, browser back-button escapes the preview model. Self/circular pointers are filtered out of the panel itself for UX (a note never lists itself in its own backlinks).
+- **Self-loop write-time guard:** the extractor / PUT route filters `entityId === currentLogId` from `linkedNoteIds` even if a paste introduces one — defense-in-depth beyond picker `?excludeId=`.
+- **Skip-if-equal write guard:** the PUT route compares the new and existing `assetIds` / `linkedNoteIds` arrays as sets and omits the column from the Prisma `data` payload when they're equal. Avoids unnecessary GIN index churn on autosave (~3s debounce).
+
+Why this still earns the "Accepted" label:
 
 - Reuses every piece of infrastructure already built for assets/skills/companies/contacts. The PR is small (~1 type union extension, ~1 helper generalization, ~1 schema column, ~1 GIN index, ~1 backlinks component).
-- Keeps the mental model simple: "five entity kinds, all linked the same way, all queried the same way."
+- Keeps the mental model simple: existing entity kinds + worklog notes, all linked the same way, all queried the same way.
 - Backlinks panel is a 4-line Prisma query, indexed.
-- Migration is additive (no data backfill needed for existing notes; `linkedNoteIds` defaults to `[]`).
+- Migration is additive (no data backfill; `linkedNoteIds` defaults to `[]`).
 
 ### Positive Consequences
 
@@ -80,28 +95,29 @@ No denormalization. Backlinks query scans `contentJson` JSONB for `mention` node
 
 ### Option B — Dedicated `WorkLogLink` join table (analysis)
 
-- ✅ Per-link metadata (position, context) enables richer backlink cards ("...mentioned in paragraph 3 of 'Foo'").
+- ✅ Per-link metadata (position, context) enables richer backlink cards ("…mentioned in paragraph 3 of 'Foo'").
 - ✅ Cleaner separation between "doc content" and "link graph."
 - ❌ Forks the linking machinery — assets/skills/companies/contacts use one shape, notes use another. Two patterns to maintain.
 - ❌ Save-time write path becomes more complex: derive links from doc → diff against existing rows → upsert/delete.
 - ❌ Migration is non-trivial (new model, FK constraints, cascade rules).
 
-### Option C — Compute backlinks at query time (analysis)
+### Option C — JSONB scan (analysis)
 
 - ✅ Zero denormalization, single source of truth (the doc JSON).
 - ❌ Performance is unverified at scale; JSONB path queries on every backlink panel render.
 - ❌ Diverges from the existing `assetIds`-style pattern — special-cases note links.
 - ❌ Harder to combine with `tsvector` search ranking.
 
-## Implementation Sketch (when greenlit)
+## Implementation Sketch (as built)
 
-1. **Schema:** add `WorkLog.linkedNoteIds String[] @default([])` + `@@index([linkedNoteIds], type: Gin)`. New migration.
-2. **Tiptap:** extend `MentionEntityType` union with `"worklog"`; add `n` to `PREFIX_MAP`; add `worklog` row to `ENTITY_TYPE_CONFIG` (e.g. badge `N`, indigo).
-3. **API:** extend `/api/work-logs/mention-search` to handle `type=worklog` (queries `WorkLog.findMany` with `userId` scope, fuzzy on title; excludes current `?excludeId=`).
-4. **Extractor:** generalize `extractMentionAssetIds` → `extractMentionEntityIds(doc, entityType)`; call once per entity type on save to populate the four `*Ids` columns.
-5. **NodeView:** existing `MentionNodeView` already routes by `entityType` — add the worklog case (link → opens drawer with `?focus=<id>` per ADR-0015).
-6. **Backlinks panel:** new component `<WorklogBacklinksPanel logId>`; one TanStack Query → `/api/work-logs/[id]/backlinks` → Prisma `findMany({ where: { linkedNoteIds: { has: id }, userId } })`. Slot into both the drawer ([ADR-0015](./0015-worklog-notes-document-manager.md)) and full-screen reader.
-7. **Tests:** snapshot test for the extractor's worklog-id case; integration test for the backlinks API authorization.
+1. **Schema:** add `WorkLog.linkedNoteIds String[] @default([])` + `@@index([linkedNoteIds], type: Gin)`. New additive migration.
+2. **Tiptap:** extend `MentionEntityType` union with `"worklog"`; add `n` to `PREFIX_MAP`; add `worklog` row to `ENTITY_TYPE_CONFIG` (badge `N`, indigo).
+3. **API:** extend `/api/work-logs/mention-search` to handle `type=worklog` (queries `WorkLog.findMany` with `userId` scope, fuzzy on first non-empty plain-text line of `contentJson`; honors `?excludeId=` to filter out the current note from suggestions). `excludeId` is honored for *all* types — cheap, safer.
+4. **Extractor:** generalize `extractMentionAssetIds` → `extractMentionEntityIds(doc, entityType)`. Existing `extractMentionAssetIds` becomes a thin wrapper for callsite compatibility. Tests snapshot a multi-mention fixture (asset + skill + company + contact + worklog, mixed top-level/nested) so a future kind drop is caught.
+5. **PUT route hardening:** skip-if-equal guard via `arraysEqualAsSets` for both `assetIds` and `linkedNoteIds` — omit the column from `update.data` when extracted set matches existing column. Self-loop guard at write time filters `id === currentLogId` from `linkedNoteIds`.
+6. **NodeView:** existing `MentionNodeView` already routes by `entityType` — add the worklog case (click → `router.replace(?focus=<id>)` per ADR-0015).
+7. **Backlinks panel:** new component `<WorklogBacklinksPanel logId>`; one TanStack Query → `/api/work-logs/[id]/backlinks` → Prisma `findMany({ where: { linkedNoteIds: { has: id }, userId, NOT: { id } } })` (filters self even if the write guard ever fails). Slot into both the drawer ([ADR-0015](./0015-worklog-notes-document-manager.md)) and full-screen reader.
+8. **Tests (Phase 2.5 / ADR-0018):** RED → GREEN for the generalized extractor, the `arraysEqualAsSets` helper, the mention-search worklog branch, the backlinks route, and the PUT-route skip-if-equal + self-loop guards.
 
 **Out of scope for this ADR (separate proposals if pursued):**
 

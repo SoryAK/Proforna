@@ -196,28 +196,47 @@ function formatMinute(m: number): string {
 
 /**
  * Return the unique set of `entityId` values for every `mention` node whose
- * `entityType` is `"asset"` in the given ProseMirror doc. Used server-side to
- * auto-populate `WorkLog.assetIds` when the editor saves `contentJson`.
+ * `entityType` matches the given filter, walking the entire ProseMirror doc
+ * (top-level blocks + nested inline atoms inside paragraphs/lists/etc).
+ *
+ * Used server-side to auto-populate denormalized `WorkLog.<kind>Ids` columns
+ * from the editor's `contentJson` on save.
+ *
+ * @see ADR-0012 (asset mentions origin), ADR-0016 (note-to-note linking).
  */
-export function extractMentionAssetIds(doc: unknown): string[] {
+export function extractMentionEntityIds(
+  doc: unknown,
+  entityType: string,
+): string[] {
   if (!doc || typeof doc !== "object") return [];
   const root = doc as PmNode;
   if (root.type !== "doc" || !Array.isArray(root.content)) return [];
   const ids = new Set<string>();
-  collectAssetMentions(root, ids);
+  collectMentions(root, ids, entityType);
   return Array.from(ids);
 }
 
-function collectAssetMentions(node: PmNode, ids: Set<string>): void {
+function collectMentions(node: PmNode, ids: Set<string>, entityType: string): void {
   if (node.type === "mention") {
     const a = node.attrs as { entityType?: string; entityId?: string } | null;
-    if (a?.entityType === "asset" && typeof a.entityId === "string" && a.entityId) {
+    if (a?.entityType === entityType && typeof a.entityId === "string" && a.entityId) {
       ids.add(a.entityId);
     }
   }
   if (Array.isArray(node.content)) {
-    for (const child of node.content) collectAssetMentions(child, ids);
+    for (const child of node.content) collectMentions(child, ids, entityType);
   }
+}
+
+/**
+ * Return the unique set of `entityId` values for every `mention` node whose
+ * `entityType` is `"asset"` in the given ProseMirror doc. Used server-side to
+ * auto-populate `WorkLog.assetIds` when the editor saves `contentJson`.
+ *
+ * Thin wrapper around `extractMentionEntityIds` for callsite compatibility.
+ */
+export function extractMentionAssetIds(doc: unknown): string[] {
+  return extractMentionEntityIds(doc, "asset");
 }
 
 /** Build a minimal ProseMirror doc from a plain-text legacy `content` string. */
