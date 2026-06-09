@@ -1,0 +1,18 @@
+{
+  "entities": [
+    {
+      "name": "PrismaSchemaOps",
+      "entityType": "convention",
+      "observations": [
+        "2026-06-09: Stack — Prisma v6.19.2 (ADR-0003), Postgres @ localhost:5432, db 'resumsify'. Migrations folder is prisma/migrations/, source of truth is prisma/schema.prisma.",
+        "2026-06-09: Baseline-drift capture migration shipped — 20260609180000_baseline_drift_capture. Consolidates ADR-0012 Asset tables + JobAsset.assetType→assetTypeId rename + ADR-0020 voiceDictationConsentedAt + DROP WorkLog_shiftId_idx. Live DB state unchanged; migration marked via `prisma migrate resolve --applied`. Fresh-clone `prisma migrate deploy` now reproduces live schema end-to-end (103/103 migrations).",
+        "2026-06-09: Convention going forward — NEVER use `prisma db execute` for column or table changes. Always author a real dated migration file via `prisma migrate dev --create-only`. The db-execute workaround was a one-time pragmatic crutch during drift; using it again will recreate the same problem.",
+        "2026-06-09: Intrinsic Prisma false-positive — `Unsupported(\"tsvector\")?` columns cannot express the GENERATED expression in schema.prisma, so every `prisma migrate diff` will eternally report `ALTER COLUMN \"search_vector\" DROP DEFAULT`. NEVER include that line in a migration — Postgres rejects DROP DEFAULT on GENERATED columns (correct cleanup is DROP EXPRESSION, also inexpressible). This is permanent noise to ignore.",
+        "2026-06-09: Recovery recipe canonized at docs/workflows/recover-from-prisma-drift.md — shadow DB on same host → `migrate diff --from-migrations --to-schema-datamodel` → sanitize (skip tsvector line, reorder for FK safety, header comment with ADR refs) → author migration → `migrate resolve --applied` on live → validate fresh deploy on shadow → drop shadow.",
+        "2026-06-09: Windows PowerShell quirk — multi-line `run_in_terminal` blocks silently eaten. Workaround: single-line semicolon-joined commands. Also: `npx prisma db execute --stdin` never prints SELECT results, only 'Script executed successfully.' — use psql directly to inspect data.",
+        "2026-06-09: Reference commit 1f12fcc chore(prisma): baseline-drift capture migration (ADR-0012/0020)."
+      ]
+    }
+  ],
+  "relations": []
+}
