@@ -31,6 +31,9 @@ NNNN-short-kebab-title.md
 | 0008 | [Worklog capture acceleration and draft persistence](./0008-worklog-capture-acceleration-and-draft-persistence.md) | Proposed   | 2026-05-18 |
 | 0009 | [Worklog server-backed draft sync](./0009-worklog-server-backed-draft-sync.md) | Proposed   | 2026-05-18 |
 | 0012 | [W2.1 DnD context placement and sortable tree strategy](./0012-w2.1-dnd-context-and-tree-strategy.md) | Proposed | 2026-05-25 |
+| 0019 | [Notion page import on-ramp](./0019-notion-import-onramp.md)                       | Accepted   | 2026-06-08 |
+| 0020 | [Worklog dictation v1 — Web Speech only](./0020-worklog-dictation-onramp.md) | Accepted | 2026-06-08 |
+| 0021 | [Mobile-first AI architecture & on-device Gemini strategy](./0021-mobile-first-ai-on-device-gemini.md) | Proposed | 2026-06-09 |
 
 ## How to Add a New ADR
 
