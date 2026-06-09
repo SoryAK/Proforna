@@ -72,6 +72,12 @@ export type WorklogPreferences = {
   defaultCategory: string;
   defaultMood: string | null;
   defaultHours: number | null;
+  /**
+   * ISO timestamp recorded the first time the user accepts the voice
+   * dictation consent modal (ADR-0020). `null` means the user has not
+   * accepted yet; tapping the mic button surfaces the consent dialog.
+   */
+  voiceDictationConsentedAt: string | null;
 };
 
 export type Template = {

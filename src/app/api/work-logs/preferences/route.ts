@@ -34,6 +34,12 @@ function normalizeHours(value: unknown): number | null {
   return parsed;
 }
 
+function normalizeConsentTimestamp(value: unknown): string | null {
+  if (value == null || value === "") return null;
+  const d = new Date(String(value));
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+}
+
 function emptyPreferences() {
   return {
     defaultPositionId: null,
@@ -41,6 +47,7 @@ function emptyPreferences() {
     defaultCategory: "task",
     defaultMood: null,
     defaultHours: null,
+    voiceDictationConsentedAt: null,
   };
 }
 
@@ -77,6 +84,9 @@ export async function GET() {
     defaultCategory: normalizeCategory(pref.defaultCategory),
     defaultMood: normalizeMood(pref.defaultMood),
     defaultHours: normalizeHours(pref.defaultHours),
+    voiceDictationConsentedAt: pref.voiceDictationConsentedAt
+      ? pref.voiceDictationConsentedAt.toISOString()
+      : null,
   });
 }
 
@@ -89,6 +99,7 @@ export async function PUT(request: Request) {
   const defaultCategory = normalizeCategory(body.defaultCategory);
   const defaultMood = normalizeMood(body.defaultMood);
   const defaultHours = normalizeHours(body.defaultHours);
+  const voiceDictationConsentedAt = normalizeConsentTimestamp(body.voiceDictationConsentedAt);
 
   const requestedPositionId = body.defaultPositionId ? String(body.defaultPositionId) : null;
   const requestedShiftId = body.defaultShiftId ? String(body.defaultShiftId) : null;
@@ -132,6 +143,7 @@ export async function PUT(request: Request) {
       defaultCategory,
       defaultMood,
       defaultHours,
+      voiceDictationConsentedAt: voiceDictationConsentedAt ? new Date(voiceDictationConsentedAt) : null,
     },
     update: {
       defaultPositionId,
@@ -139,6 +151,7 @@ export async function PUT(request: Request) {
       defaultCategory,
       defaultMood,
       defaultHours,
+      voiceDictationConsentedAt: voiceDictationConsentedAt ? new Date(voiceDictationConsentedAt) : null,
     },
     select: {
       defaultPositionId: true,
@@ -146,6 +159,7 @@ export async function PUT(request: Request) {
       defaultCategory: true,
       defaultMood: true,
       defaultHours: true,
+      voiceDictationConsentedAt: true,
     },
   });
 
@@ -155,5 +169,8 @@ export async function PUT(request: Request) {
     defaultCategory: normalizeCategory(saved.defaultCategory),
     defaultMood: normalizeMood(saved.defaultMood),
     defaultHours: normalizeHours(saved.defaultHours),
+    voiceDictationConsentedAt: saved.voiceDictationConsentedAt
+      ? saved.voiceDictationConsentedAt.toISOString()
+      : null,
   });
 }

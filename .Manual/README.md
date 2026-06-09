@@ -22,7 +22,7 @@ See [`_template.md`](./_template.md). Each entry must contain:
 
 ## File Naming
 
-```
+```text
 kebab-case-feature-name.md
 ```
 
@@ -31,9 +31,11 @@ Examples: `job-map-view-presets.md`, `worklog-streak-tracking.md`, `resume-pdf-e
 ## Index
 
 | Feature | File | Status |
-|---------|------|--------|
+| ------- | ---- | ------ |
 | Worklog Notes Three-Pane Experience | [worklog-notes-three-pane.md](./worklog-notes-three-pane.md) | Shipped |
 | Worklog Notes & Folder Drag-and-Drop Reorder | [worklog-dnd-reorder.md](./worklog-dnd-reorder.md) | Shipped |
+| Notion Page Import On-Ramp | [notion-import.md](./notion-import.md) | Shipped |
+| Voice Dictation (Beta) for Worklog Capture | [voice-dictation.md](./voice-dictation.md) | Shipped (Beta) |
 
 ## Style Rules
 

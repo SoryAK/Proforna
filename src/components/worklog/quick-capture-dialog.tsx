@@ -40,6 +40,7 @@ import {
 } from "@/components/ui/select";
 import { resolveCategoryMeta } from "@/components/worklog/constants";
 import { useWorklogCategories } from "@/components/worklog/hooks/use-worklog-categories";
+import { VoiceDictationButton } from "@/components/worklog/voice/voice-dictation-button";
 import { WORKLOG_CATEGORY_FALLBACK } from "@/lib/worklog-categories";
 import type { WorklogPreferences } from "@/types/worklog";
 
@@ -54,6 +55,7 @@ const EMPTY_PREFS: WorklogPreferences = {
   defaultCategory: "task",
   defaultMood: null,
   defaultHours: null,
+  voiceDictationConsentedAt: null,
 };
 
 export function QuickCaptureDialog({ open, onOpenChange }: QuickCaptureDialogProps) {
@@ -194,9 +196,16 @@ export function QuickCaptureDialog({ open, onOpenChange }: QuickCaptureDialogPro
           </div>
 
           <div className="space-y-1">
-            <label htmlFor="qc-content" className="text-xs font-medium text-muted-foreground">
-              Notes <span className="text-muted-foreground/70">(optional)</span>
-            </label>
+            <div className="flex items-center justify-between">
+              <label htmlFor="qc-content" className="text-xs font-medium text-muted-foreground">
+                Notes <span className="text-muted-foreground/70">(optional)</span>
+              </label>
+              <VoiceDictationButton
+                onFinalChunk={(chunk) =>
+                  setContent((prev) => (prev ? `${prev} ${chunk}` : chunk))
+                }
+              />
+            </div>
             <Textarea
               id="qc-content"
               value={content}

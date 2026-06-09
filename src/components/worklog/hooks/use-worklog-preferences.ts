@@ -15,6 +15,7 @@ const EMPTY_PREFERENCES: WorklogPreferences = {
   defaultCategory: "task",
   defaultMood: null,
   defaultHours: null,
+  voiceDictationConsentedAt: null,
 };
 
 export function useWorklogPreferences(

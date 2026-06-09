@@ -893,15 +893,17 @@ model WorkHistoryShift {
 
 // Per-user defaults applied to new worklog creation.
 model WorkLogPreference {
-  id                String   @id @default(uuid())
-  userId            String   @unique
-  defaultPositionId String?
-  defaultShiftId    String?
-  defaultCategory   String   @default("task")
-  defaultMood       String?
-  defaultHours      Float?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id                        String    @id @default(uuid())
+  userId                    String    @unique
+  defaultPositionId         String?
+  defaultShiftId            String?
+  defaultCategory           String    @default("task")
+  defaultMood               String?
+  defaultHours              Float?
+  /// First-time consent for in-browser voice dictation (ADR-0020). Null = not yet consented.
+  voiceDictationConsentedAt DateTime?
+  createdAt                 DateTime  @default(now())
+  updatedAt                 DateTime  @updatedAt
 
   user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   defaultPosition WorkHistory?      @relation("WorkLogPreferenceDefaultPosition", fields: [defaultPositionId], references: [id], onDelete: SetNull)

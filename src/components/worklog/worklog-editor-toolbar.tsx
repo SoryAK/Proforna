@@ -36,6 +36,7 @@ import { normalizeTagLabel } from "@/lib/worklog/tiptap/tag-mention";
 import type { MoodValue } from "@/lib/worklog/tiptap/mood-block";
 import { SLASH_COMMANDS, type SlashCommandItem } from "@/lib/worklog/tiptap/slash-commands";
 import type { WorkShift } from "@/types/worklog";
+import { VoiceDictationButton } from "@/components/worklog/voice/voice-dictation-button";
 
 interface WorklogEditorToolbarProps {
   editor: Editor;
@@ -234,6 +235,14 @@ export function WorklogEditorToolbar({ editor, shifts, slashCommands }: WorklogE
           })}
         </DropdownMenuContent>
       </DropdownMenu>
+
+      <div className="w-px h-4 bg-border mx-1" />
+
+      {/* Voice dictation (Web Speech, Beta — Chrome/Edge only). */}
+      <VoiceDictationButton
+        className="h-7 w-7"
+        onFinalChunk={(chunk) => editor.chain().focus().insertContent(`${chunk} `).run()}
+      />
     </div>
   );
 }
