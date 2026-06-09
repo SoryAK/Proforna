@@ -58,8 +58,12 @@ import { cn } from "@/lib/utils";
 // marks) and SlashCommands/Placeholder (no nodes/marks) since they don't
 // contribute to the schema, and we exclude per-instance config so this can
 // live at module scope.
+//
+// `link: false` opts out of StarterKit's built-in Link so our custom
+// Link.configure(...) below is the only Link in the schema (Tiptap 3
+// otherwise warns: "Duplicate extension names found: ['link']").
 const SCHEMA_EXTENSIONS = [
-  StarterKit.configure({ undoRedo: false }),
+  StarterKit.configure({ undoRedo: false, link: false }),
   Link,
   ShiftBlock,
   MoodBlock,
@@ -377,8 +381,12 @@ const EditorBody = forwardRef<WorklogEditorHandle, EditorBodyProps>(function Edi
     {
       extensions: [
         // Collaboration replaces Tiptap's built-in undo/redo with Y.js history.
+        // `link: false` lets our custom Link.configure(...) below own the Link
+        // mark — StarterKit ships its own Link in Tiptap 3 and would otherwise
+        // collide ("Duplicate extension names found: ['link']").
         StarterKit.configure({
           undoRedo: false,
+          link: false,
         }),
         Placeholder.configure({ placeholder }),
         Link.configure({

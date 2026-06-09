@@ -93,7 +93,10 @@ export function RichTextEditor({ value, onChange, placeholder, minHeight = 140 }
 
   const editor = useEditor({
     extensions: [
-      StarterKit,
+      // `link: false` opts out of StarterKit's built-in Link so the custom
+      // Link.configure(...) below is the sole Link in the schema (Tiptap 3
+      // otherwise warns: "Duplicate extension names found: ['link']").
+      StarterKit.configure({ link: false }),
       Image.configure({
         HTMLAttributes: { class: "rounded-md max-w-full h-auto my-2 border" },
       }),
