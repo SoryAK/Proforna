@@ -1,22 +1,70 @@
 # Resumsify Worklog UI Patterns
 
-Last updated: 2026-06-06 (ADR-0014 — worklog home route split)
+Last updated: 2026-06-07 (ADR-0015 Phase 5 — drawer-preview reader)
 
 > References tokens.md and global.md. Never redefine tokens here.
 > Feature-specific rules only — shared rules live in global.md.
 
 ---
 
-## Routes (post-ADR-0014)
+## Routes (post-ADR-0015 Phase 5)
 
-The worklog feature has two surfaces under a shared `(app)/worklog/layout.tsx`:
+The worklog feature has three surfaces under a shared `(app)/worklog/layout.tsx`:
 
 | Route | Page | Purpose |
 |---|---|---|
 | `/worklog` | [`<WorklogHomeView>`](../../src/components/worklog/home/worklog-home-view.tsx) | Capture-first home — read-only glance + Quick Capture |
-| `/worklog/notes` | [`<WorklogPage>`](../../src/components/worklog/worklog-page.tsx) | 2-pane list+reader (the working surface) |
+| `/worklog/notes` | [`<WorklogNotesView>`](../../src/components/worklog/worklog-notes-view.tsx) | Document-manager list/grid + drawer preview (working surface) |
+| `/worklog/notes/[id]` | [`<WorklogNoteReader>`](../../src/components/worklog/worklog-note-reader.tsx) | Full-screen single-note reader/editor |
 
-The layout file mounts [`<FullBleedShell>`](../../src/components/full-bleed-shell.tsx) once for both routes. The sidebar override from ADR-0013 gates on `pathname.startsWith("/worklog")` so it covers both pages without changes.
+The layout file mounts [`<FullBleedShell>`](../../src/components/full-bleed-shell.tsx) once for all three routes. The sidebar override from ADR-0013 gates on `pathname.startsWith("/worklog")` so it covers every worklog page without changes.
+
+---
+
+## Reader Drawer (ADR-0015 Phase 5)
+
+Clicking any row on `/worklog/notes` opens a **read-only preview drawer**, not the full editor. Editing is a deliberate escalation via the drawer's "Open" button, which routes to the full-screen `/worklog/notes/[id]`.
+
+### URL contract
+
+| URL | State |
+|---|---|
+| `/worklog/notes` | Drawer closed |
+| `/worklog/notes?focus=<id>` | Drawer open in **read** mode for `<id>` |
+| `/worklog/notes?focus=<id>&new=1` (optional) | Drawer open in edit mode (Quick Capture handoff). `new=1` is one-shot, stripped after first render |
+| `/worklog/notes/[id]` | Full-screen reader (Edit button on drawer routes here) |
+| `/worklog/notes?folder=…&view=…&focus=<id>` | Drawer open with all unrelated filter params preserved |
+
+- **Setter:** `router.replace(href, { scroll: false })` — never `push`. Back-button escapes the whole preview model, not individual previews.
+- **Param hygiene:** `buildNotesUrl()` and `drawerOpenHref()` round-trip via `URLSearchParams` so unrelated deep-link params survive every interaction.
+- **Delete from drawer:** close drawer first (clear `?focus`), then fire the delete mutation. Otherwise the drawer flashes a "not found" state while `router.replace` is still committing.
+
+### Layout dimensions
+
+```
+/* Mobile (< md) */               /* Desktop (md+) */
+fixed inset-0                     fixed md:inset-y-0 md:right-0
+                                  md:w-[min(600px,50vw)]
+transform translate-x-full ↔ translate-x-0
+transition-transform duration-200 ease-out
+```
+
+- **Mobile = full sheet.** Drawer occupies the whole viewport.
+- **Desktop = right rail.** `min(600px, 50vw)` so on narrow desktops the drawer caps at 50% of the viewport, on wide desktops at 600px.
+- **No Dialog primitive.** Plain styled container + Esc handler. Dialog's focus-trap and body-scroll-lock fight "list still interactive while drawer is open" — keyboard arrow-nav must keep working.
+- **Animation:** 200ms `ease-out`. Slower feels sluggish, faster feels janky.
+
+### Drawer chrome
+
+- **Header (left → right):** ✕ close, "Open" link to full-screen route, kebab menu (Delete, …future actions).
+- **Body branches:** spinner / empty-state / `<WorklogNoteReadView>`.
+- **No data fetching inside the drawer.** Receives the row object as a prop, reads from the same TanStack Query cache that backs the list.
+
+### Full-screen route
+
+- `max-w-5xl mx-auto px-4` for prose. **Not** `max-w-3xl` — feels cramped on modern monitors with the document-manager-style title chrome.
+- `backHref` reconstructed from current search params so the back-arrow preserves filter context.
+- Same read-only renderer (`<WorklogNoteReadView>`) is used in both the drawer and the full-screen route.
 
 ---
 
@@ -40,19 +88,14 @@ WorklogHomeView
 
 ---
 
-## `/worklog/notes` — 2-pane list+reader
+## `/worklog/notes` — document-manager list/grid + drawer (post-ADR-0015 Phase 5)
 
-```
-grid-cols-1 md:grid-cols-[320px_1fr]
-```
+The page is a single full-width content area with a list/grid toggle, sortable headers, filter chip row, and bulk action bar. The reader is now a drawer (see section above), not a permanent right pane. The activity widget lives only on `/worklog` (ADR-0014).
 
-| Pane | Width | Ref | Owner |
-|---|---|---|---|
-| Left — Notes list | `320px`, `1fr` on mobile | `listPaneRef` | `WorklogPage` |
-| Right — Note reader | `1fr` on md+, hidden on mobile unless note open | `viewPaneRef` | `WorklogPage` |
-
-- The activity widget no longer mounts here (ADR-0014). It lives only on `/worklog`.
-- Notes list pane is the focused surface for scanning + selecting; reader is the focused surface for editing.
+- **List/Grid toggle** — view-mode radiogroup with full ARIA keyboard nav (roving tabindex, arrow keys, Home/End, wrap). Persists to `resumsify:documents:view-mode`.
+- **Sort menu** — DropdownMenu in toolbar, applies to both list and grid views.
+- **Bulk action bar** — replaces toolbar when `selectedCount > 0`. Accepts a `trailing` slot so view-mode + sort stay visible during bulk.
+- **Row click** — sets `?focus=<id>` via `router.replace`. Drawer slides in.
 
 ### Compact embed (`<WorklogPage compact />`)
 

@@ -8,12 +8,18 @@
  * Layout: max-w-3xl centered column with a back-arrow header. Reuses
  * <WorklogNoteReader> verbatim — same autosave-on-blur and inline-edit
  * semantics as the legacy 2-pane experience.
+ *
+ * Back-nav contract (ADR-0015 Phase 5/6): the list view forwards its
+ * current query string onto this route so the back-button rebuilds the
+ * same `/worklog/notes?...` URL the user came from (folder + view filters
+ * from ADR-0013). Direct deep-links to `/worklog/notes/[id]` with no
+ * query simply fall back to a clean `/worklog/notes`.
  */
 
 "use client";
 
 import { use, useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useWorklogData } from "@/components/worklog/hooks/use-worklog-data";
@@ -27,6 +33,7 @@ export default function WorklogNotePage({
 }) {
   const { id } = use(params);
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const { logs, loadingLogs, positions, equipment, assets, positionMap } =
     useWorklogData();
@@ -50,7 +57,14 @@ export default function WorklogNotePage({
     return Array.from(seen).sort();
   }, [logs]);
 
-  const goBack = () => router.push("/worklog/notes");
+  // Rebuild the list URL the user came from, preserving any forwarded
+  // search params (e.g. `?folder=<id>` from the sidebar).
+  const backHref = useMemo(() => {
+    const qs = searchParams.toString();
+    return qs ? `/worklog/notes?${qs}` : "/worklog/notes";
+  }, [searchParams]);
+
+  const goBack = () => router.push(backHref);
 
   return (
     <div className="flex flex-col h-full bg-background">
@@ -69,7 +83,7 @@ export default function WorklogNotePage({
 
       {/* Body */}
       <div className="flex-1 min-h-0 overflow-auto">
-        <div className="max-w-3xl mx-auto h-full">
+        <div className="max-w-5xl mx-auto h-full px-4">
           {!loadingLogs && !log ? (
             <div className="h-full flex flex-col items-center justify-center p-8 text-center">
               <p className="text-sm font-medium mb-1">Note not found</p>
@@ -91,7 +105,7 @@ export default function WorklogNotePage({
               onUpdate={(patch) => saveLog.mutateAsync(patch)}
               onDelete={(deletedId) => {
                 deleteLog.mutate(deletedId, {
-                  onSuccess: () => router.push("/worklog/notes"),
+                  onSuccess: () => router.push(backHref),
                 });
               }}
               hasLogs={logs.length > 0}

@@ -1,6 +1,6 @@
 # Resumsify UI Design Graph — Index
 
-Last updated: 2026-06-06 (ADR-0014 — worklog home route split)
+Last updated: 2026-06-07 (ADR-0015 Phase 5 — worklog reader drawer)
 
 ## Purpose
 This graph is the single navigable source of truth for all UI decisions in Resumsify.

@@ -350,7 +350,7 @@ export function PositionWorklogTab({ positionId }: { positionId: string }) {
                               <Trophy className="h-3 w-3" />
                             </Button>
                           )}
-                          <Link href={`/worklog?focus=${l.id}`} title="Open in full worklog">
+                          <Link href={`/worklog/notes?focus=${l.id}`} title="Open in full worklog">
                             <Button size="icon" variant="ghost" className="h-6 w-6">
                               <Pencil className="h-3 w-3" />
                             </Button>

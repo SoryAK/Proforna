@@ -186,7 +186,7 @@ export function EquipmentUsageHistory({
             return (
               <li key={log.id} className="relative">
                 <span className="absolute -left-[21px] top-1 h-2 w-2 rounded-full bg-primary ring-2 ring-background" />
-                <Link href={`/worklog?focus=${log.id}`} className="block group">
+                <Link href={`/worklog/notes?focus=${log.id}`} className="block group">
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="text-xs font-medium truncate group-hover:underline">
                       {log.title || "Untitled entry"}
