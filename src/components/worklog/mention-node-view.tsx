@@ -21,6 +21,7 @@ import type { NodeViewProps } from "@tiptap/react";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter, usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { buildWorklogFocusHref } from "@/lib/worklog/focus-href";
 import {
   ENTITY_TYPE_CONFIG,
   type MentionNodeAttrs,
@@ -55,7 +56,8 @@ export function MentionNodeView({ node, selected }: NodeViewProps) {
     if (!isWorklog) return;
     e.preventDefault();
     e.stopPropagation();
-    router.replace(`${pathname}?focus=${entityId}`);
+    // ADR-0015/0016: swap path id when in dedicated reader, else ?focus= on list.
+    router.replace(buildWorklogFocusHref(pathname, entityId));
   };
 
   return (

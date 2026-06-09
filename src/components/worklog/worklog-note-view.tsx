@@ -24,6 +24,7 @@
 import Image from "next/image";
 import { useRouter, usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { buildWorklogFocusHref } from "@/lib/worklog/focus-href";
 
 // Inline shift-window formatter (matches prosemirror-to-text.ts). Kept local
 // to avoid pulling another module into the read-mode render path.
@@ -467,7 +468,8 @@ function WorklogMentionChip({
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     e.stopPropagation();
-    router.replace(`${pathname}?focus=${entityId}`);
+    // ADR-0015/0016: swap path id when in dedicated reader, else ?focus= on list.
+    router.replace(buildWorklogFocusHref(pathname, entityId));
   };
 
   return (

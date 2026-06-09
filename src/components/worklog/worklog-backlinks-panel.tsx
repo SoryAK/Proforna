@@ -15,6 +15,7 @@
 import { useRouter, usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
+import { buildWorklogFocusHref } from "@/lib/worklog/focus-href";
 
 interface BacklinkRow {
   id: string;
@@ -74,7 +75,7 @@ export function WorklogBacklinksPanel({ noteId, className }: WorklogBacklinksPan
                 type="button"
                 onClick={(e) => {
                   e.preventDefault();
-                  router.replace(`${pathname}?focus=${row.id}`);
+                  router.replace(buildWorklogFocusHref(pathname, row.id));
                 }}
                 className={cn(
                   "w-full text-left rounded px-1.5 py-1 truncate",
