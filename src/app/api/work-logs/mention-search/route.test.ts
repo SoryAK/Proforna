@@ -239,18 +239,26 @@ function docWithFirstLine(text: string) {
 }
 
 describe("GET /api/work-logs/mention-search — worklog branch (ADR-0016)", () => {
-  it("returns worklog results with label derived from contentJson first line", async () => {
+  it("returns worklog results with label preferring WorkLog.title over content", async () => {
     mockGetUserId.mockResolvedValue("u1");
     vi.mocked(prisma.workLog.findMany).mockResolvedValue([
       {
         id: "log-1",
+        title: "Pump repair playbook",
         contentJson: docWithFirstLine("Today's pump repair notes"),
         date: new Date("2026-06-09T12:00:00Z"),
       } as any,
       {
         id: "log-2",
-        contentJson: { type: "doc", content: [{ type: "paragraph" }] },
+        title: "",
+        contentJson: docWithFirstLine("Body fallback line"),
         date: new Date("2026-06-08T12:00:00Z"),
+      } as any,
+      {
+        id: "log-3",
+        title: null,
+        contentJson: { type: "doc", content: [{ type: "paragraph" }] },
+        date: new Date("2026-06-07T12:00:00Z"),
       } as any,
     ]);
 
@@ -258,19 +266,61 @@ describe("GET /api/work-logs/mention-search — worklog branch (ADR-0016)", () =
 
     expect(res.status).toBe(200);
     const json = await res.json();
-    expect(json).toHaveLength(2);
-    expect(json[0]).toMatchObject({ id: "log-1", label: "Today's pump repair notes" });
-    // Empty doc → fallback to a non-empty label (date or similar). Just assert non-empty.
-    expect(json[1].id).toBe("log-2");
-    expect(typeof json[1].label).toBe("string");
-    expect(json[1].label.length).toBeGreaterThan(0);
+    expect(json).toHaveLength(3);
+    expect(json[0]).toMatchObject({ id: "log-1", label: "Pump repair playbook" });
+    expect(json[1]).toMatchObject({ id: "log-2", label: "Body fallback line" });
+    // Empty title + empty body → fallback to a non-empty date label.
+    expect(json[2].id).toBe("log-3");
+    expect(typeof json[2].label).toBe("string");
+    expect(json[2].label.length).toBeGreaterThan(0);
   });
 
-  it("existence check (id param) returns the worklog if found", async () => {
+  it("selects the title column from the database (not just contentJson + date)", async () => {
+    mockGetUserId.mockResolvedValue("u1");
+    vi.mocked(prisma.workLog.findMany).mockResolvedValue([] as any);
+
+    await GET(makeRequest({ type: "worklog", q: "foo" }));
+
+    const call = vi.mocked(prisma.workLog.findMany).mock.calls[0]?.[0] as {
+      select: Record<string, unknown>;
+    };
+    expect(call.select.title).toBe(true);
+  });
+
+  it("searches against title OR content (case-insensitive contains)", async () => {
+    mockGetUserId.mockResolvedValue("u1");
+    vi.mocked(prisma.workLog.findMany).mockResolvedValue([] as any);
+
+    await GET(makeRequest({ type: "worklog", q: "packer" }));
+
+    const call = vi.mocked(prisma.workLog.findMany).mock.calls[0]?.[0] as {
+      where: Record<string, unknown>;
+    };
+    expect(call.where.userId).toBe("u1");
+    expect(call.where.OR).toEqual([
+      { title:   { contains: "packer", mode: "insensitive" } },
+      { content: { contains: "packer", mode: "insensitive" } },
+    ]);
+  });
+
+  it("omits the OR clause entirely when search term is empty", async () => {
+    mockGetUserId.mockResolvedValue("u1");
+    vi.mocked(prisma.workLog.findMany).mockResolvedValue([] as any);
+
+    await GET(makeRequest({ type: "worklog", q: "" }));
+
+    const call = vi.mocked(prisma.workLog.findMany).mock.calls[0]?.[0] as {
+      where: Record<string, unknown>;
+    };
+    expect(call.where.OR).toBeUndefined();
+  });
+
+  it("existence check (id param) returns the worklog with title-derived label", async () => {
     mockGetUserId.mockResolvedValue("u1");
     vi.mocked(prisma.workLog.findFirst).mockResolvedValue({
       id: "log-1",
-      contentJson: docWithFirstLine("Hello"),
+      title: "Crusher #3 motor issue",
+      contentJson: docWithFirstLine("Body content here"),
       date: new Date("2026-06-09T12:00:00Z"),
     } as any);
 
@@ -279,7 +329,7 @@ describe("GET /api/work-logs/mention-search — worklog branch (ADR-0016)", () =
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json).toHaveLength(1);
-    expect(json[0]).toMatchObject({ id: "log-1", label: "Hello" });
+    expect(json[0]).toMatchObject({ id: "log-1", label: "Crusher #3 motor issue" });
   });
 
   it("existence check returns empty array when worklog is missing or cross-user", async () => {

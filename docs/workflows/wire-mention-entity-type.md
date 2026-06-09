@@ -1,7 +1,7 @@
 # Workflow: Wire a New Mention Entity Type Into the Tiptap @-Picker
 
 **Workflow type:** `wire-mention-entity-type`
-**Last Updated:** 2026-06-09
+**Last Updated:** 2026-06-09 (rev. 2 — label-derivation rule)
 **Origin sprint:** ADR-0016 (note-to-note linking) — fifth entity type added to a four-type picker.
 
 This recipe applies when adding a **new entity type** to the worklog `@`-mention system (e.g. adding `@n:` for notes alongside existing `@a:` asset, `@s:` skill, `@c:` company, `@p:` contact). The mention infrastructure projects each chip's `entityId` into a structured `WorkLog.<kind>Ids: String[]` column with a GIN index for fast lookups, so new types follow a predictable shape: pick a single-letter prefix, decide if it's additive or replacement, and follow the eight steps below.
@@ -49,6 +49,8 @@ If you only need the chip for display (no column projection, no backlinks), you 
    - Add the new type to `EntityType` union and `VALID_TYPES` set.
    - Add a `findById` case (existence check used by the orphan-detection NodeView).
    - Add a `searchEntities` case (used by the picker). For search, prefer the cheapest plain-text column that already has a btree-friendly path — don't reach for tsvector unless the latency forces it.
+   - **Use the entity's primary display field for the `label`.** Never derive a chip label from a secondary projection (e.g. `contentJson` first line, denormalized cache, ID slug) when the canonical record has a `name`/`title`/`company` column — chips become wrong as soon as the canonical field diverges. Extract a tiny `derive<Type>Label({ canonical, ...fallbacks, date })` helper into `src/lib/<domain>/derive-<type>-label.ts` once two call sites exist (mention-search × 2 + backlinks = rule-of-three trigger). Truncate to 80 chars for chip width.
+   - **Search clause should match the same display field**: if `label` comes from `title`, the picker `where` MUST search `title` too (an `OR: [{ title: contains }, { content: contains }]` shape works for worklog notes). Otherwise users will type the visible chip text and get zero results.
    - Honor `excludeId` by adding `id: { not: excludeId }` when present, regardless of type. This is what blocks self-suggestion on note-to-note pickers and is cheap defense-in-depth elsewhere.
 
 7. **Wire `currentLogId` (or equivalent) into the editor mount.**
@@ -70,6 +72,7 @@ If you only need the chip for display (no column projection, no backlinks), you 
 ## Pitfalls
 
 - **Inline-atom walker miss**: When extending `extractMention*`, remember `mention` lives inside `paragraph.content`, not at the doc root. The recursive helper handles this; ad-hoc walkers don't.
+- **Wrong `label` source**: Easiest miss — forgetting that the canonical record has a primary display field (e.g. `WorkLog.title`) and instead deriving the chip label from `contentJson` first-line. Symptom: picker rows AND saved chips display body text instead of the title. Always check the Prisma model for a `name`/`title`/`company` column FIRST, then fall back. If a session ships with this bug, write a one-time migration using the `rewriteWorklogMentionLabels`-style pure walker (see `scripts/migrations/2026-06-09-fix-worklog-mention-labels.ts`) — idempotent and safe to re-run.
 - **Suggestion option shape**: `buildMentionSuggestion(currentLogId)` MUST be a factory taking the option, not a closure over module state. The previous shape (`mentionSuggestion` as a const) made it impossible to pass per-instance config.
 - **Empty `q` + non-null `excludeId`**: A picker that opens with no typed query still hits the API. Make sure the `id: { not: excludeId }` filter is applied even when `term === ""`.
 - **Skip-if-equal must compare AFTER unioning**: For additive types, compare the merged set against the stored set, NOT the raw mention extraction. Otherwise small inserts that don't change the set still trigger writes.

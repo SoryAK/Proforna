@@ -20,7 +20,7 @@
 
 ## 1. Functional Description
 
-Inside any worklog note, the user can type `@n:` to start linking another worklog note. A picker pops up with up to eight matching notes, ranked by recency. Confirming inserts an inline indigo `N` chip showing the linked note's title (its first line). The chip is **clickable in both edit and read modes** — clicking pivots the page to the linked note via the existing focus contract (`?focus=<id>`), without polluting the browser back-stack.
+Inside any worklog note, the user can type `@n:` to start linking another worklog note. A picker pops up with up to eight matching notes, ranked by recency. Confirming inserts an inline indigo `N` chip showing the linked note's title. The chip is **clickable in both edit and read modes** — clicking pivots the page to the linked note via the existing focus contract (`?focus=<id>`), without polluting the browser back-stack.
 
 When a note is open in either the reader drawer or the standalone read view, a compact **Backlinks** panel appears under the body, listing every other note in the user's account that links to this one. The list is empty when no notes link in, and updates whenever the user saves a note that adds or removes an `@n:` reference.
 
@@ -32,7 +32,7 @@ When a note is open in either the reader drawer or the standalone read view, a c
 
 1. User types `@n:` in the editor (Tiptap with the `MentionNode` extension).
 2. The `@tiptap/suggestion` plugin opens `MentionSuggestionPopup` (`src/components/worklog/mention-suggestion-popup.tsx`), which fetches `GET /api/work-logs/mention-search?type=worklog&q=<query>&excludeId=<currentLogId>`.
-3. The route handler in `src/app/api/work-logs/mention-search/route.ts` runs `prisma.workLog.findMany` scoped to the signed-in `userId`, excluding `currentLogId`, and returns `[ { id, label, meta } ]`. The label is the first non-empty plain-text line of the note's `contentJson` (or the workday date if the note is empty). `meta` is the workday date (`YYYY-MM-DD`).
+3. The route handler in `src/app/api/work-logs/mention-search/route.ts` runs `prisma.workLog.findMany` scoped to the signed-in `userId`, excluding `currentLogId`, and returns `[ { id, label, meta } ]`. The search clause is `OR: [{ title: contains q }, { content: contains q }]` (case-insensitive). The label is derived by the shared helper `src/lib/worklog/derive-worklog-label.ts` with the fallback chain `WorkLog.title (trimmed) → first non-empty plain-text line of contentJson → workday ISO date`, all truncated to 80 chars. `meta` is the workday date (`YYYY-MM-DD`).
 4. User confirms a result. Tiptap inserts a `mention` inline atom node with attrs `{ entityType: "worklog", entityId, label }`.
 
 ### Saving the note
@@ -62,7 +62,8 @@ When a note is open in either the reader drawer or the standalone read view, a c
 
 - Does not warn before deleting an inbound link by chip-removal — the replacement semantic is intentional but silent. Backlinks recompute on the next paint of the source note's reader.
 - Does not provide a graph view of links — the Backlinks panel is a flat list. A graph view is parked.
-- Does not search inside `contentJson` rich text for picker matches — the search uses the legacy plain-text `WorkLog.content` column. Notes that exist only as ProseMirror JSON without a plain-text mirror won't surface in the picker until they save.
+- Picker search runs against `title OR content` only — does not index `contentJson` rich-text marks/headings/etc. directly. Sufficient because the legacy plain-text `content` column already mirrors the rich-text body for full-text purposes.
+- Chip labels are captured at insertion time. If the linked note's title is later renamed, existing chips will display the stale label until they are reinserted (or a backfill task runs `rewriteWorklogMentionLabels` against the user's notes — see `scripts/migrations/2026-06-09-fix-worklog-mention-labels.ts` for the canonical pattern).
 - Does not link other entity types to each other — the panel only lists worklog→worklog backlinks. Asset/skill/company/contact mentions remain one-way projections into their respective `*Ids` columns (and only `assetIds` exists today; see ADR-0016 §Q1).
 - Does not promote `linkedNoteIds` to a relation table (Option B in ADR-0016) — kept as `String[]` for symmetry with `assetIds` until two of three trigger conditions fire.
 

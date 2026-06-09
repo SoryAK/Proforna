@@ -17,7 +17,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getUserId } from "@/lib/auth-utils";
-import { proseMirrorDocToPlainText } from "@/lib/worklog/prosemirror-to-text";
+import { deriveWorklogLabel } from "@/lib/worklog/derive-worklog-label";
 
 type EntityType = "asset" | "skill" | "company" | "contact" | "worklog";
 const VALID_TYPES = new Set<EntityType>(["asset", "skill", "company", "contact", "worklog"]);
@@ -89,10 +89,17 @@ async function findById(
     case "worklog": {
       const row = await prisma.workLog.findFirst({
         where: { id, userId },
-        select: { id: true, contentJson: true, date: true },
+        select: { id: true, title: true, contentJson: true, date: true },
       });
       return row
-        ? { id: row.id, label: deriveWorklogLabel(row.contentJson, row.date) }
+        ? {
+            id: row.id,
+            label: deriveWorklogLabel({
+              title: row.title,
+              contentJson: row.contentJson,
+              date: row.date,
+            }),
+          }
         : null;
     }
   }
@@ -191,49 +198,40 @@ async function searchEntities(
     }
 
     case "worklog": {
-      // ADR-0016: search across the user's WorkLog notes by plain-text
-      // content. Postgres `contains` on the `content` column (legacy plain
-      // text) is good enough as a first-pass fuzzy match — the tsvector
-      // search vector is overkill for an autocomplete picker.
+      // ADR-0016 — search across the user's WorkLog notes by `title OR
+      // content` (case-insensitive contains). Two short text columns per
+      // user dataset — perfectly fine without trigram indexes.
       const rows = await prisma.workLog.findMany({
         where: {
           userId,
           ...idExclusion,
           ...(term
-            ? { content: { contains: term, mode: "insensitive" } }
+            ? {
+                OR: [
+                  { title:   { contains: term, mode: "insensitive" as const } },
+                  { content: { contains: term, mode: "insensitive" as const } },
+                ],
+              }
             : {}),
         },
-        select: { id: true, contentJson: true, date: true },
+        select: { id: true, title: true, contentJson: true, date: true },
         orderBy: { date: "desc" },
         take: MAX_RESULTS,
       });
       return rows.map((r) => ({
         id: r.id,
-        label: deriveWorklogLabel(r.contentJson, r.date),
+        label: deriveWorklogLabel({
+          title: r.title,
+          contentJson: r.contentJson,
+          date: r.date,
+        }),
         meta: formatDateMeta(r.date),
       }));
     }
   }
 }
 
-// ── Worklog label derivation ─────────────────────────────────────────────
-
-/**
- * Derive a label for a WorkLog mention candidate. WorkLog has no `title`
- * column — prefer the first non-empty plain-text line of `contentJson`,
- * fall back to the workday date.
- */
-function deriveWorklogLabel(contentJson: unknown, date: Date): string {
-  const text = proseMirrorDocToPlainText(contentJson).trim();
-  if (text) {
-    const firstLine = text.split(/\r?\n/, 1)[0]?.trim() ?? "";
-    if (firstLine) {
-      // Truncate so chips don't blow out width.
-      return firstLine.length > 80 ? firstLine.slice(0, 77) + "…" : firstLine;
-    }
-  }
-  return formatDateMeta(date);
-}
+// ── Worklog meta formatting ──────────────────────────────────────────────
 
 function formatDateMeta(date: Date): string {
   return date.toISOString().slice(0, 10);

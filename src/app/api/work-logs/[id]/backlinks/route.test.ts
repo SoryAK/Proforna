@@ -57,18 +57,20 @@ describe("GET /api/work-logs/[id]/backlinks", () => {
     expect((await res.json()).error).toBe("Unauthorized");
   });
 
-  it("returns backlinks scoped to userId and excluding the target id (self-filter)", async () => {
+  it("returns backlinks scoped to userId, label preferred from title, excluding the target id", async () => {
     mockGetUserId.mockResolvedValue("u1");
     vi.mocked(prisma.workLog.findMany).mockResolvedValue([
       {
         id: "log-a",
-        contentJson: docWithFirstLine("Linked note A"),
+        title: "Linker note A",
+        contentJson: docWithFirstLine("Body of A"),
         date: new Date("2026-06-09T12:00:00Z"),
         positionId: "pos-1",
       } as any,
       {
         id: "log-b",
-        contentJson: docWithFirstLine("Another linker"),
+        title: "",
+        contentJson: docWithFirstLine("Falls back to body"),
         date: new Date("2026-06-08T12:00:00Z"),
         positionId: null,
       } as any,
@@ -81,22 +83,25 @@ describe("GET /api/work-logs/[id]/backlinks", () => {
     expect(json).toHaveLength(2);
     expect(json[0]).toMatchObject({
       id: "log-a",
-      label: "Linked note A",
+      label: "Linker note A",
       positionId: "pos-1",
     });
     expect(json[1]).toMatchObject({
       id: "log-b",
-      label: "Another linker",
+      label: "Falls back to body",
       positionId: null,
     });
 
     const call = vi.mocked(prisma.workLog.findMany).mock.calls[0]?.[0] as {
       where: Record<string, unknown>;
+      select: Record<string, unknown>;
     };
     expect(call.where.userId).toBe("u1");
     // Where clause must include `linkedNoteIds: { has: "log-target" }` and exclude self.
     expect(JSON.stringify(call.where)).toContain("log-target");
     expect(call.where.NOT).toEqual({ id: "log-target" });
+    // Must select the title column so we can prefer it for the label.
+    expect(call.select.title).toBe(true);
   });
 
   it("returns empty array when no notes link to the target", async () => {
@@ -109,11 +114,12 @@ describe("GET /api/work-logs/[id]/backlinks", () => {
     expect(await res.json()).toEqual([]);
   });
 
-  it("falls back to the workday date when contentJson has no plain-text first line", async () => {
+  it("falls back to the workday date when title is empty AND contentJson has no plain-text first line", async () => {
     mockGetUserId.mockResolvedValue("u1");
     vi.mocked(prisma.workLog.findMany).mockResolvedValue([
       {
         id: "log-empty",
+        title: "",
         contentJson: { type: "doc", content: [{ type: "paragraph" }] },
         date: new Date("2026-06-09T12:00:00Z"),
         positionId: null,
