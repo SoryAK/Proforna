@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { NotionImportDialog } from "@/components/integrations/notion-import-dialog";
 import {
   Calendar,
   Github,
@@ -58,6 +59,7 @@ export function IntegrationsSection() {
   const [icsLabel, setIcsLabel] = useState("");
   const [ghUser, setGhUser] = useState("");
   const [ghLabel, setGhLabel] = useState("");
+  const [notionDialogOpen, setNotionDialogOpen] = useState(false);
 
   const addMut = useMutation({
     mutationFn: async (body: { provider: string; label?: string; config: Record<string, unknown> }) => {
@@ -259,7 +261,7 @@ export function IntegrationsSection() {
                         <div className="text-xs text-muted-foreground truncate">{detail}</div>
                         <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
                           {isNotion ? (
-                            <span>Page import — coming in next release</span>
+                            <span>Click &ldquo;Browse pages&rdquo; to import notes into your worklog.</span>
                           ) : c.lastSyncedAt ? (
                             <>
                               {statusOk ? (
@@ -302,6 +304,17 @@ export function IntegrationsSection() {
                           Sync now
                         </Button>
                       )}
+                      {isNotion && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={!c.enabled}
+                          onClick={() => setNotionDialogOpen(true)}
+                        >
+                          <NotebookText className="w-4 h-4 mr-1" />
+                          Browse pages
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="sm"
@@ -321,6 +334,8 @@ export function IntegrationsSection() {
           )}
         </CardContent>
       </Card>
+
+      <NotionImportDialog open={notionDialogOpen} onOpenChange={setNotionDialogOpen} />
     </>
   );
 }

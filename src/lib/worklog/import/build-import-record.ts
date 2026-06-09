@@ -13,12 +13,13 @@
 
 import type { DroppedBlock } from "./types";
 
-export type ImportSourceType = "markdown" | "html";
+export type ImportSourceType = "markdown" | "html" | "notion";
 export type ImportStatus = "pending" | "succeeded" | "failed";
 
 const VALID_SOURCE_TYPES: ReadonlySet<string> = new Set([
   "markdown",
   "html",
+  "notion",
 ]);
 
 const VALID_STATUSES: ReadonlySet<string> = new Set([
