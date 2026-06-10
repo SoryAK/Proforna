@@ -909,6 +909,10 @@ model WorkLogPreference {
   defaultHours              Float?
   /// First-time consent for in-browser voice dictation (ADR-0020). Null = not yet consented.
   voiceDictationConsentedAt DateTime?
+  /// ADR-0023 — worklog reader right-rail active tab. One of: backlinks | history | tags | photos.
+  readerRailTab             String    @default("backlinks")
+  /// ADR-0023 — worklog reader right-rail collapsed state. True hides the 320px content panel.
+  readerRailCollapsed       Boolean   @default(false)
   createdAt                 DateTime  @default(now())
   updatedAt                 DateTime  @updatedAt
 

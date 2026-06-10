@@ -78,6 +78,18 @@ export type WorklogPreferences = {
    * accepted yet; tapping the mic button surfaces the consent dialog.
    */
   voiceDictationConsentedAt: string | null;
+  /**
+   * ADR-0023 — Worklog reader right-rail active tab. Persisted per-user
+   * (not per-note). Defaults to `"backlinks"` for first-time users.
+   */
+  readerRailTab: "backlinks" | "history" | "tags" | "photos";
+  /**
+   * ADR-0023 — Worklog reader right-rail collapsed state. `true` hides the
+   * 320px content panel and leaves only the 44px icon strip (desktop) or
+   * the 7px ghost stub (when the reader itself is collapsed in no-selection
+   * mode). Persisted per-user.
+   */
+  readerRailCollapsed: boolean;
 };
 
 export type Template = {

@@ -16,6 +16,20 @@ const ALLOWED_CATEGORIES = new Set([
 
 const ALLOWED_MOODS = new Set(["good", "neutral", "tough"]);
 
+// ADR-0023 — Worklog reader right-rail tab keys.
+const ALLOWED_RAIL_TABS = new Set(["backlinks", "history", "tags", "photos"]);
+const DEFAULT_RAIL_TAB = "backlinks";
+
+function normalizeRailTab(value: unknown): string {
+  if (value == null) return DEFAULT_RAIL_TAB;
+  const next = String(value).trim().toLowerCase();
+  return ALLOWED_RAIL_TABS.has(next) ? next : DEFAULT_RAIL_TAB;
+}
+
+function normalizeRailCollapsed(value: unknown): boolean {
+  return value === true;
+}
+
 function normalizeCategory(value: unknown) {
   const next = String(value ?? "task").trim().toLowerCase();
   return ALLOWED_CATEGORIES.has(next) ? next : "task";
@@ -48,6 +62,8 @@ function emptyPreferences() {
     defaultMood: null,
     defaultHours: null,
     voiceDictationConsentedAt: null,
+    readerRailTab: DEFAULT_RAIL_TAB,
+    readerRailCollapsed: false,
   };
 }
 
@@ -87,6 +103,10 @@ export async function GET() {
     voiceDictationConsentedAt: pref.voiceDictationConsentedAt
       ? pref.voiceDictationConsentedAt.toISOString()
       : null,
+    readerRailTab: normalizeRailTab((pref as { readerRailTab?: unknown }).readerRailTab),
+    readerRailCollapsed: normalizeRailCollapsed(
+      (pref as { readerRailCollapsed?: unknown }).readerRailCollapsed,
+    ),
   });
 }
 
@@ -160,6 +180,8 @@ export async function PUT(request: Request) {
       defaultMood: true,
       defaultHours: true,
       voiceDictationConsentedAt: true,
+      readerRailTab: true,
+      readerRailCollapsed: true,
     },
   });
 
@@ -172,5 +194,9 @@ export async function PUT(request: Request) {
     voiceDictationConsentedAt: saved.voiceDictationConsentedAt
       ? saved.voiceDictationConsentedAt.toISOString()
       : null,
+    readerRailTab: normalizeRailTab((saved as { readerRailTab?: unknown }).readerRailTab),
+    readerRailCollapsed: normalizeRailCollapsed(
+      (saved as { readerRailCollapsed?: unknown }).readerRailCollapsed,
+    ),
   });
 }

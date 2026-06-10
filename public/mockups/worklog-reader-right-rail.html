@@ -1,0 +1,1152 @@
+<!doctype html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Worklog Reader · Right-Rail Mockup (Option B)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { darkMode: "class", theme: { extend: { fontFamily: { sans: ["ui-sans-serif", "system-ui", "Inter", "sans-serif"] } } } };
+  </script>
+  <style>
+    :root { color-scheme: dark; }
+    body { background:#0a0a0a; color:#e5e5e5; font-family:ui-sans-serif,system-ui,"Inter",sans-serif; }
+    .surface-1 { background:#0f0f10; }
+    .surface-2 { background:#161618; }
+    .surface-3 { background:#1c1c1f; }
+    .surface-4 { background:#222226; }
+    .border-subtle { border-color: rgba(255,255,255,0.08); }
+    .border-soft   { border-color: rgba(255,255,255,0.12); }
+    .accent        { color:#fb923c; }
+    .accent-bg     { background: rgba(251,146,60,0.12); }
+    .accent-border { border-color: rgba(251,146,60,0.45); }
+    .scrollbar-thin::-webkit-scrollbar { width:6px; }
+    .scrollbar-thin::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.12); border-radius:9999px; }
+    .chip { display:inline-flex; align-items:center; gap:.25rem; padding:.125rem .5rem; border-radius:9999px; font-size:.6875rem; line-height:1rem; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.08); color:#d4d4d8; }
+    .chip-orange { background:rgba(251,146,60,.10); border-color:rgba(251,146,60,.30); color:#fdba74; }
+    .chip-emerald{ background:rgba(16,185,129,.10); border-color:rgba(16,185,129,.30); color:#6ee7b7; }
+    .chip-violet { background:rgba(167,139,250,.10); border-color:rgba(167,139,250,.30); color:#c4b5fd; }
+    .chip-cyan   { background:rgba(34,211,238,.10); border-color:rgba(34,211,238,.30); color:#67e8f9; }
+    .kbd { display:inline-block; min-width:1.25rem; text-align:center; padding:0 .3rem; border-radius:.25rem; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.10); border-bottom-width:2px; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.625rem; color:#d4d4d8; }
+    .tab-strip-btn { width:2.25rem; height:2.25rem; display:grid; place-items:center; color:#a3a3a3; border-radius:.375rem; position:relative; }
+    .tab-strip-btn:hover { background:rgba(255,255,255,.05); color:#fafafa; }
+    .tab-strip-btn[data-active="true"] { color:#fdba74; background:rgba(251,146,60,.12); }
+    .tab-strip-btn[data-active="true"]::before { content:""; position:absolute; left:-1px; top:.375rem; bottom:.375rem; width:2px; background:#fb923c; border-radius:9999px; }
+    .badge-count { position:absolute; top:.125rem; right:.125rem; min-width:.875rem; height:.875rem; padding:0 .1875rem; border-radius:9999px; background:#27272a; border:1px solid #0f0f10; font-size:.5rem; line-height:.75rem; color:#d4d4d8; }
+    .annotation { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.6875rem; color:#fb923c; letter-spacing:.025em; text-transform:uppercase; }
+    details > summary { list-style:none; cursor:pointer; }
+    details > summary::-webkit-details-marker { display:none; }
+  </style>
+</head>
+<body class="min-h-screen">
+
+<!-- ═══════════════════════════ HEADER ═══════════════════════════ -->
+<div class="px-8 py-6 border-b border-subtle">
+  <div class="flex items-start justify-between gap-6 max-w-[1800px]">
+    <div>
+      <h1 class="text-2xl font-bold">Worklog Reader · Right-Rail (Option B Mockup)</h1>
+      <p class="text-sm text-neutral-400 mt-1 max-w-3xl">
+        Tolaria-inspired pattern, written from scratch (AGPL-3.0 boundary respected — patterns only, no source).
+        Backlinks &amp; History move out of the editor's vertical scroll into a <strong>rotating right rail</strong> at
+        <code class="text-orange-300">xl+</code>. Tags &amp; Photos also promoted into the rail to keep the reader body clean.
+        Below the desktop frame: small-screen fallback (overlay sheet, no rail).
+      </p>
+    </div>
+    <div class="text-[10px] uppercase tracking-wider text-neutral-500 text-right shrink-0 leading-relaxed">
+      <div>Mockup · not wired</div>
+      <div>Parked: <span class="accent">tolaria #1</span></div>
+      <div>ADR slot: <span class="accent">0023</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ ANNOTATION BAR ═══════════════════════════ -->
+<div class="px-8 py-3 border-b border-subtle surface-2 flex flex-wrap items-center gap-4 text-xs">
+  <span class="annotation">Legend:</span>
+  <span class="flex items-center gap-2"><span class="w-3 h-3 rounded border accent-border accent-bg"></span> new surface (right rail)</span>
+  <span class="flex items-center gap-2"><span class="w-3 h-3 rounded border border-subtle surface-3"></span> existing surface (unchanged)</span>
+  <span class="flex items-center gap-2"><span class="w-3 h-3 rounded border border-dashed border-neutral-600"></span> removed from inline scroll</span>
+  <span class="ml-auto text-neutral-500">
+    Left sidebar (folders/categories/library/stats/heatmap) is <strong class="text-neutral-300">unchanged</strong> · active tab persisted in <code class="text-orange-300">WorkLogPreference</code>.
+  </span>
+</div>
+
+<!-- ═══════════════════════════ DESKTOP FRAME · NOTE SELECTED ═══════════════════════════ -->
+<section class="px-6 py-6">
+  <div class="px-2 pb-3 text-xs text-neutral-400 flex items-center gap-2">
+    <span class="annotation">Frame 1</span>
+    <span>· a note is selected · reader + rail visible</span>
+  </div>
+  <div class="rounded-lg overflow-hidden border border-soft surface-1" style="height: 880px;">
+
+    <!-- Top bar -->
+    <div class="h-12 flex items-center justify-between px-4 border-b border-subtle surface-2">
+      <div class="flex items-center gap-3">
+        <button class="w-7 h-7 grid place-items-center rounded hover:bg-white/5">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+        <div class="flex items-center gap-1.5"><div class="w-5 h-5 rounded bg-gradient-to-br from-orange-500 to-purple-600"></div><span class="font-bold text-sm">Resumsify</span></div>
+        <span class="text-neutral-600">/</span>
+        <span class="text-xs text-neutral-400">Worklog</span>
+        <span class="text-neutral-600">/</span>
+        <span class="text-xs">Notes</span>
+      </div>
+      <div class="flex-1 max-w-md mx-6">
+        <div class="h-7 rounded bg-white/5 border border-subtle px-2 flex items-center gap-2 text-xs text-neutral-500">
+          <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          Search everything…
+        </div>
+      </div>
+      <div class="w-7 h-7 rounded-full bg-gradient-to-br from-orange-500 to-purple-600 grid place-items-center text-[10px] font-bold">SK</div>
+    </div>
+
+    <!-- Body: sidebar + list + reader + rail -->
+    <div class="flex" style="height: calc(100% - 3rem);">
+
+      <!-- Sidebar (faithful to real WorklogFoldersRail — DO NOT redesign this surface) -->
+      <aside class="w-60 shrink-0 border-r border-subtle bg-neutral-900/50 flex flex-col text-xs" aria-label="Worklog folders">
+
+        <!-- Scrollable nav -->
+        <div class="flex-1 min-h-0 overflow-y-auto scrollbar-thin p-2 space-y-0.5">
+
+          <!-- Smart folders -->
+          <div role="group" class="space-y-0.5">
+            <button class="w-full flex items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-white/5">
+              <svg class="h-3.5 w-3.5 text-neutral-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z"/></svg>
+              <span class="truncate">All notes</span>
+              <span class="ml-auto text-[10px] text-neutral-500">11</span>
+            </button>
+            <button class="w-full flex items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-white/5">
+              <svg class="h-3.5 w-3.5 text-amber-500" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+              <span class="truncate">Notable</span>
+              <span class="ml-auto text-[10px] text-neutral-500">3</span>
+            </button>
+          </div>
+
+          <!-- User folder tree -->
+          <div role="group" class="space-y-0.5 pt-2">
+            <div class="px-2 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-500 flex items-center justify-between">
+              <span>Folders</span>
+              <button class="text-neutral-500 hover:text-neutral-300" title="New folder">
+                <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              </button>
+            </div>
+            <!-- Active folder is "Unfiled" since the open note is unfiled -->
+            <button class="w-full flex items-center gap-2 rounded-md px-2 py-1 text-left bg-orange-900/30 text-orange-100">
+              <svg class="h-3 w-3 text-neutral-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+              <svg class="h-3.5 w-3.5 text-orange-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+              <span class="truncate">Unfiled</span>
+              <span class="ml-auto text-[10px] text-orange-300/80">3</span>
+            </button>
+            <button class="w-full flex items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-white/5">
+              <svg class="h-3 w-3 text-neutral-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+              <svg class="h-3.5 w-3.5 text-neutral-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+              <span class="truncate">Barry Callebaut</span>
+              <span class="ml-auto text-[10px] text-neutral-500">7</span>
+            </button>
+            <!-- Children of Barry Callebaut (expanded) -->
+            <div class="pl-5 space-y-0.5">
+              <button class="w-full flex items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-white/5">
+                <svg class="h-3.5 w-3.5 text-neutral-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+                <span class="truncate">Electro-Mechanical</span>
+                <span class="ml-auto text-[10px] text-neutral-500">6</span>
+              </button>
+              <button class="w-full flex items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-white/5">
+                <svg class="h-3.5 w-3.5 text-neutral-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+                <span class="truncate">Controls</span>
+                <span class="ml-auto text-[10px] text-neutral-500">1</span>
+              </button>
+            </div>
+            <button class="w-full flex items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-white/5">
+              <svg class="h-3 w-3 text-neutral-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+              <svg class="h-3.5 w-3.5 text-neutral-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+              <span class="truncate">Imported from Notion</span>
+              <span class="ml-auto text-[10px] text-neutral-500">1</span>
+            </button>
+          </div>
+
+          <!-- Categories (collapsible) -->
+          <details open class="pt-2" >
+            <summary class="px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-500 cursor-pointer hover:text-neutral-300 flex items-center gap-1">
+              <svg class="h-3 w-3 transition-transform" style="transform:rotate(90deg);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+              Categories
+            </summary>
+            <div class="mt-1 space-y-0.5">
+              <button class="w-full flex items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-white/5">
+                <svg class="h-3.5 w-3.5 text-orange-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+                <span class="truncate">Task</span>
+                <span class="ml-auto text-[10px] text-neutral-500">1</span>
+              </button>
+              <button class="w-full flex items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-white/5">
+                <svg class="h-3.5 w-3.5 text-rose-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                <span class="truncate">Troubleshooting</span>
+                <span class="ml-auto text-[10px] text-neutral-500">9</span>
+              </button>
+              <button class="w-full flex items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-white/5 opacity-55">
+                <svg class="h-3.5 w-3.5 text-violet-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                <span class="truncate">Meeting</span>
+                <span class="ml-auto text-[10px] text-neutral-500">0</span>
+              </button>
+              <button class="w-full flex items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-white/5 opacity-55">
+                <svg class="h-3.5 w-3.5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg>
+                <span class="truncate">Project</span>
+                <span class="ml-auto text-[10px] text-neutral-500">0</span>
+              </button>
+              <button class="w-full flex items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-white/5 opacity-55">
+                <svg class="h-3.5 w-3.5 text-neutral-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                <span class="truncate">Other</span>
+                <span class="ml-auto text-[10px] text-neutral-500">1</span>
+              </button>
+            </div>
+          </details>
+
+          <!-- Library -->
+          <div class="pt-3 pb-1 px-2 text-[10px] font-semibold uppercase tracking-wider text-neutral-500">Library</div>
+          <div role="group" class="space-y-0.5">
+            <button class="w-full flex items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-white/5">
+              <svg class="h-3.5 w-3.5 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+              <span class="truncate">Templates</span>
+              <span class="ml-auto text-[10px] text-neutral-500">4</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Footer: StatsStrip + Activity heatmap -->
+        <div class="border-t border-subtle p-3 space-y-2.5 bg-black/30">
+          <div class="grid grid-cols-3 gap-1.5 text-center text-[10px]">
+            <button class="rounded surface-3 border border-subtle py-1.5 hover:accent-border">
+              <div class="text-[14px] font-bold text-orange-300 leading-tight">4</div>
+              <div class="text-neutral-500 leading-tight">day streak</div>
+            </button>
+            <button class="rounded surface-3 border border-subtle py-1.5 hover:accent-border">
+              <div class="text-[14px] font-bold text-neutral-100 leading-tight">11</div>
+              <div class="text-neutral-500 leading-tight">this month</div>
+            </button>
+            <button class="rounded surface-3 border border-subtle py-1.5 hover:accent-border">
+              <div class="text-[14px] font-bold text-amber-400 leading-tight">3</div>
+              <div class="text-neutral-500 leading-tight">notable</div>
+            </button>
+          </div>
+          <details open>
+            <summary class="cursor-pointer list-none inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-500 hover:text-neutral-300">
+              <svg class="h-3 w-3" style="transform:rotate(90deg);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+              Activity · 12 weeks
+            </summary>
+            <div class="mt-2 rounded-md border border-subtle bg-black/40 p-2">
+              <!-- Mini heatmap -->
+              <div class="grid grid-cols-12 gap-0.5">
+                <!-- 7 rows x 12 cols -->
+                <!-- We'll just spray ~84 cells with varied intensities -->
+                <!-- Row 1 -->
+                <div class="h-1.5 w-1.5 rounded-sm bg-white/5"></div><div class="h-1.5 w-1.5 rounded-sm bg-white/5"></div><div class="h-1.5 w-1.5 rounded-sm bg-emerald-900/60"></div><div class="h-1.5 w-1.5 rounded-sm bg-white/5"></div><div class="h-1.5 w-1.5 rounded-sm bg-emerald-700/70"></div><div class="h-1.5 w-1.5 rounded-sm bg-white/5"></div><div class="h-1.5 w-1.5 rounded-sm bg-white/5"></div><div class="h-1.5 w-1.5 rounded-sm bg-emerald-900/60"></div><div class="h-1.5 w-1.5 rounded-sm bg-white/5"></div><div class="h-1.5 w-1.5 rounded-sm bg-emerald-700/70"></div><div class="h-1.5 w-1.5 rounded-sm bg-emerald-600/80"></div><div class="h-1.5 w-1.5 rounded-sm bg-white/5"></div>
+                <div class="h-1.5 w-1.5 rounded-sm bg-white/5"></div><div class="h-1.5 w-1.5 rounded-sm bg-emerald-700/70"></div><div class="h-1.5 w-1.5 rounded-sm bg-white/5"></div><div class="h-1.5 w-1.5 rounded-sm bg-emerald-900/60"></div><div class="h-1.5 w-1.5 rounded-sm bg-white/5"></div><div class="h-1.5 w-1.5 rounded-sm bg-white/5"></div><div class="h-1.5 w-1.5 rounded-sm bg-emerald-700/70"></div><div class="h-1.5 w-1.5 rounded-sm bg-white/5"></div><div class="h-1.5 w-1.5 rounded-sm bg-emerald-600/80"></div><div class="h-1.5 w-1.5 rounded-sm bg-white/5"></div><div class="h-1.5 w-1.5 rounded-sm bg-emerald-900/60"></div><div class="h-1.5 w-1.5 rounded-sm bg-emerald-500"></div>
+                <div class="h-1.5 w-1.5 rounded-sm bg-emerald-900/60"></div><div class="h-1.5 w-1.5 rounded-sm bg-white/5"></div><div class="h-1.5 w-1.5 rounded-sm bg-emerald-700/70"></div><div class="h-1.5 w-1.5 rounded-sm bg-white/5"></div><div class="h-1.5 w-1.5 rounded-sm bg-emerald-900/60"></div><div class="h-1.5 w-1.5 rounded-sm bg-white/5"></div><div class="h-1.5 w-1.5 rounded-sm bg-emerald-600/80"></div><div class="h-1.5 w-1.5 rounded-sm bg-emerald-700/70"></div><div class="h-1.5 w-1.5 rounded-sm bg-white/5"></div><div class="h-1.5 w-1.5 rounded-sm bg-emerald-900/60"></div><div class="h-1.5 w-1.5 rounded-sm bg-white/5"></div><div class="h-1.5 w-1.5 rounded-sm bg-emerald-600/80"></div>
+                <div class="h-1.5 w-1.5 rounded-sm bg-white/5"></div><div class="h-1.5 w-1.5 rounded-sm bg-emerald-700/70"></div><div class="h-1.5 w-1.5 rounded-sm bg-white/5"></div><div class="h-1.5 w-1.5 rounded-sm bg-emerald-900/60"></div><div class="h-1.5 w-1.5 rounded-sm bg-emerald-500"></div><div class="h-1.5 w-1.5 rounded-sm bg-white/5"></div><div class="h-1.5 w-1.5 rounded-sm bg-emerald-700/70"></div><div class="h-1.5 w-1.5 rounded-sm bg-white/5"></div><div class="h-1.5 w-1.5 rounded-sm bg-emerald-900/60"></div><div class="h-1.5 w-1.5 rounded-sm bg-white/5"></div><div class="h-1.5 w-1.5 rounded-sm bg-emerald-600/80"></div><div class="h-1.5 w-1.5 rounded-sm bg-white/5"></div>
+                <div class="h-1.5 w-1.5 rounded-sm bg-emerald-900/60"></div><div class="h-1.5 w-1.5 rounded-sm bg-white/5"></div><div class="h-1.5 w-1.5 rounded-sm bg-emerald-700/70"></div><div class="h-1.5 w-1.5 rounded-sm bg-white/5"></div><div class="h-1.5 w-1.5 rounded-sm bg-emerald-700/70"></div><div class="h-1.5 w-1.5 rounded-sm bg-emerald-600/80"></div><div class="h-1.5 w-1.5 rounded-sm bg-white/5"></div><div class="h-1.5 w-1.5 rounded-sm bg-emerald-900/60"></div><div class="h-1.5 w-1.5 rounded-sm bg-white/5"></div><div class="h-1.5 w-1.5 rounded-sm bg-emerald-700/70"></div><div class="h-1.5 w-1.5 rounded-sm bg-white/5"></div><div class="h-1.5 w-1.5 rounded-sm bg-emerald-900/60"></div>
+                <div class="h-1.5 w-1.5 rounded-sm bg-white/5"></div><div class="h-1.5 w-1.5 rounded-sm bg-white/5"></div><div class="h-1.5 w-1.5 rounded-sm bg-emerald-900/60"></div><div class="h-1.5 w-1.5 rounded-sm bg-emerald-700/70"></div><div class="h-1.5 w-1.5 rounded-sm bg-white/5"></div><div class="h-1.5 w-1.5 rounded-sm bg-emerald-700/70"></div><div class="h-1.5 w-1.5 rounded-sm bg-white/5"></div><div class="h-1.5 w-1.5 rounded-sm bg-emerald-900/60"></div><div class="h-1.5 w-1.5 rounded-sm bg-emerald-500"></div><div class="h-1.5 w-1.5 rounded-sm bg-white/5"></div><div class="h-1.5 w-1.5 rounded-sm bg-emerald-700/70"></div><div class="h-1.5 w-1.5 rounded-sm bg-emerald-600/80"></div>
+                <div class="h-1.5 w-1.5 rounded-sm bg-emerald-900/60"></div><div class="h-1.5 w-1.5 rounded-sm bg-white/5"></div><div class="h-1.5 w-1.5 rounded-sm bg-white/5"></div><div class="h-1.5 w-1.5 rounded-sm bg-emerald-700/70"></div><div class="h-1.5 w-1.5 rounded-sm bg-white/5"></div><div class="h-1.5 w-1.5 rounded-sm bg-emerald-900/60"></div><div class="h-1.5 w-1.5 rounded-sm bg-emerald-600/80"></div><div class="h-1.5 w-1.5 rounded-sm bg-white/5"></div><div class="h-1.5 w-1.5 rounded-sm bg-emerald-700/70"></div><div class="h-1.5 w-1.5 rounded-sm bg-emerald-500"></div><div class="h-1.5 w-1.5 rounded-sm bg-emerald-900/60"></div><div class="h-1.5 w-1.5 rounded-sm bg-emerald-600/80"></div>
+              </div>
+            </div>
+          </details>
+        </div>
+      </aside>
+
+      <!-- Notes list (compressed) -->
+      <div class="w-72 shrink-0 border-r border-subtle surface-1 overflow-y-auto scrollbar-thin">
+        <div class="h-10 flex items-center justify-between px-3 border-b border-subtle text-xs">
+          <span class="text-neutral-400">11 notes</span>
+          <div class="flex items-center gap-1">
+            <button class="px-2 py-1 rounded hover:bg-white/5 text-neutral-300">Select</button>
+            <button class="px-2 py-1 rounded hover:bg-white/5 text-neutral-300">Export</button>
+            <button class="px-2 py-1 rounded bg-orange-500/15 text-orange-300 border border-orange-500/30">+ New</button>
+          </div>
+        </div>
+        <ul class="p-2 space-y-1 text-xs">
+          <li class="p-2 rounded surface-3 border border-soft">
+            <div class="flex items-center gap-1.5 text-[10px] text-neutral-500"><span class="chip chip-orange">Task</span><span>12 hours ago</span></div>
+            <div class="mt-1 font-medium text-neutral-100">Today the portable dumb station</div>
+            <div class="text-neutral-500 text-[11px] truncate">Electro-Mechanical · Barry Callebaut</div>
+          </li>
+          <li class="p-2 rounded border border-transparent hover:border-soft hover:surface-2">
+            <div class="flex items-center gap-1.5 text-[10px] text-neutral-500"><span class="chip">Troubleshooting</span><span>12 hours ago</span></div>
+            <div class="mt-1 text-neutral-300">Packer welder "out of reach" error</div>
+            <div class="text-neutral-500 text-[11px] truncate">Electro-Mechanical · BC</div>
+          </li>
+          <li class="p-2 rounded border border-transparent hover:border-soft hover:surface-2">
+            <div class="flex items-center gap-1.5 text-[10px] text-neutral-500"><span class="chip">Troubleshooting</span><span>13 hours ago</span></div>
+            <div class="mt-1 text-neutral-300">Crusher #3 motor issue</div>
+            <div class="text-neutral-500 text-[11px] truncate">Related: @Packer3 conveyor</div>
+          </li>
+          <li class="p-2 rounded border border-transparent hover:border-soft hover:surface-2">
+            <div class="flex items-center gap-1.5 text-[10px] text-neutral-500"><span class="chip">Troubleshooting</span><span>May 31</span></div>
+            <div class="mt-1 text-neutral-300">Packer3 conveyor no running</div>
+          </li>
+          <li class="p-2 rounded border border-transparent hover:border-soft hover:surface-2">
+            <div class="flex items-center gap-1.5 text-[10px] text-neutral-500"><span class="chip">Troubleshooting</span><span>May 25</span></div>
+            <div class="mt-1 text-neutral-300">Solving BL Weigher 1 not sensing</div>
+          </li>
+          <li class="p-2 rounded border border-transparent hover:border-soft hover:surface-2">
+            <div class="flex items-center gap-1.5 text-[10px] text-neutral-500"><span class="chip">Troubleshooting</span><span>May 25</span></div>
+            <div class="mt-1 text-neutral-300">Unclogging line going to nib 3</div>
+          </li>
+          <li class="p-2 rounded border border-transparent hover:border-soft hover:surface-2 opacity-60">
+            <div class="flex items-center gap-1.5 text-[10px] text-neutral-500"><span class="chip">Troubleshooting</span><span>May 25</span></div>
+            <div class="mt-1 text-neutral-300">Housing damage from broken screw</div>
+          </li>
+        </ul>
+      </div>
+
+      <!-- Reader pane -->
+      <div class="flex-1 min-w-0 flex flex-col">
+
+        <!-- Reader toolbar -->
+        <div class="h-10 flex items-center justify-between px-4 border-b border-subtle surface-1 text-xs">
+          <div class="flex items-center gap-2 text-neutral-400">
+            <span class="chip chip-orange">Task</span>
+            <span>Barry Callebaut · Electro-Mechanical &amp; Controls</span>
+            <span class="text-neutral-600">·</span>
+            <span>Today, 9:42 AM</span>
+            <span class="text-emerald-400 ml-2 flex items-center gap-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Saved
+            </span>
+          </div>
+          <div class="flex items-center gap-1 text-neutral-400">
+            <button class="px-2 py-1 rounded hover:bg-white/5">Edit</button>
+            <button class="px-2 py-1 rounded hover:bg-white/5">Share</button>
+            <button class="px-2 py-1 rounded hover:bg-white/5">⋯</button>
+          </div>
+        </div>
+
+        <!-- Reader body -->
+        <div class="flex-1 overflow-y-auto scrollbar-thin">
+          <div class="max-w-2xl mx-auto px-8 py-6 space-y-5">
+            <div>
+              <h1 class="text-2xl font-bold text-neutral-100">Today the portable dumb station</h1>
+              <div class="mt-2 text-[11px] text-neutral-500 flex items-center gap-2">
+                <span>Unfiled</span>
+                <span class="text-neutral-700">·</span>
+                <span>v4</span>
+                <span class="text-neutral-700">·</span>
+                <span>last edited 12h ago by you</span>
+              </div>
+            </div>
+
+            <article class="prose prose-invert prose-sm max-w-none text-[13px] leading-relaxed space-y-3 text-neutral-300">
+              <p>The portable dump station threw a fault at 08:14 — motor overload on the secondary pump. We isolated the cabinet at <strong>MCC-3 → Slot 4</strong>, confirmed VFD output was within spec, and traced the trip to a marginal pressure switch on the discharge side.</p>
+              <p>Tied to <span class="text-orange-300 underline decoration-dotted">@Packer3 conveyor no running</span> — same MCC, different feed. Worth checking if the panel temps are creeping again (we logged 47°C last week).</p>
+              <p>Next steps: replace the pressure switch with the PN-882 spare in stores, lock-out tagout on Friday's shift, run a 30-min idle to confirm.</p>
+              <ul>
+                <li>Switch swapped: <span class="text-emerald-400">✓</span></li>
+                <li>Cabinet temp logged: <span class="text-emerald-400">✓</span></li>
+                <li>30-min idle: pending</li>
+              </ul>
+            </article>
+
+            <!-- INLINE blocks that USED to live here are now gone -->
+            <div class="rounded border border-dashed border-neutral-700 p-3 text-[11px] text-neutral-500 space-y-1">
+              <div class="annotation text-neutral-500">Removed from inline scroll →</div>
+              <div>• Backlinks panel · moved to rail</div>
+              <div>• Version history panel · moved to rail</div>
+              <div>• Tags input · moved to rail (still editable)</div>
+              <div>• Photos section · moved to rail</div>
+              <div class="text-neutral-600 pt-1">Reader body is now <strong>just the note</strong>. Everything contextual lives on the right.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Reader status bar (tiny, but earned its keep — parked #3) -->
+        <div class="h-7 border-t border-subtle surface-2 px-4 flex items-center gap-4 text-[10px] text-neutral-500">
+          <span>v4 · saved 2s ago</span>
+          <span>·</span>
+          <span>3,217 chars · 612 words</span>
+          <span class="ml-auto flex items-center gap-2">
+            <span class="text-neutral-600">rail:</span>
+            <span class="kbd">⌘1</span> Backlinks
+            <span class="kbd">⌘2</span> History
+            <span class="kbd">⌘3</span> Tags
+            <span class="kbd">⌘4</span> Photos
+          </span>
+        </div>
+      </div>
+
+      <!-- ════════ RIGHT RAIL — the new surface ════════ -->
+      <aside class="w-80 shrink-0 border-l accent-border flex" style="background:rgba(251,146,60,0.025);">
+
+        <!-- Panel content (active tab) -->
+        <div class="flex-1 min-w-0 flex flex-col surface-1">
+
+          <!-- Tab header -->
+          <div class="h-10 px-4 border-b border-subtle flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <svg class="w-3.5 h-3.5 accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
+              <span class="text-xs font-semibold text-neutral-200">Backlinks</span>
+              <span class="text-[10px] text-neutral-500">2 notes link here</span>
+            </div>
+            <div class="flex items-center gap-1 text-neutral-500">
+              <button class="w-6 h-6 grid place-items-center rounded hover:bg-white/5" title="Refresh">
+                <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
+              </button>
+              <button class="w-6 h-6 grid place-items-center rounded hover:bg-white/5" title="Pin tab">
+                <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14l-1.5-7H6.5L5 17z"/><path d="M9 10V5a3 3 0 016 0v5"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Tab body -->
+          <div class="flex-1 overflow-y-auto scrollbar-thin p-3 space-y-2">
+
+            <!-- Backlink card 1 -->
+            <a href="#" class="block p-2.5 rounded surface-2 border border-subtle hover:accent-border transition-colors">
+              <div class="flex items-center gap-1.5 text-[10px] text-neutral-500">
+                <span class="chip">Troubleshooting</span>
+                <span>May 31</span>
+              </div>
+              <div class="mt-1 text-[13px] text-neutral-100 font-medium">Packer3 conveyor no running</div>
+              <div class="mt-1 text-[11px] text-neutral-400 leading-snug">
+                …the cabinet at MCC-3 also feeds <span class="accent">@Today the portable dumb station</span> so the trip we saw…
+              </div>
+            </a>
+
+            <!-- Backlink card 2 -->
+            <a href="#" class="block p-2.5 rounded surface-2 border border-subtle hover:accent-border transition-colors">
+              <div class="flex items-center gap-1.5 text-[10px] text-neutral-500">
+                <span class="chip">Troubleshooting</span>
+                <span>13 hours ago</span>
+              </div>
+              <div class="mt-1 text-[13px] text-neutral-100 font-medium">Crusher #3 motor issue</div>
+              <div class="mt-1 text-[11px] text-neutral-400 leading-snug">
+                Related cabinet check after <span class="accent">@Today the portable dumb station</span> — same panel, same period…
+              </div>
+            </a>
+
+            <div class="text-[10px] text-neutral-600 text-center pt-3">
+              Showing 2 of 2 · <a class="underline hover:text-neutral-400">View graph</a>
+            </div>
+          </div>
+        </div>
+
+        <!-- Vertical tab strip (right edge) -->
+        <div class="w-11 shrink-0 surface-2 border-l border-subtle flex flex-col items-center py-2 gap-1">
+          <button class="tab-strip-btn" data-active="true" title="Backlinks (⌘1)">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
+            <span class="badge-count">2</span>
+          </button>
+          <button class="tab-strip-btn" title="History (⌘2)">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <span class="badge-count">4</span>
+          </button>
+          <button class="tab-strip-btn" title="Tags (⌘3)">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+          </button>
+          <button class="tab-strip-btn" title="Photos (⌘4)">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            <span class="badge-count">3</span>
+          </button>
+
+          <div class="mt-auto flex flex-col items-center gap-1">
+            <!-- DEFERRED tabs grey -->
+            <button class="tab-strip-btn opacity-30" title="Table of contents — appears when note has 4+ headings (deferred)">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+            </button>
+            <button class="tab-strip-btn" title="Collapse rail (⌘\\)">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+          </div>
+        </div>
+      </aside>
+
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════ DESKTOP FRAME · NO NOTE SELECTED ═══════════════════════════ -->
+<section class="px-6 pb-6">
+  <div class="px-2 pb-3 text-xs text-neutral-400 flex items-center gap-2">
+    <span class="annotation">Frame 2</span>
+    <span>· no note selected · "see all notes at once" view</span>
+    <span class="ml-3 text-neutral-600">→ reader collapses, rail auto-hides, list claims full width</span>
+  </div>
+  <div class="rounded-lg overflow-hidden border border-soft surface-1" style="height: 880px;">
+
+    <!-- Top bar (same as Frame 1) -->
+    <div class="h-12 flex items-center justify-between px-4 border-b border-subtle surface-2">
+      <div class="flex items-center gap-3">
+        <button class="w-7 h-7 grid place-items-center rounded hover:bg-white/5">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+        <div class="flex items-center gap-1.5"><div class="w-5 h-5 rounded bg-gradient-to-br from-orange-500 to-purple-600"></div><span class="font-bold text-sm">Resumsify</span></div>
+        <span class="text-neutral-600">/</span>
+        <span class="text-xs text-neutral-400">Worklog</span>
+        <span class="text-neutral-600">/</span>
+        <span class="text-xs">Notes</span>
+        <span class="text-neutral-600">·</span>
+        <span class="text-[10px] uppercase tracking-wider text-neutral-500">all notes</span>
+      </div>
+      <div class="flex-1 max-w-md mx-6">
+        <div class="h-7 rounded bg-white/5 border border-subtle px-2 flex items-center gap-2 text-xs text-neutral-500">
+          <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          Search everything…
+        </div>
+      </div>
+      <div class="w-7 h-7 rounded-full bg-gradient-to-br from-orange-500 to-purple-600 grid place-items-center text-[10px] font-bold">SK</div>
+    </div>
+
+    <!-- Body: sidebar + WIDE list (reader collapsed, rail hidden) -->
+    <div class="flex" style="height: calc(100% - 3rem);">
+
+      <!-- Sidebar (faithful to real WorklogFoldersRail — same as Frame 1, only difference: "All notes" is the active row) -->
+      <aside class="w-60 shrink-0 border-r border-subtle bg-neutral-900/50 flex flex-col text-xs" aria-label="Worklog folders">
+
+        <!-- Scrollable nav -->
+        <div class="flex-1 min-h-0 overflow-y-auto scrollbar-thin p-2 space-y-0.5">
+
+          <!-- Smart folders -->
+          <div role="group" class="space-y-0.5">
+            <button class="w-full flex items-center gap-2 rounded-md px-2 py-1 text-left bg-orange-900/30 text-orange-100">
+              <svg class="h-3.5 w-3.5 text-orange-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z"/></svg>
+              <span class="truncate">All notes</span>
+              <span class="ml-auto text-[10px] text-orange-300/80">11</span>
+            </button>
+            <button class="w-full flex items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-white/5">
+              <svg class="h-3.5 w-3.5 text-amber-500" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+              <span class="truncate">Notable</span>
+              <span class="ml-auto text-[10px] text-neutral-500">3</span>
+            </button>
+          </div>
+
+          <!-- User folder tree -->
+          <div role="group" class="space-y-0.5 pt-2">
+            <div class="px-2 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-500 flex items-center justify-between">
+              <span>Folders</span>
+              <button class="text-neutral-500 hover:text-neutral-300" title="New folder">
+                <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              </button>
+            </div>
+            <button class="w-full flex items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-white/5">
+              <svg class="h-3 w-3 text-neutral-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+              <svg class="h-3.5 w-3.5 text-neutral-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+              <span class="truncate">Unfiled</span>
+              <span class="ml-auto text-[10px] text-neutral-500">3</span>
+            </button>
+            <button class="w-full flex items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-white/5">
+              <svg class="h-3 w-3 text-neutral-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+              <svg class="h-3.5 w-3.5 text-neutral-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+              <span class="truncate">Barry Callebaut</span>
+              <span class="ml-auto text-[10px] text-neutral-500">7</span>
+            </button>
+            <div class="pl-5 space-y-0.5">
+              <button class="w-full flex items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-white/5">
+                <svg class="h-3.5 w-3.5 text-neutral-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+                <span class="truncate">Electro-Mechanical</span>
+                <span class="ml-auto text-[10px] text-neutral-500">6</span>
+              </button>
+              <button class="w-full flex items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-white/5">
+                <svg class="h-3.5 w-3.5 text-neutral-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+                <span class="truncate">Controls</span>
+                <span class="ml-auto text-[10px] text-neutral-500">1</span>
+              </button>
+            </div>
+            <button class="w-full flex items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-white/5">
+              <svg class="h-3 w-3 text-neutral-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+              <svg class="h-3.5 w-3.5 text-neutral-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+              <span class="truncate">Imported from Notion</span>
+              <span class="ml-auto text-[10px] text-neutral-500">1</span>
+            </button>
+          </div>
+
+          <!-- Categories -->
+          <details open class="pt-2">
+            <summary class="px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-500 cursor-pointer hover:text-neutral-300 flex items-center gap-1">
+              <svg class="h-3 w-3" style="transform:rotate(90deg);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+              Categories
+            </summary>
+            <div class="mt-1 space-y-0.5">
+              <button class="w-full flex items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-white/5">
+                <svg class="h-3.5 w-3.5 text-orange-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+                <span class="truncate">Task</span>
+                <span class="ml-auto text-[10px] text-neutral-500">1</span>
+              </button>
+              <button class="w-full flex items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-white/5">
+                <svg class="h-3.5 w-3.5 text-rose-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                <span class="truncate">Troubleshooting</span>
+                <span class="ml-auto text-[10px] text-neutral-500">9</span>
+              </button>
+              <button class="w-full flex items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-white/5 opacity-55">
+                <svg class="h-3.5 w-3.5 text-violet-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                <span class="truncate">Meeting</span>
+                <span class="ml-auto text-[10px] text-neutral-500">0</span>
+              </button>
+              <button class="w-full flex items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-white/5 opacity-55">
+                <svg class="h-3.5 w-3.5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg>
+                <span class="truncate">Project</span>
+                <span class="ml-auto text-[10px] text-neutral-500">0</span>
+              </button>
+              <button class="w-full flex items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-white/5 opacity-55">
+                <svg class="h-3.5 w-3.5 text-neutral-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                <span class="truncate">Other</span>
+                <span class="ml-auto text-[10px] text-neutral-500">1</span>
+              </button>
+            </div>
+          </details>
+
+          <!-- Library -->
+          <div class="pt-3 pb-1 px-2 text-[10px] font-semibold uppercase tracking-wider text-neutral-500">Library</div>
+          <div role="group" class="space-y-0.5">
+            <button class="w-full flex items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-white/5">
+              <svg class="h-3.5 w-3.5 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+              <span class="truncate">Templates</span>
+              <span class="ml-auto text-[10px] text-neutral-500">4</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Footer: StatsStrip + heatmap (collapsed in this frame for variety) -->
+        <div class="border-t border-subtle p-3 space-y-2.5 bg-black/30">
+          <div class="grid grid-cols-3 gap-1.5 text-center text-[10px]">
+            <button class="rounded surface-3 border border-subtle py-1.5 hover:accent-border">
+              <div class="text-[14px] font-bold text-orange-300 leading-tight">4</div>
+              <div class="text-neutral-500 leading-tight">day streak</div>
+            </button>
+            <button class="rounded surface-3 border border-subtle py-1.5 hover:accent-border">
+              <div class="text-[14px] font-bold text-neutral-100 leading-tight">11</div>
+              <div class="text-neutral-500 leading-tight">this month</div>
+            </button>
+            <button class="rounded surface-3 border border-subtle py-1.5 hover:accent-border">
+              <div class="text-[14px] font-bold text-amber-400 leading-tight">3</div>
+              <div class="text-neutral-500 leading-tight">notable</div>
+            </button>
+          </div>
+          <details>
+            <summary class="cursor-pointer list-none inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-500 hover:text-neutral-300">
+              <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+              Activity · 12 weeks
+            </summary>
+          </details>
+        </div>
+      </aside>
+
+      <!-- WIDE notes list — fills the remaining space -->
+      <div class="flex-1 min-w-0 flex flex-col surface-1">
+
+        <!-- List toolbar (gains breathing room with the extra width) -->
+        <div class="h-10 flex items-center justify-between px-4 border-b border-subtle text-xs">
+          <div class="flex items-center gap-3 text-neutral-400">
+            <span class="text-neutral-200 font-medium">11 notes</span>
+            <span class="text-neutral-600">·</span>
+            <span>Sorted by <span class="text-neutral-300">last edited</span></span>
+            <span class="text-neutral-600">·</span>
+            <span>Grouped by <span class="text-neutral-300">date</span></span>
+          </div>
+          <div class="flex items-center gap-1">
+            <div class="flex items-center rounded border border-subtle overflow-hidden mr-1">
+              <button class="px-2 py-1 surface-3 text-neutral-200 border-r border-subtle" title="List view">
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+              </button>
+              <button class="px-2 py-1 hover:bg-white/5 text-neutral-400" title="Grid view">
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+              </button>
+              <button class="px-2 py-1 hover:bg-white/5 text-neutral-400" title="Table view">
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="1"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+              </button>
+            </div>
+            <button class="px-2 py-1 rounded hover:bg-white/5 text-neutral-300">Select</button>
+            <button class="px-2 py-1 rounded hover:bg-white/5 text-neutral-300">Import</button>
+            <button class="px-2 py-1 rounded hover:bg-white/5 text-neutral-300">Export</button>
+            <button class="px-2 py-1 rounded bg-orange-500/15 text-orange-300 border border-orange-500/30">+ New note</button>
+          </div>
+        </div>
+
+        <!-- WIDE list rows — full title, full preview snippet, full meta -->
+        <div class="flex-1 overflow-y-auto scrollbar-thin">
+          <div class="px-4 py-3">
+
+            <!-- Group: Today -->
+            <div class="text-[10px] uppercase tracking-wider text-neutral-500 px-2 mb-2">Today</div>
+            <ul class="space-y-1 mb-5">
+              <li class="group px-3 py-2.5 rounded border border-transparent hover:border-soft hover:surface-2 flex items-start gap-3 cursor-pointer">
+                <div class="w-1 h-12 rounded-full bg-orange-500/40 shrink-0 mt-0.5"></div>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2 text-[10px] text-neutral-500 mb-1">
+                    <span class="chip chip-orange">Task</span>
+                    <span>Electro-Mechanical · Barry Callebaut</span>
+                    <span class="text-neutral-700">·</span>
+                    <span>Unfiled</span>
+                    <span class="ml-auto">9:42 AM</span>
+                  </div>
+                  <div class="text-[13px] text-neutral-100 font-medium">Today the portable dumb station</div>
+                  <div class="text-[11px] text-neutral-400 mt-0.5 line-clamp-1">The portable dump station threw a fault at 08:14 — motor overload on the secondary pump. We isolated the cabinet at MCC-3…</div>
+                </div>
+                <div class="flex items-center gap-1.5 text-[10px] text-neutral-500 shrink-0">
+                  <span class="chip">#MCC-3</span>
+                  <span class="chip">#pump</span>
+                  <span class="text-neutral-600 ml-1">+2</span>
+                </div>
+              </li>
+              <li class="group px-3 py-2.5 rounded border border-transparent hover:border-soft hover:surface-2 flex items-start gap-3 cursor-pointer">
+                <div class="w-1 h-12 rounded-full bg-neutral-600 shrink-0 mt-0.5"></div>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2 text-[10px] text-neutral-500 mb-1">
+                    <span class="chip">Troubleshooting</span>
+                    <span>Electro-Mechanical · BC</span>
+                    <span class="ml-auto">9:18 AM</span>
+                  </div>
+                  <div class="text-[13px] text-neutral-100 font-medium">Packer welder "out of reach" error</div>
+                  <div class="text-[11px] text-neutral-400 mt-0.5 line-clamp-1">This is test for the worklog notes. The packer welder threw an out-of-reach fault during the 06:00 changeover, retrying with…</div>
+                </div>
+                <div class="flex items-center gap-1.5 text-[10px] text-neutral-500 shrink-0">
+                  <span class="chip">#welder</span>
+                </div>
+              </li>
+              <li class="group px-3 py-2.5 rounded border border-transparent hover:border-soft hover:surface-2 flex items-start gap-3 cursor-pointer">
+                <div class="w-1 h-12 rounded-full bg-neutral-600 shrink-0 mt-0.5"></div>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2 text-[10px] text-neutral-500 mb-1">
+                    <span class="chip">Troubleshooting</span>
+                    <span>Electro-Mechanical · Barry Callebaut</span>
+                    <span class="text-neutral-700">·</span>
+                    <span>Unfiled</span>
+                    <span class="ml-auto">8:05 AM</span>
+                  </div>
+                  <div class="text-[13px] text-neutral-100 font-medium">Crusher #3 motor issue</div>
+                  <div class="text-[11px] text-neutral-400 mt-0.5 line-clamp-1">Related: <span class="accent">@Packer3 conveyor no running</span>. Crusher tripped at 07:50, traced to the same MCC-3 bus as the dump…</div>
+                </div>
+                <div class="flex items-center gap-1.5 text-[10px] text-neutral-500 shrink-0">
+                  <span class="chip">#MCC-3</span>
+                  <span class="chip">#motor</span>
+                </div>
+              </li>
+            </ul>
+
+            <!-- Group: May 31 -->
+            <div class="text-[10px] uppercase tracking-wider text-neutral-500 px-2 mb-2">May 31</div>
+            <ul class="space-y-1 mb-5">
+              <li class="group px-3 py-2.5 rounded border border-transparent hover:border-soft hover:surface-2 flex items-start gap-3 cursor-pointer">
+                <div class="w-1 h-12 rounded-full bg-neutral-600 shrink-0 mt-0.5"></div>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2 text-[10px] text-neutral-500 mb-1">
+                    <span class="chip">Troubleshooting</span>
+                    <span>Electro-Mechanical · Barry Callebaut</span>
+                    <span class="text-neutral-700">·</span>
+                    <span>Unfiled</span>
+                    <span class="ml-auto">3:12 PM</span>
+                  </div>
+                  <div class="text-[13px] text-neutral-100 font-medium">Packer3 conveyor no running</div>
+                  <div class="text-[11px] text-neutral-400 mt-0.5 line-clamp-1">Alright, so the main issue we were having was that the motor controlling the conveyor would start. We ended up finding the right cabinet that…</div>
+                </div>
+                <div class="flex items-center gap-1.5 text-[10px] text-neutral-500 shrink-0">
+                  <span class="chip">#conveyor</span>
+                  <span class="chip">#MCC-3</span>
+                </div>
+              </li>
+            </ul>
+
+            <!-- Group: May 25 -->
+            <div class="text-[10px] uppercase tracking-wider text-neutral-500 px-2 mb-2">May 25</div>
+            <ul class="space-y-1">
+              <li class="group px-3 py-2.5 rounded border border-transparent hover:border-soft hover:surface-2 flex items-start gap-3 cursor-pointer">
+                <div class="w-1 h-12 rounded-full bg-neutral-600 shrink-0 mt-0.5"></div>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2 text-[10px] text-neutral-500 mb-1">
+                    <span class="chip">Troubleshooting</span>
+                    <span>Electro-Mechanical · BC</span>
+                    <span class="ml-auto">11:32 AM</span>
+                  </div>
+                  <div class="text-[13px] text-neutral-100 font-medium">Solving the BL Weigher 1 not sensing the product</div>
+                  <div class="text-[11px] text-neutral-400 mt-0.5 line-clamp-1">BL Weigher 1 was dropping zero-weight reads intermittently. Cleaned the load cell contact points, recalibrated tare against the…</div>
+                </div>
+                <div class="flex items-center gap-1.5 text-[10px] text-neutral-500 shrink-0">
+                  <span class="chip">#weigher</span>
+                </div>
+              </li>
+              <li class="group px-3 py-2.5 rounded border border-transparent hover:border-soft hover:surface-2 flex items-start gap-3 cursor-pointer">
+                <div class="w-1 h-12 rounded-full bg-neutral-600 shrink-0 mt-0.5"></div>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2 text-[10px] text-neutral-500 mb-1">
+                    <span class="chip">Troubleshooting</span>
+                    <span>Electro-Mechanical · BC</span>
+                    <span class="ml-auto">10:14 AM</span>
+                  </div>
+                  <div class="text-[13px] text-neutral-100 font-medium">Unclogging the line going to the nib 3 silo</div>
+                  <div class="text-[11px] text-neutral-400 mt-0.5 line-clamp-1">Line into nib 3 backed up overnight. Pulled the inspection door, found cocoa cake build-up at the 30° transition, rinsed with…</div>
+                </div>
+                <div class="flex items-center gap-1.5 text-[10px] text-neutral-500 shrink-0">
+                  <span class="chip">#silo</span>
+                </div>
+              </li>
+              <li class="group px-3 py-2.5 rounded border border-transparent hover:border-soft hover:surface-2 flex items-start gap-3 cursor-pointer">
+                <div class="w-1 h-12 rounded-full bg-neutral-600 shrink-0 mt-0.5"></div>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2 text-[10px] text-neutral-500 mb-1">
+                    <span class="chip">Troubleshooting</span>
+                    <span>Electro-Mechanical · BC</span>
+                    <span class="ml-auto">9:05 AM</span>
+                  </div>
+                  <div class="text-[13px] text-neutral-100 font-medium">Housing Damage caused by broken Screw</div>
+                  <div class="text-[11px] text-neutral-400 mt-0.5 line-clamp-1">Found a sheared M6 screw lodged in the housing gasket. Extracted with reverse drill, re-tapped the hole, replaced gasket…</div>
+                </div>
+                <div class="flex items-center gap-1.5 text-[10px] text-neutral-500 shrink-0">
+                  <span class="chip">#mechanical</span>
+                </div>
+              </li>
+              <li class="group px-3 py-2.5 rounded border border-transparent hover:border-soft hover:surface-2 flex items-start gap-3 cursor-pointer">
+                <div class="w-1 h-12 rounded-full bg-neutral-600 shrink-0 mt-0.5"></div>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2 text-[10px] text-neutral-500 mb-1">
+                    <span class="chip">Troubleshooting</span>
+                    <span>Electro-Mechanical · BC</span>
+                    <span class="ml-auto">8:48 AM</span>
+                  </div>
+                  <div class="text-[13px] text-neutral-100 font-medium">Winnower discharge screw fault</div>
+                  <div class="text-[11px] text-neutral-400 mt-0.5 line-clamp-1">Discharge screw stalled mid-cycle. Cleared the jam, found a foreign object (bolt shank) wedged between flighting and trough…</div>
+                </div>
+                <div class="flex items-center gap-1.5 text-[10px] text-neutral-500 shrink-0">
+                  <span class="chip">#winnower</span>
+                </div>
+              </li>
+              <li class="group px-3 py-2.5 rounded border border-transparent hover:border-soft hover:surface-2 flex items-start gap-3 cursor-pointer opacity-70">
+                <div class="w-1 h-12 rounded-full bg-neutral-600 shrink-0 mt-0.5"></div>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2 text-[10px] text-neutral-500 mb-1">
+                    <span class="chip">Troubleshooting</span>
+                    <span>Electro-Mechanical · BC</span>
+                    <span class="ml-auto">7:30 AM</span>
+                  </div>
+                  <div class="text-[13px] text-neutral-100 font-medium">Press Conveyor</div>
+                </div>
+                <div class="flex items-center gap-1.5 text-[10px] text-neutral-500 shrink-0">
+                  <span class="chip">#conveyor</span>
+                </div>
+              </li>
+              <li class="group px-3 py-2.5 rounded border border-transparent hover:border-soft hover:surface-2 flex items-start gap-3 cursor-pointer opacity-50">
+                <div class="w-1 h-12 rounded-full bg-neutral-600 shrink-0 mt-0.5"></div>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2 text-[10px] text-neutral-500 mb-1">
+                    <span class="chip">Troubleshooting</span>
+                    <span>Electro-Mechanical · BC</span>
+                    <span class="ml-auto">6:55 AM</span>
+                  </div>
+                  <div class="text-[13px] text-neutral-100 font-medium">CLR2 #8-#9</div>
+                </div>
+                <div class="flex items-center gap-1.5 text-[10px] text-neutral-500 shrink-0"></div>
+              </li>
+              <li class="group px-3 py-2.5 rounded border border-transparent hover:border-soft hover:surface-2 flex items-start gap-3 cursor-pointer opacity-40">
+                <div class="w-1 h-12 rounded-full bg-neutral-600 shrink-0 mt-0.5"></div>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2 text-[10px] text-neutral-500 mb-1">
+                    <span class="chip">Troubleshooting</span>
+                    <span>Electro-Mechanical · BC</span>
+                    <span class="ml-auto">6:18 AM</span>
+                  </div>
+                  <div class="text-[13px] text-neutral-100 font-medium">Troubleshooting SwellTube</div>
+                </div>
+                <div class="flex items-center gap-1.5 text-[10px] text-neutral-500 shrink-0"></div>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Status bar (different content when no note is selected) -->
+        <div class="h-7 border-t border-subtle surface-2 px-4 flex items-center gap-4 text-[10px] text-neutral-500">
+          <span>11 notes · 0 selected</span>
+          <span>·</span>
+          <span>showing today + last 14 days</span>
+          <span class="ml-auto flex items-center gap-2">
+            <span class="text-neutral-600">Pick a note to open it ·</span>
+            <span class="kbd">↵</span> open
+            <span class="kbd">⌘N</span> new
+            <span class="kbd">/</span> search
+          </span>
+        </div>
+      </div>
+
+      <!-- NO right rail — auto-hidden while nothing is selected -->
+      <!-- Tiny "rail collapsed" affordance at far right edge (1px hairline + ghost icon at top) -->
+      <aside class="w-7 shrink-0 border-l border-subtle surface-2 flex flex-col items-center py-2 gap-1" title="Context rail (open a note to enable)">
+        <button class="w-5 h-5 grid place-items-center rounded text-neutral-700 cursor-not-allowed" disabled>
+          <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+      </aside>
+
+    </div>
+  </div>
+
+  <!-- Empty-list variation note -->
+  <div class="mt-3 px-4 py-3 rounded border border-subtle surface-2 text-xs text-neutral-400 max-w-3xl">
+    <span class="annotation mr-2">Variant</span>
+    If the user is already deep in the reader and clicks the active list row to <strong>deselect</strong>
+    (or hits <span class="kbd">Esc</span> twice), the same transition plays:
+    reader pane animates out → rail collapses → list expands to fill. Single-key way back: just click any row.
+    The 7px ghost rail at the far right is a visible reminder that the rail isn't gone, it's idle.
+  </div>
+</section>
+
+<!-- ═══════════════════════════ STATE GALLERY ═══════════════════════════ -->
+<section class="px-6 pb-12">
+  <h2 class="text-lg font-semibold mb-3">Rail states (same desktop frame, different tab)</h2>
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+    <!-- State: History tab active -->
+    <div class="rounded-lg border border-soft surface-1 overflow-hidden">
+      <div class="px-3 py-2 surface-2 border-b border-subtle text-[11px] text-neutral-400 flex items-center justify-between">
+        <span><span class="annotation">State A</span> · History tab</span>
+        <span class="text-neutral-600">⌘2</span>
+      </div>
+      <div class="p-3 space-y-2 text-xs">
+        <div class="flex items-center justify-between text-neutral-400 mb-1">
+          <span class="text-neutral-200 font-medium">Version history</span>
+          <span class="text-[10px]">4 snapshots</span>
+        </div>
+        <div class="p-2 rounded surface-3 border accent-border space-y-0.5">
+          <div class="flex items-center justify-between text-[11px]"><span class="text-neutral-200">v4 · current</span><span class="text-neutral-600">just now</span></div>
+          <div class="text-[10px] text-emerald-400">+ 14 words</div>
+        </div>
+        <div class="p-2 rounded border border-subtle space-y-0.5 hover:surface-3">
+          <div class="flex items-center justify-between text-[11px]"><span class="text-neutral-300">v3</span><span class="text-neutral-600">2 hrs ago</span></div>
+          <div class="text-[10px] text-neutral-500">added "30-min idle" check</div>
+        </div>
+        <div class="p-2 rounded border border-subtle space-y-0.5 hover:surface-3">
+          <div class="flex items-center justify-between text-[11px]"><span class="text-neutral-300">v2</span><span class="text-neutral-600">5 hrs ago</span></div>
+          <div class="text-[10px] text-neutral-500">linked @Packer3 conveyor</div>
+        </div>
+        <div class="p-2 rounded border border-subtle space-y-0.5 hover:surface-3">
+          <div class="flex items-center justify-between text-[11px]"><span class="text-neutral-300">v1</span><span class="text-neutral-600">12 hrs ago</span></div>
+          <div class="text-[10px] text-neutral-500">initial</div>
+        </div>
+        <button class="w-full text-[11px] py-1.5 rounded border border-subtle hover:surface-3 text-neutral-300 mt-2">Compare v3 → v4</button>
+      </div>
+    </div>
+
+    <!-- State: Tags tab active -->
+    <div class="rounded-lg border border-soft surface-1 overflow-hidden">
+      <div class="px-3 py-2 surface-2 border-b border-subtle text-[11px] text-neutral-400 flex items-center justify-between">
+        <span><span class="annotation">State B</span> · Tags tab (still editable)</span>
+        <span class="text-neutral-600">⌘3</span>
+      </div>
+      <div class="p-3 space-y-3 text-xs">
+        <div>
+          <div class="text-[10px] uppercase tracking-wider text-neutral-500 mb-1.5">On this note</div>
+          <div class="flex flex-wrap gap-1.5">
+            <span class="chip chip-orange">#MCC-3 ×</span>
+            <span class="chip chip-emerald">#pump ×</span>
+            <span class="chip chip-violet">#electrical ×</span>
+            <span class="chip chip-cyan">#barry-callebaut ×</span>
+          </div>
+        </div>
+        <input class="w-full px-2 py-1.5 rounded surface-3 border border-subtle text-[12px] text-neutral-200 placeholder-neutral-600" placeholder="Add tag and press Enter…" />
+        <div>
+          <div class="text-[10px] uppercase tracking-wider text-neutral-500 mb-1.5">Suggested</div>
+          <div class="flex flex-wrap gap-1.5">
+            <span class="chip">+ #vfd</span>
+            <span class="chip">+ #pressure-switch</span>
+            <span class="chip">+ #troubleshooting</span>
+          </div>
+        </div>
+        <div class="text-[10px] text-neutral-500 pt-1">Editing here updates the note — same input as before, just relocated.</div>
+      </div>
+    </div>
+
+    <!-- State: Photos tab active -->
+    <div class="rounded-lg border border-soft surface-1 overflow-hidden">
+      <div class="px-3 py-2 surface-2 border-b border-subtle text-[11px] text-neutral-400 flex items-center justify-between">
+        <span><span class="annotation">State C</span> · Photos tab</span>
+        <span class="text-neutral-600">⌘4</span>
+      </div>
+      <div class="p-3 space-y-2 text-xs">
+        <div class="flex items-center justify-between text-neutral-400">
+          <span class="text-neutral-200 font-medium">Photos</span>
+          <span class="text-[10px]">3 attached</span>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div class="aspect-square rounded surface-3 border border-subtle flex items-center justify-center text-[10px] text-neutral-600">MCC-3 cabinet</div>
+          <div class="aspect-square rounded surface-3 border border-subtle flex items-center justify-center text-[10px] text-neutral-600">Pressure switch (old)</div>
+          <div class="aspect-square rounded surface-3 border border-subtle flex items-center justify-center text-[10px] text-neutral-600">VFD readout</div>
+          <button class="aspect-square rounded border border-dashed border-neutral-700 text-neutral-500 hover:accent-border hover:accent text-xs">+ Add</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════ SMALL-SCREEN FALLBACK ═══════════════════════════ -->
+<section class="px-6 pb-12">
+  <h2 class="text-lg font-semibold mb-3">Small-screen behavior <span class="text-xs font-normal text-neutral-500">(below <code>xl</code> · ~&lt; 1280px)</span></h2>
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl">
+
+    <!-- Phone closed state -->
+    <div class="rounded-2xl border border-soft surface-1 overflow-hidden mx-auto" style="width: 320px;">
+      <div class="px-3 py-2 surface-2 border-b border-subtle text-[10px] text-neutral-500 flex items-center justify-between">
+        <span><span class="annotation">Mobile · closed</span></span>
+        <span>375×667 · iPhone SE</span>
+      </div>
+      <div class="p-4 space-y-3 text-xs">
+        <div class="flex items-center justify-between">
+          <button class="text-neutral-400">← Notes</button>
+          <button class="w-7 h-7 grid place-items-center rounded surface-3 border border-subtle relative" title="Open context panel">
+            <svg class="w-3.5 h-3.5 text-neutral-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+            <span class="absolute -top-1 -right-1 min-w-3.5 h-3.5 px-1 rounded-full bg-orange-500 text-[8px] text-white grid place-items-center font-bold">2</span>
+          </button>
+        </div>
+        <h3 class="text-base font-bold text-neutral-100">Today the portable dumb station</h3>
+        <div class="text-[10px] text-neutral-500">Task · Barry Callebaut · 12 hrs ago</div>
+        <div class="text-[11px] text-neutral-300 leading-relaxed space-y-2">
+          <p>The portable dump station threw a fault at 08:14 — motor overload on the secondary pump…</p>
+          <p>Tied to <span class="accent underline decoration-dotted">@Packer3 conveyor no running</span>…</p>
+        </div>
+        <div class="text-[9px] text-neutral-600 text-center pt-2">Tap top-right button → context sheet opens →</div>
+      </div>
+    </div>
+
+    <!-- Phone open state (sheet) -->
+    <div class="rounded-2xl border accent-border surface-1 overflow-hidden mx-auto" style="width: 320px;">
+      <div class="px-3 py-2 surface-2 border-b border-subtle text-[10px] text-neutral-500 flex items-center justify-between">
+        <span><span class="annotation">Mobile · sheet open</span></span>
+        <span>overlay, dimmed body</span>
+      </div>
+      <div class="relative">
+        <!-- Dimmed body -->
+        <div class="p-4 space-y-2 opacity-30 pointer-events-none text-xs">
+          <h3 class="text-base font-bold text-neutral-100">Today the portable dumb station</h3>
+          <div class="text-[11px] text-neutral-300">The portable dump station threw a fault at 08:14…</div>
+        </div>
+        <!-- Bottom sheet -->
+        <div class="absolute inset-x-0 bottom-0 rounded-t-2xl border-t accent-border surface-2 p-3 space-y-3" style="max-height: 80%;">
+          <div class="w-10 h-1 rounded-full bg-neutral-700 mx-auto"></div>
+          <!-- Horizontal tab strip on mobile -->
+          <div class="flex gap-1 text-[11px]">
+            <button class="px-3 py-1.5 rounded surface-3 border accent-border accent flex items-center gap-1">Backlinks <span class="text-[9px] text-neutral-500">2</span></button>
+            <button class="px-3 py-1.5 rounded border border-subtle text-neutral-400 flex items-center gap-1">History <span class="text-[9px] text-neutral-600">4</span></button>
+            <button class="px-3 py-1.5 rounded border border-subtle text-neutral-400">Tags</button>
+            <button class="px-3 py-1.5 rounded border border-subtle text-neutral-400 flex items-center gap-1">Photos <span class="text-[9px] text-neutral-600">3</span></button>
+          </div>
+          <div class="space-y-1.5 text-[11px]">
+            <div class="p-2 rounded surface-3 border border-subtle">
+              <div class="text-neutral-100 font-medium">Packer3 conveyor no running</div>
+              <div class="text-neutral-500 text-[10px]">…cabinet at MCC-3 also feeds <span class="accent">@Today the portable…</span></div>
+            </div>
+            <div class="p-2 rounded surface-3 border border-subtle">
+              <div class="text-neutral-100 font-medium">Crusher #3 motor issue</div>
+              <div class="text-neutral-500 text-[10px]">Related cabinet check after <span class="accent">@Today the portable…</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════ DESIGN NOTES ═══════════════════════════ -->
+<section class="px-8 py-8 surface-2 border-t border-subtle">
+  <div class="max-w-4xl space-y-5">
+    <h2 class="text-lg font-semibold">Design decisions baked into this mockup <span class="text-xs font-normal text-neutral-500">(these are the trade-offs the ADR will lock)</span></h2>
+
+    <details open class="rounded border border-subtle surface-1 p-4">
+      <summary class="font-medium text-neutral-200 flex items-center justify-between">
+        <span>1 · Rail is desktop-only (<code>xl+</code>)</span>
+        <span class="text-[10px] text-neutral-500">Decision</span>
+      </summary>
+      <p class="text-xs text-neutral-400 mt-2 leading-relaxed">
+        Below <code>xl</code> the reader falls back to a single floating "open context" button (top-right of the reader toolbar) that opens a bottom-sheet with horizontal tabs. <strong>Today's inline stacked layout is gone</strong> on mobile too — we don't want two truths for "where does Backlinks live."
+        The mockup's bottom-sheet matches the existing drawer pattern used elsewhere in the app.
+      </p>
+    </details>
+
+    <details open class="rounded border border-subtle surface-1 p-4">
+      <summary class="font-medium text-neutral-200 flex items-center justify-between">
+        <span>2 · Four tabs at launch: Backlinks · History · Tags · Photos</span>
+        <span class="text-[10px] text-neutral-500">Decision</span>
+      </summary>
+      <p class="text-xs text-neutral-400 mt-2 leading-relaxed">
+        Tags and Photos move into the rail too — the cheap promotion is "anything that's not the note body itself." This makes the reader body just the note. The parked entry only mentioned Backlinks + History + ToC; promoting Tags/Photos is the additional decision worth flagging here.
+        <span class="block mt-2 text-neutral-500">→ Reader body becomes leaner (~150px of vertical scroll reclaimed on a 3-paragraph note).</span>
+      </p>
+    </details>
+
+    <details class="rounded border border-subtle surface-1 p-4">
+      <summary class="font-medium text-neutral-200 flex items-center justify-between">
+        <span>3 · Table of contents is deferred</span>
+        <span class="text-[10px] text-neutral-500">Trade-off</span>
+      </summary>
+      <p class="text-xs text-neutral-400 mt-2 leading-relaxed">
+        Shown greyed in the strip. The parked entry leaned on "ToC needs a home" but our notes today are too short — a 2-paragraph note with a ToC is noise.
+        Auto-show ToC tab when note has <strong>4+ headings</strong> or <strong>800+ words</strong>. Until either threshold, the tab is hidden entirely.
+      </p>
+    </details>
+
+    <details class="rounded border border-subtle surface-1 p-4">
+      <summary class="font-medium text-neutral-200 flex items-center justify-between">
+        <span>4 · Persistence: per-user, not per-note</span>
+        <span class="text-[10px] text-neutral-500">Trade-off</span>
+      </summary>
+      <p class="text-xs text-neutral-400 mt-2 leading-relaxed">
+        Active tab + collapsed state stored in <code>WorkLogPreference</code> (existing table). Per-user means: if you set History as your default tab, every note opens to History.
+        Per-note persistence is rejected for v1 — too much state, no real upside (Tolaria also goes per-user).
+      </p>
+    </details>
+
+    <details class="rounded border border-subtle surface-1 p-4">
+      <summary class="font-medium text-neutral-200 flex items-center justify-between">
+        <span>5 · Keyboard: ⌘1–4 to switch, ⌘\ to collapse</span>
+        <span class="text-[10px] text-neutral-500">Decision</span>
+      </summary>
+      <p class="text-xs text-neutral-400 mt-2 leading-relaxed">
+        Surfaced in the status bar (visible in the mockup). Same shortcut pattern as VS Code's sidebar tabs.
+        Numbers map to the visible tabs in order, so when ToC unlocks later, ⌘5 becomes ToC.
+      </p>
+    </details>
+
+    <details class="rounded border border-subtle surface-1 p-4">
+      <summary class="font-medium text-neutral-200 flex items-center justify-between">
+        <span>6 · AGPL boundary: patterns only, no Tolaria source</span>
+        <span class="text-[10px] text-neutral-500">Hard gate</span>
+      </summary>
+      <p class="text-xs text-neutral-400 mt-2 leading-relaxed">
+        The implementation will be written from scratch against our existing components (<code>WorklogBacklinksPanel</code>, <code>WorklogHistoryPanel</code>) wrapped in a new <code>NoteContextRail</code> container.
+        We will read Tolaria's <code>docs/ARCHITECTURE.md</code> "Four-Panel Layout" section for design reference. No JSX, hooks, or utility functions will be copied.
+      </p>
+    </details>
+
+    <details class="rounded border border-subtle surface-1 p-4">
+      <summary class="font-medium text-neutral-200 flex items-center justify-between">
+        <span>7 · Status bar quietly snuck in</span>
+        <span class="text-[10px] text-neutral-500">Scope check</span>
+      </summary>
+      <p class="text-xs text-neutral-400 mt-2 leading-relaxed">
+        The bottom row showing version / word count / keyboard hints is <strong>parked tolaria #3</strong>, not part of this ADR.
+        Shown here only because the keyboard-hint row is a natural fit. If status bar isn't approved separately, the keyboard hints get a small inline tooltip on rail hover instead.
+        <span class="block mt-2 accent">→ Flag in the ADR — don't ship #3 as a free rider on #1.</span>
+      </p>
+    </details>
+
+    <details class="rounded border border-subtle surface-1 p-4">
+      <summary class="font-medium text-neutral-200 flex items-center justify-between">
+        <span>8 · Edit mode behavior</span>
+        <span class="text-[10px] text-neutral-500">Open question</span>
+      </summary>
+      <p class="text-xs text-neutral-400 mt-2 leading-relaxed">
+        When the user enters edit mode (Tiptap editor), does the rail stay open or auto-collapse to give the editor full width?
+        <strong>Proposal: stay open</strong> — Backlinks visible while editing is actually useful (you can see what links here). User can collapse manually if they want full width.
+      </p>
+    </details>
+
+    <details open class="rounded border border-subtle surface-1 p-4">
+      <summary class="font-medium text-neutral-200 flex items-center justify-between">
+        <span>9 · No-selection mode: list claims the full width, rail auto-hides</span>
+        <span class="text-[10px] text-neutral-500">Decision</span>
+      </summary>
+      <p class="text-xs text-neutral-400 mt-2 leading-relaxed">
+        When no note is selected, the reader pane and the rail both collapse so the list can claim the full horizontal space (see <span class="annotation">Frame 2</span> above).
+        The wider list gains a <strong>3rd column for tag chips</strong>, longer titles, full preview snippets, and date-grouped headers — giving the user a real "see everything at once" view instead of a narrow 288px column.
+        A 7px ghost-rail at the far right stays visible as a reminder that the rail isn't gone, just idle. Picking any row re-mounts both the reader and the rail to today's tab/state.
+        <span class="block mt-2 text-neutral-500">→ The deselect transition (click active row, or <span class="kbd">Esc</span><span class="kbd">Esc</span>) plays the same animation in reverse.</span>
+      </p>
+    </details>
+  </div>
+</section>
+
+<footer class="px-8 py-6 text-[10px] text-neutral-600 border-t border-subtle">
+  Mockup · static HTML · Tailwind CDN · no app code touched. Reviewed in the browser at
+  <code class="text-orange-300">localhost:3000/mockups/worklog-reader-right-rail.html</code>.
+</footer>
+
+</body>
+</html>
