@@ -44,10 +44,10 @@ When a note is open in either the reader drawer or the standalone read view, a c
 
 ### Rendering backlinks
 
-9. The reader drawer (`worklog-note-reader.tsx`) and standalone read view (`worklog-note-read-view.tsx`) mount `WorklogBacklinksPanel` for the current note id.
+9. The reader (`worklog-note-reader.tsx`) mounts `WorklogBacklinksPanel` for the current note id. (The standalone `worklog-note-read-view.tsx` shared renderer was retired in ADR-0024 Unit 5 along with the drawer.)
 10. The panel calls `GET /api/work-logs/{id}/backlinks` (`src/app/api/work-logs/[id]/backlinks/route.ts`).
 11. The handler runs `prisma.workLog.findMany({ where: { userId, linkedNoteIds: { has: id }, NOT: { id } } })` — owner-scoped, with the target note filtered out.
-12. The panel renders a clickable list. Clicking a row calls `router.replace(${pathname}?focus=${row.id})`, which pivots the page to the linked note (ADR-0015 contract).
+12. The panel renders a clickable list. Clicking a row calls `router.replace(buildWorklogFocusHref(pathname, row.id))` which now resolves to `/worklog/notes/<id>` (ADR-0024 contract; the old `?focus=` drawer-preview from ADR-0015 was retired in Unit 3).
 
 ## 3. Configuration / Params
 

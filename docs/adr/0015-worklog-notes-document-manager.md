@@ -1,6 +1,6 @@
 # Worklog Notes Document-Manager Layout + Drawer Reader
 
-- **Status:** Accepted
+- **Status:** Accepted — drawer + `?focus=` portion superseded by [ADR-0024](./0024-retire-worklog-reader-drawer-for-inline-3-pane.md) (2026-06-10). Document-manager list, filter chips, bulk-action bar, and full-screen `[id]` route remain in force.
 - **Date:** 2026-06-06
 - **Deciders:** Sory
 - **Tags:** frontend, layout, worklog, navigation, routing
