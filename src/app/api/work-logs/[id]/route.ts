@@ -6,8 +6,10 @@ import { validateContentJson } from "@/lib/worklog/content-json";
 import {
   extractMentionAssetIds,
   extractMentionEntityIds,
+  proseMirrorDocToPlainText,
 } from "@/lib/worklog/prosemirror-to-text";
 import { arraysEqualAsSets } from "@/lib/array-set-equal";
+import { shouldAutoSnapshot } from "@/lib/worklog/version/snapshot";
 
 function hasOwn(body: Record<string, unknown>, key: string) {
   return Object.prototype.hasOwnProperty.call(body, key);
@@ -44,7 +46,7 @@ export async function PUT(
 
     const existing = await prisma.workLog.findFirst({
       where: { id, userId },
-      select: { id: true, positionId: true, date: true, shiftId: true, assetIds: true, linkedNoteIds: true },
+      select: { id: true, positionId: true, date: true, shiftId: true, assetIds: true, linkedNoteIds: true, content: true },
     });
     if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
@@ -180,6 +182,45 @@ export async function PUT(
       where: { id },
       data: updateData,
     });
+
+    // ── ADR-0017 — auto-snapshot writer ────────────────────────────────────
+    // Best-effort: a failure here must NEVER fail the user's save. The
+    // heuristic + retention helpers live in src/lib/worklog/version/snapshot.ts;
+    // this block is the I/O wrapper that calls them with live prisma state.
+    if (hasOwn(body, "contentJson") && validatedContentJson) {
+      try {
+        const currPlainText = proseMirrorDocToPlainText(validatedContentJson);
+        const latestVersion = await prisma.workLogVersion.findFirst({
+          where: { workLogId: id },
+          orderBy: { createdAt: "desc" },
+          select: { plainText: true, createdAt: true },
+        });
+        const prevPlainText: string =
+          latestVersion?.plainText ?? existing.content ?? "";
+        const fire = shouldAutoSnapshot({
+          prevPlainText,
+          currPlainText,
+          lastSnapshotAt: latestVersion?.createdAt ?? null,
+          now: new Date(),
+        });
+        if (fire) {
+          await prisma.workLogVersion.create({
+            data: {
+              workLogId: id,
+              userId,
+              contentJson: validatedContentJson,
+              plainText: currPlainText,
+              isManual: false,
+              label: null,
+            },
+          });
+        }
+      } catch (snapErr) {
+        // Snapshot is non-critical. Log and continue — user's save already
+        // landed above, so a snapshot failure must not surface as a 500.
+        console.error("[ADR-0017] auto-snapshot write failed", snapErr);
+      }
+    }
 
     return NextResponse.json(log);
   } catch (error) {

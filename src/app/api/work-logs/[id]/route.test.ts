@@ -27,6 +27,10 @@ vi.mock("@/lib/prisma", () => ({
       findFirst: vi.fn(),
       update:    vi.fn(),
     },
+    workLogVersion: {
+      findFirst: vi.fn(),
+      create:    vi.fn(),
+    },
     workHistoryShift: {
       findFirst: vi.fn(),
     },
@@ -36,9 +40,11 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
-const mockGetUserId  = vi.mocked(getUserId);
-const mockFindFirst  = vi.mocked(prisma.workLog.findFirst);
-const mockUpdate     = vi.mocked(prisma.workLog.update);
+const mockGetUserId         = vi.mocked(getUserId);
+const mockFindFirst         = vi.mocked(prisma.workLog.findFirst);
+const mockUpdate            = vi.mocked(prisma.workLog.update);
+const mockVersionFindFirst  = vi.mocked(prisma.workLogVersion.findFirst);
+const mockVersionCreate     = vi.mocked(prisma.workLogVersion.create);
 
 // ── helpers ────────────────────────────────────────────────────────────────
 
@@ -306,5 +312,127 @@ describe("PUT /api/work-logs/[id] — ADR-0016 linkedNoteIds", () => {
 
     const updateData = mockUpdate.mock.calls[0][0].data as Record<string, unknown>;
     expect(updateData).not.toHaveProperty("linkedNoteIds");
+  });
+});
+
+// ──────────────────────────────────────────────────────
+// ADR-0017 — auto-snapshot writer on PUT
+// ──────────────────────────────────────────────────────
+
+/**
+ * Builds a ProseMirror doc whose plainText projection has `chars` characters.
+ * Used to exercise the length-delta heuristic without hand-counting nodes.
+ */
+function docOfSize(chars: number) {
+  return {
+    type: "doc",
+    content: [{ type: "paragraph", content: [{ type: "text", text: "x".repeat(chars) }] }],
+  };
+}
+
+describe("PUT /api/work-logs/[id] — ADR-0017 auto-snapshot writer", () => {
+  it("writes a WorkLogVersion when heuristic fires (big edit, no prior snapshot)", async () => {
+    mockGetUserId.mockResolvedValue("u1");
+    mockFindFirst.mockResolvedValue({
+      ...existingLog([], []),
+      content: "", // prev plainText sourced from existing.content when no prior snapshot
+    } as any);
+    mockVersionFindFirst.mockResolvedValue(null);
+
+    const newDoc = docOfSize(200);
+    const [req, ctx] = makeRequest("log1", { contentJson: newDoc });
+    await PUT(req, ctx);
+
+    expect(mockVersionCreate).toHaveBeenCalledTimes(1);
+    const createArg = mockVersionCreate.mock.calls[0][0] as { data: Record<string, unknown> };
+    expect(createArg.data.workLogId).toBe("log1");
+    expect(createArg.data.userId).toBe("u1");
+    expect(createArg.data.contentJson).toEqual(newDoc);
+    expect(createArg.data.isManual).toBe(false);
+    expect(createArg.data.plainText).toBe("x".repeat(200));
+    expect(createArg.data.label ?? null).toBeNull();
+  });
+
+  it("does NOT write a snapshot when idle threshold not yet elapsed", async () => {
+    mockGetUserId.mockResolvedValue("u1");
+    mockFindFirst.mockResolvedValue({ ...existingLog([], []), content: "" } as any);
+    mockVersionFindFirst.mockResolvedValue({
+      id: "v-prior",
+      workLogId: "log1",
+      userId: "u1",
+      plainText: "",
+      createdAt: new Date(), // just now — well under IDLE_THRESHOLD_MS
+    } as any);
+
+    const [req, ctx] = makeRequest("log1", { contentJson: docOfSize(200) });
+    await PUT(req, ctx);
+
+    expect(mockVersionCreate).not.toHaveBeenCalled();
+  });
+
+  it("does NOT write a snapshot when char delta below threshold", async () => {
+    mockGetUserId.mockResolvedValue("u1");
+    mockFindFirst.mockResolvedValue({
+      ...existingLog([], []),
+      content: "x".repeat(100), // ignored when prior snapshot exists
+    } as any);
+    mockVersionFindFirst.mockResolvedValue({
+      id: "v-prior",
+      workLogId: "log1",
+      userId: "u1",
+      plainText: "x".repeat(100),
+      createdAt: new Date(Date.now() - 60_000), // 1 min ago, idle ok
+    } as any);
+
+    const [req, ctx] = makeRequest("log1", { contentJson: docOfSize(110) }); // delta = 10
+    await PUT(req, ctx);
+
+    expect(mockVersionCreate).not.toHaveBeenCalled();
+  });
+
+  it("does NOT write a snapshot when contentJson is absent from body", async () => {
+    mockGetUserId.mockResolvedValue("u1");
+    mockFindFirst.mockResolvedValue({ ...existingLog([], []), content: "" } as any);
+    mockVersionFindFirst.mockResolvedValue(null);
+
+    const [req, ctx] = makeRequest("log1", { title: "rename" });
+    await PUT(req, ctx);
+
+    expect(mockVersionCreate).not.toHaveBeenCalled();
+  });
+
+  it("uses prior version's plainText (not existing.content) as the heuristic baseline", async () => {
+    mockGetUserId.mockResolvedValue("u1");
+    // existing.content is stale (200 chars); the last SNAPSHOT was 100 chars.
+    // Saving a 130-char doc → vs existing: delta 70 (would fire); vs snapshot: delta 30 (should NOT fire).
+    mockFindFirst.mockResolvedValue({
+      ...existingLog([], []),
+      content: "x".repeat(200),
+    } as any);
+    mockVersionFindFirst.mockResolvedValue({
+      id: "v-prior",
+      workLogId: "log1",
+      userId: "u1",
+      plainText: "x".repeat(100),
+      createdAt: new Date(Date.now() - 60_000),
+    } as any);
+
+    const [req, ctx] = makeRequest("log1", { contentJson: docOfSize(130) });
+    await PUT(req, ctx);
+
+    expect(mockVersionCreate).not.toHaveBeenCalled();
+  });
+
+  it("does NOT fail the user's save when the snapshot write throws (best-effort)", async () => {
+    mockGetUserId.mockResolvedValue("u1");
+    mockFindFirst.mockResolvedValue({ ...existingLog([], []), content: "" } as any);
+    mockVersionFindFirst.mockResolvedValue(null);
+    mockVersionCreate.mockRejectedValueOnce(new Error("db unavailable"));
+
+    const [req, ctx] = makeRequest("log1", { contentJson: docOfSize(200) });
+    const res = await PUT(req, ctx);
+
+    expect(res.status).toBe(200);
+    expect(mockUpdate).toHaveBeenCalledTimes(1); // user's edit was still saved
   });
 });
