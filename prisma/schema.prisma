@@ -81,6 +81,7 @@ model User {
   workLogCategories       WorkLogCategory[]
   workHistoryShifts       WorkHistoryShift[]
   workLogDrafts           WorkLogDraft[]
+  workLogVersions         WorkLogVersion[]
   workLogTemplates        WorkLogTemplate[]
   workLogPreference       WorkLogPreference?
   integrationConnections  IntegrationConnection[]
@@ -784,6 +785,7 @@ model WorkLog {
   folder   WorkLogFolder?    @relation(fields: [folderId], references: [id], onDelete: SetNull)
   photos   WorkLogPhoto[]
   drafts   WorkLogDraft[]
+  versions WorkLogVersion[]
   imports  WorkLogImport[]
 
   @@unique([userId, externalSource, externalId], map: "WorkLog_external_unique")
@@ -937,6 +939,40 @@ model WorkLogDraft {
   @@unique([userId, workLogId, field])
   @@index([userId, workLogId])
   @@index([expiresAt])
+}
+
+// ─── Work Log Versions (ADR-0017 — version history + visual diff) ───────
+// Snapshot rows above the Y.js operation log. Each row is a complete
+// projection of WorkLog.contentJson at the moment of capture.
+//
+// Snapshot triggers (per ADR-0017):
+//   1. Auto: server-side on PUT /work-logs/[id] when
+//      (now - lastSnapshotAt) > 30s AND |plainTextLen delta| >= 50.
+//   2. Manual: POST /work-logs/[id]/versions { label }.
+//   3. Pre-restore: always, label = "Before restore from <timestamp>".
+//
+// Retention (run inline on save, guarded for cost):
+//   - Last hour: keep newest 10 auto-snapshots.
+//   - 1h–24h:    keep one per hour.
+//   - >24h:      keep one per calendar day.
+//   - Manual snapshots: never auto-deleted; per-note cap of 50 (FIFO).
+//
+// Restore = copy contentJson over WorkLog.contentJson. No merge logic.
+model WorkLogVersion {
+  id          String   @id @default(uuid())
+  workLogId   String
+  userId      String
+  contentJson Json
+  plainText   String? // cached projection — avoid rehydrating ProseMirror for previews
+  label       String? // user-set name on manual snapshots, or auto label for pre-restore
+  isManual    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  workLog WorkLog @relation(fields: [workLogId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([workLogId, createdAt])
+  @@index([userId])
 }
 
 // ─── Work Log Photos (item #19 Phase A — visual evidence) ────────

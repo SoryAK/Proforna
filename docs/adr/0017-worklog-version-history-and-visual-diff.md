@@ -1,10 +1,18 @@
 # Worklog Version History + Visual Diff
 
-- **Status:** Proposed
+- **Status:** Accepted (2026-06-09 — sprint kickoff)
 - **Date:** 2026-06-07
 - **Deciders:** Sory
 - **Tags:** worklog, editor, schema, ux
 - **Related:** [ADR-0010](./0010-tiptap-yjs-worklog-editor.md), [ADR-0015](./0015-worklog-notes-document-manager.md), [ADR-0016](./0016-note-to-note-linking-and-backlinks.md)
+
+## Sprint Kickoff Notes (2026-06-09)
+
+Three Griller questions resolved before implementation:
+
+1. **Edit-distance metric for the auto-snapshot heuristic.** Use `Math.abs(currentPlainText.length - prevPlainText.length)` (length-delta) for v1. True Levenshtein is O(n·m) and would fire on every save — the trigger only needs "did the document change meaningfully?" not "exact edit count." Length-delta misses pure substitutions (replace word A with word B of same length), which is acceptable for v1: the 30s idle timer + 50-char threshold catches all realistic typing sessions, and a manual "Save version" button covers the rare "I rewrote a paragraph in place" case. If false negatives become a real complaint, swap in `fast-levenshtein` later.
+2. **Retention job execution timing.** Inline-on-save with an early-exit guard. Single-user app + no scheduled-job infrastructure means cron is over-engineering. The guard: skip thinning if `lastSnapshotAt < 1h ago AND auto-snapshot count for this note in the last hour < 10` — the cap matches the tier-1 retention budget, so we only run the thinning query when there's actually something to thin.
+3. **Y.js connected-sessions warning on restore.** Skip for v1. The "active connections > 1" guard solves a problem that doesn't exist today — there is no Y.js network provider, only IndexedDB persistence (parked: see `parked-ideas.md` → Yjs network provider). Restore today affects only the device performing it; other devices pick up the new state next time they hit the server. Adding a guard now would be cargo-culting from the ADR's defensive-architecture section. Re-add when the network provider sprint lands.
 
 ## Context and Problem Statement
 
