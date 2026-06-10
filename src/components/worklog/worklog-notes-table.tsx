@@ -68,6 +68,12 @@ export interface WorklogNotesTableProps {
   emptyHint?: string;
   /** "+ Add first note" button shown in empty state. */
   onNew?: () => void;
+  /**
+   * Compact mode (ADR-0024 inline 3-pane). Collapses to a single column of
+   * stacked rows: title row + meta line beneath (no sort header bar, no grid).
+   * Used when the list pane is squeezed to ~288px next to the reader + rail.
+   */
+  compact?: boolean;
 }
 
 const COLUMN_GRID_BULK =
@@ -125,6 +131,7 @@ export function WorklogNotesTable({
   emptyMessage = "No notes",
   emptyHint,
   onNew,
+  compact = false,
 }: WorklogNotesTableProps) {
   const sortedLogs = useMemo(
     () => applySort(logs, sort, positionMap, folders),
@@ -151,6 +158,9 @@ export function WorklogNotesTable({
   return (
     <div className="flex flex-col h-full min-h-0">
       {/* Column headers ------------------------------------------------- */}
+      {/* Hidden in compact mode — sort UX moves to the toolbar above when the
+          list pane is squeezed beside the reader + rail (ADR-0024). */}
+      {!compact && (
       <div
         className={cn(
           COLUMN_GRID,
@@ -202,6 +212,7 @@ export function WorklogNotesTable({
         />
         <span className="text-right">Actions</span>
       </div>
+      )}
 
       {/* Body ---------------------------------------------------------- */}
       <div className="flex-1 overflow-y-auto scrollbar-thin">
@@ -233,6 +244,75 @@ export function WorklogNotesTable({
             const pos = positionLabel(log.positionId, positionMap);
             const folder = folderLabel(log.folderId, folders);
             const lastEdited = formatLastEdited(log.updatedAt, log.date);
+
+            if (compact) {
+              // Compact stacked card (ADR-0024 inline 3-pane): title row +
+              // meta line beneath, no grid columns. Fits ~288px list pane.
+              return (
+                <div
+                  key={log.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => onOpen(log.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      onOpen(log.id);
+                    }
+                  }}
+                  aria-current={isFocused ? "true" : undefined}
+                  className={cn(
+                    "group px-3 py-2.5 border-b cursor-pointer transition-colors flex flex-col gap-0.5",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
+                    isFocused
+                      ? "bg-orange-50 dark:bg-orange-900/20"
+                      : isChecked
+                        ? "bg-orange-100/60 dark:bg-orange-900/30"
+                        : "hover:bg-accent/40",
+                  )}
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    {bulkMode && (
+                      <input
+                        type="checkbox"
+                        aria-label={`Select "${log.title || "Untitled"}"`}
+                        checked={isChecked}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={() => selection.toggle(log.id)}
+                        className="cursor-pointer shrink-0"
+                      />
+                    )}
+                    <span
+                      className={cn("w-1.5 h-1.5 rounded-full shrink-0", dotClass)}
+                      title={meta?.label}
+                    />
+                    <span className="text-sm font-medium truncate flex-1 min-w-0">
+                      {log.title || "Untitled"}
+                    </span>
+                    {log.isNotable && (
+                      <Star className="w-3 h-3 text-amber-500 fill-amber-500 shrink-0" />
+                    )}
+                    <span className="text-[11px] text-muted-foreground tabular-nums shrink-0">
+                      {lastEdited}
+                    </span>
+                  </div>
+                  {preview && (
+                    <p className="text-xs text-muted-foreground truncate pl-3.5">
+                      {preview}
+                    </p>
+                  )}
+                  <div className="flex items-center gap-2 pl-3.5 text-[11px] text-muted-foreground min-w-0">
+                    <span className={cn("truncate", pos.italic && "italic")}>
+                      {pos.text}
+                    </span>
+                    <span aria-hidden>·</span>
+                    <span className={cn("truncate", folder.italic && "italic")}>
+                      {folder.text}
+                    </span>
+                  </div>
+                </div>
+              );
+            }
 
             return (
               <div

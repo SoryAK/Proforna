@@ -659,6 +659,7 @@ export function WorklogNotesView({ selectedNoteId = null }: WorklogNotesViewProp
               selectedFocusId={selectedNoteId ?? focusId}
               onOpen={handleOpen}
               onNew={handleNewNote}
+              compact={selectedNoteId !== null}
             />
           ) : (
             <WorklogNotesGrid
