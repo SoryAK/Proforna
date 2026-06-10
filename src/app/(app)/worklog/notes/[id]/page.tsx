@@ -25,6 +25,7 @@ import { Button } from "@/components/ui/button";
 import { useWorklogData } from "@/components/worklog/hooks/use-worklog-data";
 import { useWorklogMutations } from "@/components/worklog/hooks/use-worklog-mutations";
 import { WorklogNoteReader } from "@/components/worklog/worklog-note-reader";
+import { WorklogReaderRightRail } from "@/components/worklog/right-rail/worklog-reader-right-rail";
 
 export default function WorklogNotePage({
   params,
@@ -82,10 +83,10 @@ export default function WorklogNotePage({
       </div>
 
       {/* Body */}
-      <div className="flex-1 min-h-0 overflow-auto">
-        <div className="max-w-5xl mx-auto h-full px-4">
+      <div className="flex-1 min-h-0 overflow-hidden">
+        <div className="max-w-5xl mx-auto h-full px-4 flex flex-row min-h-0">
           {!loadingLogs && !log ? (
-            <div className="h-full flex flex-col items-center justify-center p-8 text-center">
+            <div className="h-full w-full flex flex-col items-center justify-center p-8 text-center">
               <p className="text-sm font-medium mb-1">Note not found</p>
               <p className="text-xs text-muted-foreground mb-4">
                 The note may have been deleted.
@@ -95,21 +96,30 @@ export default function WorklogNotePage({
               </Button>
             </div>
           ) : (
-            <WorklogNoteReader
-              log={log}
-              positions={positions}
-              equipment={equipment}
-              assets={assets}
-              positionMap={positionMap}
-              tagSuggestions={tagSuggestions}
-              onUpdate={(patch) => saveLog.mutateAsync(patch)}
-              onDelete={(deletedId) => {
-                deleteLog.mutate(deletedId, {
-                  onSuccess: () => router.push(backHref),
-                });
-              }}
-              hasLogs={logs.length > 0}
-            />
+            <>
+              <div className="flex-1 min-w-0 overflow-auto">
+                <WorklogNoteReader
+                  log={log}
+                  positions={positions}
+                  equipment={equipment}
+                  assets={assets}
+                  positionMap={positionMap}
+                  tagSuggestions={tagSuggestions}
+                  onUpdate={(patch) => saveLog.mutateAsync(patch)}
+                  onDelete={(deletedId) => {
+                    deleteLog.mutate(deletedId, {
+                      onSuccess: () => router.push(backHref),
+                    });
+                  }}
+                  hasLogs={logs.length > 0}
+                />
+              </div>
+              {/* ADR-0023 — worklog reader right-rail (desktop-only). */}
+              <WorklogReaderRightRail
+                activeNoteId={log?.id ?? null}
+                currentPlainText={log?.content ?? ""}
+              />
+            </>
           )}
         </div>
       </div>

@@ -26,6 +26,7 @@ import {
   WorklogNoteReader,
   type WorklogNoteReaderHandle,
 } from "@/components/worklog/worklog-note-reader";
+import { WorklogReaderRightRail } from "@/components/worklog/right-rail/worklog-reader-right-rail";
 import { WorklogTemplatesTab } from "@/components/worklog/worklog-templates-tab";
 import type {
   EquipmentItem,
@@ -233,23 +234,30 @@ export function WorklogNotesAndReader({
               </Button>
             </div>
           )}
-          <div className="flex-1 min-h-0">
-            <WorklogNoteReader
-              ref={readerRef}
-              log={selectedLog}
-              positions={positions}
-              equipment={equipment}
-              assets={assets}
-              positionMap={positionMap}
-              tagSuggestions={tagSuggestions}
-              onUpdate={(patch) => saveLog.mutateAsync(patch)}
-              onDelete={(id) => {
-                deleteLog.mutate(id);
-                setSelectedNoteId(null);
-                setMobileShowReader(false);
-              }}
-              onNew={startBlank}
-              hasLogs={logs.length > 0}
+          <div className="flex-1 min-h-0 flex flex-row">
+            <div className="flex-1 min-w-0">
+              <WorklogNoteReader
+                ref={readerRef}
+                log={selectedLog}
+                positions={positions}
+                equipment={equipment}
+                assets={assets}
+                positionMap={positionMap}
+                tagSuggestions={tagSuggestions}
+                onUpdate={(patch) => saveLog.mutateAsync(patch)}
+                onDelete={(id) => {
+                  deleteLog.mutate(id);
+                  setSelectedNoteId(null);
+                  setMobileShowReader(false);
+                }}
+                onNew={startBlank}
+                hasLogs={logs.length > 0}
+              />
+            </div>
+            {/* ADR-0023 — worklog reader right-rail. Desktop-only (xl+). */}
+            <WorklogReaderRightRail
+              activeNoteId={selectedLog?.id ?? null}
+              currentPlainText={selectedLog?.content ?? ""}
             />
           </div>
         </div>

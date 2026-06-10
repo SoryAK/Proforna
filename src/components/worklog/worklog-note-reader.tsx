@@ -41,12 +41,11 @@ import { cn } from "@/lib/utils";
 import type { WorkLog, Position, WorkShift } from "@/types/worklog";
 import { readAutosaveDraft, useAutosaveField } from "@/components/worklog/hooks/use-autosave";
 import { useWorklogDrafts } from "@/components/worklog/hooks/use-worklog-drafts";
-import { WorklogPhotoSection } from "@/components/worklog/worklog-photo-section";
 import { WorklogEditor, type WorklogEditorHandle } from "@/components/worklog/worklog-editor";
 import { WorklogNoteView } from "@/components/worklog/worklog-note-view";
 import { WorklogNoteMetaStrip } from "@/components/worklog/worklog-note-meta-strip";
-import { WorklogBacklinksPanel } from "@/components/worklog/worklog-backlinks-panel";
-import { WorklogHistoryPanel } from "@/components/worklog/worklog-history-panel";
+// ADR-0023 — Backlinks, History, and Photos moved to the worklog reader
+// right-rail. Imports kept out of this file so dead code doesn't drift back in.
 import { extractTagsFromDoc, mergeEditorTags } from "@/lib/worklog/tiptap/extract-tags";
 import { PromoteToEventDialog } from "@/components/worklog/promote-to-event-dialog";
 import {
@@ -229,7 +228,6 @@ const ReaderInner = forwardRef<WorklogNoteReaderHandle, ReaderInnerProps>(functi
 
   const [equipOpen, setEquipOpen] = useState(false);
   const [assetsOpen, setAssetsOpen] = useState(false);
-  const [photosOpen, setPhotosOpen] = useState(true);
   const [promoteOpen, setPromoteOpen] = useState(false);
 
   // Auto-start in edit mode and expand details only for brand-new notes
@@ -461,16 +459,14 @@ const ReaderInner = forwardRef<WorklogNoteReaderHandle, ReaderInnerProps>(functi
             )}
           </div>
 
-          {/* ADR-0016: Backlinks — notes that link here via @n: mentions */}
-          <WorklogBacklinksPanel noteId={log.id} />
+          {/*
+            ADR-0023 \u2014 Backlinks, History, and Photos now live in the worklog
+            reader right-rail (WorklogReaderRightRail) mounted as a sibling of
+            this reader by worklog-notes-and-reader. Tags stay inline until
+            Unit 3.1 lifts the tagsField autosave wiring out of this file.
+          */}
 
-          {/* ADR-0017: Version history — past snapshots with restore + diff */}
-          <WorklogHistoryPanel
-            noteId={log.id}
-            currentPlainText={log.content ?? ""}
-          />
-
-          {/* Tags — own labelled block */}
+          {/* Tags \u2014 own labelled block */}
           <div className="space-y-1.5">
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
               Tags
@@ -486,21 +482,6 @@ const ReaderInner = forwardRef<WorklogNoteReaderHandle, ReaderInnerProps>(functi
               className="w-full"
             />
           </div>
-
-          {/* Photos section */}
-          <details
-            open={photosOpen}
-            onToggle={(e) => setPhotosOpen((e.target as HTMLDetailsElement).open)}
-            className="group border-t pt-3"
-          >
-            <summary className="cursor-pointer list-none inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground select-none">
-              <ChevronRight className="h-3 w-3 transition-transform group-open:rotate-90" />
-              Photos
-            </summary>
-            <div className="mt-3">
-              <WorklogPhotoSection workLogId={log.id} cols={4} />
-            </div>
-          </details>
 
           {/* Tools section */}
           {equipment.length > 0 && (

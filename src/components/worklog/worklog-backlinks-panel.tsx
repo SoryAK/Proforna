@@ -28,9 +28,15 @@ export interface WorklogBacklinksPanelProps {
   /** WorkLog id whose backlinks to fetch. */
   noteId: string;
   className?: string;
+  /**
+   * ADR-0023 — when mounted inside the worklog reader right-rail, the rail
+   * already provides the section chrome (border, background, header). Set
+   * `bare` to drop that chrome and render only the list body.
+   */
+  bare?: boolean;
 }
 
-export function WorklogBacklinksPanel({ noteId, className }: WorklogBacklinksPanelProps) {
+export function WorklogBacklinksPanel({ noteId, className, bare = false }: WorklogBacklinksPanelProps) {
   const router = useRouter();
   const pathname = usePathname();
 
@@ -49,6 +55,44 @@ export function WorklogBacklinksPanel({ noteId, className }: WorklogBacklinksPan
   if (isLoading) return null;
   const backlinks = data ?? [];
 
+  const list =
+    backlinks.length === 0 ? (
+      <p className="text-xs text-muted-foreground italic">No backlinks yet.</p>
+    ) : (
+      <ul className="space-y-1">
+        {backlinks.map((row) => (
+          <li key={row.id}>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                router.replace(buildWorklogFocusHref(pathname, row.id));
+              }}
+              className={cn(
+                "w-full text-left rounded px-1.5 py-1 truncate",
+                "hover:bg-accent hover:text-accent-foreground",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              )}
+              title={`Open: ${row.label}`}
+            >
+              <span className="text-foreground">{row.label}</span>
+              <span className="ml-2 text-xs text-muted-foreground">
+                {row.date.slice(0, 10)}
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    );
+
+  if (bare) {
+    return (
+      <div className={cn("text-sm", className)} aria-label="Backlinks">
+        {list}
+      </div>
+    );
+  }
+
   return (
     <section
       className={cn(
@@ -65,34 +109,7 @@ export function WorklogBacklinksPanel({ noteId, className }: WorklogBacklinksPan
           </span>
         )}
       </header>
-      {backlinks.length === 0 ? (
-        <p className="text-xs text-muted-foreground italic">No backlinks yet.</p>
-      ) : (
-        <ul className="space-y-1">
-          {backlinks.map((row) => (
-            <li key={row.id}>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  router.replace(buildWorklogFocusHref(pathname, row.id));
-                }}
-                className={cn(
-                  "w-full text-left rounded px-1.5 py-1 truncate",
-                  "hover:bg-accent hover:text-accent-foreground",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                )}
-                title={`Open: ${row.label}`}
-              >
-                <span className="text-foreground">{row.label}</span>
-                <span className="ml-2 text-xs text-muted-foreground">
-                  {row.date.slice(0, 10)}
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+      {list}
     </section>
   );
 }

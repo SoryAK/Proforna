@@ -54,6 +54,12 @@ export interface WorklogHistoryPanelProps {
   /** Current document's plain-text, used as the "next" side of any diff. */
   currentPlainText: string;
   className?: string;
+  /**
+   * ADR-0023 — when mounted inside the worklog reader right-rail, the rail
+   * already provides the section chrome (border, background, header). Set
+   * `bare` to drop that chrome and render only the grouped versions list.
+   */
+  bare?: boolean;
 }
 
 const BUCKET_LABELS: Record<"today" | "yesterday" | "thisWeek" | "older", string> = {
@@ -67,6 +73,7 @@ export function WorklogHistoryPanel({
   noteId,
   currentPlainText,
   className,
+  bare = false,
 }: WorklogHistoryPanelProps) {
   const queryClient = useQueryClient();
   const [diffVersion, setDiffVersion] = useState<VersionRow | null>(null);
@@ -119,109 +126,84 @@ export function WorklogHistoryPanel({
     restoreMutation.mutate(pendingRestore.id);
   };
 
-  return (
-    <>
-      <section
-        className={cn(
-          "rounded-md border bg-muted/30 px-3 py-2 text-sm",
-          className,
-        )}
-        aria-label="Version history"
-      >
-        <header className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
-          <span>
-            History
-            {versions.length > 0 && (
-              <span className="ml-1 font-normal normal-case tracking-normal">
-                ({versions.length})
-              </span>
-            )}
-          </span>
-          {restoreMutation.isPending && (
-            <span className="font-normal normal-case tracking-normal text-muted-foreground inline-flex items-center gap-1">
-              <Loader2 className="h-3 w-3 animate-spin" />
-              Restoring…
-            </span>
-          )}
-        </header>
-
-        {isEmpty ? (
-          <p className="text-xs text-muted-foreground italic">
-            No versions yet — snapshots appear as you edit.
-          </p>
-        ) : (
-          <div className="space-y-3">
-            {(["today", "yesterday", "thisWeek", "older"] as const).map((bucket) => {
-              const rows = groups[bucket];
-              if (rows.length === 0) return null;
-              return (
-                <div key={bucket} className="space-y-1">
-                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
-                    {BUCKET_LABELS[bucket]}
-                  </p>
-                  <ul className="space-y-1">
-                    {rows.map((row) => (
-                      <li
-                        key={row.id}
-                        className="rounded px-1.5 py-1.5 hover:bg-accent/50 transition-colors"
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0 flex-1">
-                            <p className="text-xs font-medium text-foreground truncate">
-                              {row.label ?? (row.isManual ? "Manual snapshot" : "Auto")}
-                              <span className="ml-2 font-normal text-muted-foreground">
-                                {formatTime(row.createdAt)}
-                              </span>
-                              {row.charDelta !== 0 && (
-                                <span
-                                  className={cn(
-                                    "ml-2 font-normal",
-                                    row.charDelta > 0 ? "text-emerald-600" : "text-red-600",
-                                  )}
-                                >
-                                  {row.charDelta > 0 ? "+" : ""}
-                                  {row.charDelta}
-                                </span>
-                              )}
-                            </p>
-                            {row.plainTextPreview && (
-                              <p className="text-xs text-muted-foreground truncate mt-0.5">
-                                {row.plainTextPreview}
-                              </p>
+  const body = isEmpty ? (
+    <p className="text-xs text-muted-foreground italic">
+      No versions yet — snapshots appear as you edit.
+    </p>
+  ) : (
+    <div className="space-y-3">
+      {(["today", "yesterday", "thisWeek", "older"] as const).map((bucket) => {
+        const rows = groups[bucket];
+        if (rows.length === 0) return null;
+        return (
+          <div key={bucket} className="space-y-1">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+              {BUCKET_LABELS[bucket]}
+            </p>
+            <ul className="space-y-1">
+              {rows.map((row) => (
+                <li
+                  key={row.id}
+                  className="rounded px-1.5 py-1.5 hover:bg-accent/50 transition-colors"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-medium text-foreground truncate">
+                        {row.label ?? (row.isManual ? "Manual snapshot" : "Auto")}
+                        <span className="ml-2 font-normal text-muted-foreground">
+                          {formatTime(row.createdAt)}
+                        </span>
+                        {row.charDelta !== 0 && (
+                          <span
+                            className={cn(
+                              "ml-2 font-normal",
+                              row.charDelta > 0 ? "text-emerald-600" : "text-red-600",
                             )}
-                          </div>
-                          <div className="shrink-0 flex items-center gap-1">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-6 px-2 text-xs"
-                              onClick={() => setDiffVersion(row)}
-                            >
-                              View diff
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-6 px-2 text-xs"
-                              disabled={restoreMutation.isPending}
-                              onClick={() => handleRestore(row)}
-                              title="Restore this version"
-                            >
-                              <RotateCcw className="h-3 w-3 mr-1" />
-                              Restore
-                            </Button>
-                          </div>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              );
-            })}
+                          >
+                            {row.charDelta > 0 ? "+" : ""}
+                            {row.charDelta}
+                          </span>
+                        )}
+                      </p>
+                      {row.plainTextPreview && (
+                        <p className="text-xs text-muted-foreground truncate mt-0.5">
+                          {row.plainTextPreview}
+                        </p>
+                      )}
+                    </div>
+                    <div className="shrink-0 flex items-center gap-1">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-6 px-2 text-xs"
+                        onClick={() => setDiffVersion(row)}
+                      >
+                        View diff
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-6 px-2 text-xs"
+                        disabled={restoreMutation.isPending}
+                        onClick={() => handleRestore(row)}
+                        title="Restore this version"
+                      >
+                        <RotateCcw className="h-3 w-3 mr-1" />
+                        Restore
+                      </Button>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
           </div>
-        )}
-      </section>
+        );
+      })}
+    </div>
+  );
 
+  const modals = (
+    <>
       {diffVersion && (
         <WorklogVersionDiffModal
           open={Boolean(diffVersion)}
@@ -278,6 +260,54 @@ export function WorklogHistoryPanel({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </>
+  );
+
+  if (bare) {
+    return (
+      <>
+        <div className={cn("text-sm", className)} aria-label="Version history">
+          {restoreMutation.isPending && (
+            <p className="text-xs text-muted-foreground inline-flex items-center gap-1 mb-2">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              Restoring…
+            </p>
+          )}
+          {body}
+        </div>
+        {modals}
+      </>
+    );
+  }
+
+  return (
+    <>
+      <section
+        className={cn(
+          "rounded-md border bg-muted/30 px-3 py-2 text-sm",
+          className,
+        )}
+        aria-label="Version history"
+      >
+        <header className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
+          <span>
+            History
+            {versions.length > 0 && (
+              <span className="ml-1 font-normal normal-case tracking-normal">
+                ({versions.length})
+              </span>
+            )}
+          </span>
+          {restoreMutation.isPending && (
+            <span className="font-normal normal-case tracking-normal text-muted-foreground inline-flex items-center gap-1">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              Restoring…
+            </span>
+          )}
+        </header>
+        {body}
+      </section>
+      {modals}
     </>
   );
 }

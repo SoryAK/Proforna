@@ -16,7 +16,7 @@
 "use client";
 
 import { useCallback } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { WorklogPreferences } from "@/types/worklog";
 import { DEFAULT_RAIL_TAB, isRailTabId, type RailTabId } from "./rail-tabs";
@@ -49,7 +49,22 @@ export interface ReaderRailState {
 export function useReaderRailState(): ReaderRailState {
   const queryClient = useQueryClient();
 
-  const prefs = queryClient.getQueryData<WorklogPreferences>(PREFERENCES_KEY);
+  // Subscribe to the shared preferences cache. Using useQuery (not
+  // queryClient.getQueryData) is critical — getQueryData is a one-shot
+  // snapshot that does NOT re-render on cache updates, so optimistic
+  // setQueryData writes from the mutation below would not flip the UI.
+  // TanStack Query v5 dedupes by queryKey, so this shares its in-flight
+  // request and cached data with useWorklogPreferences.
+  const { data: prefs } = useQuery<WorklogPreferences>({
+    queryKey: PREFERENCES_KEY,
+    queryFn: async () => {
+      const r = await fetch("/api/work-logs/preferences");
+      if (!r.ok) throw new Error(await r.text());
+      return r.json();
+    },
+    staleTime: 60_000,
+  });
+
   const tab: RailTabId = isRailTabId(prefs?.readerRailTab)
     ? prefs!.readerRailTab
     : DEFAULT_RAIL_TAB;

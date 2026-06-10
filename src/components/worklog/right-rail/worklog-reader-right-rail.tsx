@@ -23,27 +23,43 @@
 
 "use client";
 
-import { useEffect, useMemo, type ReactNode } from "react";
+import { useEffect, useMemo } from "react";
 import { ChevronsRight, ChevronsLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { RAIL_TABS, type RailTabId } from "./rail-tabs";
 import { useReaderRailState } from "./use-reader-rail-state";
+import { BacklinksTab } from "./tabs/backlinks-tab";
+import { HistoryTab } from "./tabs/history-tab";
+import { TagsTab } from "./tabs/tags-tab";
+import { PhotosTab } from "./tabs/photos-tab";
 
 export interface WorklogReaderRightRailProps {
-  /** Optional override for the tab body. Defaults to a placeholder slate per tab. */
-  renderTab?: (tabId: RailTabId) => ReactNode;
+  /**
+   * Id of the currently selected note. When null, the rail unmounts entirely
+   * (no-selection mode is handled in Unit 4).
+   */
+  activeNoteId: string | null;
+  /** Current document plain-text — needed by the History tab for diffs. */
+  currentPlainText: string;
   className?: string;
 }
 
 const STRIP_WIDTH = "w-11"; // 44px
 const PANEL_WIDTH = "w-80"; // 320px
 
-export function WorklogReaderRightRail({ renderTab, className }: WorklogReaderRightRailProps) {
+export function WorklogReaderRightRail({
+  activeNoteId,
+  currentPlainText,
+  className,
+}: WorklogReaderRightRailProps) {
   const { tab, collapsed, setTab, toggleCollapsed } = useReaderRailState();
 
   // ── ⌘1–4 + ⌘\ keyboard shortcuts ─────────────────────────────────────
   useEffect(() => {
+    // No active note means no rail — don't bind shortcuts.
+    if (!activeNoteId) return;
+
     function onKeyDown(event: KeyboardEvent) {
       const modifier = event.metaKey || event.ctrlKey;
       if (!modifier) return;
@@ -73,12 +89,16 @@ export function WorklogReaderRightRail({ renderTab, className }: WorklogReaderRi
 
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [setTab, toggleCollapsed]);
+  }, [activeNoteId, setTab, toggleCollapsed]);
 
   const activeTab = useMemo(
     () => RAIL_TABS.find((t) => t.id === tab) ?? RAIL_TABS[0],
     [tab],
   );
+
+  // Don't render the rail when no note is selected. Unit 4 will introduce a
+  // 7px ghost stub for no-selection mode; for now the rail unmounts cleanly.
+  if (!activeNoteId) return null;
 
   return (
     <aside
@@ -103,7 +123,7 @@ export function WorklogReaderRightRail({ renderTab, className }: WorklogReaderRi
             </h2>
           </header>
           <div className="flex-1 overflow-y-auto">
-            {renderTab ? renderTab(activeTab.id) : <PlaceholderTabBody tabId={activeTab.id} />}
+            {renderTabBody(activeTab.id, activeNoteId, currentPlainText)}
           </div>
         </div>
       )}
@@ -174,17 +194,27 @@ export function WorklogReaderRightRail({ renderTab, className }: WorklogReaderRi
   );
 }
 
-// ── placeholder bodies (replaced in Unit 3) ─────────────────────────────
+// ── tab dispatch ────────────────────────────────────────────────────────
 
-function PlaceholderTabBody({ tabId }: { tabId: RailTabId }) {
-  return (
-    <div className="flex h-full flex-col items-center justify-center px-6 text-center text-xs text-muted-foreground">
-      <p className="font-medium uppercase tracking-wider text-muted-foreground/70">
-        {tabId}
-      </p>
-      <p className="mt-2 max-w-[16rem] text-muted-foreground/70">
-        Tab content wired in Unit 3.
-      </p>
-    </div>
-  );
+function renderTabBody(
+  tabId: RailTabId,
+  noteId: string,
+  currentPlainText: string,
+) {
+  switch (tabId) {
+    case "backlinks":
+      return <BacklinksTab noteId={noteId} />;
+    case "history":
+      return <HistoryTab noteId={noteId} currentPlainText={currentPlainText} />;
+    case "tags":
+      return <TagsTab />;
+    case "photos":
+      return <PhotosTab noteId={noteId} />;
+    default: {
+      // Exhaustiveness guard — if a new tab is added to RAIL_TABS without
+      // a case here, TypeScript will catch it via the `never` assignment.
+      const _exhaustive: never = tabId;
+      return _exhaustive;
+    }
+  }
 }
