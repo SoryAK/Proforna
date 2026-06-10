@@ -37,7 +37,7 @@
 
 import { useCallback, useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { CheckSquare, LayoutGrid, List, Plus, Upload } from "lucide-react";
+import { CheckSquare, LayoutGrid, List, Plus, Send, Upload } from "lucide-react";
 import type { WorkLog } from "@/types/worklog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -48,6 +48,7 @@ import { useWorklogPreferences } from "@/components/worklog/hooks/use-worklog-pr
 import { useWorklogSelection } from "@/components/worklog/hooks/use-worklog-selection";
 import { useWorklogVisibleLogs } from "@/components/worklog/hooks/use-worklog-visible-logs";
 import { useFolderSelection } from "@/components/worklog/hooks/use-folder-selection";
+import { useCanShare } from "@/components/worklog/hooks/use-can-share";
 import {
   WorklogNotesTable,
 } from "@/components/worklog/worklog-notes-table";
@@ -58,7 +59,6 @@ import { WorklogNotesBulkBar } from "@/components/worklog/worklog-notes-bulk-bar
 import { WorklogNotesSortMenu } from "@/components/worklog/worklog-notes-sort-menu";
 import { WorklogReaderDrawer } from "@/components/worklog/worklog-reader-drawer";
 import { WorklogImportDialog } from "@/components/worklog/worklog-import-dialog";
-import { WorklogSendMenu } from "@/components/worklog/worklog-send-menu";
 import { exportBulkWorklogs } from "@/lib/worklog/export/client";
 import { shareWorklogs } from "@/lib/worklog/share/share-client";
 import { toast } from "sonner";
@@ -121,6 +121,15 @@ export function WorklogNotesView() {
   // Bulk select mode. When off, no row checkboxes are rendered.
   const [bulkMode, setBulkMode] = useState(false);
 
+  // Tracks whether the current bulk session was entered via the toolbar
+  // "Export" button. Drives the bar's `mode` prop so Move + Delete stay
+  // hidden in the export flow — organize vs send are isolated intents
+  // and accidental cross-pollination is the foot-gun this gates against.
+  // Reset to false on every bulk-mode exit path (Esc, Clear, toggle-off,
+  // successful send) so re-entering via Select doesn't inherit the
+  // wrong intent.
+  const [exportIntent, setExportIntent] = useState(false);
+
   // Import dialog (Sprint 4). Opened from the top-bar button or the global
   // command palette. Session-only history per ADR/Sprint plan (Q3=A).
   const [importOpen, setImportOpen] = useState(false);
@@ -129,6 +138,12 @@ export function WorklogNotesView() {
   // bulkAction.isPending so a pending export doesn't grey out Move/Delete.
   const [exportBusy, setExportBusy] = useState(false);
 
+  // Form-factor-aware capability flag for the Web Share API. Drives the
+  // Send menu shape — desktop (no coarse pointer) sees Download only;
+  // touch devices see Download / Share to…. SSR-safe (false on first
+  // paint, upgrades after mount).
+  const canShare = useCanShare();
+
   // Server-side cap mirrored at the client so the toolbar Export affordance
   // can warn honestly *before* a network round-trip when the current view
   // has more notes than the bulk endpoint accepts. Keep in sync with
@@ -136,20 +151,28 @@ export function WorklogNotesView() {
   const EXPORT_MAX_VIEW = 100;
 
   // Shared Send/Export handlers — accept ids so both the bulk-bar (acts on
-  // the current selection) and the top-level Export menu (acts on the
-  // current view) can drive the same export-in-flight gate + toast pattern.
+  // the current selection) and the top-level Export button (which preselects
+  // the current view + opens the bulk bar) flow through the same
+  // export-in-flight gate + toast pattern.
+  //
+  // Gmail-style auto-exit: on the SUCCESS path we drop bulk mode + clear
+  // the selection so the user lands back on the clean toolbar. On failure
+  // we keep both so the user can retry without re-picking.
   const runDownload = useCallback(async (ids: string[]) => {
     if (ids.length === 0) return;
     setExportBusy(true);
     try {
       await exportBulkWorklogs(ids);
+      setBulkMode(false);
+      setExportIntent(false);
+      selection.clear();
     } catch (err) {
       console.error("[grill-me] export failed", err);
       toast.error("Couldn’t download those notes. Try again?");
     } finally {
       setExportBusy(false);
     }
-  }, []);
+  }, [selection]);
 
   const runShare = useCallback(async (ids: string[]) => {
     if (ids.length === 0) return;
@@ -166,17 +189,25 @@ export function WorklogNotesView() {
         });
       }
       // "shared" / "cancelled" — stay silent. Either the OS share
-      // sheet handled the rest, or the user dismissed it.
+      // sheet handled the rest, or the user dismissed it. Either way
+      // the user made an explicit decision — drop bulk mode so they
+      // aren't stranded in select state.
+      setBulkMode(false);
+      setExportIntent(false);
+      selection.clear();
     } catch (err) {
       console.error("[grill-me] share failed", err);
       toast.error("Couldn’t share those notes. Try again?");
     } finally {
       setExportBusy(false);
     }
-  }, []);
+  }, [selection]);
   const toggleBulkMode = useCallback(() => {
     setBulkMode((prev) => {
-      if (prev) selection.clear();
+      if (prev) {
+        selection.clear();
+        setExportIntent(false);
+      }
       return !prev;
     });
   }, [selection]);
@@ -187,6 +218,7 @@ export function WorklogNotesView() {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         setBulkMode(false);
+        setExportIntent(false);
         selection.clear();
       }
     };
@@ -395,7 +427,13 @@ export function WorklogNotesView() {
           count={selectedCount}
           busy={bulkAction.isPending}
           exporting={exportBusy}
-          onClear={selection.clear}
+          showShare={canShare}
+          mode={exportIntent ? "send" : "organize"}
+          onClear={() => {
+            selection.clear();
+            setBulkMode(false);
+            setExportIntent(false);
+          }}
           trailing={viewControls}
           onMove={async (folderId) => {
             if (selectedIdList.length === 0) return;
@@ -404,7 +442,11 @@ export function WorklogNotesView() {
               ids: selectedIdList,
               payload: { folderId },
             });
+            // Gmail-style auto-exit on success — bulk action finished,
+            // drop the user back on the clean toolbar.
             selection.clear();
+            setBulkMode(false);
+            setExportIntent(false);
           }}
           onDelete={async () => {
             if (selectedIdList.length === 0) return;
@@ -412,7 +454,10 @@ export function WorklogNotesView() {
               action: "delete",
               ids: selectedIdList,
             });
+            // Gmail-style auto-exit on success.
             selection.clear();
+            setBulkMode(false);
+            setExportIntent(false);
           }}
           onExport={() => runDownload(selectedIdList)}
           onShare={() => runShare(selectedIdList)}
@@ -453,51 +498,52 @@ export function WorklogNotesView() {
               <span className="hidden sm:inline">Import</span>
             </Button>
 
-            {/* Top-level Export menu (ADR-0022 addendum 2 — 2026-06-10).
-                Acts on the *current view* (visibleLogs), independent of
-                Select mode. Coexists with the bulk-bar Send menu when a
-                selection is active — toolbar = view scope, bulk-bar =
-                selection scope. If the view exceeds the server-side
-                BULK_MAX, surface an honest toast before any network
-                round-trip and bail. */}
-            <WorklogSendMenu
-              count={visibleCount}
-              empty={visibleCount === 0}
-              emptyHint={
-                loadingLogs
-                  ? "Loading notes…"
-                  : "No notes in this view"
+            {/* Top-level Export button (ADR-0022 addendum 3 — 2026-06-10,
+                revised same-day after smoke test).
+                Click → enters bulk mode in "send" intent with ZERO
+                preselection. The bar that appears renders Send only — no
+                Move, no Delete — so the export flow can't accidentally
+                file or destroy notes. User checks the rows they want
+                (Shift / Ctrl supported via row checkboxes), then commits
+                via the bulk-bar Send menu (Download, plus Share to… on
+                touch devices). Auto-exit on send success returns them
+                here on the clean toolbar. Server-side BULK_MAX is
+                mirrored client-side via EXPORT_MAX_VIEW so we toast
+                before any state change when the view is too large. */}
+            <Button
+              size="sm"
+              variant={exportIntent ? "secondary" : "ghost"}
+              aria-pressed={exportIntent}
+              onClick={() => {
+                if (visibleCount === 0) return;
+                if (visibleCount > EXPORT_MAX_VIEW) {
+                  toast.error(
+                    `Too many notes in this view (${visibleCount}).`,
+                    {
+                      description: `Narrow your filter or use Select mode to pick up to ${EXPORT_MAX_VIEW}.`,
+                    },
+                  );
+                  return;
+                }
+                setBulkMode(true);
+                setExportIntent(true);
+              }}
+              disabled={visibleCount === 0 || loadingLogs}
+              aria-label={
+                visibleCount === 0
+                  ? "No notes in this view"
+                  : `Export — pick from ${visibleCount} ${visibleCount === 1 ? "note" : "notes"}, then send`
               }
-              busy={false}
-              exporting={exportBusy}
-              triggerLabel="Export"
-              onDownload={() => {
-                if (visibleCount === 0) return;
-                if (visibleCount > EXPORT_MAX_VIEW) {
-                  toast.error(
-                    `Too many notes in this view (${visibleCount}).`,
-                    {
-                      description: `Narrow your filter or use Select mode to pick up to ${EXPORT_MAX_VIEW}.`,
-                    },
-                  );
-                  return;
-                }
-                void runDownload(visibleLogs.map((l) => l.id));
-              }}
-              onShare={() => {
-                if (visibleCount === 0) return;
-                if (visibleCount > EXPORT_MAX_VIEW) {
-                  toast.error(
-                    `Too many notes in this view (${visibleCount}).`,
-                    {
-                      description: `Narrow your filter or use Select mode to pick up to ${EXPORT_MAX_VIEW}.`,
-                    },
-                  );
-                  return;
-                }
-                void runShare(visibleLogs.map((l) => l.id));
-              }}
-            />
+              title={
+                visibleCount === 0
+                  ? "No notes in this view"
+                  : `Export — pick from ${visibleCount} ${visibleCount === 1 ? "note" : "notes"}, then send`
+              }
+              className="h-7 gap-1.5 text-xs"
+            >
+              <Send className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Export</span>
+            </Button>
 
             <Button
               size="sm"

@@ -77,6 +77,15 @@ export interface WorklogSendMenuProps {
    * the two surfaces aren't visually identical.
    */
   triggerIcon?: ReactNode;
+  /**
+   * When `false`, the "Share to…" item is hidden and the trigger
+   * collapses into a plain Download button (no dropdown / chevron) since
+   * there's only one destination to choose. Driven by `useCanShare()` at
+   * the call site so desktop browsers see Download only and touch
+   * devices see the full Download / Share menu. Defaults to `true` to
+   * preserve the original behavior for any existing consumer.
+   */
+  showShare?: boolean;
 }
 
 export function WorklogSendMenu({
@@ -91,10 +100,52 @@ export function WorklogSendMenu({
   className,
   align = "end",
   triggerIcon,
+  showShare = true,
 }: WorklogSendMenuProps) {
   const disabled = busy || exporting || empty;
   const isZip = count > 1;
   const formatSuffix = isZip ? " as .zip" : " as .md";
+
+  // Download-only path — desktop browsers (where Web Share is unavailable
+  // or feels off). Skip the dropdown entirely and render the trigger as a
+  // direct Download button. Same chrome / disabled / busy semantics so the
+  // two render branches stay visually consistent.
+  if (!showShare) {
+    const downloadLabel = empty
+      ? triggerLabel
+      : exporting
+        ? "Downloading…"
+        : `Download${formatSuffix}`;
+    const downloadTitle = empty
+      ? (emptyHint ?? "Nothing to download")
+      : exporting
+        ? "Downloading…"
+        : count === 1
+          ? "Download this note (.md)"
+          : `Download ${count} notes (.zip)`;
+    return (
+      <button
+        type="button"
+        onClick={() => {
+          if (disabled) return;
+          void onDownload();
+        }}
+        disabled={disabled}
+        className={cn(
+          "inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-xs",
+          "hover:bg-accent/60 transition-colors",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          "disabled:pointer-events-none disabled:opacity-50",
+          className,
+        )}
+        title={downloadTitle}
+        aria-label={downloadTitle}
+      >
+        {triggerIcon ?? <Download className="h-3.5 w-3.5" />}
+        {downloadLabel}
+      </button>
+    );
+  }
 
   // Title text drives both the trigger tooltip and accessibility hints.
   // Empty wins, then in-flight, then the contextual count message.

@@ -54,6 +54,26 @@ export interface WorklogNotesBulkBarProps {
    */
   exporting?: boolean;
   /**
+   * When `false`, the Send menu collapses to a Download-only button (no
+   * dropdown). Driven by `useCanShare()` at the call site so desktop
+   * browsers see Download only and touch devices see Download / Share.
+   * Defaults to `true`.
+   */
+  showShare?: boolean;
+  /**
+   * Intent of the bar:
+   *   • `"organize"` (default) — user is filing/cleaning up. Renders Move
+   *     + Send + Delete. This is the path entered via the toolbar
+   *     "Select" button or by clicking a row checkbox directly.
+   *   • `"send"` — user came in via the toolbar "Export" button. Renders
+   *     Send only. Move / Delete are deliberately hidden so an export
+   *     flow can't accidentally file or destroy notes.
+   * Modes are intentionally isolated — there is no in-bar switcher.
+   * Esc / Clear exits, and the user re-enters via the right toolbar
+   * affordance for the intent they want.
+   */
+  mode?: "organize" | "send";
+  /**
    * Optional render slot placed after the bulk action buttons (Move /
    * Delete) on the right side of the bar. Used by the parent to keep the
    * view switcher + sort menu visible while a selection is active so the
@@ -76,6 +96,8 @@ export function WorklogNotesBulkBar({
   onClear,
   busy = false,
   exporting = false,
+  showShare = true,
+  mode = "organize",
   trailing,
 }: WorklogNotesBulkBarProps) {
   const [moveOpen, setMoveOpen] = useState(false);
@@ -99,11 +121,19 @@ export function WorklogNotesBulkBar({
   // typically gates `count > 0` itself); we still guard internally for safety.
   if (count === 0) return null;
 
+  const isSendMode = mode === "send";
+  const ariaLabel = isSendMode
+    ? `Send actions for ${count} selected notes`
+    : `Bulk actions for ${count} selected notes`;
+  const counterLabel = isSendMode
+    ? `${count} ready to send`
+    : `${count} selected`;
+
   return (
     <>
       <div
         role="toolbar"
-        aria-label={`Bulk actions for ${count} selected notes`}
+        aria-label={ariaLabel}
         className={cn(
           "h-12 px-4 flex items-center justify-between border-b",
           "bg-orange-500/10 dark:bg-orange-500/[0.08]",
@@ -123,29 +153,32 @@ export function WorklogNotesBulkBar({
             <X className="h-4 w-4" />
           </Button>
           <span className="text-sm font-medium text-orange-700 dark:text-orange-300 tabular-nums">
-            {count} selected
+            {counterLabel}
           </span>
         </div>
 
         <div className="flex items-center gap-1">
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-7 gap-1.5 text-xs"
-            onClick={() => setMoveOpen(true)}
-            disabled={busy}
-          >
-            <FolderInput className="h-3.5 w-3.5" />
-            Move to folder…
-          </Button>
+          {/* Move to folder — only in organize mode. Export flow should
+              never file notes, only send them. */}
+          {!isSendMode && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 gap-1.5 text-xs"
+              onClick={() => setMoveOpen(true)}
+              disabled={busy}
+            >
+              <FolderInput className="h-3.5 w-3.5" />
+              Move to folder…
+            </Button>
+          )}
 
-          {/* Send menu (Phase 2 — ADR-0022 addendum). One verb ("send out
+          {/* Send menu — always present in both modes. One verb ("send out
               of the system"), two destinations: Download (always available)
               and Share to… (Web Share API; falls back to download + toast
               on browsers without canShare({files})). The label still
               reflects N=1 vs N>1 so the user knows what they're sending
-              before they pick a destination. Shared with the top-of-page
-              Export menu via <WorklogSendMenu>. */}
+              before they pick a destination. */}
           <WorklogSendMenu
             count={count}
             onDownload={onExport}
@@ -153,18 +186,23 @@ export function WorklogNotesBulkBar({
             exporting={exporting}
             busy={busy}
             triggerLabel="Send"
+            showShare={showShare}
           />
 
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-7 gap-1.5 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
-            onClick={() => setDeleteOpen(true)}
-            disabled={busy}
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-            Delete
-          </Button>
+          {/* Delete — only in organize mode. Export flow should never
+              destroy notes. */}
+          {!isSendMode && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 gap-1.5 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
+              onClick={() => setDeleteOpen(true)}
+              disabled={busy}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Delete
+            </Button>
+          )}
 
           {/* Trailing render slot — view switcher + sort menu stay visible
               alongside bulk actions so the user keeps view controls. */}
@@ -176,25 +214,30 @@ export function WorklogNotesBulkBar({
         </div>
       </div>
 
-      {/* Move-to-folder dialog (re-uses the single-note dialog) */}
-      <WorklogMoveToFolderDialog
-        open={moveOpen}
-        onOpenChange={setMoveOpen}
-        folders={folders}
-        currentFolderId={null}
-        title={`Move ${count} note${count === 1 ? "" : "s"} to folder`}
-        onChoose={async (folderId) => {
-          setMoveOpen(false);
-          await onMove(folderId);
-        }}
-        onCreateFolder={async (name) => {
-          const created = await createFolder.mutateAsync({ name });
-          return { id: created.id };
-        }}
-      />
+      {/* Move-to-folder dialog (re-uses the single-note dialog). Only
+          mounted in organize mode — send mode has no Move button so the
+          dialog can never be opened. */}
+      {!isSendMode && (
+        <WorklogMoveToFolderDialog
+          open={moveOpen}
+          onOpenChange={setMoveOpen}
+          folders={folders}
+          currentFolderId={null}
+          title={`Move ${count} note${count === 1 ? "" : "s"} to folder`}
+          onChoose={async (folderId) => {
+            setMoveOpen(false);
+            await onMove(folderId);
+          }}
+          onCreateFolder={async (name) => {
+            const created = await createFolder.mutateAsync({ name });
+            return { id: created.id };
+          }}
+        />
+      )}
 
-      {/* Destructive confirm */}
-      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+      {/* Destructive confirm — same guard. */}
+      {!isSendMode && (
+        <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>
@@ -222,6 +265,7 @@ export function WorklogNotesBulkBar({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      )}
     </>
   );
 }
