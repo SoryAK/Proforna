@@ -61,7 +61,8 @@
         "[2026-06-09] Custom Tiptap nodes (mention, tag, shiftBlock, moodBlock, photo, canvasBlock) are NOT in prosemirror-markdown's defaultMarkdownSerializer. We wrote a direct JSON walker (src/lib/worklog/export/pm-to-markdown.ts) that handles each by name. canvasBlock is dropped on export (placeholder line + droppedBlocks counter); mentions emit as `@<prefix>:<entityId>` and are re-resolved on re-import. MENTION_PREFIX = {asset:'a', skill:'s', company:'c', contact:'p', worklog:'n'}.",
         "[2026-06-09] UI integration: Export button lives in WorklogNotesBulkBar (between Move and Delete), wired in worklog-notes-view.tsx -> exportBulkWorklogs(ids) from src/lib/worklog/export/client.ts. Re-import auto-detects via WorklogImportDialog's hasGrillFrontmatter(source) regex — `---` fence + `id:` + `version:` keys — and routes to /api/work-logs/import-md. Four new row statuses (reimported / conflict / needs-picker / not-found) map to the four decideImport outcomes.",
         "[2026-06-09] Web Share onramp (ADR-0022 addendum) — bulk-bar Export button became a Send DropdownMenu with two destinations: Download (always) + Share to… (Web Share API Level 2). Both reuse POST /api/work-logs/export-bulk so the artifact is identical. canShareFiles() in src/lib/worklog/share/can-share.ts is SSR-safe (probes `navigator.canShare({files:[<probe File>]})`); on unsupported browsers (Firefox desktop, SSR, insecure contexts) shareWorklogs() falls back to the synthetic-download path and surfaces sonner toast 'Sharing isn't supported on this browser. The file was downloaded instead.' decideShareOutcome() returns 'shared' (error===null) | 'cancelled' (AbortError, both DOMException + plain Error variants) | 'downloaded' (any other failure → fallback fired). Share menu ITEM is rendered unconditionally; capability gate happens at click-time inside shareWorklogs. Per-row Send menu and standalone top-level picker dialog parked with re-entry criteria; bulk streaming/progress NOT parked (markdown is small, YAGNI). Test count 542 → 554 (+12: 6 canShareFiles, 6 decideShareOutcome). Google Drive integration is now SUPERSEDED by this onramp.",
-        "[2026-06-10] ADR-0022 Addendum 2 — top-level Export menu shipped next to Import. Bulk-bar dropdown extracted into shared <WorklogSendMenu> at src/components/worklog/worklog-send-menu.tsx; mounted twice with different scopes — toolbar copy acts on visibleLogs (current view) with triggerLabel='Export', bulk-bar copy acts on selectedIdList with triggerLabel='Send'. Shared runDownload(ids)/runShare(ids) handlers in worklog-notes-view.tsx so the export-in-flight gate (exportBusy) and sonner toast pattern stay unified. Client-side EXPORT_MAX_VIEW=100 mirrors server BULK_MAX with honest toast 'Too many notes in this view (N). Narrow your filter or use Select mode to pick up to 100.' — fired before any network call. Both surfaces coexist when bulk-mode is active (Architectural Reviewer Option A) so the user keeps the 'export current view' path even with a selection. Trigger: user feedback that desktop Chrome / Windows OS share sheet doesn't include Drive, leaving Web Share's promise empty on that platform; toolbar Export gives the export pipeline a discoverable home without first entering Select mode. Drive integration deferred to ADR-0023 next session (Gmail OAuth client already in .env, EmailAccount table already stores accessToken+refreshToken — cost dropped from ~1 week to ~4-6 hours)."
+        "[2026-06-10] ADR-0022 Addendum 2 — top-level Export menu shipped next to Import. Bulk-bar dropdown extracted into shared <WorklogSendMenu> at src/components/worklog/worklog-send-menu.tsx; mounted twice with different scopes — toolbar copy acts on visibleLogs (current view) with triggerLabel='Export', bulk-bar copy acts on selectedIdList with triggerLabel='Send'. Shared runDownload(ids)/runShare(ids) handlers in worklog-notes-view.tsx so the export-in-flight gate (exportBusy) and sonner toast pattern stay unified. Client-side EXPORT_MAX_VIEW=100 mirrors server BULK_MAX with honest toast 'Too many notes in this view (N). Narrow your filter or use Select mode to pick up to 100.' — fired before any network call. Both surfaces coexist when bulk-mode is active (Architectural Reviewer Option A) so the user keeps the 'export current view' path even with a selection. Trigger: user feedback that desktop Chrome / Windows OS share sheet doesn't include Drive, leaving Web Share's promise empty on that platform; toolbar Export gives the export pipeline a discoverable home without first entering Select mode. Drive integration deferred to ADR-0023 next session (Gmail OAuth client already in .env, EmailAccount table already stores accessToken+refreshToken — cost dropped from ~1 week to ~4-6 hours).",
+        "[2026-06-10] ADR-0023 worklog reader right-rail is now mounted on both /worklog (dashboard 2-pane via WorklogNotesAndReader) and /worklog/notes/[id] (single-note route). Removing the inline Backlinks/History/Photos blocks from WorklogNoteReader without also mounting the rail on /worklog/notes/[id] would have stranded those panels on that route — caught & fixed in same Unit 3 commit (02b8450)."
       ]
     },
     {
@@ -110,6 +111,26 @@
         "2026-06-09: Title shows label + locale timestamp; description: 'Showing changes from this snapshot to the current document. Green additions, red removals.'",
         "2026-06-09: Phase 9b PARKED — if plain-text proves too coarse for rich content, swap in prosemirror-changeset-based rich diff."
       ]
+    },
+    {
+      "name": "WorklogReaderRightRail",
+      "entityType": "component",
+      "observations": [
+        "[2026-06-10] Desktop-only right rail for worklog reader (ADR-0023, Tolaria pattern #1). Two-region layout: 44px icon strip (w-11) + 320px content panel (w-80). Hidden xl:flex — desktop-only.",
+        "[2026-06-10] Tabs: backlinks (⌘1), history (⌘2), tags (⌘3), photos (⌘4). ⌘\\ toggles collapse. Shortcuts suppressed when active element is contenteditable / INPUT / TEXTAREA / SELECT to avoid fighting the Tiptap editor.",
+        "[2026-06-10] Unmounts entirely (returns null) when activeNoteId is null. No-selection ghost-stub mode is Unit 4 scope.",
+        "[2026-06-10] Mounted as a flex sibling of WorklogNoteReader in TWO places: WorklogNotesAndReader (dashboard 2-pane) AND /worklog/notes/[id]/page.tsx (single-note route). Both surfaces must mount the rail or Backlinks/History/Photos surface disappears entirely from that route.",
+        "[2026-06-10] Tags tab still placeholder (Unit 3.1) — lifting Tags requires hoisting tagsField autosave wiring out of WorklogNoteReader, which is invasive enough to warrant its own unit."
+      ]
+    },
+    {
+      "name": "useReaderRailState",
+      "entityType": "hook",
+      "observations": [
+        "[2026-06-10] Owns rail UI state (active tab + collapsed flag). Persisted via POST /api/work-logs/preferences/reader-rail with partial-update semantics.",
+        "[2026-06-10] Reads from shared ['worklog-preferences'] query cache via useQuery (NOT queryClient.getQueryData). The getQueryData approach was a Unit 2 bug: getQueryData is a one-shot snapshot, so optimistic setQueryData writes from the mutation never re-rendered the rail. Migration to useQuery in Unit 3 fixed the silent tab-click failure. TanStack Query v5 dedupes by queryKey, so this shares fetch + cache with useWorklogPreferences.",
+        "[2026-06-10] Mutation pattern: onMutate writes optimistic cache + saves previous snapshot → onError rollback to previous + toast 'Could not save rail state' → onSuccess server confirm. Use this hook pattern as the template for any future rail-state preferences."
+      ]
     }
   ],
   "relations": [
@@ -120,6 +141,9 @@
     { "from": "WorklogDomain", "relationType": "contains", "to": "WorklogNoteReadView" },
     { "from": "WorklogDomain", "relationType": "contains", "to": "WorklogHistoryPanel" },
     { "from": "WorklogDomain", "relationType": "contains", "to": "WorklogVersionDiffModal" },
+    { "from": "WorklogReaderRightRail", "relationType": "belongs to", "to": "WorklogDomain" },
+    { "from": "WorklogReaderRightRail", "relationType": "uses", "to": "useReaderRailState" },
+    { "from": "useReaderRailState", "relationType": "belongs to", "to": "WorklogDomain" },
     { "from": "WorklogReaderDrawer", "relationType": "embeds", "to": "WorklogNoteReadView" },
     { "from": "WorklogHistoryPanel", "relationType": "embeds", "to": "WorklogVersionDiffModal" }
   ]
