@@ -12,7 +12,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { FolderInput, Trash2, X } from "lucide-react";
+import { Download, FolderInput, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -30,9 +30,16 @@ export interface WorklogNotesBulkBarProps {
   count: number;
   onMove: (folderId: string | null) => Promise<void> | void;
   onDelete: () => Promise<void> | void;
+  onExport: () => Promise<void> | void;
   onClear: () => void;
   /** Disables every action button while a mutation is in flight. */
   busy?: boolean;
+  /**
+   * True while an export download is in flight. Disables the Export button
+   * + shows a busy state. Separate from `busy` so that an in-progress
+   * export doesn't grey out Move / Delete (and vice versa).
+   */
+  exporting?: boolean;
   /**
    * Optional render slot placed after the bulk action buttons (Move /
    * Delete) on the right side of the bar. Used by the parent to keep the
@@ -51,8 +58,10 @@ export function WorklogNotesBulkBar({
   count,
   onMove,
   onDelete,
+  onExport,
   onClear,
   busy = false,
+  exporting = false,
   trailing,
 }: WorklogNotesBulkBarProps) {
   const [moveOpen, setMoveOpen] = useState(false);
@@ -114,6 +123,22 @@ export function WorklogNotesBulkBar({
           >
             <FolderInput className="h-3.5 w-3.5" />
             Move to folder…
+          </Button>
+
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 gap-1.5 text-xs"
+            onClick={() => void onExport()}
+            disabled={busy || exporting}
+            title={
+              count === 1
+                ? "Export this note as Markdown"
+                : `Export ${count} notes as a .zip of Markdown files`
+            }
+          >
+            <Download className="h-3.5 w-3.5" />
+            {exporting ? "Exporting…" : `Export${count > 1 ? " as .zip" : " as .md"}`}
           </Button>
 
           <Button

@@ -58,6 +58,7 @@ import { WorklogNotesBulkBar } from "@/components/worklog/worklog-notes-bulk-bar
 import { WorklogNotesSortMenu } from "@/components/worklog/worklog-notes-sort-menu";
 import { WorklogReaderDrawer } from "@/components/worklog/worklog-reader-drawer";
 import { WorklogImportDialog } from "@/components/worklog/worklog-import-dialog";
+import { exportBulkWorklogs } from "@/lib/worklog/export/client";
 
 const DEFAULT_SORT: WorklogNotesTableSortState = {
   column: "lastEdited",
@@ -120,6 +121,10 @@ export function WorklogNotesView() {
   // Import dialog (Sprint 4). Opened from the top-bar button or the global
   // command palette. Session-only history per ADR/Sprint plan (Q3=A).
   const [importOpen, setImportOpen] = useState(false);
+
+  // Export-in-flight gate (Phase 5a, Grill Me sprint). Decoupled from
+  // bulkAction.isPending so a pending export doesn't grey out Move/Delete.
+  const [exportBusy, setExportBusy] = useState(false);
   const toggleBulkMode = useCallback(() => {
     setBulkMode((prev) => {
       if (prev) selection.clear();
@@ -340,6 +345,7 @@ export function WorklogNotesView() {
         <WorklogNotesBulkBar
           count={selectedCount}
           busy={bulkAction.isPending}
+          exporting={exportBusy}
           onClear={selection.clear}
           trailing={viewControls}
           onMove={async (folderId) => {
@@ -358,6 +364,17 @@ export function WorklogNotesView() {
               ids: selectedIdList,
             });
             selection.clear();
+          }}
+          onExport={async () => {
+            if (selectedIdList.length === 0) return;
+            setExportBusy(true);
+            try {
+              await exportBulkWorklogs(selectedIdList);
+            } catch (err) {
+              console.error("[grill-me] export failed", err);
+            } finally {
+              setExportBusy(false);
+            }
           }}
         />
       ) : (
