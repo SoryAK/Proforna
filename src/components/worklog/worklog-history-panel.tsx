@@ -28,6 +28,14 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { groupVersionsByDate, type GroupableVersion } from "@/lib/worklog/version/grouping";
 import { WorklogVersionDiffModal } from "@/components/worklog/worklog-version-diff-modal";
 
@@ -62,6 +70,7 @@ export function WorklogHistoryPanel({
 }: WorklogHistoryPanelProps) {
   const queryClient = useQueryClient();
   const [diffVersion, setDiffVersion] = useState<VersionRow | null>(null);
+  const [pendingRestore, setPendingRestore] = useState<VersionRow | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["worklog-versions", noteId] as const,
@@ -88,6 +97,7 @@ export function WorklogHistoryPanel({
       // Refresh editor content + history (pre-restore snapshot is new).
       queryClient.invalidateQueries({ queryKey: ["work-logs"] });
       queryClient.invalidateQueries({ queryKey: ["worklog-versions", noteId] });
+      setPendingRestore(null);
     },
   });
 
@@ -101,12 +111,12 @@ export function WorklogHistoryPanel({
     groups.older.length     === 0;
 
   const handleRestore = (row: VersionRow) => {
-    const when = new Date(row.createdAt).toLocaleString();
-    const ok = window.confirm(
-      `Restore version from ${when}? Your current draft will be saved as a snapshot first.`,
-    );
-    if (!ok) return;
-    restoreMutation.mutate(row.id);
+    setPendingRestore(row);
+  };
+
+  const confirmRestore = () => {
+    if (!pendingRestore) return;
+    restoreMutation.mutate(pendingRestore.id);
   };
 
   return (
@@ -221,6 +231,53 @@ export function WorklogHistoryPanel({
           onClose={() => setDiffVersion(null)}
         />
       )}
+
+      {/* Restore confirm dialog — replaces window.confirm() which is
+          blocked in Next.js 16 / React 19 dev mode. */}
+      <Dialog
+        open={Boolean(pendingRestore)}
+        onOpenChange={(open) => {
+          if (!restoreMutation.isPending && !open) setPendingRestore(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Restore this version?</DialogTitle>
+            <DialogDescription>
+              {pendingRestore ? (
+                <>
+                  Restoring the snapshot from{" "}
+                  <span className="font-medium text-foreground">
+                    {new Date(pendingRestore.createdAt).toLocaleString()}
+                  </span>
+                  . Your current draft will be saved as a new snapshot first,
+                  so this is reversible.
+                </>
+              ) : null}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              onClick={() => setPendingRestore(null)}
+              disabled={restoreMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={confirmRestore}
+              disabled={restoreMutation.isPending}
+            >
+              {restoreMutation.isPending ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" />
+              ) : (
+                <RotateCcw className="h-3.5 w-3.5 mr-2" />
+              )}
+              Restore
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

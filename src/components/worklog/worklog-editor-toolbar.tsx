@@ -28,6 +28,14 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -67,6 +75,8 @@ export function WorklogEditorToolbar({
   workLogId,
 }: WorklogEditorToolbarProps) {
   const [tagDraft, setTagDraft] = useState("");
+  const [isLabelDialogOpen, setLabelDialogOpen] = useState(false);
+  const [draftLabel, setDraftLabel] = useState("");
   const commandList = slashCommands ?? SLASH_COMMANDS;
   const queryClient = useQueryClient();
 
@@ -87,15 +97,22 @@ export function WorklogEditorToolbar({
 
   function handleSaveVersion() {
     if (!workLogId) return;
-    const raw = window.prompt(
-      "Label this version (optional, max 80 chars):",
-      "",
-    );
-    // Cancel → null. Empty string → unlabelled snapshot.
-    if (raw === null) return;
-    const trimmed = raw.trim();
+    setDraftLabel("");
+    setLabelDialogOpen(true);
+  }
+
+  function confirmSaveVersion() {
+    if (!workLogId) return;
+    const trimmed = draftLabel.trim();
     const label = trimmed.length === 0 ? null : trimmed.slice(0, 80);
-    saveVersionMutation.mutate({ id: workLogId, label });
+    saveVersionMutation.mutate(
+      { id: workLogId, label },
+      {
+        onSuccess: () => {
+          setLabelDialogOpen(false);
+        },
+      },
+    );
   }
 
   function insertShift(shift: WorkShift) {
@@ -309,6 +326,56 @@ export function WorklogEditorToolbar({
           </Button>
         </>
       )}
+
+      {/* Label dialog — replaces window.prompt() which is blocked in
+          Next.js 16 / React 19 dev mode. */}
+      <Dialog
+        open={isLabelDialogOpen}
+        onOpenChange={(open) => {
+          if (!saveVersionMutation.isPending) setLabelDialogOpen(open);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Save version</DialogTitle>
+            <DialogDescription>
+              Pin a snapshot of this note. Labels are optional (max 80 chars).
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            autoFocus
+            value={draftLabel}
+            maxLength={80}
+            placeholder="Optional label (e.g. before refactor)"
+            onChange={(e) => setDraftLabel(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                confirmSaveVersion();
+              }
+            }}
+            disabled={saveVersionMutation.isPending}
+          />
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              onClick={() => setLabelDialogOpen(false)}
+              disabled={saveVersionMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={confirmSaveVersion}
+              disabled={saveVersionMutation.isPending}
+            >
+              {saveVersionMutation.isPending ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" />
+              ) : null}
+              Save snapshot
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
