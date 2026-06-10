@@ -12,6 +12,7 @@
 
 import { useState } from "react";
 import type { Editor } from "@tiptap/react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Bold,
   Italic,
@@ -22,6 +23,8 @@ import {
   Hash,
   ChevronDown,
   Plus,
+  BookmarkPlus,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -43,6 +46,12 @@ interface WorklogEditorToolbarProps {
   shifts: WorkShift[];
   /** Overrides the slash command list shown in the Insert (+) menu. */
   slashCommands?: SlashCommandItem[];
+  /**
+   * WorkLog id — when provided, surfaces the "Save version" button
+   * (ADR-0017 Phase 10). Optional so non-saving editor surfaces (if
+   * any are added later) can mount the toolbar without it.
+   */
+  workLogId?: string;
 }
 
 const MOOD_OPTIONS: { value: MoodValue; label: string; emoji: string }[] = [
@@ -51,9 +60,43 @@ const MOOD_OPTIONS: { value: MoodValue; label: string; emoji: string }[] = [
   { value: "tough",   label: "Tough", emoji: "😣" },
 ];
 
-export function WorklogEditorToolbar({ editor, shifts, slashCommands }: WorklogEditorToolbarProps) {
+export function WorklogEditorToolbar({
+  editor,
+  shifts,
+  slashCommands,
+  workLogId,
+}: WorklogEditorToolbarProps) {
   const [tagDraft, setTagDraft] = useState("");
   const commandList = slashCommands ?? SLASH_COMMANDS;
+  const queryClient = useQueryClient();
+
+  const saveVersionMutation = useMutation({
+    mutationFn: async ({ id, label }: { id: string; label: string | null }) => {
+      const res = await fetch(`/api/work-logs/${id}/versions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label }),
+      });
+      if (!res.ok) throw new Error(`save version failed: ${res.status}`);
+      return res.json();
+    },
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: ["worklog-versions", vars.id] });
+    },
+  });
+
+  function handleSaveVersion() {
+    if (!workLogId) return;
+    const raw = window.prompt(
+      "Label this version (optional, max 80 chars):",
+      "",
+    );
+    // Cancel → null. Empty string → unlabelled snapshot.
+    if (raw === null) return;
+    const trimmed = raw.trim();
+    const label = trimmed.length === 0 ? null : trimmed.slice(0, 80);
+    saveVersionMutation.mutate({ id: workLogId, label });
+  }
 
   function insertShift(shift: WorkShift) {
     editor
@@ -243,6 +286,29 @@ export function WorklogEditorToolbar({ editor, shifts, slashCommands }: WorklogE
         className="h-7 w-7"
         onFinalChunk={(chunk) => editor.chain().focus().insertContent(`${chunk} `).run()}
       />
+
+      {/* Save version (ADR-0017 Phase 10) — pinned manual snapshot of the
+          current document. Only renders when a workLogId is bound. */}
+      {workLogId && (
+        <>
+          <div className="w-px h-4 bg-border mx-1" />
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2 gap-1 text-xs"
+            onClick={handleSaveVersion}
+            disabled={saveVersionMutation.isPending}
+            title="Save a named snapshot of this note"
+          >
+            {saveVersionMutation.isPending ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <BookmarkPlus className="h-3.5 w-3.5" />
+            )}
+            Save version
+          </Button>
+        </>
+      )}
     </div>
   );
 }

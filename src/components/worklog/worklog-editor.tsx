@@ -521,6 +521,7 @@ const EditorBody = forwardRef<WorklogEditorHandle, EditorBodyProps>(function Edi
           editor={editor}
           shifts={shifts}
           slashCommands={slashCommandsWithPhoto}
+          workLogId={workLogId}
         />
       )}
       <EditorContent editor={editor} />
