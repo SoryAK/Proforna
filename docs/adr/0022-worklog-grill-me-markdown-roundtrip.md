@@ -104,12 +104,50 @@ type ImportDecision =
 
 UI integration:
 
-- `WorklogNotesBulkBar` gains an Export button between Move and Delete. POSTs the selected ids to the bulk endpoint and downloads the response (single `.md` for N=1, `.zip` for N>1).
+- `WorklogNotesBulkBar` exposes a single **Send** dropdown trigger (replacing the original Export button between Move and Delete). One verb ("send out of the system"), two destinations:
+  - **Download** — always available; saves `.md` (N=1) or `.zip` (N>1) directly via the existing bulk-export endpoint.
+  - **Share to…** — routes the same blob through `navigator.share({ files })` (Web Share API Level 2). Used to hand the file to ChatGPT/Claude/Gemini mobile apps, AirDrop, Mail, Slack, Notion, or any installed share target.
 - `WorklogImportDialog` discriminates on a regex check (`---` fence + `id:` + `version:` keys) and routes grill-me files to `/api/work-logs/import-md`. Four new row statuses (`reimported` / `conflict` / `needs-picker` / `not-found`) surface the four `decideImport` outcomes.
+
+## Addendum (2026-06-09) — Web Share onramp
+
+The round-trip needs an outbound destination, not just "file on disk." Native sharing turns one-tap-to-AI into reality on mobile and stays useful on desktop (Mail, Slack, Drive, Dropbox, etc.) without adding a single line of provider-specific code.
+
+**Decision**: Add `shareWorklogs(ids)` next to `exportBulkWorklogs(ids)`. Both reuse `POST /api/work-logs/export-bulk` so the artifact is identical — only the destination differs. The bulk-bar Send dropdown picks which one to call.
+
+**Capability gating**: `canShareFiles()` (SSR-safe predicate) checks `navigator.share` + `navigator.canShare({ files: [<probe File>] })`. False on SSR, Firefox desktop, insecure contexts, and any browser without Web Share Level 2.
+
+**Outcome contract** (`ShareOutcome` from `decideShareOutcome`):
+
+```ts
+type ShareOutcome = "shared" | "cancelled" | "downloaded";
+```
+
+- `"shared"` — OS share sheet succeeded.
+- `"cancelled"` — user dismissed the share sheet (`AbortError`, both `DOMException` and plain `Error` variants).
+- `"downloaded"` — share unsupported OR threw a non-cancellation error; we fell back to the existing download path so the user always gets their file. The view surfaces an honest sonner toast: *"Sharing isn't supported on this browser. The file was downloaded instead."*
+
+**Why this beats Google Drive integration** (parked permanently in `parked-ideas.md`):
+
+| Dimension              | Web Share              | Google Drive             |
+| ---------------------- | ---------------------- | ------------------------ |
+| Code                   | ~80 LOC                | ~1000+ LOC               |
+| Destinations           | Anything installed     | Drive only               |
+| Vendor lock-in         | None                   | Permanent                |
+| Return trip from AI    | Manual (paste/upload)  | Manual (paste/upload)    |
+
+The return trip is manual either way — Drive doesn't actually save a step. Web Share gives users **every** AI / messenger / cloud target their device knows about for ~5% of the build cost.
+
+**Out of scope for this addendum** (parked separately):
+
+- Per-row Send menu inside the notes list (would be a new UI surface across table/grid/list — follow-up sprint).
+- Top-level Export button + standalone worklog picker dialog (separate feature; needs picker UX of its own).
+- Bulk streaming + progress dialog (markdown is small; YAGNI until BULK_MAX changes or users complain).
 
 ## Links / References
 
 - ADR-0018 (External Import Integrations) — first-time markdown/HTML import, the pipeline this feature reuses.
 - ADR-0017 (Worklog Version History) — auto-snapshot writer fired on every successful re-import; conflict detection counts `WorkLogVersion` rows.
 - ADR-0010 (Tiptap + Y.js) — the Tiptap node schema this feature serialises out of and parses back into.
-- [parked-ideas.md](../../memories/repo/parked-ideas.md) — Google Drive integration explicitly rejected with re-entry criteria.
+- [parked-ideas.md](../../memories/repo/parked-ideas.md) — Google Drive integration superseded by Web Share onramp; per-row Send menu + standalone picker dialog parked with re-entry criteria.
+- `src/lib/worklog/share/` — `canShareFiles()` predicate + `shareWorklogs(ids)` client (Phase 1, 12 tests).

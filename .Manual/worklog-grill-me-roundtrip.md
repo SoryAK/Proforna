@@ -3,7 +3,7 @@
 **Status:** Shipped
 **Owner:** Sory
 **Related ADR(s):** [0022](../docs/adr/0022-worklog-grill-me-markdown-roundtrip.md), [0017](../docs/adr/0017-worklog-version-history-and-visual-diff.md), [0018](../docs/adr/0018-external-import-integrations.md)
-**Source files:** `src/lib/worklog/export/{frontmatter,pm-to-markdown,worklog-to-markdown,client}.ts`, `src/lib/worklog/import/grill-frontmatter.ts`, `src/app/api/work-logs/[id]/export/route.ts`, `src/app/api/work-logs/export-bulk/route.ts`, `src/app/api/work-logs/import-md/route.ts`, `src/components/worklog/worklog-notes-bulk-bar.tsx`, `src/components/worklog/worklog-import-dialog.tsx`
+**Source files:** `src/lib/worklog/export/{frontmatter,pm-to-markdown,worklog-to-markdown,client}.ts`, `src/lib/worklog/share/{can-share,share-client}.ts`, `src/lib/worklog/import/grill-frontmatter.ts`, `src/app/api/work-logs/[id]/export/route.ts`, `src/app/api/work-logs/export-bulk/route.ts`, `src/app/api/work-logs/import-md/route.ts`, `src/components/worklog/worklog-notes-bulk-bar.tsx`, `src/components/worklog/worklog-notes-view.tsx`, `src/components/worklog/worklog-import-dialog.tsx`
 
 ---
 
@@ -19,9 +19,11 @@ The export format is plain markdown (CommonMark + GFM). At the top of every expo
 
 ### Export (bulk action)
 
-1. User toggles **Select** in the notes view, ticks one or more rows, then clicks **Export** in the bulk-action bar (`src/components/worklog/worklog-notes-bulk-bar.tsx`).
-2. Parent (`worklog-notes-view.tsx`) calls `exportBulkWorklogs(ids)` from `src/lib/worklog/export/client.ts`.
-3. Client POSTs `{ids}` to `/api/work-logs/export-bulk` (`src/app/api/work-logs/export-bulk/route.ts`).
+1. User toggles **Select** in the notes view, ticks one or more rows, then clicks the **Send** dropdown in the bulk-action bar (`src/components/worklog/worklog-notes-bulk-bar.tsx`).
+2. The Send menu shows two destinations — one verb, two outcomes:
+   - **Download** — always available. Calls `exportBulkWorklogs(ids)` from `src/lib/worklog/export/client.ts` and triggers a synthetic `<a download>` click on the response blob.
+   - **Share to…** — calls `shareWorklogs(ids)` from `src/lib/worklog/share/share-client.ts`, which performs the same bulk-export POST and routes the resulting blob through `navigator.share({ files })` so the OS share sheet can hand it off to ChatGPT, Claude, Gemini mobile, AirDrop, Mail, Slack, Notion, etc.
+3. Either path POSTs `{ids}` to `/api/work-logs/export-bulk` (`src/app/api/work-logs/export-bulk/route.ts`).
 4. Route handler:
    1. Authenticates via `getUserId()`.
    2. Validates body (non-empty string array, ≤ 100 ids).
@@ -31,7 +33,10 @@ The export format is plain markdown (CommonMark + GFM). At the top of every expo
    6. For each row, calls `worklogToMarkdown()` (composer in `src/lib/worklog/export/worklog-to-markdown.ts`) which calls `serializeFrontmatter()` and `serializeToMarkdown()` and concatenates them.
    7. **N=1** → returns `text/markdown` with `Content-Disposition: attachment; filename="<slug>.md"`.
    8. **N>1** → builds a `JSZip` archive (`uniquify()` resolves filename collisions with the first 6 alphanumeric chars of the worklog id, then a numeric suffix) and returns `application/zip` with `filename="worklogs-YYYY-MM-DD.zip"`.
-5. Client extracts the filename from `Content-Disposition` and triggers a download via a synthetic `<a>` click (helper `triggerDownload()`).
+5. Client extracts the filename from `Content-Disposition` and either:
+   - Triggers a download via a synthetic `<a>` click (helper `triggerDownload()`) on the **Download** path.
+   - Wraps the blob in a `File` and calls `navigator.share({files})` on the **Share to…** path. `decideShareOutcome(error)` translates the result into one of three terminal states: `"shared"` (success), `"cancelled"` (user dismissed the OS share sheet — silent), or `"downloaded"` (Web Share unsupported or failed; we fell back to the synthetic download and surfaced the toast *"Sharing isn't supported on this browser. The file was downloaded instead."*).
+   - The capability check `canShareFiles()` is SSR-safe and probes `navigator.canShare({ files: [<empty File>] })` so we never advertise share support on Firefox desktop or insecure contexts.
 
 ### Re-import (existing import dialog)
 

@@ -2,7 +2,7 @@
 
 A document round-trip lets users take in-app content out as a portable file, edit it externally (e.g. with an AI assistant), and pull the edited version back into the same row without losing identity. This recipe captures what worked when adding the "Grill Me" markdown round-trip in 2026-06.
 
-**Last Updated:** 2026-06-09
+**Last Updated:** 2026-06-09 (Web Share onramp addendum)
 
 ## Stack Context
 
@@ -140,3 +140,51 @@ function uniquify(filename: string, taken: Set<string>, id: string): string {
 - **Don't trust frontmatter without owner-scoping.** Frontmatter is editable by anyone. EVERY lookup must `where: { id, userId }` so a tampered `id` field can never cross user boundaries.
 - **Don't put the export endpoint behind a `POST /search`-style filter.** Use REST: `GET /api/work-logs/{id}/export` for single, `POST /api/work-logs/export-bulk` with `{ids}` for bulk.
 - **Don't skip the regex discriminator on the client.** Routing every dropped `.md` to the re-import endpoint blocks first-time imports of pre-existing markdown files (no frontmatter). The discriminator is what keeps the two pipelines separate.
+
+## Onramp: Web Share API (added 2026-06-09)
+
+Once the round-trip is shipped, the next natural ask is "can I share this `.md` straight to ChatGPT mobile / AirDrop / Slack instead of downloading it first?" That's the Web Share API. It's ~80 LOC of additive code that turns any browser-supported destination into a one-tap target — without any provider-specific OAuth code.
+
+**Decision pattern**: One verb (Send), two destinations (Download + Share to…), surfaced via a single `DropdownMenu` on the bulk bar. `Download` is always available; `Share to…` falls back to a download with a toast on browsers that don't support `navigator.share({ files })`. The artifact is identical either way — the same bulk-export endpoint serves both paths.
+
+**Pure helpers worth writing first**:
+
+```ts
+// canShareFiles() — SSR-safe predicate gating the Share to… menu item.
+export function canShareFiles(): boolean {
+  if (typeof navigator === "undefined") return false;
+  const nav = navigator as Navigator & {
+    share?: (data: ShareData) => Promise<void>;
+    canShare?: (data: ShareData) => boolean;
+  };
+  if (typeof nav.share !== "function") return false;
+  if (typeof nav.canShare !== "function") return false;
+  try {
+    const probe = new File([""], "probe.md", { type: "text/markdown" });
+    return nav.canShare({ files: [probe] });
+  } catch {
+    return false;
+  }
+}
+
+// decideShareOutcome() — pure decision matrix, testable without Web Share.
+export function decideShareOutcome(error: unknown): ShareOutcome {
+  if (error === null) return "shared";
+  if (error && typeof error === "object" && "name" in error
+    && (error as { name?: unknown }).name === "AbortError") return "cancelled";
+  return "downloaded";
+}
+```
+
+**Gotchas**:
+
+- Firefox 132+ exposes `navigator.share` for text/url payloads but `canShare({ files })` returns `false`. Always probe with a real `File` object.
+- `navigator.share` can throw a plain `Error` (not always `DOMException`) with `name === "AbortError"` when the user dismisses the share sheet. Sniff `name` directly.
+- `navigator.share` does **not** stream — the entire `File` array must be in memory before the share sheet opens. Markdown is small (~5KB/note × 100 notes = 500KB) so this is fine; if you raise `BULK_MAX` past 1000+ revisit with a Web Worker.
+- Always provide a fallback toast that's honest about what happened: *"Sharing isn't supported on this browser. The file was downloaded instead."* — silently swapping behavior leaves the user wondering why no share sheet appeared.
+- `navigator.share` requires a secure context (HTTPS or localhost). Iframes need `allow="web-share"` to permit it.
+
+**Anti-patterns**:
+
+- **Don't gate the menu item on `canShareFiles()` alone.** Always render `Share to…` and let `shareWorklogs` decide at click-time. This way the user can request feature support / understand why nothing happens, instead of the option vanishing silently.
+- **Don't add streaming/progress dialogs prematurely.** Markdown bulk exports finish in <500ms. A progress dialog *introduces* perceived latency rather than hiding it.
