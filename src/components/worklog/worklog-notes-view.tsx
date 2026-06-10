@@ -34,9 +34,10 @@
 
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { CheckSquare, LayoutGrid, List, Plus, Send, Upload } from "lucide-react";
+import { ArrowLeft, CheckSquare, LayoutGrid, List, Plus, Send, Upload } from "lucide-react";
 import type { WorkLog } from "@/types/worklog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -68,6 +69,25 @@ const DEFAULT_SORT: WorklogNotesTableSortState = {
   dir: "desc",
 };
 
+/**
+ * useIsMobile — inline matchMedia hook for `(max-width: 767px)`.
+ * Used to force compact list rendering on mobile regardless of selection,
+ * since the multi-column desktop layout overflows the viewport (ADR-0024
+ * Unit 4). SSR-safe: returns false until the client mounts.
+ */
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia("(max-width: 767px)");
+    const update = () => setIsMobile(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+  return isMobile;
+}
+
 type ViewMode = "list" | "grid";
 
 export interface WorklogNotesViewProps {
@@ -82,6 +102,7 @@ export interface WorklogNotesViewProps {
 
 export function WorklogNotesView({ selectedNoteId = null }: WorklogNotesViewProps = {}) {
   const router = useRouter();
+  const isMobile = useIsMobile();
   // Snapshot of the current `/worklog/notes` query string. Forwarded onto
   // `/worklog/notes/[id]` so the reader's back-button can rebuild the same
   // list URL (folder + view filters from ADR-0013) instead of dumping the
@@ -419,6 +440,12 @@ export function WorklogNotesView({ selectedNoteId = null }: WorklogNotesViewProp
 
   return (
     <div className="flex flex-col h-full bg-white dark:bg-gray-950">
+      {/* Top bar + filter chips. On mobile (< md) with a selection, the
+          reader takes the full viewport (Apple Notes pattern) so list-side
+          controls are hidden — the in-reader back link returns to the list
+          where the toolbar reappears. Desktop (md+) keeps them visible since
+          the list and reader live side-by-side. ADR-0024 Unit 4. */}
+      <div className={cn(selectedNoteId && "hidden md:contents")}>
       {/* Top bar: bulk-action bar when selection is active, otherwise the
           regular toolbar (count · view switcher · Select toggle · "+ New note"). */}
       {selectedCount > 0 ? (
@@ -571,16 +598,18 @@ export function WorklogNotesView({ selectedNoteId = null }: WorklogNotesViewProp
         setFilterAssetId={setFilterAssetId}
         onClearAll={clearAllFilters}
       />
+      </div>
 
       {/* Body: list-only OR list + reader + rail (ADR-0024).
           - selectedNoteId == null  → list claims full width (mockup Frame 2)
-          - selectedNoteId != null  → list shrinks to w-72, reader middle, rail right */}
+          - selectedNoteId != null  → list shrinks to w-72, reader middle, rail right
+          Mobile (< md) with selection: list hides, reader fills viewport. */}
       <div className="flex-1 min-h-0 flex flex-row overflow-hidden">
         <div
           className={cn(
             "min-h-0 overflow-auto",
             selectedNoteId
-              ? "w-72 shrink-0 border-r"
+              ? "hidden md:block w-72 shrink-0 border-r"
               : "flex-1",
           )}
         >
@@ -597,7 +626,7 @@ export function WorklogNotesView({ selectedNoteId = null }: WorklogNotesViewProp
               selectedFocusId={selectedNoteId}
               onOpen={handleOpen}
               onNew={handleNewNote}
-              compact={selectedNoteId !== null}
+              compact={selectedNoteId !== null || isMobile}
             />
           ) : (
             <WorklogNotesGrid
@@ -617,26 +646,37 @@ export function WorklogNotesView({ selectedNoteId = null }: WorklogNotesViewProp
 
         {selectedNoteId !== null && (
           <>
-            <div className="flex-1 min-w-0 overflow-auto">
+            <div className="flex-1 min-w-0 overflow-auto flex flex-col">
+              {/* Mobile back-to-list header (Apple Notes pattern).
+                  Hidden on md+ because the list is already visible to the left. */}
+              <Link
+                href={listReturnQuery ? `/worklog/notes?${listReturnQuery}` : "/worklog/notes"}
+                className="md:hidden flex items-center gap-1.5 h-10 px-3 border-b text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                <span>Back to notes</span>
+              </Link>
               {!loadingLogs && !selectedLog ? (
-                <div className="h-full flex flex-col items-center justify-center p-8 text-center">
+                <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
                   <p className="text-sm font-medium mb-1">Note not found</p>
                   <p className="text-xs text-muted-foreground mb-4">
                     The note may have been deleted.
                   </p>
                 </div>
               ) : (
-                <WorklogNoteReader
-                  log={selectedLog}
-                  positions={positions}
-                  equipment={equipment}
-                  assets={assets}
-                  positionMap={positionMap}
-                  tagSuggestions={tagSuggestions}
-                  onUpdate={(patch) => saveLog.mutateAsync(patch)}
-                  onDelete={handleDeleteFromInlineReader}
-                  hasLogs={logs.length > 0}
-                />
+                <div className="flex-1 min-h-0 overflow-auto">
+                  <WorklogNoteReader
+                    log={selectedLog}
+                    positions={positions}
+                    equipment={equipment}
+                    assets={assets}
+                    positionMap={positionMap}
+                    tagSuggestions={tagSuggestions}
+                    onUpdate={(patch) => saveLog.mutateAsync(patch)}
+                    onDelete={handleDeleteFromInlineReader}
+                    hasLogs={logs.length > 0}
+                  />
+                </div>
               )}
             </div>
             {/* ADR-0023 — worklog reader right-rail (desktop-only). */}
