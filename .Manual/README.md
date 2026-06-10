@@ -37,6 +37,7 @@ Examples: `job-map-view-presets.md`, `worklog-streak-tracking.md`, `resume-pdf-e
 | Note-to-Note Linking and Backlinks | [note-to-note-linking.md](./note-to-note-linking.md) | Shipped |
 | Notion Page Import On-Ramp | [notion-import.md](./notion-import.md) | Shipped |
 | Voice Dictation (Beta) for Worklog Capture | [voice-dictation.md](./voice-dictation.md) | Shipped (Beta) |
+| Worklog "Grill Me" Markdown Round-Trip | [worklog-grill-me-roundtrip.md](./worklog-grill-me-roundtrip.md) | Shipped |
 
 ## Style Rules
 
