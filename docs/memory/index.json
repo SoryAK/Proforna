@@ -7,10 +7,10 @@
   "shards": {
     "WorklogDomain": "worklog.json",
     "WorklogReaderDrawer": "worklog.json",
-    "WorklogNoteReadView": "worklog.json",
     "WorklogHistoryPanel": "worklog.json",
     "WorklogVersionDiffModal": "worklog.json",
     "WorklogReaderRightRail": "worklog.json",
+    "InlineTagsField": "worklog.json",
     "useReaderRailState": "worklog.json",
     "JobMapDomain": "job-map.json",
     "WorkHistoryDomain": "job-map.json",

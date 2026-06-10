@@ -62,7 +62,10 @@
         "[2026-06-09] UI integration: Export button lives in WorklogNotesBulkBar (between Move and Delete), wired in worklog-notes-view.tsx -> exportBulkWorklogs(ids) from src/lib/worklog/export/client.ts. Re-import auto-detects via WorklogImportDialog's hasGrillFrontmatter(source) regex — `---` fence + `id:` + `version:` keys — and routes to /api/work-logs/import-md. Four new row statuses (reimported / conflict / needs-picker / not-found) map to the four decideImport outcomes.",
         "[2026-06-09] Web Share onramp (ADR-0022 addendum) — bulk-bar Export button became a Send DropdownMenu with two destinations: Download (always) + Share to… (Web Share API Level 2). Both reuse POST /api/work-logs/export-bulk so the artifact is identical. canShareFiles() in src/lib/worklog/share/can-share.ts is SSR-safe (probes `navigator.canShare({files:[<probe File>]})`); on unsupported browsers (Firefox desktop, SSR, insecure contexts) shareWorklogs() falls back to the synthetic-download path and surfaces sonner toast 'Sharing isn't supported on this browser. The file was downloaded instead.' decideShareOutcome() returns 'shared' (error===null) | 'cancelled' (AbortError, both DOMException + plain Error variants) | 'downloaded' (any other failure → fallback fired). Share menu ITEM is rendered unconditionally; capability gate happens at click-time inside shareWorklogs. Per-row Send menu and standalone top-level picker dialog parked with re-entry criteria; bulk streaming/progress NOT parked (markdown is small, YAGNI). Test count 542 → 554 (+12: 6 canShareFiles, 6 decideShareOutcome). Google Drive integration is now SUPERSEDED by this onramp.",
         "[2026-06-10] ADR-0022 Addendum 2 — top-level Export menu shipped next to Import. Bulk-bar dropdown extracted into shared <WorklogSendMenu> at src/components/worklog/worklog-send-menu.tsx; mounted twice with different scopes — toolbar copy acts on visibleLogs (current view) with triggerLabel='Export', bulk-bar copy acts on selectedIdList with triggerLabel='Send'. Shared runDownload(ids)/runShare(ids) handlers in worklog-notes-view.tsx so the export-in-flight gate (exportBusy) and sonner toast pattern stay unified. Client-side EXPORT_MAX_VIEW=100 mirrors server BULK_MAX with honest toast 'Too many notes in this view (N). Narrow your filter or use Select mode to pick up to 100.' — fired before any network call. Both surfaces coexist when bulk-mode is active (Architectural Reviewer Option A) so the user keeps the 'export current view' path even with a selection. Trigger: user feedback that desktop Chrome / Windows OS share sheet doesn't include Drive, leaving Web Share's promise empty on that platform; toolbar Export gives the export pipeline a discoverable home without first entering Select mode. Drive integration deferred to ADR-0023 next session (Gmail OAuth client already in .env, EmailAccount table already stores accessToken+refreshToken — cost dropped from ~1 week to ~4-6 hours).",
-        "[2026-06-10] ADR-0023 worklog reader right-rail is now mounted on both /worklog (dashboard 2-pane via WorklogNotesAndReader) and /worklog/notes/[id] (single-note route). Removing the inline Backlinks/History/Photos blocks from WorklogNoteReader without also mounting the rail on /worklog/notes/[id] would have stranded those panels on that route — caught & fixed in same Unit 3 commit (02b8450)."
+        "[2026-06-10] ADR-0023 worklog reader right-rail is now mounted on both /worklog (dashboard 2-pane via WorklogNotesAndReader) and /worklog/notes/[id] (single-note route). Removing the inline Backlinks/History/Photos blocks from WorklogNoteReader without also mounting the rail on /worklog/notes/[id] would have stranded those panels on that route — caught & fixed in same Unit 3 commit (02b8450).",
+        "[2026-06-10] ADR-0023 Unit 3.1 SHIPPED (commit f02f0a7). Tags lifted from WorklogNoteReader inline block into the rail Tags tab. Dual-surface pattern via InlineTagsField (xl+ rail / xl:hidden inline) — this is the canonical template for future tab lifts. AssetPicker auto-tag merge now reads server-canonical log.tags and writes both assetIds + tags in a single onUpdate patch (same race as the editor mention merge — accepted, documented inline, not a regression).",
+        "[2026-06-10] ADR-0024 SHIPPED end-to-end. Unit 5 (commit 6377802) deleted src/components/worklog/worklog-note-read-view.tsx (the last drawer-only read shim, zero callers after Unit 3 retired the drawer). ADR-0015 Phase 5 banner now reads 'Superseded by ADR-0024'. .Manual/note-to-note-linking.md updated to drop dead WorklogNoteReadView reference. The single inline reader-first surface is canonical: WorklogNotesView (route) + WorklogNotesAndReader (dashboard) both mount WorklogNoteReader + WorklogReaderRightRail as flex siblings.",
+        "[2026-06-10 PARKED] User proposed promoting Tolaria-pattern lift to Assets + Tools (Equipment) — refined from 'two new rail tabs' to 'one rail tab with inline-section content' (Tolaria-style stacked sections in a single scrollable panel) so the rail panel doesn't become mostly deadspace per-tab. See /memories/repo/parked-ideas.md entry 'Lift Assets + Tools (Equipment) into the right rail — INLINE SECTIONS shape'."
       ]
     },
     {
@@ -77,12 +80,13 @@
       ]
     },
     {
-      "name": "WorklogNoteReadView",
+      "name": "InlineTagsField",
       "entityType": "component",
       "observations": [
-        "2026-06-07: Path src/components/worklog/worklog-note-read-view.tsx. Pure read-only renderer of a WorkLog row. NO autosave, NO editor mount, NO draft handling.",
-        "2026-06-07: Composition — title + notable star, meta strip (date · category · position · hours · folder · mood), tag Badges, photo grid, body via existing <WorklogNoteView> static reader.",
-        "2026-06-07: Used by BOTH the drawer (preview tier) AND the full-screen route /worklog/notes/[id] (focus tier). One renderer, two surfaces — do NOT fork."
+        "[2026-06-10 NEW, ADR-0023 Unit 3.1 commit f02f0a7] Path src/components/worklog/inline-tags-field.tsx. Self-contained Tags autosave field — wraps useAutosaveField + useWorklogDrafts + <TagInput> internally. Props: { log: WorkLog, onUpdate, tagSuggestions?, className?, hideLabel?, placeholder? }.",
+        "[2026-06-10] persistKey 'worklog:draft:<id>:tags'. Reads draftMap.tags → readAutosaveDraft<string>(tagsKey) → log.tags ?? '' fallback chain. Calls onUpdate({ id: log.id, tags: v || null }) on commit. CSV ↔ array bridge: TagInput value gets log.tags.split(',').map(trim).filter(Boolean), onChange writes back as array.join(', ').",
+        "[2026-06-10] Mounted in TWO surfaces: (a) right-rail Tags tab via TagsTab (xl+, owns the panel), (b) inline inside WorklogNoteReader with className='xl:hidden' (< xl, hides when rail takes over). This is the canonical dual-surface template for future tab lifts (Assets/Tools/etc.) — copy the shape exactly.",
+        "[2026-06-10] Race note (Griller Q1, accepted): AssetPicker auto-tag merge in WorklogNoteReader and editor mention-chip merge both READ from log.tags (server canonical) and WRITE through onUpdate({ tags: merged }), bypassing this component's autosave. If user is typing tags in the rail Tags tab when an asset is dropped, their typing commits last and asset tags can be lost. Same failure mode as existing editor mention merge. Not a regression."
       ]
     },
     {
@@ -120,7 +124,8 @@
         "[2026-06-10] Tabs: backlinks (⌘1), history (⌘2), tags (⌘3), photos (⌘4). ⌘\\ toggles collapse. Shortcuts suppressed when active element is contenteditable / INPUT / TEXTAREA / SELECT to avoid fighting the Tiptap editor.",
         "[2026-06-10] Unmounts entirely (returns null) when activeNoteId is null. No-selection ghost-stub mode is Unit 4 scope.",
         "[2026-06-10] Mounted as a flex sibling of WorklogNoteReader in TWO places: WorklogNotesAndReader (dashboard 2-pane) AND /worklog/notes/[id]/page.tsx (single-note route). Both surfaces must mount the rail or Backlinks/History/Photos surface disappears entirely from that route.",
-        "[2026-06-10] Tags tab still placeholder (Unit 3.1) — lifting Tags requires hoisting tagsField autosave wiring out of WorklogNoteReader, which is invasive enough to warrant its own unit."
+        "[2026-06-10 ADR-0023 Unit 3.1 SHIPPED, commit f02f0a7] Tags tab is no longer a placeholder. Renders <InlineTagsField log={...} onUpdate={...} tagSuggestions={...} hideLabel /> internally. Three new optional rail props power it: activeLog?: WorkLog | null, onUpdateActiveLog?: (patch) => void | Promise<unknown>, tagSuggestions?: string[]. Tab degrades to a no-op if onUpdateActiveLog is omitted.",
+        "[2026-06-10 ADR-0024 WRAPPED] Drawer surface fully retired (Units 0-5). The rail is now THE Tolaria-pattern surface for the worklog reader, no drawer fallback. ADR-0015 Phase 5 banner flipped to 'Superseded by ADR-0024 — Inline Reader-First Notes Surface' (commit 6377802)."
       ]
     },
     {
@@ -138,13 +143,13 @@
     { "from": "WorklogDomain", "relationType": "depends-on", "to": "LayoutShellDomain" },
     { "from": "WorklogDomain", "relationType": "depends-on", "to": "StorageKeysModule" },
     { "from": "WorklogDomain", "relationType": "contains", "to": "WorklogReaderDrawer" },
-    { "from": "WorklogDomain", "relationType": "contains", "to": "WorklogNoteReadView" },
     { "from": "WorklogDomain", "relationType": "contains", "to": "WorklogHistoryPanel" },
     { "from": "WorklogDomain", "relationType": "contains", "to": "WorklogVersionDiffModal" },
     { "from": "WorklogReaderRightRail", "relationType": "belongs to", "to": "WorklogDomain" },
     { "from": "WorklogReaderRightRail", "relationType": "uses", "to": "useReaderRailState" },
+    { "from": "WorklogReaderRightRail", "relationType": "embeds", "to": "InlineTagsField" },
+    { "from": "InlineTagsField", "relationType": "belongs to", "to": "WorklogDomain" },
     { "from": "useReaderRailState", "relationType": "belongs to", "to": "WorklogDomain" },
-    { "from": "WorklogReaderDrawer", "relationType": "embeds", "to": "WorklogNoteReadView" },
     { "from": "WorklogHistoryPanel", "relationType": "embeds", "to": "WorklogVersionDiffModal" }
   ]
 }
