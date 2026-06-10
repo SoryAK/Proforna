@@ -19,6 +19,9 @@ const EMPTY_PREFS: WorklogPreferences = {
   defaultMood: null,
   defaultHours: null,
   voiceDictationConsentedAt: null,
+  // ADR-0023 — reader right-rail defaults (unused here, included for type completeness).
+  readerRailTab: "backlinks",
+  readerRailCollapsed: false,
 };
 
 export interface VoiceConsentApi {
