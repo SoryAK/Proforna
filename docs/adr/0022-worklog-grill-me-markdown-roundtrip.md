@@ -144,10 +144,34 @@ The return trip is manual either way — Drive doesn't actually save a step. Web
 - Top-level Export button + standalone worklog picker dialog (separate feature; needs picker UX of its own).
 - Bulk streaming + progress dialog (markdown is small; YAGNI until BULK_MAX changes or users complain).
 
+## Addendum 2 (2026-06-10) — Top-level Export next to Import
+
+**Why**: in practice, Web Share's OS share sheet on desktop Chrome / Windows is empty for files — Drive doesn't register as a Windows share target, so the bulk-bar Send menu always degraded to download. That left users with no top-level path to the same export action when they weren't already in Select mode. Adding an always-visible Export affordance next to Import gives the export pipeline a discoverable home that doesn't require entering bulk mode first.
+
+**Decision**: factor the bulk-bar dropdown into a shared `<WorklogSendMenu>` component and mount a second copy in the main toolbar between Import and New note. The toolbar copy operates on the **current view** (`visibleLogs` from `useWorklogVisibleLogs`), the bulk-bar copy operates on the **current selection** (`selectedIdList`). Both call the same shared `runDownload(ids)` / `runShare(ids)` handlers so the export-in-flight gate (`exportBusy`) and toast pattern stay unified.
+
+**Two coexisting surfaces** (Architectural Reviewer Option A):
+
+| Surface       | Scope                                  | Trigger label  | When visible                                  |
+| ------------- | -------------------------------------- | -------------- | --------------------------------------------- |
+| Toolbar       | Current view (`visibleLogs`)           | `Export`       | Always (disabled when view is empty)          |
+| Bulk-bar      | Current selection (`selectedIdList`)   | `Send`         | Only while ≥1 row is selected (bulk mode)     |
+
+When bulk mode is active both are on screen with **different scopes**. Two send affordances is acceptable because each has a clear scope cue: the toolbar lives next to Import ("top-level export of what I see"), the bulk-bar Send lives next to Move/Delete ("act on the selection"). Hiding the toolbar while bulk-mode is active was rejected — it loses the "export the whole view" path while a user happens to have a selection active.
+
+**Honest cap**: server-side `BULK_MAX = 100` is mirrored at the client as `EXPORT_MAX_VIEW = 100`. When the current view exceeds this, the menu items short-circuit before the network call and toast *"Too many notes in this view (N). Narrow your filter or use Select mode to pick up to 100."* The bulk-bar surface is naturally bounded by the user's selection so it doesn't need this guardrail.
+
+**Out of scope for this addendum** (still parked, re-entry criteria unchanged):
+
+- Per-row Send menu (no per-row dropdown to extend across list/table/grid).
+- Standalone worklog picker dialog (cross-folder export without first selecting in current view).
+- Google Drive integration as a third destination (queued as ADR-0023; existing `.env` already has the OAuth client + refresh-token storage from Gmail sync, so the cost dropped from "~1 week" to "~4-6 hours" but it remains its own sprint).
+
 ## Links / References
 
 - ADR-0018 (External Import Integrations) — first-time markdown/HTML import, the pipeline this feature reuses.
 - ADR-0017 (Worklog Version History) — auto-snapshot writer fired on every successful re-import; conflict detection counts `WorkLogVersion` rows.
 - ADR-0010 (Tiptap + Y.js) — the Tiptap node schema this feature serialises out of and parses back into.
-- [parked-ideas.md](../../memories/repo/parked-ideas.md) — Google Drive integration superseded by Web Share onramp; per-row Send menu + standalone picker dialog parked with re-entry criteria.
+- [parked-ideas.md](../../memories/repo/parked-ideas.md) — Google Drive integration superseded by Web Share for the share-out leg; per-row Send menu + standalone picker dialog still parked with re-entry criteria.
 - `src/lib/worklog/share/` — `canShareFiles()` predicate + `shareWorklogs(ids)` client (Phase 1, 12 tests).
+- `src/components/worklog/worklog-send-menu.tsx` — shared Download/Share-to dropdown consumed by both the bulk-bar and the top-level toolbar (Addendum 2).

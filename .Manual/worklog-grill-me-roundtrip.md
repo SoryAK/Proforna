@@ -3,7 +3,7 @@
 **Status:** Shipped
 **Owner:** Sory
 **Related ADR(s):** [0022](../docs/adr/0022-worklog-grill-me-markdown-roundtrip.md), [0017](../docs/adr/0017-worklog-version-history-and-visual-diff.md), [0018](../docs/adr/0018-external-import-integrations.md)
-**Source files:** `src/lib/worklog/export/{frontmatter,pm-to-markdown,worklog-to-markdown,client}.ts`, `src/lib/worklog/share/{can-share,share-client}.ts`, `src/lib/worklog/import/grill-frontmatter.ts`, `src/app/api/work-logs/[id]/export/route.ts`, `src/app/api/work-logs/export-bulk/route.ts`, `src/app/api/work-logs/import-md/route.ts`, `src/components/worklog/worklog-notes-bulk-bar.tsx`, `src/components/worklog/worklog-notes-view.tsx`, `src/components/worklog/worklog-import-dialog.tsx`
+**Source files:** `src/lib/worklog/export/{frontmatter,pm-to-markdown,worklog-to-markdown,client}.ts`, `src/lib/worklog/share/{can-share,share-client}.ts`, `src/lib/worklog/import/grill-frontmatter.ts`, `src/app/api/work-logs/[id]/export/route.ts`, `src/app/api/work-logs/export-bulk/route.ts`, `src/app/api/work-logs/import-md/route.ts`, `src/components/worklog/worklog-send-menu.tsx`, `src/components/worklog/worklog-notes-bulk-bar.tsx`, `src/components/worklog/worklog-notes-view.tsx`, `src/components/worklog/worklog-import-dialog.tsx`
 
 ---
 
@@ -19,10 +19,18 @@ The export format is plain markdown (CommonMark + GFM). At the top of every expo
 
 ### Export (bulk action)
 
-1. User toggles **Select** in the notes view, ticks one or more rows, then clicks the **Send** dropdown in the bulk-action bar (`src/components/worklog/worklog-notes-bulk-bar.tsx`).
-2. The Send menu shows two destinations — one verb, two outcomes:
-   - **Download** — always available. Calls `exportBulkWorklogs(ids)` from `src/lib/worklog/export/client.ts` and triggers a synthetic `<a download>` click on the response blob.
-   - **Share to…** — calls `shareWorklogs(ids)` from `src/lib/worklog/share/share-client.ts`, which performs the same bulk-export POST and routes the resulting blob through `navigator.share({ files })` so the OS share sheet can hand it off to ChatGPT, Claude, Gemini mobile, AirDrop, Mail, Slack, Notion, etc.
+Two surfaces share one menu (`<WorklogSendMenu>`):
+
+- **Toolbar `Export`** — always visible next to `Import` in the main toolbar. Acts on the **current view** (`visibleLogs` from `useWorklogVisibleLogs`). Disabled when the view is empty. Honest client-side cap at 100 (mirrors `BULK_MAX`) — if the view has more, a toast says *"Too many notes in this view (N). Narrow your filter or use Select mode to pick up to 100."* and bails before any network call.
+- **Bulk-bar `Send`** — visible only while ≥1 row is selected. Acts on the **current selection** (`selectedIdList`). No client-side cap because the selection is naturally bounded.
+
+Both open the same Send menu with two destinations — one verb, two outcomes:
+
+- **Download** — always available. Calls `exportBulkWorklogs(ids)` from `src/lib/worklog/export/client.ts` and triggers a synthetic `<a download>` click on the response blob.
+- **Share to…** — calls `shareWorklogs(ids)` from `src/lib/worklog/share/share-client.ts`, which performs the same bulk-export POST and routes the resulting blob through `navigator.share({ files })` so the OS share sheet can hand it off to ChatGPT, Claude, Gemini mobile, AirDrop, Mail, Slack, Notion, etc. **On desktop Chrome / Windows the OS share sheet does not include Drive** — this surface degrades to download with an honest toast. On mobile (iOS/Android) the share sheet is fully populated and Web Share is the right tool.
+
+1. User picks a destination from either Send menu.
+2. The view's `runDownload(ids)` / `runShare(ids)` callback runs. Both wrap the export-in-flight gate (`exportBusy`) so the menu trigger reads *"Sending…"* until the operation completes.
 3. Either path POSTs `{ids}` to `/api/work-logs/export-bulk` (`src/app/api/work-logs/export-bulk/route.ts`).
 4. Route handler:
    1. Authenticates via `getUserId()`.
