@@ -144,7 +144,7 @@ export function QuickCaptureDialog({ open, onOpenChange }: QuickCaptureDialogPro
       qc.invalidateQueries({ queryKey: ["work-logs"] });
       qc.invalidateQueries({ queryKey: ["command-palette-search"] });
       onOpenChange(false);
-      router.push(`/worklog/notes?focus=${saved.id}`);
+      router.push(`/worklog/notes/${saved.id}`);
     },
     onError: (e: unknown) => {
       setError(e instanceof Error ? e.message : "Failed to create worklog");

@@ -5,9 +5,9 @@
  *   1. User types a title.
  *   2. User optionally picks a category chip.
  *   3. Save → POST /api/work-logs with title+category+date+today defaults.
- *   4. router.push(`/worklog/notes?focus=<id>`) — escalates into the editor
- *      with the new note pre-selected. The existing useWorklogDeepLinks hook
- *      consumes ?focus and brings the reader into focus automatically.
+ *   4. router.push(`/worklog/notes/<id>`) — routes straight to the
+ *      dedicated reader (ADR-0024) with the new note open in the inline
+ *      3-pane layout.
  *
  * No inline-save state. No optimistic UI on /worklog itself — by design,
  * the capture is a route handoff, not a here-and-now mutation.
@@ -56,8 +56,8 @@ export function WorklogQuickCapture() {
     },
     onSuccess: (saved) => {
       qc.invalidateQueries({ queryKey: ["worklogs"] });
-      // Escalate into the full editor — useWorklogDeepLinks consumes ?focus.
-      router.push(`/worklog/notes?focus=${saved.id}`);
+      // Route straight to the dedicated reader (ADR-0024).
+      router.push(`/worklog/notes/${saved.id}`);
     },
   });
 

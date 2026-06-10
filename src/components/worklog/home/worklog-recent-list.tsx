@@ -1,7 +1,7 @@
 /**
  * WorklogRecentList — "Earlier this week" one-liner list for the worklog
  * home. Shows the most recent ~8 notes EXCLUDING today (today gets its own
- * dedicated list above). Click → /worklog/notes?focus=<id>.
+ * dedicated list above). Click → /worklog/notes/<id> per ADR-0024.
  *
  * Same row pattern as WorklogTodayList; consider extracting if a third
  * surface adopts it.
@@ -79,7 +79,7 @@ export function WorklogRecentList() {
           return (
             <li key={log.id}>
               <Link
-                href={`/worklog/notes?focus=${log.id}`}
+                href={`/worklog/notes/${log.id}`}
                 className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent/40 transition-colors"
               >
                 <span

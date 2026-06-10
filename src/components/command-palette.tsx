@@ -254,7 +254,7 @@ export function CommandPalette() {
                       key={w.id}
                       // value is what cmdk fuzzy-matches against — include title + tags + content snippet
                       value={`worklog ${w.title} ${w.tags ?? ""} ${(w.content ?? "").slice(0, 200)}`}
-                      onSelect={() => navigate(`/worklog/notes?focus=${w.id}`)}
+                      onSelect={() => navigate(`/worklog/notes/${w.id}`)}
                     >
                       <NotebookPen className="mr-2 h-4 w-4 text-muted-foreground" />
                       <span className="truncate">{w.title}</span>

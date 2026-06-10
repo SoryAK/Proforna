@@ -1,26 +1,25 @@
 /**
  * WorklogNotesView — Drive-style document-manager surface for `/worklog/notes`
- * (per ADR-0015).
+ * (per ADR-0015) + inline 3-pane reader on `/worklog/notes/[id]` (per ADR-0024).
  *
  * Composition:
  *   ┌── Top bar (count · view switcher · Select · "+ New note") OR <BulkBar> ┐
  *   ├── <WorklogNotesFilterChips> (Position · Notable · Equip · Asset)        ┤
- *   ├── <WorklogNotesTable>  (list view) OR <WorklogNotesGrid> (card view)  ┤
- *   └── <WorklogReaderDrawer> (right rail / mobile sheet) ──────────────────┘
+ *   └── List pane (full-width) OR list + reader + rail (3-pane) ─────────────┘
  *
  * The folder picker lives in the global sidebar (ADR-0013); this view reads
  * the URL-driven `activeFolder` via {@link useFolderSelection} so the table
  * automatically scopes to whatever the sidebar has selected.
  *
- * Two-speed open flow (ADR-0015 Phase 5):
- *   • Row click → sets `?focus=<id>` on the URL → opens the preview drawer.
- *     The list stays interactive behind it (md+) so the user can skim
- *     several notes in a row without losing their place.
- *   • Drawer's "Open" button → escalates to `/worklog/notes/[id]`
- *     (full-screen, editable). The current list query string (folder, view)
- *     is forwarded for the reader's back-button.
- *   • New notes skip the drawer and route straight to the full-screen
- *     editor — there's nothing to preview yet.
+ * Inline 3-pane (ADR-0024):
+ *   • `/worklog/notes` mounts this view with no selection → list-only.
+ *   • `/worklog/notes/[id]` mounts it with `selectedNoteId={id}` → the
+ *     list shrinks to w-72 (compact mode), the reader fills the middle,
+ *     and the right rail (ADR-0023) takes the right edge.
+ *   • Row click → router.push(`/worklog/notes/<id>`) so the path segment
+ *     is always the source of truth for selection.
+ *   • New notes route straight to `/worklog/notes/<id>` — there's no
+ *     preview drawer anymore (retired in ADR-0024).
  *
  * Bulk-mode discipline: row checkboxes only render when the user explicitly
  * activates Select mode in the toolbar. Drive-style — keeps the default view
@@ -30,7 +29,7 @@
  * previewing a note are compatible — both live alongside each other.
  *
  * `<WorklogPage compact />` continues to serve the dashboard embed
- * unchanged; this view is only mounted at `/worklog/notes`.
+ * unchanged; this view is only mounted at `/worklog/notes[/<id>]`.
  */
 
 "use client";
@@ -57,7 +56,6 @@ import { WorklogNotesGrid } from "@/components/worklog/worklog-notes-grid";
 import { WorklogNotesFilterChips } from "@/components/worklog/worklog-notes-filter-chips";
 import { WorklogNotesBulkBar } from "@/components/worklog/worklog-notes-bulk-bar";
 import { WorklogNotesSortMenu } from "@/components/worklog/worklog-notes-sort-menu";
-import { WorklogReaderDrawer } from "@/components/worklog/worklog-reader-drawer";
 import { WorklogNoteReader } from "@/components/worklog/worklog-note-reader";
 import { WorklogReaderRightRail } from "@/components/worklog/right-rail/worklog-reader-right-rail";
 import { WorklogImportDialog } from "@/components/worklog/worklog-import-dialog";
@@ -75,9 +73,7 @@ type ViewMode = "list" | "grid";
 export interface WorklogNotesViewProps {
   /**
    * When set, the view renders the inline 3-pane layout (list → reader → rail)
-   * per ADR-0024. When null/undefined, the view stays in list-only mode and the
-   * preview drawer remains the read surface (Unit 1 keeps the drawer behavior
-   * intact for the list route until Unit 3 retires it entirely).
+   * per ADR-0024. When null/undefined, the view stays in list-only mode.
    *
    * Mounted by `/worklog/notes/[id]/page.tsx` (Unit 2).
    */
@@ -240,21 +236,8 @@ export function WorklogNotesView({ selectedNoteId = null }: WorklogNotesViewProp
     return () => window.removeEventListener("keydown", onKey);
   }, [bulkMode, selection]);
 
-  // Drawer-preview state — driven by the `?focus=<id>` URL param so the
-  // drawer survives refresh + back/forward (ADR-0015 Phase 5).
-  //
-  // ADR-0024 transition: when `selectedNoteId` is set, the inline 3-pane
-  // layout owns the read surface and the drawer is irrelevant. Treat the
-  // ?focus= param as inert in that mode — the path segment wins.
-  const focusId = selectedNoteId ? null : searchParams.get("focus");
-  const focusedLog = useMemo(
-    () => (focusId ? logs.find((l) => l.id === focusId) ?? null : null),
-    [focusId, logs],
-  );
-  const drawerOpen = focusId !== null;
-
-  // Inline reader resolution (ADR-0024) — mirrors focusedLog but keyed off
-  // the path segment instead of the query param. `selectedLog` is null
+  // Inline reader resolution (ADR-0024) — keyed off the path segment so the
+  // dedicated reader route owns the read surface. `selectedLog` is null
   // while logs are still loading; the reader's loading state handles that.
   const selectedLog = useMemo(
     () => (selectedNoteId ? logs.find((l) => l.id === selectedNoteId) ?? null : null),
@@ -277,50 +260,13 @@ export function WorklogNotesView({ selectedNoteId = null }: WorklogNotesViewProp
     return Array.from(seen).sort();
   }, [logs, selectedNoteId]);
 
-  // Build a URL preserving every existing query param plus an override.
-  // Used by both row-open (set `focus`) and drawer-close (drop `focus`).
-  const buildNotesUrl = useCallback(
-    (overrides: Record<string, string | null>) => {
-      const next = new URLSearchParams(searchParams.toString());
-      for (const [k, v] of Object.entries(overrides)) {
-        if (v === null) next.delete(k);
-        else next.set(k, v);
-      }
-      const qs = next.toString();
-      return qs ? `/worklog/notes?${qs}` : "/worklog/notes";
-    },
-    [searchParams],
-  );
-
-  // Row click. In list-only mode (legacy) this opens the preview drawer
-  // via `?focus=<id>`. In inline 3-pane mode (ADR-0024, when `selectedNoteId`
-  // is set by the parent route), it instead navigates to
-  // `/worklog/notes/<id>` so the path segment becomes the source of truth
-  // for selection. `scroll: false` prevents the list from jumping to top.
+  // Row click — always navigates to the dedicated reader route per ADR-0024.
+  // Carries the current list query string so the reader's back nav can
+  // rebuild the same filtered list view.
   const handleOpen = (id: string) => {
-    if (selectedNoteId !== null) {
-      const qs = searchParams.toString();
-      router.push(`/worklog/notes/${id}${qs ? `?${qs}` : ""}`);
-      return;
-    }
-    router.replace(buildNotesUrl({ focus: id }), { scroll: false });
+    const qs = searchParams.toString();
+    router.push(`/worklog/notes/${id}${qs ? `?${qs}` : ""}`);
   };
-
-  const handleCloseDrawer = useCallback(() => {
-    router.replace(buildNotesUrl({ focus: null }), { scroll: false });
-  }, [router, buildNotesUrl]);
-
-  // Escalation target for the drawer's "Open" button — full-screen reader
-  // route with the current list query string forwarded for back-nav. Drop
-  // `focus` from the forwarded params so returning doesn't reopen the
-  // drawer over the list.
-  const drawerOpenHref = useMemo(() => {
-    if (!focusId) return null;
-    const forward = new URLSearchParams(searchParams.toString());
-    forward.delete("focus");
-    const qs = forward.toString();
-    return `/worklog/notes/${focusId}${qs ? `?${qs}` : ""}`;
-  }, [focusId, searchParams]);
 
   // Create a blank note and route directly to its full-screen reader.
   // New notes skip the preview drawer — there's nothing to preview yet.
@@ -346,14 +292,6 @@ export function WorklogNotesView({ selectedNoteId = null }: WorklogNotesViewProp
     } catch {
       // mutation surfaces errors via React Query toasts
     }
-  };
-
-  // Delete from the drawer — closes the drawer optimistically and lets
-  // the mutation propagate (it'll invalidate `worklogs` and the row will
-  // vanish from the list).
-  const handleDeleteFromDrawer = (id: string) => {
-    handleCloseDrawer();
-    deleteLog.mutate(id);
   };
 
   // Delete from the inline reader (ADR-0024). Navigates back to the bare
@@ -656,7 +594,7 @@ export function WorklogNotesView({ selectedNoteId = null }: WorklogNotesViewProp
               onSortChange={setSort}
               selection={selection}
               bulkMode={bulkMode}
-              selectedFocusId={selectedNoteId ?? focusId}
+              selectedFocusId={selectedNoteId}
               onOpen={handleOpen}
               onNew={handleNewNote}
               compact={selectedNoteId !== null}
@@ -670,7 +608,7 @@ export function WorklogNotesView({ selectedNoteId = null }: WorklogNotesViewProp
               sort={sort}
               selection={selection}
               bulkMode={bulkMode}
-              selectedFocusId={selectedNoteId ?? focusId}
+              selectedFocusId={selectedNoteId}
               onOpen={handleOpen}
               onNew={handleNewNote}
             />
@@ -709,20 +647,6 @@ export function WorklogNotesView({ selectedNoteId = null }: WorklogNotesViewProp
           </>
         )}
       </div>
-
-      {/* Preview drawer (ADR-0015 Phase 5). Renders as a right-anchored
-          panel on md+ and a full-screen sheet on mobile. URL-driven via
-          `?focus=<id>` so the preview survives refresh + back/forward. */}
-      <WorklogReaderDrawer
-        open={drawerOpen}
-        log={focusedLog}
-        loading={loadingLogs}
-        positions={positions}
-        positionMap={positionMap}
-        openHref={drawerOpenHref}
-        onClose={handleCloseDrawer}
-        onDelete={handleDeleteFromDrawer}
-      />
 
       {/* Sprint 4: file-drop import wizard. Mounted here (not at layout)
           so it shares the same React Query cache used by the notes view —

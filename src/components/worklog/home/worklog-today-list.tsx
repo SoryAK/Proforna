@@ -8,8 +8,8 @@
  *   • optional notable star
  *   • relative time (e.g. "2h ago")
  *
- * Click → router.push(`/worklog/notes?focus=<id>`). Empty state encourages
- * Quick Capture above.
+ * Click → router.push(`/worklog/notes/<id>`) per ADR-0024. Empty state
+ * encourages Quick Capture above.
  */
 
 "use client";
@@ -83,7 +83,7 @@ export function WorklogTodayList() {
         return (
           <li key={log.id}>
             <Link
-              href={`/worklog/notes?focus=${log.id}`}
+              href={`/worklog/notes/${log.id}`}
               className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent/40 transition-colors"
             >
               <span
