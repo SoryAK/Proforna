@@ -58,6 +58,8 @@ import { WorklogNotesFilterChips } from "@/components/worklog/worklog-notes-filt
 import { WorklogNotesBulkBar } from "@/components/worklog/worklog-notes-bulk-bar";
 import { WorklogNotesSortMenu } from "@/components/worklog/worklog-notes-sort-menu";
 import { WorklogReaderDrawer } from "@/components/worklog/worklog-reader-drawer";
+import { WorklogNoteReader } from "@/components/worklog/worklog-note-reader";
+import { WorklogReaderRightRail } from "@/components/worklog/right-rail/worklog-reader-right-rail";
 import { WorklogImportDialog } from "@/components/worklog/worklog-import-dialog";
 import { exportBulkWorklogs } from "@/lib/worklog/export/client";
 import { shareWorklogs } from "@/lib/worklog/share/share-client";
@@ -70,7 +72,19 @@ const DEFAULT_SORT: WorklogNotesTableSortState = {
 
 type ViewMode = "list" | "grid";
 
-export function WorklogNotesView() {
+export interface WorklogNotesViewProps {
+  /**
+   * When set, the view renders the inline 3-pane layout (list → reader → rail)
+   * per ADR-0024. When null/undefined, the view stays in list-only mode and the
+   * preview drawer remains the read surface (Unit 1 keeps the drawer behavior
+   * intact for the list route until Unit 3 retires it entirely).
+   *
+   * Mounted by `/worklog/notes/[id]/page.tsx` (Unit 2).
+   */
+  selectedNoteId?: string | null;
+}
+
+export function WorklogNotesView({ selectedNoteId = null }: WorklogNotesViewProps = {}) {
   const router = useRouter();
   // Snapshot of the current `/worklog/notes` query string. Forwarded onto
   // `/worklog/notes/[id]` so the reader's back-button can rebuild the same
@@ -228,12 +242,40 @@ export function WorklogNotesView() {
 
   // Drawer-preview state — driven by the `?focus=<id>` URL param so the
   // drawer survives refresh + back/forward (ADR-0015 Phase 5).
-  const focusId = searchParams.get("focus");
+  //
+  // ADR-0024 transition: when `selectedNoteId` is set, the inline 3-pane
+  // layout owns the read surface and the drawer is irrelevant. Treat the
+  // ?focus= param as inert in that mode — the path segment wins.
+  const focusId = selectedNoteId ? null : searchParams.get("focus");
   const focusedLog = useMemo(
     () => (focusId ? logs.find((l) => l.id === focusId) ?? null : null),
     [focusId, logs],
   );
   const drawerOpen = focusId !== null;
+
+  // Inline reader resolution (ADR-0024) — mirrors focusedLog but keyed off
+  // the path segment instead of the query param. `selectedLog` is null
+  // while logs are still loading; the reader's loading state handles that.
+  const selectedLog = useMemo(
+    () => (selectedNoteId ? logs.find((l) => l.id === selectedNoteId) ?? null : null),
+    [selectedNoteId, logs],
+  );
+
+  // Tag autocomplete corpus for the inline reader — same derivation as the
+  // standalone /worklog/notes/[id] route (Unit 2 replaces that derivation
+  // entirely by routing through this view).
+  const tagSuggestions = useMemo(() => {
+    if (!selectedNoteId) return [] as string[];
+    const seen = new Set<string>();
+    for (const l of logs) {
+      if (!l.tags) continue;
+      for (const t of l.tags.split(",")) {
+        const trimmed = t.trim().toLowerCase();
+        if (trimmed) seen.add(trimmed);
+      }
+    }
+    return Array.from(seen).sort();
+  }, [logs, selectedNoteId]);
 
   // Build a URL preserving every existing query param plus an override.
   // Used by both row-open (set `focus`) and drawer-close (drop `focus`).
@@ -250,9 +292,17 @@ export function WorklogNotesView() {
     [searchParams],
   );
 
-  // Row click → open preview drawer via `?focus=<id>`. `scroll: false`
-  // prevents the list from jumping to the top when the URL updates.
+  // Row click. In list-only mode (legacy) this opens the preview drawer
+  // via `?focus=<id>`. In inline 3-pane mode (ADR-0024, when `selectedNoteId`
+  // is set by the parent route), it instead navigates to
+  // `/worklog/notes/<id>` so the path segment becomes the source of truth
+  // for selection. `scroll: false` prevents the list from jumping to top.
   const handleOpen = (id: string) => {
+    if (selectedNoteId !== null) {
+      const qs = searchParams.toString();
+      router.push(`/worklog/notes/${id}${qs ? `?${qs}` : ""}`);
+      return;
+    }
     router.replace(buildNotesUrl({ focus: id }), { scroll: false });
   };
 
@@ -304,6 +354,17 @@ export function WorklogNotesView() {
   const handleDeleteFromDrawer = (id: string) => {
     handleCloseDrawer();
     deleteLog.mutate(id);
+  };
+
+  // Delete from the inline reader (ADR-0024). Navigates back to the bare
+  // list URL (preserving any forwarded filter qs) so the now-deleted id
+  // disappears from the path segment.
+  const handleDeleteFromInlineReader = (id: string) => {
+    const qs = searchParams.toString();
+    const backHref = qs ? `/worklog/notes?${qs}` : "/worklog/notes";
+    deleteLog.mutate(id, {
+      onSuccess: () => router.push(backHref),
+    });
   };
 
   const selectedCount = selection.selectedCount;
@@ -573,35 +634,78 @@ export function WorklogNotesView() {
         onClearAll={clearAllFilters}
       />
 
-      {/* List or Grid */}
-      <div className="flex-1 min-h-0 overflow-auto">
-        {viewMode === "list" ? (
-          <WorklogNotesTable
-            logs={visibleLogs}
-            positionMap={positionMap}
-            folders={folders}
-            loading={loadingLogs}
-            sort={sort}
-            onSortChange={setSort}
-            selection={selection}
-            bulkMode={bulkMode}
-            selectedFocusId={focusId}
-            onOpen={handleOpen}
-            onNew={handleNewNote}
-          />
-        ) : (
-          <WorklogNotesGrid
-            logs={visibleLogs}
-            positionMap={positionMap}
-            folders={folders}
-            loading={loadingLogs}
-            sort={sort}
-            selection={selection}
-            bulkMode={bulkMode}
-            selectedFocusId={focusId}
-            onOpen={handleOpen}
-            onNew={handleNewNote}
-          />
+      {/* Body: list-only OR list + reader + rail (ADR-0024).
+          - selectedNoteId == null  → list claims full width (mockup Frame 2)
+          - selectedNoteId != null  → list shrinks to w-72, reader middle, rail right */}
+      <div className="flex-1 min-h-0 flex flex-row overflow-hidden">
+        <div
+          className={cn(
+            "min-h-0 overflow-auto",
+            selectedNoteId
+              ? "w-72 shrink-0 border-r"
+              : "flex-1",
+          )}
+        >
+          {viewMode === "list" ? (
+            <WorklogNotesTable
+              logs={visibleLogs}
+              positionMap={positionMap}
+              folders={folders}
+              loading={loadingLogs}
+              sort={sort}
+              onSortChange={setSort}
+              selection={selection}
+              bulkMode={bulkMode}
+              selectedFocusId={selectedNoteId ?? focusId}
+              onOpen={handleOpen}
+              onNew={handleNewNote}
+            />
+          ) : (
+            <WorklogNotesGrid
+              logs={visibleLogs}
+              positionMap={positionMap}
+              folders={folders}
+              loading={loadingLogs}
+              sort={sort}
+              selection={selection}
+              bulkMode={bulkMode}
+              selectedFocusId={selectedNoteId ?? focusId}
+              onOpen={handleOpen}
+              onNew={handleNewNote}
+            />
+          )}
+        </div>
+
+        {selectedNoteId !== null && (
+          <>
+            <div className="flex-1 min-w-0 overflow-auto">
+              {!loadingLogs && !selectedLog ? (
+                <div className="h-full flex flex-col items-center justify-center p-8 text-center">
+                  <p className="text-sm font-medium mb-1">Note not found</p>
+                  <p className="text-xs text-muted-foreground mb-4">
+                    The note may have been deleted.
+                  </p>
+                </div>
+              ) : (
+                <WorklogNoteReader
+                  log={selectedLog}
+                  positions={positions}
+                  equipment={equipment}
+                  assets={assets}
+                  positionMap={positionMap}
+                  tagSuggestions={tagSuggestions}
+                  onUpdate={(patch) => saveLog.mutateAsync(patch)}
+                  onDelete={handleDeleteFromInlineReader}
+                  hasLogs={logs.length > 0}
+                />
+              )}
+            </div>
+            {/* ADR-0023 — worklog reader right-rail (desktop-only). */}
+            <WorklogReaderRightRail
+              activeNoteId={selectedLog?.id ?? null}
+              currentPlainText={selectedLog?.content ?? ""}
+            />
+          </>
         )}
       </div>
 
