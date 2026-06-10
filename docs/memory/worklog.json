@@ -45,7 +45,16 @@
         "[2026-06-09] Test counts post-fix: 364/364 pass (was 343 pre-fix). Added 10 helper tests + 8 mutator tests + 3 mention-search tests.",
         "[2026-06-09 trap] `${pathname}?focus=<id>` is unsafe when pathname can be either /worklog/notes (list view, ?focus= drives the drawer) OR /worklog/notes/<currentId> (dedicated reader, only the path id is consumed). On the dedicated reader the appended ?focus= is silently ignored — clicks looked dead. Canonical builder is buildWorklogFocusHref(pathname, entityId) at src/lib/worklog/focus-href.ts: list → ?focus=, reader → swap path id, anywhere else → list+?focus=. Three callsites consume it (mention-node-view, worklog-backlinks-panel, worklog-note-view). Any new surface that pivots between worklog notes from a chip/backlink MUST use the helper, not pathname concat.",
         "[2026-06-09 trap] Tiptap 3 StarterKit ships Link as a built-in extension. Importing @tiptap/extension-link and calling Link.configure(...) elsewhere in the same editor triggers `Duplicate extension names found: ['link']`. Disable via StarterKit.configure({ link: false }) at every callsite that registers a custom Link config — applies to worklog-editor.tsx (SCHEMA_EXTENSIONS + useEditor) and rich-text-editor.tsx. Same pattern would apply to any other StarterKit-included extension we override (heading, history, etc.).",
-        "[2026-06-09] WorklogBacklinksPanel already renders in BOTH read and edit modes on /worklog/notes/[id] — it lives outside the editMode ternary in worklog-note-reader.tsx. The reader drawer is read-only by design (uses WorklogNoteReadView, no editor mount), so backlinks-in-edit-mode is a non-issue there too. Don't re-litigate."
+        "[2026-06-09] WorklogBacklinksPanel already renders in BOTH read and edit modes on /worklog/notes/[id] — it lives outside the editMode ternary in worklog-note-reader.tsx. The reader drawer is read-only by design (uses WorklogNoteReadView, no editor mount), so backlinks-in-edit-mode is a non-issue there too. Don't re-litigate.",
+        "2026-06-09: ADR-0017 SHIPPED — worklog version history + visual diff. Adds WorkLogVersion table (id, workLogId FK CASCADE, label, isManual, contentJson, plainText, plainTextPreview, charDelta, createdAt) plus auto-snapshot writer in PUT /api/work-logs/[id] (best-effort: snapshot failures are logged via [ADR-0017] auto-snapshot write failed but never fail the user's save). Inline retention thinning shares the same best-effort guarantee.",
+        "2026-06-09: New routes — GET/POST /api/work-logs/[id]/versions (list / manual snapshot), GET /api/work-logs/[id]/versions/[versionId] (full snapshot — needed by diff modal because list endpoint returns truncated 200-char preview), POST /api/work-logs/[id]/versions/[versionId]/restore (writes a 'Before restore from <ts>' pre-snapshot first, then overwrites the current note's contentJson + content with the chosen version's payload).",
+        "2026-06-09: New components — WorklogHistoryPanel + WorklogVersionDiffModal. New pure helpers — src/lib/worklog/version/grouping.ts (groupVersionsByDate buckets: today / yesterday / thisWeek / older — note thisWeek is anchored to NOW not start-of-day so exact-7-days-ago lands in thisWeek, not older) + src/lib/worklog/version/diff.ts (computePlainTextDiff: LCS DP backtrack over word/horizontal-whitespace/newline tokens; tokenizer keeps each as SEPARATE tokens otherwise prefix-match alignment breaks).",
+        "2026-06-09: ASYMMETRIC mount vs ADR-0016. WorklogHistoryPanel mounts ONLY in worklog-note-reader.tsx (full-screen route /worklog/notes/[id]). The drawer (WorklogNoteReadView) does NOT show History — read-only preview surface stays minimal. Backlinks live in BOTH per ADR-0016. If a future ADR wants History in the drawer, it would mount in worklog-note-read-view.tsx like Backlinks does.",
+        "2026-06-09: Toolbar 'Save version' button — WorklogEditorToolbar gained an optional `workLogId?: string` prop. Button (BookmarkPlus icon) only renders when prop is provided, so non-saving editor surfaces (if added later) can mount the toolbar without it. WorklogEditor passes `workLogId={workLogId}` through.",
+        "[2026-06-09 trap] Next.js 16 / React 19 BLOCKS window.prompt() / window.confirm() in dev mode — throws 'Error: prompt() is not supported.' Caught smoke-testing ADR-0017 Save Version (used prompt) and Restore (used confirm). Both swapped to controlled base-ui Dialog from @/components/ui/dialog with useState. Pattern in worklog-editor-toolbar.tsx (Save Version dialog) and worklog-history-panel.tsx (Restore confirm dialog). Don't even try prompt/confirm/alert in any new client component — go straight to Dialog. Also captured in user memory.",
+        "2026-06-09: Y.js sync after restore is PARKED. POST .../restore overwrites server-side contentJson + content but doesn't broadcast a Y.update to open editor sessions. The device that triggered restore sees the new state via query invalidation; OTHER open devices keep their stale Y.Doc until next reload. Data is correct on next load. Future work would broadcast a Y.update via the collaboration backend.",
+        "2026-06-09: Phase 9b is PARKED — current diff is plain-text LCS. If users complain it's too coarse for rich content (lists, headings, mentions), swap in prosemirror-changeset-based rich diff. Plain-text was deliberate v1 to ship fast.",
+        "2026-06-09: Test count after ADR-0017 SHIP = 445/445 (was 364 pre-ADR-0017). Suite duration ~1.7s. New tests: grouping.test.ts (8), diff.test.ts (9), versions/route.test.ts (20), versions/[versionId]/route.test.ts (5), restore route, plus auto-snapshot + retention tests in PUT route.test.ts (~18). UI components (worklog-history-panel.tsx, worklog-version-diff-modal.tsx) are out of TDD scope per ADR-0018 (no jsdom stack)."
       ]
     },
     {
@@ -67,6 +76,33 @@
         "2026-06-07: Composition — title + notable star, meta strip (date · category · position · hours · folder · mood), tag Badges, photo grid, body via existing <WorklogNoteView> static reader.",
         "2026-06-07: Used by BOTH the drawer (preview tier) AND the full-screen route /worklog/notes/[id] (focus tier). One renderer, two surfaces — do NOT fork."
       ]
+    },
+    {
+      "name": "WorklogHistoryPanel",
+      "entityType": "component",
+      "observations": [
+        "2026-06-09: Path src/components/worklog/worklog-history-panel.tsx. Sibling to WorklogBacklinksPanel. Renders a read-only timeline of past WorkLogVersion rows for a note plus 'View diff' / 'Restore' actions per row.",
+        "2026-06-09: Mounted ONLY in worklog-note-reader.tsx (full-screen route /worklog/notes/[id]) directly after WorklogBacklinksPanel. NOT mounted in WorklogNoteReadView (drawer) — deliberate asymmetry vs Backlinks (which is in both surfaces).",
+        "2026-06-09: Data — useQuery(['worklog-versions', noteId]) GETs /api/work-logs/[id]/versions with staleTime: 15s. Hides during isLoading to avoid layout flicker (matches backlinks panel pattern).",
+        "2026-06-09: Sections grouped by recency via groupVersionsByDate — BUCKET_LABELS = { today: 'Today', yesterday: 'Yesterday', thisWeek: 'Earlier this week', older: 'Older' }. Empty buckets are skipped, not shown empty.",
+        "2026-06-09: Each row shows label-or-'Auto', formatTime(createdAt), charDelta colorized (emerald positive / red negative), plainTextPreview, then 'View diff' + 'Restore' buttons.",
+        "2026-06-09: Empty state copy: 'No versions yet — snapshots appear as you edit.'",
+        "2026-06-09 trap: Restore confirm uses controlled base-ui Dialog (NOT window.confirm — blocked in Next.js 16 / React 19). Pattern: pendingRestore state holds the row; cancel sets it to null; confirm calls the mutation; mutation onSuccess clears it. Dialog body shows '<ts>' + 'reversible because pre-snapshot is taken first' copy.",
+        "2026-06-09: restoreMutation invalidates ['work-logs'] AND ['worklog-versions', noteId] on success so the editor + the panel both refresh. The pre-restore safety snapshot ('Before restore from <ts>') appears in the panel immediately after.",
+        "2026-06-09: Diff modal trigger lives here (button) but the modal itself is rendered by sibling WorklogVersionDiffModal — panel just owns the diffVersion state."
+      ]
+    },
+    {
+      "name": "WorklogVersionDiffModal",
+      "entityType": "component",
+      "observations": [
+        "2026-06-09: Path src/components/worklog/worklog-version-diff-modal.tsx. ADR-0017 Phase 9. Renders a plain-text diff between a chosen snapshot's plainText and the live document's current plainText.",
+        "2026-06-09: Props — { open, noteId (REQUIRED, not optional — caught in early factoring pass), version, currentPlainText, onClose }. Uses base-ui Dialog from @/components/ui/dialog.",
+        "2026-06-09: Fetches FULL snapshot via useQuery(['worklog-version', noteId, version.id]) GET /api/work-logs/[id]/versions/[versionId] with staleTime: 60s and enabled: open. The list endpoint returns only a 200-char plainTextPreview — the diff needs the full plainText so a per-version GET is REQUIRED.",
+        "2026-06-09: Diff strategy — computePlainTextDiff(snapshot.plainText, currentPlainText). LCS at word / horizontal-whitespace / newline-token level (tokenizer regex: /(\\n)|([^\\s\\n]+)|([ \\t]+)/g). Segments rendered with bg-emerald-100 (additions) / bg-red-100 line-through (removals); dark variants too.",
+        "2026-06-09: Title shows label + locale timestamp; description: 'Showing changes from this snapshot to the current document. Green additions, red removals.'",
+        "2026-06-09: Phase 9b PARKED — if plain-text proves too coarse for rich content, swap in prosemirror-changeset-based rich diff."
+      ]
     }
   ],
   "relations": [
@@ -75,7 +111,10 @@
     { "from": "WorklogDomain", "relationType": "depends-on", "to": "StorageKeysModule" },
     { "from": "WorklogDomain", "relationType": "contains", "to": "WorklogReaderDrawer" },
     { "from": "WorklogDomain", "relationType": "contains", "to": "WorklogNoteReadView" },
-    { "from": "WorklogReaderDrawer", "relationType": "embeds", "to": "WorklogNoteReadView" }
+    { "from": "WorklogDomain", "relationType": "contains", "to": "WorklogHistoryPanel" },
+    { "from": "WorklogDomain", "relationType": "contains", "to": "WorklogVersionDiffModal" },
+    { "from": "WorklogReaderDrawer", "relationType": "embeds", "to": "WorklogNoteReadView" },
+    { "from": "WorklogHistoryPanel", "relationType": "embeds", "to": "WorklogVersionDiffModal" }
   ]
 }
 

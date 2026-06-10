@@ -6,6 +6,10 @@
   "rebuild_protocol": "For each shard: read entities + relations, run mcp_memory_create_entities then mcp_memory_create_relations.",
   "shards": {
     "WorklogDomain": "worklog.json",
+    "WorklogReaderDrawer": "worklog.json",
+    "WorklogNoteReadView": "worklog.json",
+    "WorklogHistoryPanel": "worklog.json",
+    "WorklogVersionDiffModal": "worklog.json",
     "JobMapDomain": "job-map.json",
     "WorkHistoryDomain": "job-map.json",
     "ProfileDomain": "profile.json",

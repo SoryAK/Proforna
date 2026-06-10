@@ -1,6 +1,6 @@
 # Resumsify Worklog UI Patterns
 
-Last updated: 2026-06-07 (ADR-0015 Phase 5 — drawer-preview reader)
+Last updated: 2026-06-09 (ADR-0017 — version history panel + diff modal)
 
 > References tokens.md and global.md. Never redefine tokens here.
 > Feature-specific rules only — shared rules live in global.md.
@@ -294,3 +294,135 @@ Two distinct visual states for notable worklog entries:
 - Only visible when `unpromoted.length > 0`
 - Uses `state.promote-surface` token for background and border
 - Per-entry Promote button uses `variant="outline"` with `state.promote-action` classes (outline variant in this context only)
+
+---
+
+## Version History Panel + Diff Modal (ADR-0017)
+
+The full-screen reader (`/worklog/notes/[id]`) mounts a read-only timeline of past versions for the note, plus a "View diff" modal and a "Restore" confirm dialog.
+
+### Mount surfaces (asymmetric vs Backlinks)
+
+| Surface | History panel | Backlinks panel |
+|---|---|---|
+| Drawer (`<WorklogNoteReadView>`) | **NOT mounted** | Mounted |
+| Full-screen (`<WorklogNoteReader>`) | Mounted (after Backlinks) | Mounted |
+
+The drawer is a quick preview tier — keep its surface area minimal. History is a "deliberate" affordance and only shows up on the focus tier.
+
+### Panel structure
+
+```
+<aside className="border rounded-lg p-4 space-y-3">
+  <header>type.body-strong "Version history"</header>
+  {bucketsInOrder.map(([bucket, rows]) => (
+    <section>
+      <h3>type.meta-strong  e.g. "Today" / "Yesterday" / "Earlier this week" / "Older"</h3>
+      <ul role="list">
+        {rows.map(row => <VersionRow ... />)}
+      </ul>
+    </section>
+  ))}
+  {empty → "No versions yet — snapshots appear as you edit."}
+</aside>
+```
+
+- Bucket labels: `Today`, `Yesterday`, `Earlier this week`, `Older`. Empty buckets are NOT rendered.
+- Hides while `isLoading` to avoid layout shift (matches backlinks panel).
+
+### Version row anatomy
+
+```
+<li className="flex items-start gap-2 py-2 border-b last:border-b-0">
+  {/* Header line */}
+  <div className="flex items-baseline gap-2">
+    <span>type.body-strong   label-or-"Auto"</span>
+    <span>type.meta          formatTime(createdAt)</span>
+    <span>type.meta tabular-nums  charDelta colorized:
+      delta > 0 → text-emerald-600 dark:text-emerald-400  prefix "+"
+      delta < 0 → text-red-600 dark:text-red-400         (delta keeps minus sign)
+      delta = 0 → text-muted-foreground                  prefix "±"
+    </span>
+  </div>
+  <p>type.meta line-clamp-2  plainTextPreview</p>
+  <div className="flex gap-2 mt-1">
+    <Button variant="ghost" size="sm">View diff</Button>
+    <Button variant="ghost" size="sm">Restore</Button>
+  </div>
+</li>
+```
+
+- `charDelta` colors are **inline raw Tailwind**, not tokenized. They're a one-off signed-delta visualization, not a reusable surface. If a second feature wants the same colors, promote to a `state.delta-*` token then.
+- Both buttons are `variant="ghost"` — restore is the higher-stakes action but the dialog is the gate, not the button color.
+
+### Restore confirm dialog (NOT `window.confirm`)
+
+```
+<Dialog open={pendingRestore !== null} onOpenChange={open => !open && setPendingRestore(null)}>
+  <DialogContent>
+    <DialogHeader>
+      <DialogTitle>Restore this version?</DialogTitle>
+      <DialogDescription>
+        Snapshot from {formatTime(pendingRestore.createdAt)}. This is reversible —
+        a "Before restore from <ts>" snapshot of the current state is taken first.
+      </DialogDescription>
+    </DialogHeader>
+    <DialogFooter>
+      <Button variant="ghost" onClick={cancel}>Cancel</Button>
+      <Button onClick={confirm} disabled={mutation.isPending}>
+        {mutation.isPending ? "Restoring…" : "Restore version"}
+      </Button>
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
+```
+
+- **Never use `window.confirm()`** — Next.js 16 + React 19 dev throws `Error: confirm() is not supported.` Same for `window.prompt`/`window.alert`. Always use the controlled base-ui Dialog from `@/components/ui/dialog`.
+- Confirm button uses default variant (primary). The destructive look is unwarranted — restore is REVERSIBLE because the pre-snapshot is taken first.
+
+### Diff modal
+
+```
+<Dialog open={open} onOpenChange={open => !open && onClose()}>
+  <DialogContent className="max-w-3xl">
+    <DialogHeader>
+      <DialogTitle>{label} · {formatTimestamp(version.createdAt)}</DialogTitle>
+      <DialogDescription>
+        Showing changes from this snapshot to the current document.
+        Green additions, red removals.
+      </DialogDescription>
+    </DialogHeader>
+    <div className="max-h-[60vh] overflow-y-auto whitespace-pre-wrap font-mono text-sm leading-relaxed">
+      {segments.map(seg => (
+        <span className={
+          seg.kind === "add"    ? "bg-emerald-100 dark:bg-emerald-900/30" :
+          seg.kind === "remove" ? "bg-red-100 line-through dark:bg-red-900/30" :
+          ""
+        }>
+          {seg.text}
+        </span>
+      ))}
+    </div>
+  </DialogContent>
+</Dialog>
+```
+
+- Diff highlight colors are **inline raw Tailwind**, intentionally not tokenized. Same one-off rationale as `charDelta` colors. If a second diff surface ships, promote to `state.diff-add`/`state.diff-remove` tokens.
+- `max-w-3xl` because the diff is plain-text — wider would feel sparse with monospace.
+- Body uses `whitespace-pre-wrap font-mono` so newlines and horizontal whitespace are preserved (the tokenizer keeps them as separate diff tokens too).
+
+### Save Version button (toolbar)
+
+The Tiptap editor toolbar gains a `BookmarkPlus` icon button when `workLogId` is provided:
+
+```
+<Button variant="ghost" size="sm" onClick={() => setLabelDialogOpen(true)}>
+  <BookmarkPlus className="h-3.5 w-3.5" />
+  <span className="text-xs hidden sm:inline">Save version</span>
+</Button>
+```
+
+- Only renders when `workLogId` prop is truthy. Other editor surfaces (if added later) can mount the toolbar without it and the button stays hidden.
+- Click opens a controlled Dialog with an optional label `<Input maxLength={80} autoFocus />`. Enter submits, Escape cancels.
+- Empty label is allowed (server stores `null`).
+- Sits next to the existing toolbar buttons, NOT in a separate cluster.
