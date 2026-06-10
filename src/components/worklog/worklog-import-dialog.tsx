@@ -24,12 +24,14 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   AlertCircle,
   CheckCircle2,
   Copy,
   FileText,
   Loader2,
+  RefreshCcw,
   Upload,
 } from "lucide-react";
 
@@ -72,6 +74,10 @@ type RowStatus =
   | "uploading"
   | "succeeded"
   | "deduped"
+  | "reimported"
+  | "conflict"
+  | "needs-picker"
+  | "not-found"
   | "failed"
   | "unsupported"
   | "too-large";
@@ -92,8 +98,12 @@ function statusBadgeClass(status: RowStatus): string {
     case "uploading":
       return "text-blue-600 dark:text-blue-400";
     case "succeeded":
+    case "reimported":
       return "text-emerald-600 dark:text-emerald-400";
     case "deduped":
+    case "conflict":
+    case "needs-picker":
+    case "not-found":
       return "text-amber-600 dark:text-amber-400";
     case "failed":
       return "text-rose-600 dark:text-rose-400";
@@ -114,6 +124,14 @@ function statusLabel(status: RowStatus): string {
       return "Imported";
     case "deduped":
       return "Already imported";
+    case "reimported":
+      return "Re-imported";
+    case "conflict":
+      return "Conflict — note changed since export";
+    case "needs-picker":
+      return "Couldn’t auto-link — missing identity";
+    case "not-found":
+      return "Original note not found";
     case "failed":
       return "Failed";
     case "unsupported":
@@ -135,6 +153,36 @@ function nextRowId(): string {
   return `row-${rowCounter}`;
 }
 
+/**
+ * Cheap client-side check for grill-me frontmatter.
+ *
+ * The exporter writes a YAML block fenced by `---` lines containing both
+ * `id:` and `version:` keys. We discriminate on those two markers so we
+ * can route the file to the re-import endpoint instead of the regular
+ * note-import endpoint. False positives are harmless — the server
+ * re-validates and falls back to `needs-picker` if the frontmatter is
+ * malformed.
+ */
+function hasGrillFrontmatter(source: string): boolean {
+  const head = source.startsWith("\uFEFF") ? source.slice(1) : source;
+  if (!head.startsWith("---\n") && !head.startsWith("---\r\n")) return false;
+  const fenceEnd = head.indexOf("\n---", 4);
+  if (fenceEnd === -1) return false;
+  const block = head.slice(4, fenceEnd);
+  return /^\s*id\s*:/m.test(block) && /^\s*version\s*:/m.test(block);
+}
+
+type ImportMdResponse =
+  | { status: "imported"; workLogId: string; snapshotCreated: boolean }
+  | {
+      status: "conflict";
+      workLogId: string;
+      fileVersion: number;
+      currentVersion: number;
+    }
+  | { status: "needs-picker"; reason: string }
+  | { status: "not-found"; attemptedId: string };
+
 export function WorklogImportDialog({ open, onOpenChange }: WorklogImportDialogProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [rows, setRows] = useState<ImportRow[]>([]);
@@ -143,6 +191,7 @@ export function WorklogImportDialog({ open, onOpenChange }: WorklogImportDialogP
 
   const { folders } = useWorklogFolders();
   const importMutation = useImportMutation();
+  const queryClient = useQueryClient();
 
   // Folder picker locks the moment the first upload starts (Q1=C: hybrid).
   const folderLocked = useMemo(
@@ -153,8 +202,22 @@ export function WorklogImportDialog({ open, onOpenChange }: WorklogImportDialogP
     () => rows.filter((r) => r.status === "succeeded").length,
     [rows],
   );
+  const reimportedCount = useMemo(
+    () => rows.filter((r) => r.status === "reimported").length,
+    [rows],
+  );
   const dedupedCount = useMemo(
     () => rows.filter((r) => r.status === "deduped").length,
+    [rows],
+  );
+  const reviewCount = useMemo(
+    () =>
+      rows.filter(
+        (r) =>
+          r.status === "conflict" ||
+          r.status === "needs-picker" ||
+          r.status === "not-found",
+      ).length,
     [rows],
   );
   const failedCount = useMemo(
@@ -207,6 +270,95 @@ export function WorklogImportDialog({ open, onOpenChange }: WorklogImportDialogP
         prev.map((r) => (r.id === row.id ? { ...r, status: "uploading" } : r)),
       );
 
+      // Grill Me re-import path. When the file has grill-me frontmatter
+      // (`id` + `version` in the YAML head), route to /api/work-logs/import-md
+      // instead of the regular note-import endpoint. The new endpoint
+      // handles four outcomes: imported / conflict / needs-picker / not-found.
+      if (
+        payload.sourceType === "markdown" &&
+        hasGrillFrontmatter(payload.source)
+      ) {
+        try {
+          const res = await fetch("/api/work-logs/import-md", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ source: payload.source }),
+          });
+          if (!res.ok) {
+            const text = await res.text().catch(() => "");
+            throw new Error(text || `Import failed (${res.status})`);
+          }
+          const data = (await res.json()) as ImportMdResponse;
+          if (data.status === "imported") {
+            // Success — invalidate the worklogs cache so the editor / list
+            // pick up the freshly-written contentJson.
+            queryClient.invalidateQueries({ queryKey: ["work-logs"] });
+            queryClient.invalidateQueries({
+              queryKey: ["worklog-versions", data.workLogId],
+            });
+            setRows((prev) =>
+              prev.map((r) =>
+                r.id === row.id
+                  ? {
+                      ...r,
+                      status: "reimported",
+                      workLogId: data.workLogId,
+                      message: null,
+                    }
+                  : r,
+              ),
+            );
+          } else if (data.status === "conflict") {
+            setRows((prev) =>
+              prev.map((r) =>
+                r.id === row.id
+                  ? {
+                      ...r,
+                      status: "conflict",
+                      workLogId: data.workLogId,
+                      message: `Server is at v${data.currentVersion}, file is at v${data.fileVersion}. Open the note to compare, then re-export and try again.`,
+                    }
+                  : r,
+              ),
+            );
+          } else if (data.status === "needs-picker") {
+            setRows((prev) =>
+              prev.map((r) =>
+                r.id === row.id
+                  ? {
+                      ...r,
+                      status: "needs-picker",
+                      message:
+                        "This file has no Grill Me identity — it can’t be auto-linked back to a worklog.",
+                    }
+                  : r,
+              ),
+            );
+          } else if (data.status === "not-found") {
+            setRows((prev) =>
+              prev.map((r) =>
+                r.id === row.id
+                  ? {
+                      ...r,
+                      status: "not-found",
+                      message:
+                        "The original worklog wasn’t found in your library. It may have been deleted.",
+                    }
+                  : r,
+              ),
+            );
+          }
+        } catch (err) {
+          const message = err instanceof Error ? err.message : "Re-import error.";
+          setRows((prev) =>
+            prev.map((r) =>
+              r.id === row.id ? { ...r, status: "failed", message } : r,
+            ),
+          );
+        }
+        return;
+      }
+
       try {
         const result = await importMutation.mutateAsync({
           sourceType: payload.sourceType,
@@ -240,7 +392,7 @@ export function WorklogImportDialog({ open, onOpenChange }: WorklogImportDialogP
         );
       }
     },
-    [folderId, importMutation],
+    [folderId, importMutation, queryClient],
   );
 
   const ingestFiles = useCallback(
@@ -337,7 +489,9 @@ export function WorklogImportDialog({ open, onOpenChange }: WorklogImportDialogP
           <DialogDescription>
             Drop Markdown (.md, .markdown) or HTML (.html, .htm) files, or paste
             text/HTML from your clipboard. Each file becomes a worklog note.
-            Duplicates are detected automatically.
+            Files exported with “Grill Me” are auto-detected and re-imported
+            into their original note (canvas blocks are stripped — mentions
+            are re-resolved).
           </DialogDescription>
         </DialogHeader>
 
@@ -445,9 +599,19 @@ export function WorklogImportDialog({ open, onOpenChange }: WorklogImportDialogP
                 {successCount} imported
               </span>
             )}
+            {reimportedCount > 0 && (
+              <span className="text-emerald-600 dark:text-emerald-400">
+                {reimportedCount} re-imported
+              </span>
+            )}
             {dedupedCount > 0 && (
               <span className="text-amber-600 dark:text-amber-400">
                 {dedupedCount} duplicate{dedupedCount === 1 ? "" : "s"}
+              </span>
+            )}
+            {reviewCount > 0 && (
+              <span className="text-amber-600 dark:text-amber-400">
+                {reviewCount} need{reviewCount === 1 ? "s" : ""} review
               </span>
             )}
             {failedCount > 0 && (
@@ -526,9 +690,14 @@ function ImportRowItem({ row, onCloseDialog }: ImportRowItemProps) {
             {row.message}
           </pre>
         )}
-        {(row.status === "unsupported" || row.status === "too-large") && row.message && (
-          <p className="mt-1 text-xs text-muted-foreground">{row.message}</p>
-        )}
+        {(row.status === "unsupported" ||
+          row.status === "too-large" ||
+          row.status === "conflict" ||
+          row.status === "needs-picker" ||
+          row.status === "not-found") &&
+          row.message && (
+            <p className="mt-1 text-xs text-muted-foreground">{row.message}</p>
+          )}
       </div>
     </li>
   );
@@ -540,8 +709,14 @@ function iconForStatus(status: RowStatus) {
       return Loader2;
     case "succeeded":
       return CheckCircle2;
+    case "reimported":
+      return RefreshCcw;
     case "deduped":
       return Copy;
+    case "conflict":
+    case "needs-picker":
+    case "not-found":
+      return AlertCircle;
     case "failed":
     case "unsupported":
     case "too-large":
