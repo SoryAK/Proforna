@@ -9,7 +9,7 @@ import {
   proseMirrorDocToPlainText,
 } from "@/lib/worklog/prosemirror-to-text";
 import { arraysEqualAsSets } from "@/lib/array-set-equal";
-import { shouldAutoSnapshot } from "@/lib/worklog/version/snapshot";
+import { shouldAutoSnapshot, computeRetentionPlan } from "@/lib/worklog/version/snapshot";
 
 function hasOwn(body: Record<string, unknown>, key: string) {
   return Object.prototype.hasOwnProperty.call(body, key);
@@ -214,6 +214,21 @@ export async function PUT(
               label: null,
             },
           });
+
+          // ── Inline retention thinning (ADR-0017 kickoff Q2: cheap guard) ──
+          // Only thin AFTER a new snapshot lands. This skips the SELECT on
+          // every autosave that didn't trigger the heuristic — the cheap
+          // path is "no snapshot, no scan."
+          const rows = await prisma.workLogVersion.findMany({
+            where: { workLogId: id },
+            select: { id: true, createdAt: true, isManual: true },
+          });
+          const plan = computeRetentionPlan({ versions: rows, now: new Date() });
+          if (plan.delete.length > 0) {
+            await prisma.workLogVersion.deleteMany({
+              where: { id: { in: plan.delete } },
+            });
+          }
         }
       } catch (snapErr) {
         // Snapshot is non-critical. Log and continue — user's save already

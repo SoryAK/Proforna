@@ -28,8 +28,10 @@ vi.mock("@/lib/prisma", () => ({
       update:    vi.fn(),
     },
     workLogVersion: {
-      findFirst: vi.fn(),
-      create:    vi.fn(),
+      findFirst:  vi.fn(),
+      findMany:   vi.fn(),
+      create:     vi.fn(),
+      deleteMany: vi.fn(),
     },
     workHistoryShift: {
       findFirst: vi.fn(),
@@ -44,7 +46,9 @@ const mockGetUserId         = vi.mocked(getUserId);
 const mockFindFirst         = vi.mocked(prisma.workLog.findFirst);
 const mockUpdate            = vi.mocked(prisma.workLog.update);
 const mockVersionFindFirst  = vi.mocked(prisma.workLogVersion.findFirst);
+const mockVersionFindMany   = vi.mocked(prisma.workLogVersion.findMany);
 const mockVersionCreate     = vi.mocked(prisma.workLogVersion.create);
+const mockVersionDeleteMany = vi.mocked(prisma.workLogVersion.deleteMany);
 
 // ── helpers ────────────────────────────────────────────────────────────────
 
@@ -434,5 +438,96 @@ describe("PUT /api/work-logs/[id] — ADR-0017 auto-snapshot writer", () => {
 
     expect(res.status).toBe(200);
     expect(mockUpdate).toHaveBeenCalledTimes(1); // user's edit was still saved
+  });
+});
+
+// ──────────────────────────────────────────────────────
+// ADR-0017 — inline retention thinning on snapshot write
+// ──────────────────────────────────────────────────────
+
+describe("PUT /api/work-logs/[id] — ADR-0017 inline retention thinning", () => {
+  it("does NOT run deleteMany when no snapshot was written (cheap path)", async () => {
+    mockGetUserId.mockResolvedValue("u1");
+    mockFindFirst.mockResolvedValue({ ...existingLog([], []), content: "" } as any);
+    mockVersionFindFirst.mockResolvedValue(null);
+
+    // contentJson absent → no snapshot path entered at all.
+    const [req, ctx] = makeRequest("log1", { title: "rename" });
+    await PUT(req, ctx);
+
+    expect(mockVersionCreate).not.toHaveBeenCalled();
+    expect(mockVersionFindMany).not.toHaveBeenCalled();
+    expect(mockVersionDeleteMany).not.toHaveBeenCalled();
+  });
+
+  it("after a snapshot write, deletes oldest auto-snapshots beyond tier-1 cap", async () => {
+    mockGetUserId.mockResolvedValue("u1");
+    mockFindFirst.mockResolvedValue({ ...existingLog([], []), content: "" } as any);
+    mockVersionFindFirst.mockResolvedValue(null);
+
+    const NOW = Date.now();
+    // After our new snapshot lands, the row set has 12 auto-snapshots in the last hour.
+    // RECENT_HOUR_KEEP = 10, so the oldest 2 ("v10", "v11") must be deleted.
+    const rows = Array.from({ length: 12 }, (_, i) => ({
+      id: `v${String(i).padStart(2, "0")}`,
+      createdAt: new Date(NOW - i * 60 * 1000), // 1 min apart, newest first
+      isManual: false,
+    }));
+    mockVersionFindMany.mockResolvedValue(rows as any);
+    mockVersionDeleteMany.mockResolvedValue({ count: 2 } as any);
+
+    const [req, ctx] = makeRequest("log1", { contentJson: docOfSize(200) });
+    await PUT(req, ctx);
+
+    expect(mockVersionCreate).toHaveBeenCalledTimes(1);
+    expect(mockVersionDeleteMany).toHaveBeenCalledTimes(1);
+
+    const arg = mockVersionDeleteMany.mock.calls[0][0] as {
+      where: { id: { in: string[] } };
+    };
+    expect([...arg.where.id.in].sort()).toEqual(["v10", "v11"]);
+  });
+
+  it("after a snapshot write, skips deleteMany when nothing needs thinning", async () => {
+    mockGetUserId.mockResolvedValue("u1");
+    mockFindFirst.mockResolvedValue({ ...existingLog([], []), content: "" } as any);
+    mockVersionFindFirst.mockResolvedValue(null);
+
+    const NOW = Date.now();
+    // Only 3 auto-snapshots in the last hour — well under tier-1 cap.
+    const rows = Array.from({ length: 3 }, (_, i) => ({
+      id: `v${i}`,
+      createdAt: new Date(NOW - i * 60 * 1000),
+      isManual: false,
+    }));
+    mockVersionFindMany.mockResolvedValue(rows as any);
+
+    const [req, ctx] = makeRequest("log1", { contentJson: docOfSize(200) });
+    await PUT(req, ctx);
+
+    expect(mockVersionCreate).toHaveBeenCalledTimes(1);
+    expect(mockVersionDeleteMany).not.toHaveBeenCalled();
+  });
+
+  it("does NOT fail the user's save when the thinning deleteMany throws (best-effort)", async () => {
+    mockGetUserId.mockResolvedValue("u1");
+    mockFindFirst.mockResolvedValue({ ...existingLog([], []), content: "" } as any);
+    mockVersionFindFirst.mockResolvedValue(null);
+
+    const NOW = Date.now();
+    const rows = Array.from({ length: 12 }, (_, i) => ({
+      id: `v${String(i).padStart(2, "0")}`,
+      createdAt: new Date(NOW - i * 60 * 1000),
+      isManual: false,
+    }));
+    mockVersionFindMany.mockResolvedValue(rows as any);
+    mockVersionDeleteMany.mockRejectedValueOnce(new Error("db unavailable"));
+
+    const [req, ctx] = makeRequest("log1", { contentJson: docOfSize(200) });
+    const res = await PUT(req, ctx);
+
+    expect(res.status).toBe(200);
+    expect(mockUpdate).toHaveBeenCalledTimes(1);
+    expect(mockVersionCreate).toHaveBeenCalledTimes(1); // snapshot still written
   });
 });
