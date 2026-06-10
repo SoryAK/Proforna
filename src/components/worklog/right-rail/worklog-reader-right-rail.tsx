@@ -27,6 +27,7 @@ import { useEffect, useMemo } from "react";
 import { ChevronsRight, ChevronsLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import type { WorkLog } from "@/types/worklog";
 import { RAIL_TABS, type RailTabId } from "./rail-tabs";
 import { useReaderRailState } from "./use-reader-rail-state";
 import { BacklinksTab } from "./tabs/backlinks-tab";
@@ -42,6 +43,19 @@ export interface WorklogReaderRightRailProps {
   activeNoteId: string | null;
   /** Current document plain-text — needed by the History tab for diffs. */
   currentPlainText: string;
+  /**
+   * Active note record — needed by the Tags tab (ADR-0023 Unit 3.1) to bind
+   * the autosave field. Null while the active log is resolving.
+   */
+  activeLog?: WorkLog | null;
+  /**
+   * Commit a single-field update for the active note. Required when activeLog
+   * is provided so the Tags tab can write back. Same shape as the reader's
+   * `onUpdate`.
+   */
+  onUpdateActiveLog?: (patch: Partial<WorkLog> & { id: string }) => void | Promise<unknown>;
+  /** Tag autocomplete corpus passed through to the Tags tab. */
+  tagSuggestions?: string[];
   className?: string;
 }
 
@@ -51,6 +65,9 @@ const PANEL_WIDTH = "w-80"; // 320px
 export function WorklogReaderRightRail({
   activeNoteId,
   currentPlainText,
+  activeLog,
+  onUpdateActiveLog,
+  tagSuggestions,
   className,
 }: WorklogReaderRightRailProps) {
   const { tab, collapsed, setTab, toggleCollapsed } = useReaderRailState();
@@ -123,7 +140,14 @@ export function WorklogReaderRightRail({
             </h2>
           </header>
           <div className="flex-1 overflow-y-auto">
-            {renderTabBody(activeTab.id, activeNoteId, currentPlainText)}
+            {renderTabBody(
+              activeTab.id,
+              activeNoteId,
+              currentPlainText,
+              activeLog ?? null,
+              onUpdateActiveLog,
+              tagSuggestions,
+            )}
           </div>
         </div>
       )}
@@ -200,6 +224,9 @@ function renderTabBody(
   tabId: RailTabId,
   noteId: string,
   currentPlainText: string,
+  activeLog: WorkLog | null,
+  onUpdateActiveLog: ((patch: Partial<WorkLog> & { id: string }) => void | Promise<unknown>) | undefined,
+  tagSuggestions: string[] | undefined,
 ) {
   switch (tabId) {
     case "backlinks":
@@ -207,7 +234,15 @@ function renderTabBody(
     case "history":
       return <HistoryTab noteId={noteId} currentPlainText={currentPlainText} />;
     case "tags":
-      return <TagsTab />;
+      // onUpdateActiveLog is required for the Tags tab — if a parent forgets
+      // to wire it, the tab degrades into a no-op rather than crashing.
+      return (
+        <TagsTab
+          log={activeLog}
+          onUpdate={onUpdateActiveLog ?? (() => undefined)}
+          tagSuggestions={tagSuggestions}
+        />
+      );
     case "photos":
       return <PhotosTab noteId={noteId} />;
     default: {

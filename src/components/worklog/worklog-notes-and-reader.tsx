@@ -258,6 +258,9 @@ export function WorklogNotesAndReader({
             <WorklogReaderRightRail
               activeNoteId={selectedLog?.id ?? null}
               currentPlainText={selectedLog?.content ?? ""}
+              activeLog={selectedLog ?? null}
+              onUpdateActiveLog={(patch) => saveLog.mutateAsync(patch)}
+              tagSuggestions={tagSuggestions}
             />
           </div>
         </div>

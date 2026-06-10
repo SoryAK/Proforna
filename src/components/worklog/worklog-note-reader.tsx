@@ -34,7 +34,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { TagInput } from "@/components/ui/tag-input";
+import { InlineTagsField } from "@/components/worklog/inline-tags-field";
 import { EquipmentPicker, type EquipmentItem } from "@/components/equipment-picker";
 import { AssetPicker, type JobAsset } from "@/components/asset-picker";
 import { cn } from "@/lib/utils";
@@ -158,17 +158,12 @@ const ReaderInner = forwardRef<WorklogNoteReaderHandle, ReaderInnerProps>(functi
   const { draftsLoading, draftMap, saveFieldDraft, clearFieldDraft } = useWorklogDrafts(log.id);
 
   const titleKey = `worklog:draft:${log.id}:title`;
-  const tagsKey = `worklog:draft:${log.id}:tags`;
   const hoursKey = `worklog:draft:${log.id}:hours`;
 
   const titleInitial =
     typeof draftMap.title === "string"
       ? draftMap.title
       : readAutosaveDraft<string>(titleKey) ?? (log.title ?? "");
-  const tagsInitial =
-    typeof draftMap.tags === "string"
-      ? draftMap.tags
-      : readAutosaveDraft<string>(tagsKey) ?? (log.tags ?? "");
   const hoursInitial =
     typeof draftMap.hours === "string"
       ? draftMap.hours
@@ -178,7 +173,10 @@ const ReaderInner = forwardRef<WorklogNoteReaderHandle, ReaderInnerProps>(functi
   const [editorDirty, setEditorDirty] = useState(false);
   const [editorSaving, setEditorSaving] = useState(false);
 
-  // Autosave fields — title/tags/hours still debounce 800 ms while typing and on blur.
+  // Autosave fields — title/hours still debounce 800 ms while typing and on blur.
+  // Tags moved to {@link InlineTagsField} (ADR-0023 Unit 3.1) which owns its own
+  // autosave + draft persistence and is rendered in two places: the rail Tags
+  // tab at xl+ and an inline mount below at < xl.
   const titleField = useAutosaveField(log.title ?? "", (v) =>
     onUpdate({ id: log.id, title: v.trim() || "Untitled" }),
     {
@@ -186,15 +184,6 @@ const ReaderInner = forwardRef<WorklogNoteReaderHandle, ReaderInnerProps>(functi
       initialValue: titleInitial,
       onDraftChange: (v) => saveFieldDraft("title", v),
       onCommitSuccess: () => clearFieldDraft("title"),
-    },
-  );
-  const tagsField = useAutosaveField(log.tags ?? "", (v) =>
-    onUpdate({ id: log.id, tags: v || null }),
-    {
-      persistKey: tagsKey,
-      initialValue: tagsInitial,
-      onDraftChange: (v) => saveFieldDraft("tags", v),
-      onCommitSuccess: () => clearFieldDraft("tags"),
     },
   );
   const hoursField = useAutosaveField(
@@ -208,12 +197,11 @@ const ReaderInner = forwardRef<WorklogNoteReaderHandle, ReaderInnerProps>(functi
     },
   );
 
-  const isDirty = titleField.isDirty || tagsField.isDirty || hoursField.isDirty || editorDirty;
-  const isSaving = titleField.isSaving || tagsField.isSaving || hoursField.isSaving || editorSaving;
+  const isDirty = titleField.isDirty || hoursField.isDirty || editorDirty;
+  const isSaving = titleField.isSaving || hoursField.isSaving || editorSaving;
 
   function flushAllFields() {
     titleField.flush();
-    tagsField.flush();
     hoursField.flush();
     editorRef.current?.flush();
   }
@@ -224,7 +212,7 @@ const ReaderInner = forwardRef<WorklogNoteReaderHandle, ReaderInnerProps>(functi
       titleInputRef.current?.focus();
       titleInputRef.current?.select();
     },
-  }), [hoursField, tagsField, titleField]);
+  }), [hoursField, titleField]);
 
   const [equipOpen, setEquipOpen] = useState(false);
   const [assetsOpen, setAssetsOpen] = useState(false);
@@ -458,30 +446,21 @@ const ReaderInner = forwardRef<WorklogNoteReaderHandle, ReaderInnerProps>(functi
               />
             )}
           </div>
-
           {/*
-            ADR-0023 \u2014 Backlinks, History, and Photos now live in the worklog
+            ADR-0023 — Backlinks, History, and Photos now live in the worklog
             reader right-rail (WorklogReaderRightRail) mounted as a sibling of
-            this reader by worklog-notes-and-reader. Tags stay inline until
-            Unit 3.1 lifts the tagsField autosave wiring out of this file.
+            this reader by worklog-notes-and-reader. Tags moved to the rail's
+            Tags tab in Unit 3.1 (xl+); below xl the rail is hidden and Tags
+            stay inline via the InlineTagsField mount below.
           */}
 
-          {/* Tags \u2014 own labelled block */}
-          <div className="space-y-1.5">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
-              Tags
-            </p>
-            <TagInput
-              value={tagsField.value
-                .split(",")
-                .map((t) => t.trim())
-                .filter(Boolean)}
-              onChange={(next) => tagsField.onChange(next.join(", "))}
-              placeholder="Add tags and press Enter"
-              suggestions={tagSuggestions}
-              className="w-full"
-            />
-          </div>
+          {/* Tags — inline at < xl, hidden at xl+ (rail Tags tab owns it). */}
+          <InlineTagsField
+            log={log}
+            onUpdate={onUpdate}
+            tagSuggestions={tagSuggestions}
+            className="xl:hidden"
+          />
 
           {/* Tools section */}
           {equipment.length > 0 && (
@@ -535,22 +514,32 @@ const ReaderInner = forwardRef<WorklogNoteReaderHandle, ReaderInnerProps>(functi
                 selectedIds={log.assetIds ?? []}
                 defaultPositionId={log.positionId ?? null}
                 onChange={(ids) => {
-                  // Auto-apply tags from newly added asset types (one-shot, deduplicated)
+                  // Auto-apply tags from newly added asset types (one-shot, deduplicated).
+                  // Reads server-canonical log.tags (Unit 3.1: tagsField no longer lives
+                  // here). Same race as the editor mention-merge path — in-flight tag
+                  // typing in the rail can lose asset-derived tags if it commits last.
+                  // Accepted; identical failure mode to existing editor merge.
                   const prev = new Set(log.assetIds ?? []);
                   const newIds = ids.filter((id) => !prev.has(id));
+                  let mergedTagsPatch: { tags: string | null } | undefined;
                   if (newIds.length > 0) {
                     const assetMap = new Map(assets.map((a) => [a.id, a]));
                     const incoming = newIds.flatMap((id) => assetMap.get(id)?.type?.tags ?? []);
                     if (incoming.length > 0) {
-                      const existing = tagsField.value.split(",").map((t) => t.trim()).filter(Boolean);
+                      const existing = (log.tags ?? "").split(",").map((t) => t.trim()).filter(Boolean);
                       const existingLower = new Set(existing.map((t) => t.toLowerCase()));
                       const toAdd = incoming.filter((t) => !existingLower.has(t.toLowerCase()));
                       if (toAdd.length > 0) {
-                        tagsField.onChange([...existing, ...toAdd].join(", "));
+                        const next = [...existing, ...toAdd].join(", ");
+                        mergedTagsPatch = { tags: next.length > 0 ? next : null };
                       }
                     }
                   }
-                  onUpdate({ id: log.id, assetIds: ids });
+                  onUpdate({
+                    id: log.id,
+                    assetIds: ids,
+                    ...(mergedTagsPatch ?? {}),
+                  });
                 }}
               />
             </div>
