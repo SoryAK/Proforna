@@ -58,6 +58,7 @@ import { WorklogNotesBulkBar } from "@/components/worklog/worklog-notes-bulk-bar
 import { WorklogNotesSortMenu } from "@/components/worklog/worklog-notes-sort-menu";
 import { WorklogReaderDrawer } from "@/components/worklog/worklog-reader-drawer";
 import { WorklogImportDialog } from "@/components/worklog/worklog-import-dialog";
+import { WorklogSendMenu } from "@/components/worklog/worklog-send-menu";
 import { exportBulkWorklogs } from "@/lib/worklog/export/client";
 import { shareWorklogs } from "@/lib/worklog/share/share-client";
 import { toast } from "sonner";
@@ -127,6 +128,52 @@ export function WorklogNotesView() {
   // Export-in-flight gate (Phase 5a, Grill Me sprint). Decoupled from
   // bulkAction.isPending so a pending export doesn't grey out Move/Delete.
   const [exportBusy, setExportBusy] = useState(false);
+
+  // Server-side cap mirrored at the client so the toolbar Export affordance
+  // can warn honestly *before* a network round-trip when the current view
+  // has more notes than the bulk endpoint accepts. Keep in sync with
+  // BULK_MAX in src/app/api/work-logs/export-bulk/route.ts.
+  const EXPORT_MAX_VIEW = 100;
+
+  // Shared Send/Export handlers — accept ids so both the bulk-bar (acts on
+  // the current selection) and the top-level Export menu (acts on the
+  // current view) can drive the same export-in-flight gate + toast pattern.
+  const runDownload = useCallback(async (ids: string[]) => {
+    if (ids.length === 0) return;
+    setExportBusy(true);
+    try {
+      await exportBulkWorklogs(ids);
+    } catch (err) {
+      console.error("[grill-me] export failed", err);
+      toast.error("Couldn’t download those notes. Try again?");
+    } finally {
+      setExportBusy(false);
+    }
+  }, []);
+
+  const runShare = useCallback(async (ids: string[]) => {
+    if (ids.length === 0) return;
+    setExportBusy(true);
+    try {
+      const outcome = await shareWorklogs(ids);
+      if (outcome === "downloaded") {
+        // Web Share unsupported (or share threw a non-cancellation
+        // error) — the file was downloaded as a fallback. Be honest
+        // about what happened so the user isn't left wondering why
+        // no share sheet appeared.
+        toast.message("Sharing isn’t supported on this browser.", {
+          description: "The file was downloaded instead.",
+        });
+      }
+      // "shared" / "cancelled" — stay silent. Either the OS share
+      // sheet handled the rest, or the user dismissed it.
+    } catch (err) {
+      console.error("[grill-me] share failed", err);
+      toast.error("Couldn’t share those notes. Try again?");
+    } finally {
+      setExportBusy(false);
+    }
+  }, []);
   const toggleBulkMode = useCallback(() => {
     setBulkMode((prev) => {
       if (prev) selection.clear();
@@ -367,41 +414,8 @@ export function WorklogNotesView() {
             });
             selection.clear();
           }}
-          onExport={async () => {
-            if (selectedIdList.length === 0) return;
-            setExportBusy(true);
-            try {
-              await exportBulkWorklogs(selectedIdList);
-            } catch (err) {
-              console.error("[grill-me] export failed", err);
-              toast.error("Couldn’t download those notes. Try again?");
-            } finally {
-              setExportBusy(false);
-            }
-          }}
-          onShare={async () => {
-            if (selectedIdList.length === 0) return;
-            setExportBusy(true);
-            try {
-              const outcome = await shareWorklogs(selectedIdList);
-              if (outcome === "downloaded") {
-                // Web Share unsupported (or share threw a non-cancellation
-                // error) — the file was downloaded as a fallback. Be honest
-                // about what happened so the user isn't left wondering why
-                // no share sheet appeared.
-                toast.message("Sharing isn’t supported on this browser.", {
-                  description: "The file was downloaded instead.",
-                });
-              }
-              // "shared" / "cancelled" — stay silent. Either the OS share
-              // sheet handled the rest, or the user dismissed it.
-            } catch (err) {
-              console.error("[grill-me] share failed", err);
-              toast.error("Couldn’t share those notes. Try again?");
-            } finally {
-              setExportBusy(false);
-            }
-          }}
+          onExport={() => runDownload(selectedIdList)}
+          onShare={() => runShare(selectedIdList)}
         />
       ) : (
         <div className="h-12 px-4 flex items-center justify-between border-b">
@@ -438,6 +452,52 @@ export function WorklogNotesView() {
               <Upload className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Import</span>
             </Button>
+
+            {/* Top-level Export menu (ADR-0022 addendum 2 — 2026-06-10).
+                Acts on the *current view* (visibleLogs), independent of
+                Select mode. Coexists with the bulk-bar Send menu when a
+                selection is active — toolbar = view scope, bulk-bar =
+                selection scope. If the view exceeds the server-side
+                BULK_MAX, surface an honest toast before any network
+                round-trip and bail. */}
+            <WorklogSendMenu
+              count={visibleCount}
+              empty={visibleCount === 0}
+              emptyHint={
+                loadingLogs
+                  ? "Loading notes…"
+                  : "No notes in this view"
+              }
+              busy={false}
+              exporting={exportBusy}
+              triggerLabel="Export"
+              onDownload={() => {
+                if (visibleCount === 0) return;
+                if (visibleCount > EXPORT_MAX_VIEW) {
+                  toast.error(
+                    `Too many notes in this view (${visibleCount}).`,
+                    {
+                      description: `Narrow your filter or use Select mode to pick up to ${EXPORT_MAX_VIEW}.`,
+                    },
+                  );
+                  return;
+                }
+                void runDownload(visibleLogs.map((l) => l.id));
+              }}
+              onShare={() => {
+                if (visibleCount === 0) return;
+                if (visibleCount > EXPORT_MAX_VIEW) {
+                  toast.error(
+                    `Too many notes in this view (${visibleCount}).`,
+                    {
+                      description: `Narrow your filter or use Select mode to pick up to ${EXPORT_MAX_VIEW}.`,
+                    },
+                  );
+                  return;
+                }
+                void runShare(visibleLogs.map((l) => l.id));
+              }}
+            />
 
             <Button
               size="sm"

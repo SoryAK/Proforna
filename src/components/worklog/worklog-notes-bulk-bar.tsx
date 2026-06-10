@@ -12,14 +12,8 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { ChevronDown, Download, FolderInput, Send, Share2, Trash2, X } from "lucide-react";
+import { FolderInput, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   Dialog,
   DialogContent,
@@ -29,6 +23,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { WorklogMoveToFolderDialog } from "@/components/worklog/worklog-move-to-folder-dialog";
+import { WorklogSendMenu } from "@/components/worklog/worklog-send-menu";
 import { useWorklogFolders } from "@/components/worklog/hooks/use-worklog-folders";
 import { cn } from "@/lib/utils";
 
@@ -149,54 +144,16 @@ export function WorklogNotesBulkBar({
               and Share to… (Web Share API; falls back to download + toast
               on browsers without canShare({files})). The label still
               reflects N=1 vs N>1 so the user knows what they're sending
-              before they pick a destination. */}
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              disabled={busy || exporting}
-              className={cn(
-                "inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-xs",
-                "hover:bg-accent/60 transition-colors",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                "disabled:pointer-events-none disabled:opacity-50",
-              )}
-              title={
-                count === 1
-                  ? "Send this note (download or share)"
-                  : `Send ${count} notes (download as .zip or share)`
-              }
-              aria-label="Send selected notes"
-            >
-              <Send className="h-3.5 w-3.5" />
-              {exporting ? "Sending…" : `Send${count > 1 ? " as .zip" : " as .md"}`}
-              <ChevronDown className="h-3 w-3 opacity-70" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuItem
-                onClick={() => void onExport()}
-                disabled={exporting}
-              >
-                <Download className="mr-2 h-3.5 w-3.5" />
-                <div className="flex flex-col">
-                  <span>Download</span>
-                  <span className="text-[11px] text-muted-foreground">
-                    Save {count === 1 ? ".md to your device" : ".zip to your device"}
-                  </span>
-                </div>
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => void onShare()}
-                disabled={exporting}
-              >
-                <Share2 className="mr-2 h-3.5 w-3.5" />
-                <div className="flex flex-col">
-                  <span>Share to…</span>
-                  <span className="text-[11px] text-muted-foreground">
-                    Open the system share sheet
-                  </span>
-                </div>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+              before they pick a destination. Shared with the top-of-page
+              Export menu via <WorklogSendMenu>. */}
+          <WorklogSendMenu
+            count={count}
+            onDownload={onExport}
+            onShare={onShare}
+            exporting={exporting}
+            busy={busy}
+            triggerLabel="Send"
+          />
 
           <Button
             size="sm"
