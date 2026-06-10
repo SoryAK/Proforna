@@ -59,6 +59,8 @@ import { WorklogNotesSortMenu } from "@/components/worklog/worklog-notes-sort-me
 import { WorklogReaderDrawer } from "@/components/worklog/worklog-reader-drawer";
 import { WorklogImportDialog } from "@/components/worklog/worklog-import-dialog";
 import { exportBulkWorklogs } from "@/lib/worklog/export/client";
+import { shareWorklogs } from "@/lib/worklog/share/share-client";
+import { toast } from "sonner";
 
 const DEFAULT_SORT: WorklogNotesTableSortState = {
   column: "lastEdited",
@@ -372,6 +374,30 @@ export function WorklogNotesView() {
               await exportBulkWorklogs(selectedIdList);
             } catch (err) {
               console.error("[grill-me] export failed", err);
+              toast.error("Couldn’t download those notes. Try again?");
+            } finally {
+              setExportBusy(false);
+            }
+          }}
+          onShare={async () => {
+            if (selectedIdList.length === 0) return;
+            setExportBusy(true);
+            try {
+              const outcome = await shareWorklogs(selectedIdList);
+              if (outcome === "downloaded") {
+                // Web Share unsupported (or share threw a non-cancellation
+                // error) — the file was downloaded as a fallback. Be honest
+                // about what happened so the user isn't left wondering why
+                // no share sheet appeared.
+                toast.message("Sharing isn’t supported on this browser.", {
+                  description: "The file was downloaded instead.",
+                });
+              }
+              // "shared" / "cancelled" — stay silent. Either the OS share
+              // sheet handled the rest, or the user dismissed it.
+            } catch (err) {
+              console.error("[grill-me] share failed", err);
+              toast.error("Couldn’t share those notes. Try again?");
             } finally {
               setExportBusy(false);
             }

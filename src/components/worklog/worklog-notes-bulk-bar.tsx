@@ -12,8 +12,14 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { Download, FolderInput, Trash2, X } from "lucide-react";
+import { ChevronDown, Download, FolderInput, Send, Share2, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Dialog,
   DialogContent,
@@ -30,7 +36,19 @@ export interface WorklogNotesBulkBarProps {
   count: number;
   onMove: (folderId: string | null) => Promise<void> | void;
   onDelete: () => Promise<void> | void;
+  /**
+   * Fired when the user picks **Download** from the Send menu. Always
+   * available regardless of browser support — saves the .md (N=1) or .zip
+   * (N>1) directly to disk via the existing bulk-export endpoint.
+   */
   onExport: () => Promise<void> | void;
+  /**
+   * Fired when the user picks **Share to…** from the Send menu. The handler
+   * is responsible for capability detection + falling back to a download
+   * with a toast when Web Share isn't supported (see `shareWorklogs` in
+   * src/lib/worklog/share/share-client.ts).
+   */
+  onShare: () => Promise<void> | void;
   onClear: () => void;
   /** Disables every action button while a mutation is in flight. */
   busy?: boolean;
@@ -59,6 +77,7 @@ export function WorklogNotesBulkBar({
   onMove,
   onDelete,
   onExport,
+  onShare,
   onClear,
   busy = false,
   exporting = false,
@@ -125,21 +144,59 @@ export function WorklogNotesBulkBar({
             Move to folder…
           </Button>
 
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-7 gap-1.5 text-xs"
-            onClick={() => void onExport()}
-            disabled={busy || exporting}
-            title={
-              count === 1
-                ? "Export this note as Markdown"
-                : `Export ${count} notes as a .zip of Markdown files`
-            }
-          >
-            <Download className="h-3.5 w-3.5" />
-            {exporting ? "Exporting…" : `Export${count > 1 ? " as .zip" : " as .md"}`}
-          </Button>
+          {/* Send menu (Phase 2 — ADR-0022 addendum). One verb ("send out
+              of the system"), two destinations: Download (always available)
+              and Share to… (Web Share API; falls back to download + toast
+              on browsers without canShare({files})). The label still
+              reflects N=1 vs N>1 so the user knows what they're sending
+              before they pick a destination. */}
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              disabled={busy || exporting}
+              className={cn(
+                "inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-xs",
+                "hover:bg-accent/60 transition-colors",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                "disabled:pointer-events-none disabled:opacity-50",
+              )}
+              title={
+                count === 1
+                  ? "Send this note (download or share)"
+                  : `Send ${count} notes (download as .zip or share)`
+              }
+              aria-label="Send selected notes"
+            >
+              <Send className="h-3.5 w-3.5" />
+              {exporting ? "Sending…" : `Send${count > 1 ? " as .zip" : " as .md"}`}
+              <ChevronDown className="h-3 w-3 opacity-70" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuItem
+                onClick={() => void onExport()}
+                disabled={exporting}
+              >
+                <Download className="mr-2 h-3.5 w-3.5" />
+                <div className="flex flex-col">
+                  <span>Download</span>
+                  <span className="text-[11px] text-muted-foreground">
+                    Save {count === 1 ? ".md to your device" : ".zip to your device"}
+                  </span>
+                </div>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => void onShare()}
+                disabled={exporting}
+              >
+                <Share2 className="mr-2 h-3.5 w-3.5" />
+                <div className="flex flex-col">
+                  <span>Share to…</span>
+                  <span className="text-[11px] text-muted-foreground">
+                    Open the system share sheet
+                  </span>
+                </div>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           <Button
             size="sm"
