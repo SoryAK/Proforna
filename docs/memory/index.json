@@ -15,6 +15,7 @@
     "InlineToolsField": "worklog.json",
     "PropertiesTab": "worklog.json",
     "RailTabsRegistry": "worklog.json",
+    "WorklogNotesFilterButton": "worklog.json",
     "useReaderRailState": "worklog.json",
     "JobMapDomain": "job-map.json",
     "WorkHistoryDomain": "job-map.json",

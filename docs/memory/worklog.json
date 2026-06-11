@@ -65,7 +65,9 @@
         "[2026-06-10] ADR-0023 worklog reader right-rail is now mounted on both /worklog (dashboard 2-pane via WorklogNotesAndReader) and /worklog/notes/[id] (single-note route). Removing the inline Backlinks/History/Photos blocks from WorklogNoteReader without also mounting the rail on /worklog/notes/[id] would have stranded those panels on that route — caught & fixed in same Unit 3 commit (02b8450).",
         "[2026-06-10] ADR-0023 Unit 3.1 SHIPPED (commit f02f0a7). Tags lifted from WorklogNoteReader inline block into the rail Tags tab. Dual-surface pattern via InlineTagsField (xl+ rail / xl:hidden inline) — this is the canonical template for future tab lifts. AssetPicker auto-tag merge now reads server-canonical log.tags and writes both assetIds + tags in a single onUpdate patch (same race as the editor mention merge — accepted, documented inline, not a regression).",
         "[2026-06-10] ADR-0024 SHIPPED end-to-end. Unit 5 (commit 6377802) deleted src/components/worklog/worklog-note-read-view.tsx (the last drawer-only read shim, zero callers after Unit 3 retired the drawer). ADR-0015 Phase 5 banner now reads 'Superseded by ADR-0024'. .Manual/note-to-note-linking.md updated to drop dead WorklogNoteReadView reference. The single inline reader-first surface is canonical: WorklogNotesView (route) + WorklogNotesAndReader (dashboard) both mount WorklogNoteReader + WorklogReaderRightRail as flex siblings.",
-        "[2026-06-10 PARKED] User proposed promoting Tolaria-pattern lift to Assets + Tools (Equipment) — refined from 'two new rail tabs' to 'one rail tab with inline-section content' (Tolaria-style stacked sections in a single scrollable panel) so the rail panel doesn't become mostly deadspace per-tab. See /memories/repo/parked-ideas.md entry 'Lift Assets + Tools (Equipment) into the right rail — INLINE SECTIONS shape'."
+        "[2026-06-10 PARKED] User proposed promoting Tolaria-pattern lift to Assets + Tools (Equipment) — refined from 'two new rail tabs' to 'one rail tab with inline-section content' (Tolaria-style stacked sections in a single scrollable panel) so the rail panel doesn't become mostly deadspace per-tab. See /memories/repo/parked-ideas.md entry 'Lift Assets + Tools (Equipment) into the right rail — INLINE SECTIONS shape'.",
+        "[2026-06-10 trio fadfb4d/ee52509/c0bf164] WorklogNotesView compact-mode (notes-list column shrinks to w-72 when selectedNoteId != null) toolbar restructured for mockup parity. (1) Toolbar + bulk-bar + filter chips moved INSIDE the list column (was siblings of the 3-pane body); dropped the outer `hidden md:contents` wrapper because the list column itself now does `hidden md:flex`. (2) compactToolbar flag drops inline button labels via toolbarLabelCls so icons-only render in the 288px column. (3) Compact toolbar slimmed further: count text + view switcher (List/Grid) removed (Grid in 288px is pointless), Import + Export collapsed into a single ⋯ DropdownMenu kebab. (4) Inline WorklogNotesFilterChips row dropped from compact mode in favor of a Filter icon + count-badge popover button (WorklogNotesFilterButton). Full mode (no note open, column is flex-1) unchanged on all four counts.",
+        "[2026-06-10 commit 27e6e37] PropertiesTab rail switched from `space-y-5` to `divide-y divide-border` for Tolaria-style hairline dividers between the 5 stacked sections (Tags / Assets / Tools / Backlinks / Version history). Section padding shifted from outer margin to per-section `py-4 first:pt-3 last:pb-3`. Uses approved `border.divider` token — no new tokens introduced."
       ]
     },
     {
@@ -175,6 +177,16 @@
         "[2026-06-10] Type exports: RailTabId = 'properties' | 'photos'; RAIL_TAB_IDS readonly array; isRailTabId type guard; DEFAULT_RAIL_TAB = 'properties'; LEGACY_PROPERTIES_ALIASES = Set(['tags','backlinks','history']); migrateLegacyRailTab(value) rewrites any alias to 'properties'. This helper is the single source of truth for legacy migration — both useReaderRailState and the /api/work-logs/preferences/reader-rail route import it.",
         "[2026-06-10] Adding a new rail tab in the future: extend the RAIL_TABS array, widen RailTabId, widen shortcut union, update PropertiesTab/PhotosTab dispatch in worklog-reader-right-rail.tsx, add it to ALLOWED_RAIL_TABS in the route validator, and add an it.each row to route.test.ts. No DB migration — readerRailTab is a free-form String column."
       ]
+    },
+    {
+      "name": "WorklogNotesFilterButton",
+      "entityType": "component",
+      "observations": [
+        "[2026-06-10 commit c0bf164] Path src/components/worklog/worklog-notes-filter-button.tsx. Compact-mode entry point for the worklog filter chips. Replaces the inline WorklogNotesFilterChips row in the w-72 notes-list column (which wrapped to 2 lines even when zero filters were active). Renders a Filter icon button in the toolbar; popover hosts the EXISTING WorklogNotesFilterChips verbatim so chip behavior + active orange-pill visuals are identical — only the surface changes.",
+        "[2026-06-10] Button is icon-only (w-7) when no filter is active; expands to padded + orange count badge when ≥1 filter is set. Props are 1:1 with WorklogNotesFilterChipsProps so it's a drop-in. SENTINEL='all' is duplicated locally (not exported from chips) to keep the chips module free of counter-consumer coupling.",
+        "[2026-06-10] Uses base-ui Popover (NOT DropdownMenu) so the chips' inner FilterChip dropdowns can mount cleanly as separate popovers without base-ui submenu glitches. PopoverTrigger has no onClick (base-ui owns it — last-write-wins would clobber the open handler), same constraint as DropdownMenuTrigger.",
+        "[2026-06-10] Only rendered in compact mode (selectedNoteId != null). Full mode still renders the inline WorklogNotesFilterChips row beneath the toolbar — unchanged. Gating: `{compactToolbar && <WorklogNotesFilterButton .../>}` in toolbar + `{!compactToolbar && <WorklogNotesFilterChips .../>}` below toolbar."
+      ]
     }
   ],
   "relations": [
@@ -198,6 +210,8 @@
     { "from": "InlineToolsField", "relationType": "belongs to", "to": "WorklogDomain" },
     { "from": "RailTabsRegistry", "relationType": "belongs to", "to": "WorklogDomain" },
     { "from": "useReaderRailState", "relationType": "reads", "to": "RailTabsRegistry" },
+    { "from": "WorklogNotesFilterButton", "relationType": "belongs to", "to": "WorklogDomain" },
+    { "from": "WorklogNotesFilterButton", "relationType": "embeds", "to": "WorklogNotesFilterChips" },
     { "from": "InlineTagsField", "relationType": "belongs to", "to": "WorklogDomain" },
     { "from": "useReaderRailState", "relationType": "belongs to", "to": "WorklogDomain" },
     { "from": "WorklogHistoryPanel", "relationType": "embeds", "to": "WorklogVersionDiffModal" }
