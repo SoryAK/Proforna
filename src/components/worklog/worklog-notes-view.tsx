@@ -74,6 +74,7 @@ import {
 import type { WorklogNotesTableSortState } from "@/components/worklog/worklog-notes-shared";
 import { WorklogNotesGrid } from "@/components/worklog/worklog-notes-grid";
 import { WorklogNotesFilterChips } from "@/components/worklog/worklog-notes-filter-chips";
+import { WorklogNotesFilterButton } from "@/components/worklog/worklog-notes-filter-button";
 import { WorklogNotesBulkBar } from "@/components/worklog/worklog-notes-bulk-bar";
 import { WorklogNotesSortMenu } from "@/components/worklog/worklog-notes-sort-menu";
 import { WorklogNoteReader } from "@/components/worklog/worklog-note-reader";
@@ -565,6 +566,28 @@ export function WorklogNotesView({ selectedNoteId = null }: WorklogNotesViewProp
                   <span className={toolbarLabelCls}>{bulkMode ? "Done" : "Select"}</span>
                 </Button>
 
+                {/* Compact-only: replace the below-toolbar filter row with a
+                    Filter icon + count-badge popover that shows the chips on
+                    demand. The popover hosts the same <WorklogNotesFilterChips>
+                    used in full mode, so behavior + active-value pills are
+                    identical — only the surface changes. */}
+                {compactToolbar && (
+                  <WorklogNotesFilterButton
+                    positions={positions}
+                    equipment={equipment}
+                    assets={assets}
+                    filterPositionId={filterPositionId}
+                    setFilterPositionId={setFilterPositionId}
+                    filterNotable={filterNotable}
+                    setFilterNotable={setFilterNotable}
+                    filterEquipmentId={filterEquipmentId}
+                    setFilterEquipmentId={setFilterEquipmentId}
+                    filterAssetId={filterAssetId}
+                    setFilterAssetId={setFilterAssetId}
+                    onClearAll={clearAllFilters}
+                  />
+                )}
+
                 {compactToolbar ? (
                   // Compact: Import + Export live behind a single ⋯ kebab so
                   // the toolbar fits the w-72 column. Both actions remain
@@ -688,22 +711,26 @@ export function WorklogNotesView({ selectedNoteId = null }: WorklogNotesViewProp
             </div>
           )}
 
-          {/* Filter chips row — also column-scoped because the filters act
-              on the list contents themselves. */}
-          <WorklogNotesFilterChips
-            positions={positions}
-            equipment={equipment}
-            assets={assets}
-            filterPositionId={filterPositionId}
-            setFilterPositionId={setFilterPositionId}
-            filterNotable={filterNotable}
-            setFilterNotable={setFilterNotable}
-            filterEquipmentId={filterEquipmentId}
-            setFilterEquipmentId={setFilterEquipmentId}
-            filterAssetId={filterAssetId}
-            setFilterAssetId={setFilterAssetId}
-            onClearAll={clearAllFilters}
-          />
+          {/* Filter chips row — inline only in full mode. In compact mode the
+              chips move into the toolbar's <WorklogNotesFilterButton> popover
+              so the 288px column doesn't lose two vertical rows to filters
+              that may not even be active. */}
+          {!compactToolbar && (
+            <WorklogNotesFilterChips
+              positions={positions}
+              equipment={equipment}
+              assets={assets}
+              filterPositionId={filterPositionId}
+              setFilterPositionId={setFilterPositionId}
+              filterNotable={filterNotable}
+              setFilterNotable={setFilterNotable}
+              filterEquipmentId={filterEquipmentId}
+              setFilterEquipmentId={setFilterEquipmentId}
+              filterAssetId={filterAssetId}
+              setFilterAssetId={setFilterAssetId}
+              onClearAll={clearAllFilters}
+            />
+          )}
 
           {/* Inner scroller — toolbar + chips pin to the top of the column
               while the table/grid scrolls beneath them. */}
