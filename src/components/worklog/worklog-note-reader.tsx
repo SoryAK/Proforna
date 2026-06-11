@@ -23,9 +23,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Star,
   Trash2,
-  ChevronRight,
   FileText,
-  Wrench,
   Pencil,
   Check,
   Trophy,
@@ -35,7 +33,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { InlineTagsField } from "@/components/worklog/inline-tags-field";
 import { InlineAssetsField } from "@/components/worklog/inline-assets-field";
-import { EquipmentPicker, type EquipmentItem } from "@/components/equipment-picker";
+import { InlineToolsField } from "@/components/worklog/inline-tools-field";
+import { type EquipmentItem } from "@/components/equipment-picker";
 import { type JobAsset } from "@/components/asset-picker";
 import { cn } from "@/lib/utils";
 import type { WorkLog, Position, WorkShift } from "@/types/worklog";
@@ -214,7 +213,6 @@ const ReaderInner = forwardRef<WorklogNoteReaderHandle, ReaderInnerProps>(functi
     },
   }), [hoursField, titleField]);
 
-  const [equipOpen, setEquipOpen] = useState(false);
   const [promoteOpen, setPromoteOpen] = useState(false);
 
   // Auto-start in edit mode and expand details only for brand-new notes
@@ -461,33 +459,13 @@ const ReaderInner = forwardRef<WorklogNoteReaderHandle, ReaderInnerProps>(functi
             className="xl:hidden"
           />
 
-          {/* Tools section */}
-          {equipment.length > 0 && (
-            <details
-              open={equipOpen || (log.equipmentIds ?? []).length > 0}
-              onToggle={(e) => setEquipOpen((e.target as HTMLDetailsElement).open)}
-              className="group border-t pt-3"
-            >
-              <summary className="cursor-pointer list-none inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground select-none">
-                <ChevronRight className="h-3 w-3 transition-transform group-open:rotate-90" />
-                <Wrench className="h-3 w-3" />
-                Tools
-                {(log.equipmentIds ?? []).length > 0 && (
-                  <Badge variant="secondary" className="ml-1 h-4 text-[10px]">
-                    {(log.equipmentIds ?? []).length}
-                  </Badge>
-                )}
-              </summary>
-              <div className="mt-3">
-                <EquipmentPicker
-                  label=""
-                  equipment={equipment}
-                  selectedIds={log.equipmentIds ?? []}
-                  onChange={(ids) => onUpdate({ id: log.id, equipmentIds: ids })}
-                />
-              </div>
-            </details>
-          )}
+          {/* Tools section — InlineToolsField owns its own collapsible
+              shell and gates itself on equipment.length > 0 (ADR-0025 Unit 2). */}
+          <InlineToolsField
+            log={log}
+            equipment={equipment}
+            onUpdate={onUpdate}
+          />
 
           {/* Assets section — InlineAssetsField owns its own collapsible
               shell + auto-tag merge bridge (ADR-0025 Unit 1). */}
