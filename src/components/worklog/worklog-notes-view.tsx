@@ -2,10 +2,23 @@
  * WorklogNotesView — Drive-style document-manager surface for `/worklog/notes`
  * (per ADR-0015) + inline 3-pane reader on `/worklog/notes/[id]` (per ADR-0024).
  *
- * Composition:
- *   ┌── Top bar (count · view switcher · Select · "+ New note") OR <BulkBar> ┐
- *   ├── <WorklogNotesFilterChips> (Position · Notable · Equip · Asset)        ┤
- *   └── List pane (full-width) OR list + reader + rail (3-pane) ─────────────┘
+ * Composition (post 2026-06-10 mockup-parity restructure):
+ *   ┌── List column (flex-1, or w-72 when reader open) ──────────────┐
+ *   │   Toolbar (count · view · Select · Import · Export · + New)    │
+ *   │   OR <BulkBar> when a selection is active                       │
+ *   │   <WorklogNotesFilterChips>                                     │
+ *   │   List/Grid (inner scroller)                                    │
+ *   ├── Reader column (only when a note is selected) ────────────────┤
+ *   └── <WorklogReaderRightRail> (xl+ only) ─────────────────────────┘
+ *
+ * Toolbar + filter chips + bulk-bar all live INSIDE the list column so they
+ * scope to the list panel — matching the Tolaria right-rail mockup at
+ * /mockups/worklog-reader-right-rail.html. When the column shrinks to w-72
+ * on note selection, the toolbar shrinks with it; when the reader closes,
+ * the column reclaims `flex-1` and the toolbar widens. Mobile (< md) with
+ * a selection: the entire list column is hidden, taking the toolbar with
+ * it — the in-reader back link returns to the list where the toolbar
+ * reappears.
  *
  * The folder picker lives in the global sidebar (ADR-0013); this view reads
  * the URL-driven `activeFolder` via {@link useFolderSelection} so the table
@@ -385,6 +398,14 @@ export function WorklogNotesView({ selectedNoteId = null }: WorklogNotesViewProp
     target?.focus();
   };
 
+  // When a note is open the list collapses to w-72 (per the 3-pane
+  // layout). 6 labelled buttons (List · Grid · Select · Import · Export ·
+  // + New note) plus the "N notes" count don't fit — they overflow into
+  // the reader column. Drop inline button labels in compact mode so the
+  // toolbar stays inside its column (icons + tooltips remain).
+  const compactToolbar = selectedNoteId !== null;
+  const toolbarLabelCls = compactToolbar ? "hidden" : "hidden sm:inline";
+
   const viewControls = (
     <>
       {viewMode === "grid" && (
@@ -413,7 +434,7 @@ export function WorklogNotesView({ selectedNoteId = null }: WorklogNotesViewProp
           )}
         >
           <List className="h-3.5 w-3.5" />
-          <span className="hidden sm:inline">List</span>
+          <span className={toolbarLabelCls}>List</span>
         </button>
         <button
           type="button"
@@ -432,7 +453,7 @@ export function WorklogNotesView({ selectedNoteId = null }: WorklogNotesViewProp
           )}
         >
           <LayoutGrid className="h-3.5 w-3.5" />
-          <span className="hidden sm:inline">Grid</span>
+          <span className={toolbarLabelCls}>Grid</span>
         </button>
       </div>
     </>
@@ -440,208 +461,211 @@ export function WorklogNotesView({ selectedNoteId = null }: WorklogNotesViewProp
 
   return (
     <div className="flex flex-col h-full bg-white dark:bg-gray-950">
-      {/* Top bar + filter chips. On mobile (< md) with a selection, the
-          reader takes the full viewport (Apple Notes pattern) so list-side
-          controls are hidden — the in-reader back link returns to the list
-          where the toolbar reappears. Desktop (md+) keeps them visible since
-          the list and reader live side-by-side. ADR-0024 Unit 4. */}
-      <div className={cn(selectedNoteId && "hidden md:contents")}>
-      {/* Top bar: bulk-action bar when selection is active, otherwise the
-          regular toolbar (count · view switcher · Select toggle · "+ New note"). */}
-      {selectedCount > 0 ? (
-        <WorklogNotesBulkBar
-          count={selectedCount}
-          busy={bulkAction.isPending}
-          exporting={exportBusy}
-          showShare={canShare}
-          mode={exportIntent ? "send" : "organize"}
-          onClear={() => {
-            selection.clear();
-            setBulkMode(false);
-            setExportIntent(false);
-          }}
-          trailing={viewControls}
-          onMove={async (folderId) => {
-            if (selectedIdList.length === 0) return;
-            await bulkAction.mutateAsync({
-              action: "move",
-              ids: selectedIdList,
-              payload: { folderId },
-            });
-            // Gmail-style auto-exit on success — bulk action finished,
-            // drop the user back on the clean toolbar.
-            selection.clear();
-            setBulkMode(false);
-            setExportIntent(false);
-          }}
-          onDelete={async () => {
-            if (selectedIdList.length === 0) return;
-            await bulkAction.mutateAsync({
-              action: "delete",
-              ids: selectedIdList,
-            });
-            // Gmail-style auto-exit on success.
-            selection.clear();
-            setBulkMode(false);
-            setExportIntent(false);
-          }}
-          onExport={() => runDownload(selectedIdList)}
-          onShare={() => runShare(selectedIdList)}
-        />
-      ) : (
-        <div className="h-12 px-4 flex items-center justify-between border-b">
-          <div className="text-sm text-muted-foreground tabular-nums">
-            {loadingLogs
-              ? "Loading…"
-              : `${visibleCount} ${visibleCount === 1 ? "note" : "notes"}`}
-          </div>
-          <div className="flex items-center gap-1">
-            {viewControls}
-
-            {/* Select-mode toggle: gates row checkboxes */}
-            <Button
-              size="sm"
-              variant={bulkMode ? "secondary" : "ghost"}
-              onClick={toggleBulkMode}
-              aria-label={bulkMode ? "Exit select mode" : "Select multiple notes"}
-              aria-pressed={bulkMode}
-              title={bulkMode ? "Exit select mode (Esc)" : "Select multiple notes"}
-              className="h-7 gap-1.5 text-xs"
-            >
-              <CheckSquare className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">{bulkMode ? "Done" : "Select"}</span>
-            </Button>
-
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => setImportOpen(true)}
-              aria-label="Import notes from files"
-              title="Import notes from Markdown or HTML files"
-              className="h-7 gap-1.5 text-xs"
-            >
-              <Upload className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Import</span>
-            </Button>
-
-            {/* Top-level Export button (ADR-0022 addendum 3 — 2026-06-10,
-                revised same-day after smoke test).
-                Click → enters bulk mode in "send" intent with ZERO
-                preselection. The bar that appears renders Send only — no
-                Move, no Delete — so the export flow can't accidentally
-                file or destroy notes. User checks the rows they want
-                (Shift / Ctrl supported via row checkboxes), then commits
-                via the bulk-bar Send menu (Download, plus Share to… on
-                touch devices). Auto-exit on send success returns them
-                here on the clean toolbar. Server-side BULK_MAX is
-                mirrored client-side via EXPORT_MAX_VIEW so we toast
-                before any state change when the view is too large. */}
-            <Button
-              size="sm"
-              variant={exportIntent ? "secondary" : "ghost"}
-              aria-pressed={exportIntent}
-              onClick={() => {
-                if (visibleCount === 0) return;
-                if (visibleCount > EXPORT_MAX_VIEW) {
-                  toast.error(
-                    `Too many notes in this view (${visibleCount}).`,
-                    {
-                      description: `Narrow your filter or use Select mode to pick up to ${EXPORT_MAX_VIEW}.`,
-                    },
-                  );
-                  return;
-                }
-                setBulkMode(true);
-                setExportIntent(true);
-              }}
-              disabled={visibleCount === 0 || loadingLogs}
-              aria-label={
-                visibleCount === 0
-                  ? "No notes in this view"
-                  : `Export — pick from ${visibleCount} ${visibleCount === 1 ? "note" : "notes"}, then send`
-              }
-              title={
-                visibleCount === 0
-                  ? "No notes in this view"
-                  : `Export — pick from ${visibleCount} ${visibleCount === 1 ? "note" : "notes"}, then send`
-              }
-              className="h-7 gap-1.5 text-xs"
-            >
-              <Send className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Export</span>
-            </Button>
-
-            <Button
-              size="sm"
-              onClick={handleNewNote}
-              disabled={saveLog.isPending}
-            >
-              <Plus className="h-4 w-4" />
-              <span className="hidden sm:inline">New note</span>
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* Filter chips row */}
-      <WorklogNotesFilterChips
-        positions={positions}
-        equipment={equipment}
-        assets={assets}
-        filterPositionId={filterPositionId}
-        setFilterPositionId={setFilterPositionId}
-        filterNotable={filterNotable}
-        setFilterNotable={setFilterNotable}
-        filterEquipmentId={filterEquipmentId}
-        setFilterEquipmentId={setFilterEquipmentId}
-        filterAssetId={filterAssetId}
-        setFilterAssetId={setFilterAssetId}
-        onClearAll={clearAllFilters}
-      />
-      </div>
-
-      {/* Body: list-only OR list + reader + rail (ADR-0024).
+      {/* Body: list (column-scoped toolbar inside) + reader + rail
+          (ADR-0024 / mockup parity 2026-06-10).
           - selectedNoteId == null  → list claims full width (mockup Frame 2)
           - selectedNoteId != null  → list shrinks to w-72, reader middle, rail right
-          Mobile (< md) with selection: list hides, reader fills viewport. */}
+          Mobile (< md) with selection: list hides, reader fills viewport —
+          the toolbar disappears with the column it now lives in. */}
       <div className="flex-1 min-h-0 flex flex-row overflow-hidden">
         <div
           className={cn(
-            "min-h-0 overflow-auto",
+            "min-h-0 flex flex-col",
             selectedNoteId
-              ? "hidden md:block w-72 shrink-0 border-r"
+              ? "hidden md:flex w-72 shrink-0 border-r"
               : "flex-1",
           )}
         >
-          {viewMode === "list" ? (
-            <WorklogNotesTable
-              logs={visibleLogs}
-              positionMap={positionMap}
-              folders={folders}
-              loading={loadingLogs}
-              sort={sort}
-              onSortChange={setSort}
-              selection={selection}
-              bulkMode={bulkMode}
-              selectedFocusId={selectedNoteId}
-              onOpen={handleOpen}
-              onNew={handleNewNote}
-              compact={selectedNoteId !== null || isMobile}
+          {/* Column-scoped toolbar (mockup parity): bulk-action bar when a
+              selection is active, otherwise the regular count · view switcher ·
+              Select · Import · Export · "+ New note" row. Lives INSIDE the
+              list column so its right edge aligns with the column border,
+              matching the Tolaria right-rail mockup. */}
+          {selectedCount > 0 ? (
+            <WorklogNotesBulkBar
+              count={selectedCount}
+              busy={bulkAction.isPending}
+              exporting={exportBusy}
+              showShare={canShare}
+              mode={exportIntent ? "send" : "organize"}
+              onClear={() => {
+                selection.clear();
+                setBulkMode(false);
+                setExportIntent(false);
+              }}
+              trailing={viewControls}
+              onMove={async (folderId) => {
+                if (selectedIdList.length === 0) return;
+                await bulkAction.mutateAsync({
+                  action: "move",
+                  ids: selectedIdList,
+                  payload: { folderId },
+                });
+                // Gmail-style auto-exit on success — bulk action finished,
+                // drop the user back on the clean toolbar.
+                selection.clear();
+                setBulkMode(false);
+                setExportIntent(false);
+              }}
+              onDelete={async () => {
+                if (selectedIdList.length === 0) return;
+                await bulkAction.mutateAsync({
+                  action: "delete",
+                  ids: selectedIdList,
+                });
+                // Gmail-style auto-exit on success.
+                selection.clear();
+                setBulkMode(false);
+                setExportIntent(false);
+              }}
+              onExport={() => runDownload(selectedIdList)}
+              onShare={() => runShare(selectedIdList)}
             />
           ) : (
-            <WorklogNotesGrid
-              logs={visibleLogs}
-              positionMap={positionMap}
-              folders={folders}
-              loading={loadingLogs}
-              sort={sort}
-              selection={selection}
-              bulkMode={bulkMode}
-              selectedFocusId={selectedNoteId}
-              onOpen={handleOpen}
-              onNew={handleNewNote}
-            />
+            <div className="h-12 px-4 flex items-center justify-between border-b">
+              <div className="text-sm text-muted-foreground tabular-nums">
+                {loadingLogs
+                  ? "Loading…"
+                  : `${visibleCount} ${visibleCount === 1 ? "note" : "notes"}`}
+              </div>
+              <div className="flex items-center gap-1">
+                {viewControls}
+
+                {/* Select-mode toggle: gates row checkboxes */}
+                <Button
+                  size="sm"
+                  variant={bulkMode ? "secondary" : "ghost"}
+                  onClick={toggleBulkMode}
+                  aria-label={bulkMode ? "Exit select mode" : "Select multiple notes"}
+                  aria-pressed={bulkMode}
+                  title={bulkMode ? "Exit select mode (Esc)" : "Select multiple notes"}
+                  className="h-7 gap-1.5 text-xs"
+                >
+                  <CheckSquare className="h-3.5 w-3.5" />
+                  <span className={toolbarLabelCls}>{bulkMode ? "Done" : "Select"}</span>
+                </Button>
+
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setImportOpen(true)}
+                  aria-label="Import notes from files"
+                  title="Import notes from Markdown or HTML files"
+                  className="h-7 gap-1.5 text-xs"
+                >
+                  <Upload className="h-3.5 w-3.5" />
+                  <span className={toolbarLabelCls}>Import</span>
+                </Button>
+
+                {/* Top-level Export button (ADR-0022 addendum 3 — 2026-06-10,
+                    revised same-day after smoke test).
+                    Click → enters bulk mode in "send" intent with ZERO
+                    preselection. The bar that appears renders Send only — no
+                    Move, no Delete — so the export flow can't accidentally
+                    file or destroy notes. User checks the rows they want
+                    (Shift / Ctrl supported via row checkboxes), then commits
+                    via the bulk-bar Send menu (Download, plus Share to… on
+                    touch devices). Auto-exit on send success returns them
+                    here on the clean toolbar. Server-side BULK_MAX is
+                    mirrored client-side via EXPORT_MAX_VIEW so we toast
+                    before any state change when the view is too large. */}
+                <Button
+                  size="sm"
+                  variant={exportIntent ? "secondary" : "ghost"}
+                  aria-pressed={exportIntent}
+                  onClick={() => {
+                    if (visibleCount === 0) return;
+                    if (visibleCount > EXPORT_MAX_VIEW) {
+                      toast.error(
+                        `Too many notes in this view (${visibleCount}).`,
+                        {
+                          description: `Narrow your filter or use Select mode to pick up to ${EXPORT_MAX_VIEW}.`,
+                        },
+                      );
+                      return;
+                    }
+                    setBulkMode(true);
+                    setExportIntent(true);
+                  }}
+                  disabled={visibleCount === 0 || loadingLogs}
+                  aria-label={
+                    visibleCount === 0
+                      ? "No notes in this view"
+                      : `Export — pick from ${visibleCount} ${visibleCount === 1 ? "note" : "notes"}, then send`
+                  }
+                  title={
+                    visibleCount === 0
+                      ? "No notes in this view"
+                      : `Export — pick from ${visibleCount} ${visibleCount === 1 ? "note" : "notes"}, then send`
+                  }
+                  className="h-7 gap-1.5 text-xs"
+                >
+                  <Send className="h-3.5 w-3.5" />
+                  <span className={toolbarLabelCls}>Export</span>
+                </Button>
+
+                <Button
+                  size="sm"
+                  onClick={handleNewNote}
+                  disabled={saveLog.isPending}
+                >
+                  <Plus className="h-4 w-4" />
+                  <span className={toolbarLabelCls}>New note</span>
+                </Button>
+              </div>
+            </div>
           )}
+
+          {/* Filter chips row — also column-scoped because the filters act
+              on the list contents themselves. */}
+          <WorklogNotesFilterChips
+            positions={positions}
+            equipment={equipment}
+            assets={assets}
+            filterPositionId={filterPositionId}
+            setFilterPositionId={setFilterPositionId}
+            filterNotable={filterNotable}
+            setFilterNotable={setFilterNotable}
+            filterEquipmentId={filterEquipmentId}
+            setFilterEquipmentId={setFilterEquipmentId}
+            filterAssetId={filterAssetId}
+            setFilterAssetId={setFilterAssetId}
+            onClearAll={clearAllFilters}
+          />
+
+          {/* Inner scroller — toolbar + chips pin to the top of the column
+              while the table/grid scrolls beneath them. */}
+          <div className="flex-1 min-h-0 overflow-auto">
+            {viewMode === "list" ? (
+              <WorklogNotesTable
+                logs={visibleLogs}
+                positionMap={positionMap}
+                folders={folders}
+                loading={loadingLogs}
+                sort={sort}
+                onSortChange={setSort}
+                selection={selection}
+                bulkMode={bulkMode}
+                selectedFocusId={selectedNoteId}
+                onOpen={handleOpen}
+                onNew={handleNewNote}
+                compact={selectedNoteId !== null || isMobile}
+              />
+            ) : (
+              <WorklogNotesGrid
+                logs={visibleLogs}
+                positionMap={positionMap}
+                folders={folders}
+                loading={loadingLogs}
+                sort={sort}
+                selection={selection}
+                bulkMode={bulkMode}
+                selectedFocusId={selectedNoteId}
+                onOpen={handleOpen}
+                onNew={handleNewNote}
+              />
+            )}
+          </div>
         </div>
 
         {selectedNoteId !== null && (
