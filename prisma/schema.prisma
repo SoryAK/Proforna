@@ -770,6 +770,13 @@ model WorkLog {
   folderId  String?
   sortOrder Int     @default(0) // drag-reorder position within folder (W2.1)
 
+  // ── Archive bucket (ADR-0026) ──
+  // Gmail-style soft archive. NULL = active note (default surface). Non-null
+  // = hidden from the active list / search / All Notes; visible only via the
+  // dedicated `?archived=1` filter (sidebar "Archived" view). Hard delete
+  // remains separate (DELETE /api/work-logs/[id]) — archive is not trash.
+  archivedAt DateTime?
+
   // ── Full-text search (W1.2) ──
   // GENERATED STORED tsvector maintained by Postgres — see migration
   // 20260523220000_add_worklog_search_vector. Combines title (A), content (B), tags (C).
@@ -793,6 +800,7 @@ model WorkLog {
   @@index([userId, workdayDate])
   @@index([userId, folderId])
   @@index([userId, folderId, sortOrder])
+  @@index([userId, archivedAt])
   @@index([positionId, shiftId])
   @@index([positionId])
   @@index([templateId])

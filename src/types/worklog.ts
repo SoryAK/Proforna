@@ -44,6 +44,14 @@ export type WorkLog = {
   assetIds: string[];
   promotedToCareerEventId: string | null;
   visibility: string;
+  /**
+   * ADR-0026 — Gmail-style archive bucket. ISO timestamp when the user
+   * archived the note; `null` for active notes. Archived rows are hidden
+   * from list/search/All Notes by default; the dedicated `archived` view
+   * (sidebar row, future Unit 4) is the only surface that shows them.
+   * Hard delete remains a separate destructive action.
+   */
+  archivedAt: string | null;
   createdAt: string;
   updatedAt: string;
   /** Display order within a folder/unfiled group. Optional since legacy cache entries may lack it. */
