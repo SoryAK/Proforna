@@ -125,7 +125,10 @@
         "[2026-06-10] Unmounts entirely (returns null) when activeNoteId is null. No-selection ghost-stub mode is Unit 4 scope.",
         "[2026-06-10] Mounted as a flex sibling of WorklogNoteReader in TWO places: WorklogNotesAndReader (dashboard 2-pane) AND /worklog/notes/[id]/page.tsx (single-note route). Both surfaces must mount the rail or Backlinks/History/Photos surface disappears entirely from that route.",
         "[2026-06-10 ADR-0023 Unit 3.1 SHIPPED, commit f02f0a7] Tags tab is no longer a placeholder. Renders <InlineTagsField log={...} onUpdate={...} tagSuggestions={...} hideLabel /> internally. Three new optional rail props power it: activeLog?: WorkLog | null, onUpdateActiveLog?: (patch) => void | Promise<unknown>, tagSuggestions?: string[]. Tab degrades to a no-op if onUpdateActiveLog is omitted.",
-        "[2026-06-10 ADR-0024 WRAPPED] Drawer surface fully retired (Units 0-5). The rail is now THE Tolaria-pattern surface for the worklog reader, no drawer fallback. ADR-0015 Phase 5 banner flipped to 'Superseded by ADR-0024 — Inline Reader-First Notes Surface' (commit 6377802)."
+        "[2026-06-10 ADR-0024 WRAPPED] Drawer surface fully retired (Units 0-5). The rail is now THE Tolaria-pattern surface for the worklog reader, no drawer fallback. ADR-0015 Phase 5 banner flipped to 'Superseded by ADR-0024 — Inline Reader-First Notes Surface' (commit 6377802).",
+        "[2026-06-10 ADR-0025 SHIPPED end-to-end] Rail collapsed from 4 tabs → 2 tabs. Final registry: RAIL_TABS = [properties (Settings2, ⌘1), photos (ImageIcon, ⌘2)]. Backlinks and Version History no longer have their own tabs — they're inner-scroller sections (max-h-64) inside PropertiesTab. Reader body is now just the note; all context lives on the rail (matches the /mockups/worklog-reader-right-rail.html intent).",
+        "[2026-06-10 ADR-0025 Unit 4, commit f92bdf2] Dispatch shrunk to 2 cases. PropertiesTab now receives noteId + currentPlainText (forwarded from WorklogReaderRightRail props) so it can mount WorklogBacklinksPanel and WorklogHistoryPanel internally. Legacy preference values (tags|backlinks|history) are aliased to 'properties' at every read/write boundary: useReaderRailState (read time, via migrateLegacyRailTab) AND /api/work-logs/preferences/reader-rail/route.ts (write time, normalizes incoming POSTs and stale DB rows). No DB migration needed — readerRailTab is a free-form String column at prisma/schema.prisma:913.",
+        "[2026-06-10 ADR-0025 commits] Unit 1 InlineAssetsField=5ec3d3a, Unit 2 InlineToolsField=49dcb16, Unit 3 properties-tab=4e0e4d2 (renamed tags-tab.tsx → properties-tab.tsx, added Assets+Tools), Unit 4 collapse=f92bdf2 (deleted backlinks-tab.tsx + history-tab.tsx, added Backlinks+History as sections, shrunk registry)."
       ]
     },
     {
@@ -134,7 +137,43 @@
       "observations": [
         "[2026-06-10] Owns rail UI state (active tab + collapsed flag). Persisted via POST /api/work-logs/preferences/reader-rail with partial-update semantics.",
         "[2026-06-10] Reads from shared ['worklog-preferences'] query cache via useQuery (NOT queryClient.getQueryData). The getQueryData approach was a Unit 2 bug: getQueryData is a one-shot snapshot, so optimistic setQueryData writes from the mutation never re-rendered the rail. Migration to useQuery in Unit 3 fixed the silent tab-click failure. TanStack Query v5 dedupes by queryKey, so this shares fetch + cache with useWorklogPreferences.",
-        "[2026-06-10] Mutation pattern: onMutate writes optimistic cache + saves previous snapshot → onError rollback to previous + toast 'Could not save rail state' → onSuccess server confirm. Use this hook pattern as the template for any future rail-state preferences."
+        "[2026-06-10] Mutation pattern: onMutate writes optimistic cache + saves previous snapshot → onError rollback to previous + toast 'Could not save rail state' → onSuccess server confirm. Use this hook pattern as the template for any future rail-state preferences.",
+        "[2026-06-10 ADR-0025] Applies migrateLegacyRailTab (from rail-tabs.ts) on every cache read BEFORE the isRailTabId guard. This means legacy DB rows storing 'tags' | 'backlinks' | 'history' transparently surface as 'properties' on the client — no migration script required. Mirror normalization happens server-side in /api/work-logs/preferences/reader-rail/route.ts so writes can't reintroduce stale ids."
+      ]
+    },
+    {
+      "name": "PropertiesTab",
+      "entityType": "component",
+      "observations": [
+        "[2026-06-10 ADR-0025 Unit 3 commit 4e0e4d2, expanded Unit 4 commit f92bdf2] Path src/components/worklog/right-rail/tabs/properties-tab.tsx. Single right-rail tab that consolidates ALL contextual surfaces for the active worklog note. Replaces the former TagsTab (file renamed) and absorbs the former BacklinksTab + HistoryTab (both deleted in Unit 4).",
+        "[2026-06-10] Renders 5 stacked sections in order: Tags / Assets / Tools / Backlinks / Version history. Tags+Assets+Tools use Inline*Field components with hideLabel (same dual-surface autosave template). Backlinks + Version history are wrapped in <div className='max-h-64 overflow-y-auto'> so long lists scroll independently — the pickers above stay reachable (ADR-0025 Option B). Each section header uses the rail's canonical <p class='text-[10px] uppercase tracking-wider text-muted-foreground font-semibold'> style.",
+        "[2026-06-10] Props: { log, onUpdate, tagSuggestions, assets, positions, equipment, noteId, currentPlainText }. noteId + currentPlainText flow down from WorklogReaderRightRail and are forwarded into WorklogBacklinksPanel + WorklogHistoryPanel (both pre-existing components, mounted with `bare` prop to suppress their own card chrome). assets/positions/equipment power the Inline pickers.",
+        "[2026-06-10] Companion inline mounts (xl:hidden) still live in worklog-note-reader.tsx for the 3 autosave fields. The rail mounts are xl:flex. Dual-surface convention preserved."
+      ]
+    },
+    {
+      "name": "InlineAssetsField",
+      "entityType": "component",
+      "observations": [
+        "[2026-06-10 ADR-0025 Unit 1 commit 5ec3d3a] Path src/components/worklog/inline-assets-field.tsx. Mirrors InlineTagsField shape — dual-surface autosave field for assets (positions) attached to a worklog. Owns the auto-tag merge logic that used to live inline in WorklogNoteReader: single onUpdate({ positionIds, tags }) patch shape preserves the prior behavior.",
+        "[2026-06-10] Mounted xl:hidden inline in worklog-note-reader.tsx AND xl:flex inside PropertiesTab. Both surfaces hit the same useUpdateWorkLog mutation — changes in one reflect in the other via the shared TanStack Query cache."
+      ]
+    },
+    {
+      "name": "InlineToolsField",
+      "entityType": "component",
+      "observations": [
+        "[2026-06-10 ADR-0025 Unit 2 commit 49dcb16] Path src/components/worklog/inline-tools-field.tsx. Same dual-surface autosave shape as InlineTagsField + InlineAssetsField, for equipment (tools). Replaced the standalone EquipmentPicker block that used to sit in WorklogNoteReader's body.",
+        "[2026-06-10] Mounted xl:hidden inline in worklog-note-reader.tsx AND xl:flex inside PropertiesTab. Patch shape: onUpdate({ equipmentIds })."
+      ]
+    },
+    {
+      "name": "RailTabsRegistry",
+      "entityType": "module",
+      "observations": [
+        "[2026-06-10 ADR-0025 Unit 4 final shape] Path src/components/worklog/right-rail/rail-tabs.ts. Exports RAIL_TABS = [{id:'properties', label:'Properties', icon:Settings2, shortcut:1}, {id:'photos', label:'Photos', icon:ImageIcon, shortcut:2}]. Shrunk from the original 4-tab (backlinks/history/tags/photos) registry shipped in ADR-0023.",
+        "[2026-06-10] Type exports: RailTabId = 'properties' | 'photos'; RAIL_TAB_IDS readonly array; isRailTabId type guard; DEFAULT_RAIL_TAB = 'properties'; LEGACY_PROPERTIES_ALIASES = Set(['tags','backlinks','history']); migrateLegacyRailTab(value) rewrites any alias to 'properties'. This helper is the single source of truth for legacy migration — both useReaderRailState and the /api/work-logs/preferences/reader-rail route import it.",
+        "[2026-06-10] Adding a new rail tab in the future: extend the RAIL_TABS array, widen RailTabId, widen shortcut union, update PropertiesTab/PhotosTab dispatch in worklog-reader-right-rail.tsx, add it to ALLOWED_RAIL_TABS in the route validator, and add an it.each row to route.test.ts. No DB migration — readerRailTab is a free-form String column."
       ]
     }
   ],
@@ -148,6 +187,17 @@
     { "from": "WorklogReaderRightRail", "relationType": "belongs to", "to": "WorklogDomain" },
     { "from": "WorklogReaderRightRail", "relationType": "uses", "to": "useReaderRailState" },
     { "from": "WorklogReaderRightRail", "relationType": "embeds", "to": "InlineTagsField" },
+    { "from": "WorklogReaderRightRail", "relationType": "renders", "to": "PropertiesTab" },
+    { "from": "WorklogReaderRightRail", "relationType": "reads", "to": "RailTabsRegistry" },
+    { "from": "PropertiesTab", "relationType": "belongs to", "to": "WorklogDomain" },
+    { "from": "PropertiesTab", "relationType": "embeds", "to": "InlineTagsField" },
+    { "from": "PropertiesTab", "relationType": "embeds", "to": "InlineAssetsField" },
+    { "from": "PropertiesTab", "relationType": "embeds", "to": "InlineToolsField" },
+    { "from": "PropertiesTab", "relationType": "embeds", "to": "WorklogHistoryPanel" },
+    { "from": "InlineAssetsField", "relationType": "belongs to", "to": "WorklogDomain" },
+    { "from": "InlineToolsField", "relationType": "belongs to", "to": "WorklogDomain" },
+    { "from": "RailTabsRegistry", "relationType": "belongs to", "to": "WorklogDomain" },
+    { "from": "useReaderRailState", "relationType": "reads", "to": "RailTabsRegistry" },
     { "from": "InlineTagsField", "relationType": "belongs to", "to": "WorklogDomain" },
     { "from": "useReaderRailState", "relationType": "belongs to", "to": "WorklogDomain" },
     { "from": "WorklogHistoryPanel", "relationType": "embeds", "to": "WorklogVersionDiffModal" }

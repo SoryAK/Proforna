@@ -1,6 +1,6 @@
 # Collapse worklog reader rail to a Properties tab + Photos tab
 
-- **Status:** Proposed
+- **Status:** Accepted (2026-06-10)
 - **Date:** 2026-06-10
 - **Deciders:** Sory
 - **Tags:** frontend, ux, worklog
@@ -230,6 +230,18 @@ After Unit 4, `RAIL_TABS = ["properties", "photos"]` with shortcuts ⌘1 / ⌘2.
 Each unit ships as its own commit. Units 1 and 2 are user-visible no-ops on
 the rail (the rail still shows Tags as today); Units 3 and 4 are the
 user-visible structural changes.
+
+## Status — Shipped 2026-06-10
+
+| Unit | Commit | Notes |
+|------|--------|-------|
+| 1 — `InlineAssetsField` | `5ec3d3a` | Inline asset picker; rail tab unchanged. |
+| 2 — `InlineToolsField` | `49dcb16` | Inline equipment picker; rail tab unchanged. |
+| 3 — Rename Tags → Properties (Tags+Assets+Tools) | `4e0e4d2` | Rail tab renamed; tags-tab.tsx deleted. |
+| 4 — Collapse Backlinks + History into Properties | `f92bdf2` | Rail shrinks 4 → 2 tabs (Properties, Photos); legacy ids `tags`/`backlinks`/`history` aliased to `properties` at every read/write boundary. |
+
+**Final rail shape:** `RAIL_TABS = ["properties", "photos"]`, shortcuts ⌘1 / ⌘2.
+Properties panel renders 5 stacked sections: Tags / Assets / Tools / Backlinks (`max-h-64` inner scroller) / Version history (`max-h-64` inner scroller). Reader body is now just the note — all context lives on the rail. Tests: 572/572. Browser verified.
 
 ## Open Questions Deferred to Implementation
 
