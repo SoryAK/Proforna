@@ -12,7 +12,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { FolderInput, Trash2, X } from "lucide-react";
+import { FolderInput, Trash2, X, Archive, ArchiveRestore } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -31,6 +31,13 @@ export interface WorklogNotesBulkBarProps {
   count: number;
   onMove: (folderId: string | null) => Promise<void> | void;
   onDelete: () => Promise<void> | void;
+  /**
+   * ADR-0026 — archive / unarchive the current selection. Direction is
+   * determined by `archivedView`: when the user is on the Archived row
+   * the action UNARCHIVES; everywhere else it ARCHIVES. Reversible, so no
+   * confirm dialog.
+   */
+  onArchive: () => Promise<void> | void;
   /**
    * Fired when the user picks **Download** from the Send menu. Always
    * available regardless of browser support — saves the .md (N=1) or .zip
@@ -85,12 +92,18 @@ export interface WorklogNotesBulkBarProps {
    * hiding the trailing slot below a breakpoint.
    */
   trailing?: ReactNode;
+  /**
+   * True when the user is viewing the Archived bucket — flips the Archive
+   * button into an Unarchive button (label + icon).
+   */
+  archivedView?: boolean;
 }
 
 export function WorklogNotesBulkBar({
   count,
   onMove,
   onDelete,
+  onArchive,
   onExport,
   onShare,
   onClear,
@@ -99,6 +112,7 @@ export function WorklogNotesBulkBar({
   showShare = true,
   mode = "organize",
   trailing,
+  archivedView = false,
 }: WorklogNotesBulkBarProps) {
   const [moveOpen, setMoveOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -170,6 +184,32 @@ export function WorklogNotesBulkBar({
             >
               <FolderInput className="h-3.5 w-3.5" />
               Move to folder…
+            </Button>
+          )}
+
+          {/* ADR-0026 — Archive / Unarchive. Organize mode only (export
+              flow shouldn't bucket-shift notes). Reversible → no confirm. */}
+          {!isSendMode && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 gap-1.5 text-xs"
+              onClick={async () => {
+                await onArchive();
+              }}
+              disabled={busy}
+            >
+              {archivedView ? (
+                <>
+                  <ArchiveRestore className="h-3.5 w-3.5" />
+                  Unarchive
+                </>
+              ) : (
+                <>
+                  <Archive className="h-3.5 w-3.5" />
+                  Archive
+                </>
+              )}
             </Button>
           )}
 

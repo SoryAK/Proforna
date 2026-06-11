@@ -10,7 +10,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { FolderInput, Trash2, X } from "lucide-react";
+import { FolderInput, Trash2, X, Archive, ArchiveRestore } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -28,17 +28,26 @@ export interface WorklogBulkActionBarProps {
   count: number;
   onMove: (folderId: string | null) => Promise<void> | void;
   onDelete: () => Promise<void> | void;
+  /**
+   * ADR-0026 — archive / unarchive the selection. Direction determined
+   * by `archivedView` (true on the Archived sidebar row).
+   */
+  onArchive: () => Promise<void> | void;
   onClear: () => void;
   /** Disables every action button while a mutation is in flight. */
   busy?: boolean;
+  /** True when on the Archived sidebar row — flips Archive into Unarchive. */
+  archivedView?: boolean;
 }
 
 export function WorklogBulkActionBar({
   count,
   onMove,
   onDelete,
+  onArchive,
   onClear,
   busy = false,
+  archivedView = false,
 }: WorklogBulkActionBarProps) {
   const [moveOpen, setMoveOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -84,6 +93,29 @@ export function WorklogBulkActionBar({
         >
           <FolderInput className="h-3.5 w-3.5" />
           Move to folder…
+        </Button>
+
+        {/* ADR-0026 — Archive / Unarchive. Reversible, no confirm. */}
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-7 gap-1.5 text-xs"
+          onClick={async () => {
+            await onArchive();
+          }}
+          disabled={busy}
+        >
+          {archivedView ? (
+            <>
+              <ArchiveRestore className="h-3.5 w-3.5" />
+              Unarchive
+            </>
+          ) : (
+            <>
+              <Archive className="h-3.5 w-3.5" />
+              Archive
+            </>
+          )}
         </Button>
 
         <Button

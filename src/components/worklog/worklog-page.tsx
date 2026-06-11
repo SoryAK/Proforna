@@ -385,6 +385,7 @@ export function WorklogPage({ compact = false }: WorklogPageProps = {}) {
       <WorklogBulkActionBar
         count={selection.selectedCount}
         busy={bulkAction.isPending}
+        archivedView={activeFolder.kind === "archived"}
         onMove={async (folderId) => {
           const ids = Array.from(selection.selectedIds);
           if (ids.length === 0) return;
@@ -397,6 +398,24 @@ export function WorklogPage({ compact = false }: WorklogPageProps = {}) {
           await bulkAction.mutateAsync({ action: "delete", ids });
           // If the currently-open note was part of the batch, drop the reader.
           if (selectedNoteId && ids.includes(selectedNoteId)) {
+            setSelectedNoteId(null);
+            setMobileShowReader(false);
+          }
+          selection.clear();
+        }}
+        onArchive={async () => {
+          const ids = Array.from(selection.selectedIds);
+          if (ids.length === 0) return;
+          // ADR-0026 — direction follows the active sidebar bucket.
+          const action = activeFolder.kind === "archived" ? "unarchive" : "archive";
+          await bulkAction.mutateAsync({ action, ids });
+          // If the currently-open note was archived OFF this view, drop
+          // the reader so we don't show a row that's no longer in scope.
+          if (
+            selectedNoteId &&
+            ids.includes(selectedNoteId) &&
+            activeFolder.kind !== "archived"
+          ) {
             setSelectedNoteId(null);
             setMobileShowReader(false);
           }

@@ -19,7 +19,7 @@ export function useWorklogMutations(cb: WorklogMutationCallbacks = {}) {
   const qc = useQueryClient();
 
   const saveLog = useMutation({
-    mutationFn: async (data: Partial<WorkLog>) => {
+    mutationFn: async (data: Partial<WorkLog> & { archived?: boolean }) => {
       const isEdit = !!data.id;
       const url = isEdit ? `/api/work-logs/${data.id}` : "/api/work-logs";
       const res = await fetch(url, {
@@ -36,12 +36,25 @@ export function useWorklogMutations(cb: WorklogMutationCallbacks = {}) {
       await qc.cancelQueries({ queryKey: ["worklogs"] });
       const previous = qc.getQueryData<WorkLog[]>(["worklogs"]);
 
+      // ADR-0026 — translate the `archived: boolean` intent into an
+      // optimistic archivedAt patch (the server is the timestamp
+      // authority; this is just so the row visibly flips buckets without
+      // waiting for the round-trip).
+      const { archived, ...rest } = data;
+      const archivedPatch =
+        archived === true
+          ? { archivedAt: new Date().toISOString() }
+          : archived === false
+            ? { archivedAt: null }
+            : {};
+
       qc.setQueryData<WorkLog[]>(["worklogs"], (old = []) =>
         old.map((log) => {
           if (log.id !== data.id) return log;
           return {
             ...log,
-            ...data,
+            ...rest,
+            ...archivedPatch,
             updatedAt: new Date().toISOString(),
           } as WorkLog;
         }),
@@ -96,13 +109,14 @@ export function useWorklogMutations(cb: WorklogMutationCallbacks = {}) {
   });
 
   /**
-   * Bulk multi-select action (W1.3). Posts to /api/work-logs/bulk which
-   * runs `move` or `delete` over an id list inside a Prisma $transaction.
-   * Invalidates both worklogs and folder counts on success.
+   * Bulk multi-select action (W1.3 + ADR-0026). Posts to /api/work-logs/bulk
+   * which runs `move` / `delete` / `archive` / `unarchive` over an id list
+   * inside a Prisma $transaction. Invalidates both worklogs and folder
+   * counts on success.
    */
   const bulkAction = useMutation({
     mutationFn: async (input: {
-      action: "move" | "delete";
+      action: "move" | "delete" | "archive" | "unarchive";
       ids: string[];
       payload?: { folderId: string | null };
     }) => {

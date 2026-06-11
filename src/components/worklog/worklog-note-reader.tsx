@@ -27,6 +27,8 @@ import {
   Pencil,
   Check,
   Trophy,
+  Archive,
+  ArchiveRestore,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -62,7 +64,7 @@ export interface WorklogNoteReaderProps {
   assets: JobAsset[];
   positionMap: Map<string, Position>;
   /** Commit a single-field update for an existing log. */
-  onUpdate: (patch: Partial<WorkLog> & { id: string }) => void | Promise<unknown>;
+  onUpdate: (patch: Partial<WorkLog> & { id: string; archived?: boolean }) => void | Promise<unknown>;
   onDelete: (id: string) => void;
   onNew?: () => void;
   hasLogs?: boolean;
@@ -137,7 +139,7 @@ interface ReaderInnerProps {
   equipment: EquipmentItem[];
   assets: JobAsset[];
   positionMap: Map<string, Position>;
-  onUpdate: (patch: Partial<WorkLog> & { id: string }) => void | Promise<unknown>;
+  onUpdate: (patch: Partial<WorkLog> & { id: string; archived?: boolean }) => void | Promise<unknown>;
   onDelete: (id: string) => void;
   tagSuggestions?: string[];
 }
@@ -370,6 +372,23 @@ const ReaderInner = forwardRef<WorklogNoteReaderHandle, ReaderInnerProps>(functi
                 <Trophy className="h-3.5 w-3.5" /> Promoted
               </span>
             )}
+            {/* ADR-0026 — archive bucket toggle. Reversible, so no confirm
+                dialog — single click flips the bucket and the optimistic
+                update in saveLog mirrors the row out of the visible list. */}
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => onUpdate({ id: log.id, archived: !log.archivedAt })}
+              className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+              title={log.archivedAt ? "Unarchive note" : "Archive note"}
+              aria-pressed={!!log.archivedAt}
+            >
+              {log.archivedAt ? (
+                <ArchiveRestore className="h-4 w-4" />
+              ) : (
+                <Archive className="h-4 w-4" />
+              )}
+            </Button>
             <Button
               size="sm"
               variant="ghost"

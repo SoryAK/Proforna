@@ -495,6 +495,7 @@ export function WorklogNotesView({ selectedNoteId = null }: WorklogNotesViewProp
               exporting={exportBusy}
               showShare={canShare}
               mode={exportIntent ? "send" : "organize"}
+              archivedView={activeFolder.kind === "archived"}
               onClear={() => {
                 selection.clear();
                 setBulkMode(false);
@@ -521,6 +522,17 @@ export function WorklogNotesView({ selectedNoteId = null }: WorklogNotesViewProp
                   ids: selectedIdList,
                 });
                 // Gmail-style auto-exit on success.
+                selection.clear();
+                setBulkMode(false);
+                setExportIntent(false);
+              }}
+              onArchive={async () => {
+                if (selectedIdList.length === 0) return;
+                // ADR-0026 — direction depends on the sidebar bucket the
+                // user is in: Archived view unarchives, everywhere else
+                // archives.
+                const action = activeFolder.kind === "archived" ? "unarchive" : "archive";
+                await bulkAction.mutateAsync({ action, ids: selectedIdList });
                 selection.clear();
                 setBulkMode(false);
                 setExportIntent(false);
