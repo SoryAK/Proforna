@@ -50,9 +50,15 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, CheckSquare, LayoutGrid, List, Plus, Send, Upload } from "lucide-react";
+import { ArrowLeft, CheckSquare, LayoutGrid, List, MoreHorizontal, Plus, Send, Upload } from "lucide-react";
 import type { WorkLog } from "@/types/worklog";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { useWorklogData } from "@/components/worklog/hooks/use-worklog-data";
 import { useWorklogFolders } from "@/components/worklog/hooks/use-worklog-folders";
@@ -522,14 +528,28 @@ export function WorklogNotesView({ selectedNoteId = null }: WorklogNotesViewProp
               onShare={() => runShare(selectedIdList)}
             />
           ) : (
-            <div className="h-12 px-4 flex items-center justify-between border-b">
-              <div className="text-sm text-muted-foreground tabular-nums">
-                {loadingLogs
-                  ? "Loading…"
-                  : `${visibleCount} ${visibleCount === 1 ? "note" : "notes"}`}
-              </div>
+            // Compact mode (a note is open, column is w-72): drop the count
+            // text, drop the view switcher (a 288px column is list-only by
+            // definition — Grid in 288px is pointless), and collapse Import
+            // + Export into a single ⋯ kebab. Final compact toolbar:
+            //   [☑ Select] [⋯] [+]
+            // Full mode (no note open, column is flex-1): all controls
+            // remain inline with labels, matching the existing wide UX.
+            <div
+              className={cn(
+                "h-12 px-4 flex items-center border-b",
+                compactToolbar ? "justify-end" : "justify-between",
+              )}
+            >
+              {!compactToolbar && (
+                <div className="text-sm text-muted-foreground tabular-nums">
+                  {loadingLogs
+                    ? "Loading…"
+                    : `${visibleCount} ${visibleCount === 1 ? "note" : "notes"}`}
+                </div>
+              )}
               <div className="flex items-center gap-1">
-                {viewControls}
+                {!compactToolbar && viewControls}
 
                 {/* Select-mode toggle: gates row checkboxes */}
                 <Button
@@ -545,69 +565,121 @@ export function WorklogNotesView({ selectedNoteId = null }: WorklogNotesViewProp
                   <span className={toolbarLabelCls}>{bulkMode ? "Done" : "Select"}</span>
                 </Button>
 
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => setImportOpen(true)}
-                  aria-label="Import notes from files"
-                  title="Import notes from Markdown or HTML files"
-                  className="h-7 gap-1.5 text-xs"
-                >
-                  <Upload className="h-3.5 w-3.5" />
-                  <span className={toolbarLabelCls}>Import</span>
-                </Button>
+                {compactToolbar ? (
+                  // Compact: Import + Export live behind a single ⋯ kebab so
+                  // the toolbar fits the w-72 column. Both actions remain
+                  // toolbar-resident (one click deeper), honoring ADR-0022's
+                  // "Export reachable from the toolbar" intent.
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      className={cn(
+                        "h-7 w-7 inline-flex items-center justify-center rounded-md text-muted-foreground",
+                        "hover:bg-accent hover:text-foreground transition-colors",
+                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                      )}
+                      aria-label="More actions"
+                      title="More actions"
+                      // base-ui Trigger owns its own onClick — never add one.
+                      onMouseDown={(e) => e.stopPropagation()}
+                    >
+                      <MoreHorizontal className="h-4 w-4" />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-44">
+                      <DropdownMenuItem onClick={() => setImportOpen(true)}>
+                        <Upload className="mr-2 h-3.5 w-3.5" />
+                        Import notes…
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        disabled={visibleCount === 0 || loadingLogs}
+                        onClick={() => {
+                          if (visibleCount === 0) return;
+                          if (visibleCount > EXPORT_MAX_VIEW) {
+                            toast.error(
+                              `Too many notes in this view (${visibleCount}).`,
+                              {
+                                description: `Narrow your filter or use Select mode to pick up to ${EXPORT_MAX_VIEW}.`,
+                              },
+                            );
+                            return;
+                          }
+                          setBulkMode(true);
+                          setExportIntent(true);
+                        }}
+                      >
+                        <Send className="mr-2 h-3.5 w-3.5" />
+                        Export notes…
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                ) : (
+                  <>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setImportOpen(true)}
+                      aria-label="Import notes from files"
+                      title="Import notes from Markdown or HTML files"
+                      className="h-7 gap-1.5 text-xs"
+                    >
+                      <Upload className="h-3.5 w-3.5" />
+                      <span className={toolbarLabelCls}>Import</span>
+                    </Button>
 
-                {/* Top-level Export button (ADR-0022 addendum 3 — 2026-06-10,
-                    revised same-day after smoke test).
-                    Click → enters bulk mode in "send" intent with ZERO
-                    preselection. The bar that appears renders Send only — no
-                    Move, no Delete — so the export flow can't accidentally
-                    file or destroy notes. User checks the rows they want
-                    (Shift / Ctrl supported via row checkboxes), then commits
-                    via the bulk-bar Send menu (Download, plus Share to… on
-                    touch devices). Auto-exit on send success returns them
-                    here on the clean toolbar. Server-side BULK_MAX is
-                    mirrored client-side via EXPORT_MAX_VIEW so we toast
-                    before any state change when the view is too large. */}
-                <Button
-                  size="sm"
-                  variant={exportIntent ? "secondary" : "ghost"}
-                  aria-pressed={exportIntent}
-                  onClick={() => {
-                    if (visibleCount === 0) return;
-                    if (visibleCount > EXPORT_MAX_VIEW) {
-                      toast.error(
-                        `Too many notes in this view (${visibleCount}).`,
-                        {
-                          description: `Narrow your filter or use Select mode to pick up to ${EXPORT_MAX_VIEW}.`,
-                        },
-                      );
-                      return;
-                    }
-                    setBulkMode(true);
-                    setExportIntent(true);
-                  }}
-                  disabled={visibleCount === 0 || loadingLogs}
-                  aria-label={
-                    visibleCount === 0
-                      ? "No notes in this view"
-                      : `Export — pick from ${visibleCount} ${visibleCount === 1 ? "note" : "notes"}, then send`
-                  }
-                  title={
-                    visibleCount === 0
-                      ? "No notes in this view"
-                      : `Export — pick from ${visibleCount} ${visibleCount === 1 ? "note" : "notes"}, then send`
-                  }
-                  className="h-7 gap-1.5 text-xs"
-                >
-                  <Send className="h-3.5 w-3.5" />
-                  <span className={toolbarLabelCls}>Export</span>
-                </Button>
+                    {/* Top-level Export button (ADR-0022 addendum 3 — 2026-06-10,
+                        revised same-day after smoke test).
+                        Click → enters bulk mode in "send" intent with ZERO
+                        preselection. The bar that appears renders Send only — no
+                        Move, no Delete — so the export flow can't accidentally
+                        file or destroy notes. User checks the rows they want
+                        (Shift / Ctrl supported via row checkboxes), then commits
+                        via the bulk-bar Send menu (Download, plus Share to… on
+                        touch devices). Auto-exit on send success returns them
+                        here on the clean toolbar. Server-side BULK_MAX is
+                        mirrored client-side via EXPORT_MAX_VIEW so we toast
+                        before any state change when the view is too large. */}
+                    <Button
+                      size="sm"
+                      variant={exportIntent ? "secondary" : "ghost"}
+                      aria-pressed={exportIntent}
+                      onClick={() => {
+                        if (visibleCount === 0) return;
+                        if (visibleCount > EXPORT_MAX_VIEW) {
+                          toast.error(
+                            `Too many notes in this view (${visibleCount}).`,
+                            {
+                              description: `Narrow your filter or use Select mode to pick up to ${EXPORT_MAX_VIEW}.`,
+                            },
+                          );
+                          return;
+                        }
+                        setBulkMode(true);
+                        setExportIntent(true);
+                      }}
+                      disabled={visibleCount === 0 || loadingLogs}
+                      aria-label={
+                        visibleCount === 0
+                          ? "No notes in this view"
+                          : `Export — pick from ${visibleCount} ${visibleCount === 1 ? "note" : "notes"}, then send`
+                      }
+                      title={
+                        visibleCount === 0
+                          ? "No notes in this view"
+                          : `Export — pick from ${visibleCount} ${visibleCount === 1 ? "note" : "notes"}, then send`
+                      }
+                      className="h-7 gap-1.5 text-xs"
+                    >
+                      <Send className="h-3.5 w-3.5" />
+                      <span className={toolbarLabelCls}>Export</span>
+                    </Button>
+                  </>
+                )}
 
                 <Button
                   size="sm"
                   onClick={handleNewNote}
                   disabled={saveLog.isPending}
+                  aria-label="New note"
+                  title="New note"
                 >
                   <Plus className="h-4 w-4" />
                   <span className={toolbarLabelCls}>New note</span>
