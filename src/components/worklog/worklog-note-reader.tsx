@@ -26,7 +26,6 @@ import {
   ChevronRight,
   FileText,
   Wrench,
-  Cog,
   Pencil,
   Check,
   Trophy,
@@ -35,8 +34,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { InlineTagsField } from "@/components/worklog/inline-tags-field";
+import { InlineAssetsField } from "@/components/worklog/inline-assets-field";
 import { EquipmentPicker, type EquipmentItem } from "@/components/equipment-picker";
-import { AssetPicker, type JobAsset } from "@/components/asset-picker";
+import { type JobAsset } from "@/components/asset-picker";
 import { cn } from "@/lib/utils";
 import type { WorkLog, Position, WorkShift } from "@/types/worklog";
 import { readAutosaveDraft, useAutosaveField } from "@/components/worklog/hooks/use-autosave";
@@ -215,7 +215,6 @@ const ReaderInner = forwardRef<WorklogNoteReaderHandle, ReaderInnerProps>(functi
   }), [hoursField, titleField]);
 
   const [equipOpen, setEquipOpen] = useState(false);
-  const [assetsOpen, setAssetsOpen] = useState(false);
   const [promoteOpen, setPromoteOpen] = useState(false);
 
   // Auto-start in edit mode and expand details only for brand-new notes
@@ -490,60 +489,14 @@ const ReaderInner = forwardRef<WorklogNoteReaderHandle, ReaderInnerProps>(functi
             </details>
           )}
 
-          {/* Assets section */}
-          <details
-            open={assetsOpen || (log.assetIds ?? []).length > 0}
-            onToggle={(e) => setAssetsOpen((e.target as HTMLDetailsElement).open)}
-            className="group border-t pt-3 pb-6"
-          >
-            <summary className="cursor-pointer list-none inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground select-none">
-              <ChevronRight className="h-3 w-3 transition-transform group-open:rotate-90" />
-              <Cog className="h-3 w-3" />
-              Assets
-              {(log.assetIds ?? []).length > 0 && (
-                <Badge variant="secondary" className="ml-1 h-4 text-[10px]">
-                  {(log.assetIds ?? []).length}
-                </Badge>
-              )}
-            </summary>
-            <div className="mt-3">
-              <AssetPicker
-                label=""
-                assets={assets}
-                positions={positions}
-                selectedIds={log.assetIds ?? []}
-                defaultPositionId={log.positionId ?? null}
-                onChange={(ids) => {
-                  // Auto-apply tags from newly added asset types (one-shot, deduplicated).
-                  // Reads server-canonical log.tags (Unit 3.1: tagsField no longer lives
-                  // here). Same race as the editor mention-merge path — in-flight tag
-                  // typing in the rail can lose asset-derived tags if it commits last.
-                  // Accepted; identical failure mode to existing editor merge.
-                  const prev = new Set(log.assetIds ?? []);
-                  const newIds = ids.filter((id) => !prev.has(id));
-                  let mergedTagsPatch: { tags: string | null } | undefined;
-                  if (newIds.length > 0) {
-                    const assetMap = new Map(assets.map((a) => [a.id, a]));
-                    const incoming = newIds.flatMap((id) => assetMap.get(id)?.type?.tags ?? []);
-                    if (incoming.length > 0) {
-                      const existing = (log.tags ?? "").split(",").map((t) => t.trim()).filter(Boolean);
-                      const existingLower = new Set(existing.map((t) => t.toLowerCase()));
-                      const toAdd = incoming.filter((t) => !existingLower.has(t.toLowerCase()));
-                      if (toAdd.length > 0) {
-                        const next = [...existing, ...toAdd].join(", ");
-                        mergedTagsPatch = { tags: next.length > 0 ? next : null };
-                      }
-                    }
-                  }
-                  onUpdate({
-                    id: log.id,
-                    assetIds: ids,
-                    ...(mergedTagsPatch ?? {}),
-                  });
-                }}
-              />
-            </div>
-          </details>
+          {/* Assets section — InlineAssetsField owns its own collapsible
+              shell + auto-tag merge bridge (ADR-0025 Unit 1). */}
+          <InlineAssetsField
+            log={log}
+            assets={assets}
+            positions={positions}
+            onUpdate={onUpdate}
+          />
         </div>
       </div>
     </div>
