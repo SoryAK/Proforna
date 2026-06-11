@@ -77,7 +77,7 @@ export function PropertiesTab({
   }
 
   return (
-    <div className="px-3 py-3 space-y-5">
+    <div className="px-3 divide-y divide-border">
       <Section label="Tags">
         <InlineTagsField
           log={log}
@@ -130,7 +130,7 @@ export function PropertiesTab({
 
 function Section({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <section className="space-y-2">
+    <section className="py-4 space-y-2 first:pt-3 last:pb-3">
       <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
         {label}
       </p>
