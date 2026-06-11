@@ -59,6 +59,20 @@ export async function PUT(
       validatedContentJson = result.value;
     }
 
+    // ADR-0026 — archive bucket. Client sends `{ archived: true | false }`;
+    // server clamps the timestamp so client clock skew can't drift archive
+    // ordering. Anything other than a boolean is a 400.
+    let archivedAtUpdate: Date | null | undefined; // undefined = leave column untouched
+    if (hasOwn(body, "archived")) {
+      if (typeof body.archived !== "boolean") {
+        return NextResponse.json(
+          { error: "`archived` must be a boolean" },
+          { status: 400 },
+        );
+      }
+      archivedAtUpdate = body.archived ? new Date() : null;
+    }
+
     // When contentJson is being saved, union any @a: mention asset IDs into
     // assetIds so the structured tag always reflects inline references.
     // Mentions only ever ADD — manual accordion entries are never removed.
@@ -176,6 +190,7 @@ export async function PUT(
       ...(hasOwn(body, "folderId")
         ? { folderId: body.folderId ? String(body.folderId) : null }
         : {}),
+      ...(archivedAtUpdate !== undefined ? { archivedAt: archivedAtUpdate } : {}),
     };
 
     const log = await prisma.workLog.update({

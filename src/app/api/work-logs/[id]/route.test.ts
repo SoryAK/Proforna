@@ -531,3 +531,80 @@ describe("PUT /api/work-logs/[id] — ADR-0017 inline retention thinning", () =>
     expect(mockVersionCreate).toHaveBeenCalledTimes(1); // snapshot still written
   });
 });
+
+// ──────────────────────────────────────────────────────
+// ADR-0026 — archive bucket on PUT
+// ──────────────────────────────────────────────────────
+
+/**
+ * Contract: client sends `{ archived: true | false }`. Server clamps:
+ *   true  → archivedAt = new Date()  (server-authoritative timestamp)
+ *   false → archivedAt = null        (unarchive)
+ *   absent → column untouched
+ *   anything else → 400
+ *
+ * Hard delete (DELETE handler) is unaffected — archive is not trash.
+ */
+describe("PUT /api/work-logs/[id] — ADR-0026 archive bucket", () => {
+  it("sets archivedAt to a server-authoritative timestamp when body.archived === true", async () => {
+    mockGetUserId.mockResolvedValue("u1");
+    mockFindFirst.mockResolvedValue(existingLog() as any);
+
+    const before = Date.now();
+    const [req, ctx] = makeRequest("log1", { archived: true });
+    const res = await PUT(req, ctx);
+    const after = Date.now();
+
+    expect(res.status).toBe(200);
+    const updateData = mockUpdate.mock.calls[0][0].data as Record<string, unknown>;
+    expect(updateData.archivedAt).toBeInstanceOf(Date);
+    const ts = (updateData.archivedAt as Date).getTime();
+    expect(ts).toBeGreaterThanOrEqual(before);
+    expect(ts).toBeLessThanOrEqual(after);
+  });
+
+  it("clears archivedAt to null when body.archived === false (unarchive)", async () => {
+    mockGetUserId.mockResolvedValue("u1");
+    mockFindFirst.mockResolvedValue(existingLog() as any);
+
+    const [req, ctx] = makeRequest("log1", { archived: false });
+    const res = await PUT(req, ctx);
+
+    expect(res.status).toBe(200);
+    const updateData = mockUpdate.mock.calls[0][0].data as Record<string, unknown>;
+    expect(updateData.archivedAt).toBeNull();
+  });
+
+  it("does not touch archivedAt when `archived` is absent from body", async () => {
+    mockGetUserId.mockResolvedValue("u1");
+    mockFindFirst.mockResolvedValue(existingLog() as any);
+
+    const [req, ctx] = makeRequest("log1", { title: "rename only" });
+    await PUT(req, ctx);
+
+    const updateData = mockUpdate.mock.calls[0][0].data as Record<string, unknown>;
+    expect(updateData).not.toHaveProperty("archivedAt");
+  });
+
+  it("returns 400 when `archived` is a non-boolean (no DB write)", async () => {
+    mockGetUserId.mockResolvedValue("u1");
+    mockFindFirst.mockResolvedValue(existingLog() as any);
+
+    const [req, ctx] = makeRequest("log1", { archived: "yes" });
+    const res = await PUT(req, ctx);
+
+    expect(res.status).toBe(400);
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
+  it("404 — cannot archive another user's note (ownership predicate enforced)", async () => {
+    mockGetUserId.mockResolvedValue("u1");
+    mockFindFirst.mockResolvedValue(null); // findFirst predicate { id, userId } matches nothing
+
+    const [req, ctx] = makeRequest("log1", { archived: true });
+    const res = await PUT(req, ctx);
+
+    expect(res.status).toBe(404);
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+});

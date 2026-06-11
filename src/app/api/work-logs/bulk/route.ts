@@ -21,7 +21,7 @@ import { prisma } from "@/lib/prisma";
 import { getUserId } from "@/lib/auth-utils";
 
 const MAX_IDS = 200;
-const ACTIONS = ["move", "delete"] as const;
+const ACTIONS = ["move", "delete", "archive", "unarchive"] as const;
 type BulkAction = (typeof ACTIONS)[number];
 
 interface BulkBody {
@@ -86,6 +86,18 @@ export async function POST(req: Request) {
         // userId predicate guarantees we never touch another user's rows
         // even if the id list contains foreign ids.
         const result = await tx.workLog.deleteMany({ where: { id: { in: ids }, userId } });
+        return result.count;
+      }
+
+      // ADR-0026 — archive / unarchive (Gmail-style soft-archive bucket).
+      // Server clamps the timestamp so client clock skew never drifts the
+      // archive ordering. Same userId predicate as delete — cross-tenant
+      // ids are silently filtered out.
+      if (action === "archive" || action === "unarchive") {
+        const result = await tx.workLog.updateMany({
+          where: { id: { in: ids }, userId },
+          data: { archivedAt: action === "archive" ? new Date() : null },
+        });
         return result.count;
       }
 
