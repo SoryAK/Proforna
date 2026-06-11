@@ -50,7 +50,11 @@ export function useWorklogData() {
     isSuccess: logsLoaded,
   } = useQuery<WorkLog[]>({
     queryKey: ["worklogs"],
-    queryFn: () => fetchArrayOrThrow<WorkLog>("/api/work-logs"),
+    // ADR-0026 — fetch BOTH archived and non-archived in a single round
+    // trip so client-side bucket-filtering (Inbox vs Archived sidebar row)
+    // doesn't refetch. The default API behavior hides archived rows; we
+    // opt-in here because the worklog shell owns the bucket toggle.
+    queryFn: () => fetchArrayOrThrow<WorkLog>("/api/work-logs?archived=all"),
     // `offlineFirst`: still try the network, but keep cached data on failure.
     networkMode: "offlineFirst",
     // Use cached rows as initial data once Dexie has been consulted.

@@ -160,7 +160,8 @@ export type FolderSelection =
   | { kind: "category"; category: string }
   | { kind: "templates" }
   | { kind: "folder"; folderId: string }
-  | { kind: "unfiled" };
+  | { kind: "unfiled" }
+  | { kind: "archived" }; // ADR-0026 — Gmail-style soft archive bucket
 
 /**
  * User-defined folder for organizing WorkLog notes.

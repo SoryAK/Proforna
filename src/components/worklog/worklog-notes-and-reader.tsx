@@ -194,7 +194,9 @@ export function WorklogNotesAndReader({
                   ? `No ${resolveCategoryMeta(activeFolder.category).label.toLowerCase()} notes yet`
                   : activeFolder.kind === "notable"
                     ? "No notable notes yet"
-                    : "No notes yet"
+                    : activeFolder.kind === "archived"
+                      ? "No archived notes"
+                      : "No notes yet"
             }
             emptyHint={
               search ? "Try a different keyword." : "Start a note to capture today’s work."

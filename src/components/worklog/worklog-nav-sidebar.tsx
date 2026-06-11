@@ -29,7 +29,7 @@ import { useMemo } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronLeft, FileText, Home, Inbox, Sparkles, Star } from "lucide-react";
+import { ChevronLeft, FileText, Home, Inbox, Sparkles, Star, Archive } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { WorklogFolderTreeItems } from "@/components/worklog/worklog-folder-tree-items";
 import { WorklogCategoryRows } from "@/components/worklog/worklog-category-rows";
@@ -124,7 +124,9 @@ export function WorklogNavSidebar({ onShowGlobal }: WorklogNavSidebarProps) {
   // lockstep with no extra round-trips.
   const { data: logs = [] } = useQuery<WorkLog[]>({
     queryKey: ["worklogs"],
-    queryFn: () => fetch("/api/work-logs").then((r) => r.json()),
+    // Match useWorklogData — fetch both buckets so cached `logs.length`
+    // counts ("All notes") and the archived count stay coherent.
+    queryFn: () => fetch("/api/work-logs?archived=all").then((r) => r.json()),
     staleTime: 30_000,
   });
   const { data: templates = [] } = useQuery<Template[]>({
@@ -142,6 +144,14 @@ export function WorklogNavSidebar({ onShowGlobal }: WorklogNavSidebarProps) {
   }, [logs]);
 
   const notableCount = useMemo(() => logs.filter((l) => l.isNotable).length, [logs]);
+  // ADR-0026 — archived bucket count (Gmail-style sidebar row).
+  const archivedCount = useMemo(
+    () => logs.filter((l) => l.archivedAt != null).length,
+    [logs],
+  );
+  // "All notes" / "Notable" / category rows count NON-archived rows only,
+  // matching the views they navigate to.
+  const inboxCount = useMemo(() => logs.filter((l) => l.archivedAt == null).length, [logs]);
 
   // Active state: filter rows are only "active" while ON /worklog/notes — the
   // home page does not represent a filter.
@@ -195,7 +205,7 @@ export function WorklogNavSidebar({ onShowGlobal }: WorklogNavSidebarProps) {
         <NavRow
           icon={<Inbox className="h-5 w-5" />}
           label="All notes"
-          count={logs.length}
+          count={inboxCount}
           active={isFilterActive({ kind: "all" })}
           onClick={() => navigateTo({ kind: "all" })}
         />
@@ -212,6 +222,16 @@ export function WorklogNavSidebar({ onShowGlobal }: WorklogNavSidebarProps) {
           count={templates.length}
           active={isFilterActive({ kind: "templates" })}
           onClick={() => navigateTo({ kind: "templates" })}
+        />
+        {/* ADR-0026 — Gmail-style Archived bucket. Lives below Templates so
+            it sits at the bottom of the top-level filters strip. */}
+        <NavRow
+          icon={<Archive className="h-5 w-5" />}
+          label="Archived"
+          count={archivedCount}
+          active={isFilterActive({ kind: "archived" })}
+          onClick={() => navigateTo({ kind: "archived" })}
+          dim={archivedCount === 0}
         />
       </div>
 

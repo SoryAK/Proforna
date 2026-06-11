@@ -57,6 +57,16 @@ export function useWorklogVisibleLogs(
 
   const visibleLogs = useMemo(() => {
     let out = logs;
+    // ADR-0026 — archive bucket. Client mirrors the API contract:
+    //   kind: "archived" → only rows with archivedAt != null
+    //   any other kind   → default-hide archived (archivedAt == null)
+    // useWorklogData fetches `?archived=all`, so both buckets are present
+    // in `logs` and switching tabs is a pure client-side filter.
+    if (activeFolder.kind === "archived") {
+      out = out.filter((l) => l.archivedAt != null);
+    } else {
+      out = out.filter((l) => l.archivedAt == null);
+    }
     if (activeFolder.kind === "category") {
       out = out.filter((l) => l.category === activeFolder.category);
     } else if (activeFolder.kind === "notable") {

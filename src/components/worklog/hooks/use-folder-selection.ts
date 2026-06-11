@@ -36,6 +36,7 @@ function paramsToSelection(params: URLSearchParams): FolderSelection {
   if (!folder || folder === "all") return { kind: "all" };
   if (folder === "notable") return { kind: "notable" };
   if (folder === "unfiled") return { kind: "unfiled" };
+  if (folder === "archived") return { kind: "archived" }; // ADR-0026
   if (folder.startsWith(CATEGORY_PREFIX)) {
     const category = folder.slice(CATEGORY_PREFIX.length);
     return category ? { kind: "category", category } : { kind: "all" };
@@ -52,6 +53,8 @@ function selectionToParams(selection: FolderSelection): { folder?: string; view?
       return { folder: "notable" };
     case "unfiled":
       return { folder: "unfiled" };
+    case "archived":
+      return { folder: "archived" };
     case "category":
       return { folder: `${CATEGORY_PREFIX}${selection.category}` };
     case "folder":
