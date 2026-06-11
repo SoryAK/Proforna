@@ -1,13 +1,18 @@
 /**
- * ADR-0023 — POST /api/work-logs/preferences/reader-rail
+ * ADR-0023 / ADR-0025 — POST /api/work-logs/preferences/reader-rail
  *
  * Persists per-user worklog reader right-rail state:
- *   - tab       (optional) "backlinks" | "history" | "tags" | "photos"
+ *   - tab       (optional) "backlinks" | "history" | "properties" | "photos"
  *   - collapsed (optional) boolean
  *
  * Partial-update semantics: either field may be sent independently.
  * Sending neither is a 400. Either field present triggers an upsert
  * scoped to the authenticated userId.
+ *
+ * Legacy alias: ADR-0025 renamed `"tags"` to `"properties"`. To keep
+ * existing client caches and stale POSTs from 400-ing, requests
+ * containing `tab: "tags"` are silently rewritten to `"properties"`
+ * before validation + persistence.
  *
  * Response: { tab, collapsed } — the current saved rail state.
  */
@@ -16,11 +21,17 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getUserId } from "@/lib/auth-utils";
 
-const ALLOWED_RAIL_TABS = new Set(["backlinks", "history", "tags", "photos"]);
+const ALLOWED_RAIL_TABS = new Set(["backlinks", "history", "properties", "photos"]);
 const DEFAULT_RAIL_TAB = "backlinks";
 
+/** Map any legacy tab id to its current canonical value. */
+function migrateLegacyRailTab(value: string): string {
+  if (value === "tags") return "properties";
+  return value;
+}
+
 function normalizeRailTab(value: unknown): string {
-  const next = String(value ?? "").trim().toLowerCase();
+  const next = migrateLegacyRailTab(String(value ?? "").trim().toLowerCase());
   return ALLOWED_RAIL_TABS.has(next) ? next : DEFAULT_RAIL_TAB;
 }
 
@@ -47,7 +58,7 @@ export async function POST(request: Request) {
 
   // Validate tab if present.
   if (hasTab) {
-    const raw = String(body.tab ?? "").trim().toLowerCase();
+    const raw = migrateLegacyRailTab(String(body.tab ?? "").trim().toLowerCase());
     if (!ALLOWED_RAIL_TABS.has(raw)) {
       return NextResponse.json(
         { error: `Invalid tab: must be one of ${[...ALLOWED_RAIL_TABS].join(", ")}` },

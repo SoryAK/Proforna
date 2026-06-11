@@ -28,11 +28,13 @@ import { ChevronsRight, ChevronsLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { WorkLog } from "@/types/worklog";
+import type { JobAsset, AssetPickerPosition } from "@/components/asset-picker";
+import type { EquipmentItem } from "@/components/equipment-picker";
 import { RAIL_TABS, type RailTabId } from "./rail-tabs";
 import { useReaderRailState } from "./use-reader-rail-state";
 import { BacklinksTab } from "./tabs/backlinks-tab";
 import { HistoryTab } from "./tabs/history-tab";
-import { TagsTab } from "./tabs/tags-tab";
+import { PropertiesTab } from "./tabs/properties-tab";
 import { PhotosTab } from "./tabs/photos-tab";
 
 export interface WorklogReaderRightRailProps {
@@ -44,18 +46,24 @@ export interface WorklogReaderRightRailProps {
   /** Current document plain-text — needed by the History tab for diffs. */
   currentPlainText: string;
   /**
-   * Active note record — needed by the Tags tab (ADR-0023 Unit 3.1) to bind
-   * the autosave field. Null while the active log is resolving.
+   * Active note record — needed by the Properties tab (ADR-0025 Unit 3) to
+   * bind the autosave fields. Null while the active log is resolving.
    */
   activeLog?: WorkLog | null;
   /**
    * Commit a single-field update for the active note. Required when activeLog
-   * is provided so the Tags tab can write back. Same shape as the reader's
-   * `onUpdate`.
+   * is provided so the Properties tab can write back. Same shape as the
+   * reader's `onUpdate`.
    */
   onUpdateActiveLog?: (patch: Partial<WorkLog> & { id: string }) => void | Promise<unknown>;
-  /** Tag autocomplete corpus passed through to the Tags tab. */
+  /** Tag autocomplete corpus passed through to the Properties tab. */
   tagSuggestions?: string[];
+  /** Asset corpus for the Properties tab's Assets field. */
+  assets?: JobAsset[];
+  /** Position dropdown options for the Properties tab's Assets field. */
+  positions?: AssetPickerPosition[];
+  /** Equipment corpus for the Properties tab's Tools field. */
+  equipment?: EquipmentItem[];
   className?: string;
 }
 
@@ -68,6 +76,9 @@ export function WorklogReaderRightRail({
   activeLog,
   onUpdateActiveLog,
   tagSuggestions,
+  assets,
+  positions,
+  equipment,
   className,
 }: WorklogReaderRightRailProps) {
   const { tab, collapsed, setTab, toggleCollapsed } = useReaderRailState();
@@ -147,6 +158,9 @@ export function WorklogReaderRightRail({
               activeLog ?? null,
               onUpdateActiveLog,
               tagSuggestions,
+              assets ?? [],
+              positions ?? [],
+              equipment ?? [],
             )}
           </div>
         </div>
@@ -227,20 +241,26 @@ function renderTabBody(
   activeLog: WorkLog | null,
   onUpdateActiveLog: ((patch: Partial<WorkLog> & { id: string }) => void | Promise<unknown>) | undefined,
   tagSuggestions: string[] | undefined,
+  assets: JobAsset[],
+  positions: AssetPickerPosition[],
+  equipment: EquipmentItem[],
 ) {
   switch (tabId) {
     case "backlinks":
       return <BacklinksTab noteId={noteId} />;
     case "history":
       return <HistoryTab noteId={noteId} currentPlainText={currentPlainText} />;
-    case "tags":
-      // onUpdateActiveLog is required for the Tags tab — if a parent forgets
-      // to wire it, the tab degrades into a no-op rather than crashing.
+    case "properties":
+      // onUpdateActiveLog is required for the Properties tab — if a parent
+      // forgets to wire it, the tab degrades into a no-op rather than crashing.
       return (
-        <TagsTab
+        <PropertiesTab
           log={activeLog}
           onUpdate={onUpdateActiveLog ?? (() => undefined)}
           tagSuggestions={tagSuggestions}
+          assets={assets}
+          positions={positions}
+          equipment={equipment}
         />
       );
     case "photos":

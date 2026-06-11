@@ -19,7 +19,7 @@ import { useCallback } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { WorklogPreferences } from "@/types/worklog";
-import { DEFAULT_RAIL_TAB, isRailTabId, type RailTabId } from "./rail-tabs";
+import { DEFAULT_RAIL_TAB, isRailTabId, migrateLegacyRailTab, type RailTabId } from "./rail-tabs";
 
 const PREFERENCES_KEY = ["worklog-preferences"] as const;
 
@@ -65,8 +65,10 @@ export function useReaderRailState(): ReaderRailState {
     staleTime: 60_000,
   });
 
-  const tab: RailTabId = isRailTabId(prefs?.readerRailTab)
-    ? prefs!.readerRailTab
+  // ADR-0025: migrate legacy "tags" → "properties" before validation.
+  const migratedTab = migrateLegacyRailTab(prefs?.readerRailTab);
+  const tab: RailTabId = isRailTabId(migratedTab)
+    ? migratedTab
     : DEFAULT_RAIL_TAB;
   const collapsed = prefs?.readerRailCollapsed === true;
 

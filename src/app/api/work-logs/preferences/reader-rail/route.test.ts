@@ -127,19 +127,19 @@ describe("POST /api/work-logs/preferences/reader-rail", () => {
   it("200 — full update: both tab and collapsed", async () => {
     mockGetUserId.mockResolvedValue("user1");
     mockUpsert.mockResolvedValue({
-      readerRailTab: "tags",
+      readerRailTab: "properties",
       readerRailCollapsed: true,
     } as any);
 
-    const res = await POST(makeRequest({ tab: "tags", collapsed: true }));
+    const res = await POST(makeRequest({ tab: "properties", collapsed: true }));
 
     expect(res.status).toBe(200);
     const json = await res.json();
-    expect(json).toEqual({ tab: "tags", collapsed: true });
+    expect(json).toEqual({ tab: "properties", collapsed: true });
 
     const callArg = mockUpsert.mock.calls[0]?.[0] as any;
     expect(callArg.update).toEqual({
-      readerRailTab: "tags",
+      readerRailTab: "properties",
       readerRailCollapsed: true,
     });
   });
@@ -167,7 +167,7 @@ describe("POST /api/work-logs/preferences/reader-rail", () => {
 
   // ── all four valid tabs accepted ──────────────────────
 
-  it.each(["backlinks", "history", "tags", "photos"])(
+  it.each(["backlinks", "history", "properties", "photos"])(
     "200 — accepts tab=%s",
     async (tab) => {
       mockGetUserId.mockResolvedValue("user1");
@@ -183,4 +183,24 @@ describe("POST /api/work-logs/preferences/reader-rail", () => {
       expect(json.tab).toBe(tab);
     },
   );
+
+  // ── ADR-0025: legacy "tags" alias is rewritten to "properties" ─────────
+
+  it("200 — legacy tab=\"tags\" is aliased to \"properties\" and persisted as such", async () => {
+    mockGetUserId.mockResolvedValue("user1");
+    mockUpsert.mockResolvedValue({
+      readerRailTab: "properties",
+      readerRailCollapsed: false,
+    } as any);
+
+    const res = await POST(makeRequest({ tab: "tags" }));
+
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json).toEqual({ tab: "properties", collapsed: false });
+
+    const callArg = mockUpsert.mock.calls[0]?.[0] as any;
+    expect(callArg.update).toEqual({ readerRailTab: "properties" });
+    expect(callArg.create).toMatchObject({ userId: "user1", readerRailTab: "properties" });
+  });
 });

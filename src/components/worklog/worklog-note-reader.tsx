@@ -446,12 +446,13 @@ const ReaderInner = forwardRef<WorklogNoteReaderHandle, ReaderInnerProps>(functi
           {/*
             ADR-0023 — Backlinks, History, and Photos now live in the worklog
             reader right-rail (WorklogReaderRightRail) mounted as a sibling of
-            this reader by worklog-notes-and-reader. Tags moved to the rail's
-            Tags tab in Unit 3.1 (xl+); below xl the rail is hidden and Tags
-            stay inline via the InlineTagsField mount below.
+            this reader by worklog-notes-and-reader.
+            ADR-0025 — Tags + Assets + Tools moved to the rail's Properties tab
+            (xl+). Below xl the rail is hidden and these fields stay inline via
+            the Inline*Field mounts below (each tagged xl:hidden).
           */}
 
-          {/* Tags — inline at < xl, hidden at xl+ (rail Tags tab owns it). */}
+          {/* Tags — inline at < xl, hidden at xl+ (rail Properties tab owns it). */}
           <InlineTagsField
             log={log}
             onUpdate={onUpdate}
@@ -465,6 +466,7 @@ const ReaderInner = forwardRef<WorklogNoteReaderHandle, ReaderInnerProps>(functi
             log={log}
             equipment={equipment}
             onUpdate={onUpdate}
+            className="xl:hidden"
           />
 
           {/* Assets section — InlineAssetsField owns its own collapsible
@@ -474,6 +476,7 @@ const ReaderInner = forwardRef<WorklogNoteReaderHandle, ReaderInnerProps>(functi
             assets={assets}
             positions={positions}
             onUpdate={onUpdate}
+            className="xl:hidden"
           />
         </div>
       </div>

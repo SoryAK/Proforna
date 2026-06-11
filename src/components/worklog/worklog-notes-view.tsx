@@ -686,6 +686,9 @@ export function WorklogNotesView({ selectedNoteId = null }: WorklogNotesViewProp
               activeLog={selectedLog ?? null}
               onUpdateActiveLog={(patch) => saveLog.mutateAsync(patch)}
               tagSuggestions={tagSuggestions}
+              assets={assets}
+              positions={positions}
+              equipment={equipment}
             />
           </>
         )}
