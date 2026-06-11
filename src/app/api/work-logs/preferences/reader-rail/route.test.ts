@@ -92,25 +92,25 @@ describe("POST /api/work-logs/preferences/reader-rail", () => {
   it("200 — partial update: tab only (collapsed left untouched in DB)", async () => {
     mockGetUserId.mockResolvedValue("user1");
     mockUpsert.mockResolvedValue({
-      readerRailTab: "history",
+      readerRailTab: "photos",
       readerRailCollapsed: false,
     } as any);
 
-    const res = await POST(makeRequest({ tab: "history" }));
+    const res = await POST(makeRequest({ tab: "photos" }));
 
     expect(res.status).toBe(200);
     const json = await res.json();
-    expect(json).toEqual({ tab: "history", collapsed: false });
+    expect(json).toEqual({ tab: "photos", collapsed: false });
 
     // Verify upsert.update payload contains only tab (no collapsed key)
     const callArg = mockUpsert.mock.calls[0]?.[0] as any;
-    expect(callArg.update).toEqual({ readerRailTab: "history" });
+    expect(callArg.update).toEqual({ readerRailTab: "photos" });
   });
 
   it("200 — partial update: collapsed only (tab left untouched in DB)", async () => {
     mockGetUserId.mockResolvedValue("user1");
     mockUpsert.mockResolvedValue({
-      readerRailTab: "backlinks",
+      readerRailTab: "properties",
       readerRailCollapsed: true,
     } as any);
 
@@ -118,7 +118,7 @@ describe("POST /api/work-logs/preferences/reader-rail", () => {
 
     expect(res.status).toBe(200);
     const json = await res.json();
-    expect(json).toEqual({ tab: "backlinks", collapsed: true });
+    expect(json).toEqual({ tab: "properties", collapsed: true });
 
     const callArg = mockUpsert.mock.calls[0]?.[0] as any;
     expect(callArg.update).toEqual({ readerRailCollapsed: true });
@@ -165,9 +165,9 @@ describe("POST /api/work-logs/preferences/reader-rail", () => {
     expect(callArg.create).toMatchObject({ userId: "user1", readerRailTab: "photos" });
   });
 
-  // ── all four valid tabs accepted ──────────────────────
+  // ── only two valid tabs accepted post-ADR-0025 Unit 4 ───────────
 
-  it.each(["backlinks", "history", "properties", "photos"])(
+  it.each(["properties", "photos"])(
     "200 — accepts tab=%s",
     async (tab) => {
       mockGetUserId.mockResolvedValue("user1");
@@ -184,23 +184,26 @@ describe("POST /api/work-logs/preferences/reader-rail", () => {
     },
   );
 
-  // ── ADR-0025: legacy "tags" alias is rewritten to "properties" ─────────
+  // ── ADR-0025 legacy aliases: "tags", "backlinks", "history" → "properties" ──
 
-  it("200 — legacy tab=\"tags\" is aliased to \"properties\" and persisted as such", async () => {
-    mockGetUserId.mockResolvedValue("user1");
-    mockUpsert.mockResolvedValue({
-      readerRailTab: "properties",
-      readerRailCollapsed: false,
-    } as any);
+  it.each(["tags", "backlinks", "history"])(
+    "200 — legacy tab=%s is aliased to \"properties\" and persisted as such",
+    async (legacy) => {
+      mockGetUserId.mockResolvedValue("user1");
+      mockUpsert.mockResolvedValue({
+        readerRailTab: "properties",
+        readerRailCollapsed: false,
+      } as any);
 
-    const res = await POST(makeRequest({ tab: "tags" }));
+      const res = await POST(makeRequest({ tab: legacy }));
 
-    expect(res.status).toBe(200);
-    const json = await res.json();
-    expect(json).toEqual({ tab: "properties", collapsed: false });
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json).toEqual({ tab: "properties", collapsed: false });
 
-    const callArg = mockUpsert.mock.calls[0]?.[0] as any;
-    expect(callArg.update).toEqual({ readerRailTab: "properties" });
-    expect(callArg.create).toMatchObject({ userId: "user1", readerRailTab: "properties" });
-  });
+      const callArg = mockUpsert.mock.calls[0]?.[0] as any;
+      expect(callArg.update).toEqual({ readerRailTab: "properties" });
+      expect(callArg.create).toMatchObject({ userId: "user1", readerRailTab: "properties" });
+    },
+  );
 });

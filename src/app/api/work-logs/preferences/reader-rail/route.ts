@@ -2,17 +2,21 @@
  * ADR-0023 / ADR-0025 — POST /api/work-logs/preferences/reader-rail
  *
  * Persists per-user worklog reader right-rail state:
- *   - tab       (optional) "backlinks" | "history" | "properties" | "photos"
+ *   - tab       (optional) "properties" | "photos"
  *   - collapsed (optional) boolean
  *
  * Partial-update semantics: either field may be sent independently.
  * Sending neither is a 400. Either field present triggers an upsert
  * scoped to the authenticated userId.
  *
- * Legacy alias: ADR-0025 renamed `"tags"` to `"properties"`. To keep
- * existing client caches and stale POSTs from 400-ing, requests
- * containing `tab: "tags"` are silently rewritten to `"properties"`
- * before validation + persistence.
+ * Legacy aliases (ADR-0025 Units 3 + 4):
+ *   - `"tags"`      → `"properties"`  (Unit 3: tag tab renamed)
+ *   - `"backlinks"` → `"properties"`  (Unit 4: backlinks collapsed into properties)
+ *   - `"history"`   → `"properties"`  (Unit 4: history collapsed into properties)
+ *
+ * Aliasing keeps stale clients (open tabs through a deploy, cached tab ids,
+ * etc.) from 400-ing — the legacy id is silently rewritten to the canonical
+ * value before validation and persistence.
  *
  * Response: { tab, collapsed } — the current saved rail state.
  */
@@ -21,12 +25,13 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getUserId } from "@/lib/auth-utils";
 
-const ALLOWED_RAIL_TABS = new Set(["backlinks", "history", "properties", "photos"]);
-const DEFAULT_RAIL_TAB = "backlinks";
+const ALLOWED_RAIL_TABS = new Set(["properties", "photos"]);
+const DEFAULT_RAIL_TAB = "properties";
+const LEGACY_PROPERTIES_ALIASES = new Set(["tags", "backlinks", "history"]);
 
 /** Map any legacy tab id to its current canonical value. */
 function migrateLegacyRailTab(value: string): string {
-  if (value === "tags") return "properties";
+  if (LEGACY_PROPERTIES_ALIASES.has(value)) return "properties";
   return value;
 }
 

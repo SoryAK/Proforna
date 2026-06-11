@@ -1,15 +1,20 @@
 /**
- * PropertiesTab — rail panel body for the Properties tab (ADR-0025 Unit 3).
+ * PropertiesTab — rail panel body for the Properties tab
+ * (ADR-0025 Units 3 + 4).
  *
- * Replaces the old TagsTab (ADR-0023 Unit 3.1). The Properties tab now hosts
- * three stacked autosave fields — Tags, Assets, Tools — so all three live
- * under a single, broader header. Each field is the same self-contained
- * Inline*Field component that the inline (mobile / xl-hidden) reader mounts;
- * mounting the same component in two places keeps the autosave + IndexedDB
- * draft contracts canonical.
+ * Unit 3 absorbed the old Tags tab and added Assets + Tools sections.
+ * Unit 4 collapses the standalone Backlinks and Version History tabs into
+ * this same panel, so the rail now exposes just two tabs (Properties +
+ * Photos) and the Properties column becomes the single context surface for
+ * the active note.
+ *
+ * Architectural decision — Option B (inner scrollers): each variable-height
+ * section (Backlinks + History) caps at `max-h-64` with its own scrollbar,
+ * so the picker sections above always stay reachable without scrolling
+ * past someone else's queue.
  *
  * Owns no state of its own — autosave + draft persistence live inside each
- * Inline*Field. The rail panel provides the inner scroller via
+ * Inline*Field. The rail panel provides the outer scroller via
  * `flex-1 overflow-y-auto` on its content region.
  */
 
@@ -21,6 +26,8 @@ import type { EquipmentItem } from "@/components/equipment-picker";
 import { InlineTagsField } from "@/components/worklog/inline-tags-field";
 import { InlineAssetsField } from "@/components/worklog/inline-assets-field";
 import { InlineToolsField } from "@/components/worklog/inline-tools-field";
+import { WorklogBacklinksPanel } from "@/components/worklog/worklog-backlinks-panel";
+import { WorklogHistoryPanel } from "@/components/worklog/worklog-history-panel";
 
 export interface PropertiesTabProps {
   /**
@@ -29,6 +36,14 @@ export interface PropertiesTabProps {
    * shows a quiet placeholder in that window.
    */
   log: WorkLog | null;
+  /**
+   * Active note id — needed by the Backlinks and History sub-panels which
+   * key their own queries off it. Provided separately from `log` because
+   * the rail already has it before the log record resolves.
+   */
+  noteId: string;
+  /** Current document plain-text — needed by the History panel for diffs. */
+  currentPlainText: string;
   /** Commit a single-field update for an existing log. */
   onUpdate: (patch: Partial<WorkLog> & { id: string }) => void | Promise<unknown>;
   /** Autocomplete corpus for the Tags field. */
@@ -43,6 +58,8 @@ export interface PropertiesTabProps {
 
 export function PropertiesTab({
   log,
+  noteId,
+  currentPlainText,
   onUpdate,
   tagSuggestions,
   assets,
@@ -87,6 +104,25 @@ export function PropertiesTab({
           onUpdate={onUpdate}
           hideLabel
         />
+      </Section>
+
+      {/* Backlinks — inner scroller per ADR-0025 Option B so a long
+          incoming-links list never pushes Properties pickers off-screen. */}
+      <Section label="Backlinks">
+        <div className="max-h-64 overflow-y-auto">
+          <WorklogBacklinksPanel noteId={noteId} bare />
+        </div>
+      </Section>
+
+      {/* Version History — same scroller cap. */}
+      <Section label="Version history">
+        <div className="max-h-64 overflow-y-auto">
+          <WorklogHistoryPanel
+            noteId={noteId}
+            currentPlainText={currentPlainText}
+            bare
+          />
+        </div>
       </Section>
     </div>
   );

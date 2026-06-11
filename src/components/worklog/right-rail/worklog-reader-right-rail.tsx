@@ -32,8 +32,6 @@ import type { JobAsset, AssetPickerPosition } from "@/components/asset-picker";
 import type { EquipmentItem } from "@/components/equipment-picker";
 import { RAIL_TABS, type RailTabId } from "./rail-tabs";
 import { useReaderRailState } from "./use-reader-rail-state";
-import { BacklinksTab } from "./tabs/backlinks-tab";
-import { HistoryTab } from "./tabs/history-tab";
 import { PropertiesTab } from "./tabs/properties-tab";
 import { PhotosTab } from "./tabs/photos-tab";
 
@@ -246,16 +244,14 @@ function renderTabBody(
   equipment: EquipmentItem[],
 ) {
   switch (tabId) {
-    case "backlinks":
-      return <BacklinksTab noteId={noteId} />;
-    case "history":
-      return <HistoryTab noteId={noteId} currentPlainText={currentPlainText} />;
     case "properties":
       // onUpdateActiveLog is required for the Properties tab — if a parent
       // forgets to wire it, the tab degrades into a no-op rather than crashing.
       return (
         <PropertiesTab
           log={activeLog}
+          noteId={noteId}
+          currentPlainText={currentPlainText}
           onUpdate={onUpdateActiveLog ?? (() => undefined)}
           tagSuggestions={tagSuggestions}
           assets={assets}

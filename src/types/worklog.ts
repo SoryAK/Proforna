@@ -80,13 +80,13 @@ export type WorklogPreferences = {
   voiceDictationConsentedAt: string | null;
   /**
    * ADR-0023 — Worklog reader right-rail active tab. Persisted per-user
-   * (not per-note). Defaults to `"backlinks"` for first-time users.
+   * (not per-note). Defaults to `"properties"` for first-time users.
    *
-   * ADR-0025: the legacy `"tags"` value is migrated to `"properties"` at
-   * every read boundary (route handler + state hook). Old rows persist
-   * harmlessly until their first save.
+   * ADR-0025: the legacy `"tags"`, `"backlinks"`, and `"history"` values
+   * are migrated to `"properties"` at every read boundary (route handler +
+   * state hook). Old rows persist harmlessly until their first save.
    */
-  readerRailTab: "backlinks" | "history" | "properties" | "photos";
+  readerRailTab: "properties" | "photos";
   /**
    * ADR-0023 — Worklog reader right-rail collapsed state. `true` hides the
    * 320px content panel and leaves only the 44px icon strip (desktop) or

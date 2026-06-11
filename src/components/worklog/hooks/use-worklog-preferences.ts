@@ -16,8 +16,8 @@ const EMPTY_PREFERENCES: WorklogPreferences = {
   defaultMood: null,
   defaultHours: null,
   voiceDictationConsentedAt: null,
-  // ADR-0023 — worklog reader right-rail defaults.
-  readerRailTab: "backlinks",
+  // ADR-0023 / ADR-0025 — worklog reader right-rail defaults.
+  readerRailTab: "properties",
   readerRailCollapsed: false,
 };
 
