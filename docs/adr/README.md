@@ -36,6 +36,7 @@ NNNN-short-kebab-title.md
 | 0019 | [Notion page import on-ramp](./0019-notion-import-onramp.md)                       | Accepted   | 2026-06-08 |
 | 0020 | [Worklog dictation v1 — Web Speech only](./0020-worklog-dictation-onramp.md) | Accepted | 2026-06-08 |
 | 0021 | [Mobile-first AI architecture & on-device Gemini strategy](./0021-mobile-first-ai-on-device-gemini.md) | Proposed | 2026-06-09 |
+| 0025 | [Collapse worklog reader rail to a Properties tab + Photos tab](./0025-properties-rail-tab-inline-sections.md) | Proposed | 2026-06-10 |
 
 ## How to Add a New ADR
 
