@@ -83,6 +83,18 @@ export async function GET(request: Request) {
       ? Prisma.sql`"folderId" IS NULL`
       : Prisma.sql`"folderId" IN (${Prisma.join(folderIdList)})`;
 
+  // ADR-0026 — archive bucket. Same locked contract as GET /api/work-logs:
+  //   ?archived=only → archivedAt IS NOT NULL
+  //   ?archived=all  → no predicate (both buckets)
+  //   absent / other → archivedAt IS NULL (Gmail-style default hide)
+  const archivedParam = searchParams.get("archived");
+  const archivedPredicate: Prisma.Sql =
+    archivedParam === "only"
+      ? Prisma.sql`"archivedAt" IS NOT NULL`
+      : archivedParam === "all"
+        ? Prisma.sql`TRUE`
+        : Prisma.sql`"archivedAt" IS NULL`;
+
   // Two-stage query:
   //   ranked CTE → pick top-N by ts_rank_cd against plainto_tsquery
   //   outer SELECT → compute ts_headline only on those N rows
@@ -98,6 +110,7 @@ export async function GET(request: Request) {
       FROM "WorkLog"
       WHERE "userId" = ${userId}
         AND ${folderPredicate}
+        AND ${archivedPredicate}
         AND "search_vector" @@ plainto_tsquery('english', ${qRaw})
       ORDER BY rank DESC, "date" DESC
       LIMIT ${limit}

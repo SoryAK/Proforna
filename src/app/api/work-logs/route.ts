@@ -38,11 +38,21 @@ export async function GET(request: Request) {
   const templateId = searchParams.get("templateId");
   const equipmentId = searchParams.get("equipmentId");
   const folderIdParam = searchParams.get("folderId");
+  // ADR-0026 — archive bucket. Locked contract:
+  //   ?archived=only → archivedAt IS NOT NULL
+  //   ?archived=all  → no predicate (both buckets)
+  //   absent / other → archivedAt IS NULL (Gmail-style default hide)
+  const archivedParam = searchParams.get("archived");
 
   const where: Record<string, unknown> = { userId };
 
   if (positionId) {
     where.positionId = positionId;
+  }
+  if (archivedParam === "only") {
+    where.archivedAt = { not: null };
+  } else if (archivedParam !== "all") {
+    where.archivedAt = null;
   }
   // folderId filter — pass an actual id, or the literal string "null" / "unfiled"
   // to select notes that don't belong to any folder.
