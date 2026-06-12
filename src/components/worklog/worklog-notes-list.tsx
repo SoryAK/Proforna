@@ -26,14 +26,17 @@ import { useSortable, SortableContext, verticalListSortingStrategy } from "@dnd-
 import { CSS } from "@dnd-kit/utilities";
 import type { WorkLog, Position } from "@/types/worklog";
 import { useWorklogFolders } from "@/components/worklog/hooks/use-worklog-folders";
-import { useWorklogMutations } from "@/components/worklog/hooks/use-worklog-mutations";
 import { WorklogMoveToFolderDialog } from "@/components/worklog/worklog-move-to-folder-dialog";
+import { WorklogRowContextMenu } from "@/components/worklog/worklog-row-context-menu";
 
 /**
  * Multi-select API surfaced by the orchestrator. Optional — when omitted
  * the row checkbox column is hidden and the list behaves as single-select.
  */
 export interface WorklogNotesListSelection {
+  /** Set-backed; consumed by the right-click context menu to resolve
+   *  Notion-style β selection rules without re-deriving it from isSelected. */
+  selectedIds: ReadonlySet<string>;
   selectedCount: number;
   isSelected: (id: string) => boolean;
   toggle: (id: string) => void;
@@ -63,6 +66,23 @@ export interface WorklogNotesListProps {
    * Should only be true when displaying a specific folder's notes.
    */
   sortable?: boolean;
+  /**
+   * When true, the right-click context menu shows "Unarchive" instead of
+   * "Archive". Drives the icon swap too.
+   */
+  archivedView?: boolean;
+  /**
+   * Commit a folder move for one or many notes. Called by the right-click
+   * context menu's "Move to folder…" item after the dialog resolves. When
+   * omitted, the list still falls back to a single-row save via its own
+   * legacy path is NOT preserved — orchestrators MUST wire this for the
+   * context menu to work. Bulk path: ids.length > 1.
+   */
+  onMoveRow?: (ids: string[], folderId: string | null) => void | Promise<unknown>;
+  /** Archive (or unarchive when archivedView=true) one or many notes. */
+  onArchiveRow?: (ids: string[]) => void | Promise<unknown>;
+  /** Delete one or many notes. */
+  onDeleteRow?: (ids: string[]) => void | Promise<unknown>;
 }
 
 type Group = { key: string; label: string; logs: WorkLog[] };
@@ -131,6 +151,10 @@ export function WorklogNotesList({
   onActivate,
   selection,
   sortable,
+  archivedView,
+  onMoveRow,
+  onArchiveRow,
+  onDeleteRow,
 }: WorklogNotesListProps) {
   const [renderCount, setRenderCount] = useState(PAGE_SIZE);
   const shouldVirtualize = logs.length >= VIRTUALIZE_THRESHOLD;
@@ -158,12 +182,37 @@ export function WorklogNotesList({
   const groups = useMemo(() => groupLogs(visibleLogs), [visibleLogs]);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Right-click → Move to folder… affordance.
-  // Self-contained so the orchestrator doesn't need a new callback prop.
-  const [moveLogId, setMoveLogId] = useState<string | null>(null);
+  // Right-click → Move/Archive/Delete context menu (ADR-0026 follow-up).
+  // The Move item routes through this local MoveDialog so the folder tree
+  // UI stays where it is, but the actual commit fires via `onMoveRow` so the
+  // orchestrator can run Inbox auto-advance afterwards.
+  const [moveTargetIds, setMoveTargetIds] = useState<string[] | null>(null);
   const { folders, createFolder } = useWorklogFolders();
-  const { saveLog } = useWorklogMutations();
-  const moveTargetLog = moveLogId ? logs.find((l) => l.id === moveLogId) ?? null : null;
+  const moveTargetLog =
+    moveTargetIds && moveTargetIds.length === 1
+      ? logs.find((l) => l.id === moveTargetIds[0]) ?? null
+      : null;
+  const moveTargetCount = moveTargetIds?.length ?? 0;
+
+  /**
+   * Notion-style β resolver for right-click selection scope:
+   *   • Right-clicked row IS in the current bulk selection AND selection
+   *     has 2+ members → operate on the whole selection.
+   *   • Otherwise → operate on just the right-clicked row.
+   * This is computed at click time, not menu-render time, so menu labels
+   * reflect the exact set the action will affect.
+   */
+  function resolveTargetIds(rightClickedId: string): string[] {
+    if (
+      selection &&
+      selection.selectedCount >= 2 &&
+      selection.isSelected(rightClickedId)
+    ) {
+      return Array.from(selection.selectedIds);
+    }
+    return [rightClickedId];
+  }
+
   const listboxId = "worklog-notes-list";
   const nowYear = new Date().getFullYear();
 
@@ -325,6 +374,9 @@ export function WorklogNotesList({
               const dateStr = formatRowDate(parseISO(l.date), nowYear);
               const preview = (l.content ?? "").trim();
               const photoCount = l.photos?.length ?? 0;
+              // Snapshot the ids the menu will act on (β-rule). Computed on
+              // every render so menu label pluralization is always current.
+              const menuTargets = resolveTargetIds(l.id);
               const liContent = (
                 <li
                   key={l.id}
@@ -342,11 +394,6 @@ export function WorklogNotesList({
                       return;
                     }
                     onSelect(l.id);
-                  }}
-                  onContextMenu={(e) => {
-                    e.preventDefault();
-                    onSelect(l.id);
-                    setMoveLogId(l.id);
                   }}
                   className={cn(
                     "cursor-pointer border-b px-3 py-2.5 transition-colors flex items-start gap-2",
@@ -439,9 +486,36 @@ export function WorklogNotesList({
                   </div>
                 </li>
               );
+              // Wrap with the right-click / long-press context menu.
+              // The β-resolver fires inside each onX so we ALWAYS read the
+              // freshest selection state — not the snapshot taken at render.
+              const withCtxMenu = (
+                <WorklogRowContextMenu
+                  key={`ctx:${l.id}`}
+                  count={menuTargets.length}
+                  archivedView={archivedView}
+                  onMove={() => {
+                    const ids = resolveTargetIds(l.id);
+                    // Bring the row into selected-state for clarity when
+                    // the dialog is acting on a single row in non-bulk mode.
+                    if (!selection) onSelect(l.id);
+                    setMoveTargetIds(ids);
+                  }}
+                  onArchive={async () => {
+                    const ids = resolveTargetIds(l.id);
+                    await onArchiveRow?.(ids);
+                  }}
+                  onDelete={async () => {
+                    const ids = resolveTargetIds(l.id);
+                    await onDeleteRow?.(ids);
+                  }}
+                >
+                  {liContent}
+                </WorklogRowContextMenu>
+              );
               return sortable ? (
-                <SortableNoteWrapper key={l.id} id={"note:" + l.id}>{liContent}</SortableNoteWrapper>
-              ) : liContent;
+                <SortableNoteWrapper key={l.id} id={"note:" + l.id}>{withCtxMenu}</SortableNoteWrapper>
+              ) : withCtxMenu;
             })}
           </ul>
           </SortableContext>
@@ -471,20 +545,26 @@ export function WorklogNotesList({
       )}
 
       <WorklogMoveToFolderDialog
-        open={!!moveLogId}
-        onOpenChange={(o) => !o && setMoveLogId(null)}
+        open={!!moveTargetIds}
+        onOpenChange={(o) => !o && setMoveTargetIds(null)}
         folders={folders}
         currentFolderId={moveTargetLog?.folderId ?? null}
         onChoose={async (folderId) => {
-          if (!moveLogId) return;
-          await saveLog.mutateAsync({ id: moveLogId, folderId });
-          setMoveLogId(null);
+          if (!moveTargetIds || moveTargetIds.length === 0) return;
+          await onMoveRow?.(moveTargetIds, folderId);
+          setMoveTargetIds(null);
         }}
         onCreateFolder={async (name) => {
           const created = await createFolder.mutateAsync({ name, parentId: null });
           return { id: created.id };
         }}
-        title={moveTargetLog?.title ? `Move “${moveTargetLog.title}” to…` : "Move note to folder"}
+        title={
+          moveTargetCount > 1
+            ? `Move ${moveTargetCount} notes to…`
+            : moveTargetLog?.title
+              ? `Move “${moveTargetLog.title}” to…`
+              : "Move note to folder"
+        }
       />
     </div>
   );

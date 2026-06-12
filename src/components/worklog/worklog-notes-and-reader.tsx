@@ -28,6 +28,7 @@ import {
 } from "@/components/worklog/worklog-note-reader";
 import { WorklogReaderRightRail } from "@/components/worklog/right-rail/worklog-reader-right-rail";
 import { WorklogTemplatesTab } from "@/components/worklog/worklog-templates-tab";
+import { computeNextAfterOrganize } from "@/lib/worklog/auto-advance";
 import type {
   EquipmentItem,
   FolderSelection,
@@ -82,6 +83,14 @@ export interface WorklogNotesAndReaderProps {
   selection: SelectionApi;
   focusPane: (target: "rail" | "list" | "view") => boolean;
 
+  // ── right-click context menu (ADR-0026 follow-up) ──────────────────────
+  /** Move (single or bulk) — orchestrator runs commit + auto-advance. */
+  onMoveRow?: (ids: string[], folderId: string | null) => void | Promise<unknown>;
+  /** Archive/unarchive (single or bulk) — orchestrator runs commit + auto-advance. */
+  onArchiveRow?: (ids: string[]) => void | Promise<unknown>;
+  /** Delete (single or bulk) — orchestrator runs commit + auto-advance. */
+  onDeleteRow?: (ids: string[]) => void | Promise<unknown>;
+
   // ── templates branch ───────────────────────────────────────────────────
   templates: Template[];
   applyTemplate: (t: Template) => void;
@@ -119,6 +128,9 @@ export function WorklogNotesAndReader({
   bulkMode,
   selection,
   focusPane,
+  onMoveRow,
+  onArchiveRow,
+  onDeleteRow,
   templates,
   applyTemplate,
   setEditingTemplate,
@@ -204,6 +216,10 @@ export function WorklogNotesAndReader({
             onNew={!search ? startBlank : undefined}
             selection={bulkMode ? selection : undefined}
             sortable={activeFolder.kind === "folder" && !bulkMode}
+            archivedView={activeFolder.kind === "archived"}
+            onMoveRow={onMoveRow}
+            onArchiveRow={onArchiveRow}
+            onDeleteRow={onDeleteRow}
           />
         )}
       </div>
@@ -246,11 +262,42 @@ export function WorklogNotesAndReader({
                 assets={assets}
                 positionMap={positionMap}
                 tagSuggestions={tagSuggestions}
-                onUpdate={(patch) => saveLog.mutateAsync(patch)}
+                onUpdate={async (patch) => {
+                  // Auto-advance (ADR-0026 Unit 5): the reader's Archive
+                  // button routes through onUpdate as `{ archived }`. Since
+                  // the button label is bucket-aware, an `archived` patch
+                  // always moves the note off the current view — so we
+                  // pre-compute the next id and reroute the reader after.
+                  const isArchiveToggle =
+                    patch.archived !== undefined && patch.id === selectedNoteId;
+                  const next = isArchiveToggle
+                    ? computeNextAfterOrganize({
+                        currentId: selectedNoteId,
+                        removedIds: [selectedNoteId as string],
+                        visibleLogs,
+                        activeFolder,
+                      })
+                    : null;
+                  const result = await saveLog.mutateAsync(patch);
+                  if (isArchiveToggle) {
+                    setSelectedNoteId(next);
+                    if (next === null) setMobileShowReader(false);
+                  }
+                  return result;
+                }}
                 onDelete={(id) => {
+                  // Auto-advance (ADR-0026 Unit 5): drop to the next
+                  // surviving Unfiled note when applicable; otherwise
+                  // drop the reader as before.
+                  const next = computeNextAfterOrganize({
+                    currentId: id,
+                    removedIds: [id],
+                    visibleLogs,
+                    activeFolder,
+                  });
                   deleteLog.mutate(id);
-                  setSelectedNoteId(null);
-                  setMobileShowReader(false);
+                  setSelectedNoteId(next);
+                  if (next === null) setMobileShowReader(false);
                 }}
                 onNew={startBlank}
                 hasLogs={logs.length > 0}

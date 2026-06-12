@@ -82,6 +82,7 @@ import { WorklogReaderRightRail } from "@/components/worklog/right-rail/worklog-
 import { WorklogImportDialog } from "@/components/worklog/worklog-import-dialog";
 import { exportBulkWorklogs } from "@/lib/worklog/export/client";
 import { shareWorklogs } from "@/lib/worklog/share/share-client";
+import { computeNextAfterOrganize } from "@/lib/worklog/auto-advance";
 import { toast } from "sonner";
 
 const DEFAULT_SORT: WorklogNotesTableSortState = {
@@ -335,16 +336,67 @@ export function WorklogNotesView({ selectedNoteId = null }: WorklogNotesViewProp
     }
   };
 
-  // Delete from the inline reader (ADR-0024). Navigates back to the bare
-  // list URL (preserving any forwarded filter qs) so the now-deleted id
-  // disappears from the path segment.
+  // Delete from the inline reader (ADR-0024). Auto-advances in the Unfiled
+  // inbox (ADR-0026 Unit 5) to the next surviving note; falls back to the
+  // bare list URL elsewhere. The forwarded filter querystring is preserved
+  // either way so the back nav rebuilds the same scope.
   const handleDeleteFromInlineReader = (id: string) => {
     const qs = searchParams.toString();
-    const backHref = qs ? `/worklog/notes?${qs}` : "/worklog/notes";
+    const next = computeNextAfterOrganize({
+      currentId: id,
+      removedIds: [id],
+      visibleLogs,
+      activeFolder,
+    });
+    const backHref = next
+      ? `/worklog/notes/${next}${qs ? `?${qs}` : ""}`
+      : qs
+        ? `/worklog/notes?${qs}`
+        : "/worklog/notes";
     deleteLog.mutate(id, {
       onSuccess: () => router.push(backHref),
     });
   };
+
+  /**
+   * Intercepts reader patches to add auto-advance for archive toggles
+   * (ADR-0026 Unit 5). The reader's Archive button flips `archived` via the
+   * same `onUpdate` channel as every other field edit, so we detect it by
+   * the presence of the `archived` key.
+   *
+   * Toggle direction is bucket-aware (archive on non-archived view,
+   * unarchive on archived view) which means an `archived` patch ALWAYS
+   * removes the note from the current scope. We pre-compute the next id
+   * BEFORE awaiting the save so visibleLogs is still the pre-mutation
+   * snapshot, then router.push the auto-advance target. Regular field
+   * edits pass straight through.
+   */
+  const handleReaderUpdate = useCallback(
+    async (patch: Parameters<typeof saveLog.mutateAsync>[0]) => {
+      const isArchiveToggle =
+        patch.archived !== undefined && patch.id === selectedNoteId;
+      const next = isArchiveToggle
+        ? computeNextAfterOrganize({
+            currentId: selectedNoteId,
+            removedIds: [selectedNoteId as string],
+            visibleLogs,
+            activeFolder,
+          })
+        : null;
+      const result = await saveLog.mutateAsync(patch);
+      if (isArchiveToggle) {
+        const qs = searchParams.toString();
+        const target = next
+          ? `/worklog/notes/${next}${qs ? `?${qs}` : ""}`
+          : qs
+            ? `/worklog/notes?${qs}`
+            : "/worklog/notes";
+        router.push(target);
+      }
+      return result;
+    },
+    [saveLog, selectedNoteId, visibleLogs, activeFolder, searchParams, router],
+  );
 
   const selectedCount = selection.selectedCount;
   const visibleCount = visibleLogs.length;
@@ -517,10 +569,32 @@ export function WorklogNotesView({ selectedNoteId = null }: WorklogNotesViewProp
               }}
               onDelete={async () => {
                 if (selectedIdList.length === 0) return;
+                // Pre-compute auto-advance target for the inline reader
+                // BEFORE the mutation lands (ADR-0026 Unit 5).
+                const next =
+                  selectedNoteId && selectedIdList.includes(selectedNoteId)
+                    ? computeNextAfterOrganize({
+                        currentId: selectedNoteId,
+                        removedIds: selectedIdList,
+                        visibleLogs,
+                        activeFolder,
+                      })
+                    : null;
                 await bulkAction.mutateAsync({
                   action: "delete",
                   ids: selectedIdList,
                 });
+                // If the open note was in the batch, advance OR drop the
+                // reader by navigating the URL.
+                if (selectedNoteId && selectedIdList.includes(selectedNoteId)) {
+                  const qs = searchParams.toString();
+                  const target = next
+                    ? `/worklog/notes/${next}${qs ? `?${qs}` : ""}`
+                    : qs
+                      ? `/worklog/notes?${qs}`
+                      : "/worklog/notes";
+                  router.push(target);
+                }
                 // Gmail-style auto-exit on success.
                 selection.clear();
                 setBulkMode(false);
@@ -532,7 +606,28 @@ export function WorklogNotesView({ selectedNoteId = null }: WorklogNotesViewProp
                 // user is in: Archived view unarchives, everywhere else
                 // archives.
                 const action = activeFolder.kind === "archived" ? "unarchive" : "archive";
+                // The note leaves the current scope either direction (the
+                // button label is bucket-aware), so auto-advance the inline
+                // reader if it was part of the batch.
+                const next =
+                  selectedNoteId && selectedIdList.includes(selectedNoteId)
+                    ? computeNextAfterOrganize({
+                        currentId: selectedNoteId,
+                        removedIds: selectedIdList,
+                        visibleLogs,
+                        activeFolder,
+                      })
+                    : null;
                 await bulkAction.mutateAsync({ action, ids: selectedIdList });
+                if (selectedNoteId && selectedIdList.includes(selectedNoteId)) {
+                  const qs = searchParams.toString();
+                  const target = next
+                    ? `/worklog/notes/${next}${qs ? `?${qs}` : ""}`
+                    : qs
+                      ? `/worklog/notes?${qs}`
+                      : "/worklog/notes";
+                  router.push(target);
+                }
                 selection.clear();
                 setBulkMode(false);
                 setExportIntent(false);
@@ -807,7 +902,7 @@ export function WorklogNotesView({ selectedNoteId = null }: WorklogNotesViewProp
                     assets={assets}
                     positionMap={positionMap}
                     tagSuggestions={tagSuggestions}
-                    onUpdate={(patch) => saveLog.mutateAsync(patch)}
+                    onUpdate={handleReaderUpdate}
                     onDelete={handleDeleteFromInlineReader}
                     hasLogs={logs.length > 0}
                   />

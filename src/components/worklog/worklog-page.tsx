@@ -46,6 +46,7 @@ import { WorklogSearchPalette } from "@/components/worklog/worklog-search-palett
 import { WorklogBulkActionBar } from "@/components/worklog/worklog-bulk-action-bar";
 import { useWorklogSelection } from "@/components/worklog/hooks/use-worklog-selection";
 import { WorklogDndProvider } from "@/components/worklog/worklog-dnd-provider";
+import { computeNextAfterOrganize } from "@/lib/worklog/auto-advance";
 
 export interface WorklogPageProps {
   /** Embedded mode: hide page brand, tighten chrome for the job-map embed. */
@@ -154,6 +155,90 @@ export function WorklogPage({ compact = false }: WorklogPageProps = {}) {
   const selectedLog = useMemo(
     () => (selectedNoteId ? logs.find((l) => l.id === selectedNoteId) ?? null : null),
     [logs, selectedNoteId],
+  );
+
+  /**
+   * Row organize handlers (right-click context menu + bulk bars).
+   * Each handler:
+   *   1) commits the mutation (single via saveLog/deleteLog, bulk via bulkAction)
+   *   2) runs Inbox auto-advance — in Unfiled, jumps the reader to the next
+   *      surviving note; everywhere else, drops the reader if the active row
+   *      was organized off the current view (ADR-0026 Unit 5 contract).
+   *
+   * The next-id is computed BEFORE the mutation resolves (off `visibleLogs`
+   * pre-mutation) so positional advance is deterministic. Selection clear +
+   * mobile reader drop happen post-mutation.
+   */
+  const handleMoveRow = useCallback(
+    async (ids: string[], folderId: string | null) => {
+      if (ids.length === 0) return;
+      const next = computeNextAfterOrganize({
+        currentId: selectedNoteId,
+        removedIds: ids,
+        visibleLogs,
+        activeFolder,
+      });
+      if (ids.length === 1) {
+        await saveLog.mutateAsync({ id: ids[0], folderId });
+      } else {
+        await bulkAction.mutateAsync({ action: "move", ids, payload: { folderId } });
+      }
+      if (selectedNoteId && ids.includes(selectedNoteId)) {
+        setSelectedNoteId(next);
+        if (next === null) setMobileShowReader(false);
+      }
+      if (selection.selectedCount > 0) selection.clear();
+    },
+    [selectedNoteId, visibleLogs, activeFolder, saveLog, bulkAction, selection],
+  );
+
+  const handleArchiveRow = useCallback(
+    async (ids: string[]) => {
+      if (ids.length === 0) return;
+      // Direction follows the active sidebar bucket (ADR-0026 Unit 5).
+      const action = activeFolder.kind === "archived" ? "unarchive" : "archive";
+      const next = computeNextAfterOrganize({
+        currentId: selectedNoteId,
+        removedIds: ids,
+        visibleLogs,
+        activeFolder,
+      });
+      if (ids.length === 1) {
+        await saveLog.mutateAsync({ id: ids[0], archived: action === "archive" });
+      } else {
+        await bulkAction.mutateAsync({ action, ids });
+      }
+      if (selectedNoteId && ids.includes(selectedNoteId)) {
+        setSelectedNoteId(next);
+        if (next === null) setMobileShowReader(false);
+      }
+      if (selection.selectedCount > 0) selection.clear();
+    },
+    [selectedNoteId, visibleLogs, activeFolder, saveLog, bulkAction, selection],
+  );
+
+  const handleDeleteRow = useCallback(
+    async (ids: string[]) => {
+      if (ids.length === 0) return;
+      const next = computeNextAfterOrganize({
+        currentId: selectedNoteId,
+        removedIds: ids,
+        visibleLogs,
+        activeFolder,
+      });
+      if (ids.length === 1) {
+        // deleteLog is fire-and-forget today; mirror that, but compute next first.
+        deleteLog.mutate(ids[0]);
+      } else {
+        await bulkAction.mutateAsync({ action: "delete", ids });
+      }
+      if (selectedNoteId && ids.includes(selectedNoteId)) {
+        setSelectedNoteId(next);
+        if (next === null) setMobileShowReader(false);
+      }
+      if (selection.selectedCount > 0) selection.clear();
+    },
+    [selectedNoteId, visibleLogs, activeFolder, deleteLog, bulkAction, selection],
   );
 
   // Unique sorted tag strings across all logs — fed into TagInput for autocomplete.
@@ -324,6 +409,9 @@ export function WorklogPage({ compact = false }: WorklogPageProps = {}) {
               saveLog={saveLog}
               deleteLog={deleteLog}
               logs={logs}
+              onMoveRow={handleMoveRow}
+              onArchiveRow={handleArchiveRow}
+              onDeleteRow={handleDeleteRow}
             />
           </div>
         </WorklogDndProvider>
@@ -360,6 +448,9 @@ export function WorklogPage({ compact = false }: WorklogPageProps = {}) {
             saveLog={saveLog}
             deleteLog={deleteLog}
             logs={logs}
+            onMoveRow={handleMoveRow}
+            onArchiveRow={handleArchiveRow}
+            onDeleteRow={handleDeleteRow}
           />
         </div>
       )}
@@ -389,17 +480,34 @@ export function WorklogPage({ compact = false }: WorklogPageProps = {}) {
         onMove={async (folderId) => {
           const ids = Array.from(selection.selectedIds);
           if (ids.length === 0) return;
+          const next = computeNextAfterOrganize({
+            currentId: selectedNoteId,
+            removedIds: ids,
+            visibleLogs,
+            activeFolder,
+          });
           await bulkAction.mutateAsync({ action: "move", ids, payload: { folderId } });
+          if (selectedNoteId && ids.includes(selectedNoteId)) {
+            setSelectedNoteId(next);
+            if (next === null) setMobileShowReader(false);
+          }
           selection.clear();
         }}
         onDelete={async () => {
           const ids = Array.from(selection.selectedIds);
           if (ids.length === 0) return;
+          const next = computeNextAfterOrganize({
+            currentId: selectedNoteId,
+            removedIds: ids,
+            visibleLogs,
+            activeFolder,
+          });
           await bulkAction.mutateAsync({ action: "delete", ids });
-          // If the currently-open note was part of the batch, drop the reader.
+          // If the currently-open note was part of the batch, advance (Unfiled)
+          // or drop the reader (every other view).
           if (selectedNoteId && ids.includes(selectedNoteId)) {
-            setSelectedNoteId(null);
-            setMobileShowReader(false);
+            setSelectedNoteId(next);
+            if (next === null) setMobileShowReader(false);
           }
           selection.clear();
         }}
@@ -408,16 +516,22 @@ export function WorklogPage({ compact = false }: WorklogPageProps = {}) {
           if (ids.length === 0) return;
           // ADR-0026 — direction follows the active sidebar bucket.
           const action = activeFolder.kind === "archived" ? "unarchive" : "archive";
+          const next = computeNextAfterOrganize({
+            currentId: selectedNoteId,
+            removedIds: ids,
+            visibleLogs,
+            activeFolder,
+          });
           await bulkAction.mutateAsync({ action, ids });
-          // If the currently-open note was archived OFF this view, drop
-          // the reader so we don't show a row that's no longer in scope.
+          // If the currently-open note was archived OFF this view, advance
+          // (Unfiled inbox loop) or drop the reader.
           if (
             selectedNoteId &&
             ids.includes(selectedNoteId) &&
             activeFolder.kind !== "archived"
           ) {
-            setSelectedNoteId(null);
-            setMobileShowReader(false);
+            setSelectedNoteId(next);
+            if (next === null) setMobileShowReader(false);
           }
           selection.clear();
         }}
