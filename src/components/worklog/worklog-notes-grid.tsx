@@ -16,6 +16,7 @@ import { useMemo } from "react";
 import { Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { resolveCategoryMeta } from "@/components/worklog/constants";
+import { WorklogRowContextMenu } from "@/components/worklog/worklog-row-context-menu";
 import type { UseWorklogSelectionApi } from "@/components/worklog/hooks/use-worklog-selection";
 import type { Position, WorkLog, WorkLogFolderWithCount } from "@/types/worklog";
 import {
@@ -42,6 +43,18 @@ export interface WorklogNotesGridProps {
   emptyMessage?: string;
   emptyHint?: string;
   onNew?: () => void;
+  /**
+   * Right-click / long-press context menu plumbing (ADR-0026 carry-forward).
+   * When all three handlers are provided, each card becomes a
+   * <WorklogRowContextMenu> trigger. Selection-aware via the β-rule:
+   * right-click on a selected card with N>=2 acts on the whole selection;
+   * otherwise just the right-clicked card.
+   */
+  archivedView?: boolean;
+  /** Emits when the user picks Move from the context menu — parent shows the folder dialog. */
+  onMoveRequest?: (ids: string[]) => void;
+  onArchiveRow?: (ids: string[]) => void | Promise<unknown>;
+  onDeleteRow?: (ids: string[]) => void | Promise<unknown>;
 }
 
 export function WorklogNotesGrid({
@@ -57,11 +70,32 @@ export function WorklogNotesGrid({
   emptyMessage = "No notes",
   emptyHint,
   onNew,
+  archivedView = false,
+  onMoveRequest,
+  onArchiveRow,
+  onDeleteRow,
 }: WorklogNotesGridProps) {
   const sortedLogs = useMemo(
     () => applySort(logs, sort, positionMap, folders),
     [logs, sort, positionMap, folders],
   );
+
+  // Right-click menu only mounts when ALL three handlers are wired — keeps
+  // the Grid usable in any context without forcing parents to implement
+  // organize actions they don't support.
+  const canContextMenu = Boolean(onMoveRequest && onArchiveRow && onDeleteRow);
+
+  // β-rule (Notion-style): if the right-clicked card is part of an active
+  // multi-selection, act on the whole selection; otherwise just that card.
+  const resolveTargetIds = (rightClickedId: string): string[] => {
+    if (
+      selection.selectedCount >= 2 &&
+      selection.isSelected(rightClickedId)
+    ) {
+      return Array.from(selection.selectedIds);
+    }
+    return [rightClickedId];
+  };
 
   // Select-all-visible state — mirrors the header checkbox in the table view
   // so bulk mode is symmetric across list and grid.
@@ -138,7 +172,7 @@ export function WorklogNotesGrid({
         const folder = folderLabel(log.folderId, folders);
         const lastEdited = formatLastEdited(log.updatedAt, log.date);
 
-        return (
+        const card = (
           <div
             key={log.id}
             role="button"
@@ -226,6 +260,22 @@ export function WorklogNotesGrid({
             </div>
           </div>
         );
+        if (canContextMenu) {
+          const menuTargets = resolveTargetIds(log.id);
+          return (
+            <WorklogRowContextMenu
+              key={`ctx:${log.id}`}
+              count={menuTargets.length}
+              archivedView={archivedView}
+              onMove={() => onMoveRequest?.(resolveTargetIds(log.id))}
+              onArchive={() => void onArchiveRow?.(resolveTargetIds(log.id))}
+              onDelete={() => void onDeleteRow?.(resolveTargetIds(log.id))}
+            >
+              {card}
+            </WorklogRowContextMenu>
+          );
+        }
+        return card;
       })}
       </div>
     </div>

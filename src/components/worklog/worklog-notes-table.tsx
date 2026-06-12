@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { resolveCategoryMeta } from "@/components/worklog/constants";
+import { WorklogRowContextMenu } from "@/components/worklog/worklog-row-context-menu";
 import type { UseWorklogSelectionApi } from "@/components/worklog/hooks/use-worklog-selection";
 import type { Position, WorkLog, WorkLogFolderWithCount } from "@/types/worklog";
 import {
@@ -74,6 +75,18 @@ export interface WorklogNotesTableProps {
    * Used when the list pane is squeezed to ~288px next to the reader + rail.
    */
   compact?: boolean;
+  /**
+   * Right-click / long-press context menu plumbing (ADR-0026 carry-forward).
+   * When all three handlers are provided, each row becomes a
+   * <WorklogRowContextMenu> trigger. Selection-aware via the β-rule:
+   * right-click on a selected row with N>=2 acts on the whole selection;
+   * otherwise just the right-clicked row.
+   */
+  archivedView?: boolean;
+  /** Emits when the user picks Move from the context menu — parent shows the folder dialog. */
+  onMoveRequest?: (ids: string[]) => void;
+  onArchiveRow?: (ids: string[]) => void | Promise<unknown>;
+  onDeleteRow?: (ids: string[]) => void | Promise<unknown>;
 }
 
 const COLUMN_GRID_BULK =
@@ -132,11 +145,32 @@ export function WorklogNotesTable({
   emptyHint,
   onNew,
   compact = false,
+  archivedView = false,
+  onMoveRequest,
+  onArchiveRow,
+  onDeleteRow,
 }: WorklogNotesTableProps) {
   const sortedLogs = useMemo(
     () => applySort(logs, sort, positionMap, folders),
     [logs, sort, positionMap, folders],
   );
+
+  // Right-click menu only mounts when ALL three handlers are wired — keeps
+  // the standalone Table usable in any context without forcing parents to
+  // implement organize actions they don't support.
+  const canContextMenu = Boolean(onMoveRequest && onArchiveRow && onDeleteRow);
+
+  // β-rule (Notion-style): if the right-clicked row is part of an active
+  // multi-selection, act on the whole selection; otherwise just that row.
+  const resolveTargetIds = (rightClickedId: string): string[] => {
+    if (
+      selection.selectedCount >= 2 &&
+      selection.isSelected(rightClickedId)
+    ) {
+      return Array.from(selection.selectedIds);
+    }
+    return [rightClickedId];
+  };
 
   const COLUMN_GRID = bulkMode ? COLUMN_GRID_BULK : COLUMN_GRID_PLAIN;
 
@@ -248,7 +282,7 @@ export function WorklogNotesTable({
             if (compact) {
               // Compact stacked card (ADR-0024 inline 3-pane): title row +
               // meta line beneath, no grid columns. Fits ~288px list pane.
-              return (
+              const compactRow = (
                 <div
                   key={log.id}
                   role="button"
@@ -312,9 +346,28 @@ export function WorklogNotesTable({
                   </div>
                 </div>
               );
+              // Wrap with the right-click / long-press context menu. The
+              // β-resolver fires inside each onX so we always read the
+              // freshest selection state — not the snapshot at render time.
+              if (canContextMenu) {
+                const menuTargets = resolveTargetIds(log.id);
+                return (
+                  <WorklogRowContextMenu
+                    key={`ctx:${log.id}`}
+                    count={menuTargets.length}
+                    archivedView={archivedView}
+                    onMove={() => onMoveRequest?.(resolveTargetIds(log.id))}
+                    onArchive={() => void onArchiveRow?.(resolveTargetIds(log.id))}
+                    onDelete={() => void onDeleteRow?.(resolveTargetIds(log.id))}
+                  >
+                    {compactRow}
+                  </WorklogRowContextMenu>
+                );
+              }
+              return compactRow;
             }
 
-            return (
+            const fullRow = (
               <div
                 key={log.id}
                 role="button"
@@ -411,6 +464,22 @@ export function WorklogNotesTable({
                 </div>
               </div>
             );
+            if (canContextMenu) {
+              const menuTargets = resolveTargetIds(log.id);
+              return (
+                <WorklogRowContextMenu
+                  key={`ctx:${log.id}`}
+                  count={menuTargets.length}
+                  archivedView={archivedView}
+                  onMove={() => onMoveRequest?.(resolveTargetIds(log.id))}
+                  onArchive={() => void onArchiveRow?.(resolveTargetIds(log.id))}
+                  onDelete={() => void onDeleteRow?.(resolveTargetIds(log.id))}
+                >
+                  {fullRow}
+                </WorklogRowContextMenu>
+              );
+            }
+            return fullRow;
           })
         )}
       </div>

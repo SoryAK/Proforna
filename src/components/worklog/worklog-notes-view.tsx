@@ -80,6 +80,7 @@ import { WorklogNotesSortMenu } from "@/components/worklog/worklog-notes-sort-me
 import { WorklogNoteReader } from "@/components/worklog/worklog-note-reader";
 import { WorklogReaderRightRail } from "@/components/worklog/right-rail/worklog-reader-right-rail";
 import { WorklogImportDialog } from "@/components/worklog/worklog-import-dialog";
+import { WorklogMoveToFolderDialog } from "@/components/worklog/worklog-move-to-folder-dialog";
 import { exportBulkWorklogs } from "@/lib/worklog/export/client";
 import { shareWorklogs } from "@/lib/worklog/share/share-client";
 import { computeNextAfterOrganize } from "@/lib/worklog/auto-advance";
@@ -134,7 +135,7 @@ export function WorklogNotesView({ selectedNoteId = null }: WorklogNotesViewProp
   // Data
   const { logs, loadingLogs, positions, equipment, assets, positionMap } =
     useWorklogData();
-  const { folders } = useWorklogFolders();
+  const { folders, createFolder } = useWorklogFolders();
 
   // URL-driven folder selection (sidebar is the picker).
   const [activeFolder] = useFolderSelection({ enabled: true });
@@ -396,6 +397,95 @@ export function WorklogNotesView({ selectedNoteId = null }: WorklogNotesViewProp
       return result;
     },
     [saveLog, selectedNoteId, visibleLogs, activeFolder, searchParams, router],
+  );
+
+  /**
+   * Row organize handlers + Move-to-folder dialog (ADR-0026 carry-forward).
+   *
+   * The Drive-style surfaces (<WorklogNotesTable> / <WorklogNotesGrid>) emit
+   * `onMoveRequest(ids)` and trigger this dialog rather than mounting their
+   * own — keeps folder data + creation flow in one place. Archive/Delete
+   * fire-and-forget through the handlers below, with URL-driven auto-advance
+   * applied via `pushAutoAdvance` whenever the active reader note leaves the
+   * current scope.
+   */
+  const [moveTargetIds, setMoveTargetIds] = useState<string[] | null>(null);
+  const moveTargetLog = useMemo(
+    () =>
+      moveTargetIds && moveTargetIds.length === 1
+        ? logs.find((l) => l.id === moveTargetIds[0]) ?? null
+        : null,
+    [moveTargetIds, logs],
+  );
+  const moveTargetCount = moveTargetIds?.length ?? 0;
+
+  // Auto-advance the inline reader if the currently-open note is part of
+  // the organize batch. Pre-computes the next id from PRE-mutation
+  // visibleLogs so positional advance is deterministic, then router.push
+  // to the auto-advance target (or the bare list URL when no survivor).
+  const pushAutoAdvance = useCallback(
+    (ids: string[]) => {
+      if (!selectedNoteId || !ids.includes(selectedNoteId)) return;
+      const next = computeNextAfterOrganize({
+        currentId: selectedNoteId,
+        removedIds: ids,
+        visibleLogs,
+        activeFolder,
+      });
+      const qs = searchParams.toString();
+      const target = next
+        ? `/worklog/notes/${next}${qs ? `?${qs}` : ""}`
+        : qs
+          ? `/worklog/notes?${qs}`
+          : "/worklog/notes";
+      router.push(target);
+    },
+    [selectedNoteId, visibleLogs, activeFolder, searchParams, router],
+  );
+
+  const handleMoveRow = useCallback(
+    async (ids: string[], folderId: string | null) => {
+      if (ids.length === 0) return;
+      pushAutoAdvance(ids);
+      if (ids.length === 1) {
+        await saveLog.mutateAsync({ id: ids[0], folderId });
+      } else {
+        await bulkAction.mutateAsync({ action: "move", ids, payload: { folderId } });
+      }
+      if (selection.selectedCount > 0) selection.clear();
+    },
+    [pushAutoAdvance, saveLog, bulkAction, selection],
+  );
+
+  const handleArchiveRow = useCallback(
+    async (ids: string[]) => {
+      if (ids.length === 0) return;
+      // Direction follows the active sidebar bucket (ADR-0026 Unit 5).
+      const action = activeFolder.kind === "archived" ? "unarchive" : "archive";
+      pushAutoAdvance(ids);
+      if (ids.length === 1) {
+        await saveLog.mutateAsync({ id: ids[0], archived: action === "archive" });
+      } else {
+        await bulkAction.mutateAsync({ action, ids });
+      }
+      if (selection.selectedCount > 0) selection.clear();
+    },
+    [pushAutoAdvance, activeFolder, saveLog, bulkAction, selection],
+  );
+
+  const handleDeleteRow = useCallback(
+    async (ids: string[]) => {
+      if (ids.length === 0) return;
+      pushAutoAdvance(ids);
+      if (ids.length === 1) {
+        // deleteLog is fire-and-forget today; mirror that, but compute next first.
+        deleteLog.mutate(ids[0]);
+      } else {
+        await bulkAction.mutateAsync({ action: "delete", ids });
+      }
+      if (selection.selectedCount > 0) selection.clear();
+    },
+    [pushAutoAdvance, deleteLog, bulkAction, selection],
   );
 
   const selectedCount = selection.selectedCount;
@@ -856,6 +946,10 @@ export function WorklogNotesView({ selectedNoteId = null }: WorklogNotesViewProp
                 onOpen={handleOpen}
                 onNew={handleNewNote}
                 compact={selectedNoteId !== null || isMobile}
+                archivedView={activeFolder.kind === "archived"}
+                onMoveRequest={setMoveTargetIds}
+                onArchiveRow={handleArchiveRow}
+                onDeleteRow={handleDeleteRow}
               />
             ) : (
               <WorklogNotesGrid
@@ -869,6 +963,10 @@ export function WorklogNotesView({ selectedNoteId = null }: WorklogNotesViewProp
                 selectedFocusId={selectedNoteId}
                 onOpen={handleOpen}
                 onNew={handleNewNote}
+                archivedView={activeFolder.kind === "archived"}
+                onMoveRequest={setMoveTargetIds}
+                onArchiveRow={handleArchiveRow}
+                onDeleteRow={handleDeleteRow}
               />
             )}
           </div>
@@ -929,6 +1027,32 @@ export function WorklogNotesView({ selectedNoteId = null }: WorklogNotesViewProp
           successful imports invalidate `["worklogs"]` and `["worklog-folders"]`
           and the list re-renders without a manual refresh. */}
       <WorklogImportDialog open={importOpen} onOpenChange={setImportOpen} />
+
+      {/* Move-to-folder dialog — driven by the right-click context menu on
+          rows (ADR-0026 carry-forward). Owns folder creation + auto-advance
+          via handleMoveRow. */}
+      <WorklogMoveToFolderDialog
+        open={!!moveTargetIds}
+        onOpenChange={(o) => !o && setMoveTargetIds(null)}
+        folders={folders}
+        currentFolderId={moveTargetLog?.folderId ?? null}
+        onChoose={async (folderId) => {
+          if (!moveTargetIds || moveTargetIds.length === 0) return;
+          await handleMoveRow(moveTargetIds, folderId);
+          setMoveTargetIds(null);
+        }}
+        onCreateFolder={async (name) => {
+          const created = await createFolder.mutateAsync({ name, parentId: null });
+          return { id: created.id };
+        }}
+        title={
+          moveTargetCount > 1
+            ? `Move ${moveTargetCount} notes to…`
+            : moveTargetLog?.title
+              ? `Move “${moveTargetLog.title}” to…`
+              : "Move note to folder"
+        }
+      />
     </div>
   );
 }
