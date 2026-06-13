@@ -27,8 +27,8 @@ import { useEffect, useMemo } from "react";
 import { ChevronsRight, ChevronsLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import type { WorkLog } from "@/types/worklog";
-import type { JobAsset, AssetPickerPosition } from "@/components/asset-picker";
+import type { WorkLog, Position } from "@/types/worklog";
+import type { JobAsset } from "@/components/asset-picker";
 import type { EquipmentItem } from "@/components/equipment-picker";
 import { RAIL_TABS, type RailTabId } from "./rail-tabs";
 import { useReaderRailState } from "./use-reader-rail-state";
@@ -58,8 +58,12 @@ export interface WorklogReaderRightRailProps {
   tagSuggestions?: string[];
   /** Asset corpus for the Properties tab's Assets field. */
   assets?: JobAsset[];
-  /** Position dropdown options for the Properties tab's Assets field. */
-  positions?: AssetPickerPosition[];
+  /**
+   * Position list — used by the Properties tab for both the Details fields
+   * (full Position with `title`) and the Assets field (id/company/type subset,
+   * structurally compatible with AssetPickerPosition).
+   */
+  positions?: Position[];
   /** Equipment corpus for the Properties tab's Tools field. */
   equipment?: EquipmentItem[];
   className?: string;
@@ -240,7 +244,7 @@ function renderTabBody(
   onUpdateActiveLog: ((patch: Partial<WorkLog> & { id: string }) => void | Promise<unknown>) | undefined,
   tagSuggestions: string[] | undefined,
   assets: JobAsset[],
-  positions: AssetPickerPosition[],
+  positions: Position[],
   equipment: EquipmentItem[],
 ) {
   switch (tabId) {

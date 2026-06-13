@@ -20,14 +20,15 @@
 
 "use client";
 
-import type { WorkLog } from "@/types/worklog";
-import type { JobAsset, AssetPickerPosition } from "@/components/asset-picker";
+import type { Position, WorkLog } from "@/types/worklog";
+import type { JobAsset } from "@/components/asset-picker";
 import type { EquipmentItem } from "@/components/equipment-picker";
 import { InlineTagsField } from "@/components/worklog/inline-tags-field";
 import { InlineAssetsField } from "@/components/worklog/inline-assets-field";
 import { InlineToolsField } from "@/components/worklog/inline-tools-field";
 import { WorklogBacklinksPanel } from "@/components/worklog/worklog-backlinks-panel";
 import { WorklogHistoryPanel } from "@/components/worklog/worklog-history-panel";
+import { PropertiesFields } from "./properties-fields";
 
 export interface PropertiesTabProps {
   /**
@@ -50,8 +51,12 @@ export interface PropertiesTabProps {
   tagSuggestions?: string[];
   /** Asset corpus for the Assets field. */
   assets: JobAsset[];
-  /** Position dropdown options for the Assets field. */
-  positions: AssetPickerPosition[];
+  /**
+   * Position list — needed by both the Details fields (Job select with
+   * full title) and the Assets field (which only needs id/company/type).
+   * Full Position is structurally compatible with AssetPickerPosition.
+   */
+  positions: Position[];
   /** Equipment corpus for the Tools field. */
   equipment: EquipmentItem[];
 }
@@ -78,6 +83,13 @@ export function PropertiesTab({
 
   return (
     <div className="px-3 divide-y divide-border">
+      {/* Details — Tolaria-style key-value rows for the note's editable
+          metadata. The body's <WorklogNoteMetaStrip> is hidden at xl+ so
+          this rail panel is the canonical Properties surface on desktop. */}
+      <Section label="Details">
+        <PropertiesFields log={log} positions={positions} onUpdate={onUpdate} />
+      </Section>
+
       <Section label="Tags">
         <InlineTagsField
           log={log}

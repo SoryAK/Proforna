@@ -462,27 +462,32 @@ const ReaderInner = forwardRef<WorklogNoteReaderHandle, ReaderInnerProps>(functi
         />
       </div>
 
-      {/* Meta strip — collapsible details (date/time/category/job/shift/hours/mood) */}
-      <WorklogNoteMetaStrip
-        log={log}
-        positions={positions}
-        positionMap={positionMap}
-        shifts={shifts}
-        dateInput={dateInput}
-        setDateInput={setDateInput}
-        timeInput={timeInput}
-        setTimeInput={setTimeInput}
-        hoursValue={hoursField.value}
-        onHoursChange={hoursField.onChange}
-        onHoursBlur={hoursField.onBlur}
-        commitDateTime={commitDateTime}
-        buildShiftAwarePatch={buildShiftAwarePatch}
-        onUpdate={onUpdate}
-        onShiftsRefetch={() =>
-          qc.invalidateQueries({ queryKey: ["work-history-shifts", log.positionId] })
-        }
-        defaultExpanded={isNewNote}
-      />
+      {/* Meta strip — collapsible details (date/time/category/job/shift/hours/mood).
+          Hidden at xl+ where the rail's Properties tab (PropertiesFields) is the
+          canonical edit surface. Mobile / narrow viewports keep the inline strip
+          since the rail itself is `hidden xl:flex`. */}
+      <div className="xl:hidden">
+        <WorklogNoteMetaStrip
+          log={log}
+          positions={positions}
+          positionMap={positionMap}
+          shifts={shifts}
+          dateInput={dateInput}
+          setDateInput={setDateInput}
+          timeInput={timeInput}
+          setTimeInput={setTimeInput}
+          hoursValue={hoursField.value}
+          onHoursChange={hoursField.onChange}
+          onHoursBlur={hoursField.onBlur}
+          commitDateTime={commitDateTime}
+          buildShiftAwarePatch={buildShiftAwarePatch}
+          onUpdate={onUpdate}
+          onShiftsRefetch={() =>
+            qc.invalidateQueries({ queryKey: ["work-history-shifts", log.positionId] })
+          }
+          defaultExpanded={isNewNote}
+        />
+      </div>
 
       {/* Body + sections */}
       <div className="flex-1 min-h-0 overflow-y-auto scrollbar-thin">
