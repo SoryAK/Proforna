@@ -35,7 +35,6 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -342,23 +341,42 @@ const ReaderInner = forwardRef<WorklogNoteReaderHandle, ReaderInnerProps>(functi
             placeholder="Note title…"
             className="!text-sm font-medium border-0 shadow-none focus-visible:ring-0 px-1 h-7 py-0 bg-transparent min-w-0 flex-1"
           />
-          <Badge variant={isDirty ? "secondary" : "outline"} className="h-6 gap-1.5 px-2 text-[11px] shrink-0">
-            <span className={cn("h-1.5 w-1.5 rounded-full", isSaving ? "bg-amber-500" : isDirty ? "bg-rose-500" : "bg-emerald-500")} />
-            {isSaving ? "Saving" : isDirty ? "Unsaved" : "Saved"}
-          </Badge>
+          {/* Saved/Saving/Unsaved chip — doubles as the manual flush trigger
+              (Linear-style). Click forces the debounced autosave to fire NOW;
+              ⌘/Ctrl+S still works at the page level. Disabled when there's
+              nothing to save so the click stays meaningful. */}
+          <button
+            type="button"
+            onClick={flushAllFields}
+            disabled={!isDirty || isSaving}
+            aria-label={isSaving ? "Saving" : isDirty ? "Save now" : "All changes saved"}
+            title={
+              isSaving
+                ? "Saving…"
+                : isDirty
+                  ? "Save now (⌘/Ctrl+S) — fields also auto-save on blur and after a short pause"
+                  : "All changes saved — autosaved on blur and after a short pause"
+            }
+            className={cn(
+              "inline-flex items-center gap-1.5 h-6 px-2 rounded-md text-[11px] border shrink-0 transition-colors",
+              isDirty
+                ? "bg-secondary border-transparent hover:bg-secondary/80 cursor-pointer"
+                : "border-border text-muted-foreground cursor-default",
+              isSaving && "cursor-wait",
+              "disabled:cursor-default disabled:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            )}
+          >
+            <span
+              className={cn(
+                "h-1.5 w-1.5 rounded-full",
+                isSaving ? "bg-amber-500" : isDirty ? "bg-rose-500" : "bg-emerald-500",
+              )}
+            />
+            {isSaving ? "Saving" : isDirty ? "Save" : "Saved"}
+          </button>
         </div>
 
         <div className="flex items-center gap-1.5 flex-shrink-0">
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={flushAllFields}
-            disabled={!isDirty || isSaving}
-            className="h-8 px-3"
-            title="Save now — fields also auto-save on blur and after a short pause (⌘/Ctrl+S)"
-          >
-            Save
-          </Button>
           <Button
             size="sm"
             variant={editMode ? "default" : "ghost"}
