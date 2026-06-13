@@ -30,6 +30,9 @@ import {
   Archive,
   ArchiveRestore,
   MoreHorizontal,
+  Folder as FolderIcon,
+  Inbox,
+  ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,7 +44,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { resolveCategoryMeta, dateLabel } from "@/components/worklog/constants";
+import { useWorklogFolders } from "@/components/worklog/hooks/use-worklog-folders";
 import { InlineTagsField } from "@/components/worklog/inline-tags-field";
 import { InlineAssetsField } from "@/components/worklog/inline-assets-field";
 import { InlineToolsField } from "@/components/worklog/inline-tools-field";
@@ -285,6 +288,17 @@ const ReaderInner = forwardRef<WorklogNoteReaderHandle, ReaderInnerProps>(functi
     onUpdate({ id: log.id, ...buildShiftAwarePatch({ date: iso }) });
   }
 
+  // Header breadcrumb — Tolaria-style "[Folder] › [Title input]". The
+  // metadata duplicate (category/position/date) was removed when those
+  // moved into the rail's Properties panel — keeping it here would mean
+  // showing the same data twice in the same viewport.
+  // NOTE: must be called above the `draftsLoading` early return to keep
+  // hook order stable across renders (React 19 strict mode).
+  const { folders } = useWorklogFolders();
+  const headerFolder = log.folderId
+    ? folders.find((f) => f.id === log.folderId) ?? null
+    : null;
+
   if (draftsLoading) {
     return (
       <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
@@ -293,44 +307,35 @@ const ReaderInner = forwardRef<WorklogNoteReaderHandle, ReaderInnerProps>(functi
     );
   }
 
-  // Header breadcrumb — read-only display of category + position + date,
-  // mirrors the mockup. Editable controls remain in <WorklogNoteMetaStrip>
-  // below, so users can still change all of these in one place.
-  const headerCat = resolveCategoryMeta(log.category);
-  const headerDateLabel = `${dateLabel(new Date(log.date))}, ${timeLabelFromMinutes(initialMinute)}`;
-
   return (
     <>
     <div className="h-full flex flex-col">
       {/* Header row — h-12, matches the list-column toolbar and properties
           rail header (single 48px baseline across all three columns).
-          LEFT: read-only breadcrumb (category · position · date · saved).
+          LEFT: folder breadcrumb + inline title input + Saved chip.
           RIGHT: action buttons + ⋯ More menu (Archive, Delete). */}
       <div className="h-12 px-4 sm:px-6 border-b flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 min-w-0 text-sm">
-          <Badge
-            variant="outline"
-            className={cn(
-              "h-6 gap-1 px-1.5 text-[11px] font-medium border-transparent",
-              headerCat.color,
+        <div className="flex items-center gap-1.5 min-w-0 text-sm flex-1">
+          <span className="inline-flex items-center gap-1 text-xs text-muted-foreground shrink-0">
+            {headerFolder ? (
+              <FolderIcon className="h-3 w-3" />
+            ) : (
+              <Inbox className="h-3 w-3" />
             )}
-          >
-            <headerCat.icon className="h-3 w-3" />
-            <span>{headerCat.label}</span>
-          </Badge>
-          {pos && (
-            <span className="text-muted-foreground truncate min-w-0">
-              <span className="text-foreground/80 font-medium">{pos.title}</span>
-              {pos.company && (
-                <span className="text-muted-foreground/80"> · {pos.company}</span>
-              )}
+            <span className="hidden sm:inline">
+              {headerFolder ? headerFolder.name : "Unfiled"}
             </span>
-          )}
-          <span className="text-muted-foreground/60">·</span>
-          <span className="text-muted-foreground tabular-nums whitespace-nowrap">
-            {headerDateLabel}
           </span>
-          <Badge variant={isDirty ? "secondary" : "outline"} className="h-6 gap-1.5 px-2 text-[11px] ml-1">
+          <ChevronRight className="h-3 w-3 text-muted-foreground/60 shrink-0" />
+          <Input
+            ref={titleInputRef}
+            value={titleField.value}
+            onChange={(e) => titleField.onChange(e.target.value)}
+            onBlur={titleField.onBlur}
+            placeholder="Note title…"
+            className="!text-sm font-medium border-0 shadow-none focus-visible:ring-0 px-1 h-7 py-0 bg-transparent min-w-0 flex-1"
+          />
+          <Badge variant={isDirty ? "secondary" : "outline"} className="h-6 gap-1.5 px-2 text-[11px] shrink-0">
             <span className={cn("h-1.5 w-1.5 rounded-full", isSaving ? "bg-amber-500" : isDirty ? "bg-rose-500" : "bg-emerald-500")} />
             {isSaving ? "Saving" : isDirty ? "Unsaved" : "Saved"}
           </Badge>
@@ -446,20 +451,6 @@ const ReaderInner = forwardRef<WorklogNoteReaderHandle, ReaderInnerProps>(functi
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-      </div>
-
-      {/* Title row — moved out of the header to match the mockup. Renders
-          large + borderless so it reads as the body H1, but stays a real
-          <Input> so autosave + Ctrl-S still work without a separate edit mode. */}
-      <div className="px-4 sm:px-6 pt-5 pb-2">
-        <Input
-          ref={titleInputRef}
-          value={titleField.value}
-          onChange={(e) => titleField.onChange(e.target.value)}
-          onBlur={titleField.onBlur}
-          placeholder="Note title…"
-          className="!text-2xl font-semibold border-0 shadow-none focus-visible:ring-0 px-0 h-auto py-0 bg-transparent min-w-0 w-full leading-tight"
-        />
       </div>
 
       {/* Meta strip — collapsible details (date/time/category/job/shift/hours/mood).

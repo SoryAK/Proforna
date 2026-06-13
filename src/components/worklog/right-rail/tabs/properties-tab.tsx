@@ -83,12 +83,14 @@ export function PropertiesTab({
 
   return (
     <div className="px-3 divide-y divide-border">
-      {/* Details — Tolaria-style key-value rows for the note's editable
-          metadata. The body's <WorklogNoteMetaStrip> is hidden at xl+ so
-          this rail panel is the canonical Properties surface on desktop. */}
-      <Section label="Details">
+      {/* Details fields render flush at the top — the rail header already
+          says "PROPERTIES", so a second "Details" label would just be
+          double-labeling. Tags / Assets / Tools / Backlinks / Version
+          history below keep their own labels because they're distinct
+          surfaces, not metadata about the note record. */}
+      <section className="py-3">
         <PropertiesFields log={log} positions={positions} onUpdate={onUpdate} />
-      </Section>
+      </section>
 
       <Section label="Tags">
         <InlineTagsField
