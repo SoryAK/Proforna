@@ -29,10 +29,19 @@ import {
   Trophy,
   Archive,
   ArchiveRestore,
+  MoreHorizontal,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import { resolveCategoryMeta, dateLabel } from "@/components/worklog/constants";
 import { InlineTagsField } from "@/components/worklog/inline-tags-field";
 import { InlineAssetsField } from "@/components/worklog/inline-assets-field";
 import { InlineToolsField } from "@/components/worklog/inline-tools-field";
@@ -284,125 +293,173 @@ const ReaderInner = forwardRef<WorklogNoteReaderHandle, ReaderInnerProps>(functi
     );
   }
 
+  // Header breadcrumb — read-only display of category + position + date,
+  // mirrors the mockup. Editable controls remain in <WorklogNoteMetaStrip>
+  // below, so users can still change all of these in one place.
+  const headerCat = resolveCategoryMeta(log.category);
+  const headerDateLabel = `${dateLabel(new Date(log.date))}, ${timeLabelFromMinutes(initialMinute)}`;
+
   return (
     <>
     <div className="h-full flex flex-col">
-      {/* Title row — h-12 matches the list-column toolbar and properties rail
-          header so all three column headers share a single 48px baseline. */}
-      <div className="h-12 px-4 sm:px-6 border-b flex items-center">
-        <div className="flex items-center gap-2 w-full">
-          <Input
-            ref={titleInputRef}
-            value={titleField.value}
-            onChange={(e) => titleField.onChange(e.target.value)}
-            onBlur={titleField.onBlur}
-            placeholder="Note title…"
-            className="!text-base font-semibold border-0 shadow-none focus-visible:ring-0 px-2 h-8 py-0 bg-transparent min-w-0 flex-1"
-          />
-          <div className="flex items-center gap-1.5 flex-shrink-0">
-            <Badge variant={isDirty ? "secondary" : "outline"} className="h-7 gap-1.5 px-2 text-[11px]">
-              <span className={cn("h-1.5 w-1.5 rounded-full", isSaving ? "bg-amber-500" : isDirty ? "bg-rose-500" : "bg-emerald-500")} />
-              {isSaving ? "Saving" : isDirty ? "Unsaved" : "Saved"}
-            </Badge>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={flushAllFields}
-              disabled={!isDirty || isSaving}
-              className="h-8 px-3"
-              title="Save now — fields also auto-save on blur and after a short pause (⌘/Ctrl+S)"
-            >
-              Save
-            </Button>
-            <Button
-              size="sm"
-              variant={editMode ? "default" : "ghost"}
-              onClick={() => {
-                if (editMode) {
-                  editorRef.current?.flush();
-                  setEditMode(false);
-                } else {
-                  setEditMode(true);
-                }
-              }}
-              className="h-8 px-2.5"
-              title={editMode ? "Switch back to read view" : "Edit note body"}
-              aria-pressed={editMode}
-            >
-              {editMode ? (
-                <>
-                  <Check className="h-3.5 w-3.5 mr-1" />
-                  Done
-                </>
-              ) : (
-                <>
-                  <Pencil className="h-3.5 w-3.5 mr-1" />
-                  Edit
-                </>
-              )}
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => onUpdate({ id: log.id, isNotable: !log.isNotable })}
-              className="h-8 w-8 p-0"
-              title={log.isNotable ? "Unmark notable" : "Mark notable"}
-              aria-pressed={!!log.isNotable}
-            >
-              <Star className={cn("h-4 w-4", log.isNotable && "fill-amber-400 text-amber-500")} />
-            </Button>
-            {/* Promote button — only for notable entries that have a position and aren't promoted yet */}
-            {log.isNotable && log.positionId && !log.promotedToCareerEventId && (
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => setPromoteOpen(true)}
-                className="h-8 px-2 gap-1 text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/30"
-                title="Promote to career event"
-              >
-                <Trophy className="h-3.5 w-3.5" />
-                <span className="text-xs font-medium hidden sm:inline">Promote</span>
-              </Button>
+      {/* Header row — h-12, matches the list-column toolbar and properties
+          rail header (single 48px baseline across all three columns).
+          LEFT: read-only breadcrumb (category · position · date · saved).
+          RIGHT: action buttons + ⋯ More menu (Archive, Delete). */}
+      <div className="h-12 px-4 sm:px-6 border-b flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0 text-sm">
+          <Badge
+            variant="outline"
+            className={cn(
+              "h-6 gap-1 px-1.5 text-[11px] font-medium border-transparent",
+              headerCat.color,
             )}
-            {/* Promoted indicator */}
-            {log.promotedToCareerEventId && (
-              <span
-                className="inline-flex items-center gap-1 px-2 h-8 rounded text-xs font-medium text-emerald-700 dark:text-emerald-300"
-                title="Already promoted to a career event"
-              >
-                <Trophy className="h-3.5 w-3.5" /> Promoted
-              </span>
-            )}
-            {/* ADR-0026 — archive bucket toggle. Reversible, so no confirm
-                dialog — single click flips the bucket and the optimistic
-                update in saveLog mirrors the row out of the visible list. */}
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => onUpdate({ id: log.id, archived: !log.archivedAt })}
-              className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
-              title={log.archivedAt ? "Unarchive note" : "Archive note"}
-              aria-pressed={!!log.archivedAt}
-            >
-              {log.archivedAt ? (
-                <ArchiveRestore className="h-4 w-4" />
-              ) : (
-                <Archive className="h-4 w-4" />
+          >
+            <headerCat.icon className="h-3 w-3" />
+            <span>{headerCat.label}</span>
+          </Badge>
+          {pos && (
+            <span className="text-muted-foreground truncate min-w-0">
+              <span className="text-foreground/80 font-medium">{pos.title}</span>
+              {pos.company && (
+                <span className="text-muted-foreground/80"> · {pos.company}</span>
               )}
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => {
-                if (confirm("Delete this note?")) onDelete(log.id);
-              }}
-              className="h-8 w-8 p-0 text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30"
-              title="Delete note"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </div>
+            </span>
+          )}
+          <span className="text-muted-foreground/60">·</span>
+          <span className="text-muted-foreground tabular-nums whitespace-nowrap">
+            {headerDateLabel}
+          </span>
+          <Badge variant={isDirty ? "secondary" : "outline"} className="h-6 gap-1.5 px-2 text-[11px] ml-1">
+            <span className={cn("h-1.5 w-1.5 rounded-full", isSaving ? "bg-amber-500" : isDirty ? "bg-rose-500" : "bg-emerald-500")} />
+            {isSaving ? "Saving" : isDirty ? "Unsaved" : "Saved"}
+          </Badge>
         </div>
+
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={flushAllFields}
+            disabled={!isDirty || isSaving}
+            className="h-8 px-3"
+            title="Save now — fields also auto-save on blur and after a short pause (⌘/Ctrl+S)"
+          >
+            Save
+          </Button>
+          <Button
+            size="sm"
+            variant={editMode ? "default" : "ghost"}
+            onClick={() => {
+              if (editMode) {
+                editorRef.current?.flush();
+                setEditMode(false);
+              } else {
+                setEditMode(true);
+              }
+            }}
+            className="h-8 px-2.5"
+            title={editMode ? "Switch back to read view" : "Edit note body"}
+            aria-pressed={editMode}
+          >
+            {editMode ? (
+              <>
+                <Check className="h-3.5 w-3.5 mr-1" />
+                Done
+              </>
+            ) : (
+              <>
+                <Pencil className="h-3.5 w-3.5 mr-1" />
+                Edit
+              </>
+            )}
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => onUpdate({ id: log.id, isNotable: !log.isNotable })}
+            className="h-8 w-8 p-0"
+            title={log.isNotable ? "Unmark notable" : "Mark notable"}
+            aria-pressed={!!log.isNotable}
+          >
+            <Star className={cn("h-4 w-4", log.isNotable && "fill-amber-400 text-amber-500")} />
+          </Button>
+          {/* Promote button — only for notable entries that have a position and aren't promoted yet */}
+          {log.isNotable && log.positionId && !log.promotedToCareerEventId && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setPromoteOpen(true)}
+              className="h-8 px-2 gap-1 text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/30"
+              title="Promote to career event"
+            >
+              <Trophy className="h-3.5 w-3.5" />
+              <span className="text-xs font-medium hidden sm:inline">Promote</span>
+            </Button>
+          )}
+          {/* Promoted indicator */}
+          {log.promotedToCareerEventId && (
+            <span
+              className="inline-flex items-center gap-1 px-2 h-8 rounded text-xs font-medium text-emerald-700 dark:text-emerald-300"
+              title="Already promoted to a career event"
+            >
+              <Trophy className="h-3.5 w-3.5" /> Promoted
+            </span>
+          )}
+          {/* ⋯ More menu — destructive / less-common actions live here so the
+              header stays calm. Archive is reversible (no confirm), Delete
+              uses confirm() per existing pattern. */}
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground data-[popup-open]:bg-accent"
+              aria-label="More actions"
+              title="More actions"
+            >
+              <MoreHorizontal className="h-4 w-4" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-44">
+              <DropdownMenuItem
+                onClick={() => onUpdate({ id: log.id, archived: !log.archivedAt })}
+              >
+                {log.archivedAt ? (
+                  <>
+                    <ArchiveRestore className="h-4 w-4 mr-2" />
+                    Unarchive note
+                  </>
+                ) : (
+                  <>
+                    <Archive className="h-4 w-4 mr-2" />
+                    Archive note
+                  </>
+                )}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => {
+                  if (confirm("Delete this note?")) onDelete(log.id);
+                }}
+                className="text-rose-600 focus:text-rose-600 focus:bg-rose-50 dark:focus:bg-rose-950/30"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete note
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+
+      {/* Title row — moved out of the header to match the mockup. Renders
+          large + borderless so it reads as the body H1, but stays a real
+          <Input> so autosave + Ctrl-S still work without a separate edit mode. */}
+      <div className="px-4 sm:px-6 pt-5 pb-2">
+        <Input
+          ref={titleInputRef}
+          value={titleField.value}
+          onChange={(e) => titleField.onChange(e.target.value)}
+          onBlur={titleField.onBlur}
+          placeholder="Note title…"
+          className="!text-2xl font-semibold border-0 shadow-none focus-visible:ring-0 px-0 h-auto py-0 bg-transparent min-w-0 w-full leading-tight"
+        />
       </div>
 
       {/* Meta strip — collapsible details (date/time/category/job/shift/hours/mood) */}
