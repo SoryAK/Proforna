@@ -34,6 +34,7 @@ import {
   Hash,
   Inbox,
   Smile,
+  Star,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -404,6 +405,30 @@ export function PropertiesFields({ log, positions, onUpdate }: PropertiesFieldsP
           placeholder="—"
           className="w-full bg-transparent border-0 p-0 text-xs text-foreground focus:outline-none tabular-nums"
         />
+      </Row>
+
+      {/* Notable — flag that promotes the note as a career-event candidate.
+          Lives in Properties because it IS a property of the note, not a
+          verb. The Promote action stays in the reader header (it's a verb)
+          and reads `log.isNotable` to gate its visibility. */}
+      <Row icon={Star} label="Notable">
+        <button
+          type="button"
+          onClick={() => onUpdate({ id: log.id, isNotable: !log.isNotable })}
+          aria-pressed={!!log.isNotable}
+          aria-label={log.isNotable ? "Unmark notable" : "Mark notable"}
+          className="inline-flex items-center gap-1.5 -mx-1.5 px-1.5 h-7 rounded-md hover:bg-accent/50 transition-colors text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <Star
+            className={cn(
+              "h-3.5 w-3.5 transition-colors",
+              log.isNotable ? "fill-amber-400 text-amber-500" : "text-muted-foreground",
+            )}
+          />
+          <span className={log.isNotable ? "text-foreground" : "text-muted-foreground"}>
+            {log.isNotable ? "Marked notable" : "Mark notable"}
+          </span>
+        </button>
       </Row>
 
       {/* Mood */}

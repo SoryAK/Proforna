@@ -21,7 +21,6 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  Star,
   Trash2,
   FileText,
   Pencil,
@@ -387,16 +386,9 @@ const ReaderInner = forwardRef<WorklogNoteReaderHandle, ReaderInnerProps>(functi
               </>
             )}
           </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => onUpdate({ id: log.id, isNotable: !log.isNotable })}
-            className="h-8 w-8 p-0"
-            title={log.isNotable ? "Unmark notable" : "Mark notable"}
-            aria-pressed={!!log.isNotable}
-          >
-            <Star className={cn("h-4 w-4", log.isNotable && "fill-amber-400 text-amber-500")} />
-          </Button>
+          {/* Notable star moved into the rail's Properties panel — it's a
+              property of the note (a flag), not a verb. The Promote action
+              below stays in the header because it IS a verb. */}
           {/* Promote button — only for notable entries that have a position and aren't promoted yet */}
           {log.isNotable && log.positionId && !log.promotedToCareerEventId && (
             <Button
