@@ -287,18 +287,19 @@ const ReaderInner = forwardRef<WorklogNoteReaderHandle, ReaderInnerProps>(functi
   return (
     <>
     <div className="h-full flex flex-col">
-      {/* Title row */}
-      <div className="px-4 sm:px-6 pt-4 pb-3 border-b space-y-3">
-        <div className="flex items-start gap-2">
+      {/* Title row — h-12 matches the list-column toolbar and properties rail
+          header so all three column headers share a single 48px baseline. */}
+      <div className="h-12 px-4 sm:px-6 border-b flex items-center">
+        <div className="flex items-center gap-2 w-full">
           <Input
             ref={titleInputRef}
             value={titleField.value}
             onChange={(e) => titleField.onChange(e.target.value)}
             onBlur={titleField.onBlur}
             placeholder="Note title…"
-            className="!text-xl font-semibold border-0 shadow-none focus-visible:ring-0 px-2 h-auto py-1 bg-transparent min-w-0 flex-1"
+            className="!text-base font-semibold border-0 shadow-none focus-visible:ring-0 px-2 h-8 py-0 bg-transparent min-w-0 flex-1"
           />
-          <div className="flex items-center gap-1.5 flex-shrink-0 pt-0.5">
+          <div className="flex items-center gap-1.5 flex-shrink-0">
             <Badge variant={isDirty ? "secondary" : "outline"} className="h-7 gap-1.5 px-2 text-[11px]">
               <span className={cn("h-1.5 w-1.5 rounded-full", isSaving ? "bg-amber-500" : isDirty ? "bg-rose-500" : "bg-emerald-500")} />
               {isSaving ? "Saving" : isDirty ? "Unsaved" : "Saved"}

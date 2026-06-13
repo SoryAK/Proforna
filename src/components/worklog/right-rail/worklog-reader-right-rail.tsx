@@ -143,7 +143,7 @@ export function WorklogReaderRightRail({
             PANEL_WIDTH,
           )}
         >
-          <header className="flex items-center justify-between gap-2 border-b border-border/60 px-3 py-2">
+          <header className="h-12 flex items-center justify-between gap-2 border-b border-border/60 px-3">
             <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               {activeTab.label}
             </h2>
