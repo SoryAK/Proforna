@@ -299,6 +299,14 @@ const ReaderInner = forwardRef<WorklogNoteReaderHandle, ReaderInnerProps>(functi
     ? folders.find((f) => f.id === log.folderId) ?? null
     : null;
 
+  // At xl+ the rail's Properties tab owns metadata editing (ADR-0025), so
+  // skip mounting the inline edit surfaces entirely — saves a 494-line
+  // meta strip subtree plus 3 InlineField subtrees plus all their hooks /
+  // TanStack queries. SSR returns false → strip mounts with `xl:hidden`
+  // class hiding it at first paint → useEffect fires → setIsXl(true)
+  // unmounts. Net: no flash, no hydration mismatch, no wasted work.
+  const isXl = useIsXl();
+
   if (draftsLoading) {
     return (
       <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
@@ -456,29 +464,36 @@ const ReaderInner = forwardRef<WorklogNoteReaderHandle, ReaderInnerProps>(functi
       {/* Meta strip — collapsible details (date/time/category/job/shift/hours/mood).
           Hidden at xl+ where the rail's Properties tab (PropertiesFields) is the
           canonical edit surface. Mobile / narrow viewports keep the inline strip
-          since the rail itself is `hidden xl:flex`. */}
-      <div className="xl:hidden">
-        <WorklogNoteMetaStrip
-          log={log}
-          positions={positions}
-          positionMap={positionMap}
-          shifts={shifts}
-          dateInput={dateInput}
-          setDateInput={setDateInput}
-          timeInput={timeInput}
-          setTimeInput={setTimeInput}
-          hoursValue={hoursField.value}
-          onHoursChange={hoursField.onChange}
-          onHoursBlur={hoursField.onBlur}
-          commitDateTime={commitDateTime}
-          buildShiftAwarePatch={buildShiftAwarePatch}
-          onUpdate={onUpdate}
-          onShiftsRefetch={() =>
-            qc.invalidateQueries({ queryKey: ["work-history-shifts", log.positionId] })
-          }
-          defaultExpanded={isNewNote}
-        />
-      </div>
+          since the rail itself is `hidden xl:flex`.
+
+          Mount is gated on `!isXl` so we don't run the 494-line strip's
+          hooks at xl+. The `xl:hidden` class on the wrapper covers the
+          one-frame window between SSR (isXl=false) and the post-mount
+          useEffect that flips isXl to true. */}
+      {!isXl && (
+        <div className="xl:hidden">
+          <WorklogNoteMetaStrip
+            log={log}
+            positions={positions}
+            positionMap={positionMap}
+            shifts={shifts}
+            dateInput={dateInput}
+            setDateInput={setDateInput}
+            timeInput={timeInput}
+            setTimeInput={setTimeInput}
+            hoursValue={hoursField.value}
+            onHoursChange={hoursField.onChange}
+            onHoursBlur={hoursField.onBlur}
+            commitDateTime={commitDateTime}
+            buildShiftAwarePatch={buildShiftAwarePatch}
+            onUpdate={onUpdate}
+            onShiftsRefetch={() =>
+              qc.invalidateQueries({ queryKey: ["work-history-shifts", log.positionId] })
+            }
+            defaultExpanded={isNewNote}
+          />
+        </div>
+      )}
 
       {/* Body + sections */}
       <div className="flex-1 min-h-0 overflow-y-auto scrollbar-thin">
@@ -525,32 +540,39 @@ const ReaderInner = forwardRef<WorklogNoteReaderHandle, ReaderInnerProps>(functi
             the Inline*Field mounts below (each tagged xl:hidden).
           */}
 
-          {/* Tags — inline at < xl, hidden at xl+ (rail Properties tab owns it). */}
-          <InlineTagsField
-            log={log}
-            onUpdate={onUpdate}
-            tagSuggestions={tagSuggestions}
-            className="xl:hidden"
-          />
+          {/* Tags / Tools / Assets — inline at < xl, hidden at xl+ where the
+              rail Properties tab owns these surfaces. Mount is gated on
+              `!isXl` so we don't run their hooks/queries at xl+; the
+              `xl:hidden` className still covers the one-frame SSR window. */}
+          {!isXl && (
+            <>
+              <InlineTagsField
+                log={log}
+                onUpdate={onUpdate}
+                tagSuggestions={tagSuggestions}
+                className="xl:hidden"
+              />
 
-          {/* Tools section — InlineToolsField owns its own collapsible
-              shell and gates itself on equipment.length > 0 (ADR-0025 Unit 2). */}
-          <InlineToolsField
-            log={log}
-            equipment={equipment}
-            onUpdate={onUpdate}
-            className="xl:hidden"
-          />
+              {/* Tools section — InlineToolsField owns its own collapsible
+                  shell and gates itself on equipment.length > 0 (ADR-0025 Unit 2). */}
+              <InlineToolsField
+                log={log}
+                equipment={equipment}
+                onUpdate={onUpdate}
+                className="xl:hidden"
+              />
 
-          {/* Assets section — InlineAssetsField owns its own collapsible
-              shell + auto-tag merge bridge (ADR-0025 Unit 1). */}
-          <InlineAssetsField
-            log={log}
-            assets={assets}
-            positions={positions}
-            onUpdate={onUpdate}
-            className="xl:hidden"
-          />
+              {/* Assets section — InlineAssetsField owns its own collapsible
+                  shell + auto-tag merge bridge (ADR-0025 Unit 1). */}
+              <InlineAssetsField
+                log={log}
+                assets={assets}
+                positions={positions}
+                onUpdate={onUpdate}
+                className="xl:hidden"
+              />
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -572,3 +594,27 @@ const ReaderInner = forwardRef<WorklogNoteReaderHandle, ReaderInnerProps>(functi
     </>
   );
 });
+
+/**
+ * useIsXl — inline matchMedia hook for `(min-width: 1280px)` (Tailwind `xl`).
+ * Mirrors the `useIsMobile` pattern in worklog-notes-view.tsx. SSR-safe:
+ * returns false until the client effect runs, so server-rendered HTML
+ * matches the mobile layout (with `xl:hidden` keeping the inline strip
+ * invisible at xl+ during the one-frame hydration window).
+ *
+ * Used by WorklogNoteReader to skip mounting the inline meta strip + 3
+ * Inline*Field surfaces at xl+ where the rail's Properties tab owns the
+ * same data (ADR-0025).
+ */
+function useIsXl() {
+  const [isXl, setIsXl] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia("(min-width: 1280px)");
+    const update = () => setIsXl(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+  return isXl;
+}
