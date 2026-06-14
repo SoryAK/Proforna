@@ -209,6 +209,16 @@ export function WorklogNavSidebar({ onShowGlobal }: WorklogNavSidebarProps) {
           active={isFilterActive({ kind: "all" })}
           onClick={() => navigateTo({ kind: "all" })}
         />
+        {/* ADR-0026 — Gmail-style Archived bucket. Sits directly under
+            "All notes" so the inbox/archive pair is visually anchored. */}
+        <NavRow
+          icon={<Archive className="h-5 w-5" />}
+          label="Archived"
+          count={archivedCount}
+          active={isFilterActive({ kind: "archived" })}
+          onClick={() => navigateTo({ kind: "archived" })}
+          dim={archivedCount === 0}
+        />
         <NavRow
           icon={<Star className={cn("h-5 w-5", notableCount > 0 && "text-amber-500")} />}
           label="Notable"
@@ -222,16 +232,6 @@ export function WorklogNavSidebar({ onShowGlobal }: WorklogNavSidebarProps) {
           count={templates.length}
           active={isFilterActive({ kind: "templates" })}
           onClick={() => navigateTo({ kind: "templates" })}
-        />
-        {/* ADR-0026 — Gmail-style Archived bucket. Lives below Templates so
-            it sits at the bottom of the top-level filters strip. */}
-        <NavRow
-          icon={<Archive className="h-5 w-5" />}
-          label="Archived"
-          count={archivedCount}
-          active={isFilterActive({ kind: "archived" })}
-          onClick={() => navigateTo({ kind: "archived" })}
-          dim={archivedCount === 0}
         />
       </div>
 

@@ -24,6 +24,7 @@ export const STORAGE_KEYS = {
   worklog: {
     railActivityOpen: "resumsify:worklog:rail-activity-open",
     railCategoriesOpen: "resumsify:worklog:rail-categories-open",
+    railFoldersOpen: "resumsify:worklog:rail-folders-open",
     folderTreeExpanded: "resumsify:worklog:folder-tree-expanded",
   },
   documents: {

@@ -36,6 +36,8 @@ import { STORAGE_KEYS, migrateLegacyKey } from "@/lib/storage-keys";
 const ACTIVITY_OPEN_KEY = STORAGE_KEYS.worklog.railActivityOpen;
 /** localStorage key for the Categories disclosure open state. */
 const CATEGORIES_OPEN_KEY = STORAGE_KEYS.worklog.railCategoriesOpen;
+/** localStorage key for the Folders disclosure open state. */
+const FOLDERS_OPEN_KEY = STORAGE_KEYS.worklog.railFoldersOpen;
 
 /**
  * Inline stats strip — was previously its own file but only the rail used it.
@@ -327,6 +329,8 @@ export function WorklogFoldersRail({
           onSelect={onSelect}
           compact={compact}
           onActivate={onActivate}
+          defaultOpen
+          persistKey={FOLDERS_OPEN_KEY}
         />
 
         {/* Categories ---------------------------------------------------- */}

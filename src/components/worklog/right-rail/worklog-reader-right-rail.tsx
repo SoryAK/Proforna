@@ -135,10 +135,36 @@ export function WorklogReaderRightRail({
       data-testid="worklog-reader-right-rail"
       aria-label="Note details rail"
       className={cn(
-        "hidden xl:flex h-full shrink-0 flex-row border-l border-border/60 bg-background/50",
+        "hidden xl:flex h-full shrink-0 flex-row border-l border-border/60 bg-background/50 relative",
         className,
       )}
     >
+      {/* ── Edge collapse handle (VS Code-style sash tab) ─────────────
+          Floats half-outside the rail's left border, vertically centered.
+          Always visible when the rail is mounted; the chevron flips to
+          mirror the current state. */}
+      <button
+        type="button"
+        onClick={toggleCollapsed}
+        aria-label={collapsed ? "Expand rail (⌘\\)" : "Collapse rail (⌘\\)"}
+        title={collapsed ? "Expand · ⌘\\" : "Collapse · ⌘\\"}
+        className={cn(
+          "group absolute top-1/2 -translate-y-1/2 -left-3 z-20",
+          "flex items-center justify-center h-12 w-6 rounded-md",
+          "border border-border/60 bg-background/95 backdrop-blur-sm",
+          "text-muted-foreground transition-all",
+          "hover:bg-muted hover:text-foreground hover:border-border",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/60",
+          "shadow-sm",
+        )}
+      >
+        {collapsed ? (
+          <ChevronsLeft className="h-3.5 w-3.5" />
+        ) : (
+          <ChevronsRight className="h-3.5 w-3.5" />
+        )}
+      </button>
+
       {/* ── 320px content panel (hidden when collapsed) ────────────── */}
       {!collapsed && (
         <div
@@ -207,28 +233,6 @@ export function WorklogReaderRightRail({
             </Button>
           );
         })}
-
-        <div className="mt-auto">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            aria-label={collapsed ? "Expand rail (⌘\\)" : "Collapse rail (⌘\\)"}
-            title={collapsed ? "Expand · ⌘\\" : "Collapse · ⌘\\"}
-            onClick={toggleCollapsed}
-            className={cn(
-              "h-8 w-8 rounded-md text-muted-foreground transition-colors",
-              "hover:bg-muted hover:text-foreground",
-              "focus-visible:ring-1 focus-visible:ring-orange-400/60",
-            )}
-          >
-            {collapsed ? (
-              <ChevronsLeft className="h-4 w-4" />
-            ) : (
-              <ChevronsRight className="h-4 w-4" />
-            )}
-          </Button>
-        </div>
       </div>
     </aside>
   );
