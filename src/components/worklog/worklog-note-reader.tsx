@@ -42,6 +42,14 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useWorklogFolders } from "@/components/worklog/hooks/use-worklog-folders";
 import { InlineTagsField } from "@/components/worklog/inline-tags-field";
 import { InlineAssetsField } from "@/components/worklog/inline-assets-field";
@@ -226,6 +234,9 @@ const ReaderInner = forwardRef<WorklogNoteReaderHandle, ReaderInnerProps>(functi
   }), [hoursField, titleField]);
 
   const [promoteOpen, setPromoteOpen] = useState(false);
+  // Confirm-delete dialog state. window.confirm() is blocked in Next.js 16
+  // / React 19 dev mode, so deletion goes through a controlled <Dialog>.
+  const [pendingDelete, setPendingDelete] = useState(false);
 
   // Auto-start in edit mode and expand details only for brand-new notes
   // (created within the last 15 s). Old notes that happen to have no body
@@ -431,7 +442,8 @@ const ReaderInner = forwardRef<WorklogNoteReaderHandle, ReaderInnerProps>(functi
           )}
           {/* ⋯ More menu — destructive / less-common actions live here so the
               header stays calm. Archive is reversible (no confirm), Delete
-              uses confirm() per existing pattern. */}
+              opens the confirm dialog mounted at the bottom of this subtree
+              (window.confirm is blocked in Next.js 16 / React 19 dev mode). */}
           <DropdownMenu>
             <DropdownMenuTrigger
               className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground data-[popup-open]:bg-accent"
@@ -458,9 +470,7 @@ const ReaderInner = forwardRef<WorklogNoteReaderHandle, ReaderInnerProps>(functi
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
-                onClick={() => {
-                  if (confirm("Delete this note?")) onDelete(log.id);
-                }}
+                onClick={() => setPendingDelete(true)}
                 className="text-rose-600 focus:text-rose-600 focus:bg-rose-50 dark:focus:bg-rose-950/30"
               >
                 <Trash2 className="h-4 w-4 mr-2" />
@@ -601,6 +611,38 @@ const ReaderInner = forwardRef<WorklogNoteReaderHandle, ReaderInnerProps>(functi
         }
       />
     )}
+
+    {/* Confirm-delete dialog — replaces window.confirm() which is blocked
+        in Next.js 16 / React 19 dev mode. Pattern mirrors the Restore
+        confirm dialog in worklog-history-panel.tsx. */}
+    <Dialog open={pendingDelete} onOpenChange={setPendingDelete}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Delete this note?</DialogTitle>
+          <DialogDescription>
+            <span className="font-medium text-foreground">
+              {log.title?.trim() || "Untitled"}
+            </span>
+            {" "}will be permanently deleted. This cannot be undone.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => setPendingDelete(false)}>
+            Cancel
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={() => {
+              setPendingDelete(false);
+              onDelete(log.id);
+            }}
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
+            Delete
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
     </>
   );
 });
