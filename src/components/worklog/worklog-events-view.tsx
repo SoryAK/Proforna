@@ -136,6 +136,13 @@ export function WorklogEventsView() {
               Conferences, field days, social moments, news events — anchored to a job or free-floating in your life.
             </p>
           </div>
+          <Link
+            href="/worklog/map"
+            className="self-center inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border/60 bg-background/60 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-accent/50 hover:border-border transition-colors flex-shrink-0"
+          >
+            <MapPin className="h-3.5 w-3.5 text-fuchsia-500" />
+            View on map
+          </Link>
         </header>
 
         {/* Stat cards — also act as the primary scope toggle on small viewports */}
