@@ -33,7 +33,7 @@ type CareerAnalytics = {
     topEquipment: { id: string; name: string; category: string | null; count: number }[];
   };
   growth: {
-    careerEvents: { id: string; title: string; category: string; startDate: string | null; metrics: string | null; workHistoryId: string }[];
+    careerEvents: { id: string; title: string; category: string; startDate: string | null; metrics: string | null; workHistoryId: string | null }[];
     certs: { id: string; name: string; issueDate: string; expiryDate: string | null }[];
     learningHours: number; learningCompleted: number;
     activePosition: { id: string; company: string; title: string | null } | null;

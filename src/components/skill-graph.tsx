@@ -110,7 +110,7 @@ interface SkillEvidence {
 
 interface CareerEventEntry {
   id: string;
-  workHistoryId: string;
+  workHistoryId: string | null;
   title: string;
   description: string | null;
   category: string;

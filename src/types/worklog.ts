@@ -125,11 +125,12 @@ export type Template = {
 };
 
 /**
- * CareerEvent type for events with geocoded location
+ * CareerEvent type for events with geocoded location.
+ * workHistoryId is nullable to support free-floating events (ADR-0027).
  */
 export type CareerEvent = {
   id: string;
-  workHistoryId: string;
+  workHistoryId: string | null;
   title: string;
   description: string | null;
   date: string; // ISO string
