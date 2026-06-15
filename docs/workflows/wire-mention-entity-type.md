@@ -1,8 +1,9 @@
 # Workflow: Wire a New Mention Entity Type Into the Tiptap @-Picker
 
 **Workflow type:** `wire-mention-entity-type`
-**Last Updated:** 2026-06-09 (rev. 2 — label-derivation rule)
+**Last Updated:** 2026-06-15 (rev. 3 — second cross-cut backlinks application validates the recipe; ADR-0028 added `linkedContactIds` the same shape as `linkedNoteIds` with no schema deviations except the absent self-loop guard)
 **Origin sprint:** ADR-0016 (note-to-note linking) — fifth entity type added to a four-type picker.
+**Re-validated by:** ADR-0028 (`linkedContactIds` for `@p:` contact mentions).
 
 This recipe applies when adding a **new entity type** to the worklog `@`-mention system (e.g. adding `@n:` for notes alongside existing `@a:` asset, `@s:` skill, `@c:` company, `@p:` contact). The mention infrastructure projects each chip's `entityId` into a structured `WorkLog.<kind>Ids: String[]` column with a GIN index for fast lookups, so new types follow a predictable shape: pick a single-letter prefix, decide if it's additive or replacement, and follow the eight steps below.
 
@@ -57,9 +58,10 @@ If you only need the chip for display (no column projection, no backlinks), you 
    - `MentionNode.configure({ currentLogId: workLogId })` in the editor's extension list. The `addOptions()` declaration in `mention-node.ts` reads it back via `this.options.<key>` from `addProseMirrorPlugins`. Without this wiring, the picker can't pass `&excludeId=` and self-references slip through.
 
 8. **(Optional) Add a backlinks API + UI panel.**
-   - `GET /api/work-logs/[id]/backlinks` runs `prisma.workLog.findMany({ where: { userId, <kind>Ids: { has: id }, NOT: { id } } })` and projects the rows to `{ id, label, date, ... }`.
-   - The UI panel uses TanStack Query (~30s `staleTime`), an empty state, and clickable rows that pivot via `router.replace(${pathname}?focus=${row.id})` (ADR-0015 contract).
-   - Slot the panel into the relevant reader surface(s) — drawer + standalone read view + (if relevant) the editor itself.
+   - **Backlinks against the SAME entity type** (e.g. note↔note from ADR-0016): `GET /api/work-logs/[id]/backlinks` runs `prisma.workLog.findMany({ where: { userId, <kind>Ids: { has: id }, NOT: { id } } })`. The `NOT: { id }` self-filter is mandatory.
+   - **Cross-cut backlinks against a DIFFERENT entity type** (e.g. contact↔note from ADR-0028): `GET /api/<owning-entity>/[id]/backlinks` runs (a) a `findFirst` on the owning entity to verify owner-scope (`{ where: { id, userId } }` → 404 if missing — never silently empty-array unowned ids), then (b) `prisma.workLog.findMany({ where: { userId, <kind>Ids: { has: id } } })`. **Drop the `NOT: { id }` self-filter** — it would never match a different-typed id but is dead code that confuses reviewers.
+   - The UI panel uses TanStack Query (~30s `staleTime`), an empty state (consider surfacing a discoverability hint when the chip type is under-known — see ADR-0028 `ContactBacklinksSection` for the `@p:` empty-state pattern), and clickable rows that pivot via `router.push("/<target-route>?focus=${row.id}")` for cross-route pivots OR `router.replace` for in-route pivots (ADR-0015 contract).
+   - Slot the panel into the relevant reader surface(s) — drawer + standalone read view + (if relevant) the editor itself, OR — for cross-cut backlinks — into the owning entity's existing edit Dialog/page.
 
 ## TDD checklist (Phase 2.5)
 
@@ -67,7 +69,7 @@ If you only need the chip for display (no column projection, no backlinks), you 
 - `arraysEqualAsSets` — empty/identical/order-insensitive/dedup/differ-by-one/same-length-different/empty-vs-nonempty.
 - PUT route — populate, self-loop guard (when applicable), skip-if-equal, replacement-clears-on-chip-removal, untouched-when-no-contentJson.
 - mention-search — search + existence + excludeId + cross-user isolation.
-- backlinks route (when present) — 401 + owner scope + self-filter + empty array + label fallback.
+- backlinks route (when present) — 401 + owner scope + self-filter (same-type only) + empty array + label fallback. **Cross-cut routes** must additionally test 404 when the owning entity id belongs to a different user, and must NOT include a `NOT` clause.
 
 ## Pitfalls
 

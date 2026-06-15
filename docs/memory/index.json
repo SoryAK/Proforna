@@ -45,6 +45,7 @@
     "JobMapGoogle": "job-map.json",
     "StorageKeysModule": "storage-keys.json",
     "IntegrationsDomain": "integrations.json",
-    "PrismaSchemaOps": "schema-ops.json"
+    "PrismaSchemaOps": "schema-ops.json",
+    "ContactDomain": "contacts.json"
   }
 }

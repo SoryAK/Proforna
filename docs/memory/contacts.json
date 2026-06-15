@@ -1,0 +1,23 @@
+{
+  "domain": "ContactDomain",
+  "shard_version": "1.0",
+  "last_updated": "2026-06-15",
+  "entities": [
+    {
+      "name": "ContactDomain",
+      "entityType": "domain",
+      "observations": [
+        "2026-06-15 ADR-0028 SHIPPED — Persona/Contact reverse-lookup via @p: mentions. Closes parked-ideas.md gap #1 (Reverse-lookup endpoint) and partially gap #3 (Discoverability via empty-state hint).",
+        "2026-06-15 Schema: WorkLog.linkedContactIds: String[] @default([]) with @@index(linkedContactIds, type: Gin). Mirrors linkedNoteIds shape from ADR-0016 — same denormalized projection of @-mention chips into a column. Migration 20260615170725_add_worklog_linked_contact_ids (manually sanitized of tsvector DROP DEFAULT drift per docs/workflows/recover-from-prisma-drift.md).",
+        "2026-06-15 Write path: PUT /api/work-logs/[id] derives linkedContactIds via extractMentionEntityIds(doc, 'contact'). REPLACE semantic (mirror linkedNoteIds, NOT additive assetIds — there is no manual contact UI seam on WorkLog so the chip in contentJson IS the only link source). Skip-if-equal-as-set guard via arraysEqualAsSets dodges GIN write churn on autosaves that didn't touch mentions. NO self-loop guard (Contact and WorkLog are different entity types — collision impossible).",
+        "2026-06-15 Read path: GET /api/contacts/[id]/backlinks. Owner-scoped TWICE — (a) prisma.contact.findFirst({ where: { id, userId } }) returns 404 if cross-user (NOT empty array — never silently empty-array unowned ids), then (b) prisma.workLog.findMany({ where: { userId, linkedContactIds: { has: id } }, orderBy: { date: 'desc' } }). NO `NOT: { id }` self-filter (cross-cut backlinks against a different entity type — self-filter would never match and is dead code).",
+        "2026-06-15 ADR-0028's owner-scope pattern is TIGHTER than ADR-0016's worklog backlinks. The note-to-note backlinks route only owner-scopes the WorkLog query; it empty-arrays cross-user worklog ids. ADR-0028 chose to 404 because a contact lookup that wraps in a Dialog should not silently treat 'not yours' as 'no backlinks'. Retroactively tightening ADR-0016 was deferred (parked).",
+        "2026-06-15 UI: ContactBacklinksSection at src/components/contacts/contact-backlinks-section.tsx. TanStack Query useQuery with queryKey ['contact-backlinks', contactId], staleTime 30s, retry: false. Header 'Notes mentioning this contact (N)'. Empty state: 'No notes mention this contact yet. Type @p: in any worklog note to mention them.' (closes discoverability gap #3 partially). Row click router.push('/worklog/notes?focus=' + row.id). Mounted in /contacts edit Dialog ONLY when editingId is set (not in Add mode).",
+        "2026-06-15 Test suite: 5 PUT-route cases (populate / skip-if-equal / replacement-clears / no-touch-when-absent / multi-paragraph dedupe) + 5 backlinks-route cases (401 / 404 cross-user / happy-path with orderBy / empty array / fallback label when title and content empty). Total +10 tests, full suite 663→673 PASS.",
+        "2026-06-15 Validates docs/workflows/wire-mention-entity-type.md as a generalizable recipe — second cross-cut application after ADR-0016. Recipe revved to v3 (rev. 3) to codify the cross-cut backlinks variant: drop the `NOT: { id }` self-filter, add the owner-entity findFirst gate, route is /api/<owning-entity>/[id]/backlinks not /api/work-logs/[id]/backlinks.",
+        "2026-06-15 Out of scope (parked under ADR-0028 with re-entry triggers): auto-bump Contact.lastContactedAt on @p: save (mention may not equal contact); standalone /contacts/[id] drawer (Dialog is v1); cross-cut to JobApplication/Interview/RecruiterSubmission; @c: vs Contact.company string bridge; retroactive owner-scope tightening of ADR-0016 worklog backlinks."
+      ]
+    }
+  ],
+  "relations": []
+}

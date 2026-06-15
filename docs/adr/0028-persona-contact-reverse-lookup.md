@@ -1,6 +1,6 @@
 # Persona / Contact Reverse-Lookup + Discoverability
 
-- **Status:** Proposed
+- **Status:** Accepted (2026-06-15)
 - **Date:** 2026-06-15
 - **Deciders:** Sory
 - **Tags:** worklog, contacts, schema, knowledge-graph, discoverability
