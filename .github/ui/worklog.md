@@ -1,23 +1,35 @@
 # Resumsify Worklog UI Patterns
 
-Last updated: 2026-06-09 (ADR-0017 — version history panel + diff modal)
+Last updated: 2026-06-15 (ADR-0027 Day 3 Cycle A — Events sibling route + nav row)
 
 > References tokens.md and global.md. Never redefine tokens here.
 > Feature-specific rules only — shared rules live in global.md.
 
 ---
 
-## Routes (post-ADR-0015 Phase 5)
+## Routes (post-ADR-0027 Day 3 Cycle A)
 
-The worklog feature has three surfaces under a shared `(app)/worklog/layout.tsx`:
+The worklog feature has four surfaces under a shared `(app)/worklog/layout.tsx`:
 
 | Route | Page | Purpose |
 |---|---|---|
 | `/worklog` | [`<WorklogHomeView>`](../../src/components/worklog/home/worklog-home-view.tsx) | Capture-first home — read-only glance + Quick Capture |
 | `/worklog/notes` | [`<WorklogNotesView>`](../../src/components/worklog/worklog-notes-view.tsx) | Document-manager list/grid + drawer preview (working surface) |
 | `/worklog/notes/[id]` | [`<WorklogNoteReader>`](../../src/components/worklog/worklog-note-reader.tsx) | Full-screen single-note reader/editor |
+| `/worklog/events` | [`<WorklogEventsView>`](../../src/components/worklog/worklog-events-view.tsx) | CareerEvent sibling surface — anchored + free-floating (ADR-0027). Cycle A ships the skeleton + nav; Cycle B adds the list, filter chips, and drawer. |
 
-The layout file mounts [`<FullBleedShell>`](../../src/components/full-bleed-shell.tsx) once for all three routes. The sidebar override from ADR-0013 gates on `pathname.startsWith("/worklog")` so it covers every worklog page without changes.
+The layout file mounts [`<FullBleedShell>`](../../src/components/full-bleed-shell.tsx) once for all worklog routes. The sidebar override from ADR-0013 gates on `pathname.startsWith("/worklog")` so it covers every worklog page — including `/worklog/events` — without changes.
+
+### Nav row hierarchy (ADR-0027 Day 3 Cycle A)
+
+The worklog sidebar's filter rows route to `/worklog/notes?…` (scoped filters on the current page). The Events row is the first row that routes elsewhere — to its own sibling page. To signal that difference visually without shouting, Events uses the same `NavRow` typography but adds `border.divider-top` (a hairline `border-t` from tokens.md) above the row. Layout order:
+
+```
+Home  →  All notes  →  ─── Events ───  →  Archived  →  Notable  →  Templates
+                          ↑ divider above signals "different destination"
+```
+
+Active state mirrors `NavRow`: `bg-orange-100 dark:bg-orange-900/30 text-orange-900 dark:text-orange-100` when `pathname === "/worklog/events"`.
 
 ---
 

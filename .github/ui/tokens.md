@@ -107,6 +107,7 @@ Last updated: 2026-06-02
 | `radius.card` | `rounded-lg` | Cards, popovers, dropdown menus |
 | `radius.pill` | `rounded-full` | Status pills, small count badges |
 | `border.divider` | `border-b` | Horizontal section dividers |
+| `border.divider-top` | `border-t` | Top-edge divider — signals a sibling section in a vertical list (e.g. nav row that opens a different page rather than filtering the current one) |
 | `border.pane` | `border-r` | Vertical pane separators (3-pane layout) |
 | `border.accent` | `border-l-2 border-l-orange-500` | Active/selected row left indicator |
 

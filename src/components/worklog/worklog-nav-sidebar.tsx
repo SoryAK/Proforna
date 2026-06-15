@@ -29,7 +29,7 @@ import { useMemo } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronLeft, FileText, Home, Inbox, Sparkles, Star, Archive } from "lucide-react";
+import { CalendarDays, ChevronLeft, FileText, Home, Inbox, Sparkles, Star, Archive } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { WorklogFolderTreeItems } from "@/components/worklog/worklog-folder-tree-items";
 import { WorklogCategoryRows } from "@/components/worklog/worklog-category-rows";
@@ -135,6 +135,17 @@ export function WorklogNavSidebar({ onShowGlobal }: WorklogNavSidebarProps) {
     staleTime: 60_000,
   });
 
+  // ADR-0027 Day 3 — Events sibling surface. Total = anchored + free-floating.
+  // Shape: minimal — only `id` is read here. Same queryKey is reused by
+  // <WorklogEventsView> so the page + sidebar share cache (one fetch).
+  const { data: events = [] } = useQuery<Array<{ id: string }>>({
+    queryKey: ["career-events", "all"],
+    queryFn: () => fetch("/api/events").then((r) => r.json()),
+    staleTime: 30_000,
+  });
+  const eventsCount = events.length;
+  const eventsActive = pathname === "/worklog/events";
+
   const categoryCounts = useMemo(() => {
     const m = new Map<string, number>();
     for (const l of logs) {
@@ -209,8 +220,44 @@ export function WorklogNavSidebar({ onShowGlobal }: WorklogNavSidebarProps) {
           active={isFilterActive({ kind: "all" })}
           onClick={() => navigateTo({ kind: "all" })}
         />
-        {/* ADR-0026 — Gmail-style Archived bucket. Sits directly under
-            "All notes" so the inbox/archive pair is visually anchored. */}
+        {/* ADR-0027 Day 3 — Events sibling surface. NOT a filter of
+            /worklog/notes — opens its own route /worklog/events. The
+            `border.divider-top` (tokens.md) sits ABOVE the row to signal
+            "different destination, not a filter on the current page."
+            Sits directly under "All notes" per the user's spatial intent;
+            the Archived/Notable/Templates filter cluster follows below. */}
+        <Link
+          href="/worklog/events"
+          data-rail-row
+          aria-current={eventsActive ? "true" : undefined}
+          className={cn(
+            "w-full flex items-center gap-3 rounded-lg text-base font-medium transition-colors px-3 py-2.5",
+            "border-t border-border/60 mt-1 pt-3",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
+            eventsActive
+              ? "bg-orange-100 dark:bg-orange-900/30 text-orange-900 dark:text-orange-100"
+              : "hover:bg-accent text-foreground/80 hover:text-foreground",
+          )}
+        >
+          <CalendarDays className="h-5 w-5 flex-shrink-0" />
+          <span className="truncate">Events</span>
+          {eventsCount > 0 && (
+            <span
+              className={cn(
+                "ml-auto text-[11px] tabular-nums",
+                eventsActive
+                  ? "text-orange-700 dark:text-orange-300"
+                  : "text-muted-foreground",
+              )}
+            >
+              {eventsCount}
+            </span>
+          )}
+        </Link>
+        {/* ADR-0026 — Gmail-style Archived bucket. Originally pinned directly
+            under "All notes"; per ADR-0027 Day 3 the Events sibling row sits
+            between them, so Archived now anchors the *filter* cluster below
+            the Events divider. */}
         <NavRow
           icon={<Archive className="h-5 w-5" />}
           label="Archived"
