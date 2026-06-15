@@ -74,7 +74,87 @@
         "[2026-06-13 perf commit e23d3c3] Inline edit surfaces use mount-skip (not just CSS-hide) at xl+ via new useIsXl() matchMedia hook defined at the bottom of worklog-note-reader.tsx. Gated subtrees: <WorklogNoteMetaStrip>, <InlineTagsField>, <InlineToolsField>, <InlineAssetsField>. Saves the entire subtree's hooks/queries at xl+. SSR-safe (returns false on first render); `xl:hidden` className kept on wrappers as belt-and-suspenders for the one-frame SSR→effect window.",
         "[2026-06-13 commit b4c3ac4] Standalone 'Save' Button retired from reader header. The Saved/Saving/Unsaved chip now doubles as the manual flush trigger (Linear pattern). Click chip when dirty → calls flushAllFields(). ⌘/Ctrl+S keyboard shortcut at the page level (use-worklog-keyboard-nav.ts:131) is unchanged. Chip label switches: 'Save' (dirty, clickable, secondary bg) / 'Saving' (in-flight, cursor-wait) / 'Saved' (idle, disabled, no cursor change).",
         "[2026-06-13 commit c262f5c] Notable ⭐ toggle migrated from header to PropertiesFields ('Notable' row between Hours and Mood). Same onUpdate({ id, isNotable }) wiring. Rationale: Notable is a FLAG (property), not a VERB — belongs in Properties with Date/Job/etc. Promote button stays in the header (it IS a verb) and reads log.isNotable to gate visibility.",
-        "[2026-06-13] ADR-0025 follow-on session commits in chronological order: 2515afd (h-12 header alignment) → d40a471 (header restructure: breadcrumb + ⋯ menu) → 4561c14 (move metadata to rail Properties, NEW PropertiesFields) → 7e2a582 (drop DETAILS label + body title duplicate) → e23d3c3 (mount-skip at xl+ via useIsXl) → c262f5c (Notable → Properties) → b4c3ac4 (Save button retired, chip flushes). Tests stayed at 602/602 throughout."
+        "[2026-06-13] ADR-0025 follow-on session commits in chronological order: 2515afd (h-12 header alignment) → d40a471 (header restructure: breadcrumb + ⋯ menu) → 4561c14 (move metadata to rail Properties, NEW PropertiesFields) → 7e2a582 (drop DETAILS label + body title duplicate) → e23d3c3 (mount-skip at xl+ via useIsXl) → c262f5c (Notable → Properties) → b4c3ac4 (Save button retired, chip flushes). Tests stayed at 602/602 throughout.",
+        "2026-06-15: ADR-0027 SHIPPED Day 4 — Career Events feature complete. Two surfaces under /worklog: /worklog/events (list) and /worklog/map (Google Maps + FAB). Sidebar 'Events' badge counts via shared queryKey ['career-events', 'all']. See CareerEventDomain entity for the full lineage."
+      ]
+    },
+    {
+      "name": "CareerEventDomain",
+      "entityType": "domain",
+      "observations": [
+        "2026-06-15: ADR-0027 — career events feature. Two flavors: ANCHORED (CareerEvent.workHistoryId set, requires job context) and FREE-FLOATING (workHistoryId null, requires lat+lng+location).",
+        "2026-06-15: Two API route families. ANCHORED → /api/work-history/[id]/events + /api/work-history/[id]/events/[eventId]. FLOATING → /api/events + /api/events/[eventId]. Both PATCH paths accept the same body shape; clients pick via eventPatchUrl(event) helper exported from event-edit-dialog.tsx.",
+        "2026-06-15: workHistoryId is IMMUTABLE post-creation (Q1=A). PATCH routes reject any body that includes workHistoryId. To 'move' an event the user must delete + recreate. eventPatchUrl helper enforces routing by reading event.workHistoryId.",
+        "2026-06-15: POST /api/events forces workHistoryId=null defense-in-depth (Q2=B) regardless of body. The validator (validateCareerEventInput in src/lib/career-event/event-schema.ts) then enforces lat+lng+location for free-floating events.",
+        "2026-06-15: TanStack queryKey ['career-events', 'all'] is shared across WorklogEventsView, WorklogMapView, and the sidebar Events badge. Mutations invalidate this key — never fork it. ['career-growth'] is also invalidated for the anchored path's career-map dependency.",
+        "2026-06-15: Day 4 of ADR-0027 split into Cycles A (events list view), B (/worklog/map dedicated EventsMap), and C (FAB + click-to-place free-floating creation). All shipped 2026-06-15 (commits f57c52f Cycle A → bbc9ab2 Cycle B → 27c96e2 fix → ac03c83 Cycle C).",
+        "2026-06-15: Components live in src/components/worklog/events/ (event-row, event-edit-dialog, event-create-dialog, event-delete-confirm) and src/components/worklog/{events-map,worklog-events-view,worklog-map-view}.tsx. Pages: src/app/(app)/worklog/events/page.tsx + src/app/(app)/worklog/map/page.tsx (both server shells over the client view components)."
+      ]
+    },
+    {
+      "name": "WorklogEventsView",
+      "entityType": "component",
+      "observations": [
+        "src/components/worklog/worklog-events-view.tsx. Client component rendered by /worklog/events page. List view of all caller's career events.",
+        "Header has a 'View on map' link (top-right pill, fuchsia pin icon) routing to /worklog/map (Cycle B addition). The pill is the primary entry point to the map view.",
+        "Body uses queryKey ['career-events', 'all'] via useQuery. Empty state nudges toward career-map (anchored) or the new /worklog/map FAB (floating).",
+        "Filter UI: Total / Free-floating segmented buttons + All / Free-floating tabs at top of body.",
+        "Row click opens EventEditDialog. Edit dialog routes PATCH via eventPatchUrl(event)."
+      ]
+    },
+    {
+      "name": "WorklogMapView",
+      "entityType": "component",
+      "observations": [
+        "src/components/worklog/worklog-map-view.tsx. Client component rendered by /worklog/map page (Cycle B + Cycle C).",
+        "Shares queryKey ['career-events', 'all'] with WorklogEventsView and the sidebar Events badge — never fork.",
+        "Renders EventsMap (dynamic import, ssr:false because EventsMap touches window.google) plus toolbar (Back to events / N on map / View jobs on full map) plus FAB (Cycle C) plus place-mode banner plus EventCreateDialog (mounted at view root).",
+        "2026-06-15: Layout gotcha — parent <FullBleedShell> renders 'h-full' (NOT a flex container). Use 'h-full flex flex-col' for the view root, NOT 'flex-1 min-h-0' (collapsed body to 0 height in the first browser smoke). See LayoutShellDomain for the FullBleedShell rule.",
+        "2026-06-15: FAB positioning gotcha — global Open AI Chat button sits at 'fixed bottom-6 right-6 z-40'. Map FAB is at 'absolute bottom-5 right-24 z-30' to clear it. Any future map-page FAB must offset similarly.",
+        "2026-06-15: Empty-state nudge is now an OVERLAY over the map (pointer-events-none + inner pointer-events-auto pill), not a separate render branch. Old branch hid the map entirely which made the FAB unreachable from an empty state — caught Cycle C smoke.",
+        "2026-06-15: Reverse-geocode flow uses importLibrary('geocoding') from @googlemaps/js-api-loader v2 (NOT the legacy Loader class, NOT Places API). Failure is silent — falls back to '<lat>, <lng>' string already prefilled before the geocoder kicks off, so the user never sees an empty location field.",
+        "2026-06-15: Esc keydown cancels armed place-mode (window-level listener, only attached while placeMode=true)."
+      ]
+    },
+    {
+      "name": "EventsMap",
+      "entityType": "component",
+      "observations": [
+        "src/components/worklog/events-map.tsx. Dedicated Google Maps renderer used ONLY by WorklogMapView. Default export. Visual parity with JobMapGoogle event-pin code path (pink #d946ef + camera emoji 26px round, 2px white border).",
+        "DELIBERATELY does not reuse JobMap/JobMapGoogle — JobMap is ~13.3k LOC of job-search/work-history/commute plumbing. Adding a 3rd mode would compound the god-file problem flagged by ADR-0028.",
+        "Props: { events: EventsMapItem[], placeMode?: boolean, onPickCoords?: (lat, lng) => void }. EventsMapItem = { id, title, date, location, lat, lng, photos? }.",
+        "Init effect runs once on mount: importLibrary('maps') + importLibrary('marker'), creates Map with mapId='events-map' + clickableIcons:false + streetView/fullscreen/mapType controls disabled. Sets ready=true via useState (drives the marker effect's dependency array).",
+        "Marker effect re-renders all AdvancedMarkerElements on any [events, ready] change. Uses LatLngBounds to fit; single-event special case calls setCenter + setZoom(11) (fitBounds on a point zooms to max).",
+        "InfoWindow opens on mouseenter + click of marker el; closes on mouseleave. Content is innerHTML built with local escapeHtml helper (mirrors job-map-google.tsx::escapeHtml — duplicated to avoid cross-importing from a god file).",
+        "2026-06-15: Place-mode effect (Cycle C). When placeMode flips true: setOptions({ draggableCursor: 'crosshair' }) + addListener('click') that fires onPickCoords(latLng.lat, lng) once. Cursor restored on cleanup or after the click (whichever fires first). Single-shot per arming — parent flips placeMode false in onPickCoords handler.",
+        "2026-06-15 trap: an earlier rev of this file had a stray identifier 'co' (probably copy-paste truncation of 'const bounds = ...') and an undeclared 'bounds' reference inside events.forEach. The TS LSP returned 'No errors' (cache lag / stale tsbuildinfo) but Turbopack's SWC parser correctly failed at runtime. Cycle B's smoke test never hit it because mappable.length===0 short-circuited above. Caught and fixed in commit ac03c83."
+      ]
+    },
+    {
+      "name": "EventEditDialog",
+      "entityType": "component",
+      "observations": [
+        "src/components/worklog/events/event-edit-dialog.tsx. Edits an existing CareerEvent (anchored OR floating).",
+        "Editable fields: title, category, description, startDate, endDate, metrics. INTENTIONALLY READ-ONLY: workHistoryId, location, lat, lng (geo is locked by ADR-0027 Q1=A immutable workHistoryId; geocoder picker is parked).",
+        "Exports `eventPatchUrl(event)` helper — central routing point for both this dialog and EventDeleteConfirm. Floating → /api/events/[id]. Anchored → /api/work-history/[whId]/events/[id].",
+        "Body never includes workHistoryId — both PATCH peer routes reject it as immutable.",
+        "Footer: Cancel + Save on the right, Delete (text-destructive ghost) on the left wired to onRequestDelete prop. Parent typically opens EventDeleteConfirm in response.",
+        "Mutations invalidate ['career-events', 'all'] AND ['career-growth'] (anchored path feeds career-map / promote flows).",
+        "Plain useState + useMutation — no react-hook-form / zod. base-ui Dialog from @/components/ui/dialog (NEVER window.prompt — Next.js 16 / React 19 throws)."
+      ]
+    },
+    {
+      "name": "EventCreateDialog",
+      "entityType": "component",
+      "observations": [
+        "src/components/worklog/events/event-create-dialog.tsx. NEW 2026-06-15 (Cycle C). Free-floating-only creation surface, mirrors EventEditDialog house style.",
+        "Props: { open, onOpenChange, coords: { lat, lng } | null, defaultLocation: string, onCreated? }. Coords come pre-resolved from WorklogMapView's place-mode click; defaultLocation is the reverse-geocoded address (or '<lat>, <lng>' fallback).",
+        "Pin location chip at top of dialog (fuchsia background, MapPin icon, tabular-nums coords). Location is editable — pre-filled from defaultLocation, user can tweak.",
+        "POSTs to /api/events. Server forces workHistoryId=null (defense-in-depth Q2=B) so we don't need to send it. validateCareerEventInput then enforces lat+lng+location.",
+        "Reset effect resets ALL fields when `open` flips true OR coords/defaultLocation change — never carries over stale state from a previous pin.",
+        "Today is the default startDate (todayLocalDateInput helper). NO equivalent in EventEditDialog (edit always shows the existing value).",
+        "On success: invalidates ['career-events', 'all'] + ['career-growth'], toasts 'Event added', closes dialog. Parent's marker effect picks up the new pin via cache invalidation, no manual rerender needed.",
+        "There is no anchored counterpart yet — anchored event creation lives in the career-map flow. If we ever build a unified create surface, this is the natural template (anchored variant would add a WorkHistorySelect + drop the lat/lng requirement)."
       ]
     },
     {
@@ -237,7 +317,16 @@
     { "from": "WorklogNotesFilterButton", "relationType": "embeds", "to": "WorklogNotesFilterChips" },
     { "from": "InlineTagsField", "relationType": "belongs to", "to": "WorklogDomain" },
     { "from": "useReaderRailState", "relationType": "belongs to", "to": "WorklogDomain" },
-    { "from": "WorklogHistoryPanel", "relationType": "embeds", "to": "WorklogVersionDiffModal" }
+    { "from": "WorklogHistoryPanel", "relationType": "embeds", "to": "WorklogVersionDiffModal" },
+    { "from": "CareerEventDomain", "relationType": "lives-inside", "to": "WorklogDomain" },
+    { "from": "WorklogEventsView", "relationType": "is-surface-of", "to": "CareerEventDomain" },
+    { "from": "WorklogMapView", "relationType": "is-surface-of", "to": "CareerEventDomain" },
+    { "from": "WorklogMapView", "relationType": "depends-on", "to": "EventsMap" },
+    { "from": "WorklogMapView", "relationType": "depends-on", "to": "EventCreateDialog" },
+    { "from": "WorklogEventsView", "relationType": "depends-on", "to": "EventEditDialog" },
+    { "from": "EventEditDialog", "relationType": "edits", "to": "CareerEventDomain" },
+    { "from": "EventCreateDialog", "relationType": "creates", "to": "CareerEventDomain" },
+    { "from": "EventsMap", "relationType": "visual-parity-with", "to": "JobMapGoogle" }
   ]
 }
 

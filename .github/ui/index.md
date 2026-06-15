@@ -1,6 +1,6 @@
 # Resumsify UI Design Graph — Index
 
-Last updated: 2026-06-07 (ADR-0015 Phase 5 — worklog reader drawer)
+Last updated: 2026-06-15 (ADR-0027 Day 4 Cycle C — `/worklog/map` click-to-place + career-event pin patterns)
 
 ## Purpose
 This graph is the single navigable source of truth for all UI decisions in Resumsify.
@@ -21,7 +21,7 @@ It is a graph, not a monolithic document. Read only what is relevant to your cur
 | Sidebar navigation shell | `sidebar.md` | Active |
 | Personal Inventory (photo-tile grid + product cards) | `inventory.md` | Active |
 | Resume builder | `resume.md` | Stub |
-| Job map | `maps.md` | Stub |
+| Job map | `maps.md` | Active |
 
 ## Governance rules (non-negotiable)
 
