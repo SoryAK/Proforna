@@ -260,8 +260,11 @@ async function geocodeOverride(address: string): Promise<{ address: string; lat:
   }
 }
 
-/* ── Dynamically loaded map (Google Maps needs browser) ── */
-const LeafletMap = dynamic(
+/* ── Dynamically loaded map (Google Maps needs browser) ──
+ * NOTE: Historically aliased as `LeafletMap` from the pre-ADR-0005 era.
+ * Renamed to `MapRenderer` per ADR-0028 after Leaflet was retired and
+ * the alias became actively misleading. */
+const MapRenderer = dynamic(
   () => import("@/components/job-map-google"),
   {
     ssr: false,
@@ -4294,7 +4297,7 @@ export function JobMap({ initialMode = "job-search", lockedMode = false }: { ini
           style={showWorkHistory ? { height: `${Math.round(workMapHeightRatio * 100)}%` } : undefined}
         >
           {/* Pass event markers to the map */}
-          <LeafletMap
+          <MapRenderer
             jobs={sortedJobs}
             center={
               sortedJobs.length > 0

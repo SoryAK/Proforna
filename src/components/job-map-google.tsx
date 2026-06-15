@@ -18,7 +18,7 @@ function ensureOptions() {
   }
 }
 
-/* ── Types (same as leaflet version) ── */
+/* ── Types (sole renderer — Leaflet retired per ADR-0028) ── */
 interface MapJob {
   id: string;
   title: string;

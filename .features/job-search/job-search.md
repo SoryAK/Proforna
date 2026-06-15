@@ -4,13 +4,13 @@
 Job discovery system with map-based exploration, board listing, and interest group communities.
 
 - **Routes**: `/job-search`
-- **Components**: `job-board.tsx`, `job-map.tsx`, `job-map-leaflet.tsx`, `job-interest-groups.tsx`, `places-autocomplete.tsx`
+- **Components**: `job-board.tsx`, `job-map.tsx`, `job-map-google.tsx`, `job-interest-groups.tsx`, `places-autocomplete.tsx`
 - **API endpoints**: `/api/jobs`, `/api/jobs/search`, `/api/commute`, `/api/life-anchors`
 - **Prisma models**: `JobPosting`, `InterestGroup`, `LifeAnchor`
 
 ### Sub-features
 - **Job Board** — Searchable/filterable job listings with salary, location, contract type
-- **Discovery Map** — Leaflet map with clustered salary-colored markers, heatmap, tile styles (OSM/Google)
+- **Discovery Map** — Google Maps with clustered salary-colored markers, heatmap, and toggle-able tile styles
 - **Commute Routes** — Driving/transit/walking/bicycling routes with travel time and transit itinerary
 - **Life Anchors** — Pin important locations (home, gym, daycare) to calculate sweet spot zones
 - **Search This Area** — Re-search when panning >25km with drag-only trigger
