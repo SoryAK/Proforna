@@ -262,7 +262,7 @@ self-reference.
 
 The binding pieces are above. This is sequencing.
 
-- **Day 1 — Schema + zod (TDD per Phase 2.5).**
+- **Day 1 — Schema + manual validator (TDD per Phase 2.5).**
   Migration: `ALTER TABLE "CareerEvent" ALTER COLUMN "workHistoryId" DROP NOT NULL`;
   add `contentJson Json?`;
   add `searchVector tsvector` GENERATED STORED
@@ -271,19 +271,21 @@ The binding pieces are above. This is sequencing.
     setweight(to_tsvector('english', coalesce(location,'')), 'C'))`;
   Gin index on `searchVector`; partial index `(userId, startDate)
   WHERE startDate IS NOT NULL` for the map query path.
-  Zod refinement in `src/lib/career-event/event-schema.ts`: when surfaced
-  as a map-event, require `lat`, `lng`, `startDate`. Audit existing
-  callsites that assume non-null `workHistoryId` (`auto-log.ts`,
-  `promote-to-event-dialog.tsx`, the events API routes, the skill-graph
-  route). RED-GREEN-REFACTOR per `testing.instructions.md`.
+  Plain-TS validator in `src/lib/career-event/event-schema.ts`
+  (mirroring the `worklog-categories.ts` / `worklog-folders.ts` house
+  style — repo does not use zod): when `workHistoryId === null`, require
+  `lat`, `lng`, AND `location`. Audit existing callsites that assume
+  non-null `workHistoryId` (`auto-log.ts`, `promote-to-event-dialog.tsx`,
+  the events API routes, the skill-graph route). RED-GREEN-REFACTOR per
+  `testing.instructions.md`.
 
 - **Day 2 — API routes for free-floating events.**
   Add a peer `/api/events/*` route family that accepts
   `workHistoryId === null` and delegates to the same data layer used by
   `/api/work-history/[id]/events/*`. Keeps the work-history-scoped
   route's invariants intact. Security-test per
-  `security.instructions.md` (auth + ownership + zod). Phase 2.5 TDD on
-  the data layer (`src/data/career-event/*`).
+  `security.instructions.md` (auth + ownership + manual validator from
+  Day 1). Phase 2.5 TDD on the data layer (`src/data/career-event/*`).
 
 - **Day 3 — "Event" template in the worklog New-Note picker.**
   Picker creates a `CareerEvent` (not a `WorkLog`) when the user picks
