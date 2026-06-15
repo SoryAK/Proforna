@@ -28,6 +28,7 @@ import {
 } from "@/components/worklog/worklog-note-reader";
 import { WorklogReaderRightRail } from "@/components/worklog/right-rail/worklog-reader-right-rail";
 import { WorklogTemplatesTab } from "@/components/worklog/worklog-templates-tab";
+import type { UseWorklogSelectionApi } from "@/components/worklog/hooks/use-worklog-selection";
 import { computeNextAfterOrganize } from "@/lib/worklog/auto-advance";
 import type {
   EquipmentItem,
@@ -43,14 +44,6 @@ interface SaveLogMutation {
 }
 interface DeleteMutation {
   mutate: (id: string) => void;
-}
-interface SelectionApi {
-  selectedIds: Set<string>;
-  selectedCount: number;
-  has: (id: string) => boolean;
-  toggle: (id: string) => void;
-  clear: () => void;
-  set: (ids: Iterable<string>) => void;
 }
 
 export interface WorklogNotesAndReaderProps {
@@ -80,7 +73,7 @@ export interface WorklogNotesAndReaderProps {
   positionMap: Map<string, Position>;
   startBlank: () => void;
   bulkMode: boolean;
-  selection: SelectionApi;
+  selection: UseWorklogSelectionApi;
   focusPane: (target: "rail" | "list" | "view") => boolean;
 
   // ── right-click context menu (ADR-0026 follow-up) ──────────────────────
