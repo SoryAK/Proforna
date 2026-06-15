@@ -154,8 +154,7 @@ export default function EventsMap({ events }: Props) {
       markersRef.current.forEach((m) => (m.map = null));
       markersRef.current = [];
     };
-  }, [events, tickle]);
-ready]);
+  }, [events, ready]);
 
   if (!GOOGLE_KEY) {
     return (
@@ -174,4 +173,6 @@ ready]);
         </div>
       )}
     </div>
-  
+  );
+}
+
