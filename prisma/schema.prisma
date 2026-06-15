@@ -2513,13 +2513,20 @@ model DiffusionExposure {
 
 /// A significant event within a work history role — projects, promotions,
 /// incidents, launches, training, etc. Connected to skills via join table.
+///
+/// ADR-0027: workHistoryId is nullable so events can be free-floating
+/// (e.g. solar eclipse, conference, news event) without being anchored
+/// to a job. contentJson holds the rich TipTap document; searchVector
+/// is a Postgres GENERATED STORED tsvector mirroring the WorkLog
+/// pattern for UNION search across both tables.
 model CareerEvent {
   id            String    @id @default(cuid())
   userId        String
-  workHistoryId String
+  workHistoryId String? // null = free-floating event (ADR-0027)
   title         String // "Led GCP Migration", "Series B Launch"
-  description   String? // Full narrative / STAR story
-  category      String    @default("project") // project | milestone | responsibility | training | outcome | context_shift
+  description   String? // Full narrative / STAR story (plain text)
+  contentJson   Json? // Rich TipTap document (ADR-0027 / ADR-0010)
+  category      String    @default("project") // free-form (ADR-0027 Q3B); see CAREER_EVENT_CATEGORY_SUGGESTIONS in event-schema.ts
   startDate     DateTime? // Full datetime for timeline
   endDate       DateTime? // Full datetime for timeline
   location      String? // Freeform location (city, venue, etc)
@@ -2529,13 +2536,22 @@ model CareerEvent {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
+  // ── Full-text search (ADR-0027 Q4a) ──
+  // GENERATED STORED tsvector maintained by Postgres — see migration
+  // career_event_worklog_extension. Combines title (A), description (B), location (C).
+  searchVector Unsupported("tsvector")? @map("search_vector")
+
   user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  workHistory WorkHistory        @relation(fields: [workHistoryId], references: [id], onDelete: Cascade)
+  workHistory WorkHistory?       @relation(fields: [workHistoryId], references: [id], onDelete: Cascade)
   skills      CareerEventSkill[]
   photos      CareerEventPhoto[]
+  // Partial index `(userId, startDate) WHERE startDate IS NOT NULL`
+  // is added in raw SQL inside the migration — Prisma cannot model
+  // partial indexes. See migration career_event_worklog_extension.
 
   @@index([userId])
   @@index([workHistoryId])
+  @@index([searchVector], type: Gin)
 }
 
 /// Photos attached to a CareerEvent — for "I was there" moments
