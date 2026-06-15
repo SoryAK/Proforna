@@ -400,11 +400,22 @@ export function AppHeader() {
   const displayName = profile?.fullName ?? session?.user?.name ?? null;
   const headline = profile?.headline ?? null;
 
+  // Route-aware page label for the header centre slot.
+  // Falls back to the longest matching prefix in NAV_LABEL_MAP so deep routes
+  // like /worklog/notes/<id> still surface "Worklog".
+  const pageLabel: string | null = (() => {
+    if (NAV_LABEL_MAP[pathname]) return NAV_LABEL_MAP[pathname];
+    const prefix = Object.keys(NAV_LABEL_MAP)
+      .filter((href) => href !== "/" && pathname.startsWith(href + "/"))
+      .sort((a, b) => b.length - a.length)[0];
+    return prefix ? NAV_LABEL_MAP[prefix] : null;
+  })();
+
   return (
     <>
-      <header className="hidden md:flex h-16 shrink-0 items-center justify-between bg-white/70 dark:bg-gray-950/70 backdrop-blur-md shadow-[0_1px_0_0_rgb(0_0_0/0.06),0_2px_12px_0_rgb(0_0_0/0.04)] dark:shadow-[0_1px_0_0_rgb(255_255_255/0.05),0_2px_20px_0_rgb(0_0_0/0.5)] z-10 px-4">
+      <header className="hidden md:flex h-16 shrink-0 items-center justify-between bg-white/70 dark:bg-gray-950/70 backdrop-blur-md shadow-[0_1px_0_0_rgb(0_0_0/0.06),0_2px_12px_0_rgb(0_0_0/0.04)] dark:shadow-[0_1px_0_0_rgb(255_255_255/0.05),0_2px_20px_0_rgb(0_0_0/0.5)] z-30 px-4">
         {/* Left: Hamburger + Logo + Name */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <button
             onClick={toggle}
             title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
@@ -412,39 +423,42 @@ export function AppHeader() {
           >
             <Menu className="h-5 w-5" />
           </button>
-          <Link href="/dashboard" className="flex items-center gap-2.5 shrink-0">
+          <Link href="/dashboard" className="flex items-center gap-2 shrink-0">
             <Image src="/logo-icon.png" alt="Resumsify" width={28} height={28} className="h-7 w-7" />
             <span className="font-bold text-xl">Resumsify</span>
           </Link>
         </div>
 
-        {/* Centre: Search bar pill */}
-        <button
-          onClick={() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true, metaKey: true, bubbles: true }))}
-          className="hidden lg:flex items-center gap-2 h-9 w-64 xl:w-80 rounded-lg border border-border/60 bg-muted/40 hover:bg-muted/70 px-3 text-sm text-muted-foreground transition-colors"
-        >
-          <Search className="h-3.5 w-3.5 shrink-0" />
-          <span className="flex-1 text-left">Search…</span>
-          <kbd className="hidden xl:inline-flex items-center gap-0.5 rounded border border-border/60 bg-background px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-            <span>⌘</span><span>K</span>
-          </kbd>
-        </button>
+        {/* Centre: page label (md+) + search pill (lg+) */}
+        <div className="flex items-center gap-3 min-w-0">
+          {pageLabel && (
+            <span className="text-sm font-medium text-foreground/80 truncate">{pageLabel}</span>
+          )}
+          <button
+            onClick={() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true, metaKey: true, bubbles: true }))}
+            className="hidden lg:flex items-center gap-2 h-9 w-64 xl:w-80 rounded-lg border border-border/60 bg-muted/40 hover:bg-muted/70 px-3 text-sm text-muted-foreground transition-colors"
+          >
+            <Search className="h-3.5 w-3.5 shrink-0" />
+            <span className="flex-1 text-left">Search…</span>
+            <kbd className="hidden xl:inline-flex items-center gap-0.5 rounded border border-border/60 bg-background px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+              <span>⌘</span><span>K</span>
+            </kbd>
+          </button>
+        </div>
 
         {/* Actions */}
         <div className="flex items-center gap-2">
           <NotificationBell />
-          {/* Divider */}
-          <div className="w-px h-5 bg-border mx-1" aria-hidden="true" />
           <DropdownMenu>
             <DropdownMenuTrigger
-              className="flex items-center justify-center h-10 w-10 rounded-full outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:ring-2 hover:ring-primary/40 transition-all duration-150"
+              className="flex items-center justify-center h-8 w-8 rounded-full outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:ring-2 hover:ring-primary/40 transition-all duration-150"
             >
               {avatarSrc ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={avatarSrc} alt={displayName ?? "User"} className="h-10 w-10 rounded-full object-cover ring-2 ring-primary/30" />
+                <img src={avatarSrc} alt={displayName ?? "User"} className="h-8 w-8 rounded-full object-cover ring-1 ring-primary/30" />
               ) : (
-                <div className="h-10 w-10 rounded-full bg-primary/10 ring-2 ring-primary/30 flex items-center justify-center">
-                  <User className="h-5 w-5 text-primary" />
+                <div className="h-8 w-8 rounded-full bg-primary/10 ring-1 ring-primary/30 flex items-center justify-center">
+                  <User className="h-4 w-4 text-primary" />
                 </div>
               )}
             </DropdownMenuTrigger>
