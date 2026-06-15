@@ -1,6 +1,6 @@
 # Resumsify Worklog UI Patterns
 
-Last updated: 2026-06-15 (ADR-0027 Day 3 Cycle A — Events sibling route + nav row)
+Last updated: 2026-06-15 (ADR-0027 Day 3 Cycle B — Events list, filter chips, edit/delete dialogs)
 
 > References tokens.md and global.md. Never redefine tokens here.
 > Feature-specific rules only — shared rules live in global.md.
@@ -30,6 +30,51 @@ Home  →  All notes  →  ─── Events ───  →  Archived  →  Notab
 ```
 
 Active state mirrors `NavRow`: `bg-orange-100 dark:bg-orange-900/30 text-orange-900 dark:text-orange-100` when `pathname === "/worklog/events"`.
+
+### `/worklog/events` composition (Cycle B)
+
+```
+WorklogEventsView (single column, max-w-5xl)
+├─ Header (CalendarDays icon + title + subtitle)
+├─ StatCards grid (Total / Anchored / Free-floating)   ← also act as filter chips
+├─ FilterChips row (All · Anchored · Free-floating)    ← URL-driven ?scope=
+├─ Body:
+│   ├─ Skeleton (isPending)
+│   ├─ Error banner with Retry (isError)
+│   ├─ EmptyState (filtered.length === 0)
+│   └─ Year-grouped list of <EventRow>                 ← click → <EventEditDialog>
+└─ Creation-guidance footer (banner — points to /career-map)
+```
+
+**Filter state contract.** `?scope=anchored|floating` round-trips via `router.replace({ scroll: false })`. `?scope=all` is normalized to absent (no param). Default = all.
+
+**Sort.** Most-recent `startDate` first; rows without `startDate` fall back to `createdAt` so they don't clump at the bottom.
+
+**Year grouping.** Year header uses `text-[11px] font-semibold uppercase tracking-wider text-muted-foreground` — same shape as `<WorklogNotesTable>` date groupings.
+
+**Add-event affordance.** Cycle B intentionally ships NO "+ Add event" button. Anchored creation happens on `/career-map`; standalone free-floating creation is parked pending a geocoder ADR. A dashed footer banner makes that visible.
+
+### Event edit + delete dialogs (Cycle B)
+
+Both dialogs use `@/components/ui/dialog` (base-ui) — **never** `window.prompt` / `window.confirm` (React 19 + Next.js 16 throws — see user-memory).
+
+**`<EventEditDialog>`** — text-only edit surface. Editable: title, category (Select from `CAREER_EVENT_CATEGORY_SUGGESTIONS`), description, startDate, endDate, metrics. Read-only: `workHistoryId`, `location`, `lat`, `lng` (shown as an affiliation pill at the top). "Move" = delete + recreate.
+
+**`<EventDeleteConfirm>`** — destructive confirm with `variant="destructive"` Delete button. Closes the parent edit dialog on success via `onDeleted`. Single source of truth for delete routing — both dialogs import `eventPatchUrl(event)` from `event-edit-dialog.tsx`.
+
+**Route selection (load-bearing — ADR-0027 Q1A immutable workHistoryId):**
+
+```ts
+function eventPatchUrl(event: { id: string; workHistoryId: string | null }) {
+  return event.workHistoryId === null
+    ? `/api/events/${event.id}`                                  // floating
+    : `/api/work-history/${event.workHistoryId}/events/${event.id}`; // anchored
+}
+```
+
+The PATCH body NEVER includes `workHistoryId` (peer route 400s; anchored route ignores it). To "re-anchor" = delete + recreate.
+
+**Cache invalidation contract.** All mutations invalidate `["career-events", "all"]` (shared with sidebar + list) and `["career-growth"]` (the career-map evidence section consumes this).
 
 ---
 
