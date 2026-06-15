@@ -46,7 +46,7 @@ export async function PUT(
 
     const existing = await prisma.workLog.findFirst({
       where: { id, userId },
-      select: { id: true, positionId: true, date: true, shiftId: true, assetIds: true, linkedNoteIds: true, content: true },
+      select: { id: true, positionId: true, date: true, shiftId: true, assetIds: true, linkedNoteIds: true, linkedContactIds: true, content: true },
     });
     if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
@@ -111,6 +111,19 @@ export async function PUT(
     const writeLinkedNoteIds: boolean =
       linkedNoteIds !== null && !arraysEqualAsSets(linkedNoteIds, existing.linkedNoteIds);
 
+    // ADR-0028: linkedContactIds is REPLACEMENT (mirror linkedNoteIds — there
+    // is no manual contact UI seam on a WorkLog, so the @p: chip in
+    // contentJson IS the only link source). No self-loop guard needed —
+    // contacts and worklogs are different entity types.
+    const linkedContactIds: string[] | null =
+      hasOwn(body, "contentJson") && validatedContentJson
+        ? extractMentionEntityIds(validatedContentJson, "contact")
+        : null; // null → contentJson absent, leave column untouched
+
+    const writeLinkedContactIds: boolean =
+      linkedContactIds !== null &&
+      !arraysEqualAsSets(linkedContactIds, existing.linkedContactIds);
+
     const nextPositionId = hasOwn(body, "positionId")
       ? (body.positionId ? String(body.positionId) : null)
       : existing.positionId;
@@ -174,7 +187,8 @@ export async function PUT(
         : {}),
       ...(hasOwn(body, "shiftId")
         ? { shiftId: body.shiftId ? String(body.shiftId) : null }
-        : {}),
+        : writeLinkedContactIds ? { linkedContactIds: linkedContactIds! } : {}),
+      ...({}),
       ...(hasOwn(body, "workdayDate")
         ? { workdayDate: body.workdayDate ? new Date(String(body.workdayDate)) : new Date(derivedWorkdayIso) }
         : hasOwn(body, "date") || hasOwn(body, "shiftId") || hasOwn(body, "positionId")

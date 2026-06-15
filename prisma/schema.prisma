@@ -759,6 +759,12 @@ model WorkLog {
   // contentJson, populated on save by extractMentionEntityIds(doc, "worklog").
   // Backlinks panel = findMany({ where: { linkedNoteIds: { has: id } } }).
   linkedNoteIds           String[] @default([])
+  // ADR-0028: persona / contact reverse-lookup. Denormalized projection of
+  // @p: mentions in contentJson, populated on save by
+  // extractMentionEntityIds(doc, "contact"). REPLACE semantic — chip removal
+  // clears the link (mirror linkedNoteIds, not assetIds).
+  // Backlinks query = findMany({ where: { linkedContactIds: { has: id } } }).
+  linkedContactIds        String[] @default([])
   promotedToCareerEventId String? // set when user promotes this entry to a CareerEvent on the IR
   visibility              String   @default("PRIVATE") // PRIVATE | TEAM | PUBLIC — only PRIVATE used in Phase A
 
@@ -806,6 +812,7 @@ model WorkLog {
   @@index([templateId])
   @@index([searchVector], type: Gin)
   @@index([linkedNoteIds], type: Gin)
+  @@index([linkedContactIds], type: Gin)
 }
 
 // User-defined folder tree (adjacency list) for organizing WorkLog notes.

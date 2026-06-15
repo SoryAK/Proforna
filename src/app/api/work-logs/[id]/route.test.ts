@@ -62,7 +62,11 @@ function makeRequest(id: string, body: unknown): [Request, { params: Promise<{ i
 }
 
 /** Minimal existing log fixture — shiftId null avoids the shift lookup branch. */
-function existingLog(assetIds: string[] = [], linkedNoteIds: string[] = []) {
+function existingLog(
+  assetIds: string[] = [],
+  linkedNoteIds: string[] = [],
+  linkedContactIds: string[] = [],
+) {
   return {
     id: "log1",
     positionId: null,
@@ -70,6 +74,7 @@ function existingLog(assetIds: string[] = [], linkedNoteIds: string[] = []) {
     shiftId: null,
     assetIds,
     linkedNoteIds,
+    linkedContactIds,
   };
 }
 
@@ -316,6 +321,95 @@ describe("PUT /api/work-logs/[id] — ADR-0016 linkedNoteIds", () => {
 
     const updateData = mockUpdate.mock.calls[0][0].data as Record<string, unknown>;
     expect(updateData).not.toHaveProperty("linkedNoteIds");
+  });
+});
+
+// ────────────────────────────────────────────────────
+// ADR-0028 — linkedContactIds (persona / contact reverse-lookup)
+// ────────────────────────────────────────────────────
+
+describe("PUT /api/work-logs/[id] — ADR-0028 linkedContactIds", () => {
+  it("populates linkedContactIds from @p: mentions on save", async () => {
+    mockGetUserId.mockResolvedValue("u1");
+    mockFindFirst.mockResolvedValue(existingLog([], [], []) as any);
+
+    const [req, ctx] = makeRequest("log1", {
+      contentJson: docWithMentions([], [{ type: "contact", id: "contact-1" }]),
+    });
+    await PUT(req, ctx);
+
+    const updateData = mockUpdate.mock.calls[0][0].data as Record<string, unknown>;
+    expect(updateData.linkedContactIds).toEqual(["contact-1"]);
+  });
+
+  it("skip-if-equal: omits linkedContactIds when extracted set matches existing", async () => {
+    mockGetUserId.mockResolvedValue("u1");
+    mockFindFirst.mockResolvedValue(existingLog([], [], ["contact-1"]) as any);
+
+    const [req, ctx] = makeRequest("log1", {
+      contentJson: docWithMentions([], [{ type: "contact", id: "contact-1" }]),
+    });
+    await PUT(req, ctx);
+
+    const updateData = mockUpdate.mock.calls[0][0].data as Record<string, unknown>;
+    expect(updateData).not.toHaveProperty("linkedContactIds");
+  });
+
+  it("replacement semantic: clears linkedContactIds when chip is removed from doc", async () => {
+    mockGetUserId.mockResolvedValue("u1");
+    mockFindFirst.mockResolvedValue(existingLog([], [], ["contact-old"]) as any);
+
+    // contentJson saved with NO contact mentions — link should clear (REPLACE,
+    // mirror linkedNoteIds, not assetIds — there is no manual contact UI seam).
+    const [req, ctx] = makeRequest("log1", { contentJson: emptyDoc() });
+    await PUT(req, ctx);
+
+    const updateData = mockUpdate.mock.calls[0][0].data as Record<string, unknown>;
+    expect(updateData.linkedContactIds).toEqual([]);
+  });
+
+  it("does not touch linkedContactIds when contentJson is absent from body", async () => {
+    mockGetUserId.mockResolvedValue("u1");
+    mockFindFirst.mockResolvedValue(existingLog([], [], ["contact-old"]) as any);
+
+    const [req, ctx] = makeRequest("log1", { title: "new title" });
+    await PUT(req, ctx);
+
+    const updateData = mockUpdate.mock.calls[0][0].data as Record<string, unknown>;
+    expect(updateData).not.toHaveProperty("linkedContactIds");
+  });
+
+  it("collects contact mentions deduped across paragraphs", async () => {
+    mockGetUserId.mockResolvedValue("u1");
+    mockFindFirst.mockResolvedValue(existingLog([], [], []) as any);
+
+    const multiParaDoc = {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [
+            { type: "mention", attrs: { entityType: "contact", entityId: "p1", label: "Tom" } },
+            { type: "mention", attrs: { entityType: "contact", entityId: "p2", label: "Jane" } },
+          ],
+        },
+        {
+          type: "paragraph",
+          content: [
+            // duplicate of p1 in a later paragraph — must collapse to one row
+            { type: "mention", attrs: { entityType: "contact", entityId: "p1", label: "Tom" } },
+          ],
+        },
+      ],
+    };
+
+    const [req, ctx] = makeRequest("log1", { contentJson: multiParaDoc });
+    await PUT(req, ctx);
+
+    const updateData = mockUpdate.mock.calls[0][0].data as Record<string, unknown>;
+    const stored = updateData.linkedContactIds as string[];
+    expect(stored).toHaveLength(2);
+    expect(stored).toEqual(expect.arrayContaining(["p1", "p2"]));
   });
 });
 

@@ -35,6 +35,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Checkbox } from "@/components/ui/checkbox";
+import { ContactBacklinksSection } from "@/components/contacts/contact-backlinks-section";
 
 interface Contact {
   id: string;
@@ -397,6 +398,9 @@ export default function ContactsPage() {
               <Label>Notes</Label>
               <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={3} />
             </div>
+            {editingId && (
+              <ContactBacklinksSection contactId={editingId} />
+            )}
             <div className="flex justify-end gap-2">
               <Button type="button" variant="outline" onClick={closeDialog}>Cancel</Button>
               <Button type="submit" disabled={saveMutation.isPending}>
