@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getUserId } from "@/lib/auth-utils";
+import { validateCareerEventInput } from "@/lib/career-event/event-schema";
 
 /** GET — all career events for a work history, with linked skills */
 export async function GET(
@@ -38,37 +39,35 @@ export async function POST(
 
   const { id } = await params;
   const body = await req.json();
-  const { title, description, category, startDate, endDate, metrics, location, lat, lng, skillNodeIds } = body;
 
-  if (!title || typeof title !== "string" || title.trim().length === 0) {
-    return NextResponse.json({ error: "title is required" }, { status: 400 });
+  // URL `id` is authoritative for anchored events — overrides any caller-supplied
+  // workHistoryId. Validator handles shape + cross-field rules in one pass.
+  const validation = validateCareerEventInput({ ...body, workHistoryId: id });
+  if (!validation.ok) {
+    return NextResponse.json({ error: validation.error }, { status: 400 });
   }
+  const v = validation.value;
+
+  // skillNodeIds is a relation, not part of the input shape — pull it from body.
+  const skillNodeIds = (body as { skillNodeIds?: unknown }).skillNodeIds;
 
   // Verify ownership
   const wh = await prisma.workHistory.findFirst({ where: { id, userId } });
   if (!wh) return NextResponse.json({ error: "Work history not found" }, { status: 404 });
 
-  const validCategories = [
-    // legacy
-    "project", "milestone", "responsibility", "training", "outcome", "context_shift",
-    // "things you participated in"
-    "company_event", "field_day", "emergency", "news_event", "social", "conference", "other",
-  ];
-  const cat = validCategories.includes(category) ? category : "company_event";
-
   const event = await prisma.careerEvent.create({
     data: {
       userId,
       workHistoryId: id,
-      title: String(title).trim().slice(0, 200),
-      description: description ? String(description).slice(0, 2000) : null,
-      category: cat,
-      startDate: startDate ? new Date(startDate) : null,
-      endDate: endDate ? new Date(endDate) : null,
-      location: location ? String(location).slice(0, 200) : null,
-      lat: typeof lat === "number" ? lat : null,
-      lng: typeof lng === "number" ? lng : null,
-      metrics: metrics ? String(metrics).slice(0, 500) : null,
+      title: v.title,
+      description: v.description,
+      category: v.category,
+      startDate: v.startDate,
+      endDate: v.endDate,
+      location: v.location,
+      lat: v.lat,
+      lng: v.lng,
+      metrics: v.metrics,
       skills: {
         create: Array.isArray(skillNodeIds)
           ? skillNodeIds
