@@ -58,6 +58,11 @@ next-env.d.ts
 .squad/decisions/inbox/
 .squad/sessions/
 .squad/.scratch/
+
+# Local AI tooling configs (per-machine; rules duplicated in .github/copilot-instructions.md)
+.clinerules
+.continue/
+
 # Squad: SubSquad activation file (local to this machine)
 .squad-workstream
 
