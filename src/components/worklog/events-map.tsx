@@ -2,6 +2,8 @@
  * EventsMap — dedicated Google Maps renderer for /worklog/map.
  *
  * ADR-0027 Day 4 Cycle B (Path B-modest, after ADR-0028 retired Leaflet).
+ * Cycle C added the optional place-mode listener used by the FAB +
+ * click-to-place flow in worklog-map-view.tsx.
  *
  * Why a fresh map instead of reusing JobMap:
  *   - JobMap is ~13.3k LOC of job-search + work-history + commute plumbing
@@ -55,12 +57,20 @@ export interface EventsMapItem {
 
 interface Props {
   events: EventsMapItem[];
+  /**
+   * When true, the next single map click is captured and forwarded to
+   * `onPickCoords` instead of doing nothing. The listener is one-shot —
+   * the parent is expected to flip `placeMode` back to false after the
+   * pick (typically by opening the create dialog).
+   */
+  placeMode?: boolean;
+  onPickCoords?: (lat: number, lng: number) => void;
 }
 
 const DEFAULT_CENTER: google.maps.LatLngLiteral = { lat: 39.5, lng: -98.35 }; // CONUS centroid
 const DEFAULT_ZOOM = 4;
 
-export default function EventsMap({ events }: Props) {
+export default function EventsMap({ events, placeMode = false, onPickCoords }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
   const infoRef = useRef<google.maps.InfoWindow | null>(null);
@@ -113,7 +123,7 @@ export default function EventsMap({ events }: Props) {
       return;
     }
 
-    co
+    const bounds = new google.maps.LatLngBounds();
     events.forEach((ev) => {
       const el = document.createElement("div");
       el.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:#d946ef;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.25);font-size:15px;line-height:1;cursor:pointer;transition:transform 0.15s;overflow:visible;" title="${escapeHtml(ev.title)} — ${ev.date}">📸</div>`;
@@ -155,6 +165,34 @@ export default function EventsMap({ events }: Props) {
       markersRef.current = [];
     };
   }, [events, ready]);
+
+  // Place-mode click capture. One-shot: after the click fires we let the
+  // parent decide whether to flip placeMode off (typically by opening
+  // the create dialog). Cursor swaps to crosshair while armed so the
+  // user knows the next click means something different.
+  useEffect(() => {
+    if (!ready || !mapRef.current) return;
+    const map = mapRef.current;
+
+    if (placeMode) {
+      map.setOptions({ draggableCursor: "crosshair" });
+    } else {
+      map.setOptions({ draggableCursor: undefined });
+      return;
+    }
+
+    const listener = map.addListener("click", (e: google.maps.MapMouseEvent) => {
+      if (!e.latLng) return;
+      // Always restore the cursor on pick, regardless of what the parent does.
+      map.setOptions({ draggableCursor: undefined });
+      onPickCoords?.(e.latLng.lat(), e.latLng.lng());
+    });
+
+    return () => {
+      google.maps.event.removeListener(listener);
+      map.setOptions({ draggableCursor: undefined });
+    };
+  }, [placeMode, ready, onPickCoords]);
 
   if (!GOOGLE_KEY) {
     return (

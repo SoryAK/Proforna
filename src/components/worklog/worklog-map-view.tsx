@@ -2,6 +2,11 @@
  * WorklogMapView — `/worklog/map` page shell.
  *
  * ADR-0027 Day 4 Cycle B (Path B-modest, after ADR-0028 retired Leaflet).
+ * Cycle C added the FAB + click-to-place flow for free-floating events:
+ *   FAB → placeMode on → user clicks the map → reverse-geocode for a
+ *   default location string → <EventCreateDialog> opens with coords
+ *   pre-filled → save → invalidate ["career-events", "all"] → marker
+ *   re-renders.
  *
  * Renders the dedicated <EventsMap> for career events that have lat/lng.
  * Top toolbar = Back to list + (modest) link out to the full job-search
@@ -15,10 +20,12 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, MapPin } from "lucide-react";
-import { Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2, MapPin, Plus, X } from "lucide-react";
+import { importLibrary } from "@googlemaps/js-api-loader";
+import { Button } from "@/components/ui/button";
+import { EventCreateDialog } from "./events/event-create-dialog";
 import type { EventsMapItem } from "./events-map";
 
 // EventsMap touches `window.google` and must not SSR.
@@ -88,8 +95,45 @@ export function WorklogMapView() {
   const withLocation = mappable.length;
   const withoutLocation = total - withLocation;
 
+  // ── Cycle C: FAB / place-mode / create-dialog state ────────────────
+  const [placeMode, setPlaceMode] = useState(false);
+  const [pickedCoords, setPickedCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [defaultLocation, setDefaultLocation] = useState("");
+  const [dialogOpen, setDialogOpen] = useState(false);
+
+  // Esc cancels armed place-mode (don't trap typing in the dialog).
+  useEffect(() => {
+    if (!placeMode) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setPlaceMode(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [placeMode]);
+
+  const handlePickCoords = useCallback(async (lat: number, lng: number) => {
+    // Always exit place-mode after a pick — single-shot per FAB press.
+    setPlaceMode(false);
+    setPickedCoords({ lat, lng });
+    // Open the dialog immediately with a coord-string fallback so the
+    // user never sees an empty location field, then refine async.
+    setDefaultLocation(`${lat.toFixed(5)}, ${lng.toFixed(5)}`);
+    setDialogOpen(true);
+    // Best-effort reverse-geocode. Failures are silent — the fallback
+    // string is already in place.
+    try {
+      const { Geocoder } = (await importLibrary("geocoding")) as google.maps.GeocodingLibrary;
+      const geocoder = new Geocoder();
+      const result = await geocoder.geocode({ location: { lat, lng } });
+      const address = result.results[0]?.formatted_address;
+      if (address) setDefaultLocation(address);
+    } catch {
+      // Keep the lat/lng fallback we already set.
+    }
+  }, []);
+
   return (
-    <div className="flex-1 min-h-0 flex flex-col">
+    <div className="h-full flex flex-col">
       {/* Toolbar */}
       <header className="flex items-center gap-3 border-b border-border/60 px-4 md:px-6 py-2.5 flex-shrink-0">
         <Link
@@ -136,23 +180,75 @@ export function WorklogMapView() {
               </button>
             </div>
           </div>
-        ) : !isPending && mappable.length === 0 ? (
-          <div className="absolute inset-0 flex items-center justify-center px-6">
-            <div className="max-w-sm text-center text-sm text-muted-foreground space-y-2">
-              <MapPin className="h-6 w-6 mx-auto text-muted-foreground/60" />
-              <p className="text-foreground font-medium">No events on the map yet</p>
-              <p>
-                Events show up here once they have a location. Anchor an event
-                to a job (in <Link href="/career-map" className="underline">career map</Link>) or
-                add a free-floating event with coordinates from the{" "}
-                <Link href="/worklog/events" className="underline">events list</Link>.
-              </p>
-            </div>
-          </div>
         ) : (
-          <EventsMap events={mappable} />
+          // Always mount the map so the FAB / place-mode flow works even
+          // before any events exist. The empty-state nudge sits over it.
+          <>
+            <EventsMap
+              events={mappable}
+              placeMode={placeMode}
+              onPickCoords={handlePickCoords}
+            />
+
+            {/* Empty-state nudge (overlay) — only when truly empty and not loading. */}
+            {!isPending && mappable.length === 0 && !placeMode && !dialogOpen && (
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-6">
+                <div className="pointer-events-auto max-w-sm rounded-lg border border-border/60 bg-background/85 backdrop-blur-sm p-4 text-center text-sm text-muted-foreground space-y-2 shadow-sm">
+                  <MapPin className="h-6 w-6 mx-auto text-muted-foreground/60" />
+                  <p className="text-foreground font-medium">No events on the map yet</p>
+                  <p>
+                    Tap{" "}
+                    <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-fuchsia-500 text-white align-middle">
+                      <Plus className="h-3 w-3" />
+                    </span>{" "}
+                    to drop one right here, anchor one in{" "}
+                    <Link href="/career-map" className="underline">career map</Link>, or browse the{" "}
+                    <Link href="/worklog/events" className="underline">events list</Link>.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Place-mode banner */}
+            {placeMode && (
+              <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 rounded-full border border-fuchsia-500/40 bg-fuchsia-500/95 text-white px-4 py-2 text-xs font-medium shadow-lg">
+                <MapPin className="h-3.5 w-3.5" />
+                <span>Click on the map to drop your event</span>
+                <button
+                  type="button"
+                  onClick={() => setPlaceMode(false)}
+                  className="ml-1 rounded-full hover:bg-white/20 p-0.5"
+                  aria-label="Cancel placement"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+                <span className="text-[10px] opacity-70 ml-1">or press Esc</span>
+              </div>
+            )}
+
+            {/* FAB — bottom right (offset to clear the global AI Chat button at bottom-6 right-6 z-40). */}
+            {!placeMode && (
+              <Button
+                type="button"
+                onClick={() => setPlaceMode(true)}
+                className="absolute bottom-5 right-24 z-30 h-12 w-12 rounded-full p-0 shadow-lg bg-fuchsia-500 hover:bg-fuchsia-600 text-white"
+                aria-label="Add event"
+                title="Add a free-floating event"
+              >
+                <Plus className="h-5 w-5" />
+              </Button>
+            )}
+          </>
         )}
       </div>
+
+      {/* Create dialog (mounted at view root so it survives re-renders). */}
+      <EventCreateDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        coords={pickedCoords}
+        defaultLocation={defaultLocation}
+      />
     </div>
   );
 }
