@@ -436,11 +436,11 @@ export function AppHeader() {
           )}
           <button
             onClick={() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true, metaKey: true, bubbles: true }))}
-            className="hidden lg:flex items-center gap-2 h-9 w-64 xl:w-80 rounded-lg border border-border/60 bg-muted/40 hover:bg-muted/70 px-3 text-sm text-muted-foreground transition-colors"
+            className="hidden lg:flex items-center gap-2 h-9 w-64 xl:w-80 rounded-full border border-border/40 bg-muted/30 hover:bg-muted/60 hover:border-border/70 focus-visible:border-primary/50 focus-visible:bg-muted/60 outline-none px-3.5 text-sm text-muted-foreground transition-colors"
           >
-            <Search className="h-3.5 w-3.5 shrink-0" />
+            <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
             <span className="flex-1 text-left">Search…</span>
-            <kbd className="hidden xl:inline-flex items-center gap-0.5 rounded border border-border/60 bg-background px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+            <kbd className="hidden xl:inline-flex items-center gap-0.5 rounded border border-border/50 bg-background/60 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground/80">
               <span>⌘</span><span>K</span>
             </kbd>
           </button>
@@ -451,16 +451,26 @@ export function AppHeader() {
           <NotificationBell />
           <DropdownMenu>
             <DropdownMenuTrigger
-              className="flex items-center justify-center h-8 w-8 rounded-full outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:ring-2 hover:ring-primary/40 transition-all duration-150"
+              className="flex items-center gap-2 h-10 pl-1 pr-1 lg:pr-2.5 rounded-full hover:bg-muted/60 focus-visible:bg-muted/70 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background transition-colors"
             >
-              {avatarSrc ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={avatarSrc} alt={displayName ?? "User"} className="h-8 w-8 rounded-full object-cover ring-1 ring-primary/30" />
-              ) : (
-                <div className="h-8 w-8 rounded-full bg-primary/10 ring-1 ring-primary/30 flex items-center justify-center">
-                  <User className="h-4 w-4 text-primary" />
-                </div>
-              )}
+              <span className="relative shrink-0">
+                {avatarSrc ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={avatarSrc} alt={displayName ?? "User"} className="h-8 w-8 rounded-full object-cover ring-2 ring-primary/30" />
+                ) : (
+                  <span className="h-8 w-8 rounded-full bg-primary/10 ring-2 ring-primary/30 flex items-center justify-center">
+                    <User className="h-4 w-4 text-primary" />
+                  </span>
+                )}
+                <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-background" aria-hidden />
+              </span>
+              <span className="hidden lg:flex flex-col items-start min-w-0 max-w-[140px]">
+                <span className="text-sm font-semibold leading-tight truncate w-full">{displayName ?? "You"}</span>
+                {headline && (
+                  <span className="text-xs text-muted-foreground leading-tight truncate w-full">{headline}</span>
+                )}
+              </span>
+              <ChevronDown className="hidden lg:block h-3.5 w-3.5 text-muted-foreground/60 shrink-0" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
               {/* Mini user card */}
