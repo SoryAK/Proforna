@@ -252,29 +252,6 @@ function NavLinks({ onNavigate, collapsed }: { onNavigate?: () => void; collapse
   );
 }
 
-function ThemeToggle() {
-  const { theme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-
-  const cycle = () => {
-    if (theme === "light") setTheme("dark");
-    else if (theme === "dark") setTheme("system");
-    else setTheme("light");
-  };
-
-  if (!mounted) {
-    return <Button variant="ghost" size="icon"><Sun className="h-5 w-5" /></Button>;
-  }
-
-  const Icon = theme === "dark" ? Moon : theme === "light" ? Sun : Monitor;
-  return (
-    <Button variant="ghost" size="icon" onClick={cycle} title={`Theme: ${theme}`}>
-      <Icon className="h-5 w-5" />
-    </Button>
-  );
-}
-
 /** Desktop sidebar — hidden below md */
 export function Sidebar() {
   const { collapsed } = useSidebar();
@@ -375,6 +352,9 @@ export function AppHeader() {
 
     if (settingsFlag === "integrations") {
       setInitialSection("integrations");
+      setSettingsOpen(true);
+    } else if (settingsFlag === "profile") {
+      setInitialSection("profile");
       setSettingsOpen(true);
     }
 
@@ -514,6 +494,18 @@ export function AppHeader() {
 /** Mobile top-bar with sheet — visible below md */
 export function MobileHeader() {
   const [open, setOpen] = useState(false);
+  const { data: session } = useSession();
+  const router = useRouter();
+  const pathname = usePathname();
+  const { data: profile } = useQuery<{ avatarUrl?: string | null; fullName?: string | null; headline?: string | null }>({
+    queryKey: ["profile-avatar"],
+    queryFn: () => fetch("/api/profile").then((r) => r.json()),
+    staleTime: 5 * 60_000,
+  });
+
+  const avatarSrc = profile?.avatarUrl ?? session?.user?.image ?? undefined;
+  const displayName = profile?.fullName ?? session?.user?.name ?? null;
+  const headline = profile?.headline ?? null;
 
   return (
     <header className="flex md:hidden h-16 items-center border-b bg-white dark:bg-gray-950 px-4 gap-3">
@@ -538,17 +530,65 @@ export function MobileHeader() {
         <Image src="/logo-icon.png" alt="Resumsify" width={32} height={32} className="h-8 w-8" />
         <span>Resumsify</span>
       </Link>
-      <div className="ml-auto flex items-center gap-1.5">
+      <div className="ml-auto flex items-center gap-1">
         <NotificationBell />
-        <ThemeToggle />
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => signOut({ callbackUrl: "/login" })}
-          title="Sign out"
-        >
-          <LogOut className="h-4 w-4" />
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            className="flex items-center justify-center h-9 w-9 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background transition-colors hover:bg-muted/60"
+          >
+            <span className="relative shrink-0">
+              {avatarSrc ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={avatarSrc} alt={displayName ?? "User"} className="h-8 w-8 rounded-full object-cover ring-2 ring-primary/30" />
+              ) : (
+                <span className="h-8 w-8 rounded-full bg-primary/10 ring-2 ring-primary/30 flex items-center justify-center">
+                  <User className="h-4 w-4 text-primary" />
+                </span>
+              )}
+              <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-background" aria-hidden />
+            </span>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            {/* Mini user card */}
+            <DropdownMenuGroup>
+              <div className="flex items-center gap-3 px-3 py-2.5">
+                {avatarSrc ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={avatarSrc} alt={displayName ?? "User"} className="h-9 w-9 rounded-full object-cover shrink-0 ring-2 ring-primary/20" />
+                ) : (
+                  <div className="h-9 w-9 rounded-full bg-primary/10 ring-2 ring-primary/20 flex items-center justify-center shrink-0">
+                    <User className="h-4 w-4 text-primary" />
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold leading-tight truncate">{displayName ?? "You"}</p>
+                  {headline && (
+                    <p className="text-xs text-muted-foreground leading-tight truncate">{headline}</p>
+                  )}
+                </div>
+              </div>
+            </DropdownMenuGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuGroup>
+              <DropdownMenuItem render={<Link href="/profile" />}>
+                <User className="h-4 w-4 mr-2" />
+                Profile
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.replace(`${pathname}?settings=profile`)}>
+                <Settings className="h-4 w-4 mr-2" />
+                Settings
+              </DropdownMenuItem>
+              <ThemeDropdownItem />
+            </DropdownMenuGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuGroup>
+              <DropdownMenuItem onClick={() => signOut({ callbackUrl: "/login" })} className="text-destructive focus:text-destructive">
+                <LogOut className="h-4 w-4 mr-2" />
+                Sign out
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </header>
   );
