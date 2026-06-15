@@ -108,6 +108,19 @@ interface WorkHistoryMarker {
   title: string | null;
 }
 
+/* Career event marker — mirrors the Google renderer (job-map-google.tsx:111).
+ * Parity-only for Cycle A; click-to-place creation lives in Google for now
+ * (Leaflet click-to-place is parked per ADR-0027 Day 4 plan). */
+interface CareerEventMarker {
+  id: string;
+  title: string;
+  date: string;
+  location: string;
+  lat: number;
+  lng: number;
+  photos?: string[];
+}
+
 /* Emoji lookup for anchor icons */
 const ANCHOR_EMOJI: Record<string, string> = {
   home: "🏠",
@@ -167,6 +180,7 @@ interface Props {
   onToggleAnchor?: (anchorId: string) => void;
   dimmedIds?: Set<string>;
   workHistoryMarkers?: WorkHistoryMarker[];
+  eventMarkers?: CareerEventMarker[];
 }
 
 /* Auto-fit bounds when jobs change */
@@ -392,6 +406,7 @@ export default function JobMapLeaflet({
   onToggleAnchor,
   dimmedIds,
   workHistoryMarkers = [],
+  eventMarkers = [],
 }: Props) {
   const [panCenter, setPanCenter] = useState<[number, number] | null>(null);
   const [hasPanned, setHasPanned] = useState(false);
@@ -669,6 +684,56 @@ export default function JobMapLeaflet({
               <div style={{ fontSize: 9, color: '#999' }}>Past workplace</div>
             </div>
           </Tooltip>
+        </Marker>
+      ))}
+
+      {/* Career Event markers — pink 📸 pins (mirrors job-map-google.tsx:872+).
+       * Click-to-place creation lives in the Google renderer for now; this
+       * layer is display-parity only (ADR-0027 Day 4 Cycle A). */}
+      {eventMarkers.map((ev) => (
+        <Marker
+          key={`ev-${ev.id}`}
+          position={[ev.lat, ev.lng]}
+          icon={L.divIcon({
+            html: `<div style="display:flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:#d946ef;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.25);font-size:15px;line-height:1;">📸</div>`,
+            className: "",
+            iconSize: [26, 26],
+            iconAnchor: [13, 13],
+          })}
+          zIndexOffset={1900}
+        >
+          <Tooltip direction="top" offset={[0, -13]} opacity={0.95}>
+            <div style={{ fontSize: 11, maxWidth: 200, lineHeight: 1.4 }}>
+              <div style={{ fontWeight: 700, color: "#d946ef" }}>{ev.title}</div>
+              {ev.date && <div style={{ color: "#6b7280", marginTop: 1 }}>{ev.date}</div>}
+              {ev.location && (
+                <div style={{ color: "#9ca3af", fontSize: 10, marginTop: 2 }}>{ev.location}</div>
+              )}
+            </div>
+          </Tooltip>
+          <Popup>
+            <div style={{ fontSize: 11, maxWidth: 220, lineHeight: 1.4 }}>
+              {ev.photos && ev.photos.length > 0 && (
+                <img
+                  src={ev.photos[0]}
+                  alt=""
+                  style={{
+                    width: "100%",
+                    maxWidth: 200,
+                    maxHeight: 90,
+                    objectFit: "cover",
+                    marginBottom: 6,
+                    borderRadius: 6,
+                  }}
+                />
+              )}
+              <div style={{ fontWeight: 700, color: "#d946ef", fontSize: 12 }}>{ev.title}</div>
+              {ev.date && <div style={{ color: "#6b7280", marginTop: 2 }}>{ev.date}</div>}
+              {ev.location && (
+                <div style={{ color: "#9ca3af", fontSize: 10, marginTop: 2 }}>{ev.location}</div>
+              )}
+            </div>
+          </Popup>
         </Marker>
       ))}
 
