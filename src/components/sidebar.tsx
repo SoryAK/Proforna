@@ -348,12 +348,6 @@ function ThemeDropdownItem() {
   );
 }
 
-/** Flat nav map: href → label */
-const NAV_LABEL_MAP: Record<string, string> = NAV_SECTIONS.flatMap((s) => s.items).reduce(
-  (acc, item) => ({ ...acc, [item.href]: item.label }),
-  {} as Record<string, string>
-);
-
 /** Desktop top header bar — visible on md+ */
 export function AppHeader() {
   const { collapsed, toggle } = useSidebar();
@@ -400,17 +394,6 @@ export function AppHeader() {
   const displayName = profile?.fullName ?? session?.user?.name ?? null;
   const headline = profile?.headline ?? null;
 
-  // Route-aware page label for the header centre slot.
-  // Falls back to the longest matching prefix in NAV_LABEL_MAP so deep routes
-  // like /worklog/notes/<id> still surface "Worklog".
-  const pageLabel: string | null = (() => {
-    if (NAV_LABEL_MAP[pathname]) return NAV_LABEL_MAP[pathname];
-    const prefix = Object.keys(NAV_LABEL_MAP)
-      .filter((href) => href !== "/" && pathname.startsWith(href + "/"))
-      .sort((a, b) => b.length - a.length)[0];
-    return prefix ? NAV_LABEL_MAP[prefix] : null;
-  })();
-
   return (
     <>
       <header className="hidden md:flex h-16 shrink-0 items-center justify-between bg-white/70 dark:bg-gray-950/70 backdrop-blur-md shadow-[0_1px_0_0_rgb(0_0_0/0.06),0_2px_12px_0_rgb(0_0_0/0.04)] dark:shadow-[0_1px_0_0_rgb(255_255_255/0.05),0_2px_20px_0_rgb(0_0_0/0.5)] z-30 px-4">
@@ -429,11 +412,8 @@ export function AppHeader() {
           </Link>
         </div>
 
-        {/* Centre: page label (md+) + search pill (lg+) */}
-        <div className="flex items-center gap-3 min-w-0">
-          {pageLabel && (
-            <span className="text-sm font-medium text-foreground/80 truncate">{pageLabel}</span>
-          )}
+        {/* Centre: search pill (lg+) */}
+        <div className="flex items-center min-w-0">
           <button
             onClick={() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true, metaKey: true, bubbles: true }))}
             className="hidden lg:flex items-center gap-2 h-9 w-64 xl:w-80 rounded-full border border-border/40 bg-muted/30 hover:bg-muted/60 hover:border-border/70 focus-visible:border-primary/50 focus-visible:bg-muted/60 outline-none px-3.5 text-sm text-muted-foreground transition-colors"
@@ -464,10 +444,10 @@ export function AppHeader() {
                 )}
                 <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-background" aria-hidden />
               </span>
-              <span className="hidden lg:flex flex-col items-start min-w-0 max-w-[140px]">
-                <span className="text-sm font-semibold leading-tight truncate w-full">{displayName ?? "You"}</span>
+              <span className="hidden lg:flex flex-col items-start min-w-0 max-w-[140px] text-left">
+                <span className="text-sm font-semibold leading-tight truncate w-full text-left">{displayName ?? "You"}</span>
                 {headline && (
-                  <span className="text-xs text-muted-foreground leading-tight truncate w-full">{headline}</span>
+                  <span className="text-xs text-muted-foreground leading-tight truncate w-full text-left">{headline}</span>
                 )}
               </span>
               <ChevronDown className="hidden lg:block h-3.5 w-3.5 text-muted-foreground/60 shrink-0" />
