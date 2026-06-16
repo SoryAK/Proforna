@@ -41,7 +41,17 @@ const MENTION_PREFIX: Record<string, string> = {
 
 export function serializeToMarkdown(doc: ProseMirrorDoc): SerializeResult {
   const ctx: WalkCtx = { dropped: new Map() };
-  const blocks = (doc.content ?? []).map((node) => emitBlock(node, ctx, 0));
+
+  // ADR-0030 Unit 10 — procedureDoc has its own deterministic shape
+  // (title, optional tools, then a flat list of steps). Emit it via a
+  // dedicated walker so that procedure-only nodes (procedureTitle /
+  // procedureTools / procedureStep) never reach `emitBlock` (which
+  // would otherwise count them as dropped unknown blocks).
+  const blocks =
+    (doc as { type?: string }).type === "procedureDoc"
+      ? emitProcedureDoc(doc.content ?? [], ctx)
+      : (doc.content ?? []).map((node) => emitBlock(node, ctx, 0));
+
   // Filter empty strings (e.g. dropped block contributions) before joining.
   const markdown = blocks.filter((b) => b !== "").join("\n\n");
   // Trailing newline for POSIX-y feel; only when there is content.
@@ -62,6 +72,70 @@ interface WalkCtx {
 
 function recordDrop(ctx: WalkCtx, type: string): void {
   ctx.dropped.set(type, (ctx.dropped.get(type) ?? 0) + 1);
+}
+
+// ─────────────────────────────────────────────────────────
+// procedureDoc walker (ADR-0030 Unit 10)
+// ─────────────────────────────────────────────────────────
+
+/**
+ * Emit a procedureDoc body — title H1, optional Tools section, then a
+ * positionally-numbered sequence of step H2s with their content emitted
+ * recursively. Procedure-only nodes (procedureTitle / procedureTools /
+ * procedureStep) are intentionally NOT routed through `emitBlock`, so
+ * they never end up in `droppedBlocks` even though they are not in the
+ * notes-shape vocabulary.
+ */
+function emitProcedureDoc(
+  content: ProseMirrorNode[],
+  ctx: WalkCtx,
+): string[] {
+  const blocks: string[] = [];
+  let stepIndex = 0;
+
+  for (const node of content) {
+    switch (node.type) {
+      case "procedureTitle": {
+        const inline = emitInline(node.content ?? [], ctx);
+        if (inline.trim().length > 0) {
+          blocks.push(`# ${inline}`);
+        }
+        break;
+      }
+
+      case "procedureTools": {
+        const body = emitChildBlocks(node.content ?? [], ctx, 0);
+        if (body.trim().length > 0) {
+          blocks.push(`## Tools\n\n${body}`);
+        }
+        break;
+      }
+
+      case "procedureStep": {
+        stepIndex += 1;
+        const titleAttr =
+          typeof node.attrs?.title === "string" && node.attrs.title.trim().length > 0
+            ? node.attrs.title
+            : null;
+        const heading = titleAttr
+          ? `## Step ${stepIndex} \u2014 ${titleAttr}`
+          : `## Step ${stepIndex}`;
+        const body = emitChildBlocks(node.content ?? [], ctx, 0);
+        blocks.push(body.length > 0 ? `${heading}\n\n${body}` : heading);
+        break;
+      }
+
+      default:
+        // Unknown node inside a procedureDoc — fall through to the
+        // standard emitter so anything legitimately blockable (e.g. a
+        // stray paragraph from a bad import) still renders, and unknown
+        // types still get counted in droppedBlocks.
+        blocks.push(emitBlock(node, ctx, 0));
+        break;
+    }
+  }
+
+  return blocks;
 }
 
 // ─────────────────────────────────────────────────────────

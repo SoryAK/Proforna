@@ -32,9 +32,13 @@ export type ImportResult = {
   droppedBlocks: DroppedBlock[];
 };
 
-/** Minimal structural shape of a ProseMirror doc. Not exhaustive. */
+/** Minimal structural shape of a ProseMirror doc. Not exhaustive.
+ *  ADR-0030 \u2014 procedure work logs use `type: "procedureDoc"` as the
+ *  top-level node, with a constrained content vocabulary
+ *  (procedureTitle / procedureTools / procedureStep). The pm-to-markdown
+ *  serializer detects this and routes through a procedure-aware walker. */
 export type ProseMirrorDoc = {
-  type: "doc";
+  type: "doc" | "procedureDoc";
   content?: ProseMirrorNode[];
 };
 

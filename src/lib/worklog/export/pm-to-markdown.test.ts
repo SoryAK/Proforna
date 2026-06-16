@@ -372,3 +372,206 @@ describe("serializeToMarkdown — round-trip", () => {
     expect(reimported.plaintext).toBe(expectedText);
   });
 });
+
+// ─────────────────────────────────────────────────────────
+// ADR-0030 Unit 10 — procedureDoc → markdown
+// ─────────────────────────────────────────────────────────
+
+describe("serializeToMarkdown — procedureDoc (ADR-0030 Unit 10)", () => {
+  /**
+   * Locked rules:
+   *   R1. procedureTitle → `# Title` (single H1).
+   *       If empty/missing, no H1 is emitted (frontmatter already carries
+   *       the title).
+   *   R2. procedureTools → `## Tools` heading + the tools content emitted
+   *       as a regular markdown block (paragraph or list — pass-through).
+   *       Skipped entirely when the tools node is missing OR has no
+   *       non-whitespace text content.
+   *   R3. procedureStep → `## Step N — title` (with an em dash, unicode
+   *       U+2014). When the step has no title, just `## Step N`. Numbering
+   *       is positional and starts at 1.
+   *   R4. The body of each procedureStep is the rest of pm-to-markdown's
+   *       block emitters (paragraphs, lists, headings demoted? — no, we
+   *       trust paste normalization in Unit 7 to have already stripped
+   *       headings; we just emit recursively).
+   *   R5. droppedBlocks for procedure-only nodes is empty when the doc is
+   *       valid (procedureTitle / procedureTools / procedureStep are not
+   *       "dropped" — they are the new emitter targets).
+   */
+
+  // Fixture builders
+  const pdoc = (...content: ProseMirrorNode[]): ProseMirrorDoc =>
+    ({ type: "procedureDoc", content } as unknown as ProseMirrorDoc);
+
+  const ptitle = (text: string): ProseMirrorNode => ({
+    type: "procedureTitle",
+    content: text ? [t(text)] : [],
+  });
+
+  const ptools = (...content: ProseMirrorNode[]): ProseMirrorNode => ({
+    type: "procedureTools",
+    content,
+  });
+
+  const pstep = (
+    title: string | null,
+    ...content: ProseMirrorNode[]
+  ): ProseMirrorNode => ({
+    type: "procedureStep",
+    attrs: { title },
+    content,
+  });
+
+  it("emits procedureTitle as a single H1", () => {
+    const result = serializeToMarkdown(
+      pdoc(ptitle("Reset workstation"), pstep(null, p(t("body")))),
+    );
+    expect(result.markdown).toContain("# Reset workstation");
+  });
+
+  it("skips title H1 when procedureTitle is empty", () => {
+    const result = serializeToMarkdown(
+      pdoc(ptitle(""), pstep(null, p(t("body")))),
+    );
+    // No leading "# " line should appear
+    expect(result.markdown).not.toMatch(/^#\s/m);
+  });
+
+  it("emits procedureTools as `## Tools` followed by the tools body", () => {
+    const result = serializeToMarkdown(
+      pdoc(
+        ptitle("Reset"),
+        ptools(p(t("Multimeter, screwdriver"))),
+        pstep(null, p(t("Step body"))),
+      ),
+    );
+    expect(result.markdown).toContain("## Tools");
+    expect(result.markdown).toContain("Multimeter, screwdriver");
+    // Tools must come BEFORE the first step
+    const toolsIdx = result.markdown.indexOf("## Tools");
+    const stepIdx = result.markdown.indexOf("## Step");
+    expect(toolsIdx).toBeGreaterThan(-1);
+    expect(stepIdx).toBeGreaterThan(toolsIdx);
+  });
+
+  it("skips procedureTools entirely when its content is empty", () => {
+    const result = serializeToMarkdown(
+      pdoc(
+        ptitle("Reset"),
+        ptools(),
+        pstep(null, p(t("Step body"))),
+      ),
+    );
+    expect(result.markdown).not.toContain("## Tools");
+  });
+
+  it("emits procedureStep without title as `## Step N`", () => {
+    const result = serializeToMarkdown(
+      pdoc(
+        ptitle("Reset"),
+        pstep(null, p(t("alpha"))),
+        pstep(null, p(t("beta"))),
+      ),
+    );
+    expect(result.markdown).toContain("## Step 1");
+    expect(result.markdown).toContain("## Step 2");
+    expect(result.markdown).not.toContain("## Step 1 —");
+  });
+
+  it("emits procedureStep with title as `## Step N — title` (em dash)", () => {
+    const result = serializeToMarkdown(
+      pdoc(
+        ptitle("Reset"),
+        pstep("Power down", p(t("Pull the plug"))),
+        pstep("Verify", p(t("Check LED"))),
+      ),
+    );
+    expect(result.markdown).toContain("## Step 1 \u2014 Power down");
+    expect(result.markdown).toContain("## Step 2 \u2014 Verify");
+  });
+
+  it("emits step body as nested markdown blocks", () => {
+    const result = serializeToMarkdown(
+      pdoc(
+        ptitle("Reset"),
+        pstep(
+          "Power down",
+          p(t("Pull the plug")),
+          {
+            type: "bulletList",
+            content: [
+              { type: "listItem", content: [p(t("first"))] },
+              { type: "listItem", content: [p(t("second"))] },
+            ],
+          },
+        ),
+      ),
+    );
+    expect(result.markdown).toContain("Pull the plug");
+    expect(result.markdown).toContain("- first");
+    expect(result.markdown).toContain("- second");
+  });
+
+  it("numbers steps positionally (skips empty/dropped intermediates)", () => {
+    const result = serializeToMarkdown(
+      pdoc(
+        ptitle("Reset"),
+        pstep("First", p(t("a"))),
+        pstep(null, p(t("b"))),
+        pstep("Third", p(t("c"))),
+      ),
+    );
+    expect(result.markdown).toContain("## Step 1 \u2014 First");
+    expect(result.markdown).toContain("## Step 2");
+    expect(result.markdown).toContain("## Step 3 \u2014 Third");
+  });
+
+  it("does not list procedure-only nodes in droppedBlocks", () => {
+    const result = serializeToMarkdown(
+      pdoc(
+        ptitle("Reset"),
+        ptools(p(t("Multimeter"))),
+        pstep("First", p(t("a"))),
+      ),
+    );
+    const droppedTypes = result.droppedBlocks.map((d) => d.type);
+    expect(droppedTypes).not.toContain("procedureTitle");
+    expect(droppedTypes).not.toContain("procedureTools");
+    expect(droppedTypes).not.toContain("procedureStep");
+  });
+
+  it("emits an empty procedureDoc as the empty string", () => {
+    const result = serializeToMarkdown(pdoc());
+    expect(result.markdown).toBe("");
+    expect(result.droppedBlocks).toEqual([]);
+  });
+
+  it("orders title, tools, then steps deterministically", () => {
+    const result = serializeToMarkdown(
+      pdoc(
+        ptitle("Reset"),
+        ptools(p(t("Toolset"))),
+        pstep("First", p(t("a"))),
+        pstep("Second", p(t("b"))),
+      ),
+    );
+    const idxTitle = result.markdown.indexOf("# Reset");
+    const idxTools = result.markdown.indexOf("## Tools");
+    const idxStep1 = result.markdown.indexOf("## Step 1");
+    const idxStep2 = result.markdown.indexOf("## Step 2");
+    expect(idxTitle).toBeGreaterThan(-1);
+    expect(idxTools).toBeGreaterThan(idxTitle);
+    expect(idxStep1).toBeGreaterThan(idxTools);
+    expect(idxStep2).toBeGreaterThan(idxStep1);
+  });
+
+  it("escapes em dash literally in step body (not in step heading)", () => {
+    // Sanity check that the heading uses U+2014 specifically and the body
+    // text passes through escaping without altering em dashes.
+    const result = serializeToMarkdown(
+      pdoc(ptitle("X"), pstep("A — B", p(t("dash — in body")))),
+    );
+    expect(result.markdown).toContain("## Step 1 \u2014 A \u2014 B");
+    expect(result.markdown).toContain("dash \u2014 in body");
+  });
+});
