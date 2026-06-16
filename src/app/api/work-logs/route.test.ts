@@ -14,7 +14,7 @@
  */
 
 import { vi } from "vitest";
-import { GET } from "@/app/api/work-logs/route";
+import { GET, POST } from "@/app/api/work-logs/route";
 import { getUserId } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 
@@ -26,21 +26,36 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     workLog: {
       findMany: vi.fn(),
+      create:   vi.fn(),
     },
+    workHistory:      { findFirst: vi.fn() },
+    workHistoryShift: { findFirst: vi.fn() },
+    workLogTemplate:  { findFirst: vi.fn(), update: vi.fn() },
+    workLogFolder:    { findFirst: vi.fn() },
   },
 }));
 
 const mockGetUserId = vi.mocked(getUserId);
 const mockFindMany  = vi.mocked(prisma.workLog.findMany);
+const mockCreate    = vi.mocked(prisma.workLog.create);
 
 function makeRequest(qs = ""): Request {
   return new Request(`http://localhost/api/work-logs${qs ? `?${qs}` : ""}`);
+}
+
+function makePostRequest(body: unknown): Request {
+  return new Request("http://localhost/api/work-logs", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
 }
 
 beforeEach(() => {
   vi.resetAllMocks();
   mockGetUserId.mockResolvedValue("u1");
   mockFindMany.mockResolvedValue([] as any);
+  mockCreate.mockResolvedValue({ id: "new1" } as any);
 });
 
 describe("GET /api/work-logs — ADR-0026 archive filter", () => {
@@ -105,5 +120,48 @@ describe("GET /api/work-logs — ADR-0029 kind filter", () => {
     expect(res.status).toBe(200);
     const where = mockFindMany.mock.calls[0][0]!.where as Record<string, unknown>;
     expect(where.kind).toBe("procedure");
+  });
+});
+
+/**
+ * ADR-0029 — POST accepts kind='procedure'.
+ *
+ * The CTA on /worklog/procedures POSTs `{ kind: 'procedure', ... }` and the
+ * row must materialize on that page. The route must persist the kind on
+ * create. Default behavior (no kind in body) still creates a note.
+ */
+describe("POST /api/work-logs — ADR-0029 kind acceptance", () => {
+  it("persists kind='procedure' when body includes kind: 'procedure'", async () => {
+    const res = await POST(makePostRequest({
+      title: "Lock-out tag-out",
+      date: "2026-06-15T08:00:00.000Z",
+      kind: "procedure",
+    }));
+    expect(res.status).toBe(201);
+    expect(mockCreate).toHaveBeenCalledTimes(1);
+    const data = mockCreate.mock.calls[0][0]!.data as Record<string, unknown>;
+    expect(data.kind).toBe("procedure");
+  });
+
+  it("defaults to kind='note' when body omits kind", async () => {
+    const res = await POST(makePostRequest({
+      title: "Routine note",
+      date: "2026-06-15T08:00:00.000Z",
+    }));
+    expect(res.status).toBe(201);
+    const data = mockCreate.mock.calls[0][0]!.data as Record<string, unknown>;
+    expect(data.kind).toBe("note");
+  });
+
+  it("rejects an unknown kind value (defaults to 'note', never persists garbage)", async () => {
+    const res = await POST(makePostRequest({
+      title: "Bad kind",
+      date: "2026-06-15T08:00:00.000Z",
+      kind: "something-else",
+    }));
+    expect(res.status).toBe(201);
+    const data = mockCreate.mock.calls[0][0]!.data as Record<string, unknown>;
+    // Whitelist behavior: anything that isn't 'procedure' falls back to 'note'.
+    expect(data.kind).toBe("note");
   });
 });

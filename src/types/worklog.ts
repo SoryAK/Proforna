@@ -52,6 +52,14 @@ export type WorkLog = {
    * Hard delete remains a separate destructive action.
    */
   archivedAt: string | null;
+  /**
+   * ADR-0029 — kind discriminator. `'note'` (default) for routine entries;
+   * `'procedure'` for runbooks rendered on `/worklog/procedures`. The list
+   * query at `/api/work-logs` defaults to `kind='note'`; the procedures
+   * surface opts in via `?kind=procedure`. Field is set at creation only —
+   * PUT never flips it.
+   */
+  kind?: "note" | "procedure";
   createdAt: string;
   updatedAt: string;
   /** Display order within a folder/unfiled group. Optional since legacy cache entries may lack it. */

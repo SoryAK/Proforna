@@ -136,7 +136,13 @@ export async function POST(request: Request) {
       equipmentIds,
       assetIds,
       folderId,
+      kind,
     } = body;
+
+    // ADR-0029 — kind discriminator whitelist. Only 'procedure' opts into
+    // the runbook bucket; everything else (including absent / unknown values)
+    // falls back to 'note'. Never trust the client to set arbitrary values.
+    const kindValue: "note" | "procedure" = kind === "procedure" ? "procedure" : "note";
 
     if (!date || !title) {
       return NextResponse.json({ error: "date and title are required" }, { status: 400 });
@@ -218,6 +224,7 @@ export async function POST(request: Request) {
         equipmentIds: Array.isArray(equipmentIds) ? equipmentIds : [],
         assetIds: Array.isArray(assetIds) ? assetIds : [],
         folderId: folderId || null,
+        kind: kindValue,
       },
     });
 

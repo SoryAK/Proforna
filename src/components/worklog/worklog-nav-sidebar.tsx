@@ -29,7 +29,7 @@ import { useMemo } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { CalendarDays, ChevronLeft, FileText, Home, Inbox, Sparkles, Star, Archive } from "lucide-react";
+import { CalendarDays, ChevronLeft, ClipboardList, FileText, Home, Inbox, Sparkles, Star, Archive } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { WorklogFolderTreeItems } from "@/components/worklog/worklog-folder-tree-items";
 import { WorklogCategoryRows } from "@/components/worklog/worklog-category-rows";
@@ -146,6 +146,18 @@ export function WorklogNavSidebar({ onShowGlobal }: WorklogNavSidebarProps) {
   const eventsCount = events.length;
   const eventsActive = pathname === "/worklog/events";
 
+  // ADR-0029 — Procedures sibling surface. Same shape pattern as Events:
+  // a separate query so the kind-filter discriminator stays explicit, and
+  // the sidebar count + page list share `["worklogs", "procedures"]`.
+  const { data: procedures = [] } = useQuery<Array<{ id: string }>>({
+    queryKey: ["worklogs", "procedures"],
+    queryFn: () =>
+      fetch("/api/work-logs?archived=all&kind=procedure").then((r) => r.json()),
+    staleTime: 30_000,
+  });
+  const proceduresCount = procedures.length;
+  const proceduresActive = pathname === "/worklog/procedures";
+
   const categoryCounts = useMemo(() => {
     const m = new Map<string, number>();
     for (const l of logs) {
@@ -251,6 +263,36 @@ export function WorklogNavSidebar({ onShowGlobal }: WorklogNavSidebarProps) {
               )}
             >
               {eventsCount}
+            </span>
+          )}
+        </Link>
+        {/* ADR-0029 — Procedures sibling surface. Sits directly under Events,
+            inside the same "different destination" cluster (no divider needed
+            here — Events row already drew the boundary above). */}
+        <Link
+          href="/worklog/procedures"
+          data-rail-row
+          aria-current={proceduresActive ? "true" : undefined}
+          className={cn(
+            "w-full flex items-center gap-3 rounded-lg text-base font-medium transition-colors px-3 py-2.5",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
+            proceduresActive
+              ? "bg-orange-100 dark:bg-orange-900/30 text-orange-900 dark:text-orange-100"
+              : "hover:bg-accent text-foreground/80 hover:text-foreground",
+          )}
+        >
+          <ClipboardList className="h-5 w-5 flex-shrink-0" />
+          <span className="truncate">Procedures</span>
+          {proceduresCount > 0 && (
+            <span
+              className={cn(
+                "ml-auto text-[11px] tabular-nums",
+                proceduresActive
+                  ? "text-orange-700 dark:text-orange-300"
+                  : "text-muted-foreground",
+              )}
+            >
+              {proceduresCount}
             </span>
           )}
         </Link>
