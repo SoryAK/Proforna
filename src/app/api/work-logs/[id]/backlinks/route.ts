@@ -1,11 +1,14 @@
 /**
  * GET /api/work-logs/[id]/backlinks
  *
- * Returns the list of WorkLog entries that mention the target note via an
- * `@n:` mention (i.e. their `linkedNoteIds` array contains the target id).
+ * Returns the list of WorkLog entries that mention the target worklog via an
+ * `@n:` (note) OR `@r:` (procedure) mention — i.e. their `linkedWorkLogIds`
+ * array contains the target id. Kind-agnostic by design (ADR-0029 P0-#1):
+ * one query answers "what mentions this worklog" regardless of whether the
+ * mentioning row is itself a note or a procedure.
  *
- * Owner-scoped: only the signed-in user's notes are searched, and the
- * target note itself is filtered out (`NOT: { id }`).
+ * Owner-scoped: only the signed-in user's worklogs are searched, and the
+ * target itself is filtered out (`NOT: { id }`).
  *
  * Response shape: `Array<{ id, label, date, positionId }>`. `label` follows
  * the shared worklog-label fallback chain (title → first content line → date),
@@ -31,7 +34,7 @@ export async function GET(
   const rows = await prisma.workLog.findMany({
     where: {
       userId,
-      linkedNoteIds: { has: id },
+      linkedWorkLogIds: { has: id },
       NOT: { id },
     },
     select: { id: true, title: true, contentJson: true, date: true, positionId: true },

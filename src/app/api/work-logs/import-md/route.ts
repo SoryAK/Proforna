@@ -82,7 +82,7 @@ export async function POST(request: Request) {
       title: true,
       content: true,
       contentJson: true,
-      linkedNoteIds: true,
+      linkedWorkLogIds: true,
       assetIds: true,
     },
   });
@@ -148,7 +148,7 @@ async function performMatchWrite(args: {
     title: string;
     content: string | null;
     contentJson: unknown;
-    linkedNoteIds: string[];
+    linkedWorkLogIds: string[];
     assetIds: string[];
   };
   parsedBody: ReturnType<typeof importMarkdown>;
@@ -168,19 +168,23 @@ async function performMatchWrite(args: {
 
   // Mention-derived columns. Mirror the PUT route's invariants exactly:
   //   - assetIds = additive merge (mentions only ADD)
-  //   - linkedNoteIds = replacement, with self-loop guard
+  //   - linkedWorkLogIds = replacement, with self-loop guard, kind-agnostic
+  //     (union of @n: + @r: mentions — ADR-0029 P0-#1)
   const newMentionAssets = extractMentionAssetIds(contentJson);
   const mergedAssetIds = Array.from(
     new Set([...workLog.assetIds, ...newMentionAssets]),
   );
   const writeAssetIds = !arraysEqualAsSets(mergedAssetIds, workLog.assetIds);
 
-  const newLinkedNoteIds = extractMentionEntityIds(contentJson, "worklog").filter(
-    (entityId) => entityId !== workLog.id,
-  );
-  const writeLinkedNoteIds = !arraysEqualAsSets(
-    newLinkedNoteIds,
-    workLog.linkedNoteIds,
+  const newLinkedWorkLogIds = Array.from(
+    new Set([
+      ...extractMentionEntityIds(contentJson, "worklog"),
+      ...extractMentionEntityIds(contentJson, "procedure"),
+    ]),
+  ).filter((entityId) => entityId !== workLog.id);
+  const writeLinkedWorkLogIds = !arraysEqualAsSets(
+    newLinkedWorkLogIds,
+    workLog.linkedWorkLogIds,
   );
 
   // Choose the title: frontmatter title wins, fallback to parsed result.
@@ -194,7 +198,7 @@ async function performMatchWrite(args: {
       content: parsedBody.plaintext,
       contentJson,
       ...(writeAssetIds ? { assetIds: mergedAssetIds } : {}),
-      ...(writeLinkedNoteIds ? { linkedNoteIds: newLinkedNoteIds } : {}),
+      ...(writeLinkedWorkLogIds ? { linkedWorkLogIds: newLinkedWorkLogIds } : {}),
     },
   });
 

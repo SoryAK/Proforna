@@ -1,7 +1,7 @@
 /**
  * Tests for arraysEqualAsSets — used by the WorkLog PUT route's
  * skip-if-equal guard so autosave does not re-write GIN-indexed array
- * columns (assetIds, linkedNoteIds) on every save when nothing changed.
+ * columns (assetIds, linkedWorkLogIds) on every save when nothing changed.
  *
  * @see ADR-0016
  */

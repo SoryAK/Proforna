@@ -46,7 +46,7 @@ export async function PUT(
 
     const existing = await prisma.workLog.findFirst({
       where: { id, userId },
-      select: { id: true, positionId: true, date: true, shiftId: true, assetIds: true, linkedNoteIds: true, linkedContactIds: true, content: true },
+      select: { id: true, positionId: true, date: true, shiftId: true, assetIds: true, linkedWorkLogIds: true, linkedContactIds: true, content: true },
     });
     if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
@@ -98,20 +98,27 @@ export async function PUT(
     const writeAssetIds: boolean =
       mergedAssetIds !== null && !arraysEqualAsSets(mergedAssetIds, existing.assetIds);
 
-    // ADR-0016: linkedNoteIds is REPLACEMENT (not additive). The only source
-    // is @n: mentions in contentJson, so removing a chip from the doc must
-    // remove the link. Self-loop guard filters the current note's own id.
-    const linkedNoteIds: string[] | null =
+    // ADR-0016 (origin) + ADR-0029 P0-#1 (kind-agnostic widening):
+    // linkedWorkLogIds is REPLACEMENT (not additive). The source is the
+    // union of @n: (worklog/note) AND @r: (procedure) mentions in
+    // contentJson — procedures and notes are the same WorkLog model under
+    // the `kind` discriminator, so a single column answers "what mentions
+    // this worklog" for any kind. Self-loop guard filters the current
+    // worklog's own id regardless of which mention type was used.
+    const linkedWorkLogIds: string[] | null =
       hasOwn(body, "contentJson") && validatedContentJson
-        ? extractMentionEntityIds(validatedContentJson, "worklog").filter(
-            (entityId) => entityId !== id,
-          )
+        ? Array.from(
+            new Set([
+              ...extractMentionEntityIds(validatedContentJson, "worklog"),
+              ...extractMentionEntityIds(validatedContentJson, "procedure"),
+            ]),
+          ).filter((entityId) => entityId !== id)
         : null; // null → contentJson absent, leave column untouched
 
-    const writeLinkedNoteIds: boolean =
-      linkedNoteIds !== null && !arraysEqualAsSets(linkedNoteIds, existing.linkedNoteIds);
+    const writeLinkedWorkLogIds: boolean =
+      linkedWorkLogIds !== null && !arraysEqualAsSets(linkedWorkLogIds, existing.linkedWorkLogIds);
 
-    // ADR-0028: linkedContactIds is REPLACEMENT (mirror linkedNoteIds — there
+    // ADR-0028: linkedContactIds is REPLACEMENT (mirror linkedWorkLogIds — there
     // is no manual contact UI seam on a WorkLog, so the @p: chip in
     // contentJson IS the only link source). No self-loop guard needed —
     // contacts and worklogs are different entity types.
@@ -200,7 +207,7 @@ export async function PUT(
         ? { equipmentIds: Array.isArray(body.equipmentIds) ? body.equipmentIds : undefined }
         : {}),
       ...(writeAssetIds ? { assetIds: mergedAssetIds! } : {}),
-      ...(writeLinkedNoteIds ? { linkedNoteIds: linkedNoteIds! } : {}),
+      ...(writeLinkedWorkLogIds ? { linkedWorkLogIds: linkedWorkLogIds! } : {}),
       ...(hasOwn(body, "folderId")
         ? { folderId: body.folderId ? String(body.folderId) : null }
         : {}),

@@ -4,7 +4,7 @@
  * Auth: getUserId mock
  * DB:   prisma.workLog.findMany mocked
  *
- * Coverage: 401, owner-scoped lookup with `linkedNoteIds: { has: id }`,
+ * Coverage: 401, owner-scoped lookup with `linkedWorkLogIds: { has: id }`,
  *           self-filter via `NOT: { id }`, label derivation from contentJson,
  *           empty array on no matches, cross-user isolation.
  */
@@ -97,7 +97,7 @@ describe("GET /api/work-logs/[id]/backlinks", () => {
       select: Record<string, unknown>;
     };
     expect(call.where.userId).toBe("u1");
-    // Where clause must include `linkedNoteIds: { has: "log-target" }` and exclude self.
+    // Where clause must include `linkedWorkLogIds: { has: "log-target" }` and exclude self.
     expect(JSON.stringify(call.where)).toContain("log-target");
     expect(call.where.NOT).toEqual({ id: "log-target" });
     // Must select the title column so we can prefer it for the label.

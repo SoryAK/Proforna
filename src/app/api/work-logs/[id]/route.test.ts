@@ -64,7 +64,7 @@ function makeRequest(id: string, body: unknown): [Request, { params: Promise<{ i
 /** Minimal existing log fixture — shiftId null avoids the shift lookup branch. */
 function existingLog(
   assetIds: string[] = [],
-  linkedNoteIds: string[] = [],
+  linkedWorkLogIds: string[] = [],
   linkedContactIds: string[] = [],
 ) {
   return {
@@ -73,7 +73,7 @@ function existingLog(
     date: new Date("2026-01-15T08:00:00.000Z"),
     shiftId: null,
     assetIds,
-    linkedNoteIds,
+    linkedWorkLogIds,
     linkedContactIds,
   };
 }
@@ -247,15 +247,15 @@ describe("PUT /api/work-logs/[id] — mention-asset merge", () => {
 });
 
 // ────────────────────────────────────────────────────
-// ADR-0016 — linkedNoteIds + self-loop + skip-if-equal
+// ADR-0016 (origin) + ADR-0029 P0-#1 — linkedWorkLogIds (kind-agnostic)
 // ────────────────────────────────────────────────────
 
 function emptyDoc() {
   return { type: "doc", content: [{ type: "paragraph" }] };
 }
 
-describe("PUT /api/work-logs/[id] — ADR-0016 linkedNoteIds", () => {
-  it("populates linkedNoteIds from @n: mentions on save", async () => {
+describe("PUT /api/work-logs/[id] — ADR-0016 + ADR-0029 linkedWorkLogIds", () => {
+  it("populates linkedWorkLogIds from @n: mentions on save", async () => {
     mockGetUserId.mockResolvedValue("u1");
     mockFindFirst.mockResolvedValue(existingLog([], []) as any);
 
@@ -265,29 +265,141 @@ describe("PUT /api/work-logs/[id] — ADR-0016 linkedNoteIds", () => {
     await PUT(req, ctx);
 
     const updateData = mockUpdate.mock.calls[0][0].data as Record<string, unknown>;
-    expect(updateData.linkedNoteIds).toEqual(["log-other"]);
+    expect(updateData.linkedWorkLogIds).toEqual(["log-other"]);
   });
 
-  it("self-loop guard: filters current log id from linkedNoteIds at write time", async () => {
+  it("populates linkedWorkLogIds from @r: procedure mentions on save (P0-#1 widening)", async () => {
+    // ADR-0029 P0-#1: the projection column is kind-agnostic. A doc that
+    // mentions ONLY procedures must still produce a backlinks entry, so
+    // "what mentions this runbook" works in a single query.
     mockGetUserId.mockResolvedValue("u1");
     mockFindFirst.mockResolvedValue(existingLog([], []) as any);
 
     const [req, ctx] = makeRequest("log1", {
-      // Doc references the note being edited (paste/copy edge case bypassing picker).
+      contentJson: docWithMentions([], [{ type: "procedure", id: "runbook-1" }]),
+    });
+    await PUT(req, ctx);
+
+    const updateData = mockUpdate.mock.calls[0][0].data as Record<string, unknown>;
+    expect(updateData.linkedWorkLogIds).toEqual(["runbook-1"]);
+  });
+
+  it("unions @n: + @r: mentions and dedupes the set (P0-#1 widening)", async () => {
+    // Mixed-mention doc: a note that references both a sibling note and a
+    // runbook. Both ids land in linkedWorkLogIds. Dedup is a Set-based
+    // guarantee — same id mentioned twice still appears once.
+    mockGetUserId.mockResolvedValue("u1");
+    mockFindFirst.mockResolvedValue(existingLog([], []) as any);
+
+    const [req, ctx] = makeRequest("log1", {
+      contentJson: docWithMentions([], [
+        { type: "worklog", id: "log-a" },
+        { type: "procedure", id: "runbook-1" },
+        { type: "worklog", id: "log-a" }, // duplicate
+      ]),
+    });
+    await PUT(req, ctx);
+
+    const updateData = mockUpdate.mock.calls[0][0].data as Record<string, unknown>;
+    const stored = updateData.linkedWorkLogIds as string[];
+    expect(stored).toHaveLength(2);
+    expect(stored).toContain("log-a");
+    expect(stored).toContain("runbook-1");
+  });
+
+  it("self-loop guard also filters current id from @r: mentions (P0-#1 widening)", async () => {
+    // Edge case: a worklog that auto-references its own id via @r:
+    // (could happen via doc clone). Must drop self regardless of mention type.
+    mockGetUserId.mockResolvedValue("u1");
+    mockFindFirst.mockResolvedValue(existingLog([], []) as any);
+
+    const [req, ctx] = makeRequest("log1", {
+      contentJson: docWithMentions([], [
+        { type: "procedure", id: "log1" },
+        { type: "procedure", id: "runbook-2" },
+      ]),
+    });
+    await PUT(req, ctx);
+
+    const updateData = mockUpdate.mock.calls[0][0].data as Record<string, unknown>;
+    expect(updateData.linkedWorkLogIds).toEqual(["runbook-2"]);
+  });
+  it("populates linkedWorkLogIds from @r: procedure mentions on save (P0-#1 widening)", async () => {
+    // ADR-0029 P0-#1: the projection column is kind-agnostic. A doc that
+    // mentions ONLY procedures must still produce a backlinks entry, so
+    // "what mentions this runbook" works in a single query.
+    mockGetUserId.mockResolvedValue("u1");
+    mockFindFirst.mockResolvedValue(existingLog([], []) as any);
+
+    const [req, ctx] = makeRequest("log1", {
+      contentJson: docWithMentions([], [{ type: "procedure", id: "runbook-1" }]),
+    });
+    await PUT(req, ctx);
+
+    const updateData = mockUpdate.mock.calls[0][0].data as Record<string, unknown>;
+    expect(updateData.linkedWorkLogIds).toEqual(["runbook-1"]);
+  });
+
+  it("unions @n: + @r: mentions and dedupes the set (P0-#1 widening)", async () => {
+    // Mixed-mention doc: a note that references both a sibling note and a
+    // runbook. Both ids land in linkedWorkLogIds. Dedup is a Set-based
+    // guarantee — same id mentioned twice still appears once.
+    mockGetUserId.mockResolvedValue("u1");
+    mockFindFirst.mockResolvedValue(existingLog([], []) as any);
+
+    const [req, ctx] = makeRequest("log1", {
+      contentJson: docWithMentions([], [
+        { type: "worklog", id: "log-a" },
+        { type: "procedure", id: "runbook-1" },
+        { type: "worklog", id: "log-a" }, // duplicate
+      ]),
+    });
+    await PUT(req, ctx);
+
+    const updateData = mockUpdate.mock.calls[0][0].data as Record<string, unknown>;
+    const stored = updateData.linkedWorkLogIds as string[];
+    expect(stored).toHaveLength(2);
+    expect(stored).toContain("log-a");
+    expect(stored).toContain("runbook-1");
+  });
+
+  it("self-loop guard also filters current id from @r: mentions (P0-#1 widening)", async () => {
+    // Edge case: a worklog that auto-references its own id via @r:
+    // (could happen via doc clone). Must drop self regardless of mention type.
+    mockGetUserId.mockResolvedValue("u1");
+    mockFindFirst.mockResolvedValue(existingLog([], []) as any);
+
+    const [req, ctx] = makeRequest("log1", {
+      contentJson: docWithMentions([], [
+        { type: "procedure", id: "log1" },
+        { type: "procedure", id: "runbook-2" },
+      ]),
+    });
+    await PUT(req, ctx);
+
+    const updateData = mockUpdate.mock.calls[0][0].data as Record<string, unknown>;
+    expect(updateData.linkedWorkLogIds).toEqual(["runbook-2"]);
+  });
+  it("self-loop guard: filters current log id from linkedWorkLogIds at write time", async () => {
+    mockGetUserId.mockResolvedValue("u1");
+    mockFindFirst.mockResolvedValue(existingLog([], []) as any);
+
+    const [req, ctx] = makeRequest("log1", {
+      // Doc references the worklog being edited (paste/copy edge case bypassing picker).
       contentJson: docWithMentions([], [{ type: "worklog", id: "log1" }]),
     });
     await PUT(req, ctx);
 
     const updateData = mockUpdate.mock.calls[0][0].data as Record<string, unknown>;
-    if ("linkedNoteIds" in updateData) {
-      expect(updateData.linkedNoteIds).not.toContain("log1");
-      expect(updateData.linkedNoteIds).toEqual([]);
+    if ("linkedWorkLogIds" in updateData) {
+      expect(updateData.linkedWorkLogIds).not.toContain("log1");
+      expect(updateData.linkedWorkLogIds).toEqual([]);
     }
     // If skip-if-equal omitted the column entirely, that's also fine — the
-    // guarantee is that "log1" is never persisted into linkedNoteIds.
+    // guarantee is that "log1" is never persisted into linkedWorkLogIds.
   });
 
-  it("skip-if-equal: omits linkedNoteIds when extracted set matches existing", async () => {
+  it("skip-if-equal: omits linkedWorkLogIds when extracted set matches existing", async () => {
     mockGetUserId.mockResolvedValue("u1");
     mockFindFirst.mockResolvedValue(existingLog([], ["log-other"]) as any);
 
@@ -297,10 +409,10 @@ describe("PUT /api/work-logs/[id] — ADR-0016 linkedNoteIds", () => {
     await PUT(req, ctx);
 
     const updateData = mockUpdate.mock.calls[0][0].data as Record<string, unknown>;
-    expect(updateData).not.toHaveProperty("linkedNoteIds");
+    expect(updateData).not.toHaveProperty("linkedWorkLogIds");
   });
 
-  it("replacement semantic: clears linkedNoteIds when chip is removed from doc", async () => {
+  it("replacement semantic: clears linkedWorkLogIds when chip is removed from doc", async () => {
     mockGetUserId.mockResolvedValue("u1");
     mockFindFirst.mockResolvedValue(existingLog([], ["log-old"]) as any);
 
@@ -309,10 +421,10 @@ describe("PUT /api/work-logs/[id] — ADR-0016 linkedNoteIds", () => {
     await PUT(req, ctx);
 
     const updateData = mockUpdate.mock.calls[0][0].data as Record<string, unknown>;
-    expect(updateData.linkedNoteIds).toEqual([]);
+    expect(updateData.linkedWorkLogIds).toEqual([]);
   });
 
-  it("does not touch linkedNoteIds when contentJson is absent from body", async () => {
+  it("does not touch linkedWorkLogIds when contentJson is absent from body", async () => {
     mockGetUserId.mockResolvedValue("u1");
     mockFindFirst.mockResolvedValue(existingLog([], ["log-old"]) as any);
 
@@ -320,7 +432,7 @@ describe("PUT /api/work-logs/[id] — ADR-0016 linkedNoteIds", () => {
     await PUT(req, ctx);
 
     const updateData = mockUpdate.mock.calls[0][0].data as Record<string, unknown>;
-    expect(updateData).not.toHaveProperty("linkedNoteIds");
+    expect(updateData).not.toHaveProperty("linkedWorkLogIds");
   });
 });
 
@@ -360,7 +472,7 @@ describe("PUT /api/work-logs/[id] — ADR-0028 linkedContactIds", () => {
     mockFindFirst.mockResolvedValue(existingLog([], [], ["contact-old"]) as any);
 
     // contentJson saved with NO contact mentions — link should clear (REPLACE,
-    // mirror linkedNoteIds, not assetIds — there is no manual contact UI seam).
+    // mirror linkedWorkLogIds, not assetIds — there is no manual contact UI seam).
     const [req, ctx] = makeRequest("log1", { contentJson: emptyDoc() });
     await PUT(req, ctx);
 

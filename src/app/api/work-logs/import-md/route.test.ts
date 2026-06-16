@@ -9,7 +9,7 @@
  *   - calls decideImport() to choose one of four outcomes
  *
  * Branches:
- *   1. match           — write contentJson + plaintext + linkedNoteIds,
+ *   1. match           — write contentJson + plaintext + linkedWorkLogIds,
  *                        fire auto-snapshot, return { status: "imported" }
  *   2. conflict        — return { status: "conflict", file*, server* } so
  *                        client can show the 3-way diff modal
@@ -136,7 +136,7 @@ describe("POST /api/work-logs/import-md — match", () => {
         type: "doc",
         content: [{ type: "paragraph", content: [{ type: "text", text: "old body" }] }],
       },
-      linkedNoteIds: [],
+      linkedWorkLogIds: [],
       assetIds: [],
     } as unknown as ReturnType<typeof mockWorkLogFindFirst>["mock"]["results"][number]["value"]);
     mockVersionCount.mockResolvedValue(versionCount);
@@ -196,7 +196,7 @@ describe("POST /api/work-logs/import-md — conflict", () => {
           { type: "paragraph", content: [{ type: "text", text: "server body" }] },
         ],
       },
-      linkedNoteIds: [],
+      linkedWorkLogIds: [],
       assetIds: [],
     } as unknown as ReturnType<typeof mockWorkLogFindFirst>["mock"]["results"][number]["value"]);
     mockVersionCount.mockResolvedValue(7);
@@ -224,7 +224,7 @@ describe("POST /api/work-logs/import-md — conflict", () => {
       title: "Server",
       content: "body",
       contentJson: { type: "doc", content: [] },
-      linkedNoteIds: [],
+      linkedWorkLogIds: [],
       assetIds: [],
     } as unknown as ReturnType<typeof mockWorkLogFindFirst>["mock"]["results"][number]["value"]);
     mockVersionCount.mockResolvedValue(7);

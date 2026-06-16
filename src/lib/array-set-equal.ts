@@ -2,7 +2,7 @@
  * Set-equality check for two string arrays.
  *
  * Used by the WorkLog PUT route's skip-if-equal guard (ADR-0016) so a save
- * with no changes to denormalized arrays (`assetIds`, `linkedNoteIds`) omits
+ * with no changes to denormalized arrays (`assetIds`, `linkedWorkLogIds`) omits
  * those columns from `update.data` — avoiding unnecessary GIN index churn on
  * autosave (~3s debounce per ADR-0009).
  */
