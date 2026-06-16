@@ -16,6 +16,7 @@ import { isToday, parseISO, formatDistanceToNowStrict } from "date-fns";
 import { ArrowRight, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { resolveCategoryMeta } from "@/components/worklog/constants";
+import { WorklogKindBadge } from "@/components/worklog/worklog-kind-badge";
 import type { WorkLog } from "@/types/worklog";
 
 const RECENT_LIMIT = 8;
@@ -82,10 +83,14 @@ export function WorklogRecentList() {
                 href={`/worklog/notes/${log.id}`}
                 className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent/40 transition-colors"
               >
-                <span
-                  className={cn("w-1.5 h-1.5 rounded-full shrink-0", dotClass)}
-                  title={meta?.label}
-                />
+                {log.kind === "procedure" ? (
+                  <WorklogKindBadge kind={log.kind} />
+                ) : (
+                  <span
+                    className={cn("w-1.5 h-1.5 rounded-full shrink-0", dotClass)}
+                    title={meta?.label}
+                  />
+                )}
                 <span className="font-medium truncate shrink-0 max-w-[24ch]">
                   {log.title || "Untitled"}
                 </span>

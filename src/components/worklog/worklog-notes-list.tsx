@@ -28,6 +28,7 @@ import type { WorkLog, Position } from "@/types/worklog";
 import { useWorklogFolders } from "@/components/worklog/hooks/use-worklog-folders";
 import { WorklogMoveToFolderDialog } from "@/components/worklog/worklog-move-to-folder-dialog";
 import { WorklogRowContextMenu } from "@/components/worklog/worklog-row-context-menu";
+import { WorklogKindBadge } from "@/components/worklog/worklog-kind-badge";
 
 /**
  * Multi-select API surfaced by the orchestrator. Optional — when omitted
@@ -446,7 +447,11 @@ export function WorklogNotesList({
                   <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                      {Icon && <Icon className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />}
+                      {l.kind === "procedure" ? (
+                        <WorklogKindBadge kind={l.kind} />
+                      ) : (
+                        Icon && <Icon className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                      )}
                       <h3 className="text-sm font-medium truncate">
                         {l.title || <span className="text-muted-foreground italic">Untitled</span>}
                       </h3>

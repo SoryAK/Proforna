@@ -16,6 +16,7 @@ import { useMemo } from "react";
 import { Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { resolveCategoryMeta } from "@/components/worklog/constants";
+import { WorklogKindBadge } from "@/components/worklog/worklog-kind-badge";
 import { WorklogRowContextMenu } from "@/components/worklog/worklog-row-context-menu";
 import type { UseWorklogSelectionApi } from "@/components/worklog/hooks/use-worklog-selection";
 import type { Position, WorkLog, WorkLogFolderWithCount } from "@/types/worklog";
@@ -209,13 +210,19 @@ export function WorklogNotesGrid({
 
             {/* Title row: dot · title · star */}
             <div className="flex items-start gap-2 mb-1.5 pr-6">
-              <span
-                className={cn(
-                  "w-1.5 h-1.5 rounded-full shrink-0 mt-1.5",
-                  dotClass,
-                )}
-                title={meta?.label}
-              />
+              {log.kind === "procedure" ? (
+                <span className="mt-0.5">
+                  <WorklogKindBadge kind={log.kind} />
+                </span>
+              ) : (
+                <span
+                  className={cn(
+                    "w-1.5 h-1.5 rounded-full shrink-0 mt-1.5",
+                    dotClass,
+                  )}
+                  title={meta?.label}
+                />
+              )}
               <span className="text-sm font-medium leading-snug line-clamp-2 flex-1">
                 {log.title || "Untitled"}
               </span>

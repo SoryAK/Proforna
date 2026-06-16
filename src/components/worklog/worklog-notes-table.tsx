@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { resolveCategoryMeta } from "@/components/worklog/constants";
+import { WorklogKindBadge } from "@/components/worklog/worklog-kind-badge";
 import { WorklogRowContextMenu } from "@/components/worklog/worklog-row-context-menu";
 import type { UseWorklogSelectionApi } from "@/components/worklog/hooks/use-worklog-selection";
 import type { Position, WorkLog, WorkLogFolderWithCount } from "@/types/worklog";
@@ -316,10 +317,14 @@ export function WorklogNotesTable({
                         className="cursor-pointer shrink-0"
                       />
                     )}
-                    <span
-                      className={cn("w-1.5 h-1.5 rounded-full shrink-0", dotClass)}
-                      title={meta?.label}
-                    />
+                    {log.kind === "procedure" ? (
+                      <WorklogKindBadge kind={log.kind} />
+                    ) : (
+                      <span
+                        className={cn("w-1.5 h-1.5 rounded-full shrink-0", dotClass)}
+                        title={meta?.label}
+                      />
+                    )}
                     <span className="text-sm font-medium truncate flex-1 min-w-0">
                       {log.title || "Untitled"}
                     </span>
@@ -404,10 +409,14 @@ export function WorklogNotesTable({
 
                 {/* Title cell: dot · title · notable · inline preview */}
                 <div className="flex items-center gap-2 min-w-0">
-                  <span
-                    className={cn("w-1.5 h-1.5 rounded-full shrink-0", dotClass)}
-                    title={meta?.label}
-                  />
+                  {log.kind === "procedure" ? (
+                    <WorklogKindBadge kind={log.kind} />
+                  ) : (
+                    <span
+                      className={cn("w-1.5 h-1.5 rounded-full shrink-0", dotClass)}
+                      title={meta?.label}
+                    />
+                  )}
                   <span className="text-sm font-medium truncate shrink-0 max-w-[28ch]">
                     {log.title || "Untitled"}
                   </span>
