@@ -1,9 +1,9 @@
 # Workflow: Wire a New Mention Entity Type Into the Tiptap @-Picker
 
 **Workflow type:** `wire-mention-entity-type`
-**Last Updated:** 2026-06-15 (rev. 3 — second cross-cut backlinks application validates the recipe; ADR-0028 added `linkedContactIds` the same shape as `linkedNoteIds` with no schema deviations except the absent self-loop guard)
+**Last Updated:** 2026-06-15 (rev. 4 — sixth letter `r` for runbooks; ADR-0029 introduces the **kind-discriminator filter** as a first-class step when the new type shares its underlying table with an existing type, and validates the cross-cut recipe a *third* time with an additional layer: `JobAsset` -> `WorkLog(kind='procedure')` via the existing `assetIds: String[]` GIN column — no new column, just a compound `where`)
 **Origin sprint:** ADR-0016 (note-to-note linking) — fifth entity type added to a four-type picker.
-**Re-validated by:** ADR-0028 (`linkedContactIds` for `@p:` contact mentions).
+**Re-validated by:** ADR-0028 (`linkedContactIds` for `@p:` contact mentions), ADR-0029 (`@r:` runbooks via `WorkLog.kind` discriminator + `JobAsset` cross-cut).
 
 This recipe applies when adding a **new entity type** to the worklog `@`-mention system (e.g. adding `@n:` for notes alongside existing `@a:` asset, `@s:` skill, `@c:` company, `@p:` contact). The mention infrastructure projects each chip's `entityId` into a structured `WorkLog.<kind>Ids: String[]` column with a GIN index for fast lookups, so new types follow a predictable shape: pick a single-letter prefix, decide if it's additive or replacement, and follow the eight steps below.
 
@@ -25,7 +25,7 @@ If you only need the chip for display (no column projection, no backlinks), you 
 
 ## Successful Sequence
 
-1. **Pick the prefix and confirm uniqueness.** One ASCII letter, no overlap with existing types. Update the regex at the top of `mention-suggestion.ts` so the new letter is accepted: `/^([ascpn]):(.*)$/` etc. The prefix becomes part of the user-facing ergonomics — short and intuitive trumps strict acronym matching (`@n:` for note beats `@nt:`).
+1. **Pick the prefix and confirm uniqueness.** One ASCII letter, no overlap with existing types. Update the regex at the top of `mention-suggestion.ts` so the new letter is accepted: `/^([ascpnr]):(.*)$/` etc. The prefix becomes part of the user-facing ergonomics — short and intuitive trumps strict acronym matching (`@n:` for note beats `@nt:`, `@r:` for runbook beats `@p:` collision with person).
 
 2. **Extend the type model in `mention-node.ts`.**
    - Add the new value to the `MentionEntityType` union.
@@ -50,6 +50,7 @@ If you only need the chip for display (no column projection, no backlinks), you 
    - Add the new type to `EntityType` union and `VALID_TYPES` set.
    - Add a `findById` case (existence check used by the orphan-detection NodeView).
    - Add a `searchEntities` case (used by the picker). For search, prefer the cheapest plain-text column that already has a btree-friendly path — don't reach for tsvector unless the latency forces it.
+   - **Kind-discriminator filter** (ADR-0029): if the new type shares a Prisma model with an existing type via a discriminator column (e.g. `WorkLog.kind`), the new search clause MUST include `kind: '<new>'` AND the EXISTING type's clause must be **retroactively scoped** to its kind (`kind: '<old>'`). Without this, picker rows leak across kinds and `findById` resolves an `@n:` note id under `@r:` (or vice-versa) on existence checks, breaking orphan detection. Only the where clauses change — no schema, no recipe deviation.
    - **Use the entity's primary display field for the `label`.** Never derive a chip label from a secondary projection (e.g. `contentJson` first line, denormalized cache, ID slug) when the canonical record has a `name`/`title`/`company` column — chips become wrong as soon as the canonical field diverges. Extract a tiny `derive<Type>Label({ canonical, ...fallbacks, date })` helper into `src/lib/<domain>/derive-<type>-label.ts` once two call sites exist (mention-search × 2 + backlinks = rule-of-three trigger). Truncate to 80 chars for chip width.
    - **Search clause should match the same display field**: if `label` comes from `title`, the picker `where` MUST search `title` too (an `OR: [{ title: contains }, { content: contains }]` shape works for worklog notes). Otherwise users will type the visible chip text and get zero results.
    - Honor `excludeId` by adding `id: { not: excludeId }` when present, regardless of type. This is what blocks self-suggestion on note-to-note pickers and is cheap defense-in-depth elsewhere.
@@ -59,8 +60,8 @@ If you only need the chip for display (no column projection, no backlinks), you 
 
 8. **(Optional) Add a backlinks API + UI panel.**
    - **Backlinks against the SAME entity type** (e.g. note↔note from ADR-0016): `GET /api/work-logs/[id]/backlinks` runs `prisma.workLog.findMany({ where: { userId, <kind>Ids: { has: id }, NOT: { id } } })`. The `NOT: { id }` self-filter is mandatory.
-   - **Cross-cut backlinks against a DIFFERENT entity type** (e.g. contact↔note from ADR-0028): `GET /api/<owning-entity>/[id]/backlinks` runs (a) a `findFirst` on the owning entity to verify owner-scope (`{ where: { id, userId } }` → 404 if missing — never silently empty-array unowned ids), then (b) `prisma.workLog.findMany({ where: { userId, <kind>Ids: { has: id } } })`. **Drop the `NOT: { id }` self-filter** — it would never match a different-typed id but is dead code that confuses reviewers.
-   - The UI panel uses TanStack Query (~30s `staleTime`), an empty state (consider surfacing a discoverability hint when the chip type is under-known — see ADR-0028 `ContactBacklinksSection` for the `@p:` empty-state pattern), and clickable rows that pivot via `router.push("/<target-route>?focus=${row.id}")` for cross-route pivots OR `router.replace` for in-route pivots (ADR-0015 contract).
+   - **Cross-cut backlinks against a DIFFERENT entity type** (e.g. contact↔note from ADR-0028, asset↔procedure from ADR-0029): `GET /api/<owning-entity>/[id]/<target-collection>` runs (a) a `findFirst` on the owning entity to verify owner-scope (`{ where: { id, userId } }` → 404 if missing — never silently empty-array unowned ids), then (b) `prisma.workLog.findMany({ where: { userId, [+kind discriminator if applicable], <kind>Ids: { has: id } } })`. **Drop the `NOT: { id }` self-filter** — it would never match a different-typed id but is dead code that confuses reviewers. **Compose with the kind discriminator** when the target type shares a model: ADR-0029's `/api/job-assets/[id]/procedures` reuses the existing `assetIds: { has: id }` GIN column AND adds `kind: 'procedure'` to scope to runbooks only — no new column needed.
+   - The UI panel uses TanStack Query (~30s `staleTime`), an empty state (consider surfacing a discoverability hint when the chip type is under-known — see ADR-0028 `ContactBacklinksSection` for the `@p:` empty-state pattern, ADR-0029 `JobAssetProceduresSection` for the `@a:`-from-runbook pattern), and clickable rows that pivot via `router.push("/<target-route>?focus=${row.id}")` for cross-route pivots OR `router.replace` for in-route pivots (ADR-0015 contract). Cross-cut panels mounted inside an existing dialog should default to **collapsed/expandable** with the query `enabled`-gated on expansion to avoid network noise on every modal open (ADR-0029 `JobAssetProceduresSection`).
    - Slot the panel into the relevant reader surface(s) — drawer + standalone read view + (if relevant) the editor itself, OR — for cross-cut backlinks — into the owning entity's existing edit Dialog/page.
 
 ## TDD checklist (Phase 2.5)

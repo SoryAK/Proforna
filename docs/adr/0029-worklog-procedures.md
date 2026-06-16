@@ -1,6 +1,6 @@
 # Worklog Procedures (Runbooks)
 
-- **Status:** Proposed
+- **Status:** Accepted (shipped 2026-06-15)
 - **Date:** 2026-06-15
 - **Deciders:** Sory
 - **Tags:** worklog, procedures, runbooks, knowledge-graph, kind-discriminator

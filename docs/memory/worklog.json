@@ -76,7 +76,11 @@
         "[2026-06-13 commit c262f5c] Notable ⭐ toggle migrated from header to PropertiesFields ('Notable' row between Hours and Mood). Same onUpdate({ id, isNotable }) wiring. Rationale: Notable is a FLAG (property), not a VERB — belongs in Properties with Date/Job/etc. Promote button stays in the header (it IS a verb) and reads log.isNotable to gate visibility.",
         "[2026-06-13] ADR-0025 follow-on session commits in chronological order: 2515afd (h-12 header alignment) → d40a471 (header restructure: breadcrumb + ⋯ menu) → 4561c14 (move metadata to rail Properties, NEW PropertiesFields) → 7e2a582 (drop DETAILS label + body title duplicate) → e23d3c3 (mount-skip at xl+ via useIsXl) → c262f5c (Notable → Properties) → b4c3ac4 (Save button retired, chip flushes). Tests stayed at 602/602 throughout.",
         "2026-06-15: ADR-0027 SHIPPED Day 4 — Career Events feature complete. Two surfaces under /worklog: /worklog/events (list) and /worklog/map (Google Maps + FAB). Sidebar 'Events' badge counts via shared queryKey ['career-events', 'all']. See CareerEventDomain entity for the full lineage.",
-        "2026-06-15 ADR-0028 SHIPPED — WorkLog.linkedContactIds added (5th array projection alongside assetIds, linkedNoteIds, plus @s:/@c: which don't project to columns). Same shape as linkedNoteIds (String[] @default([]) with GIN index) since both are REPLACE-semantic, not additive like assetIds. Migration 20260615170725. PUT route now derives 3 array columns at save time (assetIds additive; linkedNoteIds replacement+self-loop; linkedContactIds replacement no self-loop). See ContactDomain entity for full lineage."
+        "2026-06-15 ADR-0028 SHIPPED — WorkLog.linkedContactIds added (5th array projection alongside assetIds, linkedNoteIds, plus @s:/@c: which don't project to columns). Same shape as linkedNoteIds (String[] @default([]) with GIN index) since both are REPLACE-semantic, not additive like assetIds. Migration 20260615170725. PUT route now derives 3 array columns at save time (assetIds additive; linkedNoteIds replacement+self-loop; linkedContactIds replacement no self-loop). See ContactDomain entity for full lineage.",
+        "2026-06-15: ADR-0029 SHIPPED end-to-end — Worklog Procedures (Runbooks). New WorkLog.kind discriminator (note|procedure, default note) with @@index([userId, kind]) — single-table inheritance, no separate model (precedent from ADR-0027 events). 8-unit ship: 7a69ff6 (schema+migration), 48bcef1 (GET kind filter), dcae948 (PUT kind audit guard), 7e9cf54 (procedures page + sidebar row + POST kind acceptance), 7b415b6 (@r: mention type), 0a01aee (cross-cut /api/job-assets/[id]/procedures + JobAssetProceduresSection). Tests 673 -> 687 (+14 across 5 commits).",
+        "2026-06-15: Procedures share the notes editor + reader + version history + folders + DnD + search + all 5 (now 6) mention types. List at /worklog/procedures (year-grouped, + New procedure CTA -> /worklog/notes/[id]). Sidebar row Procedures between Events and Templates with live count badge sharing queryKey [worklogs,procedures]. PUT route deliberately preserves kind (test guard).",
+        "2026-06-15: Sixth mention prefix @r: -> Runbook (rose R badge). Kind-discriminator filter is now a first-class step in docs/workflows/wire-mention-entity-type.md rev 4 — when a new type shares a Prisma model with an existing type via a discriminator column, the EXISTING types mention-search cases must be retroactively scoped to its kind too. Without this picker rows leak across kinds and orphan-detection resolves the wrong record.",
+        "2026-06-15: Cross-cut /api/job-assets/[id]/procedures composes the existing assetIds:String[] GIN column with kind:procedure filter — no new column, no new index, no new schema migration. JobAssetProceduresSection mounted in AssetDetailModal right column is collapsed-by-default with TanStack Query enabled-gated on expansion (staleTime 30s). Recipe rev-4 step 8 codifies the kind-discriminator + cross-cut composition pattern."
       ]
     },
     {
@@ -291,43 +295,190 @@
     }
   ],
   "relations": [
-    { "from": "WorklogDomain", "relationType": "depends-on", "to": "JobMapDomain" },
-    { "from": "WorklogDomain", "relationType": "depends-on", "to": "LayoutShellDomain" },
-    { "from": "WorklogDomain", "relationType": "depends-on", "to": "StorageKeysModule" },
-    { "from": "WorklogDomain", "relationType": "contains", "to": "WorklogReaderDrawer" },
-    { "from": "WorklogDomain", "relationType": "contains", "to": "WorklogHistoryPanel" },
-    { "from": "WorklogDomain", "relationType": "contains", "to": "WorklogVersionDiffModal" },
-    { "from": "WorklogReaderRightRail", "relationType": "belongs to", "to": "WorklogDomain" },
-    { "from": "WorklogReaderRightRail", "relationType": "uses", "to": "useReaderRailState" },
-    { "from": "WorklogReaderRightRail", "relationType": "embeds", "to": "InlineTagsField" },
-    { "from": "WorklogReaderRightRail", "relationType": "renders", "to": "PropertiesTab" },
-    { "from": "WorklogReaderRightRail", "relationType": "reads", "to": "RailTabsRegistry" },
-    { "from": "PropertiesTab", "relationType": "belongs to", "to": "WorklogDomain" },
-    { "from": "PropertiesTab", "relationType": "embeds", "to": "PropertiesFields" },
-    { "from": "PropertiesTab", "relationType": "embeds", "to": "InlineTagsField" },
-    { "from": "PropertiesTab", "relationType": "embeds", "to": "InlineAssetsField" },
-    { "from": "PropertiesTab", "relationType": "embeds", "to": "InlineToolsField" },
-    { "from": "PropertiesTab", "relationType": "embeds", "to": "WorklogHistoryPanel" },
-    { "from": "PropertiesFields", "relationType": "belongs to", "to": "WorklogDomain" },
-    { "from": "PropertiesFields", "relationType": "mounted in", "to": "WorklogReaderRightRail" },
-    { "from": "InlineAssetsField", "relationType": "belongs to", "to": "WorklogDomain" },
-    { "from": "InlineToolsField", "relationType": "belongs to", "to": "WorklogDomain" },
-    { "from": "RailTabsRegistry", "relationType": "belongs to", "to": "WorklogDomain" },
-    { "from": "useReaderRailState", "relationType": "reads", "to": "RailTabsRegistry" },
-    { "from": "WorklogNotesFilterButton", "relationType": "belongs to", "to": "WorklogDomain" },
-    { "from": "WorklogNotesFilterButton", "relationType": "embeds", "to": "WorklogNotesFilterChips" },
-    { "from": "InlineTagsField", "relationType": "belongs to", "to": "WorklogDomain" },
-    { "from": "useReaderRailState", "relationType": "belongs to", "to": "WorklogDomain" },
-    { "from": "WorklogHistoryPanel", "relationType": "embeds", "to": "WorklogVersionDiffModal" },
-    { "from": "CareerEventDomain", "relationType": "lives-inside", "to": "WorklogDomain" },
-    { "from": "WorklogEventsView", "relationType": "is-surface-of", "to": "CareerEventDomain" },
-    { "from": "WorklogMapView", "relationType": "is-surface-of", "to": "CareerEventDomain" },
-    { "from": "WorklogMapView", "relationType": "depends-on", "to": "EventsMap" },
-    { "from": "WorklogMapView", "relationType": "depends-on", "to": "EventCreateDialog" },
-    { "from": "WorklogEventsView", "relationType": "depends-on", "to": "EventEditDialog" },
-    { "from": "EventEditDialog", "relationType": "edits", "to": "CareerEventDomain" },
-    { "from": "EventCreateDialog", "relationType": "creates", "to": "CareerEventDomain" },
-    { "from": "EventsMap", "relationType": "visual-parity-with", "to": "JobMapGoogle" }
+    {
+      "from": "WorklogDomain",
+      "relationType": "depends-on",
+      "to": "JobMapDomain"
+    },
+    {
+      "from": "WorklogDomain",
+      "relationType": "depends-on",
+      "to": "LayoutShellDomain"
+    },
+    {
+      "from": "WorklogDomain",
+      "relationType": "depends-on",
+      "to": "StorageKeysModule"
+    },
+    {
+      "from": "WorklogDomain",
+      "relationType": "contains",
+      "to": "WorklogReaderDrawer"
+    },
+    {
+      "from": "WorklogDomain",
+      "relationType": "contains",
+      "to": "WorklogHistoryPanel"
+    },
+    {
+      "from": "WorklogDomain",
+      "relationType": "contains",
+      "to": "WorklogVersionDiffModal"
+    },
+    {
+      "from": "WorklogReaderRightRail",
+      "relationType": "belongs to",
+      "to": "WorklogDomain"
+    },
+    {
+      "from": "WorklogReaderRightRail",
+      "relationType": "uses",
+      "to": "useReaderRailState"
+    },
+    {
+      "from": "WorklogReaderRightRail",
+      "relationType": "embeds",
+      "to": "InlineTagsField"
+    },
+    {
+      "from": "WorklogReaderRightRail",
+      "relationType": "renders",
+      "to": "PropertiesTab"
+    },
+    {
+      "from": "WorklogReaderRightRail",
+      "relationType": "reads",
+      "to": "RailTabsRegistry"
+    },
+    {
+      "from": "PropertiesTab",
+      "relationType": "belongs to",
+      "to": "WorklogDomain"
+    },
+    {
+      "from": "PropertiesTab",
+      "relationType": "embeds",
+      "to": "PropertiesFields"
+    },
+    {
+      "from": "PropertiesTab",
+      "relationType": "embeds",
+      "to": "InlineTagsField"
+    },
+    {
+      "from": "PropertiesTab",
+      "relationType": "embeds",
+      "to": "InlineAssetsField"
+    },
+    {
+      "from": "PropertiesTab",
+      "relationType": "embeds",
+      "to": "InlineToolsField"
+    },
+    {
+      "from": "PropertiesTab",
+      "relationType": "embeds",
+      "to": "WorklogHistoryPanel"
+    },
+    {
+      "from": "PropertiesFields",
+      "relationType": "belongs to",
+      "to": "WorklogDomain"
+    },
+    {
+      "from": "PropertiesFields",
+      "relationType": "mounted in",
+      "to": "WorklogReaderRightRail"
+    },
+    {
+      "from": "InlineAssetsField",
+      "relationType": "belongs to",
+      "to": "WorklogDomain"
+    },
+    {
+      "from": "InlineToolsField",
+      "relationType": "belongs to",
+      "to": "WorklogDomain"
+    },
+    {
+      "from": "RailTabsRegistry",
+      "relationType": "belongs to",
+      "to": "WorklogDomain"
+    },
+    {
+      "from": "useReaderRailState",
+      "relationType": "reads",
+      "to": "RailTabsRegistry"
+    },
+    {
+      "from": "WorklogNotesFilterButton",
+      "relationType": "belongs to",
+      "to": "WorklogDomain"
+    },
+    {
+      "from": "WorklogNotesFilterButton",
+      "relationType": "embeds",
+      "to": "WorklogNotesFilterChips"
+    },
+    {
+      "from": "InlineTagsField",
+      "relationType": "belongs to",
+      "to": "WorklogDomain"
+    },
+    {
+      "from": "useReaderRailState",
+      "relationType": "belongs to",
+      "to": "WorklogDomain"
+    },
+    {
+      "from": "WorklogHistoryPanel",
+      "relationType": "embeds",
+      "to": "WorklogVersionDiffModal"
+    },
+    {
+      "from": "CareerEventDomain",
+      "relationType": "lives-inside",
+      "to": "WorklogDomain"
+    },
+    {
+      "from": "WorklogEventsView",
+      "relationType": "is-surface-of",
+      "to": "CareerEventDomain"
+    },
+    {
+      "from": "WorklogMapView",
+      "relationType": "is-surface-of",
+      "to": "CareerEventDomain"
+    },
+    {
+      "from": "WorklogMapView",
+      "relationType": "depends-on",
+      "to": "EventsMap"
+    },
+    {
+      "from": "WorklogMapView",
+      "relationType": "depends-on",
+      "to": "EventCreateDialog"
+    },
+    {
+      "from": "WorklogEventsView",
+      "relationType": "depends-on",
+      "to": "EventEditDialog"
+    },
+    {
+      "from": "EventEditDialog",
+      "relationType": "edits",
+      "to": "CareerEventDomain"
+    },
+    {
+      "from": "EventCreateDialog",
+      "relationType": "creates",
+      "to": "CareerEventDomain"
+    },
+    {
+      "from": "EventsMap",
+      "relationType": "visual-parity-with",
+      "to": "JobMapGoogle"
+    }
   ]
 }
-
