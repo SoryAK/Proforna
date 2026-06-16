@@ -206,3 +206,81 @@ main[data-fullbleed] > .layout-shell-content {
   animation: search-flash 1.6s ease-out;
   border-radius: 0.5rem;
 }
+
+/* ──────────────────────────────────────────────────────────────────────
+   ADR-0030 — procedure document styling.
+
+   Step numbering is positional (L2): we use a CSS counter scoped to the
+   ProseMirror root rather than storing the number in an attribute. Reorder
+   the steps and the numbers re-flow automatically.
+
+   The "Step N — Title" header is rendered as a ::before pseudo-element on
+   each step. The title itself comes from `data-step-title`, set by
+   procedure-step-node's renderHTML. Empty title → just "Step N".
+   ────────────────────────────────────────────────────────────────────── */
+.ProseMirror {
+  counter-reset: procedure-step;
+}
+.ProseMirror section[data-procedure-step] {
+  counter-increment: procedure-step;
+  position: relative;
+  padding-top: 1.6rem;
+  border-top: 1px solid var(--border);
+  margin-top: 0.75rem;
+}
+.ProseMirror section[data-procedure-step]:first-of-type {
+  border-top: none;
+  margin-top: 0;
+}
+.ProseMirror section[data-procedure-step]::before {
+  content: "Step " counter(procedure-step);
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+  margin-bottom: 0.4rem;
+}
+.ProseMirror section[data-procedure-step][data-step-title]:not([data-step-title=""])::before {
+  content: "Step " counter(procedure-step) " — " attr(data-step-title);
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.85rem;
+  color: var(--foreground);
+}
+
+/* procedureTitle — a single h1-equivalent at the top of the doc. */
+.ProseMirror h1[data-procedure-title] {
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.25;
+  margin: 0 0 0.75rem 0;
+}
+.ProseMirror h1[data-procedure-title]:empty::before {
+  content: "Untitled procedure";
+  color: var(--muted-foreground);
+  font-weight: 500;
+}
+
+/* procedureTools — a labelled wrench block above the steps. */
+.ProseMirror section[data-procedure-tools] {
+  position: relative;
+  padding: 1.4rem 0.85rem 0.6rem;
+  margin: 0.5rem 0 1rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--muted);
+}
+.ProseMirror section[data-procedure-tools]::before {
+  content: "Tools";
+  position: absolute;
+  top: 0.4rem;
+  left: 0.85rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+

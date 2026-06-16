@@ -47,8 +47,10 @@ import { PhotoNode, type PhotoNodeAttrs } from "@/lib/worklog/tiptap/photo-node"
 import { CanvasNode, type CanvasNodeAttrs } from "@/lib/worklog/tiptap/canvas-node";
 import { MentionNode } from "@/lib/worklog/tiptap/mention-node";
 import { procedureSchemaExtensions } from "@/lib/worklog/tiptap/procedure-schema-extensions";
+import { extractProcedureTitleText } from "@/lib/worklog/procedure-transforms";
 import { createSlashCommandRender } from "@/components/worklog/slash-command-menu";
 import { WorklogEditorToolbar } from "@/components/worklog/worklog-editor-toolbar";
+import { WorklogProcedureToolbar } from "@/components/worklog/worklog-procedure-toolbar";
 import { uploadBodyPhoto, reconcileBodyPhotos } from "@/lib/worklog/photo-upload";
 import { ImageIcon, PenLine } from "lucide-react";
 import type { WorkShift } from "@/types/worklog";
@@ -108,6 +110,14 @@ export interface WorklogEditorHandle {
 export interface WorklogEditorChange {
   json: unknown;
   text: string;
+  /**
+   * ADR-0030 Unit 6 — when the editor is mounted with `kind="procedure"`,
+   * the procedureTitle's plain text is mirrored here so callers can keep
+   * `WorkLog.title` in sync with the in-document title without an extra
+   * mutation. Empty string clears any existing title to null. Undefined
+   * for note kind (caller should leave the title field alone).
+   */
+  procedureTitle?: string;
 }
 
 export interface WorklogEditorProps {
@@ -520,7 +530,13 @@ const EditorBody = forwardRef<WorklogEditorHandle, EditorBodyProps>(function Edi
         emitState();
         if (debouncedSaveRef.current) clearTimeout(debouncedSaveRef.current);
         debouncedSaveRef.current = setTimeout(() => {
-          void runSave({ json: editor.getJSON(), text: editor.getText() });
+          const json = editor.getJSON();
+          void runSave({
+            json,
+            text: editor.getText(),
+            procedureTitle:
+              kind === "procedure" ? extractProcedureTitleText(json) : undefined,
+          });
         }, debounceMs);
       },
     },
@@ -566,7 +582,13 @@ const EditorBody = forwardRef<WorklogEditorHandle, EditorBodyProps>(function Edi
       flush() {
         if (!editor) return;
         if (dirtyRef.current) {
-          void runSave({ json: editor.getJSON(), text: editor.getText() });
+          const json = editor.getJSON();
+          void runSave({
+            json,
+            text: editor.getText(),
+            procedureTitle:
+              kind === "procedure" ? extractProcedureTitleText(json) : undefined,
+          });
         }
         // Best-effort photo cleanup on every explicit flush (e.g. Cmd+S).
         const keep = collectBodyPhotoIds(editor);
@@ -587,12 +609,16 @@ const EditorBody = forwardRef<WorklogEditorHandle, EditorBodyProps>(function Edi
   return (
     <>
       {editable && (
-        <WorklogEditorToolbar
-          editor={editor}
-          shifts={shifts}
-          slashCommands={slashCommandsWithPhoto}
-          workLogId={workLogId}
-        />
+        kind === "procedure" ? (
+          <WorklogProcedureToolbar editor={editor} workLogId={workLogId} />
+        ) : (
+          <WorklogEditorToolbar
+            editor={editor}
+            shifts={shifts}
+            slashCommands={slashCommandsWithPhoto}
+            workLogId={workLogId}
+          />
+        )
       )}
       <EditorContent editor={editor} />
       {/* Hidden picker shared by /photo and Insert (+). Lives in the React

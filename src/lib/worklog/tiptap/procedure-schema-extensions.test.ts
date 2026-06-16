@@ -44,12 +44,16 @@ describe("procedure schema extensions — node names", () => {
 });
 
 describe("procedure schema extensions — bundle", () => {
-  it("exports exactly four nodes, top-node first", () => {
-    expect(procedureSchemaExtensions.length).toBe(4);
+  it("exports four nodes plus the procedureCommands extension, top-node first", () => {
+    // Unit 6 added the ProcedureCommands Extension at index 4 — the four
+    // node specs come first so node registration completes before the
+    // extension's command declarations execute.
+    expect(procedureSchemaExtensions.length).toBe(5);
     expect(procedureSchemaExtensions[0].name).toBe("procedureDoc");
     // Title before any container so registration order matches the
     // structural sequence in the doc's content expression.
     expect(procedureSchemaExtensions[1].name).toBe("procedureTitle");
+    expect(procedureSchemaExtensions[4].name).toBe("procedureCommands");
   });
 });
 

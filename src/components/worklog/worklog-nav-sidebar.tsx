@@ -124,9 +124,14 @@ export function WorklogNavSidebar({ onShowGlobal }: WorklogNavSidebarProps) {
   // lockstep with no extra round-trips.
   const { data: logs = [] } = useQuery<WorkLog[]>({
     queryKey: ["worklogs"],
-    // Match useWorklogData — fetch both buckets so cached `logs.length`
-    // counts ("All notes") and the archived count stay coherent.
-    queryFn: () => fetch("/api/work-logs?archived=all").then((r) => r.json()),
+    // Match useWorklogData — fetch both archive buckets AND `kind=any` so
+    // cached `logs.length` counts ("All notes") stay coherent and the
+    // shared `["worklogs"]` cache slot includes procedures (without
+    // `kind=any`, the sidebar can win the race against useWorklogData and
+    // populate the cache with notes-only rows, breaking selectedLog
+    // resolution for /worklog/notes/<procedureId>). ADR-0030 follow-up.
+    queryFn: () =>
+      fetch("/api/work-logs?archived=all&kind=any").then((r) => r.json()),
     staleTime: 30_000,
   });
   const { data: templates = [] } = useQuery<Template[]>({

@@ -533,14 +533,29 @@ const ReaderInner = forwardRef<WorklogNoteReaderHandle, ReaderInnerProps>(functi
                   setEditorDirty(dirty);
                   setEditorSaving(saving);
                 }}
-                onSave={async ({ json, text }) => {
+                onSave={async ({ json, text, procedureTitle }) => {
                   const editorTags = extractTagsFromDoc(json);
                   const mergedTags = mergeEditorTags(log.tags ?? null, editorTags);
+                  // ADR-0030 Unit 6 — when this is a procedure, mirror the
+                  // in-document title into WorkLog.title so the row label,
+                  // sidebar list, and breadcrumbs stay in sync. Empty
+                  // string from the editor means "no title node text" —
+                  // fall back to "Untitled" so the row never renders blank.
+                  const titlePatch =
+                    log.kind === "procedure" && typeof procedureTitle === "string"
+                      ? {
+                          title:
+                            procedureTitle.trim().length === 0
+                              ? "Untitled"
+                              : procedureTitle.trim().slice(0, 200),
+                        }
+                      : {};
                   await onUpdate({
                     id: log.id,
                     content: text || null,
                     contentJson: json ?? null,
                     ...(mergedTags !== (log.tags ?? null) ? { tags: mergedTags } : {}),
+                    ...titlePatch,
                   });
                 }}
               />

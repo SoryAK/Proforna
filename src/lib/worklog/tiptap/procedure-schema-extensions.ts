@@ -14,12 +14,15 @@ import { ProcedureDocNode } from "./procedure-doc-node";
 import { ProcedureStepNode } from "./procedure-step-node";
 import { ProcedureTitleNode } from "./procedure-title-node";
 import { ProcedureToolsNode } from "./procedure-tools-node";
+import { ProcedureCommands } from "./procedure-commands";
 
 export const procedureSchemaExtensions = [
   ProcedureDocNode,
   ProcedureTitleNode,
   ProcedureToolsNode,
   ProcedureStepNode,
+  // ADR-0030 Unit 6 — toolbar commands (appendStep, toggleTools, etc.)
+  ProcedureCommands,
 ] as const;
 
 export {
@@ -27,4 +30,5 @@ export {
   ProcedureStepNode,
   ProcedureTitleNode,
   ProcedureToolsNode,
+  ProcedureCommands,
 };
