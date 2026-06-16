@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/dialog";
 import { AssetServiceHistory } from "@/components/asset-service-history";
 import { JobAssetPhotos } from "@/components/job-asset-photos";
+import { JobAssetProceduresSection } from "@/components/job-asset-procedures-section";
 import { cn } from "@/lib/utils";
 
 type JobAssetPhoto = {
@@ -466,6 +467,7 @@ function AssetDetailModal({
               </div>
               <AssetServiceHistory assetId={asset.id} positions={positions} />
             </div>
+            <JobAssetProceduresSection assetId={asset.id} />
           </div>
         </div>
 
