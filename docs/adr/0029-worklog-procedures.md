@@ -143,3 +143,35 @@ procedure: { badge: "R", typeLabel: "Runbook", color: "bg-rose-100 text-rose-800
 3. **Search ranking may surface procedures alongside notes** in tsvector queries. v1 keeps `search_vector` shared; if users complain that a procedure search-bombs the daily-note feed, parked option is to add a `kind` filter to `WorkLogSearchView`.
 4. **Procedures will not appear in Folders/Categories default views** — a deliberate v1 simplification (parked). Users who want to bucket procedures by team/site will need to revisit when the feature is asked for.
 5. **`WorkLogTemplate` becomes structurally adjacent to procedures.** A future user who wants "this procedure should be the starting point for a new note" has to copy/paste body content; no convert-procedure-to-template path. Parked.
+
+
+---
+
+## P0 audit follow-ups (Sprint 2026-06-15)
+
+Three audit issues caught after shipping Units 1-8 + Phase 4 wrap. All addressed in the same dev session via E->T->C, no scope creep.
+
+### P0-#3 — POST /api/work-logs returns 400 on unknown kind (commit `8c57b3b`)
+
+The original Unit 6 code silently coerced unknown kind values to `"note"`. The Manual already claimed 400 fallback. Audit-and-reject pattern parity with Unit 3's PUT route. Whitelist is now `{ "note", "procedure" }` -- absent defaults to `"note"`, present-but-unknown 400s before any DB write.
+
+### P0-#2 — search route default-filters to kind='note' (commit `d517676`)
+
+The full-text search route `/api/work-logs/search` was missing the kind discriminator that Unit 2 added to `GET /api/work-logs`. Result: the procedures search box surfaced note matches and vice versa. Same locked contract: absent -> `"note"`, `?kind=procedure` -> `"procedure"`, unknown -> `"note"` (defense in depth). Predicate composes inside the ranked CTE so `ts_headline` only walks the right kind.
+
+### P0-#1 — rename `linkedNoteIds` -> `linkedWorkLogIds` + project `@r:` too (commit `764850a`)
+
+**Structural insight:** the ADR-0016 column was misnamed. Notes and procedures are the same WorkLog model under the kind discriminator, so the projection column should be kind-agnostic. With this rename + widening, **"what mentions this worklog"** is a single query regardless of whether the row is a note or a procedure -- the next "what mentions this runbook" feature is now free.
+
+- Migration `20260615222114_rename_linked_note_ids_to_linked_worklog_ids`: pure `ALTER TABLE ... RENAME` (no data movement, no downtime). Applied via the locked `prisma db execute --stdin` + `prisma migrate resolve --applied` migration-drift recipe.
+- PUT route widens to `Set([...extractMentionEntityIds(doc, "worklog"), ...extractMentionEntityIds(doc, "procedure")])`. Self-loop guard, skip-if-equal guard, and replacement semantic all preserved.
+- Same widening applied to import-md route.
+- Backlinks endpoint becomes kind-agnostic by name and by behavior.
+- Backfill script `scripts/migrations/2026-06-15-backfill-linked-worklog-ids.ts` is idempotent (Set-dedup + self-loop + skip-if-equal mirroring PUT). Dry-run on dev DB: 0 rows needed updates (no `@r:` chips existed yet -- this is the kind-just-shipped baseline).
+
+### Test count
+
+687 (post-Phase 4 baseline) -> 697 (+10):
+- Unit A (P0-#3): +1 (rewrote silent-coerce assertion as 400; added explicit-`"note"` parity case).
+- Unit B (P0-#2): +3 (default note, `kind=procedure`, unknown=note fallback).
+- Unit C (P0-#1): +6 (3 new procedure-projection tests + the renamed ADR-0016 describe block surfacing 3 previously-skipped fixture variants).
