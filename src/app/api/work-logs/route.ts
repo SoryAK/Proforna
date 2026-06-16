@@ -46,6 +46,11 @@ export async function GET(request: Request) {
   // ADR-0029 — kind discriminator. Locked contract:
   //   absent          → kind = "note"      (notes list page default)
   //   ?kind=procedure → kind = "procedure" (procedures list page)
+  //   ?kind=any       → no kind filter     (worklog shell needs both kinds in
+  //                                         the list rail so a procedure can
+  //                                         render as the selected item without
+  //                                         a dedicated /worklog/procedures/[id]
+  //                                         route — see ADR-0029 P0 follow-up)
   const kindParam = searchParams.get("kind");
 
   const where: Record<string, unknown> = { userId };
@@ -58,7 +63,9 @@ export async function GET(request: Request) {
   } else if (archivedParam !== "all") {
     where.archivedAt = null;
   }
-  where.kind = kindParam === "procedure" ? "procedure" : "note";
+  if (kindParam !== "any") {
+    where.kind = kindParam === "procedure" ? "procedure" : "note";
+  }
   // folderId filter — pass an actual id, or the literal string "null" / "unfiled"
   // to select notes that don't belong to any folder.
   if (folderIdParam) {

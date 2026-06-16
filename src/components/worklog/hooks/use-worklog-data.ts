@@ -54,7 +54,21 @@ export function useWorklogData() {
     // trip so client-side bucket-filtering (Inbox vs Archived sidebar row)
     // doesn't refetch. The default API behavior hides archived rows; we
     // opt-in here because the worklog shell owns the bucket toggle.
-    queryFn: () => fetchArrayOrThrow<WorkLog>("/api/work-logs?archived=all"),
+    //
+    // ADR-0029 P0 follow-up — `kind=any` so that navigating to
+    // /worklog/notes/<id> with a procedure id still renders the row in
+    // the reader. The shell is the single mount for both /worklog/notes
+    // and /worklog/procedures detail views; without `kind=any` the list
+    // would not contain the selected procedure and the reader would 404.
+    //
+    // Trade-off: the notes list rail now mixes both kinds. Sidebar
+    // badges remain kind-scoped (Notes count = notes only, Procedures
+    // count = procedures only) so totals will not match list length.
+    // Acceptable until either (a) procedures get a dedicated detail
+    // route or (b) the reader does a side-fetch by id and the list
+    // returns to kind-pure. See parked-ideas backlog.
+    queryFn: () =>
+      fetchArrayOrThrow<WorkLog>("/api/work-logs?archived=all&kind=any"),
     // `offlineFirst`: still try the network, but keep cached data on failure.
     networkMode: "offlineFirst",
     // Use cached rows as initial data once Dexie has been consulted.

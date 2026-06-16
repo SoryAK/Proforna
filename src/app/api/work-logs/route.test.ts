@@ -103,6 +103,9 @@ describe("GET /api/work-logs — ADR-0026 archive filter", () => {
  * Locked contract:
  *   absent           → kind = "note"          (default — list page hides procedures)
  *   ?kind=procedure  → kind = "procedure"     (procedures list page)
+ *   ?kind=any        → no kind filter         (worklog shell needs both kinds
+ *                                              in the list rail; ADR-0029 P0
+ *                                              follow-up)
  *
  * The kind filter is independent from `archived`, and composes with every
  * other filter on the route.
@@ -120,6 +123,14 @@ describe("GET /api/work-logs — ADR-0029 kind filter", () => {
     expect(res.status).toBe(200);
     const where = mockFindMany.mock.calls[0][0]!.where as Record<string, unknown>;
     expect(where.kind).toBe("procedure");
+  });
+
+  it("kind=any — applies no kind predicate (returns both notes and procedures)", async () => {
+    const res = await GET(makeRequest("kind=any"));
+    expect(res.status).toBe(200);
+    const where = mockFindMany.mock.calls[0][0]!.where as Record<string, unknown>;
+    // No kind filter at all — Prisma will return rows of either kind.
+    expect(where.kind).toBeUndefined();
   });
 });
 
