@@ -240,3 +240,30 @@ Plus tests for everything (TDD per `testing.instructions.md`).
 - [Tiptap custom node guide](https://tiptap.dev/docs/editor/api/schema)
 - [parked-ideas item #6](../../memories/repo/parked-ideas.md) — "Procedure-specific UI primitives"
 - [parked-ideas item #7](../../memories/repo/parked-ideas.md) — "Procedure events / runs" (v2+, expressly out of scope here)
+
+## Implementation Log (2026-06-15 → 2026-06-16)
+
+All ten units shipped linearly behind the locked decisions. TDD applied to all pure-logic and API units (Phase 2.5 of the agent pipeline). Lab evidence: live smoke-procedure note `f02c66b6-…` renders end-to-end (toolbar, step CSS labels, properties rail Linked procedures section, markdown export with `# title` + `## Step N`).
+
+| Unit | Hash      | Title                                                                  | Tests added |
+| ---- | --------- | ---------------------------------------------------------------------- | ----------- |
+| 1    | `96e946c` | ProcedureLink schema + migration                                       | —           |
+| 2    | `d129e9d` | Pure schema spec lib (`isProcedureDoc`, validators)                    | 18          |
+| 3    | `15834f5` | Tiptap node specs (`procedureDoc`, title, tools, step)                 | 12          |
+| 4    | `310181a` | Editor mount switching by `kind`                                       | —           |
+| 5    | `165d764` | Migration script (idempotent, data-preserving wrap)                    | —           |
+| 6    | `0951e47` | Procedure toolbar + commands + step CSS labels + title sync            | —           |
+| 7    | `020b461` | Paste normalization (heading demotion, multi-step paste)               | 13          |
+| 8    | `0b62655` | ProcedureLink API routes (GET/POST/DELETE, owner-scoped)               | 19          |
+| 9    | `55d5f6c` | Properties rail "Linked procedures" section (gated on `kind`)          | —           |
+| 10   | `1d8508c` | Markdown export rules for `procedureDoc` (TDD)                         | 12          |
+
+**Status: Accepted (v1 implementation complete).** All units committed to `main`. Test baseline: 814 passing (61 files). End-to-end smoke verified against live DB record. Ship-blockers parked under "Non-Goals" remain parked — per-run state, drag-to-reorder, step-aware diff are deferred to v2+.
+
+**Locked emission rules (Unit 10) — for future readers and AI agents:**
+
+- `procedureTitle` → `# <text>` (single H1). Empty title → no H1 emitted.
+- `procedureTools` → `## Tools\n\n<body>` only when content has non-whitespace text; missing/empty silently skipped.
+- `procedureStep` → `## Step N` or `## Step N — <title>` (U+2014 em dash). N is **positional** starting at 1 — reorder renumbers automatically.
+- Procedure-only nodes are NEVER added to `droppedBlocks` — they have semantic markdown emit rules.
+- Type widening: `ProseMirrorDoc.type` is `"doc" | "procedureDoc"`.
