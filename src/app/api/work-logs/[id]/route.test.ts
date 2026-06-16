@@ -702,3 +702,31 @@ describe("PUT /api/work-logs/[id] — ADR-0026 archive bucket", () => {
     expect(mockUpdate).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * ADR-0029 — kind preservation audit.
+ *
+ * The `kind` discriminator is set at creation only. PUT must never flip it.
+ * This is a defensive whitelist test: even if a malicious or buggy client
+ * sends `kind: "procedure"` in the PUT body, the route must NOT spread it
+ * into prisma.workLog.update's `data`.
+ */
+describe("PUT /api/work-logs/[id] — ADR-0029 kind preservation", () => {
+  it("ignores `kind` in body — never spreads it into update data", async () => {
+    mockGetUserId.mockResolvedValue("u1");
+    mockFindFirst.mockResolvedValue(existingLog() as any);
+
+    const [req, ctx] = makeRequest("log1", {
+      title: "Edited title",
+      kind: "procedure", // ← attempt to flip an existing note into a procedure
+    });
+    const res = await PUT(req, ctx);
+
+    expect(res.status).toBe(200);
+    expect(mockUpdate).toHaveBeenCalledTimes(1);
+    const updateData = mockUpdate.mock.calls[0][0]!.data as Record<string, unknown>;
+    expect(updateData).not.toHaveProperty("kind");
+    // sanity: legit field still made it through
+    expect(updateData.title).toBe("Edited title");
+  });
+});
