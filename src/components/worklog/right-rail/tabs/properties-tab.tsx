@@ -28,6 +28,7 @@ import { InlineAssetsField } from "@/components/worklog/inline-assets-field";
 import { InlineToolsField } from "@/components/worklog/inline-tools-field";
 import { WorklogBacklinksPanel } from "@/components/worklog/worklog-backlinks-panel";
 import { WorklogHistoryPanel } from "@/components/worklog/worklog-history-panel";
+import { WorklogProcedureLinksPanel } from "@/components/worklog/worklog-procedure-links-panel";
 import { PropertiesFields } from "./properties-fields";
 
 export interface PropertiesTabProps {
@@ -119,6 +120,17 @@ export function PropertiesTab({
           hideLabel
         />
       </Section>
+
+      {/* Linked procedures — ADR-0030 Unit 9. Only render for procedure
+          kind; for plain notes this section is invisible. Inner scroller
+          mirrors the Backlinks pattern. */}
+      {log.kind === "procedure" ? (
+        <Section label="Linked procedures">
+          <div className="max-h-64 overflow-y-auto">
+            <WorklogProcedureLinksPanel noteId={noteId} bare />
+          </div>
+        </Section>
+      ) : null}
 
       {/* Backlinks — inner scroller per ADR-0025 Option B so a long
           incoming-links list never pushes Properties pickers off-screen. */}
