@@ -811,6 +811,12 @@ model WorkLog {
   versions WorkLogVersion[]
   imports  WorkLogImport[]
 
+  // ── ADR-0030: procedure-to-procedure links (only meaningful when
+  //     kind='procedure'; never populated for kind='note'). Two relation
+  //     names so a single procedure can sit on either end of a link.
+  procedureLinksFrom ProcedureLink[] @relation("ProcedureLinkFrom")
+  procedureLinksTo   ProcedureLink[] @relation("ProcedureLinkTo")
+
   @@unique([userId, externalSource, externalId], map: "WorkLog_external_unique")
   @@index([userId, date])
   @@index([userId, workdayDate])
@@ -824,6 +830,42 @@ model WorkLog {
   @@index([linkedWorkLogIds], type: Gin)
   @@index([linkedContactIds], type: Gin)
   @@index([userId, kind])
+}
+
+// ADR-0030 — procedure-to-procedure structural links.
+//
+// Surfaces the "if box is in a machine → follow Lockout-tagout first"
+// pattern as a first-class edge in the properties rail, NOT inline `@r:`
+// mentions. Mentions are extracted from the document body; ProcedureLinks
+// are explicit user actions ("add prerequisite procedure") with a typed
+// relationship.
+//
+// Relationship vocabulary (locked v1, all four shipped per M3.a):
+//   - "prereq"  — toProcedure must be done before fromProcedure
+//   - "branch"  — toProcedure is a conditional alternative
+//                 (free-form `note` describes the condition)
+//   - "next"    — toProcedure is what to do after fromProcedure
+//   - "related" — soft association, no ordering implied
+//
+// Both endpoints reference WorkLog (since procedures are kind='procedure'
+// rows). Application-level validation enforces both endpoints are
+// procedures — DB-level enforcement would require a partial-index dance
+// not worth the complexity. ON DELETE CASCADE on both sides so deleting a
+// procedure cleans up every edge it sits on.
+model ProcedureLink {
+  id              String   @id @default(uuid())
+  fromProcedureId String
+  toProcedureId   String
+  relationship    String // see vocabulary above; CHECK constraint enforced in migration
+  note            String? // free-form context, e.g. "if box is in a machine"
+  createdAt       DateTime @default(now())
+
+  fromProcedure WorkLog @relation("ProcedureLinkFrom", fields: [fromProcedureId], references: [id], onDelete: Cascade)
+  toProcedure   WorkLog @relation("ProcedureLinkTo", fields: [toProcedureId], references: [id], onDelete: Cascade)
+
+  @@unique([fromProcedureId, toProcedureId, relationship])
+  @@index([fromProcedureId])
+  @@index([toProcedureId])
 }
 
 // User-defined folder tree (adjacency list) for organizing WorkLog notes.
