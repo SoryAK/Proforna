@@ -257,6 +257,7 @@ All ten units shipped linearly behind the locked decisions. TDD applied to all p
 | 8    | `0b62655` | ProcedureLink API routes (GET/POST/DELETE, owner-scoped)               | 19          |
 | 9    | `55d5f6c` | Properties rail "Linked procedures" section (gated on `kind`)          | —           |
 | 10   | `1d8508c` | Markdown export rules for `procedureDoc` (TDD)                         | 12          |
+| 11   | `41381a4` | Rose `WorklogKindBadge` in the category-dot slot (5 row surfaces)      | —           |
 
 **Status: Accepted (v1 implementation complete).** All units committed to `main`. Test baseline: 814 passing (61 files). End-to-end smoke verified against live DB record. Ship-blockers parked under "Non-Goals" remain parked — per-run state, drag-to-reorder, step-aware diff are deferred to v2+.
 
@@ -267,3 +268,19 @@ All ten units shipped linearly behind the locked decisions. TDD applied to all p
 - `procedureStep` → `## Step N` or `## Step N — <title>` (U+2014 em dash). N is **positional** starting at 1 — reorder renumbers automatically.
 - Procedure-only nodes are NEVER added to `droppedBlocks` — they have semantic markdown emit rules.
 - Type widening: `ProseMirrorDoc.type` is `"doc" | "procedureDoc"`.
+
+**Unit 11 follow-up — visual identity in row surfaces (2026-06-16):**
+
+User feedback after lab smoke: *"the all notes view lumps the procedures with the other notes — at a glance the user doesn't know which is a procedure and which isn't."* Closed by introducing [`<WorklogKindBadge>`](../../src/components/worklog/worklog-kind-badge.tsx) — a small, solid rose `ListChecks` pill rendered in the category-dot slot (left of title) when `kind === "procedure"`. Returns null for plain notes so the colored category dot stays visible — absence of the badge is itself the signal.
+
+Mounted in 5 row surfaces that mix kinds:
+
+- `/worklog/notes` table list-rail (compact + full row variants)
+- `/worklog/notes` grid card view
+- `/worklog` home Today list
+- `/worklog` home Earlier list
+- legacy 3-pane notes list rail
+
+Already kind-pure surfaces left alone: search palette (defaults `kind=note`) and the `@n:` / `@r:` mention picker (separate result lists).
+
+Color matches the rose `@r:` mention chip and the Procedures sidebar row so procedure visual identity is uniform across the app. No logic changed; tests remain at 814/814.
