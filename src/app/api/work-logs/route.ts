@@ -43,6 +43,10 @@ export async function GET(request: Request) {
   //   ?archived=all  → no predicate (both buckets)
   //   absent / other → archivedAt IS NULL (Gmail-style default hide)
   const archivedParam = searchParams.get("archived");
+  // ADR-0029 — kind discriminator. Locked contract:
+  //   absent          → kind = "note"      (notes list page default)
+  //   ?kind=procedure → kind = "procedure" (procedures list page)
+  const kindParam = searchParams.get("kind");
 
   const where: Record<string, unknown> = { userId };
 
@@ -54,6 +58,7 @@ export async function GET(request: Request) {
   } else if (archivedParam !== "all") {
     where.archivedAt = null;
   }
+  where.kind = kindParam === "procedure" ? "procedure" : "note";
   // folderId filter — pass an actual id, or the literal string "null" / "unfiled"
   // to select notes that don't belong to any folder.
   if (folderIdParam) {

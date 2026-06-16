@@ -81,3 +81,29 @@ describe("GET /api/work-logs — ADR-0026 archive filter", () => {
     expect(where.archivedAt).toEqual({ not: null });
   });
 });
+
+/**
+ * ADR-0029 — kind discriminator filter.
+ *
+ * Locked contract:
+ *   absent           → kind = "note"          (default — list page hides procedures)
+ *   ?kind=procedure  → kind = "procedure"     (procedures list page)
+ *
+ * The kind filter is independent from `archived`, and composes with every
+ * other filter on the route.
+ */
+describe("GET /api/work-logs — ADR-0029 kind filter", () => {
+  it("default (no kind param) — only returns notes (kind='note')", async () => {
+    const res = await GET(makeRequest());
+    expect(res.status).toBe(200);
+    const where = mockFindMany.mock.calls[0][0]!.where as Record<string, unknown>;
+    expect(where.kind).toBe("note");
+  });
+
+  it("kind=procedure — returns only procedures (kind='procedure')", async () => {
+    const res = await GET(makeRequest("kind=procedure"));
+    expect(res.status).toBe(200);
+    const where = mockFindMany.mock.calls[0][0]!.where as Record<string, unknown>;
+    expect(where.kind).toBe("procedure");
+  });
+});
