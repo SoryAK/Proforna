@@ -783,6 +783,13 @@ model WorkLog {
   // remains separate (DELETE /api/work-logs/[id]) — archive is not trash.
   archivedAt DateTime?
 
+  // ── Kind discriminator (ADR-0029) ──
+  // Distinguishes routine notes from procedures (runbooks). Default 'note'
+  // keeps every existing row unchanged. List-page queries default to
+  // kind='note'; /worklog/procedures filters kind='procedure'. PUT route
+  // preserves kind — cannot be flipped via update. See ADR-0029.
+  kind String @default("note")
+
   // ── Full-text search (W1.2) ──
   // GENERATED STORED tsvector maintained by Postgres — see migration
   // 20260523220000_add_worklog_search_vector. Combines title (A), content (B), tags (C).
@@ -813,6 +820,7 @@ model WorkLog {
   @@index([searchVector], type: Gin)
   @@index([linkedNoteIds], type: Gin)
   @@index([linkedContactIds], type: Gin)
+  @@index([userId, kind])
 }
 
 // User-defined folder tree (adjacency list) for organizing WorkLog notes.
