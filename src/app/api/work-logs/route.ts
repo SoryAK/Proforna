@@ -139,10 +139,22 @@ export async function POST(request: Request) {
       kind,
     } = body;
 
-    // ADR-0029 — kind discriminator whitelist. Only 'procedure' opts into
-    // the runbook bucket; everything else (including absent / unknown values)
-    // falls back to 'note'. Never trust the client to set arbitrary values.
-    const kindValue: "note" | "procedure" = kind === "procedure" ? "procedure" : "note";
+    // ADR-0029 — kind discriminator whitelist. Explicit accept-list of
+    // legal values. Absent kind defaults to 'note'; any present-but-unknown
+    // value 400s before the row is created (no silent coerce — see Unit A
+    // P0-#3 follow-up). This mirrors the audit-and-reject pattern Unit 3
+    // set up on the PUT route and gives clients a discoverable error.
+    let kindValue: "note" | "procedure";
+    if (kind === undefined || kind === null) {
+      kindValue = "note";
+    } else if (kind === "note" || kind === "procedure") {
+      kindValue = kind;
+    } else {
+      return NextResponse.json(
+        { error: "kind must be 'note' or 'procedure'" },
+        { status: 400 },
+      );
+    }
 
     if (!date || !title) {
       return NextResponse.json({ error: "date and title are required" }, { status: 400 });

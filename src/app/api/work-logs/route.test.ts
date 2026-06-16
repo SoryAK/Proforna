@@ -153,15 +153,36 @@ describe("POST /api/work-logs — ADR-0029 kind acceptance", () => {
     expect(data.kind).toBe("note");
   });
 
-  it("rejects an unknown kind value (defaults to 'note', never persists garbage)", async () => {
+  it("rejects an unknown kind value with 400 (no silent coerce)", async () => {
+    // Audit-pattern parity (ADR-0029 P0-#3 follow-up): the original ship
+    // silently coerced unknown values to 'note'. Silent coercion masks
+    // client bugs and contradicts the explicit-validation pattern Unit 3
+    // set up for PUT. The whitelist is now { 'note', 'procedure' } and
+    // anything else returns 400 with a discoverable error message.
     const res = await POST(makePostRequest({
       title: "Bad kind",
       date: "2026-06-15T08:00:00.000Z",
       kind: "something-else",
     }));
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toMatch(/kind/i);
+    // Must short-circuit before any DB write.
+    expect(mockCreate).not.toHaveBeenCalled();
+  });
+
+  it("accepts the explicit 'note' kind (parity with default-omitted)", async () => {
+    // Defense-in-depth: the whitelist accepts BOTH valid values, not just
+    // the non-default one. This guards against a future refactor that
+    // inadvertently rejects 'note' as "redundant" — clients should be
+    // free to send the canonical kind explicitly.
+    const res = await POST(makePostRequest({
+      title: "Explicit note",
+      date: "2026-06-15T08:00:00.000Z",
+      kind: "note",
+    }));
     expect(res.status).toBe(201);
     const data = mockCreate.mock.calls[0][0]!.data as Record<string, unknown>;
-    // Whitelist behavior: anything that isn't 'procedure' falls back to 'note'.
     expect(data.kind).toBe("note");
   });
 });
