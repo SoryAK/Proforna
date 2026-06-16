@@ -95,6 +95,15 @@ export async function GET(request: Request) {
         ? Prisma.sql`TRUE`
         : Prisma.sql`"archivedAt" IS NULL`;
 
+  // ADR-0029 — kind discriminator. Same locked contract as GET /api/work-logs:
+  //   absent          → kind = "note"      (notes search default)
+  //   ?kind=procedure → kind = "procedure" (procedures search)
+  //   unknown         → falls back to "note" (defense in depth — never
+  //                     leak procedures into the notes search box)
+  const kindParam = searchParams.get("kind");
+  const kindValue: "note" | "procedure" = kindParam === "procedure" ? "procedure" : "note";
+  const kindPredicate: Prisma.Sql = Prisma.sql`"kind" = ${kindValue}`;
+
   // Two-stage query:
   //   ranked CTE → pick top-N by ts_rank_cd against plainto_tsquery
   //   outer SELECT → compute ts_headline only on those N rows
@@ -111,6 +120,7 @@ export async function GET(request: Request) {
       WHERE "userId" = ${userId}
         AND ${folderPredicate}
         AND ${archivedPredicate}
+        AND ${kindPredicate}
         AND "search_vector" @@ plainto_tsquery('english', ${qRaw})
       ORDER BY rank DESC, "date" DESC
       LIMIT ${limit}

@@ -86,3 +86,42 @@ describe("GET /api/work-logs/search — ADR-0026 archive filter", () => {
     expect(text).toContain(`"archivedAt" IS NOT NULL`);
   });
 });
+
+/**
+ * ADR-0029 — kind discriminator on search. Same locked contract as
+ * GET /api/work-logs:
+ *   absent          → kind = "note"      (notes search default)
+ *   ?kind=procedure → kind = "procedure" (procedures search)
+ *   unknown         → falls back to "note" (defense in depth)
+ *
+ * Without this filter the procedures search box surfaces note results
+ * (and vice versa) — see audit P0-#2.
+ */
+describe("GET /api/work-logs/search — ADR-0029 kind filter", () => {
+  it("default (no kind param) — scopes to kind = 'note'", async () => {
+    const res = await GET(makeRequest("q=hello"));
+    expect(res.status).toBe(200);
+    const sql = mockQueryRaw.mock.calls[0]![0] as { text: string; values: unknown[] };
+    expect(sql.text).toContain(`"kind" =`);
+    expect(sql.values).toContain("note");
+    expect(sql.values).not.toContain("procedure");
+  });
+
+  it("kind=procedure — scopes to kind = 'procedure'", async () => {
+    const res = await GET(makeRequest("q=hello&kind=procedure"));
+    expect(res.status).toBe(200);
+    const sql = mockQueryRaw.mock.calls[0]![0] as { text: string; values: unknown[] };
+    expect(sql.text).toContain(`"kind" =`);
+    expect(sql.values).toContain("procedure");
+    expect(sql.values).not.toContain("note");
+  });
+
+  it("unknown kind value — falls back to 'note' (no silent procedure leak)", async () => {
+    const res = await GET(makeRequest("q=hello&kind=banana"));
+    expect(res.status).toBe(200);
+    const sql = mockQueryRaw.mock.calls[0]![0] as { text: string; values: unknown[] };
+    expect(sql.text).toContain(`"kind" =`);
+    expect(sql.values).toContain("note");
+    expect(sql.values).not.toContain("procedure");
+  });
+});
