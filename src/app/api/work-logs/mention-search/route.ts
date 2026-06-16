@@ -19,8 +19,8 @@ import { prisma } from "@/lib/prisma";
 import { getUserId } from "@/lib/auth-utils";
 import { deriveWorklogLabel } from "@/lib/worklog/derive-worklog-label";
 
-type EntityType = "asset" | "skill" | "company" | "contact" | "worklog";
-const VALID_TYPES = new Set<EntityType>(["asset", "skill", "company", "contact", "worklog"]);
+type EntityType = "asset" | "skill" | "company" | "contact" | "worklog" | "procedure";
+const VALID_TYPES = new Set<EntityType>(["asset", "skill", "company", "contact", "worklog", "procedure"]);
 const MAX_RESULTS = 8;
 
 export async function GET(request: Request) {
@@ -88,7 +88,26 @@ async function findById(
     }
     case "worklog": {
       const row = await prisma.workLog.findFirst({
-        where: { id, userId },
+        where: { id, userId, kind: "note" },
+        select: { id: true, title: true, contentJson: true, date: true },
+      });
+      return row
+        ? {
+            id: row.id,
+            label: deriveWorklogLabel({
+              title: row.title,
+              contentJson: row.contentJson,
+              date: row.date,
+            }),
+          }
+        : null;
+    }
+    case "procedure": {
+      // ADR-0029 — procedures are WorkLog rows with kind='procedure'. Scope
+      // findFirst to the kind discriminator so a note id can never resolve
+      // as a procedure even if the client tampers with the URL.
+      const row = await prisma.workLog.findFirst({
+        where: { id, userId, kind: "procedure" },
         select: { id: true, title: true, contentJson: true, date: true },
       });
       return row
@@ -201,9 +220,45 @@ async function searchEntities(
       // ADR-0016 — search across the user's WorkLog notes by `title OR
       // content` (case-insensitive contains). Two short text columns per
       // user dataset — perfectly fine without trigram indexes.
+      // ADR-0029 — scope to kind='note' so procedures never leak into
+      // the @n: picker (and vice-versa via the procedure case below).
       const rows = await prisma.workLog.findMany({
         where: {
           userId,
+          kind: "note",
+          ...idExclusion,
+          ...(term
+            ? {
+                OR: [
+                  { title:   { contains: term, mode: "insensitive" as const } },
+                  { content: { contains: term, mode: "insensitive" as const } },
+                ],
+              }
+            : {}),
+        },
+        select: { id: true, title: true, contentJson: true, date: true },
+        orderBy: { date: "desc" },
+        take: MAX_RESULTS,
+      });
+      return rows.map((r) => ({
+        id: r.id,
+        label: deriveWorklogLabel({
+          title: r.title,
+          contentJson: r.contentJson,
+          date: r.date,
+        }),
+        meta: formatDateMeta(r.date),
+      }));
+    }
+
+    case "procedure": {
+      // ADR-0029 — procedure picker. Same shape as the worklog branch but
+      // scoped to kind='procedure'. Title is the canonical display field;
+      // search composes title OR content like notes do.
+      const rows = await prisma.workLog.findMany({
+        where: {
+          userId,
+          kind: "procedure",
           ...idExclusion,
           ...(term
             ? {

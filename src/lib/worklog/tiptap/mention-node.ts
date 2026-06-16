@@ -1,12 +1,13 @@
 /**
  * MentionNode — Tiptap inline atom for @entity mentions inside worklog notes.
  *
- * Supports five entity types via scoped prefix UX:
+ * Supports six entity types via scoped prefix UX:
  *   @a: → Asset (JobAsset)
  *   @s: → Skill (SkillNode)
  *   @c: → Company (WorkHistory)
  *   @p: → Person (Contact)
- *   @n: → Note    (WorkLog) — see ADR-0016
+ *   @n: → Note    (WorkLog kind='note')      — see ADR-0016
+ *   @r: → Runbook (WorkLog kind='procedure') — see ADR-0029
  *
  * Typing `@` alone shows a type-hint popup; once a prefix is typed the
  * popup switches to live entity search against /api/work-logs/mention-search.
@@ -30,7 +31,7 @@ import { MentionSuggestionPopup } from "@/components/worklog/mention-suggestion-
 
 // ── Entity type definitions ──────────────────────────────────────────────────
 
-export type MentionEntityType = "asset" | "skill" | "company" | "contact" | "worklog";
+export type MentionEntityType = "asset" | "skill" | "company" | "contact" | "worklog" | "procedure";
 
 export interface MentionNodeAttrs {
   entityType: MentionEntityType;
@@ -48,6 +49,7 @@ export const ENTITY_TYPE_CONFIG: Record<
   company: { badge: "C", typeLabel: "Company", color: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300" },
   contact: { badge: "P", typeLabel: "Person", color: "bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300" },
   worklog: { badge: "N", typeLabel: "Note", color: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300" },
+  procedure: { badge: "R", typeLabel: "Runbook", color: "bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300" },
 };
 
 // ── Suggestion item types ────────────────────────────────────────────────────
@@ -75,6 +77,7 @@ const PREFIX_MAP: Record<string, MentionEntityType> = {
   c: "company",
   p: "contact",
   n: "worklog",
+  r: "procedure",
 };
 
 const TYPE_PICKER_ITEMS: MentionTypePicker[] = [
@@ -83,6 +86,7 @@ const TYPE_PICKER_ITEMS: MentionTypePicker[] = [
   { kind: "type-picker", prefix: "c", entityType: "company", typeLabel: "Company" },
   { kind: "type-picker", prefix: "p", entityType: "contact", typeLabel: "Person" },
   { kind: "type-picker", prefix: "n", entityType: "worklog", typeLabel: "Note" },
+  { kind: "type-picker", prefix: "r", entityType: "procedure", typeLabel: "Runbook" },
 ];
 
 // ── Tiptap command augmentation ──────────────────────────────────────────────
@@ -120,7 +124,7 @@ function buildMentionSuggestion(
 
   async items({ query }) {
     // No prefix yet — show type picker
-    const prefixMatch = /^([ascpn]):(.*)$/.exec(query);
+    const prefixMatch = /^([ascpnr]):(.*)$/.exec(query);
     if (!prefixMatch) {
       return TYPE_PICKER_ITEMS;
     }

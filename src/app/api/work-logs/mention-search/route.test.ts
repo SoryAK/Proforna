@@ -368,3 +368,71 @@ describe("GET /api/work-logs/mention-search — worklog branch (ADR-0016)", () =
     expect(JSON.stringify(call.where)).toContain("asset-self");
   });
 });
+
+// ──────────────────────────────────────────────────────
+// ADR-0029 — procedure branch (kind discriminator filter)
+// ──────────────────────────────────────────────────────
+
+describe("GET /api/work-logs/mention-search — procedure branch (ADR-0029)", () => {
+  it("filters workLog.findMany to kind='procedure' so notes are never suggested as runbooks", async () => {
+    mockGetUserId.mockResolvedValue("u1");
+    vi.mocked(prisma.workLog.findMany).mockResolvedValue([] as any);
+
+    await GET(makeRequest({ type: "procedure", q: "lockout" }));
+
+    const call = vi.mocked(prisma.workLog.findMany).mock.calls[0]?.[0] as {
+      where: Record<string, unknown>;
+    };
+    // The kind filter is the headline contract — without it /worklog/notes
+    // rows leak into the @r: picker.
+    expect(call.where.userId).toBe("u1");
+    expect(call.where.kind).toBe("procedure");
+    // Search clause still composes — title OR content contains.
+    expect(call.where.OR).toEqual([
+      { title:   { contains: "lockout", mode: "insensitive" } },
+      { content: { contains: "lockout", mode: "insensitive" } },
+    ]);
+  });
+
+  it("returns procedure rows with WorkLog.title-derived label (same shape as worklog branch)", async () => {
+    mockGetUserId.mockResolvedValue("u1");
+    vi.mocked(prisma.workLog.findMany).mockResolvedValue([
+      {
+        id: "proc-1",
+        title: "Lock-out tag-out",
+        contentJson: docWithFirstLine("Step 1: de-energize"),
+        date: new Date("2026-06-15T08:00:00Z"),
+      } as any,
+    ]);
+
+    const res = await GET(makeRequest({ type: "procedure", q: "lock" }));
+
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json).toHaveLength(1);
+    expect(json[0]).toMatchObject({ id: "proc-1", label: "Lock-out tag-out" });
+  });
+
+  it("existence check (id param) finds the procedure and returns title-derived label", async () => {
+    mockGetUserId.mockResolvedValue("u1");
+    vi.mocked(prisma.workLog.findFirst).mockResolvedValue({
+      id: "proc-1",
+      title: "Crusher startup checklist",
+      contentJson: docWithFirstLine("Body"),
+      date: new Date("2026-06-15T08:00:00Z"),
+    } as any);
+
+    const res = await GET(makeRequest({ type: "procedure", id: "proc-1" }));
+
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json).toHaveLength(1);
+    expect(json[0]).toMatchObject({ id: "proc-1", label: "Crusher startup checklist" });
+    // findFirst should also scope kind='procedure' so a note id can never
+    // resolve as a procedure (defense-in-depth against url tampering).
+    const call = vi.mocked(prisma.workLog.findFirst).mock.calls[0]?.[0] as {
+      where: Record<string, unknown>;
+    };
+    expect(call.where.kind).toBe("procedure");
+  });
+});
