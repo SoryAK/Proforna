@@ -20,6 +20,7 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Loader2, MapPin, Plus, X } from "lucide-react";
@@ -100,7 +101,18 @@ export function WorklogMapView() {
   const [pickedCoords, setPickedCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [defaultLocation, setDefaultLocation] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
-
+  // Deep-link auto-arm (2026-06-16): the worklog-notes "New event" picker
+  // routes here as `/worklog/map?place=1` because the validator requires
+  // lat+lng+location — there's no map-less event create. Read the param
+  // once on mount, flip place-mode on, then strip the param so a refresh
+  // doesn't re-arm and a back-nav doesn't loop.
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    if (searchParams.get("place") !== "1") return;
+    setPlaceMode(true);
+    router.replace("/worklog/map", { scroll: false });
+  }, [searchParams, router]);
   // Esc cancels armed place-mode (don't trap typing in the dialog).
   useEffect(() => {
     if (!placeMode) return;
