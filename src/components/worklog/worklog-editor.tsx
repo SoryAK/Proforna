@@ -46,6 +46,7 @@ import { SlashCommands, SLASH_COMMANDS, type SlashCommandItem } from "@/lib/work
 import { PhotoNode, type PhotoNodeAttrs } from "@/lib/worklog/tiptap/photo-node";
 import { CanvasNode, type CanvasNodeAttrs } from "@/lib/worklog/tiptap/canvas-node";
 import { MentionNode } from "@/lib/worklog/tiptap/mention-node";
+import { procedureSchemaExtensions } from "@/lib/worklog/tiptap/procedure-schema-extensions";
 import { createSlashCommandRender } from "@/components/worklog/slash-command-menu";
 import { WorklogEditorToolbar } from "@/components/worklog/worklog-editor-toolbar";
 import { uploadBodyPhoto, reconcileBodyPhotos } from "@/lib/worklog/photo-upload";
@@ -76,6 +77,27 @@ const SCHEMA_EXTENSIONS = [
 ];
 const seedSchema = getSchema(SCHEMA_EXTENSIONS);
 
+// ADR-0030 — procedure schema bundle. The four procedure nodes replace
+// StarterKit's default `doc` topNode; everything else (paragraphs, lists,
+// inline atoms, marks) is reused from the notes set so steps can hold the
+// same content the rest of the app produces. `document: false` opts
+// StarterKit out of registering its own `doc` so procedureDoc owns the
+// topNode slot uncontested (Tiptap 3 "Duplicate extension names" guard).
+const SCHEMA_EXTENSIONS_PROCEDURE = [
+  StarterKit.configure({ undoRedo: false, link: false, document: false }),
+  ...procedureSchemaExtensions,
+  Link,
+  ShiftBlock,
+  MoodBlock,
+  TagMention,
+  TaskList,
+  TaskItem.configure({ nested: true }),
+  PhotoNode,
+  CanvasNode,
+  MentionNode,
+];
+const seedSchemaProcedure = getSchema(SCHEMA_EXTENSIONS_PROCEDURE);
+
 export interface WorklogEditorHandle {
   /** Flush the debounced save immediately (e.g. on Cmd+S or blur-of-shell). */
   flush: () => void;
@@ -90,6 +112,12 @@ export interface WorklogEditorChange {
 
 export interface WorklogEditorProps {
   workLogId: string;
+  /**
+   * ADR-0030 — schema discriminator. `'note'` (default) uses the freeform
+   * notes schema; `'procedure'` mounts the structured procedureDoc schema
+   * (title + optional tools + steps).
+   */
+  kind?: "note" | "procedure";
   initialContentJson?: unknown | null;
   initialContent?: string | null;
   placeholder?: string;
@@ -148,6 +176,7 @@ export const WorklogEditor = forwardRef<WorklogEditorHandle, WorklogEditorProps>
   const [ready, setReady] = useState(false);
   const initialContentJsonProp = props.initialContentJson ?? null;
   const initialContentProp = props.initialContent ?? null;
+  const kind = props.kind ?? "note";
   // Latch the seed source on first render so a later parent re-render with
   // a fresh object identity for `contentJson` doesn't retrigger the effect.
   const seedSourceRef = useRef<{ json: unknown | null; text: string | null }>({
@@ -167,6 +196,33 @@ export const WorklogEditor = forwardRef<WorklogEditorHandle, WorklogEditorProps>
       const fragmentText = fragment.toString().replace(/<[^>]*>/g, "").trim();
       const fragmentEffectivelyEmpty = fragmentText.length === 0;
 
+      // ADR-0030 — schema mismatch detection. The IDB-cached fragment is
+      // shaped for whichever schema last wrote it. If we're mounting the
+      // procedure schema against a fragment whose top-level XML element
+      // looks like a notes `doc`, ProseMirror will throw on bind. Wipe
+      // the cache so the seed below can re-establish a procedure-shaped
+      // fragment.
+      const fragmentXml = fragment.toString();
+      const fragmentLooksLikeNotesDoc =
+        fragmentXml.includes("<paragraph") || fragmentXml.includes("<heading")
+          ? !fragmentXml.includes("<procedureDoc") && !fragmentXml.includes("<procedureStep")
+          : false;
+      const fragmentLooksLikeProcedure = fragmentXml.includes("<procedureStep");
+      const schemaMismatch =
+        (kind === "procedure" && fragmentLooksLikeNotesDoc) ||
+        (kind === "note" && fragmentLooksLikeProcedure);
+
+      if (schemaMismatch) {
+        try {
+          yHandle.ydoc.transact(() => {
+            if (fragment.length > 0) fragment.delete(0, fragment.length);
+          });
+          void yHandle.persistence.clearData().catch(() => {});
+        } catch (err) {
+          console.warn("[worklog-editor] schema-mismatch wipe failed", err);
+        }
+      }
+
       const { json, text } = seedSourceRef.current;
       let seedDoc: unknown = null;
       if (json && typeof json === "object") {
@@ -175,7 +231,7 @@ export const WorklogEditor = forwardRef<WorklogEditorHandle, WorklogEditorProps>
         seedDoc = plainTextToProseMirrorDoc(text);
       }
 
-      if (fragmentEffectivelyEmpty && seedDoc) {
+      if ((fragmentEffectivelyEmpty || schemaMismatch) && seedDoc) {
         try {
           // Wipe stale empty state in-memory before applying the seed,
           // so the merge doesn't keep the old empty paragraph alongside
@@ -188,7 +244,7 @@ export const WorklogEditor = forwardRef<WorklogEditorHandle, WorklogEditorProps>
           void yHandle.persistence.clearData().catch(() => {});
 
           const tempDoc = prosemirrorJSONToYDoc(
-            seedSchema,
+            kind === "procedure" ? seedSchemaProcedure : seedSchema,
             seedDoc as Parameters<typeof prosemirrorJSONToYDoc>[1],
             "default",
           );
@@ -221,6 +277,7 @@ export const WorklogEditor = forwardRef<WorklogEditorHandle, WorklogEditorProps>
           ref={bodyRef}
           yHandle={yHandle}
           workLogId={workLogId}
+          kind={kind}
           placeholder={props.placeholder ?? "Start writing…"}
           editable={props.editable ?? true}
           debounceMs={props.debounceMs ?? 800}
@@ -238,6 +295,7 @@ export const WorklogEditor = forwardRef<WorklogEditorHandle, WorklogEditorProps>
 interface EditorBodyProps {
   yHandle: WorklogYHandle;
   workLogId: string;
+  kind: "note" | "procedure";
   placeholder: string;
   editable: boolean;
   debounceMs: number;
@@ -247,7 +305,7 @@ interface EditorBodyProps {
 }
 
 const EditorBody = forwardRef<WorklogEditorHandle, EditorBodyProps>(function EditorBody(
-  { yHandle, workLogId, placeholder, editable, debounceMs, shifts, onSave, onStateChange },
+  { yHandle, workLogId, kind, placeholder, editable, debounceMs, shifts, onSave, onStateChange },
   ref,
 ) {
   // Stable refs for callbacks so the editor isn't recreated when parent re-renders.
@@ -384,10 +442,20 @@ const EditorBody = forwardRef<WorklogEditorHandle, EditorBodyProps>(function Edi
         // `link: false` lets our custom Link.configure(...) below own the Link
         // mark — StarterKit ships its own Link in Tiptap 3 and would otherwise
         // collide ("Duplicate extension names found: ['link']").
+        //
+        // ADR-0030 — when mounting a procedure, also turn off StarterKit's
+        // default `doc` topNode so our procedureDoc owns the topNode slot
+        // without the same "Duplicate extension names" guard firing.
         StarterKit.configure({
           undoRedo: false,
           link: false,
+          ...(kind === "procedure" ? { document: false as const } : {}),
         }),
+        // ADR-0030 — register the procedure schema bundle (doc + title +
+        // tools + step) before the rest so procedureDoc replaces the
+        // default doc topNode and the schema validates the locked content
+        // sequence at editor init.
+        ...(kind === "procedure" ? procedureSchemaExtensions : []),
         Placeholder.configure({ placeholder }),
         Link.configure({
           openOnClick: false,
@@ -456,8 +524,10 @@ const EditorBody = forwardRef<WorklogEditorHandle, EditorBodyProps>(function Edi
         }, debounceMs);
       },
     },
-    // Only re-create the editor if the worklog identity changes.
-    [workLogId],
+    // Only re-create the editor if the worklog identity or schema kind
+    // changes. `kind` is stable for the lifetime of a WorkLog row (set at
+    // creation, never edited per ADR-0029) so this dep is defensive.
+    [workLogId, kind],
   );
 
   // Track the live editor for paste/drop/photo callbacks. Seeding now

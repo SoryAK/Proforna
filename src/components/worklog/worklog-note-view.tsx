@@ -13,6 +13,8 @@
  *   doc, paragraph, heading, blockquote, codeBlock, horizontalRule,
  *   bulletList, orderedList, taskList (+ listItem / taskItem),
  *   hardBreak, text, photo, shiftBlock, moodBlock, tag.
+ * ADR-0030 — also supports the procedure schema:
+ *   procedureDoc (top), procedureTitle, procedureTools, procedureStep.
  * Supported marks: bold, italic, code, link, strike, underline.
  *
  * Anything unknown is rendered as its plain inline text (best effort) so
@@ -84,6 +86,69 @@ export function WorklogNoteView({ json, contentText, className }: WorklogNoteVie
     );
   }
 
+  // ADR-0030 — procedureDoc has its own structural rendering (title, tools,
+  // numbered steps). Step numbering is positional: computed here, never
+  // stored in attrs, so reorder/insert/delete is always consistent.
+  if (root.type === "procedureDoc") {
+    let stepCounter = 0;
+    return (
+      <div
+        className={cn(
+          "prose prose-sm dark:prose-invert max-w-none leading-relaxed",
+          className,
+        )}
+      >
+        {root.content.map((node, i) => {
+          if (node.type === "procedureTitle") {
+            const inline = node.content ?? [];
+            if (inline.length === 0) return null;
+            return (
+              <h1 key={i} className="text-3xl font-semibold tracking-tight mb-3">
+                <RenderInline nodes={inline} />
+              </h1>
+            );
+          }
+          if (node.type === "procedureTools") {
+            return (
+              <section
+                key={i}
+                className="rounded-md border bg-muted/40 px-3 py-2 my-3 text-sm"
+              >
+                <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">
+                  Tools
+                </div>
+                {(node.content ?? []).map((c, j) => (
+                  <RenderBlock key={j} node={c} />
+                ))}
+              </section>
+            );
+          }
+          if (node.type === "procedureStep") {
+            stepCounter += 1;
+            const stepTitle =
+              (node.attrs as { title?: string | null } | null)?.title ?? null;
+            const header =
+              stepTitle && stepTitle.length > 0
+                ? `Step ${stepCounter} \u2014 ${stepTitle}`
+                : `Step ${stepCounter}`;
+            return (
+              <section key={i} className="my-3">
+                <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">
+                  {header}
+                </div>
+                {(node.content ?? []).map((c, j) => (
+                  <RenderBlock key={j} node={c} />
+                ))}
+              </section>
+            );
+          }
+          // Unknown child — best-effort fallback.
+          return <RenderBlock key={i} node={node} />;
+        })}
+      </div>
+    );
+  }
+
   return (
     <div
       className={cn(
@@ -99,11 +164,13 @@ export function WorklogNoteView({ json, contentText, className }: WorklogNoteVie
 }
 
 function isPmDoc(value: unknown): boolean {
+  if (!value || typeof value !== "object") return false;
+  const v = value as { type?: unknown; content?: unknown };
+  // ADR-0030 — accept both the freeform notes shape (`doc`) and the
+  // structured procedure shape (`procedureDoc`).
   return (
-    !!value &&
-    typeof value === "object" &&
-    (value as { type?: unknown }).type === "doc" &&
-    Array.isArray((value as { content?: unknown }).content)
+    (v.type === "doc" || v.type === "procedureDoc") &&
+    Array.isArray(v.content)
   );
 }
 

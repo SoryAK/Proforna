@@ -523,6 +523,7 @@ const ReaderInner = forwardRef<WorklogNoteReaderHandle, ReaderInnerProps>(functi
               <WorklogEditor
                 ref={editorRef}
                 workLogId={log.id}
+                kind={log.kind ?? "note"}
                 initialContentJson={log.contentJson ?? null}
                 initialContent={log.content ?? null}
                 placeholder="Start writing…"

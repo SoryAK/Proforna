@@ -9,8 +9,13 @@
 
 const MAX_CONTENT_JSON_BYTES = 1_000_000; // 1MB serialized — generous for a single worklog entry.
 
+// ADR-0030 — procedure work logs use a custom topNode (`procedureDoc`) in place
+// of the default `doc`. Both must be accepted at the API boundary.
+const VALID_ROOT_TYPES = ["doc", "procedureDoc"] as const;
+type ValidRootType = (typeof VALID_ROOT_TYPES)[number];
+
 export type ProseMirrorDoc = {
-  type: "doc";
+  type: ValidRootType;
   content?: unknown[];
   attrs?: Record<string, unknown>;
 };
@@ -27,8 +32,8 @@ export function validateContentJson(input: unknown): ContentJsonValidation {
     return { ok: false, error: "contentJson must be an object" };
   }
   const doc = input as Record<string, unknown>;
-  if (doc.type !== "doc") {
-    return { ok: false, error: "contentJson root must be a doc node" };
+  if (doc.type !== "doc" && doc.type !== "procedureDoc") {
+    return { ok: false, error: "contentJson root must be a doc or procedureDoc node" };
   }
   if (doc.content !== undefined && !Array.isArray(doc.content)) {
     return { ok: false, error: "contentJson.content must be an array" };

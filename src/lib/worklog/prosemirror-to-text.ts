@@ -32,12 +32,79 @@ const BLOCK_TYPES = new Set([
 export function proseMirrorDocToPlainText(doc: unknown): string {
   if (!doc || typeof doc !== "object") return "";
   const root = doc as PmNode;
-  if (root.type !== "doc" || !Array.isArray(root.content)) return "";
+  if (!Array.isArray(root.content)) return "";
+
+  // ADR-0030: procedureDoc has its own top-level structure (title + optional
+  // tools + steps). Project it with structural markers so the search index
+  // and AI consumers see something useful.
+  if (root.type === "procedureDoc") {
+    return projectProcedureDoc(root);
+  }
+
+  if (root.type !== "doc") return "";
   const lines: string[] = [];
   for (const child of root.content) {
     walk(child, lines, "");
   }
   // Trim trailing whitespace lines but preserve interior spacing.
+  return lines.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+/**
+ * ADR-0030 — project a procedureDoc into plain text. Step numbering is
+ * positional (computed from sibling index), matching the rendering rule:
+ * "Step N" or "Step N — <title>" depending on the optional `title` attr.
+ *
+ * Only procedureStep siblings count toward the running step number. The
+ * optional procedureTools block does NOT consume a step number.
+ */
+function projectProcedureDoc(root: PmNode): string {
+  const sections: string[] = [];
+  let stepCounter = 0;
+  for (const child of root.content ?? []) {
+    if (!child) continue;
+    if (child.type === "procedureTitle") {
+      const text = collectInlineText(child).trim();
+      if (text) sections.push(text);
+      continue;
+    }
+    if (child.type === "procedureTools") {
+      const inner = collectBlockText(child);
+      if (inner.length > 0) {
+        sections.push(`Tools:\n${inner}`);
+      } else {
+        sections.push("Tools:");
+      }
+      continue;
+    }
+    if (child.type === "procedureStep") {
+      stepCounter += 1;
+      const stepTitle =
+        (child.attrs as { title?: string | null } | null)?.title ?? null;
+      const header =
+        stepTitle && stepTitle.length > 0 ? `Step ${stepCounter} \u2014 ${stepTitle}` : `Step ${stepCounter}`;
+      const body = collectBlockText(child);
+      sections.push(body.length > 0 ? `${header}\n${body}` : header);
+      continue;
+    }
+    // Unknown child type — best-effort walk so we never crash.
+    const fallback = collectBlockText(child);
+    if (fallback) sections.push(fallback);
+  }
+  return sections.join("\n\n").trim();
+}
+
+/**
+ * Walk a container node's block children using the same logic as the
+ * top-level `doc` walker, then return the joined newline-separated text.
+ * Used for procedureTools and procedureStep bodies.
+ */
+function collectBlockText(container: PmNode): string {
+  if (!Array.isArray(container.content)) return "";
+  const lines: string[] = [];
+  for (const child of container.content) {
+    walk(child, lines, "");
+  }
   return lines.join("\n").replace(/\n{3,}/g, "\n\n").trim();
 }
 
@@ -210,7 +277,10 @@ export function extractMentionEntityIds(
 ): string[] {
   if (!doc || typeof doc !== "object") return [];
   const root = doc as PmNode;
-  if (root.type !== "doc" || !Array.isArray(root.content)) return [];
+  // ADR-0030: also accept procedureDoc — same recursive descent works for
+  // both shapes since collectMentions walks .content uniformly.
+  if (root.type !== "doc" && root.type !== "procedureDoc") return [];
+  if (!Array.isArray(root.content)) return [];
   const ids = new Set<string>();
   collectMentions(root, ids, entityType);
   return Array.from(ids);

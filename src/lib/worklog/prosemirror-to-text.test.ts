@@ -663,3 +663,170 @@ describe("extractMentionEntityIds", () => {
     expect(extractMentionAssetIds(multiMentionDoc)).toEqual(["asset-1"]);
   });
 });
+
+// ─────────────────────────────────────────────────────────
+// proseMirrorDocToPlainText — procedureDoc (ADR-0030)
+// ─────────────────────────────────────────────────────────
+
+describe("proseMirrorDocToPlainText — procedureDoc", () => {
+  it("renders an empty procedure (title only) as the title text", () => {
+    const doc = {
+      type: "procedureDoc",
+      content: [
+        { type: "procedureTitle", content: [{ type: "text", text: "Onboard a new chef" }] },
+        { type: "procedureStep", attrs: { title: null }, content: [{ type: "paragraph" }] },
+      ],
+    };
+    // Title becomes the first line; an empty step renders as just "Step 1"
+    // (numbering is positional, computed at projection time).
+    expect(proseMirrorDocToPlainText(doc)).toBe("Onboard a new chef\n\nStep 1");
+  });
+
+  it("renders steps with positional numbering and titles when present", () => {
+    const doc = {
+      type: "procedureDoc",
+      content: [
+        { type: "procedureTitle", content: [{ type: "text", text: "Deploy" }] },
+        {
+          type: "procedureStep",
+          attrs: { title: "Build" },
+          content: [{ type: "paragraph", content: [{ type: "text", text: "npm run build" }] }],
+        },
+        {
+          type: "procedureStep",
+          attrs: { title: null },
+          content: [{ type: "paragraph", content: [{ type: "text", text: "smoke test" }] }],
+        },
+        {
+          type: "procedureStep",
+          attrs: { title: "Promote" },
+          content: [{ type: "paragraph", content: [{ type: "text", text: "git tag" }] }],
+        },
+      ],
+    };
+    expect(proseMirrorDocToPlainText(doc)).toBe(
+      "Deploy\n\nStep 1 — Build\nnpm run build\n\nStep 2\nsmoke test\n\nStep 3 — Promote\ngit tag",
+    );
+  });
+
+  it("renders the optional procedureTools block under a 'Tools:' header", () => {
+    const doc = {
+      type: "procedureDoc",
+      content: [
+        { type: "procedureTitle", content: [{ type: "text", text: "Cook pasta" }] },
+        {
+          type: "procedureTools",
+          content: [
+            { type: "paragraph", content: [{ type: "text", text: "Pot, salt, water" }] },
+          ],
+        },
+        {
+          type: "procedureStep",
+          attrs: { title: null },
+          content: [{ type: "paragraph", content: [{ type: "text", text: "Boil water" }] }],
+        },
+      ],
+    };
+    expect(proseMirrorDocToPlainText(doc)).toBe(
+      "Cook pasta\n\nTools:\nPot, salt, water\n\nStep 1\nBoil water",
+    );
+  });
+
+  it("preserves inline atoms (mentions, tags) inside step content", () => {
+    const doc = {
+      type: "procedureDoc",
+      content: [
+        { type: "procedureTitle", content: [{ type: "text", text: "Ship" }] },
+        {
+          type: "procedureStep",
+          attrs: { title: null },
+          content: [
+            {
+              type: "paragraph",
+              content: [
+                { type: "text", text: "Ping " },
+                { type: "mention", attrs: { label: "lead", entityType: "worklog", entityId: "x1" } },
+                { type: "text", text: " before merging " },
+                { type: "tag", attrs: { label: "release" } },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    expect(proseMirrorDocToPlainText(doc)).toBe(
+      "Ship\n\nStep 1\nPing @lead before merging #release",
+    );
+  });
+
+  it("renders a procedureDoc with empty title as just the steps", () => {
+    const doc = {
+      type: "procedureDoc",
+      content: [
+        { type: "procedureTitle", content: [] },
+        {
+          type: "procedureStep",
+          attrs: { title: null },
+          content: [{ type: "paragraph", content: [{ type: "text", text: "First" }] }],
+        },
+      ],
+    };
+    expect(proseMirrorDocToPlainText(doc)).toBe("Step 1\nFirst");
+  });
+
+  it("returns empty string for a procedureDoc with empty content array", () => {
+    expect(
+      proseMirrorDocToPlainText({ type: "procedureDoc", content: [] }),
+    ).toBe("");
+  });
+});
+
+// ─────────────────────────────────────────────────────────
+// extractMentionEntityIds — procedureDoc (ADR-0030)
+// ─────────────────────────────────────────────────────────
+
+describe("extractMentionEntityIds — procedureDoc", () => {
+  it("collects mentions from inside step content", () => {
+    const doc = {
+      type: "procedureDoc",
+      content: [
+        { type: "procedureTitle", content: [{ type: "text", text: "Run" }] },
+        {
+          type: "procedureStep",
+          attrs: { title: null },
+          content: [
+            {
+              type: "paragraph",
+              content: [
+                { type: "mention", attrs: { label: "Knife", entityType: "asset", entityId: "asset-7" } },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    expect(extractMentionEntityIds(doc, "asset")).toEqual(["asset-7"]);
+  });
+
+  it("collects mentions from inside the optional procedureTools block", () => {
+    const doc = {
+      type: "procedureDoc",
+      content: [
+        { type: "procedureTitle", content: [] },
+        {
+          type: "procedureTools",
+          content: [
+            {
+              type: "paragraph",
+              content: [
+                { type: "mention", attrs: { label: "Pot", entityType: "asset", entityId: "asset-9" } },
+              ],
+            },
+          ],
+        },
+        { type: "procedureStep", attrs: { title: null }, content: [{ type: "paragraph" }] },
+      ],
+    };
+    expect(extractMentionEntityIds(doc, "asset")).toEqual(["asset-9"]);
+  });
+});
