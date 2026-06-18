@@ -50,9 +50,9 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, CheckSquare, FileText, LayoutGrid, List, ListChecks, MapPin, MoreHorizontal, Plus, Send, Upload } from "lucide-react";
+import { ArrowLeft, CheckSquare, LayoutGrid, List, MoreHorizontal, Plus, Send, Upload } from "lucide-react";
 import type { WorkLog } from "@/types/worklog";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -341,38 +341,9 @@ export function WorklogNotesView({ selectedNoteId = null }: WorklogNotesViewProp
   // on /worklog/procedures and the editor mounts the procedure toolbar
   // (ADR-0030). The reader URL is shared (/worklog/notes/[id]) — kind is
   // resolved server-side from the row.
-  const handleNewProcedure = async () => {
-    try {
-      const saved: WorkLog = await saveLog.mutateAsync({
-        date: new Date().toISOString(),
-        title: "Untitled procedure",
-        kind: "procedure",
-        category: defaults.defaultCategory ?? "task",
-        positionId: defaults.defaultPositionId ?? null,
-        shiftId: defaults.defaultShiftId ?? null,
-        content: "",
-        hours: defaults.defaultHours ?? null,
-        tags: null,
-        mood: defaults.defaultMood ?? null,
-        equipmentIds: [],
-        assetIds: [],
-        templateId: null,
-        isNotable: false,
-      });
-      const target = `/worklog/notes/${saved.id}${listReturnQuery ? `?${listReturnQuery}` : ""}`;
-      router.push(target);
-    } catch {
-      // mutation surfaces errors via React Query toasts
-    }
-  };
-
-  // Free-floating events require lat+lng+location (ADR-0027 validator),
-  // so we route to the dedicated map surface with `?place=1` to auto-arm
-  // place-mode. The map's WorklogMapView reads the param, flips the FAB
-  // on, then strips the param so refresh doesn't re-arm.
-  const handleNewEvent = () => {
-    router.push("/worklog/map?place=1");
-  };
+  // ADR-0032 — procedure + event creation moved to the rail Events /
+  // Procedures rows (`worklog-nav-sidebar.tsx`). The toolbar reverts to a
+  // single kind-locked `+ New note` button below.
 
   // Delete from the inline reader (ADR-0024). Auto-advances in the Unfiled
   // inbox (ADR-0026 Unit 5) to the next surviving note; falls back to the
@@ -931,39 +902,23 @@ export function WorklogNotesView({ selectedNoteId = null }: WorklogNotesViewProp
                   </>
                 )}
 
-                {/* Kind-neutral 3-way create picker. Replaces the single
-                    "+ New note" button (2026-06-16) so misclassification is
-                    fixed at the cause rather than the cure. Note + procedure
-                    POST /api/work-logs with the right `kind`; event routes
-                    to /worklog/map?place=1 since free-floating events need
-                    lat+lng+location (ADR-0027 validator). */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger
-                    className={cn(buttonVariants({ size: "sm" }))}
-                    disabled={saveLog.isPending}
-                    aria-label="New worklog"
-                    title="New note · procedure · event"
-                    // base-ui Trigger owns its own onClick — never add one.
-                    onMouseDown={(e) => e.stopPropagation()}
-                  >
-                    <Plus className="h-4 w-4" />
-                    <span className={toolbarLabelCls}>New</span>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-44">
-                    <DropdownMenuItem onClick={handleNewNote}>
-                      <FileText className="mr-2 h-3.5 w-3.5 text-cyan-500" />
-                      New note
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={handleNewProcedure}>
-                      <ListChecks className="mr-2 h-3.5 w-3.5 text-rose-500" />
-                      New procedure
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={handleNewEvent}>
-                      <MapPin className="mr-2 h-3.5 w-3.5 text-fuchsia-500" />
-                      New event
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                {/* Kind-locked `+ New note` button. Procedure + event
+                    creation lives on the rail Events / Procedures rows
+                    (ADR-0032, supersedes the toolbar 3-way picker from
+                    ADR-0031). Misclassification is fixed at the source
+                    — each `+` is unambiguously typed by the row it sits
+                    in. */}
+                <Button
+                  size="sm"
+                  onClick={handleNewNote}
+                  disabled={saveLog.isPending}
+                  aria-label="New note"
+                  title="New note"
+                  className="h-7 gap-1.5 text-xs"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  <span className={toolbarLabelCls}>New note</span>
+                </Button>
               </div>
             </div>
           )}

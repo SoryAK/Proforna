@@ -1,9 +1,11 @@
 # 0031 — Three-way Create picker on the worklog-notes toolbar
 
-- **Status:** Accepted
+- **Status:** Superseded by [ADR-0032](0032-rail-inline-create-buttons.md)
 - **Date:** 2026-06-16
 - **Deciders:** Sory (PM/builder) + Copilot agent
 - **Tags:** frontend, worklog, ux, kind-discriminator
+
+> **Superseded 2026-06-17.** The toolbar dropdown was a defensible 1-day-old answer to misclassification, but inline `+` buttons next to the rail Events / Procedures rows turned out to be both faster (1 click vs 2-3) and more discoverable (action lives next to the kind label). See ADR-0032 for the replacement design and rationale.
 
 ## Context and Problem Statement
 

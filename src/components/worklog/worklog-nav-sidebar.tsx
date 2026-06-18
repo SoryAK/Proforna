@@ -29,15 +29,17 @@ import { useMemo } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { CalendarDays, ChevronLeft, ClipboardList, FileText, Home, Inbox, Sparkles, Star, Archive } from "lucide-react";
+import { CalendarDays, ChevronLeft, ClipboardList, FileText, Home, Inbox, Plus, Sparkles, Star, Archive } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { WorklogFolderTreeItems } from "@/components/worklog/worklog-folder-tree-items";
 import { WorklogCategoryRows } from "@/components/worklog/worklog-category-rows";
+import { useWorklogMutations } from "@/components/worklog/hooks/use-worklog-mutations";
+import { useWorklogPreferences } from "@/components/worklog/hooks/use-worklog-preferences";
 import {
   useFolderSelection,
   selectionToQueryString,
 } from "@/components/worklog/hooks/use-folder-selection";
-import type { FolderSelection, WorkLog, Template } from "@/types/worklog";
+import type { FolderSelection, Position, Template, WorkLog } from "@/types/worklog";
 
 interface NavRowProps {
   icon: React.ReactNode;
@@ -163,6 +165,44 @@ export function WorklogNavSidebar({ onShowGlobal }: WorklogNavSidebarProps) {
   const proceduresCount = procedures.length;
   const proceduresActive = pathname === "/worklog/procedures";
 
+  // ADR-0032 — inline `+` actions on the Events / Procedures rail rows.
+  // Replaces the toolbar 3-way picker (ADR-0031, superseded). Procedure
+  // creation mirrors WorklogNotesView's handleNewProcedure exactly so the
+  // optimistic cache prepend (`useWorklogMutations` saveLog) is identical;
+  // event creation routes to `/worklog/map?place=1` to honor the
+  // lat+lng+location validator (ADR-0027). `useWorklogPreferences` is fed
+  // an empty positionMap because the sidebar only needs `defaults` (the
+  // `defaultsSummary` memo that reads positionMap is unused here).
+  const { saveLog } = useWorklogMutations();
+  const emptyPositionMap = useMemo(() => new Map<string, Position>(), []);
+  const { defaults } = useWorklogPreferences(emptyPositionMap);
+  const handleNewProcedure = async () => {
+    try {
+      const saved: WorkLog = await saveLog.mutateAsync({
+        date: new Date().toISOString(),
+        title: "Untitled procedure",
+        kind: "procedure",
+        category: defaults.defaultCategory ?? "task",
+        positionId: defaults.defaultPositionId ?? null,
+        shiftId: defaults.defaultShiftId ?? null,
+        content: "",
+        hours: defaults.defaultHours ?? null,
+        tags: null,
+        mood: defaults.defaultMood ?? null,
+        equipmentIds: [],
+        assetIds: [],
+        templateId: null,
+        isNotable: false,
+      });
+      router.push(`/worklog/notes/${saved.id}`);
+    } catch {
+      // mutation surfaces errors via React Query toasts
+    }
+  };
+  const handleNewEvent = () => {
+    router.push("/worklog/map?place=1");
+  };
+
   const categoryCounts = useMemo(() => {
     const m = new Map<string, number>();
     for (const l of logs) {
@@ -242,65 +282,115 @@ export function WorklogNavSidebar({ onShowGlobal }: WorklogNavSidebarProps) {
             `border.divider-top` (tokens.md) sits ABOVE the row to signal
             "different destination, not a filter on the current page."
             Sits directly under "All notes" per the user's spatial intent;
-            the Archived/Notable/Templates filter cluster follows below. */}
-        <Link
-          href="/worklog/events"
-          data-rail-row
-          aria-current={eventsActive ? "true" : undefined}
+            the Archived/Notable/Templates filter cluster follows below.
+            ADR-0032 — inline `+` button creates a free-floating event
+            (routes to /worklog/map?place=1). The row is wrapped in a flex
+            container so the Link and button are siblings (Link cannot
+            nest a button per HTML spec); the divider + active bg live on
+            the wrapper so they span the full row width including the `+`.
+            The Link drops `w-full` for `flex-1` to share the row. */}
+        <div
           className={cn(
-            "w-full flex items-center gap-3 rounded-lg text-base font-medium transition-colors px-3 py-2.5",
-            "border-t border-border/60 mt-1 pt-3",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
-            eventsActive
-              ? "bg-orange-100 dark:bg-orange-900/30 text-orange-900 dark:text-orange-100"
-              : "hover:bg-accent text-foreground/80 hover:text-foreground",
+            "flex items-stretch rounded-lg border-t border-border/60 mt-1 pt-3",
+            eventsActive && "bg-orange-100 dark:bg-orange-900/30",
           )}
         >
-          <CalendarDays className="h-5 w-5 flex-shrink-0" />
-          <span className="truncate">Events</span>
-          {eventsCount > 0 && (
-            <span
-              className={cn(
-                "ml-auto text-[11px] tabular-nums",
-                eventsActive
-                  ? "text-orange-700 dark:text-orange-300"
-                  : "text-muted-foreground",
-              )}
-            >
-              {eventsCount}
-            </span>
-          )}
-        </Link>
+          <Link
+            href="/worklog/events"
+            data-rail-row
+            aria-current={eventsActive ? "true" : undefined}
+            className={cn(
+              "flex-1 flex items-center gap-3 rounded-lg text-base font-medium transition-colors px-3 py-2.5",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
+              eventsActive
+                ? "text-orange-900 dark:text-orange-100"
+                : "hover:bg-accent text-foreground/80 hover:text-foreground",
+            )}
+          >
+            <CalendarDays className="h-5 w-5 flex-shrink-0" />
+            <span className="truncate">Events</span>
+            {eventsCount > 0 && (
+              <span
+                className={cn(
+                  "ml-auto text-[11px] tabular-nums",
+                  eventsActive
+                    ? "text-orange-700 dark:text-orange-300"
+                    : "text-muted-foreground",
+                )}
+              >
+                {eventsCount}
+              </span>
+            )}
+          </Link>
+          <button
+            type="button"
+            onClick={handleNewEvent}
+            aria-label="New event"
+            title="New event"
+            className={cn(
+              "flex-shrink-0 inline-flex items-center justify-center h-7 w-7 mr-1 my-auto rounded-md transition-colors",
+              "text-muted-foreground hover:text-foreground hover:bg-accent",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
+            )}
+          >
+            <Plus className="h-4 w-4" />
+          </button>
+        </div>
         {/* ADR-0029 — Procedures sibling surface. Sits directly under Events,
             inside the same "different destination" cluster (no divider needed
-            here — Events row already drew the boundary above). */}
-        <Link
-          href="/worklog/procedures"
-          data-rail-row
-          aria-current={proceduresActive ? "true" : undefined}
+            here — Events row already drew the boundary above).
+            ADR-0032 — inline `+` button creates a kind="procedure" worklog
+            via the shared optimistic mutation, then routes to its reader.
+            Same wrapper pattern as the Events row above. */}
+        <div
           className={cn(
-            "w-full flex items-center gap-3 rounded-lg text-base font-medium transition-colors px-3 py-2.5",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
-            proceduresActive
-              ? "bg-orange-100 dark:bg-orange-900/30 text-orange-900 dark:text-orange-100"
-              : "hover:bg-accent text-foreground/80 hover:text-foreground",
+            "flex items-stretch rounded-lg",
+            proceduresActive && "bg-orange-100 dark:bg-orange-900/30",
           )}
         >
-          <ClipboardList className="h-5 w-5 flex-shrink-0" />
-          <span className="truncate">Procedures</span>
-          {proceduresCount > 0 && (
-            <span
-              className={cn(
-                "ml-auto text-[11px] tabular-nums",
-                proceduresActive
-                  ? "text-orange-700 dark:text-orange-300"
-                  : "text-muted-foreground",
-              )}
-            >
-              {proceduresCount}
-            </span>
-          )}
-        </Link>
+          <Link
+            href="/worklog/procedures"
+            data-rail-row
+            aria-current={proceduresActive ? "true" : undefined}
+            className={cn(
+              "flex-1 flex items-center gap-3 rounded-lg text-base font-medium transition-colors px-3 py-2.5",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
+              proceduresActive
+                ? "text-orange-900 dark:text-orange-100"
+                : "hover:bg-accent text-foreground/80 hover:text-foreground",
+            )}
+          >
+            <ClipboardList className="h-5 w-5 flex-shrink-0" />
+            <span className="truncate">Procedures</span>
+            {proceduresCount > 0 && (
+              <span
+                className={cn(
+                  "ml-auto text-[11px] tabular-nums",
+                  proceduresActive
+                    ? "text-orange-700 dark:text-orange-300"
+                    : "text-muted-foreground",
+                )}
+              >
+                {proceduresCount}
+              </span>
+            )}
+          </Link>
+          <button
+            type="button"
+            onClick={handleNewProcedure}
+            disabled={saveLog.isPending}
+            aria-label="New procedure"
+            title="New procedure"
+            className={cn(
+              "flex-shrink-0 inline-flex items-center justify-center h-7 w-7 mr-1 my-auto rounded-md transition-colors",
+              "text-muted-foreground hover:text-foreground hover:bg-accent",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
+              "disabled:opacity-50 disabled:cursor-not-allowed",
+            )}
+          >
+            <Plus className="h-4 w-4" />
+          </button>
+        </div>
         {/* ADR-0026 — Gmail-style Archived bucket. Originally pinned directly
             under "All notes"; per ADR-0027 Day 3 the Events sibling row sits
             between them, so Archived now anchors the *filter* cluster below
