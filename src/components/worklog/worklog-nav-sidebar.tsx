@@ -25,7 +25,7 @@
 
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
@@ -35,7 +35,6 @@ import { WorklogFolderTreeItems } from "@/components/worklog/worklog-folder-tree
 import { WorklogCategoryRows } from "@/components/worklog/worklog-category-rows";
 import { useWorklogMutations } from "@/components/worklog/hooks/use-worklog-mutations";
 import { useWorklogPreferences } from "@/components/worklog/hooks/use-worklog-preferences";
-import { EventCreateDialog } from "@/components/worklog/events/event-create-dialog";
 import {
   useFolderSelection,
   selectionToQueryString,
@@ -170,16 +169,15 @@ export function WorklogNavSidebar({ onShowGlobal }: WorklogNavSidebarProps) {
   // Replaces the toolbar 3-way picker (ADR-0031, superseded). Procedure
   // creation mirrors WorklogNotesView's handleNewProcedure exactly so the
   // optimistic cache prepend (`useWorklogMutations` saveLog) is identical.
-  // ADR-0033 — event creation now opens `<EventCreateDialog>` directly
-  // (no /worklog/map?place=1 detour). The dialog handles location via a
-  // chip row + Places autocomplete + mini-map preview.
+  // ADR-0034 — event creation now routes to `/worklog/events/new` (the
+  // inline editor, supersedes the EventCreateDialog modal from ADR-0033).
+  // The new route holds a client-side draft until first save.
   // `useWorklogPreferences` is fed an empty positionMap because the
   // sidebar only needs `defaults` (the `defaultsSummary` memo that reads
   // positionMap is unused here).
   const { saveLog } = useWorklogMutations();
   const emptyPositionMap = useMemo(() => new Map<string, Position>(), []);
   const { defaults } = useWorklogPreferences(emptyPositionMap);
-  const [eventDialogOpen, setEventDialogOpen] = useState(false);
   const handleNewProcedure = async () => {
     try {
       const saved: WorkLog = await saveLog.mutateAsync({
@@ -204,7 +202,7 @@ export function WorklogNavSidebar({ onShowGlobal }: WorklogNavSidebarProps) {
     }
   };
   const handleNewEvent = () => {
-    setEventDialogOpen(true);
+    router.push("/worklog/events/new");
   };
 
   const categoryCounts = useMemo(() => {
@@ -287,9 +285,9 @@ export function WorklogNavSidebar({ onShowGlobal }: WorklogNavSidebarProps) {
             "different destination, not a filter on the current page."
             Sits directly under "All notes" per the user's spatial intent;
             the Archived/Notable/Templates filter cluster follows below.
-            ADR-0032 — inline `+` button creates a new event. ADR-0033 —
-            the `+` opens <EventCreateDialog> directly (no /worklog/map
-            detour); the dialog itself handles the location picker. The
+            ADR-0032 — inline `+` button creates a new event. ADR-0034 —
+            the `+` routes to `/worklog/events/new` (inline editor,
+            supersedes the EventCreateDialog modal from ADR-0033). The
             row is wrapped in a flex container so the Link and button
             are siblings (Link cannot nest a button per HTML spec); the
             divider + active bg live on the wrapper so they span the
@@ -438,15 +436,6 @@ export function WorklogNavSidebar({ onShowGlobal }: WorklogNavSidebarProps) {
         onSelect={navigateTo}
         categoryCounts={categoryCounts}
         defaultOpen
-      />
-
-      {/* ADR-0033 — event create dialog. Mounted at the nav level so
-          the rail "+" affordance can open it without a route change. The
-          dialog handles its own location picker (chip row + Places
-          autocomplete + mini-map). */}
-      <EventCreateDialog
-        open={eventDialogOpen}
-        onOpenChange={setEventDialogOpen}
       />
     </nav>
   );

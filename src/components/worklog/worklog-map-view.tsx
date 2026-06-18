@@ -2,11 +2,14 @@
  * WorklogMapView — `/worklog/map` page shell.
  *
  * ADR-0027 Day 4 Cycle B (Path B-modest, after ADR-0028 retired Leaflet).
- * Cycle C added the FAB + click-to-place flow for free-floating events:
+ * Cycle C added the FAB + click-to-place flow for free-floating events.
+ * ADR-0034 — the FAB pick now routes to the inline editor at
+ * `/worklog/events/new?lat=&lng=&location=` (the EventCreateDialog
+ * modal is retired).
+ *
  *   FAB → placeMode on → user clicks the map → reverse-geocode for a
- *   default location string → <EventCreateDialog> opens with coords
- *   pre-filled → save → invalidate ["career-events", "all"] → marker
- *   re-renders.
+ *   default location string → router.push to /worklog/events/new with
+ *   coords + location pre-filled → inline editor takes over.
  *
  * Renders the dedicated <EventsMap> for career events that have lat/lng.
  * Top toolbar = Back to list + (modest) link out to the full job-search
@@ -26,7 +29,6 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Loader2, MapPin, Plus, X } from "lucide-react";
 import { importLibrary } from "@googlemaps/js-api-loader";
 import { Button } from "@/components/ui/button";
-import { EventCreateDialog } from "./events/event-create-dialog";
 import type { EventsMapItem } from "./events-map";
 
 // EventsMap touches `window.google` and must not SSR.
@@ -96,11 +98,8 @@ export function WorklogMapView() {
   const withLocation = mappable.length;
   const withoutLocation = total - withLocation;
 
-  // ── Cycle C: FAB / place-mode / create-dialog state ────────────────
+  // ── Cycle C: FAB / place-mode — navigation handled by handlePickCoords ──
   const [placeMode, setPlaceMode] = useState(false);
-  const [pickedCoords, setPickedCoords] = useState<{ lat: number; lng: number } | null>(null);
-  const [defaultLocation, setDefaultLocation] = useState("");
-  const [dialogOpen, setDialogOpen] = useState(false);
   // Deep-link auto-arm (2026-06-16): the worklog-notes "New event" picker
   // routes here as `/worklog/map?place=1` because the validator requires
   // lat+lng+location — there's no map-less event create. Read the param
@@ -113,7 +112,7 @@ export function WorklogMapView() {
     setPlaceMode(true);
     router.replace("/worklog/map", { scroll: false });
   }, [searchParams, router]);
-  // Esc cancels armed place-mode (don't trap typing in the dialog).
+  // Esc cancels armed place-mode.
   useEffect(() => {
     if (!placeMode) return;
     const onKey = (e: KeyboardEvent) => {
@@ -123,26 +122,31 @@ export function WorklogMapView() {
     return () => window.removeEventListener("keydown", onKey);
   }, [placeMode]);
 
+  // ADR-0034: pick coords → reverse-geocode (best-effort) → push to the
+  // inline editor at `/worklog/events/new?lat=&lng=&location=`. The
+  // editor's location section opens with coords already resolved, so
+  // the user can save immediately or refine the address.
   const handlePickCoords = useCallback(async (lat: number, lng: number) => {
-    // Always exit place-mode after a pick — single-shot per FAB press.
     setPlaceMode(false);
-    setPickedCoords({ lat, lng });
-    // Open the dialog immediately with a coord-string fallback so the
-    // user never sees an empty location field, then refine async.
-    setDefaultLocation(`${lat.toFixed(5)}, ${lng.toFixed(5)}`);
-    setDialogOpen(true);
-    // Best-effort reverse-geocode. Failures are silent — the fallback
-    // string is already in place.
+    let location = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
     try {
-      const { Geocoder } = (await importLibrary("geocoding")) as google.maps.GeocodingLibrary;
+      const { Geocoder } = (await importLibrary(
+        "geocoding",
+      )) as google.maps.GeocodingLibrary;
       const geocoder = new Geocoder();
       const result = await geocoder.geocode({ location: { lat, lng } });
       const address = result.results[0]?.formatted_address;
-      if (address) setDefaultLocation(address);
+      if (address) location = address;
     } catch {
-      // Keep the lat/lng fallback we already set.
+      // Keep the lat/lng fallback string we already set.
     }
-  }, []);
+    const sp = new URLSearchParams({
+      lat: String(lat),
+      lng: String(lng),
+      location,
+    });
+    router.push(`/worklog/events/new?${sp.toString()}`);
+  }, [router]);
 
   return (
     <div className="h-full flex flex-col">
@@ -203,7 +207,7 @@ export function WorklogMapView() {
             />
 
             {/* Empty-state nudge (overlay) — only when truly empty and not loading. */}
-            {!isPending && mappable.length === 0 && !placeMode && !dialogOpen && (
+            {!isPending && mappable.length === 0 && !placeMode && (
               <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-6">
                 <div className="pointer-events-auto max-w-sm rounded-lg border border-border/60 bg-background/85 backdrop-blur-sm p-4 text-center text-sm text-muted-foreground space-y-2 shadow-sm">
                   <MapPin className="h-6 w-6 mx-auto text-muted-foreground/60" />
@@ -253,14 +257,6 @@ export function WorklogMapView() {
           </>
         )}
       </div>
-
-      {/* Create dialog (mounted at view root so it survives re-renders). */}
-      <EventCreateDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        coords={pickedCoords}
-        defaultLocation={defaultLocation}
-      />
     </div>
   );
 }

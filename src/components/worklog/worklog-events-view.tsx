@@ -1,28 +1,27 @@
 /**
  * WorklogEventsView — sibling surface to `/worklog/notes` for CareerEvents
- * (ADR-0027 Day 3 Cycle B).
+ * (ADR-0027 Day 3 Cycle B; row-click routing rewired by ADR-0034).
  *
- * Layout (single column, no inline 3-pane — Griller Q3=A picked modal):
+ * Layout (single column, no inline 3-pane — Griller Q3=A picked modal
+ * originally; ADR-0034 supersedes the modal with an inline editor route):
  *   Header (icon + title + subtitle)
  *   Stat cards (Total / Anchored / Free-floating)  ─ also act as filter chips
  *   FilterChips row                                ─ All · Anchored · Free-floating
  *   List of <EventRow> grouped by year
- *     ↓ click row → <EventEditDialog>
- *                   └─ Delete button → <EventDeleteConfirm>
- *   Banner footer explaining where to CREATE events (anchored = career-map;
- *   free-floating creation parked per Griller Q1=A).
+ *     ↓ click row → router.push(`/worklog/events/<id>`) → inline editor
  *
  * Filter state is URL-driven (?scope=all|anchored|floating) so the list
  * is shareable + back-button-friendly. Default = all.
  *
  * The shared query key `["career-events", "all"]` is reused from Cycle A;
  * the sidebar Events badge re-reads the same cache so it stays in sync
- * after every PATCH/DELETE invalidation.
+ * after every PATCH/DELETE invalidation. Delete now happens inside the
+ * inline editor (toolbar Trash button) — no list-level delete state here.
  */
 
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
@@ -30,11 +29,6 @@ import { CalendarDays, MapPin, Anchor } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { EventRow, type EventRowItem } from "./events/event-row";
-import {
-  EventEditDialog,
-  type EditableEvent,
-} from "./events/event-edit-dialog";
-import { EventDeleteConfirm } from "./events/event-delete-confirm";
 
 // Shape returned by GET /api/events (full row). Local to this file —
 // when a Cycle C needs to share it, lift to types/worklog.ts.
@@ -94,19 +88,12 @@ export function WorklogEventsView() {
   // Group by year for date-skim affordance.
   const grouped = useMemo(() => groupByYear(filtered), [filtered]);
 
-  // ── Dialog state ──────────────────────────────────────────────────
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [editOpen, setEditOpen] = useState(false);
-  const [deleteOpen, setDeleteOpen] = useState(false);
-
-  const selected = useMemo(
-    () => (selectedId ? events.find((e) => e.id === selectedId) ?? null : null),
-    [events, selectedId],
-  );
-
+  // ADR-0034 — row click routes to the inline editor; the modal
+  // (EventEditDialog) and its companion delete-confirm have been
+  // retired from this surface. The editor route owns its own delete
+  // affordance.
   const openEdit = (id: string) => {
-    setSelectedId(id);
-    setEditOpen(true);
+    router.push(`/worklog/events/${id}`);
   };
 
   const setScope = (next: Scope) => {
@@ -227,41 +214,21 @@ export function WorklogEventsView() {
           </section>
         )}
 
-        {/* Creation guidance footer — ADR-0033: dialog-first, location is a field */}
+        {/* Creation guidance footer — ADR-0034: inline editor at
+            /worklog/events/new (sidebar +) or via map FAB. */}
         <div className="rounded-lg border border-dashed border-border bg-muted/30 p-3 text-[11px] text-muted-foreground leading-relaxed">
           <strong className="text-foreground">Add a new event:</strong>{" "}
           Use the <span className="text-foreground">+</span> next to{" "}
-          <em>Events</em> in the sidebar — pick a job chip to anchor it, or type
-          an address for a free-floating event. The{" "}
+          <em>Events</em> in the sidebar — the inline editor opens with
+          a job-chip row to anchor it, or address autocomplete for a
+          free-floating event. The{" "}
           <Link href="/worklog/map" className="underline hover:text-foreground">
             map view
           </Link>{" "}
-          also lets you click a location to drop a pin.
+          also lets you click a location to drop a pin, which seeds the
+          editor with coordinates already resolved.
         </div>
       </div>
-
-      {/* Dialogs */}
-      <EventEditDialog
-        open={editOpen}
-        onOpenChange={setEditOpen}
-        event={selected ? toEditable(selected) : null}
-        onRequestDelete={() => {
-          // Close edit first so the delete confirm owns focus cleanly.
-          setEditOpen(false);
-          // queueMicrotask so the close animation starts before the
-          // confirm opens — feels less like two modals racing.
-          queueMicrotask(() => setDeleteOpen(true));
-        }}
-      />
-      <EventDeleteConfirm
-        open={deleteOpen}
-        onOpenChange={setDeleteOpen}
-        event={selected}
-        onDeleted={() => {
-          setSelectedId(null);
-          setEditOpen(false);
-        }}
-      />
     </div>
   );
 }
@@ -384,20 +351,6 @@ function toRowItem(api: CareerEventApiRow): EventRowItem {
     category: api.category,
     startDate: api.startDate,
     location: api.location,
-  };
-}
-
-function toEditable(api: CareerEventApiRow): EditableEvent {
-  return {
-    id: api.id,
-    workHistoryId: api.workHistoryId,
-    title: api.title,
-    description: api.description,
-    category: api.category,
-    startDate: api.startDate,
-    endDate: api.endDate,
-    location: api.location,
-    metrics: api.metrics,
   };
 }
 
