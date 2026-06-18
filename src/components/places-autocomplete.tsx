@@ -18,6 +18,15 @@ interface Props {
   onChange: (value: string) => void;
   onSelect?: (value: string) => void;
   onPlaceSelect?: (place: { description: string; placeId: string }) => void;
+  /**
+   * ADR-0033 — fires AFTER `onPlaceSelect` once the Places Details API
+   * resolves geometry for the chosen placeId. Optional and async; the
+   * existing sync `onPlaceSelect` API stays unchanged for back-compat
+   * with `life-anchors-panel.tsx` and `job-map.tsx`. Caller is
+   * responsible for handling the case where this never fires (network
+   * failure, missing geometry, etc.).
+   */
+  onCoordsResolved?: (coords: { lat: number; lng: number }) => void;
   placeholder?: string;
   className?: string;
   types?: string[];
@@ -35,11 +44,16 @@ function ensureOptions() {
   }
 }
 
-export function PlacesAutocomplete({ value, onChange, onSelect, onPlaceSelect, placeholder = "City, State", className, types = ["(cities)"] }: Props) {
+export function PlacesAutocomplete({ value, onChange, onSelect, onPlaceSelect, onCoordsResolved, placeholder = "City, State", className, types = ["(cities)"] }: Props) {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [open, setOpen] = useState(false);
   const [ready, setReady] = useState(false);
   const serviceRef = useRef<google.maps.places.AutocompleteService | null>(null);
+  // PlacesService is the only Google primitive that resolves placeId →
+  // {lat, lng}. It needs a HTMLDivElement anchor (used internally for
+  // attribution rendering) — we mount one hidden in the tree below.
+  const detailsServiceRef = useRef<google.maps.places.PlacesService | null>(null);
+  const detailsAnchorRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
@@ -59,6 +73,16 @@ export function PlacesAutocomplete({ value, onChange, onSelect, onPlaceSelect, p
 
     importLibrary("places").then(() => {
       serviceRef.current = new google.maps.places.AutocompleteService();
+      // PlacesService needs a DOM anchor; mount lazily once the lib is
+      // loaded AND our hidden div has rendered. If the anchor isn't
+      // ready yet (StrictMode double-effect), the next render's effect
+      // run will catch it. Failing soft is fine — onCoordsResolved is
+      // documented as best-effort.
+      if (detailsAnchorRef.current) {
+        detailsServiceRef.current = new google.maps.places.PlacesService(
+          detailsAnchorRef.current,
+        );
+      }
       setReady(true);
     }).catch(() => {
       // Silently fail — fallback to plain input
@@ -120,6 +144,26 @@ export function PlacesAutocomplete({ value, onChange, onSelect, onPlaceSelect, p
     onPlaceSelect?.({ description, placeId });
     setSuggestions([]);
     setOpen(false);
+
+    // ADR-0033 — resolve coords for callers that need them. Fires
+    // asynchronously; existing callers that didn't pass
+    // onCoordsResolved see no behavior change.
+    if (onCoordsResolved && detailsServiceRef.current) {
+      detailsServiceRef.current.getDetails(
+        { placeId, fields: ["geometry.location"] },
+        (place, status) => {
+          if (
+            status === google.maps.places.PlacesServiceStatus.OK &&
+            place?.geometry?.location
+          ) {
+            const lat = place.geometry.location.lat();
+            const lng = place.geometry.location.lng();
+            onCoordsResolved({ lat, lng });
+          }
+          // No-op on error — caller falls back to address-only.
+        },
+      );
+    }
   };
 
   // If no Google key, render plain input
@@ -139,6 +183,10 @@ export function PlacesAutocomplete({ value, onChange, onSelect, onPlaceSelect, p
 
   return (
     <div ref={containerRef} className={`relative ${className ?? "sm:w-52"}`}>
+      {/* Hidden anchor for PlacesService (attribution surface). Must
+          exist in the DOM before the service is constructed in the
+          load effect; sized to zero so it never paints. */}
+      <div ref={detailsAnchorRef} aria-hidden="true" className="hidden" />
       <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
       <Input
         placeholder={placeholder}

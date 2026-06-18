@@ -25,7 +25,7 @@
 
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
@@ -35,6 +35,7 @@ import { WorklogFolderTreeItems } from "@/components/worklog/worklog-folder-tree
 import { WorklogCategoryRows } from "@/components/worklog/worklog-category-rows";
 import { useWorklogMutations } from "@/components/worklog/hooks/use-worklog-mutations";
 import { useWorklogPreferences } from "@/components/worklog/hooks/use-worklog-preferences";
+import { EventCreateDialog } from "@/components/worklog/events/event-create-dialog";
 import {
   useFolderSelection,
   selectionToQueryString,
@@ -168,14 +169,17 @@ export function WorklogNavSidebar({ onShowGlobal }: WorklogNavSidebarProps) {
   // ADR-0032 — inline `+` actions on the Events / Procedures rail rows.
   // Replaces the toolbar 3-way picker (ADR-0031, superseded). Procedure
   // creation mirrors WorklogNotesView's handleNewProcedure exactly so the
-  // optimistic cache prepend (`useWorklogMutations` saveLog) is identical;
-  // event creation routes to `/worklog/map?place=1` to honor the
-  // lat+lng+location validator (ADR-0027). `useWorklogPreferences` is fed
-  // an empty positionMap because the sidebar only needs `defaults` (the
-  // `defaultsSummary` memo that reads positionMap is unused here).
+  // optimistic cache prepend (`useWorklogMutations` saveLog) is identical.
+  // ADR-0033 — event creation now opens `<EventCreateDialog>` directly
+  // (no /worklog/map?place=1 detour). The dialog handles location via a
+  // chip row + Places autocomplete + mini-map preview.
+  // `useWorklogPreferences` is fed an empty positionMap because the
+  // sidebar only needs `defaults` (the `defaultsSummary` memo that reads
+  // positionMap is unused here).
   const { saveLog } = useWorklogMutations();
   const emptyPositionMap = useMemo(() => new Map<string, Position>(), []);
   const { defaults } = useWorklogPreferences(emptyPositionMap);
+  const [eventDialogOpen, setEventDialogOpen] = useState(false);
   const handleNewProcedure = async () => {
     try {
       const saved: WorkLog = await saveLog.mutateAsync({
@@ -200,7 +204,7 @@ export function WorklogNavSidebar({ onShowGlobal }: WorklogNavSidebarProps) {
     }
   };
   const handleNewEvent = () => {
-    router.push("/worklog/map?place=1");
+    setEventDialogOpen(true);
   };
 
   const categoryCounts = useMemo(() => {
@@ -283,12 +287,14 @@ export function WorklogNavSidebar({ onShowGlobal }: WorklogNavSidebarProps) {
             "different destination, not a filter on the current page."
             Sits directly under "All notes" per the user's spatial intent;
             the Archived/Notable/Templates filter cluster follows below.
-            ADR-0032 — inline `+` button creates a free-floating event
-            (routes to /worklog/map?place=1). The row is wrapped in a flex
-            container so the Link and button are siblings (Link cannot
-            nest a button per HTML spec); the divider + active bg live on
-            the wrapper so they span the full row width including the `+`.
-            The Link drops `w-full` for `flex-1` to share the row. */}
+            ADR-0032 — inline `+` button creates a new event. ADR-0033 —
+            the `+` opens <EventCreateDialog> directly (no /worklog/map
+            detour); the dialog itself handles the location picker. The
+            row is wrapped in a flex container so the Link and button
+            are siblings (Link cannot nest a button per HTML spec); the
+            divider + active bg live on the wrapper so they span the
+            full row width including the `+`. The Link drops `w-full`
+            for `flex-1` to share the row. */}
         <div
           className={cn(
             "flex items-stretch rounded-lg border-t border-border/60 mt-1 pt-3",
@@ -432,6 +438,15 @@ export function WorklogNavSidebar({ onShowGlobal }: WorklogNavSidebarProps) {
         onSelect={navigateTo}
         categoryCounts={categoryCounts}
         defaultOpen
+      />
+
+      {/* ADR-0033 — event create dialog. Mounted at the nav level so
+          the rail "+" affordance can open it without a route change. The
+          dialog handles its own location picker (chip row + Places
+          autocomplete + mini-map). */}
+      <EventCreateDialog
+        open={eventDialogOpen}
+        onOpenChange={setEventDialogOpen}
       />
     </nav>
   );

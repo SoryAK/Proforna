@@ -227,15 +227,16 @@ export function WorklogEventsView() {
           </section>
         )}
 
-        {/* Creation guidance footer — Cycle B does not ship "Add event" (Q1=A) */}
+        {/* Creation guidance footer — ADR-0033: dialog-first, location is a field */}
         <div className="rounded-lg border border-dashed border-border bg-muted/30 p-3 text-[11px] text-muted-foreground leading-relaxed">
           <strong className="text-foreground">Add a new event:</strong>{" "}
-          Anchored events are created from{" "}
-          <Link href="/career-map" className="underline hover:text-foreground">
-            the career map
+          Use the <span className="text-foreground">+</span> next to{" "}
+          <em>Events</em> in the sidebar — pick a job chip to anchor it, or type
+          an address for a free-floating event. The{" "}
+          <Link href="/worklog/map" className="underline hover:text-foreground">
+            map view
           </Link>{" "}
-          (pick a job → add event). A standalone &ldquo;Add free-floating event&rdquo;
-          flow with location picker is planned in a future ADR.
+          also lets you click a location to drop a pin.
         </div>
       </div>
 
