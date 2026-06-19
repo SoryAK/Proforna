@@ -1,10 +1,11 @@
 # 0036 — Workflow Self-Improvement Loop — Phase 2 (Reviewed-Session Ledger + Workflow-Change-Log + Era-Tagged Sidecar)
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-06-19
 - **Deciders:** sory
 - **Tags:** workflow, tooling, data, persistence
 - **Chains to:** Phase 1 cadence reminder (commits `b007d78` / `6f27c58` / `d3a5392` / `37b904f` / `e326dba`)
+- **Shipped as:** commits `50c6d12` (this ADR) → `7da8e27` (seed files) → `4ea628a` (analyzer) → `dcbc721` (handoff gate) → `d6cefb4` (recipe) → this commit (wrap)
 
 ## Context and Problem Statement
 
