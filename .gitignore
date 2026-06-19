@@ -69,3 +69,6 @@ next-env.d.ts
 # Understand-Anything (keep knowledge-graph.json, skip local scratch files)
 .understand-anything/intermediate/
 .understand-anything/diff-overlay.json
+
+# Chat conversation exports (local-only, for workflow review)
+docs/chat-exports/

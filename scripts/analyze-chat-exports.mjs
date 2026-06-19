@@ -1,0 +1,604 @@
+#!/usr/bin/env node
+// Analyzes exported Copilot chat transcripts in docs/chat-exports/raw/*.jsonl.
+// Emits 5-category metrics + dashboard + worst-3 friction digests + deep-dive on a target session.
+//
+// Usage:
+//   node scripts/analyze-chat-exports.mjs [--deep-dive <sessionIdPrefix>]
+//
+// Outputs land in docs/chat-exports/analysis/ (gitignored).
+
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const repoRoot = path.resolve(__dirname, "..");
+const rawDir = path.join(repoRoot, "docs", "chat-exports", "raw");
+const outDir = path.join(repoRoot, "docs", "chat-exports", "analysis");
+const worst3Dir = path.join(outDir, "worst-3");
+
+// ─── CLI args ────────────────────────────────────────────────────────────
+const args = process.argv.slice(2);
+const deepDiveIdx = args.indexOf("--deep-dive");
+const deepDivePrefix = deepDiveIdx >= 0 ? args[deepDiveIdx + 1] : null;
+
+// ─── Pattern matchers (cheap heuristics — must be eyeballed for truth) ──
+const NEGATION_RE = /\b(no|nope|wait|stop|actually|wrong|incorrect|i told you|again|that's not|don't|do not)\b/i;
+const SYMBOL_LIKE_RE = /^[A-Z][a-zA-Z0-9]+$|^use[A-Z][a-zA-Z0-9]+$|^[a-z][a-zA-Z0-9]+[A-Z][a-zA-Z0-9]+$/; // CamelCase / useXxx / camelCase
+const SCOPE_EXPAND_RE = /\b(also added|while i was here|also fixed|bonus|additionally|on top of|by the way|i also)\b/i;
+const EDIT_TOOLS = new Set([
+  "replace_string_in_file",
+  "create_file",
+  "multi_replace_string_in_file",
+  "insert_edit_into_file",
+  "apply_patch"
+]);
+const CODEGRAPH_TOOLS = new Set([
+  "mcp_codegraph_codegraph_search",
+  "mcp_codegraph_codegraph_context",
+  "mcp_codegraph_codegraph_callers",
+  "mcp_codegraph_codegraph_callees",
+  "mcp_codegraph_codegraph_node",
+  "mcp_codegraph_codegraph_explore",
+  "mcp_codegraph_codegraph_impact",
+  "mcp_codegraph_codegraph_files"
+]);
+const LOOKUP_TOOLS = new Set([...CODEGRAPH_TOOLS, "grep_search", "read_file", "semantic_search", "file_search"]);
+const MEMORY_READ_TOOLS = new Set([
+  "mcp_memory-resums_open_nodes",
+  "mcp_memory-server_open_nodes",
+  "mcp_memory-user-p_open_nodes",
+  "mcp_memory-resums_search_nodes",
+  "mcp_memory-server_search_nodes",
+  "mcp_memory-user-p_search_nodes"
+]);
+const MEMORY_WRITE_TOOLS = new Set([
+  "mcp_memory-resums_add_observations",
+  "mcp_memory-server_add_observations",
+  "mcp_memory-user-p_add_observations",
+  "mcp_memory-resums_create_entities",
+  "mcp_memory-server_create_entities",
+  "mcp_memory-user-p_create_entities"
+]);
+
+// ─── Helpers ─────────────────────────────────────────────────────────────
+function readJsonl(filePath) {
+  const txt = fs.readFileSync(filePath, "utf8");
+  const lines = txt.split(/\r?\n/).filter(Boolean);
+  const records = [];
+  for (let i = 0; i < lines.length; i++) {
+    try {
+      records.push(JSON.parse(lines[i]));
+    } catch {
+      // skip malformed line
+    }
+  }
+  return records;
+}
+
+function looksLikeSymbol(query) {
+  if (typeof query !== "string") return false;
+  // Single-word identifier patterns
+  if (query.length > 60) return false;
+  // Strip quoting and stop on whitespace — only treat first token as candidate
+  const token = query.trim().split(/[\s,]+/)[0]?.replace(/['"`]/g, "");
+  if (!token) return false;
+  return SYMBOL_LIKE_RE.test(token);
+}
+
+function ensureDir(p) {
+  fs.mkdirSync(p, { recursive: true });
+}
+
+// ─── Per-session analyzer ───────────────────────────────────────────────
+function analyzeSession(filePath) {
+  const records = readJsonl(filePath);
+  const sessionFile = path.basename(filePath);
+  const sessionId = sessionFile.replace(/\.jsonl$/, "");
+
+  let startTime = null;
+  let copilotVersion = null;
+  const userMessages = [];
+  const assistantMessages = [];
+  const toolCalls = []; // { toolName, args, success }
+  const turnStarts = [];
+  const turnEnds = [];
+
+  for (const r of records) {
+    switch (r.type) {
+      case "session.start":
+        startTime = r.data?.startTime || null;
+        copilotVersion = r.data?.copilotVersion || null;
+        break;
+      case "user.message":
+        userMessages.push({ content: r.data?.content || "", timestamp: r.timestamp });
+        break;
+      case "assistant.message":
+        assistantMessages.push({
+          content: r.data?.content || "",
+          timestamp: r.timestamp,
+          toolRequests: r.data?.toolRequests || []
+        });
+        break;
+      case "assistant.turn_start":
+        turnStarts.push(r.timestamp);
+        break;
+      case "assistant.turn_end":
+        turnEnds.push(r.timestamp);
+        break;
+      case "tool.execution_start":
+        toolCalls.push({
+          toolName: r.data?.toolName || "",
+          args: r.data?.arguments || {},
+          callId: r.data?.toolCallId,
+          success: null,
+          timestamp: r.timestamp
+        });
+        break;
+      case "tool.execution_complete": {
+        const c = toolCalls.find((tc) => tc.callId === r.data?.toolCallId);
+        if (c) c.success = !!r.data?.success;
+        break;
+      }
+    }
+  }
+
+  // ─── CATEGORY 1: Tool Discipline ──────────────────────────────────────
+  // grep-for-symbol violations
+  const grepCalls = toolCalls.filter((tc) => tc.toolName === "grep_search");
+  const grepForSymbol = grepCalls.filter((tc) => looksLikeSymbol(tc.args?.query));
+
+  // codegraph-first rate: among lookup tools, what fraction is codegraph?
+  const lookupCalls = toolCalls.filter((tc) => LOOKUP_TOOLS.has(tc.toolName));
+  const codegraphCalls = toolCalls.filter((tc) => CODEGRAPH_TOOLS.has(tc.toolName));
+  const codegraphFirstRate = lookupCalls.length ? codegraphCalls.length / lookupCalls.length : null;
+
+  // Post-Edit Scan rate: after each edit tool call, did get_errors fire within next 3 tool calls (same session, monotonic order)?
+  const editCalls = toolCalls.filter((tc) => EDIT_TOOLS.has(tc.toolName));
+  let postEditScanPaired = 0;
+  for (let i = 0; i < toolCalls.length; i++) {
+    if (!EDIT_TOOLS.has(toolCalls[i].toolName)) continue;
+    const lookahead = toolCalls.slice(i + 1, i + 5);
+    if (lookahead.some((tc) => tc.toolName === "get_errors")) postEditScanPaired++;
+  }
+  const postEditScanRate = editCalls.length ? postEditScanPaired / editCalls.length : null;
+
+  // Memory write discipline: writes preceded by an open_nodes within prior 5 calls?
+  const memWrites = toolCalls.filter((tc) => MEMORY_WRITE_TOOLS.has(tc.toolName));
+  let memWritesReadFirst = 0;
+  for (let i = 0; i < toolCalls.length; i++) {
+    if (!MEMORY_WRITE_TOOLS.has(toolCalls[i].toolName)) continue;
+    const lookback = toolCalls.slice(Math.max(0, i - 5), i);
+    if (lookback.some((tc) => MEMORY_READ_TOOLS.has(tc.toolName))) memWritesReadFirst++;
+  }
+  const memReadFirstRate = memWrites.length ? memWritesReadFirst / memWrites.length : null;
+
+  // ─── CATEGORY 2: Course-Correction / Friction ────────────────────────
+  const negationEvents = [];
+  for (const um of userMessages) {
+    if (NEGATION_RE.test(um.content)) {
+      negationEvents.push({
+        content: um.content.length > 200 ? um.content.slice(0, 200) + "…" : um.content,
+        timestamp: um.timestamp
+      });
+    }
+  }
+
+  // Repeated tool failures: (toolName) failing ≥2x
+  const failsByTool = new Map();
+  for (const tc of toolCalls) {
+    if (tc.success === false) {
+      failsByTool.set(tc.toolName, (failsByTool.get(tc.toolName) || 0) + 1);
+    }
+  }
+  const repeatedFailures = [...failsByTool.entries()].filter(([, n]) => n >= 2);
+
+  // ─── CATEGORY 3: Cost / Efficiency ───────────────────────────────────
+  const totalAssistantBytes = assistantMessages.reduce((sum, am) => sum + (am.content?.length || 0), 0);
+  const meanAssistantBytes = assistantMessages.length ? Math.round(totalAssistantBytes / assistantMessages.length) : 0;
+  const toolCallsPerAssistantTurn = assistantMessages.length
+    ? +(toolCalls.length / assistantMessages.length).toFixed(2)
+    : 0;
+  const durationMs = startTime && turnEnds.length ? (new Date(turnEnds[turnEnds.length - 1]) - new Date(startTime)) : null;
+  const durationMin = durationMs ? Math.round(durationMs / 60000) : null;
+
+  // ─── CATEGORY 4: Scope Discipline ────────────────────────────────────
+  const scopeExpandHits = [];
+  for (const am of assistantMessages) {
+    if (SCOPE_EXPAND_RE.test(am.content)) {
+      scopeExpandHits.push({
+        snippet: am.content.match(SCOPE_EXPAND_RE)[0],
+        timestamp: am.timestamp
+      });
+    }
+  }
+
+  // ─── CATEGORY 5: Outcome Quality ─────────────────────────────────────
+  // Heuristic: any terminal call running `git commit` or `git push`?
+  const terminalCalls = toolCalls.filter((tc) => tc.toolName === "run_in_terminal");
+  const commitCount = terminalCalls.filter((tc) =>
+    /git\s+(-c\s+\S+\s+)?commit/.test(JSON.stringify(tc.args || ""))
+  ).length;
+  const pushCount = terminalCalls.filter((tc) =>
+    /git\s+(-c\s+\S+\s+)?push/.test(JSON.stringify(tc.args || ""))
+  ).length;
+  // Handoff doc written?
+  const handoffEdit = editCalls.some((tc) => {
+    const fp = tc.args?.filePath || tc.args?.path || "";
+    return typeof fp === "string" && fp.includes("docs") && fp.includes("handoff");
+  });
+  // Memory write?
+  const wroteMemory = memWrites.length > 0;
+
+  return {
+    sessionId,
+    sessionFile,
+    startTime,
+    copilotVersion,
+    durationMin,
+    counts: {
+      userMessages: userMessages.length,
+      assistantMessages: assistantMessages.length,
+      toolCalls: toolCalls.length,
+      editCalls: editCalls.length,
+      lookupCalls: lookupCalls.length
+    },
+    category1_toolDiscipline: {
+      grepForSymbolCount: grepForSymbol.length,
+      grepTotal: grepCalls.length,
+      codegraphFirstRate,
+      postEditScanRate,
+      memReadFirstRate,
+      memWrites: memWrites.length
+    },
+    category2_friction: {
+      negationCount: negationEvents.length,
+      negationEvents: negationEvents.slice(0, 10),
+      repeatedFailures,
+      frictionScore: negationEvents.length * 2 + repeatedFailures.reduce((sum, [, n]) => sum + n, 0)
+    },
+    category3_efficiency: {
+      meanAssistantBytes,
+      totalAssistantKB: Math.round(totalAssistantBytes / 1024),
+      toolCallsPerAssistantTurn
+    },
+    category4_scope: {
+      scopeExpandHitCount: scopeExpandHits.length,
+      scopeExpandHits: scopeExpandHits.slice(0, 5)
+    },
+    category5_outcome: {
+      commitCount,
+      pushCount,
+      handoffWritten: handoffEdit,
+      wroteMemory,
+      shippedClean: commitCount > 0 && (postEditScanRate === null || postEditScanRate >= 0.5)
+    }
+  };
+}
+
+// ─── Aggregate dashboard ────────────────────────────────────────────────
+function buildSummary(allMetrics) {
+  const n = allMetrics.length;
+  function avg(getter) {
+    const vals = allMetrics.map(getter).filter((v) => v !== null && !Number.isNaN(v));
+    return vals.length ? +(vals.reduce((s, v) => s + v, 0) / vals.length).toFixed(2) : null;
+  }
+  function sum(getter) {
+    return allMetrics.reduce((s, m) => s + (getter(m) || 0), 0);
+  }
+  function pctNonZero(getter) {
+    const hits = allMetrics.filter((m) => getter(m) > 0).length;
+    return +((hits / n) * 100).toFixed(1);
+  }
+  function pctTrue(getter) {
+    const hits = allMetrics.filter((m) => getter(m) === true).length;
+    return +((hits / n) * 100).toFixed(1);
+  }
+
+  return {
+    totalSessions: n,
+    aggregates: {
+      category1_toolDiscipline: {
+        grep_for_symbol_violations_total: sum((m) => m.category1_toolDiscipline.grepForSymbolCount),
+        sessions_with_grep_violation_pct: pctNonZero((m) => m.category1_toolDiscipline.grepForSymbolCount),
+        codegraph_first_rate_avg: avg((m) => m.category1_toolDiscipline.codegraphFirstRate),
+        post_edit_scan_rate_avg: avg((m) => m.category1_toolDiscipline.postEditScanRate),
+        mem_read_first_rate_avg: avg((m) => m.category1_toolDiscipline.memReadFirstRate)
+      },
+      category2_friction: {
+        negation_events_total: sum((m) => m.category2_friction.negationCount),
+        sessions_with_negation_pct: pctNonZero((m) => m.category2_friction.negationCount),
+        sessions_with_repeated_failures_pct: pctNonZero((m) => m.category2_friction.repeatedFailures.length)
+      },
+      category3_efficiency: {
+        mean_assistant_bytes_avg: avg((m) => m.category3_efficiency.meanAssistantBytes),
+        tool_calls_per_turn_avg: avg((m) => m.category3_efficiency.toolCallsPerAssistantTurn),
+        total_assistant_kb_sum: sum((m) => m.category3_efficiency.totalAssistantKB)
+      },
+      category4_scope: {
+        scope_expand_hits_total: sum((m) => m.category4_scope.scopeExpandHitCount),
+        sessions_with_scope_expand_pct: pctNonZero((m) => m.category4_scope.scopeExpandHitCount)
+      },
+      category5_outcome: {
+        shipped_clean_pct: pctTrue((m) => m.category5_outcome.shippedClean),
+        wrote_handoff_pct: pctTrue((m) => m.category5_outcome.handoffWritten),
+        wrote_memory_pct: pctTrue((m) => m.category5_outcome.wroteMemory),
+        commits_total: sum((m) => m.category5_outcome.commitCount),
+        pushes_total: sum((m) => m.category5_outcome.pushCount)
+      }
+    },
+    rankings: {
+      most_negation_events: [...allMetrics]
+        .sort((a, b) => b.category2_friction.negationCount - a.category2_friction.negationCount)
+        .slice(0, 5)
+        .map((m) => ({ id: m.sessionId.slice(0, 8), negations: m.category2_friction.negationCount })),
+      highest_friction_score: [...allMetrics]
+        .sort((a, b) => b.category2_friction.frictionScore - a.category2_friction.frictionScore)
+        .slice(0, 5)
+        .map((m) => ({ id: m.sessionId.slice(0, 8), frictionScore: m.category2_friction.frictionScore })),
+      most_grep_violations: [...allMetrics]
+        .sort((a, b) => b.category1_toolDiscipline.grepForSymbolCount - a.category1_toolDiscipline.grepForSymbolCount)
+        .slice(0, 5)
+        .map((m) => ({ id: m.sessionId.slice(0, 8), grepForSymbol: m.category1_toolDiscipline.grepForSymbolCount })),
+      lowest_post_edit_scan_rate: [...allMetrics]
+        .filter((m) => m.category1_toolDiscipline.postEditScanRate !== null && m.counts.editCalls >= 3)
+        .sort((a, b) => a.category1_toolDiscipline.postEditScanRate - b.category1_toolDiscipline.postEditScanRate)
+        .slice(0, 5)
+        .map((m) => ({
+          id: m.sessionId.slice(0, 8),
+          rate: +(m.category1_toolDiscipline.postEditScanRate * 100).toFixed(0) + "%",
+          edits: m.counts.editCalls
+        }))
+    }
+  };
+}
+
+// ─── Markdown writers ───────────────────────────────────────────────────
+function writeSummaryMd(summary, allMetrics, outPath) {
+  const md = `# Chat-export Analysis — Dashboard
+
+Generated: ${new Date().toISOString()}
+Sessions analyzed: ${summary.totalSessions}
+
+## Category 1 — Tool Discipline
+
+| Metric | Value |
+| --- | --- |
+| Grep-for-symbol violations (total across all sessions) | **${summary.aggregates.category1_toolDiscipline.grep_for_symbol_violations_total}** |
+| Sessions with ≥1 grep-for-symbol violation | ${summary.aggregates.category1_toolDiscipline.sessions_with_grep_violation_pct}% |
+| Codegraph-first rate (avg, among lookup-tool calls) | ${summary.aggregates.category1_toolDiscipline.codegraph_first_rate_avg} |
+| Post-Edit Scan rate (avg, sessions with ≥1 edit) | ${summary.aggregates.category1_toolDiscipline.post_edit_scan_rate_avg} |
+| Memory-read-first rate (avg, sessions with ≥1 memory write) | ${summary.aggregates.category1_toolDiscipline.mem_read_first_rate_avg} |
+
+## Category 2 — Course-Correction / Friction
+
+| Metric | Value |
+| --- | --- |
+| Total user-negation events | **${summary.aggregates.category2_friction.negation_events_total}** |
+| Sessions with ≥1 negation event | ${summary.aggregates.category2_friction.sessions_with_negation_pct}% |
+| Sessions with repeated tool failures | ${summary.aggregates.category2_friction.sessions_with_repeated_failures_pct}% |
+
+## Category 3 — Efficiency
+
+| Metric | Value |
+| --- | --- |
+| Mean assistant-response size (bytes/turn) | ${summary.aggregates.category3_efficiency.mean_assistant_bytes_avg} |
+| Tool calls per assistant turn (avg) | ${summary.aggregates.category3_efficiency.tool_calls_per_turn_avg} |
+| Total assistant output (sum, KB) | ${summary.aggregates.category3_efficiency.total_assistant_kb_sum} |
+
+## Category 4 — Scope Discipline
+
+| Metric | Value |
+| --- | --- |
+| Silent-scope-expansion phrase hits (total) | **${summary.aggregates.category4_scope.scope_expand_hits_total}** |
+| Sessions with ≥1 scope-expansion phrase | ${summary.aggregates.category4_scope.sessions_with_scope_expand_pct}% |
+
+## Category 5 — Outcome Quality
+
+| Metric | Value |
+| --- | --- |
+| Sessions ending shippable (commit + acceptable scan rate) | ${summary.aggregates.category5_outcome.shipped_clean_pct}% |
+| Sessions that wrote a handoff doc | ${summary.aggregates.category5_outcome.wrote_handoff_pct}% |
+| Sessions that wrote to memory graph | ${summary.aggregates.category5_outcome.wrote_memory_pct}% |
+| Total commits across all sessions | ${summary.aggregates.category5_outcome.commits_total} |
+| Total pushes across all sessions | ${summary.aggregates.category5_outcome.pushes_total} |
+
+---
+
+## Rankings (per-session worst offenders)
+
+### Highest friction score (negation × 2 + repeated failures)
+${summary.rankings.highest_friction_score.map((r) => `- \`${r.id}\` — friction score **${r.frictionScore}**`).join("\n") || "_none_"}
+
+### Most user-negation events
+${summary.rankings.most_negation_events.map((r) => `- \`${r.id}\` — ${r.negations} negation event(s)`).join("\n") || "_none_"}
+
+### Most grep-for-symbol violations
+${summary.rankings.most_grep_violations.map((r) => `- \`${r.id}\` — ${r.grepForSymbol} violation(s)`).join("\n") || "_none_"}
+
+### Lowest Post-Edit Scan rate (sessions with ≥3 edits)
+${summary.rankings.lowest_post_edit_scan_rate.map((r) => `- \`${r.id}\` — ${r.rate} (${r.edits} edits)`).join("\n") || "_none_"}
+
+---
+
+## Per-session table (top-line only)
+
+| Session | Started | Dur (min) | User msgs | Tool calls | Edits | Grep-sym | Friction | Commits | Handoff |
+| --- | --- | --: | --: | --: | --: | --: | --: | --: | :-: |
+${[...allMetrics]
+  .sort((a, b) => (a.startTime || "").localeCompare(b.startTime || ""))
+  .map(
+    (m) =>
+      `| \`${m.sessionId.slice(0, 8)}\` | ${m.startTime?.slice(0, 10) || "—"} | ${m.durationMin ?? "—"} | ${m.counts.userMessages} | ${m.counts.toolCalls} | ${m.counts.editCalls} | ${m.category1_toolDiscipline.grepForSymbolCount} | ${m.category2_friction.frictionScore} | ${m.category5_outcome.commitCount} | ${m.category5_outcome.handoffWritten ? "✓" : ""} |`
+  )
+  .join("\n")}
+
+`;
+  fs.writeFileSync(outPath, md, "utf8");
+}
+
+function writeFrictionDigest(m, outPath) {
+  const md = `# Friction digest — \`${m.sessionId}\`
+
+- Started: ${m.startTime || "—"}
+- Duration: ${m.durationMin ?? "—"} min
+- User messages: ${m.counts.userMessages}
+- Assistant messages: ${m.counts.assistantMessages}
+- Tool calls: ${m.counts.toolCalls} (edits: ${m.counts.editCalls})
+- **Friction score:** ${m.category2_friction.frictionScore}
+
+## User-negation events (${m.category2_friction.negationCount})
+
+${m.category2_friction.negationEvents.length === 0 ? "_none_" : m.category2_friction.negationEvents.map((e, i) => `### ${i + 1}. ${e.timestamp || ""}\n\n> ${e.content.replace(/\n/g, "\n> ")}\n`).join("\n")}
+
+## Repeated tool failures
+
+${m.category2_friction.repeatedFailures.length === 0 ? "_none_" : m.category2_friction.repeatedFailures.map(([tool, count]) => `- \`${tool}\` failed **${count}×**`).join("\n")}
+
+## Tool-discipline at a glance
+
+- Grep-for-symbol violations: **${m.category1_toolDiscipline.grepForSymbolCount}** / ${m.category1_toolDiscipline.grepTotal} grep calls
+- Codegraph-first rate: ${m.category1_toolDiscipline.codegraphFirstRate ?? "—"}
+- Post-Edit Scan rate: ${m.category1_toolDiscipline.postEditScanRate ?? "—"}
+- Memory writes: ${m.category1_toolDiscipline.memWrites}, read-first rate: ${m.category1_toolDiscipline.memReadFirstRate ?? "—"}
+
+## Scope-expansion phrase hits
+
+${m.category4_scope.scopeExpandHits.length === 0 ? "_none_" : m.category4_scope.scopeExpandHits.map((h) => `- "${h.snippet}" (${h.timestamp || ""})`).join("\n")}
+
+## Outcome
+
+- Commits: ${m.category5_outcome.commitCount}
+- Pushes: ${m.category5_outcome.pushCount}
+- Handoff written: ${m.category5_outcome.handoffWritten ? "yes" : "no"}
+- Memory written: ${m.category5_outcome.wroteMemory ? "yes" : "no"}
+- Shipped clean: ${m.category5_outcome.shippedClean ? "yes" : "no"}
+`;
+  fs.writeFileSync(outPath, md, "utf8");
+}
+
+function writeDeepDive(filePath, outPath) {
+  const records = readJsonl(filePath);
+  const sessionId = path.basename(filePath).replace(/\.jsonl$/, "");
+
+  // Build a turn-by-turn narrative: user message → assistant text + tool sequence → next user message
+  const narrative = [];
+  let currentTurn = null;
+  for (const r of records) {
+    if (r.type === "user.message") {
+      if (currentTurn) narrative.push(currentTurn);
+      currentTurn = {
+        userMessage: r.data?.content || "",
+        timestamp: r.timestamp,
+        assistantSnippets: [],
+        toolSequence: []
+      };
+    } else if (r.type === "assistant.message" && currentTurn) {
+      const c = r.data?.content || "";
+      if (c.trim()) currentTurn.assistantSnippets.push(c.length > 400 ? c.slice(0, 400) + "…" : c);
+    } else if (r.type === "tool.execution_start" && currentTurn) {
+      currentTurn.toolSequence.push(r.data?.toolName || "?");
+    }
+  }
+  if (currentTurn) narrative.push(currentTurn);
+
+  // Per-turn analysis flags
+  const annotated = narrative.map((t, idx) => {
+    const flags = [];
+    if (NEGATION_RE.test(t.userMessage)) flags.push("NEGATION");
+    const grepSymCalls = t.toolSequence.filter((tn) => tn === "grep_search").length;
+    if (grepSymCalls > 0 && t.toolSequence.some((tn) => CODEGRAPH_TOOLS.has(tn) === false)) {
+      // weak heuristic — can't see args here, just count grep calls
+    }
+    const editCount = t.toolSequence.filter((tn) => EDIT_TOOLS.has(tn)).length;
+    const errorCount = t.toolSequence.filter((tn) => tn === "get_errors").length;
+    if (editCount > 0 && errorCount === 0) flags.push("MISSING_POST_EDIT_SCAN");
+    if (SCOPE_EXPAND_RE.test(t.assistantSnippets.join(" "))) flags.push("SCOPE_EXPAND_PHRASE");
+    return { ...t, flags, editCount, errorCount, idx };
+  });
+
+  const md = `# Deep dive — \`${sessionId}\`
+
+This is a turn-by-turn annotated walk of the session. Flags surface compliance / friction events for review.
+
+Total turns: ${annotated.length}
+Flagged turns: ${annotated.filter((t) => t.flags.length > 0).length}
+
+---
+
+${annotated
+  .map((t) => {
+    const flagBadge = t.flags.length ? ` **[${t.flags.join(", ")}]**` : "";
+    const userBrief =
+      t.userMessage.length > 300 ? t.userMessage.slice(0, 300) + "…" : t.userMessage;
+    return `### Turn ${t.idx + 1}${flagBadge}
+
+**User** (${t.timestamp || "?"}):
+> ${userBrief.replace(/\n/g, "\n> ")}
+
+**Tool sequence** (${t.toolSequence.length} calls): ${t.toolSequence.join(" → ") || "_(none)_"}
+
+**Assistant snippets** (${t.assistantSnippets.length}):
+${
+  t.assistantSnippets.length === 0
+    ? "_(no text output)_"
+    : t.assistantSnippets.map((s) => "> " + s.replace(/\n/g, "\n> ")).join("\n\n")
+}
+`;
+  })
+  .join("\n---\n\n")}
+`;
+  fs.writeFileSync(outPath, md, "utf8");
+}
+
+// ─── Main ───────────────────────────────────────────────────────────────
+function main() {
+  if (!fs.existsSync(rawDir)) {
+    console.error("ERROR: no docs/chat-exports/raw/ folder. Export transcripts first.");
+    process.exit(1);
+  }
+  ensureDir(outDir);
+  ensureDir(worst3Dir);
+
+  const files = fs
+    .readdirSync(rawDir)
+    .filter((f) => f.endsWith(".jsonl"))
+    .map((f) => path.join(rawDir, f));
+
+  console.log(`Analyzing ${files.length} transcripts...`);
+  const allMetrics = files.map((f) => analyzeSession(f));
+  console.log("Per-session analysis complete.");
+
+  // Write per-session metrics
+  fs.writeFileSync(path.join(outDir, "metrics.json"), JSON.stringify(allMetrics, null, 2), "utf8");
+
+  // Aggregate dashboard
+  const summary = buildSummary(allMetrics);
+  fs.writeFileSync(path.join(outDir, "metrics-summary.json"), JSON.stringify(summary, null, 2), "utf8");
+  writeSummaryMd(summary, allMetrics, path.join(outDir, "metrics-summary.md"));
+  console.log("Dashboard written.");
+
+  // Worst-3 friction digests
+  const worst3 = [...allMetrics]
+    .sort((a, b) => b.category2_friction.frictionScore - a.category2_friction.frictionScore)
+    .slice(0, 3);
+  for (const m of worst3) {
+    writeFrictionDigest(m, path.join(worst3Dir, `${m.sessionId}-friction-digest.md`));
+  }
+  console.log(`Wrote ${worst3.length} worst-3 friction digests.`);
+
+  // Deep dive on target session
+  if (deepDivePrefix) {
+    const target = files.find((f) => path.basename(f).startsWith(deepDivePrefix));
+    if (target) {
+      writeDeepDive(target, path.join(outDir, "deep-dive-this-session.md"));
+      console.log(`Deep dive written for ${path.basename(target)}`);
+    } else {
+      console.warn(`No transcript file matches prefix '${deepDivePrefix}' — skipping deep dive.`);
+    }
+  }
+
+  console.log("\nDone. Outputs in:", path.relative(repoRoot, outDir));
+}
+
+main();
