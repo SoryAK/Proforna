@@ -53,6 +53,13 @@ export interface EventsMapItem {
   lat: number;
   lng: number;
   photos?: string[];
+  /**
+   * Set when the event is anchored to a `WorkHistory` row and its coords
+   * are inherited from the parent (see `resolveEventCoords`). Surfaced as
+   * an "Anchored to {company}" subtitle in the InfoWindow so that several
+   * anchored events sharing one job pin stay disambiguable on hover.
+   */
+  anchoredTo?: string;
 }
 
 interface Props {
@@ -140,8 +147,11 @@ export default function EventsMap({ events, placeMode = false, onPickCoords }: P
           ev.photos && ev.photos.length > 0
             ? `<img src='${ev.photos[0]}' style='width:100%;max-width:180px;max-height:80px;object-fit:cover;margin-bottom:4px;border-radius:6px;' />`
             : "";
+        const anchoredHtml = ev.anchoredTo
+          ? `<div style='color:#6b7280;font-size:10px;margin-top:2px;font-style:italic;'>Anchored to ${escapeHtml(ev.anchoredTo)}</div>`
+          : "";
         info.setContent(
-          `<div style='font-size:11px;max-width:210px;line-height:1.4;overflow:hidden;'>${photoHtml}<div style='font-weight:700;font-size:12px;color:#d946ef'>${escapeHtml(ev.title)}</div><div style='color:#6b7280;margin-top:1px'>${ev.date}</div><div style='color:#9ca3af;font-size:10px;margin-top:2px;'>${escapeHtml(ev.location)}</div></div>`,
+          `<div style='font-size:11px;max-width:210px;line-height:1.4;overflow:hidden;'>${photoHtml}<div style='font-weight:700;font-size:12px;color:#d946ef'>${escapeHtml(ev.title)}</div><div style='color:#6b7280;margin-top:1px'>${ev.date}</div><div style='color:#9ca3af;font-size:10px;margin-top:2px;'>${escapeHtml(ev.location)}</div>${anchoredHtml}</div>`,
         );
         info.open({ map, anchor: marker });
       };

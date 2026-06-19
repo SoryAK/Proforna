@@ -30,6 +30,10 @@ import { ArrowLeft, Loader2, MapPin, Plus, X } from "lucide-react";
 import { importLibrary } from "@googlemaps/js-api-loader";
 import { Button } from "@/components/ui/button";
 import type { EventsMapItem } from "./events-map";
+import {
+  resolveEventCoords,
+  type JobCoord,
+} from "@/lib/worklog/events/resolve-event-coords";
 
 // EventsMap touches `window.google` and must not SSR.
 const EventsMap = dynamic(() => import("./events-map"), {
@@ -60,15 +64,15 @@ interface CareerEventApiRow {
   photos?: { filePath: string }[];
 }
 
-function hasLatLng(
-  e: CareerEventApiRow,
-): e is CareerEventApiRow & { lat: number; lng: number } {
-  return (
-    typeof e.lat === "number" &&
-    typeof e.lng === "number" &&
-    !Number.isNaN(e.lat) &&
-    !Number.isNaN(e.lng)
-  );
+// Mirror the subset of `GET /api/work-history` we use to feed the
+// anchored-event fallback. Every `WorkHistory` row carries non-null
+// lat/lng by schema, so we don't need to defend against undefined here
+// — but we still narrow before building the map below.
+interface WorkHistoryApiRow {
+  id: string;
+  company: string;
+  lat: number;
+  lng: number;
 }
 
 export function WorklogMapView() {
@@ -80,18 +84,46 @@ export function WorklogMapView() {
     staleTime: 30_000,
   });
 
+  // Parallel fetch — used as the fallback coord source for anchored
+  // events (which carry no own lat/lng by ADR-0027 Q1=A). Same staleTime
+  // as the events query so both refresh roughly together.
+  const { data: jobs = [] } = useQuery<WorkHistoryApiRow[]>({
+    queryKey: ["work-history", "all"],
+    queryFn: () => fetch("/api/work-history").then((r) => r.json()),
+    staleTime: 30_000,
+  });
+
+  const jobCoordsById = useMemo<Map<string, JobCoord>>(() => {
+    const m = new Map<string, JobCoord>();
+    for (const j of jobs) {
+      if (!Number.isFinite(j.lat) || !Number.isFinite(j.lng)) continue;
+      m.set(j.id, { lat: j.lat, lng: j.lng, company: j.company });
+    }
+    return m;
+  }, [jobs]);
+
   const mappable = useMemo<EventsMapItem[]>(
     () =>
-      events.filter(hasLatLng).map((e) => ({
-        id: e.id,
-        title: e.title,
-        date: e.startDate ?? "",
-        location: e.location ?? "",
-        lat: e.lat,
-        lng: e.lng,
-        photos: e.photos?.map((p) => p.filePath),
-      })),
-    [events],
+      events
+        .map((e) => {
+          const coords = resolveEventCoords(e, jobCoordsById);
+          if (!coords) return null;
+          return {
+            id: e.id,
+            title: e.title,
+            date: e.startDate ?? "",
+            location: e.location ?? "",
+            lat: coords.lat,
+            lng: coords.lng,
+            photos: e.photos?.map((p) => p.filePath),
+            anchoredTo:
+              coords.source === "anchored"
+                ? coords.anchoredCompany
+                : undefined,
+          };
+        })
+        .filter((m): m is EventsMapItem => m !== null),
+    [events, jobCoordsById],
   );
 
   const total = events.length;
