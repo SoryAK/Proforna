@@ -14,3 +14,13 @@ export function eventPatchUrl(event: { id: string; workHistoryId: string | null 
   if (event.workHistoryId === null) return `/api/events/${event.id}`;
   return `/api/work-history/${event.workHistoryId}/events/${event.id}`;
 }
+
+/**
+ * Photo gallery URL — same split rationale as `eventPatchUrl`, parallel
+ * to ADR-0027 Q2=B. POST = upload (multipart), GET = list, DELETE = single
+ * photo via `?photoId=` query.
+ */
+export function eventPhotosUrl(event: { id: string; workHistoryId: string | null }): string {
+  if (event.workHistoryId === null) return `/api/events/${event.id}/photos`;
+  return `/api/work-history/${event.workHistoryId}/events/${event.id}/photos`;
+}

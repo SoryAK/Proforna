@@ -33,17 +33,18 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ArrowLeft, CalendarDays, Loader2, Trash2 } from "lucide-react";
+import { ArrowLeft, CalendarDays, Images, ListChecks, Loader2, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { WorklogEventEditorRail } from "./worklog-event-editor-rail";
+import { WorklogEventEditorRail, type RailTab } from "./worklog-event-editor-rail";
 import { EventLocationSection } from "./event-location-section";
 import { EventPropertiesFields } from "./event-properties-fields";
+import { EventPhotosSection } from "./event-photos-section";
 import { EventDeleteConfirm } from "./event-delete-confirm";
-import { eventPatchUrl } from "./event-patch-url";
+import { eventPatchUrl, eventPhotosUrl } from "./event-patch-url";
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -122,6 +123,11 @@ function NewEventEditor({ initialCoords, initialLocation }: NewEventEditorProps)
   >(initialCoords ?? null);
   const [coordsLoading, setCoordsLoading] = useState(false);
 
+  // Photo queue — files are held client-side until create.mutate() resolves,
+  // then flushed to the photos endpoint of the newly-created event
+  // (see onSuccess). ADR-0034 follow-up.
+  const [pendingPhotos, setPendingPhotos] = useState<File[]>([]);
+
   // Auto-focus the title on mount — same as the notes editor.
   const titleRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
@@ -189,8 +195,34 @@ function NewEventEditor({ initialCoords, initialLocation }: NewEventEditorProps)
       toast.success("Event added");
       qc.invalidateQueries({ queryKey: ["career-events", "all"] });
       qc.invalidateQueries({ queryKey: ["career-growth"] });
-      // Replace so back button skips the empty draft URL.
-      router.replace(`/worklog/events/${created.id}`);
+
+      // Queue-and-flush — sequential uploads to dodge per-event contention.
+      // The event itself succeeded, so navigate regardless of photo failures;
+      // surface upload errors via toast so the user knows to retry from
+      // the existing-event view.
+      void (async () => {
+        if (pendingPhotos.length > 0) {
+          const photosUrl = eventPhotosUrl({ id: created.id, workHistoryId: selectedJobId });
+          let failures = 0;
+          for (const file of pendingPhotos) {
+            const fd = new FormData();
+            fd.append("file", file);
+            try {
+              const res = await fetch(photosUrl, { method: "POST", body: fd });
+              if (!res.ok) failures++;
+            } catch {
+              failures++;
+            }
+          }
+          if (failures > 0) {
+            toast.error(
+              `${failures} of ${pendingPhotos.length} photo${pendingPhotos.length === 1 ? "" : "s"} failed to upload`,
+            );
+          }
+        }
+        // Replace so back button skips the empty draft URL.
+        router.replace(`/worklog/events/${created.id}`);
+      })();
     },
     onError: (e: Error) => toast.error(e.message || "Could not create event"),
   });
@@ -253,6 +285,27 @@ function NewEventEditor({ initialCoords, initialLocation }: NewEventEditorProps)
     </div>
   );
 
+  const photosBody = (
+    <EventPhotosSection
+      eventId={null}
+      workHistoryId={selectedJobId}
+      pendingFiles={pendingPhotos}
+      onPendingChange={setPendingPhotos}
+      disabled={create.isPending}
+    />
+  );
+
+  const railTabs: RailTab[] = [
+    { id: "properties", label: "Properties", icon: ListChecks, content: propsBody },
+    {
+      id: "photos",
+      label: "Photos",
+      icon: Images,
+      content: photosBody,
+      badge: pendingPhotos.length,
+    },
+  ];
+
   return (
     <div className="h-full flex flex-row min-h-0">
       {/* ── Main content column ─────────────────────────────────── */}
@@ -311,23 +364,27 @@ function NewEventEditor({ initialCoords, initialLocation }: NewEventEditorProps)
               disabled={create.isPending}
             />
 
-            {/* Inline Properties — only mounts at < xl (rail owns the same
-                body at xl+). `xl:hidden` className covers the one-frame
-                SSR→hydration window before `isXl` flips. */}
+            {/* Inline Properties + Photos — only mount at < xl (rail owns
+                the same bodies at xl+). `xl:hidden` covers the
+                SSR→hydration window before `isXl` flips. Layout reads
+                Title → Description → Photos → Properties. */}
             {!isXl && (
-              <div className="xl:hidden mt-6 pt-6 border-t border-border/60">
-                <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-4">
-                  Properties
-                </h2>
-                {propsBody}
+              <div className="xl:hidden mt-6 pt-6 border-t border-border/60 space-y-6">
+                <div>{photosBody}</div>
+                <div className="pt-6 border-t border-border/60">
+                  <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-4">
+                    Properties
+                  </h2>
+                  {propsBody}
+                </div>
               </div>
             )}
           </div>
         </div>
       </div>
 
-      {/* ── Right-rail Properties — xl+ only ───────────────────── */}
-      {isXl && <WorklogEventEditorRail>{propsBody}</WorklogEventEditorRail>}
+      {/* ── Right-rail (Properties + Photos) — xl+ only ─────────── */}
+      {isXl && <WorklogEventEditorRail tabs={railTabs} />}
     </div>
   );
 }
@@ -485,6 +542,19 @@ function ExistingEventEditor({ event, anchoredJob }: ExistingEventEditorProps) {
     </div>
   );
 
+  const photosBody = (
+    <EventPhotosSection
+      eventId={event.id}
+      workHistoryId={event.workHistoryId}
+      disabled={isSaving}
+    />
+  );
+
+  const railTabs: RailTab[] = [
+    { id: "properties", label: "Properties", icon: ListChecks, content: propsBody },
+    { id: "photos", label: "Photos", icon: Images, content: photosBody },
+  ];
+
   return (
     <div className="h-full flex flex-row min-h-0">
       <div className="flex-1 flex flex-col min-w-0 min-h-0">
@@ -553,23 +623,27 @@ function ExistingEventEditor({ event, anchoredJob }: ExistingEventEditorProps) {
               )}
             />
 
-            {/* Inline Properties — only mounts at < xl (rail owns the
-                same body at xl+). `xl:hidden` covers the SSR→hydration
-                window before `isXl` flips. */}
+            {/* Inline Properties + Photos — only mount at < xl (rail owns
+                the same bodies at xl+). `xl:hidden` covers the
+                SSR→hydration window before `isXl` flips. Layout reads
+                Title → Description → Photos → Properties. */}
             {!isXl && (
-              <div className="xl:hidden mt-6 pt-6 border-t border-border/60">
-                <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-4">
-                  Properties
-                </h2>
-                {propsBody}
+              <div className="xl:hidden mt-6 pt-6 border-t border-border/60 space-y-6">
+                <div>{photosBody}</div>
+                <div className="pt-6 border-t border-border/60">
+                  <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-4">
+                    Properties
+                  </h2>
+                  {propsBody}
+                </div>
               </div>
             )}
           </div>
         </div>
       </div>
 
-      {/* ── Right-rail Properties — xl+ only ───────────────────── */}
-      {isXl && <WorklogEventEditorRail>{propsBody}</WorklogEventEditorRail>}
+      {/* ── Right-rail (Properties + Photos) — xl+ only ─────────── */}
+      {isXl && <WorklogEventEditorRail tabs={railTabs} />}
 
       <EventDeleteConfirm
         open={deleteOpen}

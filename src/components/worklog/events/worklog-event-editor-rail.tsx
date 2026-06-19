@@ -1,48 +1,67 @@
 /**
  * WorklogEventEditorRail — desktop right-rail for the inline event
  * editor (ADR-0034). Parallel shell to `WorklogReaderRightRail` —
- * shares no code (note rail is `WorkLog`-shaped) but mirrors the
- * chrome the user already learned on notes:
+ * shares no code but mirrors the chrome the user already learned on
+ * notes:
  *
- *   • 44px icon strip (single Properties icon for now — Photos/Skills
- *     can plug in here later; structure ready)
- *   • 320px content panel
+ *   • 44px icon strip (one button per tab)
+ *   • 320px content panel showing the active tab body
  *   • Edge collapse sash with chevron flip
  *   • ⌘\ keyboard shortcut to toggle collapse
  *
- * Collapse state is local-only for now (per-component `useState`). When
- * we extend to multi-tab + persist, we'll lift to a `useEventEditorRailState`
- * hook mirroring the notes side — kept simple here to ship ADR-0034.
+ * Multi-tab API (added when Photos joined Properties — companion to
+ * ADR-0034 photo-gallery follow-up): caller passes `tabs[]` with
+ * `{ id, label, icon, content }`. Active tab is internal state,
+ * defaults to first tab. Clicking an icon while collapsed both
+ * switches the tab AND expands the panel. Clicking the active tab
+ * collapses (mirrors notes rail).
  *
- * Body content is passed as `children` so the editor shell can wire
- * `EventPropertiesFields` + `EventLocationSection` with the right mode
- * (draft/floating/anchored) and commit hooks.
+ * Collapse state is local-only for now (per-component `useState`).
+ * When we extend to persist, we'll lift to a `useEventEditorRailState`
+ * hook mirroring the notes side.
  */
 
 "use client";
 
 import { useEffect, useState } from "react";
-import { ChevronsRight, ChevronsLeft, ListChecks } from "lucide-react";
+import { ChevronsRight, ChevronsLeft, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const STRIP_WIDTH = "w-11"; // 44px
 const PANEL_WIDTH = "w-80"; // 320px
 
+export interface RailTab {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+  content: React.ReactNode;
+  /** Optional small numeric badge — shown both on the icon strip and in the panel header. */
+  badge?: number | null;
+}
+
 export interface WorklogEventEditorRailProps {
-  /** Tab title shown in the panel header. */
-  tabLabel?: string;
-  /** Section body (typically the Properties fields + location section). */
-  children: React.ReactNode;
+  tabs: RailTab[];
+  /** Tab to start on. Defaults to first tab. */
+  defaultTabId?: string;
   className?: string;
 }
 
 export function WorklogEventEditorRail({
-  tabLabel = "Properties",
-  children,
+  tabs,
+  defaultTabId,
   className,
 }: WorklogEventEditorRailProps) {
   const [collapsed, setCollapsed] = useState(false);
+  const [activeId, setActiveId] = useState<string>(() => defaultTabId ?? tabs[0]?.id ?? "");
+
+  // Self-heal if the parent removes/reorders tabs and the active id is gone.
+  useEffect(() => {
+    if (tabs.length === 0) return;
+    if (!tabs.some((t) => t.id === activeId)) {
+      setActiveId(tabs[0].id);
+    }
+  }, [tabs, activeId]);
 
   // ⌘\ toggles collapse, but only when not focused inside an input/editor.
   useEffect(() => {
@@ -63,6 +82,8 @@ export function WorklogEventEditorRail({
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
   }, []);
+
+  const active = tabs.find((t) => t.id === activeId) ?? tabs[0];
 
   return (
     <aside
@@ -97,36 +118,67 @@ export function WorklogEventEditorRail({
       </button>
 
       {/* 320px content panel — hidden when collapsed. */}
-      {!collapsed && (
+      {!collapsed && active && (
         <div className={cn("flex h-full flex-col border-r border-border/60", PANEL_WIDTH)}>
           <header className="h-12 flex items-center gap-2 border-b border-border/60 px-3">
             <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              {tabLabel}
+              {active.label}
             </h2>
+            {typeof active.badge === "number" && active.badge > 0 && (
+              <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-muted px-1 text-[10px] font-semibold text-muted-foreground">
+                {active.badge}
+              </span>
+            )}
           </header>
-          <div className="flex-1 overflow-y-auto p-3">{children}</div>
+          <div className="flex-1 overflow-y-auto p-3">{active.content}</div>
         </div>
       )}
 
-      {/* 44px icon strip — single Properties icon for now. */}
+      {/* 44px icon strip — one button per tab. */}
       <div className={cn("flex h-full flex-col items-center gap-1 py-2", STRIP_WIDTH)}>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          aria-pressed={!collapsed}
-          aria-label="Properties"
-          title="Properties"
-          onClick={() => setCollapsed(false)}
-          className={cn(
-            "h-8 w-8 rounded-md text-muted-foreground transition-colors",
-            "hover:bg-orange-500/10 hover:text-orange-300",
-            "focus-visible:ring-1 focus-visible:ring-orange-400/60",
-            !collapsed && "bg-orange-500/15 text-orange-200",
-          )}
-        >
-          <ListChecks className="h-4 w-4" />
-        </Button>
+        {tabs.map((tab) => {
+          const Icon = tab.icon;
+          const isActive = !collapsed && tab.id === activeId;
+          return (
+            <Button
+              key={tab.id}
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-pressed={isActive}
+              aria-label={tab.label}
+              title={tab.label}
+              onClick={() => {
+                if (collapsed) {
+                  setCollapsed(false);
+                  setActiveId(tab.id);
+                  return;
+                }
+                if (tab.id === activeId) {
+                  setCollapsed(true);
+                  return;
+                }
+                setActiveId(tab.id);
+              }}
+              className={cn(
+                "relative h-8 w-8 rounded-md text-muted-foreground transition-colors",
+                "hover:bg-orange-500/10 hover:text-orange-300",
+                "focus-visible:ring-1 focus-visible:ring-orange-400/60",
+                isActive && "bg-orange-500/15 text-orange-200",
+              )}
+            >
+              <Icon className="h-4 w-4" />
+              {typeof tab.badge === "number" && tab.badge > 0 && (
+                <span
+                  aria-hidden
+                  className="absolute -right-1 -top-1 inline-flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-amber-500 px-0.5 text-[9px] font-bold text-white"
+                >
+                  {tab.badge > 9 ? "9+" : tab.badge}
+                </span>
+              )}
+            </Button>
+          );
+        })}
       </div>
     </aside>
   );
