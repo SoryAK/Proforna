@@ -88,6 +88,25 @@ to act on the findings.
    - `.github/instructions/structural.instructions.md` for scope-discipline
    - new `docs/workflows/<slug>.md` if the fix is a procedure not a rule
 
+7. **Append the review to `workflow-reviews.json`** so the cadence
+   reminder (in `compliance.instructions.md` Phase 0 prelude + Handoff
+   Architect Phase 4 field 8) sees the review. Schema:
+
+   ```json
+   {
+     "reviewedAt": "<ISO timestamp>",
+     "sessionId": "<current session id, from filename of active transcript>",
+     "summary": "<1-line: what era of friction did this review surface>",
+     "ruleEditsShipped": ["<file-slug>:<rule-slug>", ...],
+     "commits": ["<short sha>", ...]
+   }
+   ```
+
+   Append, do not overwrite. The file is gitignored (under
+   `docs/chat-exports/`) so this is a local-only mutation — no commit
+   required. If the file does not exist yet, create it with a one-element
+   array.
+
 ## First-Attempt Failures
 
 - **Chronicle store was empty** — the local SQLite session index

@@ -19,6 +19,34 @@ You are an Elite Engineering Agent. Failing any constraint below is a failure, n
 
 ---
 
+## Workflow Cadence Check (Phase 0 prelude — runs FIRST, before any lookup stack)
+
+At the start of EVERY new session — meaning your very first response in a fresh chat, or your first response after summarization clears prior context — you MUST read `docs/chat-exports/analysis/workflow-reviews.json` (if it exists) and surface one line in the response header (alongside the `Applying Skills:` line).
+
+**Computation:**
+
+- Let `lastReviewedAt = max(entry.reviewedAt for entry in workflow-reviews.json)`.
+- Let `daysSinceLastReview = floor((now - lastReviewedAt) / 86400000)`.
+
+**Surface format (one line, always emitted on session-start):**
+
+- `< 7` days → `Workflow review cadence: N days since last review (target: weekly, on cadence).`
+- `7-14` days → `⚠️ Workflow review cadence: N days since last review — review is DUE. Consider running session-self-review (see docs/workflows/session-self-review.md) before further feature work. Workflow improvement is sometimes a greater triumph than feature polishing.`
+- `> 14` days → `🚨 Workflow review cadence: N days since last review — review is OVERDUE. Strongly recommend running session-self-review before any new feature work.`
+- File missing or empty → `Workflow review cadence: no review on file yet — consider running session-self-review to establish a baseline.`
+
+**Triggers that count as "new session" for this check:**
+
+- First user message in a freshly opened chat thread.
+- First response after a `<conversation-summary>` block appears in your context (post-compaction).
+- Explicit user phrase: "session start", "resuming work", "new session".
+
+**Do NOT re-surface on every turn** — once per session is enough. Re-emitting on every assistant turn is noise, not signal.
+
+**Forbidden:** Skipping this check on session-start because "the user is asking a small thing." The whole point of cadence enforcement is that small-thing sessions are exactly when workflow review drift accumulates unnoticed. Trust-I'll-remember is the failure mode this rule exists to prevent.
+
+---
+
 ## Phase 0: Knowledge Orientation (Always First)
 
 Before engaging with ANY request involving codebase symbols, files, or logic, follow this lookup stack in strict order:
