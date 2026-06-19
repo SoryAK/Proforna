@@ -280,9 +280,7 @@ export function WorklogNavSidebar({ onShowGlobal }: WorklogNavSidebarProps) {
           onClick={() => navigateTo({ kind: "all" })}
         />
         {/* ADR-0027 Day 3 — Events sibling surface. NOT a filter of
-            /worklog/notes — opens its own route /worklog/events. The
-            `border.divider-top` (tokens.md) sits ABOVE the row to signal
-            "different destination, not a filter on the current page."
+            /worklog/notes — opens its own route /worklog/events.
             Sits directly under "All notes" per the user's spatial intent;
             the Archived/Notable/Templates filter cluster follows below.
             ADR-0032 — inline `+` button creates a new event. ADR-0034 —
@@ -290,12 +288,17 @@ export function WorklogNavSidebar({ onShowGlobal }: WorklogNavSidebarProps) {
             supersedes the EventCreateDialog modal from ADR-0033). The
             row is wrapped in a flex container so the Link and button
             are siblings (Link cannot nest a button per HTML spec); the
-            divider + active bg live on the wrapper so they span the
-            full row width including the `+`. The Link drops `w-full`
-            for `flex-1` to share the row. */}
+            active bg lives on the wrapper so it spans the full row
+            width including the `+`. The Link drops `w-full` for
+            `flex-1` to share the row.
+            2026-06-19 polish — dropped the `border-t mt-1 pt-3` divider
+            that previously separated Events from the All-notes/filter
+            cluster; the extra rule + padding made the row read as a
+            boxed-out call-out vs the flush stacking of every other row.
+            Consistency > spatial signaling here. */}
         <div
           className={cn(
-            "flex items-stretch rounded-lg border-t border-border/60 mt-1 pt-3",
+            "flex items-stretch rounded-lg",
             eventsActive && "bg-orange-100 dark:bg-orange-900/30",
           )}
         >
@@ -341,8 +344,7 @@ export function WorklogNavSidebar({ onShowGlobal }: WorklogNavSidebarProps) {
           </button>
         </div>
         {/* ADR-0029 — Procedures sibling surface. Sits directly under Events,
-            inside the same "different destination" cluster (no divider needed
-            here — Events row already drew the boundary above).
+            inside the same "different destination" cluster.
             ADR-0032 — inline `+` button creates a kind="procedure" worklog
             via the shared optimistic mutation, then routes to its reader.
             Same wrapper pattern as the Events row above. */}
