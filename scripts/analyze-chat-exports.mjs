@@ -9,6 +9,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -16,11 +17,21 @@ const repoRoot = path.resolve(__dirname, "..");
 const rawDir = path.join(repoRoot, "docs", "chat-exports", "raw");
 const outDir = path.join(repoRoot, "docs", "chat-exports", "analysis");
 const worst3Dir = path.join(outDir, "worst-3");
+const reviewedLedgerPath = path.join(outDir, "reviewed-sessions.json");
+const changeLogPath = path.join(outDir, "workflow-change-log.json");
+const metricsByEraPath = path.join(outDir, "metrics-by-era.json");
+
+// 24h boundary window for era-tagging Option A (ADR-0036 D3): sessions whose
+// startTime is within this many ms of any change ship/adopt event are flagged
+// `straddleWindow: true` so downstream aggregators can choose to exclude them.
+const STRADDLE_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 // ─── CLI args ────────────────────────────────────────────────────────────
 const args = process.argv.slice(2);
 const deepDiveIdx = args.indexOf("--deep-dive");
 const deepDivePrefix = deepDiveIdx >= 0 ? args[deepDiveIdx + 1] : null;
+const includeReviewed = args.includes("--include-reviewed");
+const markReviewed = args.includes("--mark-reviewed");
 
 // ─── Pattern matchers (cheap heuristics — must be eyeballed for truth) ──
 const NEGATION_RE = /\b(no|nope|wait|stop|actually|wrong|incorrect|i told you|again|that's not|don't|do not)\b/i;
@@ -551,6 +562,202 @@ ${
   fs.writeFileSync(outPath, md, "utf8");
 }
 
+// ─── Reviewed-session ledger (ADR-0036 D5, gitignored) ─────────────────
+function loadReviewedLedger() {
+  if (!fs.existsSync(reviewedLedgerPath)) {
+    return { _schemaVersion: 1, _doc: "Auto-created by analyzer.", entries: [] };
+  }
+  try {
+    const parsed = JSON.parse(fs.readFileSync(reviewedLedgerPath, "utf8"));
+    if (!parsed || typeof parsed !== "object" || !Array.isArray(parsed.entries)) {
+      console.warn(`WARN: ${path.relative(repoRoot, reviewedLedgerPath)} malformed (no entries array). Treating as empty.`);
+      return { _schemaVersion: 1, entries: [] };
+    }
+    return parsed;
+  } catch (e) {
+    console.warn(`WARN: failed to parse ${path.relative(repoRoot, reviewedLedgerPath)} (${e.message}). Treating as empty.`);
+    return { _schemaVersion: 1, entries: [] };
+  }
+}
+
+function reviewedSessionIdSet(ledger) {
+  return new Set(ledger.entries.map((e) => e.sessionId));
+}
+
+function appendReviewedSessions(ledger, sessionIds, rulesShippedAfter = []) {
+  const known = reviewedSessionIdSet(ledger);
+  const reviewedAt = new Date().toISOString();
+  let added = 0;
+  for (const id of sessionIds) {
+    if (known.has(id)) continue;
+    ledger.entries.push({
+      sessionId: id,
+      reviewedAt,
+      reviewerNotes: "Marked via --mark-reviewed.",
+      rulesShippedAfter
+    });
+    added++;
+  }
+  if (added > 0) {
+    fs.writeFileSync(reviewedLedgerPath, JSON.stringify(ledger, null, 2) + "\n", "utf8");
+  }
+  return added;
+}
+
+// ─── Workflow change-log (ADR-0036 D6, tracked in git) ────────────────
+function loadChangeLog() {
+  if (!fs.existsSync(changeLogPath)) {
+    console.warn(`WARN: ${path.relative(repoRoot, changeLogPath)} missing. Era tagging will produce empty cohorts.`);
+    return { streams: { agentRuleEdits: [], userPracticeAdoptions: [], infraToolingChanges: [] } };
+  }
+  try {
+    const parsed = JSON.parse(fs.readFileSync(changeLogPath, "utf8"));
+    if (!parsed?.streams) {
+      console.warn(`WARN: ${path.relative(repoRoot, changeLogPath)} has no streams. Era tagging degraded.`);
+      return { streams: { agentRuleEdits: [], userPracticeAdoptions: [], infraToolingChanges: [] } };
+    }
+    return parsed;
+  } catch (e) {
+    console.warn(`WARN: failed to parse ${path.relative(repoRoot, changeLogPath)} (${e.message}). Era tagging degraded.`);
+    return { streams: { agentRuleEdits: [], userPracticeAdoptions: [], infraToolingChanges: [] } };
+  }
+}
+
+// ─── Era tagging (ADR-0036 D3: bucket by session.startTime + straddle flag) ─
+function computeEraTagForSession(session, changeLog) {
+  const out = { activeRules: [], activePractices: [], activeInfra: [], straddleWindow: false };
+  if (!session.startTime) {
+    return { ...out, straddleWindow: true, missingStartTime: true };
+  }
+  const sessionT = new Date(session.startTime).getTime();
+  if (Number.isNaN(sessionT)) {
+    return { ...out, straddleWindow: true, missingStartTime: true };
+  }
+  const tagStream = (entries, dateField, bucket) => {
+    for (const e of entries || []) {
+      const eT = new Date(e[dateField]).getTime();
+      if (Number.isNaN(eT)) continue;
+      if (eT <= sessionT) bucket.push(e.id);
+      if (Math.abs(sessionT - eT) <= STRADDLE_WINDOW_MS) out.straddleWindow = true;
+    }
+  };
+  tagStream(changeLog.streams?.agentRuleEdits, "shippedAt", out.activeRules);
+  tagStream(changeLog.streams?.userPracticeAdoptions, "adoptedAt", out.activePractices);
+  tagStream(changeLog.streams?.infraToolingChanges, "shippedAt", out.activeInfra);
+  out.activeRules.sort();
+  out.activePractices.sort();
+  out.activeInfra.sort();
+  return out;
+}
+
+function cohortHashFor(tag) {
+  const payload = JSON.stringify({
+    rules: tag.activeRules,
+    practices: tag.activePractices,
+    infra: tag.activeInfra
+  });
+  return crypto.createHash("sha1").update(payload).digest("hex").slice(0, 12);
+}
+
+function writeMetricsByEra(allMetrics, changeLog, outPath) {
+  const taggedSessions = allMetrics.map((m) => {
+    const tag = computeEraTagForSession(m, changeLog);
+    const cohortHash = cohortHashFor(tag);
+    return {
+      sessionId: m.sessionId,
+      startTime: m.startTime,
+      cohortHash,
+      activeRules: tag.activeRules,
+      activePractices: tag.activePractices,
+      activeInfra: tag.activeInfra,
+      straddleWindow: tag.straddleWindow,
+      missingStartTime: tag.missingStartTime || false,
+      // Embed the raw aggregates so Phase 3 can group without re-reading metrics.json
+      aggregates: {
+        grepForSymbolCount: m.category1_toolDiscipline.grepForSymbolCount,
+        codegraphFirstRate: m.category1_toolDiscipline.codegraphFirstRate,
+        postEditScanRate: m.category1_toolDiscipline.postEditScanRate,
+        memReadFirstRate: m.category1_toolDiscipline.memReadFirstRate,
+        negationCount: m.category2_friction.negationCount,
+        frictionScore: m.category2_friction.frictionScore,
+        meanAssistantBytes: m.category3_efficiency.meanAssistantBytes,
+        toolCallsPerAssistantTurn: m.category3_efficiency.toolCallsPerAssistantTurn,
+        scopeExpandHitCount: m.category4_scope.scopeExpandHitCount,
+        wroteMemory: m.category5_outcome.wroteMemory,
+        handoffWritten: m.category5_outcome.handoffWritten,
+        shippedClean: m.category5_outcome.shippedClean
+      }
+    };
+  });
+
+  // Bucket by cohortHash. Aggregates are means over sessions in the cohort.
+  const cohortMap = new Map();
+  for (const s of taggedSessions) {
+    if (!cohortMap.has(s.cohortHash)) {
+      cohortMap.set(s.cohortHash, {
+        cohortHash: s.cohortHash,
+        activeRules: s.activeRules,
+        activePractices: s.activePractices,
+        activeInfra: s.activeInfra,
+        sessionIds: [],
+        straddleCount: 0
+      });
+    }
+    const c = cohortMap.get(s.cohortHash);
+    c.sessionIds.push(s.sessionId);
+    if (s.straddleWindow) c.straddleCount++;
+  }
+  const cohorts = [...cohortMap.values()].map((c) => {
+    const sessions = taggedSessions.filter((s) => c.sessionIds.includes(s.sessionId));
+    const avg = (key) => {
+      const vals = sessions.map((s) => s.aggregates[key]).filter((v) => v !== null && v !== undefined && !Number.isNaN(v));
+      return vals.length ? +(vals.reduce((sum, v) => sum + v, 0) / vals.length).toFixed(3) : null;
+    };
+    const sum = (key) => sessions.reduce((s, sess) => s + (sess.aggregates[key] || 0), 0);
+    const pctTrue = (key) => {
+      const hits = sessions.filter((s) => s.aggregates[key] === true).length;
+      return sessions.length ? +((hits / sessions.length) * 100).toFixed(1) : 0;
+    };
+    return {
+      cohortHash: c.cohortHash,
+      sessionCount: c.sessionIds.length,
+      straddleCount: c.straddleCount,
+      activeRules: c.activeRules,
+      activePractices: c.activePractices,
+      activeInfra: c.activeInfra,
+      sessionIds: c.sessionIds,
+      aggregates: {
+        avgGrepForSymbolCount: avg("grepForSymbolCount"),
+        avgCodegraphFirstRate: avg("codegraphFirstRate"),
+        avgPostEditScanRate: avg("postEditScanRate"),
+        avgMemReadFirstRate: avg("memReadFirstRate"),
+        avgNegationCount: avg("negationCount"),
+        avgFrictionScore: avg("frictionScore"),
+        avgMeanAssistantBytes: avg("meanAssistantBytes"),
+        avgToolCallsPerAssistantTurn: avg("toolCallsPerAssistantTurn"),
+        totalScopeExpandHits: sum("scopeExpandHitCount"),
+        memWritePct: pctTrue("wroteMemory"),
+        handoffWrittenPct: pctTrue("handoffWritten"),
+        shippedCleanPct: pctTrue("shippedClean")
+      }
+    };
+  });
+  cohorts.sort((a, b) => b.sessionCount - a.sessionCount);
+
+  const payload = {
+    generatedAt: new Date().toISOString(),
+    boundaryPolicy: "session.startTime bucketing; straddleWindow flag set when |session.startTime - change.shippedAt| <= 24h (ADR-0036 D3)",
+    changeLogStreams: {
+      agentRuleEdits: changeLog.streams?.agentRuleEdits?.length || 0,
+      userPracticeAdoptions: changeLog.streams?.userPracticeAdoptions?.length || 0,
+      infraToolingChanges: changeLog.streams?.infraToolingChanges?.length || 0
+    },
+    sessions: taggedSessions,
+    cohorts
+  };
+  fs.writeFileSync(outPath, JSON.stringify(payload, null, 2), "utf8");
+}
+
 // ─── Main ───────────────────────────────────────────────────────────────
 function main() {
   if (!fs.existsSync(rawDir)) {
@@ -560,10 +767,29 @@ function main() {
   ensureDir(outDir);
   ensureDir(worst3Dir);
 
-  const files = fs
+  const allFiles = fs
     .readdirSync(rawDir)
     .filter((f) => f.endsWith(".jsonl"))
     .map((f) => path.join(rawDir, f));
+
+  const ledger = loadReviewedLedger();
+  const reviewedSet = reviewedSessionIdSet(ledger);
+
+  let files = allFiles;
+  if (!includeReviewed) {
+    const skipped = allFiles.filter((f) => reviewedSet.has(path.basename(f).replace(/\.jsonl$/, "")));
+    files = allFiles.filter((f) => !reviewedSet.has(path.basename(f).replace(/\.jsonl$/, "")));
+    if (skipped.length > 0) {
+      console.log(`Skipping ${skipped.length} already-reviewed session(s); pass --include-reviewed to override.`);
+    }
+  } else {
+    console.log("--include-reviewed: analyzing all sessions including already-reviewed ones.");
+  }
+
+  if (files.length === 0) {
+    console.log("No sessions to analyze. Exiting before writing outputs.");
+    return;
+  }
 
   console.log(`Analyzing ${files.length} transcripts...`);
   const allMetrics = files.map((f) => analyzeSession(f));
@@ -577,6 +803,11 @@ function main() {
   fs.writeFileSync(path.join(outDir, "metrics-summary.json"), JSON.stringify(summary, null, 2), "utf8");
   writeSummaryMd(summary, allMetrics, path.join(outDir, "metrics-summary.md"));
   console.log("Dashboard written.");
+
+  // Era-tagged sidecar (ADR-0036 Phase 2). No changes to metrics-summary.md.
+  const changeLog = loadChangeLog();
+  writeMetricsByEra(allMetrics, changeLog, metricsByEraPath);
+  console.log(`Era-tagged sidecar written: ${path.relative(repoRoot, metricsByEraPath)}`);
 
   // Worst-3 friction digests
   const worst3 = [...allMetrics]
@@ -596,6 +827,13 @@ function main() {
     } else {
       console.warn(`No transcript file matches prefix '${deepDivePrefix}' — skipping deep dive.`);
     }
+  }
+
+  // --mark-reviewed: append this run's session IDs to the ledger.
+  if (markReviewed) {
+    const ids = allMetrics.map((m) => m.sessionId);
+    const added = appendReviewedSessions(ledger, ids);
+    console.log(`--mark-reviewed: added ${added} new session(s) to ${path.relative(repoRoot, reviewedLedgerPath)}.`);
   }
 
   console.log("\nDone. Outputs in:", path.relative(repoRoot, outDir));
