@@ -376,7 +376,7 @@ export function AppHeader() {
 
   return (
     <>
-      <header className="hidden md:flex h-16 shrink-0 items-center justify-between bg-white/70 dark:bg-gray-950/70 backdrop-blur-md shadow-[0_1px_0_0_rgb(0_0_0/0.06),0_2px_12px_0_rgb(0_0_0/0.04)] dark:shadow-[0_1px_0_0_rgb(255_255_255/0.05),0_2px_20px_0_rgb(0_0_0/0.5)] z-30 px-4">
+      <header className="hidden md:flex relative h-16 shrink-0 items-center justify-between bg-white/70 dark:bg-gray-950/70 backdrop-blur-md shadow-[0_1px_0_0_rgb(0_0_0/0.06),0_2px_12px_0_rgb(0_0_0/0.04)] dark:shadow-[0_1px_0_0_rgb(255_255_255/0.05),0_2px_20px_0_rgb(0_0_0/0.5)] z-30 px-4">
         {/* Left: Hamburger + Logo + Name */}
         <div className="flex items-center gap-2">
           <button
@@ -392,11 +392,15 @@ export function AppHeader() {
           </Link>
         </div>
 
-        {/* Centre: search pill (lg+) */}
-        <div className="flex items-center min-w-0">
+        {/* Centre: search pill (lg+). Absolutely positioned + translated so the
+            pill locks to the TRUE viewport center, independent of left/right
+            group widths (the profile chip on the right is wider than the
+            hamburger+logo on the left, which would otherwise pull a flex-
+            justified search pill noticeably left of center). 2026-06-19 polish. */}
+        <div className="hidden lg:flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 items-center pointer-events-none">
           <button
             onClick={() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true, metaKey: true, bubbles: true }))}
-            className="hidden lg:flex items-center gap-2 h-9 w-64 xl:w-80 rounded-full border border-border/40 bg-muted/30 hover:bg-muted/60 hover:border-border/70 focus-visible:border-primary/50 focus-visible:bg-muted/60 outline-none px-3.5 text-sm text-muted-foreground transition-colors"
+            className="pointer-events-auto flex items-center gap-2 h-9 w-64 xl:w-80 rounded-full border border-border/40 bg-muted/30 hover:bg-muted/60 hover:border-border/70 focus-visible:border-primary/50 focus-visible:bg-muted/60 outline-none px-3.5 text-sm text-muted-foreground transition-colors"
           >
             <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
             <span className="flex-1 text-left">Search…</span>
