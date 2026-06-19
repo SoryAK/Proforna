@@ -46,6 +46,7 @@
     "StorageKeysModule": "storage-keys.json",
     "IntegrationsDomain": "integrations.json",
     "PrismaSchemaOps": "schema-ops.json",
-    "ContactDomain": "contacts.json"
+    "ContactDomain": "contacts.json",
+    "WorkflowSelfReviewSystem": "workflow-self-review.json"
   }
 }

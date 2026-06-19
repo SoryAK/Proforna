@@ -1,0 +1,15 @@
+{
+  "entity": "WorkflowSelfReviewSystem",
+  "entityType": "Domain",
+  "observations": [
+    "[2026-06-19] Domain covers the closed-loop workflow-improvement system: chat-export analyzer (scripts/analyze-chat-exports.mjs) + workflow-reviews.json cadence ledger + Phase 0 prelude reminder in compliance.instructions.md + Phase 4 field 8 reminder in persistence.instructions.md Handoff Architect + session-self-review recipe in docs/workflows/.",
+    "[2026-06-19] Analyzer reads VS Code Copilot JSONL transcripts at %APPDATA%/Code/User/workspaceStorage/<hash>/GitHub.copilot-chat/transcripts/*.jsonl. Emits 5-category metrics: Tool Discipline, Course-Correction, Cost/Efficiency, Scope Discipline, Outcome Quality. No deps, pure node:fs ESM.",
+    "[2026-06-19] Cadence ledger workflow-reviews.json lives under docs/chat-exports/ which is gitignored — file is local-only, syncs across machines via OneDrive but never committed. Fresh machine gets graceful 'no review on file yet' fallback per Phase 0 prelude rule.",
+    "[2026-06-19] Baseline 21-session analysis surfaced three patterns: grep-for-symbol abuse (~71% of sessions), low memory-write rate (~29%), terminal-echo recursion driving wasted assistant turns. Magnitudes are PRE-era-tagging — qualitatively defensible only until practice-stream tagging ships.",
+    "[2026-06-19] Shipped rule edits in same session: compliance:grep-gate, compliance:terminal-echo-rule, persistence:phase-4-composite-gate, compliance:workflow-cadence-check, persistence:workflow-review-cadence-field. Commits b007d78 / 6f27c58 / d3a5392 / 37b904f / e326dba — all local, none pushed.",
+    "[2026-06-19] Cadence thresholds (locked in both Phase 0 prelude and Phase 4 field 8): <7d on cadence, 7-14d DUE (recommend session-self-review before feature work), >14d OVERDUE (strongly recommend workflow-improvement sprint).",
+    "[2026-06-19] Parked future work in /memories/repo/parked-ideas.md 'Workflow Self-Improvement Loop' entry: workflow-change-log (3-stream: agent-rule-edits + user-practice-adoptions + infra/tooling-changes), reviewed-session ledger with --exclude-reviewed analyzer flag, cohort/before-after comparison, static HTML dashboard surface (path A MVP), Excalidraw flow viz (polish, last priority). Re-entry triggers documented: ≥2 review cycles of data exist OR explicit workflow-improvement sprint OR metrics-summary.md staleness OR ≥3 shipped rule edits to attribute.",
+    "[2026-06-19] Forbidden pattern to remember: do NOT skip Phase 0 prelude cadence check on 'small thing' sessions — that is exactly when drift accumulates unnoticed. Trust-I'll-remember is the failure mode the cadence reminder exists to prevent."
+  ],
+  "relations": []
+}
