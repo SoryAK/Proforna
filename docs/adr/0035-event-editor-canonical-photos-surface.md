@@ -102,6 +102,7 @@ Both align the photos sub-resource with the same architectural patterns already 
 
 - ✅ One handler, less duplication
 - ❌ Breaks Q2=B for photos specifically — future maintainers ask "why are photos different?"
+- ❌ Breaks Q2=B for photos specifically — future maintainers ask "why are photos different?"
 - ❌ Ownership logic gets a branch (`workHistoryId === null ? freeFloatingCheck : anchoredCheck`) — same complexity, now hidden
 
 #### C — Widen anchored endpoint
@@ -148,3 +149,22 @@ Both align the photos sub-resource with the same architectural patterns already 
 - [ADR-0034 — Worklog Events on the Notes Surface](./0034-worklog-events-inline-editor.md) — inline editor + Properties rail.
 - Commit [`2227382`](https://github.com/SoryAK/Resumsify/commit/2227382) — the implementation this ADR formalizes.
 - User memory note: "Next.js 16 + Turbopack Image Optimizer" — the `unoptimized` fix.
+
+## Cleanup Audit — 2026-06-19
+
+The ADR's Positive Consequence #6 ("Legacy map photo modal retirement is now tractable") and Negative Consequence #1 ("Two photo surfaces transiently") were investigated on 2026-06-19 in preparation for the retirement cleanup commit.
+
+**Finding: the legacy event Photo Modal does not exist.** The flag was based on a misread of the map code.
+
+What's actually in [src/components/job-map.tsx](src/components/job-map.tsx) (14,302 LOC wrapper) and its dynamic child [src/components/job-map-google.tsx](src/components/job-map-google.tsx) (1,994 LOC renderer):
+
+1. **`GalleryModal` mounted on line 11070** is a **position-level fullscreen photo lightbox** for `WorkHistoryPosition.galleryPhotos`. All 10 `setGalleryModalIdx(...)` callsites (lines 9089, 10890, 10968, 11037, 11043, 14106, 14180, 14215, 14221) source from `matchedPosition?.galleryPhotos` — completely unrelated to `CareerEventPhoto`. Zero imports of `CareerEventPhoto`, `/api/events/[id]/photos`, or the editor surface in either map file.
+2. **The actual event-photo touch on the map** is a single inline `<img>` thumbnail baked into each event marker's InfoWindow HTML at [job-map-google.tsx](src/components/job-map-google.tsx#L880-L885) — a 180×80 preview, not a modal, not a CRUD surface. Healthy and intentional.
+
+**Conclusion: no code change required.**
+
+- The "legacy map photo modal" retirement candidate is closed (it was a phantom; the real `GalleryModal` is the position-level lightbox, which stays).
+- The "two photo surfaces transiently" tech debt in Negative Consequence #1 is retracted — there is exactly one event-photo surface (the editor) plus a passive marker-thumbnail preview, not two competing modals.
+- ADR-0035's two core decisions (Decision 1 Option A — editor canonical; Decision 2 Option A — Q2=B route split) remain accepted and unchanged.
+
+**Sole live consequence**: when ADR-0035 advances from `Proposed` to `Accepted`, scrub the three mentions of "legacy map photo modal" / "two photo surfaces transiently" from Decision 1 Option A description, Positive Consequence #6, and Negative Consequence #1. Done as a doc-only pass; no source change.
