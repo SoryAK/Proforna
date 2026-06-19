@@ -1,7 +1,7 @@
 # Session Self-Review — Analyze Past Chat Transcripts
 
 **Workflow Type:** `session-self-review`
-**Last Updated:** 2026-06-19
+**Last Updated:** 2026-06-19 (Phase 2 — era-tagging + reviewed-session ledger)
 
 ## Stack Context
 
@@ -56,13 +56,35 @@ to act on the findings.
    `--deep-dive` is optional; omit it for the dashboard + worst-3 only.
    Prefix matching is on the filename — first 8 chars is usually unique.
 
+   **Default behavior (ADR-0036 Phase 2):** the analyzer now skips
+   sessions whose IDs are already in
+   `docs/chat-exports/analysis/reviewed-sessions.json` and logs
+   `Skipping N already-reviewed session(s)`. If you want to re-baseline
+   the full corpus (e.g. you tightened a heuristic and want to compare
+   pre/post numbers across cohorts), pass `--include-reviewed`:
+
+   ```powershell
+   node scripts/analyze-chat-exports.mjs --include-reviewed
+   ```
+
+   This regenerates `metrics.json`, `metrics-summary.md`, and
+   `metrics-by-era.json` against every transcript on disk.
+
 3. **Read outputs in order.** Open and skim:
    1. `docs/chat-exports/analysis/metrics-summary.md` — top-line
       dashboard, per-category aggregates, per-session table.
-   2. `docs/chat-exports/analysis/worst-3/*.md` — friction digests for
+   2. `docs/chat-exports/analysis/metrics-by-era.json` — per-session
+      era tags (`activeRules` / `activePractices` / `activeInfra`
+      sourced from `workflow-change-log.json`) and per-cohort
+      aggregates. Use this to ask *"are sessions with rule X in their
+      active set actually exhibiting lower friction than sessions
+      without it?"* Phase 2 has no UI on top of this file yet — Phase 3
+      will add the static-HTML cohort dashboard. For now, eyeball the
+      `cohorts[]` array (sorted by sessionCount desc).
+   3. `docs/chat-exports/analysis/worst-3/*.md` — friction digests for
       the 3 highest-friction-score sessions (negation × 2 + repeated
       failures).
-   3. `docs/chat-exports/analysis/deep-dive-this-session.md` (only if
+   4. `docs/chat-exports/analysis/deep-dive-this-session.md` (only if
       `--deep-dive` was passed) — turn-by-turn annotated walk.
 
 4. **Eyeball before believing.** The detectors are heuristics:
@@ -88,6 +110,30 @@ to act on the findings.
    - `.github/instructions/structural.instructions.md` for scope-discipline
    - new `docs/workflows/<slug>.md` if the fix is a procedure not a rule
 
+   **6a. Sync each rule edit into `workflow-change-log.json`
+   (ADR-0036 D6).** For every `.github/instructions/*.md` change you
+   commit in step 6, append one entry to the `agentRuleEdits` stream of
+   `docs/chat-exports/analysis/workflow-change-log.json`:
+
+   ```json
+   {
+     "id": "<file-slug>:<rule-slug>",
+     "shippedAt": "<ISO timestamp of the commit>",
+     "commit": "<short sha>",
+     "file": ".github/instructions/<file>.md",
+     "summary": "<1-line>",
+     "triggerSession": "<current session id>"
+   }
+   ```
+
+   `id` is the canonical handle the analyzer hashes into cohorts —
+   reuse it in `reviewed-sessions.json.rulesShippedAfter` (step 7) so
+   cohort attribution stays consistent. This file IS tracked in git
+   (the lone exception in `docs/chat-exports/`); commit it alongside
+   the instruction-file edit or in the wrap commit, but do NOT delay
+   beyond the same session — the Handoff Architect's field #9
+   self-attribution rule will flag missing entries.
+
 7. **Append the review to `workflow-reviews.json`** so the cadence
    reminder (in `compliance.instructions.md` Phase 0 prelude + Handoff
    Architect Phase 4 field 8) sees the review. Schema:
@@ -106,6 +152,20 @@ to act on the findings.
    `docs/chat-exports/`) so this is a local-only mutation — no commit
    required. If the file does not exist yet, create it with a one-element
    array.
+
+8. **Mark the reviewed sessions in the ledger.** Final step of the
+   recipe — closes the loop so the next `node scripts/analyze-chat-exports.mjs`
+   call (without flags) won't re-analyze the same transcripts:
+
+   ```powershell
+   node scripts/analyze-chat-exports.mjs --include-reviewed --mark-reviewed
+   ```
+
+   Idempotent: re-running adds zero new entries. The ledger is
+   gitignored (per-machine, ADR-0036 D5). Use the `rulesShippedAfter`
+   field of each new entry to record which rule IDs (from step 6a)
+   were introduced *as a consequence of* this review — this is the
+   primary lineage for Phase 3's per-cohort regression analysis.
 
 ## First-Attempt Failures
 
