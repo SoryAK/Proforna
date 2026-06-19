@@ -1,0 +1,218 @@
+{
+  "_schemaVersion": 1,
+  "_doc": "Three-stream timeline of workflow evolution. The analyzer joins session.startTime against shippedAt/adoptedAt to compute per-session era tags emitted in metrics-by-era.json. Three streams keep agent-side rule edits (machine-extractable from git), user-side practice adoptions (manually authored at session wrap via Handoff Architect Phase 4 field #9), and infrastructure/tooling changes attributable independently. Retroactive seed dates are best-effort: agentRuleEdits derive precise timestamps from git log .github/instructions/; userPracticeAdoptions and infraToolingChanges use the earliest evidence date found in handoffs/ADRs/user-memory. Adoption-date precision claims no better than +/- 1 week for inferred entries. See ADR-0036.",
+  "streams": {
+    "agentRuleEdits": [
+      {
+        "id": "compliance:legacy-monolith-pre-restructure",
+        "shippedAt": "2026-05-18T00:00:00Z",
+        "name": "Pre-restructure baseline (monolith)",
+        "description": "Era-tagging anchor: prior to commit 48309ab the agent rules lived in .github/copilot-instructions.md as a single file. Sessions before 2026-05-28 fall in this era.",
+        "source": ".github/copilot-instructions.md",
+        "commit": null
+      },
+      {
+        "id": "compliance:scoped-skill-files-restructure",
+        "shippedAt": "2026-05-28T13:07:49Z",
+        "name": "Restructure into scoped skill files",
+        "description": "Split monolith into per-scope instruction files (compliance / logic / persistence / security / structural / ui). Established the file-per-concern shape every later rule edit assumes.",
+        "source": ".github/instructions/*.instructions.md",
+        "commit": "48309ab"
+      },
+      {
+        "id": "persistence:sharded-memory-backup",
+        "shippedAt": "2026-05-28T13:44:39Z",
+        "name": "Sharded docs/memory/ MCP graph backup",
+        "description": "Added shard-file backup layer under docs/memory/ so MCP graph corruption is recoverable from git history rather than a single JSONL file.",
+        "source": "docs/memory/, persistence.instructions.md (Memory Keeper rebuild protocol)",
+        "commit": "72f0f93"
+      },
+      {
+        "id": "compliance:post-edit-scan-mandatory",
+        "shippedAt": "2026-05-28T13:57:53Z",
+        "name": "Mandatory Post-Edit Scan gate",
+        "description": "After any file edit the agent must call get_errors on every modified file and fix any errors before handing back. Silently skipping the scan is a compliance failure.",
+        "source": "compliance.instructions.md Post-Edit Scan section",
+        "commit": "806daca"
+      },
+      {
+        "id": "persistence:workflow-logger-and-recipe-lookup",
+        "shippedAt": "2026-05-28T14:07:29Z",
+        "name": "Workflow Logger skill + Phase 0 recipe lookup",
+        "description": "Added Workflow Logger to Phase 4 + an advisory Phase 0 step to check docs/workflows/ for a matching recipe before starting a task.",
+        "source": "persistence.instructions.md Workflow Logger, compliance.instructions.md Phase 0 step 0",
+        "commit": "8c54bf3"
+      },
+      {
+        "id": "compliance:confidence-trap-and-symbol-gate",
+        "shippedAt": "2026-06-01T11:43:28Z",
+        "name": "Confidence Trap + Symbol Check Gate + Memory Keeper hard gate",
+        "description": "Three rules: high confidence does not exempt the lookup stack; Symbol Check Gate forbids grep for symbol names; Memory Keeper must verify entity presence via open_nodes before any add_observations call.",
+        "source": "compliance.instructions.md, persistence.instructions.md Memory Keeper",
+        "commit": "7a7bfb8"
+      },
+      {
+        "id": "testing:tdd-phase-2.5",
+        "shippedAt": "2026-06-07T19:22:39Z",
+        "name": "TDD as first-class Phase 2.5 skill",
+        "description": "Added Phase 2.5 RED-GREEN-REFACTOR for src/lib, src/app/api, src/data with mandatory verify steps. ADR-0018 captures the decision.",
+        "source": "testing.instructions.md, ADR-0018",
+        "commit": "d069002"
+      },
+      {
+        "id": "persistence:mcp-memory-hard-gate-and-continuity",
+        "shippedAt": "2026-06-08T11:28:56Z",
+        "name": "Harden MCP memory infra + session continuity",
+        "description": "Locked the read-then-write Memory Keeper protocol with explicit open_nodes pre-check, shard-backup pairing, and session-continuity discipline at session start.",
+        "source": "persistence.instructions.md Memory Keeper write protocol",
+        "commit": "2b9765d"
+      },
+      {
+        "id": "compliance:grep-gate",
+        "shippedAt": "2026-06-19T21:10:15Z",
+        "name": "Grep Gate (mandatory self-justification)",
+        "description": "Every grep_search invocation must include a one-line justification: Grep target is X, not a code symbol because Y. Phase 1 of the workflow self-improvement loop.",
+        "source": "compliance.instructions.md Grep Gate",
+        "commit": "6f27c58"
+      },
+      {
+        "id": "compliance:terminal-echo-rule",
+        "shippedAt": "2026-06-19T21:10:15Z",
+        "name": "Terminal-Echo Rule",
+        "description": "Terminal output echoed back as a user message must not trigger a new assistant turn unless exit code is non-zero or input is needed. Phase 1 of the workflow self-improvement loop.",
+        "source": "compliance.instructions.md Terminal-Echo Rule",
+        "commit": "6f27c58"
+      },
+      {
+        "id": "persistence:phase-4-composite-gate",
+        "shippedAt": "2026-06-19T21:10:50Z",
+        "name": "Phase 4 Composite Gate for handoff",
+        "description": "Handoff doc may only be written after Memory Keeper has run in the same response. Phase 1 of the workflow self-improvement loop.",
+        "source": "persistence.instructions.md Handoff Architect Phase 4 Composite Gate",
+        "commit": "d3a5392"
+      },
+      {
+        "id": "compliance:workflow-cadence-check",
+        "shippedAt": "2026-06-19T21:27:23Z",
+        "name": "Workflow Cadence Check (Phase 0 prelude)",
+        "description": "Every new session reads docs/chat-exports/analysis/workflow-reviews.json and surfaces days-since-last-review with on-cadence / due / overdue thresholds. Phase 1 of the workflow self-improvement loop.",
+        "source": "compliance.instructions.md Workflow Cadence Check",
+        "commit": "e326dba"
+      },
+      {
+        "id": "persistence:workflow-review-cadence-field",
+        "shippedAt": "2026-06-19T21:27:23Z",
+        "name": "Handoff Architect Phase 4 field 8 (Workflow Review Cadence)",
+        "description": "Handoff doc must report days-since-last-review and append to workflow-reviews.json when this session performed a review. Phase 1 of the workflow self-improvement loop.",
+        "source": "persistence.instructions.md Handoff Architect content requirement 8",
+        "commit": "e326dba"
+      }
+    ],
+    "userPracticeAdoptions": [
+      {
+        "id": "session-start-handoff-read",
+        "adoptedAt": "2026-05-22T00:00:00Z",
+        "name": "Session-start handoff read",
+        "description": "User adopted the practice of opening each session with a Session Start marker plus a summary of the most recent handoff. Codified shortly after into Handoff Architect CRITICAL clause.",
+        "evidenceSource": "userMemory:resumsify-lessons.md (Handoff Preference); docs/handoffs/2026-05-22_*.md onward",
+        "triggerSession": null,
+        "replacedPractice": null
+      },
+      {
+        "id": "codegraph-first-discipline",
+        "adoptedAt": "2026-05-27T00:00:00Z",
+        "name": "Codegraph-first lookup discipline",
+        "description": "User explicitly flagged grep-for-symbol abuse as a recurring miss; established the codegraph_context / codegraph_search precedence over grep_search for symbol queries.",
+        "evidenceSource": "userMemory:resumsify-lessons.md (Codegraph Usage Discipline)",
+        "triggerSession": null,
+        "replacedPractice": null
+      },
+      {
+        "id": "etc-workflow-pattern",
+        "adoptedAt": "2026-06-08T00:00:00Z",
+        "name": "E.T.C. (Execute -> Test -> Commit) ship rhythm",
+        "description": "Per-change atomic ETC cycle. ADHD-friendly: clear stages, completion signal after each, atomic commits stay revertible, test gate catches breakage before commit. Used as default ship rhythm on focused changes.",
+        "evidenceSource": "userMemory:user-profile.md (E.T.C. Workflow Pattern)",
+        "triggerSession": null,
+        "replacedPractice": null
+      },
+      {
+        "id": "verification-first-bias",
+        "adoptedAt": "2026-06-15T00:00:00Z",
+        "name": "Verification-first bias",
+        "description": "When choosing between memory writes / docs / config tidying and end-to-end verification, default to verification. Lab evidence (real request, real DB, real UI) catches integration drift unit tests cannot.",
+        "evidenceSource": "userMemory:user-profile.md (Verification-First Bias 2026-06-15)",
+        "triggerSession": null,
+        "replacedPractice": null
+      },
+      {
+        "id": "voice-dictation-input",
+        "adoptedAt": "2026-06-19T00:00:00Z",
+        "name": "Voice dictation for prompt authoring",
+        "description": "User started authoring prompts via voice dictation. Affects user-message length, syntax patterns, and the surface text the analyzer scans for negation regex.",
+        "evidenceSource": "/memories/repo/parked-ideas.md (Workflow Self-Improvement Loop, refinement 1)",
+        "triggerSession": null,
+        "replacedPractice": null
+      },
+      {
+        "id": "weekly-workflow-review-cadence",
+        "adoptedAt": "2026-06-19T18:00:00Z",
+        "name": "Weekly workflow-review cadence",
+        "description": "User adopted a weekly cadence of analyzing chat exports, distilling friction patterns, and shipping rule edits before resuming feature work. Baseline 21-session review performed 2026-06-19.",
+        "evidenceSource": "docs/chat-exports/analysis/workflow-reviews.json baseline entry; ADR-0036",
+        "triggerSession": "3b685ecb-180a-47f5-b236-c8418d6e7cb4",
+        "replacedPractice": null
+      }
+    ],
+    "infraToolingChanges": [
+      {
+        "id": "codegraph-mcp-wiring",
+        "shippedAt": "2026-05-27T00:00:00Z",
+        "name": "Codegraph MCP server wired into VS Code Copilot",
+        "description": "mcp_codegraph_* tools (search, context, callers, callees, node, explore, impact, files) available as the primary symbol-lookup surface. Inferred adoption date: user explicitly flagged the discipline on 2026-05-27.",
+        "source": "VS Code MCP settings; userMemory:resumsify-lessons.md (Codegraph Usage Discipline)",
+        "commit": null
+      },
+      {
+        "id": "mcp-memory-supervisor-nssm",
+        "shippedAt": "2026-06-01T00:00:00Z",
+        "name": "MCP Memory Supervisor as Windows Service (NSSM)",
+        "description": "MCPMemorySupervisor service hosts three SSE backing servers (resumsify 3717, global 3718, user-profile 3719). Replaced fragile scheduled-task fallback.",
+        "source": "$env:LOCALAPPDATA\\mcp-memory\\supervisor.js + registry.json; userMemory:resumsify-lessons.md (MCP Memory Supervisor)",
+        "commit": null
+      },
+      {
+        "id": "mcp-memory-server-patches",
+        "shippedAt": "2026-06-07T00:00:00Z",
+        "name": "MCP memory server patches (naming + multi-word tokenize)",
+        "description": "Two patches to @modelcontextprotocol/server-memory: McpServer ctor reads MCP_SERVER_NAME env (per-scope tool names), and searchNodes splits on whitespace + AND-matches each token. Reapplied via scripts/patch-mcp-memory.js after every reinstall.",
+        "source": "scripts/patch-mcp-memory.js; userMemory:resumsify-lessons.md (MCP Memory Server Patches)",
+        "commit": null
+      },
+      {
+        "id": "cline-gemma4-local-llm-stack",
+        "shippedAt": "2026-06-14T00:00:00Z",
+        "name": "Cline + Ollama gemma4:26b + codegraph MCP local LLM stack",
+        "description": "Validated 3-tier cost-control routing: Cline + gemma4 for routine codegraph / memory / single-file edits; Copilot picker (Gemini Flash) for cheap cloud; Copilot Opus for premium. Reduces premium-request burn.",
+        "source": "Cline VS Code extension config; userMemory:resumsify-lessons.md (Local LLM Workflow Agent)",
+        "commit": null
+      },
+      {
+        "id": "ollama-codegen-script",
+        "shippedAt": "2026-06-14T00:00:00Z",
+        "name": "scripts/ollama-codegen.ps1 orchestrator-executor",
+        "description": "PowerShell script that POSTs a spec to Ollama, extracts fenced code blocks, writes files, runs a test command, and feeds back failures for up to N repair attempts. Replaces Copilot turns for well-spec'd pure utilities and TDD GREEN steps.",
+        "source": "scripts/ollama-codegen.ps1; userMemory:resumsify-lessons.md (Local LLM Workflow Agent)",
+        "commit": null
+      },
+      {
+        "id": "chat-export-analyzer",
+        "shippedAt": "2026-06-19T20:55:00Z",
+        "name": "scripts/analyze-chat-exports.mjs",
+        "description": "Read-only analyzer over docs/chat-exports/raw/*.jsonl. Emits 5-category metrics dashboard plus worst-3 friction digests plus optional deep-dive. Foundation for Phase 1 + Phase 2 of the workflow self-improvement loop.",
+        "source": "scripts/analyze-chat-exports.mjs",
+        "commit": "b007d78"
+      }
+    ]
+  }
+}

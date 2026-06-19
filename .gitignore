@@ -70,5 +70,12 @@ next-env.d.ts
 .understand-anything/intermediate/
 .understand-anything/diff-overlay.json
 
-# Chat conversation exports (local-only, for workflow review)
-docs/chat-exports/
+# Chat conversation exports (local-only, for workflow review).
+# Ignore contents, not the directories themselves, so we can re-include
+# specific files. The workflow-change-log is the canonical source of
+# truth for cohort attribution and must be tracked in git (ADR-0036
+# Decision 6).
+docs/chat-exports/*
+!docs/chat-exports/analysis/
+docs/chat-exports/analysis/*
+!docs/chat-exports/analysis/workflow-change-log.json
