@@ -29,7 +29,7 @@ import { useMemo } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { CalendarDays, ChevronLeft, ClipboardList, FileText, Home, Inbox, Plus, Sparkles, Star, Archive } from "lucide-react";
+import { CalendarDays, ChevronLeft, ClipboardList, Home, Inbox, Plus, Sparkles, Star, Archive } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { WorklogFolderTreeItems } from "@/components/worklog/worklog-folder-tree-items";
 import { WorklogCategoryRows } from "@/components/worklog/worklog-category-rows";
@@ -235,24 +235,32 @@ export function WorklogNavSidebar({ onShowGlobal }: WorklogNavSidebarProps) {
       aria-label="Worklog navigation"
       className="flex-1 min-h-0 overflow-y-auto scrollbar-thin p-3 space-y-3"
     >
-      {/* Header — back arrow swaps to global app nav (Sidebar component
-          owns the showGlobalNav flag). */}
-      <div className="flex items-center gap-2 px-1 -mt-1">
+      {/* Header — section masthead. Worklog icon + label link to /worklog
+          (home); back chevron swaps to the global app nav (Sidebar component
+          owns the showGlobalNav flag).
+          2026-06-19 polish — promoted from text-sm/h-4-icon to
+          text-base/h-5-icon at the same px-3 py-2.5 rhythm as the NavRow
+          buttons below, so the rail's vertical cadence is uniform from
+          masthead through the nav rows. The header link has NO active state
+          (the Home row below owns the "you are on /worklog" highlight) —
+          a subtle hover bg only conveys "this is clickable." Back chevron
+          bumped to h-8 w-8 so it sits proportionally next to the larger
+          label. */}
+      <div className="flex items-center gap-1">
         <button
           type="button"
           onClick={onShowGlobal}
           title="Show all sections"
           aria-label="Show all sections"
-          className="flex items-center justify-center h-7 w-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          className="flex items-center justify-center h-8 w-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors flex-shrink-0"
         >
           <ChevronLeft className="h-4 w-4" />
         </button>
         <Link
           href="/worklog"
-          className="flex items-center gap-1.5 text-sm font-semibold text-foreground"
+          className="flex-1 min-w-0 flex items-center rounded-lg px-3 py-2.5 text-base font-semibold text-foreground hover:bg-accent/50 transition-colors"
         >
-          <FileText className="h-4 w-4 text-orange-500" />
-          Worklog
+          <span className="truncate">Worklog</span>
         </Link>
       </div>
 
