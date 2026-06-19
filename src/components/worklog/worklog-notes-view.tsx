@@ -617,7 +617,16 @@ export function WorklogNotesView({ selectedNoteId = null }: WorklogNotesViewProp
   );
 
   return (
-    <div className="flex flex-col h-full bg-white dark:bg-gray-950">
+    // 2026-06-19 polish — explicit `border-l` draws the canonical 1px divider
+    // between the worklog rail and this view's main pane. Other worklog
+    // routes (events/procedures) inherit that divider from the rail's
+    // right-side shadow (`shadow-[1px_0_0_0_rgb(0_0_0/0.06)]` on the sidebar
+    // panel) because their roots are bg-transparent. This view paints itself
+    // bg-white/dark:bg-gray-950 to give the inner 3-pane layout (folder /
+    // list / reader) a consistent canvas — the same-color paint visually
+    // swallows the rail's shadow at the boundary, leaving no visible line.
+    // border-l renders the divider unconditionally regardless of stacking.
+    <div className="flex flex-col h-full bg-white dark:bg-gray-950 border-l border-border/60">
       {/* Body: list (column-scoped toolbar inside) + reader + rail
           (ADR-0024 / mockup parity 2026-06-10).
           - selectedNoteId == null  → list claims full width (mockup Frame 2)
