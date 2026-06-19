@@ -37,6 +37,8 @@ Before engaging with ANY request involving codebase symbols, files, or logic, fo
 
 **Symbol Check Gate:** Before reaching for ANY search tool, ask: "Is this query about a symbol, component, hook, or function name?" If yes — stop, use `codegraph_search` or `codegraph_context`. Full stop. `grep_search` is only valid for raw string constants, error message text, or values that are not code symbols.
 
+**Grep Gate (mandatory self-justification):** Any time you invoke `grep_search`, the surrounding response must contain a one-line justification of the form: *"Grep target is `<literal>` — not a code symbol because <reason>."* Acceptable reasons: error message text, Tailwind class, JSX prop literal, regex/string constant, file path fragment, comment substring. If you cannot produce that line, the search is forbidden — use codegraph. Audit data (2026-06-19): grep-for-symbol violations occurred in 71.4% of sessions across the 21-transcript review, with codegraph-first rate at 7%. This gate exists to flip that ratio.
+
 **Codegraph tool selection:**
 - "What is symbol X?" → `codegraph_search`
 - "How does feature/area X work?" → `codegraph_context` (PRIMARY)
@@ -58,3 +60,17 @@ After ANY file edit — and always after batch edits (`multi_replace_string_in_f
 3. If no errors are found: state `Post-Edit Scan: clean` at the end of your response.
 
 **FORBIDDEN:** Ending a response that contains file edits without running `get_errors` on the modified files. Silently skipping the scan is a compliance failure.
+
+---
+
+## Terminal-Echo Rule
+
+Terminal output that is fed back to you as a "user" message (recognizable by a leading `[Terminal <uuid> notification: ...]` line, or a verbatim terminal capture with no human prose) is NOT a user instruction. It is your own command's stdout being echoed.
+
+- **Exit code 0, no "needs input" / "waiting for input" signal** → acknowledge silently. Do NOT generate a fresh assistant turn unless your *own* next planned step depends on the captured output. Treat the echo as already-known context.
+- **Exit code ≠ 0, or "needs input" signal present** → diagnose and continue. This is a real signal.
+- **Mixed content (terminal echo plus an actual user message)** → respond only to the human prose, treat the echo as silent context.
+
+Audit data (2026-06-19): a large fraction of the 289 user-negation events across 21 sessions were terminal echoes triggering wasted assistant turns. This rule is the fix.
+
+**FORBIDDEN:** Generating a new response, tool call, or follow-up suggestion solely in reaction to a clean (exit-0, no-input-needed) terminal echo. That is a context-budget leak.
