@@ -212,6 +212,24 @@
         "description": "Read-only analyzer over docs/chat-exports/raw/*.jsonl. Emits 5-category metrics dashboard plus worst-3 friction digests plus optional deep-dive. Foundation for Phase 1 + Phase 2 of the workflow self-improvement loop.",
         "source": "scripts/analyze-chat-exports.mjs",
         "commit": "b007d78"
+      },
+      {
+        "id": "shipyard:adr-0037-proposed",
+        "shippedAt": "2026-06-20T03:57:09.377Z",
+        "name": "ADR-0037 Proposed — Shipyard context-engineering layer (Slice foundational primitive)",
+        "description": "Proposed ADR committing to Shipyard as umbrella context-engineering layer with Slice as Phase 1 foundational primitive (topic-keyed JSON manifests unifying WHY+HOW+VALIDATION+PROVENANCE). Memory graph becomes legacy read-fallback during transition. Six-pillar vision committed in principle; Phase 2-6 deferred to per-phase ADRs (0038+).",
+        "source": "docs/adr/0037-shipyard-context-engineering-layer.md",
+        "commit": null,
+        "triggerSession": "77e25d9d-ca47-4795-b5f4-d8921afd0593"
+      },
+      {
+        "id": "shipyard:roadmap-v1-proposed",
+        "shippedAt": "2026-06-20T03:57:09.377Z",
+        "name": "Shipyard 6-phase roadmap (Proposed)",
+        "description": "Seasonal sprint plan for ADR-0037: Phase 0 (foundations, shipped) → Phase 1 (Slice unification, next) → Phase 2 (cached tool outputs) → Phase 3 (frequency priming) → Phase 4 (file-watcher push invalidation) → Phase 5 (background diff worker) → Phase 6 (per-Slice observability). Each future phase backed by its own ADR (0038-0043).",
+        "source": "docs/plans/shipyard-roadmap.md",
+        "commit": null,
+        "triggerSession": "77e25d9d-ca47-4795-b5f4-d8921afd0593"
       }
     ]
   }
