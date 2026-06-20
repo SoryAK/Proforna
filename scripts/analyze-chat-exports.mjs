@@ -365,7 +365,7 @@ function buildSummary(allMetrics) {
 }
 
 // ─── Markdown writers ───────────────────────────────────────────────────
-function writeSummaryMd(summary, allMetrics, outPath) {
+function writeSummaryMd(summary, allMetrics, cohorts, outPath) {
   const md = `# Chat-export Analysis — Dashboard
 
 Generated: ${new Date().toISOString()}
@@ -444,8 +444,65 @@ ${[...allMetrics]
   )
   .join("\n")}
 
-`;
+${renderEraSection(cohorts)}`;
   fs.writeFileSync(outPath, md, "utf8");
+}
+
+// Renders the "Era Comparison" section appended to metrics-summary.md (ADR-0036 Phase 2 follow-up).
+// Centralized so reviewers don't have to open metrics-by-era.json to see cohort trends.
+function renderEraSection(cohorts) {
+  if (!cohorts || cohorts.length === 0) {
+    return `---
+
+## Era Comparison (ADR-0036)
+
+_No cohort data this run. Re-run with \`--include-reviewed\` to populate \`metrics-by-era.json\` and this section._
+`;
+  }
+  const fmt = (n, p = 1) => (n == null ? "—" : Number(n).toFixed(p));
+  const pct = (n) => (n == null ? "—" : `${Math.round(n * 100)}%`);
+  const flag = (arr, id) => (arr.includes(id) ? "✓" : "·");
+
+  // Highlighted practice/rule columns mirror what the user most often asks about.
+  // If you add a new headline practice (e.g. another major workflow shift), bump these IDs.
+  const HEADLINE_PRACTICE_ETC = "etc-workflow-pattern";
+  const HEADLINE_RULE_TDD = "testing:tdd-phase-2.5";
+  const HEADLINE_PRACTICE_VOICE = "voice-dictation-input";
+
+  const tableRows = cohorts
+    .map((c) => {
+      const a = c.aggregates;
+      return `| \`${c.cohortHash}\` | ${c.sessionCount} | ${c.straddleCount} | ${fmt(a.avgGrepForSymbolCount)} | ${pct(a.avgCodegraphFirstRate)} | ${pct(a.avgPostEditScanRate)} | ${fmt(a.avgNegationCount)} | ${fmt(a.avgFrictionScore)} | ${flag(c.activePractices, HEADLINE_PRACTICE_ETC)} | ${flag(c.activeRules, HEADLINE_RULE_TDD)} | ${flag(c.activePractices, HEADLINE_PRACTICE_VOICE)} |`;
+    })
+    .join("\n");
+
+  const detailBlocks = cohorts
+    .map((c) => {
+      const rules = c.activeRules.length ? c.activeRules.map((r) => `\`${r}\``).join(", ") : "_(none)_";
+      const practices = c.activePractices.length ? c.activePractices.map((p) => `\`${p}\``).join(", ") : "_(none)_";
+      const infra = c.activeInfra.length ? c.activeInfra.map((i) => `\`${i}\``).join(", ") : "_(none)_";
+      return `### Cohort \`${c.cohortHash}\` — ${c.sessionCount} session(s), ${c.straddleCount} straddle\n- **Rules active:** ${rules}\n- **Practices active:** ${practices}\n- **Infra/tooling active:** ${infra}`;
+    })
+    .join("\n\n");
+
+  return `---
+
+## Era Comparison (ADR-0036 Phase 2)
+
+Sessions bucketed by which agent rules, user practices, and infra/tooling were active at \`session.startTime\`. **Straddle** = session ran within 24h of one of the listed changes shipping; high-straddle cohorts have less-certain labels, so weight low-straddle cohorts more heavily.
+
+Source: [\`metrics-by-era.json\`](./metrics-by-era.json). Cohorts sorted by session count desc.
+
+| Cohort | Sessions | Straddle | Grep/sym | Codegraph % | Scan % | Negations | Friction | ETC | TDD | Voice |
+| --- | --: | --: | --: | --: | --: | --: | --: | :-: | :-: | :-: |
+${tableRows}
+
+Headline columns: **ETC** = \`etc-workflow-pattern\` adopted, **TDD** = Phase 2.5 rule active, **Voice** = \`voice-dictation-input\` adopted.
+
+### Active changes per cohort
+
+${detailBlocks}
+`;
 }
 
 function writeFrictionDigest(m, outPath) {
@@ -659,7 +716,9 @@ function cohortHashFor(tag) {
   return crypto.createHash("sha1").update(payload).digest("hex").slice(0, 12);
 }
 
-function writeMetricsByEra(allMetrics, changeLog, outPath) {
+// Pure: tag every session with its cohort + bucket. Returns { taggedSessions, cohorts }.
+// Used by both writeMetricsByEra (sidecar) and writeSummaryMd (centralized review section).
+function computeCohorts(allMetrics, changeLog) {
   const taggedSessions = allMetrics.map((m) => {
     const tag = computeEraTagForSession(m, changeLog);
     const cohortHash = cohortHashFor(tag);
@@ -743,7 +802,10 @@ function writeMetricsByEra(allMetrics, changeLog, outPath) {
     };
   });
   cohorts.sort((a, b) => b.sessionCount - a.sessionCount);
+  return { taggedSessions, cohorts };
+}
 
+function writeMetricsByEra(taggedSessions, cohorts, changeLog, outPath) {
   const payload = {
     generatedAt: new Date().toISOString(),
     boundaryPolicy: "session.startTime bucketing; straddleWindow flag set when |session.startTime - change.shippedAt| <= 24h (ADR-0036 D3)",
@@ -801,12 +863,16 @@ function main() {
   // Aggregate dashboard
   const summary = buildSummary(allMetrics);
   fs.writeFileSync(path.join(outDir, "metrics-summary.json"), JSON.stringify(summary, null, 2), "utf8");
-  writeSummaryMd(summary, allMetrics, path.join(outDir, "metrics-summary.md"));
+
+  // Compute cohorts once; feed both the sidecar and the centralized markdown section.
+  const changeLog = loadChangeLog();
+  const { taggedSessions, cohorts } = computeCohorts(allMetrics, changeLog);
+
+  writeSummaryMd(summary, allMetrics, cohorts, path.join(outDir, "metrics-summary.md"));
   console.log("Dashboard written.");
 
-  // Era-tagged sidecar (ADR-0036 Phase 2). No changes to metrics-summary.md.
-  const changeLog = loadChangeLog();
-  writeMetricsByEra(allMetrics, changeLog, metricsByEraPath);
+  // Era-tagged sidecar (ADR-0036 Phase 2) — same cohorts as the markdown section.
+  writeMetricsByEra(taggedSessions, cohorts, changeLog, metricsByEraPath);
   console.log(`Era-tagged sidecar written: ${path.relative(repoRoot, metricsByEraPath)}`);
 
   // Worst-3 friction digests
