@@ -32,6 +32,8 @@ const deepDiveIdx = args.indexOf("--deep-dive");
 const deepDivePrefix = deepDiveIdx >= 0 ? args[deepDiveIdx + 1] : null;
 const includeReviewed = args.includes("--include-reviewed");
 const markReviewed = args.includes("--mark-reviewed");
+const mineIdx = args.indexOf("--mine-traversals");
+const mineSliceSlug = mineIdx >= 0 ? args[mineIdx + 1] : null;
 
 // ─── Pattern matchers (cheap heuristics — must be eyeballed for truth) ──
 const NEGATION_RE = /\b(no|nope|wait|stop|actually|wrong|incorrect|i told you|again|that's not|don't|do not)\b/i;
@@ -72,6 +74,17 @@ const MEMORY_WRITE_TOOLS = new Set([
   "mcp_memory-user-p_create_entities"
 ]);
 
+// ─── Phase 1 commit 2: --mine-traversals (ADR-0038) ──────────────────────
+// Five knobs control the mining heuristic. Defaults chosen 2026-06-21 (session
+// 77e25d9d — see grilling Q1/Q2/Q3 in the chat transcript). To try an alternate
+// route, change ONE constant below and re-run; nothing else needs touching.
+const MINE_MEMBERSHIP_MODE = "union";    // Q1 default (1C). Options: "files" | "symbols" | "union"
+const MINE_NORMALIZE_MODE = "token-set"; // Q2 default (2B). Options: "strict" | "token-set" | "first-symbol"
+const MINE_OUTPUT_SHAPE = "drop-in";     // Q3 default (3A). Options: "drop-in" | "rich"
+const MINE_MIN_EVIDENCE = 2;             // Tuple must recur in ≥N reviewed sessions (ADR-0038 heuristic).
+const MINE_FALLBACK_GREP_WINDOW = 3;     // If grep_search fires within N subsequent tool calls, discard tuple as failed traversal.
+const MINE_LOOKUP_TOOLS = new Set([...CODEGRAPH_TOOLS]); // mineable tools — grep_search is the failure signal, not a candidate.
+
 // ─── Helpers ─────────────────────────────────────────────────────────────
 function readJsonl(filePath) {
   const txt = fs.readFileSync(filePath, "utf8");
@@ -99,6 +112,184 @@ function looksLikeSymbol(query) {
 
 function ensureDir(p) {
   fs.mkdirSync(p, { recursive: true });
+}
+
+// ─── --mine-traversals helpers (ADR-0038) ────────────────────────────────
+// Slim tool-call sequence reader — avoids re-running the full metrics pipeline
+// when we only need the ordered tool-call list per session.
+function extractToolCallSequence(filePath) {
+  const records = readJsonl(filePath);
+  const sessionId = path.basename(filePath).replace(/\.jsonl$/, "");
+  const sequence = [];
+  for (const r of records) {
+    if (r.type === "tool.execution_start") {
+      sequence.push({ toolName: r.data?.toolName || "", args: r.data?.arguments || {} });
+    }
+  }
+  return { sessionId, sequence };
+}
+
+function loadSlice(slug) {
+  const slicePath = path.join(repoRoot, "docs", "c-yard", `${slug}.json`);
+  if (!fs.existsSync(slicePath)) {
+    throw new Error(`Slice not found: ${path.relative(repoRoot, slicePath)}`);
+  }
+  return JSON.parse(fs.readFileSync(slicePath, "utf8"));
+}
+
+function buildSliceMembershipPredicates(slice) {
+  const paths = new Set();
+  const symbols = new Set();
+  for (const fp of slice.fileFingerprints || []) {
+    if (fp.path) paths.add(fp.path);
+  }
+  for (const ep of slice.entryPoints || []) {
+    if (ep.primaryPath) paths.add(ep.primaryPath);
+    if (ep.primarySymbol) symbols.add(ep.primarySymbol);
+    for (const rs of ep.relatedSymbols || []) symbols.add(rs);
+  }
+  return { paths: [...paths], symbols: [...symbols] };
+}
+
+function sessionIsSliceMember(sequence, predicates, mode = MINE_MEMBERSHIP_MODE) {
+  const { paths, symbols } = predicates;
+  const fileHit = sequence.some((c) => {
+    const fp = c.args?.filePath || c.args?.path || "";
+    if (typeof fp !== "string" || !fp) return false;
+    return paths.some((p) => fp.includes(p));
+  });
+  const symbolHit = sequence.some((c) => {
+    if (!CODEGRAPH_TOOLS.has(c.toolName)) return false;
+    const probe = c.args?.symbol || c.args?.query || "";
+    if (typeof probe !== "string" || !probe) return false;
+    return symbols.some((s) => probe.includes(s));
+  });
+  if (mode === "files") return fileHit;
+  if (mode === "symbols") return symbolHit;
+  return fileHit || symbolHit; // "union"
+}
+
+function normalizeArgsForTuple(toolName, callArgs, mode = MINE_NORMALIZE_MODE) {
+  const probe = (callArgs?.symbol ?? callArgs?.query ?? "").toString();
+  if (!probe) return "";
+  if (mode === "strict") return probe;
+  if (mode === "first-symbol") {
+    const m = probe.match(/[A-Za-z_][A-Za-z0-9_]+/);
+    return m ? m[0].toLowerCase() : "";
+  }
+  // "token-set": lowercase, tokenize on whitespace + common separators, dedupe, sort.
+  const tokens = probe.toLowerCase().split(/[\s,.\-_/]+/).filter(Boolean);
+  return [...new Set(tokens)].sort().join(" ");
+}
+
+// Extract mineable tuples from one session's tool-call sequence, applying the
+// fallback-grep_search disqualifier per ADR-0038. Each tuple is bucketed once
+// per session (de-duped here) so a session that runs the same lookup 5× still
+// counts as a single piece of evidence.
+function extractTuplesFromSession(sessionId, sequence) {
+  const tuples = [];
+  const seenInSession = new Set();
+  for (let i = 0; i < sequence.length; i++) {
+    const c = sequence[i];
+    if (!MINE_LOOKUP_TOOLS.has(c.toolName)) continue;
+    const lookahead = sequence.slice(i + 1, i + 1 + MINE_FALLBACK_GREP_WINDOW);
+    if (lookahead.some((nx) => nx.toolName === "grep_search")) continue;
+    const normalized = normalizeArgsForTuple(c.toolName, c.args);
+    if (!normalized) continue;
+    const tupleKey = `${c.toolName}|${normalized}`;
+    if (seenInSession.has(tupleKey)) continue;
+    seenInSession.add(tupleKey);
+    tuples.push({ tupleKey, toolName: c.toolName, normalized, sessionId });
+  }
+  return tuples;
+}
+
+function mineTraversalsForSlice(slug) {
+  const slice = loadSlice(slug);
+  const predicates = buildSliceMembershipPredicates(slice);
+  const ledger = loadReviewedLedger();
+  const reviewedIds = reviewedSessionIdSet(ledger);
+
+  if (!fs.existsSync(rawDir)) {
+    throw new Error(`No raw chat-exports folder: ${path.relative(repoRoot, rawDir)}`);
+  }
+  const allFiles = fs
+    .readdirSync(rawDir)
+    .filter((f) => f.endsWith(".jsonl"))
+    .map((f) => path.join(rawDir, f));
+
+  const memberSessions = [];
+  for (const f of allFiles) {
+    const sid = path.basename(f).replace(/\.jsonl$/, "");
+    if (!reviewedIds.has(sid)) continue; // only mine reviewed sessions — they're the ledger of "known good" agent behaviour
+    const { sequence } = extractToolCallSequence(f);
+    if (!sessionIsSliceMember(sequence, predicates)) continue;
+    memberSessions.push({ sessionId: sid, sequence });
+  }
+
+  // Aggregate tuples across all member sessions.
+  const histogram = new Map(); // tupleKey -> { toolName, normalized, sessionIds: Set<string> }
+  for (const { sessionId, sequence } of memberSessions) {
+    const tuples = extractTuplesFromSession(sessionId, sequence);
+    for (const t of tuples) {
+      if (!histogram.has(t.tupleKey)) {
+        histogram.set(t.tupleKey, { toolName: t.toolName, normalized: t.normalized, sessionIds: new Set() });
+      }
+      histogram.get(t.tupleKey).sessionIds.add(sessionId);
+    }
+  }
+
+  // Filter ≥MIN_EVIDENCE and shape per MINE_OUTPUT_SHAPE.
+  const candidates = [];
+  for (const [tupleKey, entry] of histogram) {
+    if (entry.sessionIds.size < MINE_MIN_EVIDENCE) continue;
+    const shortHash = crypto.createHash("sha1").update(tupleKey).digest("hex").slice(0, 8);
+    const sortedSessions = [...entry.sessionIds].sort();
+    if (MINE_OUTPUT_SHAPE === "drop-in") {
+      // Mirrors the slice schema's traversalRecipes[] shape — promotion = cp.
+      candidates.push({
+        id: `mined-${shortHash}`,
+        intent: `TODO: describe intent — recurring \`${entry.toolName}\` lookup across ${entry.sessionIds.size} reviewed session(s).`,
+        steps: [`Invoke \`${entry.toolName}\` with normalized args: \`${entry.normalized || "(empty)"}\``],
+        source: "mined",
+        evidence: { sessions: sortedSessions }
+      });
+    } else {
+      // "rich": staging metadata for reviewer triage; reshape on promotion.
+      candidates.push({
+        id: `mined-${shortHash}`,
+        toolName: entry.toolName,
+        normalizedArgs: entry.normalized,
+        frequency: entry.sessionIds.size,
+        firstSeenIn: sortedSessions[0],
+        lastSeenIn: sortedSessions[sortedSessions.length - 1],
+        evidence: { sessions: sortedSessions }
+      });
+    }
+  }
+  candidates.sort((a, b) => (b.evidence?.sessions?.length || 0) - (a.evidence?.sessions?.length || 0));
+
+  const outPath = path.join(repoRoot, "docs", "c-yard", "_candidates", `${slug}.candidates.json`);
+  ensureDir(path.dirname(outPath));
+  const payload = {
+    slice: slug,
+    generatedAt: new Date().toISOString(),
+    config: {
+      membershipMode: MINE_MEMBERSHIP_MODE,
+      normalizeMode: MINE_NORMALIZE_MODE,
+      outputShape: MINE_OUTPUT_SHAPE,
+      minEvidence: MINE_MIN_EVIDENCE,
+      fallbackGrepWindow: MINE_FALLBACK_GREP_WINDOW
+    },
+    reviewedSessionTotal: reviewedIds.size,
+    memberSessionCount: memberSessions.length,
+    candidateCount: candidates.length,
+    candidates
+  };
+  fs.writeFileSync(outPath, JSON.stringify(payload, null, 2) + "\n", "utf8");
+  console.log(
+    `--mine-traversals ${slug}: ${memberSessions.length}/${reviewedIds.size} reviewed sessions matched, ${candidates.length} candidate(s) → ${path.relative(repoRoot, outPath)}`
+  );
 }
 
 // ─── Per-session analyzer ───────────────────────────────────────────────
@@ -826,6 +1017,14 @@ function main() {
     console.error("ERROR: no docs/chat-exports/raw/ folder. Export transcripts first.");
     process.exit(1);
   }
+
+  // --mine-traversals is an exclusive mode: runs ONLY mining, then exits.
+  // It doesn't write metrics/dashboard outputs — those live in a different lifecycle.
+  if (mineSliceSlug) {
+    mineTraversalsForSlice(mineSliceSlug);
+    return;
+  }
+
   ensureDir(outDir);
   ensureDir(worst3Dir);
 
