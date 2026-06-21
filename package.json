@@ -14,7 +14,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "memory:patch": "node scripts/patch-mcp-memory.js",
-    "memory:patch:check": "node scripts/patch-mcp-memory.js --check"
+    "memory:patch:check": "node scripts/patch-mcp-memory.js --check",
+    "slice:scaffold": "node scripts/slice-scaffold.mjs"
   },
   "prisma": {
     "seed": "npx tsx prisma/seed.ts"
