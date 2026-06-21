@@ -4,17 +4,22 @@
   "title": "Worklog Editor",
   "description": "Note + procedure authoring surface. Tiptap 3 + Yjs editor, server-backed draft sync, six mention types, alternate ProcedureDoc schema for kind='procedure', append-only version history, and the right-rail Properties tab. Renders inside the 2-pane (/worklog/notes) and single-note (/worklog/notes/[id]) routes; same WorklogNoteReader composes the dashboard embed and the route.",
   "lastValidatedAt": "2026-06-21",
-  "lastValidatedCommit": "8206053",
+  "lastValidatedCommit": "53204d6",
+  "refreshHistory": [
+    { "refreshedAt": "2026-06-21", "refreshedFromSessionId": "77e25d9d-ca47-4795-b5f4-d8921afd0593", "summary": "First produce-loop refresh. Dry-run flagged use-autosave-field.ts path stale (real: use-autosave.ts), flushAllFields aspirational (dropped), and worklog-draft-system knownTraps[0] too thin (expanded into 3 structural sub-bugs A/B/C)." }
+  ],
   "entryPoints": [
     {
       "id": "worklog-draft-system",
       "name": "Server-backed draft sync",
       "description": "Per-field autosave with debounced server flush + IndexedDB persistence. Draft flush race: if the editor unmounts before the debounce fires, the pending write is lost. Triggered by ADR-0008 (capture acceleration) + ADR-0009 (server-backed draft sync).",
       "primarySymbol": "useAutosaveField",
-      "primaryPath": "src/components/worklog/hooks/use-autosave-field.ts",
-      "relatedSymbols": ["useWorklogDrafts", "readAutosaveDraft", "flushAllFields"],
+      "primaryPath": "src/components/worklog/hooks/use-autosave.ts",
+      "relatedSymbols": ["useWorklogDrafts", "readAutosaveDraft"],
       "knownTraps": [
-        "Race condition on unmount — pending debounced writes are lost if the editor unmounts mid-debounce.",
+        "Unmount race sub-bug A — stale-closure `value`: the cleanup effect in use-autosave.ts uses [] deps and captures `value` from first mount. The equality check against lastCommittedRef.current may either silently skip the rescue commit OR call commit(stale-initial-value) and wipe the field. lastCommittedRef works correctly (refs are mutable); only the React state `value` is captured stale. That asymmetry is what makes the bug subtle.",
+        "Unmount race sub-bug B — stale `commit` closure: parents typically inline `(v) => updateMutation.mutate({ id: log.id, title: v })`. log.id is captured at first mount of the cleanup effect, so if the user navigates to a different note before the previous reader fully unmounts, the cleanup writes the (also stale) value against the PREVIOUS log id — cross-note corruption potential.",
+        "Unmount race sub-bug C — draft timer has no flush fallback: cleanup clears draftTimerRef but never attempts a final draft POST. When sub-bug A causes the canonical commit to no-op, the safety-net draft row is ALSO never written. Both autosave layers fail together. Note: onBlur-triggered flush() does work because it reads `value` from React state at call time — only the unmount path goes through the stale closure.",
         "AssetPicker auto-tag merge and editor mention-chip merge both read log.tags (server canonical) and write through onUpdate, bypassing per-field autosave. If user is typing in InlineTagsField when an asset is dropped, the asset's tag merge can clobber in-flight typing. Same failure mode on both surfaces — accepted, not a regression.",
         "Hours autosave persistKey 'worklog:draft:<id>:hours' is shared between WorklogNoteReader and PropertiesFields — safe only because mount-skip via useIsXl ensures only one mounts at a time."
       ]
@@ -90,12 +95,13 @@
       "id": "find-draft-race-condition",
       "intent": "Why did my note text disappear after navigating away quickly?",
       "steps": [
-        "Check entryPoints.worklog-draft-system.knownTraps[0] — debounced flush is lost if editor unmounts mid-debounce.",
-        "Search src/components/worklog/hooks/use-autosave-field.ts for the debounce cleanup logic.",
-        "Reproduce: type text → click away within <debounce-ms> → server has no record."
+        "Check entryPoints.worklog-draft-system.knownTraps[0..2] — the unmount race breaks into three structural sub-bugs (A: stale-closure value, B: stale commit closure, C: no draft-timer flush fallback). The user-visible symptom is one bug; the cause is three.",
+        "Open src/components/worklog/hooks/use-autosave.ts and find the unmount cleanup effect (useEffect with [] deps returning a cleanup that clears timerRef + draftTimerRef). The closed-over `value` is the root of sub-bug A.",
+        "Look at any callsite, e.g. src/components/worklog/worklog-note-reader.tsx — the inline `(v) => updateMutation.mutate({ id: log.id, ... })` captures log.id at first mount (sub-bug B).",
+        "Reproduce: type text in a note → click a different note within ~700–800 ms → reader unmounts → server has no record → reopening shows pre-edit text. Same failure mode hits both PUT and draft POST simultaneously."
       ],
       "source": "hand-authored",
-      "evidence": { "sessions": [] }
+      "evidence": { "sessions": [ { "id": "77e25d9d-ca47-4795-b5f4-d8921afd0593", "turnExcerpt": "Slice gap detected: use-autosave-field.ts referenced as primary path but the file does not exist. Falling through to codegraph and flagging for slice refresh.", "toolCallIndex": 6 } ] }
     },
     {
       "id": "add-new-mention-type",
@@ -161,7 +167,7 @@
     { "path": "src/components/worklog/worklog-history-panel.tsx", "role": "version-history-list", "lastValidatedAt": "2026-06-21" },
     { "path": "src/components/worklog/worklog-version-diff-modal.tsx", "role": "version-diff-modal", "lastValidatedAt": "2026-06-21" },
     { "path": "src/components/worklog/worklog-backlinks-panel.tsx", "role": "backlinks-panel", "lastValidatedAt": "2026-06-21" },
-    { "path": "src/components/worklog/hooks/use-autosave-field.ts", "role": "autosave-primitive", "lastValidatedAt": "2026-06-21" },
+    { "path": "src/components/worklog/hooks/use-autosave.ts", "role": "autosave-primitive", "lastValidatedAt": "2026-06-21" },
     { "path": "src/components/worklog/hooks/use-reader-rail-state.ts", "role": "rail-state-hook", "lastValidatedAt": "2026-06-21" },
     { "path": "src/components/worklog/hooks/use-folder-selection.ts", "role": "folder-url-state-hook", "lastValidatedAt": "2026-06-21" },
     { "path": "src/lib/worklog/procedure/schema.ts", "role": "procedure-schema", "lastValidatedAt": "2026-06-21" },
