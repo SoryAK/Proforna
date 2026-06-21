@@ -171,6 +171,15 @@
         "evidenceSource": "docs/adr/0038-slice-schema-and-extractability.md §4 + §5; docs/adr/0037-shipyard-context-engineering-layer.md Decision #7 amendment",
         "triggerSession": "77e25d9d-ca47-4795-b5f4-d8921afd0593",
         "replacedPractice": "implicit 'features live where they're born' default"
+      },
+      {
+        "id": "automation-three-layer-model",
+        "adoptedAt": "2026-06-21T13:30:00Z",
+        "name": "Three-layer automation model (Bookkeeping / Pattern-detection / Semantic-content)",
+        "description": "Mental framework for deciding what to automate in any knowledge-management or context-engineering system. Layer 1 (Bookkeeping: dates, fingerprints, scaffolding, file metadata) — automate aggressively; cheap to compute, deterministic, no judgment required. Layer 2 (Pattern detection: recurring recipes, friction signals) — mine-and-propose; machine surfaces candidates, human promotes. Layer 3 (Semantic content: design intent, knownTraps, the \"why this is accepted, not a regression\" notes) — must stay curated; codebase cannot observe its own intent, closure-capture bugs cannot be derived from line counts. Surfaced from user critique that the new-slice authoring workflow looked like a 7-step manual process. The model is the directional answer: not all of it can or should be automated — but the distinction is now explicit, and every Shipyard tool ships with a Layer-1/2/3 declaration of what it touches. Replaces the implicit 'automate it all' / 'curate it all' false binary.",
+        "evidenceSource": "This session (commit 759e389 — slice scaffold script auto-fills Layer 1 only; ADR-0038); docs/c-yard/effectiveness-review.md (hypotheses 3 + 4 frozen as testable claims).",
+        "triggerSession": "77e25d9d-ca47-4795-b5f4-d8921afd0593",
+        "replacedPractice": "implicit 'automate it all' / 'curate it all' false binary"
       }
     ],
     "infraToolingChanges": [
@@ -247,6 +256,15 @@
         "description": "Phase 1 sprint-kickoff ADR. Locks the three open Slice schema decisions from ADR-0037: D1=B (cross-slice relations in docs/c-yard/_index.json adjacency list); D2=B (cross-cutting knowledge stays in user-memory with version-bound vs codebase-bound boundary rule); D3=B (Shipyard repo-only, no scope tiers). Adds D4=B (long-term home is a standalone shipyard/ repo; Resumsify is Phase 1 incubator) and Extractability NFR §5 (no Resumsify-specific names/paths/assumptions in Phase 1 artifacts). G1=A (one slice per UI surface, split at >~15 files). Provisional Phase 1 defaults: fingerprint staleness = warn-and-serve with staleSurfaces[]; evidence schema = { sessions: [{ id, turnExcerpt, toolCallIndex }] }. Phase 1 commit 1 cleared to ship. Same commit also amends ADR-0037 with Decision #7 (long-term home) and Con #6 (extractability tax).",
         "source": "docs/adr/0038-slice-schema-and-extractability.md",
         "commit": null,
+        "triggerSession": "77e25d9d-ca47-4795-b5f4-d8921afd0593"
+      },
+      {
+        "id": "shipyard:phase-1-shipped",
+        "shippedAt": "2026-06-21T13:30:00Z",
+        "name": "Shipyard Phase 1 — Slice unification rollup (5 commits)",
+        "description": "Phase 1 shipped end-to-end: (1) first slice docs/c-yard/worklog-editor.json + README schema spec [1ff1454]; (2) analyzer --mine-traversals flag for Layer 2 pattern detection [15844f9]; (3) Phase 0 lookup-stack rewrite to consult slice FIRST with mandatory escape-valve audit trail [53204d6]; (4) slice refresh from dry-run evidence — split monolithic knownTrap into 3 sub-bugs, added refreshHistory[] [3362516]; (5) scripts/slice-scaffold.mjs to auto-fill Layer 1 bookkeeping for new slices, cutting cold-start cost from ~45 min to ~3 min curated review [759e389]. Effectiveness hypotheses + review cadence captured at docs/c-yard/effectiveness-review.md.",
+        "source": "docs/c-yard/worklog-editor.json, scripts/slice-scaffold.mjs, .github/instructions/compliance.instructions.md (Phase 0 slice-first rules), docs/c-yard/effectiveness-review.md",
+        "commit": "759e389",
         "triggerSession": "77e25d9d-ca47-4795-b5f4-d8921afd0593"
       }
     ]
