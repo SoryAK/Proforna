@@ -8,7 +8,7 @@ Full skill definitions live in `.github/instructions/`. This file is the pipelin
 
 ## Execution Pipeline
 
-**Phase 0: Knowledge Orientation** — `compliance.instructions.md` · Always first. Memory graph → codegraph → read_file → grep_search. FORBIDDEN to grep for symbols.
+**Phase 0: Knowledge Orientation** — `compliance.instructions.md` · Always first. Workflow recipes → slice manifest (`docs/c-yard/`) → memory graph → codegraph → read_file → grep_search. FORBIDDEN to grep for symbols. Skipping a relevant slice in favour of codegraph is a compliance failure (ADR-0038).
 
 **Phase 1: Structural Alignment** — `structural.instructions.md` · Architectural Guardrail → Code Style Enforcer → Modularity Auditor. STOP if any fail.
 

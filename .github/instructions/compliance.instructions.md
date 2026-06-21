@@ -52,10 +52,11 @@ At the start of EVERY new session — meaning your very first response in a fres
 Before engaging with ANY request involving codebase symbols, files, or logic, follow this lookup stack in strict order:
 
 0. **Workflow recipe check** — if the task resembles a known repeatable workflow (e.g. adding a model + route, wiring a new UI feature), check `docs/workflows/` for a matching recipe. If found: surface it and use it as a starting point. Deviation is allowed but must be acknowledged with a reason. This step is ADVISORY — not a gate.
-1. `mcp_memory_search_nodes` — check the memory graph for known facts first
-2. `codegraph_context` / `codegraph_search` — traverse structure if memory misses
-3. `read_file` — targeted line reads only after codegraph surfaces the location
-4. `grep_search` — exact string/text matches ONLY (e.g. error messages, raw string constants)
+1. **Slice manifest check** — if the task touches an established UI surface or workflow (e.g. worklog editor, asset library, properties rail), check `docs/c-yard/` for a matching `<slice>.json`. Read its `entryPoints`, `knownTraps`, and applicable `traversalRecipes` BEFORE falling through to memory or codegraph. The slice is the canonical, hand-curated source of truth for established surfaces — it carries design intent and traps that codegraph cannot derive. See [docs/c-yard/README.md](../../docs/c-yard/README.md) for the schema and [ADR-0038](../../docs/adr/0038-slice-schema-and-extractability.md) for the rationale.
+2. `mcp_memory_search_nodes` — check the memory graph for known facts if no slice matches
+3. `codegraph_context` / `codegraph_search` — traverse structure if memory misses
+4. `read_file` — targeted line reads only after codegraph surfaces the location
+5. `grep_search` — exact string/text matches ONLY (e.g. error messages, raw string constants)
 
 **FORBIDDEN:** You are forbidden from using `grep_search` to look up a symbol, component, hook, or function by name. That is codegraph's job. Violating this rule is a compliance failure.
 
@@ -66,6 +67,8 @@ Before engaging with ANY request involving codebase symbols, files, or logic, fo
 **Symbol Check Gate:** Before reaching for ANY search tool, ask: "Is this query about a symbol, component, hook, or function name?" If yes — stop, use `codegraph_search` or `codegraph_context`. Full stop. `grep_search` is only valid for raw string constants, error message text, or values that are not code symbols.
 
 **Grep Gate (mandatory self-justification):** Any time you invoke `grep_search`, the surrounding response must contain a one-line justification of the form: *"Grep target is `<literal>` — not a code symbol because <reason>."* Acceptable reasons: error message text, Tailwind class, JSX prop literal, regex/string constant, file path fragment, comment substring. If you cannot produce that line, the search is forbidden — use codegraph. Audit data (2026-06-19): grep-for-symbol violations occurred in 71.4% of sessions across the 21-transcript review, with codegraph-first rate at 7%. This gate exists to flip that ratio.
+
+**Slice Gate (mandatory when a relevant slice exists):** If `docs/c-yard/` contains a slice manifest whose `entryPoints` or `fileFingerprints` overlap with the area of the task, you MUST read that slice first and surface in your response WHICH `entryPoints` / `knownTraps` / `traversalRecipes` informed your plan. Skipping the slice in favour of codegraph when a relevant slice exists is a compliance failure — the slice is hand-curated, faster, and carries design intent codegraph cannot derive. If the slice is missing, stale, or insufficient: escalate to memory → codegraph as normal AND flag the gap in your response (e.g. *"Slice `worklog-editor.json` lacks coverage for the version-history rail — falling through to codegraph; candidate for slice refresh."*) so the gap can be back-filled. Slice slugs currently shipping: see `docs/c-yard/_index.json`.
 
 **Codegraph tool selection:**
 - "What is symbol X?" → `codegraph_search`
