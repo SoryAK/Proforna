@@ -162,6 +162,15 @@
         "evidenceSource": "docs/chat-exports/analysis/workflow-reviews.json baseline entry; ADR-0036",
         "triggerSession": "3b685ecb-180a-47f5-b236-c8418d6e7cb4",
         "replacedPractice": null
+      },
+      {
+        "id": "standalone-product-framing-for-in-repo-experiments",
+        "adoptedAt": "2026-06-21T11:43:00Z",
+        "name": "Standalone-product framing for in-repo experiments",
+        "description": "When a system grows beyond a feature into something that could plausibly serve other tenants (Shipyard is the first instance), explicitly treat the current repo as the incubator/first tenant rather than the permanent home. Surfaced as Extractability NFR in ADR-0038 §5: generic schema field names, configurable paths in scripts, no host-repo-specific assumptions baked into the artifact. Practice question to ask at any cross-cutting design decision: 'would this work as a tenant of itself?' If yes, write it that way from day one — extraction stays cheap. If no, defend why the coupling is permanent. Replaces the implicit 'features live where they're born' default that made the parked Shipyard plan vulnerable to lock-in.",
+        "evidenceSource": "docs/adr/0038-slice-schema-and-extractability.md §4 + §5; docs/adr/0037-shipyard-context-engineering-layer.md Decision #7 amendment",
+        "triggerSession": "77e25d9d-ca47-4795-b5f4-d8921afd0593",
+        "replacedPractice": "implicit 'features live where they're born' default"
       }
     ],
     "infraToolingChanges": [
