@@ -1,0 +1,182 @@
+{
+  "$schema": "./README.md#schema-v1",
+  "slice": "worklog-editor",
+  "title": "Worklog Editor",
+  "description": "Note + procedure authoring surface. Tiptap 3 + Yjs editor, server-backed draft sync, six mention types, alternate ProcedureDoc schema for kind='procedure', append-only version history, and the right-rail Properties tab. Renders inside the 2-pane (/worklog/notes) and single-note (/worklog/notes/[id]) routes; same WorklogNoteReader composes the dashboard embed and the route.",
+  "lastValidatedAt": "2026-06-21",
+  "lastValidatedCommit": "8206053",
+  "entryPoints": [
+    {
+      "id": "worklog-draft-system",
+      "name": "Server-backed draft sync",
+      "description": "Per-field autosave with debounced server flush + IndexedDB persistence. Draft flush race: if the editor unmounts before the debounce fires, the pending write is lost. Triggered by ADR-0008 (capture acceleration) + ADR-0009 (server-backed draft sync).",
+      "primarySymbol": "useAutosaveField",
+      "primaryPath": "src/components/worklog/hooks/use-autosave-field.ts",
+      "relatedSymbols": ["useWorklogDrafts", "readAutosaveDraft", "flushAllFields"],
+      "knownTraps": [
+        "Race condition on unmount — pending debounced writes are lost if the editor unmounts mid-debounce.",
+        "AssetPicker auto-tag merge and editor mention-chip merge both read log.tags (server canonical) and write through onUpdate, bypassing per-field autosave. If user is typing in InlineTagsField when an asset is dropped, the asset's tag merge can clobber in-flight typing. Same failure mode on both surfaces — accepted, not a regression.",
+        "Hours autosave persistKey 'worklog:draft:<id>:hours' is shared between WorklogNoteReader and PropertiesFields — safe only because mount-skip via useIsXl ensures only one mounts at a time."
+      ]
+    },
+    {
+      "id": "tiptap-yjs-integration",
+      "name": "Tiptap 3 + Yjs editor",
+      "description": "StarterKit (with undoRedo:false so Yjs owns history) plus custom inline atom nodes for six mention types. Editor mount switches by kind: kind='note' uses notes schema, kind='procedure' uses procedureDoc schema. ProseMirror-Markdown serializer does NOT know about custom atoms — we walk the JSON tree directly.",
+      "primarySymbol": "WorklogEditor",
+      "primaryPath": "src/components/worklog/worklog-editor.tsx",
+      "relatedSymbols": ["serializeToMarkdown", "rewriteWorklogMentionLabels", "validateContentJson"],
+      "knownTraps": [
+        "Tiptap 3 StarterKit ships Link built-in. Importing @tiptap/extension-link AND calling Link.configure(...) triggers `Duplicate extension names found: ['link']`. Disable via StarterKit.configure({ link: false }) at every callsite that registers a custom Link config.",
+        "Custom inline atom nodes (mention, tag, shiftBlock, moodBlock, photo, canvasBlock) live inside paragraph.content, NOT at doc root. Plain-text walkers must handle them in BOTH the top-level walker and the inline collector.",
+        "useEditor cannot accept null options — dereferences options.immediatelyRender synchronously and crashes. To conditionally mount, split into outer gating component + inner that always calls useEditor with valid options.",
+        "Six mention prefixes: @a (asset), @s (skill), @c (company), @p (contact/person), @n (note/worklog), @r (runbook/procedure). MENTION_PREFIX map lives in src/lib/worklog/export/pm-to-markdown.ts."
+      ]
+    },
+    {
+      "id": "procedure-doc-schema",
+      "name": "Procedure document schema (ADR-0030)",
+      "description": "Top-level node `procedureDoc` with content expression `procedureTitle procedureTools? procedureStep+`. Step numbers are POSITIONAL (sibling index) — reorder renumbers automatically. ProcedureTools block is optional (L1). Editor toolbar is procedure-aware (+ Step / ↑ ↓ / Title). Migration script wraps freeform body into a single procedureStep named 'Body'.",
+      "primarySymbol": "buildProcedureSchema",
+      "primaryPath": "src/lib/worklog/procedure/schema.ts",
+      "relatedSymbols": ["WorkLog.kind", "ProcedureLink", "procedureDocToMarkdown"],
+      "knownTraps": [
+        "ProseMirrorDoc.type widened to 'doc' | 'procedureDoc' in src/lib/worklog/import/types.ts — markdown export branches on doc.type.",
+        "Procedure-only nodes (procedureTitle/procedureTools/procedureStep) are NEVER added to droppedBlocks — they have semantic emit rules.",
+        "PUT /api/work-logs/[id] route deliberately PRESERVES kind (cannot be flipped via update). POST is stricter — present-but-unknown kind returns 400. Search defaults to kind=note unless ?kind=procedure is passed."
+      ]
+    },
+    {
+      "id": "version-history",
+      "name": "Version history (ADR-0017)",
+      "description": "Append-only WorkLogVersion table; PUT /api/work-logs/[id] writes best-effort auto-snapshot before saving. Restore writes a 'Before restore from <ts>' pre-snapshot first, then overwrites. Plain-text LCS diff at word / horizontal-whitespace / newline-token granularity. UI mounts ONLY on full-screen route (/worklog/notes/[id]) via WorklogHistoryPanel.",
+      "primarySymbol": "WorklogHistoryPanel",
+      "primaryPath": "src/components/worklog/worklog-history-panel.tsx",
+      "relatedSymbols": ["groupVersionsByDate", "computePlainTextDiff", "WorklogVersionDiffModal"],
+      "knownTraps": [
+        "Next.js 16 / React 19 BLOCKS window.prompt() / window.confirm() in dev mode — throws 'Error: prompt() is not supported.' Save Version + Restore both use controlled base-ui Dialog with useState. Don't even try prompt/confirm/alert in any new client component.",
+        "Y.js sync after restore is PARKED — POST .../restore overwrites server-side contentJson but doesn't broadcast a Y.update to OTHER open editor sessions. They keep stale Y.Doc until next reload.",
+        "Diff list endpoint returns truncated 200-char preview; per-version GET (/versions/[versionId]) is REQUIRED for the diff modal.",
+        "Auto-snapshot failures are logged via [ADR-0017] auto-snapshot write failed but never fail the user's save — best-effort guarantee."
+      ]
+    },
+    {
+      "id": "properties-rail",
+      "name": "Right-rail Properties tab (ADR-0023 + ADR-0025)",
+      "description": "Single right-rail tab consolidating Tags + Assets + Tools + Backlinks + Version history sections. xl+ canonical edit surface; inline mounts (xl:hidden) survive at < xl. Three Inline*Field components (dual-surface pattern) own autosave; backlinks + version history are wrapped in max-h-64 overflow-y-auto sections.",
+      "primarySymbol": "PropertiesTab",
+      "primaryPath": "src/components/worklog/right-rail/tabs/properties-tab.tsx",
+      "relatedSymbols": ["WorklogReaderRightRail", "useReaderRailState", "PropertiesFields", "InlineTagsField", "InlineAssetsField", "InlineToolsField"],
+      "knownTraps": [
+        "useReaderRailState MUST use useQuery (not queryClient.getQueryData) — getQueryData is a one-shot snapshot, so optimistic setQueryData writes never re-render. Migration to useQuery in Unit 3 fixed the silent tab-click failure.",
+        "Legacy rail tab values ('tags' | 'backlinks' | 'history') alias to 'properties' at every read/write boundary via migrateLegacyRailTab in rail-tabs.ts — both useReaderRailState (client read) AND /api/work-logs/preferences/reader-rail (server write) normalize. No DB migration needed.",
+        "Rail unmounts entirely when activeNoteId is null. Mounted as flex sibling of WorklogNoteReader in TWO places: WorklogNotesAndReader (dashboard 2-pane) AND /worklog/notes/[id]/page.tsx. Both surfaces must mount the rail or Backlinks/History/Photos surface disappears from that route entirely."
+      ]
+    }
+  ],
+  "traversalRecipes": [
+    {
+      "id": "find-editor-mount-point",
+      "intent": "Where does the Tiptap editor mount for a worklog note?",
+      "steps": [
+        "Open src/components/worklog/worklog-editor.tsx — top-level <WorklogEditor> client component.",
+        "useEditor() call dereferences immediatelyRender synchronously — outer component MUST gate on log existence before mounting inner editor.",
+        "kind discriminator switches schema: kind='note' uses notes schema (SCHEMA_EXTENSIONS), kind='procedure' uses procedureDoc schema from src/lib/worklog/procedure/schema.ts."
+      ],
+      "source": "hand-authored",
+      "evidence": { "sessions": [] }
+    },
+    {
+      "id": "find-draft-race-condition",
+      "intent": "Why did my note text disappear after navigating away quickly?",
+      "steps": [
+        "Check entryPoints.worklog-draft-system.knownTraps[0] — debounced flush is lost if editor unmounts mid-debounce.",
+        "Search src/components/worklog/hooks/use-autosave-field.ts for the debounce cleanup logic.",
+        "Reproduce: type text → click away within <debounce-ms> → server has no record."
+      ],
+      "source": "hand-authored",
+      "evidence": { "sessions": [] }
+    },
+    {
+      "id": "add-new-mention-type",
+      "intent": "Add a new entity type that users can chip into notes with @<prefix>:.",
+      "steps": [
+        "Follow docs/workflows/wire-mention-entity-type.md (currently at rev 4).",
+        "Recipe step 1: confirm Prisma model has a primary display field (title/name/company) — never derive chip label from a secondary projection.",
+        "Recipe step 2: extend MENTION_PREFIX in src/lib/worklog/export/pm-to-markdown.ts.",
+        "Recipe step 3: mention-search route must include the same field as label in its search clause (OR: [{ title: contains }, { content: contains }]).",
+        "Recipe step 4: if the new type shares a Prisma model via a discriminator column (kind), EXISTING mention-search cases for that model MUST be retroactively scoped to their kind too."
+      ],
+      "source": "hand-authored",
+      "evidence": { "sessions": [] }
+    },
+    {
+      "id": "save-and-restore-version",
+      "intent": "How does manual save-version and restore work?",
+      "steps": [
+        "WorklogEditorToolbar shows BookmarkPlus button when workLogId prop is set — opens controlled Dialog (NOT window.prompt — blocked in Next.js 16).",
+        "POST /api/work-logs/[id]/versions with { label, isManual:true } creates the WorkLogVersion row.",
+        "Restore from WorklogHistoryPanel: row click → WorklogVersionDiffModal (fetches FULL snapshot via GET /api/work-logs/[id]/versions/[versionId]) → Restore button → controlled Dialog confirm → POST /api/work-logs/[id]/versions/[versionId]/restore writes 'Before restore from <ts>' pre-snapshot first, then overwrites contentJson + content.",
+        "Mutation invalidates ['work-logs'] AND ['worklog-versions', noteId]."
+      ],
+      "source": "hand-authored",
+      "evidence": { "sessions": [] }
+    },
+    {
+      "id": "rail-tab-persistence",
+      "intent": "How does the right-rail remember which tab was open?",
+      "steps": [
+        "useReaderRailState uses useQuery on ['worklog-preferences'] (shared cache with useWorklogPreferences via TanStack v5 dedupe).",
+        "POST /api/work-logs/preferences/reader-rail persists tab + collapsed state with partial-update semantics.",
+        "Legacy tab ids ('tags' | 'backlinks' | 'history') alias to 'properties' via migrateLegacyRailTab — applied on both client read AND server write boundaries (rail-tabs.ts is the single source of truth for the alias set)."
+      ],
+      "source": "hand-authored",
+      "evidence": { "sessions": [] }
+    },
+    {
+      "id": "markdown-export-procedure",
+      "intent": "How does procedure markdown export differ from regular note export?",
+      "steps": [
+        "serializeToMarkdown in src/lib/worklog/export/pm-to-markdown.ts branches on doc.type.",
+        "doc.type='procedureDoc' → procedure-aware walker: procedureTitle → '# <text>', procedureTools → '## Tools\\n\\n<body>' (skip if empty), procedureStep → '## Step N' or '## Step N — <title>' with U+2014 em dash. N is POSITIONAL starting at 1.",
+        "doc.type='doc' → existing emitBlock fallthrough.",
+        "Re-import via decideImport in src/lib/worklog/import/grill-frontmatter.ts — frontmatter `id` + `version` (count of WorkLogVersion rows) routes to match/conflict/needs-picker/not-found."
+      ],
+      "source": "hand-authored",
+      "evidence": { "sessions": [] }
+    }
+  ],
+  "fileFingerprints": [
+    { "path": "src/components/worklog/worklog-editor.tsx", "role": "primary-editor", "lastValidatedAt": "2026-06-21" },
+    { "path": "src/components/worklog/worklog-note-reader.tsx", "role": "primary-reader", "lastValidatedAt": "2026-06-21" },
+    { "path": "src/components/worklog/worklog-notes-view.tsx", "role": "list-route-view", "lastValidatedAt": "2026-06-21" },
+    { "path": "src/components/worklog/worklog-notes-and-reader.tsx", "role": "dashboard-embed", "lastValidatedAt": "2026-06-21" },
+    { "path": "src/components/worklog/worklog-reader-right-rail.tsx", "role": "rail-shell", "lastValidatedAt": "2026-06-21" },
+    { "path": "src/components/worklog/right-rail/tabs/properties-tab.tsx", "role": "rail-properties-tab", "lastValidatedAt": "2026-06-21" },
+    { "path": "src/components/worklog/right-rail/tabs/properties-fields.tsx", "role": "rail-properties-fields", "lastValidatedAt": "2026-06-21" },
+    { "path": "src/components/worklog/right-rail/rail-tabs.ts", "role": "rail-tabs-registry", "lastValidatedAt": "2026-06-21" },
+    { "path": "src/components/worklog/inline-tags-field.tsx", "role": "dual-surface-tags", "lastValidatedAt": "2026-06-21" },
+    { "path": "src/components/worklog/inline-assets-field.tsx", "role": "dual-surface-assets", "lastValidatedAt": "2026-06-21" },
+    { "path": "src/components/worklog/inline-tools-field.tsx", "role": "dual-surface-tools", "lastValidatedAt": "2026-06-21" },
+    { "path": "src/components/worklog/worklog-history-panel.tsx", "role": "version-history-list", "lastValidatedAt": "2026-06-21" },
+    { "path": "src/components/worklog/worklog-version-diff-modal.tsx", "role": "version-diff-modal", "lastValidatedAt": "2026-06-21" },
+    { "path": "src/components/worklog/worklog-backlinks-panel.tsx", "role": "backlinks-panel", "lastValidatedAt": "2026-06-21" },
+    { "path": "src/components/worklog/hooks/use-autosave-field.ts", "role": "autosave-primitive", "lastValidatedAt": "2026-06-21" },
+    { "path": "src/components/worklog/hooks/use-reader-rail-state.ts", "role": "rail-state-hook", "lastValidatedAt": "2026-06-21" },
+    { "path": "src/components/worklog/hooks/use-folder-selection.ts", "role": "folder-url-state-hook", "lastValidatedAt": "2026-06-21" },
+    { "path": "src/lib/worklog/procedure/schema.ts", "role": "procedure-schema", "lastValidatedAt": "2026-06-21" },
+    { "path": "src/lib/worklog/export/pm-to-markdown.ts", "role": "markdown-serializer", "lastValidatedAt": "2026-06-21" },
+    { "path": "src/lib/worklog/import/grill-frontmatter.ts", "role": "import-decision", "lastValidatedAt": "2026-06-21" },
+    { "path": "src/lib/worklog/version/grouping.ts", "role": "version-bucket-grouper", "lastValidatedAt": "2026-06-21" },
+    { "path": "src/lib/worklog/version/diff.ts", "role": "plain-text-lcs-diff", "lastValidatedAt": "2026-06-21" },
+    { "path": "src/lib/worklog/derive-worklog-label.ts", "role": "chip-label-helper", "lastValidatedAt": "2026-06-21" },
+    { "path": "src/lib/worklog/focus-href.ts", "role": "focus-url-builder", "lastValidatedAt": "2026-06-21" },
+    { "path": "src/lib/worklog/rewrite-worklog-mention-labels.ts", "role": "mention-label-rewriter", "lastValidatedAt": "2026-06-21" },
+    { "path": "src/app/api/work-logs/[id]/route.ts", "role": "single-note-api", "lastValidatedAt": "2026-06-21" },
+    { "path": "src/app/api/work-logs/[id]/versions/route.ts", "role": "version-list-api", "lastValidatedAt": "2026-06-21" },
+    { "path": "src/app/api/work-logs/[id]/versions/[versionId]/route.ts", "role": "version-detail-api", "lastValidatedAt": "2026-06-21" },
+    { "path": "src/app/api/work-logs/[id]/versions/[versionId]/restore/route.ts", "role": "version-restore-api", "lastValidatedAt": "2026-06-21" },
+    { "path": "src/app/api/work-logs/preferences/reader-rail/route.ts", "role": "rail-pref-api", "lastValidatedAt": "2026-06-21" }
+  ],
+  "staleSurfaces": []
+}
