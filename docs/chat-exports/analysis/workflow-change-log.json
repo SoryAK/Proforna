@@ -230,6 +230,15 @@
         "source": "docs/plans/shipyard-roadmap.md",
         "commit": null,
         "triggerSession": "77e25d9d-ca47-4795-b5f4-d8921afd0593"
+      },
+      {
+        "id": "shipyard:adr-0038-proposed",
+        "shippedAt": "2026-06-21T04:00:00.000Z",
+        "name": "ADR-0038 Proposed — Slice schema lock + Shipyard Extractability NFR",
+        "description": "Phase 1 sprint-kickoff ADR. Locks the three open Slice schema decisions from ADR-0037: D1=B (cross-slice relations in docs/c-yard/_index.json adjacency list); D2=B (cross-cutting knowledge stays in user-memory with version-bound vs codebase-bound boundary rule); D3=B (Shipyard repo-only, no scope tiers). Adds D4=B (long-term home is a standalone shipyard/ repo; Resumsify is Phase 1 incubator) and Extractability NFR §5 (no Resumsify-specific names/paths/assumptions in Phase 1 artifacts). G1=A (one slice per UI surface, split at >~15 files). Provisional Phase 1 defaults: fingerprint staleness = warn-and-serve with staleSurfaces[]; evidence schema = { sessions: [{ id, turnExcerpt, toolCallIndex }] }. Phase 1 commit 1 cleared to ship. Same commit also amends ADR-0037 with Decision #7 (long-term home) and Con #6 (extractability tax).",
+        "source": "docs/adr/0038-slice-schema-and-extractability.md",
+        "commit": null,
+        "triggerSession": "77e25d9d-ca47-4795-b5f4-d8921afd0593"
       }
     ]
   }

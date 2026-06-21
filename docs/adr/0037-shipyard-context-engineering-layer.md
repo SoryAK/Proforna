@@ -65,6 +65,7 @@ The user's original "Shipyard" / "C-yard" framing (October 2026 sketch — *Cont
    - Cross-slice relations storage shape (denormalized per-slice vs `_index.json` adjacency list).
    - Where global / cross-cutting knowledge lives (a `_global` slice vs userMemory).
    - Whether slices need scope tiers (repo / global / user-profile) mirroring the memory MCP scoping, or whether Shipyard is repo-only and other scopes stay in their current homes.
+7. **Long-term home is a standalone `shipyard/` repo; Resumsify is the Phase 1 incubator and first tenant.** *(Added 2026-06-21 from the ADR-0038 sprint kickoff Griller pass.)* Shipyard is a product, not a Resumsify-internal detail. Phase 1 work lives under `docs/c-yard/` in this repo, but every artifact must satisfy an Extractability NFR (locked in ADR-0038 §5) so the eventual extraction is `cp -r` rather than a refactor. Extraction trigger: when Phase 6 (observability dashboard) has stabilized and the public API surface is worth committing to.
 
 ## Consequences
 
@@ -83,6 +84,7 @@ The user's original "Shipyard" / "C-yard" framing (October 2026 sketch — *Cont
 3. **Locks in the "flat-files + analyzer" technology stance until Phase 4+.** Server-side features (push invalidation, frequency priming, real tool-output caching) are explicitly deferred. If a real-time invalidation need surfaces sooner (e.g. multi-machine work), the roadmap order has to be revisited and Phase 4 jumps the queue.
 4. **The memory MCP server enters a long-lived "legacy" phase.** During transition both stores read; that is the cross-store drift problem this ADR was authored to eliminate, briefly recurring during migration. Mitigated by speed of migration (one shard at a time, ordered by domain hotness) and by Phase 0 read order (slice first, MCP fallback) so the slice is always the authoritative source when both exist.
 5. **Cohort attribution gets noisier during the transition era.** Sessions split across "old memory MCP only" + "slice + MCP fallback" + "slice only" will produce three sub-cohorts. The analyzer's `workflow-change-log.json` entries for the transition phases must be authored carefully to keep era tagging honest.
+6. **Living inside Resumsify temporarily — extractability discipline required.** *(Added 2026-06-21 from ADR-0038.)* Decision #7 commits to a future extraction sprint. During Phase 1-6, Resumsify-specific shortcuts (path literals, naming, assumptions about `src/` shape) will creep into Shipyard artifacts unless actively prevented. ADR-0038 §5 (Extractability NFR) defines the rules; enforcement is at code review and via grep checks in CI. Cost of slipping: every Resumsify-ism in `docs/c-yard/` or in `scripts/*-slice*.mjs` becomes future migration debt.
 
 ## Implementation Plan (Phase 1 only — Phase 2-6 deferred to per-phase ADRs)
 

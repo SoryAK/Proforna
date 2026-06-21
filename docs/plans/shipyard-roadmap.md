@@ -41,13 +41,21 @@ What Shipyard inherits and does not need to rebuild:
 
 **Goal:** Replace the memory graph + scattered traversal knowledge with one canonical primitive.
 
-### Open decisions (must be locked before any slice is hand-authored)
+### Locked decisions (ADR-0038 Proposed, 2026-06-21)
 
-These are the three deferred items from ADR-0037 Decision §6. They become the body of **ADR-0038 (Proposed)** at the start of the Phase 1 sprint, not before:
+The three open decisions plus a fourth surfaced this session are locked in [ADR-0038](../adr/0038-slice-schema-and-extractability.md). Phase 1 commit 1 is cleared to ship under these locks:
 
-1. **Cross-slice relations storage shape** — denormalized inside each slice (slice A says `→ B`, slice B says `→ A`) vs `docs/c-yard/_index.json` adjacency list. Denormalization is simpler; the index file is drift-proof but adds a second write per edge.
-2. **Global / cross-cutting knowledge** — does a `_global` slice exist, or do cross-cutting facts (e.g. "TanStack Query v5 `getQueryData` is not a subscription") stay in user-memory `resumsify-lessons.md` where most already live?
-3. **Scope tiers** — does Shipyard mirror the memory MCP's three scopes (resumsify / global / user-profile), or is Shipyard repo-only and the other scopes stay in their current homes (user memory + future repo-list)?
+1. **Cross-slice relations storage** — **`docs/c-yard/_index.json` adjacency list** (denormalization rejected; reverse-lookup O(1) reads beat single-file authoring ergonomics at Phase 1 scale).
+2. **Global / cross-cutting knowledge** — **stays in user-memory `resumsify-lessons.md`** with boundary rule: version-bound facts (Tiptap 3, TanStack Query v5, Next.js 16 gotchas) → user-memory; codebase-domain-bound facts → slice. Seam test: "survives a full Resumsify rewrite? if yes, user-memory; if no, slice."
+3. **Scope tiers** — **Shipyard repo-only**; no global/user-profile c-yard scopes (YAGNI today).
+4. **Long-term home (new this session)** — **Shipyard extracts to a standalone `shipyard/` repo** after Phase 6 stabilizes. Resumsify is the Phase 1 incubator and first tenant. Every Phase 1 artifact must satisfy the **Extractability NFR** (ADR-0038 §5): generic schema field names, configurable paths in scripts, no Resumsify-specific assumptions baked into the analyzer or migration tooling.
+5. **Slice granularity** — **one slice per top-level UI surface** (route or major panel); sub-systems are `entryPoints` rows on the parent slice. Rule: "if you can't navigate to it as a user, it's not a slice." Split a slice when `fileFingerprints` exceeds ~15 surface files (promotion-by-growth, not pre-emptive splitting).
+6. **Fingerprint staleness (Phase 1 default)** — warn-and-serve with `staleSurfaces[]`; never refuse. Firm policy deferred to Phase 1.5.
+7. **Evidence schema (Phase 1 default)** — promoted traversals carry `evidence: { sessions: [{ id, turnExcerpt, toolCallIndex }, ...] }`. Confidence scores deferred to Phase 1.5.
+
+### Long-term home
+
+Shipyard is committed as its own product (ADR-0038 §4). Resumsify is the Phase 1 incubator. Extraction trigger: Phase 6 dashboard has stabilized AND first non-Resumsify tenant interest exists. Until then, ALL Phase 1-6 work enforces ADR-0038 §5 (Extractability NFR) — no `"resumsify"` substring in `docs/c-yard/**/*.json`, no hardcoded paths in `scripts/*-slice*.mjs`, no domain-specific schema field names.
 
 ### Commit shape (sketch — final commit boundaries decided in ADR-0038)
 
