@@ -1,24 +1,52 @@
 import { getAIConfig } from "../config";
 import { AIProviderError } from "../errors";
-import type { AIProvider, AIRequest, AIResponse, AITaskClass, ChatMessage } from "../types";
+import type {
+  AIProvider,
+  AIRequest,
+  AIResponse,
+  AITaskClass,
+  ChatMessage,
+  ProviderId,
+  TokenUsage,
+} from "../types";
 
 const SUPPORTED: ReadonlySet<AITaskClass> = new Set(["chat", "extract", "ground", "summarize"]);
-// `reason` is intentionally absent — premium routing requires `gemini-pro` (added Day 4).
+// `reason` is intentionally absent — premium routing requires `gemini-pro` (Day 4).
 
 /* ── Internal model-chain fallback (preserved from legacy lib/gemini.ts) ── */
 
-function modelChain(): string[] {
-  const primary = process.env.GEMINI_MODEL || "gemini-2.0-flash-lite";
-  const fallbacks = ["gemini-2.0-flash-lite", "gemini-1.5-flash"];
+/**
+ * Build a deduplicated model chain ordered `[primary, ...fallbacks]`.
+ * Used by both `GeminiFastProvider` and `GeminiProProvider` (ADR-0044 Day 4).
+ */
+export function modelChain(primary: string, fallbacks: readonly string[]): string[] {
   const seen = new Set<string>();
   const chain: string[] = [];
   for (const m of [primary, ...fallbacks]) {
-    if (!seen.has(m)) {
+    if (m && !seen.has(m)) {
       seen.add(m);
       chain.push(m);
     }
   }
   return chain;
+}
+
+/**
+ * Parse Gemini's `usageMetadata` into the locked `TokenUsage` shape.
+ * Returns `undefined` when the response omits usage (older models or stream final chunks).
+ */
+export function extractGeminiUsage(
+  data: unknown,
+  providerId: ProviderId,
+  model: string
+): TokenUsage | undefined {
+  const meta = (data as { usageMetadata?: Record<string, unknown> } | null)?.usageMetadata;
+  if (!meta) return undefined;
+  const promptTokens = typeof meta.promptTokenCount === "number" ? meta.promptTokenCount : undefined;
+  const completionTokens =
+    typeof meta.candidatesTokenCount === "number" ? meta.candidatesTokenCount : undefined;
+  if (promptTokens === undefined && completionTokens === undefined) return undefined;
+  return { promptTokens, completionTokens, provider: providerId, model };
 }
 
 export interface GeminiRequest {
@@ -37,11 +65,14 @@ export interface GeminiResult {
  * Call Gemini with automatic model fallback on 429 quota errors.
  * Returns the first successful response, or the last failed one.
  *
- * Re-exported via `src/lib/gemini.ts` as `callGemini` for the 9 legacy callers.
+ * ADR-0044 Day 4: `models` is now an explicit arg so the pro-tier provider
+ * can share this same retry loop with its own chain.
  */
-export async function callGemini(body: GeminiRequest): Promise<GeminiResult> {
+export async function callGemini(
+  body: GeminiRequest,
+  models: readonly string[]
+): Promise<GeminiResult> {
   const apiKey = process.env.GEMINI_API_KEY ?? "";
-  const models = modelChain();
 
   let lastRes: Response | null = null;
   let lastModel = models[0];
@@ -225,7 +256,11 @@ export class GeminiFastProvider implements AIProvider {
         if (req.task === "ground") {
           body.tools = [{ google_search: {} }];
         }
-        const { res, model } = await callGemini(body);
+        const chain = modelChain(
+          process.env.GEMINI_MODEL || "gemini-2.0-flash-lite",
+          ["gemini-2.0-flash-lite", "gemini-1.5-flash"]
+        );
+        const { res, model } = await callGemini(body, chain);
         if (!res.ok) {
           const err = await geminiErrorMessage(res);
           throw new AIProviderError({
@@ -237,10 +272,11 @@ export class GeminiFastProvider implements AIProvider {
         }
         const data = await res.json();
         const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+        const usage = extractGeminiUsage(data, this.id, model);
         if (req.task === "summarize") {
-          return { text, provider: this.id, model };
+          return { text, provider: this.id, model, usage };
         }
-        return { json: JSON.parse(text || "{}") as T, provider: this.id, model };
+        return { json: JSON.parse(text || "{}") as T, provider: this.id, model, usage };
       }
 
       default:

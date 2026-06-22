@@ -14,15 +14,19 @@ export interface AIConfig {
    * `GeminiFastProvider`/`callGemini` and uses `GEMINI_MODEL` independently.
    */
   geminiModel: string;
+  /**
+   * Primary model for premium-tier Gemini calls (ADR-0044 Day 4 — `reason` task).
+   * Read live from `process.env` so tests can override per-case.
+   */
+  geminiProModel: string;
 }
 
-const DEFAULT_CONFIG: AIConfig = {
-  ollamaUrl: process.env.OLLAMA_URL ?? "http://localhost:11434",
-  ollamaModel: process.env.OLLAMA_MODEL ?? "llama3.2",
-  geminiApiKey: process.env.GEMINI_API_KEY ?? "",
-  geminiModel: process.env.GEMINI_MODEL ?? "gemini-2.0-flash",
-};
-
 export function getAIConfig(): AIConfig {
-  return { ...DEFAULT_CONFIG };
+  return {
+    ollamaUrl: process.env.OLLAMA_URL ?? "http://localhost:11434",
+    ollamaModel: process.env.OLLAMA_MODEL ?? "llama3.2",
+    geminiApiKey: process.env.GEMINI_API_KEY ?? "",
+    geminiModel: process.env.GEMINI_MODEL ?? "gemini-2.0-flash",
+    geminiProModel: process.env.GEMINI_PRO_MODEL ?? "gemini-2.5-pro",
+  };
 }

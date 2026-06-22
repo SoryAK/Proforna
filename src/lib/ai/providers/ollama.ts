@@ -1,8 +1,28 @@
 import { getAIConfig } from "../config";
 import { AIProviderError } from "../errors";
-import type { AIProvider, AIRequest, AIResponse, AITaskClass, ChatMessage } from "../types";
+import type {
+  AIProvider,
+  AIRequest,
+  AIResponse,
+  AITaskClass,
+  ChatMessage,
+  TokenUsage,
+} from "../types";
 
 const SUPPORTED: ReadonlySet<AITaskClass> = new Set(["chat", "extract", "summarize"]);
+
+/**
+ * Parse Ollama's top-level `prompt_eval_count` / `eval_count` into the locked
+ * `TokenUsage` shape. Returns `undefined` when both fields are absent (some
+ * server versions / streamed responses omit them).
+ */
+function extractOllamaUsage(data: unknown, model: string): TokenUsage | undefined {
+  const d = data as { prompt_eval_count?: unknown; eval_count?: unknown } | null;
+  const promptTokens = typeof d?.prompt_eval_count === "number" ? d.prompt_eval_count : undefined;
+  const completionTokens = typeof d?.eval_count === "number" ? d.eval_count : undefined;
+  if (promptTokens === undefined && completionTokens === undefined) return undefined;
+  return { promptTokens, completionTokens, provider: "ollama", model };
+}
 
 /* ── Raw helpers (used internally + re-exported from `@/lib/ai` for legacy callers) ── */
 
@@ -119,7 +139,8 @@ export class OllamaProvider implements AIProvider {
         }
         const data = await res.json();
         const text = data.message?.content ?? "{}";
-        return { json: JSON.parse(text) as T, provider: this.id, model };
+        const usage = extractOllamaUsage(data, model);
+        return { json: JSON.parse(text) as T, provider: this.id, model, usage };
       }
 
       case "summarize": {
@@ -136,7 +157,8 @@ export class OllamaProvider implements AIProvider {
           });
         }
         const data = await res.json();
-        return { text: data.message?.content ?? "", provider: this.id, model };
+        const usage = extractOllamaUsage(data, model);
+        return { text: data.message?.content ?? "", provider: this.id, model, usage };
       }
 
       default:

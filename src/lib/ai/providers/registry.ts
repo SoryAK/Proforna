@@ -1,11 +1,12 @@
 import type { AIProvider } from "../types";
 import { OllamaProvider } from "./ollama";
 import { GeminiFastProvider } from "./gemini-fast";
+import { GeminiProProvider } from "./gemini-pro";
 
 const _providers: AIProvider[] = [
   new OllamaProvider(),
   new GeminiFastProvider(),
-  // GeminiProProvider — registered Day 4 of the ADR-0044 migration plan.
+  new GeminiProProvider(),
 ];
 
 /** Snapshot of currently-registered providers (defensive copy). */
