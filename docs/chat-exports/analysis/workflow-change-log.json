@@ -189,6 +189,15 @@
         "evidenceSource": "src/lib/ai/smoke.live.test.ts + scripts/smoke-ai-live.ps1; commit 1472f75; ADR-0044 Acceptance subsection (commit 18c0fbb)",
         "triggerSession": "77e25d9d-ca47-4795-b5f4-d8921afd0593",
         "replacedPractice": "hermetic-only test coverage on external-API boundaries"
+      },
+      {
+        "id": "slice-while-the-iron-is-hot",
+        "adoptedAt": "2026-06-22T00:00:00Z",
+        "name": "Hand-author a slice manifest immediately after the feature surface lands",
+        "description": "When a major feature surface ships (an ADR phase completes, a new UI panel goes green), the agent authors the slice manifest in the SAME session while context is at maximum freshness — not later from mined chat exports. Rationale: knownTraps captured in-session carry design intent (the WHY behind a v1 short-circuit, the precedence rule that took 3 turns to converge on) that no analyzer can derive after the fact. Layer-2 mining remains the path for OLD surfaces with no slice; the iron-is-hot pattern is the path for NEWLY-SHIPPED surfaces. Proven this session: docs/c-yard/ai-chat.json (commit 6dc5ef0) authored within minutes of ADR-0046 Phase D.3 landing (commit 22215ce) — captured ~30 hand-authored knownTraps that would have been invisible from transcript mining alone. Default for any future ADR-phase wrap: author the slice (or refresh the existing slice's refreshHistory[]) before writing the handoff.",
+        "evidenceSource": "docs/c-yard/ai-chat.json refreshHistory[] entry; commits 22215ce (Phase D.3 feature) → 6dc5ef0 (slice manifest); ADR-0046 Acceptance section.",
+        "triggerSession": "77e25d9d-ca47-4795-b5f4-d8921afd0593",
+        "replacedPractice": "slice-authoring-deferred-to-Layer-2-mining-only"
       }
     ],
     "infraToolingChanges": [
@@ -283,6 +292,15 @@
         "description": "Week-long sprint kickoff. Scope B locked: consolidate lib/ai.ts + lib/gemini.ts into one façade with task-class routing (5 classes: chat/extract/ground/reason/summarize), add gemini-2.5-pro as premium tier reusing existing GEMINI_API_KEY, stub cost-guard hooks (userId + onUsage emitted but not enforced until multi-tenancy lands). Plug-in provider surface keeps Anthropic/OpenAI/local-models open as future additions. Three-layer architecture committed: L1 Provider Router (this week), L2 Skill Registry (future ADR), L3 MCP Tool Surface (future ADR). Scope C (FirebaseAIProvider/AICoreProvider/BYOK family) documented as Forward Path §1 honoring ADR-0021's Play Store push deferral. No slice manifest written: AI provider is backend infra not UI surface per ADR-0038 §G1; knowledge instead lives in extended AIServicesLayer memory entity. Originally planned as ADR-0022 in conversation; slot taken by worklog Grill Me markdown round-trip; bumped to 0044 to avoid Shipyard's 0039-0043 reservations.",
         "source": "docs/adr/0044-ai-provider-router.md; docs/memory/ai-services.json (4 new 2026-06-21 observations on AIServicesLayer)",
         "commit": null,
+        "triggerSession": "77e25d9d-ca47-4795-b5f4-d8921afd0593"
+      },
+      {
+        "id": "shipyard:first-cross-slice-adjacency-edge",
+        "shippedAt": "2026-06-22T00:00:00Z",
+        "name": "First cross-slice adjacency edge written to docs/c-yard/_index.json",
+        "description": "docs/c-yard/_index.json gained its first real entry: { 'ai-chat': { 'reads-from': ['worklog-editor/version-history'] } } — because the AI chat code-block 'send to worklog' action shares the WorkLog ContentBlocks write path with the version-history rail. Validates ADR-0038 D1=B (cross-slice relations as a separate adjacency file rather than denormalized inside each slice) by first real use: single-line JSON edit, drift-proof against slug renames (only one place to update), no slice-internal duplication. Mechanism is now load-bearing; future slices append entries the same way. Shipped alongside the ai-chat.json slice in commit 6dc5ef0.",
+        "source": "docs/c-yard/_index.json; docs/adr/0038-slice-schema-and-extractability.md §D1 (decision); commit 6dc5ef0",
+        "commit": "6dc5ef0",
         "triggerSession": "77e25d9d-ca47-4795-b5f4-d8921afd0593"
       }
     ]
