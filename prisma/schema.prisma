@@ -88,6 +88,7 @@ model User {
   jobAssets               JobAsset[]
   assetTypes              AssetType[]
   publishedProfile        PublishedProfile?
+  entityAIMentionCounts   EntityAIMentionCount[]
 }
 
 model Account {
@@ -2731,4 +2732,35 @@ model AssetLink {
 
   @@index([assetTypeId])
   @@index([assetId])
+}
+
+// ─── ADR-0046 Phase C ────────────────────────────────────────────────────
+
+/// Per-user ranking signal for the AI chat @-mention picker.
+/// Incremented at chat-route time (pre-stream, deduped per request)
+/// when a mention is parsed out of the request sidecar payload.
+///
+/// Ranking query: `where { userId, entityType } order by [count DESC,
+/// lastMentionedAt DESC]`. Default-zero state is safe — when no rows
+/// exist for an entity it ranks 0 and the picker falls through to
+/// alphabetical.
+///
+/// `entityType` is one of `"job" | "skill" | "worklog" | "contact"`
+/// (FK-less by design — the four source tables have heterogeneous
+/// shapes; an orphaned count row on entity delete is harmless and
+/// gets pruned on the next mention attempt).
+model EntityAIMentionCount {
+  id              String   @id @default(cuid())
+  userId          String
+  entityType      String
+  entityId        String
+  count           Int      @default(0)
+  lastMentionedAt DateTime @default(now())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, entityType, entityId])
+  @@index([userId, entityType])
 }
