@@ -98,7 +98,7 @@ export function AIChat() {
 
     const handleMouseMove = (e: MouseEvent) => {
       let newWidth = document.documentElement.clientWidth - e.clientX;
-      if (newWidth < 300) newWidth = 300;
+      if (newWidth < 280) newWidth = 280;
       if (newWidth > 1200) newWidth = 1200; // Max width
       setPanelWidth(newWidth);
     };
@@ -308,7 +308,7 @@ export function AIChat() {
 
       <div 
         className={`fixed top-0 right-0 z-50 flex h-[100dvh] flex-col border-l bg-background shadow-2xl overflow-hidden
-          md:relative md:shadow-none md:translate-x-0 md:z-0
+          md:relative md:h-full md:shadow-none md:translate-x-0 md:z-0
           ${isDragging ? 'transition-none duration-0' : 'transition-all duration-300 ease-in-out'}
           ${open ? 'translate-x-0 w-full md:w-[var(--chat-width)]' : 'translate-x-[100%] w-full md:w-0 md:border-none'}
         `}
@@ -528,7 +528,7 @@ export function AIChat() {
       </div>
 
       {/* Input */}
-      <div className="border-t px-3 py-2.5">
+      <div className="border-t px-3 py-2">
         <div className="flex items-end gap-2">
           <Textarea
             ref={inputRef}
@@ -537,7 +537,7 @@ export function AIChat() {
             onKeyDown={handleKeyDown}
             placeholder="Ask about your career..."
             rows={1}
-            className="min-h-[40px] max-h-[120px] resize-none text-sm"
+            className="min-h-[36px] max-h-[120px] resize-none text-sm"
             disabled={streaming}
           />
           {streaming ? (
@@ -545,7 +545,7 @@ export function AIChat() {
               size="sm"
               variant="secondary"
               onClick={stopStreaming}
-              className="h-10 w-10 shrink-0 p-0"
+              className="h-9 w-9 shrink-0 p-0"
             >
               <X className="h-4 w-4" />
             </Button>
@@ -554,7 +554,7 @@ export function AIChat() {
               size="sm"
               onClick={sendMessage}
               disabled={!input.trim()}
-              className="h-10 w-10 shrink-0 p-0 bg-gradient-to-r from-orange-600 to-purple-600 hover:from-orange-700 hover:to-purple-700"
+              className="h-9 w-9 shrink-0 p-0 bg-orange-600 hover:bg-orange-700 text-white"
             >
               <Send className="h-4 w-4" />
             </Button>
