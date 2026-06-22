@@ -258,7 +258,7 @@ export class GeminiFastProvider implements AIProvider {
         }
         const chain = modelChain(
           process.env.GEMINI_MODEL || "gemini-2.0-flash-lite",
-          ["gemini-2.0-flash-lite", "gemini-1.5-flash"]
+          ["gemini-2.0-flash-lite", "gemini-2.0-flash"]
         );
         const { res, model } = await callGemini(body, chain);
         if (!res.ok) {

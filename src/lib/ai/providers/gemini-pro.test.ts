@@ -95,8 +95,11 @@ describe("GeminiProProvider", () => {
       expect(calledUrl).toContain("key=test-key");
     });
 
-    it("throws AIProviderError with status 429 + retryAfter on quota exhaustion across the whole chain", async () => {
-      // Every model in the chain 429s — provider gives up and throws.
+    it("throws AIProviderError with status 429 + retryAfter when the default single-model pro chain quota-exhausts", async () => {
+      // Default Pro chain is `["gemini-2.5-pro"]` only — the 1.5 lineup was
+      // decommissioned (returns 404) and degrading to a fast-tier model on a
+      // reasoning task is worse than surfacing the quota error. So a quota-
+      // exhausted Pro request produces exactly ONE fetch call and a 429 throw.
       fetchSpy.mockResolvedValue(
         makeErrResponse(429, {
           error: {
@@ -116,8 +119,8 @@ describe("GeminiProProvider", () => {
         providerId: "gemini-pro",
         retryAfter: 30,
       });
-      // Chain has at least 2 distinct models — verifies fallback was attempted.
-      expect(fetchSpy.mock.calls.length).toBeGreaterThanOrEqual(2);
+      // Single-model chain by design — no in-tier fallback on Pro.
+      expect(fetchSpy).toHaveBeenCalledOnce();
     });
 
     it("falls back to the next model in the chain when the primary 429s, then succeeds", async () => {

@@ -17,7 +17,9 @@ const SUPPORTED: ReadonlySet<AITaskClass> = new Set(["reason"]);
  * Serves the `reason` task only. Premium routing intentionally has NO fast-tier
  * fallback in the default routing table \u2014 falling back would defeat the
  * "reach for the smarter model" intent. The model chain handles in-tier 429
- * retries (e.g. `gemini-2.5-pro` \u2192 `gemini-1.5-pro`).
+ * retries against `gemini-2.5-pro` only (the 1.5 lineup was decommissioned
+ * 2026-06; degrading to a fast-tier model on a reasoning task is worse than
+ * surfacing the quota error).
  */
 function toGeminiBody(
   messages: ChatMessage[]
@@ -65,7 +67,7 @@ export class GeminiProProvider implements AIProvider {
 
     const chain = req.modelOverride
       ? [req.modelOverride]
-      : modelChain(cfg.geminiProModel, ["gemini-2.5-pro", "gemini-1.5-pro"]);
+      : modelChain(cfg.geminiProModel, ["gemini-2.5-pro"]);
 
     const { res, model } = await callGemini(body, chain);
     if (!res.ok) {
