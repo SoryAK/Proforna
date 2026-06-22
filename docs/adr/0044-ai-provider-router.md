@@ -1,6 +1,6 @@
 # AI provider router — Scope B (unified façade + premium tier) with 3-layer Forward Path
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-06-21
 - **Deciders:** Sory
 - **Tags:** ai, architecture, infra, week-long-sprint
@@ -272,4 +272,27 @@ Concrete shipping use case that motivates this layer: **chat-side visual diagram
 - [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) — the wire protocol committed for the future Tool Surface layer
 - [Google Gemini API — Search grounding](https://ai.google.dev/gemini-api/docs/grounding) — used by `ground` task class today
 - [Anthropic Claude Skills](https://docs.anthropic.com/) — prior art for the future Skill Registry
-- Re-entry trigger for **graduation to Accepted**: end of Day 5 ETC, after all 13 routes migrated, premium tier live, and a green smoke pass.
+- Re-entry trigger for **graduation to Accepted**: end of Day 5 ETC, after all 13 routes migrated, premium tier live, and a green smoke pass. **Triggered 2026-06-21** — see Acceptance below.
+
+## Acceptance (2026-06-21)
+
+Graduation criteria met. The 5-day sprint shipped as designed:
+
+| Day | Commit | Scope |
+| --- | --- | --- |
+| 1 | `1a3bfff` | ADR-0044 Proposed |
+| 2 | `40e2c78` | `src/lib/ai/` consolidation — router + 3 providers (ollama, gemini-fast) + tests |
+| 3 | `d97ceb2` | 14-caller migration to `ai.generate()` façade + `AIProviderError` + delete legacy `src/lib/ai.ts` / `src/lib/gemini.ts` shims |
+| 4 | `24073cf` | `GeminiProProvider` (`reason` task) + `onUsage` callback wiring + token-count parsing across all providers |
+| 5 | `e5fcbe0`, `1472f75` | Replace decommissioned `gemini-1.5` fallback models + hermetic smoke (6) + live smoke (5, env-gated) |
+
+**Lab evidence at acceptance:**
+
+- Hermetic suite: **860/860 green** (Vitest 4.1.9, Node env)
+- Live smoke (`RUN_LIVE_SMOKE_AI=1`, 2026-06-21 evening): **5/5 green** — 1 real happy-path (`summarize` → ollama `gemma4:26b`, `{p:51, c:534}` tokens) + 4 accepted error-path 429s (Gemini free-tier quota exhausted, `limit: 0`; documented behavior, not a code defect)
+- `gemini-1.5` lineup decommission caught by Day 5 live smoke and remediated in the same sprint window
+
+**Known follow-up issues parked (not blocking acceptance):**
+
+- `geminiErrorMessage()` returns generic `"AI extraction failed"` for non-429 errors; should surface the underlying error body for diagnosability. Tracked in `/memories/repo/parked-ideas.md`.
+- Free-tier Gemini quota is `limit: 0` on this account; production deployments should either enable billing or rely entirely on the `ollama` tier. Captured in user memory.
