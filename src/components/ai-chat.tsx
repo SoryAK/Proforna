@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { AIProvenanceChip } from "@/components/ai-provenance-chip";
 import { AIChatTextareaWithMentions } from "@/components/ai-chat-textarea-with-mentions";
+import { AIChatMessageMarkdown } from "@/components/ai-chat-message-markdown";
 import type { AIMeta } from "@/lib/ai/envelope";
 import type { MentionRef } from "@/lib/ai-chat-mentions";
 
@@ -783,6 +784,8 @@ export function AIChat() {
                         <Loader2 className="h-3.5 w-3.5 animate-spin" />
                         <span className="text-xs text-muted-foreground">Thinking...</span>
                       </div>
+                    ) : msg.role === "assistant" ? (
+                      <AIChatMessageMarkdown content={msg.content} />
                     ) : (
                       <div className="whitespace-pre-wrap break-words">{msg.content}</div>
                     )}
