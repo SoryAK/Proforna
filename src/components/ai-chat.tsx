@@ -128,7 +128,10 @@ interface ContextSlice {
 }
 
 interface ModelsData {
-  ollama: { available: boolean; url: string; defaultModel: string };
+  // `available: false` means the daemon is unreachable OR zero models are
+  // pulled — both states render Ollama unusable for chat (ADR-0045-fix
+  // 2026-06-22; matches `GET /api/ai/models` contract).
+  ollama: { available: boolean; url: string; defaultModel: string | null };
   gemini: { available: boolean; defaultModel: string };
   models: { provider: string; name: string; active: boolean }[];
 }
@@ -261,7 +264,10 @@ export function AIChat() {
     if (modelsData.ollama.available) {
       setProvider("ollama");
       const active = modelsData.models.find((m) => m.provider === "ollama" && m.active);
-      setModel(active?.name ?? modelsData.ollama.defaultModel);
+      // `defaultModel` may be null when zero models are pulled; fall
+      // through to "" so the picker shows the empty-state hint rather
+      // than auto-selecting a phantom name.
+      setModel(active?.name ?? modelsData.ollama.defaultModel ?? "");
     } else if (modelsData.gemini.available) {
       setProvider("gemini");
       setModel(modelsData.gemini.defaultModel);
@@ -275,12 +281,28 @@ export function AIChat() {
     if (!model) {
       if (provider === "ollama" && modelsData.ollama.available) {
         const active = modelsData.models.find((m) => m.provider === "ollama" && m.active);
-        setModel(active?.name ?? modelsData.ollama.defaultModel);
+        setModel(active?.name ?? modelsData.ollama.defaultModel ?? "");
       } else if (provider === "gemini" && modelsData.gemini.available) {
         setModel(modelsData.gemini.defaultModel);
       }
     }
   }, [provider, initialized, modelsData, model]);
+
+  // Stale-selection guard (2026-06-22). If the currently-selected model is
+  // no longer in the live pulled list (e.g. user ran `ollama rm <name>`
+  // while the panel was open, or the previously-cached default leaked from
+  // an older route version), reset to the effective default. Prevents the
+  // picker from POSTing a phantom name to the chat route.
+  useEffect(() => {
+    if (!modelsData || !initialized || !model) return;
+    if (provider !== "ollama") return;
+    const stillPulled = modelsData.models.some(
+      (m) => m.provider === "ollama" && m.name === model
+    );
+    if (!stillPulled) {
+      setModel(modelsData.ollama.defaultModel ?? "");
+    }
+  }, [provider, model, modelsData, initialized]);
 
   // Auto-scroll
   useEffect(() => {
