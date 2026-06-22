@@ -46,6 +46,50 @@ const TASK_OPTIONS: Array<{
   { id: "summarize", label: "Summarize", icon: FileText },
 ];
 
+/**
+ * Slash command registry (ADR-0046 Phase B). Each command expands to a
+ * prompt template that is sent as the user message on selection. Parameter-
+ * ised commands (e.g. `/compare-jobs @job @job`) are deferred to Phase B'
+ * after the @-mention picker lands in Phase C.
+ *
+ * Triggered when the input starts with `/` and contains no space — VS Code
+ * convention to avoid intercepting URLs typed mid-message.
+ */
+interface SlashCommand {
+  /** Stable id (no leading slash). Used for key, registry lookups, and id-prefix matching. */
+  id: string;
+  /** Display label including leading slash. */
+  label: string;
+  /** One-line hint shown next to the label in the menu. */
+  description: string;
+  /** Full prompt sent as the user message when the command is executed. */
+  prompt: string;
+}
+
+const SLASH_COMMANDS: SlashCommand[] = [
+  {
+    id: "grill-me",
+    label: "/grill-me",
+    description: "Socratic interrogation of your current career context",
+    prompt:
+      "Grill me Socratically about my current career context. Ask one tough question at a time, then wait for my response before asking the next. Start with the most strategically important gap.",
+  },
+  {
+    id: "summarize-week",
+    label: "/summarize-week",
+    description: "Summarize your last 7 days of worklog",
+    prompt:
+      "Summarize my worklog from the past 7 days. Highlight: recurring themes, blockers, accomplishments, and what I should bring up in 1-on-1s or weekly status updates.",
+  },
+  {
+    id: "draft-bullets",
+    label: "/draft-bullets",
+    description: "Generate STAR-format resume bullets from your context",
+    prompt:
+      "Draft 3-5 resume bullets from my current context. Each bullet must follow STAR format (Situation / Task / Action / Result) and quantify impact wherever supporting data exists.",
+  },
+];
+
 // Rough char-to-token estimate (~4 chars/token for English). Good enough for
 // a session cost gauge; exact counts would require server-side usage events.
 const estimateTokens = (s: string): number => Math.ceil(s.length / 4);
@@ -90,6 +134,9 @@ export function AIChat() {
   const [localUrl, setLocalUrl] = useState<string | null>(typeof window !== "undefined" ? localStorage.getItem("resumsify-ai-url") : null);
   const [task, setTask] = useState<ChatTask>("chat");
   const [sessionTokens, setSessionTokens] = useState(0);
+  // Keyboard-selected slash command (ADR-0046 Phase B). Reset to 0 whenever
+  // the filtered list shrinks below the current index.
+  const [slashIndex, setSlashIndex] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -210,8 +257,8 @@ export function AIChat() {
     }
   }, [open]);
 
-  const sendMessage = useCallback(async () => {
-    const text = input.trim();
+  const sendMessage = useCallback(async (overrideText?: string) => {
+    const text = (overrideText ?? input).trim();
     if (!text || streaming) return;
 
     const userMsg: Message = {
@@ -346,10 +393,60 @@ export function AIChat() {
     }
   }, [input, streaming, messages, contextSlices, suppressedSliceIds, provider, model, localUrl, task]);
 
+  // Slash command surface (ADR-0046 Phase B). The menu is open when the
+  // input starts with `/` and contains no whitespace — VS Code convention,
+  // keeps mid-message URLs from accidentally opening the menu.
+  const isSlashActive = input.startsWith("/") && !/\s/.test(input);
+  const slashQuery = isSlashActive ? input.slice(1).toLowerCase() : "";
+  const filteredSlashCommands = isSlashActive
+    ? SLASH_COMMANDS.filter((c) => c.id.toLowerCase().startsWith(slashQuery))
+    : [];
+  const slashOpen = filteredSlashCommands.length > 0;
+
+  // Keep the highlighted index in range as the filter narrows.
+  useEffect(() => {
+    if (slashIndex >= filteredSlashCommands.length) setSlashIndex(0);
+  }, [filteredSlashCommands.length, slashIndex]);
+
+  const executeSlashCommand = useCallback(
+    (cmd: SlashCommand) => {
+      // Pass the prompt directly into sendMessage so we don't race React's
+      // batched state — `input` won't have flushed yet when we send.
+      setInput(cmd.prompt);
+      setSlashIndex(0);
+      void sendMessage(cmd.prompt);
+    },
+    [sendMessage],
+  );
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (slashOpen) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setSlashIndex((i) => Math.min(i + 1, filteredSlashCommands.length - 1));
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setSlashIndex((i) => Math.max(i - 1, 0));
+        return;
+      }
+      if (e.key === "Tab" || (e.key === "Enter" && !e.shiftKey)) {
+        e.preventDefault();
+        const cmd = filteredSlashCommands[slashIndex];
+        if (cmd) executeSlashCommand(cmd);
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setInput("");
+        setSlashIndex(0);
+        return;
+      }
+    }
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      sendMessage();
+      void sendMessage();
     }
   };
 
@@ -689,7 +786,42 @@ export function AIChat() {
       </div>
 
       {/* Input */}
-      <div className="border-t px-3 py-2">
+      <div className="border-t px-3 py-2 relative">
+        {/* Slash command menu (ADR-0046 Phase B). Opens when the input
+            starts with `/` and contains no whitespace. Keyboard nav lives
+            in `handleKeyDown`; click/Enter/Tab all execute the highlighted
+            command via `executeSlashCommand`. */}
+        {slashOpen && (
+          <div
+            className="absolute bottom-full left-3 right-3 mb-2 z-10 rounded-md border bg-popover shadow-lg overflow-hidden"
+            role="listbox"
+            aria-label="Slash commands"
+          >
+            <div className="border-b bg-muted/40 px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+              Slash commands
+            </div>
+            {filteredSlashCommands.map((cmd, i) => (
+              <button
+                key={cmd.id}
+                type="button"
+                onClick={() => executeSlashCommand(cmd)}
+                onMouseEnter={() => setSlashIndex(i)}
+                className={`w-full flex items-center gap-3 px-3 py-2 text-left transition-colors ${
+                  i === slashIndex ? "bg-orange-500/15" : "hover:bg-muted"
+                }`}
+                role="option"
+                aria-selected={i === slashIndex}
+              >
+                <code className="text-xs font-mono text-orange-600 dark:text-orange-400 shrink-0">
+                  {cmd.label}
+                </code>
+                <span className="text-xs text-muted-foreground truncate">
+                  {cmd.description}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
         {/* Context chips (ADR-0046 Phase A) — user can suppress individual
             slices for this thread. The base prompt is non-removable. */}
         {contextSlices.length > 0 && (
