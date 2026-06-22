@@ -94,6 +94,25 @@ The bug test stays in the suite as the regression guard. Never delete it after t
 
 ---
 
+### Skill: Schema-Faithful Mocks
+
+When mocking ORM clients (Prisma) or any other typed data-layer client, the mock surface **MUST mirror the real schema**. A mock that silently accepts fields the real model rejects is a test that lies — it ships GREEN while production throws.
+
+**The reference incident (2026-06-22, caught by live smoke, fixed in `7d88b75`):**
+
+`prisma.workHistory.update({ data: { notes: x } })` passed the vitest mock because the hoisted `prismaMock.workHistory.update = vi.fn()` accepted any payload. But the real `WorkHistory` model has `notes WorkHistoryNote[]` — a **relation**, not a scalar column. Prisma threw `PrismaClientValidationError: Unknown field 'notes'` against the real DB. Eight unit tests passed; the dashboard 500'd on every click of "Add to Job Notes" in ADR-0046 Phase D.2.
+
+**Rules:**
+
+1. **Mock only delegates that exist on the real model.** `prisma.workHistory.update` ✓ (delegate exists); `prisma.workHistoryNote.create` ✓; `prisma.workHistory.frobnicate` ✗.
+2. **Only pass fields that exist as scalars or composite types on the schema model.** Cross-check by opening `prisma/schema.prisma` for the model under test — NOT by trusting comments, sibling-test patterns, or the slice manifest description.
+3. **Relations are not writable through the parent delegate.** `OtherModel[]`, `OtherModel?` (without a foreign-key column on the parent), and back-relations all require operating on the **child** delegate (`prisma.childModel.create({ data: { fkColumn, ... } })`). If the test's mock has a parent-side `update` call that names a relation field, the test will pass while the route 500s.
+4. **When in doubt, drive an integration smoke** against the real dev server + DB (Playwright + the running route) before declaring GREEN. Hermetic unit tests catch logic; only integration catches mock-vs-schema drift.
+
+**Red flag:** a route that passes its unit tests but throws `Unknown field` or `Argument not valid` against the real DB means the mock surface is lying. The fix order is: (a) correct the mock to mirror schema-truth, (b) re-RED the test, (c) fix the route to make the now-honest test pass.
+
+---
+
 ### Skill: TDD Red Flags & Rationalizations
 
 These thoughts mean STOP — you are about to skip TDD. Each one has a documented response.
