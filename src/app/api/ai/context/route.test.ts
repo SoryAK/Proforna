@@ -30,6 +30,7 @@ const prismaMock = vi.hoisted(() => ({
   careerGoal: { findMany: vi.fn() },
   certification: { findMany: vi.fn() },
   interview: { findMany: vi.fn() },
+  workLog: { findFirst: vi.fn() },
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -51,6 +52,7 @@ function resetAllToEmpty() {
   prismaMock.careerGoal.findMany.mockResolvedValue([]);
   prismaMock.certification.findMany.mockResolvedValue([]);
   prismaMock.interview.findMany.mockResolvedValue([]);
+  prismaMock.workLog.findFirst.mockResolvedValue(null);
 }
 
 describe("GET /api/ai/context — slice shape (ADR-0046 Phase A)", () => {
@@ -187,5 +189,85 @@ describe("GET /api/ai/context — slice shape (ADR-0046 Phase A)", () => {
     (auth.getUserId as ReturnType<typeof vi.fn>).mockResolvedValueOnce(null);
     const res = await GET();
     expect(res.status).toBe(401);
+  });
+});
+
+interface AmbientShape {
+  ambient: {
+    activeJob: { type: "job"; id: string; label: string } | null;
+    activeWorklog: { type: "worklog"; id: string; label: string } | null;
+    activeSkill: { type: "skill"; id: string; label: string } | null;
+  };
+}
+
+describe("GET /api/ai/context — ambient field (ADR-0046 Phase D.2)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    resetAllToEmpty();
+  });
+
+  it("returns `ambient` with all-null entries when nothing is active", async () => {
+    const body = (await (await GET()).json()) as AmbientShape;
+    expect(body.ambient).toBeDefined();
+    expect(body.ambient.activeJob).toBeNull();
+    expect(body.ambient.activeWorklog).toBeNull();
+    expect(body.ambient.activeSkill).toBeNull();
+  });
+
+  it("returns `ambient.activeJob` from the active WorkHistory row", async () => {
+    prismaMock.workHistory.findFirst.mockResolvedValue({
+      id: "job-1",
+      title: "Senior Dev",
+      company: "Acme",
+      department: null,
+      location: null,
+      workMode: "remote",
+      startDate: "2024-01-01",
+      salaryAmount: null,
+      salaryCurrency: "USD",
+      payType: null,
+      payRate: null,
+      payFrequency: null,
+      techStack: null,
+    });
+    const body = (await (await GET()).json()) as AmbientShape;
+    expect(body.ambient.activeJob).toEqual({
+      type: "job",
+      id: "job-1",
+      label: "Senior Dev @ Acme",
+    });
+  });
+
+  it("falls back to just `company` when WorkHistory has no title", async () => {
+    prismaMock.workHistory.findFirst.mockResolvedValue({
+      id: "job-2",
+      title: null,
+      company: "Acme",
+      department: null,
+      location: null,
+      workMode: "remote",
+      startDate: "2024-01-01",
+      salaryAmount: null,
+      salaryCurrency: "USD",
+      payType: null,
+      payRate: null,
+      payFrequency: null,
+      techStack: null,
+    });
+    const body = (await (await GET()).json()) as AmbientShape;
+    expect(body.ambient.activeJob?.label).toBe("Acme");
+  });
+
+  it("returns `ambient.activeWorklog` for a recently-updated WorkLog", async () => {
+    prismaMock.workLog.findFirst.mockResolvedValue({
+      id: "wl-1",
+      title: "Sprint planning",
+    });
+    const body = (await (await GET()).json()) as AmbientShape;
+    expect(body.ambient.activeWorklog).toEqual({
+      type: "worklog",
+      id: "wl-1",
+      label: "Sprint planning",
+    });
   });
 });

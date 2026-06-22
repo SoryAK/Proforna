@@ -46,6 +46,7 @@ export async function GET() {
     goals,
     certifications,
     interviews,
+    recentWorklog,
   ] = await Promise.all([
     prisma.userProfile.findFirst(),
     prisma.workHistory.findFirst({ where: { isActive: true } }),
@@ -69,6 +70,18 @@ export async function GET() {
       where: { scheduledAt: { gte: new Date() } },
       take: 5,
       include: { jobApplication: { select: { company: true, role: true } } },
+    }),
+    // Ambient activeWorklog (ADR-0046 Phase D.2): the most-recently-updated
+    // WorkLog within the last 24h. Used by the action-target resolver as a
+    // "what was the user just editing" signal when the chat panel asks who
+    // a code-block should land on.
+    prisma.workLog.findFirst({
+      where: {
+        updatedAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+        archivedAt: null,
+      },
+      orderBy: { updatedAt: "desc" },
+      select: { id: true, title: true },
     }),
   ]);
 
@@ -168,6 +181,34 @@ export async function GET() {
   // should build the prompt themselves from unsuppressed slices on the client.
   const systemPrompt = slices.map((s) => s.prompt).join("\n\n");
 
-  return NextResponse.json({ slices, systemPrompt });
+  // Ambient entity refs (ADR-0046 Phase D.2). Consumed by the chat panel
+  // when running the action-target resolver. Each ref is `null` when the
+  // server has no signal.
+  const activeJob = position
+    ? {
+        type: "job" as const,
+        id: position.id,
+        label: position.title
+          ? `${position.title} @ ${position.company}`
+          : position.company,
+      }
+    : null;
+  const activeWorklog = recentWorklog
+    ? {
+        type: "worklog" as const,
+        id: recentWorklog.id,
+        label: recentWorklog.title,
+      }
+    : null;
+  const ambient = {
+    activeJob,
+    activeWorklog,
+    // Reserved — no reliable server-side signal yet. The chat panel can
+    // still populate from the thread context, so this stays in the contract
+    // for forward compatibility.
+    activeSkill: null,
+  };
+
+  return NextResponse.json({ slices, systemPrompt, ambient });
 }
 
