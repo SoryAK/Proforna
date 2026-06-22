@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserId } from "@/lib/auth-utils";
 import { ai, AIProviderError } from "@/lib/ai";
+import { toAIEnvelope } from "@/lib/ai/envelope";
 
 export async function GET(req: NextRequest) {
   const userId = await getUserId();
@@ -47,18 +48,26 @@ Return the data STRICTLY in the following JSON schema, filling in real data from
 Include up to 10 relevant scholarly results.`;
 
   try {
-    const { json, model } = await ai.generate<{ results?: unknown[] }>({
+    const t0 = Date.now();
+    const result = await ai.generate<{ results?: unknown[] }>({
       task: "ground",
       messages: [{ role: "user", content: prompt }],
       userId,
     });
-    console.log(`[google-scholar] used model: ${model}`);
+    const durationMs = Date.now() - t0;
+    console.log(`[google-scholar] used model: ${result.model}`);
 
-    return NextResponse.json({
-      results: json.results || [],
-      searchInfo: { source: "Gemini Search Grounding (Academic)" },
-      hasMore: false,
-    });
+    return NextResponse.json(
+      toAIEnvelope(
+        {
+          results: result.json?.results || [],
+          searchInfo: { source: "Gemini Search Grounding (Academic)" },
+          hasMore: false,
+        },
+        result,
+        durationMs,
+      ),
+    );
   } catch (error) {
     if (error instanceof AIProviderError) {
       console.error(`[google-scholar] ${error.providerId} error:`, error.message);

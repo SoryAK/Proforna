@@ -17,6 +17,8 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { unwrapAIEnvelope } from "@/lib/ai/envelope";
+import { AIProvenanceChip } from "@/components/ai-provenance-chip";
 
 interface SubStory {
   title: string;
@@ -57,7 +59,9 @@ export default function CompanyNews() {
         const err = await res.json();
         throw new Error(err.error || "Search failed");
       }
-      return res.json() as Promise<{ articles: NewsArticle[] }>;
+      const env = await res.json();
+      const { data: payload, ai } = unwrapAIEnvelope<{ articles: NewsArticle[] }>(env);
+      return { articles: payload?.articles ?? [], ai };
     },
     enabled: activeQuery.length > 0,
   });
@@ -70,6 +74,7 @@ export default function CompanyNews() {
   }
 
   const articles = data?.articles ?? [];
+  const ai = data?.ai;
 
   return (
     <div className="space-y-4">
@@ -136,9 +141,12 @@ export default function CompanyNews() {
       {/* Results */}
       {!isLoading && !isFetching && articles.length > 0 && (
         <div className="space-y-3">
-          <p className="text-sm text-muted-foreground px-1">
-            {articles.length} result{articles.length !== 1 ? "s" : ""} for &quot;{activeQuery}&quot;
-          </p>
+          <div className="flex items-center justify-between px-1">
+            <p className="text-sm text-muted-foreground">
+              {articles.length} result{articles.length !== 1 ? "s" : ""} for &quot;{activeQuery}&quot;
+            </p>
+            <AIProvenanceChip ai={ai} />
+          </div>
 
           {articles.map((article, idx) => {
             const isExpanded = expandedId === idx;

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getUserId } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { ai, AIProviderError } from "@/lib/ai";
+import { toAIEnvelope } from "@/lib/ai/envelope";
 
 export async function POST(req: NextRequest) {
   const userId = await getUserId();
@@ -83,7 +84,8 @@ GUIDELINES:
 - When relevant, mention that many agencies accept anonymous complaints.${userState ? `\n- Include ${userState}-specific laws and agencies when applicable.` : ""}`;
 
   try {
-    const { json, model } = await ai.generate<Record<string, unknown>>({
+    const t0 = Date.now();
+    const result = await ai.generate<Record<string, unknown>>({
       task: "extract",
       messages: [
         { role: "system", content: systemPrompt },
@@ -91,13 +93,20 @@ GUIDELINES:
       ],
       userId,
     });
-    console.log(`[worker-rights] used model: ${model}`);
+    const durationMs = Date.now() - t0;
+    console.log(`[worker-rights] used model: ${result.model}`);
 
-    return NextResponse.json({
-      ...json,
-      disclaimer:
-        "This information is for educational purposes only and does not constitute legal advice. Consult a licensed attorney for advice specific to your situation.",
-    });
+    return NextResponse.json(
+      toAIEnvelope(
+        {
+          ...(result.json ?? {}),
+          disclaimer:
+            "This information is for educational purposes only and does not constitute legal advice. Consult a licensed attorney for advice specific to your situation.",
+        },
+        result,
+        durationMs,
+      ),
+    );
   } catch (error) {
     if (error instanceof AIProviderError) {
       console.error(`[worker-rights] ${error.providerId} error:`, error.message);

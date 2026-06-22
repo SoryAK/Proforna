@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { unwrapAIEnvelope, type AIMeta } from "@/lib/ai/envelope";
+import { AIProvenanceChip } from "@/components/ai-provenance-chip";
 import {
   Shield,
   Send,
@@ -42,6 +44,7 @@ interface Message {
   role: "user" | "assistant";
   content: string;
   data?: RightsResponse;
+  ai?: AIMeta | null;
 }
 
 const QUICK_QUESTIONS = [
@@ -208,10 +211,19 @@ export default function WorkerRightsPage() {
 
       if (!res.ok) throw new Error("Request failed");
 
-      const data: RightsResponse = await res.json();
+      const envelope = await res.json();
+      const { data: payload, ai } = unwrapAIEnvelope<RightsResponse>(envelope);
+      const data: RightsResponse = (payload as RightsResponse) ?? {
+        answer: "",
+        agencies: [],
+        keyPoints: [],
+        actionSteps: [],
+        category: "general",
+        disclaimer: "",
+      };
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: data.answer, data },
+        { role: "assistant", content: data.answer, data, ai: ai ?? null },
       ]);
     } catch {
       setMessages((prev) => [
@@ -438,6 +450,13 @@ export default function WorkerRightsPage() {
                             <p className="text-[10px] text-muted-foreground/60 italic px-1">
                               {msg.data.disclaimer}
                             </p>
+                          )}
+
+                          {/* AI provenance */}
+                          {msg.ai && (
+                            <div className="px-1">
+                              <AIProvenanceChip ai={msg.ai} />
+                            </div>
                           )}
                         </div>
                       )}

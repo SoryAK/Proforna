@@ -23,7 +23,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-
+import { unwrapAIEnvelope, type AIMeta } from "@/lib/ai/envelope";
+import { AIProvenanceChip } from "@/components/ai-provenance-chip";
 const STEPS = [
   { id: "welcome", label: "Welcome" },
   { id: "profile", label: "Profile" },
@@ -58,6 +59,7 @@ export default function OnboardingPage() {
   const [parsing, setParsing] = useState(false);
   const [resumeSaved, setResumeSaved] = useState(false);
   const [parsedData, setParsedData] = useState<any>(null);
+  const [parseAi, setParseAi] = useState<AIMeta | null>(null);
   const [savingImport, setSavingImport] = useState(false);
 
   // Pre-fill name from session
@@ -175,7 +177,10 @@ export default function OnboardingPage() {
         const errData = await parseRes.json();
         throw new Error(errData.error || "Failed to parse resume");
       }
-      const parsed = await parseRes.json();
+      const envelope = await parseRes.json();
+      const { data: payload, ai } = unwrapAIEnvelope<{ success: boolean; data: any }>(envelope);
+      setParseAi(ai ?? null);
+      const parsed = payload ?? { success: false, data: {} };
       setParsedData(sanitize(parsed.data));
     } catch (err: any) {
       toast.error(err.message || "Failed to process resume.");
@@ -494,6 +499,11 @@ export default function OnboardingPage() {
                 /* ── Editable Preview ── */
                 <div className="overflow-y-auto border border-slate-700 rounded-lg max-h-[55vh]">
                   <div className="space-y-6 p-4">
+                    {parseAi && (
+                      <div className="flex justify-end -mb-3">
+                        <AIProvenanceChip ai={parseAi} />
+                      </div>
+                    )}
 
                     {/* Profile */}
                     <section>

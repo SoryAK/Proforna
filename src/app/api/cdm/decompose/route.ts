@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getUserId } from "@/lib/auth-utils";
 import { ai, AIProviderError } from "@/lib/ai";
+import { toAIEnvelope } from "@/lib/ai/envelope";
+import type { AIResponse } from "@/lib/ai/types";
 import socCodesData from "@/data/soc-codes.json";
 
 const socCodes = socCodesData as { code: string; title: string; group: string }[];
@@ -82,8 +84,11 @@ export async function POST(req: NextRequest) {
 
   // Generate decomposition via LLM
   let decomposition: LLMDecomposition | null = null;
+  let ai_res: AIResponse<LLMDecomposition> | null = null;
+  let aiDurationMs = 0;
   try {
-    const ai_res = await ai.generate<LLMDecomposition>({
+    const t0 = Date.now();
+    ai_res = await ai.generate<LLMDecomposition>({
       task: "extract",
       userId,
       messages: [
@@ -117,6 +122,7 @@ Respond with ONLY valid JSON matching this structure:
         },
       ],
     });
+    aiDurationMs = Date.now() - t0;
     decomposition = ai_res.json ?? null;
     console.log(`[cdm/decompose] used model: ${ai_res.model}`);
   } catch (error) {
@@ -202,7 +208,10 @@ Respond with ONLY valid JSON matching this structure:
     });
   });
 
-  return NextResponse.json(formatTree(tree), { status: 201 });
+  return NextResponse.json(
+    ai_res ? toAIEnvelope(formatTree(tree), ai_res, aiDurationMs) : formatTree(tree),
+    { status: 201 },
+  );
 }
 
 /* GET — Fetch existing trees for the user */

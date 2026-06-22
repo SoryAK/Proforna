@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getUserId } from "@/lib/auth-utils";
 import { ai, AIProviderError } from "@/lib/ai";
+import { toAIEnvelope } from "@/lib/ai/envelope";
 
 export async function POST(request: Request) {
   const userId = await getUserId();
@@ -33,7 +34,8 @@ Return this exact JSON structure:
 Leave fields as empty strings "" if entirely not found in the text.`;
 
     try {
-      const { json, model } = await ai.generate<Record<string, unknown>>({
+      const t0 = Date.now();
+      const result = await ai.generate<Record<string, unknown>>({
         task: "extract",
         userId,
         messages: [
@@ -41,8 +43,9 @@ Leave fields as empty strings "" if entirely not found in the text.`;
           { role: "user", content: text },
         ],
       });
-      console.log(`[job-parse] used model: ${model}`);
-      return NextResponse.json(json);
+      const durationMs = Date.now() - t0;
+      console.log(`[job-parse] used model: ${result.model}`);
+      return NextResponse.json(toAIEnvelope(result.json ?? {}, result, durationMs));
     } catch (error) {
       if (error instanceof AIProviderError) {
         console.error(`[job-parse] ${error.providerId} error:`, error.message);

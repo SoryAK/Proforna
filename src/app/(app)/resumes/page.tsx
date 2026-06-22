@@ -26,7 +26,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
-
+import { unwrapAIEnvelope, type AIMeta } from "@/lib/ai/envelope";
+import { AIProvenanceChip } from "@/components/ai-provenance-chip";
 interface Resume {
   id: string;
   name: string;
@@ -54,6 +55,7 @@ export default function ResumesPage() {
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [importing, setImporting] = useState(false);
   const [parsedResumeData, setParsedResumeData] = useState<any>(null);
+  const [parseAi, setParseAi] = useState<AIMeta | null>(null);
   const [savingImport, setSavingImport] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
@@ -173,8 +175,11 @@ export default function ResumesPage() {
         method: "POST",
         body: formData,
       });
-      const result = await res.json();
-      if (!res.ok) throw new Error(result.error || "Failed to parse resume");
+      const envelope = await res.json();
+      if (!res.ok) throw new Error(envelope.error || "Failed to parse resume");
+      const { data: payload, ai } = unwrapAIEnvelope<{ success: boolean; data: any }>(envelope);
+      setParseAi(ai ?? null);
+      const result = payload ?? { success: false, data: {} };
       
       // Sanitize AI output: replace literal "null" strings with empty string
       const sanitize = (obj: any): any => {
@@ -459,6 +464,11 @@ export default function ResumesPage() {
               <Sparkles className="h-5 w-5 text-orange-500" />
               {parsedResumeData ? "Review AI Extracted Data" : "AI Resume Import"}
             </DialogTitle>
+            {parsedResumeData && parseAi && (
+              <div className="pt-1">
+                <AIProvenanceChip ai={parseAi} />
+              </div>
+            )}
           </DialogHeader>
 
           {!parsedResumeData ? (

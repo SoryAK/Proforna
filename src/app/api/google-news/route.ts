@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserId } from "@/lib/auth-utils";
 import { ai, AIProviderError } from "@/lib/ai";
+import { toAIEnvelope } from "@/lib/ai/envelope";
 
 export async function GET(req: NextRequest) {
   const userId = await getUserId();
@@ -35,17 +36,25 @@ Return the data STRICTLY in the following JSON schema, filling in real data from
 Include at least 5 articles if possible. Make sure links are valid.`;
 
   try {
-    const { json, model } = await ai.generate<{ articles?: unknown[] }>({
+    const t0 = Date.now();
+    const result = await ai.generate<{ articles?: unknown[] }>({
       task: "ground",
       messages: [{ role: "user", content: prompt }],
       userId,
     });
-    console.log(`[google-news] used model: ${model}`);
+    const durationMs = Date.now() - t0;
+    console.log(`[google-news] used model: ${result.model}`);
 
-    return NextResponse.json({
-      articles: json.articles || [],
-      searchInfo: { source: "Gemini Search Grounding" },
-    });
+    return NextResponse.json(
+      toAIEnvelope(
+        {
+          articles: result.json?.articles || [],
+          searchInfo: { source: "Gemini Search Grounding" },
+        },
+        result,
+        durationMs,
+      ),
+    );
   } catch (error) {
     if (error instanceof AIProviderError) {
       console.error(`[google-news] ${error.providerId} error:`, error.message);

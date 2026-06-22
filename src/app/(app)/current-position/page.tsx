@@ -58,7 +58,8 @@ import { PaycheckEstimator } from "@/components/paycheck-estimator";
 import { BenefitsTracker } from "@/components/benefits-tracker";
 import { TimeOffTracker } from "@/components/timeoff-tracker";
 import { PayPeriodCalendar } from "@/components/pay-period-calendar";
-import { EquipmentTracker } from "@/components/equipment-tracker";
+import { unwrapAIEnvelope, type AIMeta } from "@/lib/ai/envelope";
+import { AIProvenanceChip } from "@/components/ai-provenance-chip";import { EquipmentTracker } from "@/components/equipment-tracker";
 import { PositionWorklogTab } from "@/components/position-worklog-tab";
 import { HoursWorkedTracker } from "@/components/hours-worked-tracker";
 import { CompanyIntel } from "@/components/company-intel";
@@ -195,9 +196,9 @@ export default function CurrentPositionPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [isLookingUp, setIsLookingUp] = useState(false);
-  const [jdText, setJdText] = useState("");
-  const [showJDInput, setShowJDInput] = useState(false);
+  const [jdText, setJdText] = useState("");  const [showJDInput, setShowJDInput] = useState(false);
   const [isParsing, setIsParsing] = useState(false);
+  const [lastJobParseAi, setLastJobParseAi] = useState<AIMeta | null>(null);
 
   const { data: positions = [], isLoading } = useQuery<Position[]>({
     queryKey: ["current-position"],
@@ -362,26 +363,29 @@ export default function CurrentPositionPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: jdText }),
       });
-      const data = await res.json();
+      const envelope = await res.json();
       if (!res.ok) {
-        toast.error(data.error || "Failed to parse job description");
+        toast.error(envelope?.error || "Failed to parse job description");
         return;
       }
+      const { data, ai } = unwrapAIEnvelope<Record<string, string>>(envelope);
+      setLastJobParseAi(ai ?? null);
+      const parsed = data ?? {};
       
       setForm((prev) => ({
         ...prev,
-        role: data.role || prev.role,
-        department: data.department || prev.department,
-        location: data.location || prev.location,
-        type: data.type || prev.type,
-        salary: data.salary ? String(data.salary) : prev.salary,
-        payType: data.payType || prev.payType,
-        payRate: data.payRate || prev.payRate,
-        hoursPerWeek: data.hoursPerWeek ? String(data.hoursPerWeek) : prev.hoursPerWeek,
-        schedule: data.schedule || prev.schedule,
-        focus: data.focus || prev.focus,
-        responsibilities: data.responsibilities || prev.responsibilities,
-        techStack: data.techStack || prev.techStack,
+        role: parsed.role || prev.role,
+        department: parsed.department || prev.department,
+        location: parsed.location || prev.location,
+        type: parsed.type || prev.type,
+        salary: parsed.salary ? String(parsed.salary) : prev.salary,
+        payType: parsed.payType || prev.payType,
+        payRate: parsed.payRate || prev.payRate,
+        hoursPerWeek: parsed.hoursPerWeek ? String(parsed.hoursPerWeek) : prev.hoursPerWeek,
+        schedule: parsed.schedule || prev.schedule,
+        focus: parsed.focus || prev.focus,
+        responsibilities: parsed.responsibilities || prev.responsibilities,
+        techStack: parsed.techStack || prev.techStack,
       }));
       toast.success("Job details extracted and filled!");
       setShowJDInput(false);
@@ -902,6 +906,11 @@ export default function CurrentPositionPage() {
                   {isParsing ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Processing...</> : "Extract Details"}
                 </Button>
               </div>
+              {lastJobParseAi && (
+                <div className="flex justify-end">
+                  <AIProvenanceChip ai={lastJobParseAi} />
+                </div>
+              )}
             </div>
           )}
 

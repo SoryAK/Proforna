@@ -14,6 +14,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { unwrapAIEnvelope, type AIMeta } from "@/lib/ai/envelope";
+import { AIProvenanceChip } from "@/components/ai-provenance-chip";
 
 interface Resource {
   title: string;
@@ -56,6 +58,7 @@ export default function ScholarSearch() {
   const [searching, setSearching] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [searched, setSearched] = useState(false);
+  const [lastAi, setLastAi] = useState<AIMeta | null>(null);
 
   async function doSearch(startOffset = 0, q?: string) {
     const searchQuery = q ?? query;
@@ -82,7 +85,14 @@ export default function ScholarSearch() {
         throw new Error(err.error || "Search failed");
       }
 
-      const data: ScholarResponse = await res.json();
+      const envelope = await res.json();
+      const { data: payload, ai } = unwrapAIEnvelope<ScholarResponse>(envelope);
+      if (ai) setLastAi(ai);
+      const data: ScholarResponse = payload ?? {
+        results: [],
+        searchInfo: {},
+        hasMore: false,
+      };
       if (isNewSearch) {
         setResults(data.results);
       } else {
@@ -174,9 +184,12 @@ export default function ScholarSearch() {
       {/* Results */}
       {results.length > 0 && (
         <div className="space-y-3">
-          <p className="text-sm text-muted-foreground px-1">
-            {results.length} result{results.length !== 1 ? "s" : ""}
-          </p>
+          <div className="flex items-center justify-between px-1">
+            <p className="text-sm text-muted-foreground">
+              {results.length} result{results.length !== 1 ? "s" : ""}
+            </p>
+            <AIProvenanceChip ai={lastAi} />
+          </div>
 
           {results.map((paper, idx) => (
             <Card key={idx} className="hover:shadow-md transition-shadow">

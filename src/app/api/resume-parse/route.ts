@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 import { getUserId } from "@/lib/auth-utils";
 import { ai, AIProviderError } from "@/lib/ai";
+import { toAIEnvelope } from "@/lib/ai/envelope";
+import type { AIResponse } from "@/lib/ai/types";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -125,8 +127,11 @@ export async function POST(request: Request) {
     }
 
     let parsedData;
+    let aiResult: AIResponse<Record<string, unknown>> | null = null;
+    let aiDurationMs = 0;
     try {
-      const { json, model } = await ai.generate<Record<string, unknown>>({
+      const t0 = Date.now();
+      aiResult = await ai.generate<Record<string, unknown>>({
         task: "extract",
         userId,
         messages: [
@@ -134,8 +139,9 @@ export async function POST(request: Request) {
           { role: "user", content: rawText },
         ],
       });
-      parsedData = json;
-      console.log(`[resume-parse] used model: ${model}`);
+      aiDurationMs = Date.now() - t0;
+      parsedData = aiResult.json;
+      console.log(`[resume-parse] used model: ${aiResult.model}`);
     } catch (error) {
       if (error instanceof AIProviderError) {
         console.error(`[resume-parse] ${error.providerId} error:`, error.message);
@@ -148,12 +154,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "AI failed to return valid data." }, { status: 500 });
     }
 
-    if (!parsedData) {
+    if (!parsedData || !aiResult) {
       return NextResponse.json({ error: "AI failed to return data." }, { status: 500 });
     }
 
     // Just return the parsed data to the frontend for preview
-    return NextResponse.json({ success: true, data: parsedData });
+    return NextResponse.json(
+      toAIEnvelope({ success: true, data: parsedData }, aiResult, aiDurationMs),
+    );
 
   } catch (error: any) {
     console.error("Resume parse error:", error);

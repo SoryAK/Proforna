@@ -24,6 +24,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { unwrapAIEnvelope, type AIMeta } from "@/lib/ai/envelope";
+import { AIProvenanceChip } from "@/components/ai-provenance-chip";
 import {
   Dialog,
   DialogContent,
@@ -340,6 +342,7 @@ export default function CareerDirectionModel() {
   const [expandedPath, setExpandedPath] = useState<string | null>(null);
   const [decomposingPathId, setDecomposingPathId] = useState<string | null>(null);
   const [synonymLoadingTitle, setSynonymLoadingTitle] = useState<string | null>(null);
+  const [lastCdmAi, setLastCdmAi] = useState<AIMeta | null>(null);
 
   // ── Data fetching ──
   const { data: paths = [], isLoading: pathsLoading } = useQuery<CareerPath[]>({
@@ -377,7 +380,10 @@ export default function CareerDirectionModel() {
         body: JSON.stringify({ targetRole, pathId }),
       });
       if (!res.ok) throw new Error("Decomposition failed");
-      return res.json();
+      const envelope = await res.json();
+      const { data, ai } = unwrapAIEnvelope<CDMTree>(envelope);
+      if (ai) setLastCdmAi(ai);
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["cdm-trees"] });
@@ -398,7 +404,10 @@ export default function CareerDirectionModel() {
         body: JSON.stringify({ title }),
       });
       if (!res.ok) throw new Error("Synonym generation failed");
-      return res.json();
+      const envelope = await res.json();
+      const { data, ai } = unwrapAIEnvelope<CDMSynonymCluster>(envelope);
+      if (ai) setLastCdmAi(ai);
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["cdm-synonyms"] });
@@ -903,6 +912,11 @@ export default function CareerDirectionModel() {
                                   {cluster.skillOverlap}% skill overlap
                                 </Badge>
                               </h4>
+                              {lastCdmAi && (
+                                <div className="-mt-1 mb-2">
+                                  <AIProvenanceChip ai={lastCdmAi} />
+                                </div>
+                              )}
                               <div className="flex flex-wrap gap-1.5">
                                 {cluster.synonyms.map((s) => (
                                   <Badge
@@ -962,6 +976,11 @@ export default function CareerDirectionModel() {
                               <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1">
                                 <Target className="h-3 w-3" /> Skill Decomposition Tree
                               </h4>
+                              {lastCdmAi && (
+                                <div className="-mt-1 mb-2">
+                                  <AIProvenanceChip ai={lastCdmAi} />
+                                </div>
+                              )}
                               <div className="flex flex-wrap gap-1.5 mb-3">
                                 {allDomains.map((d) => (
                                   <Badge key={d} className="bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300 text-xs">
