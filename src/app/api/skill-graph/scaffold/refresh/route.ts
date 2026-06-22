@@ -3,6 +3,8 @@ import { logActivity } from "@/lib/activity";
 import { NextRequest, NextResponse } from "next/server";
 import { getUserId } from "@/lib/auth-utils";
 import { ai, AIProviderError } from "@/lib/ai";
+import { toAIEnvelope } from "@/lib/ai/envelope";
+import type { AIResponse } from "@/lib/ai/types";
 
 /**
  * POST /api/skill-graph/scaffold/refresh
@@ -73,15 +75,20 @@ Respond ONLY with valid JSON:
     nodes: { name: string; type: string }[];
     edges: { from: string; to: string; type: string; weight: number }[];
   };
+  let aiResult: AIResponse<typeof generated> | null = null;
+  let aiDurationMs = 0;
 
   try {
-    const { json, model } = await ai.generate<typeof generated>({
+    const t0 = Date.now();
+    const aiCall = await ai.generate<typeof generated>({
       task: "extract",
       messages: [{ role: "user", content: prompt }],
       userId,
     });
-    generated = json ?? { nodes: [], edges: [] };
-    console.log(`[scaffold/refresh] used model: ${model}`);
+    aiDurationMs = Date.now() - t0;
+    aiResult = aiCall;
+    generated = aiCall.json ?? { nodes: [], edges: [] };
+    console.log(`[scaffold/refresh] used model: ${aiCall.model}`);
   } catch (error) {
     if (error instanceof AIProviderError) {
       console.error(`[scaffold/refresh] ${error.providerId} error:`, error.message);
@@ -192,11 +199,14 @@ Respond ONLY with valid JSON:
     `AI-refreshed "${clusterName}" scaffold for "${occupation}": ${nodesCreated} nodes, ${edgesCreated} edges`
   );
 
-  return NextResponse.json({
+  const responseBody = {
     cluster: clusterName,
     occupation,
     nodesCreated,
     edgesCreated,
     source: "ai-refresh",
-  });
+  };
+  return NextResponse.json(
+    aiResult ? toAIEnvelope(responseBody, aiResult, aiDurationMs) : responseBody,
+  );
 }

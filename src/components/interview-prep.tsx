@@ -15,6 +15,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
+import { unwrapAIEnvelope, type AIMeta } from "@/lib/ai/envelope";
+import { AIProvenanceChip } from "@/components/ai-provenance-chip";
 import {
   BookOpen,
   MessageSquare,
@@ -122,6 +124,7 @@ export function InterviewPrepDialog({
     interview.reflectionRating || 0
   );
   const [aiData, setAiData] = useState<AIResponse | null>(null);
+  const [aiMeta, setAiMeta] = useState<AIMeta | null>(null);
   const [showTips, setShowTips] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
@@ -166,7 +169,10 @@ export function InterviewPrepDialog({
         }),
       });
       if (!res.ok) throw new Error("Failed to generate");
-      return res.json() as Promise<AIResponse>;
+      const envelope = await res.json();
+      const { data, ai } = unwrapAIEnvelope<AIResponse>(envelope);
+      if (ai) setAiMeta(ai);
+      return (data ?? {}) as AIResponse;
     },
     onSuccess: (data) => {
       setAiData(data);
@@ -253,20 +259,23 @@ export function InterviewPrepDialog({
           <TabsContent value="prep" className="space-y-4 mt-4">
             <div className="flex items-center justify-between">
               <Label className="text-sm font-semibold">Company Research & Prep Notes</Label>
-              {!aiData && (
-                <Button
-                  size="sm"
-                  onClick={() => { aiMutation.mutate(); setTab("questions"); }}
-                  disabled={aiMutation.isPending}
-                  className="text-xs bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
-                >
-                  {aiMutation.isPending ? (
-                    <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> Generating…</>
-                  ) : (
-                    <><Sparkles className="mr-1.5 h-3.5 w-3.5" /> AI Research</>
-                  )}
-                </Button>
-              )}
+              <div className="flex items-center gap-2">
+                <AIProvenanceChip ai={aiMeta} />
+                {!aiData && (
+                  <Button
+                    size="sm"
+                    onClick={() => { aiMutation.mutate(); setTab("questions"); }}
+                    disabled={aiMutation.isPending}
+                    className="text-xs bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
+                  >
+                    {aiMutation.isPending ? (
+                      <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> Generating…</>
+                    ) : (
+                      <><Sparkles className="mr-1.5 h-3.5 w-3.5" /> AI Research</>
+                    )}
+                  </Button>
+                )}
+              </div>
             </div>
 
             {aiData?.companyInsights && aiData.companyInsights.length > 0 && (

@@ -3,6 +3,8 @@ import { logActivity } from "@/lib/activity";
 import { NextResponse } from "next/server";
 import { getUserId } from "@/lib/auth-utils";
 import { ai, AIProviderError } from "@/lib/ai";
+import { toAIEnvelope } from "@/lib/ai/envelope";
+import type { AIResponse } from "@/lib/ai/types";
 
 /**
  * POST /api/skill-graph/auto-evidence
@@ -142,15 +144,20 @@ Respond ONLY with valid JSON:
       reasoning?: string;
     }[];
   };
+  let aiResult: AIResponse<typeof result> | null = null;
+  let aiDurationMs = 0;
 
   try {
-    const { json, model } = await ai.generate<typeof result>({
+    const t0 = Date.now();
+    const aiCall = await ai.generate<typeof result>({
       task: "extract",
       messages: [{ role: "user", content: prompt }],
       userId,
     });
-    result = json ?? { matches: [] };
-    console.log(`[auto-evidence] used model: ${model}`);
+    aiDurationMs = Date.now() - t0;
+    aiResult = aiCall;
+    result = aiCall.json ?? { matches: [] };
+    console.log(`[auto-evidence] used model: ${aiCall.model}`);
   } catch (error) {
     if (error instanceof AIProviderError) {
       console.error(`[auto-evidence] ${error.providerId} error:`, error.message);
@@ -224,10 +231,13 @@ Respond ONLY with valid JSON:
     `Auto-linked ${created} evidence items from ${totalArtifacts} artifacts (${skipped} skipped)`
   );
 
-  return NextResponse.json({
+  const responseBody = {
     evidenceCreated: created,
     skipped,
     artifactsScanned: totalArtifacts,
     skillNodesMatched: new Set(result.matches.map((m) => m.skillName).filter((n) => nameToId.has(n))).size,
-  });
+  };
+  return NextResponse.json(
+    aiResult ? toAIEnvelope(responseBody, aiResult, aiDurationMs) : responseBody,
+  );
 }

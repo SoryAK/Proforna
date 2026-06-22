@@ -3,6 +3,8 @@ import { logActivity } from "@/lib/activity";
 import { NextRequest, NextResponse } from "next/server";
 import { getUserId } from "@/lib/auth-utils";
 import { ai, AIProviderError } from "@/lib/ai";
+import { toAIEnvelope } from "@/lib/ai/envelope";
+import type { AIResponse } from "@/lib/ai/types";
 
 /**
  * POST /api/skill-graph/ingest
@@ -99,15 +101,20 @@ Text to analyze:
 ${textToAnalyze}`;
 
   let extracted: { nodes: { name: string; type: string }[]; edges: { from: string; to: string; type: string; weight: number; reasoning?: string }[] };
+  let aiResult: AIResponse<typeof extracted> | null = null;
+  let aiDurationMs = 0;
 
   try {
-    const { json, model } = await ai.generate<typeof extracted>({
+    const t0 = Date.now();
+    const result = await ai.generate<typeof extracted>({
       task: "extract",
       messages: [{ role: "user", content: prompt }],
       userId,
     });
-    extracted = json ?? { nodes: [], edges: [] };
-    console.log(`[skill-graph/ingest] used model: ${model}`);
+    aiDurationMs = Date.now() - t0;
+    aiResult = result;
+    extracted = result.json ?? { nodes: [], edges: [] };
+    console.log(`[skill-graph/ingest] used model: ${result.model}`);
   } catch (error) {
     if (error instanceof AIProviderError) {
       console.error(`[skill-graph/ingest] ${error.providerId} error:`, error.message);
@@ -181,9 +188,12 @@ ${textToAnalyze}`;
     `Ingested ${nodeMap.size} nodes and ${edgesCreated} edges from ${source}`
   );
 
-  return NextResponse.json({
+  const responseBody = {
     nodesCreated: nodeMap.size,
     edgesCreated,
     source,
-  });
+  };
+  return NextResponse.json(
+    aiResult ? toAIEnvelope(responseBody, aiResult, aiDurationMs) : responseBody,
+  );
 }

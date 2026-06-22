@@ -69,6 +69,8 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import { unwrapAIEnvelope, type AIMeta } from "@/lib/ai/envelope";
+import { AIProvenanceChip } from "@/components/ai-provenance-chip";
 
 // Dynamically import ForceGraph2D — no SSR (canvas-based)
 const ForceGraph2D = dynamic(() => import("react-force-graph-2d"), {
@@ -482,9 +484,12 @@ export default function SkillGraph() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
-      }).then((r) => {
+      }).then(async (r) => {
         if (!r.ok) throw new Error("Ingest failed");
-        return r.json();
+        const env = await r.json();
+        const { data, ai } = unwrapAIEnvelope<{ nodesCreated: number; edgesCreated: number; source: string }>(env);
+        if (ai) setLastSkillGraphAi(ai);
+        return data ?? { nodesCreated: 0, edgesCreated: 0, source: body.source };
       }),
     onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ["skill-graph"] });
@@ -736,9 +741,12 @@ export default function SkillGraph() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
-      }).then((r) => {
+      }).then(async (r) => {
         if (!r.ok) throw new Error("Refresh failed");
-        return r.json();
+        const env = await r.json();
+        const { data, ai } = unwrapAIEnvelope<{ nodesCreated: number; edgesCreated: number; occupation: string; cluster: string }>(env);
+        if (ai) setLastSkillGraphAi(ai);
+        return data ?? { nodesCreated: 0, edgesCreated: 0, occupation: body.occupation, cluster: body.cluster };
       }),
     onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ["skill-graph"] });
@@ -751,11 +759,15 @@ export default function SkillGraph() {
   });
 
   // Auto-evidence mutation
+  const [lastSkillGraphAi, setLastSkillGraphAi] = useState<AIMeta | null>(null);
   const autoEvidence = useMutation({
     mutationFn: () =>
-      fetch("/api/skill-graph/auto-evidence", { method: "POST" }).then((r) => {
+      fetch("/api/skill-graph/auto-evidence", { method: "POST" }).then(async (r) => {
         if (!r.ok) return r.json().then((d) => { throw new Error(d.error ?? "Auto-evidence failed"); });
-        return r.json();
+        const env = await r.json();
+        const { data, ai } = unwrapAIEnvelope<{ evidenceCreated: number; skipped: number; artifactsScanned: number; skillNodesMatched: number }>(env);
+        if (ai) setLastSkillGraphAi(ai);
+        return data ?? { evidenceCreated: 0, skipped: 0, artifactsScanned: 0, skillNodesMatched: 0 };
       }),
     onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ["skill-graph"] });
@@ -1797,6 +1809,12 @@ export default function SkillGraph() {
           </Button>
         </div>
       </div>
+
+      {lastSkillGraphAi && (
+        <div className="flex justify-end">
+          <AIProvenanceChip ai={lastSkillGraphAi} />
+        </div>
+      )}
 
       {/* ── Analytics Dashboard ── */}
       {showAnalytics && data && (

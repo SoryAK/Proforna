@@ -19,6 +19,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { unwrapAIEnvelope, type AIMeta } from "@/lib/ai/envelope";
+import { AIProvenanceChip } from "@/components/ai-provenance-chip";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -116,6 +118,8 @@ export default function LearningPage() {
 
   // ── Mutations ──
 
+  const [lastGenAi, setLastGenAi] = useState<AIMeta | null>(null);
+
   const generateMut = useMutation({
     mutationFn: async (documentIds: string[]) => {
       const res = await fetch("/api/learning/generate", {
@@ -139,11 +143,17 @@ export default function LearningPage() {
             const retryErr = await retry.json();
             throw new Error(retryErr.error || "Generation failed after retry");
           }
-          return retry.json();
+          const env = await retry.json();
+          const { data, ai } = unwrapAIEnvelope<{ topics?: Array<{ id: string }> }>(env);
+          if (ai) setLastGenAi(ai);
+          return data ?? { topics: [] };
         }
         throw new Error(err.error || "Generation failed");
       }
-      return res.json();
+      const env = await res.json();
+      const { data, ai } = unwrapAIEnvelope<{ topics?: Array<{ id: string }> }>(env);
+      if (ai) setLastGenAi(ai);
+      return data ?? { topics: [] };
     },
     onSuccess: (data) => {
       toast.success(`Generated ${data.topics?.length ?? 0} learning topics!`);
@@ -467,6 +477,12 @@ export default function LearningPage() {
           <Sparkles className="h-4 w-4" /> Generate Topics
         </Button>
       </div>
+
+      {lastGenAi && (
+        <div className="flex justify-end">
+          <AIProvenanceChip ai={lastGenAi} />
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">

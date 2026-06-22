@@ -27,6 +27,8 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
+import { unwrapAIEnvelope, type AIMeta } from "@/lib/ai/envelope";
+import { AIProvenanceChip } from "@/components/ai-provenance-chip";
 
 /* ── Types ── */
 
@@ -106,6 +108,7 @@ export default function VerifyEmploymentPage() {
   const [comparing, setComparing] = useState(false);
   const [importing, setImporting] = useState(false);
   const [extractedData, setExtractedData] = useState<ExtractedData | null>(null);
+  const [uploadAi, setUploadAi] = useState<AIMeta | null>(null);
   const [comparisons, setComparisons] = useState<ComparisonResult[]>([]);
   const [summary, setSummary] = useState<ComparisonSummary | null>(null);
   const [selectedImports, setSelectedImports] = useState<Set<number>>(new Set());
@@ -135,9 +138,18 @@ export default function VerifyEmploymentPage() {
         method: "POST",
         body: formData,
       });
-      const result = await res.json();
+      const envelope = await res.json();
 
-      if (!res.ok) throw new Error(result.error || "Upload failed");
+      if (!res.ok) throw new Error(envelope.error || "Upload failed");
+
+      const { data: payload, ai } = unwrapAIEnvelope<{
+        success: boolean;
+        data: ExtractedData;
+        rawTextLength: number;
+        employerCount: number;
+      }>(envelope);
+      setUploadAi(ai ?? null);
+      const result = payload ?? envelope;
 
       setExtractedData(result.data);
       setStep("preview");
@@ -336,6 +348,11 @@ export default function VerifyEmploymentPage() {
       {/* Step 2: Preview Extraction */}
       {step === "preview" && extractedData && (
         <div className="space-y-4">
+          {uploadAi && (
+            <div className="flex justify-end">
+              <AIProvenanceChip ai={uploadAi} />
+            </div>
+          )}
           {/* Report Metadata */}
           {(extractedData.reportDate || extractedData.employeeName) && (
             <Card>

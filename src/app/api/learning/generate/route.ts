@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getUserId } from "@/lib/auth-utils";
 import { ai, AIProviderError } from "@/lib/ai";
+import { toAIEnvelope } from "@/lib/ai/envelope";
+import type { AIResponse } from "@/lib/ai/types";
 
 export async function POST(req: NextRequest) {
   const userId = await getUserId();
@@ -124,12 +126,17 @@ GUIDELINES:
     }>;
   };
 
+  let aiResult: AIResponse<typeof parsed> | null = null;
+  let aiDurationMs = 0;
   try {
+    const t0 = Date.now();
     const result = await ai.generate<typeof parsed>({
       task: "extract",
       messages: [{ role: "user", content: prompt }],
       userId,
     });
+    aiDurationMs = Date.now() - t0;
+    aiResult = result;
     parsed = result.json ?? {};
     console.log(`[learning/generate] used model: ${result.model}`);
   } catch (error) {
@@ -182,7 +189,12 @@ GUIDELINES:
       created.push(topic);
     }
 
-    return NextResponse.json({ topics: created }, { status: 201 });
+    return NextResponse.json(
+      aiResult
+        ? toAIEnvelope({ topics: created }, aiResult, aiDurationMs)
+        : { topics: created },
+      { status: 201 },
+    );
   } catch (error) {
     console.error("[learning/generate] Error:", error);
     return NextResponse.json(

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserId } from "@/lib/auth-utils";
 import { ai, AIProviderError } from "@/lib/ai";
+import { toAIEnvelope } from "@/lib/ai/envelope";
 
 export async function POST(req: NextRequest) {
   const userId = await getUserId();
@@ -56,13 +57,15 @@ GUIDELINES:
 - Make questions specific to the company and role, not generic.`;
 
   try {
-    const { json, model } = await ai.generate<unknown>({
+    const t0 = Date.now();
+    const result = await ai.generate<unknown>({
       task: "extract",
       messages: [{ role: "user", content: prompt }],
       userId,
     });
-    console.log(`[interview-prep] used model: ${model}`);
-    return NextResponse.json(json);
+    const durationMs = Date.now() - t0;
+    console.log(`[interview-prep] used model: ${result.model}`);
+    return NextResponse.json(toAIEnvelope(result.json ?? {}, result, durationMs));
   } catch (error) {
     if (error instanceof AIProviderError) {
       console.error(`[interview-prep] ${error.providerId} error:`, error.message);

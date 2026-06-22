@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 import { getUserId } from "@/lib/auth-utils";
 import { ai, AIProviderError } from "@/lib/ai";
+import { toAIEnvelope } from "@/lib/ai/envelope";
+import type { AIResponse } from "@/lib/ai/types";
 
 /**
  * POST /api/employment-report/upload
@@ -115,7 +117,10 @@ export async function POST(request: Request) {
     // Route through the ADR-0044 provider router; preserves the 429-safe
     // model chain via GeminiFastProvider when Ollama is unavailable.
     let parsed: { employers?: unknown[]; reportDate?: string; employeeName?: string };
+    let aiResult: AIResponse<{ employers?: unknown[]; reportDate?: string; employeeName?: string }> | null = null;
+    let aiDurationMs = 0;
     try {
+      const t0 = Date.now();
       const result = await ai.generate<{ employers?: unknown[]; reportDate?: string; employeeName?: string }>({
         task: "extract",
         messages: [
@@ -124,6 +129,8 @@ export async function POST(request: Request) {
         ],
         userId,
       });
+      aiDurationMs = Date.now() - t0;
+      aiResult = result;
       parsed = result.json ?? {};
       console.log(`[employment-report/upload] used model: ${result.model}`);
     } catch (error) {
@@ -143,12 +150,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "AI could not identify any employer records in this PDF" }, { status: 422 });
     }
 
-    return NextResponse.json({
+    const body = {
       success: true,
       data: parsed,
       rawTextLength: rawText.length,
       employerCount: parsed.employers.length,
-    });
+    };
+    return NextResponse.json(
+      aiResult ? toAIEnvelope(body, aiResult, aiDurationMs) : body,
+    );
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
     console.error("[employment-report/upload] Error:", msg);
