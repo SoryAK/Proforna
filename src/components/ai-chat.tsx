@@ -4,7 +4,6 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -28,7 +27,10 @@ import {
   Globe,
   Brain,
   FileText,
+  Square,
 } from "lucide-react";
+import { AIProvenanceChip } from "@/components/ai-provenance-chip";
+import type { AIMeta } from "@/lib/ai/envelope";
 
 type ChatTask = "chat" | "ground" | "reason" | "summarize";
 
@@ -52,7 +54,20 @@ interface Message {
   id: string;
   role: "user" | "assistant";
   content: string;
-  provider?: string;
+  /** Per-turn provenance, populated from the SSE `meta` event. */
+  ai?: AIMeta;
+}
+
+/**
+ * One context slice returned by `/api/ai/context`. Mirrored from the
+ * server-side `AIContextSlice` so the chat panel can render removable chips
+ * and reassemble the system prompt from the user's selection (ADR-0046 Phase A).
+ */
+interface ContextSlice {
+  id: string;
+  label: string;
+  prompt: string;
+  removable: boolean;
 }
 
 interface ModelsData {
@@ -69,7 +84,9 @@ export function AIChat() {
   const [showSettings, setShowSettings] = useState(false);
   const [provider, setProvider] = useState<string>("ollama");
   const [model, setModel] = useState<string>("");
-  const [systemPrompt, setSystemPrompt] = useState<string>("");
+  const [contextSlices, setContextSlices] = useState<ContextSlice[]>([]);
+  const [suppressedSliceIds, setSuppressedSliceIds] = useState<Set<string>>(new Set());
+  const [collapsedTurns, setCollapsedTurns] = useState<Set<string>>(new Set());
   const [localUrl, setLocalUrl] = useState<string | null>(typeof window !== "undefined" ? localStorage.getItem("resumsify-ai-url") : null);
   const [task, setTask] = useState<ChatTask>("chat");
   const [sessionTokens, setSessionTokens] = useState(0);
@@ -88,14 +105,23 @@ export function AIChat() {
     enabled: open,
   });
 
-  // Fetch career context for system prompt
+  // Fetch career context slices (ADR-0046 Phase A). The legacy `systemPrompt`
+  // field is read as a fallback so the panel still works against a server
+  // that hasn't been redeployed with the slice shape yet.
   useEffect(() => {
-    if (!open || systemPrompt) return;
+    if (!open || contextSlices.length > 0) return;
     fetch("/api/ai/context")
       .then((r) => r.json())
-      .then((d) => setSystemPrompt(d.systemPrompt))
+      .then((d: { slices?: ContextSlice[]; systemPrompt?: string }) => {
+        if (Array.isArray(d.slices) && d.slices.length > 0) {
+          setContextSlices(d.slices);
+        } else if (d.systemPrompt) {
+          // Legacy shape: collapse the whole prompt into a single non-removable slice.
+          setContextSlices([{ id: "base", label: "Career context", prompt: d.systemPrompt, removable: false }]);
+        }
+      })
       .catch(() => {});
-  }, [open, systemPrompt]);
+  }, [open, contextSlices.length]);
 
   // Auto-select best model when models data loads (only once)
   const [initialized, setInitialized] = useState(false);
@@ -204,13 +230,17 @@ export function AIChat() {
     setInput("");
     setStreaming(true);
 
-    // Build messages array with system prompt
+    // Build messages array, prefixing the unsuppressed context slices as one
+    // system message. The user can drop individual slices via the chip row
+    // above the input — see `suppressedSliceIds` (ADR-0046 Phase A).
     const chatHistory: { role: "system" | "user" | "assistant"; content: string }[] = [...messages, userMsg].map((m) => ({
       role: m.role as "user" | "assistant",
       content: m.content,
     }));
 
-    if (systemPrompt) {
+    const activeSlices = contextSlices.filter((s) => !suppressedSliceIds.has(s.id));
+    if (activeSlices.length > 0) {
+      const systemPrompt = activeSlices.map((s) => s.prompt).join("\n\n");
       chatHistory.unshift({ role: "system" as const, content: systemPrompt });
     }
 
@@ -253,6 +283,7 @@ export function AIChat() {
       const decoder = new TextDecoder();
       let accumulated = "";
       let usedProvider = "";
+      let usedModel = "";
 
       while (true) {
         const { done, value } = await reader.read();
@@ -271,9 +302,21 @@ export function AIChat() {
               setMessages((prev) =>
                 prev.map((m) =>
                   m.id === assistantMsg.id
-                    ? { ...m, content: snapshot, provider: usedProvider }
+                    ? { ...m, content: snapshot }
                     : m
                 )
+              );
+            } else if (event.type === "meta") {
+              // Final provenance metadata from the server. Hydrate the
+              // assistant turn so the AIProvenanceChip renders in the header.
+              usedModel = event.model;
+              const meta: AIMeta = {
+                provider: usedProvider || "unknown",
+                model: usedModel,
+                durationMs: event.durationMs,
+              };
+              setMessages((prev) =>
+                prev.map((m) => (m.id === assistantMsg.id ? { ...m, ai: meta } : m))
               );
             }
           } catch {
@@ -301,7 +344,7 @@ export function AIChat() {
         return prev;
       });
     }
-  }, [input, streaming, messages, systemPrompt, provider, model, localUrl, task]);
+  }, [input, streaming, messages, contextSlices, suppressedSliceIds, provider, model, localUrl, task]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -317,8 +360,28 @@ export function AIChat() {
 
   const clearChat = () => {
     setMessages([]);
-    setSystemPrompt("");
+    setContextSlices([]);
+    setSuppressedSliceIds(new Set());
+    setCollapsedTurns(new Set());
     setSessionTokens(0);
+  };
+
+  const toggleSlice = (id: string) => {
+    setSuppressedSliceIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleTurnCollapsed = (id: string) => {
+    setCollapsedTurns((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   };
 
   const ollamaModels = modelsData?.models.filter((m) => m.provider === "ollama") ?? [];
@@ -563,50 +626,108 @@ export function AIChat() {
           </div>
         )}
 
-        {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={`flex gap-2.5 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-          >
-            {msg.role === "assistant" && (
-              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-orange-600 to-purple-600 mt-0.5">
-                <Bot className="h-3.5 w-3.5 text-white" />
-              </div>
-            )}
+        {messages.map((msg, idx) => {
+          const isActiveAssistant =
+            streaming && msg.role === "assistant" && idx === messages.length - 1;
+          const isCollapsed = collapsedTurns.has(msg.id);
+          return (
             <div
-              className={`max-w-[80%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
-                msg.role === "user"
-                  ? "bg-orange-600 text-white rounded-br-md"
-                  : "bg-muted rounded-bl-md"
-              }`}
+              key={msg.id}
+              className={`flex gap-2.5 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
             >
-              {msg.role === "assistant" && !msg.content && streaming ? (
-                <div className="flex items-center gap-1.5 py-1">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  <span className="text-xs text-muted-foreground">Thinking...</span>
+              {msg.role === "assistant" && (
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-orange-600 to-purple-600 mt-0.5">
+                  <Bot className="h-3.5 w-3.5 text-white" />
                 </div>
-              ) : (
-                <div className="whitespace-pre-wrap break-words">
-                  {msg.content}
-                  {msg.provider && msg.role === "assistant" && msg.content && (
-                    <span className="block mt-1.5 text-[9px] opacity-40">
-                      via {msg.provider}
-                    </span>
-                  )}
+              )}
+              <div className={`flex flex-col gap-1 max-w-[80%] ${msg.role === "user" ? "items-end" : "items-start"}`}>
+                {/* Per-turn header: provenance chip + collapse chevron (ADR-0046 Phase A) */}
+                {msg.role === "assistant" && (msg.ai || isCollapsed) && (
+                  <div className="flex items-center gap-2 px-1">
+                    <AIProvenanceChip ai={msg.ai} variant="inline" />
+                    <button
+                      type="button"
+                      onClick={() => toggleTurnCollapsed(msg.id)}
+                      className="inline-flex h-4 w-4 items-center justify-center rounded text-muted-foreground/60 hover:text-foreground hover:bg-muted transition-colors"
+                      title={isCollapsed ? "Expand turn" : "Collapse turn"}
+                      aria-label={isCollapsed ? "Expand turn" : "Collapse turn"}
+                      aria-expanded={!isCollapsed}
+                    >
+                      <ChevronDown
+                        className={`h-3 w-3 transition-transform ${isCollapsed ? "-rotate-90" : ""}`}
+                      />
+                    </button>
+                  </div>
+                )}
+                {!isCollapsed && (
+                  <div
+                    className={`rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
+                      msg.role === "user"
+                        ? "bg-orange-600 text-white rounded-br-md"
+                        : "bg-muted rounded-bl-md"
+                    } ${isActiveAssistant ? "animate-pulse" : ""}`}
+                  >
+                    {msg.role === "assistant" && !msg.content && streaming ? (
+                      <div className="flex items-center gap-1.5 py-1">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        <span className="text-xs text-muted-foreground">Thinking...</span>
+                      </div>
+                    ) : (
+                      <div className="whitespace-pre-wrap break-words">{msg.content}</div>
+                    )}
+                  </div>
+                )}
+              </div>
+              {msg.role === "user" && (
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-foreground/10 mt-0.5">
+                  <User className="h-3.5 w-3.5" />
                 </div>
               )}
             </div>
-            {msg.role === "user" && (
-              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-foreground/10 mt-0.5">
-                <User className="h-3.5 w-3.5" />
-              </div>
-            )}
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Input */}
       <div className="border-t px-3 py-2">
+        {/* Context chips (ADR-0046 Phase A) — user can suppress individual
+            slices for this thread. The base prompt is non-removable. */}
+        {contextSlices.length > 0 && (
+          <div className="mb-2 flex flex-wrap gap-1">
+            {contextSlices.map((slice) => {
+              const suppressed = suppressedSliceIds.has(slice.id);
+              const removable = slice.removable;
+              return (
+                <button
+                  key={slice.id}
+                  type="button"
+                  onClick={removable ? () => toggleSlice(slice.id) : undefined}
+                  disabled={!removable || streaming}
+                  className={`group inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] transition-colors disabled:opacity-60 disabled:cursor-default ${
+                    suppressed
+                      ? "border-dashed border-muted-foreground/30 bg-transparent text-muted-foreground/60 line-through"
+                      : removable
+                        ? "border-orange-500/40 bg-orange-500/10 text-orange-700 dark:text-orange-300 hover:bg-orange-500/20"
+                        : "border-muted-foreground/30 bg-muted text-muted-foreground"
+                  }`}
+                  title={
+                    !removable
+                      ? `${slice.label} (always on)`
+                      : suppressed
+                        ? `Re-enable ${slice.label}`
+                        : `Remove ${slice.label} from context`
+                  }
+                  aria-pressed={removable ? !suppressed : undefined}
+                >
+                  <span>{slice.label}</span>
+                  {removable && (
+                    <X className="h-2.5 w-2.5 opacity-60 group-hover:opacity-100" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
         <div className="flex items-end gap-2">
           <Textarea
             ref={inputRef}
@@ -623,9 +744,11 @@ export function AIChat() {
               size="sm"
               variant="secondary"
               onClick={stopStreaming}
-              className="h-9 w-9 shrink-0 p-0"
+              className="h-9 w-9 shrink-0 p-0 rounded-full"
+              aria-label="Stop streaming"
+              title="Stop"
             >
-              <X className="h-4 w-4" />
+              <Square className="h-3.5 w-3.5 fill-current" />
             </Button>
           ) : (
             <Button

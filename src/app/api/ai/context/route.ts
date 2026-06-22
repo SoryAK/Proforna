@@ -3,10 +3,36 @@ import { prisma } from "@/lib/prisma";
 import { getUserId } from "@/lib/auth-utils";
 
 /**
+ * One context block sent to the AI as part of its system prompt.
+ *
+ * Slices were introduced by ADR-0046 Phase A so the chat panel can show the
+ * user what context the AI is consuming and let them remove individual slices
+ * on a per-thread basis. Each removable slice maps to a chip in the chat UI;
+ * the user can click the chip's X to suppress that slice for the next send.
+ */
+export interface AIContextSlice {
+  /** Stable identifier; kept short and kebab-cased for chip rendering. */
+  id: string;
+  /** Human-readable label shown on the chip. */
+  label: string;
+  /** Markdown body for this slice (the text the AI actually sees). */
+  prompt: string;
+  /** Whether the user is allowed to drop this slice (`false` for the base prompt). */
+  removable: boolean;
+}
+
+/**
  * GET /api/ai/context
  *
- * Gathers the user's career data and returns a system prompt
- * that gives the AI full context about the user's situation.
+ * Returns the user's career context as a list of removable slices plus the
+ * concatenated `systemPrompt` (kept for back-compat with any consumer still
+ * reading the legacy shape).
+ *
+ * Response shape:
+ *   {
+ *     slices: AIContextSlice[],
+ *     systemPrompt: string,
+ *   }
  */
 export async function GET() {
   const userId = await getUserId();
@@ -46,17 +72,21 @@ export async function GET() {
     }),
   ]);
 
-  const parts: string[] = [];
+  const slices: AIContextSlice[] = [];
 
-  parts.push(
-    "You are Resumsify AI, a career assistant embedded in the user's personal career management app. " +
-    "You have access to the user's real career data shown below. Use it to give personalized, actionable advice. " +
-    "Be concise, helpful, and direct. Format responses with markdown when helpful. " +
-    "Focus on career development, job search strategy, interview prep, salary negotiation, and skill growth."
-  );
+  slices.push({
+    id: "base",
+    label: "Base prompt",
+    removable: false,
+    prompt:
+      "You are Resumsify AI, a career assistant embedded in the user's personal career management app. " +
+      "You have access to the user's real career data shown below. Use it to give personalized, actionable advice. " +
+      "Be concise, helpful, and direct. Format responses with markdown when helpful. " +
+      "Focus on career development, job search strategy, interview prep, salary negotiation, and skill growth.",
+  });
 
   if (profile) {
-    const lines = [`\n## User Profile`];
+    const lines = ["## User Profile"];
     if (profile.fullName) lines.push(`- Name: ${profile.fullName}`);
     if (profile.headline) lines.push(`- Headline: ${profile.headline}`);
     if (profile.city || profile.state) lines.push(`- Location: ${[profile.city, profile.state].filter(Boolean).join(", ")}`);
@@ -66,11 +96,11 @@ export async function GET() {
       lines.push(`- Target Salary: ${profile.currency} ${profile.targetSalaryMin?.toLocaleString() ?? "?"} – ${profile.targetSalaryMax?.toLocaleString() ?? "?"}`);
     }
     if (profile.bio) lines.push(`- Bio: ${profile.bio}`);
-    parts.push(lines.join("\n"));
+    slices.push({ id: "profile", label: "Profile", removable: true, prompt: lines.join("\n") });
   }
 
   if (position) {
-    const lines = [`\n## Current Position`];
+    const lines = ["## Current Position"];
     lines.push(`- Role: ${position.title} at ${position.company}`);
     if (position.department) lines.push(`- Department: ${position.department}`);
     if (position.location) lines.push(`- Location: ${position.location}`);
@@ -79,7 +109,7 @@ export async function GET() {
     if (position.salaryAmount) lines.push(`- Salary: ${position.salaryCurrency} ${position.salaryAmount.toLocaleString()}`);
     if (position.payType && position.payRate) lines.push(`- Pay: ${position.payType} @ $${position.payRate}/hr, ${position.payFrequency}`);
     if (position.techStack) lines.push(`- Tech Stack: ${position.techStack}`);
-    parts.push(lines.join("\n"));
+    slices.push({ id: "position", label: "Current position", removable: true, prompt: lines.join("\n") });
   }
 
   if (skills.length > 0) {
@@ -89,11 +119,11 @@ export async function GET() {
       if (!grouped[cat]) grouped[cat] = [];
       grouped[cat].push(`${s.name} (${s.proficiency})`);
     }
-    const lines = [`\n## Skills`];
+    const lines = ["## Skills"];
     for (const [cat, items] of Object.entries(grouped)) {
       lines.push(`- ${cat}: ${items.join(", ")}`);
     }
-    parts.push(lines.join("\n"));
+    slices.push({ id: "skills", label: "Skills", removable: true, prompt: lines.join("\n") });
   }
 
   if (applications.length > 0) {
@@ -101,39 +131,43 @@ export async function GET() {
     for (const a of applications) {
       byStatus[a.status] = (byStatus[a.status] ?? 0) + 1;
     }
-    const lines = [`\n## Job Search (${applications.length} recent applications)`];
+    const lines = [`## Job Search (${applications.length} recent applications)`];
     lines.push(`- Pipeline: ${Object.entries(byStatus).map(([s, c]) => `${s}: ${c}`).join(", ")}`);
     const recent = applications.slice(0, 5);
     lines.push(`- Recent: ${recent.map((a) => `${a.role} @ ${a.company} (${a.status})`).join("; ")}`);
-    parts.push(lines.join("\n"));
+    slices.push({ id: "applications", label: "Applications", removable: true, prompt: lines.join("\n") });
   }
 
   if (goals.length > 0) {
-    const lines = [`\n## Active Goals`];
+    const lines = ["## Active Goals"];
     for (const g of goals) {
       lines.push(`- ${g.title} (${g.priority} priority, ${g.status})${g.targetDate ? ` — due ${g.targetDate.toISOString().split("T")[0]}` : ""}`);
     }
-    parts.push(lines.join("\n"));
+    slices.push({ id: "goals", label: "Goals", removable: true, prompt: lines.join("\n") });
   }
 
   if (certifications.length > 0) {
-    const lines = [`\n## Certifications`];
+    const lines = ["## Certifications"];
     for (const c of certifications) {
       const expiry = c.expiryDate ? ` (expires ${c.expiryDate.toISOString().split("T")[0]})` : "";
       lines.push(`- ${c.name} — ${c.issuer}${expiry}`);
     }
-    parts.push(lines.join("\n"));
+    slices.push({ id: "certifications", label: "Certifications", removable: true, prompt: lines.join("\n") });
   }
 
   if (interviews.length > 0) {
-    const lines = [`\n## Upcoming Interviews`];
+    const lines = ["## Upcoming Interviews"];
     for (const i of interviews) {
       lines.push(`- ${i.type} for ${i.jobApplication.role} @ ${i.jobApplication.company} on ${i.scheduledAt.toISOString().split("T")[0]}`);
     }
-    parts.push(lines.join("\n"));
+    slices.push({ id: "interviews", label: "Upcoming interviews", removable: true, prompt: lines.join("\n") });
   }
 
-  const systemPrompt = parts.join("\n");
+  // Legacy `systemPrompt` field is the concatenation of every slice's prompt.
+  // Kept for back-compat with the previous monolithic shape; new consumers
+  // should build the prompt themselves from unsuppressed slices on the client.
+  const systemPrompt = slices.map((s) => s.prompt).join("\n\n");
 
-  return NextResponse.json({ systemPrompt });
+  return NextResponse.json({ slices, systemPrompt });
 }
+

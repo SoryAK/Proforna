@@ -44,6 +44,8 @@ export async function POST(request: Request) {
 
   let stream: ReadableStream<string>;
   let usedProvider: string;
+  let usedModel: string;
+  const startMs = Date.now();
 
   if (customUrl) {
     // Power-user override: pin to a specific Ollama instance.
@@ -58,6 +60,7 @@ export async function POST(request: Request) {
     const model = preferredModel ?? config.ollamaModel;
     stream = ollamaChat(customUrl, model, messages);
     usedProvider = "ollama";
+    usedModel = model;
   } else {
     try {
       const providerOverride: ProviderId | undefined =
@@ -77,6 +80,7 @@ export async function POST(request: Request) {
       }
       stream = result.stream;
       usedProvider = result.provider;
+      usedModel = result.model;
     } catch (error) {
       if (error instanceof AIProviderError) {
         return new Response(
@@ -109,6 +113,16 @@ export async function POST(request: Request) {
             encoder.encode(`data: ${JSON.stringify({ type: "text", text: value })}\n\n`)
           );
         }
+        // Emit provenance metadata at end of stream so the chat panel can
+        // render a per-turn AIProvenanceChip (ADR-0046 Phase A). Usage is
+        // not captured here because the streaming providers don't surface
+        // token counts to the route layer; the chip falls back to
+        // `provider:model · {duration}` when usage is absent.
+        controller.enqueue(
+          encoder.encode(
+            `data: ${JSON.stringify({ type: "meta", model: usedModel, durationMs: Date.now() - startMs })}\n\n`
+          )
+        );
         controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "done" })}\n\n`));
       } catch (err) {
         controller.enqueue(
