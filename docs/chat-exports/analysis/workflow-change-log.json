@@ -180,6 +180,15 @@
         "evidenceSource": "This session (commit 759e389 — slice scaffold script auto-fills Layer 1 only; ADR-0038); docs/c-yard/effectiveness-review.md (hypotheses 3 + 4 frozen as testable claims).",
         "triggerSession": "77e25d9d-ca47-4795-b5f4-d8921afd0593",
         "replacedPractice": "implicit 'automate it all' / 'curate it all' false binary"
+      },
+      {
+        "id": "live-smoke-pre-commit",
+        "adoptedAt": "2026-06-21T21:15:00Z",
+        "name": "Live-smoke-before-commit verification pattern",
+        "description": "When committing a refactor that crosses a real boundary (external API, third-party service, network protocol), augment hermetic mocked tests with an env-gated live smoke suite that exercises the actual provider. Acceptance is loose — happy-path success OR known acceptable error codes (503/429) both count as green — so the suite stays useful even when quota is exhausted. Pattern proven on ADR-0044 Day 5: live smoke against Gemini caught decommissioned gemini-1.5 fallback models (returned 404 NOT_FOUND) that no hermetic mock would have surfaced, AND let the chain be remediated in the same sprint window before the ADR was promoted to Accepted. Default for any future PR that touches an external integration boundary.",
+        "evidenceSource": "src/lib/ai/smoke.live.test.ts + scripts/smoke-ai-live.ps1; commit 1472f75; ADR-0044 Acceptance subsection (commit 18c0fbb)",
+        "triggerSession": "77e25d9d-ca47-4795-b5f4-d8921afd0593",
+        "replacedPractice": "hermetic-only test coverage on external-API boundaries"
       }
     ],
     "infraToolingChanges": [
