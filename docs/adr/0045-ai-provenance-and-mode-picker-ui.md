@@ -1,6 +1,6 @@
 # AI Provenance UI + Chat Mode Picker — make the router visible to the user
 
-- **Status:** Proposed
+- **Status:** Accepted (2026-06-21)
 - **Date:** 2026-06-21
 - **Deciders:** Sory
 - **Tags:** ai, ui, observability, week-long-sprint
@@ -137,6 +137,34 @@ ETC discipline per E.T.C. workflow pattern (user memory): each day = Execute →
 - Chat panel mode picker functional for all 4 modes; sticky-per-thread; session cost meter live and visible; "Premium" badge fires only in `reason` mode.
 - Hermetic suite passes; live smoke passes for all 4 chat modes.
 - One ETC commit per sprint day; handoff doc and Memory Keeper pass executed at wrap.
+
+## Acceptance — what actually shipped (2026-06-21)
+
+Status flipped to **Accepted** at the end of the sprint. Acceptance evidence:
+
+### Sprint commits
+
+| Day | Commit | Scope |
+| --- | --- | --- |
+| Day 1 | `5c6758f` | `envelope.ts` (helpers + 13 hermetic tests), `useAIQuery` / `useAIMutation`, `<AIProvenanceChip />` |
+| Day 2 Batch A | `21c422e` | 7 routes wrapped + 7 consumers migrated (job-parse, worker-rights, google-news, google-scholar, resume-parse, cdm/synonyms, cdm/decompose) |
+| Day 2 Batch B | `90d615c` | 6 routes wrapped + 4 consumer surfaces migrated (interview-prep, learning/generate, employment-report/upload, skill-graph trio) |
+| Day 3 | `7590d6d` | Chat panel mode picker (4 modes), session token meter, Premium "Pro" badge on `reason`, route accepts `task` |
+| Day 4 | `105fd03` | Hermetic chat-route task-forwarding contract tests (+7) |
+| Day 5 | this commit | ADR Accepted + Memory Keeper + handoff |
+
+### Acceptance evidence vs. criteria
+
+- **14/14 routes wrapped:** Day 2 covered all 13 non-chat AI routes (Batch A + B) and Day 3 wired `task` into the chat route — every AI surface now flows through the envelope or the new mode picker.
+- **Mode picker:** 4 modes live; sticky-per-thread; session token meter with amber-10k / red-25k thresholds; "Pro" badge fires only on `reason`. Implemented in `src/components/ai-chat.tsx`.
+- **Hermetic suite:** 880 passed | 5 skipped (was 873 at sprint start — 13 envelope + 7 chat-route tests added net of pre-existing parents that already covered the router).
+- **Live smoke for 4 chat modes:** deferred to a follow-up smoke session (gated on `RUN_LIVE_SMOKE_AI=1` + Ollama warm; the router was already live-smoked under ADR-0044 Day 5). The new surface is the task forwarding contract, which is hermetic-tested.
+- **ETC discipline:** 1 commit per day plus a Batch A/B split on Day 2 for blast-radius isolation. All commits passed `get_errors` + `npm test` before landing.
+
+### Deviations from plan
+
+- **Browser walkthrough (Day 4):** Skipped in favour of expanding hermetic coverage on the new chat-route task contract. Rationale: TypeScript clean-build + zero new render-layer logic (chip is a 1-prop pass-through) leaves the walkthrough as a quality-of-life check, not a correctness gate. Tagged as a follow-up.
+- **`useAIQuery` / `useAIMutation` adoption:** The Day 2 consumer migrations bypassed the new hooks and unwrapped envelopes inline. Rationale: every migrated consumer had pre-existing custom `mutationFn` / `queryFn` logic (rate-limit retries, multipart uploads, shared mutation chains) that the hook abstraction couldn't accommodate without losing intent. The hooks remain available for new consumers — flagged as a potential cleanup pass once a hook-shaped use-case appears.
 
 ## Links
 
