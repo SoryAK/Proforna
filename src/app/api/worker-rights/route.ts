@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserId } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
-import { callGemini, geminiErrorMessage } from "@/lib/gemini";
+import { ai, AIProviderError } from "@/lib/ai";
 
 export async function POST(req: NextRequest) {
   const userId = await getUserId();
@@ -83,35 +83,29 @@ GUIDELINES:
 - When relevant, mention that many agencies accept anonymous complaints.${userState ? `\n- Include ${userState}-specific laws and agencies when applicable.` : ""}`;
 
   try {
-    const { res: response, model } = await callGemini({
-      contents: [
-        { role: "user", parts: [{ text: `${systemPrompt}\n\nWORKER'S QUESTION: ${question}` }] },
+    const { json, model } = await ai.generate<Record<string, unknown>>({
+      task: "extract",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: `WORKER'S QUESTION: ${question}` },
       ],
-      generationConfig: {
-        responseMimeType: "application/json",
-      },
+      userId,
     });
-
-    if (!response.ok) {
-      const { message, retryAfter } = await geminiErrorMessage(response);
-      console.error(`[worker-rights] ${model} error:`, message);
-      return NextResponse.json(
-        { error: message, retryAfter },
-        { status: response.status }
-      );
-    }
-
-    const data = await response.json();
-    const textContent =
-      data.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
-    const parsed = JSON.parse(textContent);
+    console.log(`[worker-rights] used model: ${model}`);
 
     return NextResponse.json({
-      ...parsed,
+      ...json,
       disclaimer:
         "This information is for educational purposes only and does not constitute legal advice. Consult a licensed attorney for advice specific to your situation.",
     });
   } catch (error) {
+    if (error instanceof AIProviderError) {
+      console.error(`[worker-rights] ${error.providerId} error:`, error.message);
+      return NextResponse.json(
+        { error: error.message, retryAfter: error.retryAfter },
+        { status: error.status ?? 500 }
+      );
+    }
     console.error("[worker-rights] Error:", error);
     return NextResponse.json(
       { error: "Internal server error" },

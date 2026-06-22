@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { logActivity } from "@/lib/activity";
 import { NextResponse } from "next/server";
 import { getUserId } from "@/lib/auth-utils";
-import { callGemini, geminiErrorMessage } from "@/lib/gemini";
+import { ai, AIProviderError } from "@/lib/ai";
 
 /**
  * POST /api/skill-graph/auto-evidence
@@ -133,23 +133,6 @@ Respond ONLY with valid JSON:
   ]
 }`;
 
-  const { res: geminiRes, model } = await callGemini({
-    contents: [{ parts: [{ text: prompt }] }],
-    generationConfig: {
-      temperature: 0.1,
-      responseMimeType: "application/json",
-    },
-  });
-
-  if (!geminiRes.ok) {
-    const { message } = await geminiErrorMessage(geminiRes);
-    console.error(`[auto-evidence] ${model} error:`, message);
-    return NextResponse.json({ error: message }, { status: geminiRes.status });
-  }
-
-  const geminiData = await geminiRes.json();
-  const rawText = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-
   let result: {
     matches: {
       skillName: string;
@@ -161,10 +144,23 @@ Respond ONLY with valid JSON:
   };
 
   try {
-    result = JSON.parse(rawText);
-  } catch {
-    console.error("[auto-evidence] Failed to parse Gemini JSON:", rawText.slice(0, 500));
-    return NextResponse.json({ error: "AI returned invalid JSON" }, { status: 502 });
+    const { json, model } = await ai.generate<typeof result>({
+      task: "extract",
+      messages: [{ role: "user", content: prompt }],
+      userId,
+    });
+    result = json ?? { matches: [] };
+    console.log(`[auto-evidence] used model: ${model}`);
+  } catch (error) {
+    if (error instanceof AIProviderError) {
+      console.error(`[auto-evidence] ${error.providerId} error:`, error.message);
+      return NextResponse.json(
+        { error: error.message, retryAfter: error.retryAfter },
+        { status: error.status ?? 500 },
+      );
+    }
+    console.error("[auto-evidence] Error:", error);
+    return NextResponse.json({ error: "AI extraction failed" }, { status: 500 });
   }
 
   if (!result.matches || !Array.isArray(result.matches)) {

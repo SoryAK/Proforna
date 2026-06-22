@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserId } from "@/lib/auth-utils";
-import { callGemini, geminiErrorMessage } from "@/lib/gemini";
+import { ai, AIProviderError } from "@/lib/ai";
 
 export async function GET(req: NextRequest) {
   const userId = await getUserId();
@@ -47,34 +47,26 @@ Return the data STRICTLY in the following JSON schema, filling in real data from
 Include up to 10 relevant scholarly results.`;
 
   try {
-    const { res: response, model } = await callGemini({
-      contents: [
-        { role: "user", parts: [{ text: prompt }] }
-      ],
-      generationConfig: {
-        responseMimeType: "application/json",
-      }
+    const { json, model } = await ai.generate<{ results?: unknown[] }>({
+      task: "ground",
+      messages: [{ role: "user", content: prompt }],
+      userId,
     });
-
-    if (!response.ok) {
-      const { message, retryAfter } = await geminiErrorMessage(response);
-      console.error(`[google-scholar] ${model} error:`, message);
-      return NextResponse.json(
-        { error: message, retryAfter },
-        { status: response.status }
-      );
-    }
-
-    const data = await response.json();
-    const textContent = data.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
-    const parsed = JSON.parse(textContent);
+    console.log(`[google-scholar] used model: ${model}`);
 
     return NextResponse.json({
-      results: parsed.results || [],
-      searchInfo: { "source": "Gemini Search Grounding (Academic)" },
-      hasMore: false, // Since this is a generated list, we might not have reliable pagination
+      results: json.results || [],
+      searchInfo: { source: "Gemini Search Grounding (Academic)" },
+      hasMore: false,
     });
   } catch (error) {
+    if (error instanceof AIProviderError) {
+      console.error(`[google-scholar] ${error.providerId} error:`, error.message);
+      return NextResponse.json(
+        { error: error.message, retryAfter: error.retryAfter },
+        { status: error.status ?? 500 }
+      );
+    }
     console.error("Error fetching scholar via Gemini:", error);
     return NextResponse.json(
       { error: "Internal server error" },

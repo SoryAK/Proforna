@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getUserId } from "@/lib/auth-utils";
-import { getAIConfig, ollamaIsAvailable } from "@/lib/ai";
+import { ai, AIProviderError } from "@/lib/ai";
 
 export async function POST(request: Request) {
   const userId = await getUserId();
@@ -32,70 +32,26 @@ Return this exact JSON structure:
 }
 Leave fields as empty strings "" if entirely not found in the text.`;
 
-    const config = getAIConfig();
-    let isOllamaUp = false;
-
-    if (config.provider === "ollama") {
-      isOllamaUp = await ollamaIsAvailable(config.ollamaUrl);
-    }
-
-    const useGemini = config.provider === "gemini" || (!isOllamaUp && config.geminiApiKey);
-
-    if (useGemini && config.geminiApiKey) {
-      // Use Gemini non-streaming
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${config.geminiModel}:generateContent?key=${config.geminiApiKey}`;
-      
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: systemPrompt }] },
-          contents: [{ role: "user", parts: [{ text }] }],
-          generationConfig: { responseSchema: { type: "OBJECT" }, responseMimeType: "application/json" } // Force JSON
-        }),
+    try {
+      const { json, model } = await ai.generate<Record<string, unknown>>({
+        task: "extract",
+        userId,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: text },
+        ],
       });
-
-      if (!res.ok) throw new Error("Gemini API error: " + await res.text());
-      const data = await res.json();
-      const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      
-      if (!content) throw new Error("No response from Gemini");
-      
-      try {
-        const json = JSON.parse(content);
-        return NextResponse.json(json);
-      } catch (e) {
-        // Fallback cleanup if model still returns markdown
-        const cleaned = content.replace(/```json/g, "").replace(/```/g, "").trim();
-        return NextResponse.json(JSON.parse(cleaned));
-      }
-
-    } else if (isOllamaUp) {
-      // Use Ollama non-streaming
-      const res = await fetch(`${config.ollamaUrl}/api/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: config.ollamaModel,
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: text }
-          ],
-          stream: false,
-          format: "json"
-        }),
-      });
-
-      if (!res.ok) throw new Error("Ollama API error: " + await res.text());
-      const data = await res.json();
-      const content = data.message?.content;
-      
-      if (!content) throw new Error("No response from Ollama");
-      const json = JSON.parse(content);
+      console.log(`[job-parse] used model: ${model}`);
       return NextResponse.json(json);
-
-    } else {
-      return NextResponse.json({ error: "No AI provider available (Ollama is down and Gemini is not configured)." }, { status: 503 });
+    } catch (error) {
+      if (error instanceof AIProviderError) {
+        console.error(`[job-parse] ${error.providerId} error:`, error.message);
+        return NextResponse.json(
+          { error: error.message, retryAfter: error.retryAfter },
+          { status: error.status ?? 500 },
+        );
+      }
+      throw error;
     }
 
   } catch (error) {

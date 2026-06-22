@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getUserId } from "@/lib/auth-utils";
-import { callGemini, geminiErrorMessage } from "@/lib/gemini";
+import { ai, AIProviderError } from "@/lib/ai";
 
 export async function POST(req: NextRequest) {
   const userId = await getUserId();
@@ -109,39 +109,45 @@ GUIDELINES:
 - Explanations should be educational and reinforce the learning
 - Make content clear and accessible`;
 
-  try {
-    const { res: response, model } = await callGemini({
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: { responseMimeType: "application/json" },
-    });
+  let parsed: {
+    topics?: Array<{
+      title: string;
+      summary: string;
+      content: string;
+      questions: Array<{
+        question: string;
+        type: string;
+        options: string[];
+        answer: string;
+        explanation?: string;
+      }>;
+    }>;
+  };
 
-    if (!response.ok) {
-      const { message, retryAfter } = await geminiErrorMessage(response);
-      console.error(`[learning/generate] ${model} error:`, message);
+  try {
+    const result = await ai.generate<typeof parsed>({
+      task: "extract",
+      messages: [{ role: "user", content: prompt }],
+      userId,
+    });
+    parsed = result.json ?? {};
+    console.log(`[learning/generate] used model: ${result.model}`);
+  } catch (error) {
+    if (error instanceof AIProviderError) {
+      console.error(`[learning/generate] ${error.providerId} error:`, error.message);
       return NextResponse.json(
-        { error: message, retryAfter },
-        { status: response.status },
+        { error: error.message, retryAfter: error.retryAfter },
+        { status: error.status ?? 500 },
       );
     }
+    console.error("[learning/generate] Error:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
+  }
 
-    const data = await response.json();
-    const textContent =
-      data.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
-    const parsed = JSON.parse(textContent) as {
-      topics?: Array<{
-        title: string;
-        summary: string;
-        content: string;
-        questions: Array<{
-          question: string;
-          type: string;
-          options: string[];
-          answer: string;
-          explanation?: string;
-        }>;
-      }>;
-    };
-
+  try {
     if (!parsed.topics?.length) {
       return NextResponse.json(
         { error: "AI could not generate topics from this content" },

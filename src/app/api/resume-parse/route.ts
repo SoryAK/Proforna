@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 import { getUserId } from "@/lib/auth-utils";
-import { getAIConfig, ollamaIsAvailable } from "@/lib/ai";
+import { ai, AIProviderError } from "@/lib/ai";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -124,68 +124,32 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Could not extract sufficient text from the PDF." }, { status: 422 });
     }
 
-    const config = getAIConfig();
-    let isUp = false;
-
-    if (config.provider === "ollama") {
-      isUp = await ollamaIsAvailable(config.ollamaUrl);
-    }
-
-    const useGemini = config.provider === "gemini" || (!isUp && config.geminiApiKey);
-
-    let rawResponse = "";
-
-    if (useGemini && config.geminiApiKey) {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${config.geminiModel}:generateContent?key=${config.geminiApiKey}`;
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: systemInstruction }] },
-          contents: [{ role: "user", parts: [{ text: rawText }] }],
-          generationConfig: { temperature: 0, responseSchema: { type: "OBJECT" }, responseMimeType: "application/json" }
-        }),
-      });
-
-      if (!res.ok) throw new Error("Gemini API error: " + await res.text());
-      const data = await res.json();
-      rawResponse = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    } else if (isUp) {
-      const res = await fetch(`${config.ollamaUrl}/api/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: config.ollamaModel,
-          messages: [
-            { role: "system", content: systemInstruction },
-            { role: "user", content: rawText }
-          ],
-          stream: false,
-          format: "json",
-          options: { temperature: 0 }
-        }),
-      });
-
-      if (!res.ok) throw new Error("Ollama API error: " + await res.text());
-      const data = await res.json();
-      rawResponse = data.message?.content;
-    } else {
-      return NextResponse.json({ error: "No AI provider available (Ollama is down and Gemini is not configured)." }, { status: 503 });
-    }
-
-    if (!rawResponse) {
-       return NextResponse.json({ error: "AI failed to return data." }, { status: 500 });
-    }
-    
-    // Parse the JSON
     let parsedData;
     try {
-      // Remove any potential markdown wrappers
-      const cleanJson = rawResponse.replace(/```json/gi, "").replace(/```/g, "").trim();
-      parsedData = JSON.parse(cleanJson);
-    } catch (e) {
-      console.error("Failed to parse AI output:", rawResponse);
-      return NextResponse.json({ error: "AI failed to return valid data.", raw: rawResponse }, { status: 500 });
+      const { json, model } = await ai.generate<Record<string, unknown>>({
+        task: "extract",
+        userId,
+        messages: [
+          { role: "system", content: systemInstruction },
+          { role: "user", content: rawText },
+        ],
+      });
+      parsedData = json;
+      console.log(`[resume-parse] used model: ${model}`);
+    } catch (error) {
+      if (error instanceof AIProviderError) {
+        console.error(`[resume-parse] ${error.providerId} error:`, error.message);
+        return NextResponse.json(
+          { error: error.message, retryAfter: error.retryAfter },
+          { status: error.status ?? 500 },
+        );
+      }
+      console.error("[resume-parse] AI error:", error);
+      return NextResponse.json({ error: "AI failed to return valid data." }, { status: 500 });
+    }
+
+    if (!parsedData) {
+      return NextResponse.json({ error: "AI failed to return data." }, { status: 500 });
     }
 
     // Just return the parsed data to the frontend for preview

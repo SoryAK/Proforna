@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getUserId } from "@/lib/auth-utils";
-import { aiGenerateJSON } from "@/lib/ai";
+import { ai, AIProviderError } from "@/lib/ai";
 import socCodesData from "@/data/soc-codes.json";
 
 const socCodes = socCodesData as { code: string; title: string; group: string }[];
@@ -81,10 +81,15 @@ export async function POST(req: NextRequest) {
     .join("\n");
 
   // Generate decomposition via LLM
-  const decomposition = await aiGenerateJSON<LLMDecomposition>([
-    {
-      role: "system",
-      content: `You are a career intelligence expert. Decompose a target job role into its constituent skill domains and map all viable career positions at each domain combination level.
+  let decomposition: LLMDecomposition | null = null;
+  try {
+    const ai_res = await ai.generate<LLMDecomposition>({
+      task: "extract",
+      userId,
+      messages: [
+        {
+          role: "system",
+          content: `You are a career intelligence expert. Decompose a target job role into its constituent skill domains and map all viable career positions at each domain combination level.
 
 RULES:
 - Identify 2-4 primary skill domains that define the target role
@@ -105,12 +110,26 @@ Respond with ONLY valid JSON matching this structure:
     { "domains": ["Domain Name"], "roles": ["Job Title 1"], "socCodes": ["XX-XXXX"], "level": "entry", "salaryMin": 40000, "salaryMax": 60000 }
   ]
 }`,
-    },
-    {
-      role: "user",
-      content: `Decompose the role: "${role}"`,
-    },
-  ]);
+        },
+        {
+          role: "user",
+          content: `Decompose the role: "${role}"`,
+        },
+      ],
+    });
+    decomposition = ai_res.json ?? null;
+    console.log(`[cdm/decompose] used model: ${ai_res.model}`);
+  } catch (error) {
+    if (error instanceof AIProviderError) {
+      console.error(`[cdm/decompose] ${error.providerId} error:`, error.message);
+      return NextResponse.json(
+        { error: error.message, retryAfter: error.retryAfter },
+        { status: error.status ?? 500 },
+      );
+    }
+    console.error("[cdm/decompose] Error:", error);
+    return NextResponse.json({ error: "AI decomposition failed" }, { status: 500 });
+  }
 
   // Validate the LLM response has required shape
   if (

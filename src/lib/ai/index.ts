@@ -6,10 +6,9 @@
 //     import { ai } from "@/lib/ai";
 //     const { json } = await ai.generate<MyShape>({ task: "extract", messages });
 //
-// Legacy helpers (`ollamaChat`, `geminiChat`, `aiGenerateJSON`, …) are
-// re-exported here for backwards compatibility while the 15 existing
-// call sites migrate. They will be removed at the end of Day 5 of the
-// ADR-0044 migration sprint (week of 2026-06-21).
+// Day 3 migration is complete — all route callers consume the `ai` façade.
+// The raw helpers exported below remain available for the rare power-user
+// path (e.g. `/api/ai/chat` `body.localUrl`, `/api/ai/models` probes).
 //
 
 /* ── New façade (ADR-0044) ── */
@@ -30,14 +29,16 @@ export type { RoutingTable } from "./router";
 export { OllamaProvider } from "./providers/ollama";
 export { GeminiFastProvider } from "./providers/gemini-fast";
 export { getProviders, registerProvider } from "./providers/registry";
+export { AIProviderError } from "./errors";
 
 /* ── Config (still current API) ── */
 
 export { getAIConfig } from "./config";
 export type { AIConfig } from "./config";
 
-/* ── Legacy helpers — @deprecated, scheduled for removal at end of Day 5 ── */
+/* ── Raw helpers — still exported for the rare power-user override
+   (e.g. /api/ai/chat `body.localUrl` and /api/ai/models probes).
+   New code should reach for `ai.generate()` instead. ── */
 
 export { ollamaIsAvailable, ollamaModels, ollamaChat } from "./providers/ollama";
 export { geminiChat } from "./providers/gemini-fast";
-export { aiGenerateJSON } from "./legacy";

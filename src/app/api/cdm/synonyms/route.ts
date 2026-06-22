@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getUserId } from "@/lib/auth-utils";
-import { aiGenerateJSON } from "@/lib/ai";
+import { ai, AIProviderError } from "@/lib/ai";
 import socCodesData from "@/data/soc-codes.json";
 
 const socCodes = socCodesData as { code: string; title: string; group: string }[];
@@ -60,10 +60,15 @@ export async function POST(req: NextRequest) {
         .map((s) => s.title)
     : [];
 
-  const result = await aiGenerateJSON<LLMSynonymResult>([
-    {
-      role: "system",
-      content: `You are a job title intelligence expert. Given a job title, identify all common synonymous titles — roles that require substantially the same skills and day-to-day work, even if the words are completely different.
+  let result: LLMSynonymResult | null = null;
+  try {
+    const ai_res = await ai.generate<LLMSynonymResult>({
+      task: "extract",
+      userId,
+      messages: [
+        {
+          role: "system",
+          content: `You are a job title intelligence expert. Given a job title, identify all common synonymous titles — roles that require substantially the same skills and day-to-day work, even if the words are completely different.
 
 This is SEMANTIC role matching, not fuzzy string matching.
 
@@ -85,12 +90,26 @@ Respond with ONLY valid JSON:
   "socCodes": ["XX-XXXX"],
   "skillOverlap": 85
 }`,
-    },
-    {
-      role: "user",
-      content: `Find all synonymous job titles for: "${role}"`,
-    },
-  ]);
+        },
+        {
+          role: "user",
+          content: `Find all synonymous job titles for: "${role}"`,
+        },
+      ],
+    });
+    result = ai_res.json ?? null;
+    console.log(`[cdm/synonyms] used model: ${ai_res.model}`);
+  } catch (error) {
+    if (error instanceof AIProviderError) {
+      console.error(`[cdm/synonyms] ${error.providerId} error:`, error.message);
+      return NextResponse.json(
+        { error: error.message, retryAfter: error.retryAfter },
+        { status: error.status ?? 500 },
+      );
+    }
+    console.error("[cdm/synonyms] Error:", error);
+    return NextResponse.json({ error: "AI synonym generation failed" }, { status: 500 });
+  }
 
   if (!result?.canonicalTitle || !result?.synonyms?.length) {
     return NextResponse.json(

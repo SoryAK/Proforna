@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserId } from "@/lib/auth-utils";
-import { callGemini, geminiErrorMessage } from "@/lib/gemini";
+import { ai, AIProviderError } from "@/lib/ai";
 
 export async function POST(req: NextRequest) {
   const userId = await getUserId();
@@ -56,27 +56,21 @@ GUIDELINES:
 - Make questions specific to the company and role, not generic.`;
 
   try {
-    const { res: response, model } = await callGemini({
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: { responseMimeType: "application/json" },
+    const { json, model } = await ai.generate<unknown>({
+      task: "extract",
+      messages: [{ role: "user", content: prompt }],
+      userId,
     });
-
-    if (!response.ok) {
-      const { message, retryAfter } = await geminiErrorMessage(response);
-      console.error(`[interview-prep] ${model} error:`, message);
+    console.log(`[interview-prep] used model: ${model}`);
+    return NextResponse.json(json);
+  } catch (error) {
+    if (error instanceof AIProviderError) {
+      console.error(`[interview-prep] ${error.providerId} error:`, error.message);
       return NextResponse.json(
-        { error: message, retryAfter },
-        { status: response.status }
+        { error: error.message, retryAfter: error.retryAfter },
+        { status: error.status ?? 500 }
       );
     }
-
-    const data = await response.json();
-    const textContent =
-      data.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
-    const parsed = JSON.parse(textContent);
-
-    return NextResponse.json(parsed);
-  } catch (error) {
     console.error("[interview-prep] Error:", error);
     return NextResponse.json(
       { error: "Internal server error" },

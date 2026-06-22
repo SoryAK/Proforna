@@ -1,20 +1,25 @@
 import { NextResponse } from "next/server";
 import {
+  ai,
+  AIProviderError,
   getAIConfig,
   ollamaIsAvailable,
   ollamaChat,
-  geminiChat,
   type ChatMessage,
+  type ProviderId,
 } from "@/lib/ai";
 import { getUserId } from "@/lib/auth-utils";
 
 /**
  * POST /api/ai/chat
  *
- * Accepts { messages: ChatMessage[], provider?: "ollama" | "gemini", model?: string }
+ * Accepts { messages: ChatMessage[], provider?: "ollama" | "gemini", model?: string, localUrl?: string }
  * and streams back the assistant's response as text/event-stream.
  *
- * Falls back from Ollama → Gemini automatically if Ollama is unavailable.
+ * Routing:
+ *   - `localUrl`            → raw OllamaProvider against the custom URL (power-user override).
+ *   - `provider: "gemini"`  → router with `providerOverride: "gemini-fast"`.
+ *   - default               → router default chain for `chat` (Ollama → gemini-fast).
  */
 export async function POST(request: Request) {
   const userId = await getUserId();
@@ -30,46 +35,53 @@ export async function POST(request: Request) {
     return new Response("messages array is required", { status: 400 });
   }
 
-  const config = getAIConfig();
-  const targetUrl = customUrl || config.ollamaUrl;
-
   let stream: ReadableStream<string>;
   let usedProvider: string;
 
-  // Determine which provider to use
-  const wantOllama = !preferredProvider || preferredProvider === "ollama";
-
-  if (wantOllama) {
-    const available = await ollamaIsAvailable(targetUrl);
-    if (available) {
-      const model = preferredModel ?? config.ollamaModel;
-      stream = ollamaChat(targetUrl, model, messages);
-      usedProvider = "ollama";
-    } else if (config.geminiApiKey) {
-      // Fallback to Gemini
-      const model = preferredModel ?? config.geminiModel;
-      stream = geminiChat(config.geminiApiKey, model, messages);
-      usedProvider = "gemini";
-    } else {
+  if (customUrl) {
+    // Power-user override: pin to a specific Ollama instance.
+    const config = getAIConfig();
+    const available = await ollamaIsAvailable(customUrl);
+    if (!available) {
       return new Response(
-        JSON.stringify({
-          error: "Ollama is not running and no Gemini API key is configured. " +
-            "Start Ollama with `ollama serve` or set GEMINI_API_KEY in your .env file.",
-        }),
+        JSON.stringify({ error: `Ollama is not reachable at ${customUrl}` }),
         { status: 503, headers: { "Content-Type": "application/json" } }
       );
     }
+    const model = preferredModel ?? config.ollamaModel;
+    stream = ollamaChat(customUrl, model, messages);
+    usedProvider = "ollama";
   } else {
-    // Explicitly requested Gemini
-    if (!config.geminiApiKey) {
-      return new Response(
-        JSON.stringify({ error: "GEMINI_API_KEY is not configured in .env" }),
-        { status: 503, headers: { "Content-Type": "application/json" } }
-      );
+    try {
+      const providerOverride: ProviderId | undefined =
+        preferredProvider === "gemini" ? "gemini-fast" : undefined;
+      const result = await ai.generate({
+        task: "chat",
+        messages,
+        modelOverride: preferredModel,
+        providerOverride,
+        userId,
+      });
+      if (!result.stream) {
+        return new Response(
+          JSON.stringify({ error: "Router returned no stream for chat task" }),
+          { status: 500, headers: { "Content-Type": "application/json" } }
+        );
+      }
+      stream = result.stream;
+      usedProvider = result.provider;
+    } catch (error) {
+      if (error instanceof AIProviderError) {
+        return new Response(
+          JSON.stringify({ error: error.message, retryAfter: error.retryAfter }),
+          {
+            status: error.status ?? 503,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      }
+      throw error;
     }
-    const model = preferredModel ?? config.geminiModel;
-    stream = geminiChat(config.geminiApiKey, model, messages);
-    usedProvider = "gemini";
   }
 
   // Convert string stream to SSE

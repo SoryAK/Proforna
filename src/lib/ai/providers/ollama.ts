@@ -1,4 +1,5 @@
 import { getAIConfig } from "../config";
+import { AIProviderError } from "../errors";
 import type { AIProvider, AIRequest, AIResponse, AITaskClass, ChatMessage } from "../types";
 
 const SUPPORTED: ReadonlySet<AITaskClass> = new Set(["chat", "extract", "summarize"]);
@@ -88,7 +89,11 @@ export class OllamaProvider implements AIProvider {
     const url = cfg.ollamaUrl;
 
     if (!(await ollamaIsAvailable(url))) {
-      throw new Error(`Ollama is not available at ${url}`);
+      throw new AIProviderError({
+        message: `Ollama is not available at ${url}`,
+        status: 503,
+        providerId: this.id,
+      });
     }
 
     switch (req.task) {
@@ -106,7 +111,11 @@ export class OllamaProvider implements AIProvider {
           body: JSON.stringify({ model, messages: req.messages, stream: false, format: "json" }),
         });
         if (!res.ok) {
-          throw new Error(`Ollama extract failed: ${await res.text().catch(() => res.statusText)}`);
+          throw new AIProviderError({
+            message: `Ollama extract failed: ${await res.text().catch(() => res.statusText)}`,
+            status: res.status,
+            providerId: this.id,
+          });
         }
         const data = await res.json();
         const text = data.message?.content ?? "{}";
@@ -120,14 +129,22 @@ export class OllamaProvider implements AIProvider {
           body: JSON.stringify({ model, messages: req.messages, stream: false }),
         });
         if (!res.ok) {
-          throw new Error(`Ollama summarize failed: ${await res.text().catch(() => res.statusText)}`);
+          throw new AIProviderError({
+            message: `Ollama summarize failed: ${await res.text().catch(() => res.statusText)}`,
+            status: res.status,
+            providerId: this.id,
+          });
         }
         const data = await res.json();
         return { text: data.message?.content ?? "", provider: this.id, model };
       }
 
       default:
-        throw new Error(`OllamaProvider does not support task: ${req.task}`);
+        throw new AIProviderError({
+          message: `OllamaProvider does not support task: ${req.task}`,
+          status: 400,
+          providerId: this.id,
+        });
     }
   }
 }

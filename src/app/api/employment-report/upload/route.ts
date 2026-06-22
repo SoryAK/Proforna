@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 import { getUserId } from "@/lib/auth-utils";
-import { callGemini, geminiErrorMessage } from "@/lib/gemini";
+import { ai, AIProviderError } from "@/lib/ai";
 
 /**
  * POST /api/employment-report/upload
@@ -112,37 +112,30 @@ export async function POST(request: Request) {
       );
     }
 
-    // Use shared Gemini helper with automatic model fallback
-    const { res, model: usedModel } = await callGemini({
-      systemInstruction: { parts: [{ text: EXTRACTION_PROMPT }] },
-      contents: [{ role: "user", parts: [{ text: rawText }] }],
-      generationConfig: {
-        temperature: 0,
-        responseMimeType: "application/json",
-      },
-    });
-
-    if (!res.ok) {
-      const { message, retryAfter } = await geminiErrorMessage(res);
-      return NextResponse.json({ error: message, retryAfter }, { status: 429 });
-    }
-
-    console.log(`[employment-report/upload] Used model: ${usedModel}`);
-
-    const geminiData = await res.json();
-    const rawResponse = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text;
-
-    if (!rawResponse) {
-      return NextResponse.json({ error: "AI returned no data" }, { status: 500 });
-    }
-
-    let parsed;
+    // Route through the ADR-0044 provider router; preserves the 429-safe
+    // model chain via GeminiFastProvider when Ollama is unavailable.
+    let parsed: { employers?: unknown[]; reportDate?: string; employeeName?: string };
     try {
-      const clean = rawResponse.replace(/```json/gi, "").replace(/```/g, "").trim();
-      parsed = JSON.parse(clean);
-    } catch {
-      console.error("[employment-report/upload] Failed to parse AI JSON:", rawResponse.slice(0, 500));
-      return NextResponse.json({ error: "AI returned invalid data" }, { status: 500 });
+      const result = await ai.generate<{ employers?: unknown[]; reportDate?: string; employeeName?: string }>({
+        task: "extract",
+        messages: [
+          { role: "system", content: EXTRACTION_PROMPT },
+          { role: "user", content: rawText },
+        ],
+        userId,
+      });
+      parsed = result.json ?? {};
+      console.log(`[employment-report/upload] used model: ${result.model}`);
+    } catch (error) {
+      if (error instanceof AIProviderError) {
+        console.error(`[employment-report/upload] ${error.providerId} error:`, error.message);
+        return NextResponse.json(
+          { error: error.message, retryAfter: error.retryAfter },
+          { status: error.status ?? 500 },
+        );
+      }
+      console.error("[employment-report/upload] AI error:", error);
+      return NextResponse.json({ error: "AI extraction failed" }, { status: 500 });
     }
 
     // Validate structure
