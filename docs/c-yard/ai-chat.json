@@ -98,11 +98,12 @@
     {
       "id": "action-routes-and-resolver",
       "name": "D.2 target resolver + 3 action routes",
-      "description": "`resolveActionTarget(action, threadContext, pageContext)` applies fixed precedence: page ambient > thread mentions back-to-front > `{ kind: 'needs-picker', entityType }`. Three POST routes consume the resolved target: `/api/ai/actions/add-to-job-notes` (appends to `WorkHistory.notes`), `/api/ai/actions/save-as-bullet` (appends to `WorkHistory.accomplishments`), `/api/ai/actions/send-to-worklog` (always creates new WorkLog v1).",
+      "description": "`resolveActionTarget(action, threadContext, pageContext)` applies fixed precedence: page ambient > thread mentions back-to-front > `{ kind: 'needs-picker', entityType }`. Three POST routes consume the resolved target: `/api/ai/actions/add-to-job-notes` (creates a `WorkHistoryNote` child row keyed by `workHistoryId` — additive journal entries, one row per click), `/api/ai/actions/save-as-bullet` (appends to `WorkHistory.accomplishments` JSON-array column with dedupe), `/api/ai/actions/send-to-worklog` (always creates new WorkLog v1).",
       "primarySymbol": "resolveActionTarget",
       "primaryPath": "src/lib/ai-chat-action-target.ts",
       "relatedSymbols": ["ActionType", "AmbientEntityRef", "PageContext", "ThreadContext", "ResolutionResult", "entityTypeForAction", "ambientForAction"],
       "knownTraps": [
+        "`WorkHistory.notes` is a RELATION (`notes WorkHistoryNote[]`) — NOT a scalar column. The `add-to-job-notes` route MUST `prisma.workHistoryNote.create({ data: { workHistoryId, content } })`. The original v1 route did `prisma.workHistory.update({ data: { notes } })` and shipped because the unit test mocked Prisma without schema enforcement — Prisma threw `Unknown field 'notes'` at runtime against the real DB. Live smoke 2026-06-22 caught it; vitest mock-shape now mirrors schema-truth (mocks `workHistoryNote.create`, not `workHistory.update`).",
         "save-as-bullet REUSES the existing `WorkHistory.accomplishments` `String?` column (designed as a JSON-array store) — there is NO `bullets` column anywhere. Parser accepts JSON array, JSON string, or freeform text. Dedupe via `existing.includes(content)` returns 200 no-op.",
         "Resolver precedence is ambient > thread > picker, NOT the other way around. Ambient WINS even if the thread has a more recent matching mention. This is the deliberate ADR-0046 contract — don't 'fix' it without an ADR amendment.",
         "Thread scan is back-to-front (most recent LAST in the array, scanned from end). `ai-chat.tsx` builds `recentMentions` by flattening user messages chronologically — preserve that ordering or the resolver picks the wrong target.",
@@ -169,7 +170,7 @@
     { "path": "src/app/api/ai/mention-search/route.ts", "role": "mention-search-route", "lastValidatedAt": "2026-06-22" },
     { "path": "src/app/api/ai/models/route.ts", "role": "models-list-route", "lastValidatedAt": "2026-06-22" },
     { "path": "src/app/api/ai/actions/send-to-worklog/route.ts", "role": "action-route", "lastValidatedAt": "2026-06-22" },
-    { "path": "src/app/api/ai/actions/add-to-job-notes/route.ts", "role": "action-route", "lastValidatedAt": "2026-06-22" },
+    { "path": "src/app/api/ai/actions/add-to-job-notes/route.ts", "role": "action-route", "lastValidatedAt": "2026-06-22", "notes": "Live-smoke-verified after WorkHistoryNote child-row rewrite." },
     { "path": "src/app/api/ai/actions/save-as-bullet/route.ts", "role": "action-route", "lastValidatedAt": "2026-06-22" }
   ],
 

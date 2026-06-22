@@ -2,15 +2,25 @@
  * Hermetic coverage for the `add-to-job-notes` action route introduced by
  * ADR-0046 Phase D.2.
  *
+ * Schema-truth correction (2026-06-22 — surfaced by live smoke):
+ *  - `WorkHistory.notes` is NOT a scalar column. It is the relation
+ *    `notes: WorkHistoryNote[]`. The original v1 route tried
+ *    `prisma.workHistory.update({ data: { notes } })` and threw
+ *    `PrismaClientValidationError: Unknown field 'notes'` at runtime.
+ *  - The route now writes to the `WorkHistoryNote` child table —
+ *    `prisma.workHistoryNote.create({ data: { workHistoryId, content } })`.
+ *  - Each click = one new row. Journal semantics (additive). Bullets
+ *    dedupe; notes don't, because timestamped log entries with the same
+ *    content are legitimate.
+ *
  * Contract:
  *  - POST `{ content: string, jobId: string }`
  *  - 401 when unauthenticated.
  *  - 400 on missing/blank `content` OR `jobId`.
  *  - 404 when the job does not exist OR exists but belongs to a different
  *    user (cross-user 404 per ADR-0028 owner-scoped pattern).
- *  - 200 happy path returns `{ id, notes }`. Existing `notes` is preserved
- *    and the new content is APPENDED with a separating blank line; null
- *    notes start fresh.
+ *  - 200 happy path returns `{ id, workHistoryId, content }` where `id`
+ *    is the new `WorkHistoryNote` row id.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -21,7 +31,9 @@ vi.mock("@/lib/auth-utils", () => ({
 const prismaMock = vi.hoisted(() => ({
   workHistory: {
     findUnique: vi.fn(),
-    update: vi.fn(),
+  },
+  workHistoryNote: {
+    create: vi.fn(),
   },
 }));
 
@@ -71,54 +83,76 @@ describe("POST /api/ai/actions/add-to-job-notes — ADR-0046 Phase D.2", () => {
     prismaMock.workHistory.findUnique.mockResolvedValueOnce(null);
     const res = await POST(req({ content: "hello", jobId: "missing" }));
     expect(res.status).toBe(404);
-    expect(prismaMock.workHistory.update).not.toHaveBeenCalled();
+    expect(prismaMock.workHistoryNote.create).not.toHaveBeenCalled();
   });
 
   it("returns 404 when the job belongs to a different user", async () => {
     prismaMock.workHistory.findUnique.mockResolvedValueOnce({
       id: "j",
       userId: "u-other",
-      notes: null,
     });
     const res = await POST(req({ content: "hello", jobId: "j" }));
     expect(res.status).toBe(404);
-    expect(prismaMock.workHistory.update).not.toHaveBeenCalled();
+    expect(prismaMock.workHistoryNote.create).not.toHaveBeenCalled();
   });
 
-  it("appends to existing notes with a blank-line separator", async () => {
+  it("creates a WorkHistoryNote child row on the owned job", async () => {
     prismaMock.workHistory.findUnique.mockResolvedValueOnce({
       id: "j",
       userId: "u-test",
-      notes: "Existing note.",
     });
-    prismaMock.workHistory.update.mockImplementationOnce(({ data }: { data: { notes: string } }) =>
-      Promise.resolve({ id: "j", notes: data.notes }),
-    );
-    const res = await POST(req({ content: "New AI block.", jobId: "j" }));
+    prismaMock.workHistoryNote.create.mockResolvedValueOnce({
+      id: "note-1",
+      workHistoryId: "j",
+      content: "New AI block.",
+    });
+    const res = await POST(req({ content: "  New AI block.  ", jobId: "j" }));
     expect(res.status).toBe(200);
-    const updateCall = prismaMock.workHistory.update.mock.calls[0]?.[0] as {
-      where: { id: string };
-      data: { notes: string };
+    const json = await res.json();
+    expect(json).toEqual({
+      id: "note-1",
+      workHistoryId: "j",
+      content: "New AI block.",
+    });
+    const createCall = prismaMock.workHistoryNote.create.mock.calls[0]?.[0] as {
+      data: { workHistoryId: string; content: string };
     };
-    expect(updateCall.where).toEqual({ id: "j" });
-    expect(updateCall.data.notes).toBe("Existing note.\n\nNew AI block.");
+    expect(createCall.data).toEqual({
+      workHistoryId: "j",
+      content: "New AI block.",
+    });
+    // Must NOT touch the parent row.
+    expect(prismaMock.workHistory.findUnique).toHaveBeenCalledOnce();
   });
 
-  it("creates fresh notes when previous was null", async () => {
+  it("creates a SECOND child row on a follow-up click (additive, no merge)", async () => {
+    // First click.
     prismaMock.workHistory.findUnique.mockResolvedValueOnce({
       id: "j",
       userId: "u-test",
-      notes: null,
     });
-    prismaMock.workHistory.update.mockResolvedValueOnce({
+    prismaMock.workHistoryNote.create.mockResolvedValueOnce({
+      id: "note-1",
+      workHistoryId: "j",
+      content: "First entry.",
+    });
+    await POST(req({ content: "First entry.", jobId: "j" }));
+
+    // Second click — identical content, must still create a new row
+    // (no dedupe — journal entries with same text are legitimate).
+    prismaMock.workHistory.findUnique.mockResolvedValueOnce({
       id: "j",
-      notes: "New AI block.",
+      userId: "u-test",
     });
-    const res = await POST(req({ content: "New AI block.", jobId: "j" }));
+    prismaMock.workHistoryNote.create.mockResolvedValueOnce({
+      id: "note-2",
+      workHistoryId: "j",
+      content: "First entry.",
+    });
+    const res = await POST(req({ content: "First entry.", jobId: "j" }));
     expect(res.status).toBe(200);
-    const updateCall = prismaMock.workHistory.update.mock.calls[0]?.[0] as {
-      data: { notes: string };
-    };
-    expect(updateCall.data.notes).toBe("New AI block.");
+    expect(prismaMock.workHistoryNote.create).toHaveBeenCalledTimes(2);
+    const second = (await res.json()) as { id: string };
+    expect(second.id).toBe("note-2");
   });
 });
