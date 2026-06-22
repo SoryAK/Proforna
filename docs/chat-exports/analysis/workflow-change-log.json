@@ -266,6 +266,15 @@
         "source": "docs/c-yard/worklog-editor.json, scripts/slice-scaffold.mjs, .github/instructions/compliance.instructions.md (Phase 0 slice-first rules), docs/c-yard/effectiveness-review.md",
         "commit": "759e389",
         "triggerSession": "77e25d9d-ca47-4795-b5f4-d8921afd0593"
+      },
+      {
+        "id": "ai:adr-0044-proposed",
+        "shippedAt": "2026-06-21T18:00:00Z",
+        "name": "ADR-0044 Proposed — AI provider router (Scope B), 3-layer architecture",
+        "description": "Week-long sprint kickoff. Scope B locked: consolidate lib/ai.ts + lib/gemini.ts into one façade with task-class routing (5 classes: chat/extract/ground/reason/summarize), add gemini-2.5-pro as premium tier reusing existing GEMINI_API_KEY, stub cost-guard hooks (userId + onUsage emitted but not enforced until multi-tenancy lands). Plug-in provider surface keeps Anthropic/OpenAI/local-models open as future additions. Three-layer architecture committed: L1 Provider Router (this week), L2 Skill Registry (future ADR), L3 MCP Tool Surface (future ADR). Scope C (FirebaseAIProvider/AICoreProvider/BYOK family) documented as Forward Path §1 honoring ADR-0021's Play Store push deferral. No slice manifest written: AI provider is backend infra not UI surface per ADR-0038 §G1; knowledge instead lives in extended AIServicesLayer memory entity. Originally planned as ADR-0022 in conversation; slot taken by worklog Grill Me markdown round-trip; bumped to 0044 to avoid Shipyard's 0039-0043 reservations.",
+        "source": "docs/adr/0044-ai-provider-router.md; docs/memory/ai-services.json (4 new 2026-06-21 observations on AIServicesLayer)",
+        "commit": null,
+        "triggerSession": "77e25d9d-ca47-4795-b5f4-d8921afd0593"
       }
     ]
   }
