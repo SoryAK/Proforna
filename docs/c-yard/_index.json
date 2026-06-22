@@ -1,1 +1,6 @@
-{}
+{
+  "ai-chat": {
+    "reads-from": ["worklog-editor/version-history"]
+  }
+}
+

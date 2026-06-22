@@ -1,0 +1,177 @@
+{
+  "$schema": "./README.md#schema-v1",
+  "slice": "ai-chat",
+  "title": "AI Chat Panel",
+  "description": "Floating right-edge panel reachable from every authenticated route. Owns the SSE streaming chat pipeline (Ollama + Gemini providers), the four context layers (career-context slices, slash commands, @-mentions, ambient page refs), the assistant-only markdown renderer with Shiki-highlighted code blocks, and the three Phase-D code-block domain actions (Send to Worklog / Add to Job Notes / Save as Bullet) with a target-resolution picker. Authoritative ADRs: 0045 (envelope + provenance), 0046 (phases A through D — context slices, slash commands, @-mentions, code-block actions).",
+  "lastValidatedAt": "2026-06-22",
+  "lastValidatedCommit": "22215ce",
+  "refreshHistory": [
+    { "refreshedAt": "2026-06-22", "refreshedFromSessionId": "77e25d9d-ca47-4795-b5f4-d8921afd0593", "summary": "Seed slice. Authored immediately after ADR-0046 Phase D.3 landed (22215ce), so all 7 entryPoints reflect post-D.3 reality. Hand-authored — no analyzer mining yet." }
+  ],
+
+  "entryPoints": [
+    {
+      "id": "chat-panel-shell",
+      "name": "Chat panel orchestrator",
+      "description": "The 859-LOC `AIChat` client component that owns ALL panel state: messages, streaming, provider/model picker, slash-command surface, mentions buffer, context slices, ambient page context, and the resize/open chrome. Floating button mounts it once into the global layout.",
+      "primarySymbol": "AIChat",
+      "primaryPath": "src/components/ai-chat.tsx",
+      "relatedSymbols": ["Message", "ContextSlice", "ChatTask", "estimateTokens", "SLASH_COMMANDS", "executeSlashCommand"],
+      "knownTraps": [
+        "Pre-existing god file (859 LOC after D.3). Architectural Guardrail: do NOT add new logic-bearing code here — new sub-systems go in sibling files (see `ai-chat-action-picker.tsx`, `ai-chat-code-block.tsx`, `ai-chat-message-markdown.tsx`). Plumbing-only edits (props threading, state hookup) are still acceptable.",
+        "Settings dropdown / model picker uses base-ui `DropdownMenu`. `DropdownMenuItem` MUST use `onClick` not `onSelect` (Radix-only API, silently dropped); `DropdownMenuTrigger` MUST NOT pass `onClick` (clobbers base-ui's internal open handler — menu silently won't open).",
+        "Slash command menu opens only when input `startsWith('/')` AND contains no whitespace — VS Code convention to avoid hijacking URLs typed mid-message. `slashIndex` resets via effect when filtered list shrinks below current index.",
+        "`Message.mentions` is the per-turn @-mention snapshot attached at send time (D.3) — used to build `ThreadContext.recentMentions` for the code-block resolver. The transient `mentions` state on the panel is the IN-PROGRESS buffer for the next turn, NOT a thread accumulator."
+      ]
+    },
+    {
+      "id": "streaming-pipeline",
+      "name": "SSE chat route + envelope",
+      "description": "POST `/api/ai/chat` accepts `{ messages, provider, model, localUrl, task, mentions }`, fans out to the Ollama or Gemini provider, and streams an SSE event sequence (`provider` → repeated `text` → final `meta`). The client `AIChat.sendMessage` reads the stream into the assistant message and hydrates `AIMeta` for the `AIProvenanceChip` (ADR-0045).",
+      "primarySymbol": "POST /api/ai/chat",
+      "primaryPath": "src/app/api/ai/chat/route.ts",
+      "relatedSymbols": ["AIMeta", "AIProvenanceChip", "AbortController"],
+      "knownTraps": [
+        "SSE event vocabulary is exactly three types: `provider` (early), `text` (repeated, append-only), `meta` (final, hydrates AIMeta). Adding a new type requires both the route emitter AND the `AIChat.sendMessage` switch.",
+        "Stop button works via `abortRef = new AbortController()` and `controller.abort()` on click. The `AbortError` branch in the catch is what swallows the resulting fetch rejection — don't re-throw or you'll surface a fake error in the message.",
+        "VS Code Copilot's Ollama bridge mangles tool-call tags from gemma4/qwen3-coder — NOT this route's fault. For local LLM tool use, route around Copilot via Cline (see user memory).",
+        "supergateway's MCP layer can return 503 `Single-client backing server already occupied` when VS Code holds an SSE while the worker restarts. Cleared by Command Palette → MCP: Restart Server (NOT by service restart)."
+      ]
+    },
+    {
+      "id": "context-slices-and-ambient",
+      "name": "Career context slices + ambient refs",
+      "description": "GET `/api/ai/context` returns `{ slices, systemPrompt, ambient }`. Slices are server-curated chunks of the user's profile/position/skills/goals/etc. that the panel renders as removable chips above the input (ADR-0046 Phase A). The `ambient` field (Phase D.2) exposes server-derived active entity refs the code-block action resolver consumes as precedence step (1).",
+      "primarySymbol": "GET /api/ai/context",
+      "primaryPath": "src/app/api/ai/context/route.ts",
+      "relatedSymbols": ["AIContextSlice", "ContextSlice", "PageContext", "AmbientEntityRef", "suppressedSliceIds"],
+      "knownTraps": [
+        "Legacy `systemPrompt` field is kept for back-compat with pre-slice-shape consumers; new client code must build the prompt from unsuppressed slices on the client side instead.",
+        "`ambient.activeJob` derives from `prisma.workHistory.findFirst({ where: { isActive: true } })` — at most one row. Label is `\"title @ company\"` or just `company` when title is null.",
+        "`ambient.activeWorklog` is a server-side heuristic: most-recently-updated non-archived WorkLog within the last 24h. It is NOT URL-aware — a user on `/jobs/[other-id]` still sees the recent worklog as ambient.",
+        "`ambient.activeSkill` is reserved (always null in v1). No reliable server-side signal. The contract field exists so the chat panel + resolver compile against it."
+      ]
+    },
+    {
+      "id": "mention-system",
+      "name": "@-mention textarea + search + ranking",
+      "description": "`AIChatTextareaWithMentions` watches the caret for an `@` trigger and opens a picker that calls POST `/api/ai/mention-search` (forked from the editor variant — ranks by per-user EntityAIMentionCount instead of recency-in-note). Selected mentions become `MentionRef` anchors in the textarea AND ship in the chat-route sidecar so the server can increment counts AND inject a hidden system message with the JSON block.",
+      "primarySymbol": "AIChatTextareaWithMentions",
+      "primaryPath": "src/components/ai-chat-textarea-with-mentions.tsx",
+      "relatedSymbols": ["MentionRef", "MentionType", "detectMentionTrigger", "POST /api/ai/mention-search", "EntityAIMentionCount"],
+      "knownTraps": [
+        "Four mention types: `job` (WorkHistory), `skill` (SkillNode), `worklog` (WorkLog with kind='note'), `contact` (Contact). KEEP IN SYNC with the route validator's `VALID_TYPES` array — silently-dropped types are a real failure mode.",
+        "Orphan detection runs on every input change: a `MentionRef` whose `anchor` substring no longer appears in the textarea is dropped. Partial-label editing IS an orphan (anchor is the exact `@Label` literal).",
+        "Mention-search ranking is v1: fetches alphabetically-first-N from source table, reorders in memory by EntityAIMentionCount. A high-rank entity that sorts alphabetically outside the first-N is MISSED. Acceptable at v1 scales — fix is a SQL-side rank join.",
+        "Same backend is reused by the D.3 action picker (`AIChatActionPicker`) for the needs-picker fallback — DON'T fork the search route; extend `VALID_TYPES` instead if a new entity class is needed."
+      ]
+    },
+    {
+      "id": "markdown-renderer",
+      "name": "Assistant-message markdown renderer (D.1)",
+      "description": "`AIChatMessageMarkdown` wraps `react-markdown` with `remark-gfm` (GFM tables, strikethrough, task lists) + `rehype-sanitize` (strip emitted HTML). The `code` override branches inline vs fenced; fenced routes to `AIChatCodeBlock`. The `pre` override returns a fragment to strip the wrapper because the code block owns its own chrome. User messages stay plain `<div whitespace-pre-wrap>` — only assistant turns get markdown.",
+      "primarySymbol": "AIChatMessageMarkdown",
+      "primaryPath": "src/components/ai-chat-message-markdown.tsx",
+      "relatedSymbols": ["AIChatCodeBlock", "CodeProps", "ThreadContext", "PageContext"],
+      "knownTraps": [
+        "`@tailwindcss/typography` is NOT installed. Dense chat typography uses Tailwind arbitrary selectors `[&_p]:my-1.5 [&_h1]:mt-3 ...` directly on the container div. DON'T reach for `prose prose-sm` — it won't apply.",
+        "Inline-vs-fenced detection: `inline ?? !langMatch`. The fallback `!langMatch` exists because some react-markdown setups omit the `inline` flag — relying on it alone produces fenced-block chrome on inline code.",
+        "Custom `pre` returns `<>{children}</>` (Fragment). Returning `<pre>{children}</pre>` would nest the highlighted code block inside another `<pre>` and break Shiki's layout.",
+        "`threadContext` + `pageContext` are forwarded via CLOSURE inside the `code` override — no React Context provider. Markdown rendered outside the chat panel passes neither and the toolbar collapses gracefully to Copy-only."
+      ]
+    },
+    {
+      "id": "code-block-toolbar",
+      "name": "Code block: Shiki + 3-action toolbar (D.1 + D.3)",
+      "description": "`AIChatCodeBlock` renders fenced code with Shiki syntax highlighting (dynamic-imported on first mount; ~280KB module-singleton cost paid once per session). Toolbar always has a Copy button; when both `threadContext` and `pageContext` are provided, it ALSO renders three domain action buttons (Send to Worklog / Add to Job Notes / Save as Bullet) with per-button pending spinner and 1.8s 'Saved' success pill. Picker (`AIChatActionPicker`) opens when the resolver returns `needs-picker`.",
+      "primarySymbol": "AIChatCodeBlock",
+      "primaryPath": "src/components/ai-chat-code-block.tsx",
+      "relatedSymbols": ["AIChatActionPicker", "ActionType", "SUPPORTED_LANGS", "normalizeLanguage", "getHighlighter", "SUCCESS_PILL_MS"],
+      "knownTraps": [
+        "`SUPPORTED_LANGS` is the EXACT list Shiki preloads — adding a language is a bundle-size trade-off. Unknown languages fall through to `plaintext` via `normalizeLanguage`, so `codeToHtml` never throws on unrecognized fences like ```mermaid.",
+        "Module-singleton `highlighterPromise` survives unmount/remount. First caller in a session pays the ~280KB cost; subsequent blocks reuse the cached promise. DON'T move into component-local state.",
+        "Theme switches between `github-dark` and `github-light` via `useTheme().resolvedTheme`. SSR users get `resolvedTheme === undefined` on first render → defaults to light. Acceptable flicker — the `useEffect` rerun on theme change repaints once hydrated.",
+        "send-to-worklog SHORT-CIRCUITS the resolver in v1 (route always creates a new WorkLog regardless of target). When 'prepend-to-active-worklog' UX ships, the `if (action === 'send-to-worklog')` branch in `handleAction` goes away.",
+        "Errors are `console.error`-only in v1 — no toast UI yet. The 'Saved' pill is the ONLY user-visible success signal; failure is silent. Wishlist: real toast surface (sonner not yet wired)."
+      ]
+    },
+    {
+      "id": "action-routes-and-resolver",
+      "name": "D.2 target resolver + 3 action routes",
+      "description": "`resolveActionTarget(action, threadContext, pageContext)` applies fixed precedence: page ambient > thread mentions back-to-front > `{ kind: 'needs-picker', entityType }`. Three POST routes consume the resolved target: `/api/ai/actions/add-to-job-notes` (appends to `WorkHistory.notes`), `/api/ai/actions/save-as-bullet` (appends to `WorkHistory.accomplishments`), `/api/ai/actions/send-to-worklog` (always creates new WorkLog v1).",
+      "primarySymbol": "resolveActionTarget",
+      "primaryPath": "src/lib/ai-chat-action-target.ts",
+      "relatedSymbols": ["ActionType", "AmbientEntityRef", "PageContext", "ThreadContext", "ResolutionResult", "entityTypeForAction", "ambientForAction"],
+      "knownTraps": [
+        "save-as-bullet REUSES the existing `WorkHistory.accomplishments` `String?` column (designed as a JSON-array store) — there is NO `bullets` column anywhere. Parser accepts JSON array, JSON string, or freeform text. Dedupe via `existing.includes(content)` returns 200 no-op.",
+        "Resolver precedence is ambient > thread > picker, NOT the other way around. Ambient WINS even if the thread has a more recent matching mention. This is the deliberate ADR-0046 contract — don't 'fix' it without an ADR amendment.",
+        "Thread scan is back-to-front (most recent LAST in the array, scanned from end). `ai-chat.tsx` builds `recentMentions` by flattening user messages chronologically — preserve that ordering or the resolver picks the wrong target.",
+        "All 3 routes are owner-scoped (ADR-0028): cross-user entity IDs → 404, not 403. Don't leak existence.",
+        "send-to-worklog `deriveTitle` picks first non-empty trimmed line, caps at TITLE_MAX_LENGTH (80). Empty / whitespace-only content → 400; the route does NOT silently create a titleless note."
+      ]
+    }
+  ],
+
+  "traversalRecipes": [
+    {
+      "id": "how-does-a-code-block-action-land-a-target",
+      "intent": "Trace what happens from clicking 'Add to Job Notes' on a code block to the row update in the database.",
+      "steps": [
+        "AIChatCodeBlock.handleAction(action) — short-circuits send-to-worklog; otherwise calls resolveActionTarget.",
+        "resolveActionTarget (src/lib/ai-chat-action-target.ts): ambient → thread → needs-picker.",
+        "Resolved branch: postAction POSTs `{ content, jobId }` to /api/ai/actions/<action>.",
+        "Picker branch: AIChatActionPicker opens, fetches /api/ai/mention-search, returns picked ref to handlePicked which POSTs.",
+        "Route handler validates auth + cross-user, performs the prisma update, returns the updated row."
+      ],
+      "source": "hand-authored",
+      "evidence": { "sessions": [] }
+    },
+    {
+      "id": "where-does-the-system-prompt-come-from",
+      "intent": "Understand the four context layers and how they compose the final messages array sent to the model.",
+      "steps": [
+        "GET /api/ai/context returns slices (career-context chunks). `AIChat` renders them as removable chips; user can suppress via `suppressedSliceIds`.",
+        "AIChat.sendMessage concatenates unsuppressed slices into ONE system message, prepended to the messages array.",
+        "Slash command UX: input starting with `/` (no whitespace) opens menu; selected command's `prompt` field is sent verbatim as the user message via executeSlashCommand.",
+        "@-mentions: structured payload sidecar (`mentions`) ships alongside `messages`. Chat route increments EntityAIMentionCount and injects a hidden system message with the JSON block.",
+        "Ambient refs (D.2): NOT sent to the model — consumed client-side by the code-block action resolver only."
+      ],
+      "source": "hand-authored",
+      "evidence": { "sessions": [] }
+    },
+    {
+      "id": "how-does-streaming-render-into-a-message",
+      "intent": "Trace the SSE event flow from /api/ai/chat into the assistant message DOM.",
+      "steps": [
+        "POST /api/ai/chat opens a stream. First event: `{ type: 'provider', provider }`.",
+        "AIChat.sendMessage reads the ReadableStream, decodes chunks, splits by `data: ` lines.",
+        "`text` events: `accumulated += event.text`, setMessages updates the assistant message content. Triggers AIChatMessageMarkdown re-render mid-stream.",
+        "`meta` event (final): hydrates AIMeta on the message, AIProvenanceChip renders in the header.",
+        "Stop button: `abortRef.current?.abort()` triggers AbortError in the read loop — swallowed silently in the catch."
+      ],
+      "source": "hand-authored",
+      "evidence": { "sessions": [] }
+    }
+  ],
+
+  "fileFingerprints": [
+    { "path": "src/components/ai-chat.tsx", "role": "panel-orchestrator", "lastValidatedAt": "2026-06-22" },
+    { "path": "src/components/ai-chat-textarea-with-mentions.tsx", "role": "mention-input", "lastValidatedAt": "2026-06-22" },
+    { "path": "src/components/ai-chat-message-markdown.tsx", "role": "markdown-renderer", "lastValidatedAt": "2026-06-22" },
+    { "path": "src/components/ai-chat-code-block.tsx", "role": "code-block-toolbar", "lastValidatedAt": "2026-06-22" },
+    { "path": "src/components/ai-chat-action-picker.tsx", "role": "target-picker", "lastValidatedAt": "2026-06-22" },
+    { "path": "src/components/ai-provenance-chip.tsx", "role": "provenance-chip", "lastValidatedAt": "2026-06-22" },
+    { "path": "src/lib/ai-chat-mentions.ts", "role": "mention-helpers", "lastValidatedAt": "2026-06-22" },
+    { "path": "src/lib/ai-chat-action-target.ts", "role": "action-resolver", "lastValidatedAt": "2026-06-22" },
+    { "path": "src/lib/ai/envelope.ts", "role": "ai-envelope-types", "lastValidatedAt": "2026-06-22" },
+    { "path": "src/app/api/ai/chat/route.ts", "role": "sse-chat-route", "lastValidatedAt": "2026-06-22" },
+    { "path": "src/app/api/ai/context/route.ts", "role": "context-route", "lastValidatedAt": "2026-06-22" },
+    { "path": "src/app/api/ai/mention-search/route.ts", "role": "mention-search-route", "lastValidatedAt": "2026-06-22" },
+    { "path": "src/app/api/ai/models/route.ts", "role": "models-list-route", "lastValidatedAt": "2026-06-22" },
+    { "path": "src/app/api/ai/actions/send-to-worklog/route.ts", "role": "action-route", "lastValidatedAt": "2026-06-22" },
+    { "path": "src/app/api/ai/actions/add-to-job-notes/route.ts", "role": "action-route", "lastValidatedAt": "2026-06-22" },
+    { "path": "src/app/api/ai/actions/save-as-bullet/route.ts", "role": "action-route", "lastValidatedAt": "2026-06-22" }
+  ],
+
+  "staleSurfaces": []
+}
