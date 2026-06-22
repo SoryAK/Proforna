@@ -3,7 +3,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -30,7 +29,9 @@ import {
   Square,
 } from "lucide-react";
 import { AIProvenanceChip } from "@/components/ai-provenance-chip";
+import { AIChatTextareaWithMentions } from "@/components/ai-chat-textarea-with-mentions";
 import type { AIMeta } from "@/lib/ai/envelope";
+import type { MentionRef } from "@/lib/ai-chat-mentions";
 
 type ChatTask = "chat" | "ground" | "reason" | "summarize";
 
@@ -137,6 +138,10 @@ export function AIChat() {
   // Keyboard-selected slash command (ADR-0046 Phase B). Reset to 0 whenever
   // the filtered list shrinks below the current index.
   const [slashIndex, setSlashIndex] = useState(0);
+  // Active @-mentions for the current input (ADR-0046 Phase C.3). Owned at
+  // this layer so the chat-body sidecar can serialize them on send and the
+  // textarea component can clear them on submit.
+  const [mentions, setMentions] = useState<MentionRef[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -277,6 +282,13 @@ export function AIChat() {
     setInput("");
     setStreaming(true);
 
+    // Snapshot + clear mentions so the textarea is ready for the next turn.
+    // The structured payload is sent alongside the chat body — the chat
+    // route increments `EntityAIMentionCount` and injects a hidden system
+    // message containing the JSON block (ADR-0046 Phase C.2).
+    const mentionsPayload = mentions.map(({ type, id, label }) => ({ type, id, label }));
+    setMentions([]);
+
     // Build messages array, prefixing the unsuppressed context slices as one
     // system message. The user can drop individual slices via the chip row
     // above the input — see `suppressedSliceIds` (ADR-0046 Phase A).
@@ -304,6 +316,7 @@ export function AIChat() {
           model: model || undefined,
           localUrl: provider === "ollama" ? localUrl : undefined,
           task,
+          mentions: mentionsPayload,
         }),
         signal: controller.signal,
       });
@@ -391,7 +404,7 @@ export function AIChat() {
         return prev;
       });
     }
-  }, [input, streaming, messages, contextSlices, suppressedSliceIds, provider, model, localUrl, task]);
+  }, [input, streaming, messages, contextSlices, suppressedSliceIds, provider, model, localUrl, task, mentions]);
 
   // Slash command surface (ADR-0046 Phase B). The menu is open when the
   // input starts with `/` and contains no whitespace — VS Code convention,
@@ -461,6 +474,7 @@ export function AIChat() {
     setSuppressedSliceIds(new Set());
     setCollapsedTurns(new Set());
     setSessionTokens(0);
+    setMentions([]);
   };
 
   const toggleSlice = (id: string) => {
@@ -861,14 +875,14 @@ export function AIChat() {
           </div>
         )}
         <div className="flex items-end gap-2">
-          <Textarea
+          <AIChatTextareaWithMentions
             ref={inputRef}
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={setInput}
+            mentions={mentions}
+            onMentionsChange={setMentions}
             onKeyDown={handleKeyDown}
-            placeholder="Ask about your career..."
-            rows={1}
-            className="min-h-[36px] max-h-[120px] resize-none text-sm"
+            placeholder="Ask about your career… type @ to mention an entity"
             disabled={streaming}
           />
           {streaming ? (
