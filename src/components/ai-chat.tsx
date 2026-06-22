@@ -25,7 +25,28 @@ import {
   Sparkles,
   User,
   ChevronDown,
+  Globe,
+  Brain,
+  FileText,
 } from "lucide-react";
+
+type ChatTask = "chat" | "ground" | "reason" | "summarize";
+
+const TASK_OPTIONS: Array<{
+  id: ChatTask;
+  label: string;
+  icon: typeof Bot;
+  premium?: boolean;
+}> = [
+  { id: "chat", label: "Chat", icon: MessageSquare },
+  { id: "ground", label: "Search", icon: Globe },
+  { id: "reason", label: "Think harder", icon: Brain, premium: true },
+  { id: "summarize", label: "Summarize", icon: FileText },
+];
+
+// Rough char-to-token estimate (~4 chars/token for English). Good enough for
+// a session cost gauge; exact counts would require server-side usage events.
+const estimateTokens = (s: string): number => Math.ceil(s.length / 4);
 
 interface Message {
   id: string;
@@ -50,6 +71,8 @@ export function AIChat() {
   const [model, setModel] = useState<string>("");
   const [systemPrompt, setSystemPrompt] = useState<string>("");
   const [localUrl, setLocalUrl] = useState<string | null>(typeof window !== "undefined" ? localStorage.getItem("resumsify-ai-url") : null);
+  const [task, setTask] = useState<ChatTask>("chat");
+  const [sessionTokens, setSessionTokens] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -203,6 +226,7 @@ export function AIChat() {
           provider,
           model: model || undefined,
           localUrl: provider === "ollama" ? localUrl : undefined,
+          task,
         }),
         signal: controller.signal,
       });
@@ -270,8 +294,14 @@ export function AIChat() {
     } finally {
       setStreaming(false);
       abortRef.current = null;
+      // Update session token estimate from the final accumulated text.
+      setMessages((prev) => {
+        const total = prev.reduce((acc, m) => acc + estimateTokens(m.content), 0);
+        setSessionTokens(total);
+        return prev;
+      });
     }
-  }, [input, streaming, messages, systemPrompt, provider, model]);
+  }, [input, streaming, messages, systemPrompt, provider, model, localUrl, task]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -288,6 +318,7 @@ export function AIChat() {
   const clearChat = () => {
     setMessages([]);
     setSystemPrompt("");
+    setSessionTokens(0);
   };
 
   const ollamaModels = modelsData?.models.filter((m) => m.provider === "ollama") ?? [];
@@ -360,6 +391,53 @@ export function AIChat() {
             <X className="h-3.5 w-3.5" />
           </Button>
         </div>
+      </div>
+
+      {/* Mode picker + session token meter */}
+      <div className="flex items-center justify-between gap-2 border-b px-3 py-1.5 bg-muted/20 shrink-0">
+        <div className="flex items-center gap-1 overflow-x-auto">
+          {TASK_OPTIONS.map((opt) => {
+            const Icon = opt.icon;
+            const active = task === opt.id;
+            return (
+              <button
+                key={opt.id}
+                type="button"
+                onClick={() => setTask(opt.id)}
+                disabled={streaming}
+                className={`group inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] transition-colors disabled:opacity-50 ${
+                  active
+                    ? "border-orange-500/60 bg-orange-500/10 text-orange-700 dark:text-orange-300"
+                    : "border-transparent text-muted-foreground hover:bg-muted hover:text-foreground"
+                }`}
+                aria-pressed={active}
+                title={opt.premium ? `${opt.label} (premium - reasoning model)` : opt.label}
+              >
+                <Icon className="h-3 w-3" />
+                <span>{opt.label}</span>
+                {opt.premium && (
+                  <span className="ml-0.5 rounded-sm bg-gradient-to-r from-purple-600 to-orange-600 px-1 text-[8px] font-semibold uppercase tracking-wide text-white">
+                    Pro
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+        {sessionTokens > 0 && (
+          <span
+            className={`shrink-0 rounded-full border px-1.5 py-0.5 font-mono text-[9px] tabular-nums ${
+              sessionTokens >= 25_000
+                ? "border-red-500/40 bg-red-500/10 text-red-600 dark:text-red-400"
+                : sessionTokens >= 10_000
+                  ? "border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                  : "border-muted-foreground/20 bg-background text-muted-foreground"
+            }`}
+            title="Estimated session token usage (chars / 4)"
+          >
+            ~{sessionTokens >= 1000 ? `${(sessionTokens / 1000).toFixed(1)}k` : sessionTokens}t
+          </span>
+        )}
       </div>
 
       {/* Settings panel */}

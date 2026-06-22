@@ -5,10 +5,15 @@ import {
   getAIConfig,
   ollamaIsAvailable,
   ollamaChat,
+  type AITaskClass,
   type ChatMessage,
   type ProviderId,
 } from "@/lib/ai";
 import { getUserId } from "@/lib/auth-utils";
+
+// Tasks the chat panel is allowed to dispatch. `extract` is intentionally
+// excluded — it's a JSON-shape task that doesn't fit the streaming UI.
+const CHAT_TASKS = new Set<AITaskClass>(["chat", "ground", "reason", "summarize"]);
 
 /**
  * POST /api/ai/chat
@@ -30,6 +35,8 @@ export async function POST(request: Request) {
   const preferredProvider = body.provider as string | undefined;
   const preferredModel = body.model as string | undefined;
   const customUrl = body.localUrl as string | undefined;
+  const rawTask = typeof body.task === "string" ? (body.task as AITaskClass) : "chat";
+  const task: AITaskClass = CHAT_TASKS.has(rawTask) ? rawTask : "chat";
 
   if (!messages || !Array.isArray(messages) || messages.length === 0) {
     return new Response("messages array is required", { status: 400 });
@@ -56,7 +63,7 @@ export async function POST(request: Request) {
       const providerOverride: ProviderId | undefined =
         preferredProvider === "gemini" ? "gemini-fast" : undefined;
       const result = await ai.generate({
-        task: "chat",
+        task,
         messages,
         modelOverride: preferredModel,
         providerOverride,
@@ -64,7 +71,7 @@ export async function POST(request: Request) {
       });
       if (!result.stream) {
         return new Response(
-          JSON.stringify({ error: "Router returned no stream for chat task" }),
+          JSON.stringify({ error: `Router returned no stream for ${task} task` }),
           { status: 500, headers: { "Content-Type": "application/json" } }
         );
       }
