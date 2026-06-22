@@ -10,6 +10,12 @@
  *
  * User messages stay plain — only assistant turns get markdown. The chat
  * panel decides which branch to render based on `msg.role`.
+ *
+ * Action contexts (Phase D.3): callers in the chat panel pass `threadContext`
+ * and `pageContext` so the code-block toolbar can render the three domain
+ * actions (Send to Worklog / Add to Job Notes / Save as Bullet). Markdown
+ * rendered outside the chat panel omits both props and the toolbar gracefully
+ * collapses to just the copy button.
  */
 
 import type { ComponentPropsWithoutRef, ReactNode } from "react";
@@ -18,9 +24,15 @@ import rehypeSanitize from "rehype-sanitize";
 import remarkGfm from "remark-gfm";
 
 import { AIChatCodeBlock } from "@/components/ai-chat-code-block";
+import type {
+  PageContext,
+  ThreadContext,
+} from "@/lib/ai-chat-action-target";
 
 export interface AIChatMessageMarkdownProps {
   content: string;
+  threadContext?: ThreadContext;
+  pageContext?: PageContext;
 }
 
 interface CodeProps extends ComponentPropsWithoutRef<"code"> {
@@ -38,7 +50,11 @@ interface CodeProps extends ComponentPropsWithoutRef<"code"> {
  *   because chat turns are dense.
  * - `pre` — passthrough; the code component owns the chrome.
  */
-export function AIChatMessageMarkdown({ content }: AIChatMessageMarkdownProps) {
+export function AIChatMessageMarkdown({
+  content,
+  threadContext,
+  pageContext,
+}: AIChatMessageMarkdownProps) {
   return (
     <div className="break-words text-sm leading-relaxed [&_p]:my-1.5 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_h1]:mt-3 [&_h1]:mb-1.5 [&_h1]:text-base [&_h1]:font-semibold [&_h2]:mt-3 [&_h2]:mb-1.5 [&_h2]:text-sm [&_h2]:font-semibold [&_h3]:mt-2 [&_h3]:mb-1 [&_h3]:text-sm [&_h3]:font-semibold [&_ul]:my-1.5 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:my-1.5 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:my-0.5 [&_blockquote]:my-2 [&_blockquote]:border-l-2 [&_blockquote]:border-muted-foreground/30 [&_blockquote]:pl-3 [&_blockquote]:italic [&_blockquote]:text-muted-foreground [&_hr]:my-3 [&_hr]:border-muted-foreground/20 [&_table]:my-2 [&_table]:w-full [&_table]:border-collapse [&_table]:text-xs [&_th]:border [&_th]:border-muted-foreground/20 [&_th]:bg-muted/40 [&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_td]:border [&_td]:border-muted-foreground/20 [&_td]:px-2 [&_td]:py-1 [&_strong]:font-semibold [&_em]:italic">
       <ReactMarkdown
@@ -64,7 +80,12 @@ export function AIChatMessageMarkdown({ content }: AIChatMessageMarkdownProps) {
             }
             const codeText = String(children ?? "").replace(/\n$/, "");
             return (
-              <AIChatCodeBlock code={codeText} language={langMatch?.[1]} />
+              <AIChatCodeBlock
+                code={codeText}
+                language={langMatch?.[1]}
+                threadContext={threadContext}
+                pageContext={pageContext}
+              />
             );
           },
           pre({ children }) {

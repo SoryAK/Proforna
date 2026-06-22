@@ -4,8 +4,17 @@
  * Code block renderer for AI chat assistant messages.
  *
  * Shipped in ADR-0046 Phase D.1: copy button + Shiki-highlighted body +
- * language label. Domain actions (Send to Worklog / Add to Job Notes /
- * Save as Bullet) land in Phase D.3.
+ * language label. Phase D.3 adds the three domain actions:
+ *
+ *   - Send to Worklog   → POST /api/ai/actions/send-to-worklog
+ *   - Add to Job Notes  → POST /api/ai/actions/add-to-job-notes
+ *   - Save as Bullet    → POST /api/ai/actions/save-as-bullet
+ *
+ * Target resolution follows the precedence rules in `ai-chat-action-target`:
+ * page ambient > thread mentions back-to-front > picker. v1 caveat:
+ * `send-to-worklog` always creates a new worklog server-side, so the
+ * resolver is short-circuited for that action. When ADR-0046's
+ * "prepend-to-active-worklog" UX ships, that branch goes away.
  *
  * Highlighter loading strategy: Shiki is dynamic-imported on first mount
  * so the chat panel's initial chunk stays light. The first code block in
@@ -15,11 +24,26 @@
  * is no visible jump.
  */
 
-import { Check, Copy } from "lucide-react";
+import {
+  Check,
+  Copy,
+  ListPlus,
+  Loader2,
+  Send,
+  StickyNote,
+} from "lucide-react";
 import { useTheme } from "next-themes";
 import { useEffect, useMemo, useState } from "react";
 
+import { AIChatActionPicker } from "@/components/ai-chat-action-picker";
 import { Button } from "@/components/ui/button";
+import type {
+  ActionType,
+  AmbientEntityRef,
+  PageContext,
+  ThreadContext,
+} from "@/lib/ai-chat-action-target";
+import { resolveActionTarget } from "@/lib/ai-chat-action-target";
 
 /**
  * Common languages we expect to see in AI output. Keep this list short —
@@ -51,6 +75,8 @@ type ShikiHighlighter = {
   ) => string;
 };
 
+const SUCCESS_PILL_MS = 1800;
+
 // Module-singleton: every AIChatCodeBlock mount shares the same highlighter
 // promise. First caller pays the ~280KB shiki cost; the rest get it free.
 let highlighterPromise: Promise<ShikiHighlighter> | null = null;
@@ -73,6 +99,14 @@ export interface AIChatCodeBlockProps {
   code: string;
   /** Language tag from the fenced block; falls back to plaintext. */
   language?: string;
+  /**
+   * Optional action context. When BOTH `threadContext` and `pageContext`
+   * are present, the three domain action buttons render alongside Copy.
+   * Markdown rendered outside the chat panel (preview, history, etc.)
+   * omits them and the toolbar collapses to just Copy.
+   */
+  threadContext?: ThreadContext;
+  pageContext?: PageContext;
 }
 
 /**
@@ -90,10 +124,32 @@ function normalizeLanguage(raw: string | undefined): string {
     : "plaintext";
 }
 
-export function AIChatCodeBlock({ code, language }: AIChatCodeBlockProps) {
+export function AIChatCodeBlock({
+  code,
+  language,
+  threadContext,
+  pageContext,
+}: AIChatCodeBlockProps) {
   const { resolvedTheme } = useTheme();
   const [html, setHtml] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+
+  // Per-action transient UI state. `pending` shows a spinner on the active
+  // button; `succeeded` flips the icon to a check for SUCCESS_PILL_MS.
+  const [pendingAction, setPendingAction] = useState<ActionType | null>(null);
+  const [succeededAction, setSucceededAction] = useState<ActionType | null>(
+    null,
+  );
+
+  // Picker state — when the resolver returns `needs-picker`, we stash the
+  // entity type + the action that opened the picker so we can route the
+  // resulting POST correctly once the user picks.
+  const [pickerState, setPickerState] = useState<{
+    entityType: "job" | "worklog";
+    action: ActionType;
+  } | null>(null);
+
+  const actionsEnabled = Boolean(threadContext && pageContext);
 
   const lang = useMemo(() => normalizeLanguage(language), [language]);
   const theme = resolvedTheme === "dark" ? "github-dark" : "github-light";
@@ -131,32 +187,133 @@ export function AIChatCodeBlock({ code, language }: AIChatCodeBlockProps) {
     }
   };
 
+  // Post the action payload to the matching route and flip the per-button
+  // success pill. We swallow failures into a console error for v1 — a richer
+  // toast surface is on the D.3+ wishlist.
+  const postAction = async (
+    action: ActionType,
+    body: { content: string; jobId?: string },
+  ) => {
+    setPendingAction(action);
+    try {
+      const res = await fetch(`/api/ai/actions/${action}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        console.error(`[ai-chat] action ${action} failed`, await res.text());
+        return;
+      }
+      setSucceededAction(action);
+      window.setTimeout(() => setSucceededAction(null), SUCCESS_PILL_MS);
+    } catch (err) {
+      console.error(`[ai-chat] action ${action} threw`, err);
+    } finally {
+      setPendingAction(null);
+    }
+  };
+
+  const handleAction = async (action: ActionType) => {
+    if (!threadContext || !pageContext) return;
+    if (pendingAction) return;
+
+    // ADR-0046 Phase D.3 v1: `send-to-worklog` always creates a new worklog
+    // server-side, so we skip the resolver and just POST the content. When
+    // the "prepend-to-active-worklog" UX ships, this branch goes away and
+    // the action joins the standard resolve-then-post flow.
+    if (action === "send-to-worklog") {
+      await postAction(action, { content: code });
+      return;
+    }
+
+    const resolution = resolveActionTarget(
+      action,
+      threadContext,
+      pageContext,
+    );
+    if (resolution.kind === "resolved") {
+      await postAction(action, {
+        content: code,
+        jobId: resolution.target.id,
+      });
+    } else {
+      setPickerState({ entityType: resolution.entityType, action });
+    }
+  };
+
+  // Picker confirm — `entityType` is "job" in v1 (worklog actions never
+  // open the picker because send-to-worklog always creates new).
+  const handlePicked = async (picked: AmbientEntityRef) => {
+    const action = pickerState?.action;
+    setPickerState(null);
+    if (!action) return;
+    await postAction(action, { content: code, jobId: picked.id });
+  };
+
   return (
     <div className="group relative my-2 overflow-hidden rounded-md border bg-muted/40 text-xs">
-      <div className="flex items-center justify-between border-b bg-muted/60 px-2 py-1">
+      <div className="flex items-center justify-between gap-2 border-b bg-muted/60 px-2 py-1">
         <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
           {lang === "plaintext" ? "text" : lang}
         </span>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="h-6 gap-1 px-2 text-[10px]"
-          onClick={handleCopy}
-          aria-label={copied ? "Copied" : "Copy code"}
-        >
-          {copied ? (
+        <div className="flex items-center gap-0.5">
+          {actionsEnabled ? (
             <>
-              <Check className="h-3 w-3" />
-              Copied
+              <ActionButton
+                action="send-to-worklog"
+                icon={Send}
+                label="Worklog"
+                tooltip="Send to a new worklog"
+                pending={pendingAction === "send-to-worklog"}
+                succeeded={succeededAction === "send-to-worklog"}
+                disabled={pendingAction !== null}
+                onClick={() => handleAction("send-to-worklog")}
+              />
+              <ActionButton
+                action="add-to-job-notes"
+                icon={StickyNote}
+                label="Notes"
+                tooltip="Add to job notes"
+                pending={pendingAction === "add-to-job-notes"}
+                succeeded={succeededAction === "add-to-job-notes"}
+                disabled={pendingAction !== null}
+                onClick={() => handleAction("add-to-job-notes")}
+              />
+              <ActionButton
+                action="save-as-bullet"
+                icon={ListPlus}
+                label="Bullet"
+                tooltip="Save as resume bullet"
+                pending={pendingAction === "save-as-bullet"}
+                succeeded={succeededAction === "save-as-bullet"}
+                disabled={pendingAction !== null}
+                onClick={() => handleAction("save-as-bullet")}
+              />
+              <div className="mx-0.5 h-4 w-px bg-border" aria-hidden />
             </>
-          ) : (
-            <>
-              <Copy className="h-3 w-3" />
-              Copy
-            </>
-          )}
-        </Button>
+          ) : null}
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-6 gap-1 px-2 text-[10px]"
+            onClick={handleCopy}
+            aria-label={copied ? "Copied" : "Copy code"}
+          >
+            {copied ? (
+              <>
+                <Check className="h-3 w-3" />
+                Copied
+              </>
+            ) : (
+              <>
+                <Copy className="h-3 w-3" />
+                Copy
+              </>
+            )}
+          </Button>
+        </div>
       </div>
       {html ? (
         <div
@@ -170,6 +327,61 @@ export function AIChatCodeBlock({ code, language }: AIChatCodeBlockProps) {
           <code>{code}</code>
         </pre>
       )}
+      {pickerState ? (
+        <AIChatActionPicker
+          open
+          entityType={pickerState.entityType}
+          onPick={handlePicked}
+          onCancel={() => setPickerState(null)}
+        />
+      ) : null}
     </div>
+  );
+}
+
+// ── Action button helper ─────────────────────────────────────────────────
+
+interface ActionButtonProps {
+  action: ActionType;
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  tooltip: string;
+  pending: boolean;
+  succeeded: boolean;
+  disabled: boolean;
+  onClick: () => void;
+}
+
+function ActionButton({
+  icon: Icon,
+  label,
+  tooltip,
+  pending,
+  succeeded,
+  disabled,
+  onClick,
+}: ActionButtonProps) {
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      className="h-6 gap-1 px-2 text-[10px]"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={tooltip}
+      title={tooltip}
+    >
+      {pending ? (
+        <Loader2 className="h-3 w-3 animate-spin" />
+      ) : succeeded ? (
+        <Check className="h-3 w-3 text-green-600" />
+      ) : (
+        <Icon className="h-3 w-3" />
+      )}
+      <span className="hidden sm:inline">
+        {succeeded ? "Saved" : label}
+      </span>
+    </Button>
   );
 }

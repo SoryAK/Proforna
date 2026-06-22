@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,6 +33,11 @@ import { AIChatTextareaWithMentions } from "@/components/ai-chat-textarea-with-m
 import { AIChatMessageMarkdown } from "@/components/ai-chat-message-markdown";
 import type { AIMeta } from "@/lib/ai/envelope";
 import type { MentionRef } from "@/lib/ai-chat-mentions";
+import type {
+  AmbientEntityRef,
+  PageContext,
+  ThreadContext,
+} from "@/lib/ai-chat-action-target";
 
 type ChatTask = "chat" | "ground" | "reason" | "summarize";
 
@@ -102,6 +107,12 @@ interface Message {
   content: string;
   /** Per-turn provenance, populated from the SSE `meta` event. */
   ai?: AIMeta;
+  /**
+   * @-mentions attached to the user turn at send time (ADR-0046 Phase D.3).
+   * Used to build the chronological `ThreadContext.recentMentions` consumed
+   * by the action-target resolver in the code-block toolbar.
+   */
+  mentions?: MentionRef[];
 }
 
 /**
@@ -143,6 +154,10 @@ export function AIChat() {
   // this layer so the chat-body sidecar can serialize them on send and the
   // textarea component can clear them on submit.
   const [mentions, setMentions] = useState<MentionRef[]>([]);
+  // Ambient page context (ADR-0046 Phase D.3). Populated from the
+  // `/api/ai/context` ambient field; consumed by the code-block toolbar's
+  // resolver as step (1) of target precedence.
+  const [pageContext, setPageContext] = useState<PageContext>({});
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -160,19 +175,37 @@ export function AIChat() {
 
   // Fetch career context slices (ADR-0046 Phase A). The legacy `systemPrompt`
   // field is read as a fallback so the panel still works against a server
-  // that hasn't been redeployed with the slice shape yet.
+  // that hasn't been redeployed with the slice shape yet. Phase D.3 also
+  // captures the `ambient` field for the code-block action resolver.
   useEffect(() => {
     if (!open || contextSlices.length > 0) return;
     fetch("/api/ai/context")
       .then((r) => r.json())
-      .then((d: { slices?: ContextSlice[]; systemPrompt?: string }) => {
-        if (Array.isArray(d.slices) && d.slices.length > 0) {
-          setContextSlices(d.slices);
-        } else if (d.systemPrompt) {
-          // Legacy shape: collapse the whole prompt into a single non-removable slice.
-          setContextSlices([{ id: "base", label: "Career context", prompt: d.systemPrompt, removable: false }]);
-        }
-      })
+      .then(
+        (d: {
+          slices?: ContextSlice[];
+          systemPrompt?: string;
+          ambient?: {
+            activeJob?: AmbientEntityRef | null;
+            activeWorklog?: AmbientEntityRef | null;
+            activeSkill?: AmbientEntityRef | null;
+          };
+        }) => {
+          if (Array.isArray(d.slices) && d.slices.length > 0) {
+            setContextSlices(d.slices);
+          } else if (d.systemPrompt) {
+            // Legacy shape: collapse the whole prompt into a single non-removable slice.
+            setContextSlices([{ id: "base", label: "Career context", prompt: d.systemPrompt, removable: false }]);
+          }
+          if (d.ambient) {
+            setPageContext({
+              activeJob: d.ambient.activeJob ?? null,
+              activeWorklog: d.ambient.activeWorklog ?? null,
+              activeSkill: d.ambient.activeSkill ?? null,
+            });
+          }
+        },
+      )
       .catch(() => {});
   }, [open, contextSlices.length]);
 
@@ -256,6 +289,21 @@ export function AIChat() {
     }
   }, [messages]);
 
+  // Build `ThreadContext.recentMentions` by flattening every user message's
+  // mention list chronologically (ADR-0046 Phase D.3). The resolver scans
+  // back-to-front, so chronological order = "most recent last", which is
+  // what `resolveActionTarget` expects.
+  const threadContext = useMemo<ThreadContext>(() => {
+    const refs: AmbientEntityRef[] = [];
+    for (const m of messages) {
+      if (m.role !== "user" || !m.mentions) continue;
+      for (const ref of m.mentions) {
+        refs.push({ type: ref.type, id: ref.id, label: ref.label });
+      }
+    }
+    return { recentMentions: refs };
+  }, [messages]);
+
   // Focus input when panel opens
   useEffect(() => {
     if (open && inputRef.current) {
@@ -267,10 +315,16 @@ export function AIChat() {
     const text = (overrideText ?? input).trim();
     if (!text || streaming) return;
 
+    // Snapshot current mentions so we can both attach them to the user
+    // message AND ship them in the chat-route sidecar. Cleared once the
+    // user message is queued.
+    const turnMentions = mentions;
+
     const userMsg: Message = {
       id: crypto.randomUUID(),
       role: "user",
       content: text,
+      mentions: turnMentions.length > 0 ? turnMentions : undefined,
     };
 
     const assistantMsg: Message = {
@@ -286,8 +340,10 @@ export function AIChat() {
     // Snapshot + clear mentions so the textarea is ready for the next turn.
     // The structured payload is sent alongside the chat body — the chat
     // route increments `EntityAIMentionCount` and injects a hidden system
-    // message containing the JSON block (ADR-0046 Phase C.2).
-    const mentionsPayload = mentions.map(({ type, id, label }) => ({ type, id, label }));
+    // message containing the JSON block (ADR-0046 Phase C.2). The same
+    // snapshot is also stored on the user message itself so D.3's
+    // code-block resolver can read the thread's mention history.
+    const mentionsPayload = turnMentions.map(({ type, id, label }) => ({ type, id, label }));
     setMentions([]);
 
     // Build messages array, prefixing the unsuppressed context slices as one
@@ -785,7 +841,11 @@ export function AIChat() {
                         <span className="text-xs text-muted-foreground">Thinking...</span>
                       </div>
                     ) : msg.role === "assistant" ? (
-                      <AIChatMessageMarkdown content={msg.content} />
+                      <AIChatMessageMarkdown
+                        content={msg.content}
+                        threadContext={threadContext}
+                        pageContext={pageContext}
+                      />
                     ) : (
                       <div className="whitespace-pre-wrap break-words">{msg.content}</div>
                     )}
