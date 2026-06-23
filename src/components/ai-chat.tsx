@@ -40,15 +40,14 @@ import type {
 } from "@/lib/ai-chat-action-target";
 import {
   TASK_OPTIONS,
-  SLASH_COMMANDS,
   type ChatTask,
-  type SlashCommand,
   type Message,
 } from "@/lib/ai-chat-constants";
 import { useAiChatResize } from "@/hooks/use-ai-chat-resize";
 import { useAiChatModels } from "@/hooks/use-ai-chat-models";
 import { useAiChatContext } from "@/hooks/use-ai-chat-context";
 import { useAiChatStream } from "@/hooks/use-ai-chat-stream";
+import { useAiChatSlash } from "@/hooks/use-ai-chat-slash";
 
 export function AIChat() {
   const { open, setOpen } = useAIChat();
@@ -72,9 +71,6 @@ export function AIChat() {
   // Tweak 3: context chips are gated behind the toolbar `[+]` toggle.
   // Default closed — the count badge surfaces how many slices are active.
   const [contextExpanded, setContextExpanded] = useState(false);
-  // Keyboard-selected slash command (ADR-0046 Phase B). Reset to 0 whenever
-  // the filtered list shrinks below the current index.
-  const [slashIndex, setSlashIndex] = useState(0);
   // Active @-mentions for the current input (ADR-0046 Phase C.3). Owned at
   // this layer so the chat-body sidecar can serialize them on send and the
   // textarea component can clear them on submit.
@@ -137,24 +133,9 @@ export function AIChat() {
     }
   }, [open]);
 
-  // Slash command surface (ADR-0046 Phase B). The menu is open when the
-  // input starts with `/` and contains no whitespace — VS Code convention,
-  // keeps mid-message URLs from accidentally opening the menu.
-  const isSlashActive = input.startsWith("/") && !/\s/.test(input);
-  const slashQuery = isSlashActive ? input.slice(1).toLowerCase() : "";
-  const filteredSlashCommands = isSlashActive
-    ? SLASH_COMMANDS.filter((c) => c.id.toLowerCase().startsWith(slashQuery))
-    : [];
-  const slashOpen = filteredSlashCommands.length > 0;
-
-  // Keep the highlighted index in range as the filter narrows.
-  useEffect(() => {
-    if (slashIndex >= filteredSlashCommands.length) setSlashIndex(0);
-  }, [filteredSlashCommands.length, slashIndex]);
-
-  // NB: `clearChat` is declared before `executeSlashCommand` because the
-  // latter's `useCallback` deps array references it — placing it later
-  // would put it in the temporal dead zone at render time.
+  // Slash command surface (ADR-0046 Phase B — extracted hook owns slashIndex,
+  // isSlashActive derivation, filter, clamp effect, executeSlashCommand,
+  // and the composable keyboard branch).
   const clearChat = useCallback(() => {
     setMessages([]);
     setContextSlices([]);
@@ -162,52 +143,19 @@ export function AIChat() {
     setCollapsedTurns(new Set());
     setSessionTokens(0);
     setMentions([]);
-  }, []);
+  }, [setMessages, setContextSlices, setSuppressedSliceIds, setSessionTokens]);
 
-  const executeSlashCommand = useCallback(
-    (cmd: SlashCommand) => {
-      // Client-side slash commands short-circuit the send — they don't
-      // produce a user turn (e.g. `/clear` resets the thread in-place).
-      if (cmd.id === "clear") {
-        setInput("");
-        setSlashIndex(0);
-        clearChat();
-        return;
-      }
-      // Pass the prompt directly into sendMessage so we don't race React's
-      // batched state — `input` won't have flushed yet when we send.
-      setInput(cmd.prompt);
-      setSlashIndex(0);
-      void sendMessage(cmd.prompt);
-    },
-    [sendMessage, clearChat],
-  );
+  const {
+    slashIndex,
+    setSlashIndex,
+    slashOpen,
+    filteredSlashCommands,
+    executeSlashCommand,
+    handleSlashKey,
+  } = useAiChatSlash({ input, setInput, sendMessage, onClear: clearChat });
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (slashOpen) {
-      if (e.key === "ArrowDown") {
-        e.preventDefault();
-        setSlashIndex((i) => Math.min(i + 1, filteredSlashCommands.length - 1));
-        return;
-      }
-      if (e.key === "ArrowUp") {
-        e.preventDefault();
-        setSlashIndex((i) => Math.max(i - 1, 0));
-        return;
-      }
-      if (e.key === "Tab" || (e.key === "Enter" && !e.shiftKey)) {
-        e.preventDefault();
-        const cmd = filteredSlashCommands[slashIndex];
-        if (cmd) executeSlashCommand(cmd);
-        return;
-      }
-      if (e.key === "Escape") {
-        e.preventDefault();
-        setInput("");
-        setSlashIndex(0);
-        return;
-      }
-    }
+    if (handleSlashKey(e)) return;
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       void sendMessage();
