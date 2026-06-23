@@ -4,7 +4,7 @@
   "title": "AI Chat Panel",
   "description": "Floating right-edge panel reachable from every authenticated route. Owns the SSE streaming chat pipeline (Ollama + Gemini providers), the four context layers (career-context slices, slash commands, @-mentions, ambient page refs), the assistant-only markdown renderer with Shiki-highlighted code blocks, and the three Phase-D code-block domain actions (Send to Worklog / Add to Job Notes / Save as Bullet) with a target-resolution picker. Authoritative ADRs: 0045 (envelope + provenance), 0046 (phases A through D — context slices, slash commands, @-mentions, code-block actions).",
   "lastValidatedAt": "2026-06-23",
-  "lastValidatedCommit": "34a0f5c",
+  "lastValidatedCommit": "407073c",
   "refreshHistory": [
     { "refreshedAt": "2026-06-22", "refreshedFromSessionId": "77e25d9d-ca47-4795-b5f4-d8921afd0593", "summary": "Seed slice. Authored immediately after ADR-0046 Phase D.3 landed (22215ce), so all 7 entryPoints reflect post-D.3 reality. Hand-authored — no analyzer mining yet." },
     { "refreshedAt": "2026-06-23", "refreshedFromSessionId": "77e25d9d-ca47-4795-b5f4-d8921afd0593", "summary": "Post-god-file-refactor refresh (phases 1–7, 34a0f5c). ai-chat.tsx 1026 → 281 LOC (−72%). Retired the god-file architectural trap. Added 5 hooks (use-ai-chat-{resize,models,context,stream,slash}.ts) + 6 sibling components (ai-chat-{empty-state,slash-menu,context-chips,settings-panel,message-list,toolbar}.tsx) to fileFingerprints. Behaviour preserved; vitest 966/971 baseline held across every phase." }
@@ -167,7 +167,7 @@
     { "path": "src/components/ai-chat-toolbar.tsx", "role": "bottom-toolbar-component", "lastValidatedAt": "2026-06-23" },
     { "path": "src/components/ai-chat-textarea-with-mentions.tsx", "role": "mention-input", "lastValidatedAt": "2026-06-22" },
     { "path": "src/components/ai-chat-message-markdown.tsx", "role": "markdown-renderer", "lastValidatedAt": "2026-06-22" },
-    { "path": "src/components/ai-chat-code-block.tsx", "role": "code-block-toolbar", "lastValidatedAt": "2026-06-22" },
+    { "path": "src/components/ai-chat-code-block.tsx", "role": "code-block-toolbar", "lastValidatedAt": "2026-06-23", "notes": "Toast retrofit (commit 407073c): success-pill removed, sonner toasts on both paths with target-label interpolation and status-aware error descriptions." },
     { "path": "src/components/ai-chat-action-picker.tsx", "role": "target-picker", "lastValidatedAt": "2026-06-22" },
     { "path": "src/components/ai-provenance-chip.tsx", "role": "provenance-chip", "lastValidatedAt": "2026-06-22" },
     { "path": "src/hooks/use-ai-chat-resize.ts", "role": "resize-hook", "lastValidatedAt": "2026-06-23" },
