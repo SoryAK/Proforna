@@ -17,19 +17,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  Bot,
   Send,
   X,
-  MessageSquare,
   Loader2,
   Settings2,
   Wifi,
   WifiOff,
   Sparkles,
   ChevronDown,
-  Globe,
-  Brain,
-  FileText,
   Square,
   Mic,
   Plus,
@@ -47,111 +42,16 @@ import type {
   PageContext,
   ThreadContext,
 } from "@/lib/ai-chat-action-target";
-
-type ChatTask = "chat" | "ground" | "reason" | "summarize";
-
-const TASK_OPTIONS: Array<{
-  id: ChatTask;
-  label: string;
-  icon: typeof Bot;
-  premium?: boolean;
-}> = [
-  { id: "chat", label: "Chat", icon: MessageSquare },
-  { id: "ground", label: "Search", icon: Globe },
-  { id: "reason", label: "Think harder", icon: Brain, premium: true },
-  { id: "summarize", label: "Summarize", icon: FileText },
-];
-
-/**
- * Slash command registry (ADR-0046 Phase B). Each command expands to a
- * prompt template that is sent as the user message on selection. Parameter-
- * ised commands (e.g. `/compare-jobs @job @job`) are deferred to Phase B'
- * after the @-mention picker lands in Phase C.
- *
- * Triggered when the input starts with `/` and contains no space — VS Code
- * convention to avoid intercepting URLs typed mid-message.
- */
-interface SlashCommand {
-  /** Stable id (no leading slash). Used for key, registry lookups, and id-prefix matching. */
-  id: string;
-  /** Display label including leading slash. */
-  label: string;
-  /** One-line hint shown next to the label in the menu. */
-  description: string;
-  /** Full prompt sent as the user message when the command is executed. */
-  prompt: string;
-}
-
-const SLASH_COMMANDS: SlashCommand[] = [
-  {
-    id: "grill-me",
-    label: "/grill-me",
-    description: "Socratic interrogation of your current career context",
-    prompt:
-      "Grill me Socratically about my current career context. Ask one tough question at a time, then wait for my response before asking the next. Start with the most strategically important gap.",
-  },
-  {
-    id: "summarize-week",
-    label: "/summarize-week",
-    description: "Summarize your last 7 days of worklog",
-    prompt:
-      "Summarize my worklog from the past 7 days. Highlight: recurring themes, blockers, accomplishments, and what I should bring up in 1-on-1s or weekly status updates.",
-  },
-  {
-    id: "draft-bullets",
-    label: "/draft-bullets",
-    description: "Generate STAR-format resume bullets from your context",
-    prompt:
-      "Draft 3-5 resume bullets from my current context. Each bullet must follow STAR format (Situation / Task / Action / Result) and quantify impact wherever supporting data exists.",
-  },
-  // Client-side command — short-circuits in `executeSlashCommand` to call
-  // `clearChat` instead of sending a prompt. Empty `prompt` is intentional.
-  {
-    id: "clear",
-    label: "/clear",
-    description: "Clear the conversation",
-    prompt: "",
-  },
-];
-
-// Rough char-to-token estimate (~4 chars/token for English). Good enough for
-// a session cost gauge; exact counts would require server-side usage events.
-const estimateTokens = (s: string): number => Math.ceil(s.length / 4);
-
-interface Message {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  /** Per-turn provenance, populated from the SSE `meta` event. */
-  ai?: AIMeta;
-  /**
-   * @-mentions attached to the user turn at send time (ADR-0046 Phase D.3).
-   * Used to build the chronological `ThreadContext.recentMentions` consumed
-   * by the action-target resolver in the code-block toolbar.
-   */
-  mentions?: MentionRef[];
-}
-
-/**
- * One context slice returned by `/api/ai/context`. Mirrored from the
- * server-side `AIContextSlice` so the chat panel can render removable chips
- * and reassemble the system prompt from the user's selection (ADR-0046 Phase A).
- */
-interface ContextSlice {
-  id: string;
-  label: string;
-  prompt: string;
-  removable: boolean;
-}
-
-interface ModelsData {
-  // `available: false` means the daemon is unreachable OR zero models are
-  // pulled — both states render Ollama unusable for chat (ADR-0045-fix
-  // 2026-06-22; matches `GET /api/ai/models` contract).
-  ollama: { available: boolean; url: string; defaultModel: string | null };
-  gemini: { available: boolean; defaultModel: string };
-  models: { provider: string; name: string; active: boolean }[];
-}
+import {
+  TASK_OPTIONS,
+  SLASH_COMMANDS,
+  estimateTokens,
+  type ChatTask,
+  type SlashCommand,
+  type Message,
+  type ContextSlice,
+  type ModelsData,
+} from "@/lib/ai-chat-constants";
 
 export function AIChat() {
   const { open, setOpen } = useAIChat();
