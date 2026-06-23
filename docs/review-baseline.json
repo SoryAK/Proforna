@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "capturedAt": "2026-06-23T04:30:47.385Z",
+  "commit": "ef75099",
+  "notes": "Phase-end review baseline. Future phases must not regress any gate. Regenerate via: npm run review:baseline (after landing improvements).",
+  "gates": {
+    "tsc": {
+      "errors": 22
+    },
+    "eslint": {
+      "errors": 495,
+      "warnings": 10591
+    },
+    "knip": {
+      "files": 0,
+      "dependencies": 0,
+      "devDependencies": 0
+    },
+    "madge": {
+      "circular": 0
+    },
+    "vitest": {
+      "passed": 966,
+      "skipped": 5,
+      "failed": 0,
+      "total": 971
+    }
+  }
+}
