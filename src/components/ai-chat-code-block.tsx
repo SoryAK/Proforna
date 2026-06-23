@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 
 import { AIChatActionPicker } from "@/components/ai-chat-action-picker";
 import { Button } from "@/components/ui/button";
@@ -75,7 +76,53 @@ type ShikiHighlighter = {
   ) => string;
 };
 
-const SUCCESS_PILL_MS = 1800;
+/**
+ * Build the toast message for a given action + outcome. Target label is
+ * threaded in by the caller (resolved target.label, picker pick.label, or
+ * undefined for send-to-worklog which always creates a new worklog v1).
+ */
+function buildMessage(
+  action: ActionType,
+  ok: boolean,
+  targetLabel?: string,
+): string {
+  if (ok) {
+    switch (action) {
+      case "send-to-worklog":
+        return targetLabel ? `Sent to "${targetLabel}"` : "Sent to a new worklog";
+      case "add-to-job-notes":
+        return targetLabel ? `Added to ${targetLabel} notes` : "Added to job notes";
+      case "save-as-bullet":
+        return targetLabel ? `Saved as bullet on ${targetLabel}` : "Saved as bullet";
+    }
+  }
+  switch (action) {
+    case "send-to-worklog":
+      return targetLabel
+        ? `Failed to send to "${targetLabel}"`
+        : "Failed to send to worklog";
+    case "add-to-job-notes":
+      return targetLabel
+        ? `Failed to add to ${targetLabel} notes`
+        : "Failed to add to job notes";
+    case "save-as-bullet":
+      return targetLabel
+        ? `Failed to save as bullet on ${targetLabel}`
+        : "Failed to save as bullet";
+  }
+}
+
+/**
+ * Map an HTTP status from one of the /api/ai/actions/* routes to a short
+ * human-readable description. Used as the toast `description` field when
+ * the server didn't return a usable `{ error }` JSON body.
+ */
+function statusFallbackMessage(status: number): string | null {
+  if (status === 401) return "Sign-in expired";
+  if (status === 404) return "Target not found";
+  if (status >= 500) return "Server error \u2014 try again";
+  return null;
+}
 
 // Module-singleton: every AIChatCodeBlock mount shares the same highlighter
 // promise. First caller pays the ~280KB shiki cost; the rest get it free.
@@ -135,11 +182,9 @@ export function AIChatCodeBlock({
   const [copied, setCopied] = useState(false);
 
   // Per-action transient UI state. `pending` shows a spinner on the active
-  // button; `succeeded` flips the icon to a check for SUCCESS_PILL_MS.
+  // button. Success / failure are surfaced via sonner toasts (see
+  // `buildMessage`) so the in-button feedback stays minimal.
   const [pendingAction, setPendingAction] = useState<ActionType | null>(null);
-  const [succeededAction, setSucceededAction] = useState<ActionType | null>(
-    null,
-  );
 
   // Picker state — when the resolver returns `needs-picker`, we stash the
   // entity type + the action that opened the picker so we can route the
@@ -187,12 +232,13 @@ export function AIChatCodeBlock({
     }
   };
 
-  // Post the action payload to the matching route and flip the per-button
-  // success pill. We swallow failures into a console error for v1 — a richer
-  // toast surface is on the D.3+ wishlist.
+  // Post the action payload to the matching route and surface success /
+  // failure via sonner. `targetLabel` (when present) is interpolated into
+  // the toast text so the user sees which entity was affected.
   const postAction = async (
     action: ActionType,
     body: { content: string; jobId?: string },
+    targetLabel?: string,
   ) => {
     setPendingAction(action);
     try {
@@ -202,12 +248,25 @@ export function AIChatCodeBlock({
         body: JSON.stringify(body),
       });
       if (!res.ok) {
-        console.error(`[ai-chat] action ${action} failed`, await res.text());
+        // Try to extract a server-provided message. Routes use { error }
+        // JSON envelopes on failure but we tolerate raw text too.
+        let serverMsg: string | undefined;
+        try {
+          const parsed = (await res.json()) as { error?: string; message?: string };
+          serverMsg = parsed?.error || parsed?.message;
+        } catch {
+          // Body wasn't JSON; the status-aware fallback covers it.
+        }
+        const description = serverMsg ?? statusFallbackMessage(res.status) ?? undefined;
+        toast.error(buildMessage(action, false, targetLabel), { description });
+        console.error(`[ai-chat] action ${action} failed`, res.status);
         return;
       }
-      setSucceededAction(action);
-      window.setTimeout(() => setSucceededAction(null), SUCCESS_PILL_MS);
+      toast.success(buildMessage(action, true, targetLabel));
     } catch (err) {
+      toast.error(buildMessage(action, false, targetLabel), {
+        description: err instanceof Error ? err.message : "Network error",
+      });
       console.error(`[ai-chat] action ${action} threw`, err);
     } finally {
       setPendingAction(null);
@@ -233,10 +292,11 @@ export function AIChatCodeBlock({
       pageContext,
     );
     if (resolution.kind === "resolved") {
-      await postAction(action, {
-        content: code,
-        jobId: resolution.target.id,
-      });
+      await postAction(
+        action,
+        { content: code, jobId: resolution.target.id },
+        resolution.target.label,
+      );
     } else {
       setPickerState({ entityType: resolution.entityType, action });
     }
@@ -248,7 +308,11 @@ export function AIChatCodeBlock({
     const action = pickerState?.action;
     setPickerState(null);
     if (!action) return;
-    await postAction(action, { content: code, jobId: picked.id });
+    await postAction(
+      action,
+      { content: code, jobId: picked.id },
+      picked.label,
+    );
   };
 
   return (
@@ -266,7 +330,6 @@ export function AIChatCodeBlock({
                 label="Worklog"
                 tooltip="Send to a new worklog"
                 pending={pendingAction === "send-to-worklog"}
-                succeeded={succeededAction === "send-to-worklog"}
                 disabled={pendingAction !== null}
                 onClick={() => handleAction("send-to-worklog")}
               />
@@ -276,7 +339,6 @@ export function AIChatCodeBlock({
                 label="Notes"
                 tooltip="Add to job notes"
                 pending={pendingAction === "add-to-job-notes"}
-                succeeded={succeededAction === "add-to-job-notes"}
                 disabled={pendingAction !== null}
                 onClick={() => handleAction("add-to-job-notes")}
               />
@@ -286,7 +348,6 @@ export function AIChatCodeBlock({
                 label="Bullet"
                 tooltip="Save as resume bullet"
                 pending={pendingAction === "save-as-bullet"}
-                succeeded={succeededAction === "save-as-bullet"}
                 disabled={pendingAction !== null}
                 onClick={() => handleAction("save-as-bullet")}
               />
@@ -347,7 +408,6 @@ interface ActionButtonProps {
   label: string;
   tooltip: string;
   pending: boolean;
-  succeeded: boolean;
   disabled: boolean;
   onClick: () => void;
 }
@@ -357,7 +417,6 @@ function ActionButton({
   label,
   tooltip,
   pending,
-  succeeded,
   disabled,
   onClick,
 }: ActionButtonProps) {
@@ -374,14 +433,10 @@ function ActionButton({
     >
       {pending ? (
         <Loader2 className="h-3 w-3 animate-spin" />
-      ) : succeeded ? (
-        <Check className="h-3 w-3 text-green-600" />
       ) : (
         <Icon className="h-3 w-3" />
       )}
-      <span className="hidden sm:inline">
-        {succeeded ? "Saved" : label}
-      </span>
+      <span className="hidden sm:inline">{label}</span>
     </Button>
   );
 }
