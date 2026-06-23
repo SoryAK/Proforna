@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { Sidebar, MobileHeader, AppHeader, SidebarProvider } from "@/components/sidebar";
 import { CommandPalette } from "@/components/command-palette";
 import { AIChat } from "@/components/ai-chat";
+import { AIChatProvider } from "@/components/ai-chat-provider";
 import { QuickLogDialog } from "@/components/quick-log-dialog";
 import { WorklogDndProvider } from "@/components/worklog/worklog-dnd-provider";
 
@@ -38,12 +39,14 @@ export function LayoutShell({ children }: { children: React.ReactNode }) {
 
   return (
     <SidebarProvider>
-      <div className="flex flex-col h-screen overflow-hidden bg-white dark:bg-gray-950">
-        <AppHeader />
-        {isWorklog ? <WorklogDndProvider>{shellBody}</WorklogDndProvider> : shellBody}
-        <CommandPalette />
-        <QuickLogDialog />
-      </div>
+      <AIChatProvider>
+        <div className="flex flex-col h-screen overflow-hidden bg-white dark:bg-gray-950">
+          <AppHeader />
+          {isWorklog ? <WorklogDndProvider>{shellBody}</WorklogDndProvider> : shellBody}
+          <CommandPalette />
+          <QuickLogDialog />
+        </div>
+      </AIChatProvider>
     </SidebarProvider>
   );
 }

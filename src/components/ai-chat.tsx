@@ -38,6 +38,7 @@ import {
 import { AIProvenanceChip } from "@/components/ai-provenance-chip";
 import { AIChatTextareaWithMentions } from "@/components/ai-chat-textarea-with-mentions";
 import { AIChatMessageMarkdown } from "@/components/ai-chat-message-markdown";
+import { useAIChat } from "@/components/ai-chat-provider";
 import type { AIMeta } from "@/lib/ai/envelope";
 import type { MentionRef } from "@/lib/ai-chat-mentions";
 import type {
@@ -152,7 +153,7 @@ interface ModelsData {
 }
 
 export function AIChat() {
-  const [open, setOpen] = useState(false);
+  const { open, setOpen } = useAIChat();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
@@ -614,18 +615,8 @@ export function AIChat() {
     0,
   );
 
-  // Fab button
+  // Panel — trigger now lives in AppHeader / MobileHeader (see AIChatProvider).
   return (
-    <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className={`fixed bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-orange-600 to-purple-600 text-white shadow-lg hover:shadow-xl transition-all hover:scale-105 active:scale-95 ${open ? 'scale-0 opacity-0 pointer-events-none' : 'scale-100 opacity-100'}`}
-        aria-label="Open AI Chat"
-      >
-        <Sparkles className="h-6 w-6" />
-      </button>
-
       <div 
         className={`fixed top-0 right-0 z-50 flex h-[100dvh] flex-col border-l bg-background shadow-2xl overflow-hidden
           md:relative md:h-full md:shadow-none md:translate-x-0 md:z-0
@@ -1097,6 +1088,5 @@ export function AIChat() {
       </div>
       </div>
     </div>
-    </>
   );
 }

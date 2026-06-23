@@ -38,6 +38,7 @@ import {
   Users,
   Settings,
   Images,
+  Sparkles,
 } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
@@ -60,6 +61,7 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { PortalSettingsPanel } from "@/components/portal-settings-panel";
 import { NotificationBell } from "@/components/notification-bell";
+import { useAIChat } from "@/components/ai-chat-provider";
 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { WorklogNavSidebar } from "@/components/worklog/worklog-nav-sidebar";
@@ -328,6 +330,7 @@ function ThemeDropdownItem() {
 /** Desktop top header bar — visible on md+ */
 export function AppHeader() {
   const { collapsed, toggle } = useSidebar();
+  const { open: aiChatOpen, toggle: toggleAIChat } = useAIChat();
   const { data: session } = useSession();
   const router = useRouter();
   const pathname = usePathname();
@@ -412,6 +415,20 @@ export function AppHeader() {
 
         {/* Actions */}
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={toggleAIChat}
+            aria-label={aiChatOpen ? "Close AI Chat" : "Open AI Chat"}
+            aria-pressed={aiChatOpen}
+            title="AI Chat"
+            className={`flex items-center justify-center h-8 w-8 rounded-md transition-colors ${
+              aiChatOpen
+                ? "bg-gradient-to-br from-orange-600 to-purple-600 text-white shadow-sm"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted"
+            }`}
+          >
+            <Sparkles className="h-4 w-4" />
+          </button>
           <NotificationBell />
           <DropdownMenu>
             <DropdownMenuTrigger
@@ -498,6 +515,7 @@ export function AppHeader() {
 /** Mobile top-bar with sheet — visible below md */
 export function MobileHeader() {
   const [open, setOpen] = useState(false);
+  const { open: aiChatOpen, toggle: toggleAIChat } = useAIChat();
   const { data: session } = useSession();
   const router = useRouter();
   const pathname = usePathname();
@@ -535,6 +553,20 @@ export function MobileHeader() {
         <span>Resumsify</span>
       </Link>
       <div className="ml-auto flex items-center gap-1">
+        <button
+          type="button"
+          onClick={toggleAIChat}
+          aria-label={aiChatOpen ? "Close AI Chat" : "Open AI Chat"}
+          aria-pressed={aiChatOpen}
+          title="AI Chat"
+          className={`flex items-center justify-center h-9 w-9 rounded-md transition-colors ${
+            aiChatOpen
+              ? "bg-gradient-to-br from-orange-600 to-purple-600 text-white shadow-sm"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted"
+          }`}
+        >
+          <Sparkles className="h-4 w-4" />
+        </button>
         <NotificationBell />
         <DropdownMenu>
           <DropdownMenuTrigger
