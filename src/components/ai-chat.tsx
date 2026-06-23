@@ -52,6 +52,7 @@ import {
   type ContextSlice,
   type ModelsData,
 } from "@/lib/ai-chat-constants";
+import { useAiChatResize } from "@/hooks/use-ai-chat-resize";
 
 export function AIChat() {
   const { open, setOpen } = useAIChat();
@@ -135,49 +136,8 @@ export function AIChat() {
   // Auto-select best model when models data loads (only once)
   const [initialized, setInitialized] = useState(false);
 
-  // Resize logic
-  const [panelWidth, setPanelWidth] = useState(400);
-  const [isDragging, setIsDragging] = useState(false);
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const savedWidth = localStorage.getItem("resumsify-ai-width");
-      if (savedWidth) setPanelWidth(Number(savedWidth));
-    }
-  }, []);
-
-  const startResizing = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
-  }, []);
-
-  useEffect(() => {
-    if (!isDragging) return;
-
-    const handleMouseMove = (e: MouseEvent) => {
-      let newWidth = document.documentElement.clientWidth - e.clientX;
-      if (newWidth < 280) newWidth = 280;
-      if (newWidth > 1200) newWidth = 1200; // Max width
-      setPanelWidth(newWidth);
-    };
-
-    const handleMouseUp = () => {
-      setIsDragging(false);
-      localStorage.setItem("resumsify-ai-width", panelWidth.toString());
-    };
-
-    document.addEventListener("mousemove", handleMouseMove);
-    document.addEventListener("mouseup", handleMouseUp);
-    document.body.style.userSelect = "none";
-    document.body.style.cursor = "col-resize";
-
-    return () => {
-      document.removeEventListener("mousemove", handleMouseMove);
-      document.removeEventListener("mouseup", handleMouseUp);
-      document.body.style.userSelect = "";
-      document.body.style.cursor = "";
-    };
-  }, [isDragging, panelWidth]);
+  // Resize logic (extracted hook — owns panelWidth, isDragging, drag handlers)
+  const { panelWidth, isDragging, startResizing } = useAiChatResize();
 
   useEffect(() => {
     if (!modelsData || initialized) return;
