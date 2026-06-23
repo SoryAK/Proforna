@@ -4,10 +4,11 @@
   "title": "AI Chat Panel",
   "description": "Floating right-edge panel reachable from every authenticated route. Owns the SSE streaming chat pipeline (Ollama + Gemini providers), the four context layers (career-context slices, slash commands, @-mentions, ambient page refs), the assistant-only markdown renderer with Shiki-highlighted code blocks, and the three Phase-D code-block domain actions (Send to Worklog / Add to Job Notes / Save as Bullet) with a target-resolution picker. Authoritative ADRs: 0045 (envelope + provenance), 0046 (phases A through D — context slices, slash commands, @-mentions, code-block actions).",
   "lastValidatedAt": "2026-06-23",
-  "lastValidatedCommit": "407073c",
+  "lastValidatedCommit": "48db823",
   "refreshHistory": [
-    { "refreshedAt": "2026-06-22", "refreshedFromSessionId": "77e25d9d-ca47-4795-b5f4-d8921afd0593", "summary": "Seed slice. Authored immediately after ADR-0046 Phase D.3 landed (22215ce), so all 7 entryPoints reflect post-D.3 reality. Hand-authored — no analyzer mining yet." },
-    { "refreshedAt": "2026-06-23", "refreshedFromSessionId": "77e25d9d-ca47-4795-b5f4-d8921afd0593", "summary": "Post-god-file-refactor refresh (phases 1–7, 34a0f5c). ai-chat.tsx 1026 → 281 LOC (−72%). Retired the god-file architectural trap. Added 5 hooks (use-ai-chat-{resize,models,context,stream,slash}.ts) + 6 sibling components (ai-chat-{empty-state,slash-menu,context-chips,settings-panel,message-list,toolbar}.tsx) to fileFingerprints. Behaviour preserved; vitest 966/971 baseline held across every phase." }
+    { "refreshedAt": "2026-06-22", "refreshedFromSessionId": "77e25d9d-ca47-4795-b5f4-d8921afd0593", "summary": "Seed slice. Authored immediately after ADR-0046 Phase D.3 landed (22215ce), so all 7 entryPoints reflect post-D.3 reality. Hand-authored \u2014 no analyzer mining yet." },
+    { "refreshedAt": "2026-06-23", "refreshedFromSessionId": "77e25d9d-ca47-4795-b5f4-d8921afd0593", "summary": "Post-god-file-refactor refresh (phases 1\u20137, 34a0f5c). ai-chat.tsx 1026 \u2192 281 LOC (\u221272%). Retired the god-file architectural trap. Added 5 hooks (use-ai-chat-{resize,models,context,stream,slash}.ts) + 6 sibling components (ai-chat-{empty-state,slash-menu,context-chips,settings-panel,message-list,toolbar}.tsx) to fileFingerprints. Behaviour preserved; vitest 966/971 baseline held across every phase." },
+    { "refreshedAt": "2026-06-23", "refreshedFromSessionId": "77e25d9d-ca47-4795-b5f4-d8921afd0593", "summary": "ADR-0046 follow-up D \u2014 URL-aware ambient (48db823). Server now overrides the recency heuristic with userId-scoped /api/ai/context?activeWorklogId=&activeJobId= lookups when the client supplies pathname-derived hints. Client hook uses next/navigation usePathname + memoized parsePathnameForAmbient, refetches on every nav while open. New pure module src/lib/ai-chat-pathname.ts (13 TDD specs) + 3 new URL-override specs on the route. Allowlist v1: /worklog/notes/[id] \u2192 activeWorklogId, /experience/[id] \u2192 activeJobId (reserved /experience/verify skipped). Closes the cache-drift bug: chat opened on worklog A then nav to B no longer reports A. Pre-existing recency-heuristic isActive lookup is NOT userId-scoped \u2014 documented as a separate trap, out-of-scope for D." }
   ],
 
   "entryPoints": [
@@ -43,15 +44,20 @@
     {
       "id": "context-slices-and-ambient",
       "name": "Career context slices + ambient refs",
-      "description": "GET `/api/ai/context` returns `{ slices, systemPrompt, ambient }`. Slices are server-curated chunks of the user's profile/position/skills/goals/etc. that the panel renders as removable chips above the input (ADR-0046 Phase A). The `ambient` field (Phase D.2) exposes server-derived active entity refs the code-block action resolver consumes as precedence step (1).",
+      "description": "GET `/api/ai/context` returns `{ slices, systemPrompt, ambient }`. Slices are server-curated chunks of the user's profile/position/skills/goals/etc. that the panel renders as removable chips above the input (ADR-0046 Phase A). The `ambient` field (Phase D.2, made URL-aware in follow-up D) exposes server-derived active entity refs the code-block action resolver consumes as precedence step (1). The route now accepts `?activeWorklogId=` and `?activeJobId=` query params; userId-scoped Prisma lookups for those ids OVERRIDE the recency heuristic when the row exists.",
       "primarySymbol": "GET /api/ai/context",
       "primaryPath": "src/app/api/ai/context/route.ts",
-      "relatedSymbols": ["AIContextSlice", "ContextSlice", "PageContext", "AmbientEntityRef", "suppressedSliceIds"],
+      "relatedSymbols": ["AIContextSlice", "ContextSlice", "PageContext", "AmbientEntityRef", "suppressedSliceIds", "parsePathnameForAmbient", "PathnameAmbient"],
       "knownTraps": [
         "Legacy `systemPrompt` field is kept for back-compat with pre-slice-shape consumers; new client code must build the prompt from unsuppressed slices on the client side instead.",
-        "`ambient.activeJob` derives from `prisma.workHistory.findFirst({ where: { isActive: true } })` — at most one row. Label is `\"title @ company\"` or just `company` when title is null.",
-        "`ambient.activeWorklog` is a server-side heuristic: most-recently-updated non-archived WorkLog within the last 24h. It is NOT URL-aware — a user on `/jobs/[other-id]` still sees the recent worklog as ambient.",
-        "`ambient.activeSkill` is reserved (always null in v1). No reliable server-side signal. The contract field exists so the chat panel + resolver compile against it."
+        "URL-aware ambient allowlist v1 (in `src/lib/ai-chat-pathname.ts`) is INTENTIONALLY narrow: only `/worklog/notes/[id]` (→ activeWorklogId) and `/experience/[id]` (→ activeJobId). Adding a surface requires a new regex + a new test — don't broaden silently or you'll surface ambient on routes the user doesn't perceive as 'job-scoped'.",
+        "Reserved subroute trap: `/experience/verify` is the Equifax verification page — NOT a WorkHistory detail. `RESERVED_EXPERIENCE_SEGMENTS` skips it. Every new `/experience/<reserved>` subroute MUST be added to that set.",
+        "URL-override is userId-scoped (`prisma.workHistory.findFirst({ where: { id, userId } })`). A foreign id silently falls through to the heuristic so the query-string surface never leaks data — keep this property if you ever refactor the parallel-fetch block.",
+        "PRE-EXISTING SECURITY GAP (NOT introduced by follow-up D): the recency-heuristic `prisma.workHistory.findFirst({ where: { isActive: true } })` and the recent-WorkLog query are NOT userId-scoped. Single-user dev mode masks it. Track for a future scoped-fix; do not regress it further. URL-override IS correctly scoped because that's the new code.",
+        "`ambient.activeJob` label: `\"title @ company\"` or just `company` when title is null. Don't change the format without checking `AIChatActionPicker` — the picker doesn't parse it, but humans read it.",
+        "`ambient.activeSkill` is reserved (always null in v1). No reliable server-side signal. The contract field exists so the chat panel + resolver compile against it.",
+        "Hook refetch contract: `useAiChatContext` now refetches on `[open, pathnameAmbient.activeWorklogId, pathnameAmbient.activeJobId]`. The old `contextSlices.length > 0` guard was REMOVED so navigation invalidates ambient. Slices re-arrive too but that's idempotent.",
+        "`usePathname` returns `null` during the first SSR render under app-router. `parsePathnameForAmbient(pathname ?? \"\")` defends against this — do not pass `pathname` directly."
       ]
     },
     {
@@ -153,8 +159,20 @@
         "Stop button: `abortRef.current?.abort()` triggers AbortError in the read loop — swallowed silently in the catch."
       ],
       "source": "hand-authored",
-      "evidence": { "sessions": [] }
-    }
+      "evidence": { "sessions": [] }    },
+    {
+      "id": "how-does-the-chat-panel-know-which-worklog-i-m-on",
+      "intent": "Trace how URL-aware ambient flows from the browser URL into the code-block action resolver.",
+      "steps": [
+        "User navigates to /worklog/notes/abc123. next/navigation usePathname surfaces the new path inside useAiChatContext.",
+        "parsePathnameForAmbient(\"/worklog/notes/abc123\") returns `{ activeWorklogId: \"abc123\" }` (the allowlist only matches /worklog/notes/[id] and /experience/[id], with /experience/verify reserved).",
+        "Hook builds URLSearchParams and fetches /api/ai/context?activeWorklogId=abc123. The fetch re-runs on every pathname change while `open` is true (deps: [open, activeWorklogId, activeJobId]).",
+        "Route handler reads the query params, runs `prisma.workLog.findFirst({ where: { id, userId, archivedAt: null } })` in PARALLEL with the existing recency heuristic, then prefers the URL hit (`urlWorklog ?? heuristicWorklog`).",
+        "Response carries `ambient.activeWorklog = { type: 'worklog', id, label }`. Hook drops it into `pageContext`.",
+        "AIChatCodeBlock receives `pageContext` via closure, passes it to `resolveActionTarget` on action click. Step (1) of precedence (ambient) now matches the URL, not the recency winner."
+      ],
+      "source": "hand-authored",
+      "evidence": { "sessions": ["77e25d9d-ca47-4795-b5f4-d8921afd0593"] }    }
   ],
 
   "fileFingerprints": [
@@ -172,15 +190,16 @@
     { "path": "src/components/ai-provenance-chip.tsx", "role": "provenance-chip", "lastValidatedAt": "2026-06-22" },
     { "path": "src/hooks/use-ai-chat-resize.ts", "role": "resize-hook", "lastValidatedAt": "2026-06-23" },
     { "path": "src/hooks/use-ai-chat-models.ts", "role": "models-hook", "lastValidatedAt": "2026-06-23" },
-    { "path": "src/hooks/use-ai-chat-context.ts", "role": "context-hook", "lastValidatedAt": "2026-06-23" },
+    { "path": "src/hooks/use-ai-chat-context.ts", "role": "context-hook", "lastValidatedAt": "2026-06-23", "notes": "URL-aware (follow-up D, commit 48db823): uses next/navigation usePathname + parsePathnameForAmbient to send activeWorklogId/activeJobId to /api/ai/context; refetches on every pathname change while open. Old `contextSlices.length > 0` once-only guard removed." },
     { "path": "src/hooks/use-ai-chat-stream.ts", "role": "streaming-hook", "lastValidatedAt": "2026-06-23", "notes": "Path-B contract: accepts messages+setMessages as params, mirrors messages into messagesRef for stable sendMessage deps." },
     { "path": "src/hooks/use-ai-chat-slash.ts", "role": "slash-hook", "lastValidatedAt": "2026-06-23", "notes": "Exposes composable handleSlashKey returning boolean for the parent keydown handler to forward unconsumed events." },
     { "path": "src/lib/ai-chat-constants.ts", "role": "shared-constants", "lastValidatedAt": "2026-06-23", "notes": "Exports SLASH_COMMANDS, TASK_OPTIONS, Message, ChatTask, ModelsData, ModelInfo (added 2026-06-23 for shared sibling-component model typing)." },
     { "path": "src/lib/ai-chat-mentions.ts", "role": "mention-helpers", "lastValidatedAt": "2026-06-22" },
     { "path": "src/lib/ai-chat-action-target.ts", "role": "action-resolver", "lastValidatedAt": "2026-06-22" },
+    { "path": "src/lib/ai-chat-pathname.ts", "role": "pathname-ambient-parser", "lastValidatedAt": "2026-06-23", "notes": "NEW in follow-up D (commit 48db823). Pure module: parsePathnameForAmbient(pathname) \u2192 { activeWorklogId?, activeJobId? }. Allowlist v1: /worklog/notes/[id] and /experience/[id], with RESERVED_EXPERIENCE_SEGMENTS (['verify']) skipped. 13 TDD specs in sibling .test.ts." },
     { "path": "src/lib/ai/envelope.ts", "role": "ai-envelope-types", "lastValidatedAt": "2026-06-22" },
     { "path": "src/app/api/ai/chat/route.ts", "role": "sse-chat-route", "lastValidatedAt": "2026-06-22" },
-    { "path": "src/app/api/ai/context/route.ts", "role": "context-route", "lastValidatedAt": "2026-06-22" },
+    { "path": "src/app/api/ai/context/route.ts", "role": "context-route", "lastValidatedAt": "2026-06-23", "notes": "URL-aware (follow-up D, commit 48db823): accepts (request: Request), reads ?activeWorklogId= and ?activeJobId= from searchParams, runs userId-scoped Prisma overrides in parallel with the recency heuristic, prefers URL hit. Foreign ids fall back silently. Recency heuristic itself still NOT userId-scoped (pre-existing gap, tracked in slice traps)." },
     { "path": "src/app/api/ai/mention-search/route.ts", "role": "mention-search-route", "lastValidatedAt": "2026-06-22" },
     { "path": "src/app/api/ai/models/route.ts", "role": "models-list-route", "lastValidatedAt": "2026-06-22" },
     { "path": "src/app/api/ai/actions/send-to-worklog/route.ts", "role": "action-route", "lastValidatedAt": "2026-06-22" },
