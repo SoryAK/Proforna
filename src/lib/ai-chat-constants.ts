@@ -118,11 +118,17 @@ export interface ContextSlice {
   removable: boolean;
 }
 
+export interface ModelInfo {
+  provider: string;
+  name: string;
+  active: boolean;
+}
+
 export interface ModelsData {
   // `available: false` means the daemon is unreachable OR zero models are
   // pulled — both states render Ollama unusable for chat (ADR-0045-fix
   // 2026-06-22; matches `GET /api/ai/models` contract).
   ollama: { available: boolean; url: string; defaultModel: string | null };
   gemini: { available: boolean; defaultModel: string };
-  models: { provider: string; name: string; active: boolean }[];
+  models: ModelInfo[];
 }
