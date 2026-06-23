@@ -1039,6 +1039,14 @@ model WorkLogVersion {
   plainText   String? // cached projection — avoid rehydrating ProseMirror for previews
   label       String? // user-set name on manual snapshots, or auto label for pre-restore
   isManual    Boolean  @default(false)
+  /// Provenance marker for the writer of this version. NULL = legacy / user-typed
+  /// auto-snapshot (the historical default — do NOT backfill). Non-null values are
+  /// kebab-case writer ids set by callers that touched content programmatically.
+  /// Known values (2026-06-23): "ai-prepend" (ADR-0046 follow-up B — content
+  /// inserted by the AI chat's Send-to-Worklog action). New values should be added
+  /// to docs/c-yard/worklog-editor.json under the editor-registry entry so the
+  /// version-history UI can render provenance hints later.
+  source      String?
   createdAt   DateTime @default(now())
 
   workLog WorkLog @relation(fields: [workLogId], references: [id], onDelete: Cascade)
