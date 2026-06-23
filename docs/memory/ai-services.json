@@ -30,12 +30,26 @@
         "[2026-06-22] Ambient context (/api/ai/context activeWorklog) uses a 24h `updatedAt` recency heuristic — NOT URL-aware. If a user opens a stale worklog from history while another was edited in the last 24h, the ambient ref points at the recently-edited one, not the one on screen. Known limitation, parked. Tests in route.test.ts cover the four cases: all-null, activeJob 'title @ company' label, activeJob company-only fallback when title null, activeWorklog 24h window.",
         "[2026-06-22] Slice manifest authored for the AI chat surface: docs/c-yard/ai-chat.json (commit 6dc5ef0), 7 entryPoints — chat-panel-shell, streaming-pipeline, context-slices-and-ambient, mention-system, markdown-renderer, code-block-toolbar, action-routes-and-resolver. 16 fileFingerprints all stamped 2026-06-22 (verified present via node fs.existsSync loop pre-commit). Major knownTraps captured durably: base-ui DropdownMenuItem uses onClick not onSelect, base-ui DropdownMenuTrigger forbidden onClick, slash `/` + no-whitespace mention convention, SSE three event types (provider/text/meta), AbortError swallowing, gemma4 tool-call wobble, supergateway 503, legacy systemPrompt back-compat shape, @tailwindcss/typography NOT installed (use arbitrary [&_p] selectors), `inline ?? !langMatch` fence-vs-inline fallback, custom `pre` returns Fragment to avoid double-wrap, SUPPORTED_LANGS bundle trade-off, send-to-worklog v1 short-circuit, save-as-bullet WorkHistory.accomplishments reuse, ambient > thread precedence, 4 mention types kept in sync with route validator, orphan detection, deriveTitle 80-char cap."
       ]
+    },
+    {
+      "name": "AIChatPanelArchitecture",
+      "entityType": "ArchitecturalSystem",
+      "observations": [
+        "[2026-06-23] The floating AI chat panel (entry point: src/components/ai-chat.tsx) is now a slim 281-LOC orchestrator after the 8-phase god-file refactor (1026 -> 281 LOC, -72%). It owns ONLY: component state (messages/input/showSettings/collapsedTurns/task/contextExpanded/mentions), refs (scrollRef/inputRef) + focus/scroll effects, threadContext useMemo, clearChat + toggleTurnCollapsed callbacks, 5 hook compositions, the handleSlashKey composer, and the JSX shell.",
+        "[2026-06-23] Domain logic lives in 5 dedicated hooks under src/hooks/: use-ai-chat-resize.ts (panel chrome), use-ai-chat-models.ts (TanStack Query provider+model enumeration, exports providerModels filter), use-ai-chat-context.ts (career-context slices + ambient page refs via /api/ai/context), use-ai-chat-stream.ts (SSE pipeline, abort controller, sessionTokens meter), use-ai-chat-slash.ts (slash command picker state + handleSlashKey composer).",
+        "[2026-06-23] Presentation lives in 6 sibling components under src/components/ai-chat-*.tsx: AIChatEmptyState (hero + 4 suggestion chips), AIChatMessageList (turn rendering with markdown + provenance chip + collapse chevron), AIChatSlashMenu (listbox of slash commands), AIChatContextChips (toggleable career-context slices), AIChatSettingsPanel (provider/model/URL drawer), AIChatToolbar (VS Code-style bottom toolbar: context toggle, mode dropdown, inline model picker, wifi indicator, token meter, settings, dictation stub, send/stop).",
+        "[2026-06-23] Streaming hook contract (Path B per Griller decision): useAiChatStream accepts {messages, setMessages} as PARAMS, NOT as internal state. It keeps an internal messagesRef mirror (set on every render via the parent's state) so sendMessage's dep array can drop messages and stay stable across SSE chunks. If you ever add a callback inside the hook that needs current messages, read messagesRef.current never the closure messages.",
+        "[2026-06-23] Slash hook composability: useAiChatSlash exposes handleSlashKey: (e: KeyboardEvent) => boolean. The parent ai-chat.tsx composes it inside its own handleKeyDown so non-slash keys can fall through to normal textarea handling. This boolean-return convention is the durable pattern for composable keydown hooks in this codebase.",
+        "[2026-06-23] Architectural guardrail (replaces the retired god-file trap): new behavior goes in a sibling hook under src/hooks/use-ai-chat-*.ts or a sibling component under src/components/ai-chat-*.tsx. Only plumbing-level edits (prop threading, new hook composition) belong in ai-chat.tsx. The slice manifest docs/c-yard/ai-chat.json reflects this contract as of 2026-06-23 (commit 34a0f5c).",
+        "[2026-06-23] Live smoke evidence (commit 34a0f5c, deepseek-r1:32b via Ollama): end-to-end SSE round-trip succeeded (1103 chars in 101.0s) with markdown nested-list rendering, AIProvenanceChip hydrated (ollama:deepseek-r1:32b), token meter shows ~299t. Context-slice plumbing verified: model output referenced profile data (McDonald's, L3Harris, Siemens, PLC) confirming useAiChatContext system-prompt build path is intact."
+      ]
     }
   ],
   "relations": [
     { "from": "AIServicesLayer", "relationType": "serves", "to": "WorklogDomain" },
     { "from": "AIServicesLayer", "relationType": "serves", "to": "JobBoardDomain" },
     { "from": "AIServicesLayer", "relationType": "serves", "to": "ResumeDomain" },
-    { "from": "AIServicesLayer", "relationType": "serves", "to": "InterviewDomain" }
+    { "from": "AIServicesLayer", "relationType": "serves", "to": "InterviewDomain" },
+    { "from": "AIChatPanelArchitecture", "relationType": "consumes", "to": "AIServicesLayer" }
   ]
 }
