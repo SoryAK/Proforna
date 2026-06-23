@@ -1,7 +1,7 @@
 # Session Self-Review — Analyze Past Chat Transcripts
 
 **Workflow Type:** `session-self-review`
-**Last Updated:** 2026-06-19 (Phase 2 — era-tagging + reviewed-session ledger)
+**Last Updated:** 2026-06-23 (Phase 3 — slice-drift audit folded into review)
 
 ## Stack Context
 
@@ -9,14 +9,22 @@
 - `scripts/analyze-chat-exports.mjs` — reads JSONL transcripts from
   `docs/chat-exports/raw/`, emits a 5-category metrics dashboard plus
   worst-3 friction digests plus an optional turn-by-turn deep-dive on a
-  target session.
+  target session. Lens: **agent-behaviour drift** across sessions.
+- `scripts/review-semantic.mjs` (alias `npm run review:semantic`) — Column 2
+  of the ADR-0047 three-column review pipeline. Reads a slice manifest at
+  `docs/c-yard/<slug>.json`, calls local gemma4:26b via Ollama HTTP for
+  each `entryPoints[] × knownTraps[]`, writes findings to
+  `docs/review-semantic/<slug>-<shortSha>.json` (this output IS committed,
+  unlike the chat-export outputs). Lens: **code/manifest drift** —
+  has the codebase moved away from what the slice says is true?
 - Transcript source: VS Code Copilot stores per-session JSONL at
   `%APPDATA%\Code\User\workspaceStorage\<workspaceHash>\GitHub.copilot-chat\transcripts\*.jsonl`.
   Each line is `{ type, data, id, timestamp, parentId }`. Types include
   `session.start`, `user.message`, `assistant.message`,
   `assistant.turn_start`/`turn_end`, `tool.execution_start`/`complete`.
 - Outputs land in `docs/chat-exports/analysis/` (gitignored alongside the
-  raw transcripts in `docs/chat-exports/`).
+  raw transcripts in `docs/chat-exports/`). Slice-audit outputs land in
+  `docs/review-semantic/` (tracked).
 
 ## When this recipe applies
 
@@ -70,6 +78,26 @@ to act on the findings.
    This regenerates `metrics.json`, `metrics-summary.md`, and
    `metrics-by-era.json` against every transcript on disk.
 
+   **In parallel, kick off slice-drift audits** (Column 2 lens). The
+   chat-export analyzer is fast (seconds); the slice-drift audit is
+   slow (~5-10 min per slice on the EVO-X2). Start it now so it runs
+   while you read Step 3 outputs. One slice at a time today (the
+   `--all` flag is parked — see `parked-ideas`):
+
+   ```powershell
+   Get-ChildItem docs/c-yard/*.json -Exclude _index.json | ForEach-Object {
+     $slug = $_.BaseName
+     Write-Host "--- review:semantic $slug ---" -ForegroundColor Cyan
+     npm run review:semantic -- --slice $slug
+   }
+   ```
+
+   Each invocation writes incrementally to
+   `docs/review-semantic/<slug>-<shortSha>.json` (crash-safe — final
+   `status` flips from `in-progress` to `complete` on success). Safe
+   to interrupt and resume; re-running overwrites the same file at
+   the same commit.
+
 3. **Read outputs in order.** Open and skim:
    1. `docs/chat-exports/analysis/metrics-summary.md` — top-line
       dashboard, per-category aggregates, per-session table.
@@ -86,6 +114,18 @@ to act on the findings.
       failures).
    4. `docs/chat-exports/analysis/deep-dive-this-session.md` (only if
       `--deep-dive` was passed) — turn-by-turn annotated walk.
+   5. `docs/review-semantic/<slug>-<sha>.json` for each slice audited
+      in Step 2a. Read `stats` for the top-line (still-valid /
+      stale / dropped), then scan `findings[]` where
+      `verdict.stillValid === false`. **Read the `evidence` prose AND
+      the `comparisonChecklist[]`, not just the verdict** — v1 emits
+      false positives when the model self-contradicts (checklist says
+      `matchedInCode:false` but prose says "still valid") or when a
+      trap describes cross-file behaviour the model couldn't anchor
+      in the slice's `primaryPath`. The `droppedFindings[]` array
+      shows traps the validator rejected (truncation, schema fail,
+      out-of-range citation, file-not-readable) — eyeball these for
+      slice quality issues like dead `primaryPath` references.
 
 4. **Eyeball before believing.** The detectors are heuristics:
    - "Negation events" matches `\b(no|wait|stop|actually|wrong|...)\b`
@@ -98,9 +138,17 @@ to act on the findings.
      "on top of" — most hits are real, but a few are quotes of the
      user's own message.
 
-5. **Distill 3-5 actionable patterns.** From the worst-3 digests, pick
-   patterns that recur across multiple sessions. Single-session quirks
-   are not workflow problems.
+5. **Distill 3-5 actionable patterns** from BOTH streams. Workflow
+   review (Steps 2-4) surfaces agent-behaviour patterns — single-session
+   quirks are not workflow problems; require recurrence across multiple
+   sessions. Slice-drift audit (Step 2a) surfaces code/manifest patterns
+   — a single confirmed-real `stillValid:false` finding IS a workflow
+   problem because slices are the source of truth for downstream
+   sessions reading them. Common slice-drift outcomes: (a) update the
+   slice's `knownTraps[].text` to match current code, (b) update
+   `entryPoints[].primaryPath` if a file moved/was renamed, (c) drop a
+   trap that's been engineered away, (d) split a slice if multiple
+   `entryPoints[]` have decayed independently.
 
 6. **Ship the workflow edits as small ETC commits.** Each rule
    tightening goes in its own commit so it can be reverted independently
@@ -144,14 +192,19 @@ to act on the findings.
      "sessionId": "<current session id, from filename of active transcript>",
      "summary": "<1-line: what era of friction did this review surface>",
      "ruleEditsShipped": ["<file-slug>:<rule-slug>", ...],
-     "commits": ["<short sha>", ...]
+     "commits": ["<short sha>", ...],
+     "sliceDriftAuditsRun": ["<slug>:<shortSha>:<stillValid>/<stale>/<dropped>", ...]
    }
    ```
 
    Append, do not overwrite. The file is gitignored (under
    `docs/chat-exports/`) so this is a local-only mutation — no commit
    required. If the file does not exist yet, create it with a one-element
-   array.
+   array. `sliceDriftAuditsRun` is optional — omit if no slice audits
+   were run this review. The `<stillValid>/<stale>/<dropped>` triplet
+   is copied verbatim from the audit's `stats` block; the `<shortSha>`
+   pins the audit to a specific commit so future reviewers can
+   distinguish drift from analysis noise.
 
 8. **Mark the reviewed sessions in the ledger.** Final step of the
    recipe — closes the loop so the next `node scripts/analyze-chat-exports.mjs`
@@ -183,14 +236,32 @@ to act on the findings.
 - **Markdownlint MD060 on aligned-style tables** in the summary doc —
   fixed by using compact single-space `| - | - |` separator rows in the
   generated dashboard.
+- **Slice-drift audit hung on the first run** (2026-06-23) — gemma4:26b
+  ran away mid-trap with no `num_predict` cap. Fix: orchestrator now
+  passes `num_predict: 2000`. Don't lower this below ~1500 — JSON
+  truncation mid-string is the failure mode.
+- **Slice-drift audit returned 4 zero-content responses** on the second
+  tuning run — `num_ctx: 8192` overflowed on a 610-line file (prompt +
+  file > budget, no room for response). Fix: `num_ctx: 16384`. If a
+  future slice anchors a >800-line file, bump again.
+- **STALE findings can be false positives** — model self-contradiction
+  (checklist says `matchedInCode:false` but prose says "still valid")
+  and cross-file trap scope are the two repeatable failure modes. v1
+  validator catches self-contradiction via consistency check; cross-file
+  is unverifiable in v1. Always spot-check `stillValid:false` against
+  the slice's `primaryPath` before acting.
 
 ## Gotchas
 
-- The script is **read-only** — it never mutates raw transcripts. Safe
-  to run repeatedly.
+- The chat-export analyzer is **read-only** — it never mutates raw
+  transcripts. Safe to run repeatedly.
 - `docs/chat-exports/` is gitignored. Outputs do NOT land in the repo.
   Commit only the script (`scripts/analyze-chat-exports.mjs`) and the
   `.gitignore` rule, not the data.
+- `docs/review-semantic/` IS tracked. Audit outputs land in the repo so
+  reviewers can diff `<slug>-<shaA>.json` against `<slug>-<shaB>.json`
+  to see drift trajectory. Only the runtime tee log (`_*.log`) is
+  ignored.
 - The grep-for-symbol detector treats only the **first whitespace-split
   token** of the query as a candidate symbol. Multi-word grep queries
   ("foo bar", "TODO: refactor") are correctly skipped.
@@ -201,3 +272,8 @@ to act on the findings.
   Use it surgically — only when you need turn-level resolution.
 - Heuristic regex is intentionally conservative. Real friction usually
   shows up in the *quotes*, not the *counts*. Read the digests.
+- Slice-drift audit `stillValid:false` is NOT the same as "drift
+  detected" in v1 — it's "the model says the trap text doesn't match
+  the code, AND the consistency check between checklist + prose
+  passed." Spot-check before believing. Real-drift confirmation is a
+  v2 problem; v1 reduces the surface to spot-check, not eliminates it.
