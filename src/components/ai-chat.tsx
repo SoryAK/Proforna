@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -50,9 +49,9 @@ import {
   type SlashCommand,
   type Message,
   type ContextSlice,
-  type ModelsData,
 } from "@/lib/ai-chat-constants";
 import { useAiChatResize } from "@/hooks/use-ai-chat-resize";
+import { useAiChatModels } from "@/hooks/use-ai-chat-models";
 
 export function AIChat() {
   const { open, setOpen } = useAIChat();
@@ -60,12 +59,11 @@ export function AIChat() {
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [provider, setProvider] = useState<string>("ollama");
-  const [model, setModel] = useState<string>("");
+  // Model picker (extracted hook — owns provider/model/localUrl + auto-select + stale guard)
+  const { provider, setProvider, model, setModel, localUrl, setLocalUrl, modelsData, refetch } = useAiChatModels(open);
   const [contextSlices, setContextSlices] = useState<ContextSlice[]>([]);
   const [suppressedSliceIds, setSuppressedSliceIds] = useState<Set<string>>(new Set());
   const [collapsedTurns, setCollapsedTurns] = useState<Set<string>>(new Set());
-  const [localUrl, setLocalUrl] = useState<string | null>(typeof window !== "undefined" ? localStorage.getItem("resumsify-ai-url") : null);
   const [task, setTask] = useState<ChatTask>("chat");
   // Tweak 3: context chips are gated behind the toolbar `[+]` toggle.
   // Default closed — the count badge surfaces how many slices are active.
@@ -85,17 +83,6 @@ export function AIChat() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
-
-  // Fetch available models
-  const { data: modelsData, refetch } = useQuery<ModelsData>({
-    queryKey: ["ai-models", open, localUrl], // re-run if local URL changes before open
-    queryFn: () => {
-      const url = localUrl ? `/api/ai/models?url=${encodeURIComponent(localUrl)}` : "/api/ai/models";
-      return fetch(url).then((r) => r.json());
-    },
-    staleTime: 30_000,
-    enabled: open,
-  });
 
   // Fetch career context slices (ADR-0046 Phase A). The legacy `systemPrompt`
   // field is read as a fallback so the panel still works against a server
@@ -134,55 +121,8 @@ export function AIChat() {
   }, [open, contextSlices.length]);
 
   // Auto-select best model when models data loads (only once)
-  const [initialized, setInitialized] = useState(false);
-
   // Resize logic (extracted hook — owns panelWidth, isDragging, drag handlers)
   const { panelWidth, isDragging, startResizing } = useAiChatResize();
-
-  useEffect(() => {
-    if (!modelsData || initialized) return;
-    if (modelsData.ollama.available) {
-      setProvider("ollama");
-      const active = modelsData.models.find((m) => m.provider === "ollama" && m.active);
-      // `defaultModel` may be null when zero models are pulled; fall
-      // through to "" so the picker shows the empty-state hint rather
-      // than auto-selecting a phantom name.
-      setModel(active?.name ?? modelsData.ollama.defaultModel ?? "");
-    } else if (modelsData.gemini.available) {
-      setProvider("gemini");
-      setModel(modelsData.gemini.defaultModel);
-    }
-    setInitialized(true);
-  }, [modelsData, initialized]);
-
-  // When provider changes, ensure a valid model is selected
-  useEffect(() => {
-    if (!modelsData || !initialized) return;
-    if (!model) {
-      if (provider === "ollama" && modelsData.ollama.available) {
-        const active = modelsData.models.find((m) => m.provider === "ollama" && m.active);
-        setModel(active?.name ?? modelsData.ollama.defaultModel ?? "");
-      } else if (provider === "gemini" && modelsData.gemini.available) {
-        setModel(modelsData.gemini.defaultModel);
-      }
-    }
-  }, [provider, initialized, modelsData, model]);
-
-  // Stale-selection guard (2026-06-22). If the currently-selected model is
-  // no longer in the live pulled list (e.g. user ran `ollama rm <name>`
-  // while the panel was open, or the previously-cached default leaked from
-  // an older route version), reset to the effective default. Prevents the
-  // picker from POSTing a phantom name to the chat route.
-  useEffect(() => {
-    if (!modelsData || !initialized || !model) return;
-    if (provider !== "ollama") return;
-    const stillPulled = modelsData.models.some(
-      (m) => m.provider === "ollama" && m.name === model
-    );
-    if (!stillPulled) {
-      setModel(modelsData.ollama.defaultModel ?? "");
-    }
-  }, [provider, model, modelsData, initialized]);
 
   // Auto-scroll
   useEffect(() => {
