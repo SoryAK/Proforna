@@ -63,6 +63,22 @@ export async function PUT(
       validatedContentJson = result.value;
     }
 
+    // ADR-0046 follow-up B — optional provenance tag for the auto-snapshot
+    // this PUT may trigger. When present, the value is written to
+    // WorkLogVersion.source so version history can later distinguish
+    // AI-authored snapshots ("ai-prepend") from user-typed ones (null).
+    // Validated at the boundary: must be a non-empty string if provided.
+    let versionSource: string | undefined;
+    if (hasOwn(body, "versionSource") && body.versionSource !== undefined && body.versionSource !== null) {
+      if (typeof body.versionSource !== "string" || body.versionSource.trim().length === 0) {
+        return NextResponse.json(
+          { error: "`versionSource` must be a non-empty string when provided" },
+          { status: 400 },
+        );
+      }
+      versionSource = body.versionSource;
+    }
+
     // ADR-0026 — archive bucket. Client sends `{ archived: true | false }`;
     // server clamps the timestamp so client clock skew can't drift archive
     // ordering. Anything other than a boolean is a 400.
@@ -252,6 +268,7 @@ export async function PUT(
               plainText: currPlainText,
               isManual: false,
               label: null,
+              source: versionSource ?? null,
             },
           });
 

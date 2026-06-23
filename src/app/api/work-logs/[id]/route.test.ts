@@ -648,6 +648,79 @@ describe("PUT /api/work-logs/[id] — ADR-0017 auto-snapshot writer", () => {
 });
 
 // ──────────────────────────────────────────────────────
+// ADR-0046 follow-up B — WorkLogVersion.source provenance threading
+// ──────────────────────────────────────────────────────
+
+describe("PUT /api/work-logs/[id] — versionSource provenance (ADR-0046 follow-up B)", () => {
+  it("threads versionSource into the auto-snapshot row when provided", async () => {
+    mockGetUserId.mockResolvedValue("u1");
+    mockFindFirst.mockResolvedValue({ ...existingLog([], []), content: "" } as any);
+    mockVersionFindFirst.mockResolvedValue(null);
+
+    const [req, ctx] = makeRequest("log1", {
+      contentJson: docOfSize(200),
+      versionSource: "ai-prepend",
+    });
+    await PUT(req, ctx);
+
+    expect(mockVersionCreate).toHaveBeenCalledTimes(1);
+    const createArg = mockVersionCreate.mock.calls[0][0] as { data: Record<string, unknown> };
+    expect(createArg.data.source).toBe("ai-prepend");
+  });
+
+  it("leaves source NULL when versionSource is absent from body (default)", async () => {
+    mockGetUserId.mockResolvedValue("u1");
+    mockFindFirst.mockResolvedValue({ ...existingLog([], []), content: "" } as any);
+    mockVersionFindFirst.mockResolvedValue(null);
+
+    const [req, ctx] = makeRequest("log1", { contentJson: docOfSize(200) });
+    await PUT(req, ctx);
+
+    expect(mockVersionCreate).toHaveBeenCalledTimes(1);
+    const createArg = mockVersionCreate.mock.calls[0][0] as { data: Record<string, unknown> };
+    expect(createArg.data.source ?? null).toBeNull();
+  });
+
+  it("rejects non-string versionSource with 400 (boundary validation)", async () => {
+    mockGetUserId.mockResolvedValue("u1");
+    mockFindFirst.mockResolvedValue({ ...existingLog([], []), content: "" } as any);
+
+    const [req, ctx] = makeRequest("log1", {
+      contentJson: docOfSize(200),
+      versionSource: 42,
+    });
+    const res = await PUT(req, ctx);
+
+    expect(res.status).toBe(400);
+    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(mockVersionCreate).not.toHaveBeenCalled();
+  });
+
+  it("does NOT write a source-only WorkLogVersion when no snapshot was triggered", async () => {
+    // versionSource is purely a tag for the snapshot the heuristic would have
+    // written anyway. It must NOT force a snapshot write — that would let
+    // any caller bypass the throttling heuristic just by passing the field.
+    mockGetUserId.mockResolvedValue("u1");
+    mockFindFirst.mockResolvedValue({ ...existingLog([], []), content: "" } as any);
+    mockVersionFindFirst.mockResolvedValue({
+      id: "v-prior",
+      workLogId: "log1",
+      userId: "u1",
+      plainText: "",
+      createdAt: new Date(), // too recent — heuristic suppresses
+    } as any);
+
+    const [req, ctx] = makeRequest("log1", {
+      contentJson: docOfSize(5),
+      versionSource: "ai-prepend",
+    });
+    await PUT(req, ctx);
+
+    expect(mockVersionCreate).not.toHaveBeenCalled();
+  });
+});
+
+// ──────────────────────────────────────────────────────
 // ADR-0017 — inline retention thinning on snapshot write
 // ──────────────────────────────────────────────────────
 
