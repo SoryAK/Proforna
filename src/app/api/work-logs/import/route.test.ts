@@ -17,11 +17,13 @@
  */
 
 import { vi } from "vitest";
+import { NextRequest } from "next/server";
 import { POST } from "@/app/api/work-logs/import/route";
 import { getUserId } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
 import { importMarkdown } from "@/lib/worklog/import/markdown-to-pm";
 import { importHtml } from "@/lib/worklog/import/html-to-pm";
+import type { ImportResult } from "@/lib/worklog/import/types";
 
 vi.mock("@/lib/auth-utils", () => ({
   getUserId: vi.fn(),
@@ -64,15 +66,15 @@ const mockTransaction = vi.mocked(prisma.$transaction);
 
 // ── helpers ────────────────────────────────────────────────────────────────
 
-function makeRequest(body: unknown): Request {
-  return new Request("http://localhost/api/work-logs/import", {
+function makeRequest(body: unknown): NextRequest {
+  return new NextRequest("http://localhost/api/work-logs/import", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: typeof body === "string" ? body : JSON.stringify(body),
   });
 }
 
-function fakeImportResult(over: Partial<{ title: string; plaintext: string; droppedBlocks: Array<{ type: string; count: number }> }> = {}) {
+function fakeImportResult(over: Partial<{ title: string; plaintext: string; droppedBlocks: Array<{ type: string; count: number }> }> = {}): ImportResult {
   return {
     title: over.title ?? "Imported Note",
     contentJson: {

@@ -114,10 +114,10 @@ describe("POST /api/work-logs/export-bulk — single id", () => {
           content: [{ type: "paragraph", content: [{ type: "text", text: "alone" }] }],
         },
       },
-    ] as unknown as ReturnType<typeof mockWorkLogFindMany>["mock"]["results"][number]["value"]);
+    ] as never);
     mockVersionGroupBy.mockResolvedValue([
       { workLogId: "wl_1", _count: { _all: 2 } },
-    ] as unknown as ReturnType<typeof mockVersionGroupBy>["mock"]["results"][number]["value"]);
+    ] as never);
 
     const res = await POST(makeRequest({ ids: ["wl_1"] }));
     expect(res.status).toBe(200);
@@ -148,11 +148,11 @@ describe("POST /api/work-logs/export-bulk — zip", () => {
         title: "Second Note",
         contentJson: { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "two" }] }] },
       },
-    ] as unknown as ReturnType<typeof mockWorkLogFindMany>["mock"]["results"][number]["value"]);
+    ] as never);
     mockVersionGroupBy.mockResolvedValue([
       { workLogId: "wl_1", _count: { _all: 1 } },
       { workLogId: "wl_2", _count: { _all: 5 } },
-    ] as unknown as ReturnType<typeof mockVersionGroupBy>["mock"]["results"][number]["value"]);
+    ] as never);
   }
 
   it("returns application/zip when N > 1", async () => {
@@ -200,8 +200,8 @@ describe("POST /api/work-logs/export-bulk — zip", () => {
         title: "Same Title",
         contentJson: { type: "doc", content: [] },
       },
-    ] as unknown as ReturnType<typeof mockWorkLogFindMany>["mock"]["results"][number]["value"]);
-    mockVersionGroupBy.mockResolvedValue([] as unknown as ReturnType<typeof mockVersionGroupBy>["mock"]["results"][number]["value"]);
+    ] as never);
+    mockVersionGroupBy.mockResolvedValue([] as never);
 
     const res = await POST(makeRequest({ ids: ["wl_aaa", "wl_bbb"] }));
     const buf = Buffer.from(await res.arrayBuffer());
@@ -227,8 +227,8 @@ describe("POST /api/work-logs/export-bulk — zip", () => {
         title: "Mine B",
         contentJson: { type: "doc", content: [] },
       },
-    ] as unknown as ReturnType<typeof mockWorkLogFindMany>["mock"]["results"][number]["value"]);
-    mockVersionGroupBy.mockResolvedValue([] as unknown as ReturnType<typeof mockVersionGroupBy>["mock"]["results"][number]["value"]);
+    ] as never);
+    mockVersionGroupBy.mockResolvedValue([] as never);
 
     const res = await POST(makeRequest({ ids: ["wl_1", "wl_2", "wl_other"] }));
     expect(res.status).toBe(200);

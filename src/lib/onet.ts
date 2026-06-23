@@ -112,7 +112,6 @@ async function fetchAllPages<T>(
 ): Promise<T[]> {
   const all: T[] = [];
   let start = 1;
-  // eslint-disable-next-line no-constant-condition
   while (true) {
     const end = start + pageSize - 1;
     const page = await onetFetch<PagedResponse<T>>(path, {

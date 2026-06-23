@@ -40,7 +40,7 @@ export interface DiffSegment {
 function tokenize(input: string): string[] {
   if (input.length === 0) return [];
   const tokens: string[] = [];
-  const re = /(\n)|([^\s\n]+)|([ \t]+)/g;
+  const re = /(\n)|(\S+)|([ \t]+)/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(input)) !== null) {
     tokens.push(m[0]);

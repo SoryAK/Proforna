@@ -4006,7 +4006,6 @@ function ImmersiveMapView({
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, focusedId, items]);
 
   // Toggle building-outline polygons + focused-pin visibility when zoom crosses
@@ -4016,7 +4015,6 @@ function ImmersiveMapView({
     const map = mapRef.current;
     const listener = map.addListener("zoom_changed", syncOutlineAndPin);
     return () => listener.remove();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready]);
 
   // ── Sub-location pins for the focused job (satellite offices, client sites, etc.) ──

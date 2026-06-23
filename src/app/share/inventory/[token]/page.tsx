@@ -109,6 +109,27 @@ export default function SharedInventoryPage({ params }: { params: Promise<{ toke
     };
   }, [token]);
 
+  // Keyboard navigation for the photo lightbox.
+  // Declared above the early-returns below so the hook order stays stable
+  // regardless of share/items/error state.
+  useEffect(() => {
+    if (!lightbox) return;
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (!lightbox) return;
+      if (e.key === "Escape") {
+        setLightbox(null);
+      } else if (e.key === "ArrowRight") {
+        const n = lightbox.item.photos.length;
+        setLightbox({ item: lightbox.item, index: (lightbox.index + 1) % n });
+      } else if (e.key === "ArrowLeft") {
+        const n = lightbox.item.photos.length;
+        setLightbox({ item: lightbox.item, index: (lightbox.index - 1 + n) % n });
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [lightbox]);
+
   if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center p-6 text-center">
@@ -138,18 +159,6 @@ export default function SharedInventoryPage({ params }: { params: Promise<{ toke
     const n = lightbox.item.photos.length;
     setLightbox({ item: lightbox.item, index: (lightbox.index - 1 + n) % n });
   }
-
-  useEffect(() => {
-    if (!lightbox) return;
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setLightbox(null);
-      else if (e.key === "ArrowRight") next();
-      else if (e.key === "ArrowLeft") prev();
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lightbox]);
 
   return (
     <div className="min-h-screen bg-background">

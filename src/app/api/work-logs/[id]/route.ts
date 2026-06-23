@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { toJsonInput } from "@/lib/prisma-json";
+import { Prisma } from "@prisma/client";
 import { getUserId } from "@/lib/auth-utils";
 import { computeWorkdayDateLocal, localDateAndMinuteFromIso } from "@/lib/worklog-shifts";
 import { validateContentJson } from "@/lib/worklog/content-json";
@@ -50,7 +52,9 @@ export async function PUT(
     });
     if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    let validatedContentJson: ReturnType<typeof validateContentJson>["value"] | undefined;
+    let validatedContentJson:
+      | Extract<ReturnType<typeof validateContentJson>, { ok: true }>["value"]
+      | undefined;
     if (hasOwn(body, "contentJson")) {
       const result = validateContentJson(body.contentJson);
       if (!result.ok) {
@@ -180,7 +184,7 @@ export async function PUT(
       ...(hasOwn(body, "title") ? { title: body.title } : {}),
       ...(hasOwn(body, "content") ? { content: body.content ?? null } : {}),
       ...(hasOwn(body, "contentJson")
-        ? { contentJson: validatedContentJson ?? undefined }
+        ? { contentJson: validatedContentJson ? toJsonInput(validatedContentJson) : undefined }
         : {}),
       ...(hasOwn(body, "category") ? { category: body.category || "task" } : {}),
       ...(hasOwn(body, "hours")
@@ -216,7 +220,7 @@ export async function PUT(
 
     const log = await prisma.workLog.update({
       where: { id },
-      data: updateData,
+      data: updateData as Prisma.WorkLogUpdateInput,
     });
 
     // ── ADR-0017 — auto-snapshot writer ────────────────────────────────────
@@ -244,7 +248,7 @@ export async function PUT(
             data: {
               workLogId: id,
               userId,
-              contentJson: validatedContentJson,
+              contentJson: toJsonInput(validatedContentJson),
               plainText: currPlainText,
               isManual: false,
               label: null,

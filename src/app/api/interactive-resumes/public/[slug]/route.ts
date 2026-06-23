@@ -205,12 +205,17 @@ export async function GET(
     : null;
 
   // ── Publicize gallery photos: drop private photos; clear annotations when annotationsPublic=false ──
-  const publicizeGallery = <T extends { galleryPhotos: Array<{ isPrivate: boolean; annotationsPublic: boolean; annotations?: unknown[] }> }>(pos: T) => ({
-    ...pos,
-    galleryPhotos: pos.galleryPhotos
+  // Gallery-only helper. Earlier this was a generic `publicizeGallery<T>(pos: T): T`
+  // wrapper, but TS erases `T` when the function is passed by reference to
+  // `.map(publicizeGallery)` and downstream callers lost access to sibling
+  // fields like `isActive` / `company`. Inlining the transformation at each
+  // call site keeps the full position type intact.
+  type GalleryPhotoIn = { isPrivate: boolean; annotationsPublic: boolean; annotations?: unknown[] };
+  function publicizeGalleryPhotos<P extends GalleryPhotoIn>(photos: P[]): P[] {
+    return photos
       .filter((p) => !p.isPrivate)
-      .map((p) => ({ ...p, annotations: p.annotationsPublic ? (p.annotations ?? []) : [] })),
-  });
+      .map((p) => ({ ...p, annotations: p.annotationsPublic ? (p.annotations ?? []) : [] }));
+  }
 
   // ── Inventory (Personal Equipment): redact serial numbers + private notes for public viewers ──
   const inventory = (inventoryLive ?? []).map((it) => ({
@@ -244,7 +249,7 @@ export async function GET(
     const expData = (profile.hideCurrentEmployer
       ? experience.map((pos) => ({ ...pos, company: pos.isActive ? "Current Employer" : pos.company }))
       : experience
-    ).map(publicizeGallery);
+    ).map((pos) => ({ ...pos, galleryPhotos: publicizeGalleryPhotos(pos.galleryPhotos) }));
 
     return NextResponse.json({
       visibility: "public",
@@ -299,10 +304,12 @@ export async function GET(
       },
       skills,
       certifications,
-      experience: experience.map(publicizeGallery).map((pos) => ({
-        ...pos,
-        company: pos.isActive ? "Current Employer (Hidden)" : pos.company,
-      })),
+      experience: experience
+        .map((pos) => ({ ...pos, galleryPhotos: publicizeGalleryPhotos(pos.galleryPhotos) }))
+        .map((pos) => ({
+          ...pos,
+          company: pos.isActive ? "Current Employer (Hidden)" : pos.company,
+        })),
       inventory,
       compensation,
     });

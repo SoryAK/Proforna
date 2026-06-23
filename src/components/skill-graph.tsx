@@ -1104,6 +1104,10 @@ export default function SkillGraph() {
     // ── Career Event nodes (expand from role instances) ──
     if (showRoleInstances && data.careerEvents?.length > 0) {
       for (const evt of data.careerEvents) {
+        // Career events without a parent role instance can't appear in the
+        // expanded view — also narrows `workHistoryId` from `string | null`
+        // for the rest of this block.
+        if (!evt.workHistoryId) continue;
         const instanceId = `ri-${evt.workHistoryId}`;
         // Only show events for expanded instances
         if (!expandedInstances.has(evt.workHistoryId)) continue;
@@ -1111,7 +1115,7 @@ export default function SkillGraph() {
         if (!nodes.some((n) => n.id === instanceId)) continue;
         nodes.push({
           id: `evt-${evt.id}`,
-          name: evt.title,
+          name: evt.title ?? "",
           type: "career-event",
           source: "career_event",
           evidenceCount: evt.skills.length,

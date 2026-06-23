@@ -21,6 +21,8 @@ export type Annotation = {
   sortOrder: number | null;
   isPrivate: boolean;
   tags?: string[] | null;
+  /** Server-stamped revision marker used for optimistic-concurrency. Returned by the API. */
+  updatedAt?: string;
 };
 
 type Props = {
@@ -363,7 +365,7 @@ export function AnnotationOverlay({
             );
           }
           case "text": {
-            const t = g as { x: number; y: number; text: string; fontSize?: number };
+            const t = g as unknown as { x: number; y: number; text: string; fontSize?: number };
             const cx = t.x * width;
             const cy = t.y * height;
             const fs = Math.max(8, Math.min(200, t.fontSize ?? 16));

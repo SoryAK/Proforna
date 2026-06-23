@@ -138,9 +138,9 @@ describe("POST /api/work-logs/import-md — match", () => {
       },
       linkedWorkLogIds: [],
       assetIds: [],
-    } as unknown as ReturnType<typeof mockWorkLogFindFirst>["mock"]["results"][number]["value"]);
+    } as never);
     mockVersionCount.mockResolvedValue(versionCount);
-    mockWorkLogUpdate.mockResolvedValue({ id: "wl_abc" } as unknown as ReturnType<typeof mockWorkLogUpdate>["mock"]["results"][number]["value"]);
+    mockWorkLogUpdate.mockResolvedValue({ id: "wl_abc" } as never);
     mockVersionFindFirst.mockResolvedValue(null);
     mockVersionFindMany.mockResolvedValue([]);
   }
@@ -198,7 +198,7 @@ describe("POST /api/work-logs/import-md — conflict", () => {
       },
       linkedWorkLogIds: [],
       assetIds: [],
-    } as unknown as ReturnType<typeof mockWorkLogFindFirst>["mock"]["results"][number]["value"]);
+    } as never);
     mockVersionCount.mockResolvedValue(7);
 
     const fm = frontmatterFor({ id: "wl_abc", version: 4 });
@@ -226,7 +226,7 @@ describe("POST /api/work-logs/import-md — conflict", () => {
       contentJson: { type: "doc", content: [] },
       linkedWorkLogIds: [],
       assetIds: [],
-    } as unknown as ReturnType<typeof mockWorkLogFindFirst>["mock"]["results"][number]["value"]);
+    } as never);
     mockVersionCount.mockResolvedValue(7);
 
     const fm = frontmatterFor({ id: "wl_abc", version: 4 });

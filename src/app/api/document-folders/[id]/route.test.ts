@@ -14,6 +14,7 @@
  */
 
 import { vi, describe, it, expect, beforeEach } from "vitest";
+import { NextRequest } from "next/server";
 import { PATCH, DELETE } from "@/app/api/document-folders/[id]/route";
 import { getUserId } from "@/lib/auth-utils";
 import { prisma } from "@/lib/prisma";
@@ -40,16 +41,16 @@ const mockFindMany = vi.mocked(prisma.documentFolder.findMany);
 const mockUpdate = vi.mocked(prisma.documentFolder.update);
 const mockDelete = vi.mocked(prisma.documentFolder.delete);
 
-function patchReq(id: string, body: unknown): Request {
-  return new Request(`http://localhost/api/document-folders/${id}`, {
+function patchReq(id: string, body: unknown): NextRequest {
+  return new NextRequest(`http://localhost/api/document-folders/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
 }
-function deleteReq(id: string, cascade?: boolean): Request {
+function deleteReq(id: string, cascade?: boolean): NextRequest {
   const url = `http://localhost/api/document-folders/${id}${cascade ? "?cascade=1" : ""}`;
-  return new Request(url, { method: "DELETE" });
+  return new NextRequest(url, { method: "DELETE" });
 }
 const ctx = (id: string) => ({ params: Promise.resolve({ id }) });
 

@@ -1014,7 +1014,7 @@ export function JobMap({ initialMode = "job-search", lockedMode = false }: { ini
         }
       })
       .catch(() => {});
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);  
 
   /* Filters */
   const [showFilters, setShowFilters] = useState(false);
@@ -2230,7 +2230,7 @@ export function JobMap({ initialMode = "job-search", lockedMode = false }: { ini
       .then((r) => r.ok ? r.json() : null)
       .then((d) => { if (d?.flags) setRecruiterFlagDb(d.flags); })
       .catch(() => {});
-  }, [sortedJobs]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [sortedJobs]);  
 
   // ── Fetch DB address overrides for selected job ──
   useEffect(() => {
@@ -2317,7 +2317,7 @@ export function JobMap({ initialMode = "job-search", lockedMode = false }: { ini
       .then((r) => r.ok ? r.json() : null)
       .then((d) => { if (d?.groups) setDuplicateGroups(d.groups); })
       .catch(() => {});
-  }, [sortedJobs]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [sortedJobs]);  
 
   // ── Compute dimmed marker IDs (recruiter-flagged + outside isochrone) ──
   const prevDimmedIdsRef = useRef<Set<string>>(new Set());
@@ -3182,7 +3182,7 @@ export function JobMap({ initialMode = "job-search", lockedMode = false }: { ini
       clearTimeout(timer);
       ctrl.abort();
     };
-  }, [pagedJobs, searchCenter]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [pagedJobs, searchCenter]);  
 
   // ── Fetch commute from job to each Life Anchor when a job is selected ──
   useEffect(() => {

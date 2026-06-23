@@ -84,7 +84,7 @@ export function CanvasDialog({
       editorRef.current = ed;
 
       // Listen for user-originated document changes and debounce saves.
-      const unsub = ed.store.listen(
+      return ed.store.listen(
         () => {
           if (debounceRef.current) clearTimeout(debounceRef.current);
           debounceRef.current = setTimeout(() => {
@@ -93,8 +93,6 @@ export function CanvasDialog({
         },
         { source: "user", scope: "document" },
       );
-
-      return unsub;
     },
     [onSnapshot],
   );

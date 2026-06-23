@@ -120,11 +120,11 @@ describe("PATCH /api/work-logs/categories/[id]", () => {
         id: "c1", userId: "user1", name: "old", sortOrder: 0, createdAt: new Date(), updatedAt: new Date(),
       } as never)
       .mockResolvedValueOnce(null); // no collision
-    mockTransaction.mockImplementationOnce(async (ops: unknown[]) => {
+    mockTransaction.mockImplementationOnce((async (ops: unknown[]) => {
       // The route passes [updateMany, update] to $transaction.
       expect(ops).toHaveLength(2);
       return [{ count: 5 }, { id: "c1", userId: "user1", name: "new", sortOrder: 0 }];
-    });
+    }) as never);
 
     const res = await PATCH(patchReq({ name: "new" }), ctx);
     expect(res.status).toBe(200);
@@ -170,11 +170,11 @@ describe("DELETE /api/work-logs/categories/[id]", () => {
     mockCatFindFirst.mockResolvedValueOnce({
       id: "c1", userId: "user1", name: "training", sortOrder: 5, createdAt: new Date(), updatedAt: new Date(),
     } as never);
-    mockTransaction.mockImplementationOnce(async (ops: unknown[]) => {
+    mockTransaction.mockImplementationOnce((async (ops: unknown[]) => {
       // Expect [updateMany(workLog), delete(workLogCategory)]
       expect(ops).toHaveLength(2);
       return [{ count: 7 }, { id: "c1" }];
-    });
+    }) as never);
 
     const res = await DELETE(deleteReq(), ctx);
     const json = await res.json();

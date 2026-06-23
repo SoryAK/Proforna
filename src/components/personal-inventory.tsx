@@ -795,7 +795,7 @@ function ShareModal({
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">Expires</Label>
-                <Select value={expiryDays || "never"} onValueChange={(v) => setExpiryDays(v === "never" ? "" : v)}>
+                <Select value={expiryDays || "never"} onValueChange={(v) => setExpiryDays(v === "never" || v == null ? "" : v)}>
                   <SelectTrigger className="h-8 text-xs">
                     <SelectValue />
                   </SelectTrigger>
@@ -1677,8 +1677,7 @@ export function PersonalInventory({
         setFocusedIndex((idx) => {
           const dir = e.key === "ArrowDown" ? 1 : -1;
           if (idx === null) return dir > 0 ? 0 : sorted.length - 1;
-          const next = (idx + dir + sorted.length) % sorted.length;
-          return next;
+          return (idx + dir + sorted.length) % sorted.length;
         });
         return;
       }
@@ -3219,7 +3218,6 @@ export function PersonalInventory({
                         onDragEnd={() => setDragPhotoId(null)}
                         className={`relative aspect-square rounded border overflow-hidden bg-muted ${dragPhotoId === p.id ? "opacity-40" : ""} ${reorderBusy ? "pointer-events-none" : ""}`}
                       >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <PhotoView
                           p={p}
                           alt={p.caption ?? editing.name ?? "photo"}
@@ -3535,7 +3533,6 @@ export function PersonalInventory({
                           onClick={() => setIdx(i)}
                           className={`h-12 w-12 rounded overflow-hidden border-2 transition-all ${i === viewing.index ? "border-foreground" : "border-transparent opacity-60 hover:opacity-100"}`}
                         >
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
                           <PhotoView p={p} />
                         </button>
                       ))}
@@ -3782,7 +3779,6 @@ export function PersonalInventory({
                           onClick={() => setLightbox({ item: lightbox.item, index: i })}
                           className={`block h-10 w-10 rounded overflow-hidden border-2 transition-all ${i === lightbox.index ? "border-white scale-110" : "border-transparent opacity-60 hover:opacity-100"}`}
                         >
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
                           <PhotoView p={p} />
                         </button>
                         {p.isCover && (

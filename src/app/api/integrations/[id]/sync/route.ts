@@ -44,7 +44,7 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
           source: "ics",
           date: ev.start,
           title: ev.summary || "Calendar event",
-          content: ev.description ?? null,
+          content: ev.description ?? undefined,
           hours: hours && hours > 0 ? Math.round(hours * 100) / 100 : undefined,
           externalRef: { source: "ics", id: `${conn.id}:${ev.uid}` },
         });
@@ -61,7 +61,7 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
           source: "github",
           date: ev.date,
           title: ev.title,
-          content: ev.url ?? null,
+          content: ev.url ?? undefined,
           externalRef: { source: "github", id: `${conn.id}:${ev.externalId}` },
         });
         // Lift the row to "notable" for merged PRs / releases — promotion stays manual.

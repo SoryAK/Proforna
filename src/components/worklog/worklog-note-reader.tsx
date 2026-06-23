@@ -620,7 +620,7 @@ const ReaderInner = forwardRef<WorklogNoteReaderHandle, ReaderInnerProps>(functi
         onOpenChange={setPromoteOpen}
         logId={log.id}
         logTitle={log.title}
-        logDate={log.date instanceof Date ? log.date.toISOString() : String(log.date)}
+        logDate={log.date}
         positionId={log.positionId}
         onPromoted={(eventId) =>
           onUpdate({ id: log.id, promotedToCareerEventId: eventId })

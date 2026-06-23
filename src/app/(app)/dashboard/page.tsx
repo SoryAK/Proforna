@@ -109,7 +109,6 @@ export default function DashboardPage() {
     if (!isLoading && data && !data.profile?.fullName) {
       if (!sessionStorage.getItem("profileEditPrompted")) {
         sessionStorage.setItem("profileEditPrompted", "true");
-        // eslint-disable-next-line react-hooks/exhaustive-deps
         openEditDialog();
       }
     }

@@ -13,6 +13,7 @@
  *           PATCHing any of them to explicit `null` is 400.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { NextRequest } from "next/server";
 import { PATCH, DELETE } from "./route";
 
 vi.mock("@/lib/auth-utils", () => ({
@@ -41,14 +42,14 @@ const USER_ID = "user-aaa";
 const EVENT_ID = "evt-floating-1";
 
 function patchReq(body: unknown) {
-  return new Request(`http://localhost/api/events/${EVENT_ID}`, {
+  return new NextRequest(`http://localhost/api/events/${EVENT_ID}`, {
     method: "PATCH",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
   });
 }
 function deleteReq() {
-  return new Request(`http://localhost/api/events/${EVENT_ID}`, {
+  return new NextRequest(`http://localhost/api/events/${EVENT_ID}`, {
     method: "DELETE",
   });
 }

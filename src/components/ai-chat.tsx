@@ -40,6 +40,7 @@ import { AIChatTextareaWithMentions } from "@/components/ai-chat-textarea-with-m
 import { AIChatMessageMarkdown } from "@/components/ai-chat-message-markdown";
 import { useAIChat } from "@/components/ai-chat-provider";
 import type { AIMeta } from "@/lib/ai/envelope";
+import type { ProviderId } from "@/lib/ai/types";
 import type { MentionRef } from "@/lib/ai-chat-mentions";
 import type {
   AmbientEntityRef,
@@ -469,7 +470,7 @@ export function AIChat() {
               // assistant turn so the AIProvenanceChip renders in the header.
               usedModel = event.model;
               const meta: AIMeta = {
-                provider: usedProvider || "unknown",
+                provider: (usedProvider || "unknown") as ProviderId,
                 model: usedModel,
                 durationMs: event.durationMs,
               };

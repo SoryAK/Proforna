@@ -90,11 +90,15 @@ export async function PATCH(request: Request, ctx: { params: Promise<{ id: strin
       await prisma.equipmentKit.update({ where: { id }, data });
     }
 
-    // Membership ops — verify ownership of any equipment ids first
+    // Membership ops — verify ownership of any equipment ids first.
+    // userId is captured from the PATCH closure; the 401 guard above
+    // narrowed it to string but TS loses that narrowing across the
+    // async function boundary — re-pin it locally.
+    const uid: string = userId;
     async function ownedIds(ids: string[]) {
       if (ids.length === 0) return [];
       const owned = await prisma.personalEquipment.findMany({
-        where: { id: { in: ids }, userId },
+        where: { id: { in: ids }, userId: uid },
         select: { id: true },
       });
       return owned.map((o) => o.id);

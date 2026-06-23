@@ -26,6 +26,7 @@
 
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { toJsonInput } from "@/lib/prisma-json";
 import { getUserId } from "@/lib/auth-utils";
 import { validateContentJson } from "@/lib/worklog/content-json";
 import { importMarkdown } from "@/lib/worklog/import/markdown-to-pm";
@@ -134,8 +135,8 @@ export async function POST(request: Request) {
   try {
     parsed =
       typedSourceType === "markdown"
-        ? importMarkdown(source, { sourceFilename: filenameStr ?? undefined })
-        : importHtml(source, { sourceFilename: filenameStr ?? undefined });
+        ? importMarkdown(source, { filename: filenameStr ?? undefined })
+        : importHtml(source, { filename: filenameStr ?? undefined });
   } catch (err) {
     // Parser blew up. Record the failure and surface the error.
     const errorMessage = err instanceof Error ? err.message : String(err);
@@ -196,7 +197,7 @@ export async function POST(request: Request) {
           workdayDate: now,
           title: parsed.title,
           content: parsed.plaintext,
-          contentJson: contentValidation.value ?? undefined,
+          contentJson: contentValidation.value ? toJsonInput(contentValidation.value) : undefined,
           category: "note",
           hours: null,
           tags: null,

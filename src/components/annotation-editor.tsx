@@ -418,11 +418,10 @@ export function AnnotationEditor({
         // For geometry, ensure inverse value is an object (API rejects strings)
         if (k === "geometry") {
           const g = prev.geometry;
-          // @ts-expect-error - generic key access
           inverse.geometry = typeof g === "string" ? JSON.parse(g) : g;
           return;
         }
-        // @ts-expect-error - generic key access
+        // @ts-expect-error - generic key access produces an intersected-down value type
         inverse[k] = prev[k] ?? null;
       });
       setAnnotations((arr) => arr.map((a) => (a.id === id ? { ...a, ...patch } : a)));

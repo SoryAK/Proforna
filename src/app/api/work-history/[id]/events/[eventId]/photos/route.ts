@@ -10,10 +10,9 @@ const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 const MAX_PER_EVENT = 12;
 
 async function ensureOwnership(workHistoryId: string, eventId: string, userId: string) {
-  const event = await prisma.careerEvent.findFirst({
+  return await prisma.careerEvent.findFirst({
     where: { id: eventId, workHistoryId, userId },
   });
-  return event;
 }
 
 /** GET — list photos for an event */

@@ -94,7 +94,7 @@ describe("GET /api/work-logs/[id]/export — happy path", () => {
           { type: "paragraph", content: [{ type: "text", text: "Body text" }] },
         ],
       },
-    } as unknown as ReturnType<typeof mockWorkLogFindFirst>["mock"]["results"][number]["value"]);
+    } as never);
     mockVersionCount.mockResolvedValue(3);
   }
 
@@ -141,7 +141,7 @@ describe("GET /api/work-logs/[id]/export — happy path", () => {
       id: "wl_x",
       title: "",
       contentJson: { type: "doc", content: [] },
-    } as unknown as ReturnType<typeof mockWorkLogFindFirst>["mock"]["results"][number]["value"]);
+    } as never);
     mockVersionCount.mockResolvedValue(0);
     const [req, ctx] = makeRequest("wl_x");
     const res = await GET(req, ctx);
@@ -177,7 +177,7 @@ describe("GET /api/work-logs/[id]/export — edge cases", () => {
       id: "wl_null",
       title: "No Body",
       contentJson: null,
-    } as unknown as ReturnType<typeof mockWorkLogFindFirst>["mock"]["results"][number]["value"]);
+    } as never);
     mockVersionCount.mockResolvedValue(0);
     const [req, ctx] = makeRequest("wl_null");
     const res = await GET(req, ctx);

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { toNullableJsonInput } from "@/lib/prisma-json";
 import { getUserId } from "@/lib/auth-utils";
 import { computeRetentionPlan } from "@/lib/worklog/version/snapshot";
 
@@ -70,7 +71,7 @@ export async function POST(
       prisma.workLog.update({
         where: { id },
         data: {
-          contentJson: target.contentJson,
+          contentJson: toNullableJsonInput(target.contentJson),
           content: restoredPlainText,
         },
       }),

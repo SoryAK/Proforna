@@ -1,0 +1,50 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": [
+    "src/app/**/{page,layout,route,loading,error,not-found,template,head}.{ts,tsx}",
+    "src/app/**/{default,sitemap,robots,opengraph-image,twitter-image,manifest,icon,apple-icon}.{ts,tsx}",
+    "src/proxy.ts",
+    "scripts/patch-mcp-memory.js",
+    "scripts/slice-scaffold.mjs",
+    "scripts/analyze-chat-exports.mjs",
+    "prisma/seed.ts",
+    "vitest.config.ts",
+    "next.config.ts",
+    "eslint.config.mjs",
+    "postcss.config.mjs"
+  ],
+  "project": [
+    "src/**/*.{ts,tsx}",
+    "!src/**/*.test.{ts,tsx}",
+    "!src/**/*.d.ts"
+  ],
+  "ignore": [
+    ".github/**",
+    ".understand-anything/**",
+    "scripts/_*",
+    "scripts/migrations/**",
+    "scripts/check-profile.js",
+    "scripts/ollama-codegen.ps1",
+    "public/sw.js",
+    "fix.js",
+    "IMPROVEMENTS.md",
+    "Improvents.md",
+    "PROJECT_PLAN.md",
+    "TESTING.md"
+  ],
+  "ignoreDependencies": [
+    "@types/node",
+    "@types/react",
+    "@types/react-dom",
+    "@types/google.maps",
+    "autoprefixer",
+    "postcss",
+    "tailwindcss",
+    "typescript",
+    "ts-node",
+    "tsx"
+  ],
+  "ignoreBinaries": [
+    "tsc"
+  ]
+}

@@ -86,7 +86,6 @@ export function VoiceDictationButton({
     toastedErrorRef.current = error;
     const code = (error as Error & { code?: string }).code;
     // Log raw payload to console so users can copy-paste exact diagnostics.
-    // eslint-disable-next-line no-console
     console.error("[VoiceDictation] error", { code, message: error.message, error });
     const { title: t, description } = friendlyErrorMessage(code, error.message);
     // Always append the raw code so we can distinguish browser-blocked

@@ -8,7 +8,7 @@ export async function GET() {
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
-    let profile = await prisma.userProfile.findFirst();
+    const profile = await prisma.userProfile.findFirst();
     if (!profile) {
       return NextResponse.json({ error: "Portal not configured" }, { status: 404 });
     }

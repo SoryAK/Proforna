@@ -286,7 +286,7 @@ export default function ApplicationsPage() {
 
   const bulkStatusMutation = useMutation({
     mutationFn: async ({ ids, status }: { ids: string[]; status: string }) => {
-      const results = await Promise.all(
+      return await Promise.all(
         ids.map(async (id) => {
           const res = await fetch(`/api/applications/${id}`, {
             method: "PATCH",
@@ -296,7 +296,6 @@ export default function ApplicationsPage() {
           return res.json();
         })
       );
-      return results;
     },
     onSuccess: (results) => {
       queryClient.invalidateQueries({ queryKey: ["applications"] });

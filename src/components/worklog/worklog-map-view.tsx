@@ -105,22 +105,20 @@ export function WorklogMapView() {
   const mappable = useMemo<EventsMapItem[]>(
     () =>
       events
-        .map((e) => {
+        .map((e): EventsMapItem | null => {
           const coords = resolveEventCoords(e, jobCoordsById);
           if (!coords) return null;
-          return {
+          const item: EventsMapItem = {
             id: e.id,
             title: e.title,
             date: e.startDate ?? "",
             location: e.location ?? "",
             lat: coords.lat,
             lng: coords.lng,
-            photos: e.photos?.map((p) => p.filePath),
-            anchoredTo:
-              coords.source === "anchored"
-                ? coords.anchoredCompany
-                : undefined,
           };
+          if (e.photos?.length) item.photos = e.photos.map((p) => p.filePath);
+          if (coords.source === "anchored") item.anchoredTo = coords.anchoredCompany;
+          return item;
         })
         .filter((m): m is EventsMapItem => m !== null),
     [events, jobCoordsById],

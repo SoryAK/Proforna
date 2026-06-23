@@ -21,6 +21,7 @@
 
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { toJsonInput, toNullableJsonInput } from "@/lib/prisma-json";
 import { getUserId } from "@/lib/auth-utils";
 import { parseFrontmatter } from "@/lib/worklog/export/frontmatter";
 import { decideImport } from "@/lib/worklog/import/grill-frontmatter";
@@ -196,7 +197,7 @@ async function performMatchWrite(args: {
     data: {
       title: nextTitle,
       content: parsedBody.plaintext,
-      contentJson,
+      contentJson: toNullableJsonInput(contentJson),
       ...(writeAssetIds ? { assetIds: mergedAssetIds } : {}),
       ...(writeLinkedWorkLogIds ? { linkedWorkLogIds: newLinkedWorkLogIds } : {}),
     },
@@ -223,7 +224,7 @@ async function performMatchWrite(args: {
         data: {
           workLogId: workLog.id,
           userId,
-          contentJson,
+          contentJson: toJsonInput(contentJson ?? {}),
           plainText: parsedBody.plaintext,
           isManual: false,
           label: "Re-imported via Grill Me",

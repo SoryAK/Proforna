@@ -64,7 +64,7 @@ describe("ai.generate — Day 5 hermetic smoke (all five task classes)", () => {
   });
 
   it("chat → routes to Ollama and returns a stream when local is available", async () => {
-    fetchSpy.mockImplementation(async (url) => {
+    fetchSpy.mockImplementation(async (url: RequestInfo | URL) => {
       const s = String(url);
       if (s.includes("/api/tags")) return ollamaTagsOk();
       // Streaming chat builds a ReadableStream that lazily reads /api/chat —
@@ -81,7 +81,7 @@ describe("ai.generate — Day 5 hermetic smoke (all five task classes)", () => {
   });
 
   it("extract → falls back to gemini-fast when Ollama is unavailable", async () => {
-    fetchSpy.mockImplementation(async (url) => {
+    fetchSpy.mockImplementation(async (url: RequestInfo | URL) => {
       const s = String(url);
       if (s.includes("/api/tags")) return ollamaTagsFail();
       if (s.includes("generativelanguage.googleapis.com")) {
@@ -100,7 +100,7 @@ describe("ai.generate — Day 5 hermetic smoke (all five task classes)", () => {
   });
 
   it("ground → routes directly to gemini-fast (Ollama path is skipped by the table)", async () => {
-    fetchSpy.mockImplementation(async (url) => {
+    fetchSpy.mockImplementation(async (url: RequestInfo | URL) => {
       const s = String(url);
       if (s.includes("generativelanguage.googleapis.com")) {
         return geminiOkJson('{"news":["a"]}');
@@ -114,12 +114,14 @@ describe("ai.generate — Day 5 hermetic smoke (all five task classes)", () => {
     expect(res.provider).toBe("gemini-fast");
     expect(res.json).toEqual({ news: ["a"] });
     // The routing table must not even attempt Ollama for `ground`.
-    const tagsCalls = fetchSpy.mock.calls.filter((c) => String(c[0]).includes("/api/tags"));
+    const tagsCalls = fetchSpy.mock.calls.filter(
+      (c: unknown[]) => String(c[0]).includes("/api/tags"),
+    );
     expect(tagsCalls).toHaveLength(0);
   });
 
   it("reason → routes to gemini-pro and reports usage on the response", async () => {
-    fetchSpy.mockImplementation(async (url) => {
+    fetchSpy.mockImplementation(async (url: RequestInfo | URL) => {
       const s = String(url);
       if (s.includes("generativelanguage.googleapis.com")) {
         return geminiOkJson('{"reasoning":"done"}');
@@ -138,7 +140,7 @@ describe("ai.generate — Day 5 hermetic smoke (all five task classes)", () => {
   });
 
   it("summarize → Ollama returns plain text + usage", async () => {
-    fetchSpy.mockImplementation(async (url) => {
+    fetchSpy.mockImplementation(async (url: RequestInfo | URL) => {
       const s = String(url);
       if (s.includes("/api/tags")) return ollamaTagsOk();
       if (s.includes("/api/chat")) return ollamaChatJsonOk("a brief summary");
@@ -154,7 +156,7 @@ describe("ai.generate — Day 5 hermetic smoke (all five task classes)", () => {
   });
 
   it("onUsage callback fires end-to-end through the public façade", async () => {
-    fetchSpy.mockImplementation(async (url) => {
+    fetchSpy.mockImplementation(async (url: RequestInfo | URL) => {
       const s = String(url);
       if (s.includes("/api/tags")) return ollamaTagsFail(); // skip Ollama
       if (s.includes("generativelanguage.googleapis.com")) return geminiOkJson('{"ok":true}');

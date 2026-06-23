@@ -263,9 +263,10 @@ export function BioCardEditor() {
           <div className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-emerald-200 dark:border-emerald-900/60 bg-emerald-50/70 dark:bg-emerald-900/20 px-2 py-1">
             <DollarSign className="h-3.5 w-3.5 text-emerald-700 dark:text-emerald-300" />
             <span className="text-xs font-semibold text-emerald-900 dark:text-emerald-100">{compStr}</span>
-            {comp && comp.visibility !== "public" && (
-              <span className="text-[10px] uppercase tracking-wider text-emerald-700 dark:text-emerald-300">{comp.visibility}</span>
-            )}
+            {/* Comp visibility chip removed: relies on `comp` object that lives on
+                the compensation profile (not Profile); previously referenced an
+                undefined identifier and silently rendered nothing. Revive when
+                BioCardEditor is wired to /api/compensation. */}
           </div>
         )}
 

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { toJsonInput } from "@/lib/prisma-json";
 import { getUserId } from "@/lib/auth-utils";
 import { computeWorkdayDateLocal, localDateAndMinuteFromIso } from "@/lib/worklog-shifts";
 import { validateContentJson } from "@/lib/worklog/content-json";
@@ -231,7 +232,7 @@ export async function POST(request: Request) {
         workdayDate: workdayDate ? new Date(workdayDate) : new Date(derivedWorkdayIso),
         title,
         content: content || null,
-        contentJson: contentJsonResult.value ?? undefined,
+        contentJson: contentJsonResult.value ? toJsonInput(contentJsonResult.value) : undefined,
         category: category || "task",
         hours: hours != null && hours !== "" ? parseFloat(String(hours)) : null,
         tags: tags || null,

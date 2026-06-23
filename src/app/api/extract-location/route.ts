@@ -11,17 +11,17 @@ import { NextRequest, NextResponse } from "next/server";
 /** Common location-indicating patterns ordered by confidence */
 const LOCATION_PATTERNS: { re: RegExp; confidence: "high" | "medium" }[] = [
   // "office in King of Prussia, PA"
-  { re: /(?:office|headquarter(?:s|ed)?|located|based|position)\s+(?:is\s+)?(?:in|at)\s+([A-Z][a-zA-Z\s.'-]+,\s*[A-Z]{2}(?:\s+\d{5})?)/gi, confidence: "high" },
+  { re: /(?:office|headquarter(?:s|ed)?|located|based|position)\s+(?:is\s+)?(?:in|at)\s+([A-Z][-a-zA-Z\s.']+,\s*[A-Z]{2}(?:\s+\d{5})?)/gi, confidence: "high" },
   // "onsite in Malvern, PA"
-  { re: /(?:on-?site|in-?person|in-?office|hybrid)\s+(?:in|at|near)\s+([A-Z][a-zA-Z\s.'-]+,\s*[A-Z]{2}(?:\s+\d{5})?)/gi, confidence: "high" },
+  { re: /(?:on-?site|in-?person|in-?office|hybrid)\s+(?:in|at|near)\s+([A-Z][-a-zA-Z\s.']+,\s*[A-Z]{2}(?:\s+\d{5})?)/gi, confidence: "high" },
   // "work from our Dallas, TX facility"
-  { re: /(?:our|the|client(?:'?s)?)\s+([A-Z][a-zA-Z\s.'-]+,\s*[A-Z]{2})\s+(?:office|facility|campus|location|site|headquarters)/gi, confidence: "high" },
+  { re: /(?:our|the|client(?:'?s)?)\s+([A-Z][-a-zA-Z\s.']+,\s*[A-Z]{2})\s+(?:office|facility|campus|location|site|headquarters)/gi, confidence: "high" },
   // "report to 123 Main St, Suite 200, Philadelphia, PA 19103"
-  { re: /(?:report\s+to|work\s+at|located\s+at)\s+([\d]+[^,]+,\s*(?:[^,]+,\s*)?[A-Z][a-zA-Z\s.'-]+,\s*[A-Z]{2}(?:\s+\d{5})?)/gi, confidence: "high" },
+  { re: /(?:report\s+to|work\s+at|located\s+at)\s+([\d]+[^,]+,\s*(?:[^,]+,\s*)?[A-Z][-a-zA-Z\s.']+,\s*[A-Z]{2}(?:\s+\d{5})?)/gi, confidence: "high" },
   // "Philadelphia, PA area" or "Greater Philadelphia area"
-  { re: /(?:greater\s+)?([A-Z][a-zA-Z\s.'-]+,\s*[A-Z]{2})\s+(?:area|metro|region)/gi, confidence: "medium" },
+  { re: /(?:greater\s+)?([A-Z][-a-zA-Z\s.']+,\s*[A-Z]{2})\s+(?:area|metro|region)/gi, confidence: "medium" },
   // "City, ST" near work-related context words
-  { re: /(?:location|site|address)[:\s]+([A-Z][a-zA-Z\s.'-]+,\s*[A-Z]{2}(?:\s+\d{5})?)/gi, confidence: "medium" },
+  { re: /(?:location|site|address)[:\s]+([A-Z][-a-zA-Z\s.']+,\s*[A-Z]{2}(?:\s+\d{5})?)/gi, confidence: "medium" },
 ];
 
 /** State abbreviation set for validation */
