@@ -198,6 +198,15 @@
         "evidenceSource": "docs/c-yard/ai-chat.json refreshHistory[] entry; commits 22215ce (Phase D.3 feature) → 6dc5ef0 (slice manifest); ADR-0046 Acceptance section.",
         "triggerSession": "77e25d9d-ca47-4795-b5f4-d8921afd0593",
         "replacedPractice": "slice-authoring-deferred-to-Layer-2-mining-only"
+      },
+      {
+        "id": "practice:etrc-ship-rhythm",
+        "adoptedAt": "2026-06-23T05:00:00Z",
+        "name": "E→T→R→C ship rhythm (Execute → Test → Review → Commit)",
+        "description": "Behavioral upgrade of the existing E→T→C ship rhythm: a Review step is now inserted between Test and Commit. R = run `npm run review:phase` (column 1 of ADR-0047 three-column review pipeline) and require exit 0 before proceeding to commit. Strict by default; `--accept-net` flag allows per-gate regressions on cleanup PRs if total didn't grow; `vitest.failed > 0` is a hard fail in all modes. R is REQUIRED for phase-end commits, pre-push, ADR-shipping, cross-cutting changes (libs / schemas / types / config). R is OPTIONAL (T still required) for single-file UI tweaks, doc-only commits, scratch experiments. Wall-clock cost ~170s — budgeted as 'slow but cheap insurance against drift.' Locks the regression-detection surface previously hand-rolled on premium agent turns into a deterministic, cacheable, reproducible step.",
+        "evidenceSource": "user-profile.md memory entry 'E.T.R.C. Workflow Pattern' (this session); ADR-0047 Decision §Workflow integration; commits ef75099 (calibration), 4d5d08d (gate + baseline), 0ed345c (ADR).",
+        "triggerSession": "77e25d9d-ca47-4795-b5f4-d8921afd0593",
+        "replacedPractice": "E→T→C with hand-rolled review on premium agent turns"
       }
     ],
     "infraToolingChanges": [
@@ -301,6 +310,15 @@
         "description": "docs/c-yard/_index.json gained its first real entry: { 'ai-chat': { 'reads-from': ['worklog-editor/version-history'] } } — because the AI chat code-block 'send to worklog' action shares the WorkLog ContentBlocks write path with the version-history rail. Validates ADR-0038 D1=B (cross-slice relations as a separate adjacency file rather than denormalized inside each slice) by first real use: single-line JSON edit, drift-proof against slug renames (only one place to update), no slice-internal duplication. Mechanism is now load-bearing; future slices append entries the same way. Shipped alongside the ai-chat.json slice in commit 6dc5ef0.",
         "source": "docs/c-yard/_index.json; docs/adr/0038-slice-schema-and-extractability.md §D1 (decision); commit 6dc5ef0",
         "commit": "6dc5ef0",
+        "triggerSession": "77e25d9d-ca47-4795-b5f4-d8921afd0593"
+      },
+      {
+        "id": "infra:review-phase-gate",
+        "shippedAt": "2026-06-23T04:49:51Z",
+        "name": "npm run review:phase — phase-end OSS regression gate against tracked baseline",
+        "description": "Self-contained gate script at scripts/review-phase.mjs that re-runs five OSS gates (tsc / eslint / knip / madge / vitest), parses structured counts, and diffs against docs/review-baseline.json. Exits 0 = clean, 1 = regression, 2 = infra/parser failure. Companion npm script `review:baseline` regenerates the baseline. Policy: strict by default; `--accept-net` flag allows per-gate regressions if total across numeric gates didn't grow; `vitest.failed > 0` is a hard fail in ALL modes. Red-team verified: one `any` annotation in an unused src/lib/ file triggers exit 1 with both eslint (+1) and knip (+1) flagging the regression. Initial baseline locks tsc 22 errors / eslint 495 errors + 10591 warnings / knip 0/0/0 / madge 0 circular / vitest 966 passed + 5 skipped + 0 failed (971 total) at commit ef75099. This is Column 1 of the three-column review pipeline (ADR-0047). Workflow recipe at docs/workflows/setup-phase-end-review-gate.md. Backbone for the new E→T→R→C ship rhythm.",
+        "source": "scripts/review-phase.mjs; docs/review-baseline.json; docs/adr/0047-three-column-review-pipeline.md; docs/workflows/setup-phase-end-review-gate.md",
+        "commit": "4d5d08d",
         "triggerSession": "77e25d9d-ca47-4795-b5f4-d8921afd0593"
       }
     ]

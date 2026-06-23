@@ -1,0 +1,19 @@
+{
+  "entities": [
+    {
+      "name": "ReviewPipeline",
+      "entityType": "WorkflowDomain",
+      "observations": [
+        "2026-06-23: Resumsify phase-end review architecture. Three-column cost-tiered design: Column 1 (OSS deterministic, ~170s, BUILT at commit 4d5d08d), Column 2 (local LLM chain via Cline + gemma4:26b + codegraph MCP + slice manifests, NOT BUILT), Column 3 (premium Copilot Opus/Sonnet escalation flag, NOT BUILT). Captured in ADR-0047.",
+        "2026-06-23: Column 1 entry point is `npm run review:phase`. Implementation at scripts/review-phase.mjs. Re-runs tsc / eslint / knip / madge / vitest, parses structured counts, diffs against docs/review-baseline.json. Exit 0 = clean, 1 = regression, 2 = infra/parser failure.",
+        "2026-06-23: Regression policy — strict by default (any gate count > baseline → exit 1); `--accept-net` flag allows per-gate regressions if total across gates didn't grow; `vitest.failed > 0` is a hard fail in ALL modes (no opt-out).",
+        "2026-06-23: Baseline lives at docs/review-baseline.json (versioned, includes commit SHA + capturedAt ISO timestamp). Regenerate via `npm run review:baseline` after landing intentional improvements. Initial baseline captured at ef75099: tsc 22 errors / eslint 495 errors + 10591 warnings / knip 0/0/0 / madge 0 circular / vitest 966 passed + 5 skipped + 0 failed (971 total).",
+        "2026-06-23: Ship rhythm upgraded — E→T→C became E→T→R→C with R = column 1 today; columns 2-3 plug in later under the same baseline contract. R is REQUIRED for phase-end / pre-push / ADR-shipping / cross-cutting changes (libs / schemas / types / config). R is OPTIONAL (T still required) for single-file UI tweaks / doc-only commits / scratch experiments. Gate is slow (~170s) — budget for it but don't skip on the work that matters.",
+        "2026-06-23: Three-stage chain within column 2 (designed, not built): verify → categorize → act. Verify-first build order to de-risk hallucinated findings before adding the action loop. First prototype target: worklog-editor slice (highest existing knownTrap surface in docs/c-yard/).",
+        "2026-06-23: Red-team verified — injecting one `any` annotation in an unused src/lib/ file triggers exit 1 with both eslint (+1) and knip (+1) flagging the regression independently. Removing the file restores exit 0. Gate has teeth.",
+        "2026-06-23: Workflow recipe at docs/workflows/setup-phase-end-review-gate.md for bootstrapping equivalent gates in future repos or recalibrating after major lint/type churn."
+      ]
+    }
+  ],
+  "relations": []
+}
