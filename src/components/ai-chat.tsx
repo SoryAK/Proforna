@@ -33,8 +33,6 @@ import { AIProvenanceChip } from "@/components/ai-provenance-chip";
 import { AIChatTextareaWithMentions } from "@/components/ai-chat-textarea-with-mentions";
 import { AIChatMessageMarkdown } from "@/components/ai-chat-message-markdown";
 import { useAIChat } from "@/components/ai-chat-provider";
-import type { AIMeta } from "@/lib/ai/envelope";
-import type { ProviderId } from "@/lib/ai/types";
 import type { MentionRef } from "@/lib/ai-chat-mentions";
 import type {
   AmbientEntityRef,
@@ -43,7 +41,6 @@ import type {
 import {
   TASK_OPTIONS,
   SLASH_COMMANDS,
-  estimateTokens,
   type ChatTask,
   type SlashCommand,
   type Message,
@@ -51,12 +48,12 @@ import {
 import { useAiChatResize } from "@/hooks/use-ai-chat-resize";
 import { useAiChatModels } from "@/hooks/use-ai-chat-models";
 import { useAiChatContext } from "@/hooks/use-ai-chat-context";
+import { useAiChatStream } from "@/hooks/use-ai-chat-stream";
 
 export function AIChat() {
   const { open, setOpen } = useAIChat();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
-  const [streaming, setStreaming] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   // Model picker (extracted hook — owns provider/model/localUrl + auto-select + stale guard)
   const { provider, setProvider, model, setModel, localUrl, setLocalUrl, modelsData, refetch } = useAiChatModels(open);
@@ -75,7 +72,6 @@ export function AIChat() {
   // Tweak 3: context chips are gated behind the toolbar `[+]` toggle.
   // Default closed — the count badge surfaces how many slices are active.
   const [contextExpanded, setContextExpanded] = useState(false);
-  const [sessionTokens, setSessionTokens] = useState(0);
   // Keyboard-selected slash command (ADR-0046 Phase B). Reset to 0 whenever
   // the filtered list shrinks below the current index.
   const [slashIndex, setSlashIndex] = useState(0);
@@ -85,7 +81,29 @@ export function AIChat() {
   const [mentions, setMentions] = useState<MentionRef[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const abortRef = useRef<AbortController | null>(null);
+
+  // Streaming pipeline (extracted hook — owns streaming/sessionTokens state,
+  // abortRef, sendMessage SSE pipeline, and stopStreaming).
+  const {
+    streaming,
+    sessionTokens,
+    setSessionTokens,
+    sendMessage,
+    stopStreaming,
+  } = useAiChatStream({
+    messages,
+    setMessages,
+    input,
+    setInput,
+    mentions,
+    setMentions,
+    contextSlices,
+    suppressedSliceIds,
+    provider,
+    model,
+    localUrl,
+    task,
+  });
 
   // Resize logic (extracted hook — owns panelWidth, isDragging, drag handlers)
   const { panelWidth, isDragging, startResizing } = useAiChatResize();
@@ -118,158 +136,6 @@ export function AIChat() {
       setTimeout(() => inputRef.current?.focus(), 100);
     }
   }, [open]);
-
-  const sendMessage = useCallback(async (overrideText?: string) => {
-    const text = (overrideText ?? input).trim();
-    if (!text || streaming) return;
-
-    // Snapshot current mentions so we can both attach them to the user
-    // message AND ship them in the chat-route sidecar. Cleared once the
-    // user message is queued.
-    const turnMentions = mentions;
-
-    const userMsg: Message = {
-      id: crypto.randomUUID(),
-      role: "user",
-      content: text,
-      mentions: turnMentions.length > 0 ? turnMentions : undefined,
-    };
-
-    const assistantMsg: Message = {
-      id: crypto.randomUUID(),
-      role: "assistant",
-      content: "",
-    };
-
-    setMessages((prev) => [...prev, userMsg, assistantMsg]);
-    setInput("");
-    setStreaming(true);
-
-    // Snapshot + clear mentions so the textarea is ready for the next turn.
-    // The structured payload is sent alongside the chat body — the chat
-    // route increments `EntityAIMentionCount` and injects a hidden system
-    // message containing the JSON block (ADR-0046 Phase C.2). The same
-    // snapshot is also stored on the user message itself so D.3's
-    // code-block resolver can read the thread's mention history.
-    const mentionsPayload = turnMentions.map(({ type, id, label }) => ({ type, id, label }));
-    setMentions([]);
-
-    // Build messages array, prefixing the unsuppressed context slices as one
-    // system message. The user can drop individual slices via the chip row
-    // above the input — see `suppressedSliceIds` (ADR-0046 Phase A).
-    const chatHistory: { role: "system" | "user" | "assistant"; content: string }[] = [...messages, userMsg].map((m) => ({
-      role: m.role as "user" | "assistant",
-      content: m.content,
-    }));
-
-    const activeSlices = contextSlices.filter((s) => !suppressedSliceIds.has(s.id));
-    if (activeSlices.length > 0) {
-      const systemPrompt = activeSlices.map((s) => s.prompt).join("\n\n");
-      chatHistory.unshift({ role: "system" as const, content: systemPrompt });
-    }
-
-    const controller = new AbortController();
-    abortRef.current = controller;
-
-    try {
-      const res = await fetch("/api/ai/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          messages: chatHistory,
-          provider,
-          model: model || undefined,
-          localUrl: provider === "ollama" ? localUrl : undefined,
-          task,
-          mentions: mentionsPayload,
-        }),
-        signal: controller.signal,
-      });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: "Request failed" }));
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === assistantMsg.id
-              ? { ...m, content: `**Error:** ${err.error}` }
-              : m
-          )
-        );
-        setStreaming(false);
-        return;
-      }
-
-      const reader = res.body?.getReader();
-      if (!reader) {
-        setStreaming(false);
-        return;
-      }
-
-      const decoder = new TextDecoder();
-      let accumulated = "";
-      let usedProvider = "";
-      let usedModel = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value, { stream: true });
-        for (const line of chunk.split("\n")) {
-          if (!line.startsWith("data: ")) continue;
-          try {
-            const event = JSON.parse(line.slice(6));
-            if (event.type === "provider") {
-              usedProvider = event.provider;
-            } else if (event.type === "text") {
-              accumulated += event.text;
-              const snapshot = accumulated;
-              setMessages((prev) =>
-                prev.map((m) =>
-                  m.id === assistantMsg.id
-                    ? { ...m, content: snapshot }
-                    : m
-                )
-              );
-            } else if (event.type === "meta") {
-              // Final provenance metadata from the server. Hydrate the
-              // assistant turn so the AIProvenanceChip renders in the header.
-              usedModel = event.model;
-              const meta: AIMeta = {
-                provider: (usedProvider || "unknown") as ProviderId,
-                model: usedModel,
-                durationMs: event.durationMs,
-              };
-              setMessages((prev) =>
-                prev.map((m) => (m.id === assistantMsg.id ? { ...m, ai: meta } : m))
-              );
-            }
-          } catch {
-            // skip
-          }
-        }
-      }
-    } catch (err) {
-      if ((err as Error).name !== "AbortError") {
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === assistantMsg.id
-              ? { ...m, content: "**Error:** Connection failed. Is your AI provider running?" }
-              : m
-          )
-        );
-      }
-    } finally {
-      setStreaming(false);
-      abortRef.current = null;
-      // Update session token estimate from the final accumulated text.
-      setMessages((prev) => {
-        const total = prev.reduce((acc, m) => acc + estimateTokens(m.content), 0);
-        setSessionTokens(total);
-        return prev;
-      });
-    }
-  }, [input, streaming, messages, contextSlices, suppressedSliceIds, provider, model, localUrl, task, mentions]);
 
   // Slash command surface (ADR-0046 Phase B). The menu is open when the
   // input starts with `/` and contains no whitespace — VS Code convention,
@@ -346,11 +212,6 @@ export function AIChat() {
       e.preventDefault();
       void sendMessage();
     }
-  };
-
-  const stopStreaming = () => {
-    abortRef.current?.abort();
-    setStreaming(false);
   };
 
   const toggleTurnCollapsed = (id: string) => {
