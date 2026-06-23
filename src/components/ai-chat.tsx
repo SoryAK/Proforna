@@ -38,7 +38,6 @@ import type { ProviderId } from "@/lib/ai/types";
 import type { MentionRef } from "@/lib/ai-chat-mentions";
 import type {
   AmbientEntityRef,
-  PageContext,
   ThreadContext,
 } from "@/lib/ai-chat-action-target";
 import {
@@ -48,10 +47,10 @@ import {
   type ChatTask,
   type SlashCommand,
   type Message,
-  type ContextSlice,
 } from "@/lib/ai-chat-constants";
 import { useAiChatResize } from "@/hooks/use-ai-chat-resize";
 import { useAiChatModels } from "@/hooks/use-ai-chat-models";
+import { useAiChatContext } from "@/hooks/use-ai-chat-context";
 
 export function AIChat() {
   const { open, setOpen } = useAIChat();
@@ -61,8 +60,16 @@ export function AIChat() {
   const [showSettings, setShowSettings] = useState(false);
   // Model picker (extracted hook — owns provider/model/localUrl + auto-select + stale guard)
   const { provider, setProvider, model, setModel, localUrl, setLocalUrl, modelsData, refetch } = useAiChatModels(open);
-  const [contextSlices, setContextSlices] = useState<ContextSlice[]>([]);
-  const [suppressedSliceIds, setSuppressedSliceIds] = useState<Set<string>>(new Set());
+  // Career context (extracted hook — owns contextSlices, suppressedSliceIds, pageContext, toggleSlice)
+  const {
+    contextSlices,
+    setContextSlices,
+    suppressedSliceIds,
+    setSuppressedSliceIds,
+    pageContext,
+    toggleSlice,
+    visibleSliceCount,
+  } = useAiChatContext(open);
   const [collapsedTurns, setCollapsedTurns] = useState<Set<string>>(new Set());
   const [task, setTask] = useState<ChatTask>("chat");
   // Tweak 3: context chips are gated behind the toolbar `[+]` toggle.
@@ -76,51 +83,10 @@ export function AIChat() {
   // this layer so the chat-body sidecar can serialize them on send and the
   // textarea component can clear them on submit.
   const [mentions, setMentions] = useState<MentionRef[]>([]);
-  // Ambient page context (ADR-0046 Phase D.3). Populated from the
-  // `/api/ai/context` ambient field; consumed by the code-block toolbar's
-  // resolver as step (1) of target precedence.
-  const [pageContext, setPageContext] = useState<PageContext>({});
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  // Fetch career context slices (ADR-0046 Phase A). The legacy `systemPrompt`
-  // field is read as a fallback so the panel still works against a server
-  // that hasn't been redeployed with the slice shape yet. Phase D.3 also
-  // captures the `ambient` field for the code-block action resolver.
-  useEffect(() => {
-    if (!open || contextSlices.length > 0) return;
-    fetch("/api/ai/context")
-      .then((r) => r.json())
-      .then(
-        (d: {
-          slices?: ContextSlice[];
-          systemPrompt?: string;
-          ambient?: {
-            activeJob?: AmbientEntityRef | null;
-            activeWorklog?: AmbientEntityRef | null;
-            activeSkill?: AmbientEntityRef | null;
-          };
-        }) => {
-          if (Array.isArray(d.slices) && d.slices.length > 0) {
-            setContextSlices(d.slices);
-          } else if (d.systemPrompt) {
-            // Legacy shape: collapse the whole prompt into a single non-removable slice.
-            setContextSlices([{ id: "base", label: "Career context", prompt: d.systemPrompt, removable: false }]);
-          }
-          if (d.ambient) {
-            setPageContext({
-              activeJob: d.ambient.activeJob ?? null,
-              activeWorklog: d.ambient.activeWorklog ?? null,
-              activeSkill: d.ambient.activeSkill ?? null,
-            });
-          }
-        },
-      )
-      .catch(() => {});
-  }, [open, contextSlices.length]);
-
-  // Auto-select best model when models data loads (only once)
   // Resize logic (extracted hook — owns panelWidth, isDragging, drag handlers)
   const { panelWidth, isDragging, startResizing } = useAiChatResize();
 
@@ -387,15 +353,6 @@ export function AIChat() {
     setStreaming(false);
   };
 
-  const toggleSlice = (id: string) => {
-    setSuppressedSliceIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
   const toggleTurnCollapsed = (id: string) => {
     setCollapsedTurns((prev) => {
       const next = new Set(prev);
@@ -408,13 +365,6 @@ export function AIChat() {
   const ollamaModels = modelsData?.models.filter((m) => m.provider === "ollama") ?? [];
   const geminiModels = modelsData?.models.filter((m) => m.provider === "gemini") ?? [];
   const providerModels = provider === "ollama" ? ollamaModels : geminiModels;
-  // Visible (non-suppressed) slice count drives the toolbar `[+ N]` badge.
-  // Sum, not difference of `length - size`, because `suppressedSliceIds` may
-  // hold ids that are no longer in `contextSlices` (stale across nav).
-  const visibleSliceCount = contextSlices.reduce(
-    (n, s) => (suppressedSliceIds.has(s.id) ? n : n + 1),
-    0,
-  );
 
   // Panel — trigger now lives in AppHeader / MobileHeader (see AIChatProvider).
   return (
