@@ -11,22 +11,29 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Bot,
   Send,
   X,
   MessageSquare,
   Loader2,
-  Trash2,
   Settings2,
   Wifi,
   WifiOff,
   Sparkles,
-  User,
   ChevronDown,
   Globe,
   Brain,
   FileText,
   Square,
+  Mic,
+  Plus,
+  Minus,
 } from "lucide-react";
 import { AIProvenanceChip } from "@/components/ai-provenance-chip";
 import { AIChatTextareaWithMentions } from "@/components/ai-chat-textarea-with-mentions";
@@ -95,6 +102,14 @@ const SLASH_COMMANDS: SlashCommand[] = [
     prompt:
       "Draft 3-5 resume bullets from my current context. Each bullet must follow STAR format (Situation / Task / Action / Result) and quantify impact wherever supporting data exists.",
   },
+  // Client-side command — short-circuits in `executeSlashCommand` to call
+  // `clearChat` instead of sending a prompt. Empty `prompt` is intentional.
+  {
+    id: "clear",
+    label: "/clear",
+    description: "Clear the conversation",
+    prompt: "",
+  },
 ];
 
 // Rough char-to-token estimate (~4 chars/token for English). Good enough for
@@ -149,6 +164,9 @@ export function AIChat() {
   const [collapsedTurns, setCollapsedTurns] = useState<Set<string>>(new Set());
   const [localUrl, setLocalUrl] = useState<string | null>(typeof window !== "undefined" ? localStorage.getItem("resumsify-ai-url") : null);
   const [task, setTask] = useState<ChatTask>("chat");
+  // Tweak 3: context chips are gated behind the toolbar `[+]` toggle.
+  // Default closed — the count badge surfaces how many slices are active.
+  const [contextExpanded, setContextExpanded] = useState(false);
   const [sessionTokens, setSessionTokens] = useState(0);
   // Keyboard-selected slash command (ADR-0046 Phase B). Reset to 0 whenever
   // the filtered list shrinks below the current index.
@@ -500,15 +518,35 @@ export function AIChat() {
     if (slashIndex >= filteredSlashCommands.length) setSlashIndex(0);
   }, [filteredSlashCommands.length, slashIndex]);
 
+  // NB: `clearChat` is declared before `executeSlashCommand` because the
+  // latter's `useCallback` deps array references it — placing it later
+  // would put it in the temporal dead zone at render time.
+  const clearChat = useCallback(() => {
+    setMessages([]);
+    setContextSlices([]);
+    setSuppressedSliceIds(new Set());
+    setCollapsedTurns(new Set());
+    setSessionTokens(0);
+    setMentions([]);
+  }, []);
+
   const executeSlashCommand = useCallback(
     (cmd: SlashCommand) => {
+      // Client-side slash commands short-circuit the send — they don't
+      // produce a user turn (e.g. `/clear` resets the thread in-place).
+      if (cmd.id === "clear") {
+        setInput("");
+        setSlashIndex(0);
+        clearChat();
+        return;
+      }
       // Pass the prompt directly into sendMessage so we don't race React's
       // batched state — `input` won't have flushed yet when we send.
       setInput(cmd.prompt);
       setSlashIndex(0);
       void sendMessage(cmd.prompt);
     },
-    [sendMessage],
+    [sendMessage, clearChat],
   );
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -547,15 +585,6 @@ export function AIChat() {
     setStreaming(false);
   };
 
-  const clearChat = () => {
-    setMessages([]);
-    setContextSlices([]);
-    setSuppressedSliceIds(new Set());
-    setCollapsedTurns(new Set());
-    setSessionTokens(0);
-    setMentions([]);
-  };
-
   const toggleSlice = (id: string) => {
     setSuppressedSliceIds((prev) => {
       const next = new Set(prev);
@@ -577,6 +606,13 @@ export function AIChat() {
   const ollamaModels = modelsData?.models.filter((m) => m.provider === "ollama") ?? [];
   const geminiModels = modelsData?.models.filter((m) => m.provider === "gemini") ?? [];
   const providerModels = provider === "ollama" ? ollamaModels : geminiModels;
+  // Visible (non-suppressed) slice count drives the toolbar `[+ N]` badge.
+  // Sum, not difference of `length - size`, because `suppressedSliceIds` may
+  // hold ids that are no longer in `contextSlices` (stale across nav).
+  const visibleSliceCount = contextSlices.reduce(
+    (n, s) => (suppressedSliceIds.has(s.id) ? n : n + 1),
+    0,
+  );
 
   // Fab button
   return (
@@ -608,90 +644,24 @@ export function AIChat() {
         />
 
         <div className="flex flex-col h-full w-full md:w-[var(--chat-width)] md:min-w-[var(--chat-width)] relative">
-          {/* Header */}
-          <div className="flex items-center justify-between border-b px-4 py-3 bg-gradient-to-r from-orange-600/10 to-purple-600/10 shrink-0">
-        <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-orange-600 to-purple-600">
-            <Bot className="h-4 w-4 text-white" />
+          {/* Header — slim: title + close only.
+              Tweaks 1+2: dropped bot icon, provider/model status, Settings,
+              and Trash buttons. All those moved into the bottom toolbar or
+              became slash commands (`/clear`). */}
+          <div className="flex items-center justify-between border-b px-3 py-1.5 bg-gradient-to-r from-orange-600/10 to-purple-600/10 shrink-0">
+            <p className="text-[11px] font-semibold tracking-wide">Resumsify AI</p>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 w-7 p-0"
+              onClick={() => setOpen(false)}
+              aria-label="Close chat"
+            >
+              <X className="h-3.5 w-3.5" />
+            </Button>
           </div>
-          <div>
-            <p className="text-sm font-semibold">Resumsify AI</p>
-            <div className="flex items-center gap-1.5">
-              {modelsData?.ollama.available || modelsData?.gemini.available ? (
-                <>
-                  <Wifi className="h-2.5 w-2.5 text-emerald-500" />
-                  <span className="text-[10px] text-muted-foreground">
-                    {provider === "ollama" ? "Local" : "Cloud"} · {model || "auto"}
-                  </span>
-                </>
-              ) : (
-                <>
-                  <WifiOff className="h-2.5 w-2.5 text-red-500" />
-                  <span className="text-[10px] text-red-500">No AI available</span>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-        <div className="flex items-center gap-1">
-          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setShowSettings(!showSettings)}>
-            <Settings2 className="h-3.5 w-3.5" />
-          </Button>
-          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={clearChat}>
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
-          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setOpen(false)}>
-            <X className="h-3.5 w-3.5" />
-          </Button>
-        </div>
-      </div>
 
-      {/* Mode picker + session token meter */}
-      <div className="flex items-center justify-between gap-2 border-b px-3 py-1.5 bg-muted/20 shrink-0">
-        <div className="flex items-center gap-1 overflow-x-auto">
-          {TASK_OPTIONS.map((opt) => {
-            const Icon = opt.icon;
-            const active = task === opt.id;
-            return (
-              <button
-                key={opt.id}
-                type="button"
-                onClick={() => setTask(opt.id)}
-                disabled={streaming}
-                className={`group inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] transition-colors disabled:opacity-50 ${
-                  active
-                    ? "border-orange-500/60 bg-orange-500/10 text-orange-700 dark:text-orange-300"
-                    : "border-transparent text-muted-foreground hover:bg-muted hover:text-foreground"
-                }`}
-                aria-pressed={active}
-                title={opt.premium ? `${opt.label} (premium - reasoning model)` : opt.label}
-              >
-                <Icon className="h-3 w-3" />
-                <span>{opt.label}</span>
-                {opt.premium && (
-                  <span className="ml-0.5 rounded-sm bg-gradient-to-r from-purple-600 to-orange-600 px-1 text-[8px] font-semibold uppercase tracking-wide text-white">
-                    Pro
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-        {sessionTokens > 0 && (
-          <span
-            className={`shrink-0 rounded-full border px-1.5 py-0.5 font-mono text-[9px] tabular-nums ${
-              sessionTokens >= 25_000
-                ? "border-red-500/40 bg-red-500/10 text-red-600 dark:text-red-400"
-                : sessionTokens >= 10_000
-                  ? "border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400"
-                  : "border-muted-foreground/20 bg-background text-muted-foreground"
-            }`}
-            title="Estimated session token usage (chars / 4)"
-          >
-            ~{sessionTokens >= 1000 ? `${(sessionTokens / 1000).toFixed(1)}k` : sessionTokens}t
-          </span>
-        )}
-      </div>
+      {/* Old mode/tasks row deleted (tweak 4) — mode picker now lives in the bottom toolbar. */}
 
       {/* Settings panel */}
       {showSettings && (
@@ -820,17 +790,14 @@ export function AIChat() {
           const isActiveAssistant =
             streaming && msg.role === "assistant" && idx === messages.length - 1;
           const isCollapsed = collapsedTurns.has(msg.id);
+          // Tweak 5: avatars removed — alignment carries role (industry-standard
+          // chat pattern). Bubble width bumped from 80% → 88% to reclaim the gutter.
           return (
             <div
               key={msg.id}
-              className={`flex gap-2.5 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+              className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
             >
-              {msg.role === "assistant" && (
-                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-orange-600 to-purple-600 mt-0.5">
-                  <Bot className="h-3.5 w-3.5 text-white" />
-                </div>
-              )}
-              <div className={`flex flex-col gap-1 max-w-[80%] ${msg.role === "user" ? "items-end" : "items-start"}`}>
+              <div className={`flex flex-col gap-1 max-w-[88%] ${msg.role === "user" ? "items-end" : "items-start"}`}>
                 {/* Per-turn header: provenance chip + collapse chevron (ADR-0046 Phase A) */}
                 {msg.role === "assistant" && (msg.ai || isCollapsed) && (
                   <div className="flex items-center gap-2 px-1">
@@ -874,11 +841,6 @@ export function AIChat() {
                   </div>
                 )}
               </div>
-              {msg.role === "user" && (
-                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-foreground/10 mt-0.5">
-                  <User className="h-3.5 w-3.5" />
-                </div>
-              )}
             </div>
           );
         })}
@@ -922,9 +884,11 @@ export function AIChat() {
           </div>
         )}
         {/* Context chips (ADR-0046 Phase A) — user can suppress individual
-            slices for this thread. The base prompt is non-removable. */}
-        {contextSlices.length > 0 && (
-          <div className="mb-2 flex flex-wrap gap-1">
+            slices for this thread. The base prompt is non-removable.
+            Tweak 3: gated behind `contextExpanded` (toolbar [+] toggle);
+            tinted container makes the open state legible. */}
+        {contextExpanded && contextSlices.length > 0 && (
+          <div className="mb-2 flex flex-wrap gap-1 rounded-md border border-orange-500/20 bg-orange-500/[0.04] px-1.5 py-1.5">
             {contextSlices.map((slice) => {
               const suppressed = suppressedSliceIds.has(slice.id);
               const removable = slice.removable;
@@ -959,37 +923,175 @@ export function AIChat() {
             })}
           </div>
         )}
-        <div className="flex items-end gap-2">
-          <AIChatTextareaWithMentions
-            ref={inputRef}
-            value={input}
-            onChange={setInput}
-            mentions={mentions}
-            onMentionsChange={setMentions}
-            onKeyDown={handleKeyDown}
-            placeholder="Ask about your career… type @ to mention an entity"
-            disabled={streaming}
-          />
+        {/* Textarea — no longer shares a flex row with Send (tweak 4: VS Code-style island). */}
+        <AIChatTextareaWithMentions
+          ref={inputRef}
+          value={input}
+          onChange={setInput}
+          mentions={mentions}
+          onMentionsChange={setMentions}
+          onKeyDown={handleKeyDown}
+          placeholder="Ask about your career… type @ to mention, / for commands"
+          disabled={streaming}
+        />
+
+        {/* VS Code-style bottom toolbar (tweak 4) — ghost buttons separated
+            by 1px vertical dividers. Houses: [+ N] context toggle,
+            [Mode▾], [Model▾], token meter, [⚙ Settings],
+            │ [🎙 dictation (stub)], [Send/Stop]. */}
+        <div className="mt-1.5 flex items-center text-muted-foreground">
+          {/* Context toggle (+ / −) with count badge */}
+          <button
+            type="button"
+            onClick={() => setContextExpanded((v) => !v)}
+            aria-pressed={contextExpanded}
+            title={contextExpanded ? "Hide context" : `Show context (${visibleSliceCount} active)`}
+            className="inline-flex items-center gap-1 px-1.5 py-1 rounded text-[11px] hover:bg-accent hover:text-foreground transition-colors"
+          >
+            {contextExpanded ? <Minus className="h-3 w-3" /> : <Plus className="h-3 w-3" />}
+            {visibleSliceCount > 0 && (
+              <span className="inline-grid place-items-center min-w-[14px] h-[14px] px-1 rounded-full bg-orange-500/25 text-orange-700 dark:text-orange-300 text-[9px] font-semibold leading-none tabular-nums">
+                {visibleSliceCount}
+              </span>
+            )}
+          </button>
+          <span aria-hidden className="mx-0.5 inline-block w-px h-3.5 bg-border" />
+
+          {/* Mode dropdown (was top tasks row) */}
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              disabled={streaming}
+              className="inline-flex items-center gap-1 px-1.5 py-1 rounded text-[11px] hover:bg-accent hover:text-foreground transition-colors disabled:opacity-50"
+              title="Mode"
+            >
+              {(() => {
+                const active = TASK_OPTIONS.find((o) => o.id === task) ?? TASK_OPTIONS[0];
+                const Icon = active.icon;
+                return (
+                  <>
+                    <Icon className="h-3 w-3" />
+                    <span>{active.label}</span>
+                    <ChevronDown className="h-2.5 w-2.5 opacity-60" />
+                  </>
+                );
+              })()}
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="min-w-[160px]">
+              {TASK_OPTIONS.map((opt) => {
+                const Icon = opt.icon;
+                return (
+                  <DropdownMenuItem
+                    key={opt.id}
+                    onClick={() => setTask(opt.id)}
+                    className="text-xs gap-2"
+                  >
+                    <Icon className="h-3 w-3" />
+                    <span>{opt.label}</span>
+                    {opt.premium && (
+                      <span className="ml-auto rounded-sm bg-gradient-to-r from-purple-600 to-orange-600 px-1 text-[8px] font-semibold uppercase tracking-wide text-white">
+                        Pro
+                      </span>
+                    )}
+                  </DropdownMenuItem>
+                );
+              })}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <span aria-hidden className="mx-0.5 inline-block w-px h-3.5 bg-border" />
+
+          {/* Inline Model picker (Provider + URL still live in the Settings panel). */}
+          <Select value={model} onValueChange={(v) => setModel(v ?? "")}>
+            <SelectTrigger
+              className="h-7 border-0 bg-transparent px-1.5 text-[11px] font-mono shadow-none hover:bg-accent hover:text-foreground gap-1 focus:ring-0 focus:ring-offset-0 [&>svg]:opacity-60 [&>svg]:size-2.5"
+              aria-label="Model"
+            >
+              <SelectValue placeholder="auto" />
+            </SelectTrigger>
+            <SelectContent>
+              {providerModels.map((m) => (
+                <SelectItem key={m.name} value={m.name} className="text-xs font-mono">
+                  {m.name}
+                </SelectItem>
+              ))}
+              {providerModels.length === 0 && (
+                <SelectItem value="__none__" disabled>
+                  No models available
+                </SelectItem>
+              )}
+            </SelectContent>
+          </Select>
+          <span aria-hidden className="mx-0.5 inline-block w-px h-3.5 bg-border" />
+
+          {/* Connection status (replaces the dropped header line) — icon only. */}
+          {modelsData?.ollama.available || modelsData?.gemini.available ? (
+            <Wifi className="h-3 w-3 text-emerald-500 mx-0.5" aria-label="AI online" />
+          ) : (
+            <WifiOff className="h-3 w-3 text-red-500 mx-0.5" aria-label="AI offline" />
+          )}
+
+          {/* Token meter (text only, no border per tweak 4). */}
+          {sessionTokens > 0 && (
+            <span
+              className={`px-1 font-mono text-[10px] tabular-nums ${
+                sessionTokens >= 25_000
+                  ? "text-red-600 dark:text-red-400"
+                  : sessionTokens >= 10_000
+                    ? "text-amber-600 dark:text-amber-400"
+                    : "text-muted-foreground"
+              }`}
+              title="Estimated session token usage (chars / 4)"
+            >
+              ~{sessionTokens >= 1000 ? `${(sessionTokens / 1000).toFixed(1)}k` : sessionTokens}t
+            </span>
+          )}
+          <span aria-hidden className="mx-0.5 inline-block w-px h-3.5 bg-border" />
+
+          {/* Settings toggle (moved out of the top header). */}
+          <button
+            type="button"
+            onClick={() => setShowSettings(!showSettings)}
+            aria-pressed={showSettings}
+            title="Settings"
+            className="inline-flex items-center gap-1 px-1.5 py-1 rounded text-[11px] hover:bg-accent hover:text-foreground transition-colors"
+          >
+            <Settings2 className="h-3 w-3" />
+          </button>
+
+          <div className="flex-1" />
+
+          {/* Dictation — stub for ADR-0020 follow-up. */}
+          <button
+            type="button"
+            disabled
+            title="Dictation (coming soon)"
+            aria-label="Dictation (coming soon)"
+            className="inline-flex items-center gap-1 px-1.5 py-1 rounded text-[11px] opacity-50 cursor-not-allowed"
+          >
+            <Mic className="h-3 w-3" />
+          </button>
+
+          {/* Send / Stop — flat ghost-orange to match VS Code rhythm. */}
           {streaming ? (
-            <Button
-              size="sm"
-              variant="secondary"
+            <button
+              type="button"
               onClick={stopStreaming}
-              className="h-9 w-9 shrink-0 p-0 rounded-full"
               aria-label="Stop streaming"
               title="Stop"
+              className="inline-flex items-center gap-1 px-1.5 py-1 rounded text-[11px] text-orange-500 hover:text-orange-400 hover:bg-orange-500/10 transition-colors"
             >
               <Square className="h-3.5 w-3.5 fill-current" />
-            </Button>
+            </button>
           ) : (
-            <Button
-              size="sm"
-              onClick={sendMessage}
+            <button
+              type="button"
+              onClick={() => void sendMessage()}
               disabled={!input.trim()}
-              className="h-9 w-9 shrink-0 p-0 bg-orange-600 hover:bg-orange-700 text-white"
+              aria-label="Send"
+              title="Send"
+              className="inline-flex items-center gap-1 px-1.5 py-1 rounded text-[11px] text-orange-500 hover:text-orange-400 hover:bg-orange-500/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
             >
               <Send className="h-4 w-4" />
-            </Button>
+            </button>
           )}
         </div>
       </div>

@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AI Chat · Chrome Reshape Mockup</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { darkMode: "class", theme: { extend: { fontFamily: { sans: ["ui-sans-serif", "system-ui", "Inter", "sans-serif"] } } } };
+  </script>
+  <style>
+    :root { color-scheme: dark; }
+    body { background:#0a0a0a; color:#e5e5e5; font-family:ui-sans-serif,system-ui,"Inter",sans-serif; }
+    .surface-1 { background:#0f0f10; }
+    .surface-2 { background:#161618; }
+    .surface-3 { background:#1c1c1f; }
+    .surface-4 { background:#222226; }
+    .border-subtle { border-color: rgba(255,255,255,0.08); }
+    .border-soft   { border-color: rgba(255,255,255,0.12); }
+    .accent        { color:#fb923c; }
+    .accent-bg     { background: rgba(251,146,60,0.12); }
+    .accent-border { border-color: rgba(251,146,60,0.45); }
+    .gradient-bot { background:linear-gradient(135deg,#ea580c 0%, #9333ea 100%); }
+    .gradient-header { background:linear-gradient(90deg, rgba(234,88,12,0.10) 0%, rgba(147,51,234,0.10) 100%); }
+    .gradient-bg-soft { background:linear-gradient(135deg, rgba(234,88,12,0.10) 0%, rgba(147,51,234,0.10) 100%); }
+    .chip { display:inline-flex; align-items:center; gap:.25rem; padding:.125rem .5rem; border-radius:9999px; font-size:.625rem; line-height:1rem; }
+    .chip-base { background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.10); color:#a3a3a3; }
+    .chip-orange { background:rgba(251,146,60,.10); border:1px solid rgba(251,146,60,.30); color:#fdba74; }
+    .chip-pro    { background:linear-gradient(90deg,#9333ea,#ea580c); color:#fff; font-size:.5rem; padding:0 .25rem; border-radius:.125rem; font-weight:600; text-transform:uppercase; letter-spacing:.03em; margin-left:.125rem; }
+    .kbd { display:inline-block; min-width:1rem; text-align:center; padding:0 .25rem; border-radius:.25rem; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.10); border-bottom-width:2px; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.5625rem; color:#d4d4d8; }
+    .annotation { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.625rem; color:#fb923c; letter-spacing:.025em; text-transform:uppercase; }
+    .panel-frame {
+      width: 380px; height: 720px; display:flex; flex-direction:column;
+      border:1px solid rgba(255,255,255,.10); border-radius: 12px; overflow:hidden;
+      background:#0a0a0a; box-shadow: 0 24px 48px -12px rgba(0,0,0,.6);
+    }
+    .arrow-down { position:absolute; left:50%; transform:translateX(-50%); width:2px; background:linear-gradient(180deg,#fb923c,transparent); }
+    .arrow-down::after { content:""; position:absolute; bottom:-4px; left:-4px; border:5px solid transparent; border-top-color:#fb923c; }
+    .move-tag {
+      display:inline-flex; align-items:center; gap:.25rem; padding:.125rem .375rem;
+      border-radius:.25rem; background:rgba(251,146,60,.12); border:1px solid rgba(251,146,60,.30);
+      font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.5625rem; color:#fdba74;
+      text-transform:uppercase; letter-spacing:.025em;
+    }
+    .strike-tag {
+      display:inline-flex; align-items:center; gap:.25rem; padding:.125rem .375rem;
+      border-radius:.25rem; background:rgba(239,68,68,.10); border:1px solid rgba(239,68,68,.30);
+      font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.5625rem; color:#fca5a5;
+      text-transform:uppercase; letter-spacing:.025em;
+    }
+    .new-tag {
+      display:inline-flex; align-items:center; gap:.25rem; padding:.125rem .375rem;
+      border-radius:.25rem; background:rgba(16,185,129,.10); border:1px solid rgba(16,185,129,.30);
+      font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.5625rem; color:#6ee7b7;
+      text-transform:uppercase; letter-spacing:.025em;
+    }
+    /* Lucide-stand-in icons via inline SVG, kept compact */
+    .ico { width:14px; height:14px; flex-shrink:0; }
+    .ico-sm { width:12px; height:12px; flex-shrink:0; }
+    .ico-xs { width:10px; height:10px; flex-shrink:0; }
+    .btn-icon { width:28px; height:28px; display:grid; place-items:center; border-radius:6px; color:#a3a3a3; }
+    .btn-icon:hover { background:rgba(255,255,255,.06); color:#fafafa; }
+    .toolbar-pill {
+      display:inline-flex; align-items:center; gap:.25rem; padding:.25rem .5rem;
+      border-radius:.375rem; font-size:.6875rem; color:#d4d4d8;
+      background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08);
+    }
+    .toolbar-pill:hover { background:rgba(255,255,255,.07); color:#fafafa; }
+    .toolbar-pill[data-pressed="true"] { background:rgba(251,146,60,.12); border-color:rgba(251,146,60,.40); color:#fdba74; }
+    /* VS Code-style toolbar primitives: ghost buttons, no borders, tiny dividers */
+    .vs-btn { display:inline-flex; align-items:center; gap:.25rem; padding:.25rem .375rem; border-radius:.25rem; font-size:.6875rem; color:#a3a3a3; background:transparent; border:none; line-height:1; }
+    .vs-btn:hover { background:rgba(255,255,255,.06); color:#fafafa; }
+    .vs-btn[data-pressed="true"] { color:#fdba74; }
+    .vs-btn[data-pressed="true"]:hover { background:rgba(251,146,60,.10); }
+    .vs-div { display:inline-block; width:1px; height:.875rem; background:rgba(255,255,255,.10); margin:0 .125rem; flex-shrink:0; }
+    .ico-xxs { width:9px; height:9px; flex-shrink:0; }
+    .badge-orange { display:inline-grid; place-items:center; min-width:14px; height:14px; padding:0 3px; border-radius:9999px; background:rgba(251,146,60,.25); color:#fed7aa; font-size:9px; font-weight:600; line-height:1; }
+  </style>
+</head>
+<body class="min-h-screen">
+
+<!-- ═══════════════════════════ HEADER ═══════════════════════════ -->
+<div class="px-8 py-6 border-b border-subtle">
+  <div class="flex items-start justify-between gap-6 max-w-[1800px]">
+    <div>
+      <h1 class="text-2xl font-bold">AI Chat · Chrome Reshape</h1>
+      <p class="text-sm text-neutral-400 mt-1 max-w-3xl">
+        VS Code-style input island. Top header slimmed to logo + close. Mode (was tabs) + Model + Settings + Mic stub
+        collapse into a <strong>single bottom toolbar</strong> below the textarea. Context chips gated behind
+        <code class="text-orange-300">[+ Context N]</code> toggle. Trash icon retired — clearing the conversation
+        becomes a slash command (<code class="text-orange-300">/clear</code>).
+      </p>
+    </div>
+    <div class="text-[10px] uppercase tracking-wider text-neutral-500 text-right shrink-0 leading-relaxed">
+      <div>Mockup · not wired</div>
+      <div>Slice: <span class="accent">ai-chat</span></div>
+      <div>Source: <span class="accent">ai-chat.tsx</span></div>
+    </div>
+  </div>
+  <div class="flex items-center gap-3 mt-4 text-[11px] text-neutral-400">
+    <span class="move-tag">MOVED</span> control changed location.
+    <span class="strike-tag">REMOVED</span> control retired.
+    <span class="new-tag">NEW</span> control added.
+  </div>
+</div>
+
+<!-- ═══════════════════════════ 3-PANEL COMPARISON ═══════════════════════════ -->
+<div class="px-8 py-10 flex flex-wrap gap-10 items-start">
+
+  <!-- ────────── PANEL 1 · BEFORE (current) ────────── -->
+  <div class="flex flex-col gap-2">
+    <div class="annotation">Panel 1 · BEFORE (current)</div>
+    <div class="panel-frame">
+      <!-- Header (current: logo + provider + 3 buttons) -->
+      <div class="flex items-center justify-between border-b border-subtle px-4 py-3 gradient-header shrink-0">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-lg gradient-bot grid place-items-center">
+            <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M12 8V4M4 8h16v12H4z M9 14h0 M15 14h0"/></svg>
+          </div>
+          <div>
+            <p class="text-xs font-semibold">Resumsify AI</p>
+            <div class="flex items-center gap-1.5">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+              <span class="text-[10px] text-neutral-500">Local · gemma4:26b</span>
+            </div>
+          </div>
+        </div>
+        <div class="flex items-center gap-1">
+          <button class="btn-icon" title="Settings"><svg class="ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
+          <button class="btn-icon" title="Clear thread"><svg class="ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6 M14 11v6"/></svg></button>
+          <button class="btn-icon" title="Close"><svg class="ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        </div>
+      </div>
+
+      <!-- Mode/task row (current: pills + token meter) -->
+      <div class="flex items-center justify-between gap-2 border-b border-subtle px-3 py-1.5 bg-neutral-900/40 shrink-0">
+        <div class="flex items-center gap-1 overflow-x-auto">
+          <button class="chip chip-orange"><svg class="ico-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Chat</button>
+          <button class="chip chip-base"><svg class="ico-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20 M12 2a15 15 0 0 1 0 20 M12 2a15 15 0 0 0 0 20"/></svg>Search</button>
+          <button class="chip chip-base"><svg class="ico-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24A2.5 2.5 0 0 1 7 2.5"/></svg>Think harder<span class="chip-pro">Pro</span></button>
+          <button class="chip chip-base"><svg class="ico-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Summarize</button>
+        </div>
+        <span class="shrink-0 rounded-full border border-neutral-700 bg-neutral-900 px-1.5 py-0.5 font-mono text-[9px] text-neutral-500 tabular-nums">~58t</span>
+      </div>
+
+      <!-- Messages -->
+      <div class="flex-1 overflow-y-auto px-4 py-3 space-y-3 text-xs">
+        <div class="flex gap-2">
+          <div class="w-6 h-6 rounded-lg gradient-bot grid place-items-center shrink-0"><svg class="ico-xs" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M12 8V4M4 8h16v12H4z"/></svg></div>
+          <div class="rounded-2xl rounded-bl-md bg-neutral-800 px-3 py-2 text-neutral-200">Hey — I&apos;m ready. Type <code>/</code> for slash commands, or <code>@</code> to mention an entity.</div>
+        </div>
+        <div class="flex gap-2 justify-end">
+          <div class="rounded-2xl rounded-br-md bg-orange-600 text-white px-3 py-2 max-w-[80%]">give me a python square function</div>
+          <div class="w-6 h-6 rounded-lg bg-neutral-700 grid place-items-center shrink-0"><svg class="ico-xs" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+        </div>
+      </div>
+
+      <!-- Input area (current: chips always visible + textarea + send) -->
+      <div class="border-t border-subtle px-3 py-2 shrink-0">
+        <div class="mb-2 flex flex-wrap gap-1">
+          <span class="chip chip-base !cursor-default">Base prompt</span>
+          <span class="chip chip-orange">Profile <svg class="ico-xs opacity-60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span>
+          <span class="chip chip-orange">Current position <svg class="ico-xs opacity-60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span>
+          <span class="chip chip-orange">Skills <svg class="ico-xs opacity-60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span>
+          <span class="chip chip-orange">Applications <svg class="ico-xs opacity-60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span>
+        </div>
+        <div class="flex items-end gap-2">
+          <div class="flex-1 rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-xs text-neutral-500 min-h-[36px]">Ask about your career… type @ to mention an entity</div>
+          <button class="w-9 h-9 shrink-0 rounded-full bg-orange-600 grid place-items-center"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ────────── PANEL 2 · AFTER (default, context collapsed) ────────── -->
+  <div class="flex flex-col gap-2">
+    <div class="annotation">Panel 2 · AFTER (default — context collapsed)</div>
+    <div class="panel-frame">
+      <!-- Header: slim — title + close only. No bot icon, no model label. -->
+      <div class="flex items-center justify-between border-b border-subtle px-3 py-1.5 gradient-header shrink-0">
+        <p class="text-[11px] font-semibold tracking-wide text-neutral-300">Resumsify AI</p>
+        <button class="btn-icon" title="Close"><svg class="ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+
+      <!-- Messages: no avatars — left/right alignment carries the role. -->
+      <div class="flex-1 overflow-y-auto px-3 py-3 space-y-2 text-xs">
+        <div class="flex justify-start">
+          <div class="rounded-2xl rounded-bl-md bg-neutral-800 px-3 py-2 max-w-[88%] text-neutral-200">Hey — I&apos;m ready. Type <code>/</code> for slash commands, or <code>@</code> to mention an entity.</div>
+        </div>
+        <div class="flex justify-end">
+          <div class="rounded-2xl rounded-br-md bg-orange-600 text-white px-3 py-2 max-w-[88%]">give me a python square function</div>
+        </div>
+        <div class="flex justify-start">
+          <div class="rounded-2xl rounded-bl-md bg-neutral-800 px-3 py-2 max-w-[88%] text-neutral-200">Sure. Here&apos;s a Python function that squares a number… <em>(code block omitted in mock)</em></div>
+        </div>
+      </div>
+
+      <!-- Input island -->
+      <div class="border-t border-subtle px-3 py-2 shrink-0 gradient-bg-soft">
+        <!-- Textarea -->
+        <div class="rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-xs text-neutral-500 min-h-[60px]">Ask about your career… type @ to mention an entity, / for commands</div>
+
+        <!-- VS Code-style toolbar: ghost buttons, vertical dividers, no heavy borders -->
+        <div class="mt-1.5 flex items-center text-neutral-400">
+          <!-- + (context toggle — icon only with count badge) -->
+          <button class="vs-btn" title="Show context (5 active)">
+            <svg class="ico-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            <span class="badge-orange">5</span>
+          </button>
+          <span class="vs-div"></span>
+          <!-- Mode -->
+          <button class="vs-btn" title="Mode">
+            <svg class="ico-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            <span>Chat</span>
+            <svg class="ico-xxs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <span class="vs-div"></span>
+          <!-- Model -->
+          <button class="vs-btn" title="Model">
+            <span class="font-mono text-[10px]">gemma4:26b</span>
+            <svg class="ico-xxs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <span class="vs-div"></span>
+          <!-- Token meter (text only) -->
+          <span class="px-1 font-mono text-[10px] text-neutral-500 tabular-nums" title="Estimated session tokens">~58t</span>
+          <span class="vs-div"></span>
+          <!-- Settings -->
+          <button class="vs-btn" title="Settings">
+            <svg class="ico-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          </button>
+
+          <div class="flex-1"></div>
+
+          <!-- Mic stub -->
+          <button class="vs-btn opacity-50 cursor-not-allowed" title="Dictation (coming soon)">
+            <svg class="ico-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+          </button>
+          <!-- Send (kept brand orange but flatter — no round bg) -->
+          <button class="vs-btn text-orange-400 hover:text-orange-300 hover:bg-orange-500/10" title="Send">
+            <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ────────── PANEL 3 · AFTER (context expanded + slash menu open) ────────── -->
+  <div class="flex flex-col gap-2">
+    <div class="annotation">Panel 3 · AFTER (context expanded + /clear visible)</div>
+    <div class="panel-frame">
+      <!-- Header: slim — same as Panel 2 -->
+      <div class="flex items-center justify-between border-b border-subtle px-3 py-1.5 gradient-header shrink-0">
+        <p class="text-[11px] font-semibold tracking-wide text-neutral-300">Resumsify AI</p>
+        <button class="btn-icon" title="Close"><svg class="ico-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+
+      <!-- Messages: no avatars -->
+      <div class="flex-1 overflow-y-auto px-3 py-3 space-y-2 text-xs">
+        <div class="flex justify-start">
+          <div class="rounded-2xl rounded-bl-md bg-neutral-800 px-3 py-2 max-w-[88%] text-neutral-200">Sure. Here&apos;s a Python function that squares a number… <em>(code block omitted in mock)</em></div>
+        </div>
+      </div>
+
+      <!-- Input island with slash menu + expanded context + textarea (showing "/cl") -->
+      <div class="border-t border-subtle px-3 py-2 shrink-0 gradient-bg-soft relative">
+        <!-- Slash menu (popover above textarea) -->
+        <div class="absolute bottom-full left-3 right-3 mb-2 z-10 rounded-md border border-neutral-700 bg-neutral-900 shadow-2xl overflow-hidden">
+          <div class="border-b border-neutral-800 bg-neutral-900/80 px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider text-neutral-500">Slash commands</div>
+          <button class="w-full flex items-center gap-3 px-3 py-2 text-left bg-orange-500/15">
+            <code class="text-xs font-mono text-orange-400">/clear</code>
+            <span class="text-[11px] text-neutral-500 truncate">Clear the conversation</span>
+            <span class="ml-auto kbd">↵</span>
+          </button>
+        </div>
+
+        <!-- Context drawer expanded -->
+        <div class="mb-2 flex flex-wrap gap-1 rounded-md border border-orange-500/20 bg-orange-500/[0.04] p-1.5">
+          <span class="chip chip-base !cursor-default">Base prompt</span>
+          <span class="chip chip-orange">Profile <svg class="ico-xs opacity-60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span>
+          <span class="chip chip-orange">Current position <svg class="ico-xs opacity-60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span>
+          <span class="chip chip-orange">Skills <svg class="ico-xs opacity-60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span>
+          <span class="chip chip-orange">Applications <svg class="ico-xs opacity-60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span>
+        </div>
+
+        <!-- Textarea showing user typed "/cl" -->
+        <div class="rounded-lg border border-orange-500/40 bg-neutral-900 px-3 py-2 text-xs text-neutral-200 min-h-[60px]"><span class="font-mono text-orange-300">/cl</span><span class="inline-block w-px h-3 bg-orange-300 animate-pulse align-middle ml-px"></span></div>
+
+        <!-- VS Code-style toolbar (context button shown pressed = expanded) -->
+        <div class="mt-1.5 flex items-center text-neutral-400">
+          <button class="vs-btn" data-pressed="true" title="Hide context">
+            <svg class="ico-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            <span class="badge-orange">5</span>
+          </button>
+          <span class="vs-div"></span>
+          <button class="vs-btn" title="Mode">
+            <svg class="ico-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            <span>Chat</span>
+            <svg class="ico-xxs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <span class="vs-div"></span>
+          <button class="vs-btn" title="Model">
+            <span class="font-mono text-[10px]">gemma4:26b</span>
+            <svg class="ico-xxs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <span class="vs-div"></span>
+          <span class="px-1 font-mono text-[10px] text-neutral-500 tabular-nums" title="Estimated session tokens">~58t</span>
+          <span class="vs-div"></span>
+          <button class="vs-btn" title="Settings">
+            <svg class="ico-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          </button>
+          <div class="flex-1"></div>
+          <button class="vs-btn opacity-50 cursor-not-allowed" title="Dictation (coming soon)">
+            <svg class="ico-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+          </button>
+          <button class="vs-btn text-orange-400 hover:text-orange-300 hover:bg-orange-500/10" title="Send">
+            <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ═══════════════════════════ MIGRATION TABLE ═══════════════════════════ -->
+<div class="px-8 py-10 border-t border-subtle">
+  <h2 class="text-lg font-semibold mb-1">Migration table</h2>
+  <p class="text-xs text-neutral-500 mb-5">Where every control lives before vs after.</p>
+  <div class="overflow-x-auto">
+    <table class="text-xs w-full max-w-5xl border-collapse">
+      <thead>
+        <tr class="text-left text-[10px] uppercase tracking-wider text-neutral-500 border-b border-subtle">
+          <th class="py-2 pr-4">Control</th>
+          <th class="py-2 pr-4">Before</th>
+          <th class="py-2 pr-4">After</th>
+          <th class="py-2 pr-4">Change</th>
+        </tr>
+      </thead>
+      <tbody class="[&_tr]:border-b [&_tr]:border-neutral-900 [&_td]:py-2 [&_td]:pr-4 [&_td]:align-top">
+        <tr><td class="font-medium text-neutral-200">Bot icon (header)</td><td>Orange→purple gradient circle next to title</td><td>—</td><td><span class="strike-tag">REMOVED</span></td></tr>
+        <tr><td class="font-medium text-neutral-200">Provider/model status line (header)</td><td><code>Local · gemma4:26b</code> under title</td><td>—</td><td><span class="strike-tag">REMOVED</span> (already in toolbar Model pill)</td></tr>
+        <tr><td class="font-medium text-neutral-200">Bot &amp; User avatars (messages)</td><td>Round 24px badges flanking each bubble</td><td>—</td><td><span class="strike-tag">REMOVED</span> (industry-standard chat: left/right alignment carries role)</td></tr>
+        <tr><td class="font-medium text-neutral-200">Settings ⚙</td><td>Top-right (3-btn cluster)</td><td>Bottom toolbar (right side)</td><td><span class="move-tag">MOVED</span></td></tr>
+        <tr><td class="font-medium text-neutral-200">Clear thread 🗑</td><td>Top-right icon</td><td><code class="text-orange-300">/clear</code> slash command</td><td><span class="strike-tag">REMOVED</span> + <span class="new-tag">SLASH</span></td></tr>
+        <tr><td class="font-medium text-neutral-200">Close ×</td><td>Top-right</td><td>Top-right (unchanged)</td><td>—</td></tr>
+        <tr><td class="font-medium text-neutral-200">Mode pills (Chat/Search/Think/Summarize)</td><td>Dedicated row under header</td><td>Collapsed into <code>[Mode ▾]</code> dropdown in toolbar</td><td><span class="move-tag">MOVED</span></td></tr>
+        <tr><td class="font-medium text-neutral-200">Token meter ~Nt</td><td>Right of mode row</td><td>Inline in toolbar, after Model</td><td><span class="move-tag">MOVED</span></td></tr>
+        <tr><td class="font-medium text-neutral-200">Model picker</td><td>Only inside Settings panel</td><td>Surfaced as <code>[Model ▾]</code> in toolbar (Settings still has full Provider+URL controls)</td><td><span class="new-tag">SURFACED</span></td></tr>
+        <tr><td class="font-medium text-neutral-200">Context chips</td><td>Always-visible row above textarea</td><td>Behind <code>[+ N]</code> toggle (icon-only with count badge); drawer expands above textarea</td><td><span class="move-tag">COLLAPSED</span></td></tr>
+        <tr><td class="font-medium text-neutral-200">Dictation 🎤</td><td>—</td><td>Bottom toolbar (right cluster), stub disabled — wires later</td><td><span class="new-tag">NEW (stub)</span></td></tr>
+        <tr><td class="font-medium text-neutral-200">Send ▶ / Stop ▣</td><td>Right of textarea on same row</td><td>End of bottom toolbar (after settings)</td><td><span class="move-tag">MOVED</span></td></tr>
+        <tr><td class="font-medium text-neutral-200">Settings panel (Provider / URL)</td><td>Full-width collapsible below header</td><td>Same DOM position; toggled by NEW bottom gear instead of old top gear</td><td>—</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ NOTES ═══════════════════════════ -->
+<div class="px-8 py-8 border-t border-subtle">
+  <h2 class="text-lg font-semibold mb-1">Notes</h2>
+  <ul class="text-xs text-neutral-400 space-y-2 max-w-3xl list-disc pl-5">
+    <li><strong>Slash menu wins over icon.</strong> The trash icon's only function (clearChat) is replaced by <code>/clear</code> — discoverable because the menu auto-opens on <code>/</code>. Saves a column in the header.</li>
+    <li><strong>Mode dropdown keeps the 4 tasks alive.</strong> Chat / Search / Think harder (Pro) / Summarize all remain selectable. Just no longer eating a full row.</li>
+    <li><strong>Inline Model picker is a surface, not a duplicate.</strong> The Settings panel still owns Provider + Localhost URL; the toolbar's <code>[Model ▾]</code> is a fast-swap of the model within the chosen provider.</li>
+    <li><strong>Mic is a stub.</strong> Renders disabled with tooltip "Dictation (coming soon)". Wires to <a class="accent underline" href="../adr/0020-worklog-dictation-onramp.md">ADR-0020</a> in a follow-up commit, not this one.</li>
+    <li><strong>Context drawer is in-flow.</strong> Pushes the textarea down (or rather, raises everything above it) — same DOM slot as today, just gated. No portals.</li>
+    <li><strong>Settings panel position unchanged.</strong> Still collapses below the header so it doesn't fight the toolbar for space. Only the trigger moved.</li>
+    <li><strong>Avatars removed for familiarity.</strong> Industry-standard chat (ChatGPT, Claude, Linear) lets bubble alignment + colour carry the role signal. Saves ~28px of horizontal real estate per message and removes a second column of visual rhythm.</li>
+    <li><strong>VS Code toolbar idiom.</strong> Ghost buttons (no borders), 1px vertical dividers between groups, icon-led with tiny text labels. Same density as the screenshot you shared.</li>
+    <li><strong>Header drops to a single line.</strong> Bot icon + provider line were duplicating information already surfaced in the toolbar (Model pill carries provider+model via icon colour or label).</li>
+    <li><strong>Slice rule respected.</strong> Pure layout/plumbing on <code>ai-chat.tsx</code>; one new state (<code>contextExpanded</code>); one new slash-command entry; one extra branch in <code>executeSlashCommand</code>. No new logic-bearing subsystem.</li>
+  </ul>
+</div>
+
+</body>
+</html>
