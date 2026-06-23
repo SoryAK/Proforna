@@ -3,24 +3,26 @@
   "slice": "ai-chat",
   "title": "AI Chat Panel",
   "description": "Floating right-edge panel reachable from every authenticated route. Owns the SSE streaming chat pipeline (Ollama + Gemini providers), the four context layers (career-context slices, slash commands, @-mentions, ambient page refs), the assistant-only markdown renderer with Shiki-highlighted code blocks, and the three Phase-D code-block domain actions (Send to Worklog / Add to Job Notes / Save as Bullet) with a target-resolution picker. Authoritative ADRs: 0045 (envelope + provenance), 0046 (phases A through D — context slices, slash commands, @-mentions, code-block actions).",
-  "lastValidatedAt": "2026-06-22",
-  "lastValidatedCommit": "22215ce",
+  "lastValidatedAt": "2026-06-23",
+  "lastValidatedCommit": "34a0f5c",
   "refreshHistory": [
-    { "refreshedAt": "2026-06-22", "refreshedFromSessionId": "77e25d9d-ca47-4795-b5f4-d8921afd0593", "summary": "Seed slice. Authored immediately after ADR-0046 Phase D.3 landed (22215ce), so all 7 entryPoints reflect post-D.3 reality. Hand-authored — no analyzer mining yet." }
+    { "refreshedAt": "2026-06-22", "refreshedFromSessionId": "77e25d9d-ca47-4795-b5f4-d8921afd0593", "summary": "Seed slice. Authored immediately after ADR-0046 Phase D.3 landed (22215ce), so all 7 entryPoints reflect post-D.3 reality. Hand-authored — no analyzer mining yet." },
+    { "refreshedAt": "2026-06-23", "refreshedFromSessionId": "77e25d9d-ca47-4795-b5f4-d8921afd0593", "summary": "Post-god-file-refactor refresh (phases 1–7, 34a0f5c). ai-chat.tsx 1026 → 281 LOC (−72%). Retired the god-file architectural trap. Added 5 hooks (use-ai-chat-{resize,models,context,stream,slash}.ts) + 6 sibling components (ai-chat-{empty-state,slash-menu,context-chips,settings-panel,message-list,toolbar}.tsx) to fileFingerprints. Behaviour preserved; vitest 966/971 baseline held across every phase." }
   ],
 
   "entryPoints": [
     {
       "id": "chat-panel-shell",
       "name": "Chat panel orchestrator",
-      "description": "The 859-LOC `AIChat` client component that owns ALL panel state: messages, streaming, provider/model picker, slash-command surface, mentions buffer, context slices, ambient page context, and the resize/open chrome. Floating button mounts it once into the global layout.",
+      "description": "The slim 281-LOC `AIChat` client component (post-2026-06-23 god-file refactor). Owns ONLY: messages/input/showSettings/collapsedTurns/task/contextExpanded/mentions state, scrollRef/inputRef + focus/scroll effects, threadContext useMemo, clearChat + toggleTurnCollapsed callbacks, the 5 hook compositions, the handleSlashKey composer, and the JSX shell that wires the 6 sibling components. Domain logic lives in `src/hooks/use-ai-chat-*.ts`; presentation lives in `src/components/ai-chat-*.tsx`.",
       "primarySymbol": "AIChat",
       "primaryPath": "src/components/ai-chat.tsx",
-      "relatedSymbols": ["Message", "ContextSlice", "ChatTask", "estimateTokens", "SLASH_COMMANDS", "executeSlashCommand"],
+      "relatedSymbols": ["Message", "ContextSlice", "ChatTask", "SLASH_COMMANDS", "useAiChatResize", "useAiChatModels", "useAiChatContext", "useAiChatStream", "useAiChatSlash", "AIChatEmptyState", "AIChatMessageList", "AIChatSlashMenu", "AIChatContextChips", "AIChatSettingsPanel", "AIChatToolbar"],
       "knownTraps": [
-        "Pre-existing god file (859 LOC after D.3). Architectural Guardrail: do NOT add new logic-bearing code here — new sub-systems go in sibling files (see `ai-chat-action-picker.tsx`, `ai-chat-code-block.tsx`, `ai-chat-message-markdown.tsx`). Plumbing-only edits (props threading, state hookup) are still acceptable.",
-        "Settings dropdown / model picker uses base-ui `DropdownMenu`. `DropdownMenuItem` MUST use `onClick` not `onSelect` (Radix-only API, silently dropped); `DropdownMenuTrigger` MUST NOT pass `onClick` (clobbers base-ui's internal open handler — menu silently won't open).",
-        "Slash command menu opens only when input `startsWith('/')` AND contains no whitespace — VS Code convention to avoid hijacking URLs typed mid-message. `slashIndex` resets via effect when filtered list shrinks below current index.",
+        "Decomposed god-file (2026-06-23, 1026 → 281 LOC, commit 34a0f5c). Architectural Guardrail: new behaviour goes in a sibling hook under `src/hooks/use-ai-chat-*.ts` or a sibling component under `src/components/ai-chat-*.tsx` — keep the orchestrator thin. Only plumbing-level edits (prop threading, new hook composition) belong in `ai-chat.tsx`.",
+        "Streaming hook contract (path B per Griller decision): `useAiChatStream` accepts `messages` + `setMessages` as params — it does NOT own the messages array. The hook keeps an internal `messagesRef` mirror (set on every render) so `sendMessage`'s dep array can drop `messages` and stay stable across SSE chunks. If you ever add a callback inside the hook that needs current messages, read from `messagesRef.current`, NEVER from the closure `messages`.",
+        "Toolbar dropdowns use base-ui `DropdownMenu`. `DropdownMenuItem` MUST use `onClick` not `onSelect` (Radix-only API, silently dropped); `DropdownMenuTrigger` MUST NOT pass `onClick` (clobbers base-ui's internal open handler — menu silently won't open). Both surfaces live inside `AIChatToolbar` and `AIChatSettingsPanel` now.",
+        "Slash command menu (extracted to `AIChatSlashMenu`) opens only when input `startsWith('/')` AND contains no whitespace — VS Code convention to avoid hijacking URLs typed mid-message. `slashIndex` resets via effect inside `useAiChatSlash` when filtered list shrinks below current index.",
         "`Message.mentions` is the per-turn @-mention snapshot attached at send time (D.3) — used to build `ThreadContext.recentMentions` for the code-block resolver. The transient `mentions` state on the panel is the IN-PROGRESS buffer for the next turn, NOT a thread accumulator."
       ]
     },
@@ -156,12 +158,24 @@
   ],
 
   "fileFingerprints": [
-    { "path": "src/components/ai-chat.tsx", "role": "panel-orchestrator", "lastValidatedAt": "2026-06-22" },
+    { "path": "src/components/ai-chat.tsx", "role": "panel-orchestrator", "lastValidatedAt": "2026-06-23", "notes": "Slim 281-LOC orchestrator after god-file refactor (commit 34a0f5c). Owns state + effects + hook composition + JSX shell only." },
+    { "path": "src/components/ai-chat-empty-state.tsx", "role": "empty-state-component", "lastValidatedAt": "2026-06-23" },
+    { "path": "src/components/ai-chat-message-list.tsx", "role": "message-list-component", "lastValidatedAt": "2026-06-23" },
+    { "path": "src/components/ai-chat-slash-menu.tsx", "role": "slash-menu-component", "lastValidatedAt": "2026-06-23" },
+    { "path": "src/components/ai-chat-context-chips.tsx", "role": "context-chips-component", "lastValidatedAt": "2026-06-23" },
+    { "path": "src/components/ai-chat-settings-panel.tsx", "role": "settings-panel-component", "lastValidatedAt": "2026-06-23" },
+    { "path": "src/components/ai-chat-toolbar.tsx", "role": "bottom-toolbar-component", "lastValidatedAt": "2026-06-23" },
     { "path": "src/components/ai-chat-textarea-with-mentions.tsx", "role": "mention-input", "lastValidatedAt": "2026-06-22" },
     { "path": "src/components/ai-chat-message-markdown.tsx", "role": "markdown-renderer", "lastValidatedAt": "2026-06-22" },
     { "path": "src/components/ai-chat-code-block.tsx", "role": "code-block-toolbar", "lastValidatedAt": "2026-06-22" },
     { "path": "src/components/ai-chat-action-picker.tsx", "role": "target-picker", "lastValidatedAt": "2026-06-22" },
     { "path": "src/components/ai-provenance-chip.tsx", "role": "provenance-chip", "lastValidatedAt": "2026-06-22" },
+    { "path": "src/hooks/use-ai-chat-resize.ts", "role": "resize-hook", "lastValidatedAt": "2026-06-23" },
+    { "path": "src/hooks/use-ai-chat-models.ts", "role": "models-hook", "lastValidatedAt": "2026-06-23" },
+    { "path": "src/hooks/use-ai-chat-context.ts", "role": "context-hook", "lastValidatedAt": "2026-06-23" },
+    { "path": "src/hooks/use-ai-chat-stream.ts", "role": "streaming-hook", "lastValidatedAt": "2026-06-23", "notes": "Path-B contract: accepts messages+setMessages as params, mirrors messages into messagesRef for stable sendMessage deps." },
+    { "path": "src/hooks/use-ai-chat-slash.ts", "role": "slash-hook", "lastValidatedAt": "2026-06-23", "notes": "Exposes composable handleSlashKey returning boolean for the parent keydown handler to forward unconsumed events." },
+    { "path": "src/lib/ai-chat-constants.ts", "role": "shared-constants", "lastValidatedAt": "2026-06-23", "notes": "Exports SLASH_COMMANDS, TASK_OPTIONS, Message, ChatTask, ModelsData, ModelInfo (added 2026-06-23 for shared sibling-component model typing)." },
     { "path": "src/lib/ai-chat-mentions.ts", "role": "mention-helpers", "lastValidatedAt": "2026-06-22" },
     { "path": "src/lib/ai-chat-action-target.ts", "role": "action-resolver", "lastValidatedAt": "2026-06-22" },
     { "path": "src/lib/ai/envelope.ts", "role": "ai-envelope-types", "lastValidatedAt": "2026-06-22" },
