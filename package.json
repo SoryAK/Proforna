@@ -21,7 +21,8 @@
     "review:madge": "madge --circular --extensions ts,tsx src",
     "review:static": "node scripts/review-static.mjs",
     "review:phase": "node scripts/review-phase.mjs",
-    "review:baseline": "node scripts/review-phase.mjs --write-baseline"
+    "review:baseline": "node scripts/review-phase.mjs --write-baseline",
+    "review:semantic": "node scripts/review-semantic.mjs"
   },
   "prisma": {
     "seed": "npx tsx prisma/seed.ts"

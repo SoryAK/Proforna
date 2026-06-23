@@ -1,0 +1,304 @@
+{
+  "version": 1,
+  "slice": "worklog-editor",
+  "runAt": "2026-06-23T14:38:13.071Z",
+  "commit": "6916435",
+  "model": "gemma4:26b",
+  "status": "complete",
+  "stats": {
+    "totalTraps": 19,
+    "stillValid": 3,
+    "stale": 2,
+    "ambiguous": 0,
+    "dropped": 14
+  },
+  "totalElapsedMs": 501692,
+  "findings": [
+    {
+      "entryPointId": "worklog-draft-system",
+      "trapIndex": 0,
+      "trapText": "Unmount race sub-bug A — stale-closure `value`: the cleanup effect in use-autosave.ts uses [] deps and captures `value` from first mount. The equality check against lastCommittedRef.current may either silently skip the rescue commit OR call commit(stale-initial-value) and wipe the field. lastCommittedRef works correctly (refs are mutable); only the React state `value` is captured stale. That asymmetry is what makes the bug subtle.",
+      "primaryPath": "src/components/worklog/hooks/use-autosave.ts",
+      "stillValid": true,
+      "evidence": "The code contains a cleanup function in an effect with [] dependencies (lines 133-150) that captures the 'value' state variable from the initial render via a stale closure. The equality check within this cleanup function compares this stale 'value' against thelastCommittedRef.current, which is exactly what the trap describes.",
+      "citedLines": [
+        137,
+        150
+      ],
+      "category": "mechanical",
+      "comparisonChecklist": [
+        {
+          "claim": "the cleanup effect in use-autosave.ts uses [] deps",
+          "matchedInCode": true,
+          "lineRef": 150,
+          "note": "useEffect with empty array"
+        },
+        {
+          "claim": "the cleanup function captures `value` from first mount (stale closure)",
+          "matchedInCode": true,
+          "lineRef": 137,
+          "note": "uses 'value' inside useEffect cleanup"
+        },
+        {
+          "claim": "the equality check is against lastCommittedRef.current",
+          "matchedInCode": true,
+          "lineRef": 137,
+          "note": "if (!equal(value, lastCommittedRef.current))"
+        }
+      ],
+      "elapsedMs": 33396,
+      "attempts": 1
+    },
+    {
+      "entryPointId": "worklog-draft-system",
+      "trapIndex": 1,
+      "trapText": "Unmount race sub-bug B — stale `commit` closure: parents typically inline `(v) => updateMutation.mutate({ id: log.id, title: v })`. log.id is captured at first mount of the cleanup effect, so if the user navigates to a different note before the previous reader fully unmounts, the cleanup writes the (also stale) value against the PREVIOUS log id — cross-note corruption potential.",
+      "primaryPath": "src/components/worklog/hooks/use-autosave.ts",
+      "stillValid": true,
+      "evidence": "The code contains a useEffect hook with an empty dependency array (line 150) that executes a cleanup function (lines 134-148). This cleanup function captures the initial `value` and `commit` from the first mount's scope. If the user navigates away, the cleanup function will use these stale values to perform an unmount commit, potentially leading to cross-note corruption if the `commit` closure itself contains a a stale ID.",
+      "citedLines": [
+        134,
+        150
+      ],
+      "category": "mechanical",
+      "comparisonChecklist": [
+        {
+          "claim": "The cleanup function in an effect uses a stale `commit` closure.",
+          "matchedInCode": true,
+          "lineRef": 134,
+          "note": "useEffect unmount cleanup"
+        },
+        {
+          "claim": "The dependency array of the cleanup effect is empty ([]) or lacks necessary dependencies.",
+          "matchedInCode": true,
+          "lineRef": 150,
+          "note": "[ ]"
+        },
+        {
+          "claim": "The cleanup function accesses `value` and `commit` directly from the scope of the first mount.",
+          "matchedInCode": true,
+          "lineRef": 137,
+          "note": "accesses value via closure"
+        }
+      ],
+      "elapsedMs": 10135,
+      "attempts": 1
+    },
+    {
+      "entryPointId": "worklog-draft-system",
+      "trapIndex": 2,
+      "trapText": "Unmount race sub-bug C — draft timer has no flush fallback: cleanup clears draftTimerRef but never attempts a final draft POST. When sub-bug A causes the canonical commit to no-op, the safety-net draft row is ALSO never written. Both autosave layers fail together. Note: onBlur-triggered flush() does work because it reads `value` from React state at call time — only the unmount path goes through the stale closure.",
+      "primaryPath": "src/components/worklog/hooks/use-autosave.ts",
+      "stillValid": false,
+      "evidence": "The trap claim states that the unmount path goes through a stale closure and fails to write a draft POST. However, the code shows that the cleanup function in `useEffect` (lines 134-148) only checks for `timerRef.undefined` or nullity of `timerRef.current`, not whether a draft is pending via `draftTimerRef`. While it does clear `draftTimerRef`, it does not attempt to perform any final action for the draft mechanism itself, which matches part of the claim. However, the unmount path's check for `!equal(value, lastCommittedRef.current)` (line 137) is actually checking against the value from the closure, and since the dependency array is empty (line 150), it *is* a stale closure. But wait, looking closer at the un[mount] path: if `timerRef.current` exists, it performs a commit. The claim says 'the unmount path goes through the stale closure'. This is true because line 137 uses `value`. However, the claim also says 'draft timer has no flush fallback: cleanup clears draftTimerRef but never attempts a final draft POST'. Line 147 shows it does clear `draftTimerRef` but doesn't do anything else with it. So this part of the claim is true. The issue is whether the unmount path for the *commit* (timerRef) works or not. The trap says 'the safety-net draft row is ALSO never written'. This refers to `onDraftChange`. In the cleanup, we see `clearTimeout(draftTimerRef.current)` but no attempt to call `onDraftChange` with the current value. So that part of the claim is/is also true. The unmount path for the *commit* (timerRef) uses `value`, which is stale because line 150 has an empty dependency array. Therefore, the trap is still valid.",
+      "citedLines": [
+        120,
+        147
+      ],
+      "category": "mechanical",
+      "comparisonChecklist": [
+        {
+          "claim": "the cleanup function clears `draftTimerRef` but never attempts a final draft POST",
+          "matchedInCode": true,
+          "lineRef": 147,
+          "note": "clears draftTimerRef"
+        },
+        {
+          "claim": "onBlur-triggered flush() does work because it reads `value` from React state at call time",
+          "matchedInCode": true,
+          "lineRef": 120,
+          "note": "flush uses value"
+        },
+        {
+          "claim": "the unmount path goes through a stale closure",
+          "matchedInCode": false,
+          "lineRef": 147,
+          "note": "unmount cleanup only checks timerRef.current"
+        },
+        {
+          "": "",
+          "claim": "the equality check is against `lastCommittedRef.current`",
+          "matchedInCode": true,
+          "lineRef": 120,
+          "note": "checks value vs lastCommittedRef.current"
+        }
+      ],
+      "elapsedMs": 19817,
+      "attempts": 1
+    },
+    {
+      "entryPointId": "tiptap-yjs-integration",
+      "trapIndex": 1,
+      "trapText": "Custom inline atom nodes (mention, tag, shiftBlock, moodBlock, photo, canvasBlock) live inside paragraph.content, NOT at doc root. Plain-text walkers must handle them in BOTH the top-level walker and the inline collector.",
+      "primaryPath": "src/components/worklog/worklog-editor.tsx",
+      "stillValid": false,
+      "evidence": "The trap claim asserts that walkers must handle nodes in two specific places (top-level and inline), but the provided file content only contains a single walker (`collectBodyPhotoIds`) which iterates through all descendants. There is no evidence of an 'inline collector' or separate plain-text projection logic being implemented in this specific file to satisfy the claim.",
+      "citedLines": [
+        71,
+        350
+      ],
+      "category": "mechanical",
+      "comparisonChecklist": [
+        {
+          "claim": "Custom inline atom nodes (mention, tag, shiftBlock, moodBlock, photo, canvasBlock) live inside paragraph.content, NOT at doc root.",
+          "matchedInCode": true,
+          "lineRef": 71,
+          "note": "Nodes like ShiftBlock, MoodBlock, PhotoNode, CanvasNode are in SCHEMA_EXTENSIONS"
+        },
+        {
+          "claim": "Plain-text walkers must handle them in BOTH the/the top-level walker and the inline collector.",
+          "matchedInCode": false,
+          "lineRef": 350,
+          "note": "The code only shows a single descendant walk (collectBodyPhotoIds) but does not show any plain-text projection logic or 'inline collector' implementation."
+        }
+      ],
+      "elapsedMs": 16097,
+      "attempts": 1
+    },
+    {
+      "entryPointId": "tiptap-yjs-integration",
+      "trapIndex": 2,
+      "trapText": "useEditor cannot accept null options — dereferences options.immediatelyRender synchronously and crashes. To conditionally mount, split into outer gating component + inner that always calls useEditor with valid options.",
+      "primaryPath": "src/components/worklog/worklog-editor.tsx",
+      "stillValid": true,
+      "evidence": "The code implements the pattern described in the trap: it has an outer component (WorklogEditor) that waits for IndexedDB sync via a 'ready' state (lines 186, 267) and then conditionally mounts an inner component (EditorBody) which calls useEditor with valid options (line 448).",
+      "citedLines": [
+        145,
+        186,
+        267,
+        448
+      ],
+      "category": "mechanical",
+      "comparisonChecklist": [
+        {
+          "claim": "useEditor cannot accept null options",
+          "matchedInCode": true,
+          "lineRef": 448,
+          "note": "useEditor is called with a valid configuration object"
+        },
+        {
+          "claim": "To conditionally mount, split into outer gating component + inner that always calls useEditor with valid options.",
+          "matchedInCode": true,
+          "lineRef": 145,
+          "note": "WorklogEditor (outer) uses 'ready' state to gate EditorBody (inner)"
+        }
+      ],
+      "elapsedMs": 15257,
+      "attempts": 1
+    }
+  ],
+  "droppedFindings": [
+    {
+      "entryPointId": "worklog-draft-system",
+      "trapIndex": 3,
+      "trapText": "AssetPicker auto-tag merge and editor mention-chip merge both read log.tags (server canonical) and write through onUpdate, bypassing per-field autosave. If user is typing in InlineTagsField when an asset is dropped, the asset's tag merge can clobber in-flight typing. Same failure mode on both surfaces — accepted, not a regression.",
+      "primaryPath": "src/components/worklog/hooks/use-autosave.ts",
+      "reason": "checklist[0].lineRef out of range: null (file has 182 lines)",
+      "attempts": 2
+    },
+    {
+      "entryPointId": "worklog-draft-system",
+      "trapIndex": 4,
+      "trapText": "Hours autosave persistKey 'worklog:draft:<id>:hours' is shared between WorklogNoteReader and PropertiesFields — safe only because mount-skip via useIsXl ensures only one mounts at a time.",
+      "primaryPath": "src/components/worklog/hooks/use-autosave.ts",
+      "reason": "checklist[1].matchedInCode not boolean",
+      "attempts": 2
+    },
+    {
+      "entryPointId": "tiptap-yjs-integration",
+      "trapIndex": 0,
+      "trapText": "Tiptap 3 StarterKit ships Link built-in. Importing @tiptap/extension-link AND calling Link.configure(...) triggers `Duplicate extension names found: ['link']`. Disable via StarterKit.configure({ link: false }) at every callsite that registers a custom Link config.",
+      "primaryPath": "src/components/worklog/worklog-editor.tsx",
+      "reason": "inconsistent: stillValid=true while at least one checklist item is matchedInCode=false",
+      "attempts": 2
+    },
+    {
+      "entryPointId": "tiptap-yjs-integration",
+      "trapIndex": 3,
+      "trapText": "Six mention prefixes: @a (asset), @s (skill), @c (company), @p (contact/person), @n (note/worklog), @r (runbook/procedure). MENTION_PREFIX map lives in src/lib/worklog/export/pm-to-markdown.ts.",
+      "primaryPath": "src/components/worklog/worklog-editor.tsx",
+      "reason": "checklist[0].lineRef out of range: null (file has 646 lines)",
+      "attempts": 2
+    },
+    {
+      "entryPointId": "procedure-doc-schema",
+      "trapIndex": 0,
+      "trapText": "ProseMirrorDoc.type widened to 'doc' | 'procedureDoc' in src/lib/worklog/import/types.ts — markdown export branches on doc.type.",
+      "primaryPath": "src/lib/worklog/procedure/schema.ts",
+      "reason": "file not readable: ENOENT: no such file or directory, open 'C:\\Users\\Sory kaba\\OneDrive\\RESUMSIFY\\Personal_Projects\\Dev_Pojects\\resumsify\\src\\lib\\worklog\\procedure\\schema.ts'",
+      "attempts": 0
+    },
+    {
+      "entryPointId": "procedure-doc-schema",
+      "trapIndex": 1,
+      "trapText": "Procedure-only nodes (procedureTitle/procedureTools/procedureStep) are NEVER added to droppedBlocks — they have semantic emit rules.",
+      "primaryPath": "src/lib/worklog/procedure/schema.ts",
+      "reason": "file not readable: ENOENT: no such file or directory, open 'C:\\Users\\Sory kaba\\OneDrive\\RESUMSIFY\\Personal_Projects\\Dev_Pojects\\resumsify\\src\\lib\\worklog\\procedure\\schema.ts'",
+      "attempts": 0
+    },
+    {
+      "entryPointId": "procedure-doc-schema",
+      "trapIndex": 2,
+      "trapText": "PUT /api/work-logs/[id] route deliberately PRESERVES kind (cannot be flipped via update). POST is stricter — present-but-unknown kind returns 400. Search defaults to kind=note unless ?kind=procedure is passed.",
+      "primaryPath": "src/lib/worklog/procedure/schema.ts",
+      "reason": "file not readable: ENOENT: no such file or directory, open 'C:\\Users\\Sory kaba\\OneDrive\\RESUMSIFY\\Personal_Projects\\Dev_Pojects\\resumsify\\src\\lib\\worklog\\procedure\\schema.ts'",
+      "attempts": 0
+    },
+    {
+      "entryPointId": "version-history",
+      "trapIndex": 0,
+      "trapText": "Next.js 16 / React 19 BLOCKS window.prompt() / window.confirm() in dev mode — throws 'Error: prompt() is not supported.' Save Version + Restore both use controlled base-ui Dialog with useState. Don't even try prompt/confirm/alert in any new client component.",
+      "primaryPath": "src/components/worklog/worklog-history-panel.tsx",
+      "reason": "comparisonChecklist must be array of length >= 2",
+      "attempts": 2
+    },
+    {
+      "entryPointId": "version-history",
+      "trapIndex": 1,
+      "trapText": "Y.js sync after restore is PARKED — POST .../restore overwrites server-side contentJson but doesn't broadcast a Y.update to OTHER open editor sessions. They keep stale Y.Doc until next reload.",
+      "primaryPath": "src/components/worklog/worklog-history-panel.tsx",
+      "reason": "comparisonChecklist must be array of length >= 2",
+      "attempts": 2
+    },
+    {
+      "entryPointId": "version-history",
+      "trapIndex": 2,
+      "trapText": "Diff list endpoint returns truncated 200-char preview; per-version GET (/versions/[versionId]) is REQUIRED for the diff modal.",
+      "primaryPath": "src/components/worklog/worklog-history-panel.tsx",
+      "reason": "checklist[2].claim empty",
+      "attempts": 2
+    },
+    {
+      "entryPointId": "version-history",
+      "trapIndex": 3,
+      "trapText": "Auto-snapshot failures are logged via [ADR-0017] auto-snapshot write failed but never fail the user's save — best-effort guarantee.",
+      "primaryPath": "src/components/worklog/worklog-history-panel.tsx",
+      "reason": "comparisonChecklist must be array of length >= 2",
+      "attempts": 2
+    },
+    {
+      "entryPointId": "properties-rail",
+      "trapIndex": 0,
+      "trapText": "useReaderRailState MUST use useQuery (not queryClient.getQueryData) — getQueryData is a one-shot snapshot, so optimistic setQueryData writes never re-render. Migration to useQuery in Unit 3 fixed the silent tab-click failure.",
+      "primaryPath": "src/components/worklog/right-rail/tabs/properties-tab.tsx",
+      "reason": "checklist[0].lineRef out of range: null (file has 167 lines)",
+      "attempts": 2
+    },
+    {
+      "entryPointId": "properties-rail",
+      "trapIndex": 1,
+      "trapText": "Legacy rail tab values ('tags' | 'backlinks' | 'history') alias to 'properties' at every read/write boundary via migrateLegacyRailTab in rail-tabs.ts — both useReaderRailState (client read) AND /api/work-logs/preferences/reader-rail (server write) normalize. No DB migration needed.",
+      "primaryPath": "src/components/worklog/right-rail/tabs/properties-tab.tsx",
+      "reason": "checklist[0].lineRef out of range: null (file has 167 lines)",
+      "attempts": 2
+    },
+    {
+      "entryPointId": "properties-rail",
+      "trapIndex": 2,
+      "trapText": "Rail unmounts entirely when activeNoteId is null. Mounted as flex sibling of WorklogNoteReader in TWO places: WorklogNotesAndReader (dashboard 2-pane) AND /worklog/notes/[id]/page.tsx. Both surfaces must mount the rail or Backlinks/History/Photos surface disappears from that route entirely.",
+      "primaryPath": "src/components/worklog/right-rail/tabs/properties-tab.tsx",
+      "reason": "citedLines missing or empty",
+      "attempts": 2
+    }
+  ]
+}
