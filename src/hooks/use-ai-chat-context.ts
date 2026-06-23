@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
+import { usePathname } from "next/navigation";
 import type { ContextSlice } from "@/lib/ai-chat-constants";
 import type { AmbientEntityRef, PageContext } from "@/lib/ai-chat-action-target";
+import { parsePathnameForAmbient } from "@/lib/ai-chat-pathname";
 
 export interface UseAiChatContextResult {
   contextSlices: ContextSlice[];
@@ -23,28 +25,53 @@ export interface UseAiChatContextResult {
  *                     /api/ai/context, consumed by the code-block toolbar
  *                     resolver as step (1) of target precedence.
  *
- * The hook lazy-loads /api/ai/context the first time `open` flips to true
- * (and contextSlices is still empty). Legacy `systemPrompt` is collapsed
- * into a single non-removable slice for backwards compatibility.
+ * The hook fetches /api/ai/context whenever the chat panel opens AND any
+ * time the URL pathname changes while open. The pathname is parsed by
+ * `parsePathnameForAmbient` into `{ activeWorklogId?, activeJobId? }` and
+ * sent as query params; the server uses them to override the recency
+ * heuristic with a userId-scoped lookup of the exact entity on screen
+ * (ADR-0046 follow-up D). Legacy `systemPrompt` is collapsed into a
+ * single non-removable slice for backwards compatibility.
  *
  * Setters for `contextSlices` and `suppressedSliceIds` are exposed so the
  * caller can reset them on "clear conversation". `setPageContext` is kept
  * internal because no caller currently mutates page context.
  *
- * Extracted in Phase 4 of the god-file refactor.
+ * Extracted in Phase 4 of the god-file refactor; URL-aware in follow-up D.
  */
 export function useAiChatContext(open: boolean): UseAiChatContextResult {
   const [contextSlices, setContextSlices] = useState<ContextSlice[]>([]);
   const [suppressedSliceIds, setSuppressedSliceIds] = useState<Set<string>>(new Set());
   const [pageContext, setPageContext] = useState<PageContext>({});
 
+  // URL-aware ambient hints (ADR-0046 follow-up D). `usePathname` returns
+  // null on the first render under app-router; treat that as "no pathname
+  // signal" and rely on the server heuristic until the client routes in.
+  const pathname = usePathname();
+  const pathnameAmbient = useMemo(
+    () => parsePathnameForAmbient(pathname ?? ""),
+    [pathname],
+  );
+
   // Fetch career context slices (ADR-0046 Phase A). The legacy `systemPrompt`
   // field is read as a fallback so the panel still works against a server
   // that hasn't been redeployed with the slice shape yet. Phase D.3 also
-  // captures the `ambient` field for the code-block action resolver.
+  // captures the `ambient` field for the code-block action resolver, and
+  // follow-up D sends the pathname-derived ids so ambient tracks the URL
+  // (not just a 24h-recency heuristic) and refetches on every navigation
+  // while the panel is open.
   useEffect(() => {
-    if (!open || contextSlices.length > 0) return;
-    fetch("/api/ai/context")
+    if (!open) return;
+    const params = new URLSearchParams();
+    if (pathnameAmbient.activeWorklogId) {
+      params.set("activeWorklogId", pathnameAmbient.activeWorklogId);
+    }
+    if (pathnameAmbient.activeJobId) {
+      params.set("activeJobId", pathnameAmbient.activeJobId);
+    }
+    const qs = params.toString();
+    const url = qs ? `/api/ai/context?${qs}` : "/api/ai/context";
+    fetch(url)
       .then((r) => r.json())
       .then(
         (d: {
@@ -72,7 +99,7 @@ export function useAiChatContext(open: boolean): UseAiChatContextResult {
         },
       )
       .catch(() => {});
-  }, [open, contextSlices.length]);
+  }, [open, pathnameAmbient.activeWorklogId, pathnameAmbient.activeJobId]);
 
   const toggleSlice = useCallback((id: string) => {
     setSuppressedSliceIds((prev) => {

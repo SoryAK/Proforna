@@ -28,25 +28,41 @@ export interface AIContextSlice {
  * concatenated `systemPrompt` (kept for back-compat with any consumer still
  * reading the legacy shape).
  *
+ * URL-aware ambient (ADR-0046 follow-up D): callers may pass
+ * `?activeWorklogId=...&activeJobId=...` to override the recency heuristic
+ * with a userId-scoped lookup of the exact entity the user is viewing.
+ * Foreign IDs silently fall back to the heuristic (no info leak).
+ *
  * Response shape:
  *   {
  *     slices: AIContextSlice[],
  *     systemPrompt: string,
+ *     ambient: { activeJob, activeWorklog, activeSkill },
  *   }
  */
-export async function GET() {
+export async function GET(request: Request) {
   const userId = await getUserId();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  // URL-aware ambient hints. Both params are optional; when present the
+  // server uses them to override the recency heuristic for `activeJob` /
+  // `activeWorklog`. Lookups are userId-scoped so a foreign id leaks
+  // nothing — it just falls back to the heuristic.
+  const url = new URL(request.url);
+  const activeJobIdParam = url.searchParams.get("activeJobId") || null;
+  const activeWorklogIdParam = url.searchParams.get("activeWorklogId") || null;
+
   const [
     profile,
-    position,
+    heuristicPosition,
     applications,
     skills,
     goals,
     certifications,
     interviews,
-    recentWorklog,
+    heuristicWorklog,
+    urlPosition,
+    urlWorklog,
   ] = await Promise.all([
     prisma.userProfile.findFirst(),
     prisma.workHistory.findFirst({ where: { isActive: true } }),
@@ -74,7 +90,8 @@ export async function GET() {
     // Ambient activeWorklog (ADR-0046 Phase D.2): the most-recently-updated
     // WorkLog within the last 24h. Used by the action-target resolver as a
     // "what was the user just editing" signal when the chat panel asks who
-    // a code-block should land on.
+    // a code-block should land on. URL-aware override (Phase D follow-up D)
+    // below trumps this when the user is actually on a worklog editor page.
     prisma.workLog.findFirst({
       where: {
         updatedAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
@@ -83,7 +100,33 @@ export async function GET() {
       orderBy: { updatedAt: "desc" },
       select: { id: true, title: true },
     }),
+    // URL-aware ambient overrides (ADR-0046 follow-up D). Both are
+    // userId-scoped so an unknown / foreign id silently falls back to the
+    // recency heuristic above. We mirror the heuristic's `select` shape
+    // (default for WorkHistory — the prompt-building block reads many
+    // fields; explicit select for WorkLog to keep the ambient payload tiny).
+    activeJobIdParam
+      ? prisma.workHistory.findFirst({
+          where: { id: activeJobIdParam, userId },
+        })
+      : Promise.resolve(null),
+    activeWorklogIdParam
+      ? prisma.workLog.findFirst({
+          where: {
+            id: activeWorklogIdParam,
+            userId,
+            archivedAt: null,
+          },
+          select: { id: true, title: true },
+        })
+      : Promise.resolve(null),
   ]);
+
+  // URL override wins when present and userId-scoped lookup succeeded.
+  // Otherwise fall back to the recency heuristic. Either may still be null
+  // (no signal at all — e.g. on `/dashboard` with no recent activity).
+  const position = urlPosition ?? heuristicPosition;
+  const recentWorklog = urlWorklog ?? heuristicWorklog;
 
   const slices: AIContextSlice[] = [];
 
