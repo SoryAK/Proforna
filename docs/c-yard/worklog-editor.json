@@ -3,10 +3,11 @@
   "slice": "worklog-editor",
   "title": "Worklog Editor",
   "description": "Note + procedure authoring surface. Tiptap 3 + Yjs editor, server-backed draft sync, six mention types, alternate ProcedureDoc schema for kind='procedure', append-only version history, and the right-rail Properties tab. Renders inside the 2-pane (/worklog/notes) and single-note (/worklog/notes/[id]) routes; same WorklogNoteReader composes the dashboard embed and the route.",
-  "lastValidatedAt": "2026-06-21",
-  "lastValidatedCommit": "53204d6",
+  "lastValidatedAt": "2026-06-23",
+  "lastValidatedCommit": "6b06ddb",
   "refreshHistory": [
-    { "refreshedAt": "2026-06-21", "refreshedFromSessionId": "77e25d9d-ca47-4795-b5f4-d8921afd0593", "summary": "First produce-loop refresh. Dry-run flagged use-autosave-field.ts path stale (real: use-autosave.ts), flushAllFields aspirational (dropped), and worklog-draft-system knownTraps[0] too thin (expanded into 3 structural sub-bugs A/B/C)." }
+    { "refreshedAt": "2026-06-21", "refreshedFromSessionId": "77e25d9d-ca47-4795-b5f4-d8921afd0593", "summary": "First produce-loop refresh. Dry-run flagged use-autosave-field.ts path stale (real: use-autosave.ts), flushAllFields aspirational (dropped), and worklog-draft-system knownTraps[0] too thin (expanded into 3 structural sub-bugs A/B/C)." },
+    { "refreshedAt": "2026-06-23", "refreshedFromSessionId": "77e25d9d-ca47-4795-b5f4-d8921afd0593", "summary": "ADR-0046 follow-up B shipped (commits 4b60788 / fb57906 / 6b06ddb). Added entryPoint editor-registry (module-singleton in-memory handle store) + traversal recipe how-does-ai-send-to-worklog-prepend-work. Extended worklog-draft-system knownTrap set: ai-prepend bypasses the autosave debounce and calls runSave directly so the PUT round-trip resolves before the toast fires. Extended version-history knownTrap set: WorkLogVersion.source column added (currently 'ai-prepend' is the only known non-null value, null = user-typed). Live PUT smoke confirmed WorkLogVersion.source persists 2026-06-24T00:13:55Z." }
   ],
   "entryPoints": [
     {
@@ -21,7 +22,8 @@
         "Unmount race sub-bug B — stale `commit` closure: parents typically inline `(v) => updateMutation.mutate({ id: log.id, title: v })`. log.id is captured at first mount of the cleanup effect, so if the user navigates to a different note before the previous reader fully unmounts, the cleanup writes the (also stale) value against the PREVIOUS log id — cross-note corruption potential.",
         "Unmount race sub-bug C — draft timer has no flush fallback: cleanup clears draftTimerRef but never attempts a final draft POST. When sub-bug A causes the canonical commit to no-op, the safety-net draft row is ALSO never written. Both autosave layers fail together. Note: onBlur-triggered flush() does work because it reads `value` from React state at call time — only the unmount path goes through the stale closure.",
         "AssetPicker auto-tag merge and editor mention-chip merge both read log.tags (server canonical) and write through onUpdate, bypassing per-field autosave. If user is typing in InlineTagsField when an asset is dropped, the asset's tag merge can clobber in-flight typing. Same failure mode on both surfaces — accepted, not a regression.",
-        "Hours autosave persistKey 'worklog:draft:<id>:hours' is shared between WorklogNoteReader and PropertiesFields — safe only because mount-skip via useIsXl ensures only one mounts at a time."
+        "Hours autosave persistKey 'worklog:draft:<id>:hours' is shared between WorklogNoteReader and PropertiesFields — safe only because mount-skip via useIsXl ensures only one mounts at a time.",
+        "ADR-0046 follow-up B: the editor's imperative `prepend(content)` method DELIBERATELY bypasses the per-field autosave debounce. It calls `runSave({ json, text, versionSource: 'ai-prepend' })` synchronously so the PUT round-trip resolves before the returned promise — the toast wording in ai-chat-code-block depends on this ordering. Don't wrap `prepend` in the debounce or you'll surface 'Sent' before the WorkLogVersion row exists."
       ]
     },
     {
@@ -62,7 +64,8 @@
         "Next.js 16 / React 19 BLOCKS window.prompt() / window.confirm() in dev mode — throws 'Error: prompt() is not supported.' Save Version + Restore both use controlled base-ui Dialog with useState. Don't even try prompt/confirm/alert in any new client component.",
         "Y.js sync after restore is PARKED — POST .../restore overwrites server-side contentJson but doesn't broadcast a Y.update to OTHER open editor sessions. They keep stale Y.Doc until next reload.",
         "Diff list endpoint returns truncated 200-char preview; per-version GET (/versions/[versionId]) is REQUIRED for the diff modal.",
-        "Auto-snapshot failures are logged via [ADR-0017] auto-snapshot write failed but never fail the user's save — best-effort guarantee."
+        "Auto-snapshot failures are logged via [ADR-0017] auto-snapshot write failed but never fail the user's save — best-effort guarantee.",
+        "ADR-0046 follow-up B: WorkLogVersion.source is an OPTIONAL provenance string (column added 2026-06-23, migration 20260623194421_add_worklog_version_source). Currently 'ai-prepend' is the only known non-null value — null means user-typed. Validated at the PUT boundary as 'non-empty string when provided' (400 otherwise). Surface this in any future version-history UI that filters by provenance."
       ]
     },
     {
@@ -76,6 +79,21 @@
         "useReaderRailState MUST use useQuery (not queryClient.getQueryData) — getQueryData is a one-shot snapshot, so optimistic setQueryData writes never re-render. Migration to useQuery in Unit 3 fixed the silent tab-click failure.",
         "Legacy rail tab values ('tags' | 'backlinks' | 'history') alias to 'properties' at every read/write boundary via migrateLegacyRailTab in rail-tabs.ts — both useReaderRailState (client read) AND /api/work-logs/preferences/reader-rail (server write) normalize. No DB migration needed.",
         "Rail unmounts entirely when activeNoteId is null. Mounted as flex sibling of WorklogNoteReader in TWO places: WorklogNotesAndReader (dashboard 2-pane) AND /worklog/notes/[id]/page.tsx. Both surfaces must mount the rail or Backlinks/History/Photos surface disappears from that route entirely."
+      ]
+    },
+    {
+      "id": "editor-registry",
+      "name": "In-memory editor handle registry (ADR-0046 follow-up B)",
+      "description": "Module-singleton `Map<string, RegisteredWorklogEditor>` keyed by workLogId. Mounted editors (kind='note' only) register an imperative `prepend(content)` handle on mount and dispose on unmount. The AI chat panel's send-to-worklog action awaits `waitForEditor(id, 500)` before deciding to prepend in-page vs. fall back to the legacy create-new POST. Client-only (module shared across the React tree, no SSR boundary crossings). Procedure-kind editors INTENTIONALLY do not register (locked schema).",
+      "primarySymbol": "waitForEditor",
+      "primaryPath": "src/lib/worklog/editor-registry.ts",
+      "relatedSymbols": ["RegisteredWorklogEditor", "registerEditor", "getEditor", "__resetEditorRegistry"],
+      "knownTraps": [
+        "Last-write-wins: a second register() call for the same id silently replaces the first handle. By design — re-mount during HMR or fast navigation should not strand an old handle.",
+        "500ms timeout in `waitForEditor` is the only seam between the chat panel and the editor mount. Polling at 50ms means up to 10 ticks before fallthrough — enough for a normal mount but DON'T raise it without measuring real-world mount latency.",
+        "Exported type was renamed from WorklogEditorHandle to RegisteredWorklogEditor (commit 6b06ddb) because worklog-editor.tsx already exports an unrelated WorklogEditorHandle imperative-ref interface. Don't restore the old name — the collision is real.",
+        "`__resetEditorRegistry` is a test-only seam; calling it from app code wipes every mounted editor's handle and breaks every in-flight Send-to-Worklog action.",
+        "Registry is INTENTIONALLY not React-context — it must be reachable from any code-block render path even when the chat panel and the editor live in different React subtrees (or one is in a portal)."
       ]
     }
   ],
@@ -140,6 +158,22 @@
       "evidence": { "sessions": [] }
     },
     {
+      "id": "how-does-ai-send-to-worklog-prepend-work",
+      "intent": "Trace what happens when the user clicks 'Worklog' on an AI code block while a note is open in EDIT mode.",
+      "steps": [
+        "User clicks the Worklog action button on an AIChatCodeBlock. handleAction('send-to-worklog') (src/components/ai-chat-code-block.tsx).",
+        "Branch reads `pageContext.activeWorklog?.id` — populated by the URL-aware ambient pipeline (see ai-chat slice traversal 'how-does-the-chat-panel-know-which-worklog-i-m-on').",
+        "If an active id exists, `waitForEditor(activeId, 500)` polls the editor-registry (src/lib/worklog/editor-registry.ts) at 50ms intervals.",
+        "Editor mount path: WorklogNoteReader edit-mode → WorklogEditor → EditorBody → useEffect calls `registerEditor({ id, kind: 'note', prepend })`. Procedure-kind mounts SKIP registration on purpose (locked schema).",
+        "If the handle resolves AND kind === 'note': `handle.prepend(code)` runs `editor.chain().focus('start').insertContentAt(0, code).run()` then `await runSave({ json, text, versionSource: 'ai-prepend' })`. runSave bypasses the debounce so the PUT resolves before the toast.",
+        "runSave threads through WorklogNoteReader.onSave → onUpdate (which spreads versionSource into the PATCH payload) → useWorklogMutations.saveLog → PUT /api/work-logs/[id] with body.versionSource = 'ai-prepend'.",
+        "PUT handler validates versionSource (non-empty string), then in the auto-snapshot block writes `prisma.workLogVersion.create({ data: { ..., source: versionSource ?? null } })`. Live smoke 2026-06-24T00:13:55Z confirmed the column populates.",
+        "Fallthrough cases: no activeWorklog, 500ms timeout, non-note kind, or handle.prepend throws — branch falls back to `postAction(action, { content: code })` which POSTs /api/ai/actions/send-to-worklog and creates a brand-new WorkLog (legacy v1 behaviour)."
+      ],
+      "source": "hand-authored",
+      "evidence": { "sessions": ["77e25d9d-ca47-4795-b5f4-d8921afd0593"] }
+    },
+    {
       "id": "markdown-export-procedure",
       "intent": "How does procedure markdown export differ from regular note export?",
       "steps": [
@@ -153,8 +187,8 @@
     }
   ],
   "fileFingerprints": [
-    { "path": "src/components/worklog/worklog-editor.tsx", "role": "primary-editor", "lastValidatedAt": "2026-06-21" },
-    { "path": "src/components/worklog/worklog-note-reader.tsx", "role": "primary-reader", "lastValidatedAt": "2026-06-21" },
+    { "path": "src/components/worklog/worklog-editor.tsx", "role": "primary-editor", "lastValidatedAt": "2026-06-23", "notes": "ADR-0046 follow-up B (commit 6b06ddb): WorklogEditorHandle gained prepend(content), WorklogEditorChange gained optional versionSource, EditorBody useEffect registers handle with editor-registry on mount when kind='note'." },
+    { "path": "src/components/worklog/worklog-note-reader.tsx", "role": "primary-reader", "lastValidatedAt": "2026-06-23", "notes": "ADR-0046 follow-up B: onSave threads versionSource from the change payload through onUpdate so it reaches the PUT body." },
     { "path": "src/components/worklog/worklog-notes-view.tsx", "role": "list-route-view", "lastValidatedAt": "2026-06-21" },
     { "path": "src/components/worklog/worklog-notes-and-reader.tsx", "role": "dashboard-embed", "lastValidatedAt": "2026-06-21" },
     { "path": "src/components/worklog/worklog-reader-right-rail.tsx", "role": "rail-shell", "lastValidatedAt": "2026-06-21" },
@@ -168,6 +202,9 @@
     { "path": "src/components/worklog/worklog-version-diff-modal.tsx", "role": "version-diff-modal", "lastValidatedAt": "2026-06-21" },
     { "path": "src/components/worklog/worklog-backlinks-panel.tsx", "role": "backlinks-panel", "lastValidatedAt": "2026-06-21" },
     { "path": "src/components/worklog/hooks/use-autosave.ts", "role": "autosave-primitive", "lastValidatedAt": "2026-06-21" },
+    { "path": "src/components/worklog/hooks/use-worklog-mutations.ts", "role": "mutations-hook", "lastValidatedAt": "2026-06-23", "notes": "ADR-0046 follow-up B: saveLog input widened to accept versionSource; onMutate destructures it out so it does not leak into optimistically-cached row state." },
+    { "path": "src/lib/worklog/editor-registry.ts", "role": "editor-handle-registry", "lastValidatedAt": "2026-06-23", "notes": "NEW in ADR-0046 follow-up B (commit fb57906). Module-singleton Map<string, RegisteredWorklogEditor> with registerEditor / getEditor / waitForEditor / __resetEditorRegistry. 8 TDD specs in sibling .test.ts." },
+    { "path": "src/lib/worklog/editor-registry.test.ts", "role": "editor-registry-tests", "lastValidatedAt": "2026-06-23" },
     { "path": "src/components/worklog/hooks/use-reader-rail-state.ts", "role": "rail-state-hook", "lastValidatedAt": "2026-06-21" },
     { "path": "src/components/worklog/hooks/use-folder-selection.ts", "role": "folder-url-state-hook", "lastValidatedAt": "2026-06-21" },
     { "path": "src/lib/worklog/procedure/schema.ts", "role": "procedure-schema", "lastValidatedAt": "2026-06-21" },
@@ -178,7 +215,7 @@
     { "path": "src/lib/worklog/derive-worklog-label.ts", "role": "chip-label-helper", "lastValidatedAt": "2026-06-21" },
     { "path": "src/lib/worklog/focus-href.ts", "role": "focus-url-builder", "lastValidatedAt": "2026-06-21" },
     { "path": "src/lib/worklog/rewrite-worklog-mention-labels.ts", "role": "mention-label-rewriter", "lastValidatedAt": "2026-06-21" },
-    { "path": "src/app/api/work-logs/[id]/route.ts", "role": "single-note-api", "lastValidatedAt": "2026-06-21" },
+    { "path": "src/app/api/work-logs/[id]/route.ts", "role": "single-note-api", "lastValidatedAt": "2026-06-23", "notes": "ADR-0046 follow-up B (commit fb57906): PUT body validator accepts optional versionSource (non-empty string, 400 otherwise); auto-snapshot writer threads source: versionSource ?? null into WorkLogVersion.create." },
     { "path": "src/app/api/work-logs/[id]/versions/route.ts", "role": "version-list-api", "lastValidatedAt": "2026-06-21" },
     { "path": "src/app/api/work-logs/[id]/versions/[versionId]/route.ts", "role": "version-detail-api", "lastValidatedAt": "2026-06-21" },
     { "path": "src/app/api/work-logs/[id]/versions/[versionId]/restore/route.ts", "role": "version-restore-api", "lastValidatedAt": "2026-06-21" },

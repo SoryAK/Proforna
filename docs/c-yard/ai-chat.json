@@ -4,11 +4,12 @@
   "title": "AI Chat Panel",
   "description": "Floating right-edge panel reachable from every authenticated route. Owns the SSE streaming chat pipeline (Ollama + Gemini providers), the four context layers (career-context slices, slash commands, @-mentions, ambient page refs), the assistant-only markdown renderer with Shiki-highlighted code blocks, and the three Phase-D code-block domain actions (Send to Worklog / Add to Job Notes / Save as Bullet) with a target-resolution picker. Authoritative ADRs: 0045 (envelope + provenance), 0046 (phases A through D — context slices, slash commands, @-mentions, code-block actions).",
   "lastValidatedAt": "2026-06-23",
-  "lastValidatedCommit": "48db823",
+  "lastValidatedCommit": "6b06ddb",
   "refreshHistory": [
     { "refreshedAt": "2026-06-22", "refreshedFromSessionId": "77e25d9d-ca47-4795-b5f4-d8921afd0593", "summary": "Seed slice. Authored immediately after ADR-0046 Phase D.3 landed (22215ce), so all 7 entryPoints reflect post-D.3 reality. Hand-authored \u2014 no analyzer mining yet." },
     { "refreshedAt": "2026-06-23", "refreshedFromSessionId": "77e25d9d-ca47-4795-b5f4-d8921afd0593", "summary": "Post-god-file-refactor refresh (phases 1\u20137, 34a0f5c). ai-chat.tsx 1026 \u2192 281 LOC (\u221272%). Retired the god-file architectural trap. Added 5 hooks (use-ai-chat-{resize,models,context,stream,slash}.ts) + 6 sibling components (ai-chat-{empty-state,slash-menu,context-chips,settings-panel,message-list,toolbar}.tsx) to fileFingerprints. Behaviour preserved; vitest 966/971 baseline held across every phase." },
-    { "refreshedAt": "2026-06-23", "refreshedFromSessionId": "77e25d9d-ca47-4795-b5f4-d8921afd0593", "summary": "ADR-0046 follow-up D \u2014 URL-aware ambient (48db823). Server now overrides the recency heuristic with userId-scoped /api/ai/context?activeWorklogId=&activeJobId= lookups when the client supplies pathname-derived hints. Client hook uses next/navigation usePathname + memoized parsePathnameForAmbient, refetches on every nav while open. New pure module src/lib/ai-chat-pathname.ts (13 TDD specs) + 3 new URL-override specs on the route. Allowlist v1: /worklog/notes/[id] \u2192 activeWorklogId, /experience/[id] \u2192 activeJobId (reserved /experience/verify skipped). Closes the cache-drift bug: chat opened on worklog A then nav to B no longer reports A. Pre-existing recency-heuristic isActive lookup is NOT userId-scoped \u2014 documented as a separate trap, out-of-scope for D." }
+    { "refreshedAt": "2026-06-23", "refreshedFromSessionId": "77e25d9d-ca47-4795-b5f4-d8921afd0593", "summary": "ADR-0046 follow-up D \u2014 URL-aware ambient (48db823). Server now overrides the recency heuristic with userId-scoped /api/ai/context?activeWorklogId=&activeJobId= lookups when the client supplies pathname-derived hints. Client hook uses next/navigation usePathname + memoized parsePathnameForAmbient, refetches on every nav while open. New pure module src/lib/ai-chat-pathname.ts (13 TDD specs) + 3 new URL-override specs on the route. Allowlist v1: /worklog/notes/[id] \u2192 activeWorklogId, /experience/[id] \u2192 activeJobId (reserved /experience/verify skipped). Closes the cache-drift bug: chat opened on worklog A then nav to B no longer reports A. Pre-existing recency-heuristic isActive lookup is NOT userId-scoped \u2014 documented as a separate trap, out-of-scope for D." },
+    { "refreshedAt": "2026-06-23", "refreshedFromSessionId": "77e25d9d-ca47-4795-b5f4-d8921afd0593", "summary": "ADR-0046 follow-up B \u2014 editor-aware send-to-worklog (commits 4b60788 / fb57906 / 6b06ddb). send-to-worklog now tries an in-page prepend before falling through to the legacy create-new POST. Retired the SHORT-CIRCUITS knownTrap on code-block-toolbar; replaced with the actual editor-registry-aware decision tree. Editor handle resolution lives in src/lib/worklog/editor-registry.ts (see worklog-editor slice for the registry entry point + the new traversal recipe how-does-ai-send-to-worklog-prepend-work). Live PUT smoke confirmed WorkLogVersion.source='ai-prepend' persists 2026-06-24T00:13:55Z (id 45d3e3b8)." }
   ],
 
   "entryPoints": [
@@ -99,8 +100,8 @@
         "`SUPPORTED_LANGS` is the EXACT list Shiki preloads — adding a language is a bundle-size trade-off. Unknown languages fall through to `plaintext` via `normalizeLanguage`, so `codeToHtml` never throws on unrecognized fences like ```mermaid.",
         "Module-singleton `highlighterPromise` survives unmount/remount. First caller in a session pays the ~280KB cost; subsequent blocks reuse the cached promise. DON'T move into component-local state.",
         "Theme switches between `github-dark` and `github-light` via `useTheme().resolvedTheme`. SSR users get `resolvedTheme === undefined` on first render → defaults to light. Acceptable flicker — the `useEffect` rerun on theme change repaints once hydrated.",
-        "send-to-worklog SHORT-CIRCUITS the resolver in v1 (route always creates a new WorkLog regardless of target). When 'prepend-to-active-worklog' UX ships, the `if (action === 'send-to-worklog')` branch in `handleAction` goes away.",
-        "Errors are `console.error`-only in v1 — no toast UI yet. The 'Saved' pill is the ONLY user-visible success signal; failure is silent. Wishlist: real toast surface (sonner not yet wired)."
+        "ADR-0046 follow-up B (commit 6b06ddb): send-to-worklog is NO LONGER a short-circuit. The handler now reads `pageContext.activeWorklog?.id` and, when present, awaits `waitForEditor(activeId, 500)` from src/lib/worklog/editor-registry.ts. A note-kind handle triggers an in-page `handle.prepend(code)` (which writes WorkLogVersion.source='ai-prepend' via the editor's runSave); anything else (no active worklog, 500ms timeout, procedure kind, or prepend throws) falls through to the legacy `postAction(action, { content: code })` create-new POST. The fall-through path is intentionally indistinguishable from pre-follow-up-B behaviour so the toast UX stays consistent.",
+        "Errors are surfaced via sonner toasts (commit 407073c retrofit). For send-to-worklog: the in-page prepend path catches throws and falls through to the create-new POST without surfacing a duplicate error toast — the create-new branch is the single source of truth for user-visible status."
       ]
     },
     {
@@ -126,7 +127,7 @@
       "id": "how-does-a-code-block-action-land-a-target",
       "intent": "Trace what happens from clicking 'Add to Job Notes' on a code block to the row update in the database.",
       "steps": [
-        "AIChatCodeBlock.handleAction(action) — short-circuits send-to-worklog; otherwise calls resolveActionTarget.",
+        "AIChatCodeBlock.handleAction(action). NOTE: send-to-worklog is now editor-aware (ADR-0046 follow-up B) — see traversal recipe 'how-does-ai-send-to-worklog-prepend-work' in the worklog-editor slice for that path. The steps below cover add-to-job-notes and save-as-bullet (which still use the resolver directly).",
         "resolveActionTarget (src/lib/ai-chat-action-target.ts): ambient → thread → needs-picker.",
         "Resolved branch: postAction POSTs `{ content, jobId }` to /api/ai/actions/<action>.",
         "Picker branch: AIChatActionPicker opens, fetches /api/ai/mention-search, returns picked ref to handlePicked which POSTs.",
@@ -185,7 +186,7 @@
     { "path": "src/components/ai-chat-toolbar.tsx", "role": "bottom-toolbar-component", "lastValidatedAt": "2026-06-23" },
     { "path": "src/components/ai-chat-textarea-with-mentions.tsx", "role": "mention-input", "lastValidatedAt": "2026-06-22" },
     { "path": "src/components/ai-chat-message-markdown.tsx", "role": "markdown-renderer", "lastValidatedAt": "2026-06-22" },
-    { "path": "src/components/ai-chat-code-block.tsx", "role": "code-block-toolbar", "lastValidatedAt": "2026-06-23", "notes": "Toast retrofit (commit 407073c): success-pill removed, sonner toasts on both paths with target-label interpolation and status-aware error descriptions." },
+    { "path": "src/components/ai-chat-code-block.tsx", "role": "code-block-toolbar", "lastValidatedAt": "2026-06-23", "notes": "ADR-0046 follow-up B (commit 6b06ddb): send-to-worklog now tries waitForEditor(activeId, 500) before falling back to postAction. Editor-aware branch lives in handleAction's `if (action === 'send-to-worklog')` block. Toast retrofit (commit 407073c) still applies to both code paths." },
     { "path": "src/components/ai-chat-action-picker.tsx", "role": "target-picker", "lastValidatedAt": "2026-06-22" },
     { "path": "src/components/ai-provenance-chip.tsx", "role": "provenance-chip", "lastValidatedAt": "2026-06-22" },
     { "path": "src/hooks/use-ai-chat-resize.ts", "role": "resize-hook", "lastValidatedAt": "2026-06-23" },
