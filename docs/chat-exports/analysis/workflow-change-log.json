@@ -207,6 +207,15 @@
         "evidenceSource": "user-profile.md memory entry 'E.T.R.C. Workflow Pattern' (this session); ADR-0047 Decision §Workflow integration; commits ef75099 (calibration), 4d5d08d (gate + baseline), 0ed345c (ADR).",
         "triggerSession": "77e25d9d-ca47-4795-b5f4-d8921afd0593",
         "replacedPractice": "E→T→C with hand-rolled review on premium agent turns"
+      },
+      {
+        "id": "practice:etrc-rhythm-default",
+        "adoptedAt": "2026-06-24T23:30:00Z",
+        "name": "ETRC default ship rhythm (E→T→[auto-classify]→R-if-risky→C, always commit-and-queue)",
+        "description": "Behavioural ratchet over the E→T→R→C rhythm adopted yesterday. Previous R = manual full review:phase before commit. New R = mechanical post-commit classifier auto-buckets every commit into trivial/standard/risky; local gemma4:26b runs a design-only check ONLY on risky-tier commits, detached so git commit returns instantly. Every commit auto-logs to docs/review-queue.jsonl (gitignored append-only) for review-day batching. Hard rule: ALWAYS commit-and-queue — no fix-in-loop branch. If R surfaces a design issue, the fix is a separate atomic commit in the next ETC cycle, never an extension of the current commit (preserves bisect/revert/blame cleanliness). Replaces the 'is this commit worth tracking on review day?' in-the-moment decision with mechanical classification at commit-time. Validated against today's session: 9 commits auto-classified live with no perceptual latency.",
+        "evidenceSource": "docs/adr/0049-etrc-rhythm-and-commit-queue.md; docs/workflows/etrc-rhythm.md; commits e739ef8 (feature) + 139d1e5 ({ref} fix) + 6577e09 (Phase 4 wrap); live integration verified — every subsequent commit auto-logged this session.",
+        "triggerSession": "77e25d9d-ca47-4795-b5f4-d8921afd0593",
+        "replacedPractice": "E→T→R→C with manual review:phase invocation per commit + in-moment 'flag for review?' decisions"
       }
     ],
     "infraToolingChanges": [
@@ -355,6 +364,42 @@
         "description": "Strategic synthesis answer to 'how do we build a battle-tested review pipeline as a solo dev.' Honest gap analysis vs industry tools (CodeRabbit/Greptile/Diamond/Codium PR-Agent/Copilot Review/CI/branch protection/SonarQube): all assume multi-contributor PR-based workflow, none fit solo-dev push-to-main. Real leverage gap was enforcement of EXISTING rigor, not new layers. Tier A shipped this session (lefthook pre-push + Semgrep slice-trap rules + Dependabot). Tier B (coverage gate, commit-msg trailer enforcement, weekly review-queue stub, WARNING→ERROR promotions, Semgrep --baseline-commit mode) parked with per-item triggers. Tier C (group-coordination tools) parked with structural rejection — re-evaluate ONLY when second contributor lands. Tier D (DORA-style observability) parked with data-bottleneck triggers. Full roadmap at /memories/repo/parked-ideas.md `Review pipeline — Tiers B/C/D` entry; ADR-0048 ratifies the Tier A architectural commitment.",
         "source": "/memories/repo/parked-ideas.md (Tiers B/C/D entry); docs/adr/0048-tier-a-review-enforcement-layer.md; docs/workflows/add-review-enforcement-layer.md",
         "commit": "7c7202a",
+        "triggerSession": "77e25d9d-ca47-4795-b5f4-d8921afd0593"
+      },
+      {
+        "id": "infra:lefthook-post-commit-hook",
+        "shippedAt": "2026-06-24T23:30:00Z",
+        "name": "lefthook post-commit hook — non-blocking ETRC advisory layer",
+        "description": "Added a post-commit stage to lefthook.yml that runs `node scripts/review-log.mjs` on every commit. Non-blocking by hard contract: the script swallows all errors and exits 0 no matter what — a misconfigured hook or crashed classifier never blocks a commit. Hook latency measured at 0.24-0.36s for trivial/standard commits, instant for risky (R-local spawn is detached). Lefthook's `{ref}` template does NOT resolve for post-commit (pre-push/pre-receive only) — my script defaults to HEAD which IS the just-landed commit in post-commit context. First attempt used `{ref}` and emitted a tier:'unknown' queue line; fix shipped as 139d1e5.",
+        "source": "lefthook.yml; .git/hooks/post-commit (generated); docs/adr/0049-etrc-rhythm-and-commit-queue.md; docs/workflows/etrc-rhythm.md; docs/workflows/add-review-enforcement-layer.md (post-commit sub-recipe).",
+        "commit": "e739ef8",
+        "triggerSession": "77e25d9d-ca47-4795-b5f4-d8921afd0593"
+      },
+      {
+        "id": "infra:etrc-classifier",
+        "shippedAt": "2026-06-24T23:30:00Z",
+        "name": "scripts/review-classify.mjs — mechanical commit classifier (no LLM)",
+        "description": "Pure Node, no LLM, no network. Given a SHA, examines `git show --shortstat` + changed-file paths to assign tier. Risky triggers: prisma/schema.prisma | migrations | src/app/api/ | src/lib/auth* | src/middleware* | .github/instructions/ | package.json | diff > 300 LOC | src/lib|src/data without test files (TDD-intersect soft signal). Trivial triggers: docs-only | chore(scripts|deps|deps-dev) under LOC | single-file under 30 LOC. Standard otherwise. Hard contract: never throws, exits 0 always, prints tier:'unknown' if it can't determine. Validated against today's 7-commit session: 2/7 (28%) tagged risky = exactly the right ratio (Tier A ship + schema migration). Windows-specific gotcha caught: PowerShell execSync shell=true passes `${sha}^{commit}` through cmd.exe which interprets `^` as escape character; fix is to drop the `^{commit}` suffix entirely (`git rev-parse --verify <sha>` is sufficient for plain SHAs).",
+        "source": "scripts/review-classify.mjs; docs/adr/0049-etrc-rhythm-and-commit-queue.md; docs/workflows/etrc-rhythm.md.",
+        "commit": "e739ef8",
+        "triggerSession": "77e25d9d-ca47-4795-b5f4-d8921afd0593"
+      },
+      {
+        "id": "infra:etrc-queue",
+        "shippedAt": "2026-06-24T23:30:00Z",
+        "name": "docs/review-queue.jsonl + reader/escalate scripts — append-only commit-classification queue",
+        "description": "Append-only JSONL log of every commit's classification + R-local result. Gitignored (per-machine review-day data, not project source). Two line types per SHA: `type:'commit'` with classifier output, `type:'review'` with R-local result. Reader at scripts/review-queue-read.mjs joins entries by full SHA on review-day, tier-filterable (`--tier risky|standard|trivial`, `--since`, `--json`). Manual escalation at scripts/review-escalate.mjs formats commit diff + design-review prompt for paste into a premium subagent (Copilot Opus/Sonnet) when local R said something interesting or nothing useful — pure formatter, no auto-invocation, user decides per-SHA. Three npm scripts: review:classify, review:queue, review:escalate.",
+        "source": "scripts/review-queue-read.mjs; scripts/review-escalate.mjs; package.json (new scripts); .gitignore (added docs/review-queue.jsonl entry); docs/adr/0049-etrc-rhythm-and-commit-queue.md.",
+        "commit": "e739ef8",
+        "triggerSession": "77e25d9d-ca47-4795-b5f4-d8921afd0593"
+      },
+      {
+        "id": "infra:r-local-gemma4-design-check",
+        "shippedAt": "2026-06-24T23:30:00Z",
+        "name": "scripts/review-r-local.mjs — local gemma4 design-only R for risky-tier commits",
+        "description": "Fires only for risky-tier commits, detached from the git commit critical path. Calls Ollama gemma4:26b at http://localhost:11434 with a narrow design-only prompt: 'identify ONE structural improvement in <=80 chars (Extract/Move/Reuse/Inline) or reply exactly clean.' Healthcheck-gated against /api/tags (2s timeout); 2-min hard cap on generation. Every failure mode lands a queue entry as `skipped:<reason>` (ollama-unavailable, diff-fetch-failed, ollama-error:<msg>, empty-response, unhandled:<msg>). Joinable to commit entry by full SHA on review-day. v1 prompt observed emitting `skipped:empty-response` on both today's risky commits (small structural diffs with no clear improvement opportunity); v2 prompt tuning parked in ADR-0049 promotion candidates after 5-10 risky commits of data accumulate. Cost: zero $ (local), ~5-120s latency depending on diff size.",
+        "source": "scripts/review-r-local.mjs; docs/adr/0049-etrc-rhythm-and-commit-queue.md; docs/workflows/etrc-rhythm.md; userMemory:resumsify-lessons.md (Local LLM Workflow Agent gemma4:26b validation 2026-06-14).",
+        "commit": "e739ef8",
         "triggerSession": "77e25d9d-ca47-4795-b5f4-d8921afd0593"
       }
     ]
