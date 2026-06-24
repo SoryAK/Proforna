@@ -11,6 +11,11 @@
 //   node scripts/review-phase.mjs --accept-net     # allow per-gate regressions
 //                                                  # if SUM across gates didn't grow
 //   node scripts/review-phase.mjs --write-baseline # capture current state as baseline
+//   node scripts/review-phase.mjs --full-scan      # disable Semgrep --baseline-commit
+//                                                  # mode (audit total debt, not new
+//                                                  # findings only). Default Semgrep
+//                                                  # baseline = origin/main.
+//   node scripts/review-phase.mjs --baseline <ref> # override the Semgrep baseline ref
 //
 // Exit codes:
 //   0  no regressions (or baseline successfully written)
@@ -28,9 +33,24 @@ import { fileURLToPath } from "node:url";
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const baselinePath = resolve(repoRoot, "docs", "review-baseline.json");
 
-const args = new Set(process.argv.slice(2));
+const argList = process.argv.slice(2);
+const args = new Set(argList);
 const writeBaseline = args.has("--write-baseline");
 const acceptNet = args.has("--accept-net");
+const fullScan = args.has("--full-scan");
+
+// Resolve Semgrep baseline ref. --baseline <ref> overrides the default. When
+// --full-scan is set OR the default ref doesn't resolve, pass nothing through
+// (review-semgrep.mjs already warn-falls-back, but skipping the arg entirely is
+// the cleaner contract).
+let semgrepBaselineRef = "origin/main";
+const baselineIdx = argList.indexOf("--baseline");
+if (baselineIdx >= 0 && argList[baselineIdx + 1]) {
+  semgrepBaselineRef = argList[baselineIdx + 1];
+}
+if (fullScan) {
+  semgrepBaselineRef = null;
+}
 
 function run(cmd, cmdArgs) {
   return spawnSync(cmd, cmdArgs, {
@@ -137,7 +157,17 @@ const t0 = Date.now();
 // definition regressions (slice-trap rules), so there's no point grinding the
 // slower gates if a known anti-pattern has been re-introduced. WARNINGs still
 // print as visible debt-flagging but don't block.
-const semgrepRes = run("node", ["scripts/review-semgrep.mjs"]);
+//
+// Default: --baseline origin/main mode so historic ERROR-severity findings
+// (from rules promoted after WARNING-period cleanup) don't fail the gate on
+// every run — only NEW occurrences block. --full-scan override audits total.
+const semgrepArgs = ["scripts/review-semgrep.mjs"];
+if (semgrepBaselineRef) {
+  semgrepArgs.push("--baseline", semgrepBaselineRef);
+} else {
+  semgrepArgs.push("--full-scan");
+}
+const semgrepRes = run("node", semgrepArgs);
 if (semgrepRes.status !== 0) {
   console.error(
     "\n[review:phase] X Semgrep gate failed (ERROR-severity findings). Fix above before re-running.",

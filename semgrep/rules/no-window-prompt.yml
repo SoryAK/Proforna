@@ -20,9 +20,9 @@ rules:
       controlled <Dialog> from @/components/ui/dialog with useState for open
       state + draft input. Pattern: worklog-editor-toolbar.tsx (Save Version)
       and worklog-history-panel.tsx (Restore confirm).
-    severity: WARNING
+    severity: ERROR
     languages: [typescript]
     metadata:
       origin: "User memory note 2026-06-09 — React 19 blocks synchronous dialogs."
       category: "react-runtime-guard"
-      debt-note: "~56 existing callsites flagged 2026-06-24 as cleanup backlog. Promote to ERROR after debt cleanup; see /memories/repo/parked-ideas.md."
+      promotion-note: "Promoted WARNING -> ERROR on 2026-06-24 (Tier B5). The ~56 historic callsites remain visible in full-scan mode (npm run review:semgrep) for review-day audits, but no longer block pre-push because review:phase defaults to --baseline origin/main. Only NEW occurrences fail the gate. See /memories/repo/parked-ideas.md Tier B4 for the organic-drain plan."

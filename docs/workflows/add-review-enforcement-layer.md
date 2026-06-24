@@ -61,6 +61,27 @@ This is the pattern used by ETRC (ADR-0049) and is the right choice for any gate
 5. `npx lefthook install` to regenerate hooks. Verify with `Get-ChildItem .git/hooks -File | Where-Object Name -notlike "*.sample"` — should now include `post-commit`.
 6. Live-test by making a real commit (any small change). The hook fires immediately; check the script's output destination (queue file, log file, etc.) to confirm the entry was written.
 
+### Promoting a Semgrep rule from WARNING to ERROR (baseline-commit mode)
+
+Use this when a rule has been ambient-flagging at WARNING for long enough that you want to block NEW regressions but the historic callsites would still flood the gate. This is the Tier B5 pattern — promote the rule without doing the full debt cleanup first.
+
+1. Confirm the rule has been WARNING long enough to have ambient awareness (typically one sprint) and that the historic callsite count is tracked in `/memories/repo/parked-ideas.md` so the drain plan is visible.
+2. Edit `semgrep/rules/<rule>.yml`:
+   - Flip `severity: WARNING` → `severity: ERROR`.
+   - Drop `metadata.debt-note` and replace with `metadata.promotion-note` describing the promotion date, the existing-callsite count, and the link back to the drain plan in `/memories/repo/parked-ideas.md`.
+3. `scripts/review-phase.mjs` already defaults the Semgrep pre-step to `--baseline origin/main`. This means after promotion:
+   - `npm run review:phase` (default, pre-push hook): only NEW occurrences vs `origin/main` block — historic callsites are invisible to the gate.
+   - `npm run review:phase -- --full-scan`: audit mode, surfaces total debt including historic. Use on review days when actively draining.
+   - `npm run review:semgrep`: direct invocation, full-scan by default. Use for ad-hoc audits.
+4. Verify the promotion is non-blocking for the current state of `main`:
+   - `npm run review:phase` → must exit 0 (no NEW findings vs origin/main).
+   - `npm run review:phase -- --full-scan` → likely non-zero (surfaces the historic debt as ERROR-severity, which is the intended audit signal).
+5. Commit the rule change + any metadata note in one diff so archaeology can trace promotion timing back to the commit.
+
+**Why this works**: Semgrep's `--baseline-commit <ref>` flag uses git diff under the hood to narrow findings to those introduced since the ref. The pre-push hook calls `review:phase` which defaults baseline to `origin/main`, so a developer pushing local commits only fails the gate if their local commits introduced NEW occurrences of the now-ERROR pattern. Historic callsites drain organically (each PR that touches a file with the old pattern gets nudged toward the canonical fix during normal review).
+
+**Failsafe**: `scripts/review-semgrep.mjs` validates the baseline ref via `git rev-parse --verify` and falls back to full-scan with a stderr warning if the ref doesn't resolve (fresh clone before `git fetch`, offline dev). This protects first-time-clone DX without weakening the gate for normal flow.
+
 ## First-Attempt Failures
 
 1. **Semgrep `tsx` is not a valid language.** Initial seed rules used `languages: [typescript, tsx]` (mirroring file-extension thinking). Semgrep rejects this with `unsupported language: tsx. supported languages are: ... typescript ...`. **Fix**: use `[typescript]` only — it covers both `.ts` and `.tsx` files. Re-validate via `--config semgrep/rules src/` direct call.
@@ -79,4 +100,4 @@ This is the pattern used by ETRC (ADR-0049) and is the right choice for any gate
 
 ## Last Updated
 
-2026-06-24 — initial recipe shipped alongside ADR-0048 (Tier A enforcement layer); post-commit hook sub-recipe added alongside ADR-0049 (ETRC rhythm).
+2026-06-24 — initial recipe shipped alongside ADR-0048 (Tier A enforcement layer); post-commit hook sub-recipe added alongside ADR-0049 (ETRC rhythm); rule-promotion sub-recipe + Semgrep `--baseline-commit` mode added (Tier B5).
