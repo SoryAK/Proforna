@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "capturedAt": "2026-06-24T10:39:31.153Z",
-  "commit": "00ba95f",
+  "capturedAt": "2026-06-24T23:10:07.834Z",
+  "commit": "66887ea",
   "notes": "Phase-end review baseline. Future phases must not regress any gate. Regenerate via: npm run review:baseline (after landing improvements).",
   "gates": {
     "tsc": {
@@ -24,6 +24,11 @@
       "skipped": 5,
       "failed": 0,
       "total": 1022
+    },
+    "coverage": {
+      "src/lib": 48.06,
+      "src/app/api": 10.59,
+      "src/data": 0
     }
   }
 }

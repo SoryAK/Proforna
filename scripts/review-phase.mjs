@@ -131,7 +131,10 @@ function captureMadge() {
 }
 
 function captureVitest() {
-  const r = run("npx", ["vitest", "run"]);
+  // --coverage activates the reporters configured in vitest.config.ts
+  // (text-summary + json-summary). The json-summary file at
+  // coverage/coverage-summary.json is then consumed by captureCoverage().
+  const r = run("npx", ["vitest", "run", "--coverage"]);
   const out = (r.stdout || "") + (r.stderr || "");
   // Match: "Tests  <chunks separated by |>  (<total>)"
   const m = out.match(/Tests\s+([^\n]+?)\s*\((\d+)\)/);
@@ -148,6 +151,55 @@ function captureVitest() {
     else if (mm[2] === "failed") failed = n;
   }
   return { passed, skipped, failed, total: Number(m[2]) };
+}
+
+// Coverage gate (B1 / parked-ideas.md). Reads coverage/coverage-summary.json
+// emitted by the vitest --coverage run above. Aggregates per-folder
+// covered/total line counts across all files keyed under each folder, then
+// computes percentage. Per-folder (weighted) rather than per-file so new
+// exploratory files don't immediately block work; per-file gating can be
+// promoted later if a real backslide happens.
+//
+// Folders gated mirror ADR-0018 TDD applyTo: src/lib, src/app/api, src/data.
+// Metric is lines.pct only — branches/functions/statements quadruple gate
+// noise without proportional signal; promote later if a regression sneaks
+// past lines.
+function captureCoverage() {
+  const summaryPath = resolve(repoRoot, "coverage", "coverage-summary.json");
+  if (!existsSync(summaryPath)) {
+    return { "src/lib": -1, "src/app/api": -1, "src/data": -1 };
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(readFileSync(summaryPath, "utf8"));
+  } catch {
+    return { "src/lib": -1, "src/app/api": -1, "src/data": -1 };
+  }
+  const folders = {
+    "src/lib": { covered: 0, total: 0 },
+    "src/app/api": { covered: 0, total: 0 },
+    "src/data": { covered: 0, total: 0 },
+  };
+  for (const [key, fileSummary] of Object.entries(parsed)) {
+    if (key === "total") continue;
+    const normalized = key.replace(/\\/g, "/");
+    let matched = null;
+    // Order matters: src/app/api must be checked BEFORE src/app would be
+    // (it isn't, but defensively check the most specific path first).
+    if (normalized.includes("/src/app/api/")) matched = "src/app/api";
+    else if (normalized.includes("/src/lib/")) matched = "src/lib";
+    else if (normalized.includes("/src/data/")) matched = "src/data";
+    if (!matched) continue;
+    const lines = fileSummary.lines;
+    if (!lines) continue;
+    folders[matched].covered += lines.covered ?? 0;
+    folders[matched].total += lines.total ?? 0;
+  }
+  const out = {};
+  for (const [folder, { covered, total }] of Object.entries(folders)) {
+    out[folder] = total > 0 ? Number(((covered / total) * 100).toFixed(2)) : 0;
+  }
+  return out;
 }
 
 console.log("[review:phase] capturing current state...");
@@ -181,6 +233,9 @@ const current = {
   knip: captureKnip(),
   madge: captureMadge(),
   vitest: captureVitest(),
+  // captureCoverage MUST run after captureVitest — vitest --coverage writes
+  // coverage/coverage-summary.json which captureCoverage then reads.
+  coverage: captureCoverage(),
 };
 
 const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
@@ -257,8 +312,32 @@ const checks = [
   { gate: "madge.circular", curr: current.madge.circular, base: b.madge.circular },
 ];
 
+// Coverage checks (B1). Inverted direction — current < baseline is a
+// regression (coverage went DOWN). Coverage regressions are hard fails:
+// they do NOT participate in --accept-net. Rationale: count-debt and test
+// coverage are not fungible. Trading -5 lint errors for -2pp coverage is a
+// bad direction trade. To accept a deliberate coverage drop, regen the
+// baseline explicitly via `npm run review:baseline`.
+//
+// Skipped when baseline lacks a coverage block (back-compat with pre-B1
+// baselines). Next `npm run review:baseline` populates it.
+const coverageChecks = [];
+if (b.coverage) {
+  for (const folder of Object.keys(current.coverage)) {
+    if (typeof b.coverage[folder] === "number") {
+      coverageChecks.push({
+        gate: `coverage.${folder}`,
+        curr: current.coverage[folder],
+        base: b.coverage[folder],
+      });
+    }
+  }
+}
+
 const regressions = checks.filter((c) => c.curr > c.base);
 const improvements = checks.filter((c) => c.curr < c.base);
+const coverageRegressions = coverageChecks.filter((c) => c.curr < c.base);
+const coverageImprovements = coverageChecks.filter((c) => c.curr > c.base);
 
 console.log(`\n=== review:phase (baseline commit: ${baseline.commit}) ===`);
 console.log("gate                       current   baseline   delta");
@@ -271,6 +350,17 @@ for (const c of checks) {
     `${marker} ${c.gate.padEnd(25)} ${String(c.curr).padStart(7)}  ${String(
       c.base,
     ).padStart(8)}   ${sign}${delta}`,
+  );
+}
+// Coverage rows — inverted: regression marker on DROP (delta < 0).
+for (const c of coverageChecks) {
+  const delta = Number((c.curr - c.base).toFixed(2));
+  const marker = delta < 0 ? "X" : delta > 0 ? "v" : " ";
+  const sign = delta > 0 ? "+" : "";
+  console.log(
+    `${marker} ${c.gate.padEnd(25)} ${String(c.curr).padStart(7)}  ${String(
+      c.base,
+    ).padStart(8)}   ${sign}${delta}%`,
   );
 }
 console.log(
@@ -286,10 +376,11 @@ console.log(
   `\ntotal across all gates:    current=${currTotal}  baseline=${baseTotal}  net=${netSign}${netDelta}`,
 );
 
-if (regressions.length === 0) {
-  if (improvements.length > 0) {
+if (regressions.length === 0 && coverageRegressions.length === 0) {
+  const allImprovements = improvements.length + coverageImprovements.length;
+  if (allImprovements > 0) {
     console.log(
-      `\nv no regressions (${improvements.length} improvement${improvements.length === 1 ? "" : "s"})`,
+      `\nv no regressions (${allImprovements} improvement${allImprovements === 1 ? "" : "s"})`,
     );
     console.log(
       "  Consider 'npm run review:baseline' to lock in the new lower bound.",
@@ -298,6 +389,18 @@ if (regressions.length === 0) {
     console.log("\nv no regressions");
   }
   process.exit(0);
+}
+
+// Coverage regressions are HARD FAILS — they bypass --accept-net (see
+// rationale on coverageChecks above).
+if (coverageRegressions.length > 0) {
+  console.log(
+    `\nX ${coverageRegressions.length} coverage regression(s) detected (hard fail — not eligible for --accept-net)`,
+  );
+  console.log(
+    "  Either restore the lost coverage or, if the drop is intentional, regen baseline via 'npm run review:baseline'.",
+  );
+  process.exit(1);
 }
 
 if (acceptNet && netDelta <= 0) {
