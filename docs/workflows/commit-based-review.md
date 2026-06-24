@@ -144,4 +144,4 @@ None yet — recipe authored 2026-06-24; populate after first pilot.
 - `docs/workflows/setup-phase-end-review-gate.md` — Column 1 (deterministic OSS regression gate).
 - `.github/instructions/persistence.instructions.md` — Handoff Architect at Phase 4 is the natural session-wrap call-site for triggering commit-based review on a session's commit range.
 - `.github/instructions/logic.instructions.md` — The Griller / Architectural Reviewer skills produce the inputs for sections 4 and 5.
-- `docs/adr/0047-three-column-review-pipeline.md` (pending — does not exist yet) — promote this recipe and the two sibling recipes into one umbrella ADR when the pipeline stabilises.
+- [`docs/adr/0047-three-column-review-pipeline.md`](../adr/0047-three-column-review-pipeline.md) — the umbrella ADR establishing the three-column review pipeline. This recipe is Column 3.
