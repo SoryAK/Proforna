@@ -50,6 +50,17 @@
 4. Validate the YAML schema by committing it — GitHub validates on push and surfaces errors in the repo Insights → Dependency Graph → Dependabot tab.
 5. Activation requires a push to the remote (Dependabot only sees committed config). Pushing the config is the activation event.
 
+### Adding a post-commit hook (non-blocking advisory layer)
+
+This is the pattern used by ETRC (ADR-0049) and is the right choice for any gate that should *observe* every commit without ever *blocking* one. Pre-push gates are for must-pass; post-commit hooks are for advisory data collection.
+
+1. Edit `lefthook.yml`. Add a top-level `post-commit:` stage with a single job. The job entry point script is hard-contracted to swallow all errors and exit 0 — see `scripts/review-log.mjs` as the canonical reference shape.
+2. **Do NOT use lefthook's `{ref}` template** — it only resolves for `pre-push` and `pre-receive` hooks where ref info comes via stdin. For `post-commit`, your script should default to `HEAD` (which IS the just-landed commit in post-commit context).
+3. Wrap the entire script body in try/catch with a final `process.exit(0)` no matter what. The whole point of post-commit is *non-blocking*; a crash here is the worst possible behaviour because it kills the commit.
+4. For async work (LLM calls, network I/O), spawn detached: `spawn('node', [...], { detached: true, stdio: 'ignore' }).unref()`. The post-commit hook should return in well under 1s; anything longer should be fire-and-forget background work.
+5. `npx lefthook install` to regenerate hooks. Verify with `Get-ChildItem .git/hooks -File | Where-Object Name -notlike "*.sample"` — should now include `post-commit`.
+6. Live-test by making a real commit (any small change). The hook fires immediately; check the script's output destination (queue file, log file, etc.) to confirm the entry was written.
+
 ## First-Attempt Failures
 
 1. **Semgrep `tsx` is not a valid language.** Initial seed rules used `languages: [typescript, tsx]` (mirroring file-extension thinking). Semgrep rejects this with `unsupported language: tsx. supported languages are: ... typescript ...`. **Fix**: use `[typescript]` only — it covers both `.ts` and `.tsx` files. Re-validate via `--config semgrep/rules src/` direct call.
@@ -68,4 +79,4 @@
 
 ## Last Updated
 
-2026-06-24 — initial recipe shipped alongside ADR-0048 (Tier A enforcement layer).
+2026-06-24 — initial recipe shipped alongside ADR-0048 (Tier A enforcement layer); post-commit hook sub-recipe added alongside ADR-0049 (ETRC rhythm).
