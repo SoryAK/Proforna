@@ -11,7 +11,7 @@ This recipe applies when adding a **new entity type** to the worklog `@`-mention
 
 - You want a new `@x:` chip type inside `WorklogEditor` (Tiptap 3 + `@tiptap/suggestion`).
 - The new type has a stable owner-scoped table in Prisma (or a virtual identity, like distinct workHistory.company values).
-- You're OK with **plain-text matching** at the picker — no fuzzy ranking, no fulltext.
+- You're OK with the picker's lightweight SQL relevance tiers (**exact > prefix > substring** on the canonical display field) rather than fuzzy-search infrastructure or fulltext.
 - The mention should both insert a chip AND project to a structured column (so backlinks / "find notes that mention X" stay cheap).
 
 If you only need the chip for display (no column projection, no backlinks), you can stop after step 4.
@@ -49,7 +49,8 @@ If you only need the chip for display (no column projection, no backlinks), you 
 6. **Extend `mention-search/route.ts`.**
    - Add the new type to `EntityType` union and `VALID_TYPES` set.
    - Add a `findById` case (existence check used by the orphan-detection NodeView).
-   - Add a `searchEntities` case (used by the picker). For search, prefer the cheapest plain-text column that already has a btree-friendly path — don't reach for tsvector unless the latency forces it.
+   - Add a `searchEntities` case (used by the picker). For search, keep the SQL ranking contract: **tier-0 exact, tier-1 prefix, tier-2 substring**.
+   - Rank tier-0/tier-1 on the canonical display field only (`name` / `title` / `company`). If you widen the WHERE to secondary fields (`role`, `customerName`, `content`), those should only earn tier-2 so they never outrank a canonical match.
    - **Kind-discriminator filter** (ADR-0029): if the new type shares a Prisma model with an existing type via a discriminator column (e.g. `WorkLog.kind`), the new search clause MUST include `kind: '<new>'` AND the EXISTING type's clause must be **retroactively scoped** to its kind (`kind: '<old>'`). Without this, picker rows leak across kinds and `findById` resolves an `@n:` note id under `@r:` (or vice-versa) on existence checks, breaking orphan detection. Only the where clauses change — no schema, no recipe deviation.
    - **Use the entity's primary display field for the `label`.** Never derive a chip label from a secondary projection (e.g. `contentJson` first line, denormalized cache, ID slug) when the canonical record has a `name`/`title`/`company` column — chips become wrong as soon as the canonical field diverges. Extract a tiny `derive<Type>Label({ canonical, ...fallbacks, date })` helper into `src/lib/<domain>/derive-<type>-label.ts` once two call sites exist (mention-search × 2 + backlinks = rule-of-three trigger). Truncate to 80 chars for chip width.
    - **Search clause should match the same display field**: if `label` comes from `title`, the picker `where` MUST search `title` too (an `OR: [{ title: contains }, { content: contains }]` shape works for worklog notes). Otherwise users will type the visible chip text and get zero results.
@@ -76,6 +77,7 @@ If you only need the chip for display (no column projection, no backlinks), you 
 
 - **Inline-atom walker miss**: When extending `extractMention*`, remember `mention` lives inside `paragraph.content`, not at the doc root. The recursive helper handles this; ad-hoc walkers don't.
 - **Wrong `label` source**: Easiest miss — forgetting that the canonical record has a primary display field (e.g. `WorkLog.title`) and instead deriving the chip label from `contentJson` first-line. Symptom: picker rows AND saved chips display body text instead of the title. Always check the Prisma model for a `name`/`title`/`company` column FIRST, then fall back. If a session ships with this bug, write a one-time migration using the `rewriteWorklogMentionLabels`-style pure walker (see `scripts/migrations/2026-06-09-fix-worklog-mention-labels.ts`) — idempotent and safe to re-run.
+- **Ranking drift after WHERE widening**: When you add secondary match fields (e.g. `Contact.role`, `JobAsset.customerName`), do NOT promote them into tier-0/tier-1 ranking. Keep rank anchored to the canonical display field or the picker will surface surprising top rows where the visible label did not match what the user typed.
 - **Suggestion option shape**: `buildMentionSuggestion(currentLogId)` MUST be a factory taking the option, not a closure over module state. The previous shape (`mentionSuggestion` as a const) made it impossible to pass per-instance config.
 - **Empty `q` + non-null `excludeId`**: A picker that opens with no typed query still hits the API. Make sure the `id: { not: excludeId }` filter is applied even when `term === ""`.
 - **Skip-if-equal must compare AFTER unioning**: For additive types, compare the merged set against the stored set, NOT the raw mention extraction. Otherwise small inserts that don't change the set still trigger writes.
