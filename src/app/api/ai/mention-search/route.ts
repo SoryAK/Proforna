@@ -10,21 +10,21 @@
  * Request:  `{ type: "job"|"skill"|"worklog"|"contact", q?: string, limit?: number }`
  * Response: `{ id, type, label, secondary, score }[]` (up to `limit`, default 8, max 20)
  *
- * Ranking: count DESC, lastMentionedAt DESC, label ASC (alphabetical) for
- * tie-break. Default-zero ranks fall through to alphabetical — safe when
- * the EntityAIMentionCount table is empty.
+ * Ranking: SQL-side `LEFT JOIN` against EntityAIMentionCount with
+ * `ORDER BY count DESC, lastMentionedAt DESC, label ASC`.
+ * Default-zero ranks fall through to alphabetical — safe when the
+ * EntityAIMentionCount table is empty.
  *
  * Owner-scoping (ADR-0028 pattern): every per-type query carries
  * `where: { userId }`. Cross-user entity IDs simply don't appear in the
  * result set; the route never reveals them.
  *
- * NOTE: v1 fetches alphabetically-first-N from the source table and
- * reorders in memory by rank. A high-rank entity that sorts alphabetically
- * outside the first-N is missed. This is acceptable for prefix searches
- * at v1 scales and can be improved post-Phase-D.
+ * This avoids the old v1 limitation where an alphabetical pre-cut could
+ * exclude high-rank entities before ranking was applied.
  */
 
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getUserId } from "@/lib/auth-utils";
 
@@ -42,16 +42,12 @@ interface MentionResult {
   score: number;
 }
 
-interface Entity {
+type RankedRow = {
   id: string;
   label: string;
   secondary: string;
-}
-
-interface RankRow {
-  count: number;
-  lastMentionedAt: Date;
-}
+  score: number;
+};
 
 export async function POST(request: Request) {
   const userId = await getUserId();
@@ -77,112 +73,116 @@ export async function POST(request: Request) {
     MAX_LIMIT,
   );
 
-  // 1) Source-table query — owner-scoped, alphabetically ordered so the
-  //    fall-through tie-break has a stable basis even before we apply the
-  //    mention-count rank in memory.
-  const entities = await fetchEntities(type, q, userId, limit);
-  if (entities.length === 0) return NextResponse.json([]);
-
-  // 2) Mention-count rows for ranking.
-  const ids = entities.map((e) => e.id);
-  const countRows = await prisma.entityAIMentionCount.findMany({
-    where: { userId, entityType: type, entityId: { in: ids } },
-    select: { entityId: true, count: true, lastMentionedAt: true },
-  });
-  const rankMap = new Map<string, RankRow>();
-  for (const row of countRows) {
-    rankMap.set(row.entityId, {
-      count: row.count,
-      lastMentionedAt: row.lastMentionedAt,
-    });
-  }
-
-  // 3) Compose the ranked list: count DESC, lastMentionedAt DESC, label ASC.
-  const ZERO_RANK: RankRow = { count: 0, lastMentionedAt: new Date(0) };
-  const sorted = entities
-    .map((e) => ({ ...e, rank: rankMap.get(e.id) ?? ZERO_RANK }))
-    .sort((a, b) => {
-      if (b.rank.count !== a.rank.count) return b.rank.count - a.rank.count;
-      const lt =
-        b.rank.lastMentionedAt.getTime() - a.rank.lastMentionedAt.getTime();
-      if (lt !== 0) return lt;
-      return a.label.localeCompare(b.label);
-    });
-
-  const results: MentionResult[] = sorted.map((s) => ({
-    id: s.id,
+  // SQL-side rank join (post-v1): limit is applied AFTER count/recency rank,
+  // so high-rank entities are no longer missed by an alphabetical pre-cut.
+  const rows = await fetchRankedEntities(type, q, userId, limit);
+  const results: MentionResult[] = rows.map((row) => ({
+    id: row.id,
     type,
-    label: s.label,
-    secondary: s.secondary,
-    score: s.rank.count,
+    label: row.label,
+    secondary: row.secondary,
+    score: row.score,
   }));
 
   return NextResponse.json(results);
 }
 
-// ── Per-type fetchers ────────────────────────────────────────────────────
+// ── Per-type ranked SQL queries ──────────────────────────────────────────
 
-async function fetchEntities(
+async function fetchRankedEntities(
   type: MentionType,
   q: string,
   userId: string,
   take: number,
-): Promise<Entity[]> {
-  const contains = { contains: q, mode: "insensitive" as const };
+): Promise<RankedRow[]> {
+  const term = q.trim();
+  const wildcard = `%${term}%`;
+
   switch (type) {
     case "job": {
-      const rows = await prisma.workHistory.findMany({
-        where: q ? { userId, company: contains } : { userId },
-        select: { id: true, company: true, title: true },
-        orderBy: { company: "asc" },
-        take,
-      });
-      return rows.map((r) => ({
-        id: r.id,
-        label: r.company,
-        secondary: r.title ?? "",
-      }));
+      const whereFilter = term
+        ? Prisma.sql`AND lower(w.company) LIKE lower(${wildcard})`
+        : Prisma.empty;
+      return prisma.$queryRaw<RankedRow[]>(Prisma.sql`
+        SELECT
+          w.id,
+          w.company AS label,
+          COALESCE(w.title, '') AS secondary,
+          COALESCE(c.count, 0)::int AS score
+        FROM "WorkHistory" w
+        LEFT JOIN "EntityAIMentionCount" c
+          ON c."userId" = ${userId}
+          AND c."entityType" = 'job'
+          AND c."entityId" = w.id
+        WHERE w."userId" = ${userId}
+        ${whereFilter}
+        ORDER BY COALESCE(c.count, 0) DESC, c."lastMentionedAt" DESC NULLS LAST, w.company ASC
+        LIMIT ${take}
+      `);
     }
     case "skill": {
-      const rows = await prisma.skillNode.findMany({
-        where: q ? { userId, name: contains } : { userId },
-        select: { id: true, name: true, type: true },
-        orderBy: { name: "asc" },
-        take,
-      });
-      return rows.map((r) => ({
-        id: r.id,
-        label: r.name,
-        secondary: r.type,
-      }));
+      const whereFilter = term
+        ? Prisma.sql`AND lower(s.name) LIKE lower(${wildcard})`
+        : Prisma.empty;
+      return prisma.$queryRaw<RankedRow[]>(Prisma.sql`
+        SELECT
+          s.id,
+          s.name AS label,
+          COALESCE(s.type, '') AS secondary,
+          COALESCE(c.count, 0)::int AS score
+        FROM "SkillNode" s
+        LEFT JOIN "EntityAIMentionCount" c
+          ON c."userId" = ${userId}
+          AND c."entityType" = 'skill'
+          AND c."entityId" = s.id
+        WHERE s."userId" = ${userId}
+        ${whereFilter}
+        ORDER BY COALESCE(c.count, 0) DESC, c."lastMentionedAt" DESC NULLS LAST, s.name ASC
+        LIMIT ${take}
+      `);
     }
     case "worklog": {
-      const rows = await prisma.workLog.findMany({
-        where: q
-          ? { userId, kind: "note", title: contains }
-          : { userId, kind: "note" },
-        select: { id: true, title: true, date: true },
-        orderBy: { title: "asc" },
-        take,
-      });
-      return rows.map((r) => ({
-        id: r.id,
-        label: r.title,
-        secondary: r.date.toISOString().slice(0, 10),
-      }));
+      const whereFilter = term
+        ? Prisma.sql`AND lower(w.title) LIKE lower(${wildcard})`
+        : Prisma.empty;
+      return prisma.$queryRaw<RankedRow[]>(Prisma.sql`
+        SELECT
+          w.id,
+          COALESCE(w.title, '') AS label,
+          to_char(w.date, 'YYYY-MM-DD') AS secondary,
+          COALESCE(c.count, 0)::int AS score
+        FROM "WorkLog" w
+        LEFT JOIN "EntityAIMentionCount" c
+          ON c."userId" = ${userId}
+          AND c."entityType" = 'worklog'
+          AND c."entityId" = w.id
+        WHERE w."userId" = ${userId}
+          AND w.kind = 'note'
+        ${whereFilter}
+        ORDER BY COALESCE(c.count, 0) DESC, c."lastMentionedAt" DESC NULLS LAST, w.title ASC
+        LIMIT ${take}
+      `);
     }
     case "contact": {
-      const rows = await prisma.contact.findMany({
-        where: q ? { userId, name: contains } : { userId },
-        select: { id: true, name: true, role: true, company: true },
-        orderBy: { name: "asc" },
-        take,
-      });
-      return rows.map((r) => ({
-        id: r.id,
-        label: r.name,
-        secondary: r.role ?? r.company ?? "",
-      }));
+      const whereFilter = term
+        ? Prisma.sql`AND lower(cn.name) LIKE lower(${wildcard})`
+        : Prisma.empty;
+      return prisma.$queryRaw<RankedRow[]>(Prisma.sql`
+        SELECT
+          cn.id,
+          cn.name AS label,
+          COALESCE(cn.role, cn.company, '') AS secondary,
+          COALESCE(c.count, 0)::int AS score
+        FROM "Contact" cn
+        LEFT JOIN "EntityAIMentionCount" c
+          ON c."userId" = ${userId}
+          AND c."entityType" = 'contact'
+          AND c."entityId" = cn.id
+        WHERE cn."userId" = ${userId}
+        ${whereFilter}
+        ORDER BY COALESCE(c.count, 0) DESC, c."lastMentionedAt" DESC NULLS LAST, cn.name ASC
+        LIMIT ${take}
+      `);
     }
   }
 }

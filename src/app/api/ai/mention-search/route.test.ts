@@ -1,19 +1,23 @@
 /**
  * Hermetic coverage for the AI mention-search route introduced by ADR-0046
- * Phase C.
+ * Phase C (now SQL-ranked, 2026-06-24).
  *
  * Scope:
  *  - 401 when unauthenticated.
  *  - 400 for missing or invalid `type`.
  *  - Returns `{ id, type, label, secondary, score }[]` for each entity type.
- *  - Owner-scoped on every type (the `where: { userId }` filter is the
- *    contract — verified by mock call arguments).
- *  - Ranking honors `EntityAIMentionCount` rows: count DESC, then
- *    lastMentionedAt DESC, then alphabetical fall-through.
- *  - `limit` defaults to 8 and is capped at 20.
+ *  - Owner-scoped on every type: the SQL fragment includes `userId` as a
+ *    bound parameter on every per-type query (verified by inspecting the
+ *    captured `Prisma.sql` template values).
+ *  - Ranking honors `EntityAIMentionCount` rows via a SQL `LEFT JOIN` —
+ *    `ORDER BY count DESC, lastMentionedAt DESC, label ASC`. Result-rank
+ *    comes from the row's own `score` column.
+ *  - `limit` defaults to 8 and is capped at 20 (asserted via the LIMIT
+ *    parameter in the bound query).
  *
  * Intentionally NOT covered here:
- *  - Underlying Prisma query shape beyond the owner-scope filter.
+ *  - Underlying SQL string equivalence (kept implementation-leaky on
+ *    purpose — assertions target structural invariants instead).
  *  - Migration / DB state — that's a separate concern.
  *  - Pagination beyond `limit` (not in the v1 ADR contract).
  */
@@ -26,11 +30,7 @@ vi.mock("@/lib/auth-utils", () => ({
 // `vi.mock` factories hoist; the prisma mock must live in `vi.hoisted()`
 // so it's reachable when the route file is imported.
 const prismaMock = vi.hoisted(() => ({
-  workHistory: { findMany: vi.fn() },
-  skillNode: { findMany: vi.fn() },
-  workLog: { findMany: vi.fn() },
-  contact: { findMany: vi.fn() },
-  entityAIMentionCount: { findMany: vi.fn() },
+  $queryRaw: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -48,6 +48,24 @@ interface MentionResult {
   score: number;
 }
 
+/**
+ * Capture the last `Prisma.sql` template values passed to `$queryRaw`.
+ * Prisma serialises the tagged template into a `Sql` instance whose
+ * runtime shape includes a `values` array of bound parameters and a
+ * `strings` array of the literal SQL chunks between them.
+ */
+function lastQueryRawValues(): unknown[] {
+  const call = prismaMock.$queryRaw.mock.calls.at(-1) as unknown[] | undefined;
+  const sql = call?.[0] as { values?: unknown[] } | undefined;
+  return sql?.values ?? [];
+}
+
+function lastQueryRawSql(): string {
+  const call = prismaMock.$queryRaw.mock.calls.at(-1) as unknown[] | undefined;
+  const sql = call?.[0] as { strings?: readonly string[] } | undefined;
+  return (sql?.strings ?? []).join(" ");
+}
+
 function makeRequest(body: unknown): Request {
   return new Request("http://localhost/api/ai/mention-search", {
     method: "POST",
@@ -59,11 +77,7 @@ function makeRequest(body: unknown): Request {
 beforeEach(() => {
   vi.clearAllMocks();
   (getUserId as ReturnType<typeof vi.fn>).mockResolvedValue("test-user-id");
-  prismaMock.workHistory.findMany.mockResolvedValue([]);
-  prismaMock.skillNode.findMany.mockResolvedValue([]);
-  prismaMock.workLog.findMany.mockResolvedValue([]);
-  prismaMock.contact.findMany.mockResolvedValue([]);
-  prismaMock.entityAIMentionCount.findMany.mockResolvedValue([]);
+  prismaMock.$queryRaw.mockResolvedValue([]);
 });
 
 describe("POST /api/ai/mention-search — ADR-0046 Phase C", () => {
@@ -88,8 +102,13 @@ describe("POST /api/ai/mention-search — ADR-0046 Phase C", () => {
   // ── Per-type search shape ────────────────────────────────────────────────
 
   it("returns labeled job rows (WorkHistory) with type=`job`", async () => {
-    prismaMock.workHistory.findMany.mockResolvedValueOnce([
-      { id: "wh1", company: "Acme Corp", title: "Senior Engineer" },
+    prismaMock.$queryRaw.mockResolvedValueOnce([
+      {
+        id: "wh1",
+        label: "Acme Corp",
+        secondary: "Senior Engineer",
+        score: 0,
+      },
     ]);
     const res = await POST(makeRequest({ type: "job", q: "acme" }));
     const body = (await res.json()) as MentionResult[];
@@ -100,11 +119,12 @@ describe("POST /api/ai/mention-search — ADR-0046 Phase C", () => {
       label: "Acme Corp",
       secondary: "Senior Engineer",
     });
+    expect(lastQueryRawSql()).toMatch(/FROM "WorkHistory"/);
   });
 
   it("returns labeled skill rows (SkillNode) with type=`skill`", async () => {
-    prismaMock.skillNode.findMany.mockResolvedValueOnce([
-      { id: "sk1", name: "React", type: "technical" },
+    prismaMock.$queryRaw.mockResolvedValueOnce([
+      { id: "sk1", label: "React", secondary: "technical", score: 0 },
     ]);
     const res = await POST(makeRequest({ type: "skill", q: "rea" }));
     const body = (await res.json()) as MentionResult[];
@@ -114,12 +134,17 @@ describe("POST /api/ai/mention-search — ADR-0046 Phase C", () => {
       label: "React",
       secondary: "technical",
     });
+    expect(lastQueryRawSql()).toMatch(/FROM "SkillNode"/);
   });
 
   it("returns labeled worklog rows (WorkLog kind=note) with type=`worklog`", async () => {
-    const date = new Date("2026-06-20T00:00:00Z");
-    prismaMock.workLog.findMany.mockResolvedValueOnce([
-      { id: "wl1", title: "Quarterly Review Prep", date, contentJson: null },
+    prismaMock.$queryRaw.mockResolvedValueOnce([
+      {
+        id: "wl1",
+        label: "Quarterly Review Prep",
+        secondary: "2026-06-20",
+        score: 0,
+      },
     ]);
     const res = await POST(makeRequest({ type: "worklog", q: "quarterly" }));
     const body = (await res.json()) as MentionResult[];
@@ -130,11 +155,15 @@ describe("POST /api/ai/mention-search — ADR-0046 Phase C", () => {
     });
     // worklog secondary carries the date (ISO yyyy-mm-dd or similar)
     expect(body[0].secondary).toMatch(/2026-06-20/);
+    const sql = lastQueryRawSql();
+    expect(sql).toMatch(/FROM "WorkLog"/);
+    // Kind discriminator must be wired so procedures don't leak in.
+    expect(sql).toMatch(/kind = 'note'/);
   });
 
   it("returns labeled contact rows (Contact) with type=`contact`", async () => {
-    prismaMock.contact.findMany.mockResolvedValueOnce([
-      { id: "c1", name: "Jane Smith", role: "Recruiter", company: "Acme" },
+    prismaMock.$queryRaw.mockResolvedValueOnce([
+      { id: "c1", label: "Jane Smith", secondary: "Recruiter", score: 0 },
     ]);
     const res = await POST(makeRequest({ type: "contact", q: "jane" }));
     const body = (await res.json()) as MentionResult[];
@@ -145,50 +174,28 @@ describe("POST /api/ai/mention-search — ADR-0046 Phase C", () => {
     });
     // Either role or company is acceptable as secondary — assert non-empty.
     expect(body[0].secondary.length).toBeGreaterThan(0);
+    expect(lastQueryRawSql()).toMatch(/FROM "Contact"/);
   });
 
   // ── Owner-scoping (ADR-0028 pattern) ─────────────────────────────────────
 
-  it("owner-scopes every per-type query with `where: { userId }`", async () => {
+  it("owner-scopes every per-type query by binding userId as a SQL parameter", async () => {
     for (const type of ["job", "skill", "worklog", "contact"] as const) {
+      prismaMock.$queryRaw.mockResolvedValueOnce([]);
       await POST(makeRequest({ type, q: "" }));
-    }
-    const tablesProbed = [
-      prismaMock.workHistory.findMany,
-      prismaMock.skillNode.findMany,
-      prismaMock.workLog.findMany,
-      prismaMock.contact.findMany,
-    ];
-    for (const tbl of tablesProbed) {
-      expect(tbl).toHaveBeenCalled();
-      const where = (tbl.mock.calls[0]?.[0] as { where?: { userId?: string } })
-        ?.where;
-      expect(where?.userId).toBe("test-user-id");
+      const values = lastQueryRawValues();
+      // userId appears as a bound parameter (twice: once in the LEFT JOIN's
+      // count-table scope, once in the source-table WHERE clause).
+      expect(values).toContain("test-user-id");
     }
   });
 
-  // ── Ranking: EntityAIMentionCount count DESC, lastMentionedAt DESC, alpha ─
+  // ── Ranking: SQL ORDER BY count DESC, lastMentionedAt DESC, label ASC ───
 
-  it("ranks by EntityAIMentionCount count DESC when rows exist", async () => {
-    prismaMock.skillNode.findMany.mockResolvedValueOnce([
-      { id: "sk-low", name: "Alpha", type: "technical" },
-      { id: "sk-high", name: "Beta", type: "technical" },
-    ]);
-    prismaMock.entityAIMentionCount.findMany.mockResolvedValueOnce([
-      {
-        userId: "test-user-id",
-        entityType: "skill",
-        entityId: "sk-high",
-        count: 5,
-        lastMentionedAt: new Date("2026-06-21"),
-      },
-      {
-        userId: "test-user-id",
-        entityType: "skill",
-        entityId: "sk-low",
-        count: 1,
-        lastMentionedAt: new Date("2026-06-20"),
-      },
+  it("ranks by SQL-side count DESC when the rank join returns counts", async () => {
+    prismaMock.$queryRaw.mockResolvedValueOnce([
+      { id: "sk-high", label: "Beta", secondary: "technical", score: 5 },
+      { id: "sk-low", label: "Alpha", secondary: "technical", score: 1 },
     ]);
     const res = await POST(makeRequest({ type: "skill", q: "" }));
     const body = (await res.json()) as MentionResult[];
@@ -198,33 +205,58 @@ describe("POST /api/ai/mention-search — ADR-0046 Phase C", () => {
   });
 
   it("falls through to alphabetical when no mention-count rows exist", async () => {
-    prismaMock.skillNode.findMany.mockResolvedValueOnce([
-      { id: "sk-c", name: "Charlie", type: "technical" },
-      { id: "sk-a", name: "Alpha", type: "technical" },
-      { id: "sk-b", name: "Bravo", type: "technical" },
+    // SQL ORDER BY count DESC, lastMentionedAt DESC, label ASC handles this
+    // server-side; the route surfaces whatever the DB returns. Postgres mock
+    // here returns the rows already sorted by the SQL contract — the route
+    // must NOT reorder them in JS.
+    prismaMock.$queryRaw.mockResolvedValueOnce([
+      { id: "sk-a", label: "Alpha", secondary: "technical", score: 0 },
+      { id: "sk-b", label: "Bravo", secondary: "technical", score: 0 },
+      { id: "sk-c", label: "Charlie", secondary: "technical", score: 0 },
     ]);
-    // entityAIMentionCount.findMany already mocked to []
     const res = await POST(makeRequest({ type: "skill", q: "" }));
     const body = (await res.json()) as MentionResult[];
     expect(body.map((r) => r.label)).toEqual(["Alpha", "Bravo", "Charlie"]);
     expect(body.every((r) => r.score === 0)).toBe(true);
   });
 
-  // ── Limit handling ──────────────────────────────────────────────────────
+  it("orders SQL by count DESC, lastMentionedAt DESC, then alphabetical", async () => {
+    prismaMock.$queryRaw.mockResolvedValueOnce([]);
+    await POST(makeRequest({ type: "skill", q: "" }));
+    const sql = lastQueryRawSql();
+    // Single ORDER BY clause; three sort keys in the documented order.
+    expect(sql).toMatch(/ORDER BY COALESCE\(c\.count, 0\) DESC/);
+    expect(sql).toMatch(/c\."lastMentionedAt" DESC/);
+    // Final tie-break is on the canonical display column (label) ASC.
+    expect(sql).toMatch(/ASC\s+LIMIT/);
+  });
+
+  // ── Limit handling (bound as a SQL parameter) ───────────────────────────
 
   it("defaults limit to 8 when none provided", async () => {
+    prismaMock.$queryRaw.mockResolvedValueOnce([]);
     await POST(makeRequest({ type: "skill", q: "" }));
-    const args = prismaMock.skillNode.findMany.mock.calls[0]?.[0] as
-      | { take?: number }
-      | undefined;
-    expect(args?.take).toBeGreaterThanOrEqual(8);
+    const values = lastQueryRawValues();
+    // limit is the last bound parameter (`LIMIT ${take}`).
+    expect(values.at(-1)).toBe(8);
   });
 
   it("caps limit at 20 when client requests more", async () => {
+    prismaMock.$queryRaw.mockResolvedValueOnce([]);
     await POST(makeRequest({ type: "skill", q: "", limit: 1000 }));
-    const args = prismaMock.skillNode.findMany.mock.calls[0]?.[0] as
-      | { take?: number }
-      | undefined;
-    expect(args?.take).toBeLessThanOrEqual(20);
+    const values = lastQueryRawValues();
+    expect(values.at(-1)).toBe(20);
+  });
+
+  // ── Search-term binding (injection safety) ──────────────────────────────
+
+  it("binds the search term as a wildcard SQL parameter (no string interpolation)", async () => {
+    prismaMock.$queryRaw.mockResolvedValueOnce([]);
+    await POST(makeRequest({ type: "skill", q: "react' OR 1=1 --" }));
+    const values = lastQueryRawValues();
+    expect(values).toContain("%react' OR 1=1 --%");
+    // The literal user input must NOT appear unwrapped in the SQL string —
+    // it always rides as a bound parameter.
+    expect(lastQueryRawSql()).not.toContain("react' OR 1=1");
   });
 });

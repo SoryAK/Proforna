@@ -71,7 +71,7 @@
       "knownTraps": [
         "Four mention types: `job` (WorkHistory), `skill` (SkillNode), `worklog` (WorkLog with kind='note'), `contact` (Contact). KEEP IN SYNC with the route validator's `VALID_TYPES` array — silently-dropped types are a real failure mode.",
         "Orphan detection runs on every input change: a `MentionRef` whose `anchor` substring no longer appears in the textarea is dropped. Partial-label editing IS an orphan (anchor is the exact `@Label` literal).",
-        "Mention-search ranking is v1: fetches alphabetically-first-N from source table, reorders in memory by EntityAIMentionCount. A high-rank entity that sorts alphabetically outside the first-N is MISSED. Acceptable at v1 scales — fix is a SQL-side rank join.",
+        "Mention-search ranking (patched 2026-06-24): SQL-side `LEFT JOIN EntityAIMentionCount` with `ORDER BY count DESC, lastMentionedAt DESC NULLS LAST, label ASC, LIMIT ${take}`. Limit is applied AFTER the rank, so high-rank entities can no longer be missed by an alphabetical pre-cut. All search inputs ride as bound `Prisma.sql` parameters (no string interpolation — injection-safe).",
         "Same backend is reused by the D.3 action picker (`AIChatActionPicker`) for the needs-picker fallback — DON'T fork the search route; extend `VALID_TYPES` instead if a new entity class is needed."
       ]
     },
