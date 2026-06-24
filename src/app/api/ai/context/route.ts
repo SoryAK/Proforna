@@ -64,9 +64,10 @@ export async function GET(request: Request) {
     urlPosition,
     urlWorklog,
   ] = await Promise.all([
-    prisma.userProfile.findFirst(),
-    prisma.workHistory.findFirst({ where: { isActive: true } }),
+    prisma.userProfile.findFirst({ where: { userId } }),
+    prisma.workHistory.findFirst({ where: { userId, isActive: true } }),
     prisma.jobApplication.findMany({
+      where: { userId },
       orderBy: { updatedAt: "desc" },
       take: 20,
       select: {
@@ -76,14 +77,14 @@ export async function GET(request: Request) {
         appliedDate: true,
       },
     }),
-    prisma.skill.findMany({ take: 30, orderBy: { proficiency: "desc" } }),
+    prisma.skill.findMany({ where: { userId }, take: 30, orderBy: { proficiency: "desc" } }),
     prisma.careerGoal.findMany({
-      where: { status: { not: "completed" } },
+      where: { userId, status: { not: "completed" } },
       take: 10,
     }),
-    prisma.certification.findMany({ take: 10 }),
+    prisma.certification.findMany({ where: { userId }, take: 10 }),
     prisma.interview.findMany({
-      where: { scheduledAt: { gte: new Date() } },
+      where: { userId, scheduledAt: { gte: new Date() } },
       take: 5,
       include: { jobApplication: { select: { company: true, role: true } } },
     }),
@@ -94,6 +95,7 @@ export async function GET(request: Request) {
     // below trumps this when the user is actually on a worklog editor page.
     prisma.workLog.findFirst({
       where: {
+        userId,
         updatedAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
         archivedAt: null,
       },

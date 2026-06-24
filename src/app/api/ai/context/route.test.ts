@@ -203,6 +203,32 @@ describe("GET /api/ai/context — slice shape (ADR-0046 Phase A)", () => {
     const res = await GET(makeRequest());
     expect(res.status).toBe(401);
   });
+
+  it("scopes the recency heuristic WorkHistory query by authenticated userId", async () => {
+    await GET(makeRequest());
+
+    expect(prismaMock.workHistory.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          userId: "test-user-id",
+          isActive: true,
+        }),
+      }),
+    );
+  });
+
+  it("scopes the recency heuristic WorkLog query by authenticated userId", async () => {
+    await GET(makeRequest());
+
+    expect(prismaMock.workLog.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          userId: "test-user-id",
+          archivedAt: null,
+        }),
+      }),
+    );
+  });
 });
 
 interface AmbientShape {
