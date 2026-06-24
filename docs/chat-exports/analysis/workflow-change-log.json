@@ -320,6 +320,42 @@
         "source": "scripts/review-phase.mjs; docs/review-baseline.json; docs/adr/0047-three-column-review-pipeline.md; docs/workflows/setup-phase-end-review-gate.md",
         "commit": "4d5d08d",
         "triggerSession": "77e25d9d-ca47-4795-b5f4-d8921afd0593"
+      },
+      {
+        "id": "infra:lefthook-pre-push-hook",
+        "shippedAt": "2026-06-24T22:00:00Z",
+        "name": "lefthook pre-push hook — review:phase auto-enforcement (Tier A1)",
+        "description": "lefthook@2.1.9 installed as devDep; lefthook.yml at repo root configures a pre-push stage that runs `npm run review:phase`. Closes the 'forgot to test before pushing' failure mode — ETC discipline previously depended on user willpower. ~170s gate cost is acceptable because pushes are deliberate events, not per-keystroke. Bypass via `git push --no-verify` documented for emergency. Verified end-to-end on 2026-06-24: `git push --dry-run` fires the hook, gate passes clean, nothing pushed to remote. Single Job, non-parallel, no pre-commit stage (full review:phase is too slow per-commit, perfect per-push).",
+        "source": "lefthook.yml; .git/hooks/pre-push (generated); package.json devDeps; docs/adr/0048-tier-a-review-enforcement-layer.md; docs/workflows/add-review-enforcement-layer.md",
+        "commit": "7c7202a",
+        "triggerSession": "77e25d9d-ca47-4795-b5f4-d8921afd0593"
+      },
+      {
+        "id": "infra:semgrep-slice-trap-rules",
+        "shippedAt": "2026-06-24T22:00:00Z",
+        "name": "Semgrep Community + 3 seed slice-trap rules (Tier A2)",
+        "description": "Semgrep installed via `python -m pipx install semgrep` (cross-platform isolated Python env). Wrapper at scripts/review-semgrep.mjs resolves the binary via PATH → ~/.local/bin/semgrep.exe → pipx venv Scripts dir, so it works on any developer machine without PATH config edits. Wired into scripts/review-phase.mjs as hard-fail pre-step (no point grinding tsc/eslint if a slice trap has been re-introduced). Three seed rules under semgrep/rules/: no-window-prompt.yml (WARNING — 56 existing prompt/confirm/alert callsites tracked as Tier B4 debt in /memories/repo/parked-ideas.md); no-radix-onselect.yml (ERROR — zero existing); no-dropdown-trigger-onclick.yml (ERROR — zero existing). Each codified rule converts a Column 2 LLM-caught trap into a Column 1 deterministic gate that fires repo-wide for free. Promotion path: clean up existing callsites then flip `severity: WARNING` → `severity: ERROR` (single-line edit, permanently locks out bug class). First-attempt failures documented in workflow recipe: `tsx` is not a valid Semgrep language (use `typescript`); glob patterns require `**/` prefix for unanchored Semgrepignore-v2; `--severity ERROR --error` is the correct flag combo for ERROR-only gating.",
+        "source": "semgrep/rules/*.yml; scripts/review-semgrep.mjs; scripts/review-phase.mjs (pre-step wire-in); semgrep/README.md; docs/adr/0048-tier-a-review-enforcement-layer.md",
+        "commit": "7c7202a",
+        "triggerSession": "77e25d9d-ca47-4795-b5f4-d8921afd0593"
+      },
+      {
+        "id": "infra:dependabot-npm-and-actions",
+        "shippedAt": "2026-06-24T22:00:00Z",
+        "name": "Dependabot config — npm + GitHub Actions weekly grouped updates (Tier A3)",
+        "description": ".github/dependabot.yml shipped: weekly grouped minor+patch npm updates (Mondays 9am ET, max 5 open PRs), majors explicitly ignored to avoid surprise next@17/react@20 mid-sprint, security advisories bypass the schedule and arrive immediately. GitHub Actions ecosystem also enabled for future CI dependency hygiene. Activates only when GitHub sees the config at the repo's remote HEAD — no-push session 2026-06-24 deferred activation to next push. Free, zero-infra, GitHub-native — no contradiction with solo-dev workflow (Dependabot PRs are reviewed + merged in browser, no second-reviewer required).",
+        "source": ".github/dependabot.yml; docs/adr/0048-tier-a-review-enforcement-layer.md",
+        "commit": "7c7202a",
+        "triggerSession": "77e25d9d-ca47-4795-b5f4-d8921afd0593"
+      },
+      {
+        "id": "strategy:review-pipeline-tier-roadmap",
+        "shippedAt": "2026-06-24T22:00:00Z",
+        "name": "Three-tier review-pipeline strategy ratified (A shipped, B/C/D parked)",
+        "description": "Strategic synthesis answer to 'how do we build a battle-tested review pipeline as a solo dev.' Honest gap analysis vs industry tools (CodeRabbit/Greptile/Diamond/Codium PR-Agent/Copilot Review/CI/branch protection/SonarQube): all assume multi-contributor PR-based workflow, none fit solo-dev push-to-main. Real leverage gap was enforcement of EXISTING rigor, not new layers. Tier A shipped this session (lefthook pre-push + Semgrep slice-trap rules + Dependabot). Tier B (coverage gate, commit-msg trailer enforcement, weekly review-queue stub, WARNING→ERROR promotions, Semgrep --baseline-commit mode) parked with per-item triggers. Tier C (group-coordination tools) parked with structural rejection — re-evaluate ONLY when second contributor lands. Tier D (DORA-style observability) parked with data-bottleneck triggers. Full roadmap at /memories/repo/parked-ideas.md `Review pipeline — Tiers B/C/D` entry; ADR-0048 ratifies the Tier A architectural commitment.",
+        "source": "/memories/repo/parked-ideas.md (Tiers B/C/D entry); docs/adr/0048-tier-a-review-enforcement-layer.md; docs/workflows/add-review-enforcement-layer.md",
+        "commit": "7c7202a",
+        "triggerSession": "77e25d9d-ca47-4795-b5f4-d8921afd0593"
       }
     ]
   }
