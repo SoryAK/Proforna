@@ -1,0 +1,18 @@
+rules:
+  - id: dropdown-menu-item-on-select-is-radix-leak
+    pattern-either:
+      - pattern: <DropdownMenuItem ... onSelect={...} />
+      - pattern: <DropdownMenuItem ... onSelect={...}>...</DropdownMenuItem>
+    paths:
+      include:
+        - "**/src/**/*.tsx"
+    message: |
+      DropdownMenuItem in shadcn/ui v2 (base-ui) does NOT have an onSelect prop
+      — that's the Radix API and it's silently dropped. Use onClick instead;
+      base-ui auto-closes the menu after click (closeOnClick: true). Caught
+      2026-06-08 in Portal Settings / Sign out / theme switcher silently dead.
+    severity: ERROR
+    languages: [typescript]
+    metadata:
+      origin: "User memory note 2026-06-08 — base-ui Menu.Item API."
+      category: "shadcn-ui-v2-base-ui-guard"

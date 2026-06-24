@@ -1,29 +1,29 @@
 {
   "version": 1,
-  "capturedAt": "2026-06-23T04:30:47.385Z",
-  "commit": "ef75099",
+  "capturedAt": "2026-06-24T10:39:31.153Z",
+  "commit": "00ba95f",
   "notes": "Phase-end review baseline. Future phases must not regress any gate. Regenerate via: npm run review:baseline (after landing improvements).",
   "gates": {
     "tsc": {
-      "errors": 22
+      "errors": 29
     },
     "eslint": {
-      "errors": 495,
-      "warnings": 10591
+      "errors": 519,
+      "warnings": 10690
     },
     "knip": {
       "files": 0,
-      "dependencies": 0,
+      "dependencies": 1,
       "devDependencies": 0
     },
     "madge": {
       "circular": 0
     },
     "vitest": {
-      "passed": 966,
+      "passed": 1017,
       "skipped": 5,
       "failed": 0,
-      "total": 971
+      "total": 1022
     }
   }
 }

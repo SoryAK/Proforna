@@ -1,0 +1,28 @@
+rules:
+  - id: no-window-prompt-confirm-alert
+    pattern-either:
+      - pattern: window.prompt(...)
+      - pattern: window.confirm(...)
+      - pattern: window.alert(...)
+      - pattern: prompt($X)
+      - pattern: confirm($X)
+      - pattern: alert($X)
+    paths:
+      include:
+        - "**/src/**/*.tsx"
+        - "**/src/**/*.ts"
+      exclude:
+        - "**/src/**/*.test.ts"
+        - "**/src/**/*.test.tsx"
+    message: |
+      window.prompt() / window.confirm() / window.alert() throw at runtime in
+      React 19 + Next.js 16 dev mode ("prompt() is not supported."). Use a
+      controlled <Dialog> from @/components/ui/dialog with useState for open
+      state + draft input. Pattern: worklog-editor-toolbar.tsx (Save Version)
+      and worklog-history-panel.tsx (Restore confirm).
+    severity: WARNING
+    languages: [typescript]
+    metadata:
+      origin: "User memory note 2026-06-09 — React 19 blocks synchronous dialogs."
+      category: "react-runtime-guard"
+      debt-note: "~56 existing callsites flagged 2026-06-24 as cleanup backlog. Promote to ERROR after debt cleanup; see /memories/repo/parked-ideas.md."

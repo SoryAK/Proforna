@@ -1,0 +1,21 @@
+# lefthook — git hooks for Resumsify (Tier A1 of review pipeline strategy)
+#
+# Pre-push runs the full Column 1 deterministic gate. ~170s, but pushes are
+# deliberate events, not per-keystroke — this is the right insertion point.
+# Eliminates the "I forgot to run review:phase" failure mode that ETC currently
+# depends on user discipline.
+#
+# Bypass for emergency: git push --no-verify (documented; use sparingly).
+#
+# To install/refresh hooks after cloning or after editing this file:
+#   npx lefthook install
+#
+# Reference: ADR-0047 Column 1 + Tier A1 of 2026-06-24 review-pipeline strategy.
+
+pre-push:
+  parallel: false
+  jobs:
+    - name: review-phase
+      tags:
+        - deterministic-gate
+      run: npm run review:phase

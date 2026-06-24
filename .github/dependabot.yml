@@ -1,0 +1,45 @@
+# Dependabot — weekly grouped npm updates + immediate security advisories.
+# Solo-dev tuning: minor+patch grouped to keep PR noise low; major bumps
+# ignored so we don't get blindsided by next@17 or react@20 mid-sprint.
+# Promote a major manually when the timing is right.
+#
+# Reference: Tier A3 of docs/handoffs/*-review-pipeline strategy (2026-06-24).
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "America/New_York"
+    open-pull-requests-limit: 5
+    groups:
+      npm-minor-and-patch:
+        applies-to: version-updates
+        update-types:
+          - "minor"
+          - "patch"
+    ignore:
+      # Don't auto-PR major bumps for any dep — too risky for solo merge.
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+    labels:
+      - "dependencies"
+
+  # Dependabot also auto-files security advisories independent of this schedule;
+  # those bypass the open-pull-requests-limit and arrive immediately.
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    commit-message:
+      prefix: "chore(ci)"
+    labels:
+      - "dependencies"
+      - "github-actions"

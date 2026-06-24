@@ -133,6 +133,18 @@ function captureVitest() {
 console.log("[review:phase] capturing current state...");
 const t0 = Date.now();
 
+// Semgrep runs FIRST as a hard-fail pre-step. ERROR-severity findings are by
+// definition regressions (slice-trap rules), so there's no point grinding the
+// slower gates if a known anti-pattern has been re-introduced. WARNINGs still
+// print as visible debt-flagging but don't block.
+const semgrepRes = run("node", ["scripts/review-semgrep.mjs"]);
+if (semgrepRes.status !== 0) {
+  console.error(
+    "\n[review:phase] X Semgrep gate failed (ERROR-severity findings). Fix above before re-running.",
+  );
+  process.exit(1);
+}
+
 const current = {
   tsc: captureTsc(),
   eslint: captureEslint(),
