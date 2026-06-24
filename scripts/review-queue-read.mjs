@@ -6,14 +6,18 @@
  * SHA, and prints a tier-filtered summary.
  *
  * Usage:
- *   npm run review:queue                 # print all entries grouped by tier
- *   npm run review:queue -- --tier risky # filter to one tier
- *   npm run review:queue -- --since 2026-06-24 # filter by loggedAt date
- *   npm run review:queue -- --json       # raw JSON output for piping
+ *   npm run review:queue                       # print all entries grouped by tier
+ *   npm run review:queue -- --tier risky       # filter to one tier
+ *   npm run review:queue -- --since 2026-06-24 # filter by loggedAt (ISO date)
+ *   npm run review:queue -- --since 7days      # filter by loggedAt (now - N days)
+ *   npm run review:queue -- --since 2w         # filter by loggedAt (now - N weeks)
+ *   npm run review:queue -- --since <sha>      # filter by loggedAt (committer date of that SHA)
+ *   npm run review:queue -- --json             # raw JSON output for piping
  *
  * Reference: ADR-0049 (ETRC rhythm + commit queue).
  */
 
+import { spawnSync } from 'node:child_process';
 import { readFileSync, existsSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -87,6 +91,48 @@ function fmt(joined) {
   return line;
 }
 
+// Resolve --since input to a numeric timestamp (ms since epoch). Accepts:
+//   - ISO date / anything Date.parse() accepts ("2026-06-24", "2026-06-24T10:00Z")
+//   - Relative duration: "Ndays", "Nd", "Nweeks", "Nw" (case-insensitive)
+//   - Git commit SHA (7-40 hex chars) → resolves to that commit's committer date
+// Returns { ts, label } on success, null on resolution failure (caller warns).
+function resolveSinceTs(input) {
+  if (!input) return null;
+  const dayMs = 86400 * 1000;
+
+  // Relative duration: <N>(d|days|w|weeks)
+  const rel = input.match(/^(\d+)\s*(d|days?|w|weeks?)$/i);
+  if (rel) {
+    const n = Number(rel[1]);
+    const unit = rel[2].toLowerCase();
+    const mult = unit.startsWith('w') ? 7 * dayMs : dayMs;
+    const ts = Date.now() - n * mult;
+    return { ts, label: `${input} (cutoff: ${new Date(ts).toISOString()})` };
+  }
+
+  // Git SHA — short or full
+  if (/^[0-9a-f]{7,40}$/i.test(input)) {
+    const r = spawnSync('git', ['log', '-1', '--format=%cI', input], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      shell: true,
+    });
+    const iso = (r.stdout || '').trim();
+    if (r.status === 0 && iso) {
+      const ts = new Date(iso).getTime();
+      if (!Number.isNaN(ts)) {
+        return { ts, label: `${input} (committer date: ${iso})` };
+      }
+    }
+    return null;
+  }
+
+  // ISO date / anything Date can parse
+  const ts = new Date(input).getTime();
+  if (Number.isNaN(ts)) return null;
+  return { ts, label: input };
+}
+
 function main() {
   const args = parseArgs(process.argv.slice(2));
   const entries = loadEntries();
@@ -101,12 +147,18 @@ function main() {
   if (args.tier) {
     joined = joined.filter((j) => j.tier === args.tier);
   }
+  let sinceLabel = null;
   if (args.since) {
-    const sinceTs = new Date(args.since).getTime();
-    if (!Number.isNaN(sinceTs)) {
+    const resolved = resolveSinceTs(args.since);
+    if (!resolved) {
+      console.error(
+        `[review-queue-read] --since: could not resolve "${args.since}" as ISO date / duration (e.g. "7days") / git SHA. Filter ignored.`,
+      );
+    } else {
+      sinceLabel = resolved.label;
       joined = joined.filter((j) => {
         const ts = j.loggedAt ? new Date(j.loggedAt).getTime() : 0;
-        return ts >= sinceTs;
+        return ts >= resolved.ts;
       });
     }
   }
@@ -126,7 +178,7 @@ function main() {
 
   console.log(`Review queue (${joined.length} commits)`);
   if (args.tier) console.log(`Filter: tier=${args.tier}`);
-  if (args.since) console.log(`Filter: since=${args.since}`);
+  if (sinceLabel) console.log(`Filter: since=${sinceLabel}`);
   console.log();
 
   for (const tier of TIER_ORDER) {

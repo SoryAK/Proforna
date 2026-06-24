@@ -35,10 +35,14 @@
 
 ### Review day: process the queue
 
-1. `npm run review:queue --tier risky` → focus deep attention. Run Column 2/3 review per ADR-0047 on each. Look at the R-local result inline — if it suggested an extract/move/reuse and you agree, queue a fix-up commit in the next cycle.
-2. `npm run review:queue --tier standard` → spot-check ~1 in 3. Pick the ones with the largest LOC or unfamiliar areas.
-3. `npm run review:queue --tier trivial` → glance only. Confirm classifier wasn't fooled (e.g. a `chore(scripts):` that actually does something).
+Default cadence is weekly. Scope the queue to the last 7 days so review attention stays on what actually landed this week — older commits have already been reviewed (or deliberately deferred) and re-surfacing them is noise.
+
+1. `npm run review:queue -- --tier risky --since 7days` → focus deep attention. Run Column 2/3 review per ADR-0047 on each. Look at the R-local result inline — if it suggested an extract/move/reuse and you agree, queue a fix-up commit in the next cycle.
+2. `npm run review:queue -- --tier standard --since 7days` → spot-check ~1 in 3. Pick the ones with the largest LOC or unfamiliar areas.
+3. `npm run review:queue -- --tier trivial --since 7days` → glance only. Confirm classifier wasn't fooled (e.g. a `chore(scripts):` that actually does something).
 4. For any commit where R said `skipped:empty-response` or `skipped:ollama-*` and you want a second opinion: `npm run review:escalate <sha>` and paste the output into a premium subagent invocation.
+
+`--since` also accepts an ISO date (`2026-06-24`), a longer relative window (`30days`, `2w`), or a git SHA (cutoff = that commit's committer date) — pick whichever frames the review you want. Omit `--since` entirely to see the full queue history.
 
 ### Adding a new risky-tier trigger (when a new high-blast-radius pattern emerges)
 
@@ -49,7 +53,7 @@
 
 ### Tuning the R-local prompt (when the v1 prompt drifts into noise or stays empty too often)
 
-1. Pull 5–10 recent risky-commit entries: `npm run review:queue --tier risky --since YYYY-MM-DD --json | jq '.[].reviews'`.
+1. Pull 5–10 recent risky-commit entries: `npm run review:queue -- --tier risky --since 30days --json | jq '.[].reviews'`.
 2. Identify the failure mode: too many `skipped:empty-response`? Too generic suggestions? Off-scope feedback?
 3. Edit `PROMPT_TEMPLATE` in `scripts/review-r-local.mjs`. Keep the contract: ≤80 chars or `clean`. Don't broaden scope without bumping `MAX_RESPONSE_CHARS` and re-reviewing review-day signal quality.
 4. Smoke-test against a recent risky SHA: `node scripts/review-r-local.mjs $(git rev-parse <sha>)` and inspect the queue line.
