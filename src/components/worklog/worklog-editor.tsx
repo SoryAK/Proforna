@@ -52,6 +52,7 @@ import { createSlashCommandRender } from "@/components/worklog/slash-command-men
 import { WorklogEditorToolbar } from "@/components/worklog/worklog-editor-toolbar";
 import { WorklogProcedureToolbar } from "@/components/worklog/worklog-procedure-toolbar";
 import { uploadBodyPhoto, reconcileBodyPhotos } from "@/lib/worklog/photo-upload";
+import { registerEditor } from "@/lib/worklog/editor-registry";
 import { ImageIcon, PenLine } from "lucide-react";
 import type { WorkShift } from "@/types/worklog";
 import { cn } from "@/lib/utils";
@@ -105,6 +106,18 @@ export interface WorklogEditorHandle {
   flush: () => void;
   /** Focus the editor body. */
   focus: () => void;
+  /**
+   * ADR-0046 follow-up B — insert `content` at the top of the document
+   * and immediately (no debounce) flush a save tagged with
+   * `versionSource: "ai-prepend"` so the resulting WorkLogVersion row is
+   * provenance-marked. Returns a promise that resolves AFTER the PUT
+   * round-trip so the AI chat caller can toast on completion.
+   *
+   * Only registered with the editor-registry when `kind === "note"`;
+   * procedure documents have a locked schema (title/tools/steps) that
+   * cannot accept a freeform prepend without violating their topNode.
+   */
+  prepend: (content: string) => Promise<void>;
 }
 
 export interface WorklogEditorChange {
@@ -118,6 +131,13 @@ export interface WorklogEditorChange {
    * for note kind (caller should leave the title field alone).
    */
   procedureTitle?: string;
+  /**
+   * ADR-0046 follow-up B — optional provenance tag forwarded to the PUT
+   * route's `versionSource` body field. Set by the editor's own `prepend`
+   * path ("ai-prepend") and left undefined for ordinary user-driven saves
+   * (which keeps WorkLogVersion.source NULL, matching the legacy default).
+   */
+  versionSource?: string;
 }
 
 export interface WorklogEditorProps {
@@ -163,7 +183,9 @@ export const WorklogEditor = forwardRef<WorklogEditorHandle, WorklogEditorProps>
     };
   }, []);
 
-  // Allow the parent to flush/focus even before the editor is mounted.
+  // Allow the parent to flush/focus/prepend even before the editor is
+  // mounted. The body ref is filled on inner mount; until then prepend
+  // returns a rejected-but-swallowed no-op so callers don't crash.
   const bodyRef = useRef<WorklogEditorHandle | null>(null);
   useImperativeHandle(
     ref,
@@ -173,6 +195,11 @@ export const WorklogEditor = forwardRef<WorklogEditorHandle, WorklogEditorProps>
       },
       focus() {
         bodyRef.current?.focus();
+      },
+      async prepend(content: string) {
+        const body = bodyRef.current;
+        if (!body) return;
+        await body.prepend(content);
       },
     }),
     [],
@@ -597,10 +624,62 @@ const EditorBody = forwardRef<WorklogEditorHandle, EditorBodyProps>(function Edi
       focus() {
         editor?.commands.focus();
       },
+      async prepend(content: string) {
+        // ADR-0046 follow-up B — used by the editor-registry consumer
+        // (AI chat's Send-to-Worklog). Inserts plain-text content at the
+        // very top of the doc and immediately flushes a snapshot-tagged
+        // save bypassing the debounce window so the round-trip resolves
+        // before this promise does (toast wording depends on it).
+        //
+        // `kind === "procedure"` callers never reach this path because
+        // the registry registration below is gated on note-kind; the
+        // guard here is defensive in case the registry is bypassed.
+        if (!editor || editor.isDestroyed) return;
+        if (kind === "procedure") return;
+        if (content.length === 0) return;
+        editor.chain().focus("start").insertContentAt(0, content).run();
+        const json = editor.getJSON();
+        await runSave({
+          json,
+          text: editor.getText(),
+          versionSource: "ai-prepend",
+        });
+      },
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [editor],
   );
+
+  // ADR-0046 follow-up B — register this mounted note editor with the
+  // module-level editor-registry so the AI chat's Send-to-Worklog action
+  // can drive a live prepend instead of creating a brand-new WorkLog.
+  // Procedure mounts are intentionally skipped (locked schema). The
+  // disposer is idempotent: a stale dispose after a re-register won't
+  // clear the active slot.
+  useEffect(() => {
+    if (!editor || kind !== "note") return;
+    const dispose = registerEditor({
+      id: workLogId,
+      kind,
+      prepend: async (content: string) => {
+        if (!editor || editor.isDestroyed) return;
+        if (content.length === 0) return;
+        editor.chain().focus("start").insertContentAt(0, content).run();
+        const json = editor.getJSON();
+        await runSave({
+          json,
+          text: editor.getText(),
+          versionSource: "ai-prepend",
+        });
+      },
+    });
+    return dispose;
+    // `runSave` is stable (defined in render scope but only reads refs);
+    // re-binding the handle on every parent re-render would needlessly
+    // churn the registry slot. Deps intentionally limited to editor / kind
+    // / workLogId — the identity-stable axes of the registration.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor, kind, workLogId]);
 
   if (!editor) {
     return <div className="px-2 py-3 text-xs text-muted-foreground">Loading editor…</div>;

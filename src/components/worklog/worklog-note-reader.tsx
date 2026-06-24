@@ -82,7 +82,7 @@ export interface WorklogNoteReaderProps {
   assets: JobAsset[];
   positionMap: Map<string, Position>;
   /** Commit a single-field update for an existing log. */
-  onUpdate: (patch: Partial<WorkLog> & { id: string; archived?: boolean }) => void | Promise<unknown>;
+  onUpdate: (patch: Partial<WorkLog> & { id: string; archived?: boolean; versionSource?: string }) => void | Promise<unknown>;
   onDelete: (id: string) => void;
   onNew?: () => void;
   hasLogs?: boolean;
@@ -157,7 +157,7 @@ interface ReaderInnerProps {
   equipment: EquipmentItem[];
   assets: JobAsset[];
   positionMap: Map<string, Position>;
-  onUpdate: (patch: Partial<WorkLog> & { id: string; archived?: boolean }) => void | Promise<unknown>;
+  onUpdate: (patch: Partial<WorkLog> & { id: string; archived?: boolean; versionSource?: string }) => void | Promise<unknown>;
   onDelete: (id: string) => void;
   tagSuggestions?: string[];
 }
@@ -533,7 +533,7 @@ const ReaderInner = forwardRef<WorklogNoteReaderHandle, ReaderInnerProps>(functi
                   setEditorDirty(dirty);
                   setEditorSaving(saving);
                 }}
-                onSave={async ({ json, text, procedureTitle }) => {
+                onSave={async ({ json, text, procedureTitle, versionSource }) => {
                   const editorTags = extractTagsFromDoc(json);
                   const mergedTags = mergeEditorTags(log.tags ?? null, editorTags);
                   // ADR-0030 Unit 6 — when this is a procedure, mirror the
@@ -556,6 +556,11 @@ const ReaderInner = forwardRef<WorklogNoteReaderHandle, ReaderInnerProps>(functi
                     contentJson: json ?? null,
                     ...(mergedTags !== (log.tags ?? null) ? { tags: mergedTags } : {}),
                     ...titlePatch,
+                    // ADR-0046 follow-up B — propagate the editor's
+                    // provenance tag onto the PUT body so the auto-
+                    // snapshot row carries WorkLogVersion.source = the
+                    // writer id. Absent for ordinary user-typed saves.
+                    ...(typeof versionSource === "string" ? { versionSource } : {}),
                   });
                 }}
               />

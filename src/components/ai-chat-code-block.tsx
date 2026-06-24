@@ -6,15 +6,18 @@
  * Shipped in ADR-0046 Phase D.1: copy button + Shiki-highlighted body +
  * language label. Phase D.3 adds the three domain actions:
  *
- *   - Send to Worklog   → POST /api/ai/actions/send-to-worklog
+ *   - Send to Worklog   → in-page prepend into the active worklog editor
+ *                          when registered (note kind only), else POST
+ *                          /api/ai/actions/send-to-worklog to create one
  *   - Add to Job Notes  → POST /api/ai/actions/add-to-job-notes
  *   - Save as Bullet    → POST /api/ai/actions/save-as-bullet
  *
  * Target resolution follows the precedence rules in `ai-chat-action-target`:
- * page ambient > thread mentions back-to-front > picker. v1 caveat:
- * `send-to-worklog` always creates a new worklog server-side, so the
- * resolver is short-circuited for that action. When ADR-0046's
- * "prepend-to-active-worklog" UX ships, that branch goes away.
+ * page ambient > thread mentions back-to-front > picker. ADR-0046 follow-up
+ * B taught `send-to-worklog` to first probe the editor-registry for a live
+ * note-kind handle and call `handle.prepend(code)` instead of creating a
+ * new WorkLog. The legacy create-new POST remains as the fallthrough when
+ * no editor is mounted (dashboard, procedure kind, registry timeout).
  *
  * Highlighter loading strategy: Shiki is dynamic-imported on first mount
  * so the chat panel's initial chunk stays light. The first code block in
@@ -45,6 +48,7 @@ import type {
   ThreadContext,
 } from "@/lib/ai-chat-action-target";
 import { resolveActionTarget } from "@/lib/ai-chat-action-target";
+import { waitForEditor } from "@/lib/worklog/editor-registry";
 
 /**
  * Common languages we expect to see in AI output. Keep this list short —
@@ -78,8 +82,9 @@ type ShikiHighlighter = {
 
 /**
  * Build the toast message for a given action + outcome. Target label is
- * threaded in by the caller (resolved target.label, picker pick.label, or
- * undefined for send-to-worklog which always creates a new worklog v1).
+ * threaded in by the caller — for `send-to-worklog` that's either the
+ * active-worklog label (ADR-0046 follow-up B in-page prepend path) or
+ * undefined when the create-new fallthrough fired.
  */
 function buildMessage(
   action: ActionType,
@@ -277,11 +282,38 @@ export function AIChatCodeBlock({
     if (!threadContext || !pageContext) return;
     if (pendingAction) return;
 
-    // ADR-0046 Phase D.3 v1: `send-to-worklog` always creates a new worklog
-    // server-side, so we skip the resolver and just POST the content. When
-    // the "prepend-to-active-worklog" UX ships, this branch goes away and
-    // the action joins the standard resolve-then-post flow.
+    // ADR-0046 follow-up B — `send-to-worklog` now tries an in-page
+    // prepend before falling back to the create-new server action.
+    //
+    // Order of operations:
+    //   1. If pageContext.activeWorklog is present (ambient or URL-derived),
+    //      wait up to 500ms for an editor handle to appear in the registry.
+    //   2. If a note-kind handle resolves, call handle.prepend(code) — that
+    //      inserts at the top and flushes a save tagged with
+    //      versionSource: "ai-prepend" so WorkLogVersion.source is
+    //      populated. Toast on success; fall through on throw.
+    //   3. Otherwise (no active worklog, timeout, procedure kind, or
+    //      handle.prepend threw) fall through to the legacy POST that
+    //      creates a brand-new WorkLog. Toast wording is reused.
     if (action === "send-to-worklog") {
+      const activeId = pageContext.activeWorklog?.id ?? null;
+      const activeLabel = pageContext.activeWorklog?.label ?? null;
+      if (activeId) {
+        setPendingAction(action);
+        try {
+          const handle = await waitForEditor(activeId);
+          if (handle && handle.kind === "note") {
+            await handle.prepend(code);
+            toast.success(buildMessage(action, true, activeLabel ?? undefined));
+            return;
+          }
+        } catch (err) {
+          // Don't surface twice — log and fall through to create-new.
+          console.error("[ai-chat] in-page prepend failed", err);
+        } finally {
+          setPendingAction(null);
+        }
+      }
       await postAction(action, { content: code });
       return;
     }

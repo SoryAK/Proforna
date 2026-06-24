@@ -23,10 +23,10 @@ import {
   getEditor,
   waitForEditor,
   __resetEditorRegistry,
-  type WorklogEditorHandle,
+  type RegisteredWorklogEditor,
 } from "@/lib/worklog/editor-registry";
 
-function makeHandle(id: string, kind: string = "note"): WorklogEditorHandle {
+function makeHandle(id: string, kind: string = "note"): RegisteredWorklogEditor {
   return {
     id,
     kind,

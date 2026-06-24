@@ -19,7 +19,13 @@ export function useWorklogMutations(cb: WorklogMutationCallbacks = {}) {
   const qc = useQueryClient();
 
   const saveLog = useMutation({
-    mutationFn: async (data: Partial<WorkLog> & { archived?: boolean }) => {
+    mutationFn: async (
+      // `versionSource` is an ADR-0046 follow-up B transient body field
+      // (not on WorkLog), forwarded to the PUT route so the auto-snapshot
+      // row carries WorkLogVersion.source. Optional; absent on user-typed
+      // saves and bulk patches.
+      data: Partial<WorkLog> & { archived?: boolean; versionSource?: string },
+    ) => {
       const isEdit = !!data.id;
       const url = isEdit ? `/api/work-logs/${data.id}` : "/api/work-logs";
       const res = await fetch(url, {
@@ -39,8 +45,9 @@ export function useWorklogMutations(cb: WorklogMutationCallbacks = {}) {
       // ADR-0026 — translate the `archived: boolean` intent into an
       // optimistic archivedAt patch (the server is the timestamp
       // authority; this is just so the row visibly flips buckets without
-      // waiting for the round-trip).
-      const { archived, ...rest } = data;
+      // waiting for the round-trip). `versionSource` is a transient body
+      // tag (ADR-0046 follow-up B) and must NOT leak into cached row state.
+      const { archived, versionSource: _versionSource, ...rest } = data;
       const archivedPatch =
         archived === true
           ? { archivedAt: new Date().toISOString() }

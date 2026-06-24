@@ -20,7 +20,12 @@
  * taken the slot, the disposer must NOT clear the newer handle.
  */
 
-export interface WorklogEditorHandle {
+/**
+ * Handle registered in the worklog-editor registry. Named distinctly from
+ * `WorklogEditorHandle` (TipTap imperative ref exported by worklog-editor.tsx)
+ * so the two never collide at an import site.
+ */
+export interface RegisteredWorklogEditor {
   /** WorkLog id this handle drives. */
   id: string;
   /** WorkLog.kind ("note" | "procedure" | ...). Callers filter on this. */
@@ -33,13 +38,13 @@ export interface WorklogEditorHandle {
   prepend: (content: string) => Promise<void>;
 }
 
-const registry = new Map<string, WorklogEditorHandle>();
+const registry = new Map<string, RegisteredWorklogEditor>();
 
 /**
  * Register an editor handle. Returns a disposer; calling it removes the
  * handle ONLY if it is still the active entry (last-write-wins).
  */
-export function registerEditor(handle: WorklogEditorHandle): () => void {
+export function registerEditor(handle: RegisteredWorklogEditor): () => void {
   registry.set(handle.id, handle);
   return () => {
     if (registry.get(handle.id) === handle) {
@@ -49,7 +54,7 @@ export function registerEditor(handle: WorklogEditorHandle): () => void {
 }
 
 /** Synchronous lookup. Returns null when no editor is mounted for `id`. */
-export function getEditor(id: string): WorklogEditorHandle | null {
+export function getEditor(id: string): RegisteredWorklogEditor | null {
   return registry.get(id) ?? null;
 }
 
@@ -65,7 +70,7 @@ export function getEditor(id: string): WorklogEditorHandle | null {
 export function waitForEditor(
   id: string,
   timeoutMs: number = 500,
-): Promise<WorklogEditorHandle | null> {
+): Promise<RegisteredWorklogEditor | null> {
   const POLL_INTERVAL_MS = 50;
   const immediate = getEditor(id);
   if (immediate) return Promise.resolve(immediate);
