@@ -33,8 +33,9 @@ post-commit:
     - name: etrc-log
       tags:
         - review-queue
-      run: node scripts/review-log.mjs {ref}
+      # No arg — review-log.mjs defaults to HEAD, which IS the just-landed
+      # commit in post-commit context. Lefthook's {ref} template only resolves
+      # for pre-push / pre-receive, not post-commit.
+      run: node scripts/review-log.mjs
       env:
-        # `ref` resolves to HEAD at lefthook execution time, which is the
-        # just-landed commit in post-commit context.
         LEFTHOOK_QUIET: "1"
