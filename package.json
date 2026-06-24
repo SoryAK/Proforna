@@ -23,7 +23,10 @@
     "review:static": "node scripts/review-static.mjs",
     "review:phase": "node scripts/review-phase.mjs",
     "review:baseline": "node scripts/review-phase.mjs --write-baseline",
-    "review:semantic": "node scripts/review-semantic.mjs"
+    "review:semantic": "node scripts/review-semantic.mjs",
+    "review:classify": "node scripts/review-classify.mjs",
+    "review:queue": "node scripts/review-queue-read.mjs",
+    "review:escalate": "node scripts/review-escalate.mjs"
   },
   "prisma": {
     "seed": "npx tsx prisma/seed.ts"

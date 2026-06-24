@@ -19,3 +19,22 @@ pre-push:
       tags:
         - deterministic-gate
       run: npm run review:phase
+
+# Post-commit runs the ETRC classifier + queue logger (ADR-0049). The hook is
+# hard-contracted to NEVER block — review-log.mjs swallows all errors and exits
+# 0 no matter what. For risky-tier commits, it spawns review-r-local.mjs
+# detached so git commit returns instantly while gemma4 runs in the background.
+#
+# Bypass for emergency: git commit --no-verify (rarely needed — hook is
+# non-blocking by design; the only reason to bypass is if you don't want the
+# commit logged at all).
+post-commit:
+  jobs:
+    - name: etrc-log
+      tags:
+        - review-queue
+      run: node scripts/review-log.mjs {ref}
+      env:
+        # `ref` resolves to HEAD at lefthook execution time, which is the
+        # just-landed commit in post-commit context.
+        LEFTHOOK_QUIET: "1"

@@ -88,6 +88,11 @@ docs/c-yard/_candidates/
 # Throwaway diagnostic capture files from review/lint/test pipelines (T1-T3 cleanup)
 scripts/_*
 
+# ETRC commit-queue (ADR-0049) — local-only, append-only JSONL log of every
+# commit's classification + R-local result. Like workflow-change-log.json, this
+# is per-machine history, not source of truth — review-day data, not project data.
+docs/review-queue.jsonl
+
 # Column 2 semantic-review runtime logs (ad-hoc Tee-Object output during audit
 # runs). The JSON output files in this directory ARE tracked — they are the
 # audit results referenced by ADR-0047.
