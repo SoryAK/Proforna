@@ -78,8 +78,13 @@ async function extractPdf(buffer: Buffer): Promise<ExtractResult> {
     // only need the text layer. Saves both perf and the network risk of a
     // malicious PDF reaching out to a CMap CDN.
     disableFontFace: true,
-    isEvalSupported: false,
     useSystemFonts: false,
+    // `isEvalSupported` is a valid runtime hardening flag on pdfjs's
+    // DocumentInitParameters (disables PostScript eval for embedded
+    // subroutines — defense-in-depth against malicious PDFs) but it's
+    // not exposed on the legacy build's typings. Cast widens just the
+    // options literal so we keep the hardening without an `any` escape.
+    ...({ isEvalSupported: false } as Record<string, unknown>),
   }).promise;
 
   const pageCount = doc.numPages;

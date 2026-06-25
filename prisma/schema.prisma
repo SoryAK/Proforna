@@ -1721,6 +1721,7 @@ model Document {
   user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   folder         DocumentFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
   assetDocuments AssetDocument[]
+  processingJobs DocumentProcessingJob[]
 
   @@index([userId, folderId])
   @@index([userId, processingStatus])
@@ -1742,6 +1743,36 @@ model DocumentFolder {
 
   @@unique([userId, parentId, name])
   @@index([userId, parentId])
+}
+
+// ADR-0050 β1.2 — durable processing queue for Document pipeline jobs.
+// Status strings (not Prisma enums) match the `processingStatus` convention
+// on `Document`; new states can be added without migrations. Atomic claim
+// is performed via raw SQL `UPDATE ... FOR UPDATE SKIP LOCKED LIMIT 1`
+// in `src/lib/jobs/claim.ts` — multiple poller instances are future-safe
+// even though β1 only ships one. Backoff: 60s × 2^attempts, capped at 1h
+// (see `src/lib/jobs/backoff.ts`).
+model DocumentProcessingJob {
+  id            String    @id @default(uuid())
+  documentId    String
+  // "extract" (β1) | "ocr-page" (β2) | "chunk-embed" (β3)
+  kind          String
+  // "pending" | "running" | "succeeded" | "failed"
+  status        String    @default("pending")
+  attempts      Int       @default(0)
+  maxAttempts   Int       @default(5)
+  scheduledFor  DateTime  @default(now())
+  claimedAt     DateTime?
+  completedAt   DateTime?
+  lastError     String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  // Poller query: `WHERE status='pending' AND scheduledFor <= NOW() ORDER BY scheduledFor`
+  @@index([status, scheduledFor])
+  @@index([documentId])
 }
 
 // ─── Research & Market Data ────────────────────────────────────
