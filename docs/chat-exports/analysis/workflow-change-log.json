@@ -115,6 +115,15 @@
         "source": "testing.instructions.md Schema-Faithful Mocks rule 4 + Red flag clause",
         "commit": "3440b86",
         "triggerSession": "d91e85a5-cfde-4db7-bc82-d3751aa11097"
+      },
+      {
+        "id": "structural:modularity-auditor-capability-blocks-and-stepwise-migration",
+        "shippedAt": "2026-06-25T00:00:00Z",
+        "name": "Modularity Auditor capability-block naming + one-caller-at-a-time migration",
+        "description": "Two bullets appended to the Modularity Auditor skill. (1) Capability-block naming for extracted services: when pulling shared mechanics out of a route/action into `src/lib/**`, design small composable blocks (`createDocument`, `readDocumentBytes`, `attachDocument`) with explicit params + structured returns; the route owns 'why/when' (auth, ownership, error classification), the service owns 'how'. Reference shape: ADR-0051 Sprint α'. (2) One-caller-at-a-time migration: when an extracted helper has 2+ existing callers, the rule is extract → migrate ONE caller → verify (get_errors + test + smoke) → THEN migrate the rest. Refactoring helper + all callers in a single patch is forbidden — the first-caller verify step is the regression boundary. Considered adding a full standalone 'code-structure' skill (proposed by user) but rejected as duplicative with existing Architectural Guardrail + Modularity Auditor; only the two genuinely new bullets were extracted.",
+        "source": "structural.instructions.md Modularity Auditor (final two bullets)",
+        "commit": null,
+        "triggerSession": "d91e85a5-cfde-4db7-bc82-d3751aa11097"
       }
     ],
     "userPracticeAdoptions": [

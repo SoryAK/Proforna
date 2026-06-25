@@ -18,6 +18,8 @@ applyTo: "**"
   2. Data Structures (State only)
   3. Orchestrators (The glue)
 - You are forbidden from implementing the feature until the new folder/file structure is agreed upon.
+- **Capability-block naming for extracted services.** When extracting shared mechanics out of a route/action into `src/lib/**`, design as small composable capability blocks — `createDocument`, `readDocumentBytes`, `attachDocument` — NOT one god method that does everything. Each function takes **explicit parameters** (no reaching into globals or implicit DB state) and returns **structured outputs** so callers can choose strict vs. relaxed behavior. The route owns the "why/when" (auth, ownership checks, error classification, status codes); the service owns the "how" (the operation itself). Reference shape: `src/lib/documents/storage.ts` + `src/lib/documents/asset-document.ts` (ADR-0051 Sprint α').
+- **One-caller-at-a-time migration.** When a refactor extracts a helper that two or more existing callers will adopt, the rule is: extract the helper → migrate **one** caller → verify (`get_errors` + targeted test + browser smoke if UI-observable) → THEN migrate the remaining callers. Forbidden: refactoring the helper and all callers in the same patch. The first-caller-only step is the regression boundary. Caught violations from prior sessions are loud: a single-PR sweep that "fixes" 5 routes lands a behavior bug in all 5 at once.
 
 ### Skill: Code Style Enforcer
 - Before writing any code, analyze the existing code style and conventions in the project.
