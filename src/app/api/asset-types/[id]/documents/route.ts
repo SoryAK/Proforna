@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getUserId } from "@/lib/auth-utils";
-
-const VALID_DOC_TYPES = new Set([
-  "manual", "wiring_diagram", "spec_sheet", "safety_sheet", "parts_list", "other",
-]);
+import { createDocument } from "@/lib/documents/storage";
+import {
+  attachDocument,
+  VALID_DOC_TYPES,
+} from "@/lib/documents/asset-document";
 
 // GET /api/asset-types/[id]/documents
 export async function GET(
@@ -43,14 +44,55 @@ export async function POST(
   }
 
   try {
+    const contentType = request.headers.get("content-type") ?? "";
+
+    // ── Branch A: multipart/form-data ─ file upload via storage service ──
+    if (contentType.startsWith("multipart/form-data")) {
+      const form = await request.formData();
+      const file = form.get("file");
+      const title = (form.get("title") as string | null)?.trim();
+      const docType = (form.get("docType") as string | null) ?? undefined;
+      const notes = (form.get("notes") as string | null)?.trim() || null;
+
+      if (!(file instanceof File)) {
+        return NextResponse.json({ error: "file is required" }, { status: 400 });
+      }
+      if (!title) {
+        return NextResponse.json({ error: "title is required" }, { status: 400 });
+      }
+
+      const buffer = Buffer.from(await file.arrayBuffer());
+      const doc = await createDocument({
+        userId,
+        name: title,
+        fileName: file.name,
+        mimeType: file.type,
+        bytes: buffer,
+        category: "asset_document",
+        entityType: "AssetType",
+        entityId: id,
+        notes,
+        folderId: null,
+      });
+      const assetDoc = await attachDocument({
+        assetTypeId: id,
+        documentId: doc.id,
+        title,
+        docType,
+        notes,
+      });
+      return NextResponse.json(assetDoc, { status: 201 });
+    }
+
+    // ── Branch B: application/json ─ url-only reference (legacy shape) ──
     const body = await request.json();
     const { title, docType, url, notes } = body;
 
     if (!title || typeof title !== "string" || !title.trim()) {
       return NextResponse.json({ error: "title is required" }, { status: 400 });
     }
-    if (!url && !body.filePath) {
-      return NextResponse.json({ error: "url or filePath is required" }, { status: 400 });
+    if (!url) {
+      return NextResponse.json({ error: "url is required" }, { status: 400 });
     }
 
     const doc = await prisma.assetDocument.create({
@@ -58,8 +100,7 @@ export async function POST(
         assetTypeId: id,
         title: title.trim().slice(0, 200),
         docType: VALID_DOC_TYPES.has(docType) ? docType : "other",
-        url: url?.trim() || null,
-        filePath: body.filePath?.trim() || null,
+        url: url.trim(),
         notes: notes?.trim() || null,
       },
     });
