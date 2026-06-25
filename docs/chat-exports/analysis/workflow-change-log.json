@@ -113,7 +113,7 @@
         "name": "Schema-Faithful Mocks rule 4 (Prisma checked/unchecked variant)",
         "description": "Extends the 2026-06-22 Schema-Faithful Mocks skill with a new failure mode: Prisma at runtime selects between CreateInput (checked, relations as nested connect/create) and UncheckedCreateInput (unchecked, scalar FKs accepted) based on payload shape. An explicit `id` + scalar FK can trip the checked validator into demanding the relation form even though TS shows the unchecked variant accepting your shape. New rule: use `user: { connect: { id } }` form unconditionally when ambiguity is possible. Mocks cannot catch this — only live DB integration does. Reference incident: ADR-0051 Sprint α' Commit 2 (f3b36df).",
         "source": "testing.instructions.md Schema-Faithful Mocks rule 4 + Red flag clause",
-        "commit": null,
+        "commit": "3440b86",
         "triggerSession": "d91e85a5-cfde-4db7-bc82-d3751aa11097"
       }
     ],
