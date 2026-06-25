@@ -10,11 +10,22 @@ vi.mock("@/lib/prisma", () => ({
   prisma: { document: { create: vi.fn() } },
 }));
 
+// β1.3: enqueue is a thin delegate; the helper's own contract is verified
+// in `enqueue.test.ts`. Here we only assert that createDocument calls it
+// when (and only when) intent + MIME allow.
+vi.mock("@/lib/jobs/enqueue", () => ({
+  enqueueExtractJob: vi.fn(),
+}));
+
 import { prisma } from "@/lib/prisma";
+import { enqueueExtractJob } from "@/lib/jobs/enqueue";
 // Prisma's `create` returns a Prisma__DocumentClient (thennable, not a plain
 // Promise) — loosen the mock binding so test-side mockImplementations can
 // return plain async functions without TS complaint.
 const mockCreate = vi.mocked(prisma.document.create) as unknown as ReturnType<
+  typeof vi.fn
+>;
+const mockEnqueue = vi.mocked(enqueueExtractJob) as unknown as ReturnType<
   typeof vi.fn
 >;
 
@@ -53,6 +64,7 @@ describe("createDocument", () => {
   beforeEach(async () => {
     tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), "doc-storage-test-"));
     mockCreate.mockReset();
+    mockEnqueue.mockReset();
   });
 
   afterEach(async () => {
@@ -182,5 +194,80 @@ describe("createDocument", () => {
         new RegExp(`\\.${ext}$`),
       );
     }
+  });
+
+  describe("enqueueExtractJob flag (ADR-0050 β1.3)", () => {
+    it("does NOT call enqueueExtractJob when flag is omitted (default false)", async () => {
+      mockCreate.mockImplementation(
+        async (args: { data: Record<string, unknown> }) =>
+          ({ id: args.data.id ?? "fake-id", ...args.data }) as never,
+      );
+
+      await createDocument({
+        userId: "u1",
+        name: "n.pdf",
+        fileName: "n.pdf",
+        mimeType: "application/pdf",
+        bytes: Buffer.from("%PDF-1.4"),
+        category: "other",
+        entityType: null,
+        entityId: null,
+        notes: null,
+        folderId: null,
+        storageRoot: tmpRoot,
+      });
+
+      expect(mockEnqueue).not.toHaveBeenCalled();
+    });
+
+    it("calls enqueueExtractJob(doc.id) when flag=true AND mimeType is extractable", async () => {
+      mockCreate.mockImplementation(
+        async (args: { data: Record<string, unknown> }) =>
+          ({ id: args.data.id ?? "fake-id", ...args.data }) as never,
+      );
+
+      const created = await createDocument({
+        userId: "u1",
+        name: "n.pdf",
+        fileName: "n.pdf",
+        mimeType: "application/pdf",
+        bytes: Buffer.from("%PDF-1.4"),
+        category: "asset_document",
+        entityType: "AssetType",
+        entityId: "at-1",
+        notes: null,
+        folderId: null,
+        storageRoot: tmpRoot,
+        enqueueExtractJob: true,
+      });
+
+      expect(mockEnqueue).toHaveBeenCalledTimes(1);
+      // First arg is the new document's id, which Prisma returned to us.
+      expect(mockEnqueue.mock.calls[0][0]).toBe((created as { id: string }).id);
+    });
+
+    it("does NOT call enqueueExtractJob when flag=true but mimeType is NOT extractable (e.g. image/png)", async () => {
+      mockCreate.mockImplementation(
+        async (args: { data: Record<string, unknown> }) =>
+          ({ id: args.data.id ?? "fake-id", ...args.data }) as never,
+      );
+
+      await createDocument({
+        userId: "u1",
+        name: "n.png",
+        fileName: "n.png",
+        mimeType: "image/png",
+        bytes: Buffer.from("PNGDATA"),
+        category: "asset_document",
+        entityType: "AssetType",
+        entityId: "at-1",
+        notes: null,
+        folderId: null,
+        storageRoot: tmpRoot,
+        enqueueExtractJob: true,
+      });
+
+      expect(mockEnqueue).not.toHaveBeenCalled();
+    });
   });
 });

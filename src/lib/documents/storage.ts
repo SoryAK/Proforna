@@ -22,6 +22,8 @@ import { promises as fs } from "fs";
 import path from "path";
 import { createHash, randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
+import { enqueueExtractJob } from "@/lib/jobs/enqueue";
+import { isExtractableMime } from "@/lib/manuals/extract";
 
 /** Default repository-relative root for document bytes. Override via the
  *  `storageRoot` argument to `createDocument` (used by tests). */
@@ -84,6 +86,12 @@ export interface CreateDocumentInput {
   /** Test-only override. Production code lets this default to
    *  `DEFAULT_STORAGE_ROOT`. */
   storageRoot?: string;
+  /** ADR-0050 β1.3: when `true`, enqueue an `extract` processing job
+   *  after the row is created — but ONLY if `mimeType` is extractable
+   *  (`isExtractableMime` in `@/lib/manuals/extract`). Defaults to false
+   *  so non-manuals callers (generic uploads, worklog snapshots) stay out
+   *  of the manuals pipeline. */
+  enqueueExtractJob?: boolean;
 }
 
 /**
@@ -110,7 +118,7 @@ export async function createDocument(
 
   const contentHash = createHash("sha256").update(input.bytes).digest("hex");
 
-  return prisma.document.create({
+  const created = await prisma.document.create({
     data: {
       id,
       // Use the relation-connect form. Prisma's runtime validator interprets
@@ -133,4 +141,14 @@ export async function createDocument(
         : undefined,
     },
   });
+
+  // ADR-0050 β1.3: enqueue text-extraction only when the caller asks for
+  // it AND the MIME is actually extractable. The MIME guard defends
+  // against (e.g.) PNG attachments to AssetType that would otherwise
+  // create a job the poller would permanent-fail on its first attempt.
+  if (input.enqueueExtractJob && isExtractableMime(input.mimeType)) {
+    await enqueueExtractJob(created.id);
+  }
+
+  return created;
 }

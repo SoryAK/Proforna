@@ -73,6 +73,10 @@ export async function POST(
         entityId: id,
         notes,
         folderId: null,
+        // ADR-0050 β1.3: asset-document uploads are the manuals pipeline
+        // entry point. The createDocument helper no-ops the enqueue when
+        // the MIME isn't extractable (e.g. wiring diagrams as PNGs).
+        enqueueExtractJob: true,
       });
       const assetDoc = await attachDocument({
         assetId: id,
