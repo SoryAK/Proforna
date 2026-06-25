@@ -48,6 +48,10 @@ export async function POST(req: NextRequest) {
   // Extract text from base64 data (text/plain and CSV we can decode directly)
   const textChunks: string[] = [];
   for (const doc of docs) {
+    // ADR-0051: `data` is nullable now. Disk-backed extraction lands in
+    // Sprint α' Commit 2; for this commit we skip rows without inline bytes
+    // so existing legacy docs continue to flow through the learning pipeline.
+    if (!doc.data) continue;
     const buf = Buffer.from(doc.data, "base64");
     if (
       doc.mimeType === "text/plain" ||

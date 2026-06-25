@@ -1683,24 +1683,48 @@ model ActivityLog {
 }
 
 model Document {
-  id         String   @id @default(uuid())
-  userId     String
-  name       String
-  fileName   String
-  fileSize   Int
-  mimeType   String
-  data       String
-  category   String   @default("other")
-  entityType String?
-  entityId   String?
-  notes      String?
-  folderId   String?
-  createdAt  DateTime @default(now())
+  id               String                   @id @default(uuid())
+  userId           String
+  name             String
+  fileName         String
+  fileSize         Int
+  mimeType         String
+  // LEGACY: kept for small inline rows (resumes, certs); new uploads above the
+  // 256 KB inline-vs-disk threshold (see src/lib/documents/storage.ts in commit 2)
+  // write to filePath. Nullable as of ADR-0051 sprint α' commit 1.
+  data             String?
+  // NEW (ADR-0051): disk path under /uploads/documents/<userId>/<id>.<ext>
+  filePath         String?
+  // NEW: sha256 of bytes, indexed for future dedup
+  contentHash      String?
+  // NEW: populated post-extraction (PDFs, DOCX); null until processed
+  pageCount        Int?
+  // NEW: pending | processing | ready | failed | skipped
+  processingStatus String                   @default("pending")
+  // NEW
+  processedAt      DateTime?
+  // NEW: error message when processingStatus = "failed"
+  extractionError  String?
+  // NEW: extracted text projection for AI / search
+  markdownContent  String?
+  // NEW: GENERATED STORED tsvector over markdownContent (see migration SQL)
+  searchVector     Unsupported("tsvector")? @map("search_vector")
+  category         String                   @default("other")
+  // LEGACY (kept for backward compat with /docs filters and learning/generate);
+  // new associations should use strong-typed pivot tables (AssetDocument, etc).
+  entityType       String?
+  entityId         String?
+  notes            String?
+  folderId         String?
+  createdAt        DateTime                 @default(now())
 
-  user   User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  folder DocumentFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  folder         DocumentFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  assetDocuments AssetDocument[]
 
   @@index([userId, folderId])
+  @@index([userId, processingStatus])
+  @@index([contentHash])
 }
 
 model DocumentFolder {
@@ -2715,18 +2739,23 @@ model AssetDocument {
   id          String   @id @default(uuid())
   assetTypeId String?
   assetId     String?
+  // NEW (ADR-0051): FK to canonical Document. New uploads write through Document
+  // and link here; legacy rows keep their filePath/url until lazy backfill.
+  documentId  String?
   docType     String   @default("manual") // manual | wiring_diagram | spec_sheet | safety_sheet | parts_list | other
   title       String
-  filePath    String? // uploaded file (e.g. /uploads/asset-docs/uuid.pdf)
+  filePath    String? // LEGACY: kept for existing rows during lazy migration
   url         String? // external URL (manufacturer site, Google Drive)
   notes       String?
   createdAt   DateTime @default(now())
 
   assetType AssetType? @relation(fields: [assetTypeId], references: [id], onDelete: Cascade)
   asset     JobAsset?  @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  document  Document?  @relation(fields: [documentId], references: [id], onDelete: SetNull)
 
   @@index([assetTypeId])
   @@index([assetId])
+  @@index([documentId])
 }
 
 // Web links attached to an AssetType or JobAsset instance.
