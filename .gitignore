@@ -50,6 +50,9 @@ next-env.d.ts
 # Local-only smoke-test fixtures (ad-hoc files used during manual QA)
 .smoke/
 
+# Document substrate disk storage (ADR-0051) — user-uploaded bytes
+/storage/
+
 # CodeGraph (local index — junctioned to C:\CodeGraphCache\resumsify to bypass OneDrive)
 .codegraph/
 # Squad: ignore runtime state (logs, inbox, sessions)

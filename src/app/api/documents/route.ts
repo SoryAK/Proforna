@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { logActivity } from "@/lib/activity";
 import { NextRequest, NextResponse } from "next/server";
 import { getUserId } from "@/lib/auth-utils";
+import { createDocument } from "@/lib/documents/storage";
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
 
@@ -104,22 +105,21 @@ export async function POST(req: NextRequest) {
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const base64 = buffer.toString("base64");
 
-    const doc = await prisma.document.create({
-      data: {
-        userId,
-        name: name || file.name,
-        fileName: file.name,
-        fileSize: file.size,
-        mimeType: file.type,
-        data: base64,
-        category,
-        entityType: entityType || null,
-        entityId: entityId || null,
-        notes: notes || null,
-        folderId,
-      },
+    // ADR-0051 sprint α' commit 2: new uploads go to disk via the storage
+    // service. The `data` column is left null on every new row; only legacy
+    // pre-substrate documents still carry inline base64.
+    const doc = await createDocument({
+      userId,
+      name: name || file.name,
+      fileName: file.name,
+      mimeType: file.type,
+      bytes: buffer,
+      category,
+      entityType: entityType || null,
+      entityId: entityId || null,
+      notes: notes || null,
+      folderId,
     });
 
     await logActivity("document", doc.id, "created", `Uploaded document: ${doc.name}`);

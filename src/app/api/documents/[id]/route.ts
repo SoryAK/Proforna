@@ -2,27 +2,9 @@ import { prisma } from "@/lib/prisma";
 import { logActivity } from "@/lib/activity";
 import { NextRequest, NextResponse } from "next/server";
 import { getUserId } from "@/lib/auth-utils";
-import { promises as fs } from "fs";
+import { readDocumentBytes } from "@/lib/documents/storage";
 
 type Ctx = { params: Promise<{ id: string }> };
-
-/**
- * Read the document's bytes from either disk (new substrate, ADR-0051) or
- * the legacy inline base64 column. Extracted into a shared service in
- * Sprint α' Commit 2; inlined here for Commit 1 (the schema migration).
- */
-async function loadDocumentBytes(doc: {
-  filePath: string | null;
-  data: string | null;
-}): Promise<Buffer> {
-  if (doc.filePath) {
-    return fs.readFile(doc.filePath);
-  }
-  if (doc.data) {
-    return Buffer.from(doc.data, "base64");
-  }
-  throw new Error("Document has no bytes (both filePath and data are null)");
-}
 
 export async function GET(_req: NextRequest, ctx: Ctx) {
   const userId = await getUserId();
@@ -33,11 +15,10 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
   const doc = await prisma.document.findFirst({ where: { id, userId } });
   if (!doc) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const buffer = await loadDocumentBytes(doc);
+  const buffer = await readDocumentBytes(doc);
   // Buffer is a Uint8Array at runtime and a valid BodyInit; TS infers
-  // `Buffer<ArrayBufferLike>` which is wider than the `Uint8Array<ArrayBuffer>`
-  // NextResponse's typings require. Cast at the boundary keeps the helper
-  // signature clean for the storage-service extraction in Sprint α' Commit 2.
+  // `Buffer<ArrayBufferLike>` which is wider than NextResponse's typings
+  // require. Contained cast keeps the storage service signature clean.
   return new NextResponse(buffer as unknown as BodyInit, {
     headers: {
       "Content-Type": doc.mimeType,
