@@ -1,0 +1,17 @@
+{
+  "entities": [
+    {
+      "name": "DocumentDomain",
+      "entityType": "domain",
+      "observations": [
+        "2026-06-25: Established by ADR-0051 (commits a60ba06 + f3b36df + b68f91d). The `Document` Prisma model is the CANONICAL file substrate — any bytes a user uploads ultimately live in a Document row. Pivot tables (currently `AssetDocument`; planned `Attachment.documentId` per ADR-0051 follow-up) carry role/relationship metadata via a nullable `documentId` FK to Document.",
+        "2026-06-25: Storage architecture. Bytes live at `<repoRoot>/storage/documents/<userId>/<documentId>.<ext>` — OUTSIDE `public/` so the ONLY way to fetch bytes is via the GET handler's user-scoped lookup. This closes the latent IDOR vector that Attachment's `public/uploads/attachments/` pattern inherits (ADR-0052 follow-up tracked). Legacy `Document.data String` (base64 inline) column is now nullable; `readDocumentBytes(doc)` branches `filePath → fs.readFile` then `data → Buffer.from(base64)` then throws.",
+        "2026-06-25: Public API surface in `src/lib/documents/` (use these, do NOT inline). storage.ts: `createDocument(input)` writes bytes to disk + computes SHA-256 contentHash + inserts Prisma row using user.connect form; `readDocumentBytes(doc)` is the unified reader. asset-document.ts: `attachDocument(input)` links a Document.id to AssetType OR JobAsset (XOR-enforced) via AssetDocument with connect form; `getAssetDocumentFile(adId)` is the three-branch reader (documentId → readDocumentBytes / legacy filePath under LEGACY_FILE_ROOT=public/uploads / url-only throws); `VALID_DOC_TYPES` set is the single source of truth (previously duplicated in two routes).",
+        "2026-06-25: Route surface. Upload entry points: POST /api/documents (multipart, generic), POST /api/asset-types/[id]/documents (multipart via createDocument+attachDocument, JSON for url-only), POST /api/job-assets/[id]/documents (same shape). Download entry points: GET /api/documents/[id] (Document GET via readDocumentBytes), GET /api/asset-documents/[id]/file (polymorphic via getAssetDocumentFile; owner check via assetType.userId OR asset.userId; url-only AssetDocuments return 404 to caller, the caller follows AssetDocument.url field directly).",
+        "2026-06-25: Schema fields added by ADR-0051 migration 20260625151215_add_document_substrate_fields. Document gained: filePath String? (disk path), contentHash String? (SHA-256), pageCount Int?, processingStatus String @default('pending'), processedAt DateTime?, extractionError String?, markdownContent String?, plus a tsvector search_vector index. data String was DROPPED NOT NULL (now nullable). AssetDocument gained: documentId String? FK + document Document? @relation(... onDelete: SetNull). Indexes: Document.userId+processingStatus, Document.contentHash, AssetDocument.documentId.",
+        "2026-06-25: Known gotchas. (1) AssetDocument 'exactly one of assetTypeId/assetId' is NOT a DB CHECK constraint — the helper enforces XOR by throw. Direct prisma.assetDocument.create from new code MUST go through attachDocument. (2) Legacy Equipment table (deprecated) is NOT migrated to this substrate — manuals KB (ADR-0050) is JobAsset-only. (3) `Document.data` legacy column is kept indefinitely; no forced backfill (revisit when contentHash dedup work begins). (4) Attachment model still uses `public/uploads/attachments/` path — IDOR candidate, slated for ADR-0052."
+      ]
+    }
+  ],
+  "relations": []
+}
