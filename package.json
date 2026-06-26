@@ -26,7 +26,8 @@
     "review:semantic": "node scripts/review-semantic.mjs",
     "review:classify": "node scripts/review-classify.mjs",
     "review:queue": "node scripts/review-queue-read.mjs",
-    "review:escalate": "node scripts/review-escalate.mjs"
+    "review:escalate": "node scripts/review-escalate.mjs",
+    "jobs:extract": "tsx scripts/document-processor.mts"
   },
   "prisma": {
     "seed": "npx tsx prisma/seed.ts"
