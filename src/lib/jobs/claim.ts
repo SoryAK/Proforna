@@ -43,17 +43,45 @@ export async function claimNextJob(
   //   2. scheduledFor cutoff   (selects rows whose scheduledFor <= now)
   // Postgres parameter binding ensures the timestamps are timezone-correct
   // regardless of the client's locale.
+  //
+  // TZ-safety (TWO mirror-image bugs in the same SQL block):
+  //
+  //   1. WHERE side — `"scheduledFor"` is stored as bare `timestamp` (no
+  //      TZ — project-wide DateTime convention; no `@db.Timestamptz`
+  //      anywhere in the schema). When compared against `${now}` (which
+  //      Prisma binds as `timestamptz`), Postgres implicitly converts
+  //      the bare timestamp by reinterpreting it in the session TZ — so
+  //      on any non-UTC connection (e.g. America/New_York) the row
+  //      appears 4–5h in the future and the poller silently never
+  //      claims anything. Fix: `("scheduledFor" AT TIME ZONE 'UTC')`
+  //      forces the column to read as UTC.
+  //
+  //   2. SET side — assigning a `timestamptz` param (${now}) to a bare
+  //      `timestamp` column does the inverse implicit cast: Postgres
+  //      converts the timestamptz to the session TZ then strips the TZ.
+  //      Result: `claimedAt` stores the session-local wall clock but
+  //      Prisma reads it back as a UTC instant, so the value drifts 4–5h
+  //      from reality. In β1 (single poller, sub-second extracts) this
+  //      is benign; in β2+ (multi-poller, longer jobs) it makes the
+  //      staleReset cutoff fire on freshly-claimed rows → double-process.
+  //      Fix: `(${now} AT TIME ZONE 'UTC')` reinterprets the timestamptz
+  //      as UTC and converts to bare `timestamp`, preserving the wall
+  //      clock through write/read round-trip.
+  //
+  // Regression-guarded by claim.test.ts. Parked: a schema-wide migration
+  // to `@db.Timestamptz` would let us drop both casts (see
+  // parked-ideas.md → "schema-wide timestamptz migration").
   const rows = await prisma.$queryRaw<ClaimedJob[]>`
     UPDATE "DocumentProcessingJob"
     SET status = 'running',
         attempts = attempts + 1,
-        "claimedAt" = ${now},
-        "updatedAt" = ${now}
+        "claimedAt" = (${now} AT TIME ZONE 'UTC'),
+        "updatedAt" = (${now} AT TIME ZONE 'UTC')
     WHERE id = (
       SELECT id FROM "DocumentProcessingJob"
       WHERE status = 'pending'
         AND kind = ${kind}
-        AND "scheduledFor" <= ${now}
+        AND ("scheduledFor" AT TIME ZONE 'UTC') <= ${now}
       ORDER BY "scheduledFor" ASC
       LIMIT 1
       FOR UPDATE SKIP LOCKED

@@ -73,6 +73,53 @@ describe("claimNextJob", () => {
     expect(fullSql).toMatch(/RETURNING\s+\*/i);
   });
 
+  it("normalises `scheduledFor` to UTC before comparing to the now param (TZ-safety regression guard)", async () => {
+    // Regression test for the 2026-06-25 bug surfaced by the β1.4 live
+    // smoke: Prisma's schema stores DateTime as bare `timestamp` (no TZ),
+    // and Postgres reinterprets bare timestamps in the session TZ when
+    // comparing against `timestamptz` (which is what `${now}` and `NOW()`
+    // bind as). On any non-UTC session (e.g. America/New_York), the
+    // comparison `"scheduledFor" <= ${now}` shifts the column 4–5h into
+    // the future and the poller never claims any row.
+    //
+    // The fix: force the column to be read as UTC via `AT TIME ZONE 'UTC'`
+    // BEFORE the comparison. This test pins the cast so a future refactor
+    // can't silently drop it and reintroduce the silent-no-claim bug.
+    mockQueryRaw.mockResolvedValue([]);
+    await claimNextJob("extract");
+    const [strings] = mockQueryRaw.mock.calls[0];
+    const fullSql = (strings as TemplateStringsArray).join(" ");
+    expect(fullSql).toMatch(
+      /"scheduledFor"\s+AT\s+TIME\s+ZONE\s+'UTC'/i,
+    );
+  });
+
+  it("converts the now param to UTC before writing claimedAt/updatedAt (mirror TZ-safety guard)", async () => {
+    // Mirror-image of the WHERE-side fix above: assigning a `timestamptz`
+    // param to a bare `timestamp` column does the inverse implicit cast
+    // (Postgres converts via session TZ then strips TZ), so `claimedAt`
+    // ends up storing the session-local wall clock. Prisma reads it back
+    // as a UTC instant, drifting it 4–5h from reality. Fix: wrap the now
+    // param in `(${now} AT TIME ZONE 'UTC')` to preserve the UTC wall
+    // clock through the write/read round-trip. Pinned here so a future
+    // refactor can't strip the cast and silently corrupt audit
+    // timestamps + the staleReset cutoff math.
+    mockQueryRaw.mockResolvedValue([]);
+    await claimNextJob("extract");
+    const [strings] = mockQueryRaw.mock.calls[0];
+    const fullSql = (strings as TemplateStringsArray).join(" ");
+    // Match both `"claimedAt" = (<param> AT TIME ZONE 'UTC')` and the
+    // same for `"updatedAt"`. The param itself is a $1/$2 placeholder
+    // in the joined-strings view — what we assert is the AT TIME ZONE
+    // 'UTC' suffix following the column name.
+    expect(fullSql).toMatch(
+      /"claimedAt"\s*=\s*\([^)]*AT\s+TIME\s+ZONE\s+'UTC'\)/i,
+    );
+    expect(fullSql).toMatch(
+      /"updatedAt"\s*=\s*\([^)]*AT\s+TIME\s+ZONE\s+'UTC'\)/i,
+    );
+  });
+
   it("passes the kind discriminator and now timestamp as bound params", async () => {
     mockQueryRaw.mockResolvedValue([]);
     const now = new Date("2026-06-25T12:34:56Z");
