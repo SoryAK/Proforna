@@ -32,6 +32,8 @@ npm run dev
 
 UI: [http://localhost:5173](http://localhost:5173). API: [http://localhost:3000/api/health](http://localhost:3000/api/health).
 
+Default install is **one occupant on this machine** — no Create Account. `GET /api/me` creates `local` if needed.
+
 ## License
 
 [Apache-2.0](LICENSE) © 2026 SoryAK

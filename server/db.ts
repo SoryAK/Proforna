@@ -8,9 +8,15 @@ export function openDatabase(path: string): DatabaseSync {
   }
   const db = new DatabaseSync(path);
   db.exec(`
-    CREATE TABLE IF NOT EXISTS meta (
-      key TEXT PRIMARY KEY,
-      value TEXT NOT NULL
+    CREATE TABLE IF NOT EXISTS occupants (
+      id TEXT PRIMARY KEY,
+      created_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS profiles (
+      occupant_id TEXT PRIMARY KEY REFERENCES occupants(id),
+      full_name TEXT NOT NULL DEFAULT '',
+      onboarding_completed_at TEXT,
+      updated_at TEXT NOT NULL
     );
   `);
   return db;
