@@ -1,7 +1,10 @@
 # AGENTS.md
 
-Proforna is being rebuilt from a small base. Do not assume the old app tree,
-Prisma schema, or ADRs are in this checkout.
+Proforna is personal career management, rebuilt from a small base. Do not
+assume the old Next.js tree, Prisma schema, or prior ADRs are in this checkout.
+
+Stack: `core/` (domain), `server/` (Hono), `web/` (Vite + React). SQLite on
+disk. Management logic lives in `core/` — not in routes or React screens.
 
 Humans start at [README.md](README.md) and [CONTRIBUTING.md](CONTRIBUTING.md).
-Merge gate: [docs/ci.md](docs/ci.md).
+Decisions: [docs/adr/](docs/adr/). Merge gate: [docs/ci.md](docs/ci.md).
