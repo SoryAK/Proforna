@@ -8,9 +8,6 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    env:
-      DATABASE_URL: postgresql://ci:ci@localhost:5432/resumsify
-      AUTH_SECRET: ci-placeholder-not-used
     steps:
       - uses: actions/checkout@v7
 

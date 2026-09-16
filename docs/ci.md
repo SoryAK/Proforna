@@ -8,24 +8,19 @@ The check name GitHub should require is **`test`**.
 ## What a run does today
 
 1. **Required files** — README, LICENSE, SECURITY, CONTRIBUTING, Code of Conduct
-2. **If `package.json` exists** — `npm ci`, then `npm test`
-3. **If Prisma exists** — `npx prisma generate` (dummy `DATABASE_URL`; no Postgres)
-4. **Deploy (main only)** — no-op until the app is back
-
-Occupant mode (`SINGLE_OCCUPANT`) stays **off** in CI when tests return.
+2. **`npm ci`** then **`npm test`** (Vitest at `core/` and `server/` HTTP seams)
+3. **If Prisma exists** — `npx prisma generate` (legacy; this rebuild does not use it)
+4. **Deploy (main only)** — no-op until hosting exists
 
 ## What is not in the gate yet
 
-- `tsc --noEmit` and `next build` join the gate when they are clean locally
-- Hosting (Vercel or otherwise) is not wired yet
+- `tsc --noEmit` and a production `vite build` join the gate when they are routine
+- Hosting (Vercel or otherwise) is not wired
 
 ## Local parity
 
-When the app is in the tree:
-
 ```sh
 npm ci
-npx prisma generate   # if using Prisma
 npm test
 ```
 
@@ -35,4 +30,4 @@ Repository **Settings → Rules → Protect main**:
 
 - Pull request required
 - Required status check: `test`
-- No force-push, no deleting `main` (after the rebuild settle)
+- No force-push, no deleting `main`
