@@ -35,30 +35,28 @@ export function App() {
 
   if (error) {
     return (
-      <main>
+      <div className="boot">
         <h1>Proforna</h1>
         <p role="alert">{error}</p>
-      </main>
+      </div>
     );
   }
 
   if (!me) {
     return (
-      <main>
+      <div className="boot">
         <h1>Proforna</h1>
         <p>Checking…</p>
-      </main>
+      </div>
     );
   }
 
   if (needsOnboarding(me.profile)) {
     return (
-      <main>
-        <Onboarding
-          initialName={me.profile.fullName}
-          onFinished={setMe}
-        />
-      </main>
+      <Onboarding
+        initialName={me.profile.fullName}
+        onFinished={setMe}
+      />
     );
   }
 
