@@ -5,7 +5,9 @@ import { createApp } from "./app";
 import { openDatabase } from "./db";
 
 const db = openDatabase(process.env.DATABASE_PATH ?? "data/proforna.sqlite");
-const app = createApp(db);
+const app = createApp(db, {
+  uploadsDir: process.env.UPLOADS_DIR ?? "data/uploads",
+});
 
 if (existsSync("web/dist")) {
   app.use("/*", serveStatic({ root: "web/dist" }));

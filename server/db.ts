@@ -11,13 +11,24 @@ export function openDatabase(path: string): DatabaseSync {
     CREATE TABLE IF NOT EXISTS occupants (
       id TEXT PRIMARY KEY,
       created_at TEXT NOT NULL
-    );
+    )
+  `);
+  db.exec(`
     CREATE TABLE IF NOT EXISTS profiles (
       occupant_id TEXT PRIMARY KEY REFERENCES occupants(id),
       full_name TEXT NOT NULL DEFAULT '',
       onboarding_completed_at TEXT,
       updated_at TEXT NOT NULL
-    );
+    )
+  `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS resumes (
+      id TEXT PRIMARY KEY,
+      occupant_id TEXT NOT NULL REFERENCES occupants(id),
+      original_name TEXT NOT NULL,
+      stored_name TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    )
   `);
   return db;
 }
