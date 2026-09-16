@@ -10,7 +10,10 @@
     "noEmit": true,
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
-    "types": ["node", "vite/client"]
+    "types": ["node", "vite/client"],
+    "paths": {
+      "@core/*": ["./core/*"]
+    }
   },
   "include": ["core", "server", "web"]
 }

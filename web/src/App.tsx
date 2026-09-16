@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { needsOnboarding } from "@core/onboarding";
+import { Onboarding } from "./Onboarding";
 
 type Health = { ok: boolean; product: string; db: string };
 type Me = {
@@ -31,20 +33,42 @@ export function App() {
       );
   }, []);
 
+  if (error) {
+    return (
+      <main>
+        <h1>Proforna</h1>
+        <p role="alert">{error}</p>
+      </main>
+    );
+  }
+
+  if (!me) {
+    return (
+      <main>
+        <h1>Proforna</h1>
+        <p>Checking…</p>
+      </main>
+    );
+  }
+
+  if (needsOnboarding(me.profile)) {
+    return (
+      <main>
+        <Onboarding
+          initialName={me.profile.fullName}
+          onFinished={setMe}
+        />
+      </main>
+    );
+  }
+
   return (
     <main>
-      <h1>Proforna</h1>
-      <p>Personal career management.</p>
-      {error ? <p role="alert">{error}</p> : null}
-      {me ? (
-        <p>
-          Occupant <code>{me.occupant.id}</code>
-          {me.profile.fullName ? ` — ${me.profile.fullName}` : ""}. No account
-          to create.
-        </p>
-      ) : error ? null : (
-        <p>Checking…</p>
-      )}
+      <h1>Home</h1>
+      <p>
+        Welcome{me.profile.fullName ? `, ${me.profile.fullName}` : ""}. Occupant{" "}
+        <code>{me.occupant.id}</code>.
+      </p>
       {health ? (
         <p>
           {health.product} is up. Database {health.db}.
