@@ -25,7 +25,15 @@ next-env.d.ts
 
 .vscode
 .idea
-.cursor/
+.cursor/*
+!.cursor/skills/
+.cursor/skills/*
+!.cursor/skills/impeccable/
+!.cursor/skills/impeccable/**
+.cursor/skills/impeccable/scripts/bin/
+!.cursor/agents/
+!.cursor/agents/**
+!.cursor/hooks.json
 .agents/
 .claude/
 .copilot/
