@@ -22,12 +22,13 @@ Scaffold. Stack is locked in [ADR-0001](docs/adr/0001-personal-career-management
 ## Minimum to run
 
 - Node 22
+- pnpm 10 (`corepack enable` then `corepack prepare pnpm@10.17.1 --activate`)
 
 ```bash
 cp .env.example .env
-npm ci
-npm test
-npm run dev
+pnpm install
+pnpm test
+pnpm dev
 ```
 
 UI: [http://localhost:5173](http://localhost:5173). API: [http://localhost:3000/api/health](http://localhost:3000/api/health).

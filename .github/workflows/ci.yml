@@ -19,19 +19,24 @@ jobs:
           test -f CONTRIBUTING.md
           test -f CODE_OF_CONDUCT.md
 
+      - uses: pnpm/action-setup@v4
+        if: hashFiles('package.json') != ''
+        with:
+          version: 10.17.1
+
       - uses: actions/setup-node@v7
         if: hashFiles('package.json') != ''
         with:
           node-version: 22
-          cache: npm
+          cache: pnpm
 
-      - run: npm ci
+      - run: pnpm install --frozen-lockfile
         if: hashFiles('package.json') != ''
 
       - run: npx prisma generate
         if: hashFiles('prisma/schema.prisma') != ''
 
-      - run: npm test
+      - run: pnpm test
         if: hashFiles('package.json') != ''
 
   # Deploy lands when the app exists. Keep the job so the pipeline shape is fixed.

@@ -8,7 +8,7 @@ The check name GitHub should require is **`test`**.
 ## What a run does today
 
 1. **Required files** — README, LICENSE, SECURITY, CONTRIBUTING, Code of Conduct
-2. **`npm ci`** then **`npm test`** (Vitest at `core/` and `server/` HTTP seams)
+2. **`pnpm install --frozen-lockfile`** then **`pnpm test`** (Vitest at `core/` and `server/` HTTP seams)
 3. **If Prisma exists** — `npx prisma generate` (legacy; this rebuild does not use it)
 4. **Deploy (main only)** — no-op until hosting exists
 
@@ -20,8 +20,8 @@ The check name GitHub should require is **`test`**.
 ## Local parity
 
 ```sh
-npm ci
-npm test
+pnpm install
+pnpm test
 ```
 
 ## Ruleset (manual, once)

@@ -5,13 +5,18 @@
   "license": "Apache-2.0",
   "type": "module",
   "scripts": {
-    "dev": "concurrently -k \"npm:dev:server\" \"npm:dev:web\"",
+    "dev": "concurrently -k \"pnpm:dev:server\" \"pnpm:dev:web\"",
     "dev:server": "tsx watch server/index.ts",
     "dev:web": "vite --config web/vite.config.ts",
     "build": "vite build --config web/vite.config.ts",
     "start": "tsx server/index.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
+  },
+  "packageManager": "pnpm@10.17.1",
+  "engines": {
+    "node": ">=22",
+    "pnpm": ">=10"
   },
   "dependencies": {
     "@hono/node-server": "^2.1.1",
