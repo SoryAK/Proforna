@@ -14,10 +14,23 @@ We are looking for **contributors and collaborators**. See [CONTRIBUTING.md](CON
 
 ## Status
 
-Bare start. Stack is locked in [ADR-0001](docs/adr/0001-personal-career-management-stack.md):
+Scaffold. Stack is locked in [ADR-0001](docs/adr/0001-personal-career-management-stack.md):
 `core/` (domain), `server/` (Hono), `web/` (Vite + React), SQLite on disk.
 
-[CI](docs/ci.md) is the merge gate. Deploy is a no-op until the app is back.
+[CI](docs/ci.md) is the merge gate. Deploy is a no-op until hosting exists.
+
+## Minimum to run
+
+- Node 22
+
+```bash
+cp .env.example .env
+npm ci
+npm test
+npm run dev
+```
+
+UI: [http://localhost:5173](http://localhost:5173). API: [http://localhost:3000/api/health](http://localhost:3000/api/health).
 
 ## License
 
