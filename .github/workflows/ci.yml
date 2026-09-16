@@ -12,7 +12,7 @@ jobs:
       DATABASE_URL: postgresql://ci:ci@localhost:5432/resumsify
       AUTH_SECRET: ci-placeholder-not-used
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Required files
         run: |
@@ -43,7 +43,7 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Deploy
         run: |
           if [ ! -f package.json ]; then
