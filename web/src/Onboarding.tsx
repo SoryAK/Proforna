@@ -1,38 +1,166 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { prepareProfile, type ProfileFields } from "@core/profile";
+import type { ExtractedResume } from "@core/resume-extract";
+import { OnboardingModelOffer, OnboardingModelSetup } from "./OnboardingModels";
+import {
+  OnboardingProgress,
+  stepKicker,
+  type Step,
+} from "./OnboardingProgress";
+import {
+  OnboardingProfileForm,
+  type OnboardingProfileValue,
+} from "./OnboardingProfile";
+import { OnboardingResume } from "./OnboardingResume";
+import "./onboarding.css";
 
 type Me = {
   occupant: { id: string };
-  profile: { fullName: string; onboardingCompletedAt: string | null };
+  profile: OnboardingProfileValue & { onboardingCompletedAt: string | null };
 };
 
 export function Onboarding({
-  initialName,
+  initialProfile,
   onFinished,
 }: {
-  initialName: string;
+  initialProfile: OnboardingProfileValue;
   onFinished: (me: Me) => void;
 }) {
-  const [step, setStep] = useState<"welcome" | "profile" | "resume">("welcome");
-  const [fullName, setFullName] = useState(initialName);
+  const [step, setStep] = useState<Step>("welcome");
+  const [profile, setProfile] = useState<ProfileFields>({
+    fullName: initialProfile.fullName,
+    headline: initialProfile.headline,
+    city: initialProfile.city,
+    state: initialProfile.state,
+    bio: initialProfile.bio,
+    linkedinUrl: initialProfile.linkedinUrl,
+    githubUrl: initialProfile.githubUrl,
+    portfolioUrl: initialProfile.portfolioUrl,
+  });
+  const [photo, setPhoto] = useState<File | null>(null);
+  const [nameReady, setNameReady] = useState(
+    Boolean(initialProfile.fullName.trim()),
+  );
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [modelPath, setModelPath] = useState(false);
+  const [canExtract, setCanExtract] = useState(false);
+  const [extracted, setExtracted] = useState<ExtractedResume | null>(null);
+  const [extractModel, setExtractModel] = useState<string | null>(null);
 
-  async function saveProfile() {
+  useEffect(() => {
+    void fetch("/api/models")
+      .then((res) => (res.ok ? res.json() : { connections: [] }))
+      .then((body: { connections?: Array<{ model: string }> }) => {
+        setCanExtract(
+          Boolean(body.connections?.some((row) => row.model.trim())),
+        );
+      })
+      .catch(() => setCanExtract(false));
+  }, []);
+
+  function go(next: Step) {
+    if (next !== "welcome" && !nameReady) {
+      setStep("welcome");
+      return;
+    }
+    setError(null);
+    setStep(next);
+  }
+
+  function continueProfile(fields: ProfileFields, nextPhoto: File | null) {
+    const prepared = prepareProfile(fields);
+    if (!prepared.ok) {
+      setError(
+        prepared.error === "url-invalid"
+          ? "Use an http(s) URL for LinkedIn, GitHub, or portfolio."
+          : "A name is required.",
+      );
+      return;
+    }
+    setError(null);
+    setProfile(prepared.value);
+    setPhoto(nextPhoto);
+    setNameReady(true);
+    setStep("models");
+  }
+
+  async function persistProfile() {
+    const res = await fetch("/api/profile", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(profile),
+    });
+    const body = (await res.json()) as { error?: string };
+    if (!res.ok) {
+      setError(body.error ?? "Could not save your profile.");
+      return false;
+    }
+    if (photo) {
+      const form = new FormData();
+      form.append("avatar", photo);
+      const uploaded = await fetch("/api/profile/avatar", {
+        method: "POST",
+        body: form,
+      });
+      if (!uploaded.ok) {
+        const failed = (await uploaded.json()) as { error?: string };
+        setError(failed.error ?? "Could not save the photo.");
+        return false;
+      }
+    }
+    return true;
+  }
+
+  async function saveModel(input: {
+    hosting: "local" | "cloud";
+    baseUrl: string;
+    model: string;
+    apiKey: string;
+  }) {
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch("/api/profile", {
-        method: "PUT",
+      const res = await fetch("/api/models", {
+        method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ fullName }),
+        body: JSON.stringify(input),
       });
       const body = (await res.json()) as { error?: string };
       if (!res.ok) {
-        setError(body.error ?? "Could not save your name.");
+        setError(body.error ?? "Could not save the model.");
         return;
       }
+      setCanExtract(Boolean(input.model.trim()));
       setStep("resume");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function extractResume() {
+    if (!file) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch("/api/resumes/extract", {
+        method: "POST",
+        body: form,
+      });
+      const body = (await res.json()) as {
+        error?: string;
+        model?: string;
+        data?: ExtractedResume;
+      };
+      if (!res.ok || !body.data) {
+        setError(body.error ?? "Could not extract the resume.");
+        return;
+      }
+      setExtracted(body.data);
+      setExtractModel(body.model ?? null);
     } finally {
       setBusy(false);
     }
@@ -42,6 +170,7 @@ export function Onboarding({
     setBusy(true);
     setError(null);
     try {
+      if (!(await persistProfile())) return;
       if (upload && file) {
         const form = new FormData();
         form.append("file", file);
@@ -51,6 +180,17 @@ export function Onboarding({
         });
         if (!uploaded.ok) {
           setError("Could not store the resume.");
+          return;
+        }
+      }
+      if (upload && extracted) {
+        const saved = await fetch("/api/history", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(extracted),
+        });
+        if (!saved.ok) {
+          setError("Could not save jobs and schools.");
           return;
         }
       }
@@ -67,97 +207,81 @@ export function Onboarding({
   }
 
   return (
-    <section>
-      {step === "welcome" ? (
-        <>
-          <h1>Welcome</h1>
-          <p>
-            Let&apos;s set up your career profile. Your name first, then an
-            optional resume.
-          </p>
-          <button type="button" onClick={() => setStep("profile")}>
-            Let&apos;s get started
-          </button>
-        </>
-      ) : null}
-
-      {step === "profile" ? (
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            void saveProfile();
-          }}
+    <div className="onboarding">
+      <div className="onboarding-stage" data-long={step === "welcome" ? "true" : undefined}>
+        <OnboardingProgress step={step} modelPath={modelPath} />
+        <section
+          className="onboarding-card"
+          data-wide={step === "resume" ? "true" : undefined}
         >
-          <h1>Your profile</h1>
-          <p>Tell us your name. You can change this later.</p>
-          <label>
-            Full name
-            <input
-              name="fullName"
-              autoComplete="name"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              required
+          {step === "welcome" ? (
+            <OnboardingProfileForm
+              initial={{ ...profile, avatarUrl: initialProfile.avatarUrl }}
+              photo={photo}
+              busy={busy}
+              error={error}
+              onContinue={continueProfile}
             />
-          </label>
-          {error ? <p role="alert">{error}</p> : null}
-          <p>
-            <button
-              type="button"
-              onClick={() => setStep("welcome")}
-              disabled={busy}
-            >
-              Back
-            </button>{" "}
-            <button type="submit" disabled={busy}>
-              Continue
-            </button>
-          </p>
-        </form>
-      ) : null}
+          ) : null}
 
-      {step === "resume" ? (
-        <>
-          <h1>Import your resume</h1>
-          <p>
-            Upload a file if you have one — or skip. Parsing jobs and schools
-            comes later.
-          </p>
-          <label>
-            Resume file
-            <input
-              type="file"
-              accept=".pdf,.docx,.txt,application/pdf"
-              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+          {step === "models" ? (
+            <OnboardingModelOffer
+              kicker={stepKicker("models", false)}
+              busy={busy}
+              onBack={() => go("welcome")}
+              onYes={() => {
+                setModelPath(true);
+                go("model-setup");
+              }}
+              onNo={() => {
+                setModelPath(false);
+                go("resume");
+              }}
             />
-          </label>
-          {file ? <p>Selected: {file.name}</p> : null}
-          {error ? <p role="alert">{error}</p> : null}
-          <p>
-            <button
-              type="button"
-              onClick={() => setStep("profile")}
-              disabled={busy}
-            >
-              Back
-            </button>{" "}
-            <button
-              type="button"
-              onClick={() => void finish(false)}
-              disabled={busy}
-            >
-              Skip
-            </button>{" "}
-            <button
-              type="button"
-              onClick={() => void finish(true)}
-              disabled={busy || !file}
-            >
-              Save resume
-            </button>
-          </p>
-        </>
-      ) : null}
-    </section>
+          ) : null}
+
+          {step === "model-setup" ? (
+            <OnboardingModelSetup
+              kicker={stepKicker("model-setup", true)}
+              busy={busy}
+              error={error}
+              onBack={() => go("models")}
+              onSkip={() => {
+                setModelPath(false);
+                go("resume");
+              }}
+              onSave={(input) => void saveModel(input)}
+            />
+          ) : null}
+
+          {step === "resume" ? (
+            <OnboardingResume
+              kicker={stepKicker("resume", modelPath)}
+              file={file}
+              extracted={extracted}
+              extractModel={extractModel}
+              canExtract={canExtract}
+              busy={busy}
+              error={error}
+              onPick={(next) => {
+                setFile(next);
+                setExtracted(null);
+                setExtractModel(null);
+              }}
+              onClear={() => {
+                setFile(null);
+                setExtracted(null);
+                setExtractModel(null);
+              }}
+              onBack={() => go("models")}
+              onSkip={() => void finish(false)}
+              onExtract={() => void extractResume()}
+              onExtractedChange={setExtracted}
+              onConfirm={() => void finish(true)}
+            />
+          ) : null}
+        </section>
+      </div>
+    </div>
   );
 }

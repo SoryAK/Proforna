@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { needsOnboarding } from "@core/onboarding";
 import { Onboarding } from "./Onboarding";
+import type { OnboardingProfileValue } from "./OnboardingProfile";
 
 type Health = { ok: boolean; product: string; db: string };
 type Me = {
   occupant: { id: string };
-  profile: { fullName: string; onboardingCompletedAt: string | null };
+  profile: OnboardingProfileValue & { onboardingCompletedAt: string | null };
 };
 
 export function App() {
@@ -35,30 +36,28 @@ export function App() {
 
   if (error) {
     return (
-      <main>
+      <div className="boot">
         <h1>Proforna</h1>
         <p role="alert">{error}</p>
-      </main>
+      </div>
     );
   }
 
   if (!me) {
     return (
-      <main>
+      <div className="boot">
         <h1>Proforna</h1>
         <p>Checking…</p>
-      </main>
+      </div>
     );
   }
 
   if (needsOnboarding(me.profile)) {
     return (
-      <main>
-        <Onboarding
-          initialName={me.profile.fullName}
-          onFinished={setMe}
-        />
-      </main>
+      <Onboarding
+        initialProfile={me.profile}
+        onFinished={setMe}
+      />
     );
   }
 

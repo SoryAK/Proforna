@@ -30,7 +30,70 @@ export function openDatabase(path: string): DatabaseSync {
       created_at TEXT NOT NULL
     )
   `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS model_connections (
+      id TEXT PRIMARY KEY,
+      occupant_id TEXT NOT NULL REFERENCES occupants(id),
+      hosting TEXT NOT NULL,
+      base_url TEXT NOT NULL,
+      model TEXT NOT NULL DEFAULT '',
+      api_key TEXT,
+      created_at TEXT NOT NULL
+    )
+  `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS work_history (
+      id TEXT PRIMARY KEY,
+      occupant_id TEXT NOT NULL REFERENCES occupants(id),
+      kind TEXT NOT NULL,
+      title TEXT NOT NULL,
+      company TEXT NOT NULL,
+      location TEXT NOT NULL DEFAULT '',
+      start_date TEXT NOT NULL DEFAULT '',
+      end_date TEXT NOT NULL DEFAULT '',
+      is_current INTEGER NOT NULL DEFAULT 0,
+      description TEXT NOT NULL DEFAULT '',
+      achievements_json TEXT NOT NULL DEFAULT '[]',
+      degree TEXT NOT NULL DEFAULT '',
+      field TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL
+    )
+  `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS skills (
+      id TEXT PRIMARY KEY,
+      occupant_id TEXT NOT NULL REFERENCES occupants(id),
+      name TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    )
+  `);
+  addColumnIfMissing(db, "profiles", "headline", "TEXT NOT NULL DEFAULT ''");
+  addColumnIfMissing(db, "profiles", "city", "TEXT NOT NULL DEFAULT ''");
+  addColumnIfMissing(db, "profiles", "state", "TEXT NOT NULL DEFAULT ''");
+  addColumnIfMissing(db, "profiles", "bio", "TEXT NOT NULL DEFAULT ''");
+  addColumnIfMissing(db, "profiles", "linkedin_url", "TEXT NOT NULL DEFAULT ''");
+  addColumnIfMissing(db, "profiles", "github_url", "TEXT NOT NULL DEFAULT ''");
+  addColumnIfMissing(
+    db,
+    "profiles",
+    "portfolio_url",
+    "TEXT NOT NULL DEFAULT ''",
+  );
+  addColumnIfMissing(db, "profiles", "avatar_stored_name", "TEXT");
   return db;
+}
+
+function addColumnIfMissing(
+  db: DatabaseSync,
+  table: string,
+  name: string,
+  spec: string,
+) {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{
+    name: string;
+  }>;
+  if (cols.some((col) => col.name === name)) return;
+  db.exec(`ALTER TABLE ${table} ADD COLUMN ${name} ${spec}`);
 }
 
 export function pingDatabase(db: DatabaseSync): "ok" {
