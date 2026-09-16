@@ -1,8 +1,8 @@
-# Resumsify
+# Proforna
 
-[![CI](https://img.shields.io/github/actions/workflow/status/SoryAK/Resumsify/ci.yml?branch=main&label=CI)](https://github.com/SoryAK/Resumsify/actions/workflows/ci.yml)
-[![license](https://img.shields.io/github/license/SoryAK/Resumsify)](LICENSE)
-[![stars](https://img.shields.io/github/stars/SoryAK/Resumsify)](https://github.com/SoryAK/Resumsify/stargazers)
+[![CI](https://img.shields.io/github/actions/workflow/status/SoryAK/Proforna/ci.yml?branch=main&label=CI)](https://github.com/SoryAK/Proforna/actions/workflows/ci.yml)
+[![license](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
+[![stars](https://img.shields.io/github/stars/SoryAK/Proforna)](https://github.com/SoryAK/Proforna/stargazers)
 
 Local career tracker: worklog, work history, documents, and job search.
 
