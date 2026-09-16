@@ -12,7 +12,14 @@ import {
   listModelConnections,
   saveModelConnection,
 } from "./models";
-import { completeOnboarding, saveFullName, storeResume } from "./profile";
+import {
+  ProfileError,
+  completeOnboarding,
+  loadAvatar,
+  saveProfile,
+  storeAvatar,
+  storeResume,
+} from "./profile";
 import {
   ResumeExtractError,
   extractResumeFromFile,
@@ -41,17 +48,54 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
 
   app.put("/api/profile", async (c) => {
     const occupant = ensureOccupant(db);
-    const body = (await c.req.json()) as { fullName?: unknown };
-    const fullName = typeof body.fullName === "string" ? body.fullName : "";
+    const body = (await c.req.json()) as Record<string, unknown>;
     try {
-      const profile = saveFullName(db, occupant.id, fullName);
+      const profile = saveProfile(db, occupant.id, body);
       return c.json({ occupant, profile });
     } catch (err) {
-      if (err instanceof Error && err.message === "name-required") {
-        return c.json({ error: "A name is required." }, 400);
+      if (err instanceof ProfileError) {
+        const messages: Record<string, string> = {
+          "name-required": "A name is required.",
+          "url-invalid": "Use an http(s) URL for LinkedIn, GitHub, or portfolio.",
+        };
+        return c.json({ error: messages[err.code] ?? "Could not save." }, 400);
       }
       throw err;
     }
+  });
+
+  app.post("/api/profile/avatar", async (c) => {
+    const occupant = ensureOccupant(db);
+    const form = await c.req.formData();
+    const file = form.get("avatar");
+    if (!(file instanceof File)) {
+      return c.json({ error: "A photo file is required." }, 400);
+    }
+    try {
+      const profile = storeAvatar(db, occupant.id, uploadsDir, {
+        type: file.type,
+        bytes: new Uint8Array(await file.arrayBuffer()),
+      });
+      return c.json({ occupant, profile }, 201);
+    } catch (err) {
+      if (err instanceof ProfileError) {
+        const messages: Record<string, string> = {
+          "avatar-type": "Use a jpeg, png, webp, or gif photo.",
+          "avatar-too-large": "That photo is too large (5 MB max).",
+        };
+        return c.json({ error: messages[err.code] ?? "Could not save." }, 400);
+      }
+      throw err;
+    }
+  });
+
+  app.get("/api/profile/avatar", (c) => {
+    const occupant = ensureOccupant(db);
+    const avatar = loadAvatar(db, occupant.id, uploadsDir);
+    if (!avatar) return c.json({ error: "No photo yet." }, 404);
+    return c.body(Buffer.from(avatar.bytes), 200, {
+      "content-type": avatar.type,
+    });
   });
 
   app.post("/api/onboarding/complete", (c) => {
@@ -60,7 +104,7 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
       const profile = completeOnboarding(db, occupant.id);
       return c.json({ occupant, profile });
     } catch (err) {
-      if (err instanceof Error && err.message === "name-required") {
+      if (err instanceof ProfileError && err.code === "name-required") {
         return c.json({ error: "A name is required." }, 400);
       }
       throw err;

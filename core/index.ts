@@ -10,6 +10,14 @@ export {
   type OnboardingProfile,
 } from "./onboarding";
 export {
+  PROFILE_AVATAR_MAX_BYTES,
+  PROFILE_AVATAR_TYPES,
+  avatarExtension,
+  isAvatarType,
+  prepareProfile,
+  type ProfileFields,
+} from "./profile";
+export {
   DEFAULT_LOCAL_BASE_URL,
   prepareModelConnection,
   type ModelHosting,

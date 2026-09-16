@@ -67,7 +67,33 @@ export function openDatabase(path: string): DatabaseSync {
       created_at TEXT NOT NULL
     )
   `);
+  addColumnIfMissing(db, "profiles", "headline", "TEXT NOT NULL DEFAULT ''");
+  addColumnIfMissing(db, "profiles", "city", "TEXT NOT NULL DEFAULT ''");
+  addColumnIfMissing(db, "profiles", "state", "TEXT NOT NULL DEFAULT ''");
+  addColumnIfMissing(db, "profiles", "bio", "TEXT NOT NULL DEFAULT ''");
+  addColumnIfMissing(db, "profiles", "linkedin_url", "TEXT NOT NULL DEFAULT ''");
+  addColumnIfMissing(db, "profiles", "github_url", "TEXT NOT NULL DEFAULT ''");
+  addColumnIfMissing(
+    db,
+    "profiles",
+    "portfolio_url",
+    "TEXT NOT NULL DEFAULT ''",
+  );
+  addColumnIfMissing(db, "profiles", "avatar_stored_name", "TEXT");
   return db;
+}
+
+function addColumnIfMissing(
+  db: DatabaseSync,
+  table: string,
+  name: string,
+  spec: string,
+) {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{
+    name: string;
+  }>;
+  if (cols.some((col) => col.name === name)) return;
+  db.exec(`ALTER TABLE ${table} ADD COLUMN ${name} ${spec}`);
 }
 
 export function pingDatabase(db: DatabaseSync): "ok" {

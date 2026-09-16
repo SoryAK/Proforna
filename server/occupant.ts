@@ -8,6 +8,14 @@ export type OccupantRow = {
 
 export type ProfileRow = {
   fullName: string;
+  headline: string;
+  city: string;
+  state: string;
+  bio: string;
+  linkedinUrl: string;
+  githubUrl: string;
+  portfolioUrl: string;
+  avatarUrl: string | null;
   onboardingCompletedAt: string | null;
 };
 
@@ -39,13 +47,39 @@ export function ensureOccupant(db: DatabaseSync): OccupantRow {
 export function readProfile(db: DatabaseSync, occupantId: string): ProfileRow {
   const row = db
     .prepare(
-      "SELECT full_name AS fullName, onboarding_completed_at AS onboardingCompletedAt FROM profiles WHERE occupant_id = ?",
+      `SELECT
+        full_name AS fullName,
+        headline,
+        city,
+        state,
+        bio,
+        linkedin_url AS linkedinUrl,
+        github_url AS githubUrl,
+        portfolio_url AS portfolioUrl,
+        avatar_stored_name AS avatarStoredName,
+        onboarding_completed_at AS onboardingCompletedAt
+      FROM profiles WHERE occupant_id = ?`,
     )
     .get(occupantId) as
-    | { fullName: string; onboardingCompletedAt: string | null }
+    | {
+        fullName: string;
+        headline: string;
+        city: string;
+        state: string;
+        bio: string;
+        linkedinUrl: string;
+        githubUrl: string;
+        portfolioUrl: string;
+        avatarStoredName: string | null;
+        onboardingCompletedAt: string | null;
+      }
     | undefined;
   if (!row) {
     throw new Error("profile missing for occupant");
   }
-  return row;
+  const { avatarStoredName, ...fields } = row;
+  return {
+    ...fields,
+    avatarUrl: avatarStoredName ? "/api/profile/avatar" : null,
+  };
 }

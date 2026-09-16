@@ -15,7 +15,18 @@ describe("GET /api/me", () => {
       expect(res.status).toBe(200);
       await expect(res.json()).resolves.toEqual({
         occupant: { id: "local" },
-        profile: { fullName: "", onboardingCompletedAt: null },
+        profile: {
+          fullName: "",
+          headline: "",
+          city: "",
+          state: "",
+          bio: "",
+          linkedinUrl: "",
+          githubUrl: "",
+          portfolioUrl: "",
+          avatarUrl: null,
+          onboardingCompletedAt: null,
+        },
       });
     } finally {
       db.close();

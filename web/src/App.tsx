@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { needsOnboarding } from "@core/onboarding";
 import { Onboarding } from "./Onboarding";
+import type { OnboardingProfileValue } from "./OnboardingProfile";
 
 type Health = { ok: boolean; product: string; db: string };
 type Me = {
   occupant: { id: string };
-  profile: { fullName: string; onboardingCompletedAt: string | null };
+  profile: OnboardingProfileValue & { onboardingCompletedAt: string | null };
 };
 
 export function App() {
@@ -54,7 +55,7 @@ export function App() {
   if (needsOnboarding(me.profile)) {
     return (
       <Onboarding
-        initialName={me.profile.fullName}
+        initialProfile={me.profile}
         onFinished={setMe}
       />
     );

@@ -32,14 +32,18 @@
   box-sizing: border-box;
 }
 
+.onboarding-stage[data-long="true"] {
+  justify-content: flex-start;
+}
+
 .onboarding-progress {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
   gap: 0.45rem;
-  width: min(720px, 100%);
-  margin: 0 0 1.35rem;
+  width: min(32rem, 100%);
+  margin: 0 0 1rem;
   padding: 0;
   list-style: none;
 }
@@ -117,29 +121,30 @@
 .onboarding-card {
   position: relative;
   z-index: 2;
-  width: min(720px, 100%);
-  aspect-ratio: auto;
-  padding: 2.25rem 1.75rem 2rem;
+  box-sizing: border-box;
+  width: min(32rem, 100%);
+  padding: 1.35rem 1.4rem 1.25rem;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 32px;
+  border-radius: 24px;
   background: var(--glass);
   backdrop-filter: blur(10px);
-  box-shadow: 0 0 100px rgba(167, 139, 113, 0.2);
+  box-shadow: 0 0 80px rgba(167, 139, 113, 0.16);
   animation: onboarding-enter 1s var(--reveal) both;
+}
+
+.onboarding-card[data-wide="true"] {
+  width: min(40rem, 100%);
 }
 
 @media (min-width: 720px) {
   .onboarding-card {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    padding: 2.25rem 2.75rem;
-    border-radius: 40px;
+    padding: 1.5rem 1.65rem 1.35rem;
+    border-radius: 28px;
   }
 }
 
 .onboarding-kicker {
-  margin: 0 0 0.75rem;
+  margin: 0 0 0.4rem;
   color: var(--gold);
   font-size: 11px;
   font-weight: 600;
@@ -150,9 +155,9 @@
 .onboarding-card h1 {
   margin: 0;
   color: #fff;
-  font-size: clamp(2.35rem, 5.5vw, 3.6rem);
+  font-size: clamp(1.7rem, 4vw, 2.25rem);
   font-weight: 400;
-  line-height: 1.05;
+  line-height: 1.1;
 }
 
 .onboarding-card h1 em {
@@ -162,18 +167,18 @@
 
 .onboarding-lead {
   max-width: 34rem;
-  margin: 1rem 0 0;
+  margin: 0.5rem 0 0;
   color: var(--muted);
-  font-size: 0.95rem;
+  font-size: 0.85rem;
   font-weight: 300;
-  line-height: 1.6;
+  line-height: 1.45;
 }
 
 .onboarding-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.75rem;
-  margin-top: 1.75rem;
+  gap: 0.6rem;
+  margin-top: 1.1rem;
 }
 
 .onboarding-btn {
@@ -216,8 +221,8 @@
 
 .onboarding-field {
   display: grid;
-  gap: 0.45rem;
-  margin: 1.5rem 0 0;
+  gap: 0.28rem;
+  margin: 0.7rem 0 0;
 }
 
 .onboarding-field span,
@@ -256,22 +261,75 @@
 
 .onboarding-field input[type="text"],
 .onboarding-field input:not([type="file"]),
-.onboarding-field select {
+.onboarding-field select,
+.onboarding-field textarea {
   width: 100%;
   box-sizing: border-box;
-  padding: 0.85rem 1rem;
+  padding: 0.55rem 0.8rem;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 16px;
+  border-radius: 12px;
   background: rgba(255, 255, 255, 0.03);
   color: #fff;
-  font: 400 1rem var(--sans);
+  font: 400 0.9rem var(--sans);
   outline: none;
   transition: border-color 0.4s var(--ease);
 }
 
+.onboarding-field textarea {
+  min-height: 3.6rem;
+  resize: vertical;
+}
+
 .onboarding-field input:focus,
-.onboarding-field select:focus {
+.onboarding-field select:focus,
+.onboarding-field textarea:focus {
   border-color: var(--gold);
+}
+
+.onboarding-field-row {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 0.7rem;
+}
+
+.onboarding-field-row .onboarding-field {
+  margin-top: 0;
+}
+
+@media (min-width: 560px) {
+  .onboarding-field-row {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.onboarding-avatar {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 4.25rem;
+  height: 4.25rem;
+  margin: 0.85rem auto 0;
+  overflow: hidden;
+  border: 1px dashed rgba(167, 139, 113, 0.45);
+  border-radius: 50%;
+  background: rgba(167, 139, 113, 0.1);
+  color: var(--gold-light);
+  font-size: 11px;
+  text-align: center;
+  cursor: pointer;
+}
+
+.onboarding-avatar input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.onboarding-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .onboarding-file {
@@ -313,17 +371,17 @@
 
 .onboarding-choices {
   display: grid;
-  gap: 0.75rem;
-  margin-top: 1.5rem;
+  gap: 0.55rem;
+  margin-top: 1rem;
 }
 
 .onboarding-choice {
   display: grid;
-  gap: 0.35rem;
+  gap: 0.25rem;
   width: 100%;
-  padding: 1rem 1.1rem;
+  padding: 0.8rem 0.95rem;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 20px;
+  border-radius: 16px;
   background: rgba(255, 255, 255, 0.03);
   color: inherit;
   text-align: left;

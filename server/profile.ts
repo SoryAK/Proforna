@@ -1,23 +1,60 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import { isOnboardingProfileComplete } from "../core/onboarding";
+import {
+  PROFILE_AVATAR_MAX_BYTES,
+  avatarExtension,
+  isAvatarType,
+  prepareProfile,
+  type ProfileInput,
+} from "../core/profile";
 import { readProfile, type ProfileRow } from "./occupant";
 
-export function saveFullName(
+export class ProfileError extends Error {
+  readonly code: string;
+  constructor(code: string) {
+    super(code);
+    this.code = code;
+  }
+}
+
+export function saveProfile(
   db: DatabaseSync,
   occupantId: string,
-  fullName: string,
+  input: ProfileInput,
 ): ProfileRow {
-  const trimmed = fullName.trim();
-  if (!isOnboardingProfileComplete({ fullName: trimmed })) {
-    throw new Error("name-required");
+  const prepared = prepareProfile(input);
+  if (!prepared.ok) {
+    throw new ProfileError(prepared.error);
   }
   const now = new Date().toISOString();
+  const value = prepared.value;
   db.prepare(
-    "UPDATE profiles SET full_name = ?, updated_at = ? WHERE occupant_id = ?",
-  ).run(trimmed, now, occupantId);
+    `UPDATE profiles SET
+      full_name = ?,
+      headline = ?,
+      city = ?,
+      state = ?,
+      bio = ?,
+      linkedin_url = ?,
+      github_url = ?,
+      portfolio_url = ?,
+      updated_at = ?
+     WHERE occupant_id = ?`,
+  ).run(
+    value.fullName,
+    value.headline,
+    value.city,
+    value.state,
+    value.bio,
+    value.linkedinUrl,
+    value.githubUrl,
+    value.portfolioUrl,
+    now,
+    occupantId,
+  );
   return readProfile(db, occupantId);
 }
 
@@ -27,7 +64,7 @@ export function completeOnboarding(
 ): ProfileRow {
   const profile = readProfile(db, occupantId);
   if (!isOnboardingProfileComplete(profile)) {
-    throw new Error("name-required");
+    throw new ProfileError("name-required");
   }
   if (profile.onboardingCompletedAt) {
     return profile;
@@ -37,6 +74,73 @@ export function completeOnboarding(
     "UPDATE profiles SET onboarding_completed_at = ?, updated_at = ? WHERE occupant_id = ?",
   ).run(now, now, occupantId);
   return readProfile(db, occupantId);
+}
+
+export function storeAvatar(
+  db: DatabaseSync,
+  occupantId: string,
+  uploadsDir: string,
+  file: { type: string; bytes: Uint8Array },
+): ProfileRow {
+  if (!isAvatarType(file.type)) {
+    throw new ProfileError("avatar-type");
+  }
+  if (file.bytes.byteLength > PROFILE_AVATAR_MAX_BYTES) {
+    throw new ProfileError("avatar-too-large");
+  }
+  const ext = avatarExtension(file.type);
+  if (!ext) throw new ProfileError("avatar-type");
+
+  mkdirSync(uploadsDir, { recursive: true });
+  const previous = avatarStoredName(db, occupantId);
+  const storedName = `avatar-${randomUUID()}.${ext}`;
+  writeFileSync(join(uploadsDir, storedName), file.bytes);
+  const now = new Date().toISOString();
+  db.prepare(
+    "UPDATE profiles SET avatar_stored_name = ?, updated_at = ? WHERE occupant_id = ?",
+  ).run(storedName, now, occupantId);
+  if (previous) {
+    try {
+      unlinkSync(join(uploadsDir, previous));
+    } catch {
+      /* leftover file is harmless */
+    }
+  }
+  return readProfile(db, occupantId);
+}
+
+export function loadAvatar(
+  db: DatabaseSync,
+  occupantId: string,
+  uploadsDir: string,
+): { bytes: Uint8Array; type: string } | null {
+  const stored = avatarStoredName(db, occupantId);
+  if (!stored) return null;
+  const type =
+    stored.endsWith(".png")
+      ? "image/png"
+      : stored.endsWith(".webp")
+        ? "image/webp"
+        : stored.endsWith(".gif")
+          ? "image/gif"
+          : "image/jpeg";
+  try {
+    return { bytes: new Uint8Array(readFileSync(join(uploadsDir, stored))), type };
+  } catch {
+    return null;
+  }
+}
+
+function avatarStoredName(
+  db: DatabaseSync,
+  occupantId: string,
+): string | null {
+  const row = db
+    .prepare(
+      "SELECT avatar_stored_name AS name FROM profiles WHERE occupant_id = ?",
+    )
+    .get(occupantId) as { name: string | null } | undefined;
+  return row?.name ?? null;
 }
 
 export type StoredResume = {

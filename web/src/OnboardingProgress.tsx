@@ -1,14 +1,20 @@
-type Step = "welcome" | "profile" | "models" | "model-setup" | "resume";
+export type Step = "welcome" | "models" | "model-setup" | "resume";
 
-const SHORT = ["Welcome", "Profile", "Model?", "Resume"] as const;
-const LONG = ["Welcome", "Profile", "Model?", "Config", "Resume"] as const;
+const SHORT = ["Welcome", "Model?", "Resume"] as const;
+const LONG = ["Welcome", "Model?", "Config", "Resume"] as const;
 
 export function progressIndex(step: Step, modelPath: boolean): number {
   if (step === "welcome") return 0;
-  if (step === "profile") return 1;
-  if (step === "models") return 2;
-  if (step === "model-setup") return 3;
-  return modelPath ? 4 : 3;
+  if (step === "models") return 1;
+  if (step === "model-setup") return 2;
+  return modelPath ? 3 : 2;
+}
+
+export function stepKicker(step: Step, modelPath: boolean): string {
+  if (step === "welcome") return "Step 01 — Welcome";
+  if (step === "models") return "Step 02 — Models";
+  if (step === "model-setup") return "Step 03 — Config";
+  return modelPath ? "Step 04 — Resume" : "Step 03 — Resume";
 }
 
 export function OnboardingProgress({

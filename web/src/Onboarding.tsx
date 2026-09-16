@@ -1,27 +1,46 @@
 import { useEffect, useState } from "react";
+import { prepareProfile, type ProfileFields } from "@core/profile";
 import type { ExtractedResume } from "@core/resume-extract";
 import { OnboardingModelOffer, OnboardingModelSetup } from "./OnboardingModels";
-import { OnboardingProgress } from "./OnboardingProgress";
+import {
+  OnboardingProgress,
+  stepKicker,
+  type Step,
+} from "./OnboardingProgress";
+import {
+  OnboardingProfileForm,
+  type OnboardingProfileValue,
+} from "./OnboardingProfile";
 import { OnboardingResume } from "./OnboardingResume";
 import "./onboarding.css";
 
 type Me = {
   occupant: { id: string };
-  profile: { fullName: string; onboardingCompletedAt: string | null };
+  profile: OnboardingProfileValue & { onboardingCompletedAt: string | null };
 };
 
-type Step = "welcome" | "profile" | "models" | "model-setup" | "resume";
-
 export function Onboarding({
-  initialName,
+  initialProfile,
   onFinished,
 }: {
-  initialName: string;
+  initialProfile: OnboardingProfileValue;
   onFinished: (me: Me) => void;
 }) {
   const [step, setStep] = useState<Step>("welcome");
-  const [fullName, setFullName] = useState(initialName);
-  const [nameSaved, setNameSaved] = useState(Boolean(initialName.trim()));
+  const [profile, setProfile] = useState<ProfileFields>({
+    fullName: initialProfile.fullName,
+    headline: initialProfile.headline,
+    city: initialProfile.city,
+    state: initialProfile.state,
+    bio: initialProfile.bio,
+    linkedinUrl: initialProfile.linkedinUrl,
+    githubUrl: initialProfile.githubUrl,
+    portfolioUrl: initialProfile.portfolioUrl,
+  });
+  const [photo, setPhoto] = useState<File | null>(null);
+  const [nameReady, setNameReady] = useState(
+    Boolean(initialProfile.fullName.trim()),
+  );
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -42,33 +61,56 @@ export function Onboarding({
   }, []);
 
   function go(next: Step) {
-    if (next !== "welcome" && next !== "profile" && !nameSaved) {
-      setStep("profile");
+    if (next !== "welcome" && !nameReady) {
+      setStep("welcome");
       return;
     }
     setError(null);
     setStep(next);
   }
 
-  async function saveProfile() {
-    setBusy(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/profile", {
-        method: "PUT",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ fullName }),
-      });
-      const body = (await res.json()) as { error?: string };
-      if (!res.ok) {
-        setError(body.error ?? "Could not save your name.");
-        return;
-      }
-      setNameSaved(true);
-      setStep("models");
-    } finally {
-      setBusy(false);
+  function continueProfile(fields: ProfileFields, nextPhoto: File | null) {
+    const prepared = prepareProfile(fields);
+    if (!prepared.ok) {
+      setError(
+        prepared.error === "url-invalid"
+          ? "Use an http(s) URL for LinkedIn, GitHub, or portfolio."
+          : "A name is required.",
+      );
+      return;
     }
+    setError(null);
+    setProfile(prepared.value);
+    setPhoto(nextPhoto);
+    setNameReady(true);
+    setStep("models");
+  }
+
+  async function persistProfile() {
+    const res = await fetch("/api/profile", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(profile),
+    });
+    const body = (await res.json()) as { error?: string };
+    if (!res.ok) {
+      setError(body.error ?? "Could not save your profile.");
+      return false;
+    }
+    if (photo) {
+      const form = new FormData();
+      form.append("avatar", photo);
+      const uploaded = await fetch("/api/profile/avatar", {
+        method: "POST",
+        body: form,
+      });
+      if (!uploaded.ok) {
+        const failed = (await uploaded.json()) as { error?: string };
+        setError(failed.error ?? "Could not save the photo.");
+        return false;
+      }
+    }
+    return true;
   }
 
   async function saveModel(input: {
@@ -128,6 +170,7 @@ export function Onboarding({
     setBusy(true);
     setError(null);
     try {
+      if (!(await persistProfile())) return;
       if (upload && file) {
         const form = new FormData();
         form.append("file", file);
@@ -165,85 +208,27 @@ export function Onboarding({
 
   return (
     <div className="onboarding">
-      <div className="onboarding-stage">
+      <div className="onboarding-stage" data-long={step === "welcome" ? "true" : undefined}>
         <OnboardingProgress step={step} modelPath={modelPath} />
-        <section className="onboarding-card">
+        <section
+          className="onboarding-card"
+          data-wide={step === "resume" ? "true" : undefined}
+        >
           {step === "welcome" ? (
-            <>
-              <p className="onboarding-kicker">Step 01 — Welcome</p>
-              <h1>
-                Own the work. <em>Act on it.</em>
-              </h1>
-              <p className="onboarding-lead">
-                Welcome to Proforna. Your name first, then an optional model,
-                then an optional resume — on this machine, with no account to
-                create.
-              </p>
-              <div className="onboarding-actions">
-                <button
-                  type="button"
-                  className="onboarding-btn onboarding-btn-solid"
-                  onClick={() => go("profile")}
-                >
-                  Let&apos;s get started
-                </button>
-              </div>
-            </>
-          ) : null}
-
-          {step === "profile" ? (
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                void saveProfile();
-              }}
-            >
-              <p className="onboarding-kicker">Step 02 — Profile</p>
-              <h1>
-                What should we <em>call you?</em>
-              </h1>
-              <p className="onboarding-lead">
-                Tell us your name. You can change this later.
-              </p>
-              <label className="onboarding-field">
-                <span>Full name</span>
-                <input
-                  name="fullName"
-                  autoComplete="name"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  required
-                />
-              </label>
-              {error ? (
-                <p className="onboarding-alert" role="alert">
-                  {error}
-                </p>
-              ) : null}
-              <div className="onboarding-actions">
-                <button
-                  type="button"
-                  className="onboarding-btn onboarding-btn-ghost"
-                  onClick={() => go("welcome")}
-                  disabled={busy}
-                >
-                  Back
-                </button>
-                <button
-                  type="submit"
-                  className="onboarding-btn onboarding-btn-solid"
-                  disabled={busy}
-                >
-                  Continue
-                </button>
-              </div>
-            </form>
+            <OnboardingProfileForm
+              initial={{ ...profile, avatarUrl: initialProfile.avatarUrl }}
+              photo={photo}
+              busy={busy}
+              error={error}
+              onContinue={continueProfile}
+            />
           ) : null}
 
           {step === "models" ? (
             <OnboardingModelOffer
+              kicker={stepKicker("models", false)}
               busy={busy}
-              onBack={() => go("profile")}
+              onBack={() => go("welcome")}
               onYes={() => {
                 setModelPath(true);
                 go("model-setup");
@@ -257,6 +242,7 @@ export function Onboarding({
 
           {step === "model-setup" ? (
             <OnboardingModelSetup
+              kicker={stepKicker("model-setup", true)}
               busy={busy}
               error={error}
               onBack={() => go("models")}
@@ -270,6 +256,7 @@ export function Onboarding({
 
           {step === "resume" ? (
             <OnboardingResume
+              kicker={stepKicker("resume", modelPath)}
               file={file}
               extracted={extracted}
               extractModel={extractModel}

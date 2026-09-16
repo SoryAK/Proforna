@@ -6,11 +6,13 @@ import {
 } from "@core/model-connection";
 
 export function OnboardingModelOffer({
+  kicker,
   busy,
   onBack,
   onYes,
   onNo,
 }: {
+  kicker: string;
   busy: boolean;
   onBack: () => void;
   onYes: () => void;
@@ -18,7 +20,7 @@ export function OnboardingModelOffer({
 }) {
   return (
     <>
-      <p className="onboarding-kicker">Step 03 — Models</p>
+      <p className="onboarding-kicker">{kicker}</p>
       <h1>
         Connect a <em>model?</em>
       </h1>
@@ -64,12 +66,14 @@ export function OnboardingModelOffer({
 }
 
 export function OnboardingModelSetup({
+  kicker,
   busy,
   error,
   onBack,
   onSkip,
   onSave,
 }: {
+  kicker: string;
   busy: boolean;
   error: string | null;
   onBack: () => void;
@@ -169,7 +173,7 @@ export function OnboardingModelSetup({
         onSave({ hosting, baseUrl, model, apiKey });
       }}
     >
-      <p className="onboarding-kicker">Step 03 — Models</p>
+      <p className="onboarding-kicker">{kicker}</p>
       <h1>
         Where does it <em>run?</em>
       </h1>
@@ -306,7 +310,7 @@ export function OnboardingModelSetup({
           className="onboarding-btn onboarding-btn-solid"
           disabled={busy}
         >
-          Save model
+          Continue
         </button>
       </div>
     </form>

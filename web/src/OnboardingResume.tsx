@@ -4,6 +4,7 @@ import type { ExtractedResume } from "@core/resume-extract";
 import { OnboardingExtractConfirm } from "./OnboardingExtract";
 
 export function OnboardingResume({
+  kicker,
   file,
   extracted,
   extractModel,
@@ -18,6 +19,7 @@ export function OnboardingResume({
   onExtractedChange,
   onConfirm,
 }: {
+  kicker: string;
   file: File | null;
   extracted: ExtractedResume | null;
   extractModel: string | null;
@@ -63,7 +65,7 @@ export function OnboardingResume({
 
   return (
     <>
-      <p className="onboarding-kicker">Step 04 — Resume</p>
+      <p className="onboarding-kicker">{kicker}</p>
       <h1>
         {extracted ? (
           <>
@@ -81,12 +83,12 @@ export function OnboardingResume({
       </h1>
       <p className="onboarding-lead">
         {extracted
-          ? "Remove anything that is wrong. Confirm saves jobs, schools, and skills — maps come later."
+          ? "Remove anything that is wrong. Save writes jobs, schools, and skills. Maps come later."
           : file
             ? `${file.name} · ${formatSize(file.size)}. ${
                 canExtract && extractable
                   ? "Extract jobs and schools with your model, or save the file only."
-                  : "Confirm to store it, or pick a different file."
+                  : "Save stores it, or pick a different file."
               }`
             : "Upload a file if you have one. You will preview it before anything is saved."}
       </p>
@@ -113,7 +115,7 @@ export function OnboardingResume({
           ) : null}
           {kind === "other" ? (
             <p className="onboarding-preview-fallback">
-              This file type can’t be shown here. Confirm to store it anyway.
+              This file type cannot be shown here. Save stores it anyway.
             </p>
           ) : null}
         </div>
@@ -156,11 +158,15 @@ export function OnboardingResume({
         )}
         <button
           type="button"
-          className="onboarding-btn onboarding-btn-ghost"
+          className={
+            file
+              ? "onboarding-btn onboarding-btn-ghost"
+              : "onboarding-btn onboarding-btn-solid"
+          }
           onClick={onSkip}
           disabled={busy}
         >
-          Skip
+          {file ? "Skip" : busy ? "Saving…" : "Save"}
         </button>
         {file && canExtract && extractable && !extracted ? (
           <button
@@ -179,7 +185,7 @@ export function OnboardingResume({
             onClick={onConfirm}
             disabled={busy}
           >
-            Confirm &amp; save
+            {busy ? "Saving…" : "Save"}
           </button>
         ) : null}
         {file && canExtract && extractable && !extracted ? (
@@ -189,7 +195,7 @@ export function OnboardingResume({
             onClick={onConfirm}
             disabled={busy}
           >
-            Save file only
+            {busy ? "Saving…" : "Save"}
           </button>
         ) : null}
       </div>
