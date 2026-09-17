@@ -1,5 +1,9 @@
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
+import {
+  presentCareerFile,
+  type CareerFile,
+} from "../core/career-file";
 import type { ExtractedResume } from "../core/resume-extract";
 
 export function saveExtractedResume(
@@ -75,4 +79,78 @@ export function saveExtractedResume(
   }
 
   return { jobs, schools, skills };
+}
+
+export function loadCareerFile(
+  db: DatabaseSync,
+  occupantId: string,
+): CareerFile {
+  const history = db
+    .prepare(
+      `SELECT
+        id,
+        kind,
+        title,
+        company,
+        location,
+        start_date AS startDate,
+        end_date AS endDate,
+        is_current AS isCurrent,
+        description,
+        achievements_json AS achievementsJson,
+        degree,
+        field
+      FROM work_history
+      WHERE occupant_id = ?`,
+    )
+    .all(occupantId) as Array<{
+    id: string;
+    kind: string;
+    title: string;
+    company: string;
+    location: string;
+    startDate: string;
+    endDate: string;
+    isCurrent: number;
+    description: string;
+    achievementsJson: string;
+    degree: string;
+    field: string;
+  }>;
+
+  const skillRows = db
+    .prepare(
+      "SELECT name FROM skills WHERE occupant_id = ? ORDER BY created_at ASC",
+    )
+    .all(occupantId) as Array<{ name: string }>;
+
+  return presentCareerFile(
+    history.map((row) => ({
+      id: row.id,
+      kind: row.kind,
+      title: row.title,
+      company: row.company,
+      location: row.location,
+      startDate: row.startDate,
+      endDate: row.endDate,
+      isCurrent: row.isCurrent === 1,
+      description: row.description,
+      achievements: parseAchievements(row.achievementsJson),
+      degree: row.degree,
+      field: row.field,
+    })),
+    skillRows.map((row) => row.name),
+  );
+}
+
+function parseAchievements(raw: string): string[] {
+  try {
+    const value: unknown = JSON.parse(raw);
+    if (!Array.isArray(value)) return [];
+    return value.filter(
+      (item): item is string => typeof item === "string" && Boolean(item.trim()),
+    );
+  } catch {
+    return [];
+  }
 }

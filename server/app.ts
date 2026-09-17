@@ -5,7 +5,7 @@ import { isHttpUrl, normalizeBaseUrl } from "../core/model-connection";
 import { parseExtractedResume } from "../core/resume-extract";
 import { listOpenAiCompatModels } from "./openai-compat";
 import { pingDatabase } from "./db";
-import { saveExtractedResume } from "./history";
+import { loadCareerFile, saveExtractedResume } from "./history";
 import { ensureOccupant, readProfile } from "./occupant";
 import {
   ModelConnectionError,
@@ -193,6 +193,11 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
       }
       throw err;
     }
+  });
+
+  app.get("/api/history", (c) => {
+    const occupant = ensureOccupant(db);
+    return c.json(loadCareerFile(db, occupant.id));
   });
 
   app.post("/api/history", async (c) => {
