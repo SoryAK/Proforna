@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { currentJob, type CareerFile } from "@core/career-file";
+import { currentJob, currentJobs, type CareerFile } from "@core/career-file";
 import { HomeBar } from "./HomeBar";
 import { HomeNav } from "./HomeNav";
 import { HomeProfileEdit } from "./HomeProfileEdit";
@@ -73,7 +73,7 @@ export function Home({
         <HomeNav
           collapsed={collapsed}
           mobileOpen={mobileOpen}
-          jobs={career.jobs}
+          currentJobs={currentJobs(career)}
           onCloseMobile={() => setMobileOpen(false)}
         />
       <main className="home-main">

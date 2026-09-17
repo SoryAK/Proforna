@@ -82,19 +82,12 @@ export function presentCareerFile(
   };
 }
 
-export function formatCareerSpan(
-  startDate: string,
-  endDate: string,
-  isCurrent: boolean,
-): string {
-  if (!startDate && !endDate && !isCurrent) return "";
-  const from = startDate.slice(0, 7) || "—";
-  const to = isCurrent ? "Present" : endDate.slice(0, 7) || "—";
-  return `${from} – ${to}`;
+export function currentJobs(file: CareerFile): CareerJob[] {
+  return file.jobs.filter((job) => job.isCurrent);
 }
 
 export function currentJob(file: CareerFile): CareerJob | null {
-  return file.jobs.find((job) => job.isCurrent) ?? null;
+  return currentJobs(file)[0] ?? null;
 }
 
 function byRecency(

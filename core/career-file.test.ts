@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   currentJob,
-  formatCareerSpan,
+  currentJobs,
   presentCareerFile,
   type CareerHistoryRecord,
 } from "./career-file";
@@ -67,6 +67,33 @@ describe("presentCareerFile", () => {
     ]);
     expect(file.skills).toEqual(["TypeScript", "Conduit"]);
     expect(currentJob(file)).toMatchObject({ id: "now", title: "Lead" });
+    expect(currentJobs(file).map((job) => job.id)).toEqual(["now"]);
+  });
+
+  it("lists every current job when more than one is marked current", () => {
+    const file = presentCareerFile(
+      [
+        record({
+          id: "side",
+          kind: "job",
+          title: "Advisor",
+          company: "Beta",
+          startDate: "2023-01-01",
+          isCurrent: true,
+        }),
+        record({
+          id: "now",
+          kind: "job",
+          title: "Lead",
+          company: "Acme",
+          startDate: "2024-01-01",
+          isCurrent: true,
+        }),
+      ],
+      [],
+    );
+    expect(currentJobs(file).map((job) => job.id)).toEqual(["now", "side"]);
+    expect(currentJob(file)).toMatchObject({ id: "now" });
   });
 
   it("has no current job when none is marked current", () => {
@@ -82,15 +109,6 @@ describe("presentCareerFile", () => {
       [],
     );
     expect(currentJob(file)).toBeNull();
-  });
-});
-
-describe("formatCareerSpan", () => {
-  it("shows Present for current roles", () => {
-    expect(formatCareerSpan("2024-03-01", "", true)).toBe("2024-03 – Present");
-  });
-
-  it("stays blank when nothing was recorded", () => {
-    expect(formatCareerSpan("", "", false)).toBe("");
+    expect(currentJobs(file)).toEqual([]);
   });
 });

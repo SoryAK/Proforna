@@ -38,7 +38,7 @@ export {
 } from "./resume-extract";
 export {
   currentJob,
-  formatCareerSpan,
+  currentJobs,
   presentCareerFile,
   type CareerFile,
   type CareerJob,

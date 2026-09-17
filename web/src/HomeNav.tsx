@@ -6,15 +6,14 @@ const NAV_ID = "home-nav";
 export function HomeNav({
   collapsed,
   mobileOpen,
-  jobs,
+  currentJobs,
   onCloseMobile,
 }: {
   collapsed: boolean;
   mobileOpen: boolean;
-  jobs: CareerJob[];
+  currentJobs: CareerJob[];
   onCloseMobile: () => void;
 }) {
-  const currentJobs = jobs.filter((job) => job.isCurrent);
   const [jobsOpen, setJobsOpen] = useState(true);
   const slim = collapsed && !mobileOpen;
 
