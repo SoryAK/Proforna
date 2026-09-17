@@ -36,3 +36,11 @@ export {
   parseExtractedResumeText,
   type ExtractedResume,
 } from "./resume-extract";
+export {
+  currentJob,
+  formatCareerSpan,
+  presentCareerFile,
+  type CareerFile,
+  type CareerJob,
+  type CareerSchool,
+} from "./career-file";

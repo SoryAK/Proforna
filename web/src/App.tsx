@@ -1,38 +1,50 @@
 import { useEffect, useState } from "react";
 import { needsOnboarding } from "@core/onboarding";
+import type { CareerFile } from "@core/career-file";
+import { Home } from "./Home";
 import { Onboarding } from "./Onboarding";
 import type { OnboardingProfileValue } from "./OnboardingProfile";
 
-type Health = { ok: boolean; product: string; db: string };
 type Me = {
   occupant: { id: string };
   profile: OnboardingProfileValue & { onboardingCompletedAt: string | null };
 };
 
+const EMPTY_CAREER: CareerFile = { jobs: [], schools: [], skills: [] };
+
 export function App() {
-  const [health, setHealth] = useState<Health | null>(null);
   const [me, setMe] = useState<Me | null>(null);
+  const [career, setCareer] = useState<CareerFile>(EMPTY_CAREER);
   const [error, setError] = useState<string | null>(null);
+  const [careerError, setCareerError] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([
-      fetch("/api/health").then(async (res) => {
-        if (!res.ok) throw new Error(`health ${res.status}`);
-        return (await res.json()) as Health;
-      }),
-      fetch("/api/me").then(async (res) => {
-        if (!res.ok) throw new Error(`me ${res.status}`);
-        return (await res.json()) as Me;
-      }),
-    ])
-      .then(([nextHealth, nextMe]) => {
-        setHealth(nextHealth);
-        setMe(nextMe);
-      })
-      .catch((err: unknown) =>
-        setError(err instanceof Error ? err.message : "load failed"),
-      );
+    void load();
   }, []);
+
+  async function load() {
+    try {
+      const meRes = await fetch("/api/me");
+      if (!meRes.ok) throw new Error(`me ${meRes.status}`);
+      setMe((await meRes.json()) as Me);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "load failed");
+      return;
+    }
+    await loadCareer();
+  }
+
+  async function loadCareer() {
+    try {
+      const res = await fetch("/api/history");
+      if (!res.ok) throw new Error("Could not load work history.");
+      setCareer((await res.json()) as CareerFile);
+      setCareerError(null);
+    } catch {
+      setCareer(EMPTY_CAREER);
+      setCareerError("Could not load work history.");
+    }
+  }
 
   if (error) {
     return (
@@ -56,23 +68,25 @@ export function App() {
     return (
       <Onboarding
         initialProfile={me.profile}
-        onFinished={setMe}
+        onFinished={(next) => {
+          setMe(next);
+          void loadCareer();
+        }}
       />
     );
   }
 
   return (
-    <main>
-      <h1>Home</h1>
-      <p>
-        Welcome{me.profile.fullName ? `, ${me.profile.fullName}` : ""}. Occupant{" "}
-        <code>{me.occupant.id}</code>.
-      </p>
-      {health ? (
-        <p>
-          {health.product} is up. Database {health.db}.
-        </p>
-      ) : null}
-    </main>
+    <Home
+      profile={me.profile}
+      career={career}
+      careerError={careerError}
+      onProfileSaved={(profile) =>
+        setMe({
+          ...me,
+          profile: { ...me.profile, ...profile },
+        })
+      }
+    />
   );
 }

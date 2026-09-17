@@ -174,4 +174,33 @@ describe("onboarding HTTP", () => {
       ctx.close();
     }
   });
+
+  it("keeps onboarding complete when the profile is edited later", async () => {
+    const ctx = setup();
+    try {
+      await ctx.app.request("/api/profile", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ fullName: "Ada Lovelace" }),
+      });
+      await ctx.app.request("/api/onboarding/complete", { method: "POST" });
+
+      const res = await ctx.app.request("/api/profile", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          fullName: "Ada Lovelace",
+          headline: "Mathematician",
+        }),
+      });
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        profile: { headline: string; onboardingCompletedAt: string | null };
+      };
+      expect(body.profile.headline).toBe("Mathematician");
+      expect(body.profile.onboardingCompletedAt).toBeTruthy();
+    } finally {
+      ctx.close();
+    }
+  });
 });
