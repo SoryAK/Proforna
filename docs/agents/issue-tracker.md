@@ -1,6 +1,9 @@
 # Issue tracker: GitHub
 
-Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all operations.
+Issues and specs for this repo live as GitHub issues on
+[SoryAK/Proforna](https://github.com/SoryAK/Proforna). Use the `gh` CLI for all
+operations. Inside a clone, `gh` infers that repo from `git remote -v`; pass
+`-R SoryAK/Proforna` when a command needs the repo named explicitly.
 
 ## Conventions
 
@@ -10,8 +13,6 @@ Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all o
 - **Comment on an issue**: `gh issue comment <number> --body "..."`
 - **Apply / remove labels**: `gh issue edit <number> --add-label "..."` / `--remove-label "..."`
 - **Close**: `gh issue close <number> --comment "..."`
-
-Infer the repo from `git remote -v`; `gh` does this automatically when run inside a clone.
 
 ## Pull requests as a triage surface
 
