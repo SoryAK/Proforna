@@ -3,6 +3,7 @@ import { currentJob, currentJobs, type CareerFile } from "@core/career-file";
 import { HomeBar } from "./HomeBar";
 import { HomeNav } from "./HomeNav";
 import { HomeProfileEdit } from "./HomeProfileEdit";
+import { HomeSettings } from "./HomeSettings";
 import type { OnboardingProfileValue } from "./OnboardingProfile";
 import "./home.css";
 
@@ -21,6 +22,7 @@ export function Home({
   onProfileSaved: (profile: OnboardingProfileValue) => void;
 }) {
   const [editing, setEditing] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [photoTick, setPhotoTick] = useState(0);
   const [collapsed, setCollapsed] = useState(readCollapsed);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -68,6 +70,16 @@ export function Home({
         menuExpanded={desktop ? !collapsed : mobileOpen}
         onMenu={toggleMenu}
         onProfile={() => setEditing(true)}
+        onSettings={() => setSettingsOpen(true)}
+      />
+      <HomeSettings
+        open={settingsOpen}
+        profile={profile}
+        onClose={() => setSettingsOpen(false)}
+        onProfileSaved={(next) => {
+          setPhotoTick((n) => n + 1);
+          onProfileSaved(next);
+        }}
       />
       <div className="home-shell">
         <HomeNav

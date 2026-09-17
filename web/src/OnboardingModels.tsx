@@ -72,22 +72,32 @@ export function OnboardingModelSetup({
   onBack,
   onSkip,
   onSave,
+  submitLabel = "Continue",
+  hideIntro = false,
+  initial,
 }: {
   kicker: string;
   busy: boolean;
   error: string | null;
-  onBack: () => void;
-  onSkip: () => void;
+  onBack?: () => void;
+  onSkip?: () => void;
   onSave: (input: {
     hosting: ModelHosting;
     baseUrl: string;
     model: string;
     apiKey: string;
   }) => void;
+  submitLabel?: string;
+  hideIntro?: boolean;
+  initial?: {
+    hosting: ModelHosting;
+    baseUrl: string;
+    model: string;
+  };
 }) {
-  const [hosting, setHosting] = useState<ModelHosting>("local");
-  const [baseUrl, setBaseUrl] = useState(DEFAULT_LOCAL_BASE_URL);
-  const [model, setModel] = useState("");
+  const [hosting, setHosting] = useState<ModelHosting>(initial?.hosting ?? "local");
+  const [baseUrl, setBaseUrl] = useState(initial?.baseUrl ?? DEFAULT_LOCAL_BASE_URL);
+  const [model, setModel] = useState(initial?.model ?? "");
   const [apiKey, setApiKey] = useState("");
   const [models, setModels] = useState<string[]>([]);
   const [listState, setListState] = useState<"idle" | "loading" | "ready" | "error">(
@@ -173,13 +183,17 @@ export function OnboardingModelSetup({
         onSave({ hosting, baseUrl, model, apiKey });
       }}
     >
-      <p className="onboarding-kicker">{kicker}</p>
-      <h1>
-        Where does it <em>run?</em>
-      </h1>
-      <p className="onboarding-lead">
-        Local stays on this machine. Cloud needs a key from a provider.
-      </p>
+      {hideIntro ? null : (
+        <>
+          <p className="onboarding-kicker">{kicker}</p>
+          <h1>
+            Where does it <em>run?</em>
+          </h1>
+          <p className="onboarding-lead">
+            Local stays on this machine. Cloud needs a key from a provider.
+          </p>
+        </>
+      )}
       <div className="onboarding-choices">
         <button
           type="button"
@@ -289,28 +303,32 @@ export function OnboardingModelSetup({
         </p>
       ) : null}
       <div className="onboarding-actions">
-        <button
-          type="button"
-          className="onboarding-btn onboarding-btn-ghost"
-          onClick={onBack}
-          disabled={busy}
-        >
-          Back
-        </button>
-        <button
-          type="button"
-          className="onboarding-btn onboarding-btn-ghost"
-          onClick={onSkip}
-          disabled={busy}
-        >
-          Skip
-        </button>
+        {onBack ? (
+          <button
+            type="button"
+            className="onboarding-btn onboarding-btn-ghost"
+            onClick={onBack}
+            disabled={busy}
+          >
+            Back
+          </button>
+        ) : null}
+        {onSkip ? (
+          <button
+            type="button"
+            className="onboarding-btn onboarding-btn-ghost"
+            onClick={onSkip}
+            disabled={busy}
+          >
+            Skip
+          </button>
+        ) : null}
         <button
           type="submit"
           className="onboarding-btn onboarding-btn-solid"
           disabled={busy}
         >
-          Continue
+          {submitLabel}
         </button>
       </div>
     </form>

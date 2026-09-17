@@ -8,6 +8,7 @@ export function HomeBar({
   menuExpanded,
   onMenu,
   onProfile,
+  onSettings,
 }: {
   name: string;
   headline: string;
@@ -15,6 +16,7 @@ export function HomeBar({
   menuExpanded: boolean;
   onMenu: () => void;
   onProfile: () => void;
+  onSettings: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
@@ -111,6 +113,17 @@ export function HomeBar({
               }}
             >
               Profile
+            </button>
+            <button
+              type="button"
+              className="home-user-item"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                onSettings();
+              }}
+            >
+              Settings
             </button>
           </div>
         ) : null}

@@ -510,6 +510,123 @@
   font-size: 0.95rem;
 }
 
+.home-settings {
+  width: min(90vw, 72rem);
+  height: min(85vh, 52rem);
+  max-width: none;
+  max-height: none;
+  margin: auto;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid rgba(167, 139, 113, 0.28);
+  border-radius: 1.1rem;
+  background: #101010;
+  color: var(--gold-light);
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.55);
+}
+
+.home-settings[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.home-settings::backdrop {
+  background: rgba(5, 5, 5, 0.72);
+}
+
+.home-settings-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid rgba(167, 139, 113, 0.18);
+}
+
+.home-settings-head h2 {
+  margin: 0;
+  color: #fff;
+  font-size: 1.35rem;
+  font-weight: 400;
+  font-style: italic;
+  font-family: "Playfair Display", Georgia, serif;
+}
+
+.home-settings-close {
+  padding: 0.4rem 0.9rem;
+  border: 1px solid rgba(167, 139, 113, 0.35);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--gold-hover);
+  font-size: 0.82rem;
+}
+
+.home-settings-close:hover,
+.home-settings-close:focus-visible {
+  border-color: var(--gold-hover);
+  color: var(--gold-light);
+}
+
+.home-settings-body {
+  display: grid;
+  grid-template-columns: 12.5rem minmax(0, 1fr);
+  flex: 1;
+  min-height: 0;
+}
+
+.home-settings-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.85rem 0.7rem;
+  border-right: 1px solid rgba(167, 139, 113, 0.16);
+}
+
+.home-settings-nav-item {
+  padding: 0.55rem 0.75rem;
+  border: 0;
+  border-radius: 0.55rem;
+  background: transparent;
+  color: var(--gold);
+  font-size: 0.9rem;
+  text-align: left;
+}
+
+.home-settings-nav-item[data-active="true"] {
+  background: rgba(167, 139, 113, 0.16);
+  color: var(--gold-light);
+}
+
+.home-settings-nav-item:hover,
+.home-settings-nav-item:focus-visible {
+  background: rgba(167, 139, 113, 0.12);
+  color: var(--gold-light);
+}
+
+.home-settings-pane {
+  min-width: 0;
+  overflow: auto;
+  padding: 1.25rem 1.5rem 1.75rem;
+}
+
+.home-settings-pane h1 {
+  margin: 0;
+  color: #fff;
+  font-size: 1.7rem;
+  font-weight: 400;
+  font-family: "Playfair Display", Georgia, serif;
+}
+
+.home-settings-pane .home-edit-form h1 {
+  font-size: 1.7rem;
+}
+
+.home-settings-note {
+  margin: 0.85rem 0 0;
+  color: var(--gold-hover);
+  font-size: 0.88rem;
+}
+
 @media (max-width: 639px) {
   .home-banner-cover {
     height: 8rem;
@@ -527,5 +644,22 @@
 
   .home-banner-body h1 {
     font-size: 1.85rem;
+  }
+
+  .home-settings {
+    width: calc(100vw - 1rem);
+    height: calc(100vh - 1rem);
+    border-radius: 0.85rem;
+  }
+
+  .home-settings-body {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .home-settings-nav {
+    flex-direction: row;
+    border-right: 0;
+    border-bottom: 1px solid rgba(167, 139, 113, 0.16);
   }
 }
