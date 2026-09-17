@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { currentJob, currentJobs, type CareerFile } from "@core/career-file";
 import { HomeBar } from "./HomeBar";
-import { HomeNav } from "./HomeNav";
+import { HomeNav, type HomePage } from "./HomeNav";
 import { HomeProfileEdit } from "./HomeProfileEdit";
 import { HomeSearch } from "./HomeSearch";
 import { HomeSettings } from "./HomeSettings";
+import { WorkHistory } from "./WorkHistory";
 import type { OnboardingProfileValue } from "./OnboardingProfile";
 import "./home.css";
 
@@ -25,6 +26,8 @@ export function Home({
   const [editing, setEditing] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [page, setPage] = useState<HomePage>("home");
+  const [focusJobId, setFocusJobId] = useState<string | null>(null);
   const [photoTick, setPhotoTick] = useState(0);
   const [collapsed, setCollapsed] = useState(readCollapsed);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -75,6 +78,11 @@ export function Home({
     setMobileOpen((open) => !open);
   }
 
+  function goHome() {
+    setFocusJobId(null);
+    setPage("home");
+  }
+
   return (
     <div className="home">
       <HomeBar
@@ -83,7 +91,10 @@ export function Home({
         photoSrc={photoSrc}
         menuExpanded={desktop ? !collapsed : mobileOpen}
         onMenu={toggleMenu}
-        onProfile={() => setEditing(true)}
+        onProfile={() => {
+          goHome();
+          setEditing(true);
+        }}
         onSettings={() => setSettingsOpen(true)}
         onSearch={() => setSearchOpen(true)}
       />
@@ -94,8 +105,12 @@ export function Home({
         onHome={() => {
           setEditing(false);
           setMobileOpen(false);
+          goHome();
         }}
-        onProfile={() => setEditing(true)}
+        onProfile={() => {
+          goHome();
+          setEditing(true);
+        }}
         onSettings={() => setSettingsOpen(true)}
       />
       <HomeSettings
@@ -111,10 +126,26 @@ export function Home({
         <HomeNav
           collapsed={collapsed}
           mobileOpen={mobileOpen}
+          page={page}
           currentJobs={currentJobs(career)}
           onCloseMobile={() => setMobileOpen(false)}
+          onGoHome={() => {
+            goHome();
+          }}
+          onGoHistory={(jobId) => {
+            setEditing(false);
+            setPage("history");
+            setFocusJobId(jobId ?? null);
+          }}
         />
       <main className="home-main">
+      {page === "history" ? (
+        <WorkHistory
+          career={career}
+          careerError={careerError}
+          focusJobId={focusJobId}
+        />
+      ) : (
       <header className="home-banner">
         <div className="home-banner-cover" aria-hidden="true" />
         {editing ? (
@@ -178,6 +209,7 @@ export function Home({
           </div>
         )}
       </header>
+      )}
       </main>
       </div>
     </div>

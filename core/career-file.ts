@@ -90,6 +90,17 @@ export function currentJob(file: CareerFile): CareerJob | null {
   return currentJobs(file)[0] ?? null;
 }
 
+export function formatCareerSpan(
+  startDate: string,
+  endDate: string,
+  isCurrent: boolean,
+): string {
+  if (!startDate && !endDate && !isCurrent) return "";
+  const from = startDate.slice(0, 7) || "—";
+  const to = isCurrent ? "Present" : endDate.slice(0, 7) || "—";
+  return `${from} – ${to}`;
+}
+
 function byRecency(
   a: { isCurrent: boolean; startDate: string },
   b: { isCurrent: boolean; startDate: string },

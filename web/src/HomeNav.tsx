@@ -3,16 +3,24 @@ import type { CareerJob } from "@core/career-file";
 
 const NAV_ID = "home-nav";
 
+export type HomePage = "home" | "history";
+
 export function HomeNav({
   collapsed,
   mobileOpen,
+  page,
   currentJobs,
   onCloseMobile,
+  onGoHome,
+  onGoHistory,
 }: {
   collapsed: boolean;
   mobileOpen: boolean;
+  page: HomePage;
   currentJobs: CareerJob[];
   onCloseMobile: () => void;
+  onGoHome: () => void;
+  onGoHistory: (jobId?: string) => void;
 }) {
   const [jobsOpen, setJobsOpen] = useState(true);
   const slim = collapsed && !mobileOpen;
@@ -47,11 +55,29 @@ export function HomeNav({
           .join(" ")}
         aria-label="Main"
       >
-        <NavRow icon="home" label="Home" current slim={slim} />
+        <NavRow
+          icon="home"
+          label="Home"
+          current={page === "home"}
+          slim={slim}
+          onSelect={() => {
+            onGoHome();
+            onCloseMobile();
+          }}
+        />
         <NavRow icon="worklog" label="Worklog" slim={slim} />
         <div className="home-nav-group">
           <div className="home-nav-history">
-            <NavRow icon="history" label="Work History" slim={slim} />
+            <NavRow
+              icon="history"
+              label="Work History"
+              current={page === "history"}
+              slim={slim}
+              onSelect={() => {
+                onGoHistory();
+                onCloseMobile();
+              }}
+            />
             {!slim && currentJobs.length > 0 ? (
               <button
                 type="button"
@@ -69,10 +95,17 @@ export function HomeNav({
             <ul id="home-nav-jobs" className="home-nav-jobs">
               {currentJobs.map((job) => (
                 <li key={job.id}>
-                  <span className="home-nav-job">
+                  <button
+                    type="button"
+                    className="home-nav-job"
+                    onClick={() => {
+                      onGoHistory(job.id);
+                      onCloseMobile();
+                    }}
+                  >
                     <span className="home-nav-job-title">{job.title}</span>
                     <span className="home-nav-job-co"> · {job.company}</span>
-                  </span>
+                  </button>
                 </li>
               ))}
             </ul>
@@ -95,21 +128,40 @@ function NavRow({
   label,
   current,
   slim,
+  onSelect,
 }: {
   icon: IconName;
   label: string;
   current?: boolean;
   slim: boolean;
+  onSelect?: () => void;
 }) {
-  return (
-    <span
-      className={["home-nav-item", current ? "is-current" : ""].filter(Boolean).join(" ")}
-      title={slim ? label : undefined}
-      aria-current={current ? "page" : undefined}
-    >
+  const className = ["home-nav-item", current ? "is-current" : ""]
+    .filter(Boolean)
+    .join(" ");
+  const inner = (
+    <>
       <Icon name={icon} />
       {slim ? <span className="sr-only">{label}</span> : label}
-    </span>
+    </>
+  );
+  if (!onSelect) {
+    return (
+      <span className={className} title={slim ? label : undefined}>
+        {inner}
+      </span>
+    );
+  }
+  return (
+    <button
+      type="button"
+      className={className}
+      title={slim ? label : undefined}
+      aria-current={current ? "page" : undefined}
+      onClick={onSelect}
+    >
+      {inner}
+    </button>
   );
 }
 

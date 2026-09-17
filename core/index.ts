@@ -39,6 +39,7 @@ export {
 export {
   currentJob,
   currentJobs,
+  formatCareerSpan,
   presentCareerFile,
   type CareerFile,
   type CareerJob,
