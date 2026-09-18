@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   currentJob,
   currentJobs,
+  formatCareerSpan,
   presentCareerFile,
   type CareerHistoryRecord,
 } from "./career-file";
@@ -110,5 +111,15 @@ describe("presentCareerFile", () => {
     );
     expect(currentJob(file)).toBeNull();
     expect(currentJobs(file)).toEqual([]);
+  });
+});
+
+describe("formatCareerSpan", () => {
+  it("shows Present for current roles", () => {
+    expect(formatCareerSpan("2024-03-01", "", true)).toBe("2024-03 – Present");
+  });
+
+  it("stays blank when nothing was recorded", () => {
+    expect(formatCareerSpan("", "", false)).toBe("");
   });
 });
