@@ -932,8 +932,7 @@ button.home-nav-job:focus-visible {
 }
 
 .history-list,
-.history-skills,
-.history-points {
+.history-skills {
   margin: 0;
   padding: 0;
   list-style: none;
@@ -967,22 +966,6 @@ button.home-nav-job:focus-visible {
   margin: 0.35rem 0 0;
   color: var(--gold-light);
   font-size: 0.85rem;
-}
-
-.history-copy {
-  margin: 0.55rem 0 0;
-  color: var(--text);
-  font-size: 0.92rem;
-  line-height: 1.5;
-}
-
-.history-points {
-  margin: 0.45rem 0 0;
-  padding-left: 1.1rem;
-  list-style: disc;
-  color: var(--gold-hover);
-  font-size: 0.9rem;
-  line-height: 1.45;
 }
 
 .history-skills {

@@ -1,3 +1,4 @@
+import { formatCareerSpan } from "@core/career-file";
 import type { ExtractedResume } from "@core/resume-extract";
 
 export function OnboardingExtractConfirm({
@@ -32,7 +33,7 @@ export function OnboardingExtractConfirm({
                 {job.title} · {job.company}
               </strong>
               <span>
-                {[job.location, dateRange(job.startDate, job.endDate, job.isCurrent)]
+                {[job.location, formatCareerSpan(job.startDate, job.endDate, job.isCurrent)]
                   .filter(Boolean)
                   .join(" · ")}
               </span>
@@ -68,7 +69,7 @@ export function OnboardingExtractConfirm({
                 {school.degree ? ` · ${school.degree}` : ""}
               </strong>
               <span>
-                {[school.field, dateRange(school.startDate, school.endDate, false)]
+                {[school.field, formatCareerSpan(school.startDate, school.endDate, false)]
                   .filter(Boolean)
                   .join(" · ")}
               </span>
@@ -103,11 +104,4 @@ export function OnboardingExtractConfirm({
       </section>
     </div>
   );
-}
-
-function dateRange(start: string, end: string, current: boolean): string {
-  if (!start && !end && !current) return "";
-  const from = start.slice(0, 7) || "—";
-  const to = current ? "Present" : end.slice(0, 7) || "—";
-  return `${from} – ${to}`;
 }

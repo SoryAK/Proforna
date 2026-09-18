@@ -101,14 +101,6 @@ function JobRow({ job }: { job: CareerJob }) {
           {job.location}
         </p>
       ) : null}
-      {job.description ? <p className="history-copy">{job.description}</p> : null}
-      {job.achievements.length > 0 ? (
-        <ul className="history-points">
-          {job.achievements.map((point) => (
-            <li key={point}>{point}</li>
-          ))}
-        </ul>
-      ) : null}
     </article>
   );
 }
@@ -127,7 +119,6 @@ function SchoolRow({ school }: { school: CareerSchool }) {
           {school.location}
         </p>
       ) : null}
-      {school.description ? <p className="history-copy">{school.description}</p> : null}
     </article>
   );
 }

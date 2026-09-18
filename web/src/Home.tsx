@@ -83,6 +83,15 @@ export function Home({
     setPage("home");
   }
 
+  function goProfile() {
+    if (page === "home") {
+      setEditing(true);
+      return;
+    }
+    setEditing(false);
+    goHome();
+  }
+
   return (
     <div className="home">
       <HomeBar
@@ -91,10 +100,7 @@ export function Home({
         photoSrc={photoSrc}
         menuExpanded={desktop ? !collapsed : mobileOpen}
         onMenu={toggleMenu}
-        onProfile={() => {
-          goHome();
-          setEditing(true);
-        }}
+        onProfile={goProfile}
         onSettings={() => setSettingsOpen(true)}
         onSearch={() => setSearchOpen(true)}
       />
@@ -107,10 +113,7 @@ export function Home({
           setMobileOpen(false);
           goHome();
         }}
-        onProfile={() => {
-          goHome();
-          setEditing(true);
-        }}
+        onProfile={goProfile}
         onSettings={() => setSettingsOpen(true)}
       />
       <HomeSettings
