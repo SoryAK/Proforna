@@ -3,6 +3,8 @@ import { currentJob, currentJobs, type CareerFile } from "@core/career-file";
 import { HomeBar } from "./HomeBar";
 import { HomeNav } from "./HomeNav";
 import { HomeProfileEdit } from "./HomeProfileEdit";
+import { HomeSearch } from "./HomeSearch";
+import { HomeSettings } from "./HomeSettings";
 import type { OnboardingProfileValue } from "./OnboardingProfile";
 import "./home.css";
 
@@ -21,6 +23,8 @@ export function Home({
   onProfileSaved: (profile: OnboardingProfileValue) => void;
 }) {
   const [editing, setEditing] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const [photoTick, setPhotoTick] = useState(0);
   const [collapsed, setCollapsed] = useState(readCollapsed);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -47,6 +51,18 @@ export function Home({
     return () => mq.removeEventListener("change", onChange);
   }, []);
 
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      const mod = event.metaKey || event.ctrlKey;
+      if (!mod || event.shiftKey || event.key.toLowerCase() !== "k") return;
+      if (document.querySelector("dialog.home-settings[open]")) return;
+      event.preventDefault();
+      setSearchOpen((open) => !open);
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
+
   function toggleMenu() {
     if (desktop) {
       setCollapsed((next) => {
@@ -68,6 +84,28 @@ export function Home({
         menuExpanded={desktop ? !collapsed : mobileOpen}
         onMenu={toggleMenu}
         onProfile={() => setEditing(true)}
+        onSettings={() => setSettingsOpen(true)}
+        onSearch={() => setSearchOpen(true)}
+      />
+      <HomeSearch
+        open={searchOpen}
+        career={career}
+        onClose={() => setSearchOpen(false)}
+        onHome={() => {
+          setEditing(false);
+          setMobileOpen(false);
+        }}
+        onProfile={() => setEditing(true)}
+        onSettings={() => setSettingsOpen(true)}
+      />
+      <HomeSettings
+        open={settingsOpen}
+        profile={profile}
+        onClose={() => setSettingsOpen(false)}
+        onProfileSaved={(next) => {
+          setPhotoTick((n) => n + 1);
+          onProfileSaved(next);
+        }}
       />
       <div className="home-shell">
         <HomeNav

@@ -8,6 +8,8 @@ export function HomeBar({
   menuExpanded,
   onMenu,
   onProfile,
+  onSettings,
+  onSearch,
 }: {
   name: string;
   headline: string;
@@ -15,6 +17,8 @@ export function HomeBar({
   menuExpanded: boolean;
   onMenu: () => void;
   onProfile: () => void;
+  onSettings: () => void;
+  onSearch: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
@@ -53,6 +57,26 @@ export function HomeBar({
           <Icon name="menu" />
         </button>
         <p className="home-bar-brand">Proforna</p>
+      </div>
+      <div className="home-bar-search">
+        <button
+          type="button"
+          className="home-search-pill"
+          aria-label="Search"
+          onClick={onSearch}
+        >
+          <Icon name="search" />
+          <span>Search…</span>
+          <kbd>{shortcutLabel()}</kbd>
+        </button>
+        <button
+          type="button"
+          className="home-search-icon"
+          aria-label="Search"
+          onClick={onSearch}
+        >
+          <Icon name="search" />
+        </button>
       </div>
       <div className="home-user" ref={root}>
         <button
@@ -112,6 +136,17 @@ export function HomeBar({
             >
               Profile
             </button>
+            <button
+              type="button"
+              className="home-user-item"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                onSettings();
+              }}
+            >
+              Settings
+            </button>
           </div>
         ) : null}
       </div>
@@ -126,4 +161,11 @@ function initials(name: string): string {
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase() ?? "")
     .join("");
+}
+
+function shortcutLabel(): string {
+  if (typeof navigator !== "undefined" && /Mac|iPhone|iPad/i.test(navigator.platform)) {
+    return "⌘K";
+  }
+  return "Ctrl K";
 }

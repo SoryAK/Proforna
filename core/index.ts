@@ -44,3 +44,7 @@ export {
   type CareerJob,
   type CareerSchool,
 } from "./career-file";
+export {
+  searchCareerFile,
+  type CareerSearchHit,
+} from "./career-search";
