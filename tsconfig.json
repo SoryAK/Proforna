@@ -15,5 +15,5 @@
       "@core/*": ["./core/*"]
     }
   },
-  "include": ["core", "server", "web"]
+  "include": ["core", "server", "web", "relay"]
 }
