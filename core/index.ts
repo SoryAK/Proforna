@@ -49,3 +49,87 @@ export {
   searchCareerFile,
   type CareerSearchHit,
 } from "./career-search";
+export {
+  authorizeChangeSet,
+  createApproval,
+  hashChangeSet,
+  prepareChangeSet,
+  stableStringify,
+  type Approval,
+  type AuditEvent,
+  type ChangeOperation,
+  type ChangeSet,
+  type GovernanceError,
+} from "./governance";
+export {
+  canonicalFacts,
+  commitCareerFactChanges,
+  prepareCareerFact,
+  prepareEvidence,
+  type CareerFactVersion,
+  type CareerMemoryError,
+  type CareerMemoryState,
+  type Evidence,
+  type Sensitivity,
+} from "./career-memory";
+export {
+  prepareWorklogEntry,
+  proposeFactsFromWorklog,
+  type WorklogEntry,
+  type WorklogError,
+  type WorklogFactProposal,
+} from "./worklog";
+export {
+  assertClaimsTraceable,
+  buildResumeRevision,
+  prepareResumeVariant,
+  type ResumeClaim,
+  type ResumeRevision,
+  type ResumeStudioError,
+  type ResumeVariant,
+} from "./resume-studio";
+export {
+  buildInteractiveProjection,
+  canViewProjection,
+  mayPublishProjection,
+  type InteractiveProjection,
+  type ProjectionDisclosure,
+  type ProjectionError,
+  type ProjectionVisibility,
+} from "./projection";
+export {
+  prepareExternalAction,
+  prepareOpportunity,
+  transitionApplication,
+  type Application,
+  type ApplicationStage,
+  type CareerManagementError,
+  type CareerPlan,
+  type CareerTask,
+  type Contact,
+  type ExternalAction,
+  type ExternalActionKind,
+  type Opportunity,
+  type OpportunityKind,
+} from "./career-management";
+export {
+  CURATED_CAPABILITIES,
+  PORTABLE_FORMAT_VERSION,
+  validatePortableManifest,
+  type IntegrationConnection,
+  type IntegrationKind,
+  type PortableManifest,
+} from "./portability";
+export {
+  EMPTY_WORK_MAP_DETAILS,
+  buildWorkMapSnapshot,
+  normalizeSlug,
+  type WorkMapLocation,
+  type WorkMapMedia,
+  type WorkMapMoment,
+  type WorkMapPublicationSettings,
+  type WorkMapPublishSection,
+  type WorkMapRole,
+  type WorkMapRoleDetails,
+  type WorkMapSnapshot,
+} from "./work-map";

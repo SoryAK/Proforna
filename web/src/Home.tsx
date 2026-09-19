@@ -6,6 +6,7 @@ import { HomeProfileEdit } from "./HomeProfileEdit";
 import { HomeSearch } from "./HomeSearch";
 import { HomeSettings } from "./HomeSettings";
 import { WorkHistory } from "./WorkHistory";
+import { CareerWorkspace } from "./CareerWorkspace";
 import type { OnboardingProfileValue } from "./OnboardingProfile";
 import "./home.css";
 
@@ -26,7 +27,7 @@ export function Home({
   const [editing, setEditing] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
-  const [page, setPage] = useState<HomePage>("home");
+  const [page, setPage] = useState<HomePage>(readPage);
   const [focusJobId, setFocusJobId] = useState<string | null>(null);
   const [photoTick, setPhotoTick] = useState(0);
   const [collapsed, setCollapsed] = useState(readCollapsed);
@@ -55,6 +56,15 @@ export function Home({
   }, []);
 
   useEffect(() => {
+    function onRoute() {
+      setEditing(false);
+      setPage(readPage());
+    }
+    window.addEventListener("hashchange", onRoute);
+    return () => window.removeEventListener("hashchange", onRoute);
+  }, []);
+
+  useEffect(() => {
     function onKey(event: KeyboardEvent) {
       const mod = event.metaKey || event.ctrlKey;
       if (!mod || event.shiftKey || event.key.toLowerCase() !== "k") return;
@@ -80,7 +90,15 @@ export function Home({
 
   function goHome() {
     setFocusJobId(null);
-    setPage("home");
+    goPage("home");
+  }
+
+  function goPage(next: HomePage) {
+    setPage(next);
+    const hash = next === "home" ? "" : `#/${next}`;
+    if (window.location.hash !== hash) {
+      window.location.hash = hash;
+    }
   }
 
   function goProfile() {
@@ -137,8 +155,13 @@ export function Home({
           }}
           onGoHistory={(jobId) => {
             setEditing(false);
-            setPage("history");
+            goPage("history");
             setFocusJobId(jobId ?? null);
+          }}
+          onGoPage={(next) => {
+            setEditing(false);
+            setFocusJobId(null);
+            goPage(next);
           }}
         />
       <main className="home-main">
@@ -148,6 +171,8 @@ export function Home({
           careerError={careerError}
           focusJobId={focusJobId}
         />
+      ) : page !== "home" ? (
+        <CareerWorkspace page={page} />
       ) : (
       <header className="home-banner">
         <div className="home-banner-cover" aria-hidden="true" />
@@ -217,6 +242,18 @@ export function Home({
       </div>
     </div>
   );
+}
+
+function readPage(): HomePage {
+  const value = window.location.hash.replace(/^#\/?/, "");
+  return value === "worklog" ||
+    value === "history" ||
+    value === "resumes" ||
+    value === "documents" ||
+    value === "network" ||
+    value === "opportunities"
+    ? value
+    : "home";
 }
 
 function readDesktop(): boolean {
