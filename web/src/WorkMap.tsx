@@ -147,7 +147,7 @@ export function WorkMap({
     setPublishing(false);
     if (response.ok) {
       setMessage(
-        "Published an approved snapshot of this Work Map. Private vault details stayed local.",
+        "Published this Work Map snapshot to the public link. Private edits stay local until you publish an update.",
       );
       await load();
     } else {
@@ -209,19 +209,22 @@ export function WorkMap({
           <button type="button" onClick={() => setSettingsOpen(true)}>
             Publication settings
           </button>
+          <button
+            disabled={publishing || settings?.visibility === "private"}
+            type="button"
+            onClick={publish}
+          >
+            {publishing
+              ? "Publishing…"
+              : latest?.status === "published"
+                ? "Publish update"
+                : "Publish Work Map"}
+          </button>
           {latest?.status === "published" ? (
             <button className="is-danger" type="button" onClick={revoke}>
               Revoke
             </button>
-          ) : (
-            <button
-              disabled={publishing || settings?.visibility === "private"}
-              type="button"
-              onClick={publish}
-            >
-              {publishing ? "Publishing…" : "Publish Work Map"}
-            </button>
-          )}
+          ) : null}
         </div>
       </header>
 

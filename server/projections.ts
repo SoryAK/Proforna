@@ -52,28 +52,52 @@ export function listProjections(db: DatabaseSync, occupantId: string) {
 export function createProjection(
   db: DatabaseSync,
   occupantId: string,
-  input: JsonObject,
+  _input: JsonObject,
 ): InteractiveProjection {
   const snapshot = createWorkMapSnapshot(db, occupantId);
   const result = buildInteractiveProjection({
     snapshot,
   });
   if (!result.ok) throw new ProjectionStoreError(result.error);
-  db.prepare(
-    `INSERT INTO interactive_projections
-      (id, occupant_id, revision_id, snapshot_id, slug, visibility,
-       projection_json, status, created_at)
-     VALUES (?, ?, NULL, ?, ?, ?, ?, 'draft', ?)`,
-  ).run(
-    result.value.id,
-    occupantId,
-    snapshot.id,
-    result.value.slug,
-    result.value.visibility,
-    JSON.stringify(result.value),
-    result.value.createdAt,
-  );
-  return result.value;
+  const existing = db
+    .prepare(
+      `SELECT id FROM interactive_projections
+       WHERE occupant_id = ? AND slug = ?`,
+    )
+    .get(occupantId, result.value.slug) as { id: string } | undefined;
+  const projection = {
+    ...result.value,
+    id: existing?.id ?? result.value.id,
+  };
+  if (existing) {
+    db.prepare(
+      `UPDATE interactive_projections
+       SET snapshot_id = ?, visibility = ?, projection_json = ?, status = 'draft'
+       WHERE id = ? AND occupant_id = ?`,
+    ).run(
+      snapshot.id,
+      projection.visibility,
+      JSON.stringify(projection),
+      existing.id,
+      occupantId,
+    );
+  } else {
+    db.prepare(
+      `INSERT INTO interactive_projections
+        (id, occupant_id, revision_id, snapshot_id, slug, visibility,
+         projection_json, status, created_at)
+       VALUES (?, ?, NULL, ?, ?, ?, ?, 'draft', ?)`,
+    ).run(
+      projection.id,
+      occupantId,
+      snapshot.id,
+      projection.slug,
+      projection.visibility,
+      JSON.stringify(projection),
+      projection.createdAt,
+    );
+  }
+  return projection;
 }
 
 export async function publishProjection(

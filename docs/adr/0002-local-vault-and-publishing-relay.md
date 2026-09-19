@@ -27,8 +27,10 @@ shareable resumes depend on the occupant's machine being online.
 - A separately deployable relay stores only projections, access grants,
   revocation state, inbound contact requests, and privacy-minimized events.
 - The relay cannot query, sync, or reconstruct the Career Vault.
-- Updating public content creates a new projection; revocation blocks future
-  relay access but cannot retract copies already made by viewers.
+- Republishing freezes a new Work Map snapshot onto the same public slug.
+  Private edits stay in the vault until the occupant publishes again.
+  Revocation blocks future relay access but cannot retract copies already
+  made by viewers.
 
 ## Consequences
 
