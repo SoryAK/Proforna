@@ -1,0 +1,675 @@
+.career-page {
+  box-sizing: border-box;
+  width: min(58rem, 100%);
+  margin: 0 auto;
+  padding: 2.2rem 1.5rem 5rem;
+}
+
+.career-page h1 {
+  margin: 0;
+  color: var(--text);
+  font-size: clamp(2rem, 5vw, 3.4rem);
+  letter-spacing: -0.035em;
+  line-height: 1;
+}
+
+.career-lead {
+  max-width: 66ch;
+  margin: 0.75rem 0 0;
+  color: var(--gold-light);
+  line-height: 1.65;
+}
+
+.career-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.5rem;
+}
+
+.private-mark {
+  padding: 0.35rem 0.65rem;
+  border: 1px solid rgba(167, 139, 113, 0.3);
+  border-radius: 999px;
+  color: var(--gold-hover);
+  font-size: 0.7rem;
+  white-space: nowrap;
+}
+
+.capture-form {
+  display: grid;
+  gap: 1rem;
+  margin-top: 2.5rem;
+  padding: 1.4rem;
+  border: 1px solid rgba(167, 139, 113, 0.2);
+  background: rgba(167, 139, 113, 0.045);
+}
+
+.capture-form label {
+  display: grid;
+  gap: 0.45rem;
+  color: var(--gold-hover);
+  font-size: 0.74rem;
+}
+
+.capture-form input,
+.capture-form textarea {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 0.75rem 0;
+  border: 0;
+  border-bottom: 1px solid rgba(167, 139, 113, 0.35);
+  border-radius: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  resize: vertical;
+}
+
+.capture-form input:focus,
+.capture-form textarea:focus {
+  border-bottom-color: var(--gold-hover);
+}
+
+.capture-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.capture-form > button,
+.proposal-review button {
+  justify-self: start;
+  padding: 0.65rem 1rem;
+  border: 1px solid var(--gold);
+  border-radius: 999px;
+  background: var(--gold);
+  color: #080706;
+  font-weight: 600;
+}
+
+.career-message {
+  color: var(--gold-hover);
+}
+
+.proposal-review,
+.entry-list {
+  margin-top: 2.6rem;
+}
+
+.proposal-review {
+  padding: 1.2rem 0;
+  border-top: 1px solid rgba(167, 139, 113, 0.24);
+  border-bottom: 1px solid rgba(167, 139, 113, 0.24);
+}
+
+.proposal-review h2,
+.entry-list h2 {
+  margin: 0 0 0.65rem;
+  color: var(--gold-hover);
+  font-family: var(--serif);
+  font-size: 1.25rem;
+  font-style: italic;
+  font-weight: 400;
+}
+
+.proposal-review p,
+.proposal-review li,
+.career-empty {
+  color: var(--gold-light);
+  line-height: 1.55;
+}
+
+.proposal-review button {
+  margin-top: 0.7rem;
+}
+
+.entry-list article {
+  padding: 1.15rem 0;
+  border-top: 1px solid rgba(167, 139, 113, 0.18);
+}
+
+.entry-list time,
+.entry-list article > span {
+  color: var(--gold);
+  font-size: 0.7rem;
+}
+
+.entry-list h3 {
+  margin: 0.35rem 0;
+  color: var(--text);
+  font-size: 1rem;
+}
+
+.entry-list article p {
+  margin: 0;
+  color: var(--gold-light);
+  line-height: 1.6;
+}
+
+.entry-list article > span {
+  display: inline-block;
+  margin-top: 0.65rem;
+}
+
+.career-action {
+  padding: 0.65rem 1rem;
+  border: 1px solid var(--gold);
+  border-radius: 999px;
+  background: var(--gold);
+  color: #080706;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.resume-studio-grid {
+  display: grid;
+  grid-template-columns: 14rem minmax(0, 1fr);
+  gap: 1.5rem;
+  margin-top: 2rem;
+}
+
+.resume-variants {
+  border-right: 1px solid rgba(167, 139, 113, 0.22);
+  padding-right: 1rem;
+}
+
+.resume-variants h2,
+.resume-variants h3 {
+  margin: 0 0 0.65rem;
+  color: var(--gold-hover);
+  font-family: var(--serif);
+  font-style: italic;
+  font-weight: 400;
+}
+
+.resume-variants > button {
+  display: block;
+  width: 100%;
+  padding: 0.75rem;
+  border: 0;
+  border-top: 1px solid rgba(167, 139, 113, 0.2);
+  background: transparent;
+  color: var(--gold-light);
+  text-align: left;
+}
+
+.resume-variants > button.is-selected {
+  background: rgba(167, 139, 113, 0.13);
+  color: var(--gold-hover);
+}
+
+.resume-variants strong,
+.resume-variants span,
+.resume-variants small {
+  display: block;
+}
+
+.resume-variants strong {
+  color: var(--text);
+  font-size: 0.8rem;
+}
+
+.resume-variants span,
+.resume-variants small {
+  margin-top: 0.25rem;
+  font-size: 0.66rem;
+}
+
+.resume-variants small {
+  color: var(--gold);
+}
+
+.resume-variants form {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: 2rem;
+}
+
+.resume-variants input {
+  width: 100%;
+  padding: 0.6rem 0;
+  border: 0;
+  border-bottom: 1px solid rgba(167, 139, 113, 0.3);
+  background: transparent;
+  color: var(--text);
+}
+
+.resume-variants form button {
+  justify-self: start;
+  padding: 0.5rem 0.8rem;
+  border: 1px solid rgba(167, 139, 113, 0.4);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--gold-hover);
+}
+
+.resume-preview {
+  min-width: 0;
+}
+
+.resume-preview > article {
+  max-width: 38rem;
+  min-height: 48rem;
+  margin: 0 auto;
+  padding: clamp(2rem, 5vw, 4rem);
+  background: #e8e0d1;
+  color: #1d1a16;
+  box-shadow: 0 22px 50px rgba(0, 0, 0, 0.38);
+}
+
+.resume-preview header {
+  padding-bottom: 1.2rem;
+  border-bottom: 1px solid rgba(29, 26, 22, 0.24);
+}
+
+.resume-preview header h2 {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 2.3rem;
+  font-style: italic;
+  font-weight: 400;
+}
+
+.resume-preview header p {
+  margin: 0.4rem 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.resume-preview header span {
+  color: #6c6255;
+  font-size: 0.65rem;
+}
+
+.resume-preview section {
+  margin-top: 1.8rem;
+}
+
+.resume-preview section h3 {
+  margin: 0 0 0.55rem;
+  font-family: var(--serif);
+  font-style: italic;
+  font-weight: 400;
+}
+
+.resume-preview section p,
+.resume-preview section li {
+  color: #3f3931;
+  font-size: 0.76rem;
+  line-height: 1.6;
+}
+
+.resume-preview footer {
+  display: flex;
+  gap: 0.8rem;
+  margin-top: 2.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(29, 26, 22, 0.2);
+}
+
+.resume-preview footer a {
+  color: #5f492d;
+  font-size: 0.7rem;
+  text-underline-offset: 0.2em;
+}
+
+.projection-panel {
+  margin-top: 3rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid rgba(167, 139, 113, 0.25);
+}
+
+.projection-panel h2 {
+  margin: 0;
+  color: var(--text);
+  font-family: var(--serif);
+  font-size: 1.5rem;
+  font-style: italic;
+  font-weight: 400;
+}
+
+.projection-panel p,
+.projection-panel span,
+.projection-panel small {
+  color: var(--gold-light);
+}
+
+.projection-panel form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin: 1rem 0 1.5rem;
+}
+
+.projection-panel input,
+.projection-panel select {
+  min-width: 10rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid rgba(167, 139, 113, 0.32);
+  background: #0e0c0a;
+  color: var(--text);
+}
+
+.projection-panel button {
+  padding: 0.55rem 0.8rem;
+  border: 1px solid rgba(167, 139, 113, 0.45);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--gold-hover);
+}
+
+.projection-list article {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.85rem 0;
+  border-top: 1px solid rgba(167, 139, 113, 0.16);
+}
+
+.projection-list strong,
+.projection-list span {
+  display: block;
+}
+
+.projection-list strong {
+  color: var(--text);
+}
+
+.projection-list span,
+.projection-list small {
+  margin-top: 0.2rem;
+  font-size: 0.68rem;
+}
+
+.opportunity-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 18rem;
+  gap: 2rem;
+  margin-top: 2.5rem;
+}
+
+.opportunity-card {
+  padding: 1.25rem 0;
+  border-top: 1px solid rgba(167, 139, 113, 0.22);
+}
+
+.opportunity-card > span {
+  color: var(--gold);
+  font-size: 0.65rem;
+  text-transform: uppercase;
+}
+
+.opportunity-card h2 {
+  margin: 0.35rem 0 0;
+  color: var(--text);
+  font-size: 1.15rem;
+}
+
+.opportunity-card h3 {
+  margin: 0.2rem 0;
+  color: var(--gold-hover);
+  font-size: 0.8rem;
+  font-weight: 400;
+}
+
+.opportunity-card p {
+  color: var(--gold-light);
+  line-height: 1.6;
+}
+
+.opportunity-card button,
+.compact-career-form button {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid rgba(167, 139, 113, 0.42);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--gold-hover);
+}
+
+.application-state {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.application-state strong {
+  color: var(--gold-hover);
+  font-size: 0.76rem;
+  text-transform: capitalize;
+}
+
+.application-state select {
+  padding: 0.4rem;
+  border: 1px solid rgba(167, 139, 113, 0.3);
+  background: #0e0c0a;
+  color: var(--text);
+}
+
+.compact-career-form {
+  display: grid;
+  gap: 0.65rem;
+  margin-bottom: 1.7rem;
+  padding: 1rem;
+  border: 1px solid rgba(167, 139, 113, 0.2);
+}
+
+.compact-career-form h2 {
+  margin: 0 0 0.4rem;
+  color: var(--gold-hover);
+  font-family: var(--serif);
+  font-size: 1.15rem;
+  font-style: italic;
+  font-weight: 400;
+}
+
+.compact-career-form input,
+.compact-career-form textarea {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 0.55rem 0;
+  border: 0;
+  border-bottom: 1px solid rgba(167, 139, 113, 0.3);
+  background: transparent;
+  color: var(--text);
+  resize: vertical;
+}
+
+.compact-career-form button {
+  justify-self: start;
+}
+
+.compact-career-form small {
+  color: var(--gold-light);
+}
+
+.network-form {
+  grid-template-columns: repeat(2, 1fr);
+  margin-top: 2rem;
+}
+
+.network-form button {
+  grid-column: 1 / -1;
+}
+
+.contact-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.contact-list article {
+  padding: 1rem;
+  border: 1px solid rgba(167, 139, 113, 0.2);
+}
+
+.contact-list h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 1rem;
+}
+
+.contact-list p,
+.contact-list span {
+  color: var(--gold-light);
+  font-size: 0.72rem;
+}
+
+.documents-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 19rem;
+  gap: 2rem;
+  margin-top: 2.5rem;
+}
+
+.document-upload {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+  padding: 1rem;
+  border: 1px solid rgba(167, 139, 113, 0.2);
+}
+
+.document-upload input,
+.document-upload select,
+.compact-career-form select {
+  color: var(--gold-light);
+  background: #0e0c0a;
+}
+
+.document-upload button,
+.portable-card button {
+  padding: 0.5rem 0.8rem;
+  border: 1px solid rgba(167, 139, 113, 0.4);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--gold-hover);
+}
+
+.document-list a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 0;
+  border-bottom: 1px solid rgba(167, 139, 113, 0.18);
+  color: inherit;
+  text-decoration: none;
+}
+
+.document-list strong,
+.document-list span {
+  display: block;
+}
+
+.document-list strong {
+  color: var(--text);
+  font-size: 0.85rem;
+}
+
+.document-list span,
+.document-list small {
+  margin-top: 0.25rem;
+  color: var(--gold-light);
+  font-size: 0.66rem;
+}
+
+.portable-card {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  border: 1px solid rgba(167, 139, 113, 0.2);
+}
+
+.portable-card h2 {
+  margin: 0;
+  color: var(--gold-hover);
+  font-family: var(--serif);
+  font-size: 1.2rem;
+  font-style: italic;
+  font-weight: 400;
+}
+
+.portable-card p {
+  color: var(--gold-light);
+  font-size: 0.75rem;
+  line-height: 1.55;
+}
+
+.portable-card > a {
+  color: var(--gold-hover);
+  font-size: 0.75rem;
+}
+
+.portable-card form {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 1.2rem;
+}
+
+.portable-card input {
+  max-width: 100%;
+  color: var(--gold-light);
+  font-size: 0.68rem;
+}
+
+.portable-card button {
+  justify-self: start;
+}
+
+@media (max-width: 640px) {
+  .career-page {
+    padding: 1.5rem 1.1rem 4rem;
+  }
+
+  .career-heading {
+    display: block;
+  }
+
+  .private-mark {
+    display: inline-block;
+    margin-top: 1rem;
+  }
+
+  .capture-row {
+    grid-template-columns: 1fr;
+  }
+
+  .resume-studio-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .resume-variants {
+    border-right: 0;
+    border-bottom: 1px solid rgba(167, 139, 113, 0.22);
+    padding: 0 0 1rem;
+  }
+
+  .resume-preview > article {
+    padding: 2rem 1.3rem;
+  }
+
+  .projection-list article {
+    grid-template-columns: 1fr auto;
+  }
+
+  .projection-list small {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .opportunity-grid,
+  .network-form,
+  .contact-list,
+  .documents-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .network-form button {
+    grid-column: auto;
+  }
+}
