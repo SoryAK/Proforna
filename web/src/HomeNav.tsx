@@ -3,7 +3,14 @@ import type { CareerJob } from "@core/career-file";
 
 const NAV_ID = "home-nav";
 
-export type HomePage = "home" | "history";
+export type HomePage =
+  | "home"
+  | "worklog"
+  | "history"
+  | "resumes"
+  | "documents"
+  | "network"
+  | "opportunities";
 
 export function HomeNav({
   collapsed,
@@ -13,6 +20,7 @@ export function HomeNav({
   onCloseMobile,
   onGoHome,
   onGoHistory,
+  onGoPage,
 }: {
   collapsed: boolean;
   mobileOpen: boolean;
@@ -21,6 +29,7 @@ export function HomeNav({
   onCloseMobile: () => void;
   onGoHome: () => void;
   onGoHistory: (jobId?: string) => void;
+  onGoPage: (page: HomePage) => void;
 }) {
   const [jobsOpen, setJobsOpen] = useState(true);
   const slim = collapsed && !mobileOpen;
@@ -65,12 +74,21 @@ export function HomeNav({
             onCloseMobile();
           }}
         />
-        <NavRow icon="worklog" label="Worklog" slim={slim} />
+        <NavRow
+          icon="worklog"
+          label="Worklog"
+          current={page === "worklog"}
+          slim={slim}
+          onSelect={() => {
+            onGoPage("worklog");
+            onCloseMobile();
+          }}
+        />
         <div className="home-nav-group">
           <div className="home-nav-history">
             <NavRow
               icon="history"
-              label="Work History"
+              label="Work Map"
               current={page === "history"}
               slim={slim}
               onSelect={() => {
@@ -113,9 +131,46 @@ export function HomeNav({
         </div>
 
         <p className="home-nav-label">Resources</p>
-        <NavRow icon="docs" label="My Docs" slim={slim} />
-        <NavRow icon="network" label="My Network" slim={slim} />
-        <NavRow icon="search" label="Job Search" slim={slim} />
+        <NavRow
+          icon="docs"
+          label="Resume Studio"
+          current={page === "resumes"}
+          slim={slim}
+          onSelect={() => {
+            onGoPage("resumes");
+            onCloseMobile();
+          }}
+        />
+        <NavRow
+          icon="docs"
+          label="My Docs"
+          current={page === "documents"}
+          slim={slim}
+          onSelect={() => {
+            onGoPage("documents");
+            onCloseMobile();
+          }}
+        />
+        <NavRow
+          icon="network"
+          label="My Network"
+          current={page === "network"}
+          slim={slim}
+          onSelect={() => {
+            onGoPage("network");
+            onCloseMobile();
+          }}
+        />
+        <NavRow
+          icon="search"
+          label="Opportunities"
+          current={page === "opportunities"}
+          slim={slim}
+          onSelect={() => {
+            onGoPage("opportunities");
+            onCloseMobile();
+          }}
+        />
       </nav>
     </>
   );

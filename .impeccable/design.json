@@ -1,0 +1,271 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-19T22:29:14Z",
+  "title": "Design System: Proforna",
+  "extensions": {
+    "colorMeta": {
+      "near-black": {
+        "role": "neutral",
+        "displayName": "Near Black",
+        "canonical": "#0a0a0a",
+        "tonalRamp": ["#0a0a0a", "#171717", "#292929", "#414141", "#626262", "#898989", "#b9b9b9", "#eeeeee"]
+      },
+      "operating-black": {
+        "role": "neutral",
+        "displayName": "Operating Black",
+        "canonical": "#080706",
+        "tonalRamp": ["#080706", "#1b1815", "#332d27", "#51483e", "#74675a", "#9a8a79", "#c2b4a3", "#eee7df"]
+      },
+      "raised-black": {
+        "role": "neutral",
+        "displayName": "Raised Black",
+        "canonical": "#13100d",
+        "tonalRamp": ["#13100d", "#211c17", "#393129", "#554a3e", "#766759", "#988779", "#c0b2a3", "#eee7df"]
+      },
+      "text": {
+        "role": "neutral",
+        "displayName": "Ivory Text",
+        "canonical": "#f5f2ee",
+        "tonalRamp": ["#241f19", "#3c342b", "#5a4e41", "#7c6d5d", "#a09180", "#c3b7a8", "#dfd7ce", "#f5f2ee"]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Cool Muted",
+        "canonical": "#9ca3af",
+        "tonalRamp": ["#1c2027", "#303640", "#48515f", "#626d7d", "#7f8998", "#9ca3af", "#c8ccd3", "#eef0f3"]
+      },
+      "warm-muted": {
+        "role": "neutral",
+        "displayName": "Warm Muted",
+        "canonical": "#b9aa97",
+        "tonalRamp": ["#281f17", "#413528", "#5e4e3d", "#7c6955", "#998773", "#b9aa97", "#d8cfc3", "#f3eee8"]
+      },
+      "gold": {
+        "role": "primary",
+        "displayName": "Ledger Gold",
+        "canonical": "#a78b71",
+        "tonalRamp": ["#2b2118", "#443527", "#614c38", "#80664d", "#a08063", "#bea087", "#d9c5b2", "#f2e9e0"]
+      },
+      "gold-light": {
+        "role": "primary",
+        "displayName": "Soft Gold",
+        "canonical": "#c9b8a0",
+        "tonalRamp": ["#2c231a", "#473a2c", "#665442", "#86715a", "#a99378", "#c9b8a0", "#ded4c5", "#f4efe8"]
+      },
+      "gold-hover": {
+        "role": "primary",
+        "displayName": "Illuminated Gold",
+        "canonical": "#e8d5b7",
+        "tonalRamp": ["#2f2417", "#4c3925", "#6d5337", "#92714d", "#b7946d", "#d0b793", "#e8d5b7", "#f7f0e4"]
+      },
+      "danger": {
+        "role": "tertiary",
+        "displayName": "Muted Coral",
+        "canonical": "#e6a196",
+        "tonalRamp": ["#371815", "#572722", "#7a3932", "#9f5047", "#c36e63", "#e6a196", "#f0c6c0", "#faece9"]
+      },
+      "paper": {
+        "role": "neutral",
+        "displayName": "Resume Paper",
+        "canonical": "#e8e0d1",
+        "tonalRamp": ["#29241c", "#443c30", "#625747", "#827563", "#a49580", "#c4b9a6", "#e0d7c7", "#f5f1e9"]
+      },
+      "map-ground": {
+        "role": "neutral",
+        "displayName": "Map Ground",
+        "canonical": "#d9d2c6",
+        "tonalRamp": ["#27231e", "#403b34", "#5d564c", "#7c7468", "#9b9488", "#bbb4a9", "#d9d2c6", "#f2efea"]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Page-level identity and spacious editorial headings."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Occupant identity, panel titles, and prominent record headings."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Section headings within forms, timelines, and grouped records."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Explanations and longer record content."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Navigation labels, status, metadata, and controls."
+      }
+    },
+    "shadows": [
+      {
+        "name": "floating-control",
+        "value": "0 8px 24px rgba(0, 0, 0, 0.28)",
+        "purpose": "Compact controls floating over maps or other visual ground."
+      },
+      {
+        "name": "side-sheet",
+        "value": "-18px 0 45px rgba(0, 0, 0, 0.42)",
+        "purpose": "A focused editor entering from the right."
+      },
+      {
+        "name": "dialog",
+        "value": "0 28px 80px rgba(0, 0, 0, 0.55)",
+        "purpose": "Modal search and settings surfaces."
+      },
+      {
+        "name": "paper-output",
+        "value": "0 22px 50px rgba(0, 0, 0, 0.38)",
+        "purpose": "Light artifacts presented above the dark workspace."
+      }
+    ],
+    "motion": [
+      {
+        "name": "standard",
+        "value": "cubic-bezier(0.4, 0, 0.2, 1)",
+        "purpose": "General state transitions."
+      },
+      {
+        "name": "reveal",
+        "value": "cubic-bezier(0.19, 1, 0.22, 1)",
+        "purpose": "Expressive but restrained content reveals."
+      },
+      {
+        "name": "side-sheet-in",
+        "value": "180ms cubic-bezier(0.22, 1, 0.36, 1)",
+        "purpose": "Short directional entry for focused editor sheets; removed under reduced motion."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "compact",
+        "value": "480px"
+      },
+      {
+        "name": "mobile",
+        "value": "640px"
+      },
+      {
+        "name": "workspace-stack",
+        "value": "760px"
+      },
+      {
+        "name": "workspace-tight",
+        "value": "1100px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The general-surface commitment action.",
+      "html": "<button class=\"ds-btn-primary\">Save changes</button>",
+      "css": ".ds-btn-primary { padding: 10px 16px; border: 1px solid var(--gold, #a78b71); border-radius: 999px; background: var(--gold, #a78b71); color: #080706; font: 600 0.7rem/1.25 Inter, system-ui, sans-serif; cursor: pointer; transition: background 160ms cubic-bezier(0.4, 0, 0.2, 1); } .ds-btn-primary:hover { background: var(--gold-hover, #e8d5b7); } .ds-btn-primary:focus-visible { outline: 2px solid var(--gold-hover, #e8d5b7); outline-offset: 3px; } .ds-btn-primary:active { transform: translateY(1px); }"
+    },
+    {
+      "name": "Operating Primary Button",
+      "kind": "button",
+      "refersTo": "button-operating-primary",
+      "description": "A compact commitment action for dense ledgers and editor sheets.",
+      "html": "<button class=\"ds-btn-operating\">Save overview</button>",
+      "css": ".ds-btn-operating { min-height: 35px; padding: 8px 13px; border: 1px solid var(--gold, #a78b71); border-radius: 4px; background: var(--gold, #a78b71); color: #090806; font: 650 0.7rem/1.25 Inter, system-ui, sans-serif; cursor: pointer; } .ds-btn-operating:hover { border-color: var(--gold-hover, #e8d5b7); background: var(--gold-hover, #e8d5b7); } .ds-btn-operating:focus-visible { outline: 2px solid var(--gold-hover, #e8d5b7); outline-offset: 2px; } .ds-btn-operating:active { transform: translateY(1px); }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "A quiet global action that leaves the gold fill to primary commitments.",
+      "html": "<button class=\"ds-btn-secondary\">Publication settings</button>",
+      "css": ".ds-btn-secondary { padding: 8px 13px; border: 1px solid rgba(167, 139, 113, 0.4); border-radius: 999px; background: transparent; color: var(--gold-hover, #e8d5b7); font: 600 0.7rem/1.25 Inter, system-ui, sans-serif; cursor: pointer; } .ds-btn-secondary:hover { border-color: var(--gold-hover, #e8d5b7); color: var(--gold-light, #c9b8a0); } .ds-btn-secondary:focus-visible { outline: 2px solid var(--gold-hover, #e8d5b7); outline-offset: 3px; } .ds-btn-secondary:active { background: rgba(167, 139, 113, 0.12); }"
+    },
+    {
+      "name": "Underline Field",
+      "kind": "input",
+      "refersTo": "input-underline",
+      "description": "The transparent field used across career capture and detail editing.",
+      "html": "<label class=\"ds-field\"><span>Organization</span><input placeholder=\"Organization name\" /></label>",
+      "css": ".ds-field { display: grid; gap: 6px; color: var(--gold-hover, #e8d5b7); font: 400 0.72rem/1.45 Inter, system-ui, sans-serif; } .ds-field input { box-sizing: border-box; width: 100%; padding: 9px 0; border: 0; border-bottom: 1px solid rgba(167, 139, 113, 0.35); border-radius: 0; outline: 0; background: transparent; color: var(--text, #f5f2ee); font: 400 1rem/1.45 Inter, system-ui, sans-serif; caret-color: var(--gold-hover, #e8d5b7); } .ds-field input:hover { border-bottom-color: rgba(232, 213, 183, 0.65); } .ds-field input:focus-visible { border-bottom-color: var(--gold-hover, #e8d5b7); outline: 2px solid var(--gold-hover, #e8d5b7); outline-offset: 2px; }"
+    },
+    {
+      "name": "Navigation Item",
+      "kind": "nav",
+      "description": "Persistent navigation with a quiet tonal selected state.",
+      "html": "<nav class=\"ds-nav\"><button class=\"ds-nav-item ds-is-current\">Work Map</button><button class=\"ds-nav-item\">Resume Studio</button></nav>",
+      "css": ".ds-nav { display: grid; gap: 3px; width: 220px; padding: 10px; background: #070707; } .ds-nav-item { min-height: 40px; padding: 7px 11px; border: 0; border-radius: 10px; background: transparent; color: var(--gold-light, #c9b8a0); font: 500 0.95rem/1.25 Inter, system-ui, sans-serif; text-align: left; cursor: pointer; } .ds-nav-item:hover, .ds-nav-item:focus-visible { background: rgba(167, 139, 113, 0.12); color: var(--gold-hover, #e8d5b7); } .ds-nav-item:focus-visible { outline: 2px solid var(--gold-hover, #e8d5b7); outline-offset: 2px; } .ds-nav-item.ds-is-current { background: rgba(167, 139, 113, 0.18); color: var(--gold-hover, #e8d5b7); }"
+    },
+    {
+      "name": "Career Ledger Row",
+      "kind": "custom",
+      "description": "A selected career record that keeps role, organization, time, and place in one line of context.",
+      "html": "<button class=\"ds-ledger-row ds-is-selected\"><span class=\"ds-ledger-dot\"></span><span><strong>Acme Manufacturing</strong><b>Controls Engineer</b><small>2022-04 – Present · Philadelphia, PA</small></span><em>2 sites · Edit</em></button>",
+      "css": ".ds-ledger-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; width: 300px; gap: 10px; align-items: start; padding: 13px; border: 0; border-bottom: 1px solid rgba(199, 164, 123, 0.12); background: transparent; color: var(--text, #f5f2ee); font-family: Inter, system-ui, sans-serif; text-align: left; cursor: pointer; } .ds-ledger-row:hover, .ds-ledger-row.ds-is-selected { background: rgba(199, 164, 123, 0.09); } .ds-ledger-row:focus-visible { outline: 2px solid var(--gold-hover, #e8d5b7); outline-offset: -2px; } .ds-ledger-row.ds-is-selected { box-shadow: inset 1px 0 0 var(--gold-hover, #e8d5b7); } .ds-ledger-row strong, .ds-ledger-row b, .ds-ledger-row small { display: block; } .ds-ledger-row strong { font-size: 0.78rem; } .ds-ledger-row b { margin-top: 3px; color: var(--gold-light, #c9b8a0); font-size: 0.69rem; font-weight: 450; } .ds-ledger-row small, .ds-ledger-row em { margin-top: 4px; color: #b9aa97; font-size: 0.67rem; font-style: normal; } .ds-ledger-dot { width: 9px; height: 9px; margin-top: 3px; border: 2px solid #080706; border-radius: 50%; background: var(--gold, #a78b71); box-shadow: 0 2px 8px rgba(194, 123, 43, 0.32); }"
+    },
+    {
+      "name": "Side Sheet",
+      "kind": "custom",
+      "refersTo": "panel-dark",
+      "description": "The attached editor surface used for focused role and publication work.",
+      "html": "<aside class=\"ds-side-sheet\"><header><div><h2>Controls Engineer</h2><p>Acme Manufacturing</p></div><button>Close</button></header><div class=\"ds-side-sheet-body\">Focused career detail belongs here.</div></aside>",
+      "css": ".ds-side-sheet { width: 360px; border-left: 1px solid rgba(199, 164, 123, 0.38); background: #0b0908; color: var(--text, #f5f2ee); box-shadow: -18px 0 45px rgba(0, 0, 0, 0.42); font-family: Inter, system-ui, sans-serif; } .ds-side-sheet header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 16px 18px; border-bottom: 1px solid rgba(199, 164, 123, 0.2); } .ds-side-sheet h2 { margin: 4px 0 0; font: italic 400 1.45rem/1.15 \"Playfair Display\", Georgia, serif; } .ds-side-sheet p { margin: 3px 0 0; color: #b9aa97; font-size: 0.68rem; } .ds-side-sheet button { padding: 8px 12px; border: 1px solid rgba(199, 164, 123, 0.32); border-radius: 4px; background: transparent; color: var(--gold-light, #c9b8a0); cursor: pointer; } .ds-side-sheet button:hover { border-color: var(--gold-hover, #e8d5b7); color: var(--gold-hover, #e8d5b7); } .ds-side-sheet button:focus-visible { outline: 2px solid var(--gold-hover, #e8d5b7); outline-offset: 2px; } .ds-side-sheet-body { min-height: 150px; padding: 16px 18px 48px; color: #b9aa97; font-size: 0.8rem; line-height: 1.6; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Private Career Ledger",
+    "overview": "Proforna is a restrained, near-black career workspace with the gravity of a private ledger and the clarity of an operating instrument. Warm gold rules and text establish hierarchy without turning the interface ornamental; italic serif type marks identity, reflection, and important headings, while compact sans-serif controls carry the work.\n\nThe system supports two related densities. Profile and reading surfaces use generous editorial spacing and soft or pill-shaped controls. Data-rich operating surfaces tighten the rhythm, use square-edged divisions, and allow compact rectangular controls so records remain connected rather than becoming a dashboard of interchangeable cards.",
+    "keyCharacteristics": [
+      "Near-black layered surfaces with warm gold hierarchy.",
+      "Italic Playfair Display for identity and section voice; Inter for operation.",
+      "Fine rules, transparent fields, and tonal selection states instead of card grids.",
+      "Filled gold reserved for selected states and explicit primary actions.",
+      "Responsive workspaces preserve context until narrow screens require stacking."
+    ],
+    "rules": [
+      {
+        "name": "The Gold Is Signal Rule",
+        "body": "Use filled gold for a selected mode or explicit primary action; most controls remain transparent.",
+        "section": "colors"
+      },
+      {
+        "name": "The Material Exception Rule",
+        "body": "Light grounds belong to real output or geographic material, not to generic application containers.",
+        "section": "colors"
+      },
+      {
+        "name": "The Two Voices Rule",
+        "body": "Serif type gives identity and reflective hierarchy; sans-serif type carries actions, fields, metadata, and dense records.",
+        "section": "typography"
+      },
+      {
+        "name": "The Context-Before-Cards Rule",
+        "body": "Keep related records, controls, and their current visual context adjacent; do not break operating workflows into a grid of generic cards.",
+        "section": "layout"
+      },
+      {
+        "name": "The Earned Elevation Rule",
+        "body": "Add a shadow only when a surface truly overlays, floats above, or represents a separate material.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Shape Follows Density Rule",
+        "body": "Use pills for approachable global actions and tags, but use compact rectangular controls where dense operating work benefits from sharper alignment.",
+        "section": "shapes"
+      }
+    ],
+    "dos": [
+      "Do use inherited palette and type tokens before introducing surface-local values.",
+      "Do communicate hierarchy with fine rules, tonal layers, typography, and restrained gold states.",
+      "Do keep focus visible, preserve semantic controls, and disable optional motion for reduced-motion preferences.",
+      "Do let real map tiles, paper outputs, and other meaningful materials contrast with the dark application shell."
+    ],
+    "donts": [
+      "Don't use filled gold broadly; its rarity identifies selection and commitment.",
+      "Don't turn connected operating workflows into interchangeable card dashboards.",
+      "Don't use decorative elevation on surfaces that are not overlays or distinct materials.",
+      "Don't introduce additional display families, hard offset shadows, or ornamental glyph icons."
+    ]
+  }
+}

@@ -4,6 +4,10 @@ export default defineConfig({
   test: {
     environment: "node",
     pool: "threads",
-    include: ["core/**/*.test.ts", "server/**/*.test.ts"],
+    include: [
+      "core/**/*.test.ts",
+      "server/**/*.test.ts",
+      "relay/**/*.test.ts",
+    ],
   },
 });
