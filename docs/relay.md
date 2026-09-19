@@ -1,8 +1,9 @@
 # Publishing relay
 
-The relay is a separately runnable Hono service. It stores immutable public
-projection bundles, grants, revocation state, inbound requests, and minimized
-engagement events. It has no database or filesystem access to the Career Vault.
+The relay is a separately runnable Hono service. It stores the current public
+snapshot for each slug, plus grants, revocation state, inbound requests, and
+minimized engagement events. Republishing replaces that snapshot in place.
+It has no database or filesystem access to the Career Vault.
 
 ## Run locally
 

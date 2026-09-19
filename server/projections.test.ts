@@ -119,4 +119,78 @@ describe("interactive projections HTTP seam", () => {
       db.close();
     }
   });
+
+  it("keeps the public slug and frozen snapshot until the occupant publishes again", async () => {
+    const publish = vi.fn(async (_projection: RelayProjection) => undefined);
+    const relay: ProjectionRelay = {
+      publish,
+      revoke: vi.fn(async () => undefined),
+    };
+    const db = openDatabase(":memory:");
+    const app = createApp(db, { relay });
+    try {
+      await app.request("/api/profile", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ fullName: "Sory Kaba" }),
+      });
+      await app.request("/api/history", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          experience: [{ company: "Acme", title: "Lead", isCurrent: true }],
+        }),
+      });
+      await app.request("/api/work-map/settings", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          slug: "sory-systems",
+          visibility: "public",
+          sections: ["profile", "history"],
+        }),
+      });
+      expect((await app.request("/api/work-map/publish", { method: "POST" })).status).toBe(
+        201,
+      );
+
+      const workMap = (await (await app.request("/api/work-map")).json()) as {
+        roles: Array<{ id: string }>;
+      };
+      await app.request(`/api/work-map/roles/${workMap.roles[0].id}`, {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ title: "Principal" }),
+      });
+
+      const frozen = (await (
+        await app.request("/api/public/sory-systems")
+      ).json()) as { projection: { roles: Array<{ title: string }>; slug: string } };
+      expect(frozen.projection.slug).toBe("sory-systems");
+      expect(frozen.projection.roles[0].title).toBe("Lead");
+
+      const republished = await app.request("/api/work-map/publish", {
+        method: "POST",
+      });
+      expect(republished.status).toBe(201);
+      const body = (await republished.json()) as {
+        projection: { slug: string };
+        publication: { slug: string };
+      };
+      expect(body.projection.slug).toBe("sory-systems");
+      expect(body.publication.slug).toBe("sory-systems");
+      expect(publish).toHaveBeenCalledTimes(2);
+      expect(publish.mock.calls[1][0].slug).toBe("sory-systems");
+      expect(publish.mock.calls[1][0].roles[0]).toMatchObject({
+        title: "Principal",
+      });
+
+      const updated = (await (
+        await app.request("/api/public/sory-systems")
+      ).json()) as { projection: { roles: Array<{ title: string }> } };
+      expect(updated.projection.roles[0].title).toBe("Principal");
+    } finally {
+      db.close();
+    }
+  });
 });
