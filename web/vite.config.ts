@@ -19,6 +19,8 @@ export default defineConfig({
     emptyOutDir: true,
   },
   server: {
+    host: true,
+    allowedHosts: true,
     port: 5173,
     fs: { allow: [repoRoot] },
     proxy: {
