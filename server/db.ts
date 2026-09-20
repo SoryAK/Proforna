@@ -268,6 +268,7 @@ export function openDatabase(path: string): DatabaseSync {
       requester_email TEXT NOT NULL,
       message TEXT NOT NULL,
       status TEXT NOT NULL,
+      opportunity_id TEXT,
       created_at TEXT NOT NULL
     )
   `);
@@ -436,6 +437,7 @@ export function openDatabase(path: string): DatabaseSync {
     "kind",
     "TEXT NOT NULL DEFAULT 'career'",
   );
+  addColumnIfMissing(db, "projection_access_requests", "opportunity_id", "TEXT");
   return db;
 }
 

@@ -196,6 +196,7 @@ type CareerManagement = {
     organization: string;
     fit_summary: string;
     status: string;
+    pending_access_request_id: string | null;
   }>;
   applications: Array<{
     id: string;
@@ -263,6 +264,23 @@ function OpportunitiesPage() {
     await load();
   }
 
+  async function resolveAccess(opportunityId: string, decision: "grant" | "decline") {
+    const response = await fetch(`/api/opportunities/${opportunityId}/access`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ decision }),
+    });
+    setMessage(
+      response.ok
+        ? decision === "grant"
+          ? "Access granted."
+          : "Request declined."
+        : "Could not resolve that request.",
+    );
+    window.dispatchEvent(new Event("proforna:notices-changed"));
+    await load();
+  }
+
   async function transition(applicationId: string, stage: string) {
     const response = await fetch(`/api/applications/${applicationId}/transition`, {
       method: "POST",
@@ -310,13 +328,34 @@ function OpportunitiesPage() {
               <article className="opportunity-card" key={opportunity.id}>
                 <span>
                   {opportunity.kind === "connection"
-                    ? "Inbound request"
+                    ? opportunity.pending_access_request_id
+                      ? "Inbound request"
+                      : opportunity.status
                     : opportunity.status}
                 </span>
                 <h2>{opportunity.title}</h2>
                 <h3>{opportunity.organization}</h3>
                 <p>{opportunity.fit_summary}</p>
-                {opportunity.kind === "connection" ? null : application ? (
+                {opportunity.kind === "connection" ? (
+                  opportunity.pending_access_request_id ? (
+                    <div className="opportunity-actions">
+                      <button
+                        className="is-primary"
+                        type="button"
+                        onClick={() => void resolveAccess(opportunity.id, "grant")}
+                      >
+                        Grant access
+                      </button>
+                      <button
+                        className="is-danger"
+                        type="button"
+                        onClick={() => void resolveAccess(opportunity.id, "decline")}
+                      >
+                        Decline
+                      </button>
+                    </div>
+                  ) : null
+                ) : application ? (
                   <div className="application-state">
                     <strong>{application.stage}</strong>
                     <select
@@ -645,8 +684,12 @@ function WorklogPage() {
 
   async function loadEntries() {
     const response = await fetch("/api/worklog");
-    const body = (await response.json()) as { entries: WorklogEntry[] };
+    const body = (await response.json()) as {
+      entries: WorklogEntry[];
+      proposals?: ChangeSet[];
+    };
     setEntries(body.entries);
+    setProposals(body.proposals ?? []);
   }
 
   async function capture(event: FormEvent) {
@@ -676,7 +719,8 @@ function WorklogPage() {
       method: "POST",
     });
     const proposedBody = (await proposed.json()) as { changeSets: ChangeSet[] };
-    setProposals(proposedBody.changeSets);
+    await loadEntries();
+    window.dispatchEvent(new Event("proforna:notices-changed"));
     setMessage(
       proposedBody.changeSets.length
         ? `${proposedBody.changeSets.length} career fact proposal(s) ready for review.`
@@ -693,7 +737,8 @@ function WorklogPage() {
       }),
     });
     setMessage(`${proposals.length} proposal(s) added to Career Memory.`);
-    setProposals([]);
+    await loadEntries();
+    window.dispatchEvent(new Event("proforna:notices-changed"));
   }
 
   return (

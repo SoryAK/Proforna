@@ -79,6 +79,20 @@ export function listWorklog(
     .map(mapWorklog);
 }
 
+export function listProposedChangeSets(
+  db: DatabaseSync,
+  occupantId: string,
+): Array<{ id: string; purpose: string; createdAt: string }> {
+  return db
+    .prepare(
+      `SELECT id, purpose, created_at AS createdAt
+         FROM change_sets
+        WHERE occupant_id = ? AND status = 'proposed'
+        ORDER BY created_at DESC`,
+    )
+    .all(occupantId) as Array<{ id: string; purpose: string; createdAt: string }>;
+}
+
 export async function proposeWorklogChanges(
   db: DatabaseSync,
   occupantId: string,

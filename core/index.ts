@@ -92,6 +92,7 @@ export {
   buildInteractiveProjection,
   canViewProjection,
   mayPublishProjection,
+  planProjectionAccessDecision,
   planProjectionGrant,
   planProjectionRevoke,
   type InteractiveProjection,
@@ -101,6 +102,7 @@ export {
 } from "./projection";
 export {
   presentInboundAccessRequest,
+  resolveInboundAccessRequest,
   prepareExternalAction,
   prepareOpportunity,
   transitionApplication,

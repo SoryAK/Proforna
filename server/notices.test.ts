@@ -91,6 +91,74 @@ describe("GET /api/notices", () => {
       expect(remaining.notices).toEqual([
         expect.objectContaining({ kind: "access-request" }),
       ]);
+
+      const dashboard = (await (
+        await app.request("/api/career-management")
+      ).json()) as {
+        opportunities: Array<{
+          id: string;
+          kind: string;
+          pending_access_request_id: string | null;
+        }>;
+      };
+      const inbound = dashboard.opportunities.find(
+        (opportunity) => opportunity.kind === "connection",
+      );
+      expect(inbound?.pending_access_request_id).toEqual(expect.any(String));
+      const granted = await app.request(
+        `/api/opportunities/${inbound?.id}/access`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ decision: "grant" }),
+        },
+      );
+      expect(granted.status).toBe(201);
+      const afterGrant = (await (
+        await app.request("/api/notices")
+      ).json()) as { notices: unknown[] };
+      expect(afterGrant.notices).toEqual([]);
+    } finally {
+      db.close();
+    }
+  });
+
+  it("clears an access-request notice when the occupant declines it", async () => {
+    const db = openDatabase(":memory:");
+    const app = createApp(db);
+    try {
+      await app.request("/api/me");
+      db.prepare(
+        `INSERT INTO interactive_projections
+          (id, occupant_id, slug, visibility, projection_json, status, created_at)
+         VALUES (?, 'local', ?, 'public', '{}', 'published', ?)`,
+      ).run("proj-1", "sory-systems", "2026-09-19T10:00:00.000Z");
+      captureAccessRequest(db, "sory-systems", {
+        name: "Jordan Lee",
+        email: "jordan@example.com",
+        message: "Please share the map.",
+      });
+      const dashboard = (await (
+        await app.request("/api/career-management")
+      ).json()) as {
+        opportunities: Array<{ id: string; kind: string }>;
+      };
+      const inbound = dashboard.opportunities.find(
+        (opportunity) => opportunity.kind === "connection",
+      );
+      const declined = await app.request(
+        `/api/opportunities/${inbound?.id}/access`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ decision: "decline" }),
+        },
+      );
+      expect(declined.status).toBe(200);
+      const remaining = (await (
+        await app.request("/api/notices")
+      ).json()) as { notices: unknown[] };
+      expect(remaining.notices).toEqual([]);
     } finally {
       db.close();
     }

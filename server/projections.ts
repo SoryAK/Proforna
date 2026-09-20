@@ -7,9 +7,11 @@ import {
   createApproval,
   hashChangeSet,
   mayPublishProjection,
+  planProjectionAccessDecision,
   planProjectionGrant,
   planProjectionRevoke,
   presentInboundAccessRequest,
+  resolveInboundAccessRequest,
   type ChangeSet,
   type InteractiveProjection,
 } from "../core/index";
@@ -326,6 +328,105 @@ export async function createProjectionGrant(
   return { token, expiresAt };
 }
 
+export async function resolveOpportunityAccess(
+  db: DatabaseSync,
+  occupantId: string,
+  opportunityId: string,
+  decision: string,
+  expiresAt: string,
+  relay?: ProjectionRelay,
+) {
+  const resolved = resolveInboundAccessRequest({ decision });
+  if (!resolved.ok) throw new ProjectionStoreError(resolved.error);
+  const request = db
+    .prepare(
+      `SELECT r.id AS id,
+              r.projection_id AS projectionId,
+              p.slug AS slug
+         FROM projection_access_requests r
+         JOIN interactive_projections p ON p.id = r.projection_id
+        WHERE r.opportunity_id = ? AND p.occupant_id = ? AND r.status = 'new'`,
+    )
+    .get(opportunityId, occupantId) as
+    | { id: string; projectionId: string; slug: string }
+    | undefined;
+  if (!request) throw new ProjectionStoreError("request-missing");
+  if (resolved.value.requestStatus === "granted") {
+    const grant = await createProjectionGrant(
+      db,
+      occupantId,
+      request.projectionId,
+      expiresAt,
+      relay,
+    );
+    closeInboundAccess(
+      db,
+      request.id,
+      opportunityId,
+      resolved.value.requestStatus,
+      resolved.value.opportunityStatus,
+    );
+    return { decision: "grant" as const, grant };
+  }
+  const now = new Date().toISOString();
+  const minted = await mintOccupantApproval(occupantId, {
+    purpose: "Decline projection access",
+    destination: `relay:${request.slug}`,
+    operations: [
+      planProjectionAccessDecision({
+        requestId: request.id,
+        projectionId: request.projectionId,
+        slug: request.slug,
+        decision: resolved.value.requestStatus,
+      }),
+    ],
+    now,
+  });
+  db.exec("BEGIN");
+  try {
+    persistApprovedChange(db, minted.changeSet, minted.hash, minted.approval);
+    closeInboundAccess(
+      db,
+      request.id,
+      opportunityId,
+      resolved.value.requestStatus,
+      resolved.value.opportunityStatus,
+    );
+    persistAuditEvent(db, {
+      id: randomUUID(),
+      occupantId,
+      eventType: "projection-access-declined",
+      entityType: "projection-access-request",
+      entityId: request.id,
+      changeSetId: minted.changeSet.id,
+      approvalId: minted.approval.id,
+      detail: { slug: request.slug },
+      occurredAt: now,
+    });
+    db.exec("COMMIT");
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
+  return { decision: "decline" as const };
+}
+
+function closeInboundAccess(
+  db: DatabaseSync,
+  requestId: string,
+  opportunityId: string,
+  requestStatus: "granted" | "declined",
+  opportunityStatus: "closed",
+) {
+  db.prepare(
+    "UPDATE projection_access_requests SET status = ? WHERE id = ?",
+  ).run(requestStatus, requestId);
+  db.prepare("UPDATE opportunities SET status = ? WHERE id = ?").run(
+    opportunityStatus,
+    opportunityId,
+  );
+}
+
 export function resolvePublishedProjection(
   db: DatabaseSync,
   slug: string,
@@ -399,20 +500,25 @@ export function captureAccessRequest(
   };
   db.exec("BEGIN");
   try {
+    const opportunity = createOpportunity(
+      db,
+      projection.occupantId,
+      inbound.opportunity,
+    );
     db.prepare(
       `INSERT INTO projection_access_requests
         (id, projection_id, requester_name, requester_email, message, status,
-         created_at)
-       VALUES (?, ?, ?, ?, ?, 'new', ?)`,
+         opportunity_id, created_at)
+       VALUES (?, ?, ?, ?, ?, 'new', ?, ?)`,
     ).run(
       request.id,
       request.projectionId,
       request.name,
       request.email,
       request.message,
+      opportunity.id,
       request.createdAt,
     );
-    createOpportunity(db, projection.occupantId, inbound.opportunity);
     createContact(db, projection.occupantId, inbound.contact);
     db.exec("COMMIT");
   } catch (error) {

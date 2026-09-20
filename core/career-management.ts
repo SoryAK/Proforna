@@ -84,7 +84,10 @@ export type CareerManagementError =
   | "organization-required"
   | "transition-invalid"
   | "destination-required"
-  | "idempotency-required";
+  | "idempotency-required"
+  | "decision-invalid";
+
+export type InboundAccessDecision = "grant" | "decline";
 
 const transitions: Record<ApplicationStage, ApplicationStage[]> = {
   preparing: ["submitted", "withdrawn"],
@@ -97,6 +100,32 @@ const transitions: Record<ApplicationStage, ApplicationStage[]> = {
   withdrawn: [],
   rejected: [],
 };
+
+export function resolveInboundAccessRequest(input: {
+  decision: string;
+}):
+  | {
+      ok: true;
+      value: {
+        requestStatus: "granted" | "declined";
+        opportunityStatus: "closed";
+      };
+    }
+  | { ok: false; error: CareerManagementError } {
+  if (input.decision === "grant") {
+    return {
+      ok: true,
+      value: { requestStatus: "granted", opportunityStatus: "closed" },
+    };
+  }
+  if (input.decision === "decline") {
+    return {
+      ok: true,
+      value: { requestStatus: "declined", opportunityStatus: "closed" },
+    };
+  }
+  return { ok: false, error: "decision-invalid" };
+}
 
 export function presentInboundAccessRequest(input: {
   requesterName: string;

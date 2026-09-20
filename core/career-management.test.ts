@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   presentInboundAccessRequest,
+  resolveInboundAccessRequest,
   transitionApplication,
   type Application,
 } from "./career-management";
@@ -30,6 +31,21 @@ describe("career management", () => {
         email: "alex@northstar.example",
         notes: "May I review the published map?",
       },
+    });
+  });
+
+  it("closes an inbound request when the occupant grants or declines it", () => {
+    expect(resolveInboundAccessRequest({ decision: "grant" })).toEqual({
+      ok: true,
+      value: { requestStatus: "granted", opportunityStatus: "closed" },
+    });
+    expect(resolveInboundAccessRequest({ decision: "decline" })).toEqual({
+      ok: true,
+      value: { requestStatus: "declined", opportunityStatus: "closed" },
+    });
+    expect(resolveInboundAccessRequest({ decision: "ignore" })).toEqual({
+      ok: false,
+      error: "decision-invalid",
     });
   });
 
