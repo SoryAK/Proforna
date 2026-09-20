@@ -1,10 +1,38 @@
 import { describe, expect, it } from "vitest";
 import {
+  presentInboundAccessRequest,
   transitionApplication,
   type Application,
 } from "./career-management";
 
 describe("career management", () => {
+  it("files a Work Map access request as a connection opportunity", () => {
+    expect(
+      presentInboundAccessRequest({
+        requesterName: "Alex Rivera",
+        requesterEmail: "alex@northstar.example",
+        message: "May I review the published map?",
+        publicationSlug: "sory-systems",
+      }),
+    ).toEqual({
+      opportunity: {
+        kind: "connection",
+        title: "Alex Rivera asked to view the Work Map",
+        organization: "northstar.example",
+        sourceUrl: "sory-systems",
+        location: "",
+        fitSummary: "May I review the published map?",
+      },
+      contact: {
+        name: "Alex Rivera",
+        organization: "northstar.example",
+        role: "",
+        email: "alex@northstar.example",
+        notes: "May I review the published map?",
+      },
+    });
+  });
+
   it("enforces the application state machine", () => {
     const application: Application = {
       id: "application-1",

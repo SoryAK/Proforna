@@ -301,4 +301,55 @@ describe("interactive projections HTTP seam", () => {
       db.close();
     }
   });
+
+  it("files a public Work Map access request as a connection opportunity", async () => {
+    const db = openDatabase(":memory:");
+    const app = createApp(db);
+    try {
+      await app.request("/api/me");
+      db.prepare(
+        `INSERT INTO interactive_projections
+          (id, occupant_id, slug, visibility, projection_json, status, created_at)
+         VALUES (?, 'local', ?, 'public', '{}', 'published', ?)`,
+      ).run("proj-1", "sory-systems", "2026-09-19T10:00:00.000Z");
+      const created = await app.request("/api/public/sory-systems/requests", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          name: "Alex Rivera",
+          email: "alex@northstar.example",
+          message: "May I review the published map?",
+        }),
+      });
+      expect(created.status).toBe(201);
+      const dashboard = (await (
+        await app.request("/api/career-management")
+      ).json()) as {
+        opportunities: Array<{
+          kind: string;
+          title: string;
+          organization: string;
+          fit_summary: string;
+        }>;
+        contacts: Array<{ name: string; email: string; organization: string }>;
+      };
+      expect(dashboard.opportunities).toContainEqual(
+        expect.objectContaining({
+          kind: "connection",
+          title: "Alex Rivera asked to view the Work Map",
+          organization: "northstar.example",
+          fit_summary: "May I review the published map?",
+        }),
+      );
+      expect(dashboard.contacts).toContainEqual(
+        expect.objectContaining({
+          name: "Alex Rivera",
+          email: "alex@northstar.example",
+          organization: "northstar.example",
+        }),
+      );
+    } finally {
+      db.close();
+    }
+  });
 });

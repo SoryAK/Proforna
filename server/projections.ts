@@ -9,9 +9,11 @@ import {
   mayPublishProjection,
   planProjectionGrant,
   planProjectionRevoke,
+  presentInboundAccessRequest,
   type ChangeSet,
   type InteractiveProjection,
 } from "../core/index";
+import { createContact, createOpportunity } from "./career-management";
 import {
   mintOccupantApproval,
   persistApprovedChange,
@@ -371,14 +373,22 @@ export function captureAccessRequest(
   input: JsonObject,
 ) {
   const projection = db
-    .prepare("SELECT id FROM interactive_projections WHERE slug = ?")
-    .get(slug) as { id: string } | undefined;
+    .prepare(
+      "SELECT id, occupant_id AS occupantId FROM interactive_projections WHERE slug = ?",
+    )
+    .get(slug) as { id: string; occupantId: string } | undefined;
   if (!projection) throw new ProjectionStoreError("projection-missing");
   const name = text(input.name);
   const email = text(input.email);
   if (!name || !email.includes("@")) {
     throw new ProjectionStoreError("contact-invalid");
   }
+  const inbound = presentInboundAccessRequest({
+    requesterName: name,
+    requesterEmail: email,
+    message: text(input.message),
+    publicationSlug: slug,
+  });
   const request = {
     id: randomUUID(),
     projectionId: projection.id,
@@ -387,19 +397,28 @@ export function captureAccessRequest(
     message: text(input.message),
     createdAt: new Date().toISOString(),
   };
-  db.prepare(
-    `INSERT INTO projection_access_requests
-      (id, projection_id, requester_name, requester_email, message, status,
-       created_at)
-     VALUES (?, ?, ?, ?, ?, 'new', ?)`,
-  ).run(
-    request.id,
-    request.projectionId,
-    request.name,
-    request.email,
-    request.message,
-    request.createdAt,
-  );
+  db.exec("BEGIN");
+  try {
+    db.prepare(
+      `INSERT INTO projection_access_requests
+        (id, projection_id, requester_name, requester_email, message, status,
+         created_at)
+       VALUES (?, ?, ?, ?, ?, 'new', ?)`,
+    ).run(
+      request.id,
+      request.projectionId,
+      request.name,
+      request.email,
+      request.message,
+      request.createdAt,
+    );
+    createOpportunity(db, projection.occupantId, inbound.opportunity);
+    createContact(db, projection.occupantId, inbound.contact);
+    db.exec("COMMIT");
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
   return request;
 }
 

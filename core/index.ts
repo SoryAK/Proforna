@@ -100,6 +100,7 @@ export {
   type ProjectionVisibility,
 } from "./projection";
 export {
+  presentInboundAccessRequest,
   prepareExternalAction,
   prepareOpportunity,
   transitionApplication,

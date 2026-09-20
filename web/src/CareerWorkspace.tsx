@@ -191,6 +191,7 @@ function DocumentsPage() {
 type CareerManagement = {
   opportunities: Array<{
     id: string;
+    kind: string;
     title: string;
     organization: string;
     fit_summary: string;
@@ -296,8 +297,8 @@ function OpportunitiesPage() {
     <section className="career-page opportunities-page">
       <h1>Opportunities</h1>
       <p className="career-lead">
-        Keep roles, applications, next steps, and career plans in one governed
-        operating loop.
+        Keep roles, inbound Work Map requests, applications, and career plans
+        in one governed operating loop.
       </p>
       <div className="opportunity-grid">
         <main>
@@ -307,11 +308,15 @@ function OpportunitiesPage() {
             );
             return (
               <article className="opportunity-card" key={opportunity.id}>
-                <span>{opportunity.status}</span>
+                <span>
+                  {opportunity.kind === "connection"
+                    ? "Inbound request"
+                    : opportunity.status}
+                </span>
                 <h2>{opportunity.title}</h2>
                 <h3>{opportunity.organization}</h3>
                 <p>{opportunity.fit_summary}</p>
-                {application ? (
+                {opportunity.kind === "connection" ? null : application ? (
                   <div className="application-state">
                     <strong>{application.stage}</strong>
                     <select
@@ -339,7 +344,9 @@ function OpportunitiesPage() {
             );
           })}
           {!data?.opportunities.length ? (
-            <p className="career-empty">Save a role to begin the pursuit loop.</p>
+            <p className="career-empty">
+              Save a role, or inbound Work Map requests will land here.
+            </p>
           ) : null}
         </main>
         <aside>
