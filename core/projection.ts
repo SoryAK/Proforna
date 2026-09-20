@@ -1,3 +1,4 @@
+import type { ChangeOperation } from "./governance";
 import type {
   WorkMapPublishSection,
   WorkMapSnapshot,
@@ -56,4 +57,34 @@ export function canViewProjection(
     return input.hasAccessGrant;
   }
   return true;
+}
+
+export function planProjectionRevoke(input: {
+  projectionId: string;
+  slug: string;
+}): ChangeOperation {
+  return {
+    action: "revoke",
+    entityType: "interactive-projection",
+    entityId: input.projectionId,
+    values: { slug: input.slug },
+  };
+}
+
+export function planProjectionGrant(input: {
+  projectionId: string;
+  slug: string;
+  expiresAt: string;
+  tokenHash: string;
+}): ChangeOperation {
+  return {
+    action: "create",
+    entityType: "projection-access-grant",
+    entityId: input.projectionId,
+    values: {
+      slug: input.slug,
+      expiresAt: input.expiresAt,
+      tokenHash: input.tokenHash,
+    },
+  };
 }

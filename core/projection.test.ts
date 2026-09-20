@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   buildInteractiveProjection,
   canViewProjection,
+  planProjectionGrant,
+  planProjectionRevoke,
 } from "./projection";
 import type { WorkMapSnapshot } from "./work-map";
 
@@ -78,5 +80,33 @@ describe("interactive projection", () => {
         hasAccessGrant: false,
       }),
     ).toBe(false);
+  });
+
+  it("plans revoke and grant operations without a viewing token", () => {
+    expect(
+      planProjectionRevoke({ projectionId: "proj-1", slug: "systems" }),
+    ).toEqual({
+      action: "revoke",
+      entityType: "interactive-projection",
+      entityId: "proj-1",
+      values: { slug: "systems" },
+    });
+    expect(
+      planProjectionGrant({
+        projectionId: "proj-1",
+        slug: "systems",
+        expiresAt: "2026-12-01T00:00:00.000Z",
+        tokenHash: "abc123",
+      }),
+    ).toEqual({
+      action: "create",
+      entityType: "projection-access-grant",
+      entityId: "proj-1",
+      values: {
+        slug: "systems",
+        expiresAt: "2026-12-01T00:00:00.000Z",
+        tokenHash: "abc123",
+      },
+    });
   });
 });
