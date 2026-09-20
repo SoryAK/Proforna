@@ -559,6 +559,69 @@ export function normalizeSlug(value: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
+export type PreparedWorkMapLocation = Omit<WorkMapLocation, "id">;
+
+export type WorkMapPlace = {
+  label: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+};
+
+export function prepareWorkMapLocation(
+  input: Record<string, unknown>,
+):
+  | { ok: true; value: PreparedWorkMapLocation }
+  | { ok: false; error: "coordinates-required" } {
+  const latitude = parseCoordinate(input.latitude);
+  const longitude = parseCoordinate(input.longitude);
+  if (latitude === null || longitude === null) {
+    return { ok: false, error: "coordinates-required" };
+  }
+  return {
+    ok: true,
+    value: {
+      label: text(input.label) || "Work site",
+      address: text(input.address),
+      latitude,
+      longitude,
+      kind: parseLocationKind(input.kind),
+      isPublic: input.isPublic === true,
+    },
+  };
+}
+
+export function presentWorkMapPlace(hit: {
+  name?: string | null;
+  displayName: string;
+  latitude: number;
+  longitude: number;
+}): WorkMapPlace {
+  const address = hit.displayName.trim();
+  const named = (hit.name ?? "").trim();
+  return {
+    label: named || address.split(",")[0]?.trim() || "Work site",
+    address,
+    latitude: hit.latitude,
+    longitude: hit.longitude,
+  };
+}
+
+function parseCoordinate(value: unknown): number | null {
+  const parsed = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function text(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function parseLocationKind(value: unknown): WorkMapLocation["kind"] {
+  return value === "site" || value === "client" || value === "travel"
+    ? value
+    : "primary";
+}
+
 function roundCoordinate(value: number): number {
   return Math.round(value * 10) / 10;
 }

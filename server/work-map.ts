@@ -8,9 +8,12 @@ import {
   normalizeSlug,
   planWorkMapPublicationSettings,
   planWorkMapRoleFactSync,
+  prepareWorkMapLocation,
+  presentWorkMapPlace,
   type WorkMapLocation,
   type WorkMapMedia,
   type WorkMapMoment,
+  type WorkMapPlace,
   type WorkMapPublicationSettings,
   type WorkMapRole,
   type WorkMapRoleDetails,
@@ -213,33 +216,98 @@ export function addWorkMapLocation(
   input: JsonObject,
 ): WorkMapLocation {
   requireRole(db, occupantId, roleId);
-  const latitude = number(input.latitude);
-  const longitude = number(input.longitude);
-  if (latitude === null || longitude === null) {
-    throw new WorkMapStoreError("coordinates-required");
+  return persistWorkMapLocation(db, occupantId, roleId, randomUUID(), input);
+}
+
+export function updateWorkMapLocation(
+  db: DatabaseSync,
+  occupantId: string,
+  roleId: string,
+  locationId: string,
+  input: JsonObject,
+): WorkMapLocation {
+  requireRole(db, occupantId, roleId);
+  requireLocation(db, occupantId, roleId, locationId);
+  return persistWorkMapLocation(db, occupantId, roleId, locationId, input);
+}
+
+export function removeWorkMapLocation(
+  db: DatabaseSync,
+  occupantId: string,
+  roleId: string,
+  locationId: string,
+): void {
+  requireRole(db, occupantId, roleId);
+  requireLocation(db, occupantId, roleId, locationId);
+  db.prepare(
+    `DELETE FROM work_history_locations
+     WHERE id = ? AND work_history_id = ? AND occupant_id = ?`,
+  ).run(locationId, roleId, occupantId);
+}
+
+export async function lookupNominatimPlace(
+  query: string,
+): Promise<WorkMapPlace | null> {
+  const url = new URL("https://nominatim.openstreetmap.org/search");
+  url.searchParams.set("q", query);
+  url.searchParams.set("format", "jsonv2");
+  url.searchParams.set("limit", "1");
+  const response = await fetch(url, {
+    headers: {
+      "User-Agent": "Proforna/0.0.1 (https://github.com/SoryAK/Proforna)",
+    },
+  });
+  if (!response.ok) return null;
+  const hits = (await response.json()) as Array<{
+    name?: string;
+    display_name?: string;
+    lat?: string;
+    lon?: string;
+  }>;
+  const hit = hits[0];
+  const latitude = Number(hit?.lat);
+  const longitude = Number(hit?.lon);
+  if (!hit?.display_name || !Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    return null;
   }
-  const location: WorkMapLocation = {
-    id: randomUUID(),
-    label: text(input.label) || "Work site",
-    address: text(input.address),
+  return presentWorkMapPlace({
+    name: hit.name,
+    displayName: hit.display_name,
     latitude,
     longitude,
-    kind: parseLocationKind(input.kind),
-    isPublic: input.isPublic === true,
-  };
+  });
+}
+
+function persistWorkMapLocation(
+  db: DatabaseSync,
+  occupantId: string,
+  roleId: string,
+  locationId: string,
+  input: JsonObject,
+): WorkMapLocation {
+  const prepared = prepareWorkMapLocation(input);
+  if (!prepared.ok) throw new WorkMapStoreError(prepared.error);
+  const location: WorkMapLocation = { id: locationId, ...prepared.value };
   db.prepare(
     `INSERT INTO work_history_locations
       (id, work_history_id, occupant_id, label, address, latitude, longitude,
        kind, is_public, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET
+       label = excluded.label,
+       address = excluded.address,
+       latitude = excluded.latitude,
+       longitude = excluded.longitude,
+       kind = excluded.kind,
+       is_public = excluded.is_public`,
   ).run(
     location.id,
     roleId,
     occupantId,
     location.label,
     location.address,
-    latitude,
-    longitude,
+    location.latitude,
+    location.longitude,
     location.kind,
     Number(location.isPublic),
     new Date().toISOString(),
@@ -552,6 +620,24 @@ function requireRole(db: DatabaseSync, occupantId: string, roleId: string) {
   }
 }
 
+function requireLocation(
+  db: DatabaseSync,
+  occupantId: string,
+  roleId: string,
+  locationId: string,
+) {
+  if (
+    !db
+      .prepare(
+        `SELECT id FROM work_history_locations
+         WHERE id = ? AND work_history_id = ? AND occupant_id = ?`,
+      )
+      .get(locationId, roleId, occupantId)
+  ) {
+    throw new WorkMapStoreError("location-missing");
+  }
+}
+
 function momentsOrCurrent(
   value: unknown,
   current: WorkMapMoment[],
@@ -610,11 +696,6 @@ function parseLocationKind(value: unknown): WorkMapLocation["kind"] {
   return value === "site" || value === "client" || value === "travel"
     ? value
     : "primary";
-}
-
-function number(value: unknown): number | null {
-  const parsed = typeof value === "number" ? value : Number(value);
-  return Number.isFinite(parsed) ? parsed : null;
 }
 
 function text(value: unknown): string {

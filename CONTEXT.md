@@ -56,8 +56,9 @@ _Avoid_: Resume entry, job card
 
 **Work Map**:
 The occupant's private authoring surface for exploring and enriching career
-history across time and geography. It is the source of interactive
-publications, not a publication itself.
+history across time and geography. Work sites on a role can be added, edited,
+removed, looked up from an address, or placed on the map. It is the source of
+interactive publications, not a publication itself.
 _Avoid_: Interactive resume, public profile
 
 **Interactive Projection**:

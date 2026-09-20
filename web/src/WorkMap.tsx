@@ -52,8 +52,12 @@ export function WorkMap({
   const [view, setView] = useState<"map" | "timeline">("map");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [placingForId, setPlacingForId] = useState<string | null>(null);
+  const [placingLocationId, setPlacingLocationId] = useState<string | null>(
+    null,
+  );
   const [pendingPlacement, setPendingPlacement] = useState<{
     roleId: string;
+    locationId?: string;
     latitude: number;
     longitude: number;
   } | null>(null);
@@ -321,11 +325,13 @@ export function WorkMap({
                   ? (latitude, longitude) => {
                       setPendingPlacement({
                         roleId: placingForId,
+                        locationId: placingLocationId ?? undefined,
                         latitude,
                         longitude,
                       });
                       setSelectedId(placingForId);
                       setPlacingForId(null);
+                      setPlacingLocationId(null);
                     }
                   : undefined
               }
@@ -337,7 +343,13 @@ export function WorkMap({
             <div className="map-placement-banner" role="status">
               <strong>Place this work site</strong>
               <span>Click its location on the map.</span>
-              <button type="button" onClick={() => setPlacingForId(null)}>
+              <button
+                type="button"
+                onClick={() => {
+                  setPlacingForId(null);
+                  setPlacingLocationId(null);
+                }}
+              >
                 Cancel
               </button>
             </div>
@@ -354,9 +366,10 @@ export function WorkMap({
                 ? pendingPlacement
                 : null
             }
-            onStartPlacement={() => {
+            onStartPlacement={(locationId) => {
               setView("map");
               setPlacingForId(selected.id);
+              setPlacingLocationId(locationId ?? null);
             }}
             onLocationSaved={() => setPendingPlacement(null)}
           />

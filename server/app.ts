@@ -97,10 +97,13 @@ import {
   WorkMapStoreError,
   addWorkMapLocation,
   addWorkMapMedia,
+  lookupNominatimPlace,
   readWorkMap,
   readWorkMapSettings,
+  removeWorkMapLocation,
   saveWorkMapDetails,
   saveWorkMapSettings,
+  updateWorkMapLocation,
   updateWorkMapRole,
 } from "./work-map";
 
@@ -109,6 +112,14 @@ export type AppOptions = {
   extract?: ResumeExtractDeps;
   relay?: ProjectionRelay;
   externalActions?: ExternalActionAdapter;
+  places?: {
+    lookup?: (query: string) => Promise<{
+      label: string;
+      address: string;
+      latitude: number;
+      longitude: number;
+    } | null>;
+  };
 };
 
 export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
@@ -472,6 +483,16 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
     return c.json(readWorkMap(db, occupant.id));
   });
 
+  app.get("/api/work-map/places", async (c) => {
+    ensureOccupant(db);
+    const query = c.req.query("q")?.trim() ?? "";
+    if (!query) return c.json({ error: "query-required" }, 400);
+    const lookup = options.places?.lookup ?? lookupNominatimPlace;
+    const place = await lookup(query);
+    if (!place) return c.json({ error: "place-missing" }, 404);
+    return c.json({ place });
+  });
+
   app.put("/api/work-map/roles/:id", async (c) => {
     const occupant = ensureOccupant(db);
     try {
@@ -521,6 +542,49 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
     } catch (error) {
       if (error instanceof WorkMapStoreError) {
         return c.json({ error: error.code }, 400);
+      }
+      throw error;
+    }
+  });
+
+  app.put("/api/work-map/roles/:id/locations/:locationId", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      const location = updateWorkMapLocation(
+        db,
+        occupant.id,
+        c.req.param("id"),
+        c.req.param("locationId"),
+        (await c.req.json()) as Record<string, unknown>,
+      );
+      return c.json({ location });
+    } catch (error) {
+      if (error instanceof WorkMapStoreError) {
+        return c.json(
+          { error: error.code },
+          error.code.endsWith("-missing") ? 404 : 400,
+        );
+      }
+      throw error;
+    }
+  });
+
+  app.delete("/api/work-map/roles/:id/locations/:locationId", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      removeWorkMapLocation(
+        db,
+        occupant.id,
+        c.req.param("id"),
+        c.req.param("locationId"),
+      );
+      return c.json({ ok: true });
+    } catch (error) {
+      if (error instanceof WorkMapStoreError) {
+        return c.json(
+          { error: error.code },
+          error.code.endsWith("-missing") ? 404 : 400,
+        );
       }
       throw error;
     }

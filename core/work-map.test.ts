@@ -6,6 +6,8 @@ import {
   buildWorkMapSnapshot,
   planWorkMapPublicationSettings,
   planWorkMapRoleFactSync,
+  prepareWorkMapLocation,
+  presentWorkMapPlace,
   type WorkMapPublicationSettings,
   type WorkMapRole,
 } from "./work-map";
@@ -348,6 +350,50 @@ describe("Work Map publication settings", () => {
         },
       },
     ]);
+  });
+});
+
+describe("Work Map sites", () => {
+  it("requires coordinates and keeps a site private until approved", () => {
+    expect(prepareWorkMapLocation({ label: "Plant" })).toEqual({
+      ok: false,
+      error: "coordinates-required",
+    });
+    expect(
+      prepareWorkMapLocation({
+        label: "  Main plant ",
+        address: "  1 Factory Rd ",
+        latitude: "39.75",
+        longitude: -84.19,
+        kind: "site",
+      }),
+    ).toEqual({
+      ok: true,
+      value: {
+        label: "Main plant",
+        address: "1 Factory Rd",
+        latitude: 39.75,
+        longitude: -84.19,
+        kind: "site",
+        isPublic: false,
+      },
+    });
+  });
+
+  it("turns a looked-up place into a work site pin", () => {
+    expect(
+      presentWorkMapPlace({
+        name: "Acme Robotics",
+        displayName: "Acme Robotics, Dayton, OH, United States",
+        latitude: 39.7589,
+        longitude: -84.1916,
+      }),
+    ).toEqual({
+      label: "Acme Robotics",
+      address: "Acme Robotics, Dayton, OH, United States",
+      latitude: 39.7589,
+      longitude: -84.1916,
+    });
   });
 });
 
