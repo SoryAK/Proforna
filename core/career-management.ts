@@ -98,6 +98,50 @@ const transitions: Record<ApplicationStage, ApplicationStage[]> = {
   rejected: [],
 };
 
+export function presentInboundAccessRequest(input: {
+  requesterName: string;
+  requesterEmail: string;
+  message: string;
+  publicationSlug: string;
+}): {
+  opportunity: {
+    kind: "connection";
+    title: string;
+    organization: string;
+    sourceUrl: string;
+    location: string;
+    fitSummary: string;
+  };
+  contact: {
+    name: string;
+    organization: string;
+    role: string;
+    email: string;
+    notes: string;
+  };
+} {
+  const organization =
+    input.requesterEmail.split("@")[1]?.trim() || input.requesterName.trim();
+  const message = input.message.trim();
+  return {
+    opportunity: {
+      kind: "connection",
+      title: `${input.requesterName.trim()} asked to view the Work Map`,
+      organization,
+      sourceUrl: input.publicationSlug,
+      location: "",
+      fitSummary: message || "Asked to view the published Work Map.",
+    },
+    contact: {
+      name: input.requesterName.trim(),
+      organization,
+      role: "",
+      email: input.requesterEmail.trim(),
+      notes: message,
+    },
+  };
+}
+
 export function prepareOpportunity(
   opportunity: Opportunity,
 ):
