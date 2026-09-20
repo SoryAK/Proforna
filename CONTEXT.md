@@ -81,6 +81,11 @@ Publication, revocation, access grants, and publication settings use this
 same trail.
 _Avoid_: Confirmation, consent
 
+**Notice**:
+A pending item that needs the occupant's attention, currently an inbound
+access request or a proposed change set.
+_Avoid_: Alert, toast, reminder, notification center
+
 **Agent Run**:
 A recorded execution with declared purpose, inputs, capabilities, and
 resulting proposals.

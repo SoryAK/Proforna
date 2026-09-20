@@ -121,6 +121,11 @@ export function Home({
         onProfile={goProfile}
         onSettings={() => setSettingsOpen(true)}
         onSearch={() => setSearchOpen(true)}
+        onNotice={(href) => {
+          setEditing(false);
+          setMobileOpen(false);
+          goPage(href);
+        }}
       />
       <HomeSearch
         open={searchOpen}

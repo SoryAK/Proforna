@@ -1,0 +1,52 @@
+export type OccupantNoticeKind = "access-request" | "proposed-change";
+
+export type OccupantNoticeHref = "opportunities" | "worklog";
+
+export type OccupantNotice = {
+  id: string;
+  kind: OccupantNoticeKind;
+  title: string;
+  detail: string;
+  href: OccupantNoticeHref;
+  createdAt: string;
+};
+
+export function presentOccupantNotices(input: {
+  accessRequests: Array<{
+    id: string;
+    requesterName: string;
+    requesterEmail: string;
+    message: string;
+    createdAt: string;
+  }>;
+  proposedChangeSets: Array<{
+    id: string;
+    purpose: string;
+    createdAt: string;
+  }>;
+}): OccupantNotice[] {
+  const notices: OccupantNotice[] = [
+    ...input.accessRequests.map((request) => ({
+      id: request.id,
+      kind: "access-request" as const,
+      title: `${request.requesterName} asked to view the Work Map`,
+      detail: request.message.trim() || request.requesterEmail,
+      href: "opportunities" as const,
+      createdAt: request.createdAt,
+    })),
+    ...input.proposedChangeSets.map((changeSet) => ({
+      id: changeSet.id,
+      kind: "proposed-change" as const,
+      title: changeSet.purpose,
+      detail: "Waiting for approval",
+      href: "worklog" as const,
+      createdAt: changeSet.createdAt,
+    })),
+  ];
+  return notices.sort((left, right) => {
+    if (left.createdAt !== right.createdAt) {
+      return left.createdAt < right.createdAt ? 1 : -1;
+    }
+    return left.id < right.id ? 1 : -1;
+  });
+}

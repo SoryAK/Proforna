@@ -115,6 +115,12 @@ export {
   type OpportunityKind,
 } from "./career-management";
 export {
+  presentOccupantNotices,
+  type OccupantNotice,
+  type OccupantNoticeHref,
+  type OccupantNoticeKind,
+} from "./notices";
+export {
   CURATED_CAPABILITIES,
   PORTABLE_FORMAT_VERSION,
   validatePortableManifest,
