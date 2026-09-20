@@ -2,8 +2,11 @@ import { createHash, randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import {
   EMPTY_WORK_MAP_DETAILS,
+  attachFactsToWorkMapRole,
   buildWorkMapSnapshot,
   normalizeSlug,
+  planWorkMapPublicationSettings,
+  planWorkMapRoleFactSync,
   type WorkMapLocation,
   type WorkMapMedia,
   type WorkMapMoment,
@@ -12,13 +15,26 @@ import {
   type WorkMapRoleDetails,
   type WorkMapSnapshot,
 } from "../core/index";
+import {
+  mintOccupantApproval,
+  persistApprovedChange,
+  persistAuditEvent,
+} from "./change-sets";
+import {
+  backfillCareerMemory,
+  commitOccupantFactOperations,
+  readCareerMemory,
+  saveEvidence,
+} from "./career-memory";
 import { loadCareerFile } from "./history";
 import { readProfile } from "./occupant";
 
 type JsonObject = Record<string, unknown>;
 
 export function readWorkMap(db: DatabaseSync, occupantId: string) {
+  backfillCareerMemory(db, occupantId);
   const career = loadCareerFile(db, occupantId);
+  const facts = readCareerMemory(db, occupantId).facts;
   const records = db
     .prepare(
       `SELECT id, kind, title, company, location, start_date, end_date,
@@ -26,7 +42,9 @@ export function readWorkMap(db: DatabaseSync, occupantId: string) {
        FROM work_history WHERE occupant_id = ?`,
     )
     .all(occupantId) as JsonObject[];
-  const roles = records.map((row) => mapRole(db, occupantId, row));
+  const roles = records.map((row) =>
+    attachFactsToWorkMapRole(mapRole(db, occupantId, row), facts),
+  );
   return {
     profile: readProfile(db, occupantId),
     roles,
@@ -42,13 +60,14 @@ export function readWorkMap(db: DatabaseSync, occupantId: string) {
   };
 }
 
-export function updateWorkMapRole(
+export async function updateWorkMapRole(
   db: DatabaseSync,
   occupantId: string,
   roleId: string,
   input: JsonObject,
 ) {
   requireRole(db, occupantId, roleId);
+  backfillCareerMemory(db, occupantId);
   const existing = db
     .prepare(
       `SELECT title, company, location, start_date, end_date, is_current,
@@ -77,7 +96,42 @@ export function updateWorkMapRole(
     roleId,
     occupantId,
   );
-  return readWorkMap(db, occupantId).roles.find((role) => role.id === roleId);
+  const updated = db
+    .prepare(
+      `SELECT id, kind, title, company, location, start_date, end_date,
+              is_current, description, achievements_json
+       FROM work_history WHERE id = ? AND occupant_id = ?`,
+    )
+    .get(roleId, occupantId) as JsonObject;
+  const role = mapRole(db, occupantId, updated);
+  const evidence = saveEvidence(db, occupantId, {
+    sourceType: "work-map",
+    sourceRef: `work-map:${roleId}:${randomUUID()}`,
+    title: `Work Map edit: ${role.title}`,
+    content: {
+      roleId,
+      title: role.title,
+      organization: role.organization,
+      locationLabel: role.locationLabel,
+      startDate: role.startDate,
+      endDate: role.endDate,
+      isCurrent: role.isCurrent,
+      description: role.description,
+      achievements: role.achievements,
+    },
+  });
+  const facts = readCareerMemory(db, occupantId).facts;
+  await commitOccupantFactOperations(
+    db,
+    occupantId,
+    `Sync Work Map role: ${role.title}`,
+    planWorkMapRoleFactSync({
+      role,
+      facts,
+      evidenceId: evidence.id,
+    }),
+  );
+  return readWorkMap(db, occupantId).roles.find((item) => item.id === roleId);
 }
 
 export function saveWorkMapDetails(
@@ -260,11 +314,11 @@ export function readWorkMapSettings(
   };
 }
 
-export function saveWorkMapSettings(
+export async function saveWorkMapSettings(
   db: DatabaseSync,
   occupantId: string,
   input: JsonObject,
-): WorkMapPublicationSettings {
+): Promise<WorkMapPublicationSettings> {
   const current = readWorkMapSettings(db, occupantId);
   const allowedSections = new Set([
     "profile",
@@ -309,14 +363,45 @@ export function saveWorkMapSettings(
       "expiresAt" in input ? text(input.expiresAt) || null : current.expiresAt,
   };
   if (!settings.slug) throw new WorkMapStoreError("slug-required");
-  db.prepare(
-    `INSERT INTO work_map_publication_settings
-      (occupant_id, settings_json, updated_at)
-     VALUES (?, ?, ?)
-     ON CONFLICT(occupant_id) DO UPDATE SET
-       settings_json = excluded.settings_json,
-       updated_at = excluded.updated_at`,
-  ).run(occupantId, JSON.stringify(settings), new Date().toISOString());
+  const operations = planWorkMapPublicationSettings({
+    current,
+    next: settings,
+  });
+  const now = new Date().toISOString();
+  if (operations.length === 0) return settings;
+  const minted = await mintOccupantApproval(occupantId, {
+    purpose: "Update Work Map publication settings",
+    destination: "work-map:publication-settings",
+    operations,
+    now,
+  });
+  db.exec("BEGIN");
+  try {
+    persistApprovedChange(db, minted.changeSet, minted.hash, minted.approval);
+    db.prepare(
+      `INSERT INTO work_map_publication_settings
+        (occupant_id, settings_json, updated_at)
+       VALUES (?, ?, ?)
+       ON CONFLICT(occupant_id) DO UPDATE SET
+         settings_json = excluded.settings_json,
+         updated_at = excluded.updated_at`,
+    ).run(occupantId, JSON.stringify(settings), now);
+    persistAuditEvent(db, {
+      id: randomUUID(),
+      occupantId,
+      eventType: "publication-settings-updated",
+      entityType: "work-map-publication-settings",
+      entityId: occupantId,
+      changeSetId: minted.changeSet.id,
+      approvalId: minted.approval.id,
+      detail: { from: current, to: settings },
+      occurredAt: now,
+    });
+    db.exec("COMMIT");
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
   return settings;
 }
 
@@ -378,6 +463,10 @@ function mapRole(
     isCurrent: Number(row.is_current) === 1,
     description: String(row.description),
     achievements: parseStringArray(row.achievements_json),
+    factId: null,
+    factVersion: null,
+    evidenceIds: [],
+    claims: [],
     locations: readLocations(db, occupantId, String(row.id)),
     media: readMedia(db, occupantId, String(row.id)),
     details: readDetails(db, occupantId, String(row.id)),

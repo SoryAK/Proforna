@@ -92,6 +92,8 @@ export {
   buildInteractiveProjection,
   canViewProjection,
   mayPublishProjection,
+  planProjectionGrant,
+  planProjectionRevoke,
   type InteractiveProjection,
   type ProjectionDisclosure,
   type ProjectionError,
@@ -122,8 +124,12 @@ export {
 } from "./portability";
 export {
   EMPTY_WORK_MAP_DETAILS,
+  attachFactsToWorkMapRole,
   buildWorkMapSnapshot,
   normalizeSlug,
+  planWorkMapPublicationSettings,
+  planWorkMapRoleFactSync,
+  type WorkMapClaim,
   type WorkMapLocation,
   type WorkMapMedia,
   type WorkMapMoment,

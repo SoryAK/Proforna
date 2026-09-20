@@ -1,4 +1,12 @@
 import type { ProjectionVisibility } from "./projection";
+import {
+  canonicalFacts,
+  type CareerFactVersion,
+} from "./career-memory";
+import {
+  stableStringify,
+  type ChangeOperation,
+} from "./governance";
 
 export type WorkMapLocation = {
   id: string;
@@ -54,6 +62,13 @@ export type WorkMapRoleDetails = {
   skills: string[];
 };
 
+export type WorkMapClaim = {
+  text: string;
+  factId: string;
+  factVersion: number;
+  evidenceIds: string[];
+};
+
 export type WorkMapRole = {
   id: string;
   kind: "job" | "school";
@@ -65,6 +80,10 @@ export type WorkMapRole = {
   isCurrent: boolean;
   description: string;
   achievements: string[];
+  factId: string | null;
+  factVersion: number | null;
+  evidenceIds: string[];
+  claims: WorkMapClaim[];
   locations: WorkMapLocation[];
   media: WorkMapMedia[];
   details: WorkMapRoleDetails;
@@ -262,6 +281,180 @@ export function buildWorkMapSnapshot(input: {
     sourceFingerprint: input.sourceFingerprint,
     createdAt: input.createdAt,
   };
+}
+
+export function attachFactsToWorkMapRole(
+  role: WorkMapRole,
+  facts: CareerFactVersion[],
+): WorkMapRole {
+  const canonical = canonicalFacts(facts);
+  const roleFact = canonical.find(
+    (fact) =>
+      fact.subjectId === role.id &&
+      fact.factType === (role.kind === "school" ? "education" : "role"),
+  );
+  const claims = orderClaims(
+    role.achievements,
+    canonical
+      .filter(
+        (fact) =>
+          fact.factType === "achievement" && fact.subjectId === role.id,
+      )
+      .map(claimFromFact)
+      .filter((claim) => claim.text),
+  );
+  return {
+    ...role,
+    factId: roleFact?.id ?? null,
+    factVersion: roleFact?.version ?? null,
+    evidenceIds: unique([
+      ...(roleFact?.evidenceIds ?? []),
+      ...claims.flatMap((claim) => claim.evidenceIds),
+    ]),
+    claims,
+    achievements: role.achievements,
+  };
+}
+
+export function planWorkMapRoleFactSync(input: {
+  role: WorkMapRole;
+  facts: CareerFactVersion[];
+  evidenceId: string;
+}): ChangeOperation[] {
+  if (!input.evidenceId) return [];
+  const canonical = canonicalFacts(input.facts);
+  const factType = input.role.kind === "school" ? "education" : "role";
+  const roleFact = canonical.find(
+    (fact) => fact.subjectId === input.role.id && fact.factType === factType,
+  );
+  const operations: ChangeOperation[] = [];
+  const roleValue = {
+    title: input.role.title,
+    company: input.role.organization,
+    organization: input.role.organization,
+    location: input.role.locationLabel,
+    startDate: input.role.startDate,
+    endDate: input.role.endDate,
+    isCurrent: input.role.isCurrent,
+    description: input.role.description,
+  };
+  if (!roleFact) {
+    operations.push({
+      action: "create",
+      entityType: "career-fact",
+      values: {
+        factType,
+        subjectId: input.role.id,
+        value: roleValue,
+        evidenceIds: [input.evidenceId],
+      },
+    });
+  } else if (!sameRoleValue(roleFact.value, roleValue)) {
+    operations.push({
+      action: "supersede",
+      entityType: "career-fact",
+      entityId: roleFact.id,
+      values: {
+        factType,
+        subjectId: input.role.id,
+        value: roleValue,
+        evidenceIds: unique([...roleFact.evidenceIds, input.evidenceId]),
+      },
+    });
+  }
+
+  const existingStatements = new Set(
+    canonical
+      .filter(
+        (fact) =>
+          fact.factType === "achievement" && fact.subjectId === input.role.id,
+      )
+      .map((fact) => factStatement(fact).toLowerCase()),
+  );
+  for (const raw of input.role.achievements) {
+    const statement = raw.trim();
+    if (!statement || existingStatements.has(statement.toLowerCase())) continue;
+    operations.push({
+      action: "create",
+      entityType: "career-fact",
+      values: {
+        factType: "achievement",
+        subjectId: input.role.id,
+        value: { statement },
+        evidenceIds: [input.evidenceId],
+      },
+    });
+    existingStatements.add(statement.toLowerCase());
+  }
+  return operations;
+}
+
+export function planWorkMapPublicationSettings(input: {
+  current: WorkMapPublicationSettings;
+  next: WorkMapPublicationSettings;
+}): ChangeOperation[] {
+  if (stableStringify(input.current) === stableStringify(input.next)) {
+    return [];
+  }
+  return [
+    {
+      action: "transition",
+      entityType: "work-map-publication-settings",
+      values: { from: input.current, to: input.next },
+    },
+  ];
+}
+
+function claimFromFact(fact: CareerFactVersion): WorkMapClaim {
+  return {
+    text: factStatement(fact),
+    factId: fact.id,
+    factVersion: fact.version,
+    evidenceIds: fact.evidenceIds,
+  };
+}
+
+function factStatement(fact: CareerFactVersion): string {
+  const value = fact.value;
+  const statement = value.statement ?? value.title ?? value.name;
+  return typeof statement === "string" ? statement.trim() : "";
+}
+
+function sameRoleValue(
+  current: Record<string, unknown>,
+  next: Record<string, unknown>,
+): boolean {
+  return (
+    String(current.title ?? current.role ?? "") === String(next.title) &&
+    String(current.company ?? current.organization ?? "") ===
+      String(next.organization) &&
+    String(current.location ?? "") === String(next.location) &&
+    String(current.startDate ?? current.start_date ?? "") ===
+      String(next.startDate) &&
+    String(current.endDate ?? current.end_date ?? "") === String(next.endDate) &&
+    Boolean(current.isCurrent ?? current.is_current) === Boolean(next.isCurrent) &&
+    String(current.description ?? "") === String(next.description)
+  );
+}
+
+function unique(values: string[]): string[] {
+  return [...new Set(values.filter(Boolean))];
+}
+
+function orderClaims(preferred: string[], claims: WorkMapClaim[]): WorkMapClaim[] {
+  const remaining = new Map(
+    claims.map((claim) => [claim.text.toLowerCase(), claim]),
+  );
+  const ordered: WorkMapClaim[] = [];
+  for (const text of preferred) {
+    const key = text.toLowerCase();
+    const claim = remaining.get(key);
+    if (!claim) continue;
+    ordered.push(claim);
+    remaining.delete(key);
+  }
+  ordered.push(...remaining.values());
+  return ordered;
 }
 
 export function normalizeSlug(value: string): string {

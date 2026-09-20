@@ -233,6 +233,34 @@ export function RoleDetailPanel({
               <button type="submit">Save overview</button>
             </form>
 
+            <section className="role-existing">
+              <h3>Linked career facts</h3>
+              {role.factId ? (
+                <p>
+                  <strong>
+                    {role.kind === "school" ? "Education" : "Role"} fact
+                  </strong>
+                  <span>
+                    v{role.factVersion}
+                    {role.evidenceIds.length
+                      ? ` · ${role.evidenceIds.length} evidence`
+                      : ""}
+                  </span>
+                </p>
+              ) : (
+                <p className="role-form-note">
+                  Saving this overview writes it into Career Memory so resumes
+                  can use the same story.
+                </p>
+              )}
+              {role.claims.map((claim) => (
+                <p key={claim.factId}>
+                  <strong>{claim.text}</strong>
+                  <span>v{claim.factVersion}</span>
+                </p>
+              ))}
+            </section>
+
             <form className="role-form" onSubmit={saveStory}>
               <h3>Career evidence</h3>
               <label>

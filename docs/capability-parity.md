@@ -24,7 +24,8 @@ route-owned policy, and experimental machinery.
   revisions. They do not source the Interactive Resume.
 - Rich work history, the geographic Work Map, galleries, milestones, and the
   recruiter portal become Work Map roles, snapshots, and publications.
-- Current position and work history use one career-fact model.
+- Current position and work history use one career-fact model. Work Map
+  roles are the subject of those facts.
 - Recruiter contact forms and submissions use the opportunity inbox.
 - AI features use one governed agency layer instead of route-specific calls.
 

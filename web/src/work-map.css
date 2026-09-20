@@ -525,6 +525,7 @@
 }
 
 .role-form + .role-form,
+.role-form + .role-existing,
 .role-existing + .role-form {
   padding-top: 1.3rem;
   border-top: 1px solid var(--wm-line);

@@ -284,61 +284,143 @@ export function backfillCareerMemory(
     }
   }
   for (const row of rows) {
-    const sourceRef = `legacy-history:${String(row.id)}`;
-    const existing = db
+    const roleId = String(row.id);
+    const sourceRef = `legacy-history:${roleId}`;
+    const existingEvidence = db
       .prepare(
         "SELECT id FROM evidence WHERE occupant_id = ? AND source_type = 'import' AND source_ref = ?",
       )
       .get(occupantId, sourceRef) as { id: string } | undefined;
-    if (existing) continue;
+    let evidenceId = existingEvidence?.id;
     const content = { ...row };
-    const evidence: Evidence = {
-      id: randomUUID(),
-      occupantId,
-      sourceType: "import",
-      sourceRef,
-      title: `Imported ${String(row.kind)}: ${String(row.title)}`,
-      capturedAt: String(row.created_at),
-      checksum: createHash("sha256")
-        .update(JSON.stringify(content))
-        .digest("hex"),
-      sensitivity: "private",
-      content,
-    };
-    db.prepare(
-      `INSERT INTO evidence
-        (id, occupant_id, source_type, source_ref, title, captured_at, checksum,
-         sensitivity, content_json)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    ).run(
-      evidence.id,
-      occupantId,
-      evidence.sourceType,
-      evidence.sourceRef,
-      evidence.title,
-      evidence.capturedAt,
-      evidence.checksum,
-      evidence.sensitivity,
-      JSON.stringify(evidence.content),
+    if (!evidenceId) {
+      evidenceId = randomUUID();
+      const evidence: Evidence = {
+        id: evidenceId,
+        occupantId,
+        sourceType: "import",
+        sourceRef,
+        title: `Imported ${String(row.kind)}: ${String(row.title)}`,
+        capturedAt: String(row.created_at),
+        checksum: createHash("sha256")
+          .update(JSON.stringify(content))
+          .digest("hex"),
+        sensitivity: "private",
+        content,
+      };
+      db.prepare(
+        `INSERT INTO evidence
+          (id, occupant_id, source_type, source_ref, title, captured_at, checksum,
+           sensitivity, content_json)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ).run(
+        evidence.id,
+        occupantId,
+        evidence.sourceType,
+        evidence.sourceRef,
+        evidence.title,
+        evidence.capturedAt,
+        evidence.checksum,
+        evidence.sensitivity,
+        JSON.stringify(evidence.content),
+      );
+      evidenceCount += 1;
+    }
+
+    const existingFacts = db
+      .prepare(
+        `SELECT fact_type, value_json, status FROM career_facts
+         WHERE occupant_id = ? AND subject_id = ?`,
+      )
+      .all(occupantId, roleId) as Array<{
+        fact_type: string;
+        value_json: string;
+        status: string;
+      }>;
+    const factType = row.kind === "school" ? "education" : "role";
+    const hasRoleFact = existingFacts.some(
+      (fact) => fact.fact_type === factType && fact.status === "canonical",
     );
-    const fact: CareerFactVersion = {
-      id: randomUUID(),
-      occupantId,
-      factType: row.kind === "school" ? "education" : "role",
-      subjectId: String(row.id),
-      value: content,
-      evidenceIds: [evidence.id],
-      sensitivity: "private",
-      version: 1,
-      status: "canonical",
-      supersedesId: null,
-      createdAt: String(row.created_at),
-    };
-    insertFact(db, fact);
-    evidenceCount += 1;
-    factCount += 1;
+    if (!hasRoleFact) {
+      insertFact(db, {
+        id: randomUUID(),
+        occupantId,
+        factType,
+        subjectId: roleId,
+        value: content,
+        evidenceIds: [evidenceId],
+        sensitivity: "private",
+        version: 1,
+        status: "canonical",
+        supersedesId: null,
+        createdAt: String(row.created_at),
+      });
+      factCount += 1;
+    }
+
+    const knownStatements = new Set(
+      existingFacts
+        .filter(
+          (fact) =>
+            fact.fact_type === "achievement" && fact.status === "canonical",
+        )
+        .map((fact) => statementFromValue(fact.value_json).toLowerCase())
+        .filter(Boolean),
+    );
+    for (const statement of parseAchievements(row.achievements_json)) {
+      if (knownStatements.has(statement.toLowerCase())) continue;
+      insertFact(db, {
+        id: randomUUID(),
+        occupantId,
+        factType: "achievement",
+        subjectId: roleId,
+        value: { statement },
+        evidenceIds: [evidenceId],
+        sensitivity: "private",
+        version: 1,
+        status: "canonical",
+        supersedesId: null,
+        createdAt: String(row.created_at),
+      });
+      knownStatements.add(statement.toLowerCase());
+      factCount += 1;
+    }
   }
   return { evidence: evidenceCount, facts: factCount };
+}
+
+export async function commitOccupantFactOperations(
+  db: DatabaseSync,
+  occupantId: string,
+  purpose: string,
+  operations: ChangeSet["operations"],
+): Promise<CareerFactVersion[]> {
+  if (operations.length === 0) return [];
+  const changeSet: ChangeSet = {
+    id: randomUUID(),
+    occupantId,
+    purpose,
+    destination: "career-memory",
+    operations,
+    createdAt: new Date().toISOString(),
+  };
+  const hash = await hashChangeSet(changeSet);
+  db.prepare(
+    `INSERT INTO change_sets
+      (id, occupant_id, purpose, destination, operations_json, change_hash,
+       status, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, 'proposed', ?)`,
+  ).run(
+    changeSet.id,
+    occupantId,
+    changeSet.purpose,
+    changeSet.destination,
+    JSON.stringify(changeSet.operations),
+    hash,
+    changeSet.createdAt,
+  );
+  const committed = await approveCareerFactChange(db, occupantId, changeSet.id);
+  return committed.facts;
 }
 
 function readChangeSet(
@@ -464,6 +546,26 @@ function stringArray(value: unknown): string[] {
     : [];
 }
 
+function parseAchievements(value: unknown): string[] {
+  try {
+    return stringArray(JSON.parse(String(value)))
+      .map((item) => item.trim())
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+function statementFromValue(valueJson: string): string {
+  try {
+    const value = JSON.parse(valueJson) as JsonObject;
+    const statement = value.statement ?? value.title ?? value.name;
+    return typeof statement === "string" ? statement.trim() : "";
+  } catch {
+    return "";
+  }
+}
+
 function parseSensitivity(value: unknown): Sensitivity {
   return value === "public" || value === "restricted" ? value : "private";
 }
@@ -471,6 +573,7 @@ function parseSensitivity(value: unknown): Sensitivity {
 function parseSourceType(value: unknown): Evidence["sourceType"] {
   return value === "resume" ||
     value === "worklog" ||
+    value === "work-map" ||
     value === "document" ||
     value === "import"
     ? value

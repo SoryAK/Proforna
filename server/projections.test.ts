@@ -193,4 +193,112 @@ describe("interactive projections HTTP seam", () => {
       db.close();
     }
   });
+
+  it("records occupant-approved change sets for settings, grants, and revoke", async () => {
+    const grant = vi.fn(
+      async (_slug: string, _grant: { token: string; expiresAt: string }) =>
+        undefined,
+    );
+    const relay: ProjectionRelay = {
+      publish: vi.fn(async () => undefined),
+      revoke: vi.fn(async () => undefined),
+      grant,
+    };
+    const db = openDatabase(":memory:");
+    const app = createApp(db, { relay });
+    try {
+      await app.request("/api/history", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          experience: [{ company: "Acme", title: "Lead", isCurrent: true }],
+        }),
+      });
+      const settingsBody = {
+        slug: "sory-systems",
+        visibility: "access-controlled",
+        sections: ["profile", "history"],
+      };
+      expect(
+        (
+          await app.request("/api/work-map/settings", {
+            method: "PUT",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify(settingsBody),
+          })
+        ).status,
+      ).toBe(200);
+      expect(
+        (
+          await app.request("/api/work-map/settings", {
+            method: "PUT",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify(settingsBody),
+          })
+        ).status,
+      ).toBe(200);
+
+      const published = await app.request("/api/work-map/publish", {
+        method: "POST",
+      });
+      expect(published.status).toBe(201);
+      const created = (await published.json()) as {
+        projection: { id: string };
+      };
+      const granted = await app.request(
+        `/api/projections/${created.projection.id}/grants`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ expiresAt: "2026-12-01T00:00:00.000Z" }),
+        },
+      );
+      expect(granted.status).toBe(201);
+      const grantBody = (await granted.json()) as {
+        grant: { token: string };
+      };
+      expect(grantBody.grant.token).toEqual(expect.any(String));
+      expect(grant).toHaveBeenCalledWith("sory-systems", {
+        token: grantBody.grant.token,
+        expiresAt: "2026-12-01T00:00:00.000Z",
+      });
+
+      expect(
+        (
+          await app.request(
+            `/api/projections/${created.projection.id}/revoke`,
+            { method: "POST" },
+          )
+        ).status,
+      ).toBe(200);
+
+      const memory = (await (await app.request("/api/memory")).json()) as {
+        audit: Array<{
+          eventType: string;
+          changeSetId: string | null;
+          approvalId: string | null;
+          detail: Record<string, unknown>;
+        }>;
+      };
+      const settingsEvents = memory.audit.filter(
+        (event) => event.eventType === "publication-settings-updated",
+      );
+      const grantEvents = memory.audit.filter(
+        (event) => event.eventType === "projection-grant-created",
+      );
+      const revokeEvents = memory.audit.filter(
+        (event) => event.eventType === "projection-revoked",
+      );
+      expect(settingsEvents).toHaveLength(1);
+      expect(grantEvents).toHaveLength(1);
+      expect(revokeEvents).toHaveLength(1);
+      for (const event of [...settingsEvents, ...grantEvents, ...revokeEvents]) {
+        expect(event.changeSetId).toEqual(expect.any(String));
+        expect(event.approvalId).toEqual(expect.any(String));
+      }
+      expect(JSON.stringify(memory)).not.toContain(grantBody.grant.token);
+    } finally {
+      db.close();
+    }
+  });
 });
