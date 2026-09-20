@@ -62,12 +62,108 @@ describe("Work Map publication snapshots", () => {
       longitude: -75.2,
     });
     expect(snapshot.roles[0].media).toHaveLength(1);
+    expect(snapshot.roles[0]).not.toHaveProperty("schedule");
+    expect(snapshot.roles[0]).not.toHaveProperty("benefits");
+    expect(snapshot.roles[0]).not.toHaveProperty("paidTimeOff");
+    expect(snapshot.roles[0]).not.toHaveProperty("environment");
+    expect(snapshot.roles[0]).not.toHaveProperty("growth");
+    expect(snapshot.roles[0]).not.toHaveProperty("departure");
+    expect(snapshot.roles[0]).not.toHaveProperty("workplaceRating");
+    expect(snapshot.roles[0]).not.toHaveProperty("equipment");
     const published = JSON.stringify(snapshot);
     expect(published).not.toContain("150000");
     expect(published).not.toContain("private.jpg");
     expect(published).not.toContain("secret-fact");
     expect(published).not.toContain("secret-evidence");
     expect(published).not.toContain("secret-claim");
+    expect(published).not.toContain("SECRET_NIGHT_SHIFT");
+    expect(published).not.toContain("SECRET_BENEFIT");
+    expect(published).not.toContain("SECRET_PTO");
+    expect(published).not.toContain("SECRET_ENV");
+    expect(published).not.toContain("SECRET_GROWTH_NOTE");
+    expect(published).not.toContain("SECRET_DEPARTURE");
+    expect(published).not.toContain("SECRET_TOOL");
+  });
+
+  it("includes working conditions only when the occupant approves each field for publishing", () => {
+    const snapshot = buildWorkMapSnapshot({
+      id: "snapshot-2",
+      occupantId: "local",
+      profile: {
+        fullName: "Sory Kaba",
+        headline: "Systems leader",
+        city: "Philadelphia",
+        state: "PA",
+        bio: "Builds reliable systems.",
+        linkedinUrl: "",
+        githubUrl: "",
+        portfolioUrl: "",
+      },
+      roles: [
+        sampleRole({
+          details: {
+            ...structuredClone(EMPTY_WORK_MAP_DETAILS),
+            growth: "Grew into incident command.",
+            departure: "Left after the plant closed.",
+            paidTimeOff: "Four weeks.",
+            environment: "Loud production floor.",
+            uniform: "FR coveralls",
+            workplaceRating: 4,
+            benefits: ["Shift premium"],
+            equipment: ["Fluke 87"],
+            schedule: {
+              shift: "Nights",
+              hoursPerWeek: 40,
+              workMode: "onsite",
+            },
+            compensation: {
+              currency: "USD",
+              period: "annual",
+              amount: 150_000,
+              visibility: "public",
+            },
+            share: {
+              growth: true,
+              departure: false,
+              schedule: true,
+              benefits: true,
+              paidTimeOff: false,
+              environment: false,
+              workplaceRating: false,
+              equipment: true,
+              uniform: false,
+            },
+          },
+        }),
+      ],
+      skills: [],
+      settings: {
+        slug: "sory-map",
+        targetRole: "Principal Engineer",
+        theme: "dark",
+        visibility: "public",
+        sections: ["profile", "history"],
+        hideCurrentEmployer: false,
+        showExactLocations: false,
+        expiresAt: null,
+      },
+      sourceFingerprint: "abc",
+      createdAt: "2026-09-19T20:00:00.000Z",
+    });
+
+    expect(snapshot.roles[0]).toMatchObject({
+      growth: "Grew into incident command.",
+      schedule: { shift: "Nights", hoursPerWeek: 40, workMode: "onsite" },
+      benefits: ["Shift premium"],
+      equipment: ["Fluke 87"],
+      compensation: { currency: "USD", period: "annual", amount: 150_000 },
+    });
+    expect(snapshot.roles[0]).not.toHaveProperty("departure");
+    expect(snapshot.roles[0]).not.toHaveProperty("paidTimeOff");
+    expect(snapshot.roles[0]).not.toHaveProperty("environment");
+    expect(snapshot.roles[0]).not.toHaveProperty("workplaceRating");
+    expect(snapshot.roles[0]).not.toHaveProperty("uniform");
+    expect(JSON.stringify(snapshot)).not.toContain("share");
   });
 });
 
@@ -308,6 +404,18 @@ function sampleRole(overrides: Partial<WorkMapRole> = {}): WorkMapRole {
         amount: 150_000,
         visibility: "private",
       },
+      schedule: {
+        shift: "SECRET_NIGHT_SHIFT",
+        hoursPerWeek: 60,
+        workMode: "onsite",
+      },
+      benefits: ["SECRET_BENEFIT"],
+      paidTimeOff: "SECRET_PTO",
+      environment: "SECRET_ENV",
+      growth: "SECRET_GROWTH_NOTE",
+      departure: "SECRET_DEPARTURE",
+      workplaceRating: 4,
+      equipment: ["SECRET_TOOL"],
     },
     ...overrides,
   };
