@@ -78,6 +78,30 @@ describe("interactive projections HTTP seam", () => {
           }),
         },
       );
+      await app.request(`/api/work-map/roles/${workMap.roles[0].id}/details`, {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          growth: "SECRET_GROWTH_NOTE",
+          departure: "SECRET_DEPARTURE",
+          paidTimeOff: "SECRET_PTO",
+          environment: "SECRET_ENV",
+          workplaceRating: 4,
+          benefits: ["SECRET_BENEFIT"],
+          equipment: ["SECRET_TOOL"],
+          schedule: {
+            shift: "SECRET_NIGHT_SHIFT",
+            hoursPerWeek: 60,
+            workMode: "onsite",
+          },
+          compensation: {
+            currency: "USD",
+            period: "annual",
+            amount: 150_000,
+            visibility: "private",
+          },
+        }),
+      });
       await app.request("/api/work-map/settings", {
         method: "PUT",
         headers: { "content-type": "application/json" },
@@ -103,6 +127,34 @@ describe("interactive projections HTTP seam", () => {
         organization: "Current employer",
         locations: [{ address: "" }],
       });
+      const published = JSON.stringify(publish.mock.calls[0][0]);
+      expect(published).not.toContain("SECRET_GROWTH_NOTE");
+      expect(published).not.toContain("SECRET_DEPARTURE");
+      expect(published).not.toContain("SECRET_PTO");
+      expect(published).not.toContain("SECRET_ENV");
+      expect(published).not.toContain("SECRET_BENEFIT");
+      expect(published).not.toContain("SECRET_TOOL");
+      expect(published).not.toContain("SECRET_NIGHT_SHIFT");
+      expect(published).not.toContain("150000");
+      expect(publish.mock.calls[0][0].roles[0]).not.toHaveProperty("growth");
+      expect(publish.mock.calls[0][0].roles[0]).not.toHaveProperty("schedule");
+
+      await app.request(`/api/work-map/roles/${workMap.roles[0].id}/details`, {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          share: { growth: true, schedule: true },
+        }),
+      });
+      const republished = await app.request("/api/work-map/publish", {
+        method: "POST",
+      });
+      expect(republished.status).toBe(201);
+      const shared = JSON.stringify(publish.mock.calls[1][0]);
+      expect(shared).toContain("SECRET_GROWTH_NOTE");
+      expect(shared).toContain("SECRET_NIGHT_SHIFT");
+      expect(shared).not.toContain("SECRET_DEPARTURE");
+      expect(shared).not.toContain("150000");
 
       expect(
         (await app.request("/api/public/sory-systems")).status,

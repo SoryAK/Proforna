@@ -134,6 +134,7 @@ export {
   attachFactsToWorkMapRole,
   buildWorkMapSnapshot,
   normalizeSlug,
+  normalizeWorkMapDetails,
   planWorkMapPublicationSettings,
   planWorkMapRoleFactSync,
   type WorkMapClaim,
@@ -144,5 +145,6 @@ export {
   type WorkMapPublishSection,
   type WorkMapRole,
   type WorkMapRoleDetails,
+  type WorkMapShare,
   type WorkMapSnapshot,
 } from "./work-map";

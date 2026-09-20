@@ -60,6 +60,19 @@ export type WorkMapRoleDetails = {
   uniform: string;
   equipment: string[];
   skills: string[];
+  share: WorkMapShare;
+};
+
+export type WorkMapShare = {
+  growth: boolean;
+  departure: boolean;
+  schedule: boolean;
+  benefits: boolean;
+  paidTimeOff: boolean;
+  environment: boolean;
+  workplaceRating: boolean;
+  equipment: boolean;
+  uniform: boolean;
 };
 
 export type WorkMapClaim = {
@@ -138,14 +151,20 @@ export type WorkMapSnapshot = {
     events: WorkMapMoment[];
     techStack: string[];
     skills: string[];
-    schedule: WorkMapRoleDetails["schedule"];
-    benefits: string[];
-    paidTimeOff: string;
-    environment: string;
-    growth: string;
-    departure: string;
-    workplaceRating: number | null;
-    equipment: string[];
+    growth?: string;
+    departure?: string;
+    schedule?: WorkMapRoleDetails["schedule"];
+    benefits?: string[];
+    paidTimeOff?: string;
+    environment?: string;
+    workplaceRating?: number;
+    equipment?: string[];
+    uniform?: string;
+    compensation?: {
+      currency: string;
+      period: "hourly" | "annual";
+      amount: number | null;
+    };
   }>;
   skills: string[];
   sections: WorkMapPublishSection[];
@@ -175,7 +194,31 @@ export const EMPTY_WORK_MAP_DETAILS: WorkMapRoleDetails = {
   uniform: "",
   equipment: [],
   skills: [],
+  share: {
+    growth: false,
+    departure: false,
+    schedule: false,
+    benefits: false,
+    paidTimeOff: false,
+    environment: false,
+    workplaceRating: false,
+    equipment: false,
+    uniform: false,
+  },
 };
+
+export function normalizeWorkMapDetails(
+  details: Partial<WorkMapRoleDetails> | null | undefined,
+): WorkMapRoleDetails {
+  const empty = structuredClone(EMPTY_WORK_MAP_DETAILS);
+  return {
+    ...empty,
+    ...details,
+    compensation: { ...empty.compensation, ...details?.compensation },
+    schedule: { ...empty.schedule, ...details?.schedule },
+    share: { ...empty.share, ...details?.share },
+  };
+}
 
 export function buildWorkMapSnapshot(input: {
   id: string;
@@ -241,14 +284,7 @@ export function buildWorkMapSnapshot(input: {
           : [],
         techStack: role.details.techStack,
         skills: role.details.skills,
-        schedule: role.details.schedule,
-        benefits: role.details.benefits,
-        paidTimeOff: role.details.paidTimeOff,
-        environment: role.details.environment,
-        growth: role.details.growth,
-        departure: role.details.departure,
-        workplaceRating: role.details.workplaceRating,
-        equipment: role.details.equipment,
+        ...publishedRoleConditions(role.details),
       }))
     : [];
   return {
@@ -281,6 +317,64 @@ export function buildWorkMapSnapshot(input: {
     sourceFingerprint: input.sourceFingerprint,
     createdAt: input.createdAt,
   };
+}
+
+function publishedRoleConditions(details: WorkMapRoleDetails) {
+  const detailsNormalized = normalizeWorkMapDetails(details);
+  const shared: {
+    growth?: string;
+    departure?: string;
+    schedule?: WorkMapRoleDetails["schedule"];
+    benefits?: string[];
+    paidTimeOff?: string;
+    environment?: string;
+    workplaceRating?: number;
+    equipment?: string[];
+    uniform?: string;
+    compensation?: {
+      currency: string;
+      period: "hourly" | "annual";
+      amount: number | null;
+    };
+  } = {};
+  if (detailsNormalized.share.growth && detailsNormalized.growth) {
+    shared.growth = detailsNormalized.growth;
+  }
+  if (detailsNormalized.share.departure && detailsNormalized.departure) {
+    shared.departure = detailsNormalized.departure;
+  }
+  if (detailsNormalized.share.schedule) {
+    shared.schedule = detailsNormalized.schedule;
+  }
+  if (detailsNormalized.share.benefits && detailsNormalized.benefits.length) {
+    shared.benefits = detailsNormalized.benefits;
+  }
+  if (detailsNormalized.share.paidTimeOff && detailsNormalized.paidTimeOff) {
+    shared.paidTimeOff = detailsNormalized.paidTimeOff;
+  }
+  if (detailsNormalized.share.environment && detailsNormalized.environment) {
+    shared.environment = detailsNormalized.environment;
+  }
+  if (
+    detailsNormalized.share.workplaceRating &&
+    detailsNormalized.workplaceRating != null
+  ) {
+    shared.workplaceRating = detailsNormalized.workplaceRating;
+  }
+  if (detailsNormalized.share.equipment && detailsNormalized.equipment.length) {
+    shared.equipment = detailsNormalized.equipment;
+  }
+  if (detailsNormalized.share.uniform && detailsNormalized.uniform) {
+    shared.uniform = detailsNormalized.uniform;
+  }
+  if (detailsNormalized.compensation.visibility === "public") {
+    shared.compensation = {
+      currency: detailsNormalized.compensation.currency,
+      period: detailsNormalized.compensation.period,
+      amount: detailsNormalized.compensation.amount,
+    };
+  }
+  return shared;
 }
 
 export function attachFactsToWorkMapRole(

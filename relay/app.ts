@@ -252,6 +252,16 @@ function renderProjectionHtml(
         ${role.description ? `<p>${escapeHtml(role.description)}</p>` : ""}
         <ul>${role.achievements.map((claim) => `<li>${escapeHtml(claim)}</li>`).join("")}</ul>
         ${role.techStack.length ? `<p class="skills">${role.techStack.map(escapeHtml).join(" · ")}</p>` : ""}
+        ${role.growth ? `<p>${escapeHtml(role.growth)}</p>` : ""}
+        ${role.departure ? `<p>${escapeHtml(role.departure)}</p>` : ""}
+        ${role.schedule ? `<p class="skills">${escapeHtml([role.schedule.shift, role.schedule.hoursPerWeek ? `${role.schedule.hoursPerWeek} hrs/week` : "", role.schedule.workMode].filter(Boolean).join(" · "))}</p>` : ""}
+        ${role.benefits?.length ? `<p class="skills">${role.benefits.map(escapeHtml).join(" · ")}</p>` : ""}
+        ${role.paidTimeOff ? `<p>${escapeHtml(role.paidTimeOff)}</p>` : ""}
+        ${role.environment ? `<p>${escapeHtml(role.environment)}</p>` : ""}
+        ${role.uniform ? `<p>${escapeHtml(role.uniform)}</p>` : ""}
+        ${role.equipment?.length ? `<p class="skills">${role.equipment.map(escapeHtml).join(" · ")}</p>` : ""}
+        ${role.workplaceRating != null ? `<p class="skills">Workplace ${role.workplaceRating}/5</p>` : ""}
+        ${role.compensation?.amount != null ? `<p class="skills">${escapeHtml(String(role.compensation.amount))} ${escapeHtml(role.compensation.currency)} / ${escapeHtml(role.compensation.period)}</p>` : ""}
         ${role.milestones.map((moment) => `<div class="moment"><b>${escapeHtml(moment.title)}</b><span>${escapeHtml(moment.date)}</span><p>${escapeHtml(moment.detail)}</p></div>`).join("")}
         ${role.media.map((item) => item.kind === "photo" ? `<figure><img src="${escapeHtml(item.url)}" alt="${escapeHtml(item.title)}"><figcaption>${escapeHtml(item.caption || item.title)}</figcaption></figure>` : "").join("")}
       </article>`,

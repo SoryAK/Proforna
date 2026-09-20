@@ -2,6 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import {
   EMPTY_WORK_MAP_DETAILS,
+  normalizeWorkMapDetails,
   attachFactsToWorkMapRole,
   buildWorkMapSnapshot,
   normalizeSlug,
@@ -13,6 +14,7 @@ import {
   type WorkMapPublicationSettings,
   type WorkMapRole,
   type WorkMapRoleDetails,
+  type WorkMapShare,
   type WorkMapSnapshot,
 } from "../core/index";
 import {
@@ -191,6 +193,7 @@ export function saveWorkMapDetails(
     uniform: "uniform" in input ? text(input.uniform) : current.uniform,
     equipment: arrayOrCurrent(input.equipment, current.equipment),
     skills: arrayOrCurrent(input.skills, current.skills),
+    share: shareOrCurrent(input.share, current.share),
   };
   db.prepare(
     `INSERT INTO work_history_details
@@ -485,7 +488,7 @@ function readDetails(
     )
     .get(roleId, occupantId) as { details_json: string } | undefined;
   return row
-    ? ({ ...EMPTY_WORK_MAP_DETAILS, ...JSON.parse(row.details_json) } as WorkMapRoleDetails)
+    ? normalizeWorkMapDetails(JSON.parse(row.details_json) as Partial<WorkMapRoleDetails>)
     : structuredClone(EMPTY_WORK_MAP_DETAILS);
 }
 
@@ -565,6 +568,25 @@ function momentsOrCurrent(
 
 function arrayOrCurrent(value: unknown, current: string[]) {
   return Array.isArray(value) ? stringArray(value) : current;
+}
+
+function shareOrCurrent(value: unknown, current: WorkMapShare): WorkMapShare {
+  if (!isObject(value)) return current;
+  return {
+    growth: boolOr(value.growth, current.growth),
+    departure: boolOr(value.departure, current.departure),
+    schedule: boolOr(value.schedule, current.schedule),
+    benefits: boolOr(value.benefits, current.benefits),
+    paidTimeOff: boolOr(value.paidTimeOff, current.paidTimeOff),
+    environment: boolOr(value.environment, current.environment),
+    workplaceRating: boolOr(value.workplaceRating, current.workplaceRating),
+    equipment: boolOr(value.equipment, current.equipment),
+    uniform: boolOr(value.uniform, current.uniform),
+  };
+}
+
+function boolOr(value: unknown, fallback: boolean): boolean {
+  return typeof value === "boolean" ? value : fallback;
 }
 
 function stringArray(value: unknown): string[] {

@@ -39,8 +39,9 @@ local-first and must remain useful when the publishing relay is unavailable.
 - SQLite and local files form the authoritative private Career Vault.
 - Work Map roles may include geography, milestones, events, media, work
   conditions, equipment, growth, and departure reflections.
-- Compensation, private notes, and unapproved locations or media never enter
-  public snapshots.
+- Private notes never enter public snapshots. Compensation, working
+  conditions, locations, and media enter a snapshot only when the occupant
+  approves each item for publishing.
 - Significant mutations and external actions use explicit approvals and audit
   records.
 - Public access may be public, unlisted, access controlled, stealth,

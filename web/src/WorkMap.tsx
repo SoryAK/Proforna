@@ -517,8 +517,9 @@ function PublicationSettings({
           Publish exact coordinates and addresses
         </label>
         <p className="publication-warning">
-          Private notes, compensation, unpublished locations, and unpublished
-          media never enter the snapshot.
+          Private notes stay out of the snapshot. Compensation, working
+          conditions, unpublished locations, and unpublished media enter only
+          when approved for publishing.
         </p>
         <button className="is-primary" type="submit">
           Save publication settings

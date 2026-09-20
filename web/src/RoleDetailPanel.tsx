@@ -52,6 +52,10 @@ export function RoleDetailPanel({
       notes: moments(form.get("notes"), false),
       growth: form.get("growth"),
       departure: form.get("departure"),
+      share: {
+        growth: form.get("shareGrowth") === "on",
+        departure: form.get("shareDeparture") === "on",
+      },
     });
     await finish(response, "Career detail saved.");
   }
@@ -67,7 +71,7 @@ export function RoleDetailPanel({
         currency: form.get("currency"),
         period: form.get("period"),
         amount: Number.isFinite(amount) && amount > 0 ? amount : null,
-        visibility: "private",
+        visibility: form.get("shareCompensation") === "on" ? "public" : "private",
       },
       schedule: {
         shift: form.get("shift"),
@@ -81,8 +85,17 @@ export function RoleDetailPanel({
         Number.isFinite(rating) && rating > 0 ? rating : null,
       uniform: form.get("uniform"),
       equipment: commas(form.get("equipment")),
+      share: {
+        schedule: form.get("shareSchedule") === "on",
+        benefits: form.get("shareBenefits") === "on",
+        paidTimeOff: form.get("sharePaidTimeOff") === "on",
+        environment: form.get("shareEnvironment") === "on",
+        workplaceRating: form.get("shareWorkplaceRating") === "on",
+        equipment: form.get("shareEquipment") === "on",
+        uniform: form.get("shareUniform") === "on",
+      },
     });
-    await finish(response, "Work conditions saved privately.");
+    await finish(response, "Work conditions saved.");
   }
 
   async function addLocation(event: FormEvent<HTMLFormElement>) {
@@ -307,6 +320,10 @@ export function RoleDetailPanel({
                 Skills and growth
                 <textarea name="growth" rows={3} defaultValue={role.details.growth} />
               </label>
+              <ShareCheck
+                name="shareGrowth"
+                checked={role.details.share.growth}
+              />
               <label>
                 Departure and reflection
                 <textarea
@@ -315,6 +332,10 @@ export function RoleDetailPanel({
                   defaultValue={role.details.departure}
                 />
               </label>
+              <ShareCheck
+                name="shareDeparture"
+                checked={role.details.share.departure}
+              />
               <button type="submit">Save career evidence</button>
             </form>
           </>
@@ -322,10 +343,10 @@ export function RoleDetailPanel({
 
         {tab === "conditions" ? (
           <form className="role-form" onSubmit={saveConditions}>
-            <h3>Private work conditions</h3>
+            <h3>Work conditions</h3>
             <p className="role-form-note">
-              Compensation stays in the vault and is never included in the
-              public Work Map snapshot.
+              Each field stays in the vault until you approve it for
+              publishing.
             </p>
             <div className="role-form-pair">
               <label>
@@ -344,6 +365,10 @@ export function RoleDetailPanel({
                 />
               </label>
             </div>
+            <ShareCheck
+              name="shareCompensation"
+              checked={role.details.compensation.visibility === "public"}
+            />
             <input
               name="period"
               type="hidden"
@@ -371,6 +396,10 @@ export function RoleDetailPanel({
                 <option value="remote">Remote</option>
               </select>
             </label>
+            <ShareCheck
+              name="shareSchedule"
+              checked={role.details.share.schedule}
+            />
             <label>
               Benefits
               <input
@@ -378,6 +407,10 @@ export function RoleDetailPanel({
                 defaultValue={role.details.benefits.join(", ")}
               />
             </label>
+            <ShareCheck
+              name="shareBenefits"
+              checked={role.details.share.benefits}
+            />
             <label>
               Benefits and PTO notes
               <textarea
@@ -386,6 +419,10 @@ export function RoleDetailPanel({
                 defaultValue={role.details.paidTimeOff}
               />
             </label>
+            <ShareCheck
+              name="sharePaidTimeOff"
+              checked={role.details.share.paidTimeOff}
+            />
             <label>
               Work environment
               <textarea
@@ -394,10 +431,18 @@ export function RoleDetailPanel({
                 defaultValue={role.details.environment}
               />
             </label>
+            <ShareCheck
+              name="shareEnvironment"
+              checked={role.details.share.environment}
+            />
             <label>
               Uniform / PPE
               <input name="uniform" defaultValue={role.details.uniform} />
             </label>
+            <ShareCheck
+              name="shareUniform"
+              checked={role.details.share.uniform}
+            />
             <label>
               Equipment
               <input
@@ -405,6 +450,10 @@ export function RoleDetailPanel({
                 defaultValue={role.details.equipment.join(", ")}
               />
             </label>
+            <ShareCheck
+              name="shareEquipment"
+              checked={role.details.share.equipment}
+            />
             <label>
               Workplace rating (1–5)
               <input
@@ -415,6 +464,10 @@ export function RoleDetailPanel({
                 defaultValue={role.details.workplaceRating ?? ""}
               />
             </label>
+            <ShareCheck
+              name="shareWorkplaceRating"
+              checked={role.details.share.workplaceRating}
+            />
             <button type="submit">Save conditions</button>
           </form>
         ) : null}
@@ -546,6 +599,21 @@ function lines(value: FormDataEntryValue | null): string[] {
   return typeof value === "string"
     ? value.split("\n").map((item) => item.trim()).filter(Boolean)
     : [];
+}
+
+function ShareCheck({
+  name,
+  checked,
+}: {
+  name: string;
+  checked: boolean;
+}) {
+  return (
+    <label className="role-check">
+      <input type="checkbox" name={name} defaultChecked={checked} />
+      Approve for publishing
+    </label>
+  );
 }
 
 function commas(value: FormDataEntryValue | null): string[] {

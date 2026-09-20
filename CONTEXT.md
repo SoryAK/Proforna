@@ -62,7 +62,9 @@ _Avoid_: Interactive resume, public profile
 
 **Interactive Projection**:
 An immutable, explicitly approved, redacted snapshot of the Work Map for a
-specific audience.
+specific audience. Pay, ratings, growth notes, departure reflection, and
+working conditions stay private unless the occupant approves each one for
+publishing.
 _Avoid_: Public profile, portfolio
 
 **Publication**:
