@@ -85,7 +85,8 @@ _Avoid_: Confirmation, consent
 
 **Notice**:
 A pending item that needs the occupant's attention, currently an inbound
-access request or a proposed change set.
+access request or a proposed change set. Granting, declining, or approving
+clears it.
 _Avoid_: Alert, toast, reminder, notification center
 
 **Agent Run**:

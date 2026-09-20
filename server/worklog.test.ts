@@ -32,6 +32,17 @@ describe("worklog HTTP seam", () => {
       };
       expect(proposals.changeSets).toHaveLength(2);
 
+      const pending = (await (await app.request("/api/worklog")).json()) as {
+        proposals: Array<{ id: string; purpose: string }>;
+      };
+      expect(pending.proposals).toEqual(
+        expect.arrayContaining(
+          proposals.changeSets.map((item) =>
+            expect.objectContaining({ id: item.id }),
+          ),
+        ),
+      );
+
       const approved = await app.request("/api/worklog/proposals/approve", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -48,6 +59,15 @@ describe("worklog HTTP seam", () => {
         true,
       );
       expect(memory.facts.some((fact) => fact.factType === "skill")).toBe(true);
+
+      const remaining = (await (await app.request("/api/worklog")).json()) as {
+        proposals: unknown[];
+      };
+      expect(remaining.proposals).toEqual([]);
+      const notices = (await (await app.request("/api/notices")).json()) as {
+        notices: unknown[];
+      };
+      expect(notices.notices).toEqual([]);
     } finally {
       db.close();
     }

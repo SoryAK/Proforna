@@ -38,6 +38,7 @@ import {
   WorklogStoreError,
   approveWorklogChanges,
   captureWorklog,
+  listProposedChangeSets,
   listWorklog,
   proposeWorklogChanges,
 } from "./worklog";
@@ -57,6 +58,7 @@ import {
   listProjections,
   publishProjection,
   recordProjectionEvent,
+  resolveOpportunityAccess,
   resolvePublishedProjection,
   revokeProjection,
   type ProjectionRelay,
@@ -348,7 +350,10 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
 
   app.get("/api/worklog", (c) => {
     const occupant = ensureOccupant(db);
-    return c.json({ entries: listWorklog(db, occupant.id) });
+    return c.json({
+      entries: listWorklog(db, occupant.id),
+      proposals: listProposedChangeSets(db, occupant.id),
+    });
   });
 
   app.post("/api/worklog", async (c) => {
@@ -724,6 +729,38 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
     } catch (error) {
       if (error instanceof CareerManagementStoreError) {
         return c.json({ error: error.code }, 400);
+      }
+      throw error;
+    }
+  });
+
+  app.post("/api/opportunities/:id/access", async (c) => {
+    const occupant = ensureOccupant(db);
+    const body = (await c.req.json()) as {
+      decision?: unknown;
+      expiresAt?: unknown;
+    };
+    try {
+      const result = await resolveOpportunityAccess(
+        db,
+        occupant.id,
+        c.req.param("id"),
+        typeof body.decision === "string" ? body.decision : "",
+        typeof body.expiresAt === "string"
+          ? body.expiresAt
+          : new Date(Date.now() + 7 * 86_400_000).toISOString(),
+        relay,
+      );
+      return c.json(
+        result,
+        result.decision === "grant" ? 201 : 200,
+      );
+    } catch (error) {
+      if (error instanceof ProjectionStoreError) {
+        return c.json(
+          { error: error.code },
+          error.code === "decision-invalid" ? 400 : 404,
+        );
       }
       throw error;
     }

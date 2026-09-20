@@ -88,3 +88,17 @@ export function planProjectionGrant(input: {
     },
   };
 }
+
+export function planProjectionAccessDecision(input: {
+  requestId: string;
+  projectionId: string;
+  slug: string;
+  decision: "granted" | "declined";
+}): ChangeOperation {
+  return {
+    action: "transition",
+    entityType: "projection-access-request",
+    entityId: input.requestId,
+    values: { slug: input.slug, projectionId: input.projectionId, decision: input.decision },
+  };
+}

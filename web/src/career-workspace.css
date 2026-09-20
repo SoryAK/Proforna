@@ -431,6 +431,24 @@
   color: var(--gold-hover);
 }
 
+.opportunity-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.7rem;
+}
+
+.opportunity-card button.is-primary {
+  background: var(--gold);
+  color: #080706;
+  border-color: var(--gold);
+}
+
+.opportunity-card button.is-danger {
+  color: var(--danger);
+  border-color: rgba(230, 161, 150, 0.42);
+}
+
 .application-state {
   display: flex;
   align-items: center;

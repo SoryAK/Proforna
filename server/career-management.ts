@@ -23,8 +23,24 @@ export type ExternalActionAdapter = {
 };
 
 export function readCareerManagement(db: DatabaseSync, occupantId: string) {
+  const pendingRequests = db
+    .prepare(
+      `SELECT r.id AS id, r.opportunity_id AS opportunityId
+         FROM projection_access_requests r
+         JOIN interactive_projections p ON p.id = r.projection_id
+        WHERE p.occupant_id = ? AND r.status = 'new'
+          AND r.opportunity_id IS NOT NULL AND r.opportunity_id != ''`,
+    )
+    .all(occupantId) as Array<{ id: string; opportunityId: string }>;
+  const pendingByOpportunity = new Map(
+    pendingRequests.map((request) => [request.opportunityId, request.id]),
+  );
   return {
-    opportunities: rows(db, "opportunities", occupantId),
+    opportunities: rows(db, "opportunities", occupantId).map((opportunity) => ({
+      ...opportunity,
+      pending_access_request_id:
+        pendingByOpportunity.get(String(opportunity.id)) ?? null,
+    })),
     applications: rows(db, "applications", occupantId),
     interviews: rows(db, "interviews", occupantId),
     offers: rows(db, "offers", occupantId),

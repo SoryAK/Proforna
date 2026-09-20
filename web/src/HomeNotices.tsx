@@ -24,11 +24,15 @@ export function HomeNotices({
   }, [open]);
 
   useEffect(() => {
-    function onFocus() {
+    function onNoticesChanged() {
       void loadNotices(setNotices);
     }
-    window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
+    window.addEventListener("focus", onNoticesChanged);
+    window.addEventListener("proforna:notices-changed", onNoticesChanged);
+    return () => {
+      window.removeEventListener("focus", onNoticesChanged);
+      window.removeEventListener("proforna:notices-changed", onNoticesChanged);
+    };
   }, []);
 
   const count = notices.length;
