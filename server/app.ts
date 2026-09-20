@@ -6,6 +6,7 @@ import { parseExtractedResume } from "../core/resume-extract";
 import { listOpenAiCompatModels } from "./openai-compat";
 import { pingDatabase } from "./db";
 import { loadCareerFile, saveExtractedResume } from "./history";
+import { listOccupantNotices } from "./notices";
 import { ensureOccupant, readProfile } from "./occupant";
 import {
   ModelConnectionError,
@@ -123,6 +124,11 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
     const occupant = ensureOccupant(db);
     const profile = readProfile(db, occupant.id);
     return c.json({ occupant, profile });
+  });
+
+  app.get("/api/notices", (c) => {
+    const occupant = ensureOccupant(db);
+    return c.json({ notices: listOccupantNotices(db, occupant.id) });
   });
 
   app.put("/api/profile", async (c) => {
