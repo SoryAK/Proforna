@@ -51,7 +51,7 @@ _Avoid_: Draft, version
 **Work Map Role**:
 The enriched record of one job or school, including locations, milestones,
 media, work conditions, equipment, growth, departure reflection, and linked
-career evidence.
+career evidence. Career Facts about that role use it as their subject.
 _Avoid_: Resume entry, job card
 
 **Work Map**:

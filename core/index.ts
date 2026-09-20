@@ -122,8 +122,11 @@ export {
 } from "./portability";
 export {
   EMPTY_WORK_MAP_DETAILS,
+  attachFactsToWorkMapRole,
   buildWorkMapSnapshot,
   normalizeSlug,
+  planWorkMapRoleFactSync,
+  type WorkMapClaim,
   type WorkMapLocation,
   type WorkMapMedia,
   type WorkMapMoment,

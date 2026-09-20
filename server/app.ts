@@ -464,7 +464,7 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
   app.put("/api/work-map/roles/:id", async (c) => {
     const occupant = ensureOccupant(db);
     try {
-      const role = updateWorkMapRole(
+      const role = await updateWorkMapRole(
         db,
         occupant.id,
         c.req.param("id"),
