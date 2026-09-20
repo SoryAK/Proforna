@@ -77,6 +77,8 @@ _Avoid_: AI response, suggestion
 
 **Approval**:
 Authorization bound to one exact change set, destination, and expiry.
+Publication, revocation, access grants, and publication settings use this
+same trail.
 _Avoid_: Confirmation, consent
 
 **Agent Run**:

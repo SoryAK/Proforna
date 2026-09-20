@@ -7,9 +7,16 @@ import {
   createApproval,
   hashChangeSet,
   mayPublishProjection,
+  planProjectionGrant,
+  planProjectionRevoke,
   type ChangeSet,
   type InteractiveProjection,
 } from "../core/index";
+import {
+  mintOccupantApproval,
+  persistApprovedChange,
+  persistAuditEvent,
+} from "./change-sets";
 import { createWorkMapSnapshot } from "./work-map";
 
 type JsonObject = Record<string, unknown>;
@@ -221,28 +228,45 @@ export async function revokeProjection(
 ) {
   const projection = readProjection(db, occupantId, projectionId);
   if (!projection) throw new ProjectionStoreError("projection-missing");
-  if (relay) await relay.revoke(projection.slug);
   const now = new Date().toISOString();
-  db.prepare(
-    `UPDATE publications SET revoked_at = ?
-     WHERE projection_id = ? AND occupant_id = ? AND revoked_at IS NULL`,
-  ).run(now, projectionId, occupantId);
-  db.prepare(
-    "UPDATE interactive_projections SET status = 'revoked' WHERE id = ?",
-  ).run(projectionId);
-  db.prepare(
-    `INSERT INTO audit_events
-      (id, occupant_id, event_type, entity_type, entity_id, change_set_id,
-       approval_id, detail_json, occurred_at)
-     VALUES (?, ?, 'projection-revoked', 'interactive-projection', ?, NULL,
-             NULL, ?, ?)`,
-  ).run(
-    randomUUID(),
-    occupantId,
-    projectionId,
-    JSON.stringify({ slug: projection.slug }),
+  const minted = await mintOccupantApproval(occupantId, {
+    purpose: "Revoke interactive projection",
+    destination: `relay:${projection.slug}`,
+    operations: [
+      planProjectionRevoke({
+        projectionId,
+        slug: projection.slug,
+      }),
+    ],
     now,
-  );
+  });
+  if (relay) await relay.revoke(projection.slug);
+  db.exec("BEGIN");
+  try {
+    persistApprovedChange(db, minted.changeSet, minted.hash, minted.approval);
+    db.prepare(
+      `UPDATE publications SET revoked_at = ?
+       WHERE projection_id = ? AND occupant_id = ? AND revoked_at IS NULL`,
+    ).run(now, projectionId, occupantId);
+    db.prepare(
+      "UPDATE interactive_projections SET status = 'revoked' WHERE id = ?",
+    ).run(projectionId);
+    persistAuditEvent(db, {
+      id: randomUUID(),
+      occupantId,
+      eventType: "projection-revoked",
+      entityType: "interactive-projection",
+      entityId: projectionId,
+      changeSetId: minted.changeSet.id,
+      approvalId: minted.approval.id,
+      detail: { slug: projection.slug },
+      occurredAt: now,
+    });
+    db.exec("COMMIT");
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
 }
 
 export async function createProjectionGrant(
@@ -256,17 +280,44 @@ export async function createProjectionGrant(
   if (!projection) throw new ProjectionStoreError("projection-missing");
   const token = randomBytes(24).toString("base64url");
   const now = new Date().toISOString();
-  db.prepare(
-    `INSERT INTO projection_access_grants
-      (id, projection_id, token_hash, expires_at, revoked_at, created_at)
-     VALUES (?, ?, ?, ?, NULL, ?)`,
-  ).run(
-    randomUUID(),
-    projectionId,
-    tokenHash(token),
-    expiresAt,
+  const hashedToken = tokenHash(token);
+  const minted = await mintOccupantApproval(occupantId, {
+    purpose: "Grant projection access",
+    destination: `relay:${projection.slug}`,
+    operations: [
+      planProjectionGrant({
+        projectionId,
+        slug: projection.slug,
+        expiresAt,
+        tokenHash: hashedToken,
+      }),
+    ],
     now,
-  );
+  });
+  db.exec("BEGIN");
+  try {
+    persistApprovedChange(db, minted.changeSet, minted.hash, minted.approval);
+    db.prepare(
+      `INSERT INTO projection_access_grants
+        (id, projection_id, token_hash, expires_at, revoked_at, created_at)
+       VALUES (?, ?, ?, ?, NULL, ?)`,
+    ).run(randomUUID(), projectionId, hashedToken, expiresAt, now);
+    persistAuditEvent(db, {
+      id: randomUUID(),
+      occupantId,
+      eventType: "projection-grant-created",
+      entityType: "projection-access-grant",
+      entityId: projectionId,
+      changeSetId: minted.changeSet.id,
+      approvalId: minted.approval.id,
+      detail: { slug: projection.slug, expiresAt },
+      occurredAt: now,
+    });
+    db.exec("COMMIT");
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
   if (relay?.grant) {
     await relay.grant(projection.slug, { token, expiresAt });
   }

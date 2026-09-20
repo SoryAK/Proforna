@@ -5,6 +5,7 @@ import {
   attachFactsToWorkMapRole,
   buildWorkMapSnapshot,
   normalizeSlug,
+  planWorkMapPublicationSettings,
   planWorkMapRoleFactSync,
   type WorkMapLocation,
   type WorkMapMedia,
@@ -14,6 +15,11 @@ import {
   type WorkMapRoleDetails,
   type WorkMapSnapshot,
 } from "../core/index";
+import {
+  mintOccupantApproval,
+  persistApprovedChange,
+  persistAuditEvent,
+} from "./change-sets";
 import {
   backfillCareerMemory,
   commitOccupantFactOperations,
@@ -308,11 +314,11 @@ export function readWorkMapSettings(
   };
 }
 
-export function saveWorkMapSettings(
+export async function saveWorkMapSettings(
   db: DatabaseSync,
   occupantId: string,
   input: JsonObject,
-): WorkMapPublicationSettings {
+): Promise<WorkMapPublicationSettings> {
   const current = readWorkMapSettings(db, occupantId);
   const allowedSections = new Set([
     "profile",
@@ -357,14 +363,45 @@ export function saveWorkMapSettings(
       "expiresAt" in input ? text(input.expiresAt) || null : current.expiresAt,
   };
   if (!settings.slug) throw new WorkMapStoreError("slug-required");
-  db.prepare(
-    `INSERT INTO work_map_publication_settings
-      (occupant_id, settings_json, updated_at)
-     VALUES (?, ?, ?)
-     ON CONFLICT(occupant_id) DO UPDATE SET
-       settings_json = excluded.settings_json,
-       updated_at = excluded.updated_at`,
-  ).run(occupantId, JSON.stringify(settings), new Date().toISOString());
+  const operations = planWorkMapPublicationSettings({
+    current,
+    next: settings,
+  });
+  const now = new Date().toISOString();
+  if (operations.length === 0) return settings;
+  const minted = await mintOccupantApproval(occupantId, {
+    purpose: "Update Work Map publication settings",
+    destination: "work-map:publication-settings",
+    operations,
+    now,
+  });
+  db.exec("BEGIN");
+  try {
+    persistApprovedChange(db, minted.changeSet, minted.hash, minted.approval);
+    db.prepare(
+      `INSERT INTO work_map_publication_settings
+        (occupant_id, settings_json, updated_at)
+       VALUES (?, ?, ?)
+       ON CONFLICT(occupant_id) DO UPDATE SET
+         settings_json = excluded.settings_json,
+         updated_at = excluded.updated_at`,
+    ).run(occupantId, JSON.stringify(settings), now);
+    persistAuditEvent(db, {
+      id: randomUUID(),
+      occupantId,
+      eventType: "publication-settings-updated",
+      entityType: "work-map-publication-settings",
+      entityId: occupantId,
+      changeSetId: minted.changeSet.id,
+      approvalId: minted.approval.id,
+      detail: { from: current, to: settings },
+      occurredAt: now,
+    });
+    db.exec("COMMIT");
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
   return settings;
 }
 

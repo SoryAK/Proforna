@@ -4,6 +4,7 @@ import {
   type CareerFactVersion,
 } from "./career-memory";
 import {
+  stableStringify,
   type ChangeOperation,
 } from "./governance";
 
@@ -386,6 +387,22 @@ export function planWorkMapRoleFactSync(input: {
     existingStatements.add(statement.toLowerCase());
   }
   return operations;
+}
+
+export function planWorkMapPublicationSettings(input: {
+  current: WorkMapPublicationSettings;
+  next: WorkMapPublicationSettings;
+}): ChangeOperation[] {
+  if (stableStringify(input.current) === stableStringify(input.next)) {
+    return [];
+  }
+  return [
+    {
+      action: "transition",
+      entityType: "work-map-publication-settings",
+      values: { from: input.current, to: input.next },
+    },
+  ];
 }
 
 function claimFromFact(fact: CareerFactVersion): WorkMapClaim {

@@ -4,7 +4,9 @@ import {
   EMPTY_WORK_MAP_DETAILS,
   attachFactsToWorkMapRole,
   buildWorkMapSnapshot,
+  planWorkMapPublicationSettings,
   planWorkMapRoleFactSync,
+  type WorkMapPublicationSettings,
   type WorkMapRole,
 } from "./work-map";
 
@@ -215,6 +217,40 @@ describe("Work Map career-fact attachment", () => {
           value: { statement: "Mentored the night shift." },
         }),
       }),
+    ]);
+  });
+});
+
+describe("Work Map publication settings", () => {
+  const current: WorkMapPublicationSettings = {
+    slug: "career-map",
+    targetRole: "Systems leader",
+    theme: "dark",
+    visibility: "unlisted",
+    sections: ["profile", "history"],
+    hideCurrentEmployer: false,
+    showExactLocations: false,
+    expiresAt: null,
+  };
+
+  it("plans a settings transition only when disclosure knobs change", () => {
+    expect(
+      planWorkMapPublicationSettings({ current, next: current }),
+    ).toEqual([]);
+    expect(
+      planWorkMapPublicationSettings({
+        current,
+        next: { ...current, visibility: "public", hideCurrentEmployer: true },
+      }),
+    ).toEqual([
+      {
+        action: "transition",
+        entityType: "work-map-publication-settings",
+        values: {
+          from: current,
+          to: { ...current, visibility: "public", hideCurrentEmployer: true },
+        },
+      },
     ]);
   });
 });
