@@ -46,6 +46,19 @@ export {
   type CareerSchool,
 } from "./career-file";
 export {
+  CAREER_HISTORY_SECTIONS,
+  classifyCareerHistorySection,
+  formatHistoryGist,
+  formatHistoryPlace,
+  groupCareerHistory,
+  presentCareerHistoryStats,
+  searchCareerHistory,
+  sortCareerHistory,
+  type CareerHistoryGroup,
+  type CareerHistoryItem,
+  type CareerHistoryStats,
+} from "./career-history";
+export {
   searchCareerFile,
   type CareerSearchHit,
 } from "./career-search";
