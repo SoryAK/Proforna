@@ -154,6 +154,8 @@ export {
   planWorkMapRoleFactSync,
   prepareWorkMapLocation,
   presentWorkMapPlace,
+  publicationAllowsSnapshot,
+  publicationNeedsAudienceConfirm,
   type PreparedWorkMapLocation,
   type WorkMapClaim,
   type WorkMapLocation,

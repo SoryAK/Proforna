@@ -122,6 +122,22 @@ export type WorkMapPublicationSettings = {
   expiresAt: string | null;
 };
 
+export function publicationAllowsSnapshot(
+  visibility: WorkMapPublicationSettings["visibility"],
+): boolean {
+  return visibility !== "private";
+}
+
+export function publicationNeedsAudienceConfirm(input: {
+  visibility: WorkMapPublicationSettings["visibility"];
+  liveStatus?: string | null;
+}): boolean {
+  return (
+    !publicationAllowsSnapshot(input.visibility) ||
+    input.liveStatus !== "published"
+  );
+}
+
 export type WorkMapSnapshot = {
   id: string;
   occupantId: string;

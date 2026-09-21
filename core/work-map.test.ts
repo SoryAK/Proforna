@@ -8,6 +8,8 @@ import {
   planWorkMapRoleFactSync,
   prepareWorkMapLocation,
   presentWorkMapPlace,
+  publicationAllowsSnapshot,
+  publicationNeedsAudienceConfirm,
   type WorkMapPublicationSettings,
   type WorkMapRole,
 } from "./work-map";
@@ -330,6 +332,36 @@ describe("Work Map publication settings", () => {
     showExactLocations: false,
     expiresAt: null,
   };
+
+  it("blocks a snapshot while visibility is private", () => {
+    expect(publicationAllowsSnapshot("private")).toBe(false);
+    expect(publicationAllowsSnapshot("unlisted")).toBe(true);
+    expect(publicationAllowsSnapshot("public")).toBe(true);
+  });
+
+  it("asks for audience before the first live snapshot", () => {
+    expect(
+      publicationNeedsAudienceConfirm({ visibility: "unlisted" }),
+    ).toBe(true);
+    expect(
+      publicationNeedsAudienceConfirm({
+        visibility: "unlisted",
+        liveStatus: "revoked",
+      }),
+    ).toBe(true);
+    expect(
+      publicationNeedsAudienceConfirm({
+        visibility: "private",
+        liveStatus: "published",
+      }),
+    ).toBe(true);
+    expect(
+      publicationNeedsAudienceConfirm({
+        visibility: "unlisted",
+        liveStatus: "published",
+      }),
+    ).toBe(false);
+  });
 
   it("plans a settings transition only when disclosure knobs change", () => {
     expect(
