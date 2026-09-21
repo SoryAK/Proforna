@@ -20,7 +20,9 @@ export {
 export {
   EXTRACT_FACTS_SYSTEM_PROMPT,
   INSPECT_SYSTEM_PROMPT,
+  SUGGEST_REPLY_SYSTEM_PROMPT,
   parseExtractedWorklogFacts,
+  parseSuggestedReply,
   planAgentRun,
   type AgencyError,
   type AgentPurpose,
@@ -163,6 +165,7 @@ export {
 } from "./career-management";
 export {
   inboundRaisesNotice,
+  planSuggestedReplyChangeSet,
   prepareContactMessage,
   presentInboundMessageNotice,
   type ContactMessage,

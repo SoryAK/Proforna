@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseExtractedWorklogFacts, planAgentRun } from "./agency";
+import { parseExtractedWorklogFacts, parseSuggestedReply, planAgentRun } from "./agency";
 
 describe("Agency.run", () => {
   const now = "2026-09-21T14:00:00.000Z";
@@ -128,6 +128,34 @@ describe("Agency.run", () => {
         roleId: null,
       }),
     ).toEqual([]);
+  });
+
+  it("plans a local suggest-reply run", () => {
+    expect(
+      planAgentRun({
+        id: "run-8",
+        occupantId: "local",
+        purpose: "suggest-reply",
+        scope: { type: "contact", id: "contact-1" },
+        grant: { remoteModel: false },
+        hosting: "local",
+        now,
+      }),
+    ).toMatchObject({
+      ok: true,
+      value: {
+        purpose: "suggest-reply",
+        scope: { type: "contact", id: "contact-1" },
+        status: "started",
+      },
+    });
+  });
+
+  it("parses a suggested reply body from model JSON", () => {
+    expect(
+      parseSuggestedReply('```json\n{"body":"Thursday works."}\n```'),
+    ).toBe("Thursday works.");
+    expect(parseSuggestedReply("not json")).toBe("");
   });
 
   it("rejects an expired remote-model grant", () => {

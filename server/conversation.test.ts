@@ -100,4 +100,94 @@ describe("contact conversation HTTP seam", () => {
       db.close();
     }
   });
+
+  it("proposes a Proforna reply that sends only after approval", async () => {
+    const perform = vi.fn(async () => ({ externalId: "sent-2" }));
+    const complete = vi.fn(async () => ({
+      text: JSON.stringify({ body: "Thursday works." }),
+      model: "local-test",
+    }));
+    const db = openDatabase(":memory:");
+    const app = createApp(db, { complete, externalActions: { perform } });
+    try {
+      await app.request("/api/models", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          hosting: "local",
+          baseUrl: "http://127.0.0.1:11434/v1",
+          model: "local-test",
+        }),
+      });
+      const inbound = (await (
+        await app.request("/api/contacts/inbound", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            name: "Alex Rivera",
+            email: "alex@example.com",
+            body: "May we talk Thursday?",
+          }),
+        })
+      ).json()) as { contact: { id: string } };
+
+      const ran = await app.request("/api/agency/runs", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          purpose: "suggest-reply",
+          scope: { type: "contact", id: inbound.contact.id },
+          grant: { remoteModel: false },
+        }),
+      });
+      expect(ran.status).toBe(201);
+      const body = (await ran.json()) as {
+        run: { changeSet: { id: string; purpose: string; destination: string } };
+      };
+      expect(body.run.changeSet).toMatchObject({
+        purpose: "Reply to Alex Rivera",
+        destination: "alex@example.com",
+      });
+      expect(perform).not.toHaveBeenCalled();
+
+      const notices = (await (await app.request("/api/notices")).json()) as {
+        notices: Array<{ href: string; title: string; kind: string }>;
+      };
+      expect(notices.notices).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            kind: "proposed-change",
+            href: "network",
+            title: "Reply to Alex Rivera",
+          }),
+        ]),
+      );
+
+      const approved = await app.request(
+        `/api/contacts/${inbound.contact.id}/replies/${body.run.changeSet.id}/approve`,
+        { method: "POST" },
+      );
+      expect(approved.status).toBe(200);
+      expect(perform).toHaveBeenCalledOnce();
+
+      const thread = (await (
+        await app.request(`/api/contacts/${inbound.contact.id}/messages`)
+      ).json()) as {
+        messages: Array<{ direction: string; body: string }>;
+        proposedReplies: unknown[];
+      };
+      expect(thread.messages.some((message) => message.body === "Thursday works.")).toBe(
+        true,
+      );
+      expect(thread.proposedReplies).toEqual([]);
+      const remaining = (await (await app.request("/api/notices")).json()) as {
+        notices: Array<{ kind: string }>;
+      };
+      expect(
+        remaining.notices.some((notice) => notice.kind === "proposed-change"),
+      ).toBe(false);
+    } finally {
+      db.close();
+    }
+  });
 });

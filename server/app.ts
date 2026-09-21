@@ -96,7 +96,9 @@ import {
 } from "./career-management";
 import {
   ConversationStoreError,
+  commitSuggestedReply,
   listContactMessages,
+  listProposedReplies,
   receiveInboundMessage,
   sendOccupantMessage,
 } from "./conversation";
@@ -187,7 +189,8 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
           error.code === "remote-model-grant-required" ||
           error.code === "grant-expired"
             ? 403
-            : error.code === "entry-missing"
+            : error.code === "entry-missing" ||
+                error.code === "contact-missing"
               ? 404
               : error.code === "model-failed"
                 ? 502
@@ -1086,6 +1089,11 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
     try {
       return c.json({
         messages: listContactMessages(db, occupant.id, c.req.param("id")),
+        proposedReplies: listProposedReplies(
+          db,
+          occupant.id,
+          c.req.param("id"),
+        ),
       });
     } catch (error) {
       if (error instanceof ConversationStoreError) {
@@ -1109,6 +1117,29 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
     } catch (error) {
       if (error instanceof ConversationStoreError) {
         const status = error.code === "contact-missing" ? 404 : 400;
+        return c.json({ error: error.code }, status);
+      }
+      throw error;
+    }
+  });
+
+  app.post("/api/contacts/:id/replies/:changeSetId/approve", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      const result = await commitSuggestedReply(
+        db,
+        occupant.id,
+        c.req.param("id"),
+        c.req.param("changeSetId"),
+        externalActions,
+      );
+      return c.json(result);
+    } catch (error) {
+      if (error instanceof ConversationStoreError) {
+        const status =
+          error.code === "contact-missing" || error.code === "change-set-missing"
+            ? 404
+            : 400;
         return c.json({ error: error.code }, status);
       }
       throw error;

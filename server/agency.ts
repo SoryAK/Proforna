@@ -3,7 +3,9 @@ import type { DatabaseSync } from "node:sqlite";
 import {
   EXTRACT_FACTS_SYSTEM_PROMPT,
   INSPECT_SYSTEM_PROMPT,
+  SUGGEST_REPLY_SYSTEM_PROMPT,
   parseExtractedWorklogFacts,
+  parseSuggestedReply,
   planAgentRun,
   type AgentRun,
   type ChangeSet,
@@ -14,6 +16,7 @@ import {
   isAbortError,
   type CompleteFn,
 } from "./openai-compat";
+import { persistSuggestedReply, readContactThread, ConversationStoreError } from "./conversation";
 import { listWorklog, persistWorklogFactProposals, WorklogStoreError } from "./worklog";
 
 type JsonObject = Record<string, unknown>;
@@ -58,9 +61,8 @@ export async function runAgency(
     throw new AgencyStoreError("model-busy");
   }
 
-  const scope = planned.value.scope;
-  const entry = listWorklog(db, occupantId).find((item) => item.id === scope.id);
-  if (!entry) throw new AgencyStoreError("entry-missing");
+  const context = loadRunContext(db, occupantId, planned.value);
+  if (!context.ok) throw new AgencyStoreError(context.error);
 
   activeOccupantRuns.add(occupantId);
   insertRun(db, planned.value, {
@@ -71,10 +73,6 @@ export async function runAgency(
     model: connection.model,
   });
 
-  const prompt =
-    planned.value.purpose === "extract-facts"
-      ? EXTRACT_FACTS_SYSTEM_PROMPT
-      : INSPECT_SYSTEM_PROMPT;
   const local = connection.hosting === "local";
 
   let reply: { text: string; model: string };
@@ -84,21 +82,11 @@ export async function runAgency(
       apiKey: connection.apiKey,
       model: connection.model,
       messages: [
-        { role: "system", content: prompt },
-        {
-          role: "user",
-          content: [
-            `Worklog title: ${entry.title}`,
-            `Occurred on: ${entry.occurredOn}`,
-            entry.project ? `Project: ${entry.project}` : "",
-            entry.content,
-          ]
-            .filter(Boolean)
-            .join("\n"),
-        },
+        { role: "system", content: context.prompt },
+        { role: "user", content: context.userContent },
       ],
       signal,
-      jsonObject: planned.value.purpose === "extract-facts",
+      jsonObject: context.jsonObject,
       keepAlive: local ? 0 : undefined,
       contextTokens: local ? 8192 : undefined,
     });
@@ -126,7 +114,12 @@ export async function runAgency(
     completedAt: new Date().toISOString(),
   };
 
-  if (planned.value.purpose === "extract-facts") {
+  const scope = planned.value.scope;
+  if (planned.value.purpose === "extract-facts" && scope.type === "worklog") {
+    const entry = listWorklog(db, occupantId).find(
+      (item) => item.id === scope.id,
+    );
+    if (!entry) throw new AgencyStoreError("entry-missing");
     const proposals = parseExtractedWorklogFacts(reply.text, entry);
     let changeSet: ChangeSet | null;
     try {
@@ -167,6 +160,50 @@ export async function runAgency(
     };
   }
 
+  if (
+    planned.value.purpose === "suggest-reply" &&
+    planned.value.scope.type === "contact"
+  ) {
+    const body = parseSuggestedReply(reply.text);
+    let changeSet: ChangeSet | null;
+    try {
+      changeSet = await persistSuggestedReply(
+        db,
+        occupantId,
+        planned.value.scope.id,
+        body,
+      );
+    } catch (error) {
+      const failed: AgentRun = {
+        ...planned.value,
+        status: "failed",
+        completedAt: new Date().toISOString(),
+      };
+      finishRun(db, failed, {
+        kind: "error",
+        message:
+          error instanceof Error ? error.message : "Could not record the draft.",
+      });
+      if (error instanceof ConversationStoreError) {
+        throw new AgencyStoreError(error.code);
+      }
+      throw error;
+    }
+    finishRun(db, completed, {
+      kind: "change-set",
+      changeSetId: changeSet?.id ?? null,
+      model: reply.model,
+    });
+    return {
+      run: {
+        ...completed,
+        answer: null,
+        model: reply.model,
+        changeSet: summarizeChangeSet(changeSet),
+      },
+    };
+  }
+
   finishRun(db, completed, {
     kind: "answer",
     text: reply.text,
@@ -179,6 +216,62 @@ export async function runAgency(
       model: reply.model,
       changeSet: null,
     },
+  };
+}
+
+function loadRunContext(
+  db: DatabaseSync,
+  occupantId: string,
+  run: AgentRun,
+):
+  | { ok: true; prompt: string; userContent: string; jsonObject: boolean }
+  | { ok: false; error: string } {
+  const scope = run.scope;
+  if (scope.type === "contact") {
+    try {
+      const thread = readContactThread(db, occupantId, scope.id);
+      return {
+        ok: true,
+        prompt: SUGGEST_REPLY_SYSTEM_PROMPT,
+        jsonObject: true,
+        userContent: [
+          `Contact: ${thread.contact.name}`,
+          thread.contact.email ? `Email: ${thread.contact.email}` : "",
+          "Thread:",
+          ...thread.messages.map(
+            (message) =>
+              `[${message.direction}] ${message.body}`,
+          ),
+        ]
+          .filter(Boolean)
+          .join("\n"),
+      };
+    } catch {
+      return { ok: false, error: "contact-missing" };
+    }
+  }
+  if (scope.type !== "worklog") {
+    return { ok: false, error: "scope-required" };
+  }
+  const entry = listWorklog(db, occupantId).find(
+    (item) => item.id === scope.id,
+  );
+  if (!entry) return { ok: false, error: "entry-missing" };
+  return {
+    ok: true,
+    prompt:
+      run.purpose === "extract-facts"
+        ? EXTRACT_FACTS_SYSTEM_PROMPT
+        : INSPECT_SYSTEM_PROMPT,
+    jsonObject: run.purpose === "extract-facts",
+    userContent: [
+      `Worklog title: ${entry.title}`,
+      `Occurred on: ${entry.occurredOn}`,
+      entry.project ? `Project: ${entry.project}` : "",
+      entry.content,
+    ]
+      .filter(Boolean)
+      .join("\n"),
   };
 }
 

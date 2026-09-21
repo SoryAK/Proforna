@@ -2,13 +2,16 @@ import type { ModelHosting } from "./model-connection";
 import { stripJsonFence } from "./resume-extract";
 import type { WorklogFactProposal } from "./worklog";
 
-export const AGENT_PURPOSES = ["inspect", "extract-facts"] as const;
+export const AGENT_PURPOSES = [
+  "inspect",
+  "extract-facts",
+  "suggest-reply",
+] as const;
 export type AgentPurpose = (typeof AGENT_PURPOSES)[number];
 
-export type AgentScope = {
-  type: "worklog";
-  id: string;
-};
+export type AgentScope =
+  | { type: "worklog"; id: string }
+  | { type: "contact"; id: string };
 
 export type CapabilityGrant = {
   remoteModel: boolean;
@@ -92,6 +95,21 @@ export function parseExtractedWorklogFacts(
   return proposals;
 }
 
+export const SUGGEST_REPLY_SYSTEM_PROMPT =
+  "You are Proforna. Draft one reply the occupant could send on this Contact thread. Use only the thread. Do not invent facts. Do not claim you sent it. Return ONLY JSON: {\"body\":\"string\"}.";
+
+export function parseSuggestedReply(text: string): string {
+  let raw: unknown;
+  try {
+    raw = JSON.parse(stripJsonFence(text));
+  } catch {
+    return "";
+  }
+  if (!raw || typeof raw !== "object") return "";
+  const body = (raw as Record<string, unknown>).body;
+  return typeof body === "string" ? body.trim() : "";
+}
+
 export function planAgentRun(input: {
   id: string;
   occupantId: string;
@@ -149,6 +167,7 @@ function parseScope(value: unknown): AgentScope | null {
   if (!value || typeof value !== "object") return null;
   const record = value as Record<string, unknown>;
   const id = typeof record.id === "string" ? record.id.trim() : "";
-  if (record.type !== "worklog" || !id) return null;
-  return { type: "worklog", id };
+  if (record.type === "worklog" && id) return { type: "worklog", id };
+  if (record.type === "contact" && id) return { type: "contact", id };
+  return null;
 }
