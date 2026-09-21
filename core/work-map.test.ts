@@ -7,6 +7,7 @@ import {
   planWorkMapPublicationSettings,
   planWorkMapRoleFactSync,
   prepareWorkMapLocation,
+  prepareWorkMapRoleCreate,
   presentWorkMapPlace,
   publicationAllowsSnapshot,
   publicationNeedsAudienceConfirm,
@@ -318,6 +319,27 @@ describe("Work Map career-fact attachment", () => {
         }),
       }),
     ]);
+  });
+});
+
+describe("Work Map role create", () => {
+  it("accepts only job, internship, or school when creating a role", () => {
+    expect(prepareWorkMapRoleCreate({ kind: "job" })).toEqual({
+      ok: true,
+      value: { kind: "job" },
+    });
+    expect(prepareWorkMapRoleCreate({ kind: "internship" })).toEqual({
+      ok: true,
+      value: { kind: "internship" },
+    });
+    expect(prepareWorkMapRoleCreate({ kind: "school" })).toEqual({
+      ok: true,
+      value: { kind: "school" },
+    });
+    expect(prepareWorkMapRoleCreate({ kind: "gig" })).toEqual({
+      ok: false,
+      error: "kind-invalid",
+    });
   });
 });
 

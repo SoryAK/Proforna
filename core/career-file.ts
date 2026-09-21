@@ -47,7 +47,7 @@ export function presentCareerFile(
   skillNames: string[],
 ): CareerFile {
   const jobs = records
-    .filter((row) => row.kind === "job")
+    .filter((row) => row.kind === "job" || row.kind === "internship")
     .sort(byRecency)
     .map((row) => ({
       id: row.id,

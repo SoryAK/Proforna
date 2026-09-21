@@ -9,6 +9,7 @@ import {
   planWorkMapPublicationSettings,
   planWorkMapRoleFactSync,
   prepareWorkMapLocation,
+  prepareWorkMapRoleCreate,
   presentWorkMapPlace,
   type WorkMapLocation,
   type WorkMapMedia,
@@ -75,17 +76,30 @@ export async function updateWorkMapRole(
   backfillCareerMemory(db, occupantId);
   const existing = db
     .prepare(
-      `SELECT title, company, location, start_date, end_date, is_current,
+      `SELECT kind, title, company, location, start_date, end_date, is_current,
               description, achievements_json
        FROM work_history WHERE id = ? AND occupant_id = ?`,
     )
     .get(roleId, occupantId) as JsonObject;
   const achievements = stringArray(input.achievements);
+  const nextKind = "kind" in input
+    ? prepareWorkMapRoleCreate({ kind: input.kind })
+    : {
+        ok: true as const,
+        value: {
+          kind:
+            existing.kind === "school" || existing.kind === "internship"
+              ? existing.kind
+              : "job",
+        },
+      };
+  if (!nextKind.ok) throw new WorkMapStoreError(nextKind.error);
   db.prepare(
-    `UPDATE work_history SET title = ?, company = ?, location = ?,
+    `UPDATE work_history SET kind = ?, title = ?, company = ?, location = ?,
        start_date = ?, end_date = ?, is_current = ?, description = ?,
        achievements_json = ? WHERE id = ? AND occupant_id = ?`,
   ).run(
+    nextKind.value.kind,
     text(input.title) || String(existing.title),
     text(input.organization) || String(existing.company),
     text(input.locationLabel) || String(existing.location),
@@ -115,6 +129,7 @@ export async function updateWorkMapRole(
     title: `Work Map edit: ${role.title}`,
     content: {
       roleId,
+      kind: role.kind,
       title: role.title,
       organization: role.organization,
       locationLabel: role.locationLabel,
@@ -137,6 +152,68 @@ export async function updateWorkMapRole(
     }),
   );
   return readWorkMap(db, occupantId).roles.find((item) => item.id === roleId);
+}
+
+export async function createWorkMapRole(
+  db: DatabaseSync,
+  occupantId: string,
+  input: JsonObject,
+) {
+  const prepared = prepareWorkMapRoleCreate(input);
+  if (!prepared.ok) throw new WorkMapStoreError(prepared.error);
+  backfillCareerMemory(db, occupantId);
+  const id = randomUUID();
+  const now = new Date().toISOString();
+  db.prepare(
+    `INSERT INTO work_history
+      (id, occupant_id, kind, title, company, location, start_date, end_date,
+       is_current, description, achievements_json, degree, field, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    id,
+    occupantId,
+    prepared.value.kind,
+    "",
+    "",
+    "",
+    "",
+    "",
+    0,
+    "",
+    "[]",
+    "",
+    "",
+    now,
+  );
+  const created = db
+    .prepare(
+      `SELECT id, kind, title, company, location, start_date, end_date,
+              is_current, description, achievements_json
+       FROM work_history WHERE id = ? AND occupant_id = ?`,
+    )
+    .get(id, occupantId) as JsonObject;
+  const role = mapRole(db, occupantId, created);
+  const evidence = saveEvidence(db, occupantId, {
+    sourceType: "work-map",
+    sourceRef: `work-map:${id}:${randomUUID()}`,
+    title: `Work Map create: ${prepared.value.kind}`,
+    content: {
+      roleId: id,
+      kind: prepared.value.kind,
+    },
+  });
+  const facts = readCareerMemory(db, occupantId).facts;
+  await commitOccupantFactOperations(
+    db,
+    occupantId,
+    `Create Work Map role: ${prepared.value.kind}`,
+    planWorkMapRoleFactSync({
+      role,
+      facts,
+      evidenceId: evidence.id,
+    }),
+  );
+  return readWorkMap(db, occupantId).roles.find((item) => item.id === id);
 }
 
 export function saveWorkMapDetails(
@@ -525,7 +602,12 @@ function mapRole(
 ): WorkMapRole {
   return {
     id: String(row.id),
-    kind: row.kind === "school" ? "school" : "job",
+    kind:
+      row.kind === "school"
+        ? "school"
+        : row.kind === "internship"
+          ? "internship"
+          : "job",
     title: String(row.title),
     organization: String(row.company),
     locationLabel: String(row.location),

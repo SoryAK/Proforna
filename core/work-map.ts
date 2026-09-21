@@ -84,7 +84,7 @@ export type WorkMapClaim = {
 
 export type WorkMapRole = {
   id: string;
-  kind: "job" | "school";
+  kind: "job" | "school" | "internship";
   title: string;
   organization: string;
   locationLabel: string;
@@ -136,6 +136,21 @@ export function publicationNeedsAudienceConfirm(input: {
     !publicationAllowsSnapshot(input.visibility) ||
     input.liveStatus !== "published"
   );
+}
+
+export function prepareWorkMapRoleCreate(input: {
+  kind?: unknown;
+}):
+  | { ok: true; value: { kind: WorkMapRole["kind"] } }
+  | { ok: false; error: "kind-invalid" } {
+  if (
+    input.kind === "job" ||
+    input.kind === "internship" ||
+    input.kind === "school"
+  ) {
+    return { ok: true, value: { kind: input.kind } };
+  }
+  return { ok: false, error: "kind-invalid" };
 }
 
 export type WorkMapSnapshot = {

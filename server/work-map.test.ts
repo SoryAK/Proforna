@@ -244,3 +244,82 @@ describe("Work Map sites HTTP seam", () => {
     }
   });
 });
+
+describe("Work Map role create HTTP seam", () => {
+  it("creates a role for a Career History kind", async () => {
+    const db = openDatabase(":memory:");
+    const app = createApp(db);
+    try {
+      const created = await app.request("/api/work-map/roles", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ kind: "internship" }),
+      });
+      expect(created.status).toBe(201);
+      const body = (await created.json()) as {
+        role: { id: string; kind: string; title: string; organization: string };
+      };
+      expect(body.role.kind).toBe("internship");
+      expect(body.role.title).toBe("");
+      expect(body.role.organization).toBe("");
+
+      const map = (await (await app.request("/api/work-map")).json()) as {
+        roles: Array<{ id: string; kind: string }>;
+      };
+      expect(map.roles).toEqual([
+        expect.objectContaining({ id: body.role.id, kind: "internship" }),
+      ]);
+
+      const rejected = await app.request("/api/work-map/roles", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ kind: "gig" }),
+      });
+      expect(rejected.status).toBe(400);
+      await expect(rejected.json()).resolves.toEqual({ error: "kind-invalid" });
+    } finally {
+      db.close();
+    }
+  });
+
+  it("lets an occupant change a role between job, internship, and education", async () => {
+    const db = openDatabase(":memory:");
+    const app = createApp(db);
+    try {
+      const created = await app.request("/api/work-map/roles", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ kind: "job" }),
+      });
+      const body = (await created.json()) as { role: { id: string } };
+      const saved = await app.request(`/api/work-map/roles/${body.role.id}`, {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          kind: "internship",
+          title: "Robotics Research Intern",
+          organization: "Widener University",
+        }),
+      });
+      expect(saved.status).toBe(200);
+      await expect(saved.json()).resolves.toEqual({
+        role: expect.objectContaining({
+          id: body.role.id,
+          kind: "internship",
+          title: "Robotics Research Intern",
+          organization: "Widener University",
+        }),
+      });
+
+      const rejected = await app.request(`/api/work-map/roles/${body.role.id}`, {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ kind: "gig" }),
+      });
+      expect(rejected.status).toBe(400);
+      await expect(rejected.json()).resolves.toEqual({ error: "kind-invalid" });
+    } finally {
+      db.close();
+    }
+  });
+});

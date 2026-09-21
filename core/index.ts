@@ -153,6 +153,7 @@ export {
   planWorkMapPublicationSettings,
   planWorkMapRoleFactSync,
   prepareWorkMapLocation,
+  prepareWorkMapRoleCreate,
   presentWorkMapPlace,
   publicationAllowsSnapshot,
   publicationNeedsAudienceConfirm,

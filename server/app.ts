@@ -97,6 +97,7 @@ import {
   WorkMapStoreError,
   addWorkMapLocation,
   addWorkMapMedia,
+  createWorkMapRole,
   lookupNominatimPlace,
   readWorkMap,
   readWorkMapSettings,
@@ -491,6 +492,23 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
     const place = await lookup(query);
     if (!place) return c.json({ error: "place-missing" }, 404);
     return c.json({ place });
+  });
+
+  app.post("/api/work-map/roles", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      const role = await createWorkMapRole(
+        db,
+        occupant.id,
+        (await c.req.json()) as Record<string, unknown>,
+      );
+      return c.json({ role }, 201);
+    } catch (error) {
+      if (error instanceof WorkMapStoreError) {
+        return c.json({ error: error.code }, 400);
+      }
+      throw error;
+    }
   });
 
   app.put("/api/work-map/roles/:id", async (c) => {

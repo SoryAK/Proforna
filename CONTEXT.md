@@ -49,9 +49,10 @@ An immutable rendering source pinned to exact career-fact versions.
 _Avoid_: Draft, version
 
 **Work Map Role**:
-The enriched record of one job or school, including locations, milestones,
-media, work conditions, equipment, growth, departure reflection, and linked
-career evidence. Career Facts about that role use it as their subject.
+The enriched record of one job, internship, or school, including locations,
+milestones, media, work conditions, equipment, growth, departure reflection,
+and linked career evidence. Career Facts about that role use it as their
+subject.
 _Avoid_: Resume entry, job card
 
 **Work Map**:
