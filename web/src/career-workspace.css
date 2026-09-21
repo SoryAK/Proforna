@@ -521,21 +521,83 @@
   margin-top: 2rem;
 }
 
-.contact-list article {
-  padding: 1rem;
-  border: 1px solid rgba(167, 139, 113, 0.2);
+.network-layout {
+  display: grid;
+  grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr);
+  gap: 1.5rem;
+  margin-top: 2rem;
+  align-items: start;
 }
 
-.contact-list h2 {
+.network-layout .contact-list {
+  grid-template-columns: 1fr;
+  margin-top: 0;
+}
+
+.contact-card,
+.contact-list article {
+  display: block;
+  width: 100%;
+  padding: 1rem;
+  border: 1px solid rgba(167, 139, 113, 0.2);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+
+.contact-card.is-selected {
+  border-color: var(--gold);
+}
+
+.contact-list h2,
+.contact-card h2,
+.contact-thread h2 {
   margin: 0;
   color: var(--text);
   font-size: 1rem;
 }
 
 .contact-list p,
-.contact-list span {
+.contact-list span,
+.contact-card p,
+.contact-card span,
+.contact-card small {
   color: var(--gold-light);
   font-size: 0.72rem;
+}
+
+.contact-card small {
+  display: block;
+  margin-top: 0.4rem;
+  color: var(--gold-hover);
+}
+
+.contact-thread {
+  min-height: 16rem;
+  padding: 1rem;
+  border: 1px solid rgba(167, 139, 113, 0.2);
+}
+
+.contact-thread ol {
+  list-style: none;
+  margin: 1rem 0;
+  padding: 0;
+  display: grid;
+  gap: 0.85rem;
+}
+
+.contact-thread li p {
+  margin: 0.25rem 0 0;
+  color: var(--text);
+}
+
+.contact-thread li span {
+  color: var(--gold-light);
+  font-size: 0.7rem;
+}
+
+.contact-thread .is-outbound {
+  margin-left: 2rem;
 }
 
 .documents-grid {
@@ -682,6 +744,7 @@
 
   .opportunity-grid,
   .network-form,
+  .network-layout,
   .contact-list,
   .documents-grid {
     grid-template-columns: 1fr;

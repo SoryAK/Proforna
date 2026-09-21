@@ -83,11 +83,18 @@ import {
   createOffer,
   createOpportunity,
   createPlan,
+  promoteOpportunityToNetwork,
   proposeExternalAction,
   readCareerManagement,
   transitionOwnedApplication,
   type ExternalActionAdapter,
 } from "./career-management";
+import {
+  ConversationStoreError,
+  listContactMessages,
+  receiveInboundMessage,
+  sendOccupantMessage,
+} from "./conversation";
 import {
   DocumentStoreError,
   listDocuments,
@@ -889,6 +896,26 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
     }
   });
 
+  app.post("/api/opportunities/:id/network", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      return c.json(
+        promoteOpportunityToNetwork(db, occupant.id, c.req.param("id")),
+      );
+    } catch (error) {
+      if (error instanceof CareerManagementStoreError) {
+        const status =
+          error.code === "opportunity-missing"
+            ? 404
+            : error.code === "kind-invalid"
+              ? 400
+              : 400;
+        return c.json({ error: error.code }, status);
+      }
+      throw error;
+    }
+  });
+
   app.post("/api/opportunities/:id/applications", async (c) => {
     const occupant = ensureOccupant(db);
     try {
@@ -995,6 +1022,57 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
     } catch (error) {
       if (error instanceof CareerManagementStoreError) {
         return c.json({ error: error.code }, 400);
+      }
+      throw error;
+    }
+  });
+
+  app.post("/api/contacts/inbound", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      const received = receiveInboundMessage(
+        db,
+        occupant.id,
+        (await c.req.json()) as Record<string, unknown>,
+      );
+      return c.json(received, 201);
+    } catch (error) {
+      if (error instanceof ConversationStoreError) {
+        return c.json({ error: error.code }, 400);
+      }
+      throw error;
+    }
+  });
+
+  app.get("/api/contacts/:id/messages", (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      return c.json({
+        messages: listContactMessages(db, occupant.id, c.req.param("id")),
+      });
+    } catch (error) {
+      if (error instanceof ConversationStoreError) {
+        return c.json({ error: error.code }, 404);
+      }
+      throw error;
+    }
+  });
+
+  app.post("/api/contacts/:id/messages", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      const sent = await sendOccupantMessage(
+        db,
+        occupant.id,
+        c.req.param("id"),
+        (await c.req.json()) as Record<string, unknown>,
+        externalActions,
+      );
+      return c.json(sent, 201);
+    } catch (error) {
+      if (error instanceof ConversationStoreError) {
+        const status = error.code === "contact-missing" ? 404 : 400;
+        return c.json({ error: error.code }, status);
       }
       throw error;
     }

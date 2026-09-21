@@ -11,7 +11,7 @@ export type Sensitivity = "private" | "restricted" | "public";
 export type Evidence = {
   id: string;
   occupantId: string;
-  sourceType: "user" | "resume" | "worklog" | "work-map" | "document" | "import";
+  sourceType: "user" | "resume" | "worklog" | "work-map" | "document" | "import" | "message";
   sourceRef: string;
   title: string;
   capturedAt: string;

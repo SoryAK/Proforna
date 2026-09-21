@@ -4,6 +4,7 @@ import {
   authorizeChangeSet,
   createApproval,
   hashChangeSet,
+  planOpportunityNetworkPromotion,
   prepareExternalAction,
   prepareOpportunity,
   transitionApplication,
@@ -74,11 +75,12 @@ export function createOpportunity(
   };
   const prepared = prepareOpportunity(opportunity);
   if (!prepared.ok) throw new CareerManagementStoreError(prepared.error);
+  const contactId = text(input.contactId) || null;
   db.prepare(
     `INSERT INTO opportunities
       (id, occupant_id, kind, title, organization, source_url, location,
-       fit_summary, status, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       fit_summary, status, created_at, contact_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     opportunity.id,
     occupantId,
@@ -90,8 +92,61 @@ export function createOpportunity(
     opportunity.fitSummary,
     opportunity.status,
     opportunity.createdAt,
+    contactId,
   );
   return opportunity;
+}
+
+export function promoteOpportunityToNetwork(
+  db: DatabaseSync,
+  occupantId: string,
+  opportunityId: string,
+) {
+  const row = db
+    .prepare(
+      `SELECT id, kind, title, organization, contact_id AS contactId, status
+         FROM opportunities WHERE id = ? AND occupant_id = ?`,
+    )
+    .get(opportunityId, occupantId) as
+    | {
+        id: string;
+        kind: string;
+        title: string;
+        organization: string;
+        contactId: string | null;
+        status: string;
+      }
+    | undefined;
+  if (!row) throw new CareerManagementStoreError("opportunity-missing");
+  const planned = planOpportunityNetworkPromotion({
+    kind: parseOpportunityKind(row.kind),
+  });
+  if (!planned.ok) throw new CareerManagementStoreError(planned.error);
+  let contactId = row.contactId ? String(row.contactId) : "";
+  let contact = contactId
+    ? db
+        .prepare(
+          "SELECT * FROM contacts WHERE id = ? AND occupant_id = ?",
+        )
+        .get(contactId, occupantId)
+    : undefined;
+  if (!contact) {
+    const created = createContact(db, occupantId, {
+      name: row.title,
+      organization: row.organization,
+    });
+    contactId = created.id;
+    contact = created;
+  }
+  db.prepare(
+    `UPDATE opportunities
+        SET status = ?, contact_id = ?
+      WHERE id = ? AND occupant_id = ?`,
+  ).run(planned.value.status, contactId, opportunityId, occupantId);
+  return {
+    opportunity: { id: opportunityId, status: planned.value.status, contactId },
+    contact,
+  };
 }
 
 export function createApplication(
