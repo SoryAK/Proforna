@@ -85,7 +85,8 @@ export type CareerManagementError =
   | "transition-invalid"
   | "destination-required"
   | "idempotency-required"
-  | "decision-invalid";
+  | "decision-invalid"
+  | "kind-invalid";
 
 export type InboundAccessDecision = "grant" | "decline";
 
@@ -169,6 +170,17 @@ export function presentInboundAccessRequest(input: {
       notes: message,
     },
   };
+}
+
+export function planOpportunityNetworkPromotion(input: {
+  kind: OpportunityKind;
+}):
+  | { ok: true; value: { status: "closed" } }
+  | { ok: false; error: CareerManagementError } {
+  if (input.kind !== "connection") {
+    return { ok: false, error: "kind-invalid" };
+  }
+  return { ok: true, value: { status: "closed" } };
 }
 
 export function prepareOpportunity(

@@ -134,6 +134,7 @@ export {
 } from "./projection";
 export {
   presentInboundAccessRequest,
+  planOpportunityNetworkPromotion,
   resolveInboundAccessRequest,
   prepareExternalAction,
   prepareOpportunity,

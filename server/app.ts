@@ -83,6 +83,7 @@ import {
   createOffer,
   createOpportunity,
   createPlan,
+  promoteOpportunityToNetwork,
   proposeExternalAction,
   readCareerManagement,
   transitionOwnedApplication,
@@ -890,6 +891,26 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
           { error: error.code },
           error.code === "decision-invalid" ? 400 : 404,
         );
+      }
+      throw error;
+    }
+  });
+
+  app.post("/api/opportunities/:id/network", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      return c.json(
+        promoteOpportunityToNetwork(db, occupant.id, c.req.param("id")),
+      );
+    } catch (error) {
+      if (error instanceof CareerManagementStoreError) {
+        const status =
+          error.code === "opportunity-missing"
+            ? 404
+            : error.code === "kind-invalid"
+              ? 400
+              : 400;
+        return c.json({ error: error.code }, status);
       }
       throw error;
     }

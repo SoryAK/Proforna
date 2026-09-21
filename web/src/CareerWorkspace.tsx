@@ -282,6 +282,18 @@ function OpportunitiesPage() {
     await load();
   }
 
+  async function keepInNetwork(opportunityId: string) {
+    const response = await fetch(`/api/opportunities/${opportunityId}/network`, {
+      method: "POST",
+    });
+    setMessage(
+      response.ok
+        ? "Kept in My Network. The conversation stays on that person."
+        : "Only a connection can move into My Network.",
+    );
+    await load();
+  }
+
   async function transition(applicationId: string, stage: string) {
     const response = await fetch(`/api/applications/${applicationId}/transition`, {
       method: "POST",
@@ -338,24 +350,34 @@ function OpportunitiesPage() {
                 <h3>{opportunity.organization}</h3>
                 <p>{opportunity.fit_summary}</p>
                 {opportunity.kind === "connection" ? (
-                  opportunity.pending_access_request_id ? (
-                    <div className="opportunity-actions">
+                  <div className="opportunity-actions">
+                    {opportunity.pending_access_request_id ? (
+                      <>
+                        <button
+                          className="is-primary"
+                          type="button"
+                          onClick={() => void resolveAccess(opportunity.id, "grant")}
+                        >
+                          Grant access
+                        </button>
+                        <button
+                          className="is-danger"
+                          type="button"
+                          onClick={() => void resolveAccess(opportunity.id, "decline")}
+                        >
+                          Decline
+                        </button>
+                      </>
+                    ) : null}
+                    {opportunity.status !== "closed" ? (
                       <button
-                        className="is-primary"
                         type="button"
-                        onClick={() => void resolveAccess(opportunity.id, "grant")}
+                        onClick={() => void keepInNetwork(opportunity.id)}
                       >
-                        Grant access
+                        Keep in My Network
                       </button>
-                      <button
-                        className="is-danger"
-                        type="button"
-                        onClick={() => void resolveAccess(opportunity.id, "decline")}
-                      >
-                        Decline
-                      </button>
-                    </div>
-                  ) : null
+                    ) : null}
+                  </div>
                 ) : application ? (
                   <div className="application-state">
                     <strong>{application.stage}</strong>
