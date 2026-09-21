@@ -95,11 +95,11 @@ export function HomeBar({
                 ? "home-notice-btn home-proforna-toggle is-current"
                 : "home-notice-btn home-proforna-toggle"
             }
-            aria-label="Proforna"
+            aria-label={profornaOpen ? "Hide Proforna" : "Show Proforna"}
             aria-pressed={profornaOpen}
             onClick={onProforna}
           >
-            <Icon name="proforna" />
+            <Icon name={profornaOpen ? "panel" : "panelOff"} />
           </button>
         ) : null}
         <HomeNotices

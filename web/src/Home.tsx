@@ -11,6 +11,7 @@ import { HomeProforna } from "./HomeProforna";
 import type { OnboardingProfileValue } from "./OnboardingProfile";
 import "./home.css";
 
+const NAV_COLLAPSED_KEY = "proforna.navCollapsed";
 const PANEL_OPEN_KEY = "proforna.panelOpen";
 const WORKBENCH = "(min-width: 760px)";
 const NAV_DEFAULT = 264;
@@ -21,21 +22,31 @@ const EDITOR_MIN = 280;
 const NAV_MAX = 480;
 const CHAT_MAX = 560;
 const SASH = 8;
+const NAV_RAIL = 68;
 
 type SideWidths = { nav: number; chat: number };
+type Rails = { nav: boolean; chat: boolean };
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
 
-function fitWidths(preferred: SideWidths, container: number): SideWidths {
-  let nav = clamp(preferred.nav, NAV_MIN, NAV_MAX);
-  let chat = clamp(preferred.chat, CHAT_MIN, CHAT_MAX);
-  const overflow = nav + chat + EDITOR_MIN + SASH * 2 - container;
-  if (overflow > 0) {
+function fitWidths(
+  preferred: SideWidths,
+  container: number,
+  rails: Rails,
+): SideWidths {
+  let nav = rails.nav ? NAV_RAIL : clamp(preferred.nav, NAV_MIN, NAV_MAX);
+  let chat = rails.chat ? 0 : clamp(preferred.chat, CHAT_MIN, CHAT_MAX);
+  const sashCount = (rails.nav ? 0 : 1) + (rails.chat ? 0 : 1);
+  let overflow = nav + chat + EDITOR_MIN + SASH * sashCount - container;
+  if (overflow > 0 && !rails.chat) {
     const chatShrink = Math.min(overflow, chat - CHAT_MIN);
     chat -= chatShrink;
-    nav = Math.max(NAV_MIN, nav - (overflow - chatShrink));
+    overflow -= chatShrink;
+  }
+  if (overflow > 0 && !rails.nav) {
+    nav = Math.max(NAV_MIN, nav - overflow);
   }
   return { nav, chat };
 }
@@ -58,6 +69,7 @@ export function Home({
   const [focusJobId, setFocusJobId] = useState<string | null>(null);
   const [photoTick, setPhotoTick] = useState(0);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(readCollapsed);
   const [profornaOpen, setProfornaOpen] = useState(readPanelOpen);
   const [desktop, setDesktop] = useState(readDesktop);
   const [widths, setWidths] = useState<SideWidths>({
@@ -120,12 +132,15 @@ export function Home({
     const observer = new ResizeObserver(() => applyFit());
     observer.observe(shell);
     return () => observer.disconnect();
-  }, [desktop]);
+  }, [desktop, collapsed, profornaOpen]);
 
   function applyFit() {
     const container = shellRef.current?.clientWidth ?? 0;
     if (container <= 0) return;
-    const next = fitWidths(preferred.current, container);
+    const next = fitWidths(preferred.current, container, {
+      nav: collapsed,
+      chat: !profornaOpen,
+    });
     setWidths((current) =>
       current.nav === next.nav && current.chat === next.chat ? current : next,
     );
@@ -165,7 +180,14 @@ export function Home({
   }
 
   function toggleMenu() {
-    if (desktop) return;
+    if (desktop) {
+      setCollapsed((value) => {
+        const next = !value;
+        writeCollapsed(next);
+        return next;
+      });
+      return;
+    }
     setMobileOpen((open) => !open);
   }
 
@@ -205,7 +227,7 @@ export function Home({
         name={profile.fullName}
         headline={profile.headline}
         photoSrc={photoSrc}
-        menuExpanded={desktop ? true : mobileOpen}
+        menuExpanded={desktop ? !collapsed : mobileOpen}
         onMenu={toggleMenu}
         onProfile={goProfile}
         onSettings={() => setSettingsOpen(true)}
@@ -244,10 +266,10 @@ export function Home({
         ref={shellRef}
       >
         <HomeNav
-          collapsed={false}
+          collapsed={desktop && collapsed}
           mobileOpen={mobileOpen}
           page={page}
-          width={desktop ? widths.nav : undefined}
+          width={desktop && !collapsed ? widths.nav : undefined}
           onCloseMobile={() => setMobileOpen(false)}
           onGoHome={() => {
             goHome();
@@ -263,19 +285,21 @@ export function Home({
             goPage(next);
           }}
         />
-        <WorkbenchSash
-          label="Resize Career"
-          value={widths.nav}
-          min={NAV_MIN}
-          max={NAV_MAX}
-          dragging={dragging === "nav"}
-          onDragStart={(event) => dragSide("nav", event)}
-          onNudge={(delta) => nudge("nav", delta)}
-          onReset={() => {
-            preferred.current.nav = NAV_DEFAULT;
-            applyFit();
-          }}
-        />
+        {desktop && !collapsed ? (
+          <WorkbenchSash
+            label="Resize Career"
+            value={widths.nav}
+            min={NAV_MIN}
+            max={NAV_MAX}
+            dragging={dragging === "nav"}
+            onDragStart={(event) => dragSide("nav", event)}
+            onNudge={(delta) => nudge("nav", delta)}
+            onReset={() => {
+              preferred.current.nav = NAV_DEFAULT;
+              applyFit();
+            }}
+          />
+        ) : null}
       <main className="home-main">
       {page === "history" ? (
         <WorkHistory
@@ -351,23 +375,25 @@ export function Home({
       </header>
       )}
       </main>
-        <WorkbenchSash
-          label="Resize Proforna"
-          value={widths.chat}
-          min={CHAT_MIN}
-          max={CHAT_MAX}
-          dragging={dragging === "chat"}
-          onDragStart={(event) => dragSide("chat", event)}
-          onNudge={(delta) => nudge("chat", -delta)}
-          onReset={() => {
-            preferred.current.chat = CHAT_DEFAULT;
-            applyFit();
-          }}
-        />
+        {desktop && profornaOpen ? (
+          <WorkbenchSash
+            label="Resize Proforna"
+            value={widths.chat}
+            min={CHAT_MIN}
+            max={CHAT_MAX}
+            dragging={dragging === "chat"}
+            onDragStart={(event) => dragSide("chat", event)}
+            onNudge={(delta) => nudge("chat", -delta)}
+            onReset={() => {
+              preferred.current.chat = CHAT_DEFAULT;
+              applyFit();
+            }}
+          />
+        ) : null}
       <HomeProforna
-        open={desktop || profornaOpen}
+        open={profornaOpen}
         onToggle={togglePanel}
-        width={desktop ? widths.chat : undefined}
+        width={desktop && profornaOpen ? widths.chat : undefined}
       />
       </div>
     </div>
@@ -388,6 +414,22 @@ function readPage(): HomePage {
 
 function readDesktop(): boolean {
   return window.matchMedia(WORKBENCH).matches;
+}
+
+function readCollapsed(): boolean {
+  try {
+    return window.localStorage.getItem(NAV_COLLAPSED_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function writeCollapsed(collapsed: boolean) {
+  try {
+    window.localStorage.setItem(NAV_COLLAPSED_KEY, collapsed ? "1" : "0");
+  } catch {
+    /* ignore quota / private mode */
+  }
 }
 
 function readPanelOpen(): boolean {
