@@ -19,7 +19,7 @@ jobs:
           test -f CONTRIBUTING.md
           test -f CODE_OF_CONDUCT.md
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         if: hashFiles('package.json') != ''
         with:
           version: 10.17.1
