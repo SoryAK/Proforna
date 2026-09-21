@@ -263,4 +263,49 @@ describe("Agency HTTP seam", () => {
       db.close();
     }
   });
+
+  it("answers a Home command without writing a Change Set", async () => {
+    const complete = vi.fn(async () => ({
+      text: "Your Worklog is still thin on measured outcomes.",
+      model: "local-test",
+    }));
+    const db = openDatabase(":memory:");
+    const app = createApp(db, { complete });
+    try {
+      await app.request("/api/models", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          hosting: "local",
+          baseUrl: "http://127.0.0.1:11434/v1",
+          model: "local-test",
+        }),
+      });
+      const ran = await app.request("/api/agency/runs", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          purpose: "command",
+          scope: { type: "home" },
+          prompt: "What should I capture next?",
+          grant: { remoteModel: false },
+        }),
+      });
+      expect(ran.status).toBe(201);
+      const body = (await ran.json()) as {
+        run: { purpose: string; answer: string; changeSet: null };
+      };
+      expect(body.run).toMatchObject({
+        purpose: "command",
+        answer: "Your Worklog is still thin on measured outcomes.",
+        changeSet: null,
+      });
+      const notices = (await (await app.request("/api/notices")).json()) as {
+        notices: unknown[];
+      };
+      expect(notices.notices).toEqual([]);
+    } finally {
+      db.close();
+    }
+  });
 });

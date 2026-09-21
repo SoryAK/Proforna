@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   inboundRaisesNotice,
   presentInboundMessageNotice,
+  planSuggestedReplyChangeSet,
   prepareContactMessage,
 } from "./conversation";
 
@@ -52,5 +53,44 @@ describe("contact conversation", () => {
       href: "network",
       createdAt: "2026-09-21T13:00:00.000Z",
     });
+  });
+
+  it("plans one proposed send for a drafted reply", () => {
+    expect(
+      planSuggestedReplyChangeSet({
+        id: "change-1",
+        occupantId: "local",
+        contactId: "contact-1",
+        contactName: "Alex Rivera",
+        destination: "alex@example.com",
+        body: "Thursday works.",
+        createdAt: "2026-09-21T13:05:00.000Z",
+      }),
+    ).toEqual({
+      id: "change-1",
+      occupantId: "local",
+      purpose: "Reply to Alex Rivera",
+      destination: "alex@example.com",
+      createdAt: "2026-09-21T13:05:00.000Z",
+      operations: [
+        {
+          action: "send",
+          entityType: "external-message",
+          entityId: "contact-1",
+          values: { body: "Thursday works.", contactId: "contact-1" },
+        },
+      ],
+    });
+    expect(
+      planSuggestedReplyChangeSet({
+        id: "change-1",
+        occupantId: "local",
+        contactId: "contact-1",
+        contactName: "Alex Rivera",
+        destination: "alex@example.com",
+        body: "  ",
+        createdAt: "2026-09-21T13:05:00.000Z",
+      }),
+    ).toBeNull();
   });
 });

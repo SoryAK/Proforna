@@ -470,9 +470,18 @@ function NetworkPage() {
   >([]);
   const [draft, setDraft] = useState("");
   const [status, setStatus] = useState("");
+  const [proposedReplies, setProposedReplies] = useState<
+    Array<{ id: string; purpose: string; body: string }>
+  >([]);
+  const [allowRemote, setAllowRemote] = useState(false);
+  const [agencyBusy, setAgencyBusy] = useState(false);
+  const agencyAbort = useRef<AbortController | null>(null);
 
   useEffect(() => {
     void load();
+    return () => {
+      agencyAbort.current?.abort();
+    };
   }, []);
 
   async function load() {
@@ -495,8 +504,10 @@ function NetworkPage() {
         body: string;
         createdAt: string;
       }>;
+      proposedReplies?: Array<{ id: string; purpose: string; body: string }>;
     };
     setMessages(body.messages);
+    setProposedReplies(body.proposedReplies ?? []);
     window.dispatchEvent(new Event("proforna:notices-changed"));
     await load();
   }
@@ -527,6 +538,61 @@ function NetworkPage() {
     if (!response.ok) return;
     setDraft("");
     await openThread(selectedId);
+  }
+
+  async function suggestReply() {
+    if (!selectedId || agencyBusy) return;
+    setStatus("");
+    const abort = new AbortController();
+    agencyAbort.current = abort;
+    setAgencyBusy(true);
+    try {
+      const response = await fetch("/api/agency/runs", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          purpose: "suggest-reply",
+          scope: { type: "contact", id: selectedId },
+          grant: { remoteModel: allowRemote },
+        }),
+        signal: abort.signal,
+      });
+      if (response.status === 403) {
+        setAllowRemote(true);
+        setStatus(
+          "This uses a cloud model. Suggest again if this thread may leave the machine.",
+        );
+        return;
+      }
+      if (response.status === 409) {
+        setStatus("Proforna is already using the model.");
+        return;
+      }
+      if (!response.ok) {
+        setStatus("Connect a model in Settings before asking Proforna.");
+        return;
+      }
+      await openThread(selectedId);
+      window.dispatchEvent(new Event("proforna:notices-changed"));
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      throw error;
+    } finally {
+      if (agencyAbort.current === abort) agencyAbort.current = null;
+      setAgencyBusy(false);
+    }
+  }
+
+  async function approveReply(changeSetId: string) {
+    if (!selectedId) return;
+    const response = await fetch(
+      `/api/contacts/${selectedId}/replies/${changeSetId}/approve`,
+      { method: "POST" },
+    );
+    setStatus(response.ok ? "" : "Could not send that draft.");
+    if (!response.ok) return;
+    await openThread(selectedId);
+    window.dispatchEvent(new Event("proforna:notices-changed"));
   }
 
   const selected = data?.contacts.find((contact) => contact.id === selectedId);
@@ -591,6 +657,23 @@ function NetworkPage() {
               {!messages.length ? (
                 <p className="career-empty">No messages yet.</p>
               ) : null}
+              {proposedReplies.length ? (
+                <section className="proposal-review">
+                  <h3>Review Proforna's draft</h3>
+                  {proposedReplies.map((reply) => (
+                    <article key={reply.id}>
+                      <p>{reply.body}</p>
+                      <button
+                        type="button"
+                        disabled={agencyBusy}
+                        onClick={() => void approveReply(reply.id)}
+                      >
+                        Approve and send
+                      </button>
+                    </article>
+                  ))}
+                </section>
+              ) : null}
               <form className="compact-career-form" onSubmit={sendMessage}>
                 <textarea
                   required
@@ -599,6 +682,13 @@ function NetworkPage() {
                   placeholder="Write a reply"
                 />
                 <button type="submit">Send</button>
+                <button
+                  type="button"
+                  disabled={agencyBusy}
+                  onClick={() => void suggestReply()}
+                >
+                  {agencyBusy ? "Proforna is working…" : "Suggest a reply"}
+                </button>
               </form>
               {status ? <p className="career-message">{status}</p> : null}
             </>

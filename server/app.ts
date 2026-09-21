@@ -22,6 +22,13 @@ import {
   AgencyStoreError,
   runAgency,
 } from "./agency";
+import {
+  CommandSessionStoreError,
+  createCommandSession,
+  listCommandSessions,
+  readCommandSession,
+  sendCommandTurn,
+} from "./command-session";
 import { ensureOccupant, readProfile } from "./occupant";
 import {
   ModelConnectionError,
@@ -96,7 +103,9 @@ import {
 } from "./career-management";
 import {
   ConversationStoreError,
+  commitSuggestedReply,
   listContactMessages,
+  listProposedReplies,
   receiveInboundMessage,
   sendOccupantMessage,
 } from "./conversation";
@@ -187,13 +196,77 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
           error.code === "remote-model-grant-required" ||
           error.code === "grant-expired"
             ? 403
-            : error.code === "entry-missing"
+            : error.code === "entry-missing" ||
+                error.code === "contact-missing"
               ? 404
               : error.code === "model-failed"
                 ? 502
                 : error.code === "model-busy"
                   ? 409
                   : 400;
+        return c.json({ error: error.code }, status);
+      }
+      throw error;
+    }
+  });
+
+  app.get("/api/command/sessions", (c) => {
+    const occupant = ensureOccupant(db);
+    return c.json({ sessions: listCommandSessions(db, occupant.id) });
+  });
+
+  app.post("/api/command/sessions", (c) => {
+    const occupant = ensureOccupant(db);
+    return c.json(
+      { session: createCommandSession(db, occupant.id), messages: [] },
+      201,
+    );
+  });
+
+  app.get("/api/command/sessions/:id", (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      return c.json(readCommandSession(db, occupant.id, c.req.param("id")));
+    } catch (error) {
+      if (error instanceof CommandSessionStoreError) {
+        return c.json(
+          { error: error.code },
+          error.code === "session-missing" ? 404 : 400,
+        );
+      }
+      throw error;
+    }
+  });
+
+  app.post("/api/command/sessions/:id/messages", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      const result = await sendCommandTurn(
+        db,
+        occupant.id,
+        c.req.param("id"),
+        (await c.req.json()) as Record<string, unknown>,
+        complete,
+        c.req.raw.signal,
+      );
+      return c.json(result, 201);
+    } catch (error) {
+      if (error instanceof CommandSessionStoreError) {
+        return c.json(
+          { error: error.code },
+          error.code === "session-missing" ? 404 : 400,
+        );
+      }
+      if (error instanceof AgencyStoreError) {
+        const status =
+          error.code === "remote-model-grant-required" ||
+          error.code === "grant-expired"
+            ? 403
+            : error.code === "model-failed"
+              ? 502
+              : error.code === "model-busy"
+                ? 409
+                : 400;
         return c.json({ error: error.code }, status);
       }
       throw error;
@@ -1086,6 +1159,11 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
     try {
       return c.json({
         messages: listContactMessages(db, occupant.id, c.req.param("id")),
+        proposedReplies: listProposedReplies(
+          db,
+          occupant.id,
+          c.req.param("id"),
+        ),
       });
     } catch (error) {
       if (error instanceof ConversationStoreError) {
@@ -1109,6 +1187,29 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
     } catch (error) {
       if (error instanceof ConversationStoreError) {
         const status = error.code === "contact-missing" ? 404 : 400;
+        return c.json({ error: error.code }, status);
+      }
+      throw error;
+    }
+  });
+
+  app.post("/api/contacts/:id/replies/:changeSetId/approve", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      const result = await commitSuggestedReply(
+        db,
+        occupant.id,
+        c.req.param("id"),
+        c.req.param("changeSetId"),
+        externalActions,
+      );
+      return c.json(result);
+    } catch (error) {
+      if (error instanceof ConversationStoreError) {
+        const status =
+          error.code === "contact-missing" || error.code === "change-set-missing"
+            ? 404
+            : 400;
         return c.json({ error: error.code }, status);
       }
       throw error;

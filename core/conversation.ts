@@ -1,4 +1,5 @@
 import type { OccupantNotice } from "./notices";
+import type { ChangeSet } from "./governance";
 
 export type MessageDirection = "inbound" | "outbound";
 
@@ -48,5 +49,33 @@ export function presentInboundMessageNotice(input: {
     detail: input.preview.trim(),
     href: "network",
     createdAt: input.createdAt,
+  };
+}
+
+export function planSuggestedReplyChangeSet(input: {
+  id: string;
+  occupantId: string;
+  contactId: string;
+  contactName: string;
+  destination: string;
+  body: string;
+  createdAt: string;
+}): ChangeSet | null {
+  const body = input.body.trim();
+  if (!body) return null;
+  return {
+    id: input.id,
+    occupantId: input.occupantId,
+    purpose: `Reply to ${input.contactName.trim()}`,
+    destination: input.destination,
+    createdAt: input.createdAt,
+    operations: [
+      {
+        action: "send",
+        entityType: "external-message",
+        entityId: input.contactId,
+        values: { body, contactId: input.contactId },
+      },
+    ],
   };
 }

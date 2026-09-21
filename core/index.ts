@@ -18,9 +18,12 @@ export {
   type ProfileFields,
 } from "./profile";
 export {
+  COMMAND_SYSTEM_PROMPT,
   EXTRACT_FACTS_SYSTEM_PROMPT,
   INSPECT_SYSTEM_PROMPT,
+  SUGGEST_REPLY_SYSTEM_PROMPT,
   parseExtractedWorklogFacts,
+  parseSuggestedReply,
   planAgentRun,
   type AgencyError,
   type AgentPurpose,
@@ -28,6 +31,16 @@ export {
   type AgentScope,
   type CapabilityGrant,
 } from "./agency";
+export {
+  prepareCommandMessage,
+  prepareCommandSession,
+  presentCommandHistory,
+  titleFromOccupantTurn,
+  type CommandMessage,
+  type CommandSession,
+  type CommandSessionError,
+  type CommandSpeaker,
+} from "./command-session";
 export {
   DEFAULT_LOCAL_BASE_URL,
   LLAMA_CPP_BASE_URL,
@@ -163,6 +176,7 @@ export {
 } from "./career-management";
 export {
   inboundRaisesNotice,
+  planSuggestedReplyChangeSet,
   prepareContactMessage,
   presentInboundMessageNotice,
   type ContactMessage,

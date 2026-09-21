@@ -12,6 +12,8 @@ export function HomeBar({
   onProfile,
   onSettings,
   onSearch,
+  onProforna,
+  profornaOpen,
   onNotice,
 }: {
   name: string;
@@ -22,6 +24,8 @@ export function HomeBar({
   onProfile: () => void;
   onSettings: () => void;
   onSearch: () => void;
+  onProforna?: () => void;
+  profornaOpen?: boolean;
   onNotice: (href: OccupantNoticeHref) => void;
 }) {
   const [menu, setMenu] = useState<"user" | "notices" | null>(null);
@@ -83,6 +87,21 @@ export function HomeBar({
         </button>
       </div>
       <div className="home-bar-end" ref={root}>
+        {onProforna ? (
+          <button
+            type="button"
+            className={
+              profornaOpen
+                ? "home-notice-btn home-proforna-toggle is-current"
+                : "home-notice-btn home-proforna-toggle"
+            }
+            aria-label="Proforna"
+            aria-pressed={profornaOpen}
+            onClick={onProforna}
+          >
+            <Icon name="proforna" />
+          </button>
+        ) : null}
         <HomeNotices
           open={menu === "notices"}
           onToggle={() =>
