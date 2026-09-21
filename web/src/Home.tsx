@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { currentJob, type CareerFile } from "@core/career-file";
 import { HomeBar } from "./HomeBar";
 import { HomeNav, type HomePage } from "./HomeNav";
@@ -7,11 +7,38 @@ import { HomeSearch } from "./HomeSearch";
 import { HomeSettings } from "./HomeSettings";
 import { WorkHistory } from "./WorkHistory";
 import { CareerWorkspace } from "./CareerWorkspace";
+import { HomeProforna } from "./HomeProforna";
 import type { OnboardingProfileValue } from "./OnboardingProfile";
 import "./home.css";
 
-const NAV_COLLAPSED_KEY = "proforna.navCollapsed";
-const DESKTOP_NAV = "(min-width: 640px)";
+const PANEL_OPEN_KEY = "proforna.panelOpen";
+const WORKBENCH = "(min-width: 760px)";
+const NAV_DEFAULT = 264;
+const CHAT_DEFAULT = 336;
+const NAV_MIN = 176;
+const CHAT_MIN = 260;
+const EDITOR_MIN = 280;
+const NAV_MAX = 480;
+const CHAT_MAX = 560;
+const SASH = 8;
+
+type SideWidths = { nav: number; chat: number };
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function fitWidths(preferred: SideWidths, container: number): SideWidths {
+  let nav = clamp(preferred.nav, NAV_MIN, NAV_MAX);
+  let chat = clamp(preferred.chat, CHAT_MIN, CHAT_MAX);
+  const overflow = nav + chat + EDITOR_MIN + SASH * 2 - container;
+  if (overflow > 0) {
+    const chatShrink = Math.min(overflow, chat - CHAT_MIN);
+    chat -= chatShrink;
+    nav = Math.max(NAV_MIN, nav - (overflow - chatShrink));
+  }
+  return { nav, chat };
+}
 
 export function Home({
   profile,
@@ -30,9 +57,19 @@ export function Home({
   const [page, setPage] = useState<HomePage>(readPage);
   const [focusJobId, setFocusJobId] = useState<string | null>(null);
   const [photoTick, setPhotoTick] = useState(0);
-  const [collapsed, setCollapsed] = useState(readCollapsed);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [profornaOpen, setProfornaOpen] = useState(readPanelOpen);
   const [desktop, setDesktop] = useState(readDesktop);
+  const [widths, setWidths] = useState<SideWidths>({
+    nav: NAV_DEFAULT,
+    chat: CHAT_DEFAULT,
+  });
+  const [dragging, setDragging] = useState<"nav" | "chat" | null>(null);
+  const preferred = useRef<SideWidths>({
+    nav: NAV_DEFAULT,
+    chat: CHAT_DEFAULT,
+  });
+  const shellRef = useRef<HTMLDivElement>(null);
   const role = currentJob(career);
   const place = [profile.city, profile.state].filter(Boolean).join(", ");
   const company = role?.company ?? "";
@@ -46,7 +83,7 @@ export function Home({
     : null;
 
   useEffect(() => {
-    const mq = window.matchMedia(DESKTOP_NAV);
+    const mq = window.matchMedia(WORKBENCH);
     function onChange() {
       setDesktop(mq.matches);
       if (mq.matches) setMobileOpen(false);
@@ -76,21 +113,73 @@ export function Home({
     return () => document.removeEventListener("keydown", onKey);
   }, []);
 
-  function toggleMenu() {
-    if (desktop) {
-      setCollapsed((next) => {
-        const collapsedNext = !next;
-        writeCollapsed(collapsedNext);
-        return collapsedNext;
-      });
-      return;
+  useEffect(() => {
+    const shell = shellRef.current;
+    if (!shell || !desktop) return;
+    applyFit();
+    const observer = new ResizeObserver(() => applyFit());
+    observer.observe(shell);
+    return () => observer.disconnect();
+  }, [desktop]);
+
+  function applyFit() {
+    const container = shellRef.current?.clientWidth ?? 0;
+    if (container <= 0) return;
+    const next = fitWidths(preferred.current, container);
+    setWidths((current) =>
+      current.nav === next.nav && current.chat === next.chat ? current : next,
+    );
+  }
+
+  function dragSide(
+    side: "nav" | "chat",
+    event: ReactPointerEvent<HTMLDivElement>,
+  ) {
+    if (!desktop || event.button !== 0) return;
+    event.preventDefault();
+    const startX = event.clientX;
+    const start = preferred.current[side];
+    const sign = side === "nav" ? 1 : -1;
+    const min = side === "nav" ? NAV_MIN : CHAT_MIN;
+    const max = side === "nav" ? NAV_MAX : CHAT_MAX;
+    setDragging(side);
+
+    function move(next: PointerEvent) {
+      preferred.current[side] = clamp(start + sign * (next.clientX - startX), min, max);
+      applyFit();
     }
+    function up() {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      setDragging(null);
+    }
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  }
+
+  function nudge(side: "nav" | "chat", delta: number) {
+    const min = side === "nav" ? NAV_MIN : CHAT_MIN;
+    const max = side === "nav" ? NAV_MAX : CHAT_MAX;
+    preferred.current[side] = clamp(preferred.current[side] + delta, min, max);
+    applyFit();
+  }
+
+  function toggleMenu() {
+    if (desktop) return;
     setMobileOpen((open) => !open);
   }
 
   function goHome() {
     setFocusJobId(null);
     goPage("home");
+  }
+
+  function togglePanel() {
+    setProfornaOpen((open) => {
+      const next = !open;
+      writePanelOpen(next);
+      return next;
+    });
   }
 
   function goPage(next: HomePage) {
@@ -116,11 +205,13 @@ export function Home({
         name={profile.fullName}
         headline={profile.headline}
         photoSrc={photoSrc}
-        menuExpanded={desktop ? !collapsed : mobileOpen}
+        menuExpanded={desktop ? true : mobileOpen}
         onMenu={toggleMenu}
         onProfile={goProfile}
         onSettings={() => setSettingsOpen(true)}
         onSearch={() => setSearchOpen(true)}
+        onProforna={togglePanel}
+        profornaOpen={profornaOpen}
         onNotice={(href) => {
           setEditing(false);
           setMobileOpen(false);
@@ -148,11 +239,15 @@ export function Home({
           onProfileSaved(next);
         }}
       />
-      <div className="home-shell">
+      <div
+        className={dragging ? "home-shell is-resizing" : "home-shell"}
+        ref={shellRef}
+      >
         <HomeNav
-          collapsed={collapsed}
+          collapsed={false}
           mobileOpen={mobileOpen}
           page={page}
+          width={desktop ? widths.nav : undefined}
           onCloseMobile={() => setMobileOpen(false)}
           onGoHome={() => {
             goHome();
@@ -166,6 +261,19 @@ export function Home({
             setEditing(false);
             setFocusJobId(null);
             goPage(next);
+          }}
+        />
+        <WorkbenchSash
+          label="Resize Career"
+          value={widths.nav}
+          min={NAV_MIN}
+          max={NAV_MAX}
+          dragging={dragging === "nav"}
+          onDragStart={(event) => dragSide("nav", event)}
+          onNudge={(delta) => nudge("nav", delta)}
+          onReset={() => {
+            preferred.current.nav = NAV_DEFAULT;
+            applyFit();
           }}
         />
       <main className="home-main">
@@ -243,6 +351,24 @@ export function Home({
       </header>
       )}
       </main>
+        <WorkbenchSash
+          label="Resize Proforna"
+          value={widths.chat}
+          min={CHAT_MIN}
+          max={CHAT_MAX}
+          dragging={dragging === "chat"}
+          onDragStart={(event) => dragSide("chat", event)}
+          onNudge={(delta) => nudge("chat", -delta)}
+          onReset={() => {
+            preferred.current.chat = CHAT_DEFAULT;
+            applyFit();
+          }}
+        />
+      <HomeProforna
+        open={desktop || profornaOpen}
+        onToggle={togglePanel}
+        width={desktop ? widths.chat : undefined}
+      />
       </div>
     </div>
   );
@@ -261,23 +387,70 @@ function readPage(): HomePage {
 }
 
 function readDesktop(): boolean {
-  return window.matchMedia(DESKTOP_NAV).matches;
+  return window.matchMedia(WORKBENCH).matches;
 }
 
-function readCollapsed(): boolean {
+function readPanelOpen(): boolean {
   try {
-    return window.localStorage.getItem(NAV_COLLAPSED_KEY) === "1";
+    const value = window.localStorage.getItem(PANEL_OPEN_KEY);
+    return value !== "0";
   } catch {
-    return false;
+    return true;
   }
 }
 
-function writeCollapsed(collapsed: boolean) {
+function writePanelOpen(open: boolean) {
   try {
-    window.localStorage.setItem(NAV_COLLAPSED_KEY, collapsed ? "1" : "0");
+    window.localStorage.setItem(PANEL_OPEN_KEY, open ? "1" : "0");
   } catch {
     /* ignore quota / private mode */
   }
+}
+
+function WorkbenchSash({
+  label,
+  value,
+  min,
+  max,
+  dragging,
+  onDragStart,
+  onNudge,
+  onReset,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  dragging: boolean;
+  onDragStart: (event: ReactPointerEvent<HTMLDivElement>) => void;
+  onNudge: (delta: number) => void;
+  onReset: () => void;
+}) {
+  return (
+    <div
+      className={dragging ? "home-sash is-dragging" : "home-sash"}
+      role="separator"
+      aria-orientation="vertical"
+      aria-label={label}
+      aria-valuemin={min}
+      aria-valuemax={max}
+      aria-valuenow={Math.round(value)}
+      tabIndex={0}
+      onPointerDown={onDragStart}
+      onDoubleClick={onReset}
+      onKeyDown={(event) => {
+        const step = event.shiftKey ? 48 : 16;
+        if (event.key === "ArrowLeft") {
+          event.preventDefault();
+          onNudge(-step);
+        }
+        if (event.key === "ArrowRight") {
+          event.preventDefault();
+          onNudge(step);
+        }
+      }}
+    />
+  );
 }
 
 function initials(name: string): string {

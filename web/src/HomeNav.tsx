@@ -15,6 +15,7 @@ export function HomeNav({
   collapsed,
   mobileOpen,
   page,
+  width,
   onCloseMobile,
   onGoHome,
   onGoHistory,
@@ -23,6 +24,7 @@ export function HomeNav({
   collapsed: boolean;
   mobileOpen: boolean;
   page: HomePage;
+  width?: number;
   onCloseMobile: () => void;
   onGoHome: () => void;
   onGoHistory: (jobId?: string) => void;
@@ -59,6 +61,7 @@ export function HomeNav({
           .filter(Boolean)
           .join(" ")}
         aria-label="Main"
+        style={width ? { width } : undefined}
       >
         <NavRow
           icon="home"
@@ -189,7 +192,8 @@ type IconName =
   | "network"
   | "search"
   | "notice"
-  | "menu";
+  | "menu"
+  | "proforna";
 
 export function Icon({ name }: { name: IconName }) {
   return (
@@ -237,6 +241,12 @@ export function Icon({ name }: { name: IconName }) {
       ) : null}
       {name === "menu" ? (
         <path d="M5 7h14M5 12h14M5 17h14" />
+      ) : null}
+      {name === "proforna" ? (
+        <>
+          <path d="M5 6.5h14v11l-4-2.5H5z" />
+          <path d="M8.5 10.5h7M8.5 13.5h4.5" />
+        </>
       ) : null}
     </svg>
   );

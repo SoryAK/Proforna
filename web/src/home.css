@@ -3,15 +3,10 @@
   flex-direction: column;
   max-width: none;
   margin: 0;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
   padding: 0;
-  background-color: var(--bg);
-  background-image: radial-gradient(
-    circle,
-    rgba(167, 139, 113, 0.07) 1px,
-    transparent 1px
-  );
-  background-size: 48px 48px;
+  background: var(--bg);
   color: var(--text);
   scrollbar-color: rgba(167, 139, 113, 0.45) transparent;
 }
@@ -37,10 +32,12 @@
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  height: 3.5rem;
-  padding: 0 0.85rem 0 0.65rem;
-  border-bottom: 1px solid rgba(167, 139, 113, 0.18);
-  background: #070707;
+  min-height: 2.75rem;
+  margin: 0.45rem 0.75rem 0.15rem;
+  padding: 0.1rem 0.15rem 0.35rem;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .home-bar-start {
@@ -57,7 +54,7 @@
   height: 2.25rem;
   padding: 0;
   border: 0;
-  border-radius: 8px;
+  border-radius: 999px;
   background: transparent;
   color: var(--gold-light);
 }
@@ -80,7 +77,7 @@
 
 .home-bar-brand {
   margin: 0;
-  color: var(--gold-light);
+  color: var(--gold-hover);
   font-family: var(--serif);
   font-style: italic;
   font-size: 1.2rem;
@@ -139,7 +136,7 @@
   display: none;
   padding: 0.12rem 0.4rem;
   border: 1px solid rgba(167, 139, 113, 0.35);
-  border-radius: 0.35rem;
+  border-radius: 8px;
   background: rgba(0, 0, 0, 0.35);
   color: var(--gold-light);
   font-family: inherit;
@@ -303,11 +300,56 @@ p.home-search-hit {
   display: flex;
   flex: 1;
   min-height: 0;
+  margin: 0 0.75rem 0.75rem;
+}
+
+.home-shell.is-resizing,
+.home-shell.is-resizing .home-sash {
+  cursor: col-resize;
+  user-select: none;
+}
+
+.home-sash {
+  position: relative;
+  flex: 0 0 0.5rem;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.home-sash::before {
+  content: "";
+  position: absolute;
+  top: 12px;
+  bottom: 12px;
+  left: 50%;
+  width: 2px;
+  border-radius: 1px;
+  background: transparent;
+  transform: translateX(-50%);
+}
+
+.home-sash:hover::before,
+.home-sash:focus-visible::before,
+.home-sash.is-dragging::before {
+  background: var(--gold-hover);
+}
+
+.home-sash:focus-visible {
+  outline: none;
+}
+
+.home:has(.home-proforna) {
+  height: 100vh;
+  overflow: hidden;
+}
+
+.home-shell:has(.home-proforna) {
+  min-height: 0;
 }
 
 .home-nav-backdrop {
   position: fixed;
-  inset: 3.5rem 0 0;
+  inset: 4.5rem 0.75rem 0;
   z-index: 24;
   border: 0;
   background: rgba(0, 0, 0, 0.55);
@@ -328,10 +370,13 @@ p.home-search-hit {
 .home-nav.is-open {
   display: flex;
   position: fixed;
-  top: 3.5rem;
-  bottom: 0;
-  left: 0;
+  top: 4.5rem;
+  bottom: 0.65rem;
+  left: 0.75rem;
   z-index: 25;
+  overflow: hidden;
+  border: 1px solid rgba(167, 139, 113, 0.22);
+  border-radius: 16px;
   box-shadow: 12px 0 32px rgba(0, 0, 0, 0.45);
 }
 
@@ -400,6 +445,15 @@ button.home-nav-item:focus-visible {
   margin: 0;
   padding: 0;
   overflow: auto;
+  border: 1px solid rgba(167, 139, 113, 0.22);
+  border-radius: 16px;
+  background-color: var(--bg);
+  background-image: radial-gradient(
+    circle,
+    rgba(167, 139, 113, 0.07) 1px,
+    transparent 1px
+  );
+  background-size: 48px 48px;
 }
 
 .home-main:has(.work-map) {
@@ -414,25 +468,54 @@ button.home-nav-item:focus-visible {
   }
 }
 
-@media (min-width: 640px) {
+@media (min-width: 760px) {
+  .home-menu-btn,
+  .home-proforna-toggle,
+  .home-proforna-hide {
+    display: none;
+  }
+
   .home-nav-backdrop {
     display: none;
   }
 
   .home-nav,
-  .home-nav.is-open {
+  .home-nav.is-open,
+  .home-nav.is-collapsed {
     display: flex;
     position: relative;
     top: auto;
     bottom: auto;
     left: auto;
     z-index: 0;
+    box-sizing: border-box;
+    flex-shrink: 0;
     width: 16.5rem;
+    overflow: auto;
+    border: 1px solid rgba(167, 139, 113, 0.22);
+    border-radius: 16px;
     box-shadow: none;
   }
 
-  .home-nav.is-collapsed {
-    width: 4.25rem;
+  .home-proforna,
+  .home-proforna.is-collapsed,
+  .home-proforna.is-open {
+    position: relative;
+    top: auto;
+    right: auto;
+    bottom: auto;
+    z-index: 0;
+    flex-shrink: 0;
+    width: 21rem;
+    margin: 0;
+    transform: none;
+    box-shadow: none;
+  }
+}
+
+@media (max-width: 759px) {
+  .home-sash {
+    display: none;
   }
 }
 
@@ -451,7 +534,7 @@ button.home-nav-item:focus-visible {
   height: 2.25rem;
   padding: 0;
   border: 0;
-  border-radius: 8px;
+  border-radius: 999px;
   background: transparent;
   color: var(--gold-light);
 }
@@ -489,7 +572,7 @@ button.home-nav-item:focus-visible {
   overflow: auto;
   padding: 0.2rem 0 0.4rem;
   border: 1px solid rgba(167, 139, 113, 0.28);
-  border-radius: 14px;
+  border-radius: 16px;
   background: #111;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
   scrollbar-color: rgba(167, 139, 113, 0.45) transparent;
@@ -632,7 +715,7 @@ button.home-nav-item:focus-visible {
   width: min(16rem, calc(100vw - 1.5rem));
   padding: 0.35rem 0 0.45rem;
   border: 1px solid rgba(167, 139, 113, 0.28);
-  border-radius: 14px;
+  border-radius: 16px;
   background: #111;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
 }
@@ -911,6 +994,481 @@ button.home-nav-item:focus-visible {
   font-size: 0.88rem;
 }
 
+.home-proforna-toggle {
+  display: grid;
+}
+
+.home-proforna-toggle.is-current {
+  background: rgba(167, 139, 113, 0.18);
+  color: var(--gold-hover);
+}
+
+.home-proforna {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  width: min(24rem, 100%);
+  min-height: 0;
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid rgba(167, 139, 113, 0.22);
+  border-radius: 16px;
+  background: #080706;
+}
+
+.home-proforna-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  min-height: 3rem;
+  padding: 0.65rem 0.85rem 0.45rem;
+}
+
+.home-proforna-back {
+  flex: 0 0 auto;
+  min-height: 2rem;
+  padding: 0.2rem 0.55rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--gold);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.home-proforna-back:hover,
+.home-proforna-back:focus-visible {
+  background: rgba(167, 139, 113, 0.16);
+  color: var(--gold-hover);
+}
+
+.home-proforna-bar h2 {
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--gold-hover);
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 1.15rem;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-proforna-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.25rem;
+  margin-left: auto;
+}
+
+.home-proforna-actions button {
+  padding: 0.35rem 0.7rem;
+  border: 1px solid rgba(167, 139, 113, 0.28);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--gold-hover);
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.home-proforna-actions button:hover,
+.home-proforna-actions button:focus-visible,
+.home-proforna-actions button.is-current {
+  border-color: rgba(167, 139, 113, 0.55);
+  background: rgba(167, 139, 113, 0.14);
+  color: var(--gold-hover);
+}
+
+.home-proforna-hide {
+  display: inline-flex;
+}
+
+.home-proforna.is-collapsed {
+  width: 2.85rem;
+  margin-left: 0.15rem;
+}
+
+.home-proforna.is-collapsed .home-proforna-actions,
+.home-proforna.is-collapsed .home-proforna-body,
+.home-proforna.is-collapsed .home-proforna-composer {
+  display: none;
+}
+
+.home-proforna.is-collapsed .home-proforna-bar {
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 0.85rem 0.2rem;
+  border-bottom: 0;
+}
+
+.home-proforna.is-collapsed h2 {
+  margin: 0;
+}
+
+.home-proforna.is-collapsed h2 button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  letter-spacing: 0.06em;
+}
+
+.home-proforna.is-collapsed h2 button:hover,
+.home-proforna.is-collapsed h2 button:focus-visible {
+  color: var(--gold-hover);
+}
+
+.home-proforna-body {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.home-proforna-history,
+.home-proforna-thread {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 0.35rem 1rem 1.15rem;
+  scrollbar-color: rgba(167, 139, 113, 0.45) transparent;
+}
+
+.home-proforna-history {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  background: #080706;
+}
+
+.home-proforna-sessions {
+  display: grid;
+  flex: 1;
+  align-content: start;
+  gap: 0.15rem;
+  min-height: 0;
+  overflow: auto;
+  padding: 0 0.65rem 0.85rem;
+}
+
+.home-proforna-session {
+  display: grid;
+  gap: 0.15rem;
+  width: 100%;
+  padding: 0.55rem 0.7rem;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--gold-light);
+  text-align: left;
+}
+
+.home-proforna-session strong {
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.home-proforna-session span {
+  color: var(--gold);
+  font-size: 0.72rem;
+}
+
+.home-proforna-session:hover,
+.home-proforna-session:focus-visible,
+.home-proforna-session.is-current {
+  background: rgba(167, 139, 113, 0.14);
+  color: var(--gold-hover);
+}
+
+.home-proforna-thread ol {
+  display: grid;
+  gap: 1.1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.home-proforna-thread li {
+  display: grid;
+  gap: 0.35rem;
+  max-width: 92%;
+}
+
+.home-proforna-thread li.is-occupant {
+  justify-self: end;
+}
+
+.home-proforna-thread li span {
+  color: var(--gold);
+  font-size: 0.68rem;
+  font-weight: 600;
+}
+
+.home-proforna-thread li.is-occupant span {
+  text-align: right;
+}
+
+.home-proforna-thread li p {
+  margin: 0;
+  padding: 0.7rem 0.9rem;
+  border-radius: 16px 16px 16px 6px;
+  background: rgba(167, 139, 113, 0.08);
+  color: var(--text);
+  font-size: 0.95rem;
+  line-height: 1.55;
+}
+
+.home-proforna-thread li.is-occupant p {
+  border-radius: 16px 16px 6px 16px;
+  background: rgba(167, 139, 113, 0.18);
+}
+
+.home-proforna-thread li.is-working p {
+  color: var(--gold-light);
+}
+
+.home-proforna-empty {
+  margin: 1.5rem 0 0;
+  color: var(--gold-light);
+  font-family: var(--serif);
+  font-style: italic;
+  line-height: 1.5;
+}
+
+.home-proforna-composer {
+  position: relative;
+  display: grid;
+  gap: 0.45rem;
+  margin: 0 0.85rem 0.9rem;
+  padding: 0.7rem 0.85rem 0.75rem;
+  border: 1px solid rgba(167, 139, 113, 0.28);
+  border-radius: 16px;
+  background: #0e0c0a;
+}
+
+.home-proforna-composer:focus-within {
+  border-color: rgba(232, 213, 183, 0.55);
+  outline: 2px solid var(--gold-hover);
+  outline-offset: 2px;
+}
+
+.home-proforna-composer textarea {
+  width: 100%;
+  min-height: 3.75rem;
+  padding: 0.15rem 0.1rem 0.35rem;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  resize: none;
+  caret-color: var(--gold-hover);
+}
+
+.home-proforna-composer textarea:focus,
+.home-proforna-composer textarea:focus-visible {
+  outline: none;
+}
+
+.home-proforna-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.home-proforna-pickers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.home-proforna-pickers button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  max-width: 12.5rem;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid rgba(167, 139, 113, 0.28);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--gold-hover);
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.home-proforna-pickers button span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-proforna-pickers button:hover,
+.home-proforna-pickers button:focus-visible,
+.home-proforna-pickers button.is-open {
+  border-color: rgba(167, 139, 113, 0.55);
+  background: rgba(167, 139, 113, 0.14);
+}
+
+.home-proforna-pickers svg {
+  flex-shrink: 0;
+}
+
+.home-proforna-send {
+  padding: 0.45rem 0.85rem;
+  border: 1px solid var(--gold);
+  border-radius: 999px;
+  background: var(--gold);
+  color: #080706;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.home-proforna-send:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.home-proforna-menu {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 0.45rem);
+  left: 0;
+  z-index: 4;
+  display: grid;
+  max-height: 18rem;
+  overflow: auto;
+  padding: 0.45rem 0 0.55rem;
+  border: 1px solid rgba(167, 139, 113, 0.28);
+  border-radius: 16px;
+  background: #13100d;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+  scrollbar-color: rgba(167, 139, 113, 0.45) transparent;
+}
+
+.home-proforna-menu-heading {
+  margin: 0.45rem 0.85rem 0.25rem;
+  color: var(--gold);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.home-proforna-menu button {
+  display: grid;
+  gap: 0.15rem;
+  width: 100%;
+  padding: 0.55rem 0.85rem;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+}
+
+.home-proforna-menu button strong {
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.home-proforna-menu button span {
+  color: var(--gold-light);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.home-proforna-menu button:hover,
+.home-proforna-menu button:focus-visible,
+.home-proforna-menu button.is-current {
+  background: rgba(167, 139, 113, 0.14);
+}
+
+.home-proforna-menu button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.home-proforna-menu-empty,
+.home-proforna-grant {
+  margin: 0.35rem 0.85rem 0.15rem;
+  color: var(--gold-hover);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.home-proforna-grant {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.home-proforna-status {
+  margin: 0;
+  color: var(--gold-hover);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.home-proforna-composer textarea::placeholder {
+  color: var(--gold);
+}
+
+.home-proforna-composer textarea:disabled {
+  opacity: 0.55;
+}
+
+@media (min-width: 960px) {
+  .home:has(.home-proforna.is-open) .home-proforna-toggle {
+    display: none;
+  }
+}
+
+@media (max-width: 759px) {
+  .home-proforna {
+    position: fixed;
+    top: 4.5rem;
+    right: 0.65rem;
+    bottom: 0.65rem;
+    z-index: 22;
+    width: min(24rem, calc(100% - 1.3rem));
+    margin: 0;
+    transform: translateX(calc(100% + 0.85rem));
+    box-shadow: -18px 0 45px rgba(0, 0, 0, 0.42);
+    transition: transform 180ms ease-out;
+  }
+
+  .home-proforna.is-open {
+    transform: none;
+  }
+
+  .home-proforna.is-collapsed {
+    width: min(24rem, calc(100% - 1.3rem));
+    transform: translateX(calc(100% + 0.85rem));
+  }
+
+  .home-proforna-hide {
+    display: inline-flex;
+  }
+}
+
+@media (max-width: 759px) and (prefers-reduced-motion: reduce) {
+  .home-proforna {
+    transition: none;
+  }
+}
+
 @media (max-width: 639px) {
   .home-banner-cover {
     height: 8rem;
@@ -1048,5 +1606,13 @@ button.home-nav-item:focus-visible {
 
   .history h1 {
     font-size: 1.85rem;
+  }
+}
+
+@media (min-width: 760px) {
+  .home-menu-btn,
+  .home-proforna-toggle,
+  .home-proforna-hide {
+    display: none;
   }
 }
