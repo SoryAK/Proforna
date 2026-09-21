@@ -210,6 +210,7 @@ type CareerManagement = {
     organization: string;
     role: string;
     email: string;
+    unread_inbound?: number;
   }>;
   plans: Array<{
     id: string;
@@ -441,6 +442,12 @@ function NetworkPage() {
   const [organization, setOrganization] = useState("");
   const [role, setRole] = useState("");
   const [email, setEmail] = useState("");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<
+    Array<{ id: string; direction: string; body: string; createdAt: string }>
+  >([]);
+  const [draft, setDraft] = useState("");
+  const [status, setStatus] = useState("");
 
   useEffect(() => {
     void load();
@@ -449,6 +456,27 @@ function NetworkPage() {
   async function load() {
     const response = await fetch("/api/career-management");
     setData((await response.json()) as CareerManagement);
+  }
+
+  async function openThread(contactId: string) {
+    setSelectedId(contactId);
+    setStatus("");
+    const response = await fetch(`/api/contacts/${contactId}/messages`);
+    if (!response.ok) {
+      setMessages([]);
+      return;
+    }
+    const body = (await response.json()) as {
+      messages: Array<{
+        id: string;
+        direction: string;
+        body: string;
+        createdAt: string;
+      }>;
+    };
+    setMessages(body.messages);
+    window.dispatchEvent(new Event("proforna:notices-changed"));
+    await load();
   }
 
   async function saveContact(event: FormEvent) {
@@ -465,12 +493,28 @@ function NetworkPage() {
     await load();
   }
 
+  async function sendMessage(event: FormEvent) {
+    event.preventDefault();
+    if (!selectedId) return;
+    const response = await fetch(`/api/contacts/${selectedId}/messages`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ body: draft }),
+    });
+    setStatus(response.ok ? "" : "Add a message before sending.");
+    if (!response.ok) return;
+    setDraft("");
+    await openThread(selectedId);
+  }
+
+  const selected = data?.contacts.find((contact) => contact.id === selectedId);
+
   return (
     <section className="career-page network-page">
       <h1>My Network</h1>
       <p className="career-lead">
-        Keep relationship context private. Outreach remains a draft until the
-        exact destination and message are approved.
+        Messages live on the person. Send from the thread; it is hashed and
+        audited without a second trip through Notices.
       </p>
       <form className="compact-career-form network-form" onSubmit={saveContact}>
         <input required value={name} onChange={(event) => setName(event.target.value)} placeholder="Name" />
@@ -479,14 +523,67 @@ function NetworkPage() {
         <input value={email} onChange={(event) => setEmail(event.target.value)} placeholder="Email" />
         <button type="submit">Add contact</button>
       </form>
-      <div className="contact-list">
-        {(data?.contacts ?? []).map((contact) => (
-          <article key={contact.id}>
-            <h2>{contact.name}</h2>
-            <p>{[contact.role, contact.organization].filter(Boolean).join(" · ")}</p>
-            <span>{contact.email}</span>
-          </article>
-        ))}
+      <div className="network-layout">
+        <div className="contact-list">
+          {(data?.contacts ?? []).map((contact) => (
+            <button
+              type="button"
+              className={
+                contact.id === selectedId
+                  ? "contact-card is-selected"
+                  : "contact-card"
+              }
+              key={contact.id}
+              onClick={() => void openThread(contact.id)}
+            >
+              <h2>{contact.name}</h2>
+              <p>{[contact.role, contact.organization].filter(Boolean).join(" · ")}</p>
+              <span>{contact.email}</span>
+              {Number(contact.unread_inbound) > 0 ? (
+                <small>{contact.unread_inbound} unread</small>
+              ) : null}
+            </button>
+          ))}
+        </div>
+        <div className="contact-thread">
+          {selected ? (
+            <>
+              <h2>{selected.name}</h2>
+              <ol>
+                {messages.map((message) => (
+                  <li
+                    key={message.id}
+                    className={
+                      message.direction === "outbound"
+                        ? "is-outbound"
+                        : "is-inbound"
+                    }
+                  >
+                    <span>
+                      {message.direction === "outbound" ? "You" : selected.name}
+                    </span>
+                    <p>{message.body}</p>
+                  </li>
+                ))}
+              </ol>
+              {!messages.length ? (
+                <p className="career-empty">No messages yet.</p>
+              ) : null}
+              <form className="compact-career-form" onSubmit={sendMessage}>
+                <textarea
+                  required
+                  value={draft}
+                  onChange={(event) => setDraft(event.target.value)}
+                  placeholder="Write a reply"
+                />
+                <button type="submit">Send</button>
+              </form>
+              {status ? <p className="career-message">{status}</p> : null}
+            </>
+          ) : (
+            <p className="career-empty">Open a person to continue the conversation.</p>
+          )}
+        </div>
       </div>
     </section>
   );

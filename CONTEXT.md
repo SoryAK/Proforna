@@ -47,6 +47,11 @@ this list My Network. An Opportunity is why they showed up; the Contact is
 who they are.
 _Avoid_: Connection, lead, recruiter record
 
+**Conversation**:
+The back-and-forth messages with one Contact. Inbound messages are Evidence.
+It is not a Notice and not an Opportunity.
+_Avoid_: Inbox, mailbox, chat, thread
+
 **Resume Variant**:
 An editorial strategy for presenting selected career facts to a particular
 role or audience.
@@ -103,9 +108,9 @@ same trail.
 _Avoid_: Confirmation, consent
 
 **Notice**:
-A pending item that needs the occupant's attention, currently an inbound
-access request or a proposed change set. Opening it goes to the destination
-that can review that item.
+A pending item that needs the occupant's attention: an inbound access
+request, a proposed change set, or the first unread message from a Contact.
+Opening it goes to the destination that can review that item.
 _Avoid_: Alert, toast, reminder, notification center
 
 **Agent Run**:

@@ -150,6 +150,14 @@ export {
   type OpportunityKind,
 } from "./career-management";
 export {
+  inboundRaisesNotice,
+  prepareContactMessage,
+  presentInboundMessageNotice,
+  type ContactMessage,
+  type ConversationError,
+  type MessageDirection,
+} from "./conversation";
+export {
   noticeHrefForDestination,
   presentOccupantNotices,
   type OccupantNotice,
