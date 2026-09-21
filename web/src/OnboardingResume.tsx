@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { classifyResumePreview } from "@core/resume-preview";
 import type { ExtractedResume } from "@core/resume-extract";
+import type { ProfileFields } from "@core/profile";
 import { OnboardingExtractConfirm } from "./OnboardingExtract";
 
 export function OnboardingResume({
@@ -8,39 +9,55 @@ export function OnboardingResume({
   file,
   extracted,
   extractModel,
+  extractModelLabel,
   canExtract,
   busy,
+  extracting,
   error,
   onPick,
   onClear,
   onBack,
   onSkip,
   onExtract,
+  onCancelExtract,
   onExtractedChange,
   onConfirm,
+  profile,
+  onProfileChange,
 }: {
   kicker: string;
   file: File | null;
   extracted: ExtractedResume | null;
   extractModel: string | null;
+  extractModelLabel: string | null;
   canExtract: boolean;
   busy: boolean;
+  extracting: boolean;
   error: string | null;
   onPick: (file: File | null) => void;
   onClear: () => void;
   onBack: () => void;
   onSkip: () => void;
   onExtract: () => void;
+  onCancelExtract: () => void;
   onExtractedChange: (next: ExtractedResume) => void;
   onConfirm: () => void;
+  profile: ProfileFields;
+  onProfileChange: (next: ProfileFields) => void;
 }) {
   const [textPreview, setTextPreview] = useState<string | null>(null);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [reviewReady, setReviewReady] = useState(false);
   const kind = file ? classifyResumePreview(file) : null;
   const extractable = kind === "pdf" || kind === "text";
+  const locked = busy || extracting;
 
   useEffect(() => {
-    if (!file || extracted) {
+    if (!extracted) setReviewReady(false);
+  }, [extracted]);
+
+  useEffect(() => {
+    if (!file || extracted || extracting) {
       setTextPreview(null);
       setPdfUrl(null);
       return;
@@ -61,7 +78,7 @@ export function OnboardingResume({
     }
     setPdfUrl(null);
     setTextPreview(null);
-  }, [file, extracted]);
+  }, [file, extracted, extracting]);
 
   return (
     <>
@@ -69,7 +86,11 @@ export function OnboardingResume({
       <h1>
         {extracted ? (
           <>
-            Are these the <em>facts?</em>
+            Did the resume get this <em>right?</em>
+          </>
+        ) : extracting ? (
+          <>
+            Reading the <em>resume.</em>
           </>
         ) : file ? (
           <>
@@ -83,21 +104,31 @@ export function OnboardingResume({
       </h1>
       <p className="onboarding-lead">
         {extracted
-          ? "Remove anything that is wrong. Save writes jobs, schools, and skills. Maps come later."
-          : file
-            ? `${file.name} · ${formatSize(file.size)}. ${
-                canExtract && extractable
-                  ? "Extract jobs and schools with your model, or save the file only."
-                  : "Save stores it, or pick a different file."
-              }`
-            : "Upload a file if you have one. You will preview it before anything is saved."}
+          ? "The resume filled what it could. Pin each job, check the work you actually did, then confirm it looks right before saving."
+          : extracting
+            ? "The model is pulling jobs and schools from the file. Cancel if this is taking too long."
+            : file
+              ? `${file.name} · ${formatSize(file.size)}. ${
+                  canExtract && extractable
+                    ? "Extract jobs and schools with your model, or save the file only."
+                    : "Save stores it, or pick a different file."
+                }`
+              : "Upload a file if you have one, or skip and add a resume later."}
       </p>
 
       {extracted ? (
         <OnboardingExtractConfirm
           extracted={extracted}
           model={extractModel}
+          profile={profile}
           onChange={onExtractedChange}
+          onProfileChange={onProfileChange}
+          onReviewReadyChange={setReviewReady}
+        />
+      ) : extracting ? (
+        <ExtractPulse
+          model={extractModelLabel}
+          onCancel={onCancelExtract}
         />
       ) : file ? (
         <div className="onboarding-preview">
@@ -136,13 +167,19 @@ export function OnboardingResume({
         </p>
       ) : null}
 
+      {extracted && !reviewReady ? (
+        <p className="onboarding-field-hint" role="status">
+          Confirm each job looks right before saving.
+        </p>
+      ) : null}
+
       <div className="onboarding-actions">
         {file ? (
           <button
             type="button"
             className="onboarding-btn onboarding-btn-ghost"
             onClick={onClear}
-            disabled={busy}
+            disabled={locked}
           >
             Re-upload
           </button>
@@ -151,7 +188,7 @@ export function OnboardingResume({
             type="button"
             className="onboarding-btn onboarding-btn-ghost"
             onClick={onBack}
-            disabled={busy}
+            disabled={locked}
           >
             Back
           </button>
@@ -164,36 +201,49 @@ export function OnboardingResume({
               : "onboarding-btn onboarding-btn-solid"
           }
           onClick={onSkip}
-          disabled={busy}
+          disabled={locked}
         >
-          {file ? "Skip" : busy ? "Saving…" : "Save"}
+          {busy ? "Saving…" : "Skip"}
         </button>
-        {file && canExtract && extractable && !extracted ? (
+        {extracting ? (
+          <button
+            type="button"
+            className="onboarding-btn onboarding-btn-solid"
+            onClick={onCancelExtract}
+          >
+            Cancel
+          </button>
+        ) : null}
+        {file && canExtract && extractable && !extracted && !extracting ? (
           <button
             type="button"
             className="onboarding-btn onboarding-btn-solid"
             onClick={onExtract}
-            disabled={busy}
+            disabled={locked}
           >
-            {busy ? "Extracting…" : "Extract"}
+            Extract
           </button>
         ) : null}
-        {file && (!canExtract || extracted || !extractable) ? (
+        {file && !extracting && (!canExtract || extracted || !extractable) ? (
           <button
             type="button"
             className="onboarding-btn onboarding-btn-solid"
             onClick={onConfirm}
-            disabled={busy}
+            disabled={locked || Boolean(extracted && !reviewReady)}
           >
             {busy ? "Saving…" : "Save"}
           </button>
         ) : null}
-        {file && canExtract && extractable && !extracted ? (
+        {file &&
+        canExtract &&
+        extractable &&
+        !extracted &&
+        !extracting ? (
           <button
             type="button"
             className="onboarding-btn onboarding-btn-ghost"
             onClick={onConfirm}
-            disabled={busy}
+            disabled={locked}
           >
             {busy ? "Saving…" : "Save"}
           </button>
@@ -201,6 +251,46 @@ export function OnboardingResume({
       </div>
     </>
   );
+}
+
+function ExtractPulse({
+  model,
+  onCancel,
+}: {
+  model: string | null;
+  onCancel: () => void;
+}) {
+  const [elapsed, setElapsed] = useState(0);
+
+  useEffect(() => {
+    const started = Date.now();
+    const id = window.setInterval(() => {
+      setElapsed(Math.floor((Date.now() - started) / 1000));
+    }, 250);
+    return () => window.clearInterval(id);
+  }, []);
+
+  return (
+    <div className="onboarding-extract-pulse" role="status" aria-live="polite">
+      <span className="onboarding-extract-pulse-dot" aria-hidden="true" />
+      <strong>Extracting with {model ?? "your model"}</strong>
+      <p>{formatElapsed(elapsed)}</p>
+      <button
+        type="button"
+        className="onboarding-btn onboarding-btn-ghost"
+        onClick={onCancel}
+      >
+        Cancel
+      </button>
+    </div>
+  );
+}
+
+function formatElapsed(seconds: number): string {
+  const minutes = Math.floor(seconds / 60);
+  const rest = seconds % 60;
+  if (minutes === 0) return `${rest}s`;
+  return `${minutes}m ${String(rest).padStart(2, "0")}s`;
 }
 
 function formatSize(bytes: number): string {

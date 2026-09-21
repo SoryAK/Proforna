@@ -78,4 +78,57 @@ describe("model connection HTTP", () => {
       db.close();
     }
   });
+
+  it("probes Ollama and llama.cpp without hanging the wizard", async () => {
+    const original = globalThis.fetch;
+    const urls: string[] = [];
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      urls.push(String(input));
+      return new Response(JSON.stringify({ data: [{ id: "llama3.2" }] }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }) as typeof fetch;
+    const db = openDatabase(":memory:");
+    try {
+      const app = createApp(db);
+      const res = await app.request("/api/models/probe");
+      expect(res.status).toBe(200);
+      await expect(res.json()).resolves.toEqual({
+        locals: [
+          { id: "ollama", reachable: true, models: ["llama3.2"] },
+          { id: "llamacpp", reachable: true, models: ["llama3.2"] },
+        ],
+      });
+      expect(urls).toEqual([
+        "http://127.0.0.1:11434/v1/models",
+        "http://127.0.0.1:8080/v1/models",
+      ]);
+    } finally {
+      globalThis.fetch = original;
+      db.close();
+    }
+  });
+
+  it("treats unreachable local endpoints as empty probes", async () => {
+    const original = globalThis.fetch;
+    globalThis.fetch = (async () => {
+      throw new Error("fetch failed");
+    }) as typeof fetch;
+    const db = openDatabase(":memory:");
+    try {
+      const app = createApp(db);
+      const res = await app.request("/api/models/probe");
+      expect(res.status).toBe(200);
+      await expect(res.json()).resolves.toEqual({
+        locals: [
+          { id: "ollama", reachable: false, models: [] },
+          { id: "llamacpp", reachable: false, models: [] },
+        ],
+      });
+    } finally {
+      globalThis.fetch = original;
+      db.close();
+    }
+  });
 });

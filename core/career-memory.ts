@@ -2,6 +2,7 @@ import {
   authorizeChangeSet,
   type Approval,
   type AuditEvent,
+  type ChangeOperation,
   type ChangeSet,
 } from "./governance";
 
@@ -152,4 +153,77 @@ export async function commitCareerFactChanges(
     value: { evidence: state.evidence, facts, audit },
     committed,
   };
+}
+
+export type ResumeImportRole = {
+  id: string;
+  kind: "job" | "school";
+  title: string;
+  organization: string;
+  location: string;
+  startDate: string;
+  endDate: string;
+  isCurrent: boolean;
+  description: string;
+  achievements: string[];
+};
+
+export function planResumeImportFacts(input: {
+  evidenceId: string;
+  roles: ResumeImportRole[];
+  skills: string[];
+}): ChangeOperation[] {
+  if (!input.evidenceId.trim()) return [];
+  const operations: ChangeOperation[] = [];
+  for (const role of input.roles) {
+    const factType = role.kind === "school" ? "education" : "role";
+    operations.push({
+      action: "create",
+      entityType: "career-fact",
+      values: {
+        factType,
+        subjectId: role.id,
+        value: {
+          title: role.title,
+          company: role.organization,
+          organization: role.organization,
+          location: role.location,
+          startDate: role.startDate,
+          endDate: role.endDate,
+          isCurrent: role.isCurrent,
+          description: role.description,
+        },
+        evidenceIds: [input.evidenceId],
+      },
+    });
+    for (const raw of role.achievements) {
+      const statement = raw.trim();
+      if (!statement) continue;
+      operations.push({
+        action: "create",
+        entityType: "career-fact",
+        values: {
+          factType: "achievement",
+          subjectId: role.id,
+          value: { statement },
+          evidenceIds: [input.evidenceId],
+        },
+      });
+    }
+  }
+  for (const name of input.skills) {
+    const skill = name.trim();
+    if (!skill) continue;
+    operations.push({
+      action: "create",
+      entityType: "career-fact",
+      values: {
+        factType: "skill",
+        subjectId: skill.toLowerCase(),
+        value: { name: skill },
+        evidenceIds: [input.evidenceId],
+      },
+    });
+  }
+  return operations;
 }

@@ -1,6 +1,6 @@
 import { mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import { isOnboardingProfileComplete } from "../core/onboarding";
 import {
@@ -10,6 +10,7 @@ import {
   prepareProfile,
   type ProfileInput,
 } from "../core/profile";
+import { saveEvidence } from "./career-memory";
 import { readProfile, type ProfileRow } from "./occupant";
 
 export class ProfileError extends Error {
@@ -157,10 +158,55 @@ export function storeResume(
   mkdirSync(uploadsDir, { recursive: true });
   const id = randomUUID();
   const storedName = `${id}.bin`;
-  writeFileSync(join(uploadsDir, storedName), file.bytes);
+  const fullPath = join(uploadsDir, storedName);
+  writeFileSync(fullPath, file.bytes);
   const now = new Date().toISOString();
-  db.prepare(
-    "INSERT INTO resumes (id, occupant_id, original_name, stored_name, created_at) VALUES (?, ?, ?, ?, ?)",
-  ).run(id, occupantId, file.name, storedName, now);
+  const checksum = createHash("sha256").update(file.bytes).digest("hex");
+  try {
+    db.prepare(
+      "INSERT INTO resumes (id, occupant_id, original_name, stored_name, created_at) VALUES (?, ?, ?, ?, ?)",
+    ).run(id, occupantId, file.name, storedName, now);
+    saveEvidence(db, occupantId, {
+      sourceType: "resume",
+      sourceRef: id,
+      title: file.name,
+      content: {
+        resumeId: id,
+        originalName: file.name,
+        checksum,
+        sizeBytes: file.bytes.length,
+      },
+    });
+  } catch (error) {
+    unlinkSync(fullPath);
+    throw error;
+  }
   return { id, originalName: file.name };
+}
+
+export function evidenceIdForResume(
+  db: DatabaseSync,
+  occupantId: string,
+  resumeId: string,
+): string | null {
+  const resume = db
+    .prepare(
+      "SELECT id, original_name AS originalName FROM resumes WHERE id = ? AND occupant_id = ?",
+    )
+    .get(resumeId, occupantId) as
+    | { id: string; originalName: string }
+    | undefined;
+  if (!resume) return null;
+  const existing = db
+    .prepare(
+      "SELECT id FROM evidence WHERE occupant_id = ? AND source_type = 'resume' AND source_ref = ?",
+    )
+    .get(occupantId, resumeId) as { id: string } | undefined;
+  if (existing) return existing.id;
+  return saveEvidence(db, occupantId, {
+    sourceType: "resume",
+    sourceRef: resume.id,
+    title: resume.originalName,
+    content: { resumeId: resume.id, originalName: resume.originalName },
+  }).id;
 }

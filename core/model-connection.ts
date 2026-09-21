@@ -1,4 +1,7 @@
 export const DEFAULT_LOCAL_BASE_URL = "http://127.0.0.1:11434/v1";
+export const LLAMA_CPP_BASE_URL = "http://127.0.0.1:8080/v1";
+export const OPENAI_BASE_URL = "https://api.openai.com/v1";
+export const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 
 export type ModelHosting = "local" | "cloud";
 

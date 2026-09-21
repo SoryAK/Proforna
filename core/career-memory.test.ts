@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { commitCareerFactChanges, type CareerMemoryState } from "./career-memory";
+import {
+  commitCareerFactChanges,
+  planResumeImportFacts,
+  type CareerMemoryState,
+} from "./career-memory";
 import { createApproval, type ChangeSet } from "./governance";
 
 describe("career memory", () => {
@@ -73,5 +77,124 @@ describe("career memory", () => {
       eventType: "fact-created",
       approvalId: "approval-1",
     });
+  });
+});
+
+describe("planResumeImportFacts", () => {
+  it("plans role, education, achievement, and skill facts against resume evidence", () => {
+    expect(
+      planResumeImportFacts({
+        evidenceId: "ev-resume",
+        roles: [
+          {
+            id: "job-1",
+            kind: "job",
+            title: "Lead",
+            organization: "Acme",
+            location: "NYC",
+            startDate: "2024-01-01",
+            endDate: "",
+            isCurrent: true,
+            description: "Ran the shop.",
+            achievements: ["Cut overtime", ""],
+          },
+          {
+            id: "school-1",
+            kind: "school",
+            title: "AAS",
+            organization: "City College",
+            location: "",
+            startDate: "2016-01-01",
+            endDate: "2018-05-01",
+            isCurrent: false,
+            description: "",
+            achievements: [],
+          },
+        ],
+        skills: ["TypeScript"],
+      }),
+    ).toEqual([
+      {
+        action: "create",
+        entityType: "career-fact",
+        values: {
+          factType: "role",
+          subjectId: "job-1",
+          value: {
+            title: "Lead",
+            company: "Acme",
+            organization: "Acme",
+            location: "NYC",
+            startDate: "2024-01-01",
+            endDate: "",
+            isCurrent: true,
+            description: "Ran the shop.",
+          },
+          evidenceIds: ["ev-resume"],
+        },
+      },
+      {
+        action: "create",
+        entityType: "career-fact",
+        values: {
+          factType: "achievement",
+          subjectId: "job-1",
+          value: { statement: "Cut overtime" },
+          evidenceIds: ["ev-resume"],
+        },
+      },
+      {
+        action: "create",
+        entityType: "career-fact",
+        values: {
+          factType: "education",
+          subjectId: "school-1",
+          value: {
+            title: "AAS",
+            company: "City College",
+            organization: "City College",
+            location: "",
+            startDate: "2016-01-01",
+            endDate: "2018-05-01",
+            isCurrent: false,
+            description: "",
+          },
+          evidenceIds: ["ev-resume"],
+        },
+      },
+      {
+        action: "create",
+        entityType: "career-fact",
+        values: {
+          factType: "skill",
+          subjectId: "typescript",
+          value: { name: "TypeScript" },
+          evidenceIds: ["ev-resume"],
+        },
+      },
+    ]);
+  });
+
+  it("plans nothing without resume evidence", () => {
+    expect(
+      planResumeImportFacts({
+        evidenceId: "  ",
+        roles: [
+          {
+            id: "job-1",
+            kind: "job",
+            title: "Lead",
+            organization: "Acme",
+            location: "",
+            startDate: "",
+            endDate: "",
+            isCurrent: false,
+            description: "",
+            achievements: ["Cut overtime"],
+          },
+        ],
+        skills: ["TypeScript"],
+      }),
+    ).toEqual([]);
   });
 });

@@ -28,6 +28,7 @@ export async function extractResumeFromFile(
   occupantId: string,
   file: { name: string; type: string; bytes: Uint8Array },
   deps: ResumeExtractDeps = {},
+  signal?: AbortSignal,
 ): Promise<{ data: ExtractedResume; model: string }> {
   const connection = loadLatestModelConnection(db, occupantId);
   if (!connection) {
@@ -70,8 +71,12 @@ export async function extractResumeFromFile(
         { role: "system", content: EXTRACT_SYSTEM_PROMPT },
         { role: "user", content: text },
       ],
+      signal,
     });
   } catch (err) {
+    if (isAbortError(err)) {
+      throw new ResumeExtractError("Extract cancelled.", 400);
+    }
     throw new ResumeExtractError(
       err instanceof Error ? err.message : "The model could not extract this resume.",
       502,
@@ -83,4 +88,13 @@ export async function extractResumeFromFile(
     throw new ResumeExtractError("The model did not return usable JSON.", 502);
   }
   return { data, model: reply.model };
+}
+
+function isAbortError(err: unknown): boolean {
+  return (
+    (err instanceof Error && err.name === "AbortError") ||
+    (typeof DOMException !== "undefined" &&
+      err instanceof DOMException &&
+      err.name === "AbortError")
+  );
 }

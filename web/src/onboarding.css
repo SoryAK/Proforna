@@ -124,6 +124,8 @@
   box-sizing: border-box;
   width: min(32rem, 100%);
   padding: 1.35rem 1.4rem 1.25rem;
+  overflow: hidden;
+  isolation: isolate;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 24px;
   background: var(--glass);
@@ -194,8 +196,54 @@
     transform 0.4s var(--ease);
 }
 
-.onboarding-btn:hover:not(:disabled) {
-  transform: translateY(-1px);
+.onboarding-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.onboarding-extract-pulse {
+  display: grid;
+  justify-items: center;
+  gap: 0.55rem;
+  padding: 2.5rem 1.25rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  background: rgba(0, 0, 0, 0.25);
+  text-align: center;
+}
+
+.onboarding-extract-pulse-dot {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 50%;
+  background: var(--gold);
+  animation: onboarding-pulse 1.2s ease-in-out infinite;
+}
+
+.onboarding-extract-pulse strong {
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.onboarding-extract-pulse p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes onboarding-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.85);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
 }
 
 .onboarding-btn-solid {
@@ -536,11 +584,260 @@
 }
 
 .onboarding-skills li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
   padding: 0.35rem 0.7rem;
   border: 1px solid rgba(167, 139, 113, 0.35);
   border-radius: 999px;
   color: var(--gold-light);
   font-size: 12px;
+}
+
+.onboarding-model-rows {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 1rem;
+}
+
+.onboarding-model-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem 1rem;
+  align-items: center;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  text-align: left;
+}
+
+.onboarding-model-row[data-open="true"] {
+  border-color: rgba(167, 139, 113, 0.55);
+  background: rgba(167, 139, 113, 0.1);
+}
+
+.onboarding-model-row strong {
+  display: block;
+  color: #fff;
+  font-size: 0.9rem;
+}
+
+.onboarding-model-row p {
+  margin: 0.15rem 0 0;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 300;
+  line-height: 1.4;
+}
+
+.onboarding-model-row-action {
+  padding: 0.35rem 0.7rem;
+  border: 1px solid rgba(199, 164, 123, 0.45);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--gold-hover);
+  font-size: 0.68rem;
+  font-weight: 650;
+}
+
+.onboarding-model-expand {
+  grid-column: 1 / -1;
+}
+
+.onboarding-model-hero {
+  margin-top: 1rem;
+  padding: 1.1rem 1rem;
+  border: 1px solid rgba(167, 139, 113, 0.4);
+  border-radius: 18px;
+  background: rgba(167, 139, 113, 0.1);
+}
+
+.onboarding-model-hero p {
+  margin: 0.35rem 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 300;
+  line-height: 1.45;
+}
+
+.onboarding-model-status {
+  display: inline-flex;
+  color: var(--gold-hover);
+  font-size: 0.68rem;
+  font-weight: 650;
+}
+
+.onboarding-model-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.65rem;
+}
+
+.onboarding-model-chip {
+  padding: 0.35rem 0.7rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--gold-light);
+  font-size: 0.72rem;
+}
+
+.onboarding-model-chip[data-active="true"] {
+  border-color: var(--gold);
+  background: rgba(167, 139, 113, 0.18);
+  color: #fff;
+}
+
+.onboarding-model-quiet {
+  margin-top: 1rem;
+}
+
+.onboarding-model-quiet summary {
+  cursor: pointer;
+  color: var(--gold-light);
+  font-size: 0.78rem;
+}
+
+.onboarding-model-quiet .onboarding-note {
+  margin-top: 0.75rem;
+}
+
+.onboarding-model-form {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 0.65rem;
+}
+
+.onboarding-model-form .onboarding-btn {
+  justify-self: start;
+}
+
+@media (max-width: 520px) {
+  .onboarding-model-row {
+    grid-template-columns: 1fr;
+  }
+
+  .onboarding-model-row-action {
+    justify-self: start;
+  }
+}
+
+.onboarding-extract-hint {
+  margin: 0 0 0.55rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 300;
+  line-height: 1.45;
+}
+
+.onboarding-extract h3 {
+  margin: 1.1rem 0 0.35rem;
+  color: #fff;
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.onboarding-job-review {
+  display: grid;
+}
+
+.onboarding-job-review[data-confirmed="true"] {
+  box-shadow: inset 0 0 0 1px rgba(167, 139, 113, 0.35);
+  border-radius: 16px;
+  padding: 0.85rem;
+}
+
+.onboarding-job-confirm {
+  margin-top: 0.85rem;
+}
+
+.onboarding-job-review > .onboarding-btn,
+.onboarding-job-review > .onboarding-fact-remove {
+  justify-self: start;
+}
+
+.onboarding-job-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.onboarding-job-head strong {
+  display: block;
+  color: #fff;
+  font-size: 1rem;
+}
+
+.onboarding-job-head span {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.onboarding-job-pager {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.onboarding-job-pager span {
+  color: var(--gold-light);
+  font-size: 0.72rem;
+  font-weight: 650;
+}
+
+.onboarding-lookup-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.45rem;
+}
+
+.onboarding-site-map {
+  height: 14rem;
+  margin-top: 0.65rem;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+}
+
+.onboarding-site-map .leaflet-container {
+  height: 100%;
+  background: #14110e;
+}
+
+.onboarding-duties {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0.65rem 0 0.75rem;
+  padding: 0;
+  list-style: none;
+}
+
+.onboarding-duties li {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.onboarding-duties textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.25);
+  color: #fff;
+  font: inherit;
+}
+
+.onboarding-skill-remove {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--gold-light);
+  font-size: 11px;
 }
 
 @keyframes onboarding-enter {

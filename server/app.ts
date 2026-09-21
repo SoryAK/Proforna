@@ -1,9 +1,19 @@
 import { Hono } from "hono";
 import type { DatabaseSync } from "node:sqlite";
 import { PRODUCT, type ApplicationStage } from "../core/index";
-import { isHttpUrl, normalizeBaseUrl } from "../core/model-connection";
-import { parseExtractedResume } from "../core/resume-extract";
-import { listOpenAiCompatModels } from "./openai-compat";
+import {
+  isHttpUrl,
+  normalizeBaseUrl,
+} from "../core/model-connection";
+import { LOCAL_ONBOARDING_ENDPOINTS } from "../core/model-onboarding";
+import {
+  parseExtractedResume,
+  parseHistoryResumeId,
+} from "../core/resume-extract";
+import {
+  LOCAL_MODEL_PROBE_MS,
+  listOpenAiCompatModels,
+} from "./openai-compat";
 import { pingDatabase } from "./db";
 import { loadCareerFile, saveExtractedResume } from "./history";
 import { listOccupantNotices } from "./notices";
@@ -16,6 +26,7 @@ import {
 import {
   ProfileError,
   completeOnboarding,
+  evidenceIdForResume,
   loadAvatar,
   saveProfile,
   storeAvatar,
@@ -215,6 +226,22 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
     return c.json({ connections: listModelConnections(db, occupant.id) });
   });
 
+  app.get("/api/models/probe", async (c) => {
+    const locals = await Promise.all(
+      LOCAL_ONBOARDING_ENDPOINTS.map(async (endpoint) => {
+        const result = await listOpenAiCompatModels({
+          baseUrl: endpoint.baseUrl,
+          timeoutMs: LOCAL_MODEL_PROBE_MS,
+        });
+        if (!result.ok) {
+          return { id: endpoint.id, reachable: false, models: [] as string[] };
+        }
+        return { id: endpoint.id, reachable: true, models: result.models };
+      }),
+    );
+    return c.json({ locals });
+  });
+
   app.post("/api/models/discover", async (c) => {
     const body = (await c.req.json()) as { baseUrl?: unknown; apiKey?: unknown };
     const baseUrl = normalizeBaseUrl(body.baseUrl);
@@ -284,6 +311,7 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
           bytes: new Uint8Array(await file.arrayBuffer()),
         },
         extractDeps,
+        c.req.raw.signal,
       );
       return c.json(result);
     } catch (err) {
@@ -303,10 +331,23 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
     const occupant = ensureOccupant(db);
     const body: unknown = await c.req.json();
     const extracted = parseExtractedResume(body);
-    if (!extracted) {
+    const resumeLink = parseHistoryResumeId(body);
+    if (!extracted || !resumeLink.ok) {
       return c.json({ error: "Could not read that extract." }, 400);
     }
-    const saved = saveExtractedResume(db, occupant.id, extracted);
+    let evidenceId: string | null = null;
+    if (resumeLink.resumeId) {
+      evidenceId = evidenceIdForResume(db, occupant.id, resumeLink.resumeId);
+      if (!evidenceId) {
+        return c.json({ error: "Could not find that resume." }, 400);
+      }
+    }
+    const saved = await saveExtractedResume(
+      db,
+      occupant.id,
+      extracted,
+      evidenceId,
+    );
     return c.json({ ok: true, ...saved }, 201);
   });
 

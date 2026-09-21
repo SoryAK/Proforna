@@ -286,62 +286,69 @@ export function backfillCareerMemory(
   for (const row of rows) {
     const roleId = String(row.id);
     const sourceRef = `legacy-history:${roleId}`;
-    const existingEvidence = db
-      .prepare(
-        "SELECT id FROM evidence WHERE occupant_id = ? AND source_type = 'import' AND source_ref = ?",
-      )
-      .get(occupantId, sourceRef) as { id: string } | undefined;
-    let evidenceId = existingEvidence?.id;
-    const content = { ...row };
-    if (!evidenceId) {
-      evidenceId = randomUUID();
-      const evidence: Evidence = {
-        id: evidenceId,
-        occupantId,
-        sourceType: "import",
-        sourceRef,
-        title: `Imported ${String(row.kind)}: ${String(row.title)}`,
-        capturedAt: String(row.created_at),
-        checksum: createHash("sha256")
-          .update(JSON.stringify(content))
-          .digest("hex"),
-        sensitivity: "private",
-        content,
-      };
-      db.prepare(
-        `INSERT INTO evidence
-          (id, occupant_id, source_type, source_ref, title, captured_at, checksum,
-           sensitivity, content_json)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      ).run(
-        evidence.id,
-        occupantId,
-        evidence.sourceType,
-        evidence.sourceRef,
-        evidence.title,
-        evidence.capturedAt,
-        evidence.checksum,
-        evidence.sensitivity,
-        JSON.stringify(evidence.content),
-      );
-      evidenceCount += 1;
-    }
-
     const existingFacts = db
       .prepare(
-        `SELECT fact_type, value_json, status FROM career_facts
+        `SELECT fact_type, value_json, status, evidence_ids_json
+         FROM career_facts
          WHERE occupant_id = ? AND subject_id = ?`,
       )
       .all(occupantId, roleId) as Array<{
         fact_type: string;
         value_json: string;
         status: string;
+        evidence_ids_json: string;
       }>;
     const factType = row.kind === "school" ? "education" : "role";
     const hasRoleFact = existingFacts.some(
       (fact) => fact.fact_type === factType && fact.status === "canonical",
     );
-    if (!hasRoleFact) {
+    const content = { ...row };
+    let evidenceId: string | undefined;
+    if (hasRoleFact) {
+      const roleFact = existingFacts.find(
+        (fact) => fact.fact_type === factType && fact.status === "canonical",
+      );
+      evidenceId = firstEvidenceId(roleFact?.evidence_ids_json);
+    } else {
+      const existingEvidence = db
+        .prepare(
+          "SELECT id FROM evidence WHERE occupant_id = ? AND source_type = 'import' AND source_ref = ?",
+        )
+        .get(occupantId, sourceRef) as { id: string } | undefined;
+      evidenceId = existingEvidence?.id;
+      if (!evidenceId) {
+        evidenceId = randomUUID();
+        const evidence: Evidence = {
+          id: evidenceId,
+          occupantId,
+          sourceType: "import",
+          sourceRef,
+          title: `Imported ${String(row.kind)}: ${String(row.title)}`,
+          capturedAt: String(row.created_at),
+          checksum: createHash("sha256")
+            .update(JSON.stringify(content))
+            .digest("hex"),
+          sensitivity: "private",
+          content,
+        };
+        db.prepare(
+          `INSERT INTO evidence
+            (id, occupant_id, source_type, source_ref, title, captured_at, checksum,
+             sensitivity, content_json)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ).run(
+          evidence.id,
+          occupantId,
+          evidence.sourceType,
+          evidence.sourceRef,
+          evidence.title,
+          evidence.capturedAt,
+          evidence.checksum,
+          evidence.sensitivity,
+          JSON.stringify(evidence.content),
+        );
+        evidenceCount += 1;
+      }
       insertFact(db, {
         id: randomUUID(),
         occupantId,
@@ -368,7 +375,7 @@ export function backfillCareerMemory(
         .filter(Boolean),
     );
     for (const statement of parseAchievements(row.achievements_json)) {
-      if (knownStatements.has(statement.toLowerCase())) continue;
+      if (!evidenceId || knownStatements.has(statement.toLowerCase())) continue;
       insertFact(db, {
         id: randomUUID(),
         occupantId,
@@ -553,6 +560,20 @@ function parseAchievements(value: unknown): string[] {
       .filter(Boolean);
   } catch {
     return [];
+  }
+}
+
+function firstEvidenceId(raw: string | undefined): string | undefined {
+  if (!raw) return undefined;
+  try {
+    const ids: unknown = JSON.parse(raw);
+    if (!Array.isArray(ids)) return undefined;
+    const first = ids.find(
+      (item): item is string => typeof item === "string" && Boolean(item.trim()),
+    );
+    return first;
+  } catch {
+    return undefined;
   }
 }
 

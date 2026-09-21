@@ -16,7 +16,9 @@ files.
 _Avoid_: Account database, cloud profile
 
 **Evidence**:
-Immutable source material that supports or challenges a career fact.
+Immutable source material that supports or challenges a career fact. A
+stored resume file is Evidence. Extracted jobs, schools, and skills are
+Career Facts that point at that file.
 _Avoid_: Attachment, proof
 
 **Career Fact**:
@@ -81,6 +83,13 @@ The exact career mutations or external actions proposed by an agent or the
 occupant for atomic approval.
 _Avoid_: AI response, suggestion
 
+**Extract Model**:
+An optional OpenAI-compatible connection the occupant can use to extract
+jobs and schools from a resume. Local servers such as Ollama and llama.cpp
+are preferred; a cloud key is a disclosure that resume text may leave this
+machine.
+_Avoid_: Agent, assistant, chatbot
+
 **Approval**:
 Authorization bound to one exact change set, destination, and expiry.
 Publication, revocation, access grants, and publication settings use this
@@ -89,8 +98,7 @@ _Avoid_: Confirmation, consent
 
 **Notice**:
 A pending item that needs the occupant's attention, currently an inbound
-access request or a proposed change set. Granting, declining, or approving
-clears it.
+access request or a proposed change set.
 _Avoid_: Alert, toast, reminder, notification center
 
 **Agent Run**:

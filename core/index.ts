@@ -19,10 +19,22 @@ export {
 } from "./profile";
 export {
   DEFAULT_LOCAL_BASE_URL,
+  LLAMA_CPP_BASE_URL,
+  OPENAI_BASE_URL,
+  OPENROUTER_BASE_URL,
   prepareModelConnection,
   type ModelHosting,
 } from "./model-connection";
 export { parseDiscoveredModels } from "./model-list";
+export {
+  LOCAL_ONBOARDING_ENDPOINTS,
+  planModelOnboarding,
+  presentModelId,
+  suggestChatModel,
+  type LocalProbeResult,
+  type ModelOnboardingSurface,
+  type ModelProviderId,
+} from "./model-onboarding";
 export {
   classifyResumePreview,
   type ResumePreviewKind,
@@ -31,10 +43,14 @@ export { linesFromPdfRuns, type PdfTextRun } from "./pdf-text";
 export {
   EXTRACT_SYSTEM_PROMPT,
   emptyExtractedResume,
+  fillProfileFromExtract,
+  isExtractReviewComplete,
   isExtractableResumeText,
   parseExtractedResume,
   parseExtractedResumeText,
+  parseHistoryResumeId,
   type ExtractedResume,
+  type ExtractedSite,
 } from "./resume-extract";
 export {
   currentJob,
@@ -77,12 +93,14 @@ export {
 export {
   canonicalFacts,
   commitCareerFactChanges,
+  planResumeImportFacts,
   prepareCareerFact,
   prepareEvidence,
   type CareerFactVersion,
   type CareerMemoryError,
   type CareerMemoryState,
   type Evidence,
+  type ResumeImportRole,
   type Sensitivity,
 } from "./career-memory";
 export {
