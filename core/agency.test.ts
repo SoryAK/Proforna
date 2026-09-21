@@ -158,6 +158,27 @@ describe("Agency.run", () => {
     expect(parseSuggestedReply("not json")).toBe("");
   });
 
+  it("plans a local Home command run", () => {
+    expect(
+      planAgentRun({
+        id: "run-9",
+        occupantId: "local",
+        purpose: "command",
+        scope: { type: "home" },
+        grant: { remoteModel: false },
+        hosting: "local",
+        now,
+      }),
+    ).toMatchObject({
+      ok: true,
+      value: {
+        purpose: "command",
+        scope: { type: "home" },
+        status: "started",
+      },
+    });
+  });
+
   it("rejects an expired remote-model grant", () => {
     expect(
       planAgentRun({

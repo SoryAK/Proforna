@@ -6,12 +6,14 @@ export const AGENT_PURPOSES = [
   "inspect",
   "extract-facts",
   "suggest-reply",
+  "command",
 ] as const;
 export type AgentPurpose = (typeof AGENT_PURPOSES)[number];
 
 export type AgentScope =
   | { type: "worklog"; id: string }
-  | { type: "contact"; id: string };
+  | { type: "contact"; id: string }
+  | { type: "home" };
 
 export type CapabilityGrant = {
   remoteModel: boolean;
@@ -95,6 +97,9 @@ export function parseExtractedWorklogFacts(
   return proposals;
 }
 
+export const COMMAND_SYSTEM_PROMPT =
+  "You are Proforna. Continue this conversation using only the vault gist and the messages. Do not claim you changed Career Memory. Do not send messages. Do not invent facts.";
+
 export const SUGGEST_REPLY_SYSTEM_PROMPT =
   "You are Proforna. Draft one reply the occupant could send on this Contact thread. Use only the thread. Do not invent facts. Do not claim you sent it. Return ONLY JSON: {\"body\":\"string\"}.";
 
@@ -169,5 +174,6 @@ function parseScope(value: unknown): AgentScope | null {
   const id = typeof record.id === "string" ? record.id.trim() : "";
   if (record.type === "worklog" && id) return { type: "worklog", id };
   if (record.type === "contact" && id) return { type: "contact", id };
+  if (record.type === "home") return { type: "home" };
   return null;
 }

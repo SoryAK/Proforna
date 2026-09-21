@@ -118,3 +118,8 @@ A recorded execution with declared purpose, inputs, capabilities, and
 resulting proposals. Occupants talk to Proforna, not named agents. A cloud
 model requires an explicit grant before vault text may leave the machine.
 _Avoid_: Chat, automation
+
+**Command Session**:
+A persisted Home conversation with Proforna. Each occupant turn is a command
+Agent Run. It does not send messages, extract facts, or write Change Sets.
+_Avoid_: Chat, assistant thread, inbox

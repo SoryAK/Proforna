@@ -1,14 +1,17 @@
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import {
+  COMMAND_SYSTEM_PROMPT,
   EXTRACT_FACTS_SYSTEM_PROMPT,
   INSPECT_SYSTEM_PROMPT,
   SUGGEST_REPLY_SYSTEM_PROMPT,
   parseExtractedWorklogFacts,
   parseSuggestedReply,
   planAgentRun,
+  presentCommandHistory,
   type AgentRun,
   type ChangeSet,
+  type CommandSpeaker,
 } from "../core/index";
 import { loadLatestModelConnection } from "./models";
 import {
@@ -17,6 +20,7 @@ import {
   type CompleteFn,
 } from "./openai-compat";
 import { persistSuggestedReply, readContactThread, ConversationStoreError } from "./conversation";
+import { readProfile } from "./occupant";
 import { listWorklog, persistWorklogFactProposals, WorklogStoreError } from "./worklog";
 
 type JsonObject = Record<string, unknown>;
@@ -61,7 +65,19 @@ export async function runAgency(
     throw new AgencyStoreError("model-busy");
   }
 
-  const context = loadRunContext(db, occupantId, planned.value);
+  const occupantPrompt =
+    typeof input.prompt === "string" ? input.prompt.trim() : "";
+  if (planned.value.purpose === "command" && !occupantPrompt) {
+    throw new AgencyStoreError("prompt-required");
+  }
+  const history = parseCommandHistory(input.history);
+  const context = loadRunContext(
+    db,
+    occupantId,
+    planned.value,
+    occupantPrompt,
+    history,
+  );
   if (!context.ok) throw new AgencyStoreError(context.error);
 
   activeOccupantRuns.add(occupantId);
@@ -71,6 +87,7 @@ export async function runAgency(
     grant: planned.value.grant,
     hosting: connection.hosting,
     model: connection.model,
+    prompt: occupantPrompt || undefined,
   });
 
   const local = connection.hosting === "local";
@@ -223,10 +240,20 @@ function loadRunContext(
   db: DatabaseSync,
   occupantId: string,
   run: AgentRun,
+  occupantPrompt: string,
+  history: Array<{ speaker: CommandSpeaker; body: string }>,
 ):
   | { ok: true; prompt: string; userContent: string; jsonObject: boolean }
   | { ok: false; error: string } {
   const scope = run.scope;
+  if (scope.type === "home") {
+    return {
+      ok: true,
+      prompt: COMMAND_SYSTEM_PROMPT,
+      jsonObject: false,
+      userContent: homeVaultGist(db, occupantId, occupantPrompt, history),
+    };
+  }
   if (scope.type === "contact") {
     try {
       const thread = readContactThread(db, occupantId, scope.id);
@@ -273,6 +300,57 @@ function loadRunContext(
       .filter(Boolean)
       .join("\n"),
   };
+}
+
+function homeVaultGist(
+  db: DatabaseSync,
+  occupantId: string,
+  prompt: string,
+  history: Array<{ speaker: CommandSpeaker; body: string }>,
+): string {
+  const profile = readProfile(db, occupantId);
+  const worklog = listWorklog(db, occupantId).slice(0, 5);
+  const contacts = db
+    .prepare(
+      `SELECT name FROM contacts WHERE occupant_id = ? ORDER BY created_at DESC LIMIT 8`,
+    )
+    .all(occupantId) as Array<{ name: string }>;
+  const conversation = presentCommandHistory(history);
+  return [
+    `Occupant: ${profile.fullName || "unnamed"}`,
+    profile.headline ? `Headline: ${profile.headline}` : "",
+    worklog.length
+      ? `Recent Worklog: ${worklog.map((entry) => entry.title).join("; ")}`
+      : "Recent Worklog: none",
+    contacts.length
+      ? `My Network: ${contacts.map((contact) => contact.name).join("; ")}`
+      : "My Network: none",
+    conversation ? `Conversation:\n${conversation}` : "",
+    `Command: ${prompt}`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+function parseCommandHistory(
+  value: unknown,
+): Array<{ speaker: CommandSpeaker; body: string }> {
+  if (!Array.isArray(value)) return [];
+  const rows: Array<{ speaker: CommandSpeaker; body: string }> = [];
+  for (const item of value) {
+    if (!item || typeof item !== "object") continue;
+    const record = item as Record<string, unknown>;
+    const speaker: CommandSpeaker | null =
+      record.speaker === "proforna"
+        ? "proforna"
+        : record.speaker === "occupant"
+          ? "occupant"
+          : null;
+    const body = typeof record.body === "string" ? record.body.trim() : "";
+    if (!speaker || !body) continue;
+    rows.push({ speaker, body });
+  }
+  return rows;
 }
 
 function summarizeChangeSet(

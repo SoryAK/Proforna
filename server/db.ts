@@ -146,6 +146,26 @@ export function openDatabase(path: string): DatabaseSync {
     )
   `);
   db.exec(`
+    CREATE TABLE IF NOT EXISTS command_sessions (
+      id TEXT PRIMARY KEY,
+      occupant_id TEXT NOT NULL REFERENCES occupants(id),
+      title TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )
+  `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS command_messages (
+      id TEXT PRIMARY KEY,
+      occupant_id TEXT NOT NULL REFERENCES occupants(id),
+      session_id TEXT NOT NULL REFERENCES command_sessions(id),
+      speaker TEXT NOT NULL,
+      body TEXT NOT NULL,
+      agent_run_id TEXT REFERENCES agent_runs(id),
+      created_at TEXT NOT NULL
+    )
+  `);
+  db.exec(`
     CREATE TABLE IF NOT EXISTS worklog_entries (
       id TEXT PRIMARY KEY,
       occupant_id TEXT NOT NULL REFERENCES occupants(id),
