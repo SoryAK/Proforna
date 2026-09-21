@@ -153,6 +153,21 @@
   margin-top: 0.65rem;
 }
 
+.entry-list article > button {
+  display: inline-block;
+  margin-top: 0.75rem;
+  padding: 0.35rem 0.75rem;
+  border: 1px solid rgba(167, 139, 113, 0.4);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--gold-hover);
+}
+
+.agency-answer {
+  margin-top: 0.75rem;
+  color: var(--text);
+}
+
 .career-action {
   padding: 0.65rem 1rem;
   border: 1px solid var(--gold);

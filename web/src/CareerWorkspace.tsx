@@ -796,6 +796,8 @@ function WorklogPage() {
   const [tags, setTags] = useState("");
   const [proposals, setProposals] = useState<ChangeSet[]>([]);
   const [message, setMessage] = useState("");
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [allowRemote, setAllowRemote] = useState(false);
 
   useEffect(() => {
     void loadEntries();
@@ -858,6 +860,36 @@ function WorklogPage() {
     setMessage(`${proposals.length} proposal(s) added to Career Memory.`);
     await loadEntries();
     window.dispatchEvent(new Event("proforna:notices-changed"));
+  }
+
+  async function askProforna(entryId: string) {
+    setMessage("");
+    const response = await fetch("/api/agency/runs", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        purpose: "inspect",
+        scope: { type: "worklog", id: entryId },
+        grant: { remoteModel: allowRemote },
+      }),
+    });
+    if (response.status === 403) {
+      setAllowRemote(true);
+      setMessage(
+        "This uses a cloud model. Ask again if this Worklog text may leave the machine.",
+      );
+      return;
+    }
+    if (!response.ok) {
+      setMessage("Connect a model in Settings before asking Proforna.");
+      return;
+    }
+    const body = (await response.json()) as {
+      run: { answer?: string | null };
+    };
+    if (body.run.answer) {
+      setAnswers((current) => ({ ...current, [entryId]: body.run.answer ?? "" }));
+    }
   }
 
   return (
@@ -941,6 +973,12 @@ function WorklogPage() {
               <h3>{entry.title}</h3>
               <p>{entry.content}</p>
               {entry.project ? <span>{entry.project}</span> : null}
+              <button type="button" onClick={() => void askProforna(entry.id)}>
+                Ask Proforna
+              </button>
+              {answers[entry.id] ? (
+                <p className="agency-answer">{answers[entry.id]}</p>
+              ) : null}
             </article>
           ))
         )}
