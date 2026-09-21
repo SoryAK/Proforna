@@ -456,6 +456,7 @@ export function openDatabase(path: string): DatabaseSync {
     "unread_inbound",
     "INTEGER NOT NULL DEFAULT 0",
   );
+  addColumnIfMissing(db, "opportunities", "contact_id", "TEXT");
   return db;
 }
 
