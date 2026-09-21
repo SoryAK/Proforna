@@ -18,6 +18,7 @@ next-env.d.ts
 /data/*.sqlite-*
 /data/uploads/
 /web/dist/
+/web/src/prototype/
 
 .DS_Store
 *~
