@@ -41,6 +41,12 @@ An external possibility that may advance a career goal, including a role,
 project, speaking event, or connection.
 _Avoid_: Job lead, application
 
+**Contact**:
+A person the occupant keeps a relationship with. Occupant-facing chrome names
+this list My Network. An Opportunity is why they showed up; the Contact is
+who they are.
+_Avoid_: Connection, lead, recruiter record
+
 **Resume Variant**:
 An editorial strategy for presenting selected career facts to a particular
 role or audience.
@@ -98,7 +104,8 @@ _Avoid_: Confirmation, consent
 
 **Notice**:
 A pending item that needs the occupant's attention, currently an inbound
-access request or a proposed change set.
+access request or a proposed change set. Opening it goes to the destination
+that can review that item.
 _Avoid_: Alert, toast, reminder, notification center
 
 **Agent Run**:

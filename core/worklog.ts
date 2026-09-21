@@ -1,3 +1,5 @@
+import type { ChangeSet } from "./governance";
+
 export type WorklogEntry = {
   id: string;
   occupantId: string;
@@ -77,4 +79,39 @@ export function proposeFactsFromWorklog(
     });
   }
   return proposals;
+}
+
+export function planWorklogFactChangeSet(input: {
+  id: string;
+  occupantId: string;
+  entryTitle: string;
+  evidenceId: string;
+  proposals: WorklogFactProposal[];
+  createdAt: string;
+}): ChangeSet | null {
+  if (input.proposals.length === 0) return null;
+  return {
+    id: input.id,
+    occupantId: input.occupantId,
+    purpose: `Promote facts from ${input.entryTitle.trim()}`,
+    destination: "worklog",
+    createdAt: input.createdAt,
+    operations: input.proposals.map((proposal, index) => ({
+      action: "create" as const,
+      entityType: "career-fact",
+      values: {
+        id: `${input.id}:fact:${index}`,
+        factType: proposal.factType,
+        subjectId: proposal.subjectId,
+        value:
+          proposal.factType === "skill"
+            ? { name: proposal.statement, confidence: proposal.confidence }
+            : {
+                statement: proposal.statement,
+                confidence: proposal.confidence,
+              },
+        evidenceIds: [input.evidenceId],
+      },
+    })),
+  };
 }

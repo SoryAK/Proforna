@@ -1,16 +1,14 @@
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import {
+  hashChangeSet,
   prepareWorklogEntry,
+  planWorklogFactChangeSet,
   proposeFactsFromWorklog,
   type ChangeSet,
   type WorklogEntry,
 } from "../core/index";
-import {
-  approveCareerFactChange,
-  proposeCareerFact,
-  saveEvidence,
-} from "./career-memory";
+import { approveCareerFactChange, saveEvidence } from "./career-memory";
 
 type JsonObject = Record<string, unknown>;
 
@@ -107,26 +105,31 @@ export async function proposeWorklogChanges(
     )
     .get(occupantId, entry.id) as { id: string } | undefined;
   if (!evidence) throw new WorklogStoreError("evidence-missing");
-  const proposals = proposeFactsFromWorklog(entry);
-  const changeSets: ChangeSet[] = [];
-  for (const proposal of proposals) {
-    changeSets.push(
-      await proposeCareerFact(db, occupantId, {
-        purpose: `Promote worklog ${proposal.factType}`,
-        factType: proposal.factType,
-        subjectId: proposal.subjectId,
-        value:
-          proposal.factType === "skill"
-            ? { name: proposal.statement, confidence: proposal.confidence }
-            : {
-                statement: proposal.statement,
-                confidence: proposal.confidence,
-              },
-        evidenceIds: [evidence.id],
-      }),
-    );
-  }
-  return changeSets;
+  const changeSet = planWorklogFactChangeSet({
+    id: randomUUID(),
+    occupantId,
+    entryTitle: entry.title,
+    evidenceId: evidence.id,
+    proposals: proposeFactsFromWorklog(entry),
+    createdAt: new Date().toISOString(),
+  });
+  if (!changeSet) return [];
+  const hash = await hashChangeSet(changeSet);
+  db.prepare(
+    `INSERT INTO change_sets
+      (id, occupant_id, purpose, destination, operations_json, change_hash,
+       status, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, 'proposed', ?)`,
+  ).run(
+    changeSet.id,
+    occupantId,
+    changeSet.purpose,
+    changeSet.destination,
+    JSON.stringify(changeSet.operations),
+    hash,
+    changeSet.createdAt,
+  );
+  return [changeSet];
 }
 
 export async function approveWorklogChanges(
