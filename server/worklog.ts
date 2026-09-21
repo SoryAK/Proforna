@@ -7,6 +7,7 @@ import {
   proposeFactsFromWorklog,
   type ChangeSet,
   type WorklogEntry,
+  type WorklogFactProposal,
 } from "../core/index";
 import { approveCareerFactChange, saveEvidence } from "./career-memory";
 
@@ -91,11 +92,12 @@ export function listProposedChangeSets(
     .all(occupantId) as Array<{ id: string; purpose: string; createdAt: string }>;
 }
 
-export async function proposeWorklogChanges(
+export async function persistWorklogFactProposals(
   db: DatabaseSync,
   occupantId: string,
   entryId: string,
-): Promise<ChangeSet[]> {
+  proposals: WorklogFactProposal[],
+): Promise<ChangeSet | null> {
   const entry = listWorklog(db, occupantId).find((item) => item.id === entryId);
   if (!entry) throw new WorklogStoreError("entry-missing");
   const evidence = db
@@ -110,10 +112,10 @@ export async function proposeWorklogChanges(
     occupantId,
     entryTitle: entry.title,
     evidenceId: evidence.id,
-    proposals: proposeFactsFromWorklog(entry),
+    proposals,
     createdAt: new Date().toISOString(),
   });
-  if (!changeSet) return [];
+  if (!changeSet) return null;
   const hash = await hashChangeSet(changeSet);
   db.prepare(
     `INSERT INTO change_sets
@@ -129,7 +131,23 @@ export async function proposeWorklogChanges(
     hash,
     changeSet.createdAt,
   );
-  return [changeSet];
+  return changeSet;
+}
+
+export async function proposeWorklogChanges(
+  db: DatabaseSync,
+  occupantId: string,
+  entryId: string,
+): Promise<ChangeSet[]> {
+  const entry = listWorklog(db, occupantId).find((item) => item.id === entryId);
+  if (!entry) throw new WorklogStoreError("entry-missing");
+  const changeSet = await persistWorklogFactProposals(
+    db,
+    occupantId,
+    entryId,
+    proposeFactsFromWorklog(entry),
+  );
+  return changeSet ? [changeSet] : [];
 }
 
 export async function approveWorklogChanges(

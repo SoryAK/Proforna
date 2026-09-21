@@ -178,6 +178,7 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
         occupant.id,
         (await c.req.json()) as Record<string, unknown>,
         complete,
+        c.req.raw.signal,
       );
       return c.json(result, 201);
     } catch (error) {
@@ -190,7 +191,9 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
               ? 404
               : error.code === "model-failed"
                 ? 502
-                : 400;
+                : error.code === "model-busy"
+                  ? 409
+                  : 400;
         return c.json({ error: error.code }, status);
       }
       throw error;
