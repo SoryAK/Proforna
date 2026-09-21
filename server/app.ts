@@ -13,10 +13,15 @@ import {
 import {
   LOCAL_MODEL_PROBE_MS,
   listOpenAiCompatModels,
+  type CompleteFn,
 } from "./openai-compat";
 import { pingDatabase } from "./db";
 import { loadCareerFile, saveExtractedResume } from "./history";
 import { listOccupantNotices } from "./notices";
+import {
+  AgencyStoreError,
+  runAgency,
+} from "./agency";
 import { ensureOccupant, readProfile } from "./occupant";
 import {
   ModelConnectionError,
@@ -131,6 +136,7 @@ export type AppOptions = {
   extract?: ResumeExtractDeps;
   relay?: ProjectionRelay;
   externalActions?: ExternalActionAdapter;
+  complete?: CompleteFn;
   places?: {
     lookup?: (query: string) => Promise<{
       label: string;
@@ -146,6 +152,7 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
   const extractDeps = options.extract ?? {};
   const relay = options.relay;
   const externalActions = options.externalActions;
+  const complete = options.complete;
   const app = new Hono();
 
   app.get("/api/health", (c) =>
@@ -161,6 +168,33 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
   app.get("/api/notices", (c) => {
     const occupant = ensureOccupant(db);
     return c.json({ notices: listOccupantNotices(db, occupant.id) });
+  });
+
+  app.post("/api/agency/runs", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      const result = await runAgency(
+        db,
+        occupant.id,
+        (await c.req.json()) as Record<string, unknown>,
+        complete,
+      );
+      return c.json(result, 201);
+    } catch (error) {
+      if (error instanceof AgencyStoreError) {
+        const status =
+          error.code === "remote-model-grant-required" ||
+          error.code === "grant-expired"
+            ? 403
+            : error.code === "entry-missing"
+              ? 404
+              : error.code === "model-failed"
+                ? 502
+                : 400;
+        return c.json({ error: error.code }, status);
+      }
+      throw error;
+    }
   });
 
   app.put("/api/profile", async (c) => {

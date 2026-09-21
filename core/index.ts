@@ -18,6 +18,14 @@ export {
   type ProfileFields,
 } from "./profile";
 export {
+  INSPECT_SYSTEM_PROMPT,
+  planAgentRun,
+  type AgencyError,
+  type AgentRun,
+  type AgentScope,
+  type CapabilityGrant,
+} from "./agency";
+export {
   DEFAULT_LOCAL_BASE_URL,
   LLAMA_CPP_BASE_URL,
   OPENAI_BASE_URL,

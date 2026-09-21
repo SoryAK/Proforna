@@ -115,5 +115,6 @@ _Avoid_: Alert, toast, reminder, notification center
 
 **Agent Run**:
 A recorded execution with declared purpose, inputs, capabilities, and
-resulting proposals.
+resulting proposals. Occupants talk to Proforna, not named agents. A cloud
+model requires an explicit grant before vault text may leave the machine.
 _Avoid_: Chat, automation
