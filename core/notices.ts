@@ -1,6 +1,11 @@
 export type OccupantNoticeKind = "access-request" | "proposed-change";
 
-export type OccupantNoticeHref = "opportunities" | "worklog";
+export type OccupantNoticeHref =
+  | "opportunities"
+  | "worklog"
+  | "history"
+  | "resumes"
+  | "network";
 
 export type OccupantNotice = {
   id: string;
@@ -10,6 +15,41 @@ export type OccupantNotice = {
   href: OccupantNoticeHref;
   createdAt: string;
 };
+
+export function noticeHrefForDestination(
+  destination: string,
+): OccupantNoticeHref {
+  const dest = destination.trim().toLowerCase();
+  if (
+    dest.startsWith("relay:") ||
+    dest.startsWith("work-map") ||
+    dest === "history"
+  ) {
+    return "history";
+  }
+  if (
+    dest.startsWith("application:") ||
+    dest.startsWith("opportunity") ||
+    dest === "opportunities"
+  ) {
+    return "opportunities";
+  }
+  if (
+    dest.startsWith("contact") ||
+    dest === "network" ||
+    dest.includes("@")
+  ) {
+    return "network";
+  }
+  if (
+    dest.startsWith("resume") ||
+    dest === "studio" ||
+    dest === "resumes"
+  ) {
+    return "resumes";
+  }
+  return "worklog";
+}
 
 export function presentOccupantNotices(input: {
   accessRequests: Array<{
@@ -22,6 +62,7 @@ export function presentOccupantNotices(input: {
   proposedChangeSets: Array<{
     id: string;
     purpose: string;
+    destination: string;
     createdAt: string;
   }>;
 }): OccupantNotice[] {
@@ -39,7 +80,7 @@ export function presentOccupantNotices(input: {
       kind: "proposed-change" as const,
       title: changeSet.purpose,
       detail: "Waiting for approval",
-      href: "worklog" as const,
+      href: noticeHrefForDestination(changeSet.destination),
       createdAt: changeSet.createdAt,
     })),
   ];

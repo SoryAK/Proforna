@@ -28,9 +28,14 @@ describe("worklog HTTP seam", () => {
       );
       expect(proposed.status).toBe(201);
       const proposals = (await proposed.json()) as {
-        changeSets: Array<{ id: string }>;
+        changeSets: Array<{ id: string; purpose: string; destination: string }>;
       };
-      expect(proposals.changeSets).toHaveLength(2);
+      expect(proposals.changeSets).toEqual([
+        expect.objectContaining({
+          purpose: "Promote facts from Atlas migration",
+          destination: "worklog",
+        }),
+      ]);
 
       const pending = (await (await app.request("/api/worklog")).json()) as {
         proposals: Array<{ id: string; purpose: string }>;
@@ -42,6 +47,17 @@ describe("worklog HTTP seam", () => {
           ),
         ),
       );
+
+      const pendingNotices = (await (
+        await app.request("/api/notices")
+      ).json()) as { notices: Array<{ href: string; id: string }> };
+      expect(pendingNotices.notices).toEqual([
+        expect.objectContaining({
+          id: proposals.changeSets[0]?.id,
+          href: "worklog",
+          title: "Promote facts from Atlas migration",
+        }),
+      ]);
 
       const approved = await app.request("/api/worklog/proposals/approve", {
         method: "POST",

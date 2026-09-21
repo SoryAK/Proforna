@@ -28,13 +28,14 @@ export function listOccupantNotices(
   }>;
   const proposedChangeSets = db
     .prepare(
-      `SELECT id, purpose, created_at AS createdAt
+      `SELECT id, purpose, destination, created_at AS createdAt
          FROM change_sets
         WHERE occupant_id = ? AND status = 'proposed'`,
     )
     .all(occupantId) as Array<{
     id: string;
     purpose: string;
+    destination: string;
     createdAt: string;
   }>;
   return presentOccupantNotices({ accessRequests, proposedChangeSets });

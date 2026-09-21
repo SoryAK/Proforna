@@ -105,6 +105,7 @@ export {
 } from "./career-memory";
 export {
   prepareWorklogEntry,
+  planWorklogFactChangeSet,
   proposeFactsFromWorklog,
   type WorklogEntry,
   type WorklogError,
@@ -149,6 +150,7 @@ export {
   type OpportunityKind,
 } from "./career-management";
 export {
+  noticeHrefForDestination,
   presentOccupantNotices,
   type OccupantNotice,
   type OccupantNoticeHref,
