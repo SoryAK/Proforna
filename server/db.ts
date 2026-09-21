@@ -353,6 +353,18 @@ export function openDatabase(path: string): DatabaseSync {
     )
   `);
   db.exec(`
+    CREATE TABLE IF NOT EXISTS contact_messages (
+      id TEXT PRIMARY KEY,
+      occupant_id TEXT NOT NULL REFERENCES occupants(id),
+      contact_id TEXT NOT NULL REFERENCES contacts(id),
+      direction TEXT NOT NULL,
+      body TEXT NOT NULL,
+      evidence_id TEXT NOT NULL REFERENCES evidence(id),
+      change_set_id TEXT REFERENCES change_sets(id),
+      created_at TEXT NOT NULL
+    )
+  `);
+  db.exec(`
     CREATE TABLE IF NOT EXISTS career_plans (
       id TEXT PRIMARY KEY,
       occupant_id TEXT NOT NULL REFERENCES occupants(id),
@@ -438,6 +450,13 @@ export function openDatabase(path: string): DatabaseSync {
     "TEXT NOT NULL DEFAULT 'career'",
   );
   addColumnIfMissing(db, "projection_access_requests", "opportunity_id", "TEXT");
+  addColumnIfMissing(
+    db,
+    "contacts",
+    "unread_inbound",
+    "INTEGER NOT NULL DEFAULT 0",
+  );
+  addColumnIfMissing(db, "opportunities", "contact_id", "TEXT");
   return db;
 }
 

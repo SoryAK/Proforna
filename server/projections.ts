@@ -500,10 +500,11 @@ export function captureAccessRequest(
   };
   db.exec("BEGIN");
   try {
+    const contact = createContact(db, projection.occupantId, inbound.contact);
     const opportunity = createOpportunity(
       db,
       projection.occupantId,
-      inbound.opportunity,
+      { ...inbound.opportunity, contactId: contact.id },
     );
     db.prepare(
       `INSERT INTO projection_access_requests
@@ -519,7 +520,6 @@ export function captureAccessRequest(
       opportunity.id,
       request.createdAt,
     );
-    createContact(db, projection.occupantId, inbound.contact);
     db.exec("COMMIT");
   } catch (error) {
     db.exec("ROLLBACK");

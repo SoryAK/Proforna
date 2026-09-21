@@ -3,6 +3,7 @@ import {
   presentOccupantNotices,
   type OccupantNotice,
 } from "../core/index";
+import { listUnreadInboundThreads } from "./conversation";
 
 export function listOccupantNotices(
   db: DatabaseSync,
@@ -38,5 +39,9 @@ export function listOccupantNotices(
     destination: string;
     createdAt: string;
   }>;
-  return presentOccupantNotices({ accessRequests, proposedChangeSets });
+  return presentOccupantNotices({
+    accessRequests,
+    proposedChangeSets,
+    inboundThreads: listUnreadInboundThreads(db, occupantId),
+  });
 }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   presentInboundAccessRequest,
+  planOpportunityNetworkPromotion,
   resolveInboundAccessRequest,
   transitionApplication,
   type Application,
@@ -31,6 +32,17 @@ describe("career management", () => {
         email: "alex@northstar.example",
         notes: "May I review the published map?",
       },
+    });
+  });
+
+  it("promotes only a connection Opportunity into My Network", () => {
+    expect(planOpportunityNetworkPromotion({ kind: "connection" })).toEqual({
+      ok: true,
+      value: { status: "closed" },
+    });
+    expect(planOpportunityNetworkPromotion({ kind: "role" })).toEqual({
+      ok: false,
+      error: "kind-invalid",
     });
   });
 

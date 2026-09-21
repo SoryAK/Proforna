@@ -1,4 +1,9 @@
-export type OccupantNoticeKind = "access-request" | "proposed-change";
+import { presentInboundMessageNotice } from "./conversation";
+
+export type OccupantNoticeKind =
+  | "access-request"
+  | "proposed-change"
+  | "inbound-message";
 
 export type OccupantNoticeHref =
   | "opportunities"
@@ -65,6 +70,12 @@ export function presentOccupantNotices(input: {
     destination: string;
     createdAt: string;
   }>;
+  inboundThreads?: Array<{
+    contactId: string;
+    contactName: string;
+    preview: string;
+    createdAt: string;
+  }>;
 }): OccupantNotice[] {
   const notices: OccupantNotice[] = [
     ...input.accessRequests.map((request) => ({
@@ -83,6 +94,7 @@ export function presentOccupantNotices(input: {
       href: noticeHrefForDestination(changeSet.destination),
       createdAt: changeSet.createdAt,
     })),
+    ...(input.inboundThreads ?? []).map(presentInboundMessageNotice),
   ];
   return notices.sort((left, right) => {
     if (left.createdAt !== right.createdAt) {
