@@ -84,7 +84,7 @@ export type WorkMapClaim = {
 
 export type WorkMapRole = {
   id: string;
-  kind: "job" | "school";
+  kind: "job" | "school" | "internship";
   title: string;
   organization: string;
   locationLabel: string;
@@ -121,6 +121,37 @@ export type WorkMapPublicationSettings = {
   showExactLocations: boolean;
   expiresAt: string | null;
 };
+
+export function publicationAllowsSnapshot(
+  visibility: WorkMapPublicationSettings["visibility"],
+): boolean {
+  return visibility !== "private";
+}
+
+export function publicationNeedsAudienceConfirm(input: {
+  visibility: WorkMapPublicationSettings["visibility"];
+  liveStatus?: string | null;
+}): boolean {
+  return (
+    !publicationAllowsSnapshot(input.visibility) ||
+    input.liveStatus !== "published"
+  );
+}
+
+export function prepareWorkMapRoleCreate(input: {
+  kind?: unknown;
+}):
+  | { ok: true; value: { kind: WorkMapRole["kind"] } }
+  | { ok: false; error: "kind-invalid" } {
+  if (
+    input.kind === "job" ||
+    input.kind === "internship" ||
+    input.kind === "school"
+  ) {
+    return { ok: true, value: { kind: input.kind } };
+  }
+  return { ok: false, error: "kind-invalid" };
+}
 
 export type WorkMapSnapshot = {
   id: string;
@@ -557,6 +588,69 @@ export function normalizeSlug(value: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9-]+/g, "-")
     .replace(/^-+|-+$/g, "");
+}
+
+export type PreparedWorkMapLocation = Omit<WorkMapLocation, "id">;
+
+export type WorkMapPlace = {
+  label: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+};
+
+export function prepareWorkMapLocation(
+  input: Record<string, unknown>,
+):
+  | { ok: true; value: PreparedWorkMapLocation }
+  | { ok: false; error: "coordinates-required" } {
+  const latitude = parseCoordinate(input.latitude);
+  const longitude = parseCoordinate(input.longitude);
+  if (latitude === null || longitude === null) {
+    return { ok: false, error: "coordinates-required" };
+  }
+  return {
+    ok: true,
+    value: {
+      label: text(input.label) || "Work site",
+      address: text(input.address),
+      latitude,
+      longitude,
+      kind: parseLocationKind(input.kind),
+      isPublic: input.isPublic === true,
+    },
+  };
+}
+
+export function presentWorkMapPlace(hit: {
+  name?: string | null;
+  displayName: string;
+  latitude: number;
+  longitude: number;
+}): WorkMapPlace {
+  const address = hit.displayName.trim();
+  const named = (hit.name ?? "").trim();
+  return {
+    label: named || address.split(",")[0]?.trim() || "Work site",
+    address,
+    latitude: hit.latitude,
+    longitude: hit.longitude,
+  };
+}
+
+function parseCoordinate(value: unknown): number | null {
+  const parsed = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function text(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function parseLocationKind(value: unknown): WorkMapLocation["kind"] {
+  return value === "site" || value === "client" || value === "travel"
+    ? value
+    : "primary";
 }
 
 function roundCoordinate(value: number): number {

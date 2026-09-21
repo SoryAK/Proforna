@@ -19,10 +19,22 @@ export {
 } from "./profile";
 export {
   DEFAULT_LOCAL_BASE_URL,
+  LLAMA_CPP_BASE_URL,
+  OPENAI_BASE_URL,
+  OPENROUTER_BASE_URL,
   prepareModelConnection,
   type ModelHosting,
 } from "./model-connection";
 export { parseDiscoveredModels } from "./model-list";
+export {
+  LOCAL_ONBOARDING_ENDPOINTS,
+  planModelOnboarding,
+  presentModelId,
+  suggestChatModel,
+  type LocalProbeResult,
+  type ModelOnboardingSurface,
+  type ModelProviderId,
+} from "./model-onboarding";
 export {
   classifyResumePreview,
   type ResumePreviewKind,
@@ -31,10 +43,14 @@ export { linesFromPdfRuns, type PdfTextRun } from "./pdf-text";
 export {
   EXTRACT_SYSTEM_PROMPT,
   emptyExtractedResume,
+  fillProfileFromExtract,
+  isExtractReviewComplete,
   isExtractableResumeText,
   parseExtractedResume,
   parseExtractedResumeText,
+  parseHistoryResumeId,
   type ExtractedResume,
+  type ExtractedSite,
 } from "./resume-extract";
 export {
   currentJob,
@@ -45,6 +61,19 @@ export {
   type CareerJob,
   type CareerSchool,
 } from "./career-file";
+export {
+  CAREER_HISTORY_SECTIONS,
+  classifyCareerHistorySection,
+  formatHistoryGist,
+  formatHistoryPlace,
+  groupCareerHistory,
+  presentCareerHistoryStats,
+  searchCareerHistory,
+  sortCareerHistory,
+  type CareerHistoryGroup,
+  type CareerHistoryItem,
+  type CareerHistoryStats,
+} from "./career-history";
 export {
   searchCareerFile,
   type CareerSearchHit,
@@ -64,12 +93,14 @@ export {
 export {
   canonicalFacts,
   commitCareerFactChanges,
+  planResumeImportFacts,
   prepareCareerFact,
   prepareEvidence,
   type CareerFactVersion,
   type CareerMemoryError,
   type CareerMemoryState,
   type Evidence,
+  type ResumeImportRole,
   type Sensitivity,
 } from "./career-memory";
 export {
@@ -139,10 +170,17 @@ export {
   normalizeWorkMapDetails,
   planWorkMapPublicationSettings,
   planWorkMapRoleFactSync,
+  prepareWorkMapLocation,
+  prepareWorkMapRoleCreate,
+  presentWorkMapPlace,
+  publicationAllowsSnapshot,
+  publicationNeedsAudienceConfirm,
+  type PreparedWorkMapLocation,
   type WorkMapClaim,
   type WorkMapLocation,
   type WorkMapMedia,
   type WorkMapMoment,
+  type WorkMapPlace,
   type WorkMapPublicationSettings,
   type WorkMapPublishSection,
   type WorkMapRole,

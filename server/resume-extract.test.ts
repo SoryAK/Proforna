@@ -103,4 +103,57 @@ describe("resume extract HTTP", () => {
       ctx.close();
     }
   });
+
+  it("cancels extract when the request is aborted", async () => {
+    let sawAbort = false;
+    let started!: () => void;
+    const startedAt = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    const ctx = setup({
+      complete: async (input) => {
+        started();
+        await new Promise<void>((resolve, reject) => {
+          const fail = () => {
+            sawAbort = true;
+            reject(Object.assign(new Error("aborted"), { name: "AbortError" }));
+          };
+          if (input.signal?.aborted) {
+            fail();
+            return;
+          }
+          const timer = setTimeout(resolve, 5_000);
+          input.signal?.addEventListener("abort", () => {
+            clearTimeout(timer);
+            fail();
+          });
+        });
+        return { model: "llama3.2", text: "{}" };
+      },
+    });
+    try {
+      await saveLocalModel(ctx.app);
+      const form = new FormData();
+      form.append(
+        "file",
+        new File([resumeText], "cv.txt", { type: "text/plain" }),
+      );
+      const abort = new AbortController();
+      const pending = ctx.app.request("/api/resumes/extract", {
+        method: "POST",
+        body: form,
+        signal: abort.signal,
+      });
+      await startedAt;
+      abort.abort();
+      const res = await pending;
+      expect(sawAbort).toBe(true);
+      expect(res.status).toBe(400);
+      await expect(res.json()).resolves.toMatchObject({
+        error: "Extract cancelled.",
+      });
+    } finally {
+      ctx.close();
+    }
+  });
 });

@@ -1,3 +1,7 @@
+import { isHttpUrl } from "./model-connection";
+import type { ProfileFields } from "./profile";
+import { prepareWorkMapLocation } from "./work-map";
+
 export const MIN_RESUME_TEXT_LENGTH = 50;
 
 export const EXTRACT_SYSTEM_PROMPT = `You are a strict resume data extractor. Your ONLY job is to pull information DIRECTLY from the resume text provided.
@@ -56,6 +60,13 @@ export type ExtractedProfile = {
   linkedinUrl: string;
 };
 
+export type ExtractedSite = {
+  label: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+};
+
 export type ExtractedJob = {
   company: string;
   title: string;
@@ -65,6 +76,7 @@ export type ExtractedJob = {
   isCurrent: boolean;
   description: string;
   achievements: string[];
+  site: ExtractedSite | null;
 };
 
 export type ExtractedSchool = {
@@ -94,6 +106,41 @@ export function stripJsonFence(text: string): string {
     .replace(/^```(?:json)?\s*/i, "")
     .replace(/\s*```$/i, "")
     .trim();
+}
+
+export function splitPlaceLabel(label: string): { city: string; state: string } {
+  const trimmed = label.trim();
+  if (!trimmed) return { city: "", state: "" };
+  const comma = trimmed.lastIndexOf(",");
+  if (comma === -1) return { city: trimmed, state: "" };
+  return {
+    city: trimmed.slice(0, comma).trim(),
+    state: trimmed.slice(comma + 1).trim(),
+  };
+}
+
+export function isExtractReviewComplete(
+  jobCount: number,
+  reviewedCount: number,
+): boolean {
+  return jobCount <= 0 || reviewedCount >= jobCount;
+}
+
+export function fillProfileFromExtract(
+  current: ProfileFields,
+  extracted: ExtractedProfile,
+): ProfileFields {
+  const place = splitPlaceLabel(extracted.location);
+  return {
+    fullName: current.fullName,
+    headline: current.headline || extracted.headline,
+    city: current.city || place.city,
+    state: current.state || place.state,
+    bio: current.bio || extracted.bio,
+    linkedinUrl: current.linkedinUrl || usableUrl(extracted.linkedinUrl),
+    githubUrl: current.githubUrl || usableUrl(extracted.githubUrl),
+    portfolioUrl: current.portfolioUrl || usableUrl(extracted.website),
+  };
 }
 
 export function emptyExtractedResume(): ExtractedResume {
@@ -147,6 +194,24 @@ export function parseExtractedResumeText(text: string): ExtractedResume | null {
   }
 }
 
+export function parseHistoryResumeId(
+  raw: unknown,
+): { ok: true; resumeId: string | null } | { ok: false } {
+  const data = coerceObject(raw);
+  if (!data) return { ok: false };
+  if (!("resumeId" in data) || data.resumeId == null || data.resumeId === "") {
+    return { ok: true, resumeId: null };
+  }
+  if (typeof data.resumeId !== "string") return { ok: false };
+  const resumeId = data.resumeId.trim();
+  if (!resumeId) return { ok: true, resumeId: null };
+  return { ok: true, resumeId };
+}
+
+function usableUrl(value: string): string {
+  return isHttpUrl(value) ? value : "";
+}
+
 function coerceObject(value: unknown): Record<string, unknown> | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   return value as Record<string, unknown>;
@@ -156,6 +221,23 @@ function asText(value: unknown): string {
   if (value === null || value === undefined || value === "null") return "";
   if (typeof value !== "string") return "";
   return value.trim();
+}
+
+function parseSite(value: unknown): ExtractedSite | null {
+  const row = coerceObject(value);
+  if (!row) return null;
+  const prepared = prepareWorkMapLocation({
+    ...row,
+    kind: "primary",
+    isPublic: false,
+  });
+  if (!prepared.ok) return null;
+  return {
+    label: prepared.value.label,
+    address: prepared.value.address,
+    latitude: prepared.value.latitude,
+    longitude: prepared.value.longitude,
+  };
 }
 
 function asJob(value: unknown): ExtractedJob | null {
@@ -176,6 +258,7 @@ function asJob(value: unknown): ExtractedJob | null {
     isCurrent: row.isCurrent === true,
     description: asText(row.description),
     achievements,
+    site: parseSite(row.site),
   };
 }
 

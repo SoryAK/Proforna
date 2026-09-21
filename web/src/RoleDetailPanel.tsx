@@ -1,7 +1,13 @@
 import { useState, type FormEvent } from "react";
-import type { WorkMapMoment, WorkMapRole } from "@core/work-map";
+import type { WorkMapLocation, WorkMapMoment, WorkMapRole } from "@core/work-map";
 
 type DetailTab = "story" | "conditions" | "map-media";
+
+type SitePlacement = {
+  latitude: number;
+  longitude: number;
+  locationId?: string;
+};
 
 export function RoleDetailPanel({
   role,
@@ -14,12 +20,13 @@ export function RoleDetailPanel({
   role: WorkMapRole;
   onClose: () => void;
   onSaved: () => Promise<void>;
-  placement: { latitude: number; longitude: number } | null;
-  onStartPlacement: () => void;
+  placement: SitePlacement | null;
+  onStartPlacement: (locationId?: string) => void;
   onLocationSaved: () => void;
 }) {
   const [tab, setTab] = useState<DetailTab>("story");
   const [message, setMessage] = useState("");
+  const [lookingUp, setLookingUp] = useState(false);
 
   async function saveRole(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -30,6 +37,7 @@ export function RoleDetailPanel({
       body: JSON.stringify({
         title: form.get("title"),
         organization: form.get("organization"),
+        kind: form.get("kind"),
         locationLabel: form.get("locationLabel"),
         startDate: form.get("startDate"),
         endDate: form.get("endDate"),
@@ -100,27 +108,85 @@ export function RoleDetailPanel({
 
   async function addLocation(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    const response = await fetch(
-      `/api/work-map/roles/${role.id}/locations`,
-      {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          label: form.get("label"),
-          address: form.get("address"),
-          latitude: Number(form.get("latitude")),
-          longitude: Number(form.get("longitude")),
-          kind: form.get("kind"),
-          isPublic: form.get("isPublic") === "on",
-        }),
-      },
-    );
+    const form = event.currentTarget;
+    const response = await fetch(`/api/work-map/roles/${role.id}/locations`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(sitePayload(form)),
+    });
     if (response.ok) {
-      event.currentTarget.reset();
+      form.reset();
       onLocationSaved();
     }
     await finish(response, "Work site added.");
+  }
+
+  async function saveLocation(
+    event: FormEvent<HTMLFormElement>,
+    locationId: string,
+  ) {
+    event.preventDefault();
+    const response = await fetch(
+      `/api/work-map/roles/${role.id}/locations/${locationId}`,
+      {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(sitePayload(event.currentTarget)),
+      },
+    );
+    if (response.ok) onLocationSaved();
+    await finish(response, "Work site updated.");
+  }
+
+  async function removeLocation(locationId: string) {
+    const response = await fetch(
+      `/api/work-map/roles/${role.id}/locations/${locationId}`,
+      { method: "DELETE" },
+    );
+    if (response.ok) onLocationSaved();
+    await finish(response, "Work site removed.");
+  }
+
+  async function lookupAddress(form: HTMLFormElement) {
+    const address = inputValue(form, "address");
+    const query = address || inputValue(form, "label");
+    if (!query) {
+      setMessage("Enter an address or place name to look up.");
+      return;
+    }
+    setLookingUp(true);
+    try {
+      const response = await fetch(
+        `/api/work-map/places?q=${encodeURIComponent(query)}`,
+      );
+      if (!response.ok) {
+        setMessage(
+          response.status === 404
+            ? "No place matched that address. Try a fuller street or city."
+            : "Address lookup failed. Try again or place the site on the map.",
+        );
+        return;
+      }
+      const body = (await response.json()) as {
+        place: {
+          label: string;
+          address: string;
+          latitude: number;
+          longitude: number;
+        };
+      };
+      setInputValue(form, "address", body.place.address);
+      setInputValue(form, "latitude", String(body.place.latitude));
+      setInputValue(form, "longitude", String(body.place.longitude));
+      if (!inputValue(form, "label")) {
+        setInputValue(form, "label", body.place.label);
+      }
+      setMessage("Address found. Save to keep this pin.");
+    } catch {
+      setMessage("Address lookup failed. Try again or place the site on the map.");
+    } finally {
+      setLookingUp(false);
+    }
   }
 
   async function addMedia(event: FormEvent<HTMLFormElement>) {
@@ -160,10 +226,10 @@ export function RoleDetailPanel({
   }
 
   return (
-    <aside className="role-detail" aria-label={`${role.title} details`}>
+    <aside className="role-detail" aria-label={`${role.title || "Untitled"} details`}>
       <header>
         <div>
-          <h2>{role.title}</h2>
+          <h2>{role.title || "Untitled"}</h2>
           <p>{role.organization}</p>
         </div>
         <button type="button" onClick={onClose} aria-label="Close role details">
@@ -195,6 +261,14 @@ export function RoleDetailPanel({
           <>
             <form className="role-form" onSubmit={saveRole}>
               <h3>Role overview</h3>
+              <label>
+                Kind
+                <select name="kind" defaultValue={role.kind}>
+                  <option value="job">Job</option>
+                  <option value="internship">Internship</option>
+                  <option value="school">Education</option>
+                </select>
+              </label>
               <div className="role-form-pair">
                 <label>
                   Title
@@ -476,77 +550,50 @@ export function RoleDetailPanel({
           <>
             <section className="role-existing">
               <h3>Mapped sites</h3>
-              {role.locations.map((location) => (
-                <p key={location.id}>
-                  <strong>{location.label}</strong>
-                  <span>
-                    {location.latitude.toFixed(3)},{" "}
-                    {location.longitude.toFixed(3)}
-                    {location.isPublic ? " · approved for publishing" : " · private"}
-                  </span>
+              {role.locations.length === 0 ? (
+                <p className="role-form-note">
+                  No sites on this role yet. Look up an address or place a pin
+                  on the map.
                 </p>
-              ))}
+              ) : (
+                role.locations.map((location) => {
+                  const placed =
+                    placement?.locationId === location.id ? placement : location;
+                  return (
+                    <SiteForm
+                      key={`${location.id}-${placed.latitude}-${placed.longitude}`}
+                      location={location}
+                      latitude={placed.latitude}
+                      longitude={placed.longitude}
+                      lookingUp={lookingUp}
+                      submitLabel="Save site"
+                      onSubmit={(event) => saveLocation(event, location.id)}
+                      onLookup={lookupAddress}
+                      onPlace={() => onStartPlacement(location.id)}
+                      onRemove={() => removeLocation(location.id)}
+                    />
+                  );
+                })
+              )}
             </section>
-            <form className="role-form" onSubmit={addLocation}>
-              <h3>Add a work site</h3>
-              <button
-                className="role-map-place"
-                type="button"
-                onClick={onStartPlacement}
-              >
-                Choose location on map
-              </button>
-              <p className="role-form-note">
-                Pick a point visually, then label it below. Coordinates remain
-                editable for precision.
-              </p>
-              <div className="role-form-pair">
-                <label>
-                  Label
-                  <input required name="label" placeholder="Main plant" />
-                </label>
-                <label>
-                  Kind
-                  <select name="kind">
-                    <option value="primary">Primary</option>
-                    <option value="site">Additional site</option>
-                    <option value="client">Client site</option>
-                    <option value="travel">Travel</option>
-                  </select>
-                </label>
-              </div>
-              <label>
-                Address
-                <input name="address" placeholder="Kept private by default" />
-              </label>
-              <div className="role-form-pair">
-                <label>
-                  Latitude
-                  <input
-                    required
-                    name="latitude"
-                    type="number"
-                    step="any"
-                    defaultValue={placement?.latitude ?? ""}
-                  />
-                </label>
-                <label>
-                  Longitude
-                  <input
-                    required
-                    name="longitude"
-                    type="number"
-                    step="any"
-                    defaultValue={placement?.longitude ?? ""}
-                  />
-                </label>
-              </div>
-              <label className="role-check">
-                <input name="isPublic" type="checkbox" />
-                Allow this location in publications
-              </label>
-              <button type="submit">Add site</button>
-            </form>
+            <SiteForm
+              key={`new-${placement && !placement.locationId ? `${placement.latitude}-${placement.longitude}` : "blank"}`}
+              latitude={
+                placement && !placement.locationId
+                  ? placement.latitude
+                  : undefined
+              }
+              longitude={
+                placement && !placement.locationId
+                  ? placement.longitude
+                  : undefined
+              }
+              lookingUp={lookingUp}
+              submitLabel="Add site"
+              onSubmit={addLocation}
+              onLookup={lookupAddress}
+              onPlace={() => onStartPlacement()}
+            />
 
             <section className="role-existing">
               <h3>Gallery and attachments</h3>
@@ -641,4 +688,150 @@ function formatMoments(items: WorkMapMoment[]): string {
   return items
     .map((item) => [item.date, item.title, item.detail].join(" | "))
     .join("\n");
+}
+
+function SiteForm({
+  location,
+  latitude,
+  longitude,
+  lookingUp,
+  submitLabel,
+  onSubmit,
+  onLookup,
+  onPlace,
+  onRemove,
+}: {
+  location?: WorkMapLocation;
+  latitude?: number;
+  longitude?: number;
+  lookingUp: boolean;
+  submitLabel: string;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void | Promise<void>;
+  onLookup: (form: HTMLFormElement) => void | Promise<void>;
+  onPlace: () => void;
+  onRemove?: () => void;
+}) {
+  return (
+    <form className="role-form role-site-form" onSubmit={onSubmit}>
+      <h3>{location ? location.label : "Add a work site"}</h3>
+      <p className="role-form-note">
+        {location
+          ? location.isPublic
+            ? "Approved for publishing until you change it."
+            : "Private until you allow it in publications."
+          : "Look up an address or pick a point on the map. Coordinates stay editable for precision."}
+      </p>
+      <div className="role-form-pair">
+        <label>
+          Label
+          <input
+            required
+            name="label"
+            placeholder="Main plant"
+            defaultValue={location?.label ?? ""}
+          />
+        </label>
+        <label>
+          Kind
+          <select name="kind" defaultValue={location?.kind ?? "primary"}>
+            <option value="primary">Primary</option>
+            <option value="site">Additional site</option>
+            <option value="client">Client site</option>
+            <option value="travel">Travel</option>
+          </select>
+        </label>
+      </div>
+      <label className="role-lookup">
+        Address
+        <span>
+          <input
+            name="address"
+            placeholder="Street, city, or place name"
+            defaultValue={location?.address ?? ""}
+          />
+          <button
+            type="button"
+            disabled={lookingUp}
+            onClick={(event) => {
+              const form = event.currentTarget.form;
+              if (form) void onLookup(form);
+            }}
+          >
+            {lookingUp ? "Looking up…" : "Look up"}
+          </button>
+        </span>
+      </label>
+      <div className="role-form-pair">
+        <label>
+          Latitude
+          <input
+            required
+            name="latitude"
+            type="number"
+            step="any"
+            defaultValue={latitude ?? ""}
+          />
+        </label>
+        <label>
+          Longitude
+          <input
+            required
+            name="longitude"
+            type="number"
+            step="any"
+            defaultValue={longitude ?? ""}
+          />
+        </label>
+      </div>
+      <label className="role-check">
+        <input
+          name="isPublic"
+          type="checkbox"
+          defaultChecked={location?.isPublic === true}
+        />
+        Allow this location in publications
+      </label>
+      <div className="role-form-actions">
+        <button type="submit">{submitLabel}</button>
+        <button type="button" onClick={onPlace}>
+          Place on map
+        </button>
+        {onRemove ? (
+          <button className="is-danger" type="button" onClick={onRemove}>
+            Remove site
+          </button>
+        ) : null}
+      </div>
+    </form>
+  );
+}
+
+function sitePayload(form: HTMLFormElement) {
+  const data = new FormData(form);
+  return {
+    label: data.get("label"),
+    address: data.get("address"),
+    latitude: Number(data.get("latitude")),
+    longitude: Number(data.get("longitude")),
+    kind: data.get("kind"),
+    isPublic: data.get("isPublic") === "on",
+  };
+}
+
+function inputValue(form: HTMLFormElement, name: string): string {
+  const field = form.elements.namedItem(name);
+  return field instanceof HTMLInputElement ||
+    field instanceof HTMLTextAreaElement
+    ? field.value.trim()
+    : "";
+}
+
+function setInputValue(form: HTMLFormElement, name: string, value: string) {
+  const field = form.elements.namedItem(name);
+  if (
+    field instanceof HTMLInputElement ||
+    field instanceof HTMLTextAreaElement
+  ) {
+    field.value = value;
+  }
 }

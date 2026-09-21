@@ -97,8 +97,30 @@ describe("onboarding HTTP", () => {
         body: form,
       });
       expect(res.status).toBe(201);
-      const body = (await res.json()) as { resume: { originalName: string } };
+      const body = (await res.json()) as {
+        resume: { id: string; originalName: string };
+      };
       expect(body.resume.originalName).toBe("cv.pdf");
+
+      const memory = await ctx.app.request("/api/memory");
+      const stored = (await memory.json()) as {
+        evidence: Array<{
+          sourceType: string;
+          sourceRef: string;
+          title: string;
+        }>;
+        facts: Array<{ factType: string }>;
+      };
+      expect(stored.evidence).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            sourceType: "resume",
+            sourceRef: body.resume.id,
+            title: "cv.pdf",
+          }),
+        ]),
+      );
+      expect(stored.facts.some((fact) => fact.factType === "role")).toBe(false);
     } finally {
       ctx.close();
     }

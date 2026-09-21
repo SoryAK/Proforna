@@ -129,3 +129,197 @@ describe("Work Map career-fact HTTP seam", () => {
     }
   });
 });
+
+describe("Work Map sites HTTP seam", () => {
+  it("lets the occupant add, update, and remove a work site", async () => {
+    const db = openDatabase(":memory:");
+    const app = createApp(db);
+    try {
+      await app.request("/api/history", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          experience: [{ company: "Acme", title: "Lead", isCurrent: true }],
+        }),
+      });
+      const workMap = (await (
+        await app.request("/api/work-map")
+      ).json()) as { roles: Array<{ id: string }> };
+      const roleId = workMap.roles[0].id;
+      const created = await app.request(`/api/work-map/roles/${roleId}/locations`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          label: "Main plant",
+          address: "Dayton, OH",
+          latitude: 39.75,
+          longitude: -84.19,
+          kind: "primary",
+        }),
+      });
+      expect(created.status).toBe(201);
+      const body = (await created.json()) as { location: { id: string } };
+      const updated = await app.request(
+        `/api/work-map/roles/${roleId}/locations/${body.location.id}`,
+        {
+          method: "PUT",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            label: "North cell",
+            address: "123 Factory Rd, Dayton, OH",
+            latitude: 39.76,
+            longitude: -84.2,
+            kind: "site",
+            isPublic: true,
+          }),
+        },
+      );
+      expect(updated.status).toBe(200);
+      const afterUpdate = (await (
+        await app.request("/api/work-map")
+      ).json()) as {
+        roles: Array<{
+          locations: Array<{
+            label: string;
+            address: string;
+            kind: string;
+            isPublic: boolean;
+          }>;
+        }>;
+      };
+      expect(afterUpdate.roles[0].locations).toEqual([
+        expect.objectContaining({
+          label: "North cell",
+          address: "123 Factory Rd, Dayton, OH",
+          kind: "site",
+          isPublic: true,
+        }),
+      ]);
+      const removed = await app.request(
+        `/api/work-map/roles/${roleId}/locations/${body.location.id}`,
+        { method: "DELETE" },
+      );
+      expect(removed.status).toBe(200);
+      const afterRemove = (await (
+        await app.request("/api/work-map")
+      ).json()) as { roles: Array<{ locations: unknown[] }> };
+      expect(afterRemove.roles[0].locations).toEqual([]);
+    } finally {
+      db.close();
+    }
+  });
+
+  it("looks up an address into a work site pin", async () => {
+    const db = openDatabase(":memory:");
+    const app = createApp(db, {
+      places: {
+        lookup: async (query) =>
+          query.includes("Dayton")
+            ? {
+                label: "Acme Robotics",
+                address: "Acme Robotics, Dayton, OH, United States",
+                latitude: 39.7589,
+                longitude: -84.1916,
+              }
+            : null,
+      },
+    });
+    try {
+      const found = await app.request("/api/work-map/places?q=Dayton%20OH");
+      expect(found.status).toBe(200);
+      await expect(found.json()).resolves.toEqual({
+        place: {
+          label: "Acme Robotics",
+          address: "Acme Robotics, Dayton, OH, United States",
+          latitude: 39.7589,
+          longitude: -84.1916,
+        },
+      });
+      const missing = await app.request("/api/work-map/places?q=nowhere");
+      expect(missing.status).toBe(404);
+      const empty = await app.request("/api/work-map/places?q=");
+      expect(empty.status).toBe(400);
+    } finally {
+      db.close();
+    }
+  });
+});
+
+describe("Work Map role create HTTP seam", () => {
+  it("creates a role for a Career History kind", async () => {
+    const db = openDatabase(":memory:");
+    const app = createApp(db);
+    try {
+      const created = await app.request("/api/work-map/roles", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ kind: "internship" }),
+      });
+      expect(created.status).toBe(201);
+      const body = (await created.json()) as {
+        role: { id: string; kind: string; title: string; organization: string };
+      };
+      expect(body.role.kind).toBe("internship");
+      expect(body.role.title).toBe("");
+      expect(body.role.organization).toBe("");
+
+      const map = (await (await app.request("/api/work-map")).json()) as {
+        roles: Array<{ id: string; kind: string }>;
+      };
+      expect(map.roles).toEqual([
+        expect.objectContaining({ id: body.role.id, kind: "internship" }),
+      ]);
+
+      const rejected = await app.request("/api/work-map/roles", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ kind: "gig" }),
+      });
+      expect(rejected.status).toBe(400);
+      await expect(rejected.json()).resolves.toEqual({ error: "kind-invalid" });
+    } finally {
+      db.close();
+    }
+  });
+
+  it("lets an occupant change a role between job, internship, and education", async () => {
+    const db = openDatabase(":memory:");
+    const app = createApp(db);
+    try {
+      const created = await app.request("/api/work-map/roles", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ kind: "job" }),
+      });
+      const body = (await created.json()) as { role: { id: string } };
+      const saved = await app.request(`/api/work-map/roles/${body.role.id}`, {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          kind: "internship",
+          title: "Robotics Research Intern",
+          organization: "Widener University",
+        }),
+      });
+      expect(saved.status).toBe(200);
+      await expect(saved.json()).resolves.toEqual({
+        role: expect.objectContaining({
+          id: body.role.id,
+          kind: "internship",
+          title: "Robotics Research Intern",
+          organization: "Widener University",
+        }),
+      });
+
+      const rejected = await app.request(`/api/work-map/roles/${body.role.id}`, {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ kind: "gig" }),
+      });
+      expect(rejected.status).toBe(400);
+      await expect(rejected.json()).resolves.toEqual({ error: "kind-invalid" });
+    } finally {
+      db.close();
+    }
+  });
+});

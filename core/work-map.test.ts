@@ -6,6 +6,11 @@ import {
   buildWorkMapSnapshot,
   planWorkMapPublicationSettings,
   planWorkMapRoleFactSync,
+  prepareWorkMapLocation,
+  prepareWorkMapRoleCreate,
+  presentWorkMapPlace,
+  publicationAllowsSnapshot,
+  publicationNeedsAudienceConfirm,
   type WorkMapPublicationSettings,
   type WorkMapRole,
 } from "./work-map";
@@ -317,6 +322,27 @@ describe("Work Map career-fact attachment", () => {
   });
 });
 
+describe("Work Map role create", () => {
+  it("accepts only job, internship, or school when creating a role", () => {
+    expect(prepareWorkMapRoleCreate({ kind: "job" })).toEqual({
+      ok: true,
+      value: { kind: "job" },
+    });
+    expect(prepareWorkMapRoleCreate({ kind: "internship" })).toEqual({
+      ok: true,
+      value: { kind: "internship" },
+    });
+    expect(prepareWorkMapRoleCreate({ kind: "school" })).toEqual({
+      ok: true,
+      value: { kind: "school" },
+    });
+    expect(prepareWorkMapRoleCreate({ kind: "gig" })).toEqual({
+      ok: false,
+      error: "kind-invalid",
+    });
+  });
+});
+
 describe("Work Map publication settings", () => {
   const current: WorkMapPublicationSettings = {
     slug: "career-map",
@@ -328,6 +354,36 @@ describe("Work Map publication settings", () => {
     showExactLocations: false,
     expiresAt: null,
   };
+
+  it("blocks a snapshot while visibility is private", () => {
+    expect(publicationAllowsSnapshot("private")).toBe(false);
+    expect(publicationAllowsSnapshot("unlisted")).toBe(true);
+    expect(publicationAllowsSnapshot("public")).toBe(true);
+  });
+
+  it("asks for audience before the first live snapshot", () => {
+    expect(
+      publicationNeedsAudienceConfirm({ visibility: "unlisted" }),
+    ).toBe(true);
+    expect(
+      publicationNeedsAudienceConfirm({
+        visibility: "unlisted",
+        liveStatus: "revoked",
+      }),
+    ).toBe(true);
+    expect(
+      publicationNeedsAudienceConfirm({
+        visibility: "private",
+        liveStatus: "published",
+      }),
+    ).toBe(true);
+    expect(
+      publicationNeedsAudienceConfirm({
+        visibility: "unlisted",
+        liveStatus: "published",
+      }),
+    ).toBe(false);
+  });
 
   it("plans a settings transition only when disclosure knobs change", () => {
     expect(
@@ -348,6 +404,50 @@ describe("Work Map publication settings", () => {
         },
       },
     ]);
+  });
+});
+
+describe("Work Map sites", () => {
+  it("requires coordinates and keeps a site private until approved", () => {
+    expect(prepareWorkMapLocation({ label: "Plant" })).toEqual({
+      ok: false,
+      error: "coordinates-required",
+    });
+    expect(
+      prepareWorkMapLocation({
+        label: "  Main plant ",
+        address: "  1 Factory Rd ",
+        latitude: "39.75",
+        longitude: -84.19,
+        kind: "site",
+      }),
+    ).toEqual({
+      ok: true,
+      value: {
+        label: "Main plant",
+        address: "1 Factory Rd",
+        latitude: 39.75,
+        longitude: -84.19,
+        kind: "site",
+        isPublic: false,
+      },
+    });
+  });
+
+  it("turns a looked-up place into a work site pin", () => {
+    expect(
+      presentWorkMapPlace({
+        name: "Acme Robotics",
+        displayName: "Acme Robotics, Dayton, OH, United States",
+        latitude: 39.7589,
+        longitude: -84.1916,
+      }),
+    ).toEqual({
+      label: "Acme Robotics",
+      address: "Acme Robotics, Dayton, OH, United States",
+      latitude: 39.7589,
+      longitude: -84.1916,
+    });
   });
 });
 

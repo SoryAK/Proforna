@@ -1,9 +1,19 @@
 import { Hono } from "hono";
 import type { DatabaseSync } from "node:sqlite";
 import { PRODUCT, type ApplicationStage } from "../core/index";
-import { isHttpUrl, normalizeBaseUrl } from "../core/model-connection";
-import { parseExtractedResume } from "../core/resume-extract";
-import { listOpenAiCompatModels } from "./openai-compat";
+import {
+  isHttpUrl,
+  normalizeBaseUrl,
+} from "../core/model-connection";
+import { LOCAL_ONBOARDING_ENDPOINTS } from "../core/model-onboarding";
+import {
+  parseExtractedResume,
+  parseHistoryResumeId,
+} from "../core/resume-extract";
+import {
+  LOCAL_MODEL_PROBE_MS,
+  listOpenAiCompatModels,
+} from "./openai-compat";
 import { pingDatabase } from "./db";
 import { loadCareerFile, saveExtractedResume } from "./history";
 import { listOccupantNotices } from "./notices";
@@ -16,6 +26,7 @@ import {
 import {
   ProfileError,
   completeOnboarding,
+  evidenceIdForResume,
   loadAvatar,
   saveProfile,
   storeAvatar,
@@ -97,10 +108,14 @@ import {
   WorkMapStoreError,
   addWorkMapLocation,
   addWorkMapMedia,
+  createWorkMapRole,
+  lookupNominatimPlace,
   readWorkMap,
   readWorkMapSettings,
+  removeWorkMapLocation,
   saveWorkMapDetails,
   saveWorkMapSettings,
+  updateWorkMapLocation,
   updateWorkMapRole,
 } from "./work-map";
 
@@ -109,6 +124,14 @@ export type AppOptions = {
   extract?: ResumeExtractDeps;
   relay?: ProjectionRelay;
   externalActions?: ExternalActionAdapter;
+  places?: {
+    lookup?: (query: string) => Promise<{
+      label: string;
+      address: string;
+      latitude: number;
+      longitude: number;
+    } | null>;
+  };
 };
 
 export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
@@ -203,6 +226,22 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
     return c.json({ connections: listModelConnections(db, occupant.id) });
   });
 
+  app.get("/api/models/probe", async (c) => {
+    const locals = await Promise.all(
+      LOCAL_ONBOARDING_ENDPOINTS.map(async (endpoint) => {
+        const result = await listOpenAiCompatModels({
+          baseUrl: endpoint.baseUrl,
+          timeoutMs: LOCAL_MODEL_PROBE_MS,
+        });
+        if (!result.ok) {
+          return { id: endpoint.id, reachable: false, models: [] as string[] };
+        }
+        return { id: endpoint.id, reachable: true, models: result.models };
+      }),
+    );
+    return c.json({ locals });
+  });
+
   app.post("/api/models/discover", async (c) => {
     const body = (await c.req.json()) as { baseUrl?: unknown; apiKey?: unknown };
     const baseUrl = normalizeBaseUrl(body.baseUrl);
@@ -272,6 +311,7 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
           bytes: new Uint8Array(await file.arrayBuffer()),
         },
         extractDeps,
+        c.req.raw.signal,
       );
       return c.json(result);
     } catch (err) {
@@ -291,10 +331,23 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
     const occupant = ensureOccupant(db);
     const body: unknown = await c.req.json();
     const extracted = parseExtractedResume(body);
-    if (!extracted) {
+    const resumeLink = parseHistoryResumeId(body);
+    if (!extracted || !resumeLink.ok) {
       return c.json({ error: "Could not read that extract." }, 400);
     }
-    const saved = saveExtractedResume(db, occupant.id, extracted);
+    let evidenceId: string | null = null;
+    if (resumeLink.resumeId) {
+      evidenceId = evidenceIdForResume(db, occupant.id, resumeLink.resumeId);
+      if (!evidenceId) {
+        return c.json({ error: "Could not find that resume." }, 400);
+      }
+    }
+    const saved = await saveExtractedResume(
+      db,
+      occupant.id,
+      extracted,
+      evidenceId,
+    );
     return c.json({ ok: true, ...saved }, 201);
   });
 
@@ -472,6 +525,33 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
     return c.json(readWorkMap(db, occupant.id));
   });
 
+  app.get("/api/work-map/places", async (c) => {
+    ensureOccupant(db);
+    const query = c.req.query("q")?.trim() ?? "";
+    if (!query) return c.json({ error: "query-required" }, 400);
+    const lookup = options.places?.lookup ?? lookupNominatimPlace;
+    const place = await lookup(query);
+    if (!place) return c.json({ error: "place-missing" }, 404);
+    return c.json({ place });
+  });
+
+  app.post("/api/work-map/roles", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      const role = await createWorkMapRole(
+        db,
+        occupant.id,
+        (await c.req.json()) as Record<string, unknown>,
+      );
+      return c.json({ role }, 201);
+    } catch (error) {
+      if (error instanceof WorkMapStoreError) {
+        return c.json({ error: error.code }, 400);
+      }
+      throw error;
+    }
+  });
+
   app.put("/api/work-map/roles/:id", async (c) => {
     const occupant = ensureOccupant(db);
     try {
@@ -521,6 +601,49 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
     } catch (error) {
       if (error instanceof WorkMapStoreError) {
         return c.json({ error: error.code }, 400);
+      }
+      throw error;
+    }
+  });
+
+  app.put("/api/work-map/roles/:id/locations/:locationId", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      const location = updateWorkMapLocation(
+        db,
+        occupant.id,
+        c.req.param("id"),
+        c.req.param("locationId"),
+        (await c.req.json()) as Record<string, unknown>,
+      );
+      return c.json({ location });
+    } catch (error) {
+      if (error instanceof WorkMapStoreError) {
+        return c.json(
+          { error: error.code },
+          error.code.endsWith("-missing") ? 404 : 400,
+        );
+      }
+      throw error;
+    }
+  });
+
+  app.delete("/api/work-map/roles/:id/locations/:locationId", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      removeWorkMapLocation(
+        db,
+        occupant.id,
+        c.req.param("id"),
+        c.req.param("locationId"),
+      );
+      return c.json({ ok: true });
+    } catch (error) {
+      if (error instanceof WorkMapStoreError) {
+        return c.json(
+          { error: error.code },
+          error.code.endsWith("-missing") ? 404 : 400,
+        );
       }
       throw error;
     }

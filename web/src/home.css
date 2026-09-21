@@ -335,8 +335,7 @@ p.home-search-hit {
   box-shadow: 12px 0 32px rgba(0, 0, 0, 0.45);
 }
 
-.home-nav-item,
-.home-nav-job {
+.home-nav-item {
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -355,9 +354,7 @@ p.home-search-hit {
 }
 
 button.home-nav-item:hover,
-button.home-nav-job:hover,
-button.home-nav-item:focus-visible,
-button.home-nav-job:focus-visible {
+button.home-nav-item:focus-visible {
   background: rgba(167, 139, 113, 0.12);
   color: var(--gold-hover);
 }
@@ -369,69 +366,6 @@ button.home-nav-job:focus-visible {
 
 .home-nav-item svg {
   flex-shrink: 0;
-}
-
-.home-nav-group {
-  display: flex;
-  flex-direction: column;
-}
-
-.home-nav-history {
-  display: flex;
-  align-items: stretch;
-  gap: 0.15rem;
-}
-
-.home-nav-history .home-nav-item {
-  flex: 1;
-  min-width: 0;
-}
-
-.home-nav-chevron {
-  display: grid;
-  place-items: center;
-  width: 2.25rem;
-  flex-shrink: 0;
-  padding: 0;
-  border: 0;
-  border-radius: 10px;
-  background: transparent;
-  color: var(--gold-light);
-}
-
-.home-nav-chevron:hover,
-.home-nav-chevron:focus-visible {
-  background: rgba(167, 139, 113, 0.12);
-  color: var(--gold-hover);
-}
-
-.home-nav-jobs {
-  margin: 0.1rem 0 0.35rem;
-  padding: 0 0 0 1.35rem;
-  list-style: none;
-  border-left: 1px solid rgba(167, 139, 113, 0.22);
-  margin-left: 1.35rem;
-}
-
-.home-nav-job {
-  display: block;
-  min-height: 0;
-  padding: 0.4rem 0.55rem;
-  overflow: hidden;
-  color: var(--gold-light);
-  font-size: 0.82rem;
-  font-weight: 400;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.home-nav-job-title {
-  color: var(--text);
-  font-weight: 500;
-}
-
-.home-nav-job-co {
-  color: var(--gold-light);
 }
 
 .home-nav-label {
@@ -455,9 +389,7 @@ button.home-nav-job:focus-visible {
   padding-right: 0.35rem;
 }
 
-.home-nav.is-collapsed .home-nav-label,
-.home-nav.is-collapsed .home-nav-jobs,
-.home-nav.is-collapsed .home-nav-chevron {
+.home-nav.is-collapsed .home-nav-label {
   display: none;
 }
 
@@ -468,6 +400,18 @@ button.home-nav-job:focus-visible {
   margin: 0;
   padding: 0;
   overflow: auto;
+}
+
+.home-main:has(.work-map) {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+@media (max-width: 760px) {
+  .home-main:has(.work-map) {
+    overflow: auto;
+  }
 }
 
 @media (min-width: 640px) {

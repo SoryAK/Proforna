@@ -9,6 +9,7 @@ export type CompleteFn = (input: {
   apiKey: string | null;
   model: string;
   messages: ChatMessage[];
+  signal?: AbortSignal;
 }) => Promise<CompleteResult>;
 
 export async function completeOpenAiChat(input: {
@@ -16,6 +17,7 @@ export async function completeOpenAiChat(input: {
   apiKey: string | null;
   model: string;
   messages: ChatMessage[];
+  signal?: AbortSignal;
 }): Promise<CompleteResult> {
   const url = `${input.baseUrl.replace(/\/+$/, "")}/chat/completions`;
   const headers: Record<string, string> = {
@@ -29,12 +31,13 @@ export async function completeOpenAiChat(input: {
     stream: false,
     temperature: 0,
   };
+  const signal = chatAbortSignal(input.signal);
 
   let res = await fetch(url, {
     method: "POST",
     headers,
     body: JSON.stringify({ ...body, response_format: { type: "json_object" } }),
-    signal: AbortSignal.timeout(120_000),
+    signal,
   });
 
   if (!res.ok && res.status === 400) {
@@ -42,7 +45,7 @@ export async function completeOpenAiChat(input: {
       method: "POST",
       headers,
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(120_000),
+      signal,
     });
   }
 
@@ -58,6 +61,12 @@ export async function completeOpenAiChat(input: {
   const text = payload.choices?.[0]?.message?.content?.trim() ?? "";
   if (!text) throw new Error("The model returned an empty reply.");
   return { text, model: payload.model ?? input.model };
+}
+
+function chatAbortSignal(extra?: AbortSignal): AbortSignal {
+  const timeout = AbortSignal.timeout(120_000);
+  if (!extra) return timeout;
+  return AbortSignal.any([timeout, extra]);
 }
 
 function modelErrorMessage(text: string, status: number): string {
@@ -82,9 +91,12 @@ function modelErrorMessage(text: string, status: number): string {
   return text.slice(0, 240) || `HTTP ${status}`;
 }
 
+export const LOCAL_MODEL_PROBE_MS = 2_500;
+
 export async function listOpenAiCompatModels(input: {
   baseUrl: string;
   apiKey?: string | null;
+  timeoutMs?: number;
 }): Promise<{ ok: true; models: string[] } | { ok: false; error: string }> {
   const base = input.baseUrl.replace(/\/+$/, "");
   const headers: Record<string, string> = {};
@@ -92,7 +104,7 @@ export async function listOpenAiCompatModels(input: {
   try {
     const res = await fetch(`${base}/models`, {
       headers,
-      signal: AbortSignal.timeout(20_000),
+      signal: AbortSignal.timeout(input.timeoutMs ?? 20_000),
     });
     if (!res.ok) {
       const text = await res.text().catch(() => res.statusText);

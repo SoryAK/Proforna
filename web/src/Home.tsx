@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { currentJob, currentJobs, type CareerFile } from "@core/career-file";
+import { currentJob, type CareerFile } from "@core/career-file";
 import { HomeBar } from "./HomeBar";
 import { HomeNav, type HomePage } from "./HomeNav";
 import { HomeProfileEdit } from "./HomeProfileEdit";
@@ -153,7 +153,6 @@ export function Home({
           collapsed={collapsed}
           mobileOpen={mobileOpen}
           page={page}
-          currentJobs={currentJobs(career)}
           onCloseMobile={() => setMobileOpen(false)}
           onGoHome={() => {
             goHome();
