@@ -1,6 +1,8 @@
 import type { ModelHosting } from "./model-connection";
+import { stripJsonFence } from "./resume-extract";
+import type { WorklogFactProposal } from "./worklog";
 
-export const AGENT_PURPOSES = ["inspect"] as const;
+export const AGENT_PURPOSES = ["inspect", "extract-facts"] as const;
 export type AgentPurpose = (typeof AGENT_PURPOSES)[number];
 
 export type AgentScope = {
@@ -36,6 +38,60 @@ export type AgencyError =
 export const INSPECT_SYSTEM_PROMPT =
   "You are Proforna. Answer only from the scoped vault text. Do not claim you changed Career Memory. Do not invent facts.";
 
+export const EXTRACT_FACTS_SYSTEM_PROMPT =
+  "You are Proforna. Extract career facts that are literally in the Worklog entry. Do not invent. Do not claim you changed Career Memory. Return ONLY JSON: {\"achievements\":[{\"statement\":\"string\",\"confidence\":\"candidate\"|\"supported\"}],\"skills\":[{\"name\":\"string\",\"confidence\":\"candidate\"|\"supported\"}]}. Use supported only when the entry includes a number or metric. Use empty arrays when nothing is stated.";
+
+export function parseExtractedWorklogFacts(
+  text: string,
+  entry: { id: string; roleId: string | null },
+): WorklogFactProposal[] {
+  let raw: unknown;
+  try {
+    raw = JSON.parse(stripJsonFence(text));
+  } catch {
+    return [];
+  }
+  if (!raw || typeof raw !== "object") return [];
+  const record = raw as Record<string, unknown>;
+  const proposals: WorklogFactProposal[] = [];
+  const achievements = Array.isArray(record.achievements)
+    ? record.achievements
+    : [];
+  for (const item of achievements) {
+    const row =
+      item && typeof item === "object"
+        ? (item as Record<string, unknown>)
+        : {};
+    const statement =
+      typeof row.statement === "string" ? row.statement.trim() : "";
+    if (!statement) continue;
+    proposals.push({
+      factType: "achievement",
+      subjectId: entry.roleId ?? "",
+      statement,
+      evidenceRef: entry.id,
+      confidence: row.confidence === "supported" ? "supported" : "candidate",
+    });
+  }
+  const skills = Array.isArray(record.skills) ? record.skills : [];
+  for (const item of skills) {
+    const row =
+      item && typeof item === "object"
+        ? (item as Record<string, unknown>)
+        : {};
+    const name = typeof row.name === "string" ? row.name.trim() : "";
+    if (!name) continue;
+    proposals.push({
+      factType: "skill",
+      subjectId: entry.roleId ?? "",
+      statement: name,
+      evidenceRef: entry.id,
+      confidence: row.confidence === "supported" ? "supported" : "candidate",
+    });
+  }
+  return proposals;
+}
+
 export function planAgentRun(input: {
   id: string;
   occupantId: string;
@@ -46,7 +102,9 @@ export function planAgentRun(input: {
   now: string;
 }): { ok: true; value: AgentRun } | { ok: false; error: AgencyError } {
   if (!input.hosting) return { ok: false, error: "model-missing" };
-  if (input.purpose !== "inspect") return { ok: false, error: "purpose-invalid" };
+  if (!isAgentPurpose(input.purpose)) {
+    return { ok: false, error: "purpose-invalid" };
+  }
   const scope = parseScope(input.scope);
   if (!scope) return { ok: false, error: "scope-required" };
   const grant = parseGrant(input.grant);
@@ -61,7 +119,7 @@ export function planAgentRun(input: {
     value: {
       id: input.id,
       occupantId: input.occupantId,
-      purpose: "inspect",
+      purpose: input.purpose,
       scope,
       grant,
       status: "started",
@@ -69,6 +127,10 @@ export function planAgentRun(input: {
       completedAt: null,
     },
   };
+}
+
+function isAgentPurpose(value: unknown): value is AgentPurpose {
+  return AGENT_PURPOSES.some((purpose) => purpose === value);
 }
 
 function parseGrant(value: unknown): CapabilityGrant {

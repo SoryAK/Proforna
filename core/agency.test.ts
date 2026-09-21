@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { planAgentRun } from "./agency";
+import { parseExtractedWorklogFacts, planAgentRun } from "./agency";
 
 describe("Agency.run", () => {
   const now = "2026-09-21T14:00:00.000Z";
@@ -78,6 +78,56 @@ describe("Agency.run", () => {
         now,
       }),
     ).toEqual({ ok: false, error: "scope-required" });
+  });
+
+  it("plans a local extract-facts run", () => {
+    expect(
+      planAgentRun({
+        id: "run-7",
+        occupantId: "local",
+        purpose: "extract-facts",
+        scope: { type: "worklog", id: "entry-1" },
+        grant: { remoteModel: false },
+        hosting: "local",
+        now,
+      }),
+    ).toMatchObject({
+      ok: true,
+      value: {
+        purpose: "extract-facts",
+        status: "started",
+      },
+    });
+  });
+
+  it("parses achievements and skills from model JSON", () => {
+    expect(
+      parseExtractedWorklogFacts(
+        '```json\n{"achievements":[{"statement":"Led the migration of 18 systems without service loss.","confidence":"supported"}],"skills":[{"name":"Incident leadership","confidence":"candidate"}]}\n```',
+        { id: "entry-1", roleId: "role-1" },
+      ),
+    ).toEqual([
+      {
+        factType: "achievement",
+        subjectId: "role-1",
+        statement: "Led the migration of 18 systems without service loss.",
+        evidenceRef: "entry-1",
+        confidence: "supported",
+      },
+      {
+        factType: "skill",
+        subjectId: "role-1",
+        statement: "Incident leadership",
+        evidenceRef: "entry-1",
+        confidence: "candidate",
+      },
+    ]);
+    expect(
+      parseExtractedWorklogFacts("not json", {
+        id: "entry-1",
+        roleId: null,
+      }),
+    ).toEqual([]);
   });
 
   it("rejects an expired remote-model grant", () => {

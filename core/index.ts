@@ -18,9 +18,12 @@ export {
   type ProfileFields,
 } from "./profile";
 export {
+  EXTRACT_FACTS_SYSTEM_PROMPT,
   INSPECT_SYSTEM_PROMPT,
+  parseExtractedWorklogFacts,
   planAgentRun,
   type AgencyError,
+  type AgentPurpose,
   type AgentRun,
   type AgentScope,
   type CapabilityGrant,

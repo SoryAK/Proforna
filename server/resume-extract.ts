@@ -6,7 +6,7 @@ import {
 } from "../core/resume-extract";
 import { classifyResumePreview } from "../core/resume-preview";
 import { loadLatestModelConnection } from "./models";
-import { completeOpenAiChat, type CompleteFn } from "./openai-compat";
+import { completeOpenAiChat, isAbortError, type CompleteFn } from "./openai-compat";
 import { readPdfText } from "./pdf-read";
 import type { DatabaseSync } from "node:sqlite";
 
@@ -88,13 +88,4 @@ export async function extractResumeFromFile(
     throw new ResumeExtractError("The model did not return usable JSON.", 502);
   }
   return { data, model: reply.model };
-}
-
-function isAbortError(err: unknown): boolean {
-  return (
-    (err instanceof Error && err.name === "AbortError") ||
-    (typeof DOMException !== "undefined" &&
-      err instanceof DOMException &&
-      err.name === "AbortError")
-  );
 }

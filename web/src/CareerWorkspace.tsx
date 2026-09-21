@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { HomePage } from "./HomeNav";
 import "./career-workspace.css";
 
@@ -798,9 +798,14 @@ function WorklogPage() {
   const [message, setMessage] = useState("");
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [allowRemote, setAllowRemote] = useState(false);
+  const [agencyBusy, setAgencyBusy] = useState(false);
+  const agencyAbort = useRef<AbortController | null>(null);
 
   useEffect(() => {
     void loadEntries();
+    return () => {
+      agencyAbort.current?.abort();
+    };
   }, []);
 
   async function loadEntries() {
@@ -836,17 +841,7 @@ function WorklogPage() {
     setProject("");
     setTags("");
     await loadEntries();
-    const proposed = await fetch(`/api/worklog/${body.entry.id}/proposals`, {
-      method: "POST",
-    });
-    const proposedBody = (await proposed.json()) as { changeSets: ChangeSet[] };
-    await loadEntries();
-    window.dispatchEvent(new Event("proforna:notices-changed"));
-    setMessage(
-      proposedBody.changeSets.length
-        ? `${proposedBody.changeSets.length} career fact proposal(s) ready for review.`
-        : "Captured. No career facts were inferred.",
-    );
+    await extractFacts(body.entry.id, "Captured. ");
   }
 
   async function approveAll() {
@@ -862,22 +857,82 @@ function WorklogPage() {
     window.dispatchEvent(new Event("proforna:notices-changed"));
   }
 
+  async function postAgencyRun(
+    purpose: "inspect" | "extract-facts",
+    entryId: string,
+  ) {
+    if (agencyBusy) return null;
+    const abort = new AbortController();
+    agencyAbort.current = abort;
+    setAgencyBusy(true);
+    try {
+      return await fetch("/api/agency/runs", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          purpose,
+          scope: { type: "worklog", id: entryId },
+          grant: { remoteModel: allowRemote },
+        }),
+        signal: abort.signal,
+      });
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        return null;
+      }
+      throw error;
+    } finally {
+      if (agencyAbort.current === abort) agencyAbort.current = null;
+      setAgencyBusy(false);
+    }
+  }
+
+  async function extractFacts(entryId: string, capturedPrefix = "") {
+    setMessage("");
+    const response = await postAgencyRun("extract-facts", entryId);
+    if (!response) return;
+    if (response.status === 403) {
+      setAllowRemote(true);
+      setMessage(
+        `${capturedPrefix}This uses a cloud model. Extract again if this Worklog text may leave the machine.`,
+      );
+      return;
+    }
+    if (response.status === 409) {
+      setMessage("Proforna is already using the model.");
+      return;
+    }
+    if (!response.ok) {
+      setMessage(
+        `${capturedPrefix}Connect a model in Settings before extracting facts.`,
+      );
+      return;
+    }
+    const body = (await response.json()) as {
+      run: { changeSet?: { id: string } | null };
+    };
+    await loadEntries();
+    window.dispatchEvent(new Event("proforna:notices-changed"));
+    setMessage(
+      body.run.changeSet
+        ? `${capturedPrefix}Career fact proposal ready for review.`
+        : `${capturedPrefix}No career facts were inferred.`,
+    );
+  }
+
   async function askProforna(entryId: string) {
     setMessage("");
-    const response = await fetch("/api/agency/runs", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        purpose: "inspect",
-        scope: { type: "worklog", id: entryId },
-        grant: { remoteModel: allowRemote },
-      }),
-    });
+    const response = await postAgencyRun("inspect", entryId);
+    if (!response) return;
     if (response.status === 403) {
       setAllowRemote(true);
       setMessage(
         "This uses a cloud model. Ask again if this Worklog text may leave the machine.",
       );
+      return;
+    }
+    if (response.status === 409) {
+      setMessage("Proforna is already using the model.");
       return;
     }
     if (!response.ok) {
@@ -941,7 +996,9 @@ function WorklogPage() {
             />
           </label>
         </div>
-        <button type="submit">Capture work</button>
+        <button type="submit" disabled={agencyBusy}>
+          {agencyBusy ? "Proforna is working…" : "Capture work"}
+        </button>
       </form>
 
       {message ? <p className="career-message">{message}</p> : null}
@@ -973,9 +1030,22 @@ function WorklogPage() {
               <h3>{entry.title}</h3>
               <p>{entry.content}</p>
               {entry.project ? <span>{entry.project}</span> : null}
-              <button type="button" onClick={() => void askProforna(entry.id)}>
-                Ask Proforna
-              </button>
+              <div className="entry-actions">
+                <button
+                  type="button"
+                  disabled={agencyBusy}
+                  onClick={() => void extractFacts(entry.id)}
+                >
+                  Extract facts
+                </button>
+                <button
+                  type="button"
+                  disabled={agencyBusy}
+                  onClick={() => void askProforna(entry.id)}
+                >
+                  Ask Proforna
+                </button>
+              </div>
               {answers[entry.id] ? (
                 <p className="agency-answer">{answers[entry.id]}</p>
               ) : null}
