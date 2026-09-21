@@ -37,6 +37,7 @@ export function RoleDetailPanel({
       body: JSON.stringify({
         title: form.get("title"),
         organization: form.get("organization"),
+        kind: form.get("kind"),
         locationLabel: form.get("locationLabel"),
         startDate: form.get("startDate"),
         endDate: form.get("endDate"),
@@ -225,10 +226,10 @@ export function RoleDetailPanel({
   }
 
   return (
-    <aside className="role-detail" aria-label={`${role.title} details`}>
+    <aside className="role-detail" aria-label={`${role.title || "Untitled"} details`}>
       <header>
         <div>
-          <h2>{role.title}</h2>
+          <h2>{role.title || "Untitled"}</h2>
           <p>{role.organization}</p>
         </div>
         <button type="button" onClick={onClose} aria-label="Close role details">
@@ -260,6 +261,14 @@ export function RoleDetailPanel({
           <>
             <form className="role-form" onSubmit={saveRole}>
               <h3>Role overview</h3>
+              <label>
+                Kind
+                <select name="kind" defaultValue={role.kind}>
+                  <option value="job">Job</option>
+                  <option value="internship">Internship</option>
+                  <option value="school">Education</option>
+                </select>
+              </label>
               <div className="role-form-pair">
                 <label>
                   Title

@@ -1,5 +1,4 @@
-import { useEffect, useState } from "react";
-import type { CareerJob } from "@core/career-file";
+import { useEffect } from "react";
 
 const NAV_ID = "home-nav";
 
@@ -16,7 +15,6 @@ export function HomeNav({
   collapsed,
   mobileOpen,
   page,
-  currentJobs,
   onCloseMobile,
   onGoHome,
   onGoHistory,
@@ -25,13 +23,11 @@ export function HomeNav({
   collapsed: boolean;
   mobileOpen: boolean;
   page: HomePage;
-  currentJobs: CareerJob[];
   onCloseMobile: () => void;
   onGoHome: () => void;
   onGoHistory: (jobId?: string) => void;
   onGoPage: (page: HomePage) => void;
 }) {
-  const [jobsOpen, setJobsOpen] = useState(true);
   const slim = collapsed && !mobileOpen;
 
   useEffect(() => {
@@ -84,51 +80,16 @@ export function HomeNav({
             onCloseMobile();
           }}
         />
-        <div className="home-nav-group">
-          <div className="home-nav-history">
-            <NavRow
-              icon="history"
-              label="Work Map"
-              current={page === "history"}
-              slim={slim}
-              onSelect={() => {
-                onGoHistory();
-                onCloseMobile();
-              }}
-            />
-            {!slim && currentJobs.length > 0 ? (
-              <button
-                type="button"
-                className="home-nav-chevron"
-                aria-expanded={jobsOpen}
-                aria-controls="home-nav-jobs"
-                aria-label={jobsOpen ? "Hide current roles" : "Show current roles"}
-                onClick={() => setJobsOpen((open) => !open)}
-              >
-                <Icon name={jobsOpen ? "chevronDown" : "chevronRight"} />
-              </button>
-            ) : null}
-          </div>
-          {!slim && jobsOpen && currentJobs.length > 0 ? (
-            <ul id="home-nav-jobs" className="home-nav-jobs">
-              {currentJobs.map((job) => (
-                <li key={job.id}>
-                  <button
-                    type="button"
-                    className="home-nav-job"
-                    onClick={() => {
-                      onGoHistory(job.id);
-                      onCloseMobile();
-                    }}
-                  >
-                    <span className="home-nav-job-title">{job.title}</span>
-                    <span className="home-nav-job-co"> · {job.company}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          ) : null}
-        </div>
+        <NavRow
+          icon="history"
+          label="Career History"
+          current={page === "history"}
+          slim={slim}
+          onSelect={() => {
+            onGoHistory();
+            onCloseMobile();
+          }}
+        />
 
         <p className="home-nav-label">Resources</p>
         <NavRow
@@ -228,8 +189,6 @@ type IconName =
   | "network"
   | "search"
   | "notice"
-  | "chevronDown"
-  | "chevronRight"
   | "menu";
 
 export function Icon({ name }: { name: IconName }) {
@@ -275,12 +234,6 @@ export function Icon({ name }: { name: IconName }) {
           <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
           <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
         </>
-      ) : null}
-      {name === "chevronDown" ? (
-        <path d="M6 9.5 12 15.5 18 9.5" />
-      ) : null}
-      {name === "chevronRight" ? (
-        <path d="M9.5 6 15.5 12 9.5 18" />
       ) : null}
       {name === "menu" ? (
         <path d="M5 7h14M5 12h14M5 17h14" />

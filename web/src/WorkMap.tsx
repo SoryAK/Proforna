@@ -1,9 +1,21 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import type { CareerFile } from "@core/career-file";
-import type {
-  WorkMapPublicationSettings,
-  WorkMapPublishSection,
-  WorkMapRole,
+import {
+  CAREER_HISTORY_SECTIONS,
+  formatHistoryGist,
+  groupCareerHistory,
+  presentCareerHistoryStats,
+  searchCareerHistory,
+  sortCareerHistory,
+  type CareerHistoryItem,
+  type CareerHistorySectionKey,
+} from "@core/career-history";
+import {
+  publicationAllowsSnapshot,
+  publicationNeedsAudienceConfirm,
+  type WorkMapPublicationSettings,
+  type WorkMapPublishSection,
+  type WorkMapRole,
 } from "@core/work-map";
 import { WorkMapCanvas } from "./WorkMapCanvas";
 import { RoleDetailPanel } from "./RoleDetailPanel";
@@ -36,7 +48,7 @@ type Publication = {
 };
 
 export function WorkMap({
-  fallbackCareer,
+  fallbackCareer: _fallbackCareer,
   error,
   focusRoleId,
 }: {
@@ -49,8 +61,15 @@ export function WorkMap({
     focusRoleId ?? null,
   );
   const [search, setSearch] = useState("");
+  const [sort, setSort] = useState<"newest" | "oldest">("newest");
+  const [closedSections, setClosedSections] = useState<
+    Set<CareerHistorySectionKey>
+  >(new Set());
   const [view, setView] = useState<"map" | "timeline">("map");
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsIntent, setSettingsIntent] = useState<"edit" | "publish">(
+    "edit",
+  );
   const [placingForId, setPlacingForId] = useState<string | null>(null);
   const [placingLocationId, setPlacingLocationId] = useState<string | null>(
     null,
@@ -66,6 +85,8 @@ export function WorkMap({
   const [publications, setPublications] = useState<Publication[]>([]);
   const [message, setMessage] = useState("");
   const [publishing, setPublishing] = useState(false);
+  const [creatingKind, setCreatingKind] =
+    useState<CareerHistorySectionKey | null>(null);
 
   useEffect(() => {
     void load();
@@ -81,7 +102,7 @@ export function WorkMap({
       fetch("/api/projections"),
     ]);
     if (!mapResponse.ok) {
-      setMessage("Work Map could not be loaded.");
+      setMessage("Career History could not be loaded.");
       return;
     }
     const next = (await mapResponse.json()) as WorkMapResponse;
@@ -100,16 +121,25 @@ export function WorkMap({
     }
   }
 
-  const filtered = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    if (!data || !query) return data?.roles ?? [];
-    return data.roles.filter((role) =>
-      [role.title, role.organization, role.locationLabel]
-        .join(" ")
-        .toLowerCase()
-        .includes(query),
+  const historyItems = useMemo(() => {
+    if (!data) return [];
+    return sortCareerHistory(
+      searchCareerHistory(data.roles.map(asHistoryItem), search),
+      sort,
     );
-  }, [data, search]);
+  }, [data, search, sort]);
+  const groups = useMemo(() => groupCareerHistory(historyItems), [historyItems]);
+  const stats = useMemo(
+    () => presentCareerHistoryStats(data?.roles.map(asHistoryItem) ?? []),
+    [data],
+  );
+  const visibleRoles = useMemo(() => {
+    if (!data) return [];
+    const byId = new Map(data.roles.map((role) => [role.id, role]));
+    return historyItems
+      .map((item) => byId.get(item.id))
+      .filter((role): role is WorkMapRole => Boolean(role));
+  }, [data, historyItems]);
 
   const selected = data?.roles.find((role) => role.id === selectedId) ?? null;
   const latest = publications.find(
@@ -124,13 +154,47 @@ export function WorkMap({
       headers: { "content-type": "application/json" },
       body: JSON.stringify(settings),
     });
-    if (response.ok) {
-      setMessage("Publication settings saved.");
-      setSettingsOpen(false);
-      await load();
-    } else {
+    if (!response.ok) {
       setMessage("Could not save publication settings.");
+      return;
     }
+    if (
+      settingsIntent === "publish" &&
+      !publicationAllowsSnapshot(settings.visibility)
+    ) {
+      setMessage("Choose a visibility other than Private, then publish.");
+      return;
+    }
+    setSettingsOpen(false);
+    if (
+      settingsIntent === "publish" &&
+      publicationAllowsSnapshot(settings.visibility)
+    ) {
+      await publish();
+      return;
+    }
+    setMessage("Publication settings saved.");
+    await load();
+  }
+
+  function openSettings(intent: "edit" | "publish") {
+    setSelectedId(null);
+    setSettingsIntent(intent);
+    setSettingsOpen(true);
+  }
+
+  function requestPublish() {
+    if (!settings) return;
+    if (
+      publicationNeedsAudienceConfirm({
+        visibility: settings.visibility,
+        liveStatus: latest?.status,
+      })
+    ) {
+      openSettings("publish");
+      return;
+    }
+    void publish();
   }
 
   async function publish() {
@@ -160,6 +224,30 @@ export function WorkMap({
     }
   }
 
+  async function addRole(kind: CareerHistorySectionKey) {
+    setCreatingKind(kind);
+    setSettingsOpen(false);
+    setMessage("");
+    const response = await fetch("/api/work-map/roles", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ kind }),
+    });
+    setCreatingKind(null);
+    if (!response.ok) {
+      setMessage("Could not add that role.");
+      return;
+    }
+    const body = (await response.json()) as { role: { id: string } };
+    setClosedSections((current) => {
+      const next = new Set(current);
+      next.delete(kind);
+      return next;
+    });
+    setSelectedId(body.role.id);
+    await load();
+  }
+
   async function revoke() {
     if (!latest) return;
     const response = await fetch(`/api/projections/${latest.id}/revoke`, {
@@ -172,66 +260,15 @@ export function WorkMap({
   if (!data) {
     return (
       <section className="work-map-loading">
-        <h1>Work Map</h1>
-        <p>{message || error || "Mapping your career history…"}</p>
+        <h1>Career History</h1>
+        <p>{message || error || "Loading career history…"}</p>
       </section>
     );
   }
 
-  const empty = data.roles.length === 0 && fallbackCareer.jobs.length === 0;
+  const empty = data.roles.length === 0;
   return (
     <section className="work-map">
-      <header className="work-map-command">
-        <div className="work-map-identity">
-          <span className="work-map-avatar" aria-hidden="true">
-            {initials(data.profile.fullName)}
-          </span>
-          <div>
-            <h1>{data.profile.fullName || "Your Work Map"}</h1>
-            <p>
-              {["Private Work Map", data.profile.headline, data.profile.city, data.profile.state]
-                .filter(Boolean)
-                .join(" · ") || "Private career workspace"}
-            </p>
-          </div>
-        </div>
-        <div className="work-map-publish">
-          <div>
-            <strong>
-              {latest?.status === "published"
-                ? "Published"
-                : latest?.status === "revoked"
-                  ? "Revoked"
-                  : "Private"}
-            </strong>
-            <span>
-              {latest
-                ? `${latest.analytics.events} events · ${latest.analytics.accessRequests} requests`
-                : "Nothing leaves the vault until you publish"}
-            </span>
-          </div>
-          <button type="button" onClick={() => setSettingsOpen(true)}>
-            Publication settings
-          </button>
-          <button
-            disabled={publishing || settings?.visibility === "private"}
-            type="button"
-            onClick={publish}
-          >
-            {publishing
-              ? "Publishing…"
-              : latest?.status === "published"
-                ? "Publish update"
-                : "Publish Work Map"}
-          </button>
-          {latest?.status === "published" ? (
-            <button className="is-danger" type="button" onClick={revoke}>
-              Revoke
-            </button>
-          ) : null}
-        </div>
-      </header>
-
       {message ? (
         <p className="work-map-message" role="status">
           {message}
@@ -240,66 +277,161 @@ export function WorkMap({
 
       <div className="work-map-layout">
         <aside className="work-map-ledger">
+          <header className="history-panel-head">
+            <h2>Career History</h2>
+            <div className="history-publish">
+              <span
+                title={
+                  latest
+                    ? `${latest.analytics.events} events · ${latest.analytics.accessRequests} requests`
+                    : "Nothing leaves the vault until you publish"
+                }
+              >
+                {latest?.status === "published"
+                  ? "Published"
+                  : latest?.status === "revoked"
+                    ? "Revoked"
+                    : "Private"}
+              </span>
+              <button type="button" onClick={() => openSettings("edit")}>
+                Settings
+              </button>
+              <button
+                disabled={publishing}
+                type="button"
+                onClick={requestPublish}
+              >
+                {publishing
+                  ? "Publishing…"
+                  : latest?.status === "published"
+                    ? "Update"
+                    : "Publish"}
+              </button>
+              {latest?.status === "published" ? (
+                <button className="is-danger" type="button" onClick={revoke}>
+                  Revoke
+                </button>
+              ) : null}
+            </div>
+          </header>
           <div className="work-map-stats">
             <div>
-              <strong>{data.stats.roles}</strong>
-              <span>roles</span>
+              <span>Total Tenure</span>
+              <strong>{stats.tenure || "—"}</strong>
             </div>
             <div>
-              <strong>{data.stats.education}</strong>
-              <span>schools</span>
+              <span>Roles</span>
+              <strong>{stats.roles}</strong>
             </div>
             <div>
-              <strong>{data.stats.mapped}</strong>
-              <span>mapped</span>
+              <span>Miles Traveled</span>
+              <strong>{stats.miles}</strong>
             </div>
             <div>
-              <strong>{data.stats.publicMedia}</strong>
-              <span>public media</span>
+              <span>Cities</span>
+              <strong>{stats.cities}</strong>
             </div>
           </div>
-          <label className="work-map-search">
-            <span>Search career history</span>
+          <div className="work-map-tools">
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Role, organization, or place"
+              placeholder="Search…"
+              aria-label="Search career history"
             />
-          </label>
-          <div className="work-map-role-list">
-            {filtered.map((role) => (
-              <button
-                className={selectedId === role.id ? "is-selected" : ""}
-                key={role.id}
-                onClick={() => setSelectedId(role.id)}
-                type="button"
+            <label className="work-map-sort">
+              <span>Sort</span>
+              <select
+                value={sort}
+                onChange={(event) =>
+                  setSort(event.target.value === "oldest" ? "oldest" : "newest")
+                }
               >
-                <span className="role-map-dot" aria-hidden="true" />
-                <span>
-                  <strong>{role.organization}</strong>
-                  <b>{role.title}</b>
-                  <small>
-                    {formatSpan(role)}
-                    {role.locationLabel ? ` · ${role.locationLabel}` : ""}
-                  </small>
-                </span>
-                <em>
-                  {role.locations.length
-                    ? `${role.locations.length} site${role.locations.length === 1 ? "" : "s"} · Edit`
-                    : "Enrich role"}
-                </em>
-              </button>
-            ))}
+                <option value="newest">Newest</option>
+                <option value="oldest">Oldest</option>
+              </select>
+            </label>
+          </div>
+          <div className="work-map-role-list">
             {empty ? (
-              <p>
-                Import or add career history to create your first map anchor.
-              </p>
+              <p>Import a resume, or add a role to a section.</p>
+            ) : null}
+            {CAREER_HISTORY_SECTIONS.map((section) => {
+              const items =
+                groups.find((group) => group.key === section.key)?.items ?? [];
+              const open = !closedSections.has(section.key);
+              return (
+                <section key={section.key}>
+                  <div className="history-cat-row">
+                    <button
+                      type="button"
+                      className="history-cat"
+                      aria-expanded={open}
+                      onClick={() =>
+                        setClosedSections((current) => {
+                          const next = new Set(current);
+                          if (next.has(section.key)) next.delete(section.key);
+                          else next.add(section.key);
+                          return next;
+                        })
+                      }
+                    >
+                      <b>{section.label}</b>
+                      <em>({items.length})</em>
+                      <span aria-hidden="true">{open ? "▾" : "▸"}</span>
+                    </button>
+                    <button
+                      aria-busy={creatingKind === section.key}
+                      aria-label={sectionAddLabel(section.key)}
+                      className="history-add"
+                      disabled={creatingKind !== null}
+                      onClick={() => void addRole(section.key)}
+                      type="button"
+                    >
+                      +
+                    </button>
+                  </div>
+                  {open
+                    ? items.map((item) => (
+                        <button
+                          className={[
+                            "career-history-row",
+                            selectedId === item.id ? "is-selected" : "",
+                          ]
+                            .filter(Boolean)
+                            .join(" ")}
+                          key={item.id}
+                          onClick={() => setSelectedId(item.id)}
+                          type="button"
+                        >
+                          <span>
+                            <strong>
+                              {item.organization || item.title || "Untitled"}
+                              {item.isCurrent ? (
+                                <mark>Current</mark>
+                              ) : null}
+                            </strong>
+                              {item.organization && item.title ? (
+                              <b>{item.title}</b>
+                            ) : null}
+                            {formatHistoryGist(item) ? (
+                              <small>{formatHistoryGist(item)}</small>
+                            ) : null}
+                          </span>
+                        </button>
+                      ))
+                    : null}
+                </section>
+              );
+            })}
+            {!empty && historyItems.length === 0 ? (
+              <p>No roles match that search.</p>
             ) : null}
           </div>
         </aside>
 
         <main className="work-map-stage">
-          <div className="work-map-view-switch" aria-label="Work Map view">
+          <div className="work-map-view-switch" aria-label="Career History view">
             <button
               className={view === "map" ? "is-active" : ""}
               onClick={() => setView("map")}
@@ -317,7 +449,7 @@ export function WorkMap({
           </div>
           {view === "map" ? (
             <WorkMapCanvas
-              roles={filtered}
+              roles={visibleRoles}
               selectedId={selectedId}
               onSelect={setSelectedId}
               onMapClick={
@@ -337,7 +469,7 @@ export function WorkMap({
               }
             />
           ) : (
-            <CareerTimeline roles={filtered} onSelect={setSelectedId} />
+            <CareerTimeline roles={visibleRoles} onSelect={setSelectedId} />
           )}
           {placingForId ? (
             <div className="map-placement-banner" role="status">
@@ -356,7 +488,7 @@ export function WorkMap({
           ) : null}
         </main>
 
-        {selected && !placingForId ? (
+        {selected && !placingForId && !settingsOpen ? (
           <RoleDetailPanel
             role={selected}
             onClose={() => setSelectedId(null)}
@@ -377,6 +509,7 @@ export function WorkMap({
 
         {settingsOpen && settings ? (
           <PublicationSettings
+            intent={settingsIntent}
             settings={settings}
             onChange={setSettings}
             onClose={() => setSettingsOpen(false)}
@@ -412,16 +545,20 @@ function CareerTimeline({
 }
 
 function PublicationSettings({
+  intent,
   settings,
   onChange,
   onClose,
   onSubmit,
 }: {
+  intent: "edit" | "publish";
   settings: WorkMapPublicationSettings;
   onChange: (settings: WorkMapPublicationSettings) => void;
   onClose: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
+  const visibilityField = useRef<HTMLSelectElement>(null);
+  const canPublish = publicationAllowsSnapshot(settings.visibility);
   const sections: Array<[WorkMapPublishSection, string]> = [
     ["profile", "Profile and bio"],
     ["history", "Career history"],
@@ -431,13 +568,22 @@ function PublicationSettings({
     ["skills", "Skills"],
     ["contact", "Contact and inbound opportunities"],
   ];
+
+  useEffect(() => {
+    if (intent === "publish") visibilityField.current?.focus();
+  }, [intent]);
+
   return (
     <aside className="publication-settings">
       <header>
         <div>
-          <h2>Publish the Work Map</h2>
+          <h2>Publication settings</h2>
           <p>
-            These settings shape the immutable snapshot sent to the relay.
+            {intent === "publish" && !canPublish
+              ? "Visibility is Private, so nothing is sent to the relay. Choose an audience to publish."
+              : intent === "publish"
+                ? "Confirm who can see this snapshot, then send it to the relay. Private keeps it off the relay."
+                : "These settings shape the immutable snapshot sent to the relay."}
           </p>
         </div>
         <button type="button" onClick={onClose}>
@@ -466,6 +612,7 @@ function PublicationSettings({
         <label>
           Visibility
           <select
+            ref={visibilityField}
             value={settings.visibility}
             onChange={(event) =>
               onChange({
@@ -480,7 +627,7 @@ function PublicationSettings({
             <option value="access-controlled">Access controlled</option>
             <option value="stealth">Stealth — hide identity</option>
             <option value="anonymous">Anonymous — redact career detail</option>
-            <option value="private">Private — disable publishing</option>
+            <option value="private">Private — keep off the relay</option>
           </select>
         </label>
         <fieldset>
@@ -535,7 +682,9 @@ function PublicationSettings({
           when approved for publishing.
         </p>
         <button className="is-primary" type="submit">
-          Save publication settings
+          {intent === "publish" && canPublish
+            ? "Save and publish"
+            : "Save settings"}
         </button>
       </form>
     </aside>
@@ -548,13 +697,26 @@ function formatSpan(role: WorkMapRole): string {
   return `${from} – ${to}`;
 }
 
-function initials(name: string): string {
-  return (
-    name
-      .split(/\s+/)
-      .map((part) => part[0])
-      .join("")
-      .slice(0, 2)
-      .toUpperCase() || "WM"
-  );
+function sectionAddLabel(key: CareerHistorySectionKey): string {
+  if (key === "school") return "Add education";
+  if (key === "internship") return "Add internship";
+  return "Add job";
+}
+
+function asHistoryItem(role: WorkMapRole): CareerHistoryItem {
+  return {
+    id: role.id,
+    kind: role.kind,
+    title: role.title,
+    organization: role.organization,
+    locationLabel: role.locationLabel,
+    startDate: role.startDate,
+    endDate: role.endDate,
+    isCurrent: role.isCurrent,
+    locations: role.locations.map((location) => ({
+      address: location.address,
+      latitude: location.latitude,
+      longitude: location.longitude,
+    })),
+  };
 }
