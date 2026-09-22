@@ -1,5 +1,10 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { currentJob, type CareerFile } from "@core/career-file";
+import {
+  currentJob,
+  formatCareerSpan,
+  type CareerFile,
+  type CareerJob,
+} from "@core/career-file";
 import { HomeBar } from "./HomeBar";
 import { HomeNav, type HomePage } from "./HomeNav";
 import { HomeProfileEdit } from "./HomeProfileEdit";
@@ -93,6 +98,12 @@ export function Home({
   const photoSrc = profile.avatarUrl
     ? `${profile.avatarUrl}?v=${photoTick}`
     : null;
+  const recentJobs = career.jobs.filter((job) => job.id !== role?.id).slice(0, 4);
+  const skillTags = career.skills
+    .map((skill) => skill.trim())
+    .filter((skill) => skill.length > 0 && skill.length <= 36)
+    .slice(0, 8);
+  const next = nextCareerAction(career, role);
 
   useEffect(() => {
     const mq = window.matchMedia(WORKBENCH);
@@ -309,42 +320,39 @@ export function Home({
         />
       ) : page !== "home" ? (
         <CareerWorkspace page={page} />
+      ) : editing ? (
+        <div className="home-file home-edit">
+          <HomeProfileEdit
+            initial={profile}
+            onCancel={() => setEditing(false)}
+            onSaved={(saved) => {
+              setPhotoTick((n) => n + 1);
+              onProfileSaved(saved);
+              setEditing(false);
+            }}
+          />
+        </div>
       ) : (
-      <header className="home-banner">
-        <div className="home-banner-cover" aria-hidden="true" />
-        {editing ? (
-          <div className="home-banner-body home-edit">
-            <HomeProfileEdit
-              initial={profile}
-              onCancel={() => setEditing(false)}
-              onSaved={(next) => {
-                setPhotoTick((n) => n + 1);
-                onProfileSaved(next);
-                setEditing(false);
-              }}
-            />
-          </div>
-        ) : (
-          <div className="home-banner-body">
+        <article className="home-file">
+          <header className="home-file-identity">
             {photoSrc ? (
-                <img
-                  className="home-avatar"
-                  src={photoSrc}
-                  alt=""
-                  width={96}
-                  height={96}
-                />
-              ) : (
-                <div className="home-avatar home-avatar-fallback" aria-hidden="true">
-                  {initials(profile.fullName)}
-                </div>
-              )}
-
+              <img
+                className="home-avatar"
+                src={photoSrc}
+                alt=""
+                width={96}
+                height={96}
+              />
+            ) : (
+              <div className="home-avatar home-avatar-fallback" aria-hidden="true">
+                {initials(profile.fullName)}
+              </div>
+            )}
+            <div className="home-file-identity-copy">
               <h1>{profile.fullName}</h1>
               {profile.headline ? (
                 <p className="home-headline">{profile.headline}</p>
               ) : null}
-
               {place || company ? (
                 <p className="home-meta">
                   {place}
@@ -352,7 +360,6 @@ export function Home({
                   {company ? <span className="home-span">{company}</span> : null}
                 </p>
               ) : null}
-
               {links.length > 0 ? (
                 <ul className="home-links">
                   {links.map((href) => (
@@ -364,15 +371,138 @@ export function Home({
                   ))}
                 </ul>
               ) : null}
+              <button
+                type="button"
+                className="home-file-edit"
+                onClick={() => setEditing(true)}
+              >
+                Edit profile
+              </button>
+            </div>
+          </header>
 
-            {careerError ? (
-              <p className="home-alert" role="alert">
-                {careerError}
+          {careerError ? (
+            <p className="home-alert" role="alert">
+              {careerError}
+            </p>
+          ) : null}
+
+          <section className="home-file-section" aria-labelledby="home-file-now">
+            <h2 id="home-file-now">Now</h2>
+            {role ? (
+              <button
+                type="button"
+                className="home-file-role"
+                onClick={() => {
+                  setFocusJobId(role.id);
+                  goPage("history");
+                }}
+              >
+                <strong>
+                  {role.title}
+                  {role.company ? ` · ${role.company}` : ""}
+                </strong>
+                <span>
+                  {[
+                    formatCareerSpan(role.startDate, role.endDate, role.isCurrent),
+                    presentPlace(role.location),
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </span>
+              </button>
+            ) : (
+              <p className="home-file-empty">
+                No current role yet. Add one in Career History so this file has a
+                present tense.
               </p>
+            )}
+          </section>
+
+          {recentJobs.length > 0 ? (
+            <section
+              className="home-file-section"
+              aria-labelledby="home-file-recent"
+            >
+              <h2 id="home-file-recent">Recent</h2>
+              <ol className="home-file-ledger">
+                {recentJobs.map((job) => (
+                  <li key={job.id}>
+                    <button
+                      type="button"
+                      className="home-file-role"
+                      onClick={() => {
+                        setFocusJobId(job.id);
+                        goPage("history");
+                      }}
+                    >
+                      <strong>
+                        {job.title}
+                        {job.company ? ` · ${job.company}` : ""}
+                      </strong>
+                      <span>
+                        {[
+                          formatCareerSpan(
+                            job.startDate,
+                            job.endDate,
+                            job.isCurrent,
+                          ),
+                          presentPlace(job.location),
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ol>
+            </section>
+          ) : null}
+
+          {skillTags.length > 0 ? (
+            <section
+              className="home-file-section"
+              aria-labelledby="home-file-skills"
+            >
+              <h2 id="home-file-skills">Skills</h2>
+              <ul className="home-file-skills">
+                {skillTags.map((skill) => (
+                  <li key={skill}>{skill}</li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+
+          <div className="home-file-next">
+            <button
+              type="button"
+              className="home-file-primary"
+              onClick={() => {
+                if (next.page === "history") {
+                  setFocusJobId(null);
+                  goPage("history");
+                  return;
+                }
+                setFocusJobId(null);
+                goPage(next.page);
+              }}
+            >
+              {next.label}
+            </button>
+            {next.secondary ? (
+              <button
+                type="button"
+                className="home-file-secondary"
+                onClick={() => {
+                  setFocusJobId(null);
+                  goPage(next.secondary!.page);
+                }}
+              >
+                {next.secondary.label}
+              </button>
             ) : null}
           </div>
-        )}
-      </header>
+        </article>
       )}
       </main>
         {desktop && profornaOpen ? (
@@ -493,6 +623,41 @@ function WorkbenchSash({
       }}
     />
   );
+}
+
+function presentPlace(value: string): string {
+  const place = value.trim();
+  if (!place || /^\d{1,5}$/.test(place)) return "";
+  return place;
+}
+
+function nextCareerAction(
+  career: CareerFile,
+  role: CareerJob | null,
+): {
+  label: string;
+  page: HomePage;
+  secondary?: { label: string; page: HomePage };
+} {
+  if (career.jobs.length === 0) {
+    return {
+      label: "Add a role",
+      page: "history",
+      secondary: { label: "Capture work", page: "worklog" },
+    };
+  }
+  if (!role) {
+    return {
+      label: "Set a current role",
+      page: "history",
+      secondary: { label: "Capture work", page: "worklog" },
+    };
+  }
+  return {
+    label: "Capture work",
+    page: "worklog",
+    secondary: { label: "Career History", page: "history" },
+  };
 }
 
 function initials(name: string): string {

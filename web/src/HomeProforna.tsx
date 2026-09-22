@@ -31,8 +31,8 @@ type Menu = "ask" | "model" | null;
 const ASK_DESTINATIONS = [
   {
     id: "ask",
-    label: "Ask",
-    detail: "Answers from the vault gist. Does not change Career Memory or send mail.",
+    label: "Ask Proforna",
+    detail: "Answers from the vault. Does not change Career Memory or send mail.",
     availableHere: true,
   },
   {
@@ -342,25 +342,21 @@ export function HomeProforna({
                     }
                   >
                     <span>
-                      {message.speaker === "occupant"
-                        ? "You"
-                        : presentReplySpeaker(connection)}
+                      {message.speaker === "occupant" ? "You" : "Proforna"}
                     </span>
                     <p>{message.body}</p>
                   </li>
                 ))}
                 {busy ? (
                   <li className="is-proforna is-working">
-                    <span>{presentReplySpeaker(connection)}</span>
+                    <span>Proforna</span>
                     <p>Working…</p>
                   </li>
                 ) : null}
               </ol>
             ) : (
               <p className="home-proforna-empty">
-                Ask about capture, Career Memory, or what to do next. Proforna
-                answers from the vault. It does not change Career Memory or send
-                messages from here.
+                Ask about this Career file. Proforna answers from the vault.
               </p>
             )}
           </div>
@@ -524,10 +520,6 @@ function presentModel(connection: PublicConnection | null): string {
   return connection.hosting === "local"
     ? `${connection.model} · Local`
     : `${connection.model} · Cloud`;
-}
-
-function presentReplySpeaker(connection: PublicConnection | null): string {
-  return connection ? `Proforna · ${connection.model}` : "Proforna";
 }
 
 function isChatModel(name: string): boolean {

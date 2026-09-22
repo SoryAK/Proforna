@@ -1,6 +1,7 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 const NAV_ID = "home-nav";
+const RESOURCE_PAGES = new Set<HomePage>(["resumes", "documents", "network"]);
 
 export type HomePage =
   | "home"
@@ -31,6 +32,13 @@ export function HomeNav({
   onGoPage: (page: HomePage) => void;
 }) {
   const slim = collapsed && !mobileOpen;
+  const [resourcesOpen, setResourcesOpen] = useState(() =>
+    RESOURCE_PAGES.has(page),
+  );
+
+  useEffect(() => {
+    if (RESOURCE_PAGES.has(page)) setResourcesOpen(true);
+  }, [page]);
 
   useEffect(() => {
     if (!mobileOpen) return;
@@ -40,6 +48,11 @@ export function HomeNav({
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [mobileOpen, onCloseMobile]);
+
+  function go(next: HomePage) {
+    onGoPage(next);
+    onCloseMobile();
+  }
 
   return (
     <>
@@ -78,10 +91,7 @@ export function HomeNav({
           label="Worklog"
           current={page === "worklog"}
           slim={slim}
-          onSelect={() => {
-            onGoPage("worklog");
-            onCloseMobile();
-          }}
+          onSelect={() => go("worklog")}
         />
         <NavRow
           icon="history"
@@ -93,48 +103,95 @@ export function HomeNav({
             onCloseMobile();
           }}
         />
-
-        <p className="home-nav-label">Resources</p>
-        <NavRow
-          icon="docs"
-          label="Resume Studio"
-          current={page === "resumes"}
-          slim={slim}
-          onSelect={() => {
-            onGoPage("resumes");
-            onCloseMobile();
-          }}
-        />
-        <NavRow
-          icon="docs"
-          label="My Docs"
-          current={page === "documents"}
-          slim={slim}
-          onSelect={() => {
-            onGoPage("documents");
-            onCloseMobile();
-          }}
-        />
-        <NavRow
-          icon="network"
-          label="My Network"
-          current={page === "network"}
-          slim={slim}
-          onSelect={() => {
-            onGoPage("network");
-            onCloseMobile();
-          }}
-        />
         <NavRow
           icon="search"
           label="Opportunities"
           current={page === "opportunities"}
           slim={slim}
-          onSelect={() => {
-            onGoPage("opportunities");
-            onCloseMobile();
-          }}
+          onSelect={() => go("opportunities")}
         />
+
+        {slim ? (
+          <>
+            <NavRow
+              icon="studio"
+              label="Resume Studio"
+              current={page === "resumes"}
+              slim={slim}
+              onSelect={() => go("resumes")}
+            />
+            <NavRow
+              icon="docs"
+              label="My Docs"
+              current={page === "documents"}
+              slim={slim}
+              onSelect={() => go("documents")}
+            />
+            <NavRow
+              icon="network"
+              label="My Network"
+              current={page === "network"}
+              slim={slim}
+              onSelect={() => go("network")}
+            />
+          </>
+        ) : (
+          <div className="home-nav-group">
+            <button
+              type="button"
+              className="home-nav-group-toggle"
+              aria-expanded={resourcesOpen}
+              onClick={() => setResourcesOpen((open) => !open)}
+            >
+              Resources
+              <svg
+                className={
+                  resourcesOpen
+                    ? "home-nav-group-caret is-open"
+                    : "home-nav-group-caret"
+                }
+                width="12"
+                height="12"
+                viewBox="0 0 12 12"
+                aria-hidden="true"
+              >
+                <path
+                  d="M3 4.5 L6 7.5 L9 4.5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.25"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+            {resourcesOpen ? (
+              <div className="home-nav-group-body">
+                <NavRow
+                  icon="studio"
+                  label="Resume Studio"
+                  current={page === "resumes"}
+                  slim={false}
+                  onSelect={() => go("resumes")}
+                />
+                <NavRow
+                  icon="docs"
+                  label="My Docs"
+                  current={page === "documents"}
+                  slim={false}
+                  onSelect={() => go("documents")}
+                />
+                <NavRow
+                  icon="network"
+                  label="My Network"
+                  current={page === "network"}
+                  slim={false}
+                  onSelect={() => go("network")}
+                />
+              </div>
+            ) : null}
+          </div>
+        )}
       </nav>
     </>
   );
@@ -189,6 +246,7 @@ type IconName =
   | "worklog"
   | "history"
   | "docs"
+  | "studio"
   | "network"
   | "search"
   | "notice"
@@ -219,6 +277,12 @@ export function Icon({ name }: { name: IconName }) {
         <>
           <path d="M4 7.5h6l1.5 2H20v10.5H4z" />
           <path d="M4 7.5V5.5h6l1.2 1.6" />
+        </>
+      ) : null}
+      {name === "studio" ? (
+        <>
+          <path d="M5 5.5h14v13H5z" />
+          <path d="M5 10h14M10 5.5v13" />
         </>
       ) : null}
       {name === "network" ? (
