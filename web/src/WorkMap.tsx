@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import type { CareerFile } from "@core/career-file";
 import {
   CAREER_HISTORY_SECTIONS,
@@ -72,9 +72,7 @@ export function WorkMap({
   >(new Set());
   const [view, setView] = useState<"map" | "timeline">("map");
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [settingsIntent, setSettingsIntent] = useState<"edit" | "publish">(
-    "edit",
-  );
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [placingForId, setPlacingForId] = useState<string | null>(null);
   const [placingLocationId, setPlacingLocationId] = useState<string | null>(
     null,
@@ -185,28 +183,13 @@ export function WorkMap({
       setMessage("Could not save publication settings.");
       return;
     }
-    if (
-      settingsIntent === "publish" &&
-      !publicationAllowsSnapshot(settings.visibility)
-    ) {
-      setMessage("Choose a visibility other than Private, then publish.");
-      return;
-    }
     setSettingsOpen(false);
-    if (
-      settingsIntent === "publish" &&
-      publicationAllowsSnapshot(settings.visibility)
-    ) {
-      await publish();
-      return;
-    }
     setMessage("Publication settings saved.");
     await load();
   }
 
-  function openSettings(intent: "edit" | "publish") {
-    setSelectedId(null);
-    setSettingsIntent(intent);
+  function openSettings() {
+    setConfirmOpen(false);
     setSettingsOpen(true);
   }
 
@@ -218,7 +201,8 @@ export function WorkMap({
         liveStatus: latest?.status,
       })
     ) {
-      openSettings("publish");
+      setSettingsOpen(false);
+      setConfirmOpen(true);
       return;
     }
     void publish();
@@ -357,7 +341,7 @@ export function WorkMap({
                     ? "Revoked"
                     : "Private"}
               </span>
-              <button type="button" onClick={() => openSettings("edit")}>
+              <button type="button" onClick={openSettings}>
                 Settings
               </button>
               <button
@@ -558,13 +542,40 @@ export function WorkMap({
         ) : null}
 
         {settingsOpen && settings ? (
-          <PublicationSettings
-            intent={settingsIntent}
-            settings={settings}
-            onChange={setSettings}
-            onClose={() => setSettingsOpen(false)}
-            onSubmit={saveSettings}
-          />
+          <>
+            <button
+              className="publication-settings-backdrop"
+              type="button"
+              aria-label="Close publication settings"
+              onClick={() => setSettingsOpen(false)}
+            />
+            <PublicationSettings
+              settings={settings}
+              onChange={setSettings}
+              onClose={() => setSettingsOpen(false)}
+              onSubmit={saveSettings}
+            />
+          </>
+        ) : null}
+        {confirmOpen && settings ? (
+          <>
+            <button
+              className="publication-settings-backdrop"
+              type="button"
+              aria-label="Close publish confirmation"
+              onClick={() => setConfirmOpen(false)}
+            />
+            <PublishConfirm
+              publishing={publishing}
+              visibility={settings.visibility}
+              onClose={() => setConfirmOpen(false)}
+              onOpenSettings={openSettings}
+              onPublish={() => {
+                setConfirmOpen(false);
+                void publish();
+              }}
+            />
+          </>
         ) : null}
       </div>
     </section>
@@ -747,20 +758,16 @@ function CareerTimeline({
 }
 
 function PublicationSettings({
-  intent,
   settings,
   onChange,
   onClose,
   onSubmit,
 }: {
-  intent: "edit" | "publish";
   settings: WorkMapPublicationSettings;
   onChange: (settings: WorkMapPublicationSettings) => void;
   onClose: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
-  const visibilityField = useRef<HTMLSelectElement>(null);
-  const canPublish = publicationAllowsSnapshot(settings.visibility);
   const sections: Array<[WorkMapPublishSection, string]> = [
     ["profile", "Profile and bio"],
     ["history", "Career history"],
@@ -772,67 +779,66 @@ function PublicationSettings({
   ];
 
   useEffect(() => {
-    if (intent === "publish") visibilityField.current?.focus();
-  }, [intent]);
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
 
   return (
-    <aside className="publication-settings">
+    <aside className="publication-settings" role="dialog" aria-label="Publication settings">
       <header>
         <div>
           <h2>Publication settings</h2>
-          <p>
-            {intent === "publish" && !canPublish
-              ? "Visibility is Private, so nothing is sent to the relay. Choose an audience to publish."
-              : intent === "publish"
-                ? "Confirm who can see this snapshot, then send it to the relay. Private keeps it off the relay."
-                : "These settings shape the immutable snapshot sent to the relay."}
-          </p>
+          <p>These settings shape the immutable snapshot sent to the relay.</p>
         </div>
         <button type="button" onClick={onClose}>
           Close
         </button>
       </header>
       <form onSubmit={onSubmit}>
-        <label>
-          Public slug
-          <input
-            value={settings.slug}
-            onChange={(event) =>
-              onChange({ ...settings, slug: event.target.value })
-            }
-          />
-        </label>
-        <label>
-          Target role
-          <input
-            value={settings.targetRole}
-            onChange={(event) =>
-              onChange({ ...settings, targetRole: event.target.value })
-            }
-          />
-        </label>
-        <label>
-          Visibility
-          <select
-            ref={visibilityField}
-            value={settings.visibility}
-            onChange={(event) =>
-              onChange({
-                ...settings,
-                visibility: event.target
-                  .value as WorkMapPublicationSettings["visibility"],
-              })
-            }
-          >
-            <option value="public">Public</option>
-            <option value="unlisted">Unlisted</option>
-            <option value="access-controlled">Access controlled</option>
-            <option value="stealth">Stealth — hide identity</option>
-            <option value="anonymous">Anonymous — redact career detail</option>
-            <option value="private">Private — keep off the relay</option>
-          </select>
-        </label>
-        <fieldset>
+        <div className="publication-fields">
+          <label>
+            Public slug
+            <input
+              value={settings.slug}
+              onChange={(event) =>
+                onChange({ ...settings, slug: event.target.value })
+              }
+            />
+          </label>
+          <label>
+            Target role
+            <input
+              value={settings.targetRole}
+              onChange={(event) =>
+                onChange({ ...settings, targetRole: event.target.value })
+              }
+            />
+          </label>
+          <label>
+            Visibility
+            <select
+              value={settings.visibility}
+              onChange={(event) =>
+                onChange({
+                  ...settings,
+                  visibility: event.target
+                    .value as WorkMapPublicationSettings["visibility"],
+                })
+              }
+            >
+              <option value="public">Public</option>
+              <option value="unlisted">Unlisted</option>
+              <option value="access-controlled">Access controlled</option>
+              <option value="stealth">Stealth — hide identity</option>
+              <option value="anonymous">Anonymous — redact career detail</option>
+              <option value="private">Private — keep off the relay</option>
+            </select>
+          </label>
+        </div>
+        <fieldset className="publication-sections">
           <legend>Published sections</legend>
           {sections.map(([value, label]) => (
             <label className="publication-check" key={value}>
@@ -852,45 +858,116 @@ function PublicationSettings({
             </label>
           ))}
         </fieldset>
-        <label className="publication-check">
-          <input
-            type="checkbox"
-            checked={settings.hideCurrentEmployer}
-            onChange={(event) =>
-              onChange({
-                ...settings,
-                hideCurrentEmployer: event.target.checked,
-              })
-            }
-          />
-          Hide current employer in restricted modes
-        </label>
-        <label className="publication-check">
-          <input
-            type="checkbox"
-            checked={settings.showExactLocations}
-            onChange={(event) =>
-              onChange({
-                ...settings,
-                showExactLocations: event.target.checked,
-              })
-            }
-          />
-          Publish exact coordinates and addresses
-        </label>
+        <div className="publication-options">
+          <label className="publication-check">
+            <input
+              type="checkbox"
+              checked={settings.hideCurrentEmployer}
+              onChange={(event) =>
+                onChange({
+                  ...settings,
+                  hideCurrentEmployer: event.target.checked,
+                })
+              }
+            />
+            Hide current employer in restricted modes
+          </label>
+          <label className="publication-check">
+            <input
+              type="checkbox"
+              checked={settings.showExactLocations}
+              onChange={(event) =>
+                onChange({
+                  ...settings,
+                  showExactLocations: event.target.checked,
+                })
+              }
+            />
+            Publish exact coordinates and addresses
+          </label>
+        </div>
         <p className="publication-warning">
           Private notes stay out of the snapshot. Compensation, working
           conditions, unpublished locations, and unpublished media enter only
           when approved for publishing.
         </p>
         <button className="is-primary" type="submit">
-          {intent === "publish" && canPublish
-            ? "Save and publish"
-            : "Save settings"}
+          Save settings
         </button>
       </form>
     </aside>
   );
+}
+
+function PublishConfirm({
+  publishing,
+  visibility,
+  onClose,
+  onOpenSettings,
+  onPublish,
+}: {
+  publishing: boolean;
+  visibility: WorkMapPublicationSettings["visibility"];
+  onClose: () => void;
+  onOpenSettings: () => void;
+  onPublish: () => void;
+}) {
+  const canPublish = publicationAllowsSnapshot(visibility);
+
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <aside className="publication-confirm" role="dialog" aria-label="Publish snapshot">
+      <h2>Publish snapshot</h2>
+      <p>
+        {canPublish
+          ? `This sends the current career record to the relay as ${visibilityLabel(visibility)}.`
+          : "Visibility is Private, so nothing is sent. Choose an audience in settings, then publish."}
+      </p>
+      <div className="publication-confirm-actions">
+        <button type="button" onClick={onClose}>
+          Cancel
+        </button>
+        {canPublish ? (
+          <button
+            className="is-primary"
+            disabled={publishing}
+            type="button"
+            onClick={onPublish}
+          >
+            {publishing ? "Publishing…" : "Publish snapshot"}
+          </button>
+        ) : (
+          <button className="is-primary" type="button" onClick={onOpenSettings}>
+            Open settings
+          </button>
+        )}
+      </div>
+    </aside>
+  );
+}
+
+function visibilityLabel(visibility: WorkMapPublicationSettings["visibility"]) {
+  switch (visibility) {
+    case "public":
+      return "Public";
+    case "unlisted":
+      return "Unlisted";
+    case "access-controlled":
+      return "Access controlled";
+    case "stealth":
+      return "Stealth";
+    case "anonymous":
+      return "Anonymous";
+    case "private":
+      return "Private";
+  }
 }
 
 function readablePlace(role: WorkMapRole): string {
