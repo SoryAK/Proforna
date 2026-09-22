@@ -3,6 +3,9 @@ import { needsOnboarding } from "@core/onboarding";
 import type { CareerFile } from "@core/career-file";
 import { Home } from "./Home";
 import { Onboarding } from "./Onboarding";
+import { ProfornaChatMock } from "./prototype/ProfornaChatMock";
+import { ProfornaShellMock } from "./prototype/ProfornaShellMock";
+import { CareerLayoutMock } from "./prototype/CareerLayoutMock";
 import type { OnboardingProfileValue } from "./OnboardingProfile";
 
 type Me = {
@@ -17,10 +20,20 @@ export function App() {
   const [career, setCareer] = useState<CareerFile>(EMPTY_CAREER);
   const [error, setError] = useState<string | null>(null);
   const [careerError, setCareerError] = useState<string | null>(null);
+  const [prototype, setPrototype] = useState(readPrototype);
 
   useEffect(() => {
-    void load();
+    function onHash() {
+      setPrototype(readPrototype());
+    }
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
   }, []);
+
+  useEffect(() => {
+    if (prototype) return;
+    void load();
+  }, [prototype]);
 
   async function load() {
     try {
@@ -44,6 +57,16 @@ export function App() {
       setCareer(EMPTY_CAREER);
       setCareerError("Could not load work history.");
     }
+  }
+
+  if (prototype === "chat") {
+    return <ProfornaChatMock />;
+  }
+  if (prototype === "shell") {
+    return <ProfornaShellMock />;
+  }
+  if (prototype === "career-layout") {
+    return <CareerLayoutMock />;
   }
 
   if (error) {
@@ -89,4 +112,13 @@ export function App() {
       }
     />
   );
+}
+
+function readPrototype(): "chat" | "shell" | "career-layout" | null {
+  if (!import.meta.env.DEV) return null;
+  const path = window.location.hash.replace(/^#\/?/, "").split("?")[0];
+  if (path === "prototype/chat") return "chat";
+  if (path === "prototype/shell") return "shell";
+  if (path === "prototype/career-layout") return "career-layout";
+  return null;
 }

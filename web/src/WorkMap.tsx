@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import type { CareerFile } from "@core/career-file";
 import {
   CAREER_HISTORY_SECTIONS,
+  classifyCareerHistorySection,
   formatHistoryGist,
   groupCareerHistory,
   presentCareerHistoryStats,
@@ -95,6 +96,19 @@ export function WorkMap({
   useEffect(() => {
     if (focusRoleId) setSelectedId(focusRoleId);
   }, [focusRoleId]);
+
+  useEffect(() => {
+    if (!selectedId || !data) return;
+    const role = data.roles.find((entry) => entry.id === selectedId);
+    if (!role) return;
+    const section = classifyCareerHistorySection(role);
+    setClosedSections((current) => {
+      if (!current.has(section)) return current;
+      const next = new Set(current);
+      next.delete(section);
+      return next;
+    });
+  }, [data, selectedId]);
 
   async function load() {
     const [mapResponse, publicationResponse] = await Promise.all([
@@ -275,7 +289,14 @@ export function WorkMap({
         </p>
       ) : null}
 
-      <div className="work-map-layout">
+      <div
+        className={[
+          "work-map-layout",
+          selected ? "is-role-focused" : "",
+        ]
+          .filter(Boolean)
+          .join(" ")}
+      >
         <aside className="work-map-ledger">
           <header className="history-panel-head">
             <h2>Career History</h2>
@@ -352,6 +373,21 @@ export function WorkMap({
               </select>
             </label>
           </div>
+          {selected ? (
+            <div className="work-map-focus" role="status">
+              <div>
+                <strong>
+                  {selected.title || selected.organization || "Untitled role"}
+                </strong>
+                {selected.organization && selected.title ? (
+                  <span>{selected.organization}</span>
+                ) : null}
+              </div>
+              <button type="button" onClick={() => setSelectedId(null)}>
+                Show all
+              </button>
+            </div>
+          ) : null}
           <div className="work-map-role-list">
             {empty ? (
               <p>Import a resume, or add a role to a section.</p>
@@ -397,6 +433,9 @@ export function WorkMap({
                           className={[
                             "career-history-row",
                             selectedId === item.id ? "is-selected" : "",
+                            selectedId && selectedId !== item.id
+                              ? "is-secondary"
+                              : "",
                           ]
                             .filter(Boolean)
                             .join(" ")}
@@ -469,7 +508,11 @@ export function WorkMap({
               }
             />
           ) : (
-            <CareerTimeline roles={visibleRoles} onSelect={setSelectedId} />
+            <CareerTimeline
+              roles={visibleRoles}
+              selectedId={selectedId}
+              onSelect={setSelectedId}
+            />
           )}
           {placingForId ? (
             <div className="map-placement-banner" role="status">
@@ -523,15 +566,27 @@ export function WorkMap({
 
 function CareerTimeline({
   roles,
+  selectedId,
   onSelect,
 }: {
   roles: WorkMapRole[];
+  selectedId: string | null;
   onSelect: (id: string) => void;
 }) {
   return (
     <div className="career-map-timeline">
       {roles.map((role) => (
-        <button key={role.id} onClick={() => onSelect(role.id)} type="button">
+        <button
+          className={[
+            selectedId === role.id ? "is-selected" : "",
+            selectedId && selectedId !== role.id ? "is-secondary" : "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
+          key={role.id}
+          onClick={() => onSelect(role.id)}
+          type="button"
+        >
           <time>{formatSpan(role)}</time>
           <span>
             <strong>{role.title}</strong>

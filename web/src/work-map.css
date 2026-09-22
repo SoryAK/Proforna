@@ -270,6 +270,58 @@
   box-shadow: inset 1px 0 0 var(--gold-hover);
 }
 
+.career-history-row.is-secondary {
+  opacity: 0.42;
+}
+
+.career-history-row.is-secondary:hover {
+  opacity: 0.78;
+}
+
+.work-map-focus {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0 0.75rem 0.35rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid rgba(199, 164, 123, 0.28);
+  border-radius: 0.3rem;
+  background: rgba(199, 164, 123, 0.08);
+}
+
+.work-map-focus strong,
+.work-map-focus span {
+  display: block;
+}
+
+.work-map-focus strong {
+  color: var(--text);
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+.work-map-focus span {
+  margin-top: 0.15rem;
+  color: var(--wm-muted);
+  font-size: 0.68rem;
+}
+
+.work-map-focus button {
+  flex: 0 0 auto;
+  padding: 0.3rem 0.55rem;
+  border: 1px solid rgba(199, 164, 123, 0.35);
+  border-radius: 0.25rem;
+  background: transparent;
+  color: var(--gold-hover);
+  font-size: 0.68rem;
+}
+
+.work-map-focus button:hover {
+  border-color: var(--gold-hover);
+  background: rgba(199, 164, 123, 0.12);
+}
+
 .career-history-row strong,
 .career-history-row b,
 .career-history-row small {
@@ -477,6 +529,19 @@
   background: transparent;
   color: inherit;
   text-align: left;
+}
+
+.career-map-timeline button.is-selected {
+  background: rgba(199, 164, 123, 0.08);
+  box-shadow: inset 2px 0 0 var(--gold-hover);
+}
+
+.career-map-timeline button.is-secondary {
+  opacity: 0.4;
+}
+
+.career-map-timeline button.is-secondary:hover {
+  opacity: 0.75;
 }
 
 .career-map-timeline time {
