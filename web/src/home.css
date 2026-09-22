@@ -469,12 +469,6 @@ button.home-nav-item:focus-visible {
 }
 
 @media (min-width: 760px) {
-  .home-menu-btn,
-  .home-proforna-toggle,
-  .home-proforna-hide {
-    display: none;
-  }
-
   .home-nav-backdrop {
     display: none;
   }
@@ -998,9 +992,9 @@ button.home-nav-item:focus-visible {
   display: grid;
 }
 
-.home-proforna-toggle.is-current {
-  background: rgba(167, 139, 113, 0.18);
-  color: var(--gold-hover);
+.home-proforna-toggle .home-panel-fill {
+  fill: currentColor;
+  stroke: none;
 }
 
 .home-proforna {
@@ -1429,12 +1423,6 @@ button.home-nav-item:focus-visible {
   opacity: 0.55;
 }
 
-@media (min-width: 960px) {
-  .home:has(.home-proforna.is-open) .home-proforna-toggle {
-    display: none;
-  }
-}
-
 @media (max-width: 759px) {
   .home-proforna {
     position: fixed;
@@ -1610,9 +1598,14 @@ button.home-nav-item:focus-visible {
 }
 
 @media (min-width: 760px) {
-  .home-menu-btn,
-  .home-proforna-toggle,
-  .home-proforna-hide {
+  .home-nav.is-collapsed {
+    width: 4.25rem;
+    margin-right: 0.5rem;
+    padding-left: 0.45rem;
+    padding-right: 0.45rem;
+  }
+
+  .home-proforna.is-collapsed {
     display: none;
   }
 }
