@@ -19,7 +19,7 @@ import {
   type WorkMapRole,
 } from "@core/work-map";
 import { WorkMapCanvas } from "./WorkMapCanvas";
-import { RoleDetailPanel } from "./RoleDetailPanel";
+import { RoleDetailPanel, type DetailTab } from "./RoleDetailPanel";
 import "./work-map.css";
 
 type WorkMapResponse = {
@@ -28,6 +28,8 @@ type WorkMapResponse = {
     headline: string;
     city: string;
     state: string;
+    bio: string;
+    avatarUrl: string | null;
   };
   roles: WorkMapRole[];
   skills: string[];
@@ -52,10 +54,12 @@ export function WorkMap({
   fallbackCareer: _fallbackCareer,
   error,
   focusRoleId,
+  onHome,
 }: {
   fallbackCareer: CareerFile;
   error: string | null;
   focusRoleId?: string | null;
+  onHome: () => void;
 }) {
   const [data, setData] = useState<WorkMapResponse | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(
@@ -88,6 +92,10 @@ export function WorkMap({
   const [publishing, setPublishing] = useState(false);
   const [creatingKind, setCreatingKind] =
     useState<CareerHistorySectionKey | null>(null);
+  const [detailTab, setDetailTab] = useState<DetailTab>("story");
+  const [mapOverride, setMapOverride] = useState<"auto" | "show" | "hide">(
+    "auto",
+  );
 
   useEffect(() => {
     void load();
@@ -96,6 +104,11 @@ export function WorkMap({
   useEffect(() => {
     if (focusRoleId) setSelectedId(focusRoleId);
   }, [focusRoleId]);
+
+  useEffect(() => {
+    setDetailTab("story");
+    setMapOverride("auto");
+  }, [selectedId]);
 
   useEffect(() => {
     if (!selectedId || !data) return;
@@ -281,6 +294,14 @@ export function WorkMap({
   }
 
   const empty = data.roles.length === 0;
+  const recordOpen = Boolean(selected);
+  const mapVisible = placingForId ? true : mapOverride !== "hide";
+
+  function chooseDetailTab(next: DetailTab) {
+    setDetailTab(next);
+    setMapOverride("auto");
+  }
+
   return (
     <section className="work-map">
       {message ? (
@@ -292,11 +313,33 @@ export function WorkMap({
       <div
         className={[
           "work-map-layout",
-          selected ? "is-role-focused" : "",
-        ]
-          .filter(Boolean)
-          .join(" ")}
+          mapVisible ? "is-map" : "is-record",
+        ].join(" ")}
       >
+        <div className="work-map-float">
+          <CareerBio profile={data.profile} onHome={onHome} />
+          {recordOpen && selected ? (
+          <RoleDetailPanel
+            role={selected}
+            tab={detailTab}
+            onTab={chooseDetailTab}
+            mapVisible={mapVisible}
+            onToggleMap={() => setMapOverride(mapVisible ? "hide" : "show")}
+            onClose={() => setSelectedId(null)}
+            onSaved={load}
+            placement={
+              pendingPlacement?.roleId === selected.id ? pendingPlacement : null
+            }
+            onStartPlacement={(locationId) => {
+              setDetailTab("places");
+              setMapOverride("show");
+              setView("map");
+              setPlacingForId(selected.id);
+              setPlacingLocationId(locationId ?? null);
+            }}
+            onLocationSaved={() => setPendingPlacement(null)}
+          />
+        ) : (
         <aside className="work-map-ledger">
           <header className="history-panel-head">
             <h2>Career History</h2>
@@ -373,21 +416,6 @@ export function WorkMap({
               </select>
             </label>
           </div>
-          {selected ? (
-            <div className="work-map-focus" role="status">
-              <div>
-                <strong>
-                  {selected.title || selected.organization || "Untitled role"}
-                </strong>
-                {selected.organization && selected.title ? (
-                  <span>{selected.organization}</span>
-                ) : null}
-              </div>
-              <button type="button" onClick={() => setSelectedId(null)}>
-                Show all
-              </button>
-            </div>
-          ) : null}
           <div className="work-map-role-list">
             {empty ? (
               <p>Import a resume, or add a role to a section.</p>
@@ -430,15 +458,7 @@ export function WorkMap({
                   {open
                     ? items.map((item) => (
                         <button
-                          className={[
-                            "career-history-row",
-                            selectedId === item.id ? "is-selected" : "",
-                            selectedId && selectedId !== item.id
-                              ? "is-secondary"
-                              : "",
-                          ]
-                            .filter(Boolean)
-                            .join(" ")}
+                          className="career-history-row"
                           key={item.id}
                           onClick={() => setSelectedId(item.id)}
                           type="button"
@@ -468,7 +488,10 @@ export function WorkMap({
             ) : null}
           </div>
         </aside>
+        )}
+        </div>
 
+        {mapVisible ? (
         <main className="work-map-stage">
           <div className="work-map-view-switch" aria-label="Career History view">
             <button
@@ -530,24 +553,8 @@ export function WorkMap({
             </div>
           ) : null}
         </main>
-
-        {selected && !placingForId && !settingsOpen ? (
-          <RoleDetailPanel
-            role={selected}
-            onClose={() => setSelectedId(null)}
-            onSaved={load}
-            placement={
-              pendingPlacement?.roleId === selected.id
-                ? pendingPlacement
-                : null
-            }
-            onStartPlacement={(locationId) => {
-              setView("map");
-              setPlacingForId(selected.id);
-              setPlacingLocationId(locationId ?? null);
-            }}
-            onLocationSaved={() => setPendingPlacement(null)}
-          />
+        ) : selected ? (
+          <RoleSheet role={selected} tab={detailTab} />
         ) : null}
 
         {settingsOpen && settings ? (
@@ -561,6 +568,146 @@ export function WorkMap({
         ) : null}
       </div>
     </section>
+  );
+}
+
+function CareerBio({
+  profile,
+  onHome,
+}: {
+  profile: WorkMapResponse["profile"];
+  onHome: () => void;
+}) {
+  const place = [profile.city, profile.state].filter(Boolean).join(", ");
+  const initials = profile.fullName
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0] ?? "")
+    .join("")
+    .toUpperCase();
+
+  return (
+    <section className="career-bio" aria-label="Profile">
+      <button className="career-bio-home" type="button" onClick={onHome}>
+        Home
+      </button>
+      <div className="career-bio-row">
+        {profile.avatarUrl ? (
+          <img src={profile.avatarUrl} alt="" />
+        ) : (
+          <span className="career-bio-mark" aria-hidden="true">
+            {initials || "P"}
+          </span>
+        )}
+        <div>
+          <h2>{profile.fullName || "Career"}</h2>
+          {profile.headline ? <p>{profile.headline}</p> : null}
+          {place ? <p className="career-bio-place">{place}</p> : null}
+          {profile.bio ? <p className="career-bio-about">{profile.bio}</p> : null}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function RoleSheet({
+  role,
+  tab,
+}: {
+  role: WorkMapRole;
+  tab: DetailTab;
+}) {
+  const place = readablePlace(role);
+  const meta = [role.organization, place, formatSpan(role)]
+    .filter(Boolean)
+    .join(" · ");
+
+  return (
+    <article className="role-sheet" aria-label="Role record">
+      <h2>{role.title || "Untitled"}</h2>
+      {meta ? <p className="role-sheet-meta">{meta}</p> : null}
+      {tab === "story" ? <StorySheet role={role} /> : null}
+      {tab === "conditions" ? <ConditionsSheet role={role} /> : null}
+      {tab === "media" ? <MediaSheet role={role} /> : null}
+    </article>
+  );
+}
+
+function StorySheet({ role }: { role: WorkMapRole }) {
+  const story = role.description.trim();
+  return (
+    <>
+      <h3 className="role-sheet-kicker">Story</h3>
+      {story ? (
+        <p className="role-sheet-body">{story}</p>
+      ) : (
+        <p className="role-sheet-empty">No story written for this role yet.</p>
+      )}
+      {role.achievements.length > 0 ? (
+        <>
+          <h3 className="role-sheet-kicker">Achievements</h3>
+          <ul>
+            {role.achievements.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </>
+      ) : null}
+    </>
+  );
+}
+
+function ConditionsSheet({ role }: { role: WorkMapRole }) {
+  const details = role.details;
+  const rows = [
+    details.schedule.shift,
+    details.schedule.workMode,
+    details.schedule.hoursPerWeek
+      ? `${details.schedule.hoursPerWeek} hours / week`
+      : "",
+    details.environment,
+    details.paidTimeOff,
+    details.uniform,
+    details.equipment.join(", "),
+    details.benefits.join(", "),
+  ].filter(Boolean);
+
+  return (
+    <>
+      <h3 className="role-sheet-kicker">Conditions</h3>
+      {rows.length > 0 ? (
+        <ul>
+          {rows.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+      ) : (
+        <p className="role-sheet-empty">
+          Conditions stay on this role until you write them. They remain private
+          unless you approve a field for publishing.
+        </p>
+      )}
+    </>
+  );
+}
+
+function MediaSheet({ role }: { role: WorkMapRole }) {
+  return (
+    <>
+      <h3 className="role-sheet-kicker">Media</h3>
+      {role.media.length > 0 ? (
+        <ul>
+          {role.media.map((item) => (
+            <li key={item.id}>
+              {item.title}
+              {item.caption ? ` — ${item.caption}` : ""}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="role-sheet-empty">No media attached to this role yet.</p>
+      )}
+    </>
   );
 }
 
@@ -744,6 +891,16 @@ function PublicationSettings({
       </form>
     </aside>
   );
+}
+
+function readablePlace(role: WorkMapRole): string {
+  const label = role.locationLabel.trim();
+  if (label && !/^\d+$/.test(label)) return label;
+  const site = role.locations.find((location) => {
+    const name = location.label.trim();
+    return name && !/^\d+$/.test(name);
+  });
+  return site?.label.trim() ?? "";
 }
 
 function formatSpan(role: WorkMapRole): string {

@@ -5,10 +5,11 @@
   --wm-muted: #b9aa97;
   position: relative;
   display: flex;
+  min-width: 0;
   min-height: 0;
   flex: 1;
   flex-direction: column;
-  background: #080706;
+  background: transparent;
   color: var(--text);
   accent-color: var(--gold-hover);
 }
@@ -82,12 +83,134 @@
 }
 
 .work-map-layout {
+  --wm-column: min(26rem, 42vw);
   position: relative;
-  display: grid;
-  grid-template-columns: min(26rem, 38vw) minmax(0, 1fr);
+  display: flex;
+  gap: 0.65rem;
   flex: 1;
+  min-width: 0;
   min-height: 0;
   overflow: hidden;
+}
+
+.work-map-float {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  width: var(--wm-column);
+  min-height: 0;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.work-map-float .work-map-ledger,
+.work-map-float .role-detail.is-inline {
+  min-height: 0;
+  flex: 1;
+  border: 1px solid rgba(199, 164, 123, 0.28);
+  border-radius: 16px;
+  background: #0d0b09;
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.42);
+}
+
+.work-map-float .work-map-ledger {
+  border-right: 1px solid rgba(199, 164, 123, 0.28);
+}
+
+.work-map-float .role-detail.is-inline {
+  border-right: 1px solid rgba(199, 164, 123, 0.28);
+}
+
+.career-bio {
+  display: flex;
+  flex-shrink: 0;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.45rem;
+  padding: 0.7rem 0.9rem 0.85rem;
+  border: 1px solid rgba(199, 164, 123, 0.28);
+  border-radius: 16px;
+  background: #0d0b09;
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.42);
+}
+
+.career-bio-home {
+  align-self: flex-start;
+  min-height: 0;
+  padding: 0.1rem 0.2rem;
+  border: 0;
+  background: transparent;
+  color: var(--gold-hover);
+  font-size: 0.78rem;
+}
+
+.career-bio-home:hover,
+.career-bio-home:focus-visible {
+  color: var(--text);
+}
+
+.career-bio-row {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.career-bio img,
+.career-bio-mark {
+  width: 3.5rem;
+  height: 3.5rem;
+  flex-shrink: 0;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.career-bio-mark {
+  display: grid;
+  place-items: center;
+  background: rgba(199, 164, 123, 0.16);
+  color: var(--gold-hover);
+  font-family: var(--serif);
+  font-size: 1.15rem;
+  font-style: italic;
+}
+
+.career-bio h2 {
+  margin: 0;
+  color: var(--text);
+  font-family: var(--serif);
+  font-size: 1.35rem;
+  font-style: italic;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.career-bio p {
+  margin: 0.2rem 0 0;
+  color: var(--gold-light);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.career-bio-place {
+  color: var(--wm-muted);
+  font-size: 0.72rem;
+}
+
+.career-bio-about {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  color: var(--wm-muted);
+}
+
+.work-map-stage,
+.role-sheet {
+  flex: 1;
+  border: 1px solid rgba(167, 139, 113, 0.22);
+  border-radius: 16px;
 }
 
 .work-map-ledger {
@@ -441,6 +564,7 @@
   padding: 0;
   min-width: 0;
   min-height: 0;
+  overflow: hidden;
   background: #d9d2c6;
 }
 
@@ -448,7 +572,7 @@
   position: absolute;
   z-index: 500;
   top: 0.8rem;
-  left: 0.8rem;
+  left: 3.6rem;
   display: flex;
   padding: 0.18rem;
   background: #0c0a08;
@@ -592,6 +716,113 @@
   animation: wm-panel-in 180ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+.role-detail.is-inline {
+  position: relative;
+  z-index: auto;
+  top: auto;
+  right: auto;
+  bottom: auto;
+  width: auto;
+  min-width: 0;
+  min-height: 0;
+  border: 1px solid rgba(199, 164, 123, 0.28);
+  border-radius: 16px;
+  background: var(--wm-panel);
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.42);
+  animation: none;
+}
+
+.role-detail .role-back {
+  min-height: 0;
+  margin: 0 0 0.35rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--gold-hover);
+  font-size: 0.72rem;
+}
+
+.role-detail .role-back:hover {
+  border: 0;
+  color: var(--text);
+}
+
+.role-detail-actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 0.35rem;
+}
+
+.role-sheet {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  padding: 2.4rem clamp(1.5rem, 4vw, 3.5rem) 3rem;
+  background: #080706;
+  scrollbar-color: rgba(199, 164, 123, 0.45) transparent;
+  scrollbar-width: thin;
+}
+
+.role-sheet h2 {
+  max-width: 16ch;
+  margin: 0;
+  color: var(--text);
+  font-family: var(--serif);
+  font-size: clamp(2.1rem, 4vw, 3.15rem);
+  font-style: italic;
+  font-weight: 400;
+  letter-spacing: -0.03em;
+  line-height: 1.02;
+}
+
+.role-sheet-meta {
+  margin: 0.9rem 0 0;
+  color: var(--gold-light);
+  font-size: 0.92rem;
+}
+
+.role-sheet-kicker {
+  margin: 2rem 0 0.35rem;
+  color: var(--gold);
+  font-size: 0.68rem;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.role-sheet-body {
+  max-width: 62ch;
+  margin: 0;
+  color: var(--text);
+  font-size: 1.02rem;
+  line-height: 1.65;
+}
+
+.role-sheet ul {
+  max-width: 62ch;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.role-sheet li {
+  padding: 0.7rem 0;
+  border-top: 1px solid var(--wm-line);
+  color: var(--text);
+  line-height: 1.45;
+}
+
+.role-sheet li:last-child {
+  border-bottom: 1px solid var(--wm-line);
+}
+
+.role-sheet-empty {
+  max-width: 42ch;
+  margin: 0.4rem 0 0;
+  color: var(--wm-muted);
+  line-height: 1.5;
+}
+
 .role-detail > header,
 .publication-settings > header {
   display: flex;
@@ -621,12 +852,12 @@
 }
 
 .role-detail > nav {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  display: flex;
   border-bottom: 1px solid var(--wm-line);
 }
 
 .role-detail > nav button {
+  flex: 1;
   border: 0;
   border-radius: 0;
 }
@@ -704,7 +935,8 @@
 .role-form .role-check,
 .publication-settings .publication-check {
   display: flex;
-  align-items: center;
+  min-width: 0;
+  align-items: flex-start;
   gap: 0.55rem;
 }
 
@@ -791,21 +1023,6 @@
   width: min(27rem, 46vw);
 }
 
-.publication-settings form {
-  display: grid;
-  gap: 1rem;
-}
-
-.publication-settings fieldset {
-  display: grid;
-  gap: 0.65rem;
-  margin: 0;
-  padding: 0.85rem 0;
-  border: 0;
-  border-top: 1px solid var(--wm-line);
-  border-bottom: 1px solid var(--wm-line);
-}
-
 .publication-settings legend {
   padding: 0 0 0.7rem;
 }
@@ -877,12 +1094,7 @@
 
 @media (max-width: 1100px) {
   .work-map-layout {
-    grid-template-columns: min(24rem, 42vw) minmax(0, 1fr);
-  }
-
-  .role-detail,
-  .publication-settings {
-    width: min(29rem, calc(100% - min(24rem, 42vw)));
+    --wm-column: min(22rem, 46vw);
   }
 }
 
@@ -918,6 +1130,35 @@
     top: 3.5rem;
     width: 100%;
     border-left: 0;
+  }
+
+  .role-detail.is-inline {
+    position: relative;
+    top: auto;
+    z-index: auto;
+    width: auto;
+    min-height: 70vh;
+  }
+
+  .work-map-layout.is-record,
+  .work-map-layout.is-map {
+    flex-direction: column;
+  }
+
+  .work-map-stage {
+    height: 55vh;
+    min-height: 18rem;
+    order: 2;
+  }
+
+  .work-map-float {
+    width: auto;
+    max-height: 46vh;
+    order: 1;
+  }
+
+  .role-sheet {
+    min-height: 24rem;
   }
 
   .career-map-timeline button {

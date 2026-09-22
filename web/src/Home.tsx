@@ -239,7 +239,15 @@ export function Home({
         headline={profile.headline}
         photoSrc={photoSrc}
         menuExpanded={desktop ? !collapsed : mobileOpen}
-        onMenu={toggleMenu}
+        menuLabel={page === "history" ? "Home" : undefined}
+        onMenu={() => {
+          if (page === "history") {
+            setEditing(false);
+            goHome();
+            return;
+          }
+          toggleMenu();
+        }}
         onProfile={goProfile}
         onSettings={() => setSettingsOpen(true)}
         onSearch={() => setSearchOpen(true)}
@@ -276,6 +284,18 @@ export function Home({
         className={dragging ? "home-shell is-resizing" : "home-shell"}
         ref={shellRef}
       >
+        {page === "history" ? (
+          <WorkHistory
+            career={career}
+            careerError={careerError}
+            focusJobId={focusJobId}
+            onHome={() => {
+              setEditing(false);
+              goHome();
+            }}
+          />
+        ) : (
+          <>
         <HomeNav
           collapsed={desktop && collapsed}
           mobileOpen={mobileOpen}
@@ -312,13 +332,7 @@ export function Home({
           />
         ) : null}
       <main className="home-main">
-      {page === "history" ? (
-        <WorkHistory
-          career={career}
-          careerError={careerError}
-          focusJobId={focusJobId}
-        />
-      ) : page !== "home" ? (
+      {page !== "home" ? (
         <CareerWorkspace page={page} />
       ) : editing ? (
         <div className="home-file home-edit">
@@ -505,6 +519,8 @@ export function Home({
         </article>
       )}
       </main>
+          </>
+        )}
         {desktop && profornaOpen ? (
           <WorkbenchSash
             label="Resize Proforna"

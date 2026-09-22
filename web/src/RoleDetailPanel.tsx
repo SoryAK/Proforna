@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import type { WorkMapLocation, WorkMapMoment, WorkMapRole } from "@core/work-map";
 
-type DetailTab = "story" | "conditions" | "map-media";
+export type DetailTab = "story" | "conditions" | "media" | "places";
 
 type SitePlacement = {
   latitude: number;
@@ -11,6 +11,10 @@ type SitePlacement = {
 
 export function RoleDetailPanel({
   role,
+  tab,
+  onTab,
+  mapVisible,
+  onToggleMap,
   onClose,
   onSaved,
   placement,
@@ -18,13 +22,16 @@ export function RoleDetailPanel({
   onLocationSaved,
 }: {
   role: WorkMapRole;
+  tab: DetailTab;
+  onTab: (tab: DetailTab) => void;
+  mapVisible: boolean;
+  onToggleMap: () => void;
   onClose: () => void;
   onSaved: () => Promise<void>;
   placement: SitePlacement | null;
   onStartPlacement: (locationId?: string) => void;
   onLocationSaved: () => void;
 }) {
-  const [tab, setTab] = useState<DetailTab>("story");
   const [message, setMessage] = useState("");
   const [lookingUp, setLookingUp] = useState(false);
 
@@ -226,15 +233,26 @@ export function RoleDetailPanel({
   }
 
   return (
-    <aside className="role-detail" aria-label={`${role.title || "Untitled"} details`}>
+    <aside
+      className="role-detail is-inline"
+      aria-label={`${role.title || "Untitled"} details`}
+    >
       <header>
         <div>
+          <button className="role-back" type="button" onClick={onClose}>
+            Back to history
+          </button>
           <h2>{role.title || "Untitled"}</h2>
           <p>{role.organization}</p>
         </div>
-        <button type="button" onClick={onClose} aria-label="Close role details">
-          Close
-        </button>
+        <div className="role-detail-actions">
+          <button type="button" onClick={onToggleMap}>
+            {mapVisible ? "Hide map" : "Show map"}
+          </button>
+          <button type="button" onClick={onClose} aria-label="Close role details">
+            Close
+          </button>
+        </div>
       </header>
 
       <nav aria-label="Role detail sections">
@@ -242,13 +260,14 @@ export function RoleDetailPanel({
           [
             ["story", "Story"],
             ["conditions", "Conditions"],
-            ["map-media", "Map & media"],
+            ["media", "Media"],
+            ["places", "Places"],
           ] as Array<[DetailTab, string]>
         ).map(([value, label]) => (
           <button
             className={tab === value ? "is-active" : ""}
             key={value}
-            onClick={() => setTab(value)}
+            onClick={() => onTab(value)}
             type="button"
           >
             {label}
@@ -546,7 +565,58 @@ export function RoleDetailPanel({
           </form>
         ) : null}
 
-        {tab === "map-media" ? (
+        {tab === "media" ? (
+          <>
+            <section className="role-existing">
+              <h3>Gallery and attachments</h3>
+              {role.media.length === 0 ? (
+                <p className="role-form-note">No media on this role yet.</p>
+              ) : (
+                role.media.map((item) => (
+                  <p key={item.id}>
+                    <strong>{item.title}</strong>
+                    <span>
+                      {item.kind}
+                      {item.isPublic ? " · public" : " · private"}
+                    </span>
+                  </p>
+                ))
+              )}
+            </section>
+            <form className="role-form" onSubmit={addMedia}>
+              <h3>Attach media</h3>
+              <div className="role-form-pair">
+                <label>
+                  Type
+                  <select name="kind">
+                    <option value="photo">Photo</option>
+                    <option value="video">Video</option>
+                    <option value="attachment">Attachment</option>
+                  </select>
+                </label>
+                <label>
+                  Title
+                  <input required name="title" />
+                </label>
+              </div>
+              <label>
+                URL
+                <input required name="url" type="url" />
+              </label>
+              <label>
+                Caption
+                <textarea name="caption" rows={2} />
+              </label>
+              <label className="role-check">
+                <input name="isPublic" type="checkbox" />
+                Allow this item in publications
+              </label>
+              <button type="submit">Attach media</button>
+            </form>
+          </>
+        ) : null}
+
+        {tab === "places" ? (
           <>
             <section className="role-existing">
               <h3>Mapped sites</h3>
@@ -594,46 +664,6 @@ export function RoleDetailPanel({
               onLookup={lookupAddress}
               onPlace={() => onStartPlacement()}
             />
-
-            <section className="role-existing">
-              <h3>Gallery and attachments</h3>
-              {role.media.map((item) => (
-                <p key={item.id}>
-                  <strong>{item.title}</strong>
-                  <span>{item.kind}{item.isPublic ? " · public" : " · private"}</span>
-                </p>
-              ))}
-            </section>
-            <form className="role-form" onSubmit={addMedia}>
-              <h3>Attach media</h3>
-              <div className="role-form-pair">
-                <label>
-                  Type
-                  <select name="kind">
-                    <option value="photo">Photo</option>
-                    <option value="video">Video</option>
-                    <option value="attachment">Attachment</option>
-                  </select>
-                </label>
-                <label>
-                  Title
-                  <input required name="title" />
-                </label>
-              </div>
-              <label>
-                URL
-                <input required name="url" type="url" />
-              </label>
-              <label>
-                Caption
-                <textarea name="caption" rows={2} />
-              </label>
-              <label className="role-check">
-                <input name="isPublic" type="checkbox" />
-                Allow this item in publications
-              </label>
-              <button type="submit">Attach media</button>
-            </form>
           </>
         ) : null}
       </div>
