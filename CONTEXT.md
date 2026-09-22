@@ -115,9 +115,12 @@ _Avoid_: Alert, toast, reminder, notification center
 
 **Agent Run**:
 A recorded execution with declared purpose, inputs, capabilities, and
-resulting proposals. Occupants talk to Proforna, not named agents. A cloud
-model requires an explicit grant before vault text may leave the machine.
-_Avoid_: Chat, automation
+resulting proposals. Occupants talk to Proforna, not named agents. Purposes
+in the shipped cut are inspect, extract-facts, suggest-reply, and command —
+never a picker or specialist chrome. The governed-agency epic (#49) is done;
+see docs/agent-authority.md. A cloud model requires an explicit grant before
+vault text may leave the machine.
+_Avoid_: Chat, automation, agent picker, named specialist bot
 
 **Command Session**:
 A persisted Home conversation with Proforna. Each occupant turn is a command
