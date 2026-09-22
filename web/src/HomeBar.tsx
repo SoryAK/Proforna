@@ -8,6 +8,7 @@ export function HomeBar({
   headline,
   photoSrc,
   menuExpanded,
+  menuLabel,
   onMenu,
   onProfile,
   onSettings,
@@ -20,6 +21,7 @@ export function HomeBar({
   headline: string;
   photoSrc: string | null;
   menuExpanded: boolean;
+  menuLabel?: string;
   onMenu: () => void;
   onProfile: () => void;
   onSettings: () => void;
@@ -57,9 +59,11 @@ export function HomeBar({
         <button
           type="button"
           className="home-menu-btn"
-          aria-label={menuExpanded ? "Collapse menu" : "Expand menu"}
-          aria-expanded={menuExpanded}
-          aria-controls={HOME_NAV_ID}
+          aria-label={
+            menuLabel ?? (menuExpanded ? "Collapse menu" : "Expand menu")
+          }
+          aria-expanded={menuLabel ? undefined : menuExpanded}
+          aria-controls={menuLabel ? undefined : HOME_NAV_ID}
           onClick={onMenu}
         >
           <Icon name="menu" />

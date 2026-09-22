@@ -28,9 +28,13 @@ route-owned policy, and experimental machinery.
   roles are the subject of those facts.
 - Recruiter contact forms and submissions use the opportunity inbox.
 - AI features use one governed agency layer instead of route-specific calls.
+  That cut shipped (GitHub #49): one Proforna, Agent Run purposes, Change Sets
+  and Notices for review. See docs/agent-authority.md.
 
 ## Deferred until validated
 
+- Skill graph and role-neighborhood focus from the backup (deferred; Career
+  History owns the career record without it)
 - Building footprints and indoor maps
 - Recruiter cookie CRM
 - Interview video rooms
@@ -40,3 +44,10 @@ route-owned policy, and experimental machinery.
 
 Deferred capabilities may return only when they improve evidence quality,
 career decisions, or a measured external outcome.
+
+## Current priority
+
+The career record is Core: Work Map roles with story, conditions, sites,
+milestones, media, and publish controls. Prefer deepening Career History
+(select a role → ledger and map tighten to that role; authoring stays in the
+role panel) over importing backup graph chrome.

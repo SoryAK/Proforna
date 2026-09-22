@@ -3,6 +3,24 @@
 Agents operate inside explicit capability grants. Their default output is a
 proposal, not a mutation or external side effect.
 
+Occupants talk to **one Proforna**, not named specialist bots. Specialist
+workflows are Agent Run **purposes** (inspect, extract-facts, suggest-reply,
+command), never chrome, pickers, or separate assistants.
+
+## Shipped cut (GitHub #49)
+
+The governed-agency epic is **done**. Do not reopen it as unfinished work.
+Closed stack: #50 Notice destinations, #51 Contact conversations, #52 Keep in
+My Network, #58 Agency.run, #60 extract-facts, #62 suggest-reply, #63 Home
+command sessions.
+
+What that means in the product:
+
+- Proforna proposes; Change Sets and Notices carry review.
+- Direct messages live on a Contact; My Network is that list.
+- A cloud model still needs an explicit grant before vault text may leave.
+- Follow-ups belong in **new** issues, not by treating #49 as open.
+
 ## May act without per-action approval
 
 - Read local data within the declared run scope

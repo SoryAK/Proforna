@@ -24,6 +24,9 @@ export function WorkMapCanvas({
   const points = roles.flatMap((role) =>
     role.locations.map((location) => ({ role, location })),
   );
+  const focusPoints = selectedId
+    ? points.filter(({ role }) => role.id === selectedId)
+    : [];
   const center: [number, number] = points.length
     ? [points[0].location.latitude, points[0].location.longitude]
     : [39.9526, -75.1652];
@@ -41,34 +44,44 @@ export function WorkMapCanvas({
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         <FitPoints
-          points={points.map(({ location }) => [
+          allPoints={points.map(({ location }) => [
             location.latitude,
             location.longitude,
           ])}
+          focusPoints={focusPoints.map(({ location }) => [
+            location.latitude,
+            location.longitude,
+          ])}
+          selectedId={selectedId}
         />
         <MapClickHandler onMapClick={onMapClick} />
-        {points.map(({ role, location }) => (
-          <CircleMarker
-            center={[location.latitude, location.longitude]}
-            eventHandlers={{ click: () => onSelect(role.id) }}
-            key={location.id}
-            pathOptions={{
-              color: selectedId === role.id ? "#f2d19b" : "#1a1510",
-              fillColor: role.isCurrent ? "#c27b2b" : "#8d6b48",
-              fillOpacity: 1,
-              weight: selectedId === role.id ? 4 : 2,
-            }}
-            radius={selectedId === role.id ? 12 : 8}
-          >
-            <Tooltip direction="top" offset={[0, -8]}>
-              <strong>{role.title}</strong>
-              <br />
-              {role.organization}
-              <br />
-              {location.label}
-            </Tooltip>
-          </CircleMarker>
-        ))}
+        {points.map(({ role, location }) => {
+          const focused = selectedId === role.id;
+          const secondary = Boolean(selectedId) && !focused;
+          return (
+            <CircleMarker
+              center={[location.latitude, location.longitude]}
+              eventHandlers={{ click: () => onSelect(role.id) }}
+              key={location.id}
+              pathOptions={{
+                color: focused ? "#f2d19b" : "#1a1510",
+                fillColor: role.isCurrent ? "#c27b2b" : "#8d6b48",
+                fillOpacity: secondary ? 0.28 : 1,
+                opacity: secondary ? 0.45 : 1,
+                weight: focused ? 4 : 2,
+              }}
+              radius={focused ? 12 : secondary ? 6 : 8}
+            >
+              <Tooltip direction="top" offset={[0, -8]}>
+                <strong>{role.title}</strong>
+                <br />
+                {role.organization}
+                <br />
+                {location.label}
+              </Tooltip>
+            </CircleMarker>
+          );
+        })}
       </MapContainer>
       {points.length === 0 ? (
         <div className="work-map-unmapped">
@@ -93,14 +106,35 @@ function MapClickHandler({
   return null;
 }
 
-function FitPoints({ points }: { points: Array<[number, number]> }) {
+function FitPoints({
+  allPoints,
+  focusPoints,
+  selectedId,
+}: {
+  allPoints: Array<[number, number]>;
+  focusPoints: Array<[number, number]>;
+  selectedId: string | null;
+}) {
   const map = useMap();
+  const target = focusPoints.length > 0 ? focusPoints : allPoints;
+  const frame = target.map((point) => point.join(",")).join("|");
+
   useEffect(() => {
+    const points = frame
+      ? frame.split("|").map((pair) => {
+          const [lat, lng] = pair.split(",").map(Number);
+          return [lat, lng] as [number, number];
+        })
+      : [];
     if (points.length === 1) {
-      map.setView(points[0], 11);
+      map.setView(points[0], selectedId ? 12 : 11);
     } else if (points.length > 1) {
-      map.fitBounds(points, { padding: [42, 42], maxZoom: 12 });
+      map.fitBounds(points, {
+        padding: [42, 42],
+        maxZoom: selectedId ? 13 : 12,
+      });
     }
-  }, [map, points]);
+  }, [map, frame, selectedId]);
+
   return null;
 }
