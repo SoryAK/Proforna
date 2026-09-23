@@ -1,7 +1,12 @@
 import { createHash, randomUUID } from "node:crypto";
+import { mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import {
   EMPTY_WORK_MAP_DETAILS,
+  PROFILE_AVATAR_MAX_BYTES,
+  avatarExtension,
+  isAvatarType,
   normalizeWorkMapDetails,
   attachFactsToWorkMapRole,
   buildWorkMapSnapshot,
@@ -415,8 +420,8 @@ export function addWorkMapMedia(
   db.prepare(
     `INSERT INTO work_history_media
       (id, work_history_id, occupant_id, kind, title, url, caption, is_public,
-       created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       stored_name, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)`,
   ).run(
     media.id,
     roleId,
@@ -429,6 +434,129 @@ export function addWorkMapMedia(
     new Date().toISOString(),
   );
   return media;
+}
+
+export function addWorkMapPhoto(
+  db: DatabaseSync,
+  occupantId: string,
+  roleId: string,
+  uploadsDir: string,
+  file: { type: string; bytes: Uint8Array; title?: string },
+): WorkMapMedia {
+  requireRole(db, occupantId, roleId);
+  if (!isAvatarType(file.type) || file.bytes.byteLength === 0) {
+    throw new WorkMapStoreError("photo-type");
+  }
+  if (file.bytes.byteLength > PROFILE_AVATAR_MAX_BYTES) {
+    throw new WorkMapStoreError("photo-too-large");
+  }
+  const ext = avatarExtension(file.type);
+  if (!ext) throw new WorkMapStoreError("photo-type");
+  const id = randomUUID();
+  const storedName = `media-${id}.${ext}`;
+  mkdirSync(uploadsDir, { recursive: true });
+  writeFileSync(join(uploadsDir, storedName), file.bytes);
+  const media: WorkMapMedia = {
+    id,
+    kind: "photo",
+    title: text(file.title) || "Photo",
+    url: `/api/work-map/media/${id}`,
+    caption: "",
+    isPublic: false,
+  };
+  db.prepare(
+    `INSERT INTO work_history_media
+      (id, work_history_id, occupant_id, kind, title, url, caption, is_public,
+       stored_name, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`,
+  ).run(
+    media.id,
+    roleId,
+    occupantId,
+    media.kind,
+    media.title,
+    media.url,
+    media.caption,
+    storedName,
+    new Date().toISOString(),
+  );
+  return media;
+}
+
+export function loadWorkMapMediaFile(
+  db: DatabaseSync,
+  occupantId: string,
+  mediaId: string,
+  uploadsDir: string,
+): { bytes: Uint8Array; type: string } | null {
+  const row = db
+    .prepare(
+      `SELECT stored_name FROM work_history_media
+       WHERE id = ? AND occupant_id = ?`,
+    )
+    .get(mediaId, occupantId) as { stored_name: string | null } | undefined;
+  const stored = row?.stored_name;
+  if (!stored) return null;
+  const type = stored.endsWith(".png")
+    ? "image/png"
+    : stored.endsWith(".webp")
+      ? "image/webp"
+      : stored.endsWith(".gif")
+        ? "image/gif"
+        : "image/jpeg";
+  try {
+    return {
+      bytes: new Uint8Array(readFileSync(join(uploadsDir, stored))),
+      type,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function setWorkMapMediaPublic(
+  db: DatabaseSync,
+  occupantId: string,
+  roleId: string,
+  mediaId: string,
+  isPublic: boolean,
+): void {
+  const updated = db
+    .prepare(
+      `UPDATE work_history_media SET is_public = ?
+       WHERE id = ? AND work_history_id = ? AND occupant_id = ?`,
+    )
+    .run(Number(isPublic), mediaId, roleId, occupantId);
+  if (updated.changes === 0) throw new WorkMapStoreError("media-missing");
+}
+
+export function removeWorkMapMedia(
+  db: DatabaseSync,
+  occupantId: string,
+  roleId: string,
+  mediaId: string,
+  uploadsDir: string,
+): void {
+  const row = db
+    .prepare(
+      `SELECT stored_name FROM work_history_media
+       WHERE id = ? AND work_history_id = ? AND occupant_id = ?`,
+    )
+    .get(mediaId, roleId, occupantId) as
+    | { stored_name: string | null }
+    | undefined;
+  if (!row) throw new WorkMapStoreError("media-missing");
+  db.prepare(
+    `DELETE FROM work_history_media
+     WHERE id = ? AND work_history_id = ? AND occupant_id = ?`,
+  ).run(mediaId, roleId, occupantId);
+  if (row.stored_name) {
+    try {
+      unlinkSync(join(uploadsDir, row.stored_name));
+    } catch {
+      /* leftover file is harmless */
+    }
+  }
 }
 
 export function readWorkMapSettings(

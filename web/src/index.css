@@ -9,8 +9,7 @@
   --muted: #9ca3af;
   --ease: cubic-bezier(0.4, 0, 0.2, 1);
   --reveal: cubic-bezier(0.19, 1, 0.22, 1);
-  --serif: "Playfair Display", Georgia, serif;
-  --sans: Inter, system-ui, sans-serif;
+  --sans: "Geist Variable", system-ui, sans-serif;
 }
 
 html,
@@ -34,9 +33,9 @@ main {
 }
 
 h1 {
-  font-family: var(--serif);
-  font-style: italic;
-  font-weight: 400;
+  font-family: var(--sans);
+  font-weight: 600;
+  letter-spacing: -0.02em;
 }
 
 button {

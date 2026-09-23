@@ -12,6 +12,7 @@ describe("prepareProfile", () => {
       value: {
         fullName: "Ada Lovelace",
         headline: "",
+        address: "",
         city: "",
         state: "",
         bio: "",
@@ -33,6 +34,7 @@ describe("prepareProfile", () => {
     const prepared = prepareProfile({
       fullName: "Ada",
       headline: "Mathematician",
+      address: "12 Private Lane",
       city: "London",
       state: "England",
       bio: "Notes on the engine.",
@@ -45,6 +47,7 @@ describe("prepareProfile", () => {
       value: {
         fullName: "Ada",
         headline: "Mathematician",
+        address: "12 Private Lane",
         city: "London",
         state: "England",
         bio: "Notes on the engine.",

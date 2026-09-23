@@ -8,7 +8,10 @@ import { openDatabase } from "./db";
 function setup() {
   const db = openDatabase(":memory:");
   const uploadsDir = mkdtempSync(join(tmpdir(), "proforna-uploads-"));
-  const app = createApp(db, { uploadsDir });
+  const app = createApp(db, {
+    uploadsDir,
+    places: { lookup: async () => null },
+  });
   return {
     db,
     app,
@@ -135,6 +138,7 @@ describe("onboarding HTTP", () => {
         body: JSON.stringify({
           fullName: "Ada Lovelace",
           headline: "Mathematician",
+          address: "12 Private Lane",
           city: "London",
           state: "England",
           bio: "Notes on the engine.",
@@ -148,6 +152,7 @@ describe("onboarding HTTP", () => {
         profile: {
           fullName: "Ada Lovelace",
           headline: "Mathematician",
+          address: "12 Private Lane",
           city: "London",
           state: "England",
           linkedinUrl: "https://linkedin.com/in/ada",

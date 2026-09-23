@@ -14,6 +14,7 @@ export function HomeProfileEdit({
 }) {
   const [fullName, setFullName] = useState(initial.fullName);
   const [headline, setHeadline] = useState(initial.headline);
+  const [address, setAddress] = useState(initial.address);
   const [city, setCity] = useState(initial.city);
   const [state, setState] = useState(initial.state);
   const [bio, setBio] = useState(initial.bio);
@@ -91,6 +92,7 @@ export function HomeProfileEdit({
           {
             fullName,
             headline,
+            address,
             city,
             state,
             bio,
@@ -136,6 +138,17 @@ export function HomeProfileEdit({
           onChange={(e) => setHeadline(e.target.value)}
           placeholder="e.g. Senior Software Engineer"
           autoComplete="off"
+        />
+      </label>
+
+      <label className="onboarding-field">
+        <span>Address</span>
+        <input
+          name="address"
+          value={address}
+          onChange={(e) => setAddress(e.target.value)}
+          autoComplete="street-address"
+          placeholder="Street address"
         />
       </label>
 

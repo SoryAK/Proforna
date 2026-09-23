@@ -16,29 +16,29 @@ colors:
   map-ground: "#d9d2c6"
 typography:
   display:
-    fontFamily: "Playfair Display, Georgia, serif"
-    fontSize: "clamp(2rem, 5vw, 3.4rem)"
-    fontWeight: 400
-    lineHeight: 1
-    letterSpacing: "-0.035em"
+    fontFamily: "Geist Variable, system-ui, sans-serif"
+    fontSize: "1.5rem"
+    fontWeight: 600
+    lineHeight: 1.2
+    letterSpacing: "-0.02em"
   headline:
-    fontFamily: "Playfair Display, Georgia, serif"
-    fontSize: "clamp(1.35rem, 2.4vw, 2.15rem)"
-    fontWeight: 400
-    lineHeight: 1.15
-    letterSpacing: "-0.025em"
+    fontFamily: "Geist Variable, system-ui, sans-serif"
+    fontSize: "1.15rem"
+    fontWeight: 600
+    lineHeight: 1.25
+    letterSpacing: "-0.02em"
   title:
-    fontFamily: "Playfair Display, Georgia, serif"
-    fontSize: "1.25rem"
-    fontWeight: 400
-    lineHeight: 1.35
+    fontFamily: "Geist Variable, system-ui, sans-serif"
+    fontSize: "0.95rem"
+    fontWeight: 600
+    lineHeight: 1.3
   body:
-    fontFamily: "Inter, system-ui, sans-serif"
+    fontFamily: "Geist Variable, system-ui, sans-serif"
     fontSize: "1rem"
     fontWeight: 400
     lineHeight: 1.6
   label:
-    fontFamily: "Inter, system-ui, sans-serif"
+    fontFamily: "Geist Variable, system-ui, sans-serif"
     fontSize: "0.7rem"
     fontWeight: 600
     lineHeight: 1.25
@@ -100,13 +100,13 @@ components:
 
 **Creative North Star: "The Private Career Ledger"**
 
-Proforna is a restrained, near-black career workspace with the gravity of a private ledger and the clarity of an operating instrument. Warm gold rules and text establish hierarchy without turning the interface ornamental; italic serif type marks identity, reflection, and important headings, while compact sans-serif controls carry the work.
+Proforna is a restrained, near-black career workspace with the gravity of a private ledger and the clarity of an operating instrument. Warm gold rules and text establish hierarchy without turning the interface ornamental. One sans-serif, Geist, carries identity and controls; weight and size mark headings.
 
 The system supports two related densities. Profile and reading surfaces use generous editorial spacing and soft or pill-shaped controls. Data-rich operating surfaces tighten the rhythm, use square-edged divisions, and allow compact rectangular controls so records remain connected rather than becoming a dashboard of interchangeable cards.
 
 **Key Characteristics:**
 - Near-black layered surfaces with warm gold hierarchy.
-- Italic Playfair Display for identity and section voice; Inter for operation.
+- Geist for identity, headings, and controls. Headings are semibold and upright.
 - Fine rules, transparent fields, and tonal selection states instead of card grids.
 - Filled gold reserved for selected states and explicit primary actions.
 - Responsive workspaces preserve context until narrow screens require stacking.
@@ -137,21 +137,20 @@ The palette is warm, nocturnal, and deliberately narrow; pale paper and map grou
 
 ## Typography
 
-**Display Font:** Playfair Display (with Georgia and serif fallbacks)  
-**Body Font:** Inter (with system-ui and sans-serif fallbacks)
+**Typeface:** Geist Variable (with system-ui and sans-serif fallbacks)
 
-**Character:** The serif is italic, composed, and personal; the sans-serif is compact and workmanlike. Their contrast separates identity and reflection from controls and record detail.
+**Character:** Upright, compact, and workmanlike. Hierarchy comes from weight and a short size scale, not a second display face.
 
 ### Hierarchy
-- **Display** (400, responsive large scale, tight line-height): Page-level identity and spacious editorial headings.
-- **Headline** (400 italic, responsive medium scale): Occupant identity, panel titles, and prominent record headings.
-- **Title** (400 italic, compact serif scale): Section headings within forms, timelines, and grouped records.
+- **Display** (600, 1.5rem): Page-level identity.
+- **Headline** (600, about 1.15rem): Occupant identity, panel titles, and prominent record headings.
+- **Title** (600, about 0.95rem): Section headings within forms, timelines, and grouped records.
 - **Body** (400, regular scale, 1.6 line-height): Explanations and longer record content, generally held near 66–68 characters.
 - **Label** (600, compact scale): Navigation labels, status, metadata, and controls; uppercase tracking is limited to genuine category labels.
 
 ### Named Rules
 
-**The Two Voices Rule.** Serif type gives identity and reflective hierarchy; sans-serif type carries actions, fields, metadata, and dense records.
+**The One Voice Rule.** Geist carries headings, actions, fields, and records. Do not introduce a slanted display face.
 
 ## Layout
 

@@ -4,9 +4,13 @@ import {
   CAREER_HISTORY_SECTIONS,
   classifyCareerHistorySection,
   formatHistoryGist,
+  formatHistoryPeriod,
+  formatHistoryPlace,
+  formatTenureMonths,
   groupCareerHistory,
   presentCareerHistoryStats,
   searchCareerHistory,
+  tenureMonths,
   sortCareerHistory,
   type CareerHistoryItem,
   type CareerHistorySectionKey,
@@ -14,11 +18,14 @@ import {
 import {
   publicationAllowsSnapshot,
   publicationNeedsAudienceConfirm,
+  roleCoverPhoto,
   type WorkMapPublicationSettings,
   type WorkMapPublishSection,
   type WorkMapRole,
 } from "@core/work-map";
-import { WorkMapCanvas } from "./WorkMapCanvas";
+import { residenceForMap, type Residence } from "@core/residence";
+import { HomesPanel } from "./HomesPanel";
+import { WorkMapCanvas, type WorkMapHome } from "./WorkMapCanvas";
 import { RoleDetailPanel, type DetailTab } from "./RoleDetailPanel";
 import "./work-map.css";
 
@@ -26,6 +33,9 @@ type WorkMapResponse = {
   profile: {
     fullName: string;
     headline: string;
+    address: string;
+    addressLatitude: number | null;
+    addressLongitude: number | null;
     city: string;
     state: string;
     bio: string;
@@ -34,6 +44,7 @@ type WorkMapResponse = {
   roles: WorkMapRole[];
   skills: string[];
   settings: WorkMapPublicationSettings;
+  residences: Residence[];
   stats: {
     roles: number;
     education: number;
@@ -91,6 +102,7 @@ export function WorkMap({
   const [creatingKind, setCreatingKind] =
     useState<CareerHistorySectionKey | null>(null);
   const [detailTab, setDetailTab] = useState<DetailTab>("story");
+  const [homesOpen, setHomesOpen] = useState(false);
   const [mapOverride, setMapOverride] = useState<"auto" | "show" | "hide">(
     "auto",
   );
@@ -341,6 +353,13 @@ export function WorkMap({
                     ? "Revoked"
                     : "Private"}
               </span>
+              <button
+                type="button"
+                aria-expanded={homesOpen}
+                onClick={() => setHomesOpen((open) => !open)}
+              >
+                Homes ({data.residences.length})
+              </button>
               <button type="button" onClick={openSettings}>
                 Settings
               </button>
@@ -400,6 +419,13 @@ export function WorkMap({
               </select>
             </label>
           </div>
+          {homesOpen ? (
+            <HomesPanel
+              residences={data.residences}
+              activeId={homePin(data.residences, selected)?.id ?? null}
+              onChanged={load}
+            />
+          ) : null}
           <div className="work-map-role-list">
             {empty ? (
               <p>Import a resume, or add a role to a section.</p>
@@ -496,6 +522,7 @@ export function WorkMap({
           {view === "map" ? (
             <WorkMapCanvas
               roles={visibleRoles}
+              home={homePin(data.residences, selected)}
               selectedId={selectedId}
               onSelect={setSelectedId}
               onMapClick={
@@ -582,6 +609,28 @@ export function WorkMap({
   );
 }
 
+function homePin(
+  residences: Residence[],
+  role: WorkMapRole | null,
+): (WorkMapHome & { id: string }) | null {
+  const residence = residenceForMap(residences, role);
+  if (!residence || residence.latitude == null || residence.longitude == null) {
+    return null;
+  }
+  const span = residence.endDate
+    ? `${residence.startDate ?? "Start"} – ${residence.endDate}`
+    : residence.startDate
+      ? `${residence.startDate} – Present`
+      : "";
+  return {
+    id: residence.id,
+    latitude: residence.latitude,
+    longitude: residence.longitude,
+    label: residence.label,
+    detail: [residence.address, span].filter(Boolean).join(" · "),
+  };
+}
+
 function CareerBio({
   profile,
   onHome,
@@ -589,7 +638,12 @@ function CareerBio({
   profile: WorkMapResponse["profile"];
   onHome: () => void;
 }) {
-  const place = [profile.city, profile.state].filter(Boolean).join(", ");
+  const place = [
+    profile.address,
+    [profile.city, profile.state].filter(Boolean).join(", "),
+  ]
+    .filter(Boolean)
+    .join(", ");
   const initials = profile.fullName
     .split(/\s+/)
     .slice(0, 2)
@@ -628,15 +682,40 @@ function RoleSheet({
   role: WorkMapRole;
   tab: DetailTab;
 }) {
-  const place = readablePlace(role);
-  const meta = [role.organization, place, formatSpan(role)]
-    .filter(Boolean)
-    .join(" · ");
-
+  const place = formatHistoryPlace({
+    organization: role.organization,
+    locationLabel: role.locationLabel,
+    locations: role.locations.map((location) => ({
+      address: location.address,
+    })),
+  });
+  const period = formatHistoryPeriod(role.startDate, role.endDate, role.isCurrent);
+  const tenure = formatTenureMonths(
+    tenureMonths(role.startDate, role.endDate, role.isCurrent),
+  );
+  const cover = roleCoverPhoto(role.media);
   return (
     <article className="role-sheet" aria-label="Role record">
-      <h2>{role.title || "Untitled"}</h2>
-      {meta ? <p className="role-sheet-meta">{meta}</p> : null}
+      <section className="role-focus">
+        {cover ? (
+          <div className="role-focus-photo">
+            <img src={cover.url} alt="" />
+          </div>
+        ) : null}
+        <div className="role-focus-body">
+          <h2>{role.organization || "Untitled"}</h2>
+          {role.title ? <p className="role-focus-title">{role.title}</p> : null}
+          {place || period ? (
+            <p className="role-focus-meta">
+              {place ? <span>{place}</span> : null}
+              {place && period ? <span aria-hidden="true">·</span> : null}
+              {period ? <span>{period}</span> : null}
+              {role.isCurrent ? <span className="role-focus-current">current</span> : null}
+              {tenure ? <span className="role-focus-tenure">({tenure})</span> : null}
+            </p>
+          ) : null}
+        </div>
+      </section>
       {tab === "story" ? <StorySheet role={role} /> : null}
       {tab === "conditions" ? <ConditionsSheet role={role} /> : null}
       {tab === "media" ? <MediaSheet role={role} /> : null}
@@ -710,6 +789,7 @@ function MediaSheet({ role }: { role: WorkMapRole }) {
         <ul>
           {role.media.map((item) => (
             <li key={item.id}>
+              {item.kind === "photo" ? <img src={item.url} alt="" /> : null}
               {item.title}
               {item.caption ? ` — ${item.caption}` : ""}
             </li>
@@ -968,16 +1048,6 @@ function visibilityLabel(visibility: WorkMapPublicationSettings["visibility"]) {
     case "private":
       return "Private";
   }
-}
-
-function readablePlace(role: WorkMapRole): string {
-  const label = role.locationLabel.trim();
-  if (label && !/^\d+$/.test(label)) return label;
-  const site = role.locations.find((location) => {
-    const name = location.label.trim();
-    return name && !/^\d+$/.test(name);
-  });
-  return site?.label.trim() ?? "";
 }
 
 function formatSpan(role: WorkMapRole): string {

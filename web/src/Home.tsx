@@ -88,7 +88,12 @@ export function Home({
   });
   const shellRef = useRef<HTMLDivElement>(null);
   const role = currentJob(career);
-  const place = [profile.city, profile.state].filter(Boolean).join(", ");
+  const place = [
+    profile.address,
+    [profile.city, profile.state].filter(Boolean).join(", "),
+  ]
+    .filter(Boolean)
+    .join(", ");
   const company = role?.company ?? "";
   const links = [
     profile.linkedinUrl,

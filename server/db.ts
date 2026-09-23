@@ -187,6 +187,20 @@ export function openDatabase(path: string): DatabaseSync {
     )
   `);
   db.exec(`
+    CREATE TABLE IF NOT EXISTS residences (
+      id TEXT PRIMARY KEY,
+      occupant_id TEXT NOT NULL REFERENCES occupants(id),
+      label TEXT NOT NULL,
+      address TEXT NOT NULL,
+      latitude REAL,
+      longitude REAL,
+      start_date TEXT,
+      end_date TEXT,
+      created_at TEXT NOT NULL
+    )
+  `);
+  relaxResidenceCoordinates(db);
+  db.exec(`
     CREATE TABLE IF NOT EXISTS work_history_locations (
       id TEXT PRIMARY KEY,
       work_history_id TEXT NOT NULL REFERENCES work_history(id),
@@ -444,6 +458,9 @@ export function openDatabase(path: string): DatabaseSync {
     )
   `);
   addColumnIfMissing(db, "profiles", "headline", "TEXT NOT NULL DEFAULT ''");
+  addColumnIfMissing(db, "profiles", "address", "TEXT NOT NULL DEFAULT ''");
+  addColumnIfMissing(db, "profiles", "address_latitude", "REAL");
+  addColumnIfMissing(db, "profiles", "address_longitude", "REAL");
   addColumnIfMissing(db, "profiles", "city", "TEXT NOT NULL DEFAULT ''");
   addColumnIfMissing(db, "profiles", "state", "TEXT NOT NULL DEFAULT ''");
   addColumnIfMissing(db, "profiles", "bio", "TEXT NOT NULL DEFAULT ''");
@@ -463,6 +480,7 @@ export function openDatabase(path: string): DatabaseSync {
   );
   makeLegacyProjectionRevisionOptional(db);
   addColumnIfMissing(db, "profiles", "avatar_stored_name", "TEXT");
+  addColumnIfMissing(db, "work_history_media", "stored_name", "TEXT");
   addColumnIfMissing(
     db,
     "career_plans",
@@ -478,6 +496,45 @@ export function openDatabase(path: string): DatabaseSync {
   );
   addColumnIfMissing(db, "opportunities", "contact_id", "TEXT");
   return db;
+}
+
+function relaxResidenceCoordinates(db: DatabaseSync) {
+  const columns = db.prepare("PRAGMA table_info(residences)").all() as Array<{
+    name: string;
+    notnull: number;
+  }>;
+  if (!columns.some((column) => column.name === "latitude" && column.notnull)) {
+    return;
+  }
+  db.exec("PRAGMA foreign_keys = OFF");
+  try {
+    db.exec(`
+      BEGIN;
+      CREATE TABLE residences_next (
+        id TEXT PRIMARY KEY,
+        occupant_id TEXT NOT NULL REFERENCES occupants(id),
+        label TEXT NOT NULL,
+        address TEXT NOT NULL,
+        latitude REAL,
+        longitude REAL,
+        start_date TEXT,
+        end_date TEXT,
+        created_at TEXT NOT NULL
+      );
+      INSERT INTO residences_next
+        (id, occupant_id, label, address, latitude, longitude, start_date, end_date, created_at)
+      SELECT id, occupant_id, label, address, latitude, longitude, start_date, end_date, created_at
+      FROM residences;
+      DROP TABLE residences;
+      ALTER TABLE residences_next RENAME TO residences;
+      COMMIT;
+    `);
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  } finally {
+    db.exec("PRAGMA foreign_keys = ON");
+  }
 }
 
 function addColumnIfMissing(

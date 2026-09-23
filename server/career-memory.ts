@@ -214,7 +214,7 @@ export function backfillCareerMemory(
 ): { evidence: number; facts: number } {
   const profile = db
     .prepare(
-      `SELECT full_name, headline, city, state, bio, linkedin_url, github_url,
+      `SELECT full_name, headline, address, city, state, bio, linkedin_url, github_url,
               portfolio_url, updated_at
        FROM profiles WHERE occupant_id = ?`,
     )

@@ -18,6 +18,9 @@ describe("GET /api/me", () => {
         profile: {
           fullName: "",
           headline: "",
+          address: "",
+          addressLatitude: null,
+          addressLongitude: null,
           city: "",
           state: "",
           bio: "",

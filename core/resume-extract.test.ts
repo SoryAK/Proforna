@@ -80,6 +80,7 @@ describe("fillProfileFromExtract", () => {
         {
           fullName: "Sory Kaba",
           headline: "",
+          address: "12 Private Lane",
           city: "",
           state: "",
           bio: "",
@@ -99,6 +100,7 @@ describe("fillProfileFromExtract", () => {
     ).toEqual({
       fullName: "Sory Kaba",
       headline: "Electrician",
+      address: "12 Private Lane",
       city: "Dayton",
       state: "OH",
       bio: "Runs conduit.",

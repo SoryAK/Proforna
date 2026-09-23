@@ -27,6 +27,14 @@ export type WorkMapMedia = {
   isPublic: boolean;
 };
 
+export function roleCoverPhoto(media: WorkMapMedia[]): WorkMapMedia | null {
+  for (let index = media.length - 1; index >= 0; index -= 1) {
+    const item = media[index];
+    if (item?.kind === "photo") return item;
+  }
+  return null;
+}
+
 export type WorkMapMoment = {
   id: string;
   date: string;

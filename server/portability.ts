@@ -18,6 +18,7 @@ type JsonRow = Record<string, string | number | null>;
 
 const directTables = [
   "profiles",
+  "residences",
   "resumes",
   "model_connections",
   "work_history",
@@ -53,6 +54,7 @@ const directTables = [
 
 const restoreOrder = [
   "profiles",
+  "residences",
   "resumes",
   "model_connections",
   "work_history",
@@ -140,6 +142,7 @@ export function createPortableArchive(
       storedNames.add(row.avatar_stored_name);
     }
   }
+  for (const row of tables.work_history_media ?? []) addStoredName(row, storedNames);
   for (const storedName of storedNames) {
     const fullPath = safeUploadPath(uploadsDir, storedName);
     if (!existsSync(fullPath)) continue;

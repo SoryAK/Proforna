@@ -12,6 +12,7 @@ export const PROFILE_AVATAR_MAX_BYTES = 5 * 1024 * 1024;
 export type ProfileFields = {
   fullName: string;
   headline: string;
+  address: string;
   city: string;
   state: string;
   bio: string;
@@ -25,6 +26,7 @@ export type ProfilePrepareError = "name-required" | "url-invalid";
 export type ProfileInput = {
   fullName?: unknown;
   headline?: unknown;
+  address?: unknown;
   city?: unknown;
   state?: unknown;
   bio?: unknown;
@@ -75,6 +77,7 @@ export function prepareProfile(
     value: {
       fullName,
       headline: text(input.headline),
+      address: text(input.address),
       city: text(input.city),
       state: text(input.state),
       bio: text(input.bio),

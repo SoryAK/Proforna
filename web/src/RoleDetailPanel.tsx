@@ -1,5 +1,17 @@
 import { useState, type FormEvent } from "react";
-import type { WorkMapLocation, WorkMapMoment, WorkMapRole } from "@core/work-map";
+import {
+  formatHistoryPeriod,
+  formatHistoryPlace,
+  formatTenureMonths,
+  tenureMonths,
+  type CareerHistoryItem,
+} from "@core/career-history";
+import {
+  roleCoverPhoto,
+  type WorkMapLocation,
+  type WorkMapMoment,
+  type WorkMapRole,
+} from "@core/work-map";
 
 export type DetailTab = "story" | "conditions" | "media" | "places";
 
@@ -238,22 +250,22 @@ export function RoleDetailPanel({
       aria-label={`${role.title || "Untitled"} details`}
     >
       <header>
-        <div>
-          <button className="role-back" type="button" onClick={onClose}>
-            Back to history
-          </button>
-          <h2>{role.title || "Untitled"}</h2>
-          <p>{role.organization}</p>
-        </div>
+        <button className="role-back" type="button" onClick={onClose}>
+          Back to history
+        </button>
         <div className="role-detail-actions">
-          <button type="button" onClick={onToggleMap}>
-            {mapVisible ? "Hide map" : "Show map"}
-          </button>
-          <button type="button" onClick={onClose} aria-label="Close role details">
-            Close
+          <button
+            type="button"
+            onClick={onToggleMap}
+            aria-label={mapVisible ? "Hide map" : "Show map"}
+            title={mapVisible ? "Hide map" : "Show map"}
+          >
+            <MapIcon crossed={mapVisible} />
           </button>
         </div>
       </header>
+
+      <RoleFocus role={role} onChanged={onSaved} />
 
       <nav aria-label="Role detail sections">
         {(
@@ -299,17 +311,30 @@ export function RoleDetailPanel({
                 </label>
               </div>
               <label>
-                Location label
-                <input name="locationLabel" defaultValue={role.locationLabel} />
+                Place
+                <input
+                  name="locationLabel"
+                  defaultValue={
+                    formatHistoryPlace(historyItem(role)) || role.locationLabel
+                  }
+                />
               </label>
               <div className="role-form-pair">
                 <label>
                   Start
-                  <input name="startDate" defaultValue={role.startDate} />
+                  <input
+                    name="startDate"
+                    type="month"
+                    defaultValue={monthField(role.startDate)}
+                  />
                 </label>
                 <label>
                   End
-                  <input name="endDate" defaultValue={role.endDate} />
+                  <input
+                    name="endDate"
+                    type="month"
+                    defaultValue={monthField(role.endDate)}
+                  />
                 </label>
               </div>
               <label className="role-check">
@@ -574,6 +599,9 @@ export function RoleDetailPanel({
               ) : (
                 role.media.map((item) => (
                   <p key={item.id}>
+                    {item.kind === "photo" ? (
+                      <img src={item.url} alt="" />
+                    ) : null}
                     <strong>{item.title}</strong>
                     <span>
                       {item.kind}
@@ -836,6 +864,176 @@ function SiteForm({
   );
 }
 
+function RoleFocus({
+  role,
+  onChanged,
+}: {
+  role: WorkMapRole;
+  onChanged: () => Promise<void>;
+}) {
+  const cover = roleCoverPhoto(role.media);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+
+  async function upload(file: File) {
+    setBusy(true);
+    setMessage("");
+    const form = new FormData();
+    form.set("photo", file);
+    const response = await fetch(`/api/work-map/roles/${role.id}/photos`, {
+      method: "POST",
+      body: form,
+    });
+    if (!response.ok) {
+      const body = (await response.json()) as { error?: string };
+      setMessage(body.error ?? "Could not add that photo.");
+      setBusy(false);
+      return;
+    }
+    setBusy(false);
+    await onChanged();
+  }
+
+  async function allowInPublication(isPublic: boolean) {
+    if (!cover) return;
+    setBusy(true);
+    setMessage("");
+    const response = await fetch(
+      `/api/work-map/roles/${role.id}/media/${cover.id}`,
+      {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ isPublic }),
+      },
+    );
+    setBusy(false);
+    if (!response.ok) {
+      setMessage("Could not update that photo.");
+      return;
+    }
+    await onChanged();
+  }
+
+  async function remove() {
+    if (!cover) return;
+    setBusy(true);
+    setMessage("");
+    const response = await fetch(
+      `/api/work-map/roles/${role.id}/media/${cover.id}`,
+      { method: "DELETE" },
+    );
+    if (!response.ok) {
+      setMessage("Could not remove that photo.");
+      setBusy(false);
+      return;
+    }
+    setBusy(false);
+    await onChanged();
+  }
+
+  const identity = historyItem(role);
+  const place = formatHistoryPlace(identity);
+  const period = formatHistoryPeriod(role.startDate, role.endDate, role.isCurrent);
+  const tenure = formatTenureMonths(
+    tenureMonths(role.startDate, role.endDate, role.isCurrent),
+  );
+
+  return (
+    <section className="role-focus" aria-label="Role">
+      {cover ? (
+        <div className="role-focus-photo">
+          <img src={cover.url} alt="" />
+          <div className="role-cover-actions">
+            <CoverFile
+              busy={busy}
+              label={busy ? "Saving…" : "Change photo"}
+              onFile={(file) => void upload(file)}
+            />
+            <button disabled={busy} type="button" onClick={() => void remove()}>
+              Remove
+            </button>
+          </div>
+        </div>
+      ) : null}
+      <div className="role-focus-body">
+        <h2>{role.organization || "Untitled"}</h2>
+        {role.title ? <p className="role-focus-title">{role.title}</p> : null}
+        {place || period ? (
+          <p className="role-focus-meta">
+            {place ? <span>{place}</span> : null}
+            {place && period ? <span aria-hidden="true">·</span> : null}
+            {period ? <span>{period}</span> : null}
+            {role.isCurrent ? <span className="role-focus-current">current</span> : null}
+            {tenure ? <span className="role-focus-tenure">({tenure})</span> : null}
+          </p>
+        ) : null}
+        {cover ? (
+          <label className="role-check">
+            <input
+              checked={cover.isPublic}
+              disabled={busy}
+              type="checkbox"
+              onChange={(event) => void allowInPublication(event.target.checked)}
+            />
+            Allow this photo in publications
+          </label>
+        ) : (
+          <CoverFile
+            busy={busy}
+            label={busy ? "Saving…" : "Add cover photo"}
+            onFile={(file) => void upload(file)}
+          />
+        )}
+        {message ? <p className="role-form-note">{message}</p> : null}
+      </div>
+    </section>
+  );
+}
+
+function CoverFile({
+  busy,
+  label,
+  onFile,
+}: {
+  busy: boolean;
+  label: string;
+  onFile: (file: File) => void;
+}) {
+  return (
+    <label className="role-cover-file">
+      {label}
+      <input
+        accept="image/jpeg,image/png,image/webp,image/gif"
+        disabled={busy}
+        type="file"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          event.currentTarget.value = "";
+          if (file) onFile(file);
+        }}
+      />
+    </label>
+  );
+}
+
+function historyItem(role: WorkMapRole): CareerHistoryItem {
+  return {
+    id: role.id,
+    kind: role.kind,
+    title: role.title,
+    organization: role.organization,
+    locationLabel: role.locationLabel,
+    startDate: role.startDate,
+    endDate: role.endDate,
+    isCurrent: role.isCurrent,
+    locations: role.locations.map((location) => ({
+      address: location.address,
+      latitude: location.latitude,
+      longitude: location.longitude,
+    })),
+  };
+}
+
 function sitePayload(form: HTMLFormElement) {
   const data = new FormData(form);
   return {
@@ -864,4 +1062,22 @@ function setInputValue(form: HTMLFormElement, name: string, value: string) {
   ) {
     field.value = value;
   }
+}
+
+function monthField(value: string): string {
+  const match = value.trim().match(/^(\d{4})-(\d{2})/);
+  if (!match) return "";
+  const month = Number(match[2]);
+  if (month < 1 || month > 12) return "";
+  return `${match[1]}-${match[2]}`;
+}
+
+function MapIcon({ crossed }: { crossed: boolean }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M9 5.2 3.8 7.2v11.6L9 16.8l6 2 5.2-2V7.2L15 5.2 9 7.2z" />
+      <path d="M9 7.2v9.6M15 5.2v9.6" />
+      {crossed ? <path d="M5 19 19 5" /> : null}
+    </svg>
+  );
 }
