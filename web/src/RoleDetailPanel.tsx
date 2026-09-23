@@ -254,11 +254,13 @@ export function RoleDetailPanel({
           Back to history
         </button>
         <div className="role-detail-actions">
-          <button type="button" onClick={onToggleMap}>
-            {mapVisible ? "Hide map" : "Show map"}
-          </button>
-          <button type="button" onClick={onClose} aria-label="Close role details">
-            Close
+          <button
+            type="button"
+            onClick={onToggleMap}
+            aria-label={mapVisible ? "Hide map" : "Show map"}
+            title={mapVisible ? "Hide map" : "Show map"}
+          >
+            <MapIcon crossed={mapVisible} />
           </button>
         </div>
       </header>
@@ -309,17 +311,30 @@ export function RoleDetailPanel({
                 </label>
               </div>
               <label>
-                Location label
-                <input name="locationLabel" defaultValue={role.locationLabel} />
+                Place
+                <input
+                  name="locationLabel"
+                  defaultValue={
+                    formatHistoryPlace(historyItem(role)) || role.locationLabel
+                  }
+                />
               </label>
               <div className="role-form-pair">
                 <label>
                   Start
-                  <input name="startDate" defaultValue={role.startDate} />
+                  <input
+                    name="startDate"
+                    type="month"
+                    defaultValue={monthField(role.startDate)}
+                  />
                 </label>
                 <label>
                   End
-                  <input name="endDate" defaultValue={role.endDate} />
+                  <input
+                    name="endDate"
+                    type="month"
+                    defaultValue={monthField(role.endDate)}
+                  />
                 </label>
               </div>
               <label className="role-check">
@@ -925,29 +940,21 @@ function RoleFocus({
 
   return (
     <section className="role-focus" aria-label="Role">
-      <div className={cover ? "role-focus-photo" : "role-focus-photo is-empty"}>
-        {cover ? <img src={cover.url} alt="" /> : null}
-        <div className="role-cover-actions">
-          <label>
-            {busy ? "Saving…" : cover ? "Change photo" : "Add cover photo"}
-            <input
-              accept="image/jpeg,image/png,image/webp,image/gif"
-              disabled={busy}
-              type="file"
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                event.currentTarget.value = "";
-                if (file) void upload(file);
-              }}
+      {cover ? (
+        <div className="role-focus-photo">
+          <img src={cover.url} alt="" />
+          <div className="role-cover-actions">
+            <CoverFile
+              busy={busy}
+              label={busy ? "Saving…" : "Change photo"}
+              onFile={(file) => void upload(file)}
             />
-          </label>
-          {cover ? (
             <button disabled={busy} type="button" onClick={() => void remove()}>
               Remove
             </button>
-          ) : null}
+          </div>
         </div>
-      </div>
+      ) : null}
       <div className="role-focus-body">
         <h2>{role.organization || "Untitled"}</h2>
         {role.title ? <p className="role-focus-title">{role.title}</p> : null}
@@ -970,10 +977,42 @@ function RoleFocus({
             />
             Allow this photo in publications
           </label>
-        ) : null}
+        ) : (
+          <CoverFile
+            busy={busy}
+            label={busy ? "Saving…" : "Add cover photo"}
+            onFile={(file) => void upload(file)}
+          />
+        )}
         {message ? <p className="role-form-note">{message}</p> : null}
       </div>
     </section>
+  );
+}
+
+function CoverFile({
+  busy,
+  label,
+  onFile,
+}: {
+  busy: boolean;
+  label: string;
+  onFile: (file: File) => void;
+}) {
+  return (
+    <label className="role-cover-file">
+      {label}
+      <input
+        accept="image/jpeg,image/png,image/webp,image/gif"
+        disabled={busy}
+        type="file"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          event.currentTarget.value = "";
+          if (file) onFile(file);
+        }}
+      />
+    </label>
   );
 }
 
@@ -1023,4 +1062,22 @@ function setInputValue(form: HTMLFormElement, name: string, value: string) {
   ) {
     field.value = value;
   }
+}
+
+function monthField(value: string): string {
+  const match = value.trim().match(/^(\d{4})-(\d{2})/);
+  if (!match) return "";
+  const month = Number(match[2]);
+  if (month < 1 || month > 12) return "";
+  return `${match[1]}-${match[2]}`;
+}
+
+function MapIcon({ crossed }: { crossed: boolean }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M9 5.2 3.8 7.2v11.6L9 16.8l6 2 5.2-2V7.2L15 5.2 9 7.2z" />
+      <path d="M9 7.2v9.6M15 5.2v9.6" />
+      {crossed ? <path d="M5 19 19 5" /> : null}
+    </svg>
+  );
 }

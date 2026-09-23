@@ -854,10 +854,10 @@
   animation: none;
 }
 
-.role-detail .role-back {
+.role-detail > header .role-back {
   min-height: 0;
-  margin: 0 0 0.35rem;
-  padding: 0;
+  margin: 0;
+  padding: 0.1rem 0;
   border: 0;
   background: transparent;
   color: var(--gold-hover);
@@ -872,7 +872,27 @@
 .role-detail-actions {
   display: flex;
   flex-shrink: 0;
-  gap: 0.35rem;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.role-detail > header .role-detail-actions button {
+  display: grid;
+  width: 1.75rem;
+  height: 1.75rem;
+  min-height: 1.75rem;
+  place-items: center;
+  padding: 0;
+  border-radius: 6px;
+}
+
+.role-detail-actions svg {
+  display: block;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .role-sheet {
@@ -951,15 +971,18 @@
   background: rgba(255, 255, 255, 0.03);
 }
 
+.role-detail > .role-focus {
+  margin: 0;
+  border: 0;
+  border-bottom: 1px solid var(--wm-line);
+  border-radius: 0;
+  background: transparent;
+}
+
 .role-focus-photo {
   position: relative;
   height: 6rem;
   background: #1a1510;
-}
-
-.role-focus-photo.is-empty {
-  height: auto;
-  background: transparent;
 }
 
 .role-focus-photo img,
@@ -982,6 +1005,10 @@
   display: grid;
   gap: 0.15rem;
   padding: 0.625rem 0.7rem 0.7rem;
+}
+
+.role-detail > .role-focus .role-focus-body {
+  padding: 0.7rem 0.9rem 0.85rem;
 }
 
 .role-focus-body h2 {
@@ -1030,36 +1057,39 @@
 }
 
 .role-cover-actions {
+  position: absolute;
+  inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.75rem;
-}
-
-.role-focus-photo:not(.is-empty) .role-cover-actions {
-  position: absolute;
-  inset: 0;
   background: rgba(0, 0, 0, 0.38);
   opacity: 0;
 }
 
-.role-focus-photo:not(.is-empty):hover .role-cover-actions,
-.role-focus-photo:not(.is-empty):focus-within .role-cover-actions {
+.role-focus-photo:hover .role-cover-actions,
+.role-focus-photo:focus-within .role-cover-actions {
   opacity: 1;
 }
 
-.role-focus-photo.is-empty .role-cover-actions {
-  min-height: 2rem;
-  border-bottom: 1px dashed rgba(199, 164, 123, 0.35);
-}
-
-.role-cover-actions label {
+.role-cover-file {
   color: var(--gold-hover);
   font-size: 0.6875rem;
   cursor: pointer;
 }
 
-.role-cover-actions input {
+.role-focus-body > .role-cover-file {
+  position: relative;
+  justify-self: start;
+  margin-top: 0.35rem;
+}
+
+.role-cover-file:hover,
+.role-cover-file:focus-within {
+  color: var(--text);
+}
+
+.role-cover-file input {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -1117,6 +1147,12 @@
   gap: 1rem;
   padding: 1rem 1.1rem;
   border-bottom: 1px solid var(--wm-line);
+}
+
+.role-detail > header {
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.65rem 0.35rem 0.9rem;
 }
 
 .role-detail header h2,
@@ -1199,6 +1235,10 @@
 .publication-settings select {
   padding: 0.55rem 0;
   line-height: 1.45;
+}
+
+.role-form input[type="month"] {
+  color-scheme: dark;
 }
 
 .role-form textarea {
