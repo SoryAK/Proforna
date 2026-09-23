@@ -325,6 +325,16 @@
   transition: border-color 0.4s var(--ease);
 }
 
+.onboarding-field select {
+  color-scheme: dark;
+  background-color: #171513;
+}
+
+.onboarding-field select option {
+  background-color: #171513;
+  color: #f5f2ee;
+}
+
 .onboarding-field textarea {
   min-height: 3.6rem;
   resize: vertical;
@@ -790,6 +800,15 @@
   font-weight: 650;
 }
 
+.onboarding-place-matches {
+  margin-top: 0.55rem;
+}
+
+.onboarding-place-matches button {
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #f5f2ee;
+}
+
 .onboarding-lookup-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -804,9 +823,12 @@
   border-radius: 14px;
 }
 
-.onboarding-site-map .leaflet-container {
+.onboarding-site-map .leaflet-container,
+.onboarding-google-map {
   height: 100%;
+  min-height: 0;
   background: #14110e;
+}
 }
 
 .onboarding-duties {

@@ -27,7 +27,7 @@
 
 .home-bar {
   position: relative;
-  z-index: 30;
+  z-index: 1200;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1177,6 +1177,7 @@ button.home-nav-item:focus-visible {
   display: grid;
 }
 
+.home-menu-btn .home-panel-fill,
 .home-proforna-toggle .home-panel-fill {
   fill: currentColor;
   stroke: none;

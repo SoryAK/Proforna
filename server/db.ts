@@ -42,6 +42,14 @@ export function openDatabase(path: string): DatabaseSync {
     )
   `);
   db.exec(`
+    CREATE TABLE IF NOT EXISTS map_settings (
+      occupant_id TEXT PRIMARY KEY REFERENCES occupants(id),
+      provider TEXT NOT NULL,
+      google_maps_api_key TEXT NOT NULL DEFAULT '',
+      updated_at TEXT NOT NULL
+    )
+  `);
+  db.exec(`
     CREATE TABLE IF NOT EXISTS work_history (
       id TEXT PRIMARY KEY,
       occupant_id TEXT NOT NULL REFERENCES occupants(id),

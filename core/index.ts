@@ -208,6 +208,13 @@ export {
   type RoleSpan,
 } from "./residence";
 export {
+  DEFAULT_MAP_SETTINGS,
+  prepareMapSettings,
+  type MapProvider,
+  type MapSettings,
+  type MapSettingsError,
+} from "./map-settings";
+export {
   EMPTY_WORK_MAP_DETAILS,
   attachFactsToWorkMapRole,
   buildWorkMapSnapshot,

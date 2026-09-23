@@ -14,6 +14,72 @@ operations. Inside a clone, `gh` infers that repo from `git remote -v`; pass
 - **Apply / remove labels**: `gh issue edit <number> --add-label "..."` / `--remove-label "..."`
 - **Close**: `gh issue close <number> --comment "..."`
 
+## Issue bodies
+
+New issues use one of these bodies. The GitHub forms in
+`.github/ISSUE_TEMPLATE/` ask for the same headings. Title prefixes:
+`[Feature]:`, `[Bug]:`, `[UI]:`.
+
+A feature request (`enhancement`, `type:feature`):
+
+```markdown
+### Problem to solve
+
+### Proposed solution
+
+### Alternatives considered
+
+### Additional context
+
+### Checks
+
+- [ ] I searched existing issues and pull requests.
+- [ ] This request is scoped to a single problem or workflow.
+```
+
+A bug report (`bug`, `type:bug`):
+
+```markdown
+### Summary
+
+### Reproduction steps
+
+### Environment
+
+### Relevant logs or screenshots
+
+### Checks
+
+- [ ] I searched existing issues and pull requests.
+- [ ] I removed sensitive data from logs, screenshots, and attachments.
+```
+
+A UI design change (`enhancement`, `type:feature`) is its own issue. It
+includes at least three detailed mocks for review. Each mock shows the
+screen: structure, copy, and the states that differ from the other variants.
+An image, or a layout specific enough to compare, counts. Review picks one
+variant before implementation.
+
+```markdown
+### Problem to solve
+
+### Variant 1
+
+### Variant 2
+
+### Variant 3
+
+### Additional context
+
+### Checks
+
+- [ ] I searched existing issues and pull requests.
+- [ ] This request is scoped to a single screen or workflow.
+- [ ] Each variant is a detailed mock, and there are at least three.
+```
+
+Wayfinder maps keep the Notes / Decisions-so-far / Fog body below.
+
 ## Pull requests as a triage surface
 
 **PRs as a request surface: no.** _(Set to `yes` if this repo treats external PRs as feature requests; `/triage` reads this flag.)_
@@ -28,7 +94,7 @@ GitHub shares one number space across issues and PRs, so a bare `#42` may be eit
 
 ## When a skill says "publish to the issue tracker"
 
-Create a GitHub issue.
+Create a GitHub issue with the matching body above.
 
 ## When a skill says "fetch the relevant ticket"
 

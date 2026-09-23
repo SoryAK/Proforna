@@ -8,13 +8,7 @@ import {
   type ExtractedSite,
 } from "@core/resume-extract";
 import { OnboardingSiteMap } from "./OnboardingSiteMap";
-
-type PlaceHit = {
-  label: string;
-  address: string;
-  latitude: number;
-  longitude: number;
-};
+import { lookupNote, reversePlace, searchPlaces, type PlaceHit } from "./place-search";
 
 export function OnboardingExtractConfirm({
   extracted,
@@ -283,6 +277,7 @@ function JobReview({
   const [query, setQuery] = useState(job.location);
   const [lookingUp, setLookingUp] = useState(false);
   const [lookupError, setLookupError] = useState<string | null>(null);
+  const [matches, setMatches] = useState<PlaceHit[]>([]);
 
   useEffect(() => {
     setQuery(job.location);
@@ -293,14 +288,17 @@ function JobReview({
     let cancelled = false;
     setLookingUp(true);
     setLookupError(null);
-    void lookupPlace(job.location)
-      .then((place) => {
-        if (cancelled) return;
+    void searchPlaces(job.location)
+      .then((found) => {
+        if (cancelled || !found) return;
+        const place = found.place;
         if (!place) {
-          setLookupError("Could not place that address. Click the map.");
+          setLookupError(lookupNote(found) || "Could not place that address. Click the map.");
           return;
         }
         onPatch({ site: siteFromPlace(place, job.company) });
+        const note = lookupNote(found);
+        if (note) setLookupError(note);
       })
       .catch(() => {
         if (!cancelled) {
@@ -321,15 +319,25 @@ function JobReview({
     setLookingUp(true);
     setLookupError(null);
     try {
-      const place = await lookupPlace(q);
-      if (!place) {
-        setLookupError("Could not place that address. Click the map.");
+      const found = await searchPlaces(q);
+      if (!found || found.places.length === 0) {
+        setMatches([]);
+        setLookupError(found ? lookupNote(found) || "Could not place that address. Click the map." : "Could not place that address. Click the map.");
         return;
       }
+      if (found.places.length > 1) {
+        setMatches(found.places);
+        setLookupError(lookupNote(found) || null);
+        return;
+      }
+      setMatches([]);
+      const place = found.places[0];
       onPatch({
         location: place.label,
         site: siteFromPlace(place, job.company),
       });
+      const note = lookupNote(found);
+      if (note) setLookupError(note);
     } finally {
       setLookingUp(false);
     }
@@ -402,12 +410,33 @@ function JobReview({
           {lookupError}
         </p>
       ) : null}
+      {matches.length > 1 ? (
+        <ul className="role-place-matches onboarding-place-matches">
+          {matches.map((place) => (
+            <li key={`${place.latitude}:${place.longitude}:${place.address}`}>
+              <button
+                type="button"
+                onClick={() => {
+                  setMatches([]);
+                  setQuery(place.address);
+                  onPatch({
+                    location: place.label,
+                    site: siteFromPlace(place, job.company),
+                  });
+                }}
+              >
+                {place.address}
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
       {job.site ? (
         <p className="onboarding-extract-hint">{job.site.address}</p>
       ) : null}
       <OnboardingSiteMap
         site={job.site}
-        onMove={(latitude, longitude) =>
+        onMove={(latitude, longitude) => {
           onPatch({
             site: {
               label: job.site?.label || job.company || "Work site",
@@ -415,8 +444,25 @@ function JobReview({
               latitude,
               longitude,
             },
-          })
-        }
+          });
+          void reversePlace(latitude, longitude).then((found) => {
+            const place = found?.place;
+            if (!place) {
+              if (found && lookupNote(found)) setLookupError(lookupNote(found));
+              return;
+            }
+            onPatch({
+              location: place.label,
+              site: {
+                label: job.site?.label || job.company || place.label || "Work site",
+                address: place.address,
+                latitude,
+                longitude,
+              },
+            });
+            if (found && lookupNote(found)) setLookupError(lookupNote(found));
+          });
+        }}
       />
 
       <h3>Responsibilities</h3>
@@ -483,15 +529,6 @@ function JobReview({
       </button>
     </article>
   );
-}
-
-async function lookupPlace(query: string): Promise<PlaceHit | null> {
-  const res = await fetch(
-    `/api/work-map/places?q=${encodeURIComponent(query)}`,
-  );
-  if (!res.ok) return null;
-  const body = (await res.json()) as { place?: PlaceHit };
-  return body.place ?? null;
 }
 
 function siteFromPlace(place: PlaceHit, company: string): ExtractedSite {

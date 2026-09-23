@@ -261,6 +261,16 @@ describe("Work Map sites HTTP seam", () => {
           latitude: 39.7589,
           longitude: -84.1916,
         },
+        places: [
+          {
+            label: "Acme Robotics",
+            address: "Acme Robotics, Dayton, OH, United States",
+            latitude: 39.7589,
+            longitude: -84.1916,
+          },
+        ],
+        source: "openstreetmap",
+        googleLookup: "unused",
       });
       const missing = await app.request("/api/work-map/places?q=nowhere");
       expect(missing.status).toBe(404);

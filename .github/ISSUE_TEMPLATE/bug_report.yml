@@ -1,0 +1,56 @@
+name: Bug report
+description: Report a reproducible problem in Proforna
+title: "[Bug]: "
+labels:
+  - bug
+  - type:bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Include a minimal reproduction and enough environment detail to verify the issue.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What happened, and what did you expect instead?
+      placeholder: Describe the problem and the expected behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      description: List the exact steps to reproduce the issue.
+      placeholder: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Share how this Proforna is running.
+      placeholder: |
+        - How you run it:
+        - Web URL:
+        - Browser:
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs or screenshots
+      description: Paste logs, errors, or screenshots if they help explain the issue.
+      render: shell
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I searched existing issues and pull requests.
+          required: true
+        - label: I removed sensitive data from logs, screenshots, and attachments.
+          required: true

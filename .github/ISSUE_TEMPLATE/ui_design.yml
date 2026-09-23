@@ -1,0 +1,58 @@
+name: UI design
+description: Propose a screen change with mocks for review
+title: "[UI]: "
+labels:
+  - enhancement
+  - type:feature
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A UI change includes at least three detailed mocks. Review picks one variant before implementation.
+
+        Each mock shows the screen: structure, copy, and the states that differ from the other variants. Attach an image, or write a layout specific enough to compare.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+      description: What is hard to see or do on this screen today?
+      placeholder: Describe the screen and the occupant problem.
+    validations:
+      required: true
+  - type: textarea
+    id: variant-1
+    attributes:
+      label: Variant 1
+      description: Detailed mock. Say what this variant changes.
+    validations:
+      required: true
+  - type: textarea
+    id: variant-2
+    attributes:
+      label: Variant 2
+      description: Detailed mock. Say what this variant changes.
+    validations:
+      required: true
+  - type: textarea
+    id: variant-3
+    attributes:
+      label: Variant 3
+      description: Detailed mock. Say what this variant changes.
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Add links, constraints, or notes for review.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I searched existing issues and pull requests.
+          required: true
+        - label: This request is scoped to a single screen or workflow.
+          required: true
+        - label: Each variant is a detailed mock, and there are at least three.
+          required: true

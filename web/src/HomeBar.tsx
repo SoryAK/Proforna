@@ -66,7 +66,7 @@ export function HomeBar({
           aria-controls={menuLabel ? undefined : HOME_NAV_ID}
           onClick={onMenu}
         >
-          <Icon name="menu" />
+          <Icon name={menuExpanded ? "rail" : "railOff"} />
         </button>
         <p className="home-bar-brand">Proforna</p>
       </div>
