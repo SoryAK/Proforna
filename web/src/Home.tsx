@@ -73,6 +73,7 @@ export function Home({
   const [page, setPage] = useState<HomePage>(readPage);
   const [focusJobId, setFocusJobId] = useState<string | null>(null);
   const [photoTick, setPhotoTick] = useState(0);
+  const [mapRevision, setMapRevision] = useState(0);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(readCollapsed);
   const [profornaOpen, setProfornaOpen] = useState(readPanelOpen);
@@ -284,6 +285,7 @@ export function Home({
           setPhotoTick((n) => n + 1);
           onProfileSaved(next);
         }}
+        onMapsSaved={() => setMapRevision((n) => n + 1)}
       />
       <div
         className={dragging ? "home-shell is-resizing" : "home-shell"}
@@ -294,6 +296,7 @@ export function Home({
             career={career}
             careerError={careerError}
             focusJobId={focusJobId}
+            mapRevision={mapRevision}
             onHome={() => {
               setEditing(false);
               goHome();

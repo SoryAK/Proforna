@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import {
   formatHistoryPeriod,
   formatHistoryPlace,
@@ -12,6 +12,7 @@ import {
   type WorkMapMoment,
   type WorkMapRole,
 } from "@core/work-map";
+import { lookupNote, searchPlaces, type PlaceHit } from "./place-search";
 
 export type DetailTab = "story" | "conditions" | "media" | "places";
 
@@ -19,6 +20,7 @@ type SitePlacement = {
   latitude: number;
   longitude: number;
   locationId?: string;
+  address?: string;
 };
 
 export function RoleDetailPanel({
@@ -46,6 +48,8 @@ export function RoleDetailPanel({
 }) {
   const [message, setMessage] = useState("");
   const [lookingUp, setLookingUp] = useState(false);
+  const [matches, setMatches] = useState<PlaceHit[]>([]);
+  const lookupForm = useRef<HTMLFormElement | null>(null);
 
   async function saveRole(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -174,38 +178,44 @@ export function RoleDetailPanel({
       return;
     }
     setLookingUp(true);
+    setMatches([]);
     try {
-      const response = await fetch(
-        `/api/work-map/places?q=${encodeURIComponent(query)}`,
-      );
-      if (!response.ok) {
-        setMessage(
-          response.status === 404
-            ? "No place matched that address. Try a fuller street or city."
-            : "Address lookup failed. Try again or place the site on the map.",
-        );
+      const found = await searchPlaces(query);
+      if (!found) {
+        setMessage("Address lookup failed. Try again or place the site on the map.");
         return;
       }
-      const body = (await response.json()) as {
-        place: {
-          label: string;
-          address: string;
-          latitude: number;
-          longitude: number;
-        };
-      };
-      setInputValue(form, "address", body.place.address);
-      setInputValue(form, "latitude", String(body.place.latitude));
-      setInputValue(form, "longitude", String(body.place.longitude));
-      if (!inputValue(form, "label")) {
-        setInputValue(form, "label", body.place.label);
+      const note = lookupNote(found);
+      if (found.places.length === 0) {
+        setMessage(note || "No place matched that address. Try a fuller street or city.");
+        return;
       }
-      setMessage("Address found. Save to keep this pin.");
+      if (found.places.length === 1) {
+        applyPlace(form, found.places[0]);
+        setMessage(note || "Address found. Save to keep this pin.");
+        return;
+      }
+      lookupForm.current = form;
+      setMatches(found.places);
+      setMessage(note || "Several places matched. Choose one.");
     } catch {
       setMessage("Address lookup failed. Try again or place the site on the map.");
     } finally {
       setLookingUp(false);
     }
+  }
+
+  function applyPlace(form: HTMLFormElement, place: PlaceHit) {
+    setInputValue(form, "address", place.address);
+    setInputValue(form, "latitude", String(place.latitude));
+    setInputValue(form, "longitude", String(place.longitude));
+    if (!inputValue(form, "label")) setInputValue(form, "label", place.label);
+  }
+
+  function choosePlace(place: PlaceHit) {
+    if (lookupForm.current) applyPlace(lookupForm.current, place);
+    setMatches([]);
+    setMessage("Address found. Save to keep this pin.");
   }
 
   async function addMedia(event: FormEvent<HTMLFormElement>) {
@@ -656,11 +666,18 @@ export function RoleDetailPanel({
               ) : (
                 role.locations.map((location) => {
                   const placed =
-                    placement?.locationId === location.id ? placement : location;
+                    placement?.locationId === location.id
+                      ? {
+                          ...location,
+                          latitude: placement.latitude,
+                          longitude: placement.longitude,
+                          address: placement.address || location.address,
+                        }
+                      : location;
                   return (
                     <SiteForm
-                      key={`${location.id}-${placed.latitude}-${placed.longitude}`}
-                      location={location}
+                      key={`${location.id}-${placed.latitude}-${placed.longitude}-${placed.address}`}
+                      location={placed}
                       latitude={placed.latitude}
                       longitude={placed.longitude}
                       lookingUp={lookingUp}
@@ -675,7 +692,10 @@ export function RoleDetailPanel({
               )}
             </section>
             <SiteForm
-              key={`new-${placement && !placement.locationId ? `${placement.latitude}-${placement.longitude}` : "blank"}`}
+              key={`new-${placement && !placement.locationId ? `${placement.latitude}-${placement.longitude}-${placement.address ?? ""}` : "blank"}`}
+              address={
+                placement && !placement.locationId ? placement.address : undefined
+              }
               latitude={
                 placement && !placement.locationId
                   ? placement.latitude
@@ -692,6 +712,17 @@ export function RoleDetailPanel({
               onLookup={lookupAddress}
               onPlace={() => onStartPlacement()}
             />
+            {matches.length > 1 ? (
+              <ul className="role-place-matches">
+                {matches.map((place) => (
+                  <li key={`${place.latitude}:${place.longitude}:${place.address}`}>
+                    <button type="button" onClick={() => choosePlace(place)}>
+                      {place.address}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
           </>
         ) : null}
       </div>
@@ -750,6 +781,7 @@ function formatMoments(items: WorkMapMoment[]): string {
 
 function SiteForm({
   location,
+  address,
   latitude,
   longitude,
   lookingUp,
@@ -760,6 +792,7 @@ function SiteForm({
   onRemove,
 }: {
   location?: WorkMapLocation;
+  address?: string;
   latitude?: number;
   longitude?: number;
   lookingUp: boolean;
@@ -805,7 +838,7 @@ function SiteForm({
           <input
             name="address"
             placeholder="Street, city, or place name"
-            defaultValue={location?.address ?? ""}
+            defaultValue={address ?? location?.address ?? ""}
           />
           <button
             type="button"

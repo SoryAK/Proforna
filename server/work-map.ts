@@ -330,26 +330,52 @@ export function removeWorkMapLocation(
 export async function lookupNominatimPlace(
   query: string,
 ): Promise<WorkMapPlace | null> {
+  const places = await lookupNominatimPlaces(query);
+  return places[0] ?? null;
+}
+
+export async function lookupNominatimPlaces(query: string): Promise<WorkMapPlace[]> {
   const url = new URL("https://nominatim.openstreetmap.org/search");
   url.searchParams.set("q", query);
   url.searchParams.set("format", "jsonv2");
-  url.searchParams.set("limit", "1");
-  const response = await fetch(url, {
-    headers: {
-      "User-Agent": "Proforna/0.0.1 (https://github.com/SoryAK/Proforna)",
-    },
+  url.searchParams.set("limit", "5");
+  const response = await fetch(url, { headers: nominatimHeaders });
+  if (!response.ok) return [];
+  const hits = (await response.json()) as NominatimHit[];
+  return hits.flatMap((hit) => {
+    const place = placeFromNominatim(hit);
+    return place ? [place] : [];
   });
+}
+
+export async function reverseNominatimPlace(
+  latitude: number,
+  longitude: number,
+): Promise<WorkMapPlace | null> {
+  const url = new URL("https://nominatim.openstreetmap.org/reverse");
+  url.searchParams.set("format", "jsonv2");
+  url.searchParams.set("lat", String(latitude));
+  url.searchParams.set("lon", String(longitude));
+  const response = await fetch(url, { headers: nominatimHeaders });
   if (!response.ok) return null;
-  const hits = (await response.json()) as Array<{
-    name?: string;
-    display_name?: string;
-    lat?: string;
-    lon?: string;
-  }>;
-  const hit = hits[0];
-  const latitude = Number(hit?.lat);
-  const longitude = Number(hit?.lon);
-  if (!hit?.display_name || !Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+  return placeFromNominatim((await response.json()) as NominatimHit);
+}
+
+const nominatimHeaders = {
+  "User-Agent": "Proforna/0.0.1 (https://github.com/SoryAK/Proforna)",
+};
+
+type NominatimHit = {
+  name?: string;
+  display_name?: string;
+  lat?: string;
+  lon?: string;
+};
+
+function placeFromNominatim(hit: NominatimHit): WorkMapPlace | null {
+  const latitude = Number(hit.lat);
+  const longitude = Number(hit.lon);
+  if (!hit.display_name || !Number.isFinite(latitude) || !Number.isFinite(longitude)) {
     return null;
   }
   return presentWorkMapPlace({

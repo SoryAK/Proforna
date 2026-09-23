@@ -26,6 +26,9 @@ import {
 import { residenceForMap, type Residence } from "@core/residence";
 import { HomesPanel } from "./HomesPanel";
 import { WorkMapCanvas, type WorkMapHome } from "./WorkMapCanvas";
+import { GoogleWorkMap } from "./GoogleWorkMap";
+import type { MapSettings } from "@core/map-settings";
+import { lookupNote, reversePlace } from "./place-search";
 import { RoleDetailPanel, type DetailTab } from "./RoleDetailPanel";
 import "./work-map.css";
 
@@ -66,11 +69,13 @@ export function WorkMap({
   error,
   focusRoleId,
   onHome,
+  mapRevision = 0,
 }: {
   fallbackCareer: CareerFile;
   error: string | null;
   focusRoleId?: string | null;
   onHome: () => void;
+  mapRevision?: number;
 }) {
   const [data, setData] = useState<WorkMapResponse | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(
@@ -93,10 +98,12 @@ export function WorkMap({
     locationId?: string;
     latitude: number;
     longitude: number;
+    address?: string;
   } | null>(null);
   const [settings, setSettings] =
     useState<WorkMapPublicationSettings | null>(null);
   const [publications, setPublications] = useState<Publication[]>([]);
+  const [mapSettings, setMapSettings] = useState<MapSettings | null>(null);
   const [message, setMessage] = useState("");
   const [publishing, setPublishing] = useState(false);
   const [creatingKind, setCreatingKind] =
@@ -110,6 +117,15 @@ export function WorkMap({
   useEffect(() => {
     void load();
   }, []);
+
+  useEffect(() => {
+    void fetch("/api/maps")
+      .then(async (response) => {
+        const body = (await response.json()) as { settings?: MapSettings };
+        if (body.settings) setMapSettings(body.settings);
+      })
+      .catch(() => setMapSettings(null));
+  }, [mapRevision]);
 
   useEffect(() => {
     if (focusRoleId) setSelectedId(focusRoleId);
@@ -292,10 +308,42 @@ export function WorkMap({
   const empty = data.roles.length === 0;
   const recordOpen = Boolean(selected);
   const mapVisible = placingForId ? true : mapOverride !== "hide";
+  const publishLabel = publishing
+    ? "Publishing…"
+    : latest?.status === "published"
+      ? "Update"
+      : "Publish";
 
   function chooseDetailTab(next: DetailTab) {
     setDetailTab(next);
     setMapOverride("auto");
+  }
+
+  function dropPin(latitude: number, longitude: number) {
+    const roleId = placingForId;
+    const locationId = placingLocationId ?? undefined;
+    if (!roleId) return;
+    setPendingPlacement({ roleId, locationId, latitude, longitude });
+    setSelectedId(roleId);
+    setPlacingForId(null);
+    setPlacingLocationId(null);
+    void reversePlace(latitude, longitude)
+      .then((found) => {
+        if (!found) return;
+        const note = lookupNote(found);
+        if (note) setMessage(note);
+        const address = found.place?.address;
+        if (!address) return;
+        setPendingPlacement((current) =>
+          current &&
+          current.roleId === roleId &&
+          current.latitude === latitude &&
+          current.longitude === longitude
+            ? { ...current, address }
+            : current,
+        );
+      })
+      .catch(() => undefined);
   }
 
   return (
@@ -354,25 +402,33 @@ export function WorkMap({
                     : "Private"}
               </span>
               <button
+                className="history-icon"
                 type="button"
                 aria-expanded={homesOpen}
+                aria-label={`Homes (${data.residences.length})`}
+                title={`Homes (${data.residences.length})`}
                 onClick={() => setHomesOpen((open) => !open)}
               >
-                Homes ({data.residences.length})
-              </button>
-              <button type="button" onClick={openSettings}>
-                Settings
+                <HomesIcon />
               </button>
               <button
+                className="history-icon"
+                type="button"
+                aria-label="Settings"
+                title="Settings"
+                onClick={openSettings}
+              >
+                <SettingsIcon />
+              </button>
+              <button
+                className="history-icon"
                 disabled={publishing}
                 type="button"
+                aria-label={publishLabel}
+                title={publishLabel}
                 onClick={requestPublish}
               >
-                {publishing
-                  ? "Publishing…"
-                  : latest?.status === "published"
-                    ? "Update"
-                    : "Publish"}
+                <PublishIcon />
               </button>
               {latest?.status === "published" ? (
                 <button className="is-danger" type="button" onClick={revoke}>
@@ -520,27 +576,24 @@ export function WorkMap({
             </button>
           </div>
           {view === "map" ? (
+            mapSettings?.provider === "google" && mapSettings.googleMapsApiKey ? (
+              <GoogleWorkMap
+                apiKey={mapSettings.googleMapsApiKey}
+                roles={visibleRoles}
+                home={homePin(data.residences, selected)}
+                selectedId={selectedId}
+                onSelect={setSelectedId}
+                onMapClick={placingForId ? dropPin : undefined}
+              />
+            ) : (
             <WorkMapCanvas
               roles={visibleRoles}
               home={homePin(data.residences, selected)}
               selectedId={selectedId}
               onSelect={setSelectedId}
-              onMapClick={
-                placingForId
-                  ? (latitude, longitude) => {
-                      setPendingPlacement({
-                        roleId: placingForId,
-                        locationId: placingLocationId ?? undefined,
-                        latitude,
-                        longitude,
-                      });
-                      setSelectedId(placingForId);
-                      setPlacingForId(null);
-                      setPlacingLocationId(null);
-                    }
-                  : undefined
-              }
+              onMapClick={placingForId ? dropPin : undefined}
             />
+            )
           ) : (
             <CareerTimeline
               roles={visibleRoles}
@@ -1078,4 +1131,33 @@ function asHistoryItem(role: WorkMapRole): CareerHistoryItem {
       longitude: location.longitude,
     })),
   };
+}
+
+function HomesIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4 11.2 12 4l8 7.2V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1z" />
+    </svg>
+  );
+}
+
+function SettingsIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4 7h16M4 12h16M4 17h16" />
+      <circle cx="9" cy="7" r="1.7" />
+      <circle cx="15" cy="12" r="1.7" />
+      <circle cx="11" cy="17" r="1.7" />
+    </svg>
+  );
+}
+
+function PublishIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 15.5V5" />
+      <path d="M8 8.5 12 4.5l4 4" />
+      <path d="M5 15.5v4h14v-4" />
+    </svg>
+  );
 }

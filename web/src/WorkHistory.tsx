@@ -5,11 +5,13 @@ export function WorkHistory({
   career,
   careerError,
   focusJobId,
+  mapRevision = 0,
   onHome,
 }: {
   career: CareerFile;
   careerError: string | null;
   focusJobId?: string | null;
+  mapRevision?: number;
   onHome: () => void;
 }) {
   return (
@@ -17,6 +19,7 @@ export function WorkHistory({
       fallbackCareer={career}
       error={careerError}
       focusRoleId={focusJobId}
+      mapRevision={mapRevision}
       onHome={onHome}
     />
   );

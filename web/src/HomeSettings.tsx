@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import type { ModelHosting } from "@core/model-connection";
 import { HomeProfileEdit } from "./HomeProfileEdit";
+import { MapSettingsForm } from "./MapSettings";
 import { OnboardingModelSetup } from "./OnboardingModels";
 import type { OnboardingProfileValue } from "./OnboardingProfile";
 import "./onboarding.css";
 
-type Section = "profile" | "models";
+type Section = "profile" | "models" | "maps";
 
 type PublicConnection = {
   hosting: ModelHosting;
@@ -18,11 +19,13 @@ export function HomeSettings({
   profile,
   onClose,
   onProfileSaved,
+  onMapsSaved,
 }: {
   open: boolean;
   profile: OnboardingProfileValue;
   onClose: () => void;
   onProfileSaved: (profile: OnboardingProfileValue) => void;
+  onMapsSaved?: () => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [section, setSection] = useState<Section>("profile");
@@ -124,6 +127,14 @@ export function HomeSettings({
           >
             Models
           </button>
+          <button
+            type="button"
+            className="home-settings-nav-item"
+            data-active={section === "maps"}
+            onClick={() => setSection("maps")}
+          >
+            Maps
+          </button>
         </nav>
         <div className="home-settings-pane">
           {section === "profile" ? (
@@ -135,7 +146,7 @@ export function HomeSettings({
                 onProfileSaved(next);
               }}
             />
-          ) : (
+          ) : section === "models" ? (
             <>
               <h1>Models</h1>
               <p className="onboarding-lead">
@@ -156,6 +167,8 @@ export function HomeSettings({
                 <p className="home-settings-note">{modelNote}</p>
               ) : null}
             </>
+          ) : (
+            <MapSettingsForm key={session} onSaved={onMapsSaved} />
           )}
         </div>
       </div>

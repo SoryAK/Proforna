@@ -251,6 +251,8 @@ type IconName =
   | "search"
   | "notice"
   | "menu"
+  | "rail"
+  | "railOff"
   | "proforna"
   | "panel"
   | "panelOff";
@@ -305,8 +307,18 @@ export function Icon({ name }: { name: IconName }) {
           <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
         </>
       ) : null}
-      {name === "menu" ? (
-        <path d="M5 7h14M5 12h14M5 17h14" />
+      {name === "menu" || name === "railOff" ? (
+        <>
+          <rect x="3" y="4" width="18" height="16" rx="1.5" />
+          <path d="M9.5 4v16" />
+        </>
+      ) : null}
+      {name === "rail" ? (
+        <>
+          <rect x="3" y="4" width="18" height="16" rx="1.5" />
+          <path d="M9.5 4v16" />
+          <path className="home-panel-fill" d="M4.2 5.2H9.5v13.6H4.2z" />
+        </>
       ) : null}
       {name === "proforna" ? (
         <>

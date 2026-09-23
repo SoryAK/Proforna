@@ -396,6 +396,30 @@
   color: var(--gold-hover);
 }
 
+.history-publish button.history-icon {
+  display: grid;
+  width: 1.75rem;
+  height: 1.75rem;
+  min-height: 1.75rem;
+  place-items: center;
+  padding: 0;
+  border-radius: 6px;
+}
+
+.history-publish button.history-icon[aria-expanded="true"] {
+  border-color: var(--gold);
+  color: var(--gold-hover);
+}
+
+.history-publish svg {
+  display: block;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .work-map-stats {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -708,7 +732,8 @@
 }
 
 .work-map-canvas,
-.work-map-canvas .leaflet-container {
+.work-map-canvas .leaflet-container,
+.work-map-google {
   width: 100%;
   height: 100%;
   min-height: 30rem;
@@ -1106,7 +1131,8 @@
   font-size: 0.78rem;
 }
 
-.leaflet-tooltip.work-map-tip {
+.leaflet-tooltip.work-map-tip,
+.work-map-tip {
   padding: 0;
   border: 0;
   border-radius: 4px;
@@ -1115,26 +1141,35 @@
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4);
 }
 
-.leaflet-tooltip.work-map-tip img {
+.work-map-google-tip {
+  position: absolute;
+  z-index: 800;
+  width: max-content;
+  max-width: 11rem;
+  transform: translate(-50%, calc(-100% - 10px));
+  pointer-events: none;
+}
+
+.work-map-tip img {
   display: block;
   width: 11rem;
   height: 4.5rem;
   object-fit: cover;
 }
 
-.leaflet-tooltip.work-map-tip strong,
-.leaflet-tooltip.work-map-tip span {
+.work-map-tip strong,
+.work-map-tip span {
   display: block;
   padding: 0 0.55rem;
   font-size: 0.72rem;
   line-height: 1.35;
 }
 
-.leaflet-tooltip.work-map-tip strong {
+.work-map-tip strong {
   padding-top: 0.4rem;
 }
 
-.leaflet-tooltip.work-map-tip span:last-child {
+.work-map-tip span:last-child {
   padding-bottom: 0.45rem;
   color: #c7a47b;
 }
@@ -1295,6 +1330,24 @@
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 0.5rem;
   align-items: end;
+}
+
+.role-place-matches {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0.7rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.role-place-matches button {
+  width: 100%;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--wm-line);
+  background: transparent;
+  color: var(--text);
+  font-size: 0.72rem;
+  text-align: left;
 }
 
 .role-form-note,

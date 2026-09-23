@@ -35,6 +35,9 @@ import {
   listModelConnections,
   saveModelConnection,
 } from "./models";
+import type { WorkMapPlace } from "../core/work-map";
+import { lookupGooglePlaces, reverseGooglePlace } from "./google-geocode";
+import { MapSettingsError, readMapSettings, saveMapSettings } from "./map-settings";
 import { prepareProfile } from "../core/profile";
 import {
   ProfileError,
@@ -142,7 +145,8 @@ import {
   addWorkMapMedia,
   addWorkMapPhoto,
   createWorkMapRole,
-  lookupNominatimPlace,
+  lookupNominatimPlaces,
+  reverseNominatimPlace,
   loadWorkMapMediaFile,
   readWorkMap,
   readWorkMapSettings,
@@ -171,13 +175,93 @@ export type AppOptions = {
   };
 };
 
+type PlaceSearch = {
+  places: WorkMapPlace[];
+  source: "google" | "openstreetmap";
+  googleLookup: "ok" | "unavailable" | "unused";
+};
+
 export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
   const uploadsDir = options.uploadsDir ?? "data/uploads";
   const extractDeps = options.extract ?? {};
   const relay = options.relay;
   const externalActions = options.externalActions;
   const complete = options.complete;
-  const placesLookup = options.places?.lookup ?? lookupNominatimPlace;
+  async function fallbackPlaces(query: string) {
+    if (options.places?.lookup) {
+      const found = await options.places.lookup(query);
+      return found ? [found] : [];
+    }
+    return lookupNominatimPlaces(query);
+  }
+  async function fallbackReverse(latitude: number, longitude: number) {
+    if (options.places?.lookup) return [];
+    const found = await reverseNominatimPlace(latitude, longitude);
+    return found ? [found] : [];
+  }
+  async function searchPlaces(occupantId: string, query: string) {
+    return resolvePlaces(
+      occupantId,
+      () => lookupGooglePlaces(query, readMapSettings(db, occupantId).googleMapsApiKey),
+      () => fallbackPlaces(query),
+    );
+  }
+  async function reversePlaces(occupantId: string, latitude: number, longitude: number) {
+    return resolvePlaces(
+      occupantId,
+      () =>
+        reverseGooglePlace(
+          latitude,
+          longitude,
+          readMapSettings(db, occupantId).googleMapsApiKey,
+        ),
+      () => fallbackReverse(latitude, longitude),
+    );
+  }
+  async function resolvePlaces(
+    occupantId: string,
+    google: () => Promise<{ places: WorkMapPlace[]; denied: boolean }>,
+    fallback: () => Promise<WorkMapPlace[]>,
+  ): Promise<PlaceSearch> {
+    const settings = readMapSettings(db, occupantId);
+    const googleOn = settings.provider === "google" && Boolean(settings.googleMapsApiKey);
+    if (googleOn) {
+      try {
+        const read = await google();
+        if (read.places.length > 0) {
+          return { places: read.places, source: "google", googleLookup: "ok" };
+        }
+        if (read.denied) {
+          return {
+            places: await fallback(),
+            source: "openstreetmap",
+            googleLookup: "unavailable",
+          };
+        }
+        const places = await fallback();
+        return {
+          places,
+          source: places.length > 0 ? "openstreetmap" : "google",
+          googleLookup: "ok",
+        };
+      } catch {
+        return {
+          places: await fallback(),
+          source: "openstreetmap",
+          googleLookup: "unavailable",
+        };
+      }
+    }
+    return {
+      places: await fallback(),
+      source: "openstreetmap",
+      googleLookup: "unused",
+    };
+  }
+  async function lookupPlace(occupantId: string, query: string) {
+    const found = await searchPlaces(occupantId, query);
+    return found.places[0] ?? null;
+  }
   const app = new Hono();
 
   app.get("/api/health", (c) =>
@@ -298,7 +382,9 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
         db,
         occupant.id,
         body,
-        await locateProfileAddress(previous, body, placesLookup),
+        await locateProfileAddress(previous, body, (query) =>
+          lookupPlace(occupant.id, query),
+        ),
       );
       syncOpenResidence(db, occupant.id, profile);
       return c.json({ occupant, profile });
@@ -412,6 +498,46 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
           "url-required": "A base URL is required.",
           "url-invalid": "That does not look like an http(s) URL.",
           "key-required": "A cloud connection needs an API key.",
+        };
+        return c.json({ error: messages[err.code] ?? "Could not save." }, 400);
+      }
+      throw err;
+    }
+  });
+
+  app.get("/api/maps/lookup-status", async (c) => {
+    const occupant = ensureOccupant(db);
+    const settings = readMapSettings(db, occupant.id);
+    if (settings.provider !== "google" || !settings.googleMapsApiKey) {
+      return c.json({ googleLookup: "unused" });
+    }
+    try {
+      const read = await lookupGooglePlaces(
+        "1600 Amphitheatre Parkway, Mountain View, CA",
+        settings.googleMapsApiKey,
+      );
+      return c.json({ googleLookup: read.denied ? "unavailable" : "ok" });
+    } catch {
+      return c.json({ googleLookup: "unavailable" });
+    }
+  });
+
+  app.get("/api/maps", (c) => {
+    const occupant = ensureOccupant(db);
+    return c.json({ settings: readMapSettings(db, occupant.id) });
+  });
+
+  app.put("/api/maps", async (c) => {
+    const occupant = ensureOccupant(db);
+    const body = (await c.req.json()) as Record<string, unknown>;
+    try {
+      const settings = saveMapSettings(db, occupant.id, body);
+      return c.json({ settings });
+    } catch (err) {
+      if (err instanceof MapSettingsError) {
+        const messages: Record<string, string> = {
+          "provider-invalid": "Choose OpenStreetMap or Google Maps.",
+          "key-required": "Google Maps needs your API key.",
         };
         return c.json({ error: messages[err.code] ?? "Could not save." }, 400);
       }
@@ -662,9 +788,13 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
 
   app.get("/api/work-map", async (c) => {
     const occupant = ensureOccupant(db);
-    await ensureProfileLocation(db, occupant.id, placesLookup);
+    await ensureProfileLocation(db, occupant.id, (query) =>
+      lookupPlace(occupant.id, query),
+    );
     adoptProfileHome(db, occupant.id);
-    await placeUnpinnedResidences(db, occupant.id, placesLookup);
+    await placeUnpinnedResidences(db, occupant.id, (query) =>
+      lookupPlace(occupant.id, query),
+    );
     return c.json({
       ...readWorkMap(db, occupant.id),
       residences: listResidences(db, occupant.id),
@@ -679,7 +809,7 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
         occupant.id,
         await withResidenceCoordinates(
           (await c.req.json()) as Record<string, unknown>,
-          placesLookup,
+          (query) => lookupPlace(occupant.id, query),
         ),
       );
       return c.json({ residence }, 201);
@@ -700,7 +830,7 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
         c.req.param("id"),
         await withResidenceCoordinates(
           (await c.req.json()) as Record<string, unknown>,
-          placesLookup,
+          (query) => lookupPlace(occupant.id, query),
         ),
       );
       return c.json({ residence });
@@ -726,13 +856,27 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
   });
 
   app.get("/api/work-map/places", async (c) => {
-    ensureOccupant(db);
+    const occupant = ensureOccupant(db);
     const query = c.req.query("q")?.trim() ?? "";
-    if (!query) return c.json({ error: "query-required" }, 400);
-    const lookup = options.places?.lookup ?? lookupNominatimPlace;
-    const place = await lookup(query);
-    if (!place) return c.json({ error: "place-missing" }, 404);
-    return c.json({ place });
+    const lat = c.req.query("lat");
+    const lng = c.req.query("lng");
+    let found: PlaceSearch;
+    if (query) {
+      found = await searchPlaces(occupant.id, query);
+    } else if (lat && lng) {
+      const latitude = Number(lat);
+      const longitude = Number(lng);
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+        return c.json({ error: "query-required" }, 400);
+      }
+      found = await reversePlaces(occupant.id, latitude, longitude);
+    } else {
+      return c.json({ error: "query-required" }, 400);
+    }
+    if (found.places.length === 0) {
+      return c.json({ error: "place-missing", place: null, ...found }, 404);
+    }
+    return c.json({ place: found.places[0], ...found });
   });
 
   app.post("/api/work-map/roles", async (c) => {
