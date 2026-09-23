@@ -78,9 +78,9 @@
 .home-bar-brand {
   margin: 0;
   color: var(--gold-hover);
-  font-family: var(--serif);
-  font-style: italic;
-  font-size: 1.2rem;
+  font-family: var(--sans);
+  font-size: 1rem;
+  font-weight: 600;
   letter-spacing: -0.02em;
 }
 
@@ -625,10 +625,9 @@ button.home-nav-item:focus-visible {
 .home-notice-heading {
   margin: 0.55rem 0.9rem 0.35rem;
   color: var(--gold-light);
-  font-family: var(--serif);
-  font-style: italic;
-  font-size: 1.05rem;
-  font-weight: 400;
+  font-family: var(--sans);
+  font-size: 0.95rem;
+  font-weight: 600;
   letter-spacing: -0.02em;
 }
 
@@ -711,8 +710,7 @@ button.home-nav-item:focus-visible {
   display: grid;
   place-items: center;
   color: var(--gold-hover);
-  font-family: var(--serif);
-  font-style: italic;
+  font-family: var(--sans);
   font-size: 0.7rem;
 }
 
@@ -847,25 +845,23 @@ button.home-nav-item:focus-visible {
   place-items: center;
   background: rgba(167, 139, 113, 0.16);
   color: var(--gold-hover);
-  font-family: var(--serif);
-  font-style: italic;
+  font-family: var(--sans);
   font-size: 1.55rem;
 }
 
 .home-file-identity h1 {
   margin: 0;
   color: var(--text);
-  font-size: clamp(1.85rem, 3vw, 2.35rem);
-  font-weight: 400;
-  letter-spacing: -0.03em;
-  line-height: 1.1;
+  font-size: 1.35rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
 }
 
 .home-headline {
   margin: 0.35rem 0 0;
   color: var(--gold-hover);
-  font-family: var(--serif);
-  font-style: italic;
+  font-family: var(--sans);
   font-size: 1.1rem;
   line-height: 1.35;
 }
@@ -1097,10 +1093,9 @@ button.home-nav-item:focus-visible {
 .home-settings-head h2 {
   margin: 0;
   color: #fff;
-  font-size: 1.35rem;
-  font-weight: 400;
-  font-style: italic;
-  font-family: "Playfair Display", Georgia, serif;
+  font-size: 1.1rem;
+  font-weight: 600;
+  font-family: var(--sans);
 }
 
 .home-settings-close {
@@ -1163,9 +1158,9 @@ button.home-nav-item:focus-visible {
 .home-settings-pane h1 {
   margin: 0;
   color: #fff;
-  font-size: 1.7rem;
-  font-weight: 400;
-  font-family: "Playfair Display", Georgia, serif;
+  font-size: 1.25rem;
+  font-weight: 600;
+  font-family: var(--sans);
 }
 
 .home-settings-pane .home-edit-form h1 {
@@ -1233,8 +1228,7 @@ button.home-nav-item:focus-visible {
   min-width: 0;
   overflow: hidden;
   color: var(--gold-hover);
-  font-family: var(--serif);
-  font-style: italic;
+  font-family: var(--sans);
   font-size: 1.15rem;
   font-weight: 400;
   letter-spacing: -0.02em;
@@ -1426,8 +1420,7 @@ button.home-nav-item:focus-visible {
 .home-proforna-empty {
   margin: 1.5rem 0 0;
   color: var(--gold-light);
-  font-family: var(--serif);
-  font-style: italic;
+  font-family: var(--sans);
   line-height: 1.5;
 }
 
@@ -1663,7 +1656,7 @@ button.home-nav-item:focus-visible {
   }
 
   .home-file-identity h1 {
-    font-size: 1.85rem;
+    font-size: 1.25rem;
   }
 
   .home-settings {
@@ -1694,10 +1687,10 @@ button.home-nav-item:focus-visible {
 .history h1 {
   margin: 0;
   color: var(--text);
-  font-size: 2.25rem;
-  font-weight: 400;
-  letter-spacing: -0.03em;
-  line-height: 1.15;
+  font-size: 1.35rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
 }
 
 .history-lead,
@@ -1719,8 +1712,7 @@ button.home-nav-item:focus-visible {
 .history-section h2 {
   margin: 0 0 0.85rem;
   color: var(--gold-hover);
-  font-family: var(--serif);
-  font-style: italic;
+  font-family: var(--sans);
   font-size: 1.25rem;
   font-weight: 400;
   letter-spacing: -0.02em;
@@ -1752,8 +1744,7 @@ button.home-nav-item:focus-visible {
 .history-org {
   margin: 0.2rem 0 0;
   color: var(--gold-hover);
-  font-family: var(--serif);
-  font-style: italic;
+  font-family: var(--sans);
   font-size: 1rem;
 }
 
@@ -1783,7 +1774,7 @@ button.home-nav-item:focus-visible {
   }
 
   .history h1 {
-    font-size: 1.85rem;
+    font-size: 1.25rem;
   }
 }
 

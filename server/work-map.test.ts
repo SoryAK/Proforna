@@ -1,3 +1,6 @@
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { createApp } from "./app";
 import { openDatabase } from "./db";
@@ -5,7 +8,16 @@ import { openDatabase } from "./db";
 describe("Work Map career-fact HTTP seam", () => {
   it("attaches subject-linked facts on read and writes them when a role is saved", async () => {
     const db = openDatabase(":memory:");
-    const app = createApp(db);
+    const app = createApp(db, {
+      places: {
+        lookup: async () => ({
+          label: "Home",
+          address: "12 Private Lane",
+          latitude: 12.345678,
+          longitude: -98.765432,
+        }),
+      },
+    });
     try {
       await app.request("/api/history", {
         method: "POST",
@@ -104,6 +116,19 @@ describe("Work Map career-fact HTTP seam", () => {
         ),
       ).toBe(true);
 
+      await app.request("/api/profile", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          fullName: "Ada Lovelace",
+          address: "12 Private Lane",
+        }),
+      });
+      const mapped = (await (await app.request("/api/work-map")).json()) as {
+        profile: { addressLatitude: number | null; addressLongitude: number | null };
+      };
+      expect(mapped.profile.addressLatitude).toBe(12.345678);
+      expect(mapped.profile.addressLongitude).toBe(-98.765432);
       await app.request("/api/work-map/settings", {
         method: "PUT",
         headers: { "content-type": "application/json" },
@@ -121,6 +146,8 @@ describe("Work Map career-fact HTTP seam", () => {
         projection: { roles: Array<Record<string, unknown>> };
       };
       const publishedJson = JSON.stringify(snapshot.projection);
+      expect(publishedJson).not.toContain("12 Private Lane");
+      expect(publishedJson).not.toContain("12.345678");
       expect(publishedJson).not.toContain("factId");
       expect(publishedJson).not.toContain("evidenceIds");
       expect(publishedJson).not.toContain(body.role.factId);
@@ -320,6 +347,53 @@ describe("Work Map role create HTTP seam", () => {
       await expect(rejected.json()).resolves.toEqual({ error: "kind-invalid" });
     } finally {
       db.close();
+    }
+  });
+
+  it("stores a role photo privately and serves it for the map", async () => {
+    const db = openDatabase(":memory:");
+    const uploadsDir = mkdtempSync(join(tmpdir(), "proforna-role-photo-"));
+    const app = createApp(db, { uploadsDir });
+    const png = Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+      "base64",
+    );
+    try {
+      const created = await app.request("/api/work-map/roles", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ kind: "job", title: "Technician" }),
+      });
+      const { role } = (await created.json()) as { role: { id: string } };
+      const form = new FormData();
+      form.set("photo", new File([png], "cell.png", { type: "image/png" }));
+      const saved = await app.request(`/api/work-map/roles/${role.id}/photos`, {
+        method: "POST",
+        body: form,
+      });
+      expect(saved.status).toBe(201);
+      const body = (await saved.json()) as {
+        media: { id: string; url: string; isPublic: boolean; kind: string };
+      };
+      expect(body.media).toMatchObject({
+        kind: "photo",
+        isPublic: false,
+        url: `/api/work-map/media/${body.media.id}`,
+      });
+
+      const served = await app.request(body.media.url);
+      expect(served.status).toBe(200);
+      expect(served.headers.get("content-type")).toBe("image/png");
+
+      const workMap = (await (await app.request("/api/work-map")).json()) as {
+        roles: Array<{ media: Array<{ url: string; isPublic: boolean }> }>;
+      };
+      expect(workMap.roles[0]?.media).toEqual([
+        expect.objectContaining({ url: body.media.url, isPublic: false }),
+      ]);
+    } finally {
+      db.close();
+      rmSync(uploadsDir, { recursive: true, force: true });
     }
   });
 });

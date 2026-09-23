@@ -134,6 +134,7 @@ export function fillProfileFromExtract(
   return {
     fullName: current.fullName,
     headline: current.headline || extracted.headline,
+    address: current.address,
     city: current.city || place.city,
     state: current.state || place.state,
     bio: current.bio || extracted.bio,

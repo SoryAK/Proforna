@@ -8,9 +8,10 @@
 .career-page h1 {
   margin: 0;
   color: var(--text);
-  font-size: clamp(2rem, 5vw, 3.4rem);
-  letter-spacing: -0.035em;
-  line-height: 1;
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
 }
 
 .career-lead {
@@ -113,9 +114,8 @@
 .entry-list h2 {
   margin: 0 0 0.65rem;
   color: var(--gold-hover);
-  font-family: var(--serif);
+  font-family: var(--sans);
   font-size: 1.25rem;
-  font-style: italic;
   font-weight: 400;
 }
 
@@ -209,8 +209,7 @@
 .resume-variants h3 {
   margin: 0 0 0.65rem;
   color: var(--gold-hover);
-  font-family: var(--serif);
-  font-style: italic;
+  font-family: var(--sans);
   font-weight: 400;
 }
 
@@ -296,10 +295,9 @@
 
 .resume-preview header h2 {
   margin: 0;
-  font-family: var(--serif);
-  font-size: 2.3rem;
-  font-style: italic;
-  font-weight: 400;
+  font-family: var(--sans);
+  font-size: 1.5rem;
+  font-weight: 600;
 }
 
 .resume-preview header p {
@@ -321,8 +319,7 @@
 
 .resume-preview section h3 {
   margin: 0 0 0.55rem;
-  font-family: var(--serif);
-  font-style: italic;
+  font-family: var(--sans);
   font-weight: 400;
 }
 
@@ -356,10 +353,9 @@
 .projection-panel h2 {
   margin: 0;
   color: var(--text);
-  font-family: var(--serif);
-  font-size: 1.5rem;
-  font-style: italic;
-  font-weight: 400;
+  font-family: var(--sans);
+  font-size: 1.25rem;
+  font-weight: 600;
 }
 
 .projection-panel p,
@@ -509,9 +505,8 @@
 .compact-career-form h2 {
   margin: 0 0 0.4rem;
   color: var(--gold-hover);
-  font-family: var(--serif);
+  font-family: var(--sans);
   font-size: 1.15rem;
-  font-style: italic;
   font-weight: 400;
 }
 
@@ -698,9 +693,8 @@
 .portable-card h2 {
   margin: 0;
   color: var(--gold-hover);
-  font-family: var(--serif);
+  font-family: var(--sans);
   font-size: 1.2rem;
-  font-style: italic;
   font-weight: 400;
 }
 

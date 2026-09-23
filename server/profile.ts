@@ -25,6 +25,10 @@ export function saveProfile(
   db: DatabaseSync,
   occupantId: string,
   input: ProfileInput,
+  location: { latitude: number | null; longitude: number | null } = {
+    latitude: null,
+    longitude: null,
+  },
 ): ProfileRow {
   const prepared = prepareProfile(input);
   if (!prepared.ok) {
@@ -36,6 +40,9 @@ export function saveProfile(
     `UPDATE profiles SET
       full_name = ?,
       headline = ?,
+      address = ?,
+      address_latitude = ?,
+      address_longitude = ?,
       city = ?,
       state = ?,
       bio = ?,
@@ -47,6 +54,9 @@ export function saveProfile(
   ).run(
     value.fullName,
     value.headline,
+    value.address,
+    location.latitude,
+    location.longitude,
     value.city,
     value.state,
     value.bio,

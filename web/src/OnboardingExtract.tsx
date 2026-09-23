@@ -89,6 +89,17 @@ export function OnboardingExtractConfirm({
             }
           />
         </label>
+        <label className="onboarding-field">
+          <span>Address</span>
+          <input
+            value={profile.address}
+            autoComplete="street-address"
+            placeholder="Street address"
+            onChange={(event) =>
+              onProfileChange({ ...profile, address: event.target.value })
+            }
+          />
+        </label>
         <div className="onboarding-field-row">
           <label className="onboarding-field">
             <span>City</span>

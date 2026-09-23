@@ -31,6 +31,7 @@ export function Onboarding({
   const [profile, setProfile] = useState<ProfileFields>({
     fullName: initialProfile.fullName,
     headline: initialProfile.headline,
+    address: initialProfile.address,
     city: initialProfile.city,
     state: initialProfile.state,
     bio: initialProfile.bio,

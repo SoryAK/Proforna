@@ -9,6 +9,9 @@ export type OccupantRow = {
 export type ProfileRow = {
   fullName: string;
   headline: string;
+  address: string;
+  addressLatitude: number | null;
+  addressLongitude: number | null;
   city: string;
   state: string;
   bio: string;
@@ -50,6 +53,9 @@ export function readProfile(db: DatabaseSync, occupantId: string): ProfileRow {
       `SELECT
         full_name AS fullName,
         headline,
+        address,
+        address_latitude AS addressLatitude,
+        address_longitude AS addressLongitude,
         city,
         state,
         bio,
@@ -64,6 +70,9 @@ export function readProfile(db: DatabaseSync, occupantId: string): ProfileRow {
     | {
         fullName: string;
         headline: string;
+        address: string;
+        addressLatitude: number | null;
+        addressLongitude: number | null;
         city: string;
         state: string;
         bio: string;

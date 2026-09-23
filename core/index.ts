@@ -199,6 +199,15 @@ export {
   type PortableManifest,
 } from "./portability";
 export {
+  prepareResidence,
+  residenceForMap,
+  residencesToClose,
+  type Residence,
+  type ResidenceError,
+  type ResidenceSpan,
+  type RoleSpan,
+} from "./residence";
+export {
   EMPTY_WORK_MAP_DETAILS,
   attachFactsToWorkMapRole,
   buildWorkMapSnapshot,
@@ -209,6 +218,7 @@ export {
   prepareWorkMapLocation,
   prepareWorkMapRoleCreate,
   presentWorkMapPlace,
+  roleCoverPhoto,
   publicationAllowsSnapshot,
   publicationNeedsAudienceConfirm,
   type PreparedWorkMapLocation,

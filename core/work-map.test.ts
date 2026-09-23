@@ -4,6 +4,7 @@ import {
   EMPTY_WORK_MAP_DETAILS,
   attachFactsToWorkMapRole,
   buildWorkMapSnapshot,
+  roleCoverPhoto,
   planWorkMapPublicationSettings,
   planWorkMapRoleFactSync,
   prepareWorkMapLocation,
@@ -14,6 +15,40 @@ import {
   type WorkMapPublicationSettings,
   type WorkMapRole,
 } from "./work-map";
+
+describe("role cover photo", () => {
+  it("uses the newest photo on the role", () => {
+    expect(
+      roleCoverPhoto([
+        {
+          id: "older",
+          kind: "photo",
+          title: "Shop floor",
+          url: "/older.jpg",
+          caption: "",
+          isPublic: false,
+        },
+        {
+          id: "note",
+          kind: "attachment",
+          title: "Notes",
+          url: "/notes.pdf",
+          caption: "",
+          isPublic: false,
+        },
+        {
+          id: "newer",
+          kind: "photo",
+          title: "Cell",
+          url: "/newer.jpg",
+          caption: "",
+          isPublic: false,
+        },
+      ])?.id,
+    ).toBe("newer");
+    expect(roleCoverPhoto([])).toBeNull();
+  });
+});
 
 describe("Work Map publication snapshots", () => {
   it("publishes approved map detail while keeping private evidence and pay out", () => {

@@ -23,7 +23,7 @@ The surface refuses a dashboard of interchangeable cards and keeps editing
 connected to the role's place and chronology.
 
 OWN-WORLD: Extend Proforna's established near-black operating surface, fine
-gold rules, restrained filled actions, italic serif identity, and compact
+gold rules, restrained filled actions, upright Geist type, and compact
 workhorse controls. Real map tiles provide the visual ground.
 
 STORY: The occupant first sees that this is a private Work Map, scans the role

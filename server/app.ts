@@ -29,12 +29,13 @@ import {
   readCommandSession,
   sendCommandTurn,
 } from "./command-session";
-import { ensureOccupant, readProfile } from "./occupant";
+import { ensureOccupant, readProfile, type ProfileRow } from "./occupant";
 import {
   ModelConnectionError,
   listModelConnections,
   saveModelConnection,
 } from "./models";
+import { prepareProfile } from "../core/profile";
 import {
   ProfileError,
   completeOnboarding,
@@ -126,14 +127,28 @@ import {
   saveIntegration,
 } from "./integrations";
 import {
+  ResidenceStoreError,
+  adoptProfileHome,
+  createResidence,
+  deleteResidence,
+  listResidences,
+  placeUnpinnedResidences,
+  syncOpenResidence,
+  updateResidence,
+} from "./residences";
+import {
   WorkMapStoreError,
   addWorkMapLocation,
   addWorkMapMedia,
+  addWorkMapPhoto,
   createWorkMapRole,
   lookupNominatimPlace,
+  loadWorkMapMediaFile,
   readWorkMap,
   readWorkMapSettings,
   removeWorkMapLocation,
+  removeWorkMapMedia,
+  setWorkMapMediaPublic,
   saveWorkMapDetails,
   saveWorkMapSettings,
   updateWorkMapLocation,
@@ -162,6 +177,7 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
   const relay = options.relay;
   const externalActions = options.externalActions;
   const complete = options.complete;
+  const placesLookup = options.places?.lookup ?? lookupNominatimPlace;
   const app = new Hono();
 
   app.get("/api/health", (c) =>
@@ -277,7 +293,14 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
     const occupant = ensureOccupant(db);
     const body = (await c.req.json()) as Record<string, unknown>;
     try {
-      const profile = saveProfile(db, occupant.id, body);
+      const previous = readProfile(db, occupant.id);
+      const profile = saveProfile(
+        db,
+        occupant.id,
+        body,
+        await locateProfileAddress(previous, body, placesLookup),
+      );
+      syncOpenResidence(db, occupant.id, profile);
       return c.json({ occupant, profile });
     } catch (err) {
       if (err instanceof ProfileError) {
@@ -637,9 +660,69 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
     return c.json({ projections: listProjections(db, occupant.id) });
   });
 
-  app.get("/api/work-map", (c) => {
+  app.get("/api/work-map", async (c) => {
     const occupant = ensureOccupant(db);
-    return c.json(readWorkMap(db, occupant.id));
+    await ensureProfileLocation(db, occupant.id, placesLookup);
+    adoptProfileHome(db, occupant.id);
+    await placeUnpinnedResidences(db, occupant.id, placesLookup);
+    return c.json({
+      ...readWorkMap(db, occupant.id),
+      residences: listResidences(db, occupant.id),
+    });
+  });
+
+  app.post("/api/residences", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      const residence = createResidence(
+        db,
+        occupant.id,
+        await withResidenceCoordinates(
+          (await c.req.json()) as Record<string, unknown>,
+          placesLookup,
+        ),
+      );
+      return c.json({ residence }, 201);
+    } catch (error) {
+      if (error instanceof ResidenceStoreError) {
+        return c.json({ error: error.code }, 400);
+      }
+      throw error;
+    }
+  });
+
+  app.put("/api/residences/:id", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      const residence = updateResidence(
+        db,
+        occupant.id,
+        c.req.param("id"),
+        await withResidenceCoordinates(
+          (await c.req.json()) as Record<string, unknown>,
+          placesLookup,
+        ),
+      );
+      return c.json({ residence });
+    } catch (error) {
+      if (error instanceof ResidenceStoreError) {
+        return c.json({ error: error.code }, error.code === "residence-missing" ? 404 : 400);
+      }
+      throw error;
+    }
+  });
+
+  app.delete("/api/residences/:id", (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      deleteResidence(db, occupant.id, c.req.param("id"));
+      return c.json({ ok: true });
+    } catch (error) {
+      if (error instanceof ResidenceStoreError) {
+        return c.json({ error: error.code }, 404);
+      }
+      throw error;
+    }
   });
 
   app.get("/api/work-map/places", async (c) => {
@@ -779,6 +862,90 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
     } catch (error) {
       if (error instanceof WorkMapStoreError) {
         return c.json({ error: error.code }, 400);
+      }
+      throw error;
+    }
+  });
+
+  app.post("/api/work-map/roles/:id/photos", async (c) => {
+    const occupant = ensureOccupant(db);
+    const form = await c.req.formData();
+    const file = form.get("photo");
+    if (!(file instanceof File)) {
+      return c.json({ error: "A photo file is required." }, 400);
+    }
+    const title = form.get("title");
+    try {
+      const media = addWorkMapPhoto(db, occupant.id, c.req.param("id"), uploadsDir, {
+        type: file.type,
+        bytes: new Uint8Array(await file.arrayBuffer()),
+        title: typeof title === "string" ? title : undefined,
+      });
+      return c.json({ media }, 201);
+    } catch (error) {
+      if (error instanceof WorkMapStoreError) {
+        const messages: Record<string, string> = {
+          "photo-type": "Use a jpeg, png, webp, or gif photo.",
+          "photo-too-large": "That photo is too large (5 MB max).",
+          "role-missing": "That role is not on this map.",
+        };
+        return c.json(
+          { error: messages[error.code] ?? error.code },
+          error.code === "role-missing" ? 404 : 400,
+        );
+      }
+      throw error;
+    }
+  });
+
+  app.get("/api/work-map/media/:id", (c) => {
+    const occupant = ensureOccupant(db);
+    const file = loadWorkMapMediaFile(
+      db,
+      occupant.id,
+      c.req.param("id"),
+      uploadsDir,
+    );
+    if (!file) return c.json({ error: "No photo yet." }, 404);
+    return c.body(Buffer.from(file.bytes), 200, {
+      "content-type": file.type,
+    });
+  });
+
+  app.put("/api/work-map/roles/:id/media/:mediaId", async (c) => {
+    const occupant = ensureOccupant(db);
+    const body = (await c.req.json()) as { isPublic?: unknown };
+    try {
+      setWorkMapMediaPublic(
+        db,
+        occupant.id,
+        c.req.param("id"),
+        c.req.param("mediaId"),
+        body.isPublic === true,
+      );
+      return c.json({ ok: true });
+    } catch (error) {
+      if (error instanceof WorkMapStoreError) {
+        return c.json({ error: error.code }, 404);
+      }
+      throw error;
+    }
+  });
+
+  app.delete("/api/work-map/roles/:id/media/:mediaId", (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      removeWorkMapMedia(
+        db,
+        occupant.id,
+        c.req.param("id"),
+        c.req.param("mediaId"),
+        uploadsDir,
+      );
+      return c.json({ ok: true });
+    } catch (error) {
+      if (error instanceof WorkMapStoreError) {
+        return c.json({ error: error.code }, 404);
       }
       throw error;
     }
@@ -1377,4 +1544,80 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
   });
 
   return app;
+}
+
+async function withResidenceCoordinates(
+  input: Record<string, unknown>,
+  lookup: (query: string) => Promise<{ latitude: number; longitude: number } | null>,
+): Promise<Record<string, unknown>> {
+  const latitude = Number(input.latitude);
+  const longitude = Number(input.longitude);
+  if (Number.isFinite(latitude) && Number.isFinite(longitude)) return input;
+  const address = typeof input.address === "string" ? input.address.trim() : "";
+  if (!address) return input;
+  try {
+    const found = await lookup(address);
+    if (!found) return { ...input, latitude: null, longitude: null };
+    return { ...input, latitude: found.latitude, longitude: found.longitude };
+  } catch {
+    return { ...input, latitude: null, longitude: null };
+  }
+}
+
+async function ensureProfileLocation(
+  db: DatabaseSync,
+  occupantId: string,
+  lookup: (query: string) => Promise<{ latitude: number; longitude: number } | null>,
+) {
+  const profile = readProfile(db, occupantId);
+  const place = profilePlace(profile);
+  if (!place || profile.addressLatitude != null) return;
+  try {
+    const found = await lookup(place);
+    if (!found) return;
+    db.prepare(
+      `UPDATE profiles SET address_latitude = ?, address_longitude = ?
+       WHERE occupant_id = ?`,
+    ).run(found.latitude, found.longitude, occupantId);
+  } catch {
+    /* a missing pin can be placed on the next save */
+  }
+}
+
+async function locateProfileAddress(
+  previous: ProfileRow,
+  input: Record<string, unknown>,
+  lookup: (query: string) => Promise<{ latitude: number; longitude: number } | null>,
+): Promise<{ latitude: number | null; longitude: number | null }> {
+  const prepared = prepareProfile(input);
+  if (!prepared.ok) return { latitude: null, longitude: null };
+  const nextPlace = profilePlace(prepared.value);
+  if (!nextPlace) return { latitude: null, longitude: null };
+  if (
+    nextPlace === profilePlace(previous) &&
+    previous.addressLatitude != null &&
+    previous.addressLongitude != null
+  ) {
+    return {
+      latitude: previous.addressLatitude,
+      longitude: previous.addressLongitude,
+    };
+  }
+  try {
+    const found = await lookup(nextPlace);
+    return {
+      latitude: found?.latitude ?? null,
+      longitude: found?.longitude ?? null,
+    };
+  } catch {
+    return { latitude: null, longitude: null };
+  }
+}
+
+function profilePlace(profile: {
+  address: string;
+  city: string;
+  state: string;
+}): string {
+  return [profile.address, profile.city, profile.state].filter(Boolean).join(", ");
 }
