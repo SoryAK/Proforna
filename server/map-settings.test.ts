@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
+import { DEFAULT_MAP_ICONS } from "../core/map-settings";
 import { createApp } from "./app";
 import { openDatabase } from "./db";
+
+const kindPins = {
+  theme: "kind" as const,
+  icons: DEFAULT_MAP_ICONS,
+};
 
 describe("map settings", () => {
   it("stores a personal Google Maps key and leaves it out of a published snapshot", async () => {
@@ -17,12 +23,20 @@ describe("map settings", () => {
       });
       expect(saved.status).toBe(200);
       await expect(saved.json()).resolves.toEqual({
-        settings: { provider: "google", googleMapsApiKey: "personal-maps-key" },
+        settings: {
+          provider: "google",
+          googleMapsApiKey: "personal-maps-key",
+          ...kindPins,
+        },
       });
 
       const read = await app.request("/api/maps");
       await expect(read.json()).resolves.toEqual({
-        settings: { provider: "google", googleMapsApiKey: "personal-maps-key" },
+        settings: {
+          provider: "google",
+          googleMapsApiKey: "personal-maps-key",
+          ...kindPins,
+        },
       });
 
       const missing = await app.request("/api/maps", {
