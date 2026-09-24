@@ -21,10 +21,12 @@ export function App() {
   const [error, setError] = useState<string | null>(null);
   const [careerError, setCareerError] = useState<string | null>(null);
   const [prototype, setPrototype] = useState(readPrototype);
+  const [reviewOnboarding, setReviewOnboarding] = useState(readReviewOnboarding);
 
   useEffect(() => {
     function onHash() {
       setPrototype(readPrototype());
+      setReviewOnboarding(readReviewOnboarding());
     }
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
@@ -87,12 +89,14 @@ export function App() {
     );
   }
 
-  if (needsOnboarding(me.profile)) {
+  if (needsOnboarding(me.profile) || reviewOnboarding) {
     return (
       <Onboarding
         initialProfile={me.profile}
         onFinished={(next) => {
           setMe(next);
+          setReviewOnboarding(false);
+          if (readReviewOnboarding()) window.location.hash = "#/history";
           void loadCareer();
         }}
       />
@@ -112,6 +116,12 @@ export function App() {
       }
     />
   );
+}
+
+function readReviewOnboarding(): boolean {
+  if (!import.meta.env.DEV) return false;
+  const path = window.location.hash.replace(/^#\/?/, "").split("?")[0];
+  return path === "onboarding";
 }
 
 function readPrototype(): "chat" | "shell" | "career-layout" | null {
