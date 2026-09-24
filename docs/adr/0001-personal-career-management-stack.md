@@ -26,6 +26,8 @@ logic into route files and React, which is expensive to move later.
   not own it.
 
 Later shells (hosted Hono, Tauri, mobile) change `server/` or `web/` only.
+The desktop window shell is `web/src-tauri`. It opens the Vite app and owns
+no management logic. Installer packaging stays off until that work is picked up.
 
 ## Consequences
 

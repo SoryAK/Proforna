@@ -1,0 +1,6 @@
+{
+  "identifier": "default",
+  "description": "Default Proforna window",
+  "windows": ["onboarding", "app"],
+  "permissions": ["core:default"]
+}
