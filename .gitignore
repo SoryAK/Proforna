@@ -21,6 +21,7 @@ next-env.d.ts
 /web/src/prototype/
 /web/src-tauri/target/
 /web/src-tauri/gen/
+/web/src-tauri/resources/
 
 .DS_Store
 *~

@@ -18,10 +18,12 @@ const app = createApp(db, {
   relay,
 });
 
-if (existsSync("web/dist")) {
-  app.use("/*", serveStatic({ root: "web/dist" }));
+const staticRoot = process.env.PROFORNA_STATIC_ROOT ?? "web/dist";
+if (existsSync(staticRoot)) {
+  app.use("/*", serveStatic({ root: staticRoot }));
 }
 
 const port = Number(process.env.PORT ?? 3000);
-serve({ fetch: app.fetch, port });
-console.log(`Proforna http://localhost:${port}`);
+const hostname = process.env.HOST;
+serve(hostname ? { fetch: app.fetch, port, hostname } : { fetch: app.fetch, port });
+console.log(`Proforna http://${hostname ?? "localhost"}:${port}`);
