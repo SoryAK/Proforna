@@ -6,6 +6,9 @@ import { Onboarding } from "./Onboarding";
 import { ProfornaChatMock } from "./prototype/ProfornaChatMock";
 import { ProfornaShellMock } from "./prototype/ProfornaShellMock";
 import { CareerLayoutMock } from "./prototype/CareerLayoutMock";
+import { SidebarCareerMock } from "./prototype/SidebarCareerMock";
+import { MapGraphicMock } from "./prototype/MapGraphicMock";
+import { OnboardingMock } from "./prototype/OnboardingMock";
 import type { OnboardingProfileValue } from "./OnboardingProfile";
 
 type Me = {
@@ -68,6 +71,15 @@ export function App() {
   if (prototype === "career-layout") {
     return <CareerLayoutMock />;
   }
+  if (prototype === "sidebar-career") {
+    return <SidebarCareerMock />;
+  }
+  if (prototype === "map-graphic") {
+    return <MapGraphicMock />;
+  }
+  if (prototype === "onboarding") {
+    return <OnboardingMock />;
+  }
 
   if (error) {
     return (
@@ -114,11 +126,21 @@ export function App() {
   );
 }
 
-function readPrototype(): "chat" | "shell" | "career-layout" | null {
+function readPrototype():
+  | "chat"
+  | "shell"
+  | "career-layout"
+  | "sidebar-career"
+  | "map-graphic"
+  | "onboarding"
+  | null {
   if (!import.meta.env.DEV) return null;
   const path = window.location.hash.replace(/^#\/?/, "").split("?")[0];
   if (path === "prototype/chat") return "chat";
   if (path === "prototype/shell") return "shell";
   if (path === "prototype/career-layout") return "career-layout";
+  if (path === "prototype/sidebar-career") return "sidebar-career";
+  if (path === "prototype/map-graphic") return "map-graphic";
+  if (path === "prototype/onboarding") return "onboarding";
   return null;
 }
