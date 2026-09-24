@@ -1,0 +1,46 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Proforna",
+  "version": "0.0.1",
+  "identifier": "dev.proforna.desktop",
+  "build": {
+    "beforeDevCommand": "node scripts/ensure-dev.mjs",
+    "devUrl": "http://127.0.0.1:5173/#/onboarding",
+    "beforeBuildCommand": "pnpm build",
+    "frontendDist": "../web/dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "onboarding",
+        "title": "Onboarding",
+        "url": "http://127.0.0.1:5173/#/onboarding",
+        "width": 1040,
+        "height": 720,
+        "x": 24,
+        "y": 48,
+        "resizable": true,
+        "center": false
+      },
+      {
+        "label": "app",
+        "title": "Proforna",
+        "url": "http://127.0.0.1:5173/#/",
+        "width": 1240,
+        "height": 820,
+        "x": 420,
+        "y": 32,
+        "resizable": true,
+        "center": false
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["deb", "appimage"],
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/icon.png"]
+  }
+}
