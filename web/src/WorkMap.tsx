@@ -23,11 +23,22 @@ import {
   type WorkMapPublishSection,
   type WorkMapRole,
 } from "@core/work-map";
+import {
+  careerFrame,
+  careerMoments,
+  careerMonth,
+  careerSpan,
+  nextCareerMoment,
+  rolesStartedBy,
+  type CareerTimelineResidence,
+  type CareerTimelineRole,
+} from "@core/career-timeline";
+import { CareerTimelineScrubber } from "./CareerTimelineScrubber";
 import { residenceForMap, type Residence } from "@core/residence";
 import { HomesPanel } from "./HomesPanel";
 import { WorkMapCanvas, type WorkMapHome } from "./WorkMapCanvas";
 import { GoogleWorkMap } from "./GoogleWorkMap";
-import type { MapSettings } from "@core/map-settings";
+import { DEFAULT_MAP_ICONS, MAP_THEMES, type MapSettings } from "@core/map-settings";
 import { lookupNote, reversePlace } from "./place-search";
 import { RoleDetailPanel, type DetailTab } from "./RoleDetailPanel";
 import "./work-map.css";
@@ -87,6 +98,8 @@ export function WorkMap({
     Set<CareerHistorySectionKey>
   >(new Set());
   const [view, setView] = useState<"map" | "timeline">("map");
+  const [timelineMonth, setTimelineMonth] = useState(currentCareerMonth);
+  const [timelinePlaying, setTimelinePlaying] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [placingForId, setPlacingForId] = useState<string | null>(null);
@@ -193,6 +206,48 @@ export function WorkMap({
       .map((item) => byId.get(item.id))
       .filter((role): role is WorkMapRole => Boolean(role));
   }, [data, historyItems]);
+  const timelineRoles = useMemo(
+    () => visibleRoles.map(asTimelineRole),
+    [visibleRoles],
+  );
+  const timelineResidences = useMemo(
+    () => (data?.residences ?? []).map(asTimelineResidence),
+    [data],
+  );
+  const timelineMoments = useMemo(
+    () => careerMoments(timelineRoles, timelineResidences),
+    [timelineRoles, timelineResidences],
+  );
+  const timelineMonths = useMemo(
+    () => careerSpan(timelineRoles, timelineMoments, currentCareerMonth()),
+    [timelineRoles, timelineMoments],
+  );
+  const timelineActive = view === "timeline" && !placingForId;
+  const shownMonth = timelineMonths.includes(timelineMonth)
+    ? timelineMonth
+    : (timelineMonths.at(-1) ?? timelineMonth);
+  const timelineReading = useMemo(
+    () => careerFrame(timelineRoles, timelineMoments, shownMonth, timelineResidences),
+    [timelineRoles, timelineMoments, shownMonth, timelineResidences],
+  );
+  const mapRoles = timelineActive
+    ? visibleRoles.filter((role) =>
+        rolesStartedBy(timelineRoles, shownMonth).some((item) => item.id === role.id),
+      )
+    : visibleRoles;
+
+  useEffect(() => {
+    if (!timelinePlaying || !timelineActive) return;
+    const timer = window.setInterval(() => {
+      const upcoming = nextCareerMoment(timelineMoments, shownMonth);
+      if (!upcoming) {
+        setTimelinePlaying(false);
+        return;
+      }
+      setTimelineMonth(upcoming.at);
+    }, 900);
+    return () => window.clearInterval(timer);
+  }, [timelinePlaying, timelineActive, timelineMoments, shownMonth]);
 
   const selected = data?.roles.find((role) => role.id === selectedId) ?? null;
   const latest = publications.find(
@@ -214,6 +269,16 @@ export function WorkMap({
     setSettingsOpen(false);
     setMessage("Publication settings saved.");
     await load();
+  }
+
+  function selectFromMap(id: string) {
+    setSelectedId(id);
+    if (view !== "timeline" || placingForId) return;
+    const role = data?.roles.find((entry) => entry.id === id);
+    const start = role ? careerMonth(role.startDate) : null;
+    if (!start) return;
+    setTimelinePlaying(false);
+    setTimelineMonth(start);
   }
 
   function openSettings() {
@@ -575,32 +640,61 @@ export function WorkMap({
               Timeline
             </button>
           </div>
-          {view === "map" ? (
-            mapSettings?.provider === "google" && mapSettings.googleMapsApiKey ? (
-              <GoogleWorkMap
-                apiKey={mapSettings.googleMapsApiKey}
-                roles={visibleRoles}
-                home={homePin(data.residences, selected)}
-                selectedId={selectedId}
-                onSelect={setSelectedId}
-                onMapClick={placingForId ? dropPin : undefined}
-              />
-            ) : (
-            <WorkMapCanvas
-              roles={visibleRoles}
-              home={homePin(data.residences, selected)}
-              selectedId={selectedId}
-              onSelect={setSelectedId}
+          {mapSettings?.provider === "google" && mapSettings.googleMapsApiKey ? (
+            <GoogleWorkMap
+              apiKey={mapSettings.googleMapsApiKey}
+              roles={mapRoles}
+              home={
+                timelineActive
+                  ? homePinForTimeline(data.residences, timelineReading.home)
+                  : homePin(data.residences, selected)
+              }
+              selectedId={timelineActive ? null : selectedId}
+              holdView={timelineActive}
+              suppressEmpty={timelineActive}
+              onSelect={selectFromMap}
               onMapClick={placingForId ? dropPin : undefined}
+              pinIcons={mapSettings?.icons ?? DEFAULT_MAP_ICONS}
+              pinTheme={MAP_THEMES[mapSettings?.theme ?? "kind"]}
             />
-            )
           ) : (
-            <CareerTimeline
-              roles={visibleRoles}
-              selectedId={selectedId}
-              onSelect={setSelectedId}
+            <WorkMapCanvas
+              roles={mapRoles}
+              home={
+                timelineActive
+                  ? homePinForTimeline(data.residences, timelineReading.home)
+                  : homePin(data.residences, selected)
+              }
+              selectedId={timelineActive ? null : selectedId}
+              holdView={timelineActive}
+              suppressEmpty={timelineActive}
+              onSelect={selectFromMap}
+              onMapClick={placingForId ? dropPin : undefined}
+              pinIcons={mapSettings?.icons ?? DEFAULT_MAP_ICONS}
+              pinTheme={MAP_THEMES[mapSettings?.theme ?? "kind"]}
             />
           )}
+          {timelineActive && timelineMonths.length > 0 ? (
+            <CareerTimelineScrubber
+              frame={timelineReading}
+              month={shownMonth}
+              moments={timelineMoments}
+              months={timelineMonths}
+              onMonth={(next) => {
+                setTimelinePlaying(false);
+                setTimelineMonth(next);
+              }}
+              onPlay={() => {
+                const upcoming = nextCareerMoment(timelineMoments, shownMonth);
+                if (!upcoming) {
+                  const first = timelineMoments[0];
+                  if (first) setTimelineMonth(first.at);
+                }
+                setTimelinePlaying((value) => !value);
+              }}
+              playing={timelinePlaying}
+            />
+          ) : null}
           {placingForId ? (
             <div className="map-placement-banner" role="status">
               <strong>Place this work site</strong>
@@ -667,9 +761,26 @@ function homePin(
   role: WorkMapRole | null,
 ): (WorkMapHome & { id: string }) | null {
   const residence = residenceForMap(residences, role);
-  if (!residence || residence.latitude == null || residence.longitude == null) {
-    return null;
+  return residence ? toHomePin(residence) : null;
+}
+
+function homePinForTimeline(
+  residences: Residence[],
+  home: CareerTimelineResidence | null,
+): (WorkMapHome & { id: string }) | null {
+  if (home) {
+    if (!home.pinned) return null;
+    const residence = residences.find((item) => item.id === home.id);
+    return residence ? toHomePin(residence) : null;
   }
+  return homePin(
+    residences.filter((item) => !careerMonth(item.startDate ?? "")),
+    null,
+  );
+}
+
+function toHomePin(residence: Residence): (WorkMapHome & { id: string }) | null {
+  if (residence.latitude == null || residence.longitude == null) return null;
   const span = residence.endDate
     ? `${residence.startDate ?? "Start"} – ${residence.endDate}`
     : residence.startDate
@@ -852,41 +963,6 @@ function MediaSheet({ role }: { role: WorkMapRole }) {
         <p className="role-sheet-empty">No media attached to this role yet.</p>
       )}
     </>
-  );
-}
-
-function CareerTimeline({
-  roles,
-  selectedId,
-  onSelect,
-}: {
-  roles: WorkMapRole[];
-  selectedId: string | null;
-  onSelect: (id: string) => void;
-}) {
-  return (
-    <div className="career-map-timeline">
-      {roles.map((role) => (
-        <button
-          className={[
-            selectedId === role.id ? "is-selected" : "",
-            selectedId && selectedId !== role.id ? "is-secondary" : "",
-          ]
-            .filter(Boolean)
-            .join(" ")}
-          key={role.id}
-          onClick={() => onSelect(role.id)}
-          type="button"
-        >
-          <time>{formatSpan(role)}</time>
-          <span>
-            <strong>{role.title}</strong>
-            <b>{role.organization}</b>
-            <small>{role.description || role.locationLabel}</small>
-          </span>
-        </button>
-      ))}
-    </div>
   );
 }
 
@@ -1103,10 +1179,37 @@ function visibilityLabel(visibility: WorkMapPublicationSettings["visibility"]) {
   }
 }
 
-function formatSpan(role: WorkMapRole): string {
-  const from = role.startDate.slice(0, 7) || "—";
-  const to = role.isCurrent ? "Present" : role.endDate.slice(0, 7) || "—";
-  return `${from} – ${to}`;
+function currentCareerMonth() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function asTimelineResidence(residence: Residence): CareerTimelineResidence {
+  return {
+    id: residence.id,
+    label: residence.label,
+    address: residence.address,
+    startDate: residence.startDate,
+    endDate: residence.endDate,
+    pinned: residence.latitude != null && residence.longitude != null,
+  };
+}
+
+function asTimelineRole(role: WorkMapRole): CareerTimelineRole {
+  return {
+    id: role.id,
+    title: role.title,
+    organization: role.organization,
+    place: formatHistoryPlace(role),
+    startDate: role.startDate,
+    endDate: role.endDate,
+    isCurrent: role.isCurrent,
+    pinned: role.locations.some(
+      (location) => Number.isFinite(location.latitude) && Number.isFinite(location.longitude),
+    ),
+    milestones: role.details?.milestones ?? [],
+    events: role.details?.events ?? [],
+  };
 }
 
 function sectionAddLabel(key: CareerHistorySectionKey): string {

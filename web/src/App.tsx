@@ -1,14 +1,9 @@
 import { useEffect, useState } from "react";
 import { needsOnboarding } from "@core/onboarding";
 import type { CareerFile } from "@core/career-file";
+import { DevPrototypeScreen, readDevPrototype, readReviewOnboarding } from "./dev-routes";
 import { Home } from "./Home";
 import { Onboarding } from "./Onboarding";
-import { ProfornaChatMock } from "./prototype/ProfornaChatMock";
-import { ProfornaShellMock } from "./prototype/ProfornaShellMock";
-import { CareerLayoutMock } from "./prototype/CareerLayoutMock";
-import { SidebarCareerMock } from "./prototype/SidebarCareerMock";
-import { MapGraphicMock } from "./prototype/MapGraphicMock";
-import { OnboardingMock } from "./prototype/OnboardingMock";
 import type { OnboardingProfileValue } from "./OnboardingProfile";
 
 type Me = {
@@ -23,11 +18,13 @@ export function App() {
   const [career, setCareer] = useState<CareerFile>(EMPTY_CAREER);
   const [error, setError] = useState<string | null>(null);
   const [careerError, setCareerError] = useState<string | null>(null);
-  const [prototype, setPrototype] = useState(readPrototype);
+  const [prototype, setPrototype] = useState(readDevPrototype);
+  const [reviewOnboarding, setReviewOnboarding] = useState(readReviewOnboarding);
 
   useEffect(() => {
     function onHash() {
-      setPrototype(readPrototype());
+      setPrototype(readDevPrototype());
+      setReviewOnboarding(readReviewOnboarding());
     }
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
@@ -62,23 +59,8 @@ export function App() {
     }
   }
 
-  if (prototype === "chat") {
-    return <ProfornaChatMock />;
-  }
-  if (prototype === "shell") {
-    return <ProfornaShellMock />;
-  }
-  if (prototype === "career-layout") {
-    return <CareerLayoutMock />;
-  }
-  if (prototype === "sidebar-career") {
-    return <SidebarCareerMock />;
-  }
-  if (prototype === "map-graphic") {
-    return <MapGraphicMock />;
-  }
-  if (prototype === "onboarding") {
-    return <OnboardingMock />;
+  if (prototype) {
+    return <DevPrototypeScreen kind={prototype} />;
   }
 
   if (error) {
@@ -99,12 +81,14 @@ export function App() {
     );
   }
 
-  if (needsOnboarding(me.profile)) {
+  if (needsOnboarding(me.profile) || reviewOnboarding) {
     return (
       <Onboarding
         initialProfile={me.profile}
         onFinished={(next) => {
           setMe(next);
+          setReviewOnboarding(false);
+          if (readReviewOnboarding()) window.location.hash = "#/history";
           void loadCareer();
         }}
       />
@@ -124,23 +108,4 @@ export function App() {
       }
     />
   );
-}
-
-function readPrototype():
-  | "chat"
-  | "shell"
-  | "career-layout"
-  | "sidebar-career"
-  | "map-graphic"
-  | "onboarding"
-  | null {
-  if (!import.meta.env.DEV) return null;
-  const path = window.location.hash.replace(/^#\/?/, "").split("?")[0];
-  if (path === "prototype/chat") return "chat";
-  if (path === "prototype/shell") return "shell";
-  if (path === "prototype/career-layout") return "career-layout";
-  if (path === "prototype/sidebar-career") return "sidebar-career";
-  if (path === "prototype/map-graphic") return "map-graphic";
-  if (path === "prototype/onboarding") return "onboarding";
-  return null;
 }
