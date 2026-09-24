@@ -8,7 +8,7 @@
     "dev": "concurrently -k \"pnpm:dev:server\" \"pnpm:dev:web\"",
     "dev:server": "tsx watch server/index.ts",
     "dev:web": "vite --config web/vite.config.ts",
-    "dev:app": "tauri dev",
+    "dev:app": "cd web && tauri dev",
     "dev:relay": "tsx watch relay/index.ts",
     "prototype:agentic": "vite --config web/vite.config.ts --host 0.0.0.0 --port 4174",
     "build": "vite build --config web/vite.config.ts",
