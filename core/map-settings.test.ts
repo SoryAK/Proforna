@@ -1,11 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { prepareMapSettings } from "./map-settings";
+import { DEFAULT_MAP_ICONS, prepareMapSettings } from "./map-settings";
 
 describe("prepareMapSettings", () => {
   it("keeps OpenStreetMap when no key is set", () => {
     expect(prepareMapSettings({ provider: "openstreetmap" })).toEqual({
       ok: true,
-      value: { provider: "openstreetmap", googleMapsApiKey: "" },
+      value: {
+        provider: "openstreetmap",
+        googleMapsApiKey: "",
+        theme: "kind",
+        icons: DEFAULT_MAP_ICONS,
+      },
     });
   });
 
@@ -17,7 +22,12 @@ describe("prepareMapSettings", () => {
       }),
     ).toEqual({
       ok: true,
-      value: { provider: "google", googleMapsApiKey: "maps-key" },
+      value: {
+        provider: "google",
+        googleMapsApiKey: "maps-key",
+        theme: "kind",
+        icons: DEFAULT_MAP_ICONS,
+      },
     });
   });
 
@@ -33,5 +43,33 @@ describe("prepareMapSettings", () => {
       ok: false,
       error: "provider-invalid",
     });
+  });
+
+  it("stores a pin theme and a mark the occupant chose", () => {
+    expect(
+      prepareMapSettings({
+        provider: "openstreetmap",
+        theme: "gold",
+        icons: { school: "📚" },
+      }),
+    ).toEqual({
+      ok: true,
+      value: {
+        provider: "openstreetmap",
+        googleMapsApiKey: "",
+        theme: "gold",
+        icons: { ...DEFAULT_MAP_ICONS, school: "📚" },
+      },
+    });
+  });
+
+  it("rejects a theme or mark that cannot be drawn", () => {
+    expect(prepareMapSettings({ provider: "openstreetmap", theme: "neon" })).toEqual({
+      ok: false,
+      error: "theme-invalid",
+    });
+    expect(
+      prepareMapSettings({ provider: "openstreetmap", icons: { job: "<b>x</b>" } }),
+    ).toEqual({ ok: false, error: "icon-invalid" });
   });
 });

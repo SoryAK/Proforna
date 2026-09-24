@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { roleCoverPhoto, type WorkMapRole } from "@core/work-map";
+import type { MapPinIcons, MapPinTheme } from "@core/map-settings";
+import { pinFill, pinIcon, rolePinHtml } from "./work-map-pin";
 import type { WorkMapHome } from "./WorkMapCanvas";
 import { loadGoogleMaps } from "./google-maps";
 
@@ -17,6 +19,10 @@ export function GoogleWorkMap({
   selectedId,
   onSelect,
   onMapClick,
+  holdView = false,
+  suppressEmpty = false,
+  pinTheme,
+  pinIcons,
 }: {
   apiKey: string;
   roles: WorkMapRole[];
@@ -24,6 +30,10 @@ export function GoogleWorkMap({
   selectedId: string | null;
   onSelect: (id: string) => void;
   onMapClick?: (latitude: number, longitude: number) => void;
+  holdView?: boolean;
+  suppressEmpty?: boolean;
+  pinTheme: MapPinTheme;
+  pinIcons: MapPinIcons;
 }) {
   const node = useRef<HTMLDivElement>(null);
   const mapRef = useRef<GoogleMapHandle | null>(null);
@@ -56,6 +66,7 @@ export function GoogleWorkMap({
   onSelectRef.current = onSelect;
   onMapClickRef.current = onMapClick;
   const layout = JSON.stringify({
+    holdView,
     selectedId,
     home: home ? [home.latitude, home.longitude, home.label, home.detail ?? ""] : null,
     points: points.map((point) => [
@@ -66,8 +77,15 @@ export function GoogleWorkMap({
       point.role.isCurrent,
       point.role.organization,
       point.role.title,
+      point.role.kind,
+      point.role.startDate,
+      point.role.endDate,
       roleCoverPhoto(point.role.media)?.url ?? "",
     ]),
+    pins: {
+      theme: pinTheme,
+      icons: pinIcons,
+    },
   });
 
   useEffect(() => {
@@ -85,8 +103,15 @@ export function GoogleWorkMap({
         fullscreenControl: false,
       });
     mapRef.current = map;
-    const drawn = drawMarkers(map, maps, points, home ?? null, selectedId, (id) =>
-      onSelectRef.current(id),
+    const drawn = drawMarkers(
+      map,
+      maps,
+      points,
+      home ?? null,
+      selectedId,
+      pinTheme,
+      pinIcons,
+      (id) => onSelectRef.current(id),
     );
     const click = onMapClickRef.current
       ? map.addListener("click", (event: { latLng?: { lat: () => number; lng: () => number } }) => {
@@ -96,7 +121,7 @@ export function GoogleWorkMap({
           place(latLng.lat(), latLng.lng());
         })
       : null;
-    fitMap(map, maps, points, home ?? null, selectedId);
+    if (!holdView) fitMap(map, maps, points, home ?? null, selectedId);
     return () => {
       click?.remove();
       drawn.hideTip();
@@ -113,7 +138,7 @@ export function GoogleWorkMap({
           <span>Check the key in Settings. The Maps JavaScript API has to be enabled.</span>
         </div>
       ) : null}
-      {status === "ready" && points.length === 0 ? (
+      {status === "ready" && points.length === 0 && !suppressEmpty ? (
         <div className="work-map-unmapped">
           <strong>Your history is ready to map.</strong>
           <span>Select a role and add its first work site.</span>
@@ -161,7 +186,10 @@ declare global {
 
 type GoogleOverlay = {
   setMap: (map: GoogleMapHandle | null) => void;
-  getPanes: () => { floatPane: HTMLElement } | null;
+  getPanes: () => {
+    floatPane: HTMLElement;
+    overlayMouseTarget: HTMLElement;
+  } | null;
   getProjection: () => {
     fromLatLngToDivPixel: (position: { lat: number; lng: number }) => { x: number; y: number } | null;
   } | null;
@@ -176,35 +204,13 @@ function drawMarkers(
   points: MapPoint[],
   home: WorkMapHome | null,
   selectedId: string | null,
+  pinTheme: MapPinTheme,
+  pinIcons: MapPinIcons,
   onSelect: (id: string) => void,
 ) {
   const markers: GoogleMarker[] = [];
   const tip = mountTip(map, maps);
-  for (const point of points) {
-    const focused = selectedId === point.role.id;
-    const secondary = Boolean(selectedId) && !focused;
-    const marker = new maps.Marker({
-      map,
-      position: { lat: point.latitude, lng: point.longitude },
-      title: point.role.organization || point.role.title,
-      icon: {
-        path: maps.SymbolPath.CIRCLE,
-        scale: focused ? 12 : secondary ? 6 : 8,
-        fillColor: point.role.isCurrent ? "#c27b2b" : "#8d6b48",
-        fillOpacity: secondary ? 0.28 : 1,
-        strokeColor: focused ? "#f2d19b" : "#1a1510",
-        strokeWeight: focused ? 3 : 2,
-      },
-    });
-    const cover = roleCoverPhoto(point.role.media);
-    const html = tipHtml(point, cover?.url);
-    marker.addListener("mouseover", () =>
-      tip.show({ lat: point.latitude, lng: point.longitude }, html),
-    );
-    marker.addListener("mouseout", () => tip.hide());
-    marker.addListener("click", () => onSelect(point.role.id));
-    markers.push(marker);
-  }
+  const pins = mountRolePins(map, maps, points, selectedId, pinTheme, pinIcons, onSelect, tip);
   if (home) {
     const marker = new maps.Marker({
       map,
@@ -224,7 +230,7 @@ function drawMarkers(
     marker.addListener("mouseout", () => tip.hide());
     markers.push(marker);
   }
-  return { markers, hideTip: () => tip.destroy() };
+  return { markers, hideTip: () => { tip.destroy(); pins.destroy(); } };
 }
 
 function fitMap(
@@ -308,6 +314,75 @@ function escapeHtml(value: string) {
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;");
+}
+
+function mountRolePins(
+  map: GoogleMapHandle,
+  maps: GoogleMapsApi,
+  points: MapPoint[],
+  selectedId: string | null,
+  pinTheme: MapPinTheme,
+  pinIcons: MapPinIcons,
+  onSelect: (id: string) => void,
+  tip: { show: (position: { lat: number; lng: number }, html: string) => void; hide: () => void },
+) {
+  const overlay = new maps.OverlayView();
+  const nodes = points.map((point) => {
+    const focused = selectedId === point.role.id;
+    const secondary = Boolean(selectedId) && !focused;
+    const pin = rolePinHtml({
+      kind: point.role.kind,
+      icon: pinIcon(pinIcons, point.role.kind),
+      fill: pinFill(pinTheme, point.role.kind),
+      current: point.role.isCurrent,
+      focused,
+      secondary,
+      startDate: point.role.startDate,
+      endDate: point.role.endDate,
+      ring: pinTheme.ring,
+      currentRing: pinTheme.currentRing,
+    });
+    const node = document.createElement("div");
+    node.style.position = "absolute";
+    node.style.width = `${pin.size}px`;
+    node.style.height = `${pin.size}px`;
+    node.style.transform = "translate(-50%, -50%)";
+    node.style.zIndex = focused ? "3" : "1";
+    node.style.cursor = "pointer";
+    node.title = point.role.organization || point.role.title;
+    node.innerHTML = pin.html;
+    const cover = roleCoverPhoto(point.role.media);
+    const html = tipHtml(point, cover?.url);
+    node.addEventListener("mouseenter", () =>
+      tip.show({ lat: point.latitude, lng: point.longitude }, html),
+    );
+    node.addEventListener("mouseleave", () => tip.hide());
+    node.addEventListener("click", () => onSelect(point.role.id));
+    return { node, point };
+  });
+  overlay.onAdd = () => {
+    const pane = overlay.getPanes()?.overlayMouseTarget;
+    if (!pane) return;
+    for (const item of nodes) pane.appendChild(item.node);
+  };
+  overlay.draw = () => {
+    const projection = overlay.getProjection();
+    if (!projection) return;
+    for (const item of nodes) {
+      const pixel = projection.fromLatLngToDivPixel({
+        lat: item.point.latitude,
+        lng: item.point.longitude,
+      });
+      if (!pixel) continue;
+      item.node.style.left = `${pixel.x}px`;
+      item.node.style.top = `${pixel.y}px`;
+    }
+  };
+  overlay.onRemove = () => {
+    for (const item of nodes) item.node.remove();
+  };
+  overlay.setMap(map);
+  return { destroy: () => overlay.setMap(null) };
 }
 
 function homeIconUrl() {

@@ -538,6 +538,8 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
         const messages: Record<string, string> = {
           "provider-invalid": "Choose OpenStreetMap or Google Maps.",
           "key-required": "Google Maps needs your API key.",
+          "theme-invalid": "Choose a map theme.",
+          "icon-invalid": "Choose a short mark for each kind.",
         };
         return c.json({ error: messages[err.code] ?? "Could not save." }, 400);
       }

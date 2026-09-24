@@ -503,6 +503,13 @@ export function openDatabase(path: string): DatabaseSync {
     "INTEGER NOT NULL DEFAULT 0",
   );
   addColumnIfMissing(db, "opportunities", "contact_id", "TEXT");
+  addColumnIfMissing(db, "map_settings", "pin_theme", "TEXT NOT NULL DEFAULT 'kind'");
+  addColumnIfMissing(
+    db,
+    "map_settings",
+    "pin_icons_json",
+    "TEXT NOT NULL DEFAULT '{}'",
+  );
   return db;
 }
 
