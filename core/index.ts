@@ -10,6 +10,15 @@ export {
   type OnboardingProfile,
 } from "./onboarding";
 export {
+  keptOnboardingHistory,
+  onboardingCheckItems,
+  profileAfterOnboarding,
+  ONBOARDING_NO_PLACE,
+  type OnboardingCheckItem,
+  type OnboardingLinkAnswer,
+  type OnboardingPlaceAnswer,
+} from "./onboarding-review";
+export {
   PROFILE_AVATAR_MAX_BYTES,
   PROFILE_AVATAR_TYPES,
   avatarExtension,

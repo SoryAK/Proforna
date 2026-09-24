@@ -1,23 +1,25 @@
 import { useEffect, useRef, useState } from "react";
-import { CircleMarker, MapContainer, TileLayer, useMap, useMapEvents } from "react-leaflet";
-import { formatCareerSpan } from "@core/career-file";
 import { isHttpUrl, OPENAI_BASE_URL, type ModelHosting } from "@core/model-connection";
 import {
   planModelOnboarding,
   presentModelId,
   type LocalProbeResult,
 } from "@core/model-onboarding";
-import { prepareProfile, type ProfileFields } from "@core/profile";
 import {
-  fillProfileFromExtract,
-  splitPlaceLabel,
-  type ExtractedJob,
-  type ExtractedResume,
-  type ExtractedSchool,
-} from "@core/resume-extract";
+  keptOnboardingHistory,
+  onboardingCheckItems,
+  profileAfterOnboarding,
+  type OnboardingCheckItem,
+  type OnboardingLinkAnswer,
+  type OnboardingPlaceAnswer,
+} from "@core/onboarding-review";
+import { prepareProfile, type ProfileFields } from "@core/profile";
+import { splitPlaceLabel, type ExtractedResume } from "@core/resume-extract";
+import { AddressStep } from "./OnboardingAddress";
+import { RoleCheck } from "./OnboardingCheck";
+import { LinksStep } from "./OnboardingLinks";
 import type { OnboardingProfileValue } from "./OnboardingProfile";
-import { reversePlace, searchPlaces, type PlaceHit } from "./place-search";
-import "leaflet/dist/leaflet.css";
+import { YesNo } from "./onboarding-offer";
 import "./onboarding.css";
 
 type Me = {
@@ -25,19 +27,16 @@ type Me = {
   profile: OnboardingProfileValue & { onboardingCompletedAt: string | null };
 };
 
-type Beat = "name" | "model" | "file" | "address" | "links" | "check" | "done";
+type OnboardingStep = "name" | "model" | "file" | "address" | "links" | "check" | "done";
 
-type CheckItem = {
-  source: "job" | "school";
-  sourceIndex: number;
-  kind: "Job" | "School";
-  org: string;
-  title: string;
-  place: string;
-  span: string;
-  lines: string[];
-  lat: number | null;
-  lng: number | null;
+const STEP_INDEX: Record<OnboardingStep, number> = {
+  name: 0,
+  model: 1,
+  file: 2,
+  address: 3,
+  links: 4,
+  check: 5,
+  done: 5,
 };
 
 const STEPS = ["Name", "Model", "File", "Address", "Links", "Check"] as const;
@@ -52,12 +51,12 @@ export function Onboarding({
   const split = splitName(initialProfile.fullName);
   const [firstName, setFirstName] = useState(split.first);
   const [lastName, setLastName] = useState(split.last);
-  const [address, setAddress] = useState("");
-  const [city, setCity] = useState("");
-  const [stateName, setStateName] = useState("");
-  const [linkedin, setLinkedin] = useState("");
-  const [github, setGithub] = useState("");
-  const [website, setWebsite] = useState("");
+  const [place, setPlace] = useState<OnboardingPlaceAnswer>({ street: "", city: "", state: "" });
+  const [links, setLinks] = useState<OnboardingLinkAnswer>({
+    linkedinUrl: "",
+    githubUrl: "",
+    portfolioUrl: "",
+  });
   const [addressDecision, setAddressDecision] = useState<"use" | "keep" | null>(null);
   const [linksDecision, setLinksDecision] = useState<"use" | "keep" | null>(null);
   const [localProbe, setLocalProbe] = useState<"pending" | "ready">("pending");
@@ -72,9 +71,9 @@ export function Onboarding({
   const [cloudKey, setCloudKey] = useState("");
   const [selected, setSelected] = useState("");
   const [file, setFile] = useState<File | null>(null);
-  const [beat, setBeat] = useState<Beat>("name");
+  const [step, setStep] = useState<OnboardingStep>("name");
   const [index, setIndex] = useState(0);
-  const [items, setItems] = useState<CheckItem[]>([]);
+  const [items, setItems] = useState<OnboardingCheckItem[]>([]);
   const [pinPlaces, setPinPlaces] = useState<"each" | "skip" | null>(null);
   const [extracted, setExtracted] = useState<ExtractedResume | null>(null);
   const [extracting, setExtracting] = useState(false);
@@ -142,7 +141,7 @@ export function Onboarding({
     setError(null);
     setPinPlaces(null);
     setExtracting(false);
-    if (beat === "address" || beat === "links" || beat === "check" || beat === "done") setBeat("file");
+    if (step === "address" || step === "links" || step === "check" || step === "done") setStep("file");
   }
 
   async function readFile() {
@@ -180,31 +179,31 @@ export function Onboarding({
         setError(body.error ?? "Could not read the resume.");
         return;
       }
-      const next = toCheckItems(body.data);
-      const place = splitPlaceLabel(body.data.profile.location);
+      const next = onboardingCheckItems(body.data);
+      const foundPlace = splitPlaceLabel(body.data.profile.location);
       const foundProfile = Boolean(
-        place.city ||
+        foundPlace.city ||
           body.data.profile.linkedinUrl.trim() ||
           body.data.profile.githubUrl.trim() ||
           body.data.profile.website.trim(),
       );
-      if (next.length === 0 && !foundProfile) {
-        setError("The model did not find jobs, schools, an address, or links in that file.");
+      if (next.length === 0 && body.data.education.length === 0 && !foundProfile) {
+        setError("The model did not find roles, schools, an address, or links in that file.");
         return;
       }
       setExtracted(body.data);
-      setAddress("");
-      setCity(place.city);
-      setStateName(place.state);
-      setLinkedin(httpOrEmpty(body.data.profile.linkedinUrl));
-      setGithub(httpOrEmpty(body.data.profile.githubUrl));
-      setWebsite(httpOrEmpty(body.data.profile.website));
+      setPlace({ street: "", city: foundPlace.city, state: foundPlace.state });
+      setLinks({
+        linkedinUrl: httpOrEmpty(body.data.profile.linkedinUrl),
+        githubUrl: httpOrEmpty(body.data.profile.githubUrl),
+        portfolioUrl: httpOrEmpty(body.data.profile.website),
+      });
       setAddressDecision(null);
       setLinksDecision(null);
       setItems(next);
       setPinPlaces(null);
       setIndex(0);
-      setBeat("address");
+      setStep("address");
     } catch (err) {
       if (abort.signal.aborted) return;
       setError(err instanceof Error ? err.message : "Could not read the resume.");
@@ -220,23 +219,13 @@ export function Onboarding({
     setBusy(true);
     setError(null);
     try {
-      const base = extracted
-        ? fillProfileFromExtract(profileRef.current, extracted.profile)
-        : profileRef.current;
-      const draft: ProfileFields = {
-        ...base,
+      const draft = profileAfterOnboarding({
+        current: profileRef.current,
+        extracted: extracted?.profile ?? null,
         fullName: `${firstName} ${lastName}`.replace(/\s+/g, " ").trim(),
-      };
-      if (addressDecision === "use") {
-        if (address.trim()) draft.address = address.trim();
-        draft.city = city.trim();
-        draft.state = stateName.trim();
-      }
-      if (linksDecision === "use") {
-        draft.linkedinUrl = linkedin.trim();
-        draft.githubUrl = github.trim();
-        draft.portfolioUrl = website.trim();
-      }
+        place: addressDecision === "use" ? place : null,
+        links: linksDecision === "use" ? links : null,
+      });
       const prepared = prepareProfile(draft);
       if (!prepared.ok) {
         setError(
@@ -270,8 +259,8 @@ export function Onboarding({
         resumeId = stored.resume?.id;
       }
       if (extracted) {
-        const history = keptHistory(extracted, items);
-        if (history.experience.length > 0 || history.education.length > 0 || history.skills.length > 0) {
+        const history = keptOnboardingHistory(extracted, items);
+        if (history.experience.length > 0 || history.education.length > 0) {
           const saved = await fetch("/api/history", {
             method: "POST",
             headers: { "content-type": "application/json" },
@@ -298,9 +287,9 @@ export function Onboarding({
   return (
     <div className="onboarding">
       <div className="onboarding-stage">
-        <WashProgress beat={beat} />
-        <section className="onboarding-card" data-wide={beat === "check" ? "true" : undefined}>
-          {beat === "name" ? (
+        <WashProgress step={step} />
+        <section className="onboarding-card" data-wide={step === "check" ? "true" : undefined}>
+          {step === "name" ? (
             <>
               <p className="onboarding-kicker">Name</p>
               <h1>
@@ -330,7 +319,7 @@ export function Onboarding({
                   type="button"
                   className="onboarding-btn onboarding-btn-solid"
                   disabled={!firstName.trim() || !lastName.trim()}
-                  onClick={() => setBeat("model")}
+                  onClick={() => setStep("model")}
                 >
                   Continue
                 </button>
@@ -338,7 +327,7 @@ export function Onboarding({
             </>
           ) : null}
 
-          {beat === "model" ? (
+          {step === "model" ? (
             <>
               <p className="onboarding-kicker">Model</p>
               <h1>
@@ -449,7 +438,7 @@ export function Onboarding({
                 </p>
               ) : null}
               <div className="onboarding-actions" data-split="true">
-                <button type="button" className="onboarding-btn onboarding-btn-ghost" onClick={() => setBeat("name")}>
+                <button type="button" className="onboarding-btn onboarding-btn-ghost" onClick={() => setStep("name")}>
                   Back
                 </button>
                 <button
@@ -458,7 +447,7 @@ export function Onboarding({
                   disabled={!modelReady}
                   onClick={() => {
                     setError(null);
-                    setBeat("file");
+                    setStep("file");
                   }}
                 >
                   Continue
@@ -467,7 +456,7 @@ export function Onboarding({
             </>
           ) : null}
 
-          {beat === "file" ? (
+          {step === "file" ? (
             <>
               <p className="onboarding-kicker">File</p>
               <h1>
@@ -512,7 +501,7 @@ export function Onboarding({
                     <button
                       type="button"
                       className="onboarding-btn onboarding-btn-ghost"
-                      onClick={() => setBeat("model")}
+                      onClick={() => setStep("model")}
                     >
                       Back
                     </button>
@@ -523,7 +512,7 @@ export function Onboarding({
                         onClick={() => {
                           setItems([]);
                           setExtracted(null);
-                          setBeat("done");
+                          setStep("done");
                         }}
                       >
                         Continue
@@ -544,47 +533,39 @@ export function Onboarding({
             </>
           ) : null}
 
-          {beat === "address" ? (
+          {step === "address" ? (
             <AddressStep
-              address={address}
-              city={city}
-              stateName={stateName}
-              onAddress={setAddress}
-              onCity={setCity}
-              onState={setStateName}
-              onBack={() => setBeat("file")}
-              onContinue={(kept) => {
-                setAddressDecision(kept ? "keep" : "use");
-                setBeat("links");
+              place={place}
+              onPlace={setPlace}
+              onBack={() => setStep("file")}
+              onContinue={(skipped) => {
+                setAddressDecision(skipped ? "keep" : "use");
+                setStep("links");
               }}
             />
           ) : null}
 
-          {beat === "links" ? (
+          {step === "links" ? (
             <LinksStep
-              linkedin={linkedin}
-              github={github}
-              website={website}
-              onLinkedin={setLinkedin}
-              onGithub={setGithub}
-              onWebsite={setWebsite}
-              onBack={() => setBeat("address")}
-              onContinue={(kept) => {
-                setLinksDecision(kept ? "keep" : "use");
-                setBeat(items.length > 0 ? "check" : "done");
+              links={links}
+              onLinks={setLinks}
+              onBack={() => setStep("address")}
+              onContinue={(skipped) => {
+                setLinksDecision(skipped ? "keep" : "use");
+                setStep(items.length > 0 ? "check" : "done");
               }}
             />
           ) : null}
 
-          {beat === "check" && items[index] ? (
+          {step === "check" && items[index] ? (
             <RoleCheck
               items={items}
               index={index}
               pinPlaces={pinPlaces}
               onPinPlaces={setPinPlaces}
-              onPlace={(at, place, lat, lng) => {
+              onPlace={(at, label, lat, lng) => {
                 setItems((current) =>
-                  current.map((row, rowIndex) => (rowIndex === at ? { ...row, place, lat, lng } : row)),
+                  current.map((row, rowIndex) => (rowIndex === at ? { ...row, place: label, lat, lng } : row)),
                 );
               }}
               onDrop={() => {
@@ -592,23 +573,23 @@ export function Onboarding({
                 setItems(next);
                 if (next.length === 0) {
                   setIndex(0);
-                  setBeat("done");
+                  setStep("done");
                   return;
                 }
                 if (index >= next.length) setIndex(next.length - 1);
               }}
               onBack={() => {
-                if (index === 0) setBeat("links");
+                if (index === 0) setStep("links");
                 else setIndex((current) => current - 1);
               }}
               onNext={() => {
-                if (index + 1 >= items.length) setBeat("done");
+                if (index + 1 >= items.length) setStep("done");
                 else setIndex((current) => current + 1);
               }}
             />
           ) : null}
 
-          {beat === "done" ? (
+          {step === "done" ? (
             <>
               <p className="onboarding-kicker">Ready</p>
               <h1>
@@ -618,9 +599,11 @@ export function Onboarding({
                 {file && wantsModel === false
                   ? `${file.name} is here and was not read. Add roles from Career History when you are ready.`
                   : items.length === 0
-                    ? file
-                      ? "Nothing was kept from the file. Add roles from Career History when you are ready."
-                      : "No resume was added. Add roles from Career History when you are ready."
+                    ? extracted && extracted.education.length > 0
+                      ? "Schools from the file are kept. Add roles from Career History when you are ready."
+                      : file
+                        ? "Nothing was kept from the file. Add roles from Career History when you are ready."
+                        : "No resume was added. Add roles from Career History when you are ready."
                     : `${items.length} roles are checked.`}
               </p>
               {error ? (
@@ -633,7 +616,7 @@ export function Onboarding({
                   type="button"
                   className="onboarding-btn onboarding-btn-ghost"
                   disabled={busy}
-                  onClick={() => setBeat(items.length > 0 ? "check" : wantsModel === false ? "file" : "links")}
+                  onClick={() => setStep(items.length > 0 ? "check" : wantsModel === false ? "file" : "links")}
                 >
                   Back
                 </button>
@@ -654,42 +637,20 @@ export function Onboarding({
   );
 }
 
-function WashProgress({ beat }: { beat: Beat }) {
-  const current =
-    beat === "name" ? 0 : beat === "model" ? 1 : beat === "file" ? 2 : beat === "address" ? 3 : beat === "links" ? 4 : 5;
+function WashProgress({ step }: { step: OnboardingStep }) {
+  const current = STEP_INDEX[step];
   return (
     <ol className="onboarding-steps" aria-label="Onboarding progress">
-      {STEPS.map((label, step) => (
+      {STEPS.map((label, index) => (
         <li
           key={label}
-          data-state={beat === "done" || step < current ? "done" : step === current ? "current" : "upcoming"}
+          data-state={step === "done" || index < current ? "done" : index === current ? "current" : "upcoming"}
         >
           <span className="onboarding-steps-dot" aria-hidden="true" />
           {label}
         </li>
       ))}
     </ol>
-  );
-}
-
-function YesNo({
-  value,
-  onYes,
-  onNo,
-}: {
-  value: boolean | null;
-  onYes: () => void;
-  onNo: () => void;
-}) {
-  return (
-    <div className="onboarding-chips">
-      <button type="button" aria-pressed={value === true} onClick={onYes}>
-        Yes
-      </button>
-      <button type="button" aria-pressed={value === false} onClick={onNo}>
-        No
-      </button>
-    </div>
   );
 }
 
@@ -794,622 +755,6 @@ function ReadProgress({ model }: { model: string }) {
       <p className="onboarding-quiet">{clock} — still working. A resume can take a minute.</p>
     </div>
   );
-}
-
-function AddressStep({
-  address,
-  city,
-  stateName,
-  onAddress,
-  onCity,
-  onState,
-  onBack,
-  onContinue,
-}: {
-  address: string;
-  city: string;
-  stateName: string;
-  onAddress: (value: string) => void;
-  onCity: (value: string) => void;
-  onState: (value: string) => void;
-  onBack: () => void;
-  onContinue: (kept: boolean) => void;
-}) {
-  const [fromFile] = useState(() => Boolean(address.trim() || city.trim() || stateName.trim()));
-  const [give, setGive] = useState<boolean | null>(fromFile ? true : null);
-  const ready = give === false || (give === true && Boolean(address.trim() || city.trim()));
-  return (
-    <>
-      <p className="onboarding-kicker">Address</p>
-      {fromFile ? (
-        <>
-          <h1>
-            Is this <em>address</em> right?
-          </h1>
-          <p className="onboarding-lead">From the resume. Change anything that is wrong.</p>
-          <AddressFields
-            address={address}
-            city={city}
-            stateName={stateName}
-            onAddress={onAddress}
-            onCity={onCity}
-            onState={onState}
-          />
-        </>
-      ) : (
-        <>
-          <h1>
-            Add your <em>address?</em>
-          </h1>
-          <p className="onboarding-lead">Nothing was in the file.</p>
-          <YesNo value={give} onYes={() => setGive(true)} onNo={() => setGive(false)} />
-          {give === true ? (
-            <AddressFields
-              address={address}
-              city={city}
-              stateName={stateName}
-              onAddress={onAddress}
-              onCity={onCity}
-              onState={onState}
-            />
-          ) : null}
-        </>
-      )}
-      <div className="onboarding-actions" data-split="true">
-        <button type="button" className="onboarding-btn onboarding-btn-ghost" onClick={onBack}>
-          Back
-        </button>
-        <button
-          type="button"
-          className="onboarding-btn onboarding-btn-solid"
-          disabled={!ready}
-          onClick={() => onContinue(give === false)}
-        >
-          {fromFile ? "Looks right" : "Continue"}
-        </button>
-      </div>
-    </>
-  );
-}
-
-function AddressFields({
-  address,
-  city,
-  stateName,
-  onAddress,
-  onCity,
-  onState,
-}: {
-  address: string;
-  city: string;
-  stateName: string;
-  onAddress: (value: string) => void;
-  onCity: (value: string) => void;
-  onState: (value: string) => void;
-}) {
-  const [hits, setHits] = useState<PlaceHit[]>([]);
-  const applied = useRef("");
-  useEffect(() => {
-    const query = address.trim();
-    if (query.length < 3 || query === applied.current) {
-      setHits([]);
-      return;
-    }
-    let cancel = false;
-    const timer = window.setTimeout(() => {
-      void searchPlaces(query).then((result) => {
-        if (!cancel) setHits(result?.places.slice(0, 5) ?? []);
-      });
-    }, 280);
-    return () => {
-      cancel = true;
-      window.clearTimeout(timer);
-    };
-  }, [address]);
-
-  function choose(hit: PlaceHit) {
-    const parts = hit.address
-      .split(",")
-      .map((part) => part.trim())
-      .filter(Boolean);
-    if (/^(usa|united states)$/i.test(parts[parts.length - 1] ?? "")) parts.pop();
-    const street = parts[0] ?? hit.address;
-    applied.current = street;
-    onAddress(street);
-    onCity(parts[1] ?? "");
-    onState((parts[2] ?? "").replace(/\s+\d[\d\s-]*$/, "").trim());
-    setHits([]);
-  }
-
-  return (
-    <>
-      <label className="onboarding-field">
-        <span>Street</span>
-        <input
-          value={address}
-          autoComplete="off"
-          role="combobox"
-          aria-expanded={hits.length > 0}
-          aria-autocomplete="list"
-          onChange={(event) => {
-            applied.current = "";
-            onAddress(event.target.value);
-          }}
-        />
-      </label>
-      {hits.length > 0 ? (
-        <ul className="onboarding-suggest" role="listbox">
-          {hits.map((hit) => (
-            <li key={`${hit.address}-${hit.latitude}`}>
-              <button type="button" onClick={() => choose(hit)}>
-                {hit.address}
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-      <div className="onboarding-field-row">
-        <label className="onboarding-field">
-          <span>City</span>
-          <input value={city} autoComplete="address-level2" onChange={(event) => onCity(event.target.value)} />
-        </label>
-        <label className="onboarding-field">
-          <span>State</span>
-          <input value={stateName} autoComplete="address-level1" onChange={(event) => onState(event.target.value)} />
-        </label>
-      </div>
-    </>
-  );
-}
-
-function LinksStep({
-  linkedin,
-  github,
-  website,
-  onLinkedin,
-  onGithub,
-  onWebsite,
-  onBack,
-  onContinue,
-}: {
-  linkedin: string;
-  github: string;
-  website: string;
-  onLinkedin: (value: string) => void;
-  onGithub: (value: string) => void;
-  onWebsite: (value: string) => void;
-  onBack: () => void;
-  onContinue: (kept: boolean) => void;
-}) {
-  const typed = [linkedin, github, website].map((value) => value.trim()).filter(Boolean);
-  const linksReady = typed.every((value) => isHttpUrl(value));
-  const [fromFile] = useState(() => Boolean(linkedin.trim() || github.trim() || website.trim()));
-  const [give, setGive] = useState<boolean | null>(fromFile ? true : null);
-  const ready = give === false || (give === true && typed.length > 0 && linksReady);
-  return (
-    <>
-      <p className="onboarding-kicker">Links</p>
-      {fromFile ? (
-        <>
-          <h1>
-            Are these <em>links</em> right?
-          </h1>
-          <p className="onboarding-lead">From the resume. Change anything that is wrong.</p>
-          <LinkFields
-            linkedin={linkedin}
-            github={github}
-            website={website}
-            onLinkedin={onLinkedin}
-            onGithub={onGithub}
-            onWebsite={onWebsite}
-          />
-          {!linksReady ? <p className="onboarding-quiet">Use an http(s) link.</p> : null}
-        </>
-      ) : (
-        <>
-          <h1>
-            Add LinkedIn, GitHub, <em>or a site?</em>
-          </h1>
-          <p className="onboarding-lead">Nothing was in the file.</p>
-          <YesNo value={give} onYes={() => setGive(true)} onNo={() => setGive(false)} />
-          {give === true ? (
-            <LinkFields
-              linkedin={linkedin}
-              github={github}
-              website={website}
-              onLinkedin={onLinkedin}
-              onGithub={onGithub}
-              onWebsite={onWebsite}
-            />
-          ) : null}
-          {give === true && typed.length > 0 && !linksReady ? (
-            <p className="onboarding-quiet">Use an http(s) link.</p>
-          ) : null}
-        </>
-      )}
-      <div className="onboarding-actions" data-split="true">
-        <button type="button" className="onboarding-btn onboarding-btn-ghost" onClick={onBack}>
-          Back
-        </button>
-        <button
-          type="button"
-          className="onboarding-btn onboarding-btn-solid"
-          disabled={!ready}
-          onClick={() => onContinue(give === false)}
-        >
-          {fromFile ? "Looks right" : "Continue"}
-        </button>
-      </div>
-    </>
-  );
-}
-
-function LinkFields({
-  linkedin,
-  github,
-  website,
-  onLinkedin,
-  onGithub,
-  onWebsite,
-}: {
-  linkedin: string;
-  github: string;
-  website: string;
-  onLinkedin: (value: string) => void;
-  onGithub: (value: string) => void;
-  onWebsite: (value: string) => void;
-}) {
-  return (
-    <>
-      <label className="onboarding-field">
-        <span>LinkedIn</span>
-        <input
-          value={linkedin}
-          autoComplete="url"
-          placeholder="https://www.linkedin.com/in/…"
-          onChange={(event) => onLinkedin(event.target.value)}
-        />
-      </label>
-      <label className="onboarding-field">
-        <span>GitHub</span>
-        <input
-          value={github}
-          autoComplete="url"
-          placeholder="https://github.com/…"
-          onChange={(event) => onGithub(event.target.value)}
-        />
-      </label>
-      <label className="onboarding-field">
-        <span>Site</span>
-        <input
-          value={website}
-          autoComplete="url"
-          placeholder="https://"
-          onChange={(event) => onWebsite(event.target.value)}
-        />
-      </label>
-    </>
-  );
-}
-
-function RoleCheck({
-  items,
-  index,
-  pinPlaces,
-  onPinPlaces,
-  onPlace,
-  onDrop,
-  onBack,
-  onNext,
-}: {
-  items: CheckItem[];
-  index: number;
-  pinPlaces: "each" | "skip" | null;
-  onPinPlaces: (value: "each" | "skip") => void;
-  onPlace: (index: number, place: string, lat: number, lng: number) => void;
-  onDrop: () => void;
-  onBack: () => void;
-  onNext: () => void;
-}) {
-  const item = items[index];
-  const [manual, setManual] = useState(false);
-  useEffect(() => {
-    setManual(false);
-  }, [index, item?.org]);
-  if (!item) return null;
-  const placed = item.lat != null && item.lng != null;
-  const firstUnpinned = items.findIndex((row) => row.lat == null);
-  const ask = pinPlaces === null && index === firstUnpinned;
-  const editing = (pinPlaces === "each" && !placed) || manual;
-  return (
-    <>
-      <p className="onboarding-kicker">
-        Check {index + 1} of {items.length}
-      </p>
-      <h1>
-        Did this get <em>{item.org}</em> right?
-      </h1>
-      <p className="onboarding-meta">
-        <span>
-          {item.kind} · {item.title}
-        </span>
-        {item.span ? <span>{item.span}</span> : null}
-      </p>
-      <div className="onboarding-place">
-        <span className="onboarding-pin" data-set={placed ? "true" : "false"} aria-hidden="true" />
-        <div>
-          <strong>{item.place}</strong>
-          <span>{placed ? "On the map" : "No pin yet"}</span>
-        </div>
-        {!placed && pinPlaces === "skip" && !manual ? (
-          <button type="button" className="onboarding-place-action" onClick={() => setManual(true)}>
-            Add a street
-          </button>
-        ) : null}
-        {placed ? (
-          <button type="button" className="onboarding-place-action" onClick={() => setManual((open) => !open)}>
-            {manual ? "Close" : "Change"}
-          </button>
-        ) : null}
-      </div>
-      {ask ? (
-        <div className="onboarding-pin-ask">
-          <p>Add a street for each role?</p>
-          <YesNo value={null} onYes={() => onPinPlaces("each")} onNo={() => onPinPlaces("skip")} />
-        </div>
-      ) : null}
-      {editing || placed ? (
-        <RolePlacePicker
-          key={`${index}-${item.org}`}
-          seed={item.place}
-          searching={editing}
-          pinned={placed ? [item.lat as number, item.lng as number] : null}
-          onChoose={(place, lat, lng) => {
-            onPlace(index, place, lat, lng);
-            setManual(false);
-          }}
-        />
-      ) : null}
-      <RoleNotes lines={item.lines} />
-      <div className="onboarding-actions" data-split="true">
-        <button type="button" className="onboarding-btn onboarding-btn-ghost" onClick={onBack}>
-          Back
-        </button>
-        <div className="onboarding-action-pair">
-          <button type="button" className="onboarding-btn onboarding-btn-ghost" onClick={onDrop}>
-            Not this one
-          </button>
-          <button type="button" className="onboarding-btn onboarding-btn-solid" onClick={onNext}>
-            Looks right
-          </button>
-        </div>
-      </div>
-    </>
-  );
-}
-
-function RoleNotes({ lines }: { lines: string[] }) {
-  const [open, setOpen] = useState(false);
-  if (lines.length === 0) return <p className="onboarding-quiet">No duties were read from the file.</p>;
-  const long = lines.length > 1 || lines[0].length > 140;
-  return (
-    <div className="onboarding-notes">
-      <p className={open ? "onboarding-quiet" : "onboarding-quiet onboarding-note-clamp"}>{lines[0]}</p>
-      {long ? (
-        <button
-          type="button"
-          className="onboarding-notes-toggle"
-          aria-expanded={open}
-          onClick={() => setOpen((current) => !current)}
-        >
-          {open ? "Hide the notes" : `${lines.length} notes from the file`}
-        </button>
-      ) : null}
-      {open && lines.length > 1 ? (
-        <ul className="onboarding-work">
-          {lines.slice(1).map((line, lineIndex) => (
-            <li key={`${lineIndex}-${line.slice(0, 24)}`}>{line}</li>
-          ))}
-        </ul>
-      ) : null}
-    </div>
-  );
-}
-
-function RolePlacePicker({
-  seed,
-  searching,
-  pinned,
-  onChoose,
-}: {
-  seed: string;
-  searching: boolean;
-  pinned: [number, number] | null;
-  onChoose: (place: string, lat: number, lng: number) => void;
-}) {
-  const [query, setQuery] = useState("");
-  const [hits, setHits] = useState<PlaceHit[]>([]);
-  const [center, setCenter] = useState<[number, number] | null>(pinned);
-  const [looking, setLooking] = useState(false);
-  useEffect(() => {
-    if (pinned) return;
-    const place = seed.trim();
-    if (place.length < 3 || place === "No place yet") return;
-    let cancel = false;
-    void searchPlaces(place).then((result) => {
-      const hit = result?.places[0];
-      if (!cancel && hit) setCenter([hit.latitude, hit.longitude]);
-    });
-    return () => {
-      cancel = true;
-    };
-  }, [pinned, seed]);
-  useEffect(() => {
-    const text = query.trim();
-    if (text.length < 3) {
-      setHits([]);
-      return;
-    }
-    let cancel = false;
-    const timer = window.setTimeout(() => {
-      void searchPlaces(text).then((result) => {
-        if (!cancel) setHits(result?.places.slice(0, 5) ?? []);
-      });
-    }, 280);
-    return () => {
-      cancel = true;
-      window.clearTimeout(timer);
-    };
-  }, [query]);
-
-  function choose(hit: PlaceHit) {
-    setHits([]);
-    setQuery("");
-    setCenter([hit.latitude, hit.longitude]);
-    onChoose(streetLabel(hit.address), hit.latitude, hit.longitude);
-  }
-
-  async function drop(lat: number, lng: number) {
-    setLooking(true);
-    setCenter([lat, lng]);
-    setHits([]);
-    const result = await reversePlace(lat, lng);
-    setLooking(false);
-    const hit = result?.place ?? result?.places[0];
-    if (!hit) return;
-    onChoose(streetLabel(hit.address || hit.label), hit.latitude, hit.longitude);
-  }
-
-  return (
-    <div>
-      {searching ? (
-        <>
-          <label className="onboarding-field">
-            <span>Street or place</span>
-            <input
-              value={query}
-              autoComplete="off"
-              placeholder={seed === "No place yet" ? "Street, city" : seed}
-              role="combobox"
-              aria-expanded={hits.length > 0}
-              aria-autocomplete="list"
-              onChange={(event) => setQuery(event.target.value)}
-            />
-          </label>
-          {hits.length > 0 ? (
-            <ul className="onboarding-suggest" role="listbox">
-              {hits.map((hit) => (
-                <li key={`${hit.address}-${hit.latitude}`}>
-                  <button type="button" onClick={() => choose(hit)}>
-                    {hit.address}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          ) : null}
-          <p className="onboarding-quiet">Type a street, or click the map.</p>
-        </>
-      ) : (
-        <p className="onboarding-quiet">Click the map to move it.</p>
-      )}
-      <div className="onboarding-role-map">
-        <MapContainer center={center ?? [39.8283, -98.5795]} zoom={center ? 12 : 4} scrollWheelZoom={false}>
-          <TileLayer attribution="&copy; OpenStreetMap" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-          <MapFrame center={center} />
-          <MapDrop onDrop={(lat, lng) => void drop(lat, lng)} />
-          {center ? (
-            <CircleMarker
-              center={center}
-              radius={8}
-              pathOptions={{ color: "#f2d19b", fillColor: "#c4a574", fillOpacity: 1, weight: 2 }}
-            />
-          ) : null}
-        </MapContainer>
-      </div>
-      {looking ? <p className="onboarding-quiet">Looking up that spot.</p> : null}
-    </div>
-  );
-}
-
-function MapFrame({ center }: { center: [number, number] | null }) {
-  const map = useMap();
-  useEffect(() => {
-    if (!center) return;
-    map.setView(center, 12);
-  }, [map, center]);
-  return null;
-}
-
-function MapDrop({ onDrop }: { onDrop: (lat: number, lng: number) => void }) {
-  useMapEvents({
-    click(event) {
-      onDrop(event.latlng.lat, event.latlng.lng);
-    },
-  });
-  return null;
-}
-
-function keptHistory(extracted: ExtractedResume, items: CheckItem[]): ExtractedResume {
-  const experience = items
-    .filter((item) => item.source === "job")
-    .map((item) => {
-      const job = extracted.experience[item.sourceIndex];
-      if (!job) return null;
-      const place = item.place === "No place yet" ? job.location : item.place;
-      const site =
-        item.lat != null && item.lng != null
-          ? { label: place, address: place, latitude: item.lat, longitude: item.lng }
-          : job.site;
-      return { ...job, location: place, site };
-    })
-    .filter((job): job is ExtractedJob => job != null);
-  const education = items
-    .filter((item) => item.source === "school")
-    .map((item) => {
-      const school = extracted.education[item.sourceIndex];
-      if (!school) return null;
-      const place = item.place === "No place yet" ? school.location : item.place;
-      return { ...school, location: place };
-    })
-    .filter((school): school is ExtractedSchool => school != null);
-  return { ...extracted, experience, education };
-}
-
-function toCheckItems(data: ExtractedResume): CheckItem[] {
-  const jobs = data.experience.map((job, sourceIndex) => ({
-    source: "job" as const,
-    sourceIndex,
-    kind: "Job" as const,
-    org: job.company || "Untitled role",
-    title: job.title || "Role",
-    place: job.site?.label || job.location || "No place yet",
-    span: formatCareerSpan(job.startDate, job.endDate, job.isCurrent),
-    lines: [...job.achievements, job.description].map((line) => line.trim()).filter(Boolean),
-    lat: job.site?.latitude ?? null,
-    lng: job.site?.longitude ?? null,
-  }));
-  const schools = data.education.map((school, sourceIndex) => ({
-    source: "school" as const,
-    sourceIndex,
-    kind: "School" as const,
-    org: school.institution || "Untitled school",
-    title: [school.degree, school.field].filter(Boolean).join(", ") || "School",
-    place: school.location || "No place yet",
-    span: formatCareerSpan(school.startDate, school.endDate, false),
-    lines: school.description.trim() ? [school.description.trim()] : [],
-    lat: null,
-    lng: null,
-  }));
-  return [...jobs, ...schools];
-}
-
-function streetLabel(address: string): string {
-  const parts = address
-    .split(",")
-    .map((part) => part.trim())
-    .filter(Boolean);
-  if (/^(usa|united states)$/i.test(parts[parts.length - 1] ?? "")) parts.pop();
-  return parts.join(", ") || address;
 }
 
 function httpOrEmpty(value: string): string {
