@@ -1,3 +1,22 @@
+export function splitPlaceAddress(address: string): {
+  street: string;
+  city: string;
+  state: string;
+  label: string;
+} {
+  const parts = address
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (/^(usa|united states)$/i.test(parts[parts.length - 1] ?? "")) parts.pop();
+  return {
+    street: parts[0] ?? address,
+    city: parts[1] ?? "",
+    state: (parts[2] ?? "").replace(/\s+\d[\d\s-]*$/, "").trim(),
+    label: parts.join(", ") || address,
+  };
+}
+
 export type PlaceHit = {
   label: string;
   address: string;
