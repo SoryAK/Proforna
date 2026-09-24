@@ -1173,6 +1173,75 @@ button.home-nav-item:focus-visible {
   font-size: 0.88rem;
 }
 
+.map-pin-settings {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0.2rem 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.map-pin-settings legend {
+  margin-bottom: 0.15rem;
+  color: var(--text);
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+.map-theme-row,
+.map-icon-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.map-icon-row > span {
+  flex: 0 0 6.2rem;
+  color: var(--gold-hover);
+  font-size: 0.78rem;
+}
+
+.map-theme,
+.map-icon-choice {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-height: 2rem;
+  padding: 0.2rem 0.5rem;
+  border: 1px solid rgba(199, 164, 123, 0.32);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+}
+
+.map-theme[aria-pressed="true"],
+.map-icon-choice[aria-pressed="true"] {
+  border-color: var(--gold);
+  color: var(--gold-hover);
+}
+
+.map-theme-swatch {
+  display: inline-flex;
+  width: 1.35rem;
+  height: 1.35rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 0.72rem;
+  line-height: 1;
+}
+
+.map-icon-row input {
+  width: 4.2rem;
+  min-height: 2rem;
+  border: 1px solid rgba(199, 164, 123, 0.32);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  text-align: center;
+}
+
 .home-proforna-toggle {
   display: grid;
 }

@@ -217,11 +217,19 @@ export {
   type RoleSpan,
 } from "./residence";
 export {
+  DEFAULT_MAP_ICONS,
   DEFAULT_MAP_SETTINGS,
+  MAP_ICON_CHOICES,
+  MAP_THEMES,
+  parseMapIcons,
   prepareMapSettings,
+  type MapPinIcons,
+  type MapPinKind,
+  type MapPinTheme,
   type MapProvider,
   type MapSettings,
   type MapSettingsError,
+  type MapThemeId,
 } from "./map-settings";
 export {
   EMPTY_WORK_MAP_DETAILS,
@@ -250,3 +258,19 @@ export {
   type WorkMapShare,
   type WorkMapSnapshot,
 } from "./work-map";
+export {
+  careerFrame,
+  careerMoments,
+  careerMonth,
+  careerMonths,
+  careerSpan,
+  nextCareerMoment,
+  residenceAt,
+  rolesActiveAt,
+  rolesStartedBy,
+  type CareerFrame,
+  type CareerMoment,
+  type CareerMomentKind,
+  type CareerTimelineResidence,
+  type CareerTimelineRole,
+} from "./career-timeline";
