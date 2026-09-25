@@ -527,11 +527,19 @@ function OpportunitiesPage() {
     await load();
   }
 
+  async function removeOpportunity(opportunityId: string) {
+    const response = await fetch(`/api/opportunities/${opportunityId}`, {
+      method: "DELETE",
+    });
+    setMessage(response.ok ? "Removed." : "That role could not be removed.");
+    await load();
+  }
+
   async function removeApplication(applicationId: string) {
     const response = await fetch(`/api/applications/${applicationId}`, {
       method: "DELETE",
     });
-    setMessage(response.ok ? "Application removed." : "That application could not be removed.");
+    setMessage(response.ok ? "Removed." : "That application could not be removed.");
     await load();
   }
 
@@ -746,9 +754,18 @@ function OpportunitiesPage() {
                     </button>
                   </div>
                 ) : (
-                  <button onClick={() => void startApplication(opportunity.id)}>
-                    Start application
-                  </button>
+                  <div className="opportunity-actions">
+                    <button onClick={() => void startApplication(opportunity.id)}>
+                      Start application
+                    </button>
+                    <button
+                      className="is-danger"
+                      type="button"
+                      onClick={() => void removeOpportunity(opportunity.id)}
+                    >
+                      Remove
+                    </button>
+                  </div>
                 )}
               </article>
             );

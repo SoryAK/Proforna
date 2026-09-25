@@ -94,11 +94,31 @@ describe("career management HTTP seam", () => {
       );
       expect(removed.status).toBe(200);
       const after = (await (await app.request("/api/career-management")).json()) as {
-        opportunities: Array<{ status: string }>;
+        opportunities: unknown[];
         applications: unknown[];
       };
       expect(after.applications).toEqual([]);
-      expect(after.opportunities[0].status).toBe("saved");
+      expect(after.opportunities).toEqual([]);
+
+      const saved = await app.request("/api/opportunities", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          kind: "role",
+          title: "Saved only",
+          organization: "Northstar",
+        }),
+      });
+      const savedBody = (await saved.json()) as { opportunity: { id: string } };
+      const dropped = await app.request(
+        `/api/opportunities/${savedBody.opportunity.id}`,
+        { method: "DELETE" },
+      );
+      expect(dropped.status).toBe(200);
+      const cleared = (await (await app.request("/api/career-management")).json()) as {
+        opportunities: unknown[];
+      };
+      expect(cleared.opportunities).toEqual([]);
     } finally {
       db.close();
     }

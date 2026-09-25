@@ -96,6 +96,7 @@ import {
   createApplication,
   createContact,
   deleteApplication,
+  deleteOpportunity,
   createInterview,
   createOffer,
   createOpportunity,
@@ -1474,6 +1475,19 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
     } catch (error) {
       if (error instanceof CareerManagementStoreError) {
         return c.json({ error: error.code }, 400);
+      }
+      throw error;
+    }
+  });
+
+  app.delete("/api/opportunities/:id", (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      deleteOpportunity(db, occupant.id, c.req.param("id"));
+      return c.json({ ok: true });
+    } catch (error) {
+      if (error instanceof CareerManagementStoreError) {
+        return c.json({ error: error.code }, 404);
       }
       throw error;
     }
