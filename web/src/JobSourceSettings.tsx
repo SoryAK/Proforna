@@ -59,22 +59,67 @@ export function JobSourceSettingsForm() {
     });
   }
 
-  function addSource() {
-    if (!settings) return;
+  function sourceBeingAdded(): JobListingSource | null {
     const sourceName = name.trim();
-    if (!sourceName) {
-      setError("A job source needs a name.");
-      return;
-    }
-    const source: JobListingSource = {
+    if (!adding || !sourceName) return null;
+    return {
       id: crypto.randomUUID(),
       name: sourceName,
       applicationId: applicationId.trim(),
       apiKey: apiKey.trim(),
       enabled: true,
     };
+  }
+
+  function settingsToStore(): JobSourceSettings | null {
+    if (!settings) return null;
+    const source = sourceBeingAdded();
+    if (!source) return settings;
+    return { ...settings, sources: [...settings.sources, source] };
+  }
+
+  async function store(next: JobSourceSettings): Promise<boolean> {
+    setBusy(true);
+    setMessage("");
     setError("");
-    update({ ...settings, sources: [...settings.sources, source] });
+    try {
+      const response = await fetch("/api/job-sources", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(next),
+      });
+      const body = (await response.json()) as { error?: string; settings?: JobSourceSettings };
+      if (!response.ok || !body.settings) {
+        setError(
+          body.error === "site-url-invalid"
+            ? "A company page needs an https address."
+            : body.error === "source-invalid"
+              ? "A job source needs a name."
+              : "Could not save job sources.",
+        );
+        return false;
+      }
+      setSettings(body.settings);
+      setMessage("Saved. Search uses these sources, and a fit judgment reads only the checked parts of your career record.");
+      return true;
+    } catch {
+      setError("Could not save job sources.");
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function addSource() {
+    if (!settings) return;
+    if (!name.trim()) {
+      setError("A job source needs a name.");
+      return;
+    }
+    const next = settingsToStore();
+    if (!next) return;
+    const saved = await store(next);
+    if (!saved) return;
     setName("");
     setApplicationId("");
     setApiKey("");
@@ -102,31 +147,18 @@ export function JobSourceSettingsForm() {
   async function save(event: FormEvent) {
     event.preventDefault();
     if (!settings) return;
-    setBusy(true);
-    setMessage("");
-    setError("");
-    try {
-      const response = await fetch("/api/job-sources", {
-        method: "PUT",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(settings),
-      });
-      const body = (await response.json()) as { error?: string; settings?: JobSourceSettings };
-      if (!response.ok || !body.settings) {
-        setError(
-          body.error === "site-url-invalid"
-            ? "A company page needs an https address."
-            : body.error === "source-invalid"
-              ? "A job source needs a name."
-              : "Could not save job sources.",
-        );
-        return;
-      }
-      setSettings(body.settings);
-      setMessage("Saved. Search uses these sources, and a fit judgment reads only the checked parts of your career record.");
-    } finally {
-      setBusy(false);
+    if (adding && (applicationId.trim() || apiKey.trim()) && !name.trim()) {
+      setError("A job source needs a name.");
+      return;
     }
+    const next = settingsToStore();
+    if (!next) return;
+    const saved = await store(next);
+    if (!saved) return;
+    setName("");
+    setApplicationId("");
+    setApiKey("");
+    setAdding(false);
   }
 
   if (!settings) {
@@ -192,8 +224,9 @@ export function JobSourceSettingsForm() {
               </label>
               <button
                 type="button"
+                disabled={busy}
                 onClick={() =>
-                  update({
+                  void store({
                     ...settings,
                     sources: settings.sources.filter((item) => item.id !== source.id),
                   })
@@ -233,7 +266,7 @@ export function JobSourceSettingsForm() {
                 />
               </label>
               <div className="map-theme-row">
-                <button type="button" onClick={() => addSource()}>
+                <button type="button" disabled={busy} onClick={() => void addSource()}>
                   Add
                 </button>
                 <button

@@ -9,6 +9,7 @@ import {
   planWorkMapRoleFactSync,
   prepareWorkMapLocation,
   prepareWorkMapRoleCreate,
+  nominatimAddressLine,
   presentWorkMapPlace,
   publicationAllowsSnapshot,
   publicationNeedsAudienceConfirm,
@@ -467,6 +468,33 @@ describe("Work Map sites", () => {
         isPublic: false,
       },
     });
+  });
+
+  it("turns an OpenStreetMap house into the same street, city, and state a click can keep", () => {
+    expect(
+      nominatimAddressLine(
+        {
+          house_number: "67",
+          road: "East Broadway Avenue",
+          village: "Clifton Heights",
+          county: "Delaware County",
+          state: "Pennsylvania",
+          "ISO3166-2-lvl4": "US-PA",
+          postcode: "19018",
+          country: "United States",
+        },
+        "67, East Broadway Avenue, Clifton Heights, Delaware County, Pennsylvania, 19018, United States",
+      ),
+    ).toBe("67 East Broadway Avenue, Clifton Heights, PA");
+  });
+
+  it("keeps the raw place name when OpenStreetMap has no street", () => {
+    expect(
+      nominatimAddressLine(
+        { village: "Clifton Heights", state: "Pennsylvania" },
+        "Clifton Heights, Pennsylvania, United States",
+      ),
+    ).toBe("Clifton Heights, Pennsylvania, United States");
   });
 
   it("turns a looked-up place into a work site pin", () => {

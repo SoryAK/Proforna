@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
+import { searchRadiusFrame, type SearchRadius } from "@core/job-search";
 import { roleCoverPhoto, type WorkMapRole } from "@core/work-map";
 import type { MapPinIcons, MapPinTheme } from "@core/map-settings";
 import { anchorPinHtml, pinFill, pinIcon, rolePinHtml, searchPinHtml } from "./work-map-pin";
 import type { MapAnchorPin, MapSearchPin, WorkMapHome } from "./WorkMapCanvas";
 import { loadGoogleMaps } from "./google-maps";
+import { readMapCamera, writeMapCamera } from "./map-camera";
 
 type MapPoint = {
   role: WorkMapRole;
@@ -27,6 +29,10 @@ export function GoogleWorkMap({
   selectedOverlayId = null,
   onSelectOverlay,
   anchors = [],
+  searchRadius = null,
+  viewKey,
+  fitKey = "",
+  zoomCorner = "start",
 }: {
   apiKey: string;
   roles: WorkMapRole[];
@@ -42,9 +48,16 @@ export function GoogleWorkMap({
   selectedOverlayId?: string | null;
   onSelectOverlay?: (id: string) => void;
   anchors?: MapAnchorPin[];
+  searchRadius?: SearchRadius | null;
+  viewKey?: string;
+  fitKey?: string;
+  zoomCorner?: "start" | "end";
 }) {
   const node = useRef<HTMLDivElement>(null);
   const mapRef = useRef<GoogleMapHandle | null>(null);
+  const cameraBoot = useRef<"pending" | "ready">("pending");
+  const fitSeen = useRef<string | null>(null);
+  const cameraListener = useRef<{ remove: () => void } | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const points = roles.flatMap((role) =>
     role.locations.map((location) => ({
@@ -111,23 +124,44 @@ export function GoogleWorkMap({
       anchor.label,
       anchor.icon,
     ]),
+    searchRadius,
+    fitKey,
+    viewKey,
   });
 
   useEffect(() => {
     const host = node.current;
     const maps = window.google?.maps;
     if (status !== "ready" || !host || !maps) return;
+    const savedCamera = viewKey ? readMapCamera(viewKey) : null;
     const center = points[0] ?? anchors[0] ?? home ?? { latitude: 39.9526, longitude: -75.1652 };
     const map =
       mapRef.current ??
       new maps.Map(host, {
-        center: { lat: center.latitude, lng: center.longitude },
-        zoom: points.length ? 8 : 6,
+        center: savedCamera
+          ? { lat: savedCamera.latitude, lng: savedCamera.longitude }
+          : { lat: center.latitude, lng: center.longitude },
+        zoom: savedCamera?.zoom ?? (points.length ? 8 : 6),
         mapTypeControl: false,
         streetViewControl: false,
         fullscreenControl: false,
+        ...(zoomCorner === "end" && maps.ControlPosition
+          ? { zoomControlOptions: { position: maps.ControlPosition.RIGHT_BOTTOM } }
+          : {}),
       });
     mapRef.current = map;
+    if (viewKey && !cameraListener.current) {
+      cameraListener.current = map.addListener("idle", () => {
+        const next = map.getCenter?.();
+        const zoom = map.getZoom?.();
+        if (!next || zoom == null) return;
+        writeMapCamera(viewKey, {
+          latitude: next.lat(),
+          longitude: next.lng(),
+          zoom,
+        });
+      });
+    }
     const drawn = drawMarkers(
       map,
       maps,
@@ -142,6 +176,19 @@ export function GoogleWorkMap({
       (id) => onSelectOverlayRef.current?.(id),
       anchors,
     );
+    const circle = searchRadius
+      ? new maps.Circle({
+          map,
+          center: { lat: searchRadius.latitude, lng: searchRadius.longitude },
+          radius: searchRadius.miles * 1609.34,
+          strokeColor: "#c27b2b",
+          strokeWeight: 1.5,
+          strokeOpacity: 0.7,
+          fillColor: "#c27b2b",
+          fillOpacity: 0.06,
+          clickable: false,
+        })
+      : null;
     const click = onMapClickRef.current
       ? map.addListener("click", (event: { latLng?: { lat: () => number; lng: () => number } }) => {
           const latLng = event.latLng;
@@ -150,19 +197,49 @@ export function GoogleWorkMap({
           place(latLng.lat(), latLng.lng());
         })
       : null;
+    const hasFrame = Boolean(
+      points.length || overlays.length || anchors.length || home || searchRadius,
+    );
     if (!holdView) {
-      fitMap(
-        map,
-        maps,
-        points,
-        home ?? null,
-        selectedId,
-        overlays,
-        selectedOverlayId,
-        anchors,
-      );
+      const fitChanged = fitSeen.current !== null && fitKey !== fitSeen.current;
+      if (cameraBoot.current === "pending") {
+        if (savedCamera) {
+          map.panTo({ lat: savedCamera.latitude, lng: savedCamera.longitude });
+          map.setZoom(savedCamera.zoom);
+          cameraBoot.current = "ready";
+          fitSeen.current = fitKey;
+        } else if (hasFrame) {
+          fitMap(
+            map,
+            maps,
+            points,
+            home ?? null,
+            selectedId,
+            overlays,
+            selectedOverlayId,
+            anchors,
+            searchRadius,
+          );
+          cameraBoot.current = "ready";
+          fitSeen.current = fitKey;
+        }
+      } else if (fitChanged) {
+        fitMap(
+          map,
+          maps,
+          points,
+          home ?? null,
+          selectedId,
+          overlays,
+          selectedOverlayId,
+          anchors,
+          searchRadius,
+        );
+        fitSeen.current = fitKey;
+      }
     }
     return () => {
+      circle?.setMap(null);
       click?.remove();
       drawn.hideTip();
       for (const marker of drawn.markers) marker.setMap(null);
@@ -196,6 +273,8 @@ type GoogleMapHandle = {
   fitBounds: (bounds: object, padding?: number) => void;
   panTo: (position: { lat: number; lng: number }) => void;
   setZoom: (zoom: number) => void;
+  getCenter?: () => { lat: () => number; lng: () => number };
+  getZoom?: () => number;
   addListener: (
     name: string,
     handler: (event: { latLng?: { lat: () => number; lng: () => number } }) => void,
@@ -216,10 +295,12 @@ type GoogleMapsApi = {
     close: () => void;
   };
   OverlayView: new () => GoogleOverlay;
+  Circle: new (options: object) => { setMap: (map: GoogleMapHandle | null) => void };
   LatLngBounds: new () => { extend: (position: { lat: number; lng: number }) => void };
   Size: new (width: number, height: number) => object;
   Point: new (x: number, y: number) => object;
   SymbolPath: { CIRCLE: number };
+  ControlPosition?: { RIGHT_BOTTOM: number };
 };
 
 declare global {
@@ -300,6 +381,7 @@ function fitMap(
   overlays: MapSearchPin[],
   selectedOverlayId: string | null,
   anchors: MapAnchorPin[],
+  searchRadius: SearchRadius | null,
 ) {
   const selectedOverlay = overlays.find((pin) => pin.id === selectedOverlayId);
   if (selectedOverlay) {
@@ -312,6 +394,7 @@ function fitMap(
       ...overlays.map((pin) => ({ lat: pin.latitude, lng: pin.longitude })),
       ...anchors.map((anchor) => ({ lat: anchor.latitude, lng: anchor.longitude })),
       ...(home ? [{ lat: home.latitude, lng: home.longitude }] : []),
+      ...radiusPositions(searchRadius),
     ];
     if (positions.length === 1) {
       map.panTo(positions[0]);
@@ -331,6 +414,7 @@ function fitMap(
       ? anchors.map((anchor) => ({ lat: anchor.latitude, lng: anchor.longitude }))
       : []),
     ...(home && !selectedId ? [{ lat: home.latitude, lng: home.longitude }] : []),
+    ...(!selectedId ? radiusPositions(searchRadius) : []),
   ];
   if (positions.length === 0) return;
   if (positions.length === 1) {
@@ -341,6 +425,14 @@ function fitMap(
   const bounds = new maps.LatLngBounds();
   for (const position of positions) bounds.extend(position);
   map.fitBounds(bounds, 48);
+}
+
+function radiusPositions(radius: SearchRadius | null): Array<{ lat: number; lng: number }> {
+  if (!radius) return [];
+  return searchRadiusFrame(radius).map((point) => ({
+    lat: point.latitude,
+    lng: point.longitude,
+  }));
 }
 
 function tipHtml(point: MapPoint, coverUrl?: string) {

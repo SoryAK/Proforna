@@ -9,11 +9,40 @@ export type JobListing = {
   summary: string;
 };
 
+export const SEARCH_RADIUS_MILES = [10, 25, 50, 100] as const;
+
+export type SearchRadiusMiles = (typeof SEARCH_RADIUS_MILES)[number];
+
+export type SearchRadius = {
+  latitude: number;
+  longitude: number;
+  miles: number;
+};
+
 export type JobSearchQuery = {
   q: string;
   where: string;
   distance: string;
 };
+
+export function searchRadiusMiles(value: unknown): SearchRadiusMiles {
+  const miles = Number(typeof value === "number" ? value : typeof value === "string" ? value.trim() : NaN);
+  return (SEARCH_RADIUS_MILES as readonly number[]).includes(miles) ? (miles as SearchRadiusMiles) : 25;
+}
+
+export function searchRadiusFrame(
+  radius: SearchRadius,
+): Array<{ latitude: number; longitude: number }> {
+  const latDelta = radius.miles / 69;
+  const cos = Math.cos((radius.latitude * Math.PI) / 180);
+  const lngDelta = radius.miles / (69 * (Math.abs(cos) < 0.2 ? 0.2 : cos));
+  return [
+    { latitude: radius.latitude + latDelta, longitude: radius.longitude },
+    { latitude: radius.latitude - latDelta, longitude: radius.longitude },
+    { latitude: radius.latitude, longitude: radius.longitude + lngDelta },
+    { latitude: radius.latitude, longitude: radius.longitude - lngDelta },
+  ];
+}
 
 export function prepareJobSearchQuery(input: {
   q?: unknown;

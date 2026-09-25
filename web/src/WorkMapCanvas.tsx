@@ -1,6 +1,8 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { divIcon } from "leaflet";
+import { searchRadiusFrame, type SearchRadius } from "@core/job-search";
 import {
+  Circle,
   MapContainer,
   Marker,
   TileLayer,
@@ -10,6 +12,7 @@ import {
 } from "react-leaflet";
 import { roleCoverPhoto, type WorkMapRole } from "@core/work-map";
 import type { MapPinIcons, MapPinTheme } from "@core/map-settings";
+import { readMapCamera, writeMapCamera } from "./map-camera";
 import { anchorPinHtml, pinFill, pinIcon, rolePinHtml, searchPinHtml } from "./work-map-pin";
 import "leaflet/dist/leaflet.css";
 
@@ -61,6 +64,9 @@ export function WorkMapCanvas({
   selectedOverlayId = null,
   onSelectOverlay,
   anchors = [],
+  searchRadius = null,
+  viewKey,
+  fitKey = "",
 }: {
   roles: WorkMapRole[];
   home?: WorkMapHome | null;
@@ -75,6 +81,9 @@ export function WorkMapCanvas({
   selectedOverlayId?: string | null;
   onSelectOverlay?: (id: string) => void;
   anchors?: MapAnchorPin[];
+  searchRadius?: SearchRadius | null;
+  viewKey?: string;
+  fitKey?: string;
 }) {
   const points = roles.flatMap((role) =>
     role.locations.map((location) => ({ role, location })),
@@ -87,7 +96,16 @@ export function WorkMapCanvas({
   const anchorPoints = anchors.map(
     (anchor) => [anchor.latitude, anchor.longitude] as [number, number],
   );
-  const center: [number, number] = points.length
+  const radiusPoints =
+    searchRadius && !selectedOverlay
+      ? searchRadiusFrame(searchRadius).map(
+          (point) => [point.latitude, point.longitude] as [number, number],
+        )
+      : [];
+  const savedCamera = viewKey ? readMapCamera(viewKey) : null;
+  const center: [number, number] = savedCamera
+    ? [savedCamera.latitude, savedCamera.longitude]
+    : points.length
     ? [points[0].location.latitude, points[0].location.longitude]
     : anchors[0]
       ? [anchors[0].latitude, anchors[0].longitude]
@@ -99,7 +117,7 @@ export function WorkMapCanvas({
     <div className="work-map-canvas">
       <MapContainer
         center={center}
-        zoom={points.length ? 8 : 6}
+        zoom={savedCamera?.zoom ?? (points.length ? 8 : 6)}
         scrollWheelZoom
         attributionControl
       >
@@ -107,8 +125,11 @@ export function WorkMapCanvas({
           attribution="&copy; OpenStreetMap contributors"
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
+        <RememberCamera viewKey={viewKey} />
         <FitPoints
+          fitKey={fitKey}
           hold={holdView}
+          viewKey={viewKey}
           allPoints={[
             ...(overlays.length > 0 && !selectedId
               ? overlays.map(
@@ -119,6 +140,7 @@ export function WorkMapCanvas({
                     [location.latitude, location.longitude] as [number, number],
                 )),
             ...anchorPoints,
+            ...radiusPoints,
             ...(home ? [[home.latitude, home.longitude] as [number, number]] : []),
           ]}
           focusPoints={
@@ -132,6 +154,19 @@ export function WorkMapCanvas({
           selectedId={selectedOverlayId ?? selectedId}
         />
         <MapClickHandler onMapClick={onMapClick} />
+        {searchRadius ? (
+          <Circle
+            center={[searchRadius.latitude, searchRadius.longitude]}
+            pathOptions={{
+              color: "#c27b2b",
+              fillColor: "#c27b2b",
+              fillOpacity: 0.06,
+              opacity: 0.7,
+              weight: 1.5,
+            }}
+            radius={searchRadius.miles * 1609.34}
+          />
+        ) : null}
         {points.map(({ role, location }) => {
           const focused = selectedId === role.id;
           const secondary = Boolean(selectedId) && !focused;
@@ -254,18 +289,44 @@ function MapClickHandler({
   return null;
 }
 
+function RememberCamera({ viewKey }: { viewKey?: string }) {
+  const map = useMap();
+  useEffect(() => {
+    if (!viewKey) return;
+    const save = () => {
+      const center = map.getCenter();
+      writeMapCamera(viewKey, {
+        latitude: center.lat,
+        longitude: center.lng,
+        zoom: map.getZoom(),
+      });
+    };
+    map.on("moveend", save);
+    return () => {
+      map.off("moveend", save);
+    };
+  }, [map, viewKey]);
+  return null;
+}
+
 function FitPoints({
   allPoints,
   focusPoints,
   selectedId,
   hold,
+  viewKey,
+  fitKey,
 }: {
   allPoints: Array<[number, number]>;
   focusPoints: Array<[number, number]>;
   selectedId: string | null;
   hold: boolean;
+  viewKey?: string;
+  fitKey: string;
 }) {
   const map = useMap();
+  const boot = useRef<"pending" | "ready">("pending");
+  const seen = useRef<string | null>(null);
   const target = focusPoints.length > 0 ? focusPoints : allPoints;
   const frame = target.map((point) => point.join(",")).join("|");
 
@@ -277,15 +338,35 @@ function FitPoints({
           return [lat, lng] as [number, number];
         })
       : [];
-    if (points.length === 1) {
-      map.setView(points[0], selectedId ? 12 : 11);
-    } else if (points.length > 1) {
-      map.fitBounds(points, {
-        padding: [42, 42],
-        maxZoom: selectedId ? 13 : 12,
-      });
+    const fitChanged = seen.current !== null && fitKey !== seen.current;
+    const place = () => {
+      if (points.length === 1) {
+        map.setView(points[0], selectedId ? 12 : 11);
+      } else if (points.length > 1) {
+        map.fitBounds(points, {
+          padding: [42, 42],
+          maxZoom: selectedId ? 13 : 12,
+        });
+      }
+    };
+    if (boot.current === "pending") {
+      const saved = viewKey ? readMapCamera(viewKey) : null;
+      if (saved) {
+        map.setView([saved.latitude, saved.longitude], saved.zoom, { animate: false });
+        boot.current = "ready";
+        seen.current = fitKey;
+      } else if (points.length > 0) {
+        place();
+        boot.current = "ready";
+        seen.current = fitKey;
+      }
+      return;
     }
-  }, [map, frame, selectedId, hold]);
+    if (fitChanged) {
+      place();
+      seen.current = fitKey;
+    }
+  }, [map, frame, selectedId, hold, fitKey, viewKey]);
 
   return null;
 }

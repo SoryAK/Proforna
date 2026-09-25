@@ -641,6 +641,7 @@ export function WorkMap({
             </button>
           </div>
           <CareerMap
+            fitKey={timelineActive ? "timeline" : (selectedId ?? "")}
             holdView={timelineActive}
             home={
               timelineActive
@@ -653,6 +654,7 @@ export function WorkMap({
             selectedId={timelineActive ? null : selectedId}
             settings={mapSettings}
             suppressEmpty={timelineActive}
+            viewKey="history"
           />
           {timelineActive && timelineMonths.length > 0 ? (
             <CareerTimelineScrubber

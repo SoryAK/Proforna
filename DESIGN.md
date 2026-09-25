@@ -133,6 +133,8 @@ The palette is warm, nocturnal, and deliberately narrow; pale paper and map grou
 
 **The Gold Is Signal Rule.** Use filled gold for a selected mode or explicit primary action; most controls remain transparent.
 
+**The Readable Ground Rule.** Ivory and gold type sit on near-black. A menu, option, or field that paints a white or paper ground uses operating-black type. Light type never sits on a light ground, including options that are not the current selection.
+
 **The Material Exception Rule.** Light grounds belong to real output or geographic material, not to generic application containers.
 
 ## Typography
@@ -200,6 +202,7 @@ The underlying form language is disciplined and contextual. Content partitions a
 ### Inputs / Fields
 - **Style:** Transparent fill, no enclosing box, square corners, and a fine gold bottom rule.
 - **Focus:** Illuminated Gold caret and rule, with an explicit visible focus outline where the control is not otherwise obvious.
+- **Menus:** The closed control and every option use a near-black ground with ivory type. If a native menu paints white, every option — selected or not — uses operating-black type on that ground.
 - **Grouping:** Two-column pairs collapse to one column on narrow screens.
 
 ### Navigation
@@ -226,3 +229,4 @@ The underlying form language is disciplined and contextual. Content partitions a
 - **Don't** turn connected operating workflows into interchangeable card dashboards.
 - **Don't** use decorative elevation on surfaces that are not overlays or distinct materials.
 - **Don't** introduce additional display families, hard offset shadows, or ornamental glyph icons.
+- **Don't** put ivory or gold type on a white menu, option, or field.

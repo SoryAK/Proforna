@@ -105,6 +105,7 @@ import {
   transitionOwnedApplication,
   type ExternalActionAdapter,
 } from "./career-management";
+import { careerRecordForJudgment, judgeListings } from "./fit-judgment";
 import { searchJobListings } from "./job-search";
 import {
   JobSourceSettingsStoreError,
@@ -1359,9 +1360,10 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
         result.error === "query-required" ? 400 : 502,
       );
     }
+    const record = careerRecordForJudgment(db, occupant.id, sources.judgment);
     return c.json({
       configured: result.configured,
-      listings: result.listings,
+      listings: judgeListings(result.listings, record, sources.judgment),
       total: result.total,
     });
   });

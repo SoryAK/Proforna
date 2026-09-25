@@ -646,6 +646,30 @@ export function presentWorkMapPlace(hit: {
   };
 }
 
+export function nominatimAddressLine(
+  address: Record<string, string | undefined> | undefined,
+  displayName: string,
+): string {
+  const street = [address?.house_number, address?.road]
+    .map((part) => part?.trim() ?? "")
+    .filter(Boolean)
+    .join(" ");
+  const city = [
+    address?.city,
+    address?.town,
+    address?.village,
+    address?.hamlet,
+    address?.municipality,
+  ]
+    .map((part) => part?.trim() ?? "")
+    .find(Boolean);
+  const iso = address?.["ISO3166-2-lvl4"] ?? "";
+  const region = iso.includes("-") ? iso.slice(iso.lastIndexOf("-") + 1) : "";
+  const state = /^[A-Z]{2}$/.test(region) ? region : "";
+  if (!street || !city) return displayName.trim();
+  return [street, city, state].filter(Boolean).join(", ");
+}
+
 function parseCoordinate(value: unknown): number | null {
   const parsed = typeof value === "number" ? value : Number(value);
   return Number.isFinite(parsed) ? parsed : null;

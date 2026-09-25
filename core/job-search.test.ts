@@ -3,6 +3,8 @@ import {
   mappableJobListings,
   prepareJobSearchQuery,
   presentJobListings,
+  searchRadiusFrame,
+  searchRadiusMiles,
 } from "./job-search";
 
 describe("job search", () => {
@@ -12,6 +14,16 @@ describe("job search", () => {
       ok: true,
       value: { q: "electrician", where: "Clifton Heights", distance: "25" },
     });
+  });
+
+  it("offers the same search radii as a place search, and frames that ring", () => {
+    expect(searchRadiusMiles("50")).toBe(50);
+    expect(searchRadiusMiles("15")).toBe(25);
+    const frame = searchRadiusFrame({ latitude: 40, longitude: -75, miles: 69 });
+    expect(frame[0]?.latitude).toBeCloseTo(41, 5);
+    expect(frame[1]?.latitude).toBeCloseTo(39, 5);
+    expect(frame[2]?.longitude).toBeGreaterThan(-75);
+    expect(frame[3]?.longitude).toBeLessThan(-75);
   });
 
   it("turns a listings payload into map-ready roles and keeps the rest in the list", () => {

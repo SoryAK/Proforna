@@ -70,4 +70,50 @@ describe("job search HTTP seam", () => {
     expect(called).toContain("app_key=");
     expect(JSON.stringify(body)).not.toContain("app_key");
   });
+
+  it("judges a listing against the checked career record only", async () => {
+    vi.stubEnv("ADZUNA_APP_ID", "app");
+    vi.stubEnv("ADZUNA_APP_KEY", "key");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        Response.json({
+          count: 1,
+          results: [
+            {
+              id: "9",
+              title: "Electrician",
+              company: { display_name: "Northstar" },
+              location: { display_name: "Clifton Heights, PA" },
+              latitude: 39.92,
+              longitude: -75.3,
+              description: "Daily blueprint reading for a zirconium welder crew",
+            },
+          ],
+        }),
+      ),
+    );
+    const db = openDatabase(":memory:");
+    const app = createApp(db);
+    await app.request("/api/job-sources", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ sources: [], sites: [], judgment: ["skills"] }),
+    });
+    const now = new Date().toISOString();
+    db.prepare(
+      "INSERT INTO skills (id, occupant_id, name, created_at) VALUES (?, 'local', ?, ?)",
+    ).run("skill-1", "blueprint reading", now);
+    db.prepare(
+      `INSERT INTO work_history
+        (id, occupant_id, kind, title, company, created_at)
+       VALUES ('role-1', 'local', 'job', 'Zirconium welder', 'Secret Co', ?)`,
+    ).run(now);
+    const response = await app.request("/api/job-search?q=electrician&where=Clifton%20Heights");
+    const body = (await response.json()) as {
+      listings: Array<{ fit: { summary: string } }>;
+    };
+    expect(body.listings[0]?.fit.summary).toBe("Lines up with blueprint reading.");
+    expect(JSON.stringify(body)).not.toContain("Zirconium");
+  });
 });
