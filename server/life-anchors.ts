@@ -49,6 +49,36 @@ export function createLifeAnchor(
   return anchor;
 }
 
+export function updateLifeAnchor(
+  db: DatabaseSync,
+  occupantId: string,
+  anchorId: string,
+  input: JsonObject,
+): LifeAnchor {
+  const existing = db
+    .prepare("SELECT id FROM life_anchors WHERE id = ? AND occupant_id = ?")
+    .get(anchorId, occupantId);
+  if (!existing) throw new LifeAnchorStoreError("anchor-missing");
+  const prepared = prepareLifeAnchor(input, anchorId, occupantId);
+  if (!prepared.ok) throw new LifeAnchorStoreError(prepared.error);
+  const anchor = prepared.value;
+  db.prepare(
+    `UPDATE life_anchors
+     SET label = ?, icon = ?, address = ?, latitude = ?, longitude = ?, weight = ?
+     WHERE id = ? AND occupant_id = ?`,
+  ).run(
+    anchor.label,
+    anchor.icon,
+    anchor.address,
+    anchor.latitude,
+    anchor.longitude,
+    anchor.weight,
+    anchor.id,
+    occupantId,
+  );
+  return anchor;
+}
+
 export function deleteLifeAnchor(
   db: DatabaseSync,
   occupantId: string,

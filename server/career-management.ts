@@ -190,6 +190,40 @@ export function createApplication(
   return application;
 }
 
+export function deleteApplication(
+  db: DatabaseSync,
+  occupantId: string,
+  applicationId: string,
+): void {
+  const row = db
+    .prepare(
+      `SELECT opportunity_id AS opportunityId
+         FROM applications WHERE id = ? AND occupant_id = ?`,
+    )
+    .get(applicationId, occupantId) as { opportunityId: string } | undefined;
+  if (!row) throw new CareerManagementStoreError("application-missing");
+  db.exec("BEGIN");
+  try {
+    db.prepare(
+      "DELETE FROM interviews WHERE application_id = ? AND occupant_id = ?",
+    ).run(applicationId, occupantId);
+    db.prepare(
+      "DELETE FROM offers WHERE application_id = ? AND occupant_id = ?",
+    ).run(applicationId, occupantId);
+    db.prepare(
+      "DELETE FROM applications WHERE id = ? AND occupant_id = ?",
+    ).run(applicationId, occupantId);
+    db.prepare(
+      `UPDATE opportunities SET status = 'saved'
+        WHERE id = ? AND occupant_id = ? AND status = 'pursuing'`,
+    ).run(row.opportunityId, occupantId);
+    db.exec("COMMIT");
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
+}
+
 export async function transitionOwnedApplication(
   db: DatabaseSync,
   occupantId: string,

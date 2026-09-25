@@ -25,6 +25,22 @@ describe("life anchors", () => {
     const body = (await listed.json()) as { anchors: Array<{ id: string }> };
     expect(body.anchors.map((item) => item.id)).toEqual([anchor.id]);
 
+    const changed = await app.request(`/api/life-anchors/${anchor.id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        label: "School",
+        icon: "school",
+        address: "100 School Lane, Clifton Heights, PA",
+        latitude: 39.92,
+        longitude: -75.3,
+        weight: 5,
+      }),
+    });
+    expect(changed.status).toBe(200);
+    const updated = (await changed.json()) as { anchor: { label: string; weight: number } };
+    expect(updated.anchor).toMatchObject({ label: "School", weight: 5 });
+
     const removed = await app.request(`/api/life-anchors/${anchor.id}`, { method: "DELETE" });
     expect(removed.status).toBe(200);
     const after = (await (await app.request("/api/life-anchors")).json()) as {

@@ -449,6 +449,13 @@ function OpportunitiesPage() {
     );
   }
 
+  function clearSearch() {
+    setListings([]);
+    setSelectedListingId(null);
+    setSearchArea(null);
+    setSearchNote("");
+  }
+
   async function saveListing(listing: JobListing & { fit?: FitJudgment }) {
     const response = await fetch("/api/opportunities", {
       method: "POST",
@@ -517,6 +524,14 @@ function OpportunitiesPage() {
         ? "Kept in My Network. The conversation stays on that person."
         : "Only a connection can move into My Network.",
     );
+    await load();
+  }
+
+  async function removeApplication(applicationId: string) {
+    const response = await fetch(`/api/applications/${applicationId}`, {
+      method: "DELETE",
+    });
+    setMessage(response.ok ? "Application removed." : "That application could not be removed.");
     await load();
   }
 
@@ -707,6 +722,7 @@ function OpportunitiesPage() {
                   <div className="application-state">
                     <strong>{application.stage}</strong>
                     <select
+                      aria-label="Current stage"
                       value={application.stage}
                       onChange={(event) =>
                         void transition(application.id, event.target.value)
@@ -721,6 +737,13 @@ function OpportunitiesPage() {
                       <option value="rejected">Rejected</option>
                       <option value="withdrawn">Withdrawn</option>
                     </select>
+                    <button
+                      className="is-danger"
+                      type="button"
+                      onClick={() => void removeApplication(application.id)}
+                    >
+                      Remove
+                    </button>
                   </div>
                 ) : (
                   <button onClick={() => void startApplication(opportunity.id)}>
@@ -833,6 +856,11 @@ function OpportunitiesPage() {
               <button type="submit" disabled={searching}>
                 {searching ? "Searching" : "Search"}
               </button>
+              {listings.length > 0 || searchArea || searchNote ? (
+                <button type="button" onClick={clearSearch}>
+                  Clear
+                </button>
+              ) : null}
               {searchNote ? <p className="map-search-note">{searchNote}</p> : null}
             </form>
           <div className="opportunity-map">

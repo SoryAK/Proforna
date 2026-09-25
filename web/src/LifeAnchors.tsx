@@ -14,6 +14,16 @@ const PRESETS: Array<{ label: string; icon: LifeAnchorIcon }> = [
   { label: "Parent's home", icon: "family" },
 ];
 
+const ICON_LABELS: Record<LifeAnchorIcon, string> = {
+  home: "Home",
+  work: "Work",
+  school: "School",
+  family: "Family",
+  gym: "Gym",
+  worship: "Worship",
+  other: "Other",
+};
+
 export function LifeAnchors({
   onChange,
 }: {
@@ -21,6 +31,7 @@ export function LifeAnchors({
 }) {
   const [anchors, setAnchors] = useState<LifeAnchor[]>([]);
   const [open, setOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [label, setLabel] = useState("");
   const [icon, setIcon] = useState<LifeAnchorIcon>("home");
   const [address, setAddress] = useState("");
@@ -43,42 +54,83 @@ export function LifeAnchors({
     onChange(next);
   }
 
+  function clearForm() {
+    setEditingId(null);
+    setLabel("");
+    setIcon("home");
+    setAddress("");
+    setLatitude(null);
+    setLongitude(null);
+    setWeight(3);
+    setNote("");
+  }
+
+  function toggleForm() {
+    if (open) {
+      setOpen(false);
+      clearForm();
+      return;
+    }
+    clearForm();
+    setOpen(true);
+  }
+
   function choosePreset(preset: { label: string; icon: LifeAnchorIcon }) {
+    clearForm();
     setLabel(preset.label);
     setIcon(preset.icon);
+    setOpen(true);
+  }
+
+  function edit(anchor: LifeAnchor) {
+    setEditingId(anchor.id);
+    setLabel(anchor.label);
+    setIcon(anchor.icon);
+    setAddress(anchor.address);
+    setLatitude(anchor.latitude);
+    setLongitude(anchor.longitude);
+    setWeight(anchor.weight);
+    setNote("");
     setOpen(true);
   }
 
   async function save(event: FormEvent) {
     event.preventDefault();
     setNote("");
-    const response = await fetch("/api/life-anchors", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        label,
-        icon,
-        address,
-        latitude,
-        longitude,
-        weight,
-      }),
-    });
+    const response = await fetch(
+      editingId ? `/api/life-anchors/${editingId}` : "/api/life-anchors",
+      {
+        method: editingId ? "PATCH" : "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          label,
+          icon,
+          address,
+          latitude,
+          longitude,
+          weight,
+        }),
+      },
+    );
     if (!response.ok) {
       setNote("Choose an address the map can place.");
       return;
     }
-    setLabel("");
-    setAddress("");
-    setLatitude(null);
-    setLongitude(null);
-    setWeight(3);
+    clearForm();
     setOpen(false);
     await load();
   }
 
   async function remove(id: string) {
-    await fetch(`/api/life-anchors/${id}`, { method: "DELETE" });
+    const response = await fetch(`/api/life-anchors/${id}`, { method: "DELETE" });
+    if (!response.ok) {
+      setNote("That anchor could not be removed.");
+      return;
+    }
+    if (editingId === id) {
+      clearForm();
+      setOpen(false);
+    }
     await load();
   }
 
@@ -86,58 +138,47 @@ export function LifeAnchors({
     <section className="life-anchors">
       <div className="life-anchors-heading">
         <h2>Life anchors</h2>
-        <button type="button" onClick={() => setOpen((value) => !value)}>
+        <button type="button" onClick={toggleForm}>
           {open ? "Close" : "Add"}
         </button>
       </div>
-      <div className="life-anchor-presets">
-        {PRESETS.map((preset) => (
-          <button key={preset.label} type="button" onClick={() => choosePreset(preset)}>
-            {preset.label}
-          </button>
-        ))}
-      </div>
-      {anchors.map((anchor) => (
-        <p className="life-anchor-row" key={anchor.id}>
-          <span>
-            {anchor.label}
-            <small>
-              {anchor.address} · weight {anchor.weight}
-            </small>
-          </span>
-          <button type="button" onClick={() => void remove(anchor.id)}>
-            Remove
-          </button>
-        </p>
-      ))}
       {open ? (
-        <form className="compact-career-form" onSubmit={(event) => void save(event)}>
-          <input
-            required
-            value={label}
-            onChange={(event) => setLabel(event.target.value)}
-            placeholder="Name"
-          />
-          <select
-            value={icon}
-            onChange={(event) => setIcon(event.target.value as LifeAnchorIcon)}
-          >
-            {LIFE_ANCHOR_ICONS.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
-          <input
-            required
-            value={address}
-            onChange={(event) => {
-              setAddress(event.target.value);
-              setLatitude(null);
-              setLongitude(null);
-            }}
-            placeholder="Address"
-          />
+        <form className="compact-career-form life-anchor-fields" onSubmit={(event) => void save(event)}>
+          <label>
+            Name
+            <input
+              required
+              value={label}
+              onChange={(event) => setLabel(event.target.value)}
+              placeholder="Home"
+            />
+          </label>
+          <label>
+            Kind
+            <select
+              value={icon}
+              onChange={(event) => setIcon(event.target.value as LifeAnchorIcon)}
+            >
+              {LIFE_ANCHOR_ICONS.map((option) => (
+                <option key={option} value={option}>
+                  {ICON_LABELS[option]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Address
+            <input
+              required
+              value={address}
+              onChange={(event) => {
+                setAddress(event.target.value);
+                setLatitude(null);
+                setLongitude(null);
+              }}
+              placeholder="Street, city"
+            />
+          </label>
           {suggestions.length > 0 ? (
             <div className="life-anchor-suggestions">
               {suggestions.map((place) => (
@@ -165,10 +206,36 @@ export function LifeAnchors({
               onChange={(event) => setWeight(Number(event.target.value))}
             />
           </label>
-          <button type="submit">Save anchor</button>
+          <button type="submit">{editingId ? "Update anchor" : "Save anchor"}</button>
           {note ? <small>{note}</small> : null}
         </form>
       ) : null}
+      <div className="life-anchor-presets">
+        {PRESETS.map((preset) => (
+          <button key={preset.label} type="button" onClick={() => choosePreset(preset)}>
+            {preset.label}
+          </button>
+        ))}
+      </div>
+      {anchors.map((anchor) => (
+        <p className="life-anchor-row" key={anchor.id}>
+          <span>
+            {anchor.label}
+            <small>
+              {anchor.address} · weight {anchor.weight}
+            </small>
+          </span>
+          <span className="life-anchor-actions">
+            <button type="button" onClick={() => edit(anchor)}>
+              Edit
+            </button>
+            <button type="button" onClick={() => void remove(anchor.id)}>
+              Remove
+            </button>
+          </span>
+        </p>
+      ))}
+      {!open && note ? <small>{note}</small> : null}
     </section>
   );
 }

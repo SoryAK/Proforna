@@ -87,6 +87,18 @@ describe("career management HTTP seam", () => {
       expect(dashboard.opportunities).toHaveLength(1);
       expect(dashboard.applications[0].stage).toBe("submitted");
       expect(dashboard.actions[0].status).toBe("completed");
+
+      const removed = await app.request(
+        `/api/applications/${application.application.id}`,
+        { method: "DELETE" },
+      );
+      expect(removed.status).toBe(200);
+      const after = (await (await app.request("/api/career-management")).json()) as {
+        opportunities: Array<{ status: string }>;
+        applications: unknown[];
+      };
+      expect(after.applications).toEqual([]);
+      expect(after.opportunities[0].status).toBe("saved");
     } finally {
       db.close();
     }

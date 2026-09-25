@@ -95,6 +95,7 @@ import {
   approveExternalAction,
   createApplication,
   createContact,
+  deleteApplication,
   createInterview,
   createOffer,
   createOpportunity,
@@ -117,6 +118,7 @@ import {
   createLifeAnchor,
   deleteLifeAnchor,
   listLifeAnchors,
+  updateLifeAnchor,
 } from "./life-anchors";
 import {
   ConversationStoreError,
@@ -1308,6 +1310,28 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
     }
   });
 
+  app.patch("/api/life-anchors/:id", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      const anchor = updateLifeAnchor(
+        db,
+        occupant.id,
+        c.req.param("id"),
+        await withResidenceCoordinates(
+          (await c.req.json()) as Record<string, unknown>,
+          (query) => lookupPlace(occupant.id, query),
+        ),
+      );
+      return c.json({ anchor });
+    } catch (error) {
+      if (error instanceof LifeAnchorStoreError) {
+        const status = error.code === "anchor-missing" ? 404 : 400;
+        return c.json({ error: error.code }, status);
+      }
+      throw error;
+    }
+  });
+
   app.delete("/api/life-anchors/:id", (c) => {
     const occupant = ensureOccupant(db);
     try {
@@ -1450,6 +1474,19 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
     } catch (error) {
       if (error instanceof CareerManagementStoreError) {
         return c.json({ error: error.code }, 400);
+      }
+      throw error;
+    }
+  });
+
+  app.delete("/api/applications/:id", (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      deleteApplication(db, occupant.id, c.req.param("id"));
+      return c.json({ ok: true });
+    } catch (error) {
+      if (error instanceof CareerManagementStoreError) {
+        return c.json({ error: error.code }, 404);
       }
       throw error;
     }
