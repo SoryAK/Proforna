@@ -6,6 +6,8 @@ import {
   type MapSettings,
   type MapSettingsError as MapSettingsErrorCode,
 } from "../core/map-settings";
+import { isSealed, openSecret, sealSecret } from "./vault-seal";
+import { vaultKey } from "./vault-key";
 
 export class MapSettingsError extends Error {
   readonly code: MapSettingsErrorCode;
@@ -34,10 +36,27 @@ export function readMapSettings(db: DatabaseSync, occupantId: string): MapSettin
   const theme = row.theme === "gold" ? "gold" : "kind";
   return {
     provider: row.provider === "google" ? "google" : "openstreetmap",
-    googleMapsApiKey: row.googleMapsApiKey ?? "",
+    googleMapsApiKey: revealMapKey(db, occupantId, row.googleMapsApiKey ?? ""),
     theme,
     icons: parseMapIcons(row.iconsJson),
   };
+}
+
+function storedMapKey(plain: string): string {
+  if (!plain) return "";
+  return sealSecret(plain, vaultKey(true));
+}
+
+function revealMapKey(db: DatabaseSync, occupantId: string, stored: string): string {
+  if (!stored) return "";
+  if (!isSealed(stored)) {
+    const key = vaultKey(true);
+    db.prepare(
+      `UPDATE map_settings SET google_maps_api_key = ? WHERE occupant_id = ?`,
+    ).run(sealSecret(stored, key), occupantId);
+    return stored;
+  }
+  return openSecret(stored, vaultKey(false));
 }
 
 export function saveMapSettings(
@@ -67,7 +86,7 @@ export function saveMapSettings(
   ).run(
     occupantId,
     prepared.value.provider,
-    prepared.value.googleMapsApiKey,
+    storedMapKey(prepared.value.googleMapsApiKey),
     prepared.value.theme,
     JSON.stringify(prepared.value.icons),
     now,

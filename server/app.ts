@@ -38,6 +38,7 @@ import {
 import type { WorkMapPlace } from "../core/work-map";
 import { lookupGooglePlaces, reverseGooglePlace } from "./google-geocode";
 import { MapSettingsError, readMapSettings, saveMapSettings } from "./map-settings";
+import { VaultKeyError } from "./vault-key";
 import { prepareProfile } from "../core/profile";
 import {
   ProfileError,
@@ -279,6 +280,19 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
     return found.places[0] ?? null;
   }
   const app = new Hono();
+
+  app.onError((err, c) => {
+    if (err instanceof VaultKeyError) {
+      return c.json(
+        {
+          error:
+            "The system keychain is unavailable, so that secret cannot be used.",
+        },
+        503,
+      );
+    }
+    return c.text("Internal Server Error", 500);
+  });
 
   app.get("/api/health", (c) =>
     c.json({ ok: true, product: PRODUCT.name, db: pingDatabase(db) }),
