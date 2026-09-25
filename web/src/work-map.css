@@ -1294,7 +1294,7 @@
   position: absolute;
   z-index: 800;
   width: max-content;
-  max-width: 11rem;
+  max-width: 16rem;
   transform: translate(-50%, calc(-100% - 10px));
   pointer-events: none;
 }

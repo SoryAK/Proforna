@@ -7,6 +7,12 @@ export type JobListing = {
   longitude: number | null;
   url: string;
   summary: string;
+  description: string;
+  salaryMin: number | null;
+  salaryMax: number | null;
+  contract: string;
+  postedOn: string;
+  category: string;
 };
 
 export const SEARCH_RADIUS_MILES = [10, 25, 50, 100] as const;
@@ -68,6 +74,7 @@ export function presentJobListings(results: unknown, query = ""): JobListing[] {
     const organization = organizationName(row);
     if (!title || !organization) return [];
     const location = locationName(row.location);
+    const description = plainText(text(row.description)).slice(0, 8000);
     return [
       {
         id: text(row.id) || [organization, title, location].join(":"),
@@ -77,7 +84,13 @@ export function presentJobListings(results: unknown, query = ""): JobListing[] {
         latitude: coordinate(row.latitude, 90),
         longitude: coordinate(row.longitude, 180),
         url: text(row.redirect_url) || text(row.url),
-        summary: plainText(text(row.description)).slice(0, 280),
+        summary: description.replace(/\s+/g, " ").slice(0, 180),
+        description,
+        salaryMin: moneyAmount(row.salary_min),
+        salaryMax: moneyAmount(row.salary_max),
+        contract: [phrase(row.contract_time), phrase(row.contract_type)].filter(Boolean).join(" · "),
+        postedOn: postedOn(row.created),
+        category: categoryName(row.category),
       },
     ];
   });
@@ -99,6 +112,13 @@ export function presentJobListings(results: unknown, query = ""): JobListing[] {
       return leftMatch - rightMatch || left.index - right.index;
     })
     .map((item) => item.listing);
+}
+
+export function listingPay(listing: Pick<JobListing, "salaryMin" | "salaryMax">): string {
+  const min = dollars(listing.salaryMin);
+  const max = dollars(listing.salaryMax);
+  if (min && max && min !== max) return `${min}–${max}`;
+  return min || max;
 }
 
 export function mappableJobListings(
@@ -138,6 +158,8 @@ function coordinate(value: unknown, limit: 90 | 180): number | null {
 
 function plainText(value: string): string {
   return value
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n")
     .replace(/<[^>]+>/g, " ")
     .replace(/&nbsp;/gi, " ")
     .replace(/&amp;/gi, "&")
@@ -145,8 +167,41 @@ function plainText(value: string): string {
     .replace(/&gt;/gi, ">")
     .replace(/&quot;/gi, '"')
     .replace(/&#39;/g, "'")
-    .replace(/\s+/g, " ")
+    .split("\n")
+    .map((line) => line.replace(/[ \t]{2,}/g, " ").trim())
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
     .trim();
+}
+
+function moneyAmount(value: unknown): number | null {
+  const number = typeof value === "number" ? value : Number(text(value).replace(/[$,]/g, ""));
+  if (!Number.isFinite(number) || number <= 0) return null;
+  return Math.round(number);
+}
+
+function dollars(value: number | null): string {
+  if (value == null) return "";
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+function phrase(value: unknown): string {
+  const words = text(value).replaceAll("_", " ").toLowerCase();
+  if (!words) return "";
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+function postedOn(value: unknown): string {
+  return text(value).match(/^(\d{4}-\d{2}-\d{2})/)?.[1] ?? "";
+}
+
+function categoryName(value: unknown): string {
+  if (value && typeof value === "object") return text((value as { label?: unknown }).label);
+  return text(value);
 }
 
 function text(value: unknown): string {

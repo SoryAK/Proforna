@@ -115,6 +115,8 @@ export function GoogleWorkMap({
       pin.longitude,
       pin.title,
       pin.detail,
+      pin.pay ?? "",
+      pin.summary ?? "",
     ]),
     selectedOverlayId,
     anchors: anchors.map((anchor) => [
@@ -586,6 +588,8 @@ function mountSearchPins(
     node.innerHTML = drawn.html;
     const html = `<strong>${escapeHtml(pin.title)}</strong>${
       pin.detail ? `<span>${escapeHtml(pin.detail)}</span>` : ""
+    }${pin.pay ? `<span>${escapeHtml(pin.pay)}</span>` : ""}${
+      pin.summary ? `<span>${escapeHtml(pin.summary)}</span>` : ""
     }`;
     node.addEventListener("mouseenter", () =>
       tip.show({ lat: pin.latitude, lng: pin.longitude }, html),

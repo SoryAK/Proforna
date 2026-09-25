@@ -31,14 +31,14 @@ const STOPWORDS = new Set([
 const GENERIC_PLACES = new Set(["united states", "usa", "u.s.a.", "america"]);
 
 export function judgeListingFit(
-  listing: { title: string; summary: string; location: string },
+  listing: { title: string; summary: string; location: string; description?: string },
   record: JudgmentCareerRecord,
   sections: readonly JudgmentSection[],
 ): FitJudgment {
   if (sections.length === 0) {
     return { summary: "The career record is left out of this judgment." };
   }
-  const roleText = `${listing.title} ${listing.summary}`;
+  const roleText = `${listing.title} ${listing.description || listing.summary}`;
   const labels: string[] = [];
   const seen = new Set<string>();
   function add(label: string) {

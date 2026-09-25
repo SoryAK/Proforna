@@ -721,6 +721,60 @@
   color: var(--text);
 }
 
+.listing-focus {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.2rem 0 1.25rem;
+  border-bottom: 1px solid rgba(167, 139, 113, 0.22);
+}
+
+.listing-focus h2 {
+  margin: 0.2rem 0 0;
+  color: var(--text);
+  font-size: 1.15rem;
+}
+
+.listing-focus h3,
+.listing-focus p {
+  margin: 0;
+}
+
+.listing-focus h3 {
+  color: var(--gold-hover);
+  font-size: 0.85rem;
+  font-weight: 400;
+}
+
+.listing-focus ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.15rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.listing-focus li {
+  padding: 0.25rem 0.55rem;
+  border: 1px solid rgba(167, 139, 113, 0.42);
+  border-radius: 999px;
+  color: var(--gold-hover);
+  font-size: 0.72rem;
+}
+
+.listing-body {
+  color: var(--text);
+  white-space: pre-line;
+}
+
+.listing-focus a {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid rgba(167, 139, 113, 0.42);
+  border-radius: 999px;
+  color: var(--gold-hover);
+  text-decoration: none;
+}
+
 .opportunity-card button,
 .compact-career-form button {
   padding: 0.5rem 0.75rem;

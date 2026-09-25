@@ -37,7 +37,13 @@ describe("job search", () => {
           latitude: 39.95,
           longitude: -75.16,
           redirect_url: "https://example.test/warehouse",
-          description: "<p>Night shift</p>",
+          description: "<p>Night shift</p><p>Load and stage outbound freight.</p>",
+          salary_min: 52000,
+          salary_max: 68000,
+          contract_time: "full_time",
+          contract_type: "permanent",
+          created: "2026-09-01T12:00:00Z",
+          category: { label: "Logistics" },
         },
         {
           id: "1",
@@ -72,6 +78,14 @@ describe("job search", () => {
       location: "Clifton Heights, PA",
       url: "https://example.test/lead",
       summary: "Commercial fit-out",
+    });
+    expect(listings[1]).toMatchObject({
+      salaryMin: 52000,
+      salaryMax: 68000,
+      contract: "Full time · Permanent",
+      postedOn: "2026-09-01",
+      category: "Logistics",
+      description: "Night shift\nLoad and stage outbound freight.",
     });
     expect(mappableJobListings(listings)).toHaveLength(2);
   });

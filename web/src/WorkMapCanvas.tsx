@@ -39,6 +39,8 @@ export type MapSearchPin = {
   longitude: number;
   title: string;
   detail: string;
+  pay?: string;
+  summary?: string;
 };
 
 export type MapAnchorPin = {
@@ -244,6 +246,8 @@ export function WorkMapCanvas({
               <Tooltip className="work-map-tip" direction="top" offset={[0, -8]}>
                 <strong>{pin.title}</strong>
                 {pin.detail ? <span>{pin.detail}</span> : null}
+                {pin.pay ? <span>{pin.pay}</span> : null}
+                {pin.summary ? <span>{pin.summary}</span> : null}
               </Tooltip>
             </Marker>
           );

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { FitJudgment } from "@core/fit-judgment";
 import {
   SEARCH_RADIUS_MILES,
+  listingPay,
   mappableJobListings,
   searchRadiusMiles,
   type JobListing,
@@ -259,6 +260,66 @@ const opportunitySearchMemory: OpportunitySearchMemory = {
   searchNote: "",
 };
 
+function ListingFocus({
+  listing,
+  saved,
+  life,
+  onBack,
+  onSave,
+}: {
+  listing: ListingCard;
+  saved: boolean;
+  life: number | null;
+  onBack: () => void;
+  onSave: () => void;
+}) {
+  const pay = listingPay(listing);
+  const facts = [pay, listing.contract, listing.category, postedLabel(listing.postedOn)].filter(
+    Boolean,
+  );
+  return (
+    <article className="listing-focus">
+      <button type="button" onClick={onBack}>
+        Back to results
+      </button>
+      <h2>{listing.title}</h2>
+      <h3>{listing.organization}</h3>
+      {listing.location ? <p>{listing.location}</p> : null}
+      {facts.length > 0 ? (
+        <ul>
+          {facts.map((fact) => (
+            <li key={fact}>{fact}</li>
+          ))}
+        </ul>
+      ) : null}
+      {listing.fit ? <p className="opportunity-fit">{listing.fit.summary}</p> : null}
+      {life != null ? <p>Life score {life}</p> : null}
+      {listing.description ? <p className="listing-body">{listing.description}</p> : null}
+      <div className="opportunity-actions">
+        {listing.url ? (
+          <a href={listing.url} rel="noreferrer" target="_blank">
+            Open posting
+          </a>
+        ) : null}
+        <button disabled={saved} type="button" onClick={onSave}>
+          {saved ? "Saved" : "Save opportunity"}
+        </button>
+      </div>
+    </article>
+  );
+}
+
+function postedLabel(value: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return "";
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return "";
+  return `Posted ${date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  })}`;
+}
+
 function AnchorMark() {
   return (
     <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
@@ -495,7 +556,10 @@ function OpportunitiesPage() {
     longitude: listing.longitude,
     title: listing.title,
     detail: [listing.organization, listing.location].filter(Boolean).join(" · "),
+    pay: listingPay(listing),
+    summary: listing.summary,
   }));
+  const focusedListing = listings.find((listing) => listing.id === selectedListingId) ?? null;
   const homePin =
     home && home.latitude != null && home.longitude != null
       ? {
@@ -514,7 +578,35 @@ function OpportunitiesPage() {
       </p>
       <div className="opportunity-board">
         <div className="opportunity-column">
-          {listings.map((listing) => {
+          {focusedListing ? (
+            <ListingFocus
+              listing={focusedListing}
+              saved={(data?.opportunities ?? []).some(
+                (opportunity) =>
+                  opportunity.title === focusedListing.title &&
+                  opportunity.organization === focusedListing.organization,
+              )}
+              life={
+                anchors.length > 0 &&
+                focusedListing.latitude != null &&
+                focusedListing.longitude != null
+                  ? lifeScore(
+                      {
+                        latitude: focusedListing.latitude,
+                        longitude: focusedListing.longitude,
+                      },
+                      anchors,
+                    )
+                  : null
+              }
+              onBack={() => setSelectedListingId(null)}
+              onSave={() => void saveListing(focusedListing)}
+            />
+          ) : null}
+          {focusedListing
+            ? null
+            : listings.map((listing) => {
+            const pay = listingPay(listing);
             const saved = (data?.opportunities ?? []).some(
               (opportunity) =>
                 opportunity.title === listing.title &&
@@ -538,6 +630,7 @@ function OpportunitiesPage() {
                   <h2>{listing.title}</h2>
                   <h3>{listing.organization}</h3>
                   <p>{listing.location}</p>
+                  {pay ? <p>{pay}</p> : null}
                   {listing.fit ? <p className="opportunity-fit">{listing.fit.summary}</p> : null}
                   {anchors.length > 0 &&
                   listing.latitude != null &&
