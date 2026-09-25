@@ -1,3 +1,7 @@
+// The desktop package is one server file. pdf.js otherwise imports
+// ./pdf.worker.mjs beside that file, which is not shipped. Loading the
+// worker here installs it on globalThis so text extraction can run.
+import "pdfjs-dist/legacy/build/pdf.worker.mjs";
 import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 import { linesFromPdfRuns } from "../core/pdf-text";
 
