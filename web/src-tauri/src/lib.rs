@@ -88,9 +88,7 @@ fn show_packaged_app(app: &tauri::App) -> Result<(), String> {
     let child = start_server(app)?;
     app.manage(ServerChild(Mutex::new(Some(child))));
     wait_for_port(PACKAGED_PORT)?;
-    let onboarding = format!("http://127.0.0.1:{PACKAGED_PORT}/#/onboarding");
-    let home = format!("http://127.0.0.1:{PACKAGED_PORT}/#/");
-    navigate(app, "onboarding", &onboarding)?;
+    let home = format!("http://127.0.0.1:{PACKAGED_PORT}/");
     navigate(app, "app", &home)?;
     Ok(())
 }
