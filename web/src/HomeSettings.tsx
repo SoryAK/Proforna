@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import type { ModelHosting } from "@core/model-connection";
 import { HomeProfileEdit } from "./HomeProfileEdit";
+import { JobSourceSettingsForm } from "./JobSourceSettings";
 import { MapSettingsForm } from "./MapSettings";
 import { OnboardingModelSetup } from "./OnboardingModels";
 import type { OnboardingProfileValue } from "./OnboardingProfile";
 import "./onboarding.css";
 
-type Section = "profile" | "models" | "maps";
+type Section = "profile" | "models" | "maps" | "jobs";
 
 type PublicConnection = {
   hosting: ModelHosting;
@@ -135,6 +136,14 @@ export function HomeSettings({
           >
             Maps
           </button>
+          <button
+            type="button"
+            className="home-settings-nav-item"
+            data-active={section === "jobs"}
+            onClick={() => setSection("jobs")}
+          >
+            Jobs
+          </button>
         </nav>
         <div className="home-settings-pane">
           {section === "profile" ? (
@@ -167,8 +176,10 @@ export function HomeSettings({
                 <p className="home-settings-note">{modelNote}</p>
               ) : null}
             </>
-          ) : (
+          ) : section === "maps" ? (
             <MapSettingsForm key={session} onSaved={onMapsSaved} />
+          ) : (
+            <JobSourceSettingsForm key={session} />
           )}
         </div>
       </div>

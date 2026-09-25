@@ -50,6 +50,31 @@ export function rolePinUrl(pin: RolePinInput): { url: string; size: number } {
   return { url: `data:image/svg+xml,${encodeURIComponent(svg)}`, size: view.size };
 }
 
+const ANCHOR_MARKS: Record<string, string> = {
+  home: "🏠",
+  work: "💼",
+  school: "🎓",
+  family: "♥",
+  gym: "💪",
+  worship: "✝",
+  other: "⚓",
+};
+
+export function anchorPinHtml(icon: string): { html: string; size: number } {
+  const mark = ANCHOR_MARKS[icon] ?? ANCHOR_MARKS.other;
+  const size = 30;
+  const html = `<div style="box-sizing:border-box;display:flex;align-items:center;justify-content:center;width:${size}px;height:${size}px;border-radius:8px;background:#f4efe6;border:2px solid #c27b2b;box-shadow:0 2px 6px rgba(0,0,0,0.28);font-size:15px;line-height:1">${mark}</div>`;
+  return { html, size };
+}
+
+export function searchPinHtml(focused: boolean): { html: string; size: number } {
+  const size = focused ? 28 : 22;
+  const fill = focused ? "#c27b2b" : "#f4efe6";
+  const mark = focused ? "#1a1510" : "#c27b2b";
+  const html = `<div style="box-sizing:border-box;display:flex;align-items:center;justify-content:center;width:${size}px;height:${size}px;border-radius:50%;background:${fill};border:2px solid #1a1510;box-shadow:0 2px 6px rgba(0,0,0,0.28)"><span style="width:8px;height:8px;border-radius:50%;background:${mark}"></span></div>`;
+  return { html, size };
+}
+
 export function pinFill(theme: MapPinTheme, _kind: string): string {
   return theme.disc;
 }

@@ -10,7 +10,7 @@ import {
 } from "react-leaflet";
 import { roleCoverPhoto, type WorkMapRole } from "@core/work-map";
 import type { MapPinIcons, MapPinTheme } from "@core/map-settings";
-import { pinFill, pinIcon, rolePinHtml } from "./work-map-pin";
+import { anchorPinHtml, pinFill, pinIcon, rolePinHtml, searchPinHtml } from "./work-map-pin";
 import "leaflet/dist/leaflet.css";
 
 const homeIcon = divIcon({
@@ -30,6 +30,23 @@ export type WorkMapHome = {
   detail?: string;
 };
 
+export type MapSearchPin = {
+  id: string;
+  latitude: number;
+  longitude: number;
+  title: string;
+  detail: string;
+};
+
+export type MapAnchorPin = {
+  id: string;
+  latitude: number;
+  longitude: number;
+  label: string;
+  detail: string;
+  icon: string;
+};
+
 export function WorkMapCanvas({
   roles,
   home,
@@ -40,6 +57,10 @@ export function WorkMapCanvas({
   suppressEmpty = false,
   pinTheme,
   pinIcons,
+  overlays = [],
+  selectedOverlayId = null,
+  onSelectOverlay,
+  anchors = [],
 }: {
   roles: WorkMapRole[];
   home?: WorkMapHome | null;
@@ -50,6 +71,10 @@ export function WorkMapCanvas({
   suppressEmpty?: boolean;
   pinTheme: MapPinTheme;
   pinIcons: MapPinIcons;
+  overlays?: MapSearchPin[];
+  selectedOverlayId?: string | null;
+  onSelectOverlay?: (id: string) => void;
+  anchors?: MapAnchorPin[];
 }) {
   const points = roles.flatMap((role) =>
     role.locations.map((location) => ({ role, location })),
@@ -57,11 +82,18 @@ export function WorkMapCanvas({
   const focusPoints = selectedId
     ? points.filter(({ role }) => role.id === selectedId)
     : [];
+  const selectedOverlay =
+    overlays.find((pin) => pin.id === selectedOverlayId) ?? null;
+  const anchorPoints = anchors.map(
+    (anchor) => [anchor.latitude, anchor.longitude] as [number, number],
+  );
   const center: [number, number] = points.length
     ? [points[0].location.latitude, points[0].location.longitude]
-    : home
-      ? [home.latitude, home.longitude]
-      : [39.9526, -75.1652];
+    : anchors[0]
+      ? [anchors[0].latitude, anchors[0].longitude]
+      : home
+        ? [home.latitude, home.longitude]
+        : [39.9526, -75.1652];
 
   return (
     <div className="work-map-canvas">
@@ -78,17 +110,26 @@ export function WorkMapCanvas({
         <FitPoints
           hold={holdView}
           allPoints={[
-            ...points.map(
-              ({ location }) =>
-                [location.latitude, location.longitude] as [number, number],
-            ),
+            ...(overlays.length > 0 && !selectedId
+              ? overlays.map(
+                  (pin) => [pin.latitude, pin.longitude] as [number, number],
+                )
+              : points.map(
+                  ({ location }) =>
+                    [location.latitude, location.longitude] as [number, number],
+                )),
+            ...anchorPoints,
             ...(home ? [[home.latitude, home.longitude] as [number, number]] : []),
           ]}
-          focusPoints={focusPoints.map(({ location }) => [
-            location.latitude,
-            location.longitude,
-          ])}
-          selectedId={selectedId}
+          focusPoints={
+            selectedOverlay
+              ? [[selectedOverlay.latitude, selectedOverlay.longitude]]
+              : focusPoints.map(({ location }) => [
+                  location.latitude,
+                  location.longitude,
+                ])
+          }
+          selectedId={selectedOverlayId ?? selectedId}
         />
         <MapClickHandler onMapClick={onMapClick} />
         {points.map(({ role, location }) => {
@@ -128,6 +169,50 @@ export function WorkMapCanvas({
             </Marker>
           );
         })}
+        {anchors.map((anchor) => {
+          const drawn = anchorPinHtml(anchor.icon);
+          return (
+            <Marker
+              icon={divIcon({
+                className: "work-map-pin-icon",
+                html: drawn.html,
+                iconAnchor: [drawn.size / 2, drawn.size / 2],
+                iconSize: [drawn.size, drawn.size],
+              })}
+              key={anchor.id}
+              position={[anchor.latitude, anchor.longitude]}
+              zIndexOffset={600}
+            >
+              <Tooltip className="work-map-tip" direction="top" offset={[0, -8]}>
+                <strong>{anchor.label}</strong>
+                {anchor.detail ? <span>{anchor.detail}</span> : null}
+              </Tooltip>
+            </Marker>
+          );
+        })}
+        {overlays.map((pin) => {
+          const focused = selectedOverlayId === pin.id;
+          const drawn = searchPinHtml(focused);
+          return (
+            <Marker
+              eventHandlers={{ click: () => onSelectOverlay?.(pin.id) }}
+              icon={divIcon({
+                className: "work-map-pin-icon",
+                html: drawn.html,
+                iconAnchor: [drawn.size / 2, drawn.size / 2],
+                iconSize: [drawn.size, drawn.size],
+              })}
+              key={pin.id}
+              position={[pin.latitude, pin.longitude]}
+              zIndexOffset={focused ? 800 : 500}
+            >
+              <Tooltip className="work-map-tip" direction="top" offset={[0, -8]}>
+                <strong>{pin.title}</strong>
+                {pin.detail ? <span>{pin.detail}</span> : null}
+              </Tooltip>
+            </Marker>
+          );
+        })}
         {home ? (
           <Marker
             icon={homeIcon}
@@ -146,7 +231,7 @@ export function WorkMapCanvas({
           </Marker>
         ) : null}
       </MapContainer>
-      {points.length === 0 && !suppressEmpty ? (
+      {points.length === 0 && overlays.length === 0 && anchors.length === 0 && !suppressEmpty ? (
         <div className="work-map-unmapped">
           <strong>Your history is ready to map.</strong>
           <span>Select a role and add its first work site.</span>

@@ -506,14 +506,16 @@ button.home-nav-item:focus-visible {
   background-size: 48px 48px;
 }
 
-.home-main:has(.work-map) {
+.home-main:has(.work-map),
+.home-main:has(.opportunities-page) {
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
 
 @media (max-width: 760px) {
-  .home-main:has(.work-map) {
+  .home-main:has(.work-map),
+  .home-main:has(.opportunities-page) {
     overflow: auto;
   }
 }
@@ -1186,6 +1188,13 @@ button.home-nav-item:focus-visible {
   color: var(--text);
   font-size: 0.78rem;
   font-weight: 650;
+}
+
+.job-source-card {
+  display: grid;
+  gap: 0.45rem;
+  padding-bottom: 0.7rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--text) 16%, transparent);
 }
 
 .map-theme-row,

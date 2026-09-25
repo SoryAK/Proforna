@@ -38,8 +38,19 @@ _Avoid_: Note, journal entry
 
 **Opportunity**:
 An external possibility that may advance a career goal, including a role,
-project, speaking event, or connection.
-_Avoid_: Job lead, application
+project, speaking event, or connection. The occupant finds and pursues them
+on one surface. A listing they keep is an Opportunity.
+_Avoid_: Job lead, application, job search page
+
+**Job Source**:
+A named place the occupant asks Proforna to read listings from. When that
+place requires an application id or an API key, those stay in the Career Vault.
+_Avoid_: Job board, integration
+
+**Life Anchor**:
+A named place the occupant weights when judging whether a possibility fits
+their life.
+_Avoid_: Commute, home pin
 
 **Contact**:
 A person the occupant keeps a relationship with. Occupant-facing chrome names

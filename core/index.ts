@@ -184,6 +184,33 @@ export {
   type OpportunityKind,
 } from "./career-management";
 export {
+  mappableJobListings,
+  presentJobListings,
+  prepareJobSearchQuery,
+  type JobListing,
+  type JobSearchQuery,
+} from "./job-search";
+export {
+  DEFAULT_JOB_SOURCE_SETTINGS,
+  JUDGMENT_SECTIONS,
+  careerRecordInJudgment,
+  prepareJobSourceSettings,
+  sourceCredentials,
+  type CompanySiteSource,
+  type JobListingSource,
+  type JobSourceSettings,
+  type JobSourceSettingsError,
+  type JudgmentSection,
+} from "./job-sources";
+export {
+  LIFE_ANCHOR_ICONS,
+  lifeScore,
+  prepareLifeAnchor,
+  type LifeAnchor,
+  type LifeAnchorError,
+  type LifeAnchorIcon,
+} from "./life-anchor";
+export {
   inboundRaisesNotice,
   planSuggestedReplyChangeSet,
   prepareContactMessage,

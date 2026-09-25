@@ -1,4 +1,11 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { mappableJobListings, type JobListing } from "@core/job-search";
+import { lifeScore, type LifeAnchor } from "@core/life-anchor";
+import type { MapSettings } from "@core/map-settings";
+import { residenceForMap, type Residence } from "@core/residence";
+import type { WorkMapRole } from "@core/work-map";
+import { CareerMap } from "./CareerMap";
+import { LifeAnchors } from "./LifeAnchors";
 import type { HomePage } from "./HomeNav";
 import "./career-workspace.css";
 
@@ -224,6 +231,16 @@ type CareerManagement = {
 
 function OpportunitiesPage() {
   const [data, setData] = useState<CareerManagement | null>(null);
+  const [roles, setRoles] = useState<WorkMapRole[]>([]);
+  const [home, setHome] = useState<Residence | null>(null);
+  const [mapSettings, setMapSettings] = useState<MapSettings | null>(null);
+  const [query, setQuery] = useState("");
+  const [where, setWhere] = useState("");
+  const [listings, setListings] = useState<JobListing[]>([]);
+  const [selectedListingId, setSelectedListingId] = useState<string | null>(null);
+  const [searching, setSearching] = useState(false);
+  const [searchNote, setSearchNote] = useState("");
+  const [anchors, setAnchors] = useState<LifeAnchor[]>([]);
   const [title, setTitle] = useState("");
   const [organization, setOrganization] = useState("");
   const [fitSummary, setFitSummary] = useState("");
@@ -233,11 +250,82 @@ function OpportunitiesPage() {
 
   useEffect(() => {
     void load();
+    void loadMap();
   }, []);
 
   async function load() {
     const response = await fetch("/api/career-management");
     setData((await response.json()) as CareerManagement);
+  }
+
+  async function loadMap() {
+    const [mapResponse, settingsResponse] = await Promise.all([
+      fetch("/api/work-map"),
+      fetch("/api/maps"),
+    ]);
+    if (mapResponse.ok) {
+      const body = (await mapResponse.json()) as {
+        roles?: WorkMapRole[];
+        residences?: Residence[];
+      };
+      setRoles(body.roles ?? []);
+      setHome(residenceForMap(body.residences ?? [], null));
+    }
+    if (settingsResponse.ok) {
+      const body = (await settingsResponse.json()) as { settings?: MapSettings };
+      setMapSettings(body.settings ?? null);
+    }
+  }
+
+  async function searchJobs(event: FormEvent) {
+    event.preventDefault();
+    setSearching(true);
+    setSearchNote("");
+    const params = new URLSearchParams();
+    if (query.trim()) params.set("q", query.trim());
+    if (where.trim()) params.set("where", where.trim());
+    const response = await fetch(`/api/job-search?${params}`);
+    const body = (await response.json()) as {
+      configured?: boolean;
+      listings?: JobListing[];
+      error?: string;
+    };
+    setSearching(false);
+    if (!response.ok) {
+      setSearchNote("Add a role or a place to search.");
+      return;
+    }
+    const found = body.listings ?? [];
+    setListings(found);
+    setSelectedListingId(found[0]?.id ?? null);
+    if (body.configured === false) {
+      setSearchNote(
+        "Listings are not connected yet. The map still shows your career and home.",
+      );
+      return;
+    }
+    setSearchNote(
+      found.length
+        ? `${found.length} roles. The ones with a place are on the map.`
+        : "No roles matched that search.",
+    );
+  }
+
+  async function saveListing(listing: JobListing) {
+    const response = await fetch("/api/opportunities", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        kind: "role",
+        title: listing.title,
+        organization: listing.organization,
+        location: listing.location,
+        sourceUrl: listing.url,
+        fitSummary: listing.summary,
+      }),
+    });
+    setMessage(response.ok ? "Opportunity saved." : "Could not save that role.");
+    if (response.ok) await load();
   }
 
   async function saveOpportunity(event: FormEvent) {
@@ -324,14 +412,97 @@ function OpportunitiesPage() {
     await load();
   }
 
+  const pins = mappableJobListings(listings).map((listing) => ({
+    id: listing.id,
+    latitude: listing.latitude,
+    longitude: listing.longitude,
+    title: listing.title,
+    detail: [listing.organization, listing.location].filter(Boolean).join(" · "),
+  }));
+  const homePin =
+    home && home.latitude != null && home.longitude != null
+      ? {
+          latitude: home.latitude,
+          longitude: home.longitude,
+          label: home.label,
+          detail: home.address,
+        }
+      : null;
+
   return (
     <section className="career-page opportunities-page">
       <h1>Opportunities</h1>
       <p className="career-lead">
-        Keep roles, inbound Work Map requests, applications, and career plans
-        in one governed operating loop.
+        Search for roles on your career map, then keep the ones you want to pursue.
       </p>
-      <div className="opportunity-grid">
+      <div className="opportunity-board">
+        <div className="opportunity-column">
+          <form className="opportunity-search" onSubmit={(event) => void searchJobs(event)}>
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Role"
+            />
+            <input
+              value={where}
+              onChange={(event) => setWhere(event.target.value)}
+              placeholder="Place"
+            />
+            <button type="submit" disabled={searching}>
+              {searching ? "Searching" : "Search"}
+            </button>
+          </form>
+          {searchNote ? <p className="career-message">{searchNote}</p> : null}
+          <LifeAnchors onChange={setAnchors} />
+          {listings.map((listing) => {
+            const saved = (data?.opportunities ?? []).some(
+              (opportunity) =>
+                opportunity.title === listing.title &&
+                opportunity.organization === listing.organization,
+            );
+            return (
+              <article
+                className={
+                  listing.id === selectedListingId
+                    ? "opportunity-card is-selected"
+                    : "opportunity-card"
+                }
+                key={listing.id}
+              >
+                <button
+                  className="opportunity-hit"
+                  type="button"
+                  onClick={() => setSelectedListingId(listing.id)}
+                >
+                  <span>Listing</span>
+                  <h2>{listing.title}</h2>
+                  <h3>{listing.organization}</h3>
+                  <p>{listing.location}</p>
+                  {anchors.length > 0 &&
+                  listing.latitude != null &&
+                  listing.longitude != null ? (
+                    <p>
+                      Life score{" "}
+                      {lifeScore(
+                        {
+                          latitude: listing.latitude,
+                          longitude: listing.longitude,
+                        },
+                        anchors,
+                      )}
+                    </p>
+                  ) : null}
+                </button>
+                <button
+                  disabled={saved}
+                  type="button"
+                  onClick={() => void saveListing(listing)}
+                >
+                  {saved ? "Saved" : "Save opportunity"}
+                </button>
+              </article>
+            );
+          })}
         <main>
           {(data?.opportunities ?? []).map((opportunity) => {
             const application = data?.applications.find(
@@ -407,7 +578,7 @@ function OpportunitiesPage() {
           })}
           {!data?.opportunities.length ? (
             <p className="career-empty">
-              Save a role, or inbound Work Map requests will land here.
+              Search for a role, or inbound Work Map requests will land here.
             </p>
           ) : null}
         </main>
@@ -452,6 +623,28 @@ function OpportunitiesPage() {
             ))}
           </form>
         </aside>
+        </div>
+        <div className="opportunity-stage">
+          <CareerMap
+            anchors={anchors.map((anchor) => ({
+              id: anchor.id,
+              latitude: anchor.latitude,
+              longitude: anchor.longitude,
+              label: anchor.label,
+              detail: anchor.address,
+              icon: anchor.icon,
+            }))}
+            home={homePin}
+            onSelect={() => undefined}
+            onSelectOverlay={setSelectedListingId}
+            overlays={pins}
+            roles={roles}
+            selectedId={null}
+            selectedOverlayId={selectedListingId}
+            settings={mapSettings}
+            suppressEmpty
+          />
+        </div>
       </div>
       {message ? <p className="career-message">{message}</p> : null}
     </section>

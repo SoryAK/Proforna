@@ -412,6 +412,110 @@
   font-size: 0.68rem;
 }
 
+.opportunities-page {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: 1rem 1rem 1rem;
+}
+
+.opportunity-board {
+  display: grid;
+  grid-template-columns: minmax(18rem, 26rem) minmax(0, 1fr);
+  gap: 0.75rem;
+  flex: 1;
+  min-height: 0;
+  margin-top: 1rem;
+}
+
+.opportunity-column {
+  min-height: 0;
+  overflow: auto;
+  padding-right: 0.2rem;
+}
+
+.opportunity-stage {
+  min-height: 0;
+  border: 1px solid rgba(167, 139, 113, 0.22);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.opportunity-stage .work-map-canvas,
+.opportunity-stage .work-map-google {
+  min-height: 0;
+  height: 100%;
+}
+
+.life-anchors {
+  margin: 1rem 0 1.25rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid rgba(167, 139, 113, 0.22);
+}
+
+.life-anchors-heading,
+.life-anchor-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.life-anchors h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.95rem;
+}
+
+.life-anchors small {
+  display: block;
+  color: var(--gold-light);
+  font-size: 0.68rem;
+}
+
+.life-anchor-presets,
+.life-anchor-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.6rem 0;
+}
+
+.life-anchor-row {
+  margin: 0.45rem 0;
+}
+
+.opportunity-search {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 0.45rem;
+}
+
+.opportunity-search input,
+.opportunity-column .compact-career-form input,
+.opportunity-column .compact-career-form textarea {
+  width: 100%;
+}
+
+.opportunity-card .opportunity-hit {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+
+.opportunity-card.is-selected {
+  background: rgba(199, 164, 123, 0.08);
+}
+
 .opportunity-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 18rem;
@@ -766,6 +870,8 @@
     grid-row: 2;
   }
 
+  .opportunity-board,
+  .opportunity-search,
   .opportunity-grid,
   .network-form,
   .network-layout,

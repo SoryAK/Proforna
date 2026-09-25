@@ -105,6 +105,18 @@ import {
   transitionOwnedApplication,
   type ExternalActionAdapter,
 } from "./career-management";
+import { searchJobListings } from "./job-search";
+import {
+  JobSourceSettingsStoreError,
+  readJobSourceSettings,
+  saveJobSourceSettings,
+} from "./job-sources";
+import {
+  LifeAnchorStoreError,
+  createLifeAnchor,
+  deleteLifeAnchor,
+  listLifeAnchors,
+} from "./life-anchors";
 import {
   ConversationStoreError,
   commitSuggestedReply,
@@ -1268,6 +1280,90 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
   app.get("/api/career-management", (c) => {
     const occupant = ensureOccupant(db);
     return c.json(readCareerManagement(db, occupant.id));
+  });
+
+  app.get("/api/life-anchors", (c) => {
+    const occupant = ensureOccupant(db);
+    return c.json({ anchors: listLifeAnchors(db, occupant.id) });
+  });
+
+  app.post("/api/life-anchors", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      const anchor = createLifeAnchor(
+        db,
+        occupant.id,
+        await withResidenceCoordinates(
+          (await c.req.json()) as Record<string, unknown>,
+          (query) => lookupPlace(occupant.id, query),
+        ),
+      );
+      return c.json({ anchor }, 201);
+    } catch (error) {
+      if (error instanceof LifeAnchorStoreError) {
+        return c.json({ error: error.code }, 400);
+      }
+      throw error;
+    }
+  });
+
+  app.delete("/api/life-anchors/:id", (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      deleteLifeAnchor(db, occupant.id, c.req.param("id"));
+      return c.json({ ok: true });
+    } catch (error) {
+      if (error instanceof LifeAnchorStoreError) {
+        return c.json({ error: error.code }, 404);
+      }
+      throw error;
+    }
+  });
+
+  app.get("/api/job-sources", (c) => {
+    const occupant = ensureOccupant(db);
+    return c.json({ settings: readJobSourceSettings(db, occupant.id) });
+  });
+
+  app.put("/api/job-sources", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      const settings = saveJobSourceSettings(
+        db,
+        occupant.id,
+        (await c.req.json()) as Record<string, unknown>,
+      );
+      return c.json({ settings });
+    } catch (error) {
+      if (error instanceof JobSourceSettingsStoreError) {
+        return c.json({ error: error.code }, 400);
+      }
+      throw error;
+    }
+  });
+
+  app.get("/api/job-search", async (c) => {
+    const occupant = ensureOccupant(db);
+    const sources = readJobSourceSettings(db, occupant.id);
+    const result = await searchJobListings(
+      {
+        q: c.req.query("q"),
+        where: c.req.query("where"),
+        distance: c.req.query("distance"),
+      },
+      { settings: sources },
+    );
+    if (!result.ok) {
+      return c.json(
+        { error: result.error },
+        result.error === "query-required" ? 400 : 502,
+      );
+    }
+    return c.json({
+      configured: result.configured,
+      listings: result.listings,
+      total: result.total,
+    });
   });
 
   app.post("/api/opportunities", async (c) => {

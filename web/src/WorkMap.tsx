@@ -36,9 +36,9 @@ import {
 import { CareerTimelineScrubber } from "./CareerTimelineScrubber";
 import { residenceForMap, type Residence } from "@core/residence";
 import { HomesPanel } from "./HomesPanel";
-import { WorkMapCanvas, type WorkMapHome } from "./WorkMapCanvas";
-import { GoogleWorkMap } from "./GoogleWorkMap";
-import { DEFAULT_MAP_ICONS, MAP_THEMES, type MapSettings } from "@core/map-settings";
+import { CareerMap } from "./CareerMap";
+import type { WorkMapHome } from "./WorkMapCanvas";
+import { type MapSettings } from "@core/map-settings";
 import { lookupNote, reversePlace } from "./place-search";
 import { RoleDetailPanel, type DetailTab } from "./RoleDetailPanel";
 import "./work-map.css";
@@ -640,40 +640,20 @@ export function WorkMap({
               Timeline
             </button>
           </div>
-          {mapSettings?.provider === "google" && mapSettings.googleMapsApiKey ? (
-            <GoogleWorkMap
-              apiKey={mapSettings.googleMapsApiKey}
-              roles={mapRoles}
-              home={
-                timelineActive
-                  ? homePinForTimeline(data.residences, timelineReading.home)
-                  : homePin(data.residences, selected)
-              }
-              selectedId={timelineActive ? null : selectedId}
-              holdView={timelineActive}
-              suppressEmpty={timelineActive}
-              onSelect={selectFromMap}
-              onMapClick={placingForId ? dropPin : undefined}
-              pinIcons={mapSettings?.icons ?? DEFAULT_MAP_ICONS}
-              pinTheme={MAP_THEMES[mapSettings?.theme ?? "kind"]}
-            />
-          ) : (
-            <WorkMapCanvas
-              roles={mapRoles}
-              home={
-                timelineActive
-                  ? homePinForTimeline(data.residences, timelineReading.home)
-                  : homePin(data.residences, selected)
-              }
-              selectedId={timelineActive ? null : selectedId}
-              holdView={timelineActive}
-              suppressEmpty={timelineActive}
-              onSelect={selectFromMap}
-              onMapClick={placingForId ? dropPin : undefined}
-              pinIcons={mapSettings?.icons ?? DEFAULT_MAP_ICONS}
-              pinTheme={MAP_THEMES[mapSettings?.theme ?? "kind"]}
-            />
-          )}
+          <CareerMap
+            holdView={timelineActive}
+            home={
+              timelineActive
+                ? homePinForTimeline(data.residences, timelineReading.home)
+                : homePin(data.residences, selected)
+            }
+            onMapClick={placingForId ? dropPin : undefined}
+            onSelect={selectFromMap}
+            roles={mapRoles}
+            selectedId={timelineActive ? null : selectedId}
+            settings={mapSettings}
+            suppressEmpty={timelineActive}
+          />
           {timelineActive && timelineMonths.length > 0 ? (
             <CareerTimelineScrubber
               frame={timelineReading}
