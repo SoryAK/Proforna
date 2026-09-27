@@ -32,8 +32,9 @@ as the career record moves.
 - A **Life Anchor** is a named, weighted place on that same map. Its score is
   weighted straight-line distance. Driving routes and a sweet-spot circle are
   out of this cut.
-- A company careers page can be saved for later reading. Crawling it,
-  extracting a posting, and proposing an Opportunity are later work. Creating
+- A company careers page can be saved. Search reads that one page and, when
+  it names a role, fills the same posting a listing already fills. Following
+  links from that page, and proposing an Opportunity, are later work. Creating
   an Opportunity still requires the occupant.
 
 ## Consequences
@@ -41,5 +42,5 @@ as the career record moves.
 - Opportunities and Career History share one map.
 - Listing credentials live in the vault, with the map key.
 - A source Proforna cannot read yet is still valid configuration.
-- Commute geometry and company-site crawl are later work, not gaps in this
-  decision.
+- Commute geometry and reading pages beyond the one saved address are later
+  work, not gaps in this decision.

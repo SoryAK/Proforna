@@ -1190,11 +1190,27 @@ button.home-nav-item:focus-visible {
   font-weight: 650;
 }
 
+.job-source-card,
+.job-source-row {
+  padding-bottom: 0.7rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--text) 16%, transparent);
+}
+
 .job-source-card {
   display: grid;
   gap: 0.45rem;
-  padding-bottom: 0.7rem;
-  border-bottom: 1px solid color-mix(in srgb, var(--text) 16%, transparent);
+}
+
+.job-source-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.job-source-row > span {
+  flex: 1;
+  min-width: 0;
+  color: var(--text);
 }
 
 .map-theme-row,

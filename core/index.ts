@@ -200,6 +200,7 @@ export {
   type SearchRadius,
   type SearchRadiusMiles,
 } from "./job-search";
+export { postingFromPage, type Posting } from "./posting";
 export {
   DEFAULT_JOB_SOURCE_SETTINGS,
   JUDGMENT_SECTIONS,

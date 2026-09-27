@@ -116,4 +116,76 @@ describe("job search HTTP seam", () => {
     expect(body.listings[0]?.fit.summary).toBe("Lines up with blueprint reading.");
     expect(JSON.stringify(body)).not.toContain("Zirconium");
   });
+
+  it("reads a saved company page into the same posting as a listing", async () => {
+    vi.stubEnv("ADZUNA_APP_ID", "");
+    vi.stubEnv("ADZUNA_APP_KEY", "");
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("nominatim")) {
+        return Response.json([
+          {
+            lat: "39.92",
+            lon: "-75.3",
+            display_name: "Clifton Heights, PA",
+            name: "Clifton Heights",
+          },
+        ]);
+      }
+      return new Response(
+        `<h1>Careers</h1><h2>Lead Electrician</h2><p>Location: Clifton Heights, PA</p><p>Read blueprints daily.</p>`,
+        { headers: { "content-type": "text/html" } },
+      );
+    });
+    vi.stubGlobal("fetch", fetchImpl);
+    const app = createApp(openDatabase(":memory:"));
+    await app.request("/api/job-sources", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        sources: [],
+        sites: [
+          {
+            id: "site-1",
+            label: "Northstar",
+            url: "https://northstar.example/careers",
+            enabled: true,
+          },
+          {
+            id: "site-2",
+            label: "Closed",
+            url: "https://closed.example/careers",
+            enabled: false,
+          },
+        ],
+        judgment: ["profile"],
+      }),
+    });
+    const response = await app.request(
+      "/api/job-search?q=electrician&where=Clifton%20Heights",
+    );
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as {
+      configured: boolean;
+      listings: Array<{
+        title: string;
+        organization: string;
+        description: string;
+        latitude: number;
+      }>;
+    };
+    expect(body.configured).toBe(true);
+    expect(body.listings).toHaveLength(1);
+    expect(body.listings[0]).toMatchObject({
+      title: "Lead Electrician",
+      organization: "Northstar",
+      latitude: 39.92,
+    });
+    expect(body.listings[0]?.description).toContain("Read blueprints daily");
+    const called = (fetchImpl.mock.calls as unknown as Array<[string]>).map((call) =>
+      String(call[0]),
+    );
+    expect(called.some((url) => url.includes("northstar.example"))).toBe(true);
+    expect(called.some((url) => url.includes("closed.example"))).toBe(false);
+  });
 });

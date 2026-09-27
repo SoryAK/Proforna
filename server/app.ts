@@ -1399,10 +1399,31 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
         result.error === "query-required" ? 400 : 502,
       );
     }
+    const listings = [];
+    for (const listing of result.listings) {
+      if (
+        listing.latitude != null ||
+        listing.longitude != null ||
+        !listing.location
+      ) {
+        listings.push(listing);
+        continue;
+      }
+      try {
+        const place = await lookupPlace(occupant.id, listing.location);
+        listings.push(
+          place
+            ? { ...listing, latitude: place.latitude, longitude: place.longitude }
+            : listing,
+        );
+      } catch {
+        listings.push(listing);
+      }
+    }
     const record = careerRecordForJudgment(db, occupant.id, sources.judgment);
     return c.json({
       configured: result.configured,
-      listings: judgeListings(result.listings, record, sources.judgment),
+      listings: judgeListings(listings, record, sources.judgment),
       total: result.total,
     });
   });

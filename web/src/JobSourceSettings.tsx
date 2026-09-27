@@ -15,14 +15,28 @@ const JUDGMENT_COPY: Record<JudgmentSection, { label: string; detail: string }> 
   residence: { label: "Home", detail: "Where you live now" },
 };
 
+function pageUrl(value: string): boolean {
+  return /^https?:\/\//i.test(value);
+}
+
 export function JobSourceSettingsForm() {
   const [settings, setSettings] = useState<JobSourceSettings | null>(null);
   const [adding, setAdding] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [applicationId, setApplicationId] = useState("");
   const [apiKey, setApiKey] = useState("");
+  const [editName, setEditName] = useState("");
+  const [editApplicationId, setEditApplicationId] = useState("");
+  const [editApiKey, setEditApiKey] = useState("");
+  const [editEnabled, setEditEnabled] = useState(true);
+  const [addingSite, setAddingSite] = useState(false);
+  const [editingSiteId, setEditingSiteId] = useState<string | null>(null);
   const [label, setLabel] = useState("");
   const [url, setUrl] = useState("");
+  const [editLabel, setEditLabel] = useState("");
+  const [editUrl, setEditUrl] = useState("");
+  const [editSiteEnabled, setEditSiteEnabled] = useState(true);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -51,14 +65,6 @@ export function JobSourceSettingsForm() {
     update({ ...settings, judgment });
   }
 
-  function patchSource(id: string, patch: Partial<JobListingSource>) {
-    if (!settings) return;
-    update({
-      ...settings,
-      sources: settings.sources.map((item) => (item.id === id ? { ...item, ...patch } : item)),
-    });
-  }
-
   function sourceBeingAdded(): JobListingSource | null {
     const sourceName = name.trim();
     if (!adding || !sourceName) return null;
@@ -71,11 +77,63 @@ export function JobSourceSettingsForm() {
     };
   }
 
+  function sourceBeingEdited(): JobListingSource | null {
+    if (!settings || !editingId) return null;
+    const current = settings.sources.find((source) => source.id === editingId);
+    const sourceName = editName.trim();
+    if (!current || !sourceName) return null;
+    return {
+      ...current,
+      name: sourceName,
+      applicationId: editApplicationId.trim(),
+      apiKey: editApiKey.trim(),
+      enabled: editEnabled,
+    };
+  }
+
+  function siteBeingAdded(): CompanySiteSource | null {
+    const siteLabel = label.trim();
+    const siteUrl = url.trim();
+    if (!addingSite || !siteLabel || !pageUrl(siteUrl)) return null;
+    return {
+      id: crypto.randomUUID(),
+      label: siteLabel,
+      url: siteUrl,
+      enabled: true,
+    };
+  }
+
+  function siteBeingEdited(): CompanySiteSource | null {
+    if (!settings || !editingSiteId) return null;
+    const current = settings.sites.find((site) => site.id === editingSiteId);
+    const siteLabel = editLabel.trim();
+    const siteUrl = editUrl.trim();
+    if (!current || !siteLabel || !pageUrl(siteUrl)) return null;
+    return {
+      ...current,
+      label: siteLabel,
+      url: siteUrl,
+      enabled: editSiteEnabled,
+    };
+  }
+
   function settingsToStore(): JobSourceSettings | null {
     if (!settings) return null;
-    const source = sourceBeingAdded();
-    if (!source) return settings;
-    return { ...settings, sources: [...settings.sources, source] };
+    const added = sourceBeingAdded();
+    const edited = sourceBeingEdited();
+    let sources = settings.sources;
+    if (edited) {
+      sources = sources.map((source) => (source.id === edited.id ? edited : source));
+    }
+    if (added) sources = [...sources, added];
+    const addedSite = siteBeingAdded();
+    const editedSite = siteBeingEdited();
+    let sites = settings.sites;
+    if (editedSite) {
+      sites = sites.map((site) => (site.id === editedSite.id ? editedSite : site));
+    }
+    if (addedSite) sites = [...sites, addedSite];
+    return { ...settings, sources, sites };
   }
 
   async function store(next: JobSourceSettings): Promise<boolean> {
@@ -126,29 +184,128 @@ export function JobSourceSettingsForm() {
     setAdding(false);
   }
 
-  function addSite() {
+  function beginAdd() {
+    setEditingId(null);
+    setAddingSite(false);
+    setEditingSiteId(null);
+    setAdding(true);
+    setError("");
+  }
+
+  function beginEdit(source: JobListingSource) {
+    setAdding(false);
+    setAddingSite(false);
+    setEditingSiteId(null);
+    setName("");
+    setApplicationId("");
+    setApiKey("");
+    setEditingId(source.id);
+    setEditName(source.name);
+    setEditApplicationId(source.applicationId);
+    setEditApiKey(source.apiKey);
+    setEditEnabled(source.enabled);
+    setError("");
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setEditName("");
+    setEditApplicationId("");
+    setEditApiKey("");
+    setEditEnabled(true);
+    setError("");
+  }
+
+  async function updateSource() {
+    if (!settings || !editingId) return;
+    if (!editName.trim()) {
+      setError("A job source needs a name.");
+      return;
+    }
+    const next = settingsToStore();
+    if (!next) return;
+    const saved = await store(next);
+    if (!saved) return;
+    cancelEdit();
+  }
+
+  function beginAddSite() {
+    setAdding(false);
+    setEditingId(null);
+    setEditingSiteId(null);
+    setAddingSite(true);
+    setError("");
+  }
+
+  function beginEditSite(site: CompanySiteSource) {
+    setAdding(false);
+    setEditingId(null);
+    setAddingSite(false);
+    setLabel("");
+    setUrl("");
+    setEditingSiteId(site.id);
+    setEditLabel(site.label);
+    setEditUrl(site.url);
+    setEditSiteEnabled(site.enabled);
+    setError("");
+  }
+
+  function cancelEditSite() {
+    setEditingSiteId(null);
+    setEditLabel("");
+    setEditUrl("");
+    setEditSiteEnabled(true);
+    setError("");
+  }
+
+  function cancelAddSite() {
+    setAddingSite(false);
+    setLabel("");
+    setUrl("");
+    setError("");
+  }
+
+  async function addSite() {
     if (!settings) return;
-    const site: CompanySiteSource = {
-      id: crypto.randomUUID(),
-      label: label.trim(),
-      url: url.trim(),
-      enabled: true,
-    };
-    if (!site.label || !/^https?:\/\//i.test(site.url)) {
+    if (!label.trim() || !pageUrl(url.trim())) {
       setError("A company page needs a name and an https address.");
       return;
     }
-    setError("");
-    update({ ...settings, sites: [...settings.sites, site] });
-    setLabel("");
-    setUrl("");
+    const next = settingsToStore();
+    if (!next) return;
+    const saved = await store(next);
+    if (!saved) return;
+    cancelAddSite();
+  }
+
+  async function updateSite() {
+    if (!settings || !editingSiteId) return;
+    if (!editLabel.trim() || !pageUrl(editUrl.trim())) {
+      setError("A company page needs a name and an https address.");
+      return;
+    }
+    const next = settingsToStore();
+    if (!next) return;
+    const saved = await store(next);
+    if (!saved) return;
+    cancelEditSite();
   }
 
   async function save(event: FormEvent) {
     event.preventDefault();
     if (!settings) return;
-    if (adding && (applicationId.trim() || apiKey.trim()) && !name.trim()) {
+    if (
+      (adding && (applicationId.trim() || apiKey.trim()) && !name.trim()) ||
+      (editingId && !editName.trim())
+    ) {
       setError("A job source needs a name.");
+      return;
+    }
+    if (
+      (addingSite && (label.trim() || url.trim()) && (!label.trim() || !pageUrl(url.trim()))) ||
+      (editingSiteId && (!editLabel.trim() || !pageUrl(editUrl.trim())))
+    ) {
+      setError("A company page needs a name and an https address.");
       return;
     }
     const next = settingsToStore();
@@ -159,6 +316,9 @@ export function JobSourceSettingsForm() {
     setApplicationId("");
     setApiKey("");
     setAdding(false);
+    cancelEdit();
+    cancelAddSite();
+    cancelEditSite();
   }
 
   if (!settings) {
@@ -186,56 +346,76 @@ export function JobSourceSettingsForm() {
             for one. Both stay in this vault. Search reads a source once Proforna
             knows how.
           </p>
-          {settings.sources.map((source) => (
-            <div className="job-source-card" key={source.id}>
-              <label className="onboarding-field">
-                <span>
+          {settings.sources.map((source) =>
+            editingId === source.id ? (
+              <div className="job-source-card" key={source.id}>
+                <label className="onboarding-field">
+                  <span>
+                    <input
+                      type="checkbox"
+                      checked={editEnabled}
+                      onChange={(event) => setEditEnabled(event.target.checked)}
+                    />{" "}
+                    On
+                  </span>
+                </label>
+                <label className="onboarding-field">
+                  <span>Name</span>
                   <input
-                    type="checkbox"
-                    checked={source.enabled}
-                    onChange={(event) => patchSource(source.id, { enabled: event.target.checked })}
-                  />{" "}
-                  On
+                    value={editName}
+                    onChange={(event) => setEditName(event.target.value)}
+                  />
+                </label>
+                <label className="onboarding-field">
+                  <span>Application id</span>
+                  <input
+                    autoComplete="off"
+                    value={editApplicationId}
+                    onChange={(event) => setEditApplicationId(event.target.value)}
+                  />
+                </label>
+                <label className="onboarding-field">
+                  <span>API key</span>
+                  <input
+                    type="password"
+                    autoComplete="off"
+                    value={editApiKey}
+                    onChange={(event) => setEditApiKey(event.target.value)}
+                  />
+                </label>
+                <div className="map-theme-row">
+                  <button type="button" disabled={busy} onClick={() => void updateSource()}>
+                    Update
+                  </button>
+                  <button type="button" onClick={cancelEdit}>
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="job-source-row" key={source.id}>
+                <span>
+                  {source.name}
+                  {source.enabled ? "" : " · Off"}
                 </span>
-              </label>
-              <label className="onboarding-field">
-                <span>Name</span>
-                <input
-                  value={source.name}
-                  onChange={(event) => patchSource(source.id, { name: event.target.value })}
-                />
-              </label>
-              <label className="onboarding-field">
-                <span>Application id</span>
-                <input
-                  autoComplete="off"
-                  value={source.applicationId}
-                  onChange={(event) => patchSource(source.id, { applicationId: event.target.value })}
-                />
-              </label>
-              <label className="onboarding-field">
-                <span>API key</span>
-                <input
-                  type="password"
-                  autoComplete="off"
-                  value={source.apiKey}
-                  onChange={(event) => patchSource(source.id, { apiKey: event.target.value })}
-                />
-              </label>
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() =>
-                  void store({
-                    ...settings,
-                    sources: settings.sources.filter((item) => item.id !== source.id),
-                  })
-                }
-              >
-                Remove
-              </button>
-            </div>
-          ))}
+                <button type="button" onClick={() => beginEdit(source)}>
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() =>
+                    void store({
+                      ...settings,
+                      sources: settings.sources.filter((item) => item.id !== source.id),
+                    })
+                  }
+                >
+                  Remove
+                </button>
+              </div>
+            ),
+          )}
           {adding ? (
             <>
               <label className="onboarding-field">
@@ -284,7 +464,7 @@ export function JobSourceSettingsForm() {
               </div>
             </>
           ) : (
-            <button type="button" onClick={() => setAdding(true)}>
+            <button type="button" onClick={beginAdd}>
               Add job source
             </button>
           )}
@@ -292,54 +472,100 @@ export function JobSourceSettingsForm() {
         <fieldset className="map-pin-settings">
           <legend>Company careers page</legend>
           <p className="onboarding-lead">
-            Saved for Proforna to read later. Search does not open these pages yet.
+            Search reads the page you save. When it names a role, that posting shows up with the other results.
           </p>
-          {settings.sites.map((site) => (
-            <label className="onboarding-field" key={site.id}>
-              <span>
-                <input
-                  type="checkbox"
-                  checked={site.enabled}
-                  onChange={(event) =>
-                    update({
+          {settings.sites.map((site) =>
+            editingSiteId === site.id ? (
+              <div className="job-source-card" key={site.id}>
+                <label className="onboarding-field">
+                  <span>
+                    <input
+                      type="checkbox"
+                      checked={editSiteEnabled}
+                      onChange={(event) => setEditSiteEnabled(event.target.checked)}
+                    />{" "}
+                    On
+                  </span>
+                </label>
+                <label className="onboarding-field">
+                  <span>Company</span>
+                  <input
+                    value={editLabel}
+                    onChange={(event) => setEditLabel(event.target.value)}
+                  />
+                </label>
+                <label className="onboarding-field">
+                  <span>Careers address</span>
+                  <input
+                    value={editUrl}
+                    onChange={(event) => setEditUrl(event.target.value)}
+                  />
+                </label>
+                <div className="map-theme-row">
+                  <button type="button" disabled={busy} onClick={() => void updateSite()}>
+                    Update
+                  </button>
+                  <button type="button" onClick={cancelEditSite}>
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="job-source-row" key={site.id}>
+                <span>
+                  {site.label}
+                  {site.enabled ? "" : " · Off"}
+                </span>
+                <button type="button" onClick={() => beginEditSite(site)}>
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() =>
+                    void store({
                       ...settings,
-                      sites: settings.sites.map((item) =>
-                        item.id === site.id ? { ...item, enabled: event.target.checked } : item,
-                      ),
+                      sites: settings.sites.filter((item) => item.id !== site.id),
                     })
                   }
-                />{" "}
-                {site.label}
-              </span>
-              <small>{site.url}</small>
-              <button
-                type="button"
-                onClick={() =>
-                  update({
-                    ...settings,
-                    sites: settings.sites.filter((item) => item.id !== site.id),
-                  })
-                }
-              >
-                Remove
-              </button>
-            </label>
-          ))}
-          <label className="onboarding-field">
-            <span>Company</span>
-            <input value={label} onChange={(event) => setLabel(event.target.value)} placeholder="Northstar" />
-          </label>
-          <label className="onboarding-field">
-            <span>Careers address</span>
-            <input
-              value={url}
-              onChange={(event) => setUrl(event.target.value)}
-              placeholder="https://example.com/careers"
-            />
-          </label>
-          <button type="button" onClick={() => addSite()}>
-            Add page
-          </button>
+                >
+                  Remove
+                </button>
+              </div>
+            ),
+          )}
+          {addingSite ? (
+            <>
+              <label className="onboarding-field">
+                <span>Company</span>
+                <input
+                  value={label}
+                  onChange={(event) => setLabel(event.target.value)}
+                  placeholder="Northstar"
+                />
+              </label>
+              <label className="onboarding-field">
+                <span>Careers address</span>
+                <input
+                  value={url}
+                  onChange={(event) => setUrl(event.target.value)}
+                  placeholder="https://example.com/careers"
+                />
+              </label>
+              <div className="map-theme-row">
+                <button type="button" disabled={busy} onClick={() => void addSite()}>
+                  Add
+                </button>
+                <button type="button" onClick={cancelAddSite}>
+                  Cancel
+                </button>
+              </div>
+            </>
+          ) : (
+            <button type="button" onClick={beginAddSite}>
+              Add page
+            </button>
+          )}
         </fieldset>
         <fieldset className="map-pin-settings">
           <legend>Judge against</legend>

@@ -1,19 +1,6 @@
-export type JobListing = {
-  id: string;
-  title: string;
-  organization: string;
-  location: string;
-  latitude: number | null;
-  longitude: number | null;
-  url: string;
-  summary: string;
-  description: string;
-  salaryMin: number | null;
-  salaryMax: number | null;
-  contract: string;
-  postedOn: string;
-  category: string;
-};
+import type { Posting } from "./posting";
+
+export type JobListing = Posting;
 
 export const SEARCH_RADIUS_MILES = [10, 25, 50, 100] as const;
 
