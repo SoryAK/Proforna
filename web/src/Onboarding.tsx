@@ -15,9 +15,8 @@ import {
 } from "@core/onboarding-review";
 import { isAvatarType, prepareProfile, PROFILE_AVATAR_MAX_BYTES, type ProfileFields } from "@core/profile";
 import type { ExtractedResume } from "@core/resume-extract";
-import { classifyResumePreview } from "@core/resume-preview";
 import { AddressFields } from "./OnboardingAddress";
-import { RoleCheck } from "./OnboardingCheck";
+import { CheckOverview, ResumePreview } from "./OnboardingCheck";
 import { LinkFields } from "./OnboardingLinks";
 import type { OnboardingProfileValue } from "./OnboardingProfile";
 import { YesNo } from "./onboarding-offer";
@@ -38,7 +37,7 @@ const STEP_INDEX: Record<OnboardingStep, number> = {
   done: 3,
 };
 
-const STEPS = ["Profile", "Model", "Resume", "Check"] as const;
+const STEPS = ["Profile", "Model", "Resume", "Verify"] as const;
 
 export function Onboarding({
   initialProfile,
@@ -76,9 +75,7 @@ export function Onboarding({
   const [file, setFile] = useState<File | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [step, setStep] = useState<OnboardingStep>("name");
-  const [index, setIndex] = useState(0);
   const [items, setItems] = useState<OnboardingCheckItem[]>([]);
-  const [pinPlaces, setPinPlaces] = useState<"each" | "skip" | null>(null);
   const [extracted, setExtracted] = useState<ExtractedResume | null>(null);
   const [extracting, setExtracting] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -167,9 +164,7 @@ export function Onboarding({
     setFile(next);
     setItems([]);
     setExtracted(null);
-    setIndex(0);
     setError(null);
-    setPinPlaces(null);
     setExtracting(false);
     if (step === "check" || step === "done") setStep("file");
   }
@@ -177,7 +172,6 @@ export function Onboarding({
   function continueWithoutRead() {
     setItems([]);
     setExtracted(null);
-    setIndex(0);
     setError(null);
     setStep("done");
   }
@@ -218,15 +212,13 @@ export function Onboarding({
         return;
       }
       const next = onboardingCheckItems(body.data);
-      if (next.length === 0 && body.data.education.length === 0) {
+      if (next.length === 0) {
         setError("The model did not find roles or schools in that file.");
         return;
       }
       setExtracted(body.data);
       setItems(next);
-      setPinPlaces(null);
-      setIndex(0);
-      setStep(next.length > 0 ? "check" : "done");
+      setStep("check");
     } catch (err) {
       if (abort.signal.aborted) return;
       setError(err instanceof Error ? err.message : "Could not read the resume.");
@@ -339,18 +331,21 @@ export function Onboarding({
         "We'll extract the career details from your resume. It can be done later if now is not the right time.",
       ];
     }
+    if (step === "check") {
+      return [
+        "We advise going through each one. A model can hallucinate, and the read can produce incorrect information or miss things.",
+        "These details can be revised later as well.",
+      ];
+    }
     if (step === "done") {
       if (file && wantsModel === false) {
         return [`${file.name} is here and was not read. Add roles from Career History when you are ready.`];
       }
       if (items.length === 0) {
-        if (extracted && extracted.education.length > 0) {
-          return ["Schools from the file are kept. Add roles from Career History when you are ready."];
-        }
         if (file) return ["Nothing was kept from the file. Add roles from Career History when you are ready."];
         return ["No resume was added. Add roles from Career History when you are ready."];
       }
-      return [`${items.length} roles are checked.`];
+      return [`${checkedSummary(items)} ${items.length === 1 ? "is" : "are"} verified.`];
     }
     return [];
   }
@@ -656,35 +651,13 @@ export function Onboarding({
             </>
           ) : null}
 
-          {step === "check" && items[index] ? (
-            <RoleCheck
+          {step === "check" && items.length > 0 ? (
+            <CheckOverview
               items={items}
-              index={index}
-              pinPlaces={pinPlaces}
-              onPinPlaces={setPinPlaces}
-              onPlace={(at, label, lat, lng) => {
-                setItems((current) =>
-                  current.map((row, rowIndex) => (rowIndex === at ? { ...row, place: label, lat, lng } : row)),
-                );
-              }}
-              onDrop={() => {
-                const next = items.filter((_, rowIndex) => rowIndex !== index);
-                setItems(next);
-                if (next.length === 0) {
-                  setIndex(0);
-                  setStep("done");
-                  return;
-                }
-                if (index >= next.length) setIndex(next.length - 1);
-              }}
-              onBack={() => {
-                if (index === 0) setStep("file");
-                else setIndex((current) => current - 1);
-              }}
-              onNext={() => {
-                if (index + 1 >= items.length) setStep("done");
-                else setIndex((current) => current + 1);
-              }}
+              file={file}
+              onChange={setItems}
+              onBack={() => setStep("file")}
+              onContinue={() => setStep("done")}
             />
           ) : null}
 
@@ -731,6 +704,16 @@ export function Onboarding({
       </div>
     </div>
   );
+}
+
+function checkedSummary(items: OnboardingCheckItem[]): string {
+  const jobs = items.filter((item) => item.kind === "Job").length;
+  const schools = items.filter((item) => item.kind === "School").length;
+  const parts = [
+    jobs > 0 ? `${jobs} ${jobs === 1 ? "job" : "jobs"}` : "",
+    schools > 0 ? `${schools} ${schools === 1 ? "school" : "schools"}` : "",
+  ].filter(Boolean);
+  return parts.join(" and ") || "Nothing";
 }
 
 function WashProgress({ step }: { step: OnboardingStep }) {
@@ -865,49 +848,6 @@ function ReadProgress({ model }: { model: string }) {
         <div className="onboarding-read-bar" style={{ ["--read" as string]: width / 100 }} />
       </div>
       <p className="onboarding-quiet">{clock} — still working. A resume can take a minute.</p>
-    </div>
-  );
-}
-
-function ResumePreview({ file }: { file: File }) {
-  const [textPreview, setTextPreview] = useState<string | null>(null);
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
-  const kind = classifyResumePreview(file);
-
-  useEffect(() => {
-    if (kind === "pdf") {
-      const url = URL.createObjectURL(file);
-      setPdfUrl(url);
-      setTextPreview(null);
-      return () => URL.revokeObjectURL(url);
-    }
-    if (kind === "text") {
-      setPdfUrl(null);
-      let cancel = false;
-      void file.text().then((text) => {
-        if (!cancel) setTextPreview(text);
-      });
-      return () => {
-        cancel = true;
-      };
-    }
-    setPdfUrl(null);
-    setTextPreview(null);
-  }, [file, kind]);
-
-  return (
-    <div className="onboarding-preview">
-      {kind === "pdf" && pdfUrl ? (
-        <iframe className="onboarding-preview-frame" title="Resume preview" src={pdfUrl} />
-      ) : null}
-      {kind === "text" ? (
-        <pre className="onboarding-preview-text">{textPreview ?? "Reading…"}</pre>
-      ) : null}
-      {kind === "other" ? (
-        <p className="onboarding-preview-fallback">
-          {file.name} cannot be shown here. You can still continue.
-        </p>
-      ) : null}
     </div>
   );
 }

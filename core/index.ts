@@ -10,7 +10,10 @@ export {
   type OnboardingProfile,
 } from "./onboarding";
 export {
+  blankOnboardingCheckItem,
+  isBlankOnboardingCheckItem,
   keptOnboardingHistory,
+  nextOnboardingSourceIndex,
   onboardingCheckItems,
   profileAfterOnboarding,
   ONBOARDING_NO_PLACE,
