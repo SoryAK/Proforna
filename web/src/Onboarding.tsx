@@ -13,11 +13,12 @@ import {
   type OnboardingLinkAnswer,
   type OnboardingPlaceAnswer,
 } from "@core/onboarding-review";
-import { prepareProfile, type ProfileFields } from "@core/profile";
-import { splitPlaceLabel, type ExtractedResume } from "@core/resume-extract";
-import { AddressStep } from "./OnboardingAddress";
+import { isAvatarType, prepareProfile, PROFILE_AVATAR_MAX_BYTES, type ProfileFields } from "@core/profile";
+import type { ExtractedResume } from "@core/resume-extract";
+import { classifyResumePreview } from "@core/resume-preview";
+import { AddressFields } from "./OnboardingAddress";
 import { RoleCheck } from "./OnboardingCheck";
-import { LinksStep } from "./OnboardingLinks";
+import { LinkFields } from "./OnboardingLinks";
 import type { OnboardingProfileValue } from "./OnboardingProfile";
 import { YesNo } from "./onboarding-offer";
 import "./onboarding.css";
@@ -27,19 +28,17 @@ type Me = {
   profile: OnboardingProfileValue & { onboardingCompletedAt: string | null };
 };
 
-type OnboardingStep = "name" | "model" | "file" | "address" | "links" | "check" | "done";
+type OnboardingStep = "name" | "model" | "file" | "check" | "done";
 
 const STEP_INDEX: Record<OnboardingStep, number> = {
   name: 0,
   model: 1,
   file: 2,
-  address: 3,
-  links: 4,
-  check: 5,
-  done: 5,
+  check: 3,
+  done: 3,
 };
 
-const STEPS = ["Name", "Model", "File", "Address", "Links", "Check"] as const;
+const STEPS = ["Profile", "Model", "Resume", "Check"] as const;
 
 export function Onboarding({
   initialProfile,
@@ -51,14 +50,18 @@ export function Onboarding({
   const split = splitName(initialProfile.fullName);
   const [firstName, setFirstName] = useState(split.first);
   const [lastName, setLastName] = useState(split.last);
-  const [place, setPlace] = useState<OnboardingPlaceAnswer>({ street: "", city: "", state: "" });
-  const [links, setLinks] = useState<OnboardingLinkAnswer>({
-    linkedinUrl: "",
-    githubUrl: "",
-    portfolioUrl: "",
+  const [photo, setPhoto] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(initialProfile.avatarUrl);
+  const [place, setPlace] = useState<OnboardingPlaceAnswer>({
+    street: initialProfile.address,
+    city: initialProfile.city,
+    state: initialProfile.state,
   });
-  const [addressDecision, setAddressDecision] = useState<"use" | "keep" | null>(null);
-  const [linksDecision, setLinksDecision] = useState<"use" | "keep" | null>(null);
+  const [links, setLinks] = useState<OnboardingLinkAnswer>({
+    linkedinUrl: initialProfile.linkedinUrl,
+    githubUrl: initialProfile.githubUrl,
+    portfolioUrl: initialProfile.portfolioUrl,
+  });
   const [localProbe, setLocalProbe] = useState<"pending" | "ready">("pending");
   const [detectedLocal, setDetectedLocal] = useState<{ label: string; models: string[] } | null>(null);
   const [detectedUrl, setDetectedUrl] = useState("");
@@ -71,6 +74,7 @@ export function Onboarding({
   const [cloudKey, setCloudKey] = useState("");
   const [selected, setSelected] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const [step, setStep] = useState<OnboardingStep>("name");
   const [index, setIndex] = useState(0);
   const [items, setItems] = useState<OnboardingCheckItem[]>([]);
@@ -81,6 +85,14 @@ export function Onboarding({
   const [error, setError] = useState<string | null>(null);
   const profileRef = useRef<ProfileFields>(initialProfile);
   const abortRef = useRef<AbortController | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (!photo) return;
+    const url = URL.createObjectURL(photo);
+    setPhotoPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [photo]);
 
   useEffect(() => {
     let cancel = false;
@@ -132,8 +144,26 @@ export function Onboarding({
         (endpointMode === "custom" && isHttpUrl(localUrl.trim()) && Boolean(selected.trim())))) ||
     (wantsModel === true && hosting === "cloud" && Boolean(selected.trim()) && Boolean(cloudKey.trim()));
 
+  function pickPhoto(next: File | null) {
+    if (!next) {
+      setPhoto(null);
+      return;
+    }
+    if (!isAvatarType(next.type)) {
+      setError("Use a jpeg, png, webp, or gif photo.");
+      return;
+    }
+    if (next.size > PROFILE_AVATAR_MAX_BYTES) {
+      setError("That photo is too large (5 MB max).");
+      return;
+    }
+    setError(null);
+    setPhoto(next);
+  }
+
   function pickFile(next: File) {
     abortRef.current?.abort();
+    setPreviewOpen(false);
     setFile(next);
     setItems([]);
     setExtracted(null);
@@ -141,7 +171,15 @@ export function Onboarding({
     setError(null);
     setPinPlaces(null);
     setExtracting(false);
-    if (step === "address" || step === "links" || step === "check" || step === "done") setStep("file");
+    if (step === "check" || step === "done") setStep("file");
+  }
+
+  function continueWithoutRead() {
+    setItems([]);
+    setExtracted(null);
+    setIndex(0);
+    setError(null);
+    setStep("done");
   }
 
   async function readFile() {
@@ -180,30 +218,15 @@ export function Onboarding({
         return;
       }
       const next = onboardingCheckItems(body.data);
-      const foundPlace = splitPlaceLabel(body.data.profile.location);
-      const foundProfile = Boolean(
-        foundPlace.city ||
-          body.data.profile.linkedinUrl.trim() ||
-          body.data.profile.githubUrl.trim() ||
-          body.data.profile.website.trim(),
-      );
-      if (next.length === 0 && body.data.education.length === 0 && !foundProfile) {
-        setError("The model did not find roles, schools, an address, or links in that file.");
+      if (next.length === 0 && body.data.education.length === 0) {
+        setError("The model did not find roles or schools in that file.");
         return;
       }
       setExtracted(body.data);
-      setPlace({ street: "", city: foundPlace.city, state: foundPlace.state });
-      setLinks({
-        linkedinUrl: httpOrEmpty(body.data.profile.linkedinUrl),
-        githubUrl: httpOrEmpty(body.data.profile.githubUrl),
-        portfolioUrl: httpOrEmpty(body.data.profile.website),
-      });
-      setAddressDecision(null);
-      setLinksDecision(null);
       setItems(next);
       setPinPlaces(null);
       setIndex(0);
-      setStep("address");
+      setStep(next.length > 0 ? "check" : "done");
     } catch (err) {
       if (abort.signal.aborted) return;
       setError(err instanceof Error ? err.message : "Could not read the resume.");
@@ -223,8 +246,8 @@ export function Onboarding({
         current: profileRef.current,
         extracted: extracted?.profile ?? null,
         fullName: `${firstName} ${lastName}`.replace(/\s+/g, " ").trim(),
-        place: addressDecision === "use" ? place : null,
-        links: linksDecision === "use" ? links : null,
+        place,
+        links,
       });
       const prepared = prepareProfile(draft);
       if (!prepared.ok) {
@@ -245,6 +268,16 @@ export function Onboarding({
       if (!savedProfile.ok) {
         setError(profileBody.error ?? "Could not save your profile.");
         return;
+      }
+      if (photo) {
+        const avatar = new FormData();
+        avatar.append("avatar", photo);
+        const uploadedPhoto = await fetch("/api/profile/avatar", { method: "POST", body: avatar });
+        const photoBody = (await uploadedPhoto.json()) as { error?: string };
+        if (!uploadedPhoto.ok) {
+          setError(photoBody.error ?? "Could not save the photo.");
+          return;
+        }
       }
       let resumeId: string | undefined;
       if (file) {
@@ -284,47 +317,68 @@ export function Onboarding({
     }
   }
 
+  const notes = notesForStep();
+
+  function notesForStep(): string[] {
+    if (step === "name") {
+      return ["These details can be revised, and more can be added, in the Profile section."];
+    }
+    if (step === "model") {
+      const lines = [
+        "If you choose to go with a cloud model, there's a chance that cloud providers could read what you send, retain, report, and train models on your data.",
+      ];
+      if (wantsModel === false) {
+        lines.push(
+          "You can still add the resume next. It will not be read. Jobs and schools can be added later from Career History.",
+        );
+      }
+      return lines;
+    }
+    if (step === "file" && !extracting) {
+      return [
+        "We'll extract the career details from your resume. It can be done later if now is not the right time.",
+      ];
+    }
+    if (step === "done") {
+      if (file && wantsModel === false) {
+        return [`${file.name} is here and was not read. Add roles from Career History when you are ready.`];
+      }
+      if (items.length === 0) {
+        if (extracted && extracted.education.length > 0) {
+          return ["Schools from the file are kept. Add roles from Career History when you are ready."];
+        }
+        if (file) return ["Nothing was kept from the file. Add roles from Career History when you are ready."];
+        return ["No resume was added. Add roles from Career History when you are ready."];
+      }
+      return [`${items.length} roles are checked.`];
+    }
+    return [];
+  }
+
   return (
     <div className="onboarding">
       <div className="onboarding-stage">
         <WashProgress step={step} />
-        <section className="onboarding-card" data-wide={step === "check" ? "true" : undefined}>
+        <div className="onboarding-sheet" data-wide={step === "check" ? "true" : undefined}>
+        <section className="onboarding-card">
           {step === "name" ? (
-            <>
-              <p className="onboarding-kicker">Name</p>
-              <h1>
-                What should we <em>call you?</em>
-              </h1>
-              <p className="onboarding-lead">Proforna keeps your career file on this machine.</p>
-              <div className="onboarding-field-row">
-                <label className="onboarding-field">
-                  <span>First name</span>
-                  <input
-                    value={firstName}
-                    autoComplete="given-name"
-                    onChange={(event) => setFirstName(event.target.value)}
-                  />
-                </label>
-                <label className="onboarding-field">
-                  <span>Last name</span>
-                  <input
-                    value={lastName}
-                    autoComplete="family-name"
-                    onChange={(event) => setLastName(event.target.value)}
-                  />
-                </label>
-              </div>
-              <div className="onboarding-actions">
-                <button
-                  type="button"
-                  className="onboarding-btn onboarding-btn-solid"
-                  disabled={!firstName.trim() || !lastName.trim()}
-                  onClick={() => setStep("model")}
-                >
-                  Continue
-                </button>
-              </div>
-            </>
+            <ProfileStep
+              firstName={firstName}
+              lastName={lastName}
+              photoPreview={photoPreview}
+              place={place}
+              links={links}
+              error={error}
+              onFirstName={setFirstName}
+              onLastName={setLastName}
+              onPhoto={pickPhoto}
+              onPlace={setPlace}
+              onLinks={setLinks}
+              onContinue={() => {
+                setError(null);
+                setStep("model");
+              }}
+            />
           ) : null}
 
           {step === "model" ? (
@@ -333,27 +387,13 @@ export function Onboarding({
               <h1>
                 Connect to a <em>model?</em>
               </h1>
-              <p className="onboarding-lead">
-                Local stays on this machine. Cloud needs a key, and resume text would leave this machine.
-              </p>
-              <YesNo
-                value={wantsModel}
-                onYes={() => setWantsModel(true)}
-                onNo={() => {
-                  setWantsModel(false);
-                  setHosting(null);
-                  setSelected("");
-                  setCloudKey("");
-                  setEndpointMode(null);
-                  setLocalUrl("");
-                }}
-              />
               {wantsModel === true ? (
-                <>
-                  <div className="onboarding-chips">
+                <div className="onboarding-detect">
+                  <section className="onboarding-detect-row" data-open={hosting === "local" ? "true" : "false"}>
                     <button
                       type="button"
-                      aria-pressed={hosting === "local"}
+                      className="onboarding-detect-head"
+                      aria-expanded={hosting === "local"}
                       onClick={() => {
                         setHosting("local");
                         setSelected("");
@@ -363,11 +403,53 @@ export function Onboarding({
                         setBaseUrl(detectedUrl);
                       }}
                     >
-                      Local
+                      <strong>{detectedLocal?.label ?? "Local"}</strong>
+                      <span>
+                        {localProbe !== "ready" ? "Checking…" : detectedLocal ? "Detected" : "Not found"}
+                      </span>
                     </button>
+                    {hosting === "local" ? (
+                      <LocalModels
+                        localProbe={localProbe}
+                        detectedLocal={detectedLocal}
+                        endpointMode={endpointMode}
+                        selected={selected}
+                        localUrl={localUrl}
+                        onPickDetected={(id) => {
+                          setEndpointMode("detected");
+                          setSelected(id);
+                          setLocalUrl("");
+                          setBaseUrl(detectedUrl);
+                        }}
+                        onOpenCustom={() => {
+                          setEndpointMode("custom");
+                          setSelected("");
+                          setLocalUrl("");
+                          setBaseUrl("");
+                        }}
+                        onCloseCustom={() => {
+                          setEndpointMode(null);
+                          setSelected("");
+                          setLocalUrl("");
+                          setBaseUrl(detectedUrl);
+                        }}
+                        onCustomUrl={(value) => {
+                          setLocalUrl(value);
+                          setEndpointMode("custom");
+                          setBaseUrl(value.trim());
+                        }}
+                        onCustomModel={(value) => {
+                          setSelected(value);
+                          setEndpointMode("custom");
+                        }}
+                      />
+                    ) : null}
+                  </section>
+                  <section className="onboarding-detect-row" data-open={hosting === "cloud" ? "true" : "false"}>
                     <button
                       type="button"
-                      aria-pressed={hosting === "cloud"}
+                      className="onboarding-detect-head"
+                      aria-expanded={hosting === "cloud"}
                       onClick={() => {
                         setHosting("cloud");
                         setSelected("");
@@ -375,62 +457,33 @@ export function Onboarding({
                         setLocalUrl("");
                       }}
                     >
-                      Cloud
+                      <strong>Cloud</strong>
+                      <span>{hosting === "cloud" && selected.trim() && cloudKey.trim() ? "Ready" : "Needs a key"}</span>
                     </button>
-                  </div>
-                  {hosting === "local" ? (
-                    <LocalModels
-                      localProbe={localProbe}
-                      detectedLocal={detectedLocal}
-                      endpointMode={endpointMode}
-                      selected={selected}
-                      localUrl={localUrl}
-                      onPickDetected={(id) => {
-                        setEndpointMode("detected");
-                        setSelected(id);
-                        setLocalUrl("");
-                        setBaseUrl(detectedUrl);
-                      }}
-                      onCustomUrl={(value) => {
-                        setLocalUrl(value);
-                        setEndpointMode("custom");
-                        setBaseUrl(value.trim());
-                      }}
-                      onCustomModel={(value) => {
-                        setSelected(value);
-                        setEndpointMode("custom");
-                      }}
-                    />
-                  ) : null}
-                  {hosting === "cloud" ? (
-                    <>
-                      <p className="onboarding-quiet">Resume text would leave this machine.</p>
-                      <label className="onboarding-field">
-                        <span>Model</span>
-                        <input
-                          value={selected}
-                          autoComplete="off"
-                          placeholder="gpt-4o-mini"
-                          onChange={(event) => setSelected(event.target.value)}
-                        />
-                      </label>
-                      <label className="onboarding-field">
-                        <span>Key</span>
-                        <input
-                          type="password"
-                          value={cloudKey}
-                          autoComplete="off"
-                          onChange={(event) => setCloudKey(event.target.value)}
-                        />
-                      </label>
-                    </>
-                  ) : null}
-                </>
-              ) : null}
-              {wantsModel === false ? (
-                <p className="onboarding-quiet">
-                  You can still add the resume next. It will not be read. Jobs and schools can be added later from Career History.
-                </p>
+                    {hosting === "cloud" ? (
+                      <div className="onboarding-detect-body">
+                        <label className="onboarding-field">
+                          <span>Model</span>
+                          <input
+                            value={selected}
+                            autoComplete="off"
+                            placeholder="gpt-4o-mini"
+                            onChange={(event) => setSelected(event.target.value)}
+                          />
+                        </label>
+                        <label className="onboarding-field">
+                          <span>Key</span>
+                          <input
+                            type="password"
+                            value={cloudKey}
+                            autoComplete="off"
+                            onChange={(event) => setCloudKey(event.target.value)}
+                          />
+                        </label>
+                      </div>
+                    ) : null}
+                  </section>
+                </div>
               ) : null}
               {error ? (
                 <p className="onboarding-alert" role="alert">
@@ -438,27 +491,67 @@ export function Onboarding({
                 </p>
               ) : null}
               <div className="onboarding-actions" data-split="true">
-                <button type="button" className="onboarding-btn onboarding-btn-ghost" onClick={() => setStep("name")}>
-                  Back
-                </button>
                 <button
                   type="button"
-                  className="onboarding-btn onboarding-btn-solid"
-                  disabled={!modelReady}
+                  className="onboarding-btn onboarding-btn-ghost"
                   onClick={() => {
+                    setWantsModel(null);
+                    setHosting(null);
+                    setSelected("");
+                    setCloudKey("");
+                    setEndpointMode(null);
+                    setLocalUrl("");
+                    setBaseUrl(detectedUrl);
                     setError(null);
-                    setStep("file");
+                    setStep("name");
                   }}
                 >
-                  Continue
+                  Back
                 </button>
+                {wantsModel === true ? (
+                  <button
+                    type="button"
+                    className="onboarding-btn onboarding-btn-solid"
+                    disabled={!modelReady}
+                    onClick={() => {
+                      setError(null);
+                      setStep("file");
+                    }}
+                  >
+                    Continue
+                  </button>
+                ) : (
+                  <YesNo
+                    onYes={() => {
+                      setWantsModel(true);
+                      if (detectedLocal) {
+                        setHosting("local");
+                        setBaseUrl(detectedUrl);
+                        setSelected("");
+                        setCloudKey("");
+                        setEndpointMode(null);
+                        setLocalUrl("");
+                      }
+                    }}
+                    onNo={() => {
+                      setWantsModel(false);
+                      setHosting(null);
+                      setSelected("");
+                      setCloudKey("");
+                      setEndpointMode(null);
+                      setLocalUrl("");
+                      setError(null);
+                      setStep("file");
+                    }}
+                  />
+                )}
               </div>
             </>
           ) : null}
 
           {step === "file" ? (
             <>
-              <p className="onboarding-kicker">File</p>
+              <p className="onboarding-kicker">Resume</p>
               <h1>
                 {extracting ? (
                   <>
@@ -466,7 +559,7 @@ export function Onboarding({
                   </>
                 ) : (
                   <>
-                    Import when <em>you’re ready.</em>
+                    Import your most up-to-date <em>resume.</em>
                   </>
                 )}
               </h1>
@@ -474,24 +567,56 @@ export function Onboarding({
                 <ReadProgress model={presentModelId(selected)} />
               ) : (
                 <>
-                  <p className="onboarding-lead">
-                    {wantsModel && hosting === "cloud" && selected
-                      ? `${presentModelId(selected)} will read the file. Resume text leaves this machine.`
-                      : wantsModel && selected
-                        ? `${presentModelId(selected)} will read the file.`
-                        : "No model is connected. Add the resume if you want it kept. It will not be read."}
-                  </p>
-                  <label className="onboarding-file">
-                    {file ? file.name : "Drop a PDF here, or click to choose"}
+                  {file ? (
+                    <div className="onboarding-file onboarding-file-picked">
+                      <span className="onboarding-file-name" title={file.name}>
+                        {file.name}
+                      </span>
+                      <span className="onboarding-file-actions">
+                        <button
+                          type="button"
+                          className="onboarding-btn onboarding-btn-ghost onboarding-file-preview"
+                          onClick={() => fileInputRef.current?.click()}
+                        >
+                          Replace
+                        </button>
+                        <button
+                          type="button"
+                          className="onboarding-btn onboarding-btn-ghost onboarding-file-preview"
+                          onClick={() => setPreviewOpen((open) => !open)}
+                        >
+                          {previewOpen ? "Hide preview" : "Preview"}
+                        </button>
+                      </span>
+                    </div>
+                  ) : (
+                    <label className="onboarding-file">
+                      Drop a PDF here, or click to choose
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="application/pdf,text/plain,.pdf,.txt,.md"
+                        onChange={(event) => {
+                          const next = event.target.files?.[0];
+                          if (next) pickFile(next);
+                        }}
+                      />
+                    </label>
+                  )}
+                  {file && previewOpen ? <ResumePreview file={file} /> : null}
+                  {file ? (
                     <input
+                      ref={fileInputRef}
                       type="file"
+                      hidden
                       accept="application/pdf,text/plain,.pdf,.txt,.md"
                       onChange={(event) => {
                         const next = event.target.files?.[0];
+                        event.target.value = "";
                         if (next) pickFile(next);
                       }}
                     />
-                  </label>
+                  ) : null}
                   {error ? (
                     <p className="onboarding-alert" role="alert">
                       {error}
@@ -505,56 +630,30 @@ export function Onboarding({
                     >
                       Back
                     </button>
-                    {wantsModel === false ? (
-                      <button
-                        type="button"
-                        className="onboarding-btn onboarding-btn-solid"
-                        onClick={() => {
-                          setItems([]);
-                          setExtracted(null);
-                          setStep("done");
-                        }}
-                      >
-                        Continue
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        className="onboarding-btn onboarding-btn-solid"
-                        disabled={wantsModel !== true || !file || !selected || extracting}
-                        onClick={() => void readFile()}
-                      >
-                        Check the file
-                      </button>
-                    )}
+                    <div className="onboarding-action-pair">
+                      {wantsModel === true && file ? (
+                        <button
+                          type="button"
+                          className="onboarding-btn onboarding-btn-solid"
+                          disabled={!selected || extracting}
+                          onClick={() => void readFile()}
+                        >
+                          Extract job data
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className="onboarding-btn onboarding-btn-solid"
+                          onClick={continueWithoutRead}
+                        >
+                          Continue
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </>
               )}
             </>
-          ) : null}
-
-          {step === "address" ? (
-            <AddressStep
-              place={place}
-              onPlace={setPlace}
-              onBack={() => setStep("file")}
-              onContinue={(skipped) => {
-                setAddressDecision(skipped ? "keep" : "use");
-                setStep("links");
-              }}
-            />
-          ) : null}
-
-          {step === "links" ? (
-            <LinksStep
-              links={links}
-              onLinks={setLinks}
-              onBack={() => setStep("address")}
-              onContinue={(skipped) => {
-                setLinksDecision(skipped ? "keep" : "use");
-                setStep(items.length > 0 ? "check" : "done");
-              }}
-            />
           ) : null}
 
           {step === "check" && items[index] ? (
@@ -579,7 +678,7 @@ export function Onboarding({
                 if (index >= next.length) setIndex(next.length - 1);
               }}
               onBack={() => {
-                if (index === 0) setStep("links");
+                if (index === 0) setStep("file");
                 else setIndex((current) => current - 1);
               }}
               onNext={() => {
@@ -595,17 +694,6 @@ export function Onboarding({
               <h1>
                 The map can <em>start.</em>
               </h1>
-              <p className="onboarding-lead">
-                {file && wantsModel === false
-                  ? `${file.name} is here and was not read. Add roles from Career History when you are ready.`
-                  : items.length === 0
-                    ? extracted && extracted.education.length > 0
-                      ? "Schools from the file are kept. Add roles from Career History when you are ready."
-                      : file
-                        ? "Nothing was kept from the file. Add roles from Career History when you are ready."
-                        : "No resume was added. Add roles from Career History when you are ready."
-                    : `${items.length} roles are checked.`}
-              </p>
               {error ? (
                 <p className="onboarding-alert" role="alert">
                   {error}
@@ -616,7 +704,7 @@ export function Onboarding({
                   type="button"
                   className="onboarding-btn onboarding-btn-ghost"
                   disabled={busy}
-                  onClick={() => setStep(items.length > 0 ? "check" : wantsModel === false ? "file" : "links")}
+                  onClick={() => setStep(items.length > 0 ? "check" : "file")}
                 >
                   Back
                 </button>
@@ -632,6 +720,14 @@ export function Onboarding({
             </>
           ) : null}
         </section>
+        {notes.length > 0 ? (
+          <div className="onboarding-footnote">
+            {notes.map((line) => (
+              <p key={line}>{line}</p>
+            ))}
+          </div>
+        ) : null}
+        </div>
       </div>
     </div>
   );
@@ -661,6 +757,8 @@ function LocalModels({
   selected,
   localUrl,
   onPickDetected,
+  onOpenCustom,
+  onCloseCustom,
   onCustomUrl,
   onCustomModel,
 }: {
@@ -670,65 +768,79 @@ function LocalModels({
   selected: string;
   localUrl: string;
   onPickDetected: (id: string) => void;
+  onOpenCustom: () => void;
+  onCloseCustom: () => void;
   onCustomUrl: (value: string) => void;
   onCustomModel: (value: string) => void;
 }) {
   const customUrl = localUrl.trim();
+  const hasModels = Boolean(detectedLocal && detectedLocal.models.length > 0);
   return (
-    <>
-      {localProbe !== "ready" ? (
-        <p className="onboarding-quiet">Looking on this machine…</p>
-      ) : detectedLocal ? (
-        <p className="onboarding-quiet">{detectedLocal.label} was detected.</p>
-      ) : (
-        <p className="onboarding-quiet">No local server was detected.</p>
-      )}
-      {detectedLocal && detectedLocal.models.length > 0 ? (
-        <div className="onboarding-chips">
-          {detectedLocal.models.map((id) => (
-            <button
-              key={id}
-              type="button"
-              aria-pressed={endpointMode === "detected" && id === selected}
-              onClick={() => onPickDetected(id)}
-            >
-              {presentModelId(id)}
-            </button>
-          ))}
-        </div>
-      ) : detectedLocal && localProbe === "ready" ? (
+    <div className="onboarding-detect-body">
+      {detectedLocal && localProbe === "ready" && !hasModels ? (
         <p className="onboarding-quiet">It listed no chat models.</p>
       ) : null}
-      <p className="onboarding-quiet">Another endpoint</p>
-      <label className="onboarding-field">
-        <span>Base URL</span>
-        <input
-          value={localUrl}
-          autoComplete="off"
-          placeholder="http://127.0.0.1:8080/v1"
-          onChange={(event) => onCustomUrl(event.target.value)}
-        />
-      </label>
-      <label className="onboarding-field">
-        <span>Model</span>
-        <input
-          value={endpointMode === "custom" ? selected : ""}
-          autoComplete="off"
-          placeholder="model name"
-          onChange={(event) => onCustomModel(event.target.value)}
-        />
-      </label>
-      {customUrl && !isHttpUrl(customUrl) ? <p className="onboarding-quiet">Use an http(s) URL.</p> : null}
-    </>
+      {hasModels ? (
+        <div className="onboarding-detect-models">
+          {detectedLocal?.models.map((id) => {
+            const picked = endpointMode === "detected" && id === selected;
+            return (
+              <button
+                key={id}
+                type="button"
+                className="onboarding-detect-model"
+                aria-pressed={picked}
+                onClick={() => onPickDetected(id)}
+              >
+                <span>{presentModelId(id)}</span>
+                {picked ? <span>Ready</span> : null}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+      {hasModels ? (
+        <button
+          type="button"
+          className="onboarding-detect-model"
+          aria-pressed={endpointMode === "custom"}
+          onClick={() => (endpointMode === "custom" ? onCloseCustom() : onOpenCustom())}
+        >
+          <span>Another endpoint</span>
+        </button>
+      ) : null}
+      {endpointMode === "custom" || !hasModels ? (
+        <>
+          <label className="onboarding-field">
+            <span>Base URL</span>
+            <input
+              value={localUrl}
+              autoComplete="off"
+              placeholder="http://127.0.0.1:8080/v1"
+              onChange={(event) => onCustomUrl(event.target.value)}
+            />
+          </label>
+          <label className="onboarding-field">
+            <span>Model</span>
+            <input
+              value={endpointMode === "custom" ? selected : ""}
+              autoComplete="off"
+              placeholder="model name"
+              onChange={(event) => onCustomModel(event.target.value)}
+            />
+          </label>
+          {customUrl && !isHttpUrl(customUrl) ? <p className="onboarding-quiet">Use an http(s) URL.</p> : null}
+        </>
+      ) : null}
+    </div>
   );
 }
 
 const READ_PHASES = [
   "Sending the resume",
   "The model is reading it",
-  "Looking for an address",
-  "Looking for links",
   "Looking for roles",
+  "Looking for schools",
 ];
 
 function ReadProgress({ model }: { model: string }) {
@@ -757,9 +869,152 @@ function ReadProgress({ model }: { model: string }) {
   );
 }
 
-function httpOrEmpty(value: string): string {
-  const trimmed = value.trim();
-  return isHttpUrl(trimmed) ? trimmed : "";
+function ResumePreview({ file }: { file: File }) {
+  const [textPreview, setTextPreview] = useState<string | null>(null);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const kind = classifyResumePreview(file);
+
+  useEffect(() => {
+    if (kind === "pdf") {
+      const url = URL.createObjectURL(file);
+      setPdfUrl(url);
+      setTextPreview(null);
+      return () => URL.revokeObjectURL(url);
+    }
+    if (kind === "text") {
+      setPdfUrl(null);
+      let cancel = false;
+      void file.text().then((text) => {
+        if (!cancel) setTextPreview(text);
+      });
+      return () => {
+        cancel = true;
+      };
+    }
+    setPdfUrl(null);
+    setTextPreview(null);
+  }, [file, kind]);
+
+  return (
+    <div className="onboarding-preview">
+      {kind === "pdf" && pdfUrl ? (
+        <iframe className="onboarding-preview-frame" title="Resume preview" src={pdfUrl} />
+      ) : null}
+      {kind === "text" ? (
+        <pre className="onboarding-preview-text">{textPreview ?? "Reading…"}</pre>
+      ) : null}
+      {kind === "other" ? (
+        <p className="onboarding-preview-fallback">
+          {file.name} cannot be shown here. You can still continue.
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function ProfileStep({
+  firstName,
+  lastName,
+  photoPreview,
+  place,
+  links,
+  error,
+  onFirstName,
+  onLastName,
+  onPhoto,
+  onPlace,
+  onLinks,
+  onContinue,
+}: {
+  firstName: string;
+  lastName: string;
+  photoPreview: string | null;
+  place: OnboardingPlaceAnswer;
+  links: OnboardingLinkAnswer;
+  error: string | null;
+  onFirstName: (value: string) => void;
+  onLastName: (value: string) => void;
+  onPhoto: (file: File | null) => void;
+  onPlace: (place: OnboardingPlaceAnswer) => void;
+  onLinks: (links: OnboardingLinkAnswer) => void;
+  onContinue: () => void;
+}) {
+  const typedLinks = [links.linkedinUrl, links.githubUrl, links.portfolioUrl]
+    .map((value) => value.trim())
+    .filter(Boolean);
+  const linksReady = typedLinks.every((value) => isHttpUrl(value));
+  const [linksOpen, setLinksOpen] = useState(typedLinks.length > 0);
+  return (
+    <>
+      <p className="onboarding-kicker">Profile</p>
+      <h1>
+        Let's start with <em>your profile.</em>
+      </h1>
+      <label className="onboarding-avatar onboarding-avatar-pick">
+        <input
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          onChange={(event) => onPhoto(event.target.files?.[0] ?? null)}
+        />
+        {photoPreview ? <img src={photoPreview} alt="Profile photo" /> : <span>Add a photo</span>}
+      </label>
+      <div className="onboarding-field-row">
+        <label className="onboarding-field">
+          <span>First name</span>
+          <input
+            value={firstName}
+            autoComplete="given-name"
+            onChange={(event) => onFirstName(event.target.value)}
+          />
+        </label>
+        <label className="onboarding-field">
+          <span>Last name</span>
+          <input
+            value={lastName}
+            autoComplete="family-name"
+            onChange={(event) => onLastName(event.target.value)}
+          />
+        </label>
+      </div>
+      <AddressFields place={place} onPlace={onPlace} />
+      <div className="onboarding-detect">
+        <section className="onboarding-detect-row" data-open={linksOpen ? "true" : "false"}>
+          <button
+            type="button"
+            className="onboarding-detect-head"
+            aria-expanded={linksOpen}
+            onClick={() => setLinksOpen((open) => !open)}
+          >
+            <strong>Online Profile Links</strong>
+            {typedLinks.length > 0 ? <span>{typedLinks.length} added</span> : null}
+          </button>
+          {linksOpen ? (
+            <div className="onboarding-detect-body">
+              <LinkFields links={links} onLinks={onLinks} />
+              {typedLinks.length > 0 && !linksReady ? (
+                <p className="onboarding-quiet">Use an http(s) link.</p>
+              ) : null}
+            </div>
+          ) : null}
+        </section>
+      </div>
+      {error ? (
+        <p className="onboarding-alert" role="alert">
+          {error}
+        </p>
+      ) : null}
+      <div className="onboarding-actions" data-end="true">
+        <button
+          type="button"
+          className="onboarding-btn onboarding-btn-solid"
+          disabled={!firstName.trim() || !lastName.trim() || !linksReady}
+          onClick={onContinue}
+        >
+          Continue
+        </button>
+      </div>
+    </>
+  );
 }
 
 function splitName(fullName: string): { first: string; last: string } {

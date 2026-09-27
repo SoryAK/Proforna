@@ -19,11 +19,7 @@ Schema:
 {
   "profile": {
     "headline": "string or null",
-    "bio": "string or null",
-    "location": "string or null",
-    "website": "string or null",
-    "githubUrl": "string or null",
-    "linkedinUrl": "string or null"
+    "bio": "string or null"
   },
   "experience": [
     {
@@ -108,16 +104,122 @@ export function stripJsonFence(text: string): string {
     .trim();
 }
 
-export function splitPlaceLabel(label: string): { city: string; state: string } {
-  const trimmed = label.trim();
-  if (!trimmed) return { city: "", state: "" };
-  const comma = trimmed.lastIndexOf(",");
-  if (comma === -1) return { city: trimmed, state: "" };
+export type ResidenceParts = {
+  street: string;
+  city: string;
+  state: string;
+};
+
+/** Street, city, and state from a resume line or a looked-up place name. */
+export function splitResidence(label: string): ResidenceParts {
+  const parts = label
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (/^(usa|u\.s\.a\.|united states|us)$/i.test(parts.at(-1) ?? "")) parts.pop();
+  if (/^\d{5}(?:-\d{4})?$/.test(parts.at(-1) ?? "")) parts.pop();
+  if (parts.length === 0) return { street: "", city: "", state: "" };
+  const state = stateCode(parts.at(-1) ?? "");
+  if (!state) {
+    if (parts.length === 1) return { street: "", city: parts[0] ?? "", state: "" };
+    return {
+      street: "",
+      city: parts.slice(0, -1).join(", "),
+      state: parts.at(-1) ?? "",
+    };
+  }
+  const before = parts.slice(0, -1);
+  if (/county$/i.test(before.at(-1) ?? "") && before.length >= 2) before.pop();
+  if (before.length === 0) return { street: "", city: "", state };
+  if (before.length === 1) return { street: "", city: before[0] ?? "", state };
   return {
-    city: trimmed.slice(0, comma).trim(),
-    state: trimmed.slice(comma + 1).trim(),
+    street: joinStreet(before.slice(0, -1)),
+    city: before.at(-1) ?? "",
+    state,
   };
 }
+
+export function splitPlaceLabel(label: string): { city: string; state: string } {
+  const place = splitResidence(label);
+  return { city: place.city, state: place.state };
+}
+
+function joinStreet(parts: string[]): string {
+  return parts.reduce((street, part) => {
+    if (!street) return part;
+    return /^\d+[A-Za-z]?$/.test(street) ? `${street} ${part}` : `${street}, ${part}`;
+  }, "");
+}
+
+function stateCode(token: string): string {
+  const withoutZip = token.replace(/\s+\d{5}(?:-\d{4})?$/, "").trim();
+  if (/^[A-Za-z]{2}$/.test(withoutZip)) {
+    const code = withoutZip.toUpperCase();
+    return STATE_CODES.has(code) ? code : "";
+  }
+  return STATE_NAMES[withoutZip.toLowerCase()] ?? "";
+}
+
+const STATE_CODES = new Set([
+  "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "DC", "FL", "GA", "HI", "ID",
+  "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD", "MA", "MI", "MN", "MS", "MO",
+  "MT", "NE", "NV", "NH", "NJ", "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA",
+  "RI", "SC", "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY",
+]);
+
+const STATE_NAMES: Record<string, string> = {
+  alabama: "AL",
+  alaska: "AK",
+  arizona: "AZ",
+  arkansas: "AR",
+  california: "CA",
+  colorado: "CO",
+  connecticut: "CT",
+  delaware: "DE",
+  "district of columbia": "DC",
+  florida: "FL",
+  georgia: "GA",
+  hawaii: "HI",
+  idaho: "ID",
+  illinois: "IL",
+  indiana: "IN",
+  iowa: "IA",
+  kansas: "KS",
+  kentucky: "KY",
+  louisiana: "LA",
+  maine: "ME",
+  maryland: "MD",
+  massachusetts: "MA",
+  michigan: "MI",
+  minnesota: "MN",
+  mississippi: "MS",
+  missouri: "MO",
+  montana: "MT",
+  nebraska: "NE",
+  nevada: "NV",
+  "new hampshire": "NH",
+  "new jersey": "NJ",
+  "new mexico": "NM",
+  "new york": "NY",
+  "north carolina": "NC",
+  "north dakota": "ND",
+  ohio: "OH",
+  oklahoma: "OK",
+  oregon: "OR",
+  pennsylvania: "PA",
+  "rhode island": "RI",
+  "south carolina": "SC",
+  "south dakota": "SD",
+  tennessee: "TN",
+  texas: "TX",
+  utah: "UT",
+  vermont: "VT",
+  virginia: "VA",
+  washington: "WA",
+  "west virginia": "WV",
+  wisconsin: "WI",
+  wyoming: "WY",
+};
 
 export function isExtractReviewComplete(
   jobCount: number,
@@ -130,11 +232,11 @@ export function fillProfileFromExtract(
   current: ProfileFields,
   extracted: ExtractedProfile,
 ): ProfileFields {
-  const place = splitPlaceLabel(extracted.location);
+  const place = splitResidence(extracted.location);
   return {
     fullName: current.fullName,
     headline: current.headline || extracted.headline,
-    address: current.address,
+    address: current.address || place.street,
     city: current.city || place.city,
     state: current.state || place.state,
     bio: current.bio || extracted.bio,

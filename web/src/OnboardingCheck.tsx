@@ -69,7 +69,6 @@ export function RoleCheck({
       {askingForStreets ? (
         <div className="onboarding-pin-ask">
           <p>Add a street for each role?</p>
-          <YesNo value={null} onYes={() => onPinPlaces("each")} onNo={() => onPinPlaces("skip")} />
         </div>
       ) : null}
       {searching || placed ? (
@@ -89,19 +88,18 @@ export function RoleCheck({
         <button type="button" className="onboarding-btn onboarding-btn-ghost" onClick={onBack}>
           Back
         </button>
-        <div className="onboarding-action-pair">
-          <button type="button" className="onboarding-btn onboarding-btn-ghost" onClick={onDrop}>
-            Not this one
-          </button>
-          <button
-            type="button"
-            className="onboarding-btn onboarding-btn-solid"
-            disabled={askingForStreets}
-            onClick={onNext}
-          >
-            Looks right
-          </button>
-        </div>
+        {askingForStreets ? (
+          <YesNo onYes={() => onPinPlaces("each")} onNo={() => onPinPlaces("skip")} />
+        ) : (
+          <div className="onboarding-action-pair">
+            <button type="button" className="onboarding-btn onboarding-btn-ghost" onClick={onDrop}>
+              Not this one
+            </button>
+            <button type="button" className="onboarding-btn onboarding-btn-solid" onClick={onNext}>
+              Looks right
+            </button>
+          </div>
+        )}
       </div>
     </>
   );

@@ -42,13 +42,14 @@ export function LinksStep({
   );
 }
 
-function LinkFields({
+export function LinkFields({
   links,
   onLinks,
 }: {
   links: OnboardingLinkAnswer;
   onLinks: (links: OnboardingLinkAnswer) => void;
 }) {
+  const [extra, setExtra] = useState(Boolean(links.portfolioUrl.trim()));
   return (
     <>
       <label className="onboarding-field">
@@ -69,15 +70,34 @@ function LinkFields({
           onChange={(event) => onLinks({ ...links, githubUrl: event.target.value })}
         />
       </label>
-      <label className="onboarding-field">
-        <span>Site</span>
-        <input
-          value={links.portfolioUrl}
-          autoComplete="url"
-          placeholder="https://"
-          onChange={(event) => onLinks({ ...links, portfolioUrl: event.target.value })}
-        />
-      </label>
+      {extra ? (
+        <div className="onboarding-field">
+          <span className="onboarding-field-head">
+            Link
+            <button
+              type="button"
+              className="onboarding-field-toggle"
+              onClick={() => {
+                onLinks({ ...links, portfolioUrl: "" });
+                setExtra(false);
+              }}
+            >
+              Remove
+            </button>
+          </span>
+          <input
+            aria-label="Link"
+            value={links.portfolioUrl}
+            autoComplete="url"
+            placeholder="https://"
+            onChange={(event) => onLinks({ ...links, portfolioUrl: event.target.value })}
+          />
+        </div>
+      ) : (
+        <button type="button" className="onboarding-add-link" onClick={() => setExtra(true)}>
+          Add a link
+        </button>
+      )}
     </>
   );
 }
