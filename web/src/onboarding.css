@@ -110,11 +110,36 @@
   background: var(--gold);
 }
 
+.onboarding-sheet {
+  width: min(32rem, 100%);
+}
+
+.onboarding-sheet[data-wide="true"] {
+  width: min(40rem, 100%);
+}
+
+.onboarding-footnote {
+  margin: 0.9rem 0 0;
+  padding: 0 1.4rem;
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 400;
+  line-height: 1.45;
+}
+
+.onboarding-footnote p {
+  margin: 0.4rem 0 0;
+}
+
+.onboarding-footnote p:first-child {
+  margin-top: 0;
+}
+
 .onboarding-card {
   position: relative;
   z-index: 2;
   box-sizing: border-box;
-  width: min(32rem, 100%);
+  width: 100%;
   padding: 1.35rem 1.4rem 1.25rem;
   max-height: calc(100vh - 8rem);
   overflow: auto;
@@ -127,14 +152,14 @@
   animation: onboarding-enter 1s var(--reveal) both;
 }
 
-.onboarding-card[data-wide="true"] {
-  width: min(40rem, 100%);
-}
-
 @media (min-width: 720px) {
   .onboarding-card {
     padding: 1.5rem 1.65rem 1.35rem;
     border-radius: 28px;
+  }
+
+  .onboarding-footnote {
+    padding: 0 1.65rem;
   }
 }
 
@@ -180,6 +205,10 @@
 
 .onboarding-actions[data-split="true"] {
   justify-content: space-between;
+}
+
+.onboarding-actions[data-end="true"] {
+  justify-content: flex-end;
 }
 
 .onboarding-action-pair {
@@ -306,6 +335,30 @@
   text-transform: none;
 }
 
+.onboarding-add-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  margin-top: 0.85rem;
+  min-height: 2.6rem;
+  padding: 0.55rem 0.9rem;
+  border: 1px solid rgba(232, 213, 183, 0.55);
+  border-radius: 999px;
+  background: rgba(167, 139, 113, 0.16);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+.onboarding-add-link:hover {
+  border-color: var(--gold-hover);
+  background: rgba(167, 139, 113, 0.28);
+  color: var(--gold-hover);
+}
+
 .onboarding-field-hint {
   color: var(--muted);
   font-size: 12px;
@@ -396,6 +449,13 @@
   object-fit: cover;
 }
 
+.onboarding-avatar-pick {
+  width: 5.5rem;
+  height: 5.5rem;
+  margin-top: 1.1rem;
+  font-size: 12px;
+}
+
 .onboarding-file {
   position: relative;
   display: grid;
@@ -425,6 +485,44 @@
   inset: 0;
   opacity: 0;
   cursor: pointer;
+}
+
+.onboarding-file-picked {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.85rem;
+  cursor: default;
+  text-align: left;
+}
+
+.onboarding-file-picked:hover {
+  transform: none;
+}
+
+.onboarding-file-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #fff;
+  font-weight: 500;
+}
+
+.onboarding-file-actions {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+
+.onboarding-file-preview {
+  position: relative;
+  z-index: 1;
+  flex: none;
+  padding: 0.45rem 0.9rem;
+  font-size: 12px;
 }
 
 .onboarding-alert {
@@ -916,6 +1014,87 @@
 .onboarding-steps li[data-state="done"] .onboarding-steps-dot,
 .onboarding-steps li[data-state="current"] .onboarding-steps-dot {
   background: currentColor;
+}
+
+.onboarding-detect {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.9rem;
+}
+
+.onboarding-detect-row {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.28);
+}
+
+.onboarding-detect-row[data-open="true"] {
+  border-color: rgba(255, 255, 255, 0.34);
+}
+
+.onboarding-detect-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  min-height: 3.25rem;
+  padding: 0.7rem 0.9rem;
+  border: 0;
+  background: transparent;
+  color: #fff;
+  text-align: left;
+  cursor: pointer;
+}
+
+.onboarding-detect-head strong {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.onboarding-detect-head span,
+.onboarding-detect-model span:last-child:not(:first-child) {
+  flex-shrink: 0;
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.onboarding-detect-body {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0 0.7rem 0.75rem;
+}
+
+.onboarding-detect-models {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.onboarding-detect-model {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  min-height: 2.4rem;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: transparent;
+  color: #fff;
+  text-align: left;
+  cursor: pointer;
+}
+
+.onboarding-detect-model span:first-child {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.85rem;
+}
+
+.onboarding-detect-model[aria-pressed="true"] {
+  border-color: #fff;
 }
 
 .onboarding-chips {

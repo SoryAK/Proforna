@@ -6,6 +6,7 @@ import {
   parseExtractedResume,
   parseExtractedResumeText,
   parseHistoryResumeId,
+  splitResidence,
 } from "./resume-extract";
 
 describe("isExtractableResumeText", () => {
@@ -73,6 +74,36 @@ describe("parseExtractedResume", () => {
   });
 });
 
+describe("splitResidence", () => {
+  it("puts a street address in the street field and the city beside the state", () => {
+    expect(splitResidence("100 Market St, Dayton, OH")).toEqual({
+      street: "100 Market St",
+      city: "Dayton",
+      state: "OH",
+    });
+  });
+
+  it("leaves the street blank when the resume only names a city", () => {
+    expect(splitResidence("Dayton, OH")).toEqual({
+      street: "",
+      city: "Dayton",
+      state: "OH",
+    });
+  });
+
+  it("reads a house number, county, and full state name as street, city, and code", () => {
+    expect(
+      splitResidence(
+        "100, Market Street, Dayton, Montgomery County, Ohio, 45402, United States",
+      ),
+    ).toEqual({
+      street: "100 Market Street",
+      city: "Dayton",
+      state: "OH",
+    });
+  });
+});
+
 describe("fillProfileFromExtract", () => {
   it("fills blank profile fields from the resume without overwriting a name", () => {
     expect(
@@ -107,6 +138,36 @@ describe("fillProfileFromExtract", () => {
       linkedinUrl: "",
       githubUrl: "https://github.com/SoryAK",
       portfolioUrl: "https://sory.example",
+    });
+  });
+
+  it("fills a blank street from the resume without replacing a city already saved", () => {
+    expect(
+      fillProfileFromExtract(
+        {
+          fullName: "Sory Kaba",
+          headline: "",
+          address: "",
+          city: "Kept City",
+          state: "",
+          bio: "",
+          linkedinUrl: "",
+          githubUrl: "",
+          portfolioUrl: "",
+        },
+        {
+          headline: "",
+          bio: "",
+          location: "100 Market St, Dayton, OH 45402",
+          website: "",
+          githubUrl: "",
+          linkedinUrl: "",
+        },
+      ),
+    ).toMatchObject({
+      address: "100 Market St",
+      city: "Kept City",
+      state: "OH",
     });
   });
 });

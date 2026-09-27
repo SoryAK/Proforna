@@ -12,6 +12,7 @@ describe("classifyResumePreview", () => {
     expect(classifyResumePreview({ name: "cv.txt", type: "text/plain" })).toBe(
       "text",
     );
+    expect(classifyResumePreview({ name: "cv.md", type: "" })).toBe("text");
   });
 
   it("falls back when the file cannot be shown inline", () => {

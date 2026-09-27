@@ -1,21 +1,13 @@
 import { useState, type ReactNode } from "react";
 
-export function YesNo({
-  value,
-  onYes,
-  onNo,
-}: {
-  value: boolean | null;
-  onYes: () => void;
-  onNo: () => void;
-}) {
+export function YesNo({ onYes, onNo }: { onYes: () => void; onNo: () => void }) {
   return (
-    <div className="onboarding-chips">
-      <button type="button" aria-pressed={value === true} onClick={onYes}>
-        Yes
-      </button>
-      <button type="button" aria-pressed={value === false} onClick={onNo}>
+    <div className="onboarding-action-pair">
+      <button type="button" className="onboarding-btn onboarding-btn-ghost" onClick={onNo}>
         No
+      </button>
+      <button type="button" className="onboarding-btn onboarding-btn-solid" onClick={onYes}>
+        Yes
       </button>
     </div>
   );
@@ -49,24 +41,30 @@ export function FoundOrOffer({
     <>
       <p className="onboarding-kicker">{kicker}</p>
       <h1>{found ? foundHeading : offerHeading}</h1>
-      <p className="onboarding-lead">
-        {found ? "From the resume. Change anything that is wrong." : "Nothing was in the file."}
-      </p>
-      {found ? null : <YesNo value={offer} onYes={() => setOffer(true)} onNo={() => setOffer(false)} />}
       {showing ? fields : null}
       {showing ? note : null}
       <div className="onboarding-actions" data-split="true">
         <button type="button" className="onboarding-btn onboarding-btn-ghost" onClick={onBack}>
           Back
         </button>
-        <button
-          type="button"
-          className="onboarding-btn onboarding-btn-solid"
-          disabled={!ready}
-          onClick={() => onContinue(offer === false)}
-        >
-          {found ? "Looks right" : "Continue"}
-        </button>
+        {found || offer === true ? (
+          <button
+            type="button"
+            className="onboarding-btn onboarding-btn-solid"
+            disabled={!ready}
+            onClick={() => onContinue(offer === false)}
+          >
+            {found ? "Looks right" : "Continue"}
+          </button>
+        ) : (
+          <YesNo
+            onYes={() => setOffer(true)}
+            onNo={() => {
+              setOffer(false);
+              onContinue(true);
+            }}
+          />
+        )}
       </div>
     </>
   );
