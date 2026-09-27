@@ -16,15 +16,19 @@ import "leaflet/dist/leaflet.css";
 export function CheckOverview({
   items,
   file,
+  busy,
+  error,
   onChange,
   onBack,
   onContinue,
 }: {
   items: OnboardingCheckItem[];
   file: File | null;
+  busy: boolean;
+  error: string | null;
   onChange: (items: OnboardingCheckItem[]) => void;
   onBack: () => void;
-  onContinue: () => void;
+  onContinue: (items: OnboardingCheckItem[]) => void;
 }) {
   const [reviewOpen, setReviewOpen] = useState(false);
   const [reviewIndex, setReviewIndex] = useState(0);
@@ -44,11 +48,8 @@ export function CheckOverview({
   function removeAt(index: number) {
     const next = items.filter((_, rowIndex) => rowIndex !== index);
     onChange(next);
-    if (next.length === 0) {
-      setReviewOpen(false);
-      onContinue();
-      return;
-    }
+    setReviewOpen(next.length > 0 && reviewOpen);
+    if (next.length === 0) return;
     setReviewIndex((current) => Math.min(current, next.length - 1));
   }
 
@@ -72,7 +73,7 @@ export function CheckOverview({
   function continueOn() {
     const next = items.filter((item) => !isBlankOnboardingCheckItem(item));
     if (next.length !== items.length) onChange(next);
-    onContinue();
+    onContinue(next);
   }
 
   return (
@@ -94,23 +95,28 @@ export function CheckOverview({
           </li>
         ))}
       </ul>
-      <div className="onboarding-add-row">
-        <button type="button" className="onboarding-add-link" onClick={() => add("Job")}>
+      <div className="onboarding-verify-actions">
+        <button type="button" className="onboarding-verify-btn" onClick={() => add("Job")}>
           Add a job
         </button>
-        <button type="button" className="onboarding-add-link" onClick={() => add("School")}>
+        <button type="button" className="onboarding-verify-btn" onClick={() => add("School")}>
           Add a school
         </button>
+        <button type="button" className="onboarding-verify-btn" onClick={() => setReviewOpen(true)}>
+          Review each one
+        </button>
       </div>
-      <button type="button" className="onboarding-add-link" onClick={() => setReviewOpen(true)}>
-        Review each one
-      </button>
+      {error ? (
+        <p className="onboarding-alert" role="alert">
+          {error}
+        </p>
+      ) : null}
       <div className="onboarding-actions" data-split="true">
-        <button type="button" className="onboarding-btn onboarding-btn-ghost" onClick={onBack}>
+        <button type="button" className="onboarding-btn onboarding-btn-ghost" disabled={busy} onClick={onBack}>
           Back
         </button>
-        <button type="button" className="onboarding-btn onboarding-btn-solid" onClick={continueOn}>
-          Continue
+        <button type="button" className="onboarding-btn onboarding-btn-solid" disabled={busy} onClick={continueOn}>
+          {busy ? "Saving…" : "Continue"}
         </button>
       </div>
       <ReviewCarousel

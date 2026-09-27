@@ -335,15 +335,30 @@
   text-transform: none;
 }
 
-.onboarding-add-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.55rem;
+.onboarding-verify-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
   margin-top: 0.85rem;
 }
 
-.onboarding-add-row .onboarding-add-link {
-  margin-top: 0;
+.onboarding-verify-btn {
+  min-height: 2rem;
+  padding: 0.28rem 0.75rem;
+  border: 1px solid rgba(232, 213, 183, 0.45);
+  border-radius: 999px;
+  background: rgba(167, 139, 113, 0.12);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+}
+
+.onboarding-verify-btn:hover {
+  border-color: var(--gold-hover);
+  background: rgba(167, 139, 113, 0.24);
+  color: var(--gold-hover);
 }
 
 .onboarding-add-link {
