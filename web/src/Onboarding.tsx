@@ -27,14 +27,13 @@ type Me = {
   profile: OnboardingProfileValue & { onboardingCompletedAt: string | null };
 };
 
-type OnboardingStep = "name" | "model" | "file" | "check" | "done";
+type OnboardingStep = "name" | "model" | "file" | "check";
 
 const STEP_INDEX: Record<OnboardingStep, number> = {
   name: 0,
   model: 1,
   file: 2,
   check: 3,
-  done: 3,
 };
 
 const STEPS = ["Profile", "Model", "Resume", "Verify"] as const;
@@ -166,14 +165,14 @@ export function Onboarding({
     setExtracted(null);
     setError(null);
     setExtracting(false);
-    if (step === "check" || step === "done") setStep("file");
+    if (step === "check") setStep("file");
   }
 
   function continueWithoutRead() {
     setItems([]);
     setExtracted(null);
     setError(null);
-    setStep("done");
+    void finish([], false);
   }
 
   async function readFile() {
@@ -230,7 +229,7 @@ export function Onboarding({
     }
   }
 
-  async function finish() {
+  async function finish(kept: OnboardingCheckItem[] = items, includeHistory = true) {
     setBusy(true);
     setError(null);
     try {
@@ -283,8 +282,8 @@ export function Onboarding({
         const stored = (await uploaded.json()) as { resume?: { id?: string } };
         resumeId = stored.resume?.id;
       }
-      if (extracted) {
-        const history = keptOnboardingHistory(extracted, items);
+      if (includeHistory && extracted) {
+        const history = keptOnboardingHistory(extracted, kept);
         if (history.experience.length > 0 || history.education.length > 0) {
           const saved = await fetch("/api/history", {
             method: "POST",
@@ -336,16 +335,6 @@ export function Onboarding({
         "We advise going through each one. A model can hallucinate, and the read can produce incorrect information or miss things.",
         "These details can be revised later as well.",
       ];
-    }
-    if (step === "done") {
-      if (file && wantsModel === false) {
-        return [`${file.name} is here and was not read. Add roles from Career History when you are ready.`];
-      }
-      if (items.length === 0) {
-        if (file) return ["Nothing was kept from the file. Add roles from Career History when you are ready."];
-        return ["No resume was added. Add roles from Career History when you are ready."];
-      }
-      return [`${checkedSummary(items)} ${items.length === 1 ? "is" : "are"} verified.`];
     }
     return [];
   }
@@ -639,9 +628,10 @@ export function Onboarding({
                         <button
                           type="button"
                           className="onboarding-btn onboarding-btn-solid"
+                          disabled={busy}
                           onClick={continueWithoutRead}
                         >
-                          Continue
+                          {busy ? "Saving…" : "Continue"}
                         </button>
                       )}
                     </div>
@@ -651,46 +641,16 @@ export function Onboarding({
             </>
           ) : null}
 
-          {step === "check" && items.length > 0 ? (
+          {step === "check" ? (
             <CheckOverview
               items={items}
               file={file}
+              busy={busy}
+              error={error}
               onChange={setItems}
               onBack={() => setStep("file")}
-              onContinue={() => setStep("done")}
+              onContinue={(kept) => void finish(kept)}
             />
-          ) : null}
-
-          {step === "done" ? (
-            <>
-              <p className="onboarding-kicker">Ready</p>
-              <h1>
-                The map can <em>start.</em>
-              </h1>
-              {error ? (
-                <p className="onboarding-alert" role="alert">
-                  {error}
-                </p>
-              ) : null}
-              <div className="onboarding-actions" data-split="true">
-                <button
-                  type="button"
-                  className="onboarding-btn onboarding-btn-ghost"
-                  disabled={busy}
-                  onClick={() => setStep(items.length > 0 ? "check" : "file")}
-                >
-                  Back
-                </button>
-                <button
-                  type="button"
-                  className="onboarding-btn onboarding-btn-solid"
-                  disabled={busy}
-                  onClick={() => void finish()}
-                >
-                  {busy ? "Saving…" : "Continue"}
-                </button>
-              </div>
-            </>
           ) : null}
         </section>
         {notes.length > 0 ? (
@@ -706,16 +666,6 @@ export function Onboarding({
   );
 }
 
-function checkedSummary(items: OnboardingCheckItem[]): string {
-  const jobs = items.filter((item) => item.kind === "Job").length;
-  const schools = items.filter((item) => item.kind === "School").length;
-  const parts = [
-    jobs > 0 ? `${jobs} ${jobs === 1 ? "job" : "jobs"}` : "",
-    schools > 0 ? `${schools} ${schools === 1 ? "school" : "schools"}` : "",
-  ].filter(Boolean);
-  return parts.join(" and ") || "Nothing";
-}
-
 function WashProgress({ step }: { step: OnboardingStep }) {
   const current = STEP_INDEX[step];
   return (
@@ -723,7 +673,7 @@ function WashProgress({ step }: { step: OnboardingStep }) {
       {STEPS.map((label, index) => (
         <li
           key={label}
-          data-state={step === "done" || index < current ? "done" : index === current ? "current" : "upcoming"}
+          data-state={index < current ? "done" : index === current ? "current" : "upcoming"}
         >
           <span className="onboarding-steps-dot" aria-hidden="true" />
           {label}
