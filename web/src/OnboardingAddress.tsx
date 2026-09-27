@@ -1,7 +1,8 @@
 import { useRef, useState } from "react";
 import type { OnboardingPlaceAnswer } from "@core/onboarding-review";
+import { splitResidence } from "@core/resume-extract";
 import { FoundOrOffer } from "./onboarding-offer";
-import { splitPlaceAddress, type PlaceHit } from "./place-search";
+import type { PlaceHit } from "./place-search";
 import { usePlaceSuggestions } from "./use-place-suggestions";
 
 export function AddressStep({
@@ -38,18 +39,18 @@ export function AddressStep({
   );
 }
 
-function AddressFields({
+export function AddressFields({
   place,
   onPlace,
 }: {
   place: OnboardingPlaceAnswer;
   onPlace: (place: OnboardingPlaceAnswer) => void;
 }) {
-  const applied = useRef("");
+  const applied = useRef(place.street);
   const hits = usePlaceSuggestions(place.street === applied.current ? "" : place.street);
 
   function choose(hit: PlaceHit) {
-    const parts = splitPlaceAddress(hit.address);
+    const parts = splitResidence(hit.address);
     applied.current = parts.street;
     onPlace({ street: parts.street, city: parts.city, state: parts.state });
   }
