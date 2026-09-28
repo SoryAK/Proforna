@@ -37,9 +37,10 @@ proposed career facts.
 _Avoid_: Note, journal entry
 
 **Opportunity**:
-An external possibility that may advance a career goal, including a role,
-project, speaking event, or connection. The occupant finds and pursues them
-on one surface. A listing they keep is an Opportunity.
+An external possibility that may advance a career goal, including a job the
+occupant has not taken, a project, a speaking event, or a connection. The
+occupant finds and pursues them on one surface. A listing they keep is an
+Opportunity.
 _Avoid_: Job lead, application, job search page
 
 **Job Source**:
@@ -72,20 +73,20 @@ _Avoid_: Resume file, template
 An immutable rendering source pinned to exact career-fact versions.
 _Avoid_: Draft, version
 
-**Work Map Role**:
-The enriched record of one job, internship, or school, including locations,
-milestones, media, work conditions, equipment, growth, departure reflection,
-and linked career evidence. Career Facts about that role use it as their
-subject.
-_Avoid_: Resume entry, job card, job profile
+**Role**:
+A job, internship, or school in the career, and the subject of the locations,
+achievements, events, and Career Facts about that work. It can enter from a
+resume, from the occupant, or from other vault records; the Work Map shows
+and enriches it and is not where it originates.
+_Avoid_: Work Map Role, resume entry, job card, job profile
 
 **Work Map**:
-The occupant's private authoring surface for exploring and enriching career
-history across time and geography. Occupant-facing chrome names this Career
-History. Current roles are marked on that list rather than given their own
-navigation item. Work sites on a role can be added, edited, removed, looked
-up from an address, or placed on the map. It is the source of interactive
-publications, not a publication itself.
+The occupant's private surface for showing and enriching Roles across time
+and geography. Occupant-facing chrome names this Career History. Current
+roles are marked on that list rather than given their own navigation item.
+Work sites on a role can be added, edited, removed, looked up from an
+address, or placed on the map. It is the source of interactive publications,
+not a publication itself.
 _Avoid_: Interactive resume, public profile
 
 **Interactive Projection**:
