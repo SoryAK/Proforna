@@ -21,7 +21,7 @@ import {
   persistApprovedChange,
   persistAuditEvent,
 } from "./change-sets";
-import { createWorkMapSnapshot } from "./work-map";
+import { composeWorkMapSnapshot, createWorkMapSnapshot } from "./work-map";
 
 type JsonObject = Record<string, unknown>;
 export type RelayProjection = Omit<InteractiveProjection, "occupantId">;
@@ -58,6 +58,20 @@ export function listProjections(db: DatabaseSync, occupantId: string) {
         },
       };
     });
+}
+
+export function previewWorkMapProjection(db: DatabaseSync, occupantId: string) {
+  const snapshot = composeWorkMapSnapshot(db, occupantId, {
+    previewLocations: true,
+  });
+  const built = buildInteractiveProjection({ snapshot });
+  if (!built.ok) return built;
+  const { occupantId: _occupantId, ...publicSnapshot } = built.value;
+  return {
+    ok: true as const,
+    snapshot: publicSnapshot,
+    publishable: mayPublishProjection(built.value).ok,
+  };
 }
 
 export function createProjection(

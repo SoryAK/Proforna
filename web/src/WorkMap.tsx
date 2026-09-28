@@ -37,6 +37,7 @@ import { CareerTimelineScrubber } from "./CareerTimelineScrubber";
 import { residenceForMap, type Residence } from "@core/residence";
 import { HomesPanel } from "./HomesPanel";
 import { CareerMap } from "./CareerMap";
+import { WorkMapPreview, type PublicWorkMapSnapshot } from "./WorkMapPreview";
 import type { WorkMapHome } from "./WorkMapCanvas";
 import { type MapSettings } from "@core/map-settings";
 import { lookupNote, reversePlace } from "./place-search";
@@ -119,6 +120,10 @@ export function WorkMap({
   const [mapSettings, setMapSettings] = useState<MapSettings | null>(null);
   const [message, setMessage] = useState("");
   const [publishing, setPublishing] = useState(false);
+  const [preview, setPreview] = useState<{
+    snapshot: PublicWorkMapSnapshot;
+    publishable: boolean;
+  } | null>(null);
   const [creatingKind, setCreatingKind] =
     useState<CareerHistorySectionKey | null>(null);
   const [detailTab, setDetailTab] = useState<DetailTab>("story");
@@ -301,6 +306,28 @@ export function WorkMap({
     void publish();
   }
 
+  async function openPreview() {
+    setMessage("");
+    const response = await fetch("/api/work-map/preview");
+    if (!response.ok) {
+      const body = (await response.json()) as { error?: string };
+      setMessage(
+        body.error === "slug-required"
+          ? "Save a public slug in publication settings before previewing."
+          : body.error === "sections-required"
+            ? "Choose at least one section in publication settings before previewing."
+            : "Could not build the preview.",
+      );
+      return;
+    }
+    setPreview(
+      (await response.json()) as {
+        snapshot: PublicWorkMapSnapshot;
+        publishable: boolean;
+      },
+    );
+  }
+
   async function publish() {
     if (!settings) return;
     setPublishing(true);
@@ -419,11 +446,20 @@ export function WorkMap({
         </p>
       ) : null}
 
+      {preview ? (
+        <WorkMapPreview
+          mapSettings={mapSettings}
+          publishable={preview.publishable}
+          snapshot={preview.snapshot}
+          onClose={() => setPreview(null)}
+        />
+      ) : null}
       <div
         className={[
           "work-map-layout",
           mapVisible ? "is-map" : "is-record",
         ].join(" ")}
+        hidden={preview !== null}
       >
         <div className="work-map-float">
           <CareerBio profile={data.profile} onHome={onHome} />
@@ -484,6 +520,9 @@ export function WorkMap({
                 onClick={openSettings}
               >
                 <SettingsIcon />
+              </button>
+              <button type="button" onClick={() => void openPreview()}>
+                Preview
               </button>
               <button
                 className="history-icon"

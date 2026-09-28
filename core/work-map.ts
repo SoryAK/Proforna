@@ -1,3 +1,4 @@
+import { formatHistoryPlace } from "./career-history";
 import type { ProjectionVisibility } from "./projection";
 import {
   canonicalFacts,
@@ -182,6 +183,7 @@ export type WorkMapSnapshot = {
     title: string;
     organization: string;
     span: string;
+    place: string;
     description: string;
     achievements: string[];
     locations: WorkMapLocation[];
@@ -277,6 +279,7 @@ export function buildWorkMapSnapshot(input: {
   settings: WorkMapPublicationSettings;
   sourceFingerprint: string;
   createdAt: string;
+  previewLocations?: boolean;
 }): WorkMapSnapshot {
   const settings = input.settings;
   const restricted =
@@ -296,19 +299,24 @@ export function buildWorkMapSnapshot(input: {
               ? "Verified organization"
               : role.organization,
         span: formatSpan(role.startDate, role.endDate, role.isCurrent),
+        place: anonymous ? "" : publicRolePlace(role),
         description: anonymous ? "" : role.description,
         achievements: anonymous ? [] : role.achievements,
         locations: sections.has("map")
           ? role.locations
-              .filter((location) => location.isPublic)
+              .filter((location) => input.previewLocations || location.isPublic)
               .map((location) =>
                 settings.showExactLocations
                   ? location
                   : {
                       ...location,
-                      address: "",
-                      latitude: roundCoordinate(location.latitude),
-                      longitude: roundCoordinate(location.longitude),
+                      address: publicSitePlace(location.address, role.organization),
+                      latitude: input.previewLocations
+                        ? location.latitude
+                        : roundCoordinate(location.latitude),
+                      longitude: input.previewLocations
+                        ? location.longitude
+                        : roundCoordinate(location.longitude),
                     },
               )
           : [],
@@ -683,6 +691,34 @@ function parseLocationKind(value: unknown): WorkMapLocation["kind"] {
   return value === "site" || value === "client" || value === "travel"
     ? value
     : "primary";
+}
+
+function publicSitePlace(address: string, organization: string): string {
+  return omitZipOnly(
+    formatHistoryPlace({
+      organization,
+      locationLabel: "",
+      locations: [{ address }],
+    }),
+  );
+}
+
+function publicRolePlace(role: WorkMapRole): string {
+  const fromSite = role.locations
+    .map((location) => publicSitePlace(location.address, role.organization))
+    .find(Boolean);
+  if (fromSite) return fromSite;
+  return omitZipOnly(
+    formatHistoryPlace({
+      organization: role.organization,
+      locationLabel: role.locationLabel,
+      locations: [],
+    }),
+  );
+}
+
+function omitZipOnly(place: string): string {
+  return /^[A-Z]{2}\s+\d{5}(?:-\d{4})?$/.test(place) ? "" : place;
 }
 
 function roundCoordinate(value: number): number {

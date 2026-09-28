@@ -29,6 +29,7 @@ const snapshot: WorkMapSnapshot = {
       title: "Lead Systems Engineer",
       organization: "Acme",
       span: "2024 — Present",
+      place: "",
       description: "",
       achievements: ["Cut recovery from 42 to 11 minutes."],
       locations: [],

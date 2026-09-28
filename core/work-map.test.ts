@@ -126,6 +126,81 @@ describe("Work Map publication snapshots", () => {
     expect(published).not.toContain("SECRET_TOOL");
   });
 
+  it("shows a private work site on a local preview without its street", () => {
+    const role = sampleRole();
+    role.locations = [
+      {
+        ...role.locations[0],
+        isPublic: false,
+        address: "88 Hidden Plant Road, Allentown, PA",
+      },
+    ];
+    const snapshot = buildWorkMapSnapshot({
+      id: "snapshot-preview",
+      occupantId: "local",
+      profile: {
+        fullName: "Sory Kaba",
+        headline: "",
+        city: "Philadelphia",
+        state: "PA",
+        bio: "",
+        linkedinUrl: "",
+        githubUrl: "",
+        portfolioUrl: "",
+      },
+      roles: [role],
+      skills: [],
+      settings: {
+        slug: "sory-map",
+        targetRole: "",
+        theme: "dark",
+        visibility: "unlisted",
+        sections: ["history", "map"],
+        hideCurrentEmployer: false,
+        showExactLocations: false,
+        expiresAt: null,
+      },
+      sourceFingerprint: "abc",
+      createdAt: "2026-09-19T20:00:00.000Z",
+      previewLocations: true,
+    });
+    expect(snapshot.roles[0].locations).toHaveLength(1);
+    expect(snapshot.roles[0].locations[0].address).toBe("Allentown, PA");
+    expect(snapshot.roles[0].place).toBe("Allentown, PA");
+    expect(snapshot.roles[0].locations[0].latitude).toBe(39.95258);
+    expect(snapshot.roles[0].locations[0].longitude).toBe(-75.16522);
+    expect(JSON.stringify(snapshot)).not.toContain("88 Hidden Plant Road");
+    const published = buildWorkMapSnapshot({
+      id: "snapshot-published",
+      occupantId: "local",
+      profile: {
+        fullName: "Sory Kaba",
+        headline: "",
+        city: "",
+        state: "",
+        bio: "",
+        linkedinUrl: "",
+        githubUrl: "",
+        portfolioUrl: "",
+      },
+      roles: [role],
+      skills: [],
+      settings: {
+        slug: "sory-map",
+        targetRole: "",
+        theme: "dark",
+        visibility: "unlisted",
+        sections: ["history", "map"],
+        hideCurrentEmployer: false,
+        showExactLocations: false,
+        expiresAt: null,
+      },
+      sourceFingerprint: "abc",
+      createdAt: "2026-09-19T20:00:00.000Z",
+    });
+    expect(published.roles[0].locations).toHaveLength(0);
+  });
+
   it("includes working conditions only when the occupant approves each field for publishing", () => {
     const snapshot = buildWorkMapSnapshot({
       id: "snapshot-2",

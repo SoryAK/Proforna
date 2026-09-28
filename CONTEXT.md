@@ -77,7 +77,7 @@ The enriched record of one job, internship, or school, including locations,
 milestones, media, work conditions, equipment, growth, departure reflection,
 and linked career evidence. Career Facts about that role use it as their
 subject.
-_Avoid_: Resume entry, job card
+_Avoid_: Resume entry, job card, job profile
 
 **Work Map**:
 The occupant's private authoring surface for exploring and enriching career

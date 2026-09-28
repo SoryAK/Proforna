@@ -711,9 +711,10 @@ export async function saveWorkMapSettings(
   return settings;
 }
 
-export function createWorkMapSnapshot(
+export function composeWorkMapSnapshot(
   db: DatabaseSync,
   occupantId: string,
+  options: { previewLocations?: boolean } = {},
 ): WorkMapSnapshot {
   const source = readWorkMap(db, occupantId);
   const profile = readProfile(db, occupantId);
@@ -728,7 +729,7 @@ export function createWorkMapSnapshot(
       }),
     )
     .digest("hex");
-  const snapshot = buildWorkMapSnapshot({
+  return buildWorkMapSnapshot({
     id: randomUUID(),
     occupantId,
     profile,
@@ -737,7 +738,15 @@ export function createWorkMapSnapshot(
     settings: source.settings,
     sourceFingerprint,
     createdAt,
+    previewLocations: options.previewLocations,
   });
+}
+
+export function createWorkMapSnapshot(
+  db: DatabaseSync,
+  occupantId: string,
+): WorkMapSnapshot {
+  const snapshot = composeWorkMapSnapshot(db, occupantId);
   db.prepare(
     `INSERT INTO work_map_snapshots
       (id, occupant_id, slug, snapshot_json, source_fingerprint, created_at)
@@ -747,8 +756,8 @@ export function createWorkMapSnapshot(
     occupantId,
     snapshot.slug,
     JSON.stringify(snapshot),
-    sourceFingerprint,
-    createdAt,
+    snapshot.sourceFingerprint,
+    snapshot.createdAt,
   );
   return snapshot;
 }

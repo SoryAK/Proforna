@@ -84,6 +84,7 @@ import {
   createProjection,
   createProjectionGrant,
   listProjections,
+  previewWorkMapProjection,
   publishProjection,
   recordProjectionEvent,
   resolveOpportunityAccess,
@@ -1147,6 +1148,16 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
       }
       throw error;
     }
+  });
+
+  app.get("/api/work-map/preview", (c) => {
+    const occupant = ensureOccupant(db);
+    const preview = previewWorkMapProjection(db, occupant.id);
+    if (!preview.ok) return c.json({ error: preview.error }, 400);
+    return c.json({
+      snapshot: preview.snapshot,
+      publishable: preview.publishable,
+    });
   });
 
   app.post("/api/work-map/publish", async (c) => {
