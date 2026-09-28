@@ -281,7 +281,7 @@ function renderProjectionHtml(
 <title>${escapeHtml(projection.profile.displayName)} — ${escapeHtml(projection.targetRole)}</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
-:root{color-scheme:dark;font-family:Inter,system-ui,sans-serif;background:#090807;color:#e8e0d1}
+:root{color-scheme:dark;font-family:Geist Variable,system-ui,sans-serif;background:#090807;color:#e8e0d1}
 *{box-sizing:border-box}body{margin:0;background:#090807}main{min-height:100vh}
 header{display:flex;justify-content:space-between;gap:2rem;padding:1.5rem 2rem;border-bottom:1px solid #493b2d}
 h1{font:italic clamp(2rem,5vw,4rem) Georgia,serif;margin:0}header p,.span,nav a{color:#b89772}
@@ -311,7 +311,7 @@ const bounds=[];for(const point of points){const marker=L.marker([point.latitude
 function renderAccessRequestHtml(slug: string): string {
   const safeSlug = escapeHtml(slug);
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">
-<title>Request access</title><style>:root{color-scheme:dark;font-family:Inter,system-ui;background:#090807;color:#e8e0d1}body{margin:0;display:grid;min-height:100vh;place-items:center}main{width:min(32rem,calc(100% - 2rem))}h1{font:italic 3rem Georgia,serif;margin:0 0 1rem}p{color:#c9bdad;line-height:1.6}form{display:grid;gap:1rem;margin-top:2rem}input,textarea{padding:.8rem;border:1px solid #493b2d;background:#0f0c09;color:#e8e0d1;font:inherit}button{justify-self:start;padding:.8rem 1.1rem;border:0;background:#b89772;color:#090807;font-weight:700}#status{color:#d8b68c}</style></head>
+<title>Request access</title><style>:root{color-scheme:dark;font-family:Geist Variable,system-ui,sans-serif;background:#090807;color:#e8e0d1}body{margin:0;display:grid;min-height:100vh;place-items:center}main{width:min(32rem,calc(100% - 2rem))}h1{font:italic 3rem Georgia,serif;margin:0 0 1rem}p{color:#c9bdad;line-height:1.6}form{display:grid;gap:1rem;margin-top:2rem}input,textarea{padding:.8rem;border:1px solid #493b2d;background:#0f0c09;color:#e8e0d1;font:inherit}button{justify-self:start;padding:.8rem 1.1rem;border:0;background:#b89772;color:#090807;font-weight:700}#status{color:#d8b68c}</style></head>
 <body><main><h1>Request access</h1><p>This career map is shared with approved viewers. Introduce yourself and the owner can issue a time-limited link.</p>
 <form id="request"><input name="name" required placeholder="Your name"><input name="email" type="email" required placeholder="Work email"><textarea name="message" rows="4" placeholder="Why you would like access"></textarea><button>Send request</button></form><p id="status" role="status"></p></main>
 <script>document.querySelector('#request').addEventListener('submit',async event=>{event.preventDefault();const form=new FormData(event.target);const response=await fetch('/r/${safeSlug}/requests',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(Object.fromEntries(form))});document.querySelector('#status').textContent=response.ok?'Request sent.':'Could not send this request.';if(response.ok)event.target.reset();});</script></body></html>`;
