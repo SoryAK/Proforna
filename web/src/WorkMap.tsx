@@ -123,6 +123,7 @@ export function WorkMap({
   const [preview, setPreview] = useState<{
     snapshot: PublicWorkMapSnapshot;
     publishable: boolean;
+    exactLocations: boolean;
   } | null>(null);
   const [creatingKind, setCreatingKind] =
     useState<CareerHistorySectionKey | null>(null);
@@ -324,6 +325,7 @@ export function WorkMap({
       (await response.json()) as {
         snapshot: PublicWorkMapSnapshot;
         publishable: boolean;
+        exactLocations: boolean;
       },
     );
   }
@@ -448,6 +450,7 @@ export function WorkMap({
 
       {preview ? (
         <WorkMapPreview
+          exactLocations={preview.exactLocations}
           mapSettings={mapSettings}
           publishable={preview.publishable}
           snapshot={preview.snapshot}

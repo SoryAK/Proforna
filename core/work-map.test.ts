@@ -13,6 +13,7 @@ import {
   presentWorkMapPlace,
   publicationAllowsSnapshot,
   publicationNeedsAudienceConfirm,
+  workSitePublicationNote,
   type WorkMapPublicationSettings,
   type WorkMapRole,
 } from "./work-map";
@@ -124,6 +125,18 @@ describe("Work Map publication snapshots", () => {
     expect(published).not.toContain("SECRET_GROWTH_NOTE");
     expect(published).not.toContain("SECRET_DEPARTURE");
     expect(published).not.toContain("SECRET_TOOL");
+  });
+
+  it("names whether a work site would be sent in a publication", () => {
+    expect(
+      workSitePublicationNote({ isPublic: false, exactLocations: false }),
+    ).toBe("Only on this preview");
+    expect(
+      workSitePublicationNote({ isPublic: true, exactLocations: false }),
+    ).toBe("Included. A publication uses a coarser pin.");
+    expect(
+      workSitePublicationNote({ isPublic: true, exactLocations: true }),
+    ).toBe("Included");
   });
 
   it("shows a private work site on a local preview without its street", () => {

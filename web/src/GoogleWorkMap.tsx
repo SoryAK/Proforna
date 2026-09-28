@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { searchRadiusFrame, type SearchRadius } from "@core/job-search";
-import { roleCoverPhoto, type WorkMapRole } from "@core/work-map";
+import { roleCoverPhoto, workSitePublicationNote, type WorkMapRole } from "@core/work-map";
 import type { MapPinIcons, MapPinTheme } from "@core/map-settings";
 import { anchorPinHtml, pinFill, pinIcon, rolePinHtml, searchPinHtml } from "./work-map-pin";
 import type { MapAnchorPin, MapSearchPin, WorkMapHome } from "./WorkMapCanvas";
@@ -12,6 +12,8 @@ type MapPoint = {
   latitude: number;
   longitude: number;
   label: string;
+  withheld: boolean;
+  publicationNote: string;
 };
 
 export function GoogleWorkMap({
@@ -33,6 +35,8 @@ export function GoogleWorkMap({
   viewKey,
   fitKey = "",
   zoomCorner = "start",
+  publicationMarks = false,
+  exactLocations = false,
 }: {
   apiKey: string;
   roles: WorkMapRole[];
@@ -52,6 +56,8 @@ export function GoogleWorkMap({
   viewKey?: string;
   fitKey?: string;
   zoomCorner?: "start" | "end";
+  publicationMarks?: boolean;
+  exactLocations?: boolean;
 }) {
   const node = useRef<HTMLDivElement>(null);
   const mapRef = useRef<GoogleMapHandle | null>(null);
@@ -65,6 +71,13 @@ export function GoogleWorkMap({
       latitude: location.latitude,
       longitude: location.longitude,
       label: location.label,
+      withheld: publicationMarks && !location.isPublic,
+      publicationNote: publicationMarks
+        ? workSitePublicationNote({
+            isPublic: location.isPublic,
+            exactLocations,
+          })
+        : "",
     })),
   );
 
@@ -104,6 +117,8 @@ export function GoogleWorkMap({
       point.role.startDate,
       point.role.endDate,
       roleCoverPhoto(point.role.media)?.url ?? "",
+      point.withheld,
+      point.publicationNote,
     ]),
     pins: {
       theme: pinTheme,
@@ -442,7 +457,8 @@ function tipHtml(point: MapPoint, coverUrl?: string) {
   return `${coverUrl ? `<img src="${escapeHtml(coverUrl)}" alt="" />` : ""}
     <strong>${escapeHtml(point.role.organization || point.role.title)}</strong>
     ${title ? `<span>${escapeHtml(title)}</span>` : ""}
-    ${point.label ? `<span>${escapeHtml(point.label)}</span>` : ""}`;
+    ${point.label ? `<span>${escapeHtml(point.label)}</span>` : ""}
+    ${point.publicationNote ? `<span>${escapeHtml(point.publicationNote)}</span>` : ""}`;
 }
 
 function homeTip(home: WorkMapHome) {
@@ -521,6 +537,7 @@ function mountRolePins(
       endDate: point.role.endDate,
       ring: pinTheme.ring,
       currentRing: pinTheme.currentRing,
+      withheld: point.withheld,
     });
     const node = document.createElement("div");
     node.style.position = "absolute";
@@ -529,7 +546,9 @@ function mountRolePins(
     node.style.transform = "translate(-50%, -50%)";
     node.style.zIndex = focused ? "3" : "1";
     node.style.cursor = "pointer";
-    node.title = point.role.organization || point.role.title;
+    node.title = [point.role.organization || point.role.title, point.publicationNote]
+      .filter(Boolean)
+      .join(". ");
     node.innerHTML = pin.html;
     const cover = roleCoverPhoto(point.role.media);
     const html = tipHtml(point, cover?.url);

@@ -21,7 +21,11 @@ import {
   persistApprovedChange,
   persistAuditEvent,
 } from "./change-sets";
-import { composeWorkMapSnapshot, createWorkMapSnapshot } from "./work-map";
+import {
+  composeWorkMapSnapshot,
+  createWorkMapSnapshot,
+  readWorkMapSettings,
+} from "./work-map";
 
 type JsonObject = Record<string, unknown>;
 export type RelayProjection = Omit<InteractiveProjection, "occupantId">;
@@ -71,6 +75,7 @@ export function previewWorkMapProjection(db: DatabaseSync, occupantId: string) {
     ok: true as const,
     snapshot: publicSnapshot,
     publishable: mayPublishProjection(built.value).ok,
+    exactLocations: readWorkMapSettings(db, occupantId).showExactLocations,
   };
 }
 

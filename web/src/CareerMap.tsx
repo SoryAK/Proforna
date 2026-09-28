@@ -27,6 +27,8 @@ export function CareerMap({
   viewKey,
   fitKey = "",
   zoomCorner = "start",
+  publicationMarks = false,
+  exactLocations = false,
 }: {
   settings: MapSettings | null;
   roles: WorkMapRole[];
@@ -44,6 +46,8 @@ export function CareerMap({
   viewKey?: string;
   fitKey?: string;
   zoomCorner?: "start" | "end";
+  publicationMarks?: boolean;
+  exactLocations?: boolean;
 }) {
   const pinIcons = settings?.icons ?? DEFAULT_MAP_ICONS;
   const pinTheme = MAP_THEMES[settings?.theme ?? "kind"];
@@ -68,6 +72,8 @@ export function CareerMap({
         fitKey={fitKey}
         viewKey={viewKey}
         zoomCorner={zoomCorner}
+        publicationMarks={publicationMarks}
+        exactLocations={exactLocations}
       />
     );
   }
@@ -89,6 +95,8 @@ export function CareerMap({
       suppressEmpty={suppressEmpty}
       fitKey={fitKey}
       viewKey={viewKey}
+      publicationMarks={publicationMarks}
+      exactLocations={exactLocations}
     />
   );
 }

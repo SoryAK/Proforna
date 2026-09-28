@@ -693,6 +693,15 @@ function parseLocationKind(value: unknown): WorkMapLocation["kind"] {
     : "primary";
 }
 
+export function workSitePublicationNote(input: {
+  isPublic: boolean;
+  exactLocations: boolean;
+}): string {
+  if (!input.isPublic) return "Only on this preview";
+  if (!input.exactLocations) return "Included. A publication uses a coarser pin.";
+  return "Included";
+}
+
 function publicSitePlace(address: string, organization: string): string {
   return omitZipOnly(
     formatHistoryPlace({

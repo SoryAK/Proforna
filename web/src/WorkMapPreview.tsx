@@ -15,6 +15,7 @@ import type { MapSettings } from "@core/map-settings";
 import {
   EMPTY_WORK_MAP_DETAILS,
   roleCoverPhoto,
+  workSitePublicationNote,
   type WorkMapRole,
   type WorkMapSnapshot,
 } from "@core/work-map";
@@ -27,11 +28,13 @@ type PreviewRole = PublicWorkMapSnapshot["roles"][number];
 export function WorkMapPreview({
   snapshot,
   publishable,
+  exactLocations,
   mapSettings,
   onClose,
 }: {
   snapshot: PublicWorkMapSnapshot;
   publishable: boolean;
+  exactLocations: boolean;
   mapSettings: MapSettings | null;
   onClose: () => void;
 }) {
@@ -48,6 +51,12 @@ export function WorkMapPreview({
   const stats = useMemo(() => presentCareerHistoryStats(history), [history]);
   const selected = snapshot.roles.find((role) => role.id === selectedId) ?? null;
   const showMap = snapshot.sections.includes("map");
+  const withheldSite = snapshot.roles.some((role) =>
+    role.locations.some((location) => !location.isPublic),
+  );
+  const coarseIncluded =
+    !exactLocations &&
+    snapshot.roles.some((role) => role.locations.some((location) => location.isPublic));
   const place = [snapshot.profile.city, snapshot.profile.state].filter(Boolean).join(", ");
   const initials = snapshot.profile.displayName
     .split(/\s+/)
@@ -110,6 +119,7 @@ export function WorkMapPreview({
           </section>
           {selected ? (
             <PreviewRole
+              exactLocations={exactLocations}
               role={selected}
               onBack={() => setSelectedId(null)}
             />
@@ -128,10 +138,9 @@ export function WorkMapPreview({
                 {publishable
                   ? ""
                   : " Visibility is private, so Publish will not send this."}
-                {snapshot.roles.some((role) =>
-                  role.locations.some((location) => !location.isPublic),
-                )
-                  ? " Work sites stay on this map. A site is included in a publication only after you allow it."
+                {withheldSite ? " A dashed pin is only on this preview." : ""}
+                {coarseIncluded
+                  ? " An included site uses a coarser pin in a publication."
                   : ""}
               </p>
               <div className="work-map-stats">
@@ -228,9 +237,11 @@ export function WorkMapPreview({
         {showMap ? (
           <main className="work-map-stage">
             <CareerMap
+              exactLocations={exactLocations}
               fitKey={selectedId ?? "preview"}
               home={null}
               onSelect={setSelectedId}
+              publicationMarks
               roles={previewMapRoles(snapshot)}
               selectedId={selectedId}
               settings={mapSettings}
@@ -246,9 +257,11 @@ export function WorkMapPreview({
 
 function PreviewRole({
   role,
+  exactLocations,
   onBack,
 }: {
   role: PreviewRole;
+  exactLocations: boolean;
   onBack: () => void;
 }) {
   const backRef = useRef<HTMLButtonElement>(null);
@@ -267,6 +280,14 @@ function PreviewRole({
     tenureMonths(dates.startDate, dates.endDate, dates.isCurrent),
   );
   const story = role.description.trim();
+  const sites = role.locations.map((location) => ({
+    id: location.id,
+    place: location.address || role.place,
+    note: workSitePublicationNote({
+      isPublic: location.isPublic,
+      exactLocations,
+    }),
+  }));
   const chips = previewChips(role);
   const cover = roleCoverPhoto(role.media);
   const media = role.media.filter((item) => item.id !== cover?.id);
@@ -301,6 +322,17 @@ function PreviewRole({
               {dates.isCurrent ? <span className="role-focus-current">current</span> : null}
               {tenure ? <span className="role-focus-tenure">({tenure})</span> : null}
             </p>
+          ) : null}
+          {sites.length === 1 ? (
+            <p className="preview-site-note">{sites[0]?.note}</p>
+          ) : sites.length > 1 ? (
+            <ul className="preview-sites">
+              {sites.map((site) => (
+                <li key={site.id}>
+                  {[site.place, site.note].filter(Boolean).join(" · ")}
+                </li>
+              ))}
+            </ul>
           ) : null}
         </div>
       </section>

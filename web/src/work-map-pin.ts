@@ -11,6 +11,7 @@ export type RolePinInput = {
   endDate: string;
   ring: string;
   currentRing: string;
+  withheld?: boolean;
 };
 
 export function rolePinPresentation(pin: RolePinInput): {
@@ -29,7 +30,9 @@ export function rolePinPresentation(pin: RolePinInput): {
     size,
     fill: pin.fill,
     icon: pin.icon,
-    border: pin.current ? `3px solid ${pin.currentRing}` : `2.5px solid ${pin.ring}`,
+    border: pin.current
+      ? `3px ${pin.withheld ? "dashed" : "solid"} ${pin.currentRing}`
+      : `2.5px ${pin.withheld ? "dashed" : "solid"} ${pin.ring}`,
     opacity: pin.secondary ? 0.45 : 1,
     fontSize: emojiSize,
   };

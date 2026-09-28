@@ -1157,6 +1157,7 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
     return c.json({
       snapshot: preview.snapshot,
       publishable: preview.publishable,
+      exactLocations: preview.exactLocations,
     });
   });
 

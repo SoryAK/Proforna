@@ -10,7 +10,7 @@ import {
   useMap,
   useMapEvents,
 } from "react-leaflet";
-import { roleCoverPhoto, type WorkMapRole } from "@core/work-map";
+import { roleCoverPhoto, workSitePublicationNote, type WorkMapRole } from "@core/work-map";
 import type { MapPinIcons, MapPinTheme } from "@core/map-settings";
 import { readMapCamera, writeMapCamera } from "./map-camera";
 import { anchorPinHtml, pinFill, pinIcon, rolePinHtml, searchPinHtml } from "./work-map-pin";
@@ -69,6 +69,8 @@ export function WorkMapCanvas({
   searchRadius = null,
   viewKey,
   fitKey = "",
+  publicationMarks = false,
+  exactLocations = false,
 }: {
   roles: WorkMapRole[];
   home?: WorkMapHome | null;
@@ -86,9 +88,21 @@ export function WorkMapCanvas({
   searchRadius?: SearchRadius | null;
   viewKey?: string;
   fitKey?: string;
+  publicationMarks?: boolean;
+  exactLocations?: boolean;
 }) {
   const points = roles.flatMap((role) =>
-    role.locations.map((location) => ({ role, location })),
+    role.locations.map((location) => ({
+      role,
+      location,
+      withheld: publicationMarks && !location.isPublic,
+      publicationNote: publicationMarks
+        ? workSitePublicationNote({
+            isPublic: location.isPublic,
+            exactLocations,
+          })
+        : "",
+    })),
   );
   const focusPoints = selectedId
     ? points.filter(({ role }) => role.id === selectedId)
@@ -169,7 +183,7 @@ export function WorkMapCanvas({
             radius={searchRadius.miles * 1609.34}
           />
         ) : null}
-        {points.map(({ role, location }) => {
+        {points.map(({ role, location, withheld, publicationNote }) => {
           const focused = selectedId === role.id;
           const secondary = Boolean(selectedId) && !focused;
           const cover = roleCoverPhoto(role.media);
@@ -184,6 +198,7 @@ export function WorkMapCanvas({
             endDate: role.endDate,
             ring: pinTheme.ring,
             currentRing: pinTheme.currentRing,
+            withheld,
           });
           return (
             <Marker
@@ -202,6 +217,7 @@ export function WorkMapCanvas({
                 <strong>{role.organization || role.title}</strong>
                 {role.organization && role.title ? <span>{role.title}</span> : null}
                 {location.label ? <span>{location.label}</span> : null}
+                {publicationNote ? <span>{publicationNote}</span> : null}
               </Tooltip>
             </Marker>
           );

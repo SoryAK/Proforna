@@ -477,13 +477,18 @@ describe("interactive projections HTTP seam", () => {
       expect(preview.status).toBe(200);
       const body = (await preview.json()) as {
         publishable: boolean;
+        exactLocations: boolean;
         snapshot: {
           profile: { city: string; state: string };
-          roles: Array<{ locations: Array<{ address: string }> }>;
+          roles: Array<{ locations: Array<{ address: string; isPublic: boolean }> }>;
         };
       };
       const packed = JSON.stringify(body);
       expect(body.publishable).toBe(true);
+      expect(body.exactLocations).toBe(false);
+      expect(
+        body.snapshot.roles[0].locations.map((location) => location.isPublic).sort(),
+      ).toEqual([false, true]);
       expect(body.snapshot.profile.city).toBe("");
       expect(body.snapshot.profile.state).toBe("PA");
       expect(body.snapshot.roles[0].locations).toHaveLength(2);

@@ -1868,6 +1868,23 @@
   flex: 1;
 }
 
+.preview-site-note,
+.preview-sites {
+  margin: 0.45rem 0 0;
+  color: var(--gold-light);
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.preview-sites {
+  padding: 0;
+  list-style: none;
+}
+
+.preview-sites li + li {
+  margin-top: 0.2rem;
+}
+
 .work-map-preview-note,
 .work-map-preview-skills {
   margin: 0;
