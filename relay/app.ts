@@ -1,10 +1,9 @@
 import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import { Hono } from "hono";
-import type { WorkMapSnapshot } from "../core/index";
-import { handleMcp, type PublicationRead } from "./mcp";
+import { handleMcp, type PublicationRead, type PublicationSnapshot } from "./mcp";
 
-type RelayProjection = Omit<WorkMapSnapshot, "occupantId">;
+type RelayProjection = PublicationSnapshot;
 
 type JsonObject = Record<string, unknown>;
 
@@ -39,16 +38,16 @@ export function createRelayApp(db: DatabaseSync, ownerToken: string): Hono {
       {
         protocolVersion: c.req.header("mcp-protocol-version"),
         method: c.req.header("mcp-method"),
-        name: c.req.header("mcp-name"),
+        toolName: c.req.header("mcp-name"),
       },
       (slug, token) => readPublication(db, slug, token),
     );
-    if (outcome.readSlug) {
+    if (outcome.servedPublicationSlug) {
       db.prepare(
         `INSERT INTO relay_events
           (id, slug, event_type, section, occurred_at)
          VALUES (?, ?, 'read', NULL, ?)`,
-      ).run(randomUUID(), outcome.readSlug, new Date().toISOString());
+      ).run(randomUUID(), outcome.servedPublicationSlug, new Date().toISOString());
     }
     if (!outcome.body) return c.body(null, outcome.status);
     return c.json(outcome.body, outcome.status);

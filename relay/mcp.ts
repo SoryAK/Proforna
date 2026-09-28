@@ -1,3 +1,5 @@
+import type { WorkMapSnapshot } from "../core/index";
+
 const MODERN_PROTOCOL = "2026-07-28";
 const LEGACY_PROTOCOLS = ["2025-11-25", "2025-06-18", "2025-03-26"];
 const SUPPORTED_PROTOCOLS = [MODERN_PROTOCOL, ...LEGACY_PROTOCOLS];
@@ -7,20 +9,22 @@ const SERVER_INFO = { name: "Proforna relay", version: "0.0.1" };
 const INSTRUCTIONS =
   "Read one approved publication by its slug. The result is the same snapshot a person sees on the page, including the story and the rest a recruiter can read. Pass token when the publication requires one. A revoked or expired publication is not available.";
 
+export type PublicationSnapshot = Omit<WorkMapSnapshot, "occupantId">;
+
 export type PublicationRead =
-  | { ok: true; snapshot: unknown }
+  | { ok: true; snapshot: PublicationSnapshot }
   | { ok: false; reason: "unavailable" | "token-required" };
 
 export type McpHeaders = {
   protocolVersion: string | undefined;
   method: string | undefined;
-  name: string | undefined;
+  toolName: string | undefined;
 };
 
 export type McpOutcome = {
   status: 200 | 202 | 400 | 403 | 404;
   body: Record<string, unknown> | null;
-  readSlug: string | null;
+  servedPublicationSlug: string | null;
 };
 
 type JsonObject = Record<string, unknown>;
@@ -38,7 +42,7 @@ export function handleMcp(
     return rpcError(idOf(message), -32600, "Invalid request.", 400);
   }
   if (!("id" in message)) {
-    return { status: 202, body: null, readSlug: null };
+    return { status: 202, body: null, servedPublicationSlug: null };
   }
 
   const protocol = resolveProtocol(headers.protocolVersion, message);
@@ -71,22 +75,18 @@ export function handleMcp(
   }
 
   if (message.method === "ping") {
-    return ok(message, protocol.modern ? { resultType: "complete" } : {});
+    return ok(message, forProtocol(protocol.modern, {}));
   }
 
   if (message.method === "tools/list") {
     const tools = [readPublicationTool()];
     return ok(
       message,
-      protocol.modern
-        ? {
-            resultType: "complete",
-            tools,
-            ttlMs: 300_000,
-            cacheScope: "public",
-            _meta: { "io.modelcontextprotocol/serverInfo": SERVER_INFO },
-          }
-        : { tools },
+      forProtocol(
+        protocol.modern,
+        { tools },
+        { ttlMs: 300_000, cacheScope: "public" },
+      ),
     );
   }
 
@@ -124,24 +124,22 @@ function callTool(
   const text = JSON.stringify(result.snapshot);
   return {
     status: 200,
-    readSlug: slug,
+    servedPublicationSlug: slug,
     body: {
       jsonrpc: "2.0",
       id: idOf(message),
-      result: modern
-        ? {
-            resultType: "complete",
-            content: [{ type: "text", text }],
-            structuredContent: result.snapshot,
-            isError: false,
-            cacheScope: "private",
-            ttlMs: 0,
-            _meta: { "io.modelcontextprotocol/serverInfo": SERVER_INFO },
-          }
-        : {
-            content: [{ type: "text", text }],
-            isError: false,
-          },
+      result: forProtocol(
+        modern,
+        {
+          content: [{ type: "text", text }],
+          isError: false,
+        },
+        {
+          structuredContent: result.snapshot,
+          cacheScope: "private",
+          ttlMs: 0,
+        },
+      ),
     },
   };
 }
@@ -237,10 +235,10 @@ function validateModernHeaders(
   }
   if (message.method !== "tools/call") return null;
   const name = objectOf(message.params)?.name;
-  if (typeof name !== "string" || !headers.name) {
+  if (typeof name !== "string" || !headers.toolName) {
     return rpcError(idOf(message), -32020, "Mcp-Name header is required.", 400);
   }
-  if (decodeHeader(headers.name) !== name) {
+  if (decodeHeader(headers.toolName) !== name) {
     return rpcError(
       idOf(message),
       -32020,
@@ -263,19 +261,32 @@ function decodeHeader(value: string): string {
   return Buffer.from(match[1], "base64").toString("utf8");
 }
 
+function forProtocol(
+  modern: boolean,
+  legacy: JsonObject,
+  modernOnly: JsonObject = {},
+): JsonObject {
+  if (!modern) return legacy;
+  return {
+    resultType: "complete",
+    ...legacy,
+    ...modernOnly,
+    _meta: { "io.modelcontextprotocol/serverInfo": SERVER_INFO },
+  };
+}
+
 function toolError(message: JsonObject, modern: boolean, text: string): McpOutcome {
-  return ok(message, {
-    ...(modern ? { resultType: "complete" } : {}),
+  return ok(message, forProtocol(modern, {
     content: [{ type: "text", text }],
     isError: true,
-  });
+  }));
 }
 
 function ok(message: JsonObject, result: JsonObject): McpOutcome {
   return {
     status: 200,
     body: { jsonrpc: "2.0", id: idOf(message), result },
-    readSlug: null,
+    servedPublicationSlug: null,
   };
 }
 
@@ -288,7 +299,7 @@ function rpcError(
 ): McpOutcome {
   return {
     status,
-    readSlug: null,
+    servedPublicationSlug: null,
     body: {
       jsonrpc: "2.0",
       ...(id !== undefined ? { id } : {}),

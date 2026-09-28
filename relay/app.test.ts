@@ -126,6 +126,43 @@ describe("publishing relay", () => {
     }
   });
 
+  it("refuses an expired publication to an agent and a person", async () => {
+    const db = openRelayDatabase(":memory:");
+    const app = createRelayApp(db, "owner-secret");
+    try {
+      await app.request("/relay/publications/systems", {
+        method: "PUT",
+        headers: {
+          authorization: "Bearer owner-secret",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          projection: { ...projection, expiresAt: "2000-01-01T00:00:00.000Z" },
+        }),
+      });
+      const read = await mcp(app, {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "tools/call",
+        params: {
+          name: "read_publication",
+          arguments: { slug: "systems" },
+        },
+      });
+      const body = (await read.json()) as {
+        result: { isError: boolean; content: Array<{ text: string }> };
+      };
+      expect(body.result.isError).toBe(true);
+      expect(body.result.content[0]?.text).toBe(
+        "This publication is not available.",
+      );
+      expect(body.result.content[0]?.text).not.toContain("Cut recovery");
+      expect((await app.request("/r/systems")).status).toBe(404);
+    } finally {
+      db.close();
+    }
+  });
+
   it("requires the same access token the page requires", async () => {
     const db = openRelayDatabase(":memory:");
     const app = createRelayApp(db, "owner-secret");
