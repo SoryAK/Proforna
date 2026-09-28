@@ -702,6 +702,40 @@ export function workSitePublicationNote(input: {
   return "Included";
 }
 
+export function previewRoleMark(
+  locations: Array<{ isPublic: boolean }>,
+): string {
+  if (
+    locations.length === 0 ||
+    locations.every((location) => location.isPublic)
+  ) {
+    return "Included";
+  }
+  return "Only on this preview";
+}
+
+export function recruiterWorkMapSnapshot<
+  T extends { roles: Array<{ locations: WorkMapLocation[] }> },
+>(snapshot: T, exactLocations: boolean): T {
+  return {
+    ...snapshot,
+    roles: snapshot.roles.map((role) => ({
+      ...role,
+      locations: role.locations
+        .filter((location) => location.isPublic)
+        .map((location) =>
+          exactLocations
+            ? location
+            : {
+                ...location,
+                latitude: roundCoordinate(location.latitude),
+                longitude: roundCoordinate(location.longitude),
+              },
+        ),
+    })),
+  };
+}
+
 function publicSitePlace(address: string, organization: string): string {
   return omitZipOnly(
     formatHistoryPlace({

@@ -515,8 +515,6 @@
 .work-map-role-list {
   min-height: 0;
   overflow: auto;
-  scrollbar-color: rgba(199, 164, 123, 0.45) transparent;
-  scrollbar-width: thin;
 }
 
 .career-history-row {
@@ -1079,8 +1077,6 @@
   overflow: auto;
   padding: 2.4rem clamp(1.5rem, 4vw, 3.5rem) 3rem;
   background: #080706;
-  scrollbar-color: rgba(199, 164, 123, 0.45) transparent;
-  scrollbar-width: thin;
 }
 
 .role-sheet .role-focus {
@@ -1381,8 +1377,6 @@
   min-height: 0;
   padding: 1rem 1.1rem 3rem;
   overflow: auto;
-  scrollbar-color: rgba(199, 164, 123, 0.45) transparent;
-  scrollbar-width: thin;
 }
 
 .role-form {
@@ -1603,6 +1597,14 @@
   color: var(--wm-muted);
   font-size: 0.82rem;
   line-height: 1.45;
+}
+
+.publication-confirm .publication-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  margin-top: 0.85rem;
+  color: var(--text);
 }
 
 .publication-confirm-actions {
@@ -1971,4 +1973,56 @@
 
 .work-map-preview .history-cat {
   margin: 0;
+}
+
+.work-map-preview-page {
+  height: 100vh;
+  background: var(--bg);
+}
+
+.preview-audience {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.preview-audience button[aria-pressed="true"] {
+  background: var(--gold-hover);
+  color: #1a1510;
+}
+
+.preview-role-mark {
+  display: block;
+  color: var(--gold-hover);
+  font-size: 0.75rem;
+}
+
+.work-map-preview .work-map-ledger:has(.preview-reading) .work-map-role-list {
+  flex: 1 1 42%;
+  max-height: 46%;
+}
+
+.work-map-preview .preview-reading {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: auto;
+  border-top: 1px solid var(--wm-line);
+  padding: 0.85rem 1rem 1.2rem;
+}
+
+.publication-preview-place {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0 1.1rem 0.85rem;
+  color: var(--gold-light);
+  font-size: 0.8rem;
+}
+
+.publication-preview-place select {
+  padding: 0.55rem 0;
+  border: 0;
+  border-bottom: 1px solid var(--gold);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 1rem;
 }

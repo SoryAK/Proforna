@@ -13,6 +13,8 @@ import {
   presentWorkMapPlace,
   publicationAllowsSnapshot,
   publicationNeedsAudienceConfirm,
+  previewRoleMark,
+  recruiterWorkMapSnapshot,
   workSitePublicationNote,
   type WorkMapPublicationSettings,
   type WorkMapRole,
@@ -125,6 +127,51 @@ describe("Work Map publication snapshots", () => {
     expect(published).not.toContain("SECRET_GROWTH_NOTE");
     expect(published).not.toContain("SECRET_DEPARTURE");
     expect(published).not.toContain("SECRET_TOOL");
+  });
+
+  it("marks a role from whether its work sites would be sent", () => {
+    expect(previewRoleMark([])).toBe("Included");
+    expect(previewRoleMark([{ isPublic: true }])).toBe("Included");
+    expect(previewRoleMark([{ isPublic: false }])).toBe("Only on this preview");
+  });
+
+  it("shows a recruiter only the work sites a publication would send", () => {
+    const snapshot = {
+      roles: [
+        {
+          locations: [
+            {
+              id: "private-site",
+              label: "",
+              address: "Allentown, PA",
+              latitude: 39.95258,
+              longitude: -75.16522,
+              kind: "primary" as const,
+              isPublic: false,
+            },
+            {
+              id: "public-site",
+              label: "",
+              address: "Philadelphia, PA",
+              latitude: 39.95258,
+              longitude: -75.16522,
+              kind: "primary" as const,
+              isPublic: true,
+            },
+          ],
+        },
+      ],
+    };
+    const recruiter = recruiterWorkMapSnapshot(snapshot, false);
+    expect(recruiter.roles[0]?.locations).toEqual([
+      expect.objectContaining({
+        id: "public-site",
+        latitude: 40,
+        longitude: -75.2,
+      }),
+    ]);
+    const exact = recruiterWorkMapSnapshot(snapshot, true);
+    expect(exact.roles[0]?.locations[0]?.latitude).toBe(39.95258);
   });
 
   it("names whether a work site would be sent in a publication", () => {

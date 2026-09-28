@@ -8,7 +8,6 @@
   padding: 0;
   background: var(--bg);
   color: var(--text);
-  scrollbar-color: rgba(167, 139, 113, 0.45) transparent;
 }
 
 .home .sr-only {
@@ -364,7 +363,6 @@ p.home-search-hit {
   overflow: auto;
   border-right: 1px solid rgba(167, 139, 113, 0.18);
   background: #070707;
-  scrollbar-color: rgba(167, 139, 113, 0.45) transparent;
 }
 
 .home-nav.is-open {
@@ -621,7 +619,6 @@ button.home-nav-item:focus-visible {
   border-radius: 16px;
   background: #111;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
-  scrollbar-color: rgba(167, 139, 113, 0.45) transparent;
 }
 
 .home-notice-heading {
@@ -1415,7 +1412,6 @@ button.home-nav-item:focus-visible {
   min-height: 0;
   overflow: auto;
   padding: 0.35rem 1rem 1.15rem;
-  scrollbar-color: rgba(167, 139, 113, 0.45) transparent;
 }
 
 .home-proforna-history {
@@ -1627,7 +1623,6 @@ button.home-nav-item:focus-visible {
   border-radius: 16px;
   background: #13100d;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
-  scrollbar-color: rgba(167, 139, 113, 0.45) transparent;
 }
 
 .home-proforna-menu-heading {

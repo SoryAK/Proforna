@@ -92,6 +92,9 @@ components:
     typography: "{typography.label}"
     rounded: "{rounded.pill}"
     padding: "5px 10px"
+  scrollbar-thumb:
+    backgroundColor: "{colors.gold}"
+    rounded: "{rounded.pill}"
 ---
 
 # Design System: Proforna
@@ -216,6 +219,11 @@ The underlying form language is disciplined and contextual. Content partitions a
 - **Style:** A near-black editor attached to the right edge, separated by a fine gold rule and directional shadow.
 - **Behavior:** It enters quickly with a restrained horizontal reveal and becomes a full-width fixed sheet on narrow screens. Reduced-motion preferences remove the animation.
 
+### Scrollbars
+- **Style:** Thin. The track stays transparent so the surface shows through. The thumb is Ledger Gold at low opacity, with a pill shape.
+- **Hover:** The thumb lightens toward Illuminated Gold. It does not become a solid bar.
+- **Scope:** Every scrolling region uses this treatment, including the page, ledgers, sheets, and dialogs. Light materials such as the map and paper keep the same thumb, because the transparent track lets their ground show.
+
 ## Do's and Don'ts
 
 ### Do:
@@ -223,6 +231,7 @@ The underlying form language is disciplined and contextual. Content partitions a
 - **Do** communicate hierarchy with fine rules, tonal layers, typography, and restrained gold states.
 - **Do** keep focus visible, preserve semantic controls, and disable optional motion for reduced-motion preferences.
 - **Do** let real map tiles, paper outputs, and other meaningful materials contrast with the dark application shell.
+- **Do** theme every scrollbar from Ledger Gold on a transparent track, so the thumb sits in the surface.
 
 ### Don't:
 - **Don't** use filled gold broadly; its rarity identifies selection and commitment.
@@ -230,3 +239,4 @@ The underlying form language is disciplined and contextual. Content partitions a
 - **Don't** use decorative elevation on surfaces that are not overlays or distinct materials.
 - **Don't** introduce additional display families, hard offset shadows, or ornamental glyph icons.
 - **Don't** put ivory or gold type on a white menu, option, or field.
+- **Don't** leave a browser-default gray or overlay scrollbar on any scroller.

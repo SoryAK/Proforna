@@ -14,12 +14,16 @@ import {
 import type { MapSettings } from "@core/map-settings";
 import {
   EMPTY_WORK_MAP_DETAILS,
+  previewRoleMark,
+  recruiterWorkMapSnapshot,
   roleCoverPhoto,
   workSitePublicationNote,
   type WorkMapRole,
   type WorkMapSnapshot,
 } from "@core/work-map";
 import { CareerMap } from "./CareerMap";
+import { PREVIEW_REFRESH } from "./preview-placement";
+import "./work-map.css";
 
 export type PublicWorkMapSnapshot = Omit<WorkMapSnapshot, "occupantId">;
 
@@ -42,14 +46,22 @@ export function WorkMapPreview({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<"newest" | "oldest">("newest");
-  const history = useMemo(() => snapshotHistory(snapshot), [snapshot]);
+  const [mode, setMode] = useState<"preview" | "recruiter">("preview");
+  const viewSnapshot = useMemo(
+    () =>
+      mode === "recruiter"
+        ? recruiterWorkMapSnapshot(snapshot, exactLocations)
+        : snapshot,
+    [exactLocations, mode, snapshot],
+  );
+  const history = useMemo(() => snapshotHistory(viewSnapshot), [viewSnapshot]);
   const visible = useMemo(
     () => sortCareerHistory(searchCareerHistory(history, search), sort),
     [history, search, sort],
   );
   const groups = useMemo(() => groupCareerHistory(visible), [visible]);
   const stats = useMemo(() => presentCareerHistoryStats(history), [history]);
-  const selected = snapshot.roles.find((role) => role.id === selectedId) ?? null;
+  const selected = viewSnapshot.roles.find((role) => role.id === selectedId) ?? null;
   const showMap = snapshot.sections.includes("map");
   const withheldSite = snapshot.roles.some((role) =>
     role.locations.some((location) => !location.isPublic),
@@ -117,32 +129,43 @@ export function WorkMapPreview({
               </ul>
             ) : null}
           </section>
-          {selected ? (
-            <PreviewRole
-              exactLocations={exactLocations}
-              role={selected}
-              onBack={() => setSelectedId(null)}
-            />
-          ) : (
             <aside className="work-map-ledger" aria-label="Career History">
               <header className="history-panel-head">
                 <h2>Career History</h2>
                 <div className="history-publish">
+                  <div className="preview-audience" role="group" aria-label="Who this preview is for">
+                    <button
+                      type="button"
+                      aria-pressed={mode === "preview"}
+                      onClick={() => setMode("preview")}
+                    >
+                      Your preview
+                    </button>
+                    <button
+                      type="button"
+                      aria-pressed={mode === "recruiter"}
+                      onClick={() => setMode("recruiter")}
+                    >
+                      Recruiter
+                    </button>
+                  </div>
                   <button ref={closeRef} type="button" onClick={onClose}>
-                    Close preview
+                    Close
                   </button>
                 </div>
               </header>
-              <p className="work-map-preview-note">
-                Local preview. Nothing has been published.
-                {publishable
-                  ? ""
-                  : " Visibility is private, so Publish will not send this."}
-                {withheldSite ? " A dashed pin is only on this preview." : ""}
-                {coarseIncluded
-                  ? " An included site uses a coarser pin in a publication."
-                  : ""}
-              </p>
+              {mode === "preview" ? (
+                <p className="work-map-preview-note">
+                  Local preview. Nothing has been published.
+                  {publishable
+                    ? ""
+                    : " Visibility is private, so Publish will not send this."}
+                  {withheldSite ? " A dashed pin is only on this preview." : ""}
+                  {coarseIncluded
+                    ? " An included site uses a coarser pin in a publication."
+                    : ""}
+                </p>
+              ) : null}
               <div className="work-map-stats">
                 <div>
                   <span>Total Tenure</span>
@@ -193,11 +216,21 @@ export function WorkMapPreview({
                         <em>({section.items.length})</em>
                       </p>
                     </div>
-                    {section.items.map((item) => (
+                    {section.items.map((item) => {
+                      const source = snapshot.roles.find((role) => role.id === item.id);
+                      return (
                       <button
-                        className="career-history-row"
+                        className={
+                          item.id === selectedId
+                            ? "career-history-row is-selected"
+                            : "career-history-row"
+                        }
                         key={item.id}
-                        onClick={() => setSelectedId(item.id)}
+                        onClick={() =>
+                          setSelectedId((current) =>
+                            current === item.id ? null : item.id,
+                          )
+                        }
                         type="button"
                       >
                         <span>
@@ -209,9 +242,15 @@ export function WorkMapPreview({
                           {formatHistoryGist(item) ? (
                             <small>{formatHistoryGist(item)}</small>
                           ) : null}
+                          {mode === "preview" && source ? (
+                            <small className="preview-role-mark">
+                              {previewRoleMark(source.locations)}
+                            </small>
+                          ) : null}
                         </span>
                       </button>
-                    ))}
+                      );
+                    })}
                   </section>
                 ))}
                 {snapshot.roles.length > 0 && visible.length === 0 ? (
@@ -227,12 +266,20 @@ export function WorkMapPreview({
                     <p className="work-map-preview-skills">{snapshot.skills.join(" · ")}</p>
                   </section>
                 ) : null}
-                {showMap && !snapshot.roles.some((role) => role.locations.length > 0) ? (
+                {mode === "preview" &&
+                showMap &&
+                !snapshot.roles.some((role) => role.locations.length > 0) ? (
                   <p>No work sites are included in this snapshot.</p>
                 ) : null}
               </div>
+              {selected ? (
+                <PreviewRole
+                  exactLocations={exactLocations}
+                  role={selected}
+                  showSiteNotes={mode === "preview"}
+                />
+              ) : null}
             </aside>
-          )}
         </div>
         {showMap ? (
           <main className="work-map-stage">
@@ -241,12 +288,12 @@ export function WorkMapPreview({
               fitKey={selectedId ?? "preview"}
               home={null}
               onSelect={setSelectedId}
-              publicationMarks
-              roles={previewMapRoles(snapshot)}
+              publicationMarks={mode === "preview"}
+              roles={previewMapRoles(viewSnapshot)}
               selectedId={selectedId}
               settings={mapSettings}
               suppressEmpty
-              viewKey="preview-sites"
+              viewKey={mode === "recruiter" ? "recruiter-sites" : "preview-sites"}
             />
           </main>
         ) : null}
@@ -258,13 +305,12 @@ export function WorkMapPreview({
 function PreviewRole({
   role,
   exactLocations,
-  onBack,
+  showSiteNotes,
 }: {
   role: PreviewRole;
   exactLocations: boolean;
-  onBack: () => void;
+  showSiteNotes: boolean;
 }) {
-  const backRef = useRef<HTMLButtonElement>(null);
   const dates = datesFromSpan(role.span);
   const place =
     role.place ||
@@ -292,17 +338,8 @@ function PreviewRole({
   const cover = roleCoverPhoto(role.media);
   const media = role.media.filter((item) => item.id !== cover?.id);
 
-  useEffect(() => {
-    backRef.current?.focus();
-  }, [role.id]);
-
   return (
-    <aside className="role-detail is-inline" aria-label={`${role.title || "Role"} preview`}>
-      <header>
-        <button ref={backRef} className="role-back" type="button" onClick={onBack}>
-          Back to history
-        </button>
-      </header>
+    <section className="preview-reading" aria-label={`${role.title || "Role"} preview`}>
       <section className="role-focus">
         {cover ? (
           <div className="role-focus-photo">
@@ -323,9 +360,10 @@ function PreviewRole({
               {tenure ? <span className="role-focus-tenure">({tenure})</span> : null}
             </p>
           ) : null}
-          {sites.length === 1 ? (
+          {showSiteNotes && sites.length === 1 ? (
             <p className="preview-site-note">{sites[0]?.note}</p>
-          ) : sites.length > 1 ? (
+          ) : null}
+          {showSiteNotes && sites.length > 1 ? (
             <ul className="preview-sites">
               {sites.map((site) => (
                 <li key={site.id}>
@@ -386,7 +424,7 @@ function PreviewRole({
           ) : null}
         </div>
       </div>
-    </aside>
+    </section>
   );
 }
 
@@ -462,4 +500,74 @@ function previewMapRoles(snapshot: PublicWorkMapSnapshot): WorkMapRole[] {
       details: structuredClone(EMPTY_WORK_MAP_DETAILS),
     };
   });
+}
+
+type PreviewResponse = {
+  snapshot: PublicWorkMapSnapshot;
+  publishable: boolean;
+  exactLocations: boolean;
+};
+
+export function WorkMapPreviewPage() {
+  const [preview, setPreview] = useState<PreviewResponse | null>(null);
+  const [mapSettings, setMapSettings] = useState<MapSettings | null>(null);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    void loadPreview();
+    void fetch("/api/maps")
+      .then(async (response) => {
+        const body = (await response.json()) as { settings?: MapSettings };
+        if (body.settings) setMapSettings(body.settings);
+      })
+      .catch(() => setMapSettings(null));
+    const channel = new BroadcastChannel(PREVIEW_REFRESH);
+    channel.onmessage = () => {
+      void loadPreview();
+    };
+    return () => channel.close();
+  }, []);
+
+  async function loadPreview() {
+    const response = await fetch("/api/work-map/preview");
+    if (!response.ok) {
+      const body = (await response.json()) as { error?: string };
+      setError(
+        body.error === "slug-required"
+          ? "Save a public slug in publication settings before previewing."
+          : body.error === "sections-required"
+            ? "Choose at least one section in publication settings before previewing."
+            : "Could not build the preview.",
+      );
+      return;
+    }
+    setError("");
+    setPreview((await response.json()) as PreviewResponse);
+  }
+
+  function close() {
+    window.close();
+    window.location.hash = "#/history";
+  }
+
+  return (
+    <section className="work-map work-map-preview-page">
+      {error ? (
+        <p className="work-map-message" role="alert">
+          {error}
+        </p>
+      ) : null}
+      {preview ? (
+        <WorkMapPreview
+          exactLocations={preview.exactLocations}
+          mapSettings={mapSettings}
+          publishable={preview.publishable}
+          snapshot={preview.snapshot}
+          onClose={close}
+        />
+      ) : error ? null : (
+        <p className="work-map-preview-note">Loading the preview…</p>
+      )}
+    </section>
+  );
 }

@@ -1381,8 +1381,6 @@
 .onboarding-review-source .onboarding-preview-text {
   height: 100%;
   max-height: none;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(167, 139, 113, 0.45) transparent;
 }
 
 .onboarding-review-body {
@@ -1390,25 +1388,10 @@
   margin-top: 0;
   overflow: auto;
   padding-right: 0.2rem;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(167, 139, 113, 0.45) transparent;
 }
 
 .onboarding-review-body > .onboarding-kicker {
   margin-bottom: 0.15rem;
-}
-
-.onboarding-review-body::-webkit-scrollbar {
-  width: 8px;
-}
-
-.onboarding-review-body::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.onboarding-review-body::-webkit-scrollbar-thumb {
-  background: rgba(167, 139, 113, 0.45);
-  border-radius: 999px;
 }
 
 @media (max-width: 800px) {
@@ -1457,21 +1440,6 @@
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 16px;
   background: rgba(0, 0, 0, 0.28);
-  scrollbar-width: thin;
-  scrollbar-color: rgba(167, 139, 113, 0.45) transparent;
-}
-
-.onboarding-job-info::-webkit-scrollbar {
-  width: 8px;
-}
-
-.onboarding-job-info::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.onboarding-job-info::-webkit-scrollbar-thumb {
-  background: rgba(167, 139, 113, 0.45);
-  border-radius: 999px;
 }
 
 .onboarding-job-info h2 {
