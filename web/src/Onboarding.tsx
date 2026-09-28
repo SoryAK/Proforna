@@ -15,9 +15,8 @@ import {
 } from "@core/onboarding-review";
 import { isAvatarType, prepareProfile, PROFILE_AVATAR_MAX_BYTES, type ProfileFields } from "@core/profile";
 import type { ExtractedResume } from "@core/resume-extract";
-import { classifyResumePreview } from "@core/resume-preview";
 import { AddressFields } from "./OnboardingAddress";
-import { RoleCheck } from "./OnboardingCheck";
+import { CheckOverview, ResumePreview } from "./OnboardingCheck";
 import { LinkFields } from "./OnboardingLinks";
 import type { OnboardingProfileValue } from "./OnboardingProfile";
 import { YesNo } from "./onboarding-offer";
@@ -28,17 +27,16 @@ type Me = {
   profile: OnboardingProfileValue & { onboardingCompletedAt: string | null };
 };
 
-type OnboardingStep = "name" | "model" | "file" | "check" | "done";
+type OnboardingStep = "name" | "model" | "file" | "check";
 
 const STEP_INDEX: Record<OnboardingStep, number> = {
   name: 0,
   model: 1,
   file: 2,
   check: 3,
-  done: 3,
 };
 
-const STEPS = ["Profile", "Model", "Resume", "Check"] as const;
+const STEPS = ["Profile", "Model", "Resume", "Verify"] as const;
 
 export function Onboarding({
   initialProfile,
@@ -76,9 +74,7 @@ export function Onboarding({
   const [file, setFile] = useState<File | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [step, setStep] = useState<OnboardingStep>("name");
-  const [index, setIndex] = useState(0);
   const [items, setItems] = useState<OnboardingCheckItem[]>([]);
-  const [pinPlaces, setPinPlaces] = useState<"each" | "skip" | null>(null);
   const [extracted, setExtracted] = useState<ExtractedResume | null>(null);
   const [extracting, setExtracting] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -167,19 +163,16 @@ export function Onboarding({
     setFile(next);
     setItems([]);
     setExtracted(null);
-    setIndex(0);
     setError(null);
-    setPinPlaces(null);
     setExtracting(false);
-    if (step === "check" || step === "done") setStep("file");
+    if (step === "check") setStep("file");
   }
 
   function continueWithoutRead() {
     setItems([]);
     setExtracted(null);
-    setIndex(0);
     setError(null);
-    setStep("done");
+    void finish([], false);
   }
 
   async function readFile() {
@@ -218,15 +211,13 @@ export function Onboarding({
         return;
       }
       const next = onboardingCheckItems(body.data);
-      if (next.length === 0 && body.data.education.length === 0) {
+      if (next.length === 0) {
         setError("The model did not find roles or schools in that file.");
         return;
       }
       setExtracted(body.data);
       setItems(next);
-      setPinPlaces(null);
-      setIndex(0);
-      setStep(next.length > 0 ? "check" : "done");
+      setStep("check");
     } catch (err) {
       if (abort.signal.aborted) return;
       setError(err instanceof Error ? err.message : "Could not read the resume.");
@@ -238,7 +229,7 @@ export function Onboarding({
     }
   }
 
-  async function finish() {
+  async function finish(kept: OnboardingCheckItem[] = items, includeHistory = true) {
     setBusy(true);
     setError(null);
     try {
@@ -291,8 +282,8 @@ export function Onboarding({
         const stored = (await uploaded.json()) as { resume?: { id?: string } };
         resumeId = stored.resume?.id;
       }
-      if (extracted) {
-        const history = keptOnboardingHistory(extracted, items);
+      if (includeHistory && extracted) {
+        const history = keptOnboardingHistory(extracted, kept);
         if (history.experience.length > 0 || history.education.length > 0) {
           const saved = await fetch("/api/history", {
             method: "POST",
@@ -339,18 +330,11 @@ export function Onboarding({
         "We'll extract the career details from your resume. It can be done later if now is not the right time.",
       ];
     }
-    if (step === "done") {
-      if (file && wantsModel === false) {
-        return [`${file.name} is here and was not read. Add roles from Career History when you are ready.`];
-      }
-      if (items.length === 0) {
-        if (extracted && extracted.education.length > 0) {
-          return ["Schools from the file are kept. Add roles from Career History when you are ready."];
-        }
-        if (file) return ["Nothing was kept from the file. Add roles from Career History when you are ready."];
-        return ["No resume was added. Add roles from Career History when you are ready."];
-      }
-      return [`${items.length} roles are checked.`];
+    if (step === "check") {
+      return [
+        "We advise going through each one. A model can hallucinate, and the read can produce incorrect information or miss things.",
+        "These details can be revised later as well.",
+      ];
     }
     return [];
   }
@@ -644,9 +628,10 @@ export function Onboarding({
                         <button
                           type="button"
                           className="onboarding-btn onboarding-btn-solid"
+                          disabled={busy}
                           onClick={continueWithoutRead}
                         >
-                          Continue
+                          {busy ? "Saving…" : "Continue"}
                         </button>
                       )}
                     </div>
@@ -656,68 +641,16 @@ export function Onboarding({
             </>
           ) : null}
 
-          {step === "check" && items[index] ? (
-            <RoleCheck
+          {step === "check" ? (
+            <CheckOverview
               items={items}
-              index={index}
-              pinPlaces={pinPlaces}
-              onPinPlaces={setPinPlaces}
-              onPlace={(at, label, lat, lng) => {
-                setItems((current) =>
-                  current.map((row, rowIndex) => (rowIndex === at ? { ...row, place: label, lat, lng } : row)),
-                );
-              }}
-              onDrop={() => {
-                const next = items.filter((_, rowIndex) => rowIndex !== index);
-                setItems(next);
-                if (next.length === 0) {
-                  setIndex(0);
-                  setStep("done");
-                  return;
-                }
-                if (index >= next.length) setIndex(next.length - 1);
-              }}
-              onBack={() => {
-                if (index === 0) setStep("file");
-                else setIndex((current) => current - 1);
-              }}
-              onNext={() => {
-                if (index + 1 >= items.length) setStep("done");
-                else setIndex((current) => current + 1);
-              }}
+              file={file}
+              busy={busy}
+              error={error}
+              onChange={setItems}
+              onBack={() => setStep("file")}
+              onContinue={(kept) => void finish(kept)}
             />
-          ) : null}
-
-          {step === "done" ? (
-            <>
-              <p className="onboarding-kicker">Ready</p>
-              <h1>
-                The map can <em>start.</em>
-              </h1>
-              {error ? (
-                <p className="onboarding-alert" role="alert">
-                  {error}
-                </p>
-              ) : null}
-              <div className="onboarding-actions" data-split="true">
-                <button
-                  type="button"
-                  className="onboarding-btn onboarding-btn-ghost"
-                  disabled={busy}
-                  onClick={() => setStep(items.length > 0 ? "check" : "file")}
-                >
-                  Back
-                </button>
-                <button
-                  type="button"
-                  className="onboarding-btn onboarding-btn-solid"
-                  disabled={busy}
-                  onClick={() => void finish()}
-                >
-                  {busy ? "Saving…" : "Continue"}
-                </button>
-              </div>
-            </>
           ) : null}
         </section>
         {notes.length > 0 ? (
@@ -740,7 +673,7 @@ function WashProgress({ step }: { step: OnboardingStep }) {
       {STEPS.map((label, index) => (
         <li
           key={label}
-          data-state={step === "done" || index < current ? "done" : index === current ? "current" : "upcoming"}
+          data-state={index < current ? "done" : index === current ? "current" : "upcoming"}
         >
           <span className="onboarding-steps-dot" aria-hidden="true" />
           {label}
@@ -865,49 +798,6 @@ function ReadProgress({ model }: { model: string }) {
         <div className="onboarding-read-bar" style={{ ["--read" as string]: width / 100 }} />
       </div>
       <p className="onboarding-quiet">{clock} — still working. A resume can take a minute.</p>
-    </div>
-  );
-}
-
-function ResumePreview({ file }: { file: File }) {
-  const [textPreview, setTextPreview] = useState<string | null>(null);
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
-  const kind = classifyResumePreview(file);
-
-  useEffect(() => {
-    if (kind === "pdf") {
-      const url = URL.createObjectURL(file);
-      setPdfUrl(url);
-      setTextPreview(null);
-      return () => URL.revokeObjectURL(url);
-    }
-    if (kind === "text") {
-      setPdfUrl(null);
-      let cancel = false;
-      void file.text().then((text) => {
-        if (!cancel) setTextPreview(text);
-      });
-      return () => {
-        cancel = true;
-      };
-    }
-    setPdfUrl(null);
-    setTextPreview(null);
-  }, [file, kind]);
-
-  return (
-    <div className="onboarding-preview">
-      {kind === "pdf" && pdfUrl ? (
-        <iframe className="onboarding-preview-frame" title="Resume preview" src={pdfUrl} />
-      ) : null}
-      {kind === "text" ? (
-        <pre className="onboarding-preview-text">{textPreview ?? "Reading…"}</pre>
-      ) : null}
-      {kind === "other" ? (
-        <p className="onboarding-preview-fallback">
-          {file.name} cannot be shown here. You can still continue.
-        </p>
-      ) : null}
     </div>
   );
 }

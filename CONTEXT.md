@@ -101,6 +101,12 @@ are preferred; a cloud key is a disclosure that resume text may leave this
 machine.
 _Avoid_: Agent, assistant, chatbot
 
+**Verify**:
+The occupant's pass over jobs and schools extracted from a resume, compared
+with that file, before they enter Career History. A record can be corrected,
+set aside, or added when the extract missed it.
+_Avoid_: Check, import wizard
+
 **Approval**:
 Authorization bound to one exact change set, destination, and expiry.
 Publication, revocation, access grants, and publication settings use this
