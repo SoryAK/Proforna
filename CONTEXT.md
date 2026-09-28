@@ -98,7 +98,11 @@ _Avoid_: Public profile, portfolio
 
 **Publication**:
 A relay-hosted instance of an interactive projection with a slug, access
-policy, and revocation state.
+policy, and revocation state. A person opens the page, which is shaped so
+they can take the career in. An agent, through MCP, reads the same approved
+snapshot that page is drawn from, including the story and the rest a
+recruiter can read. What the agent then pulls out for a role is still to
+be worked out.
 _Avoid_: Sync, deployment
 
 **Change Set**:

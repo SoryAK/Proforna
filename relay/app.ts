@@ -2,6 +2,7 @@ import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import { Hono } from "hono";
 import type { WorkMapSnapshot } from "../core/index";
+import { handleMcp, type PublicationRead } from "./mcp";
 
 type RelayProjection = Omit<WorkMapSnapshot, "occupantId">;
 
@@ -11,6 +12,47 @@ export function createRelayApp(db: DatabaseSync, ownerToken: string): Hono {
   const app = new Hono();
 
   app.get("/health", (c) => c.json({ ok: true, service: "proforna-relay" }));
+
+  app.on(["GET", "DELETE"], "/mcp", (c) => c.body(null, 405));
+
+  app.post("/mcp", async (c) => {
+    if (!originAllowed(c.req.header("origin"), c.req.header("host"))) {
+      return c.json(
+        {
+          jsonrpc: "2.0",
+          error: { code: -32600, message: "Origin is not allowed." },
+        },
+        403,
+      );
+    }
+    let payload: unknown;
+    try {
+      payload = await c.req.json();
+    } catch {
+      return c.json(
+        { jsonrpc: "2.0", error: { code: -32700, message: "Parse error." } },
+        400,
+      );
+    }
+    const outcome = handleMcp(
+      payload,
+      {
+        protocolVersion: c.req.header("mcp-protocol-version"),
+        method: c.req.header("mcp-method"),
+        name: c.req.header("mcp-name"),
+      },
+      (slug, token) => readPublication(db, slug, token),
+    );
+    if (outcome.readSlug) {
+      db.prepare(
+        `INSERT INTO relay_events
+          (id, slug, event_type, section, occurred_at)
+         VALUES (?, ?, 'read', NULL, ?)`,
+      ).run(randomUUID(), outcome.readSlug, new Date().toISOString());
+    }
+    if (!outcome.body) return c.body(null, outcome.status);
+    return c.json(outcome.body, outcome.status);
+  });
 
   app.put("/relay/publications/:slug", async (c) => {
     if (!isOwner(c.req.header("authorization"), ownerToken)) {
@@ -175,6 +217,26 @@ export function createRelayApp(db: DatabaseSync, ownerToken: string): Hono {
   });
 
   return app;
+}
+
+function readPublication(
+  db: DatabaseSync,
+  slug: string,
+  token: string | null,
+): PublicationRead {
+  const projection = resolveProjection(db, slug, token);
+  if (projection) return { ok: true, snapshot: projection };
+  if (requiresAccess(db, slug)) return { ok: false, reason: "token-required" };
+  return { ok: false, reason: "unavailable" };
+}
+
+function originAllowed(origin: string | undefined, host: string | undefined): boolean {
+  if (!origin) return true;
+  try {
+    return new URL(origin).host === (host ?? "");
+  } catch {
+    return false;
+  }
 }
 
 function resolveProjection(
