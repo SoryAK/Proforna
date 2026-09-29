@@ -15,6 +15,7 @@ import {
   planWorkMapRoleFactSync,
   prepareWorkMapLocation,
   prepareWorkMapRoleCreate,
+  nominatimAddressLine,
   presentWorkMapPlace,
   type WorkMapLocation,
   type WorkMapMedia,
@@ -338,6 +339,7 @@ export async function lookupNominatimPlaces(query: string): Promise<WorkMapPlace
   const url = new URL("https://nominatim.openstreetmap.org/search");
   url.searchParams.set("q", query);
   url.searchParams.set("format", "jsonv2");
+  url.searchParams.set("addressdetails", "1");
   url.searchParams.set("limit", "5");
   const response = await fetch(url, { headers: nominatimHeaders });
   if (!response.ok) return [];
@@ -354,6 +356,7 @@ export async function reverseNominatimPlace(
 ): Promise<WorkMapPlace | null> {
   const url = new URL("https://nominatim.openstreetmap.org/reverse");
   url.searchParams.set("format", "jsonv2");
+  url.searchParams.set("addressdetails", "1");
   url.searchParams.set("lat", String(latitude));
   url.searchParams.set("lon", String(longitude));
   const response = await fetch(url, { headers: nominatimHeaders });
@@ -370,6 +373,7 @@ type NominatimHit = {
   display_name?: string;
   lat?: string;
   lon?: string;
+  address?: Record<string, string | undefined>;
 };
 
 function placeFromNominatim(hit: NominatimHit): WorkMapPlace | null {
@@ -380,7 +384,7 @@ function placeFromNominatim(hit: NominatimHit): WorkMapPlace | null {
   }
   return presentWorkMapPlace({
     name: hit.name,
-    displayName: hit.display_name,
+    displayName: nominatimAddressLine(hit.address, hit.display_name),
     latitude,
     longitude,
   });
@@ -707,9 +711,10 @@ export async function saveWorkMapSettings(
   return settings;
 }
 
-export function createWorkMapSnapshot(
+export function composeWorkMapSnapshot(
   db: DatabaseSync,
   occupantId: string,
+  options: { previewLocations?: boolean } = {},
 ): WorkMapSnapshot {
   const source = readWorkMap(db, occupantId);
   const profile = readProfile(db, occupantId);
@@ -724,7 +729,7 @@ export function createWorkMapSnapshot(
       }),
     )
     .digest("hex");
-  const snapshot = buildWorkMapSnapshot({
+  return buildWorkMapSnapshot({
     id: randomUUID(),
     occupantId,
     profile,
@@ -733,7 +738,15 @@ export function createWorkMapSnapshot(
     settings: source.settings,
     sourceFingerprint,
     createdAt,
+    previewLocations: options.previewLocations,
   });
+}
+
+export function createWorkMapSnapshot(
+  db: DatabaseSync,
+  occupantId: string,
+): WorkMapSnapshot {
+  const snapshot = composeWorkMapSnapshot(db, occupantId);
   db.prepare(
     `INSERT INTO work_map_snapshots
       (id, occupant_id, slug, snapshot_json, source_fingerprint, created_at)
@@ -743,8 +756,8 @@ export function createWorkMapSnapshot(
     occupantId,
     snapshot.slug,
     JSON.stringify(snapshot),
-    sourceFingerprint,
-    createdAt,
+    snapshot.sourceFingerprint,
+    snapshot.createdAt,
   );
   return snapshot;
 }

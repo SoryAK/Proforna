@@ -187,6 +187,44 @@ export {
   type OpportunityKind,
 } from "./career-management";
 export {
+  judgeListingFit,
+  type FitJudgment,
+  type JudgmentCareerRecord,
+} from "./fit-judgment";
+export {
+  SEARCH_RADIUS_MILES,
+  mappableJobListings,
+  presentJobListings,
+  prepareJobSearchQuery,
+  searchRadiusFrame,
+  searchRadiusMiles,
+  type JobListing,
+  type JobSearchQuery,
+  type SearchRadius,
+  type SearchRadiusMiles,
+} from "./job-search";
+export { postingFromPage, type Posting } from "./posting";
+export {
+  DEFAULT_JOB_SOURCE_SETTINGS,
+  JUDGMENT_SECTIONS,
+  careerRecordInJudgment,
+  prepareJobSourceSettings,
+  sourceCredentials,
+  type CompanySiteSource,
+  type JobListingSource,
+  type JobSourceSettings,
+  type JobSourceSettingsError,
+  type JudgmentSection,
+} from "./job-sources";
+export {
+  LIFE_ANCHOR_ICONS,
+  lifeScore,
+  prepareLifeAnchor,
+  type LifeAnchor,
+  type LifeAnchorError,
+  type LifeAnchorIcon,
+} from "./life-anchor";
+export {
   inboundRaisesNotice,
   planSuggestedReplyChangeSet,
   prepareContactMessage,
@@ -244,6 +282,7 @@ export {
   planWorkMapRoleFactSync,
   prepareWorkMapLocation,
   prepareWorkMapRoleCreate,
+  nominatimAddressLine,
   presentWorkMapPlace,
   roleCoverPhoto,
   publicationAllowsSnapshot,

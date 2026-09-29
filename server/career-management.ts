@@ -190,6 +190,84 @@ export function createApplication(
   return application;
 }
 
+export function deleteOpportunity(
+  db: DatabaseSync,
+  occupantId: string,
+  opportunityId: string,
+): void {
+  const existing = db
+    .prepare("SELECT id FROM opportunities WHERE id = ? AND occupant_id = ?")
+    .get(opportunityId, occupantId);
+  if (!existing) throw new CareerManagementStoreError("opportunity-missing");
+  const applications = db
+    .prepare(
+      "SELECT id FROM applications WHERE opportunity_id = ? AND occupant_id = ?",
+    )
+    .all(opportunityId, occupantId) as Array<{ id: string }>;
+  db.exec("BEGIN");
+  try {
+    for (const application of applications) {
+      db.prepare(
+        "DELETE FROM interviews WHERE application_id = ? AND occupant_id = ?",
+      ).run(application.id, occupantId);
+      db.prepare(
+        "DELETE FROM offers WHERE application_id = ? AND occupant_id = ?",
+      ).run(application.id, occupantId);
+      db.prepare(
+        "DELETE FROM applications WHERE id = ? AND occupant_id = ?",
+      ).run(application.id, occupantId);
+    }
+    db.prepare(
+      "DELETE FROM opportunities WHERE id = ? AND occupant_id = ?",
+    ).run(opportunityId, occupantId);
+    db.exec("COMMIT");
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
+}
+
+export function deleteApplication(
+  db: DatabaseSync,
+  occupantId: string,
+  applicationId: string,
+): void {
+  const row = db
+    .prepare(
+      `SELECT opportunity_id AS opportunityId
+         FROM applications WHERE id = ? AND occupant_id = ?`,
+    )
+    .get(applicationId, occupantId) as { opportunityId: string } | undefined;
+  if (!row) throw new CareerManagementStoreError("application-missing");
+  db.exec("BEGIN");
+  try {
+    db.prepare(
+      "DELETE FROM interviews WHERE application_id = ? AND occupant_id = ?",
+    ).run(applicationId, occupantId);
+    db.prepare(
+      "DELETE FROM offers WHERE application_id = ? AND occupant_id = ?",
+    ).run(applicationId, occupantId);
+    db.prepare(
+      "DELETE FROM applications WHERE id = ? AND occupant_id = ?",
+    ).run(applicationId, occupantId);
+    const remaining = db
+      .prepare(
+        `SELECT id FROM applications
+          WHERE opportunity_id = ? AND occupant_id = ?`,
+      )
+      .get(row.opportunityId, occupantId);
+    if (!remaining) {
+      db.prepare(
+        "DELETE FROM opportunities WHERE id = ? AND occupant_id = ?",
+      ).run(row.opportunityId, occupantId);
+    }
+    db.exec("COMMIT");
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
+}
+
 export async function transitionOwnedApplication(
   db: DatabaseSync,
   occupantId: string,

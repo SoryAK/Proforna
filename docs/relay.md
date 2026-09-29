@@ -26,3 +26,15 @@ environments and terminate TLS before the relay.
 The relay intentionally does not receive occupant IDs, evidence, fact
 provenance, source documents, private preferences, or visitor identity in
 analytics events.
+
+## Agent read
+
+An agent reads a publication at `POST /mcp`. The tool is `read_publication`,
+with the slug from the link a person opens and a token when that publication
+requires one. The result is the same snapshot the page is drawn from. Revoke,
+expiry, and the access token apply to both. A page open is a `view`. An agent
+read is a `read`. Neither event carries who asked.
+
+Point an MCP client at `http://localhost:3100/mcp` while the relay is running.
+The endpoint accepts the current protocol (`2026-07-28`) and the earlier
+streamable HTTP versions that start with `initialize`.

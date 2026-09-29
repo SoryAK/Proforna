@@ -92,6 +92,9 @@ components:
     typography: "{typography.label}"
     rounded: "{rounded.pill}"
     padding: "5px 10px"
+  scrollbar-thumb:
+    backgroundColor: "{colors.gold}"
+    rounded: "{rounded.pill}"
 ---
 
 # Design System: Proforna
@@ -132,6 +135,8 @@ The palette is warm, nocturnal, and deliberately narrow; pale paper and map grou
 ### Named Rules
 
 **The Gold Is Signal Rule.** Use filled gold for a selected mode or explicit primary action; most controls remain transparent.
+
+**The Readable Ground Rule.** Ivory and gold type sit on near-black. A menu, option, or field that paints a white or paper ground uses operating-black type. Light type never sits on a light ground, including options that are not the current selection.
 
 **The Material Exception Rule.** Light grounds belong to real output or geographic material, not to generic application containers.
 
@@ -200,6 +205,7 @@ The underlying form language is disciplined and contextual. Content partitions a
 ### Inputs / Fields
 - **Style:** Transparent fill, no enclosing box, square corners, and a fine gold bottom rule.
 - **Focus:** Illuminated Gold caret and rule, with an explicit visible focus outline where the control is not otherwise obvious.
+- **Menus:** The closed control and every option use a near-black ground with ivory type. If a native menu paints white, every option — selected or not — uses operating-black type on that ground.
 - **Grouping:** Two-column pairs collapse to one column on narrow screens.
 
 ### Navigation
@@ -213,6 +219,11 @@ The underlying form language is disciplined and contextual. Content partitions a
 - **Style:** A near-black editor attached to the right edge, separated by a fine gold rule and directional shadow.
 - **Behavior:** It enters quickly with a restrained horizontal reveal and becomes a full-width fixed sheet on narrow screens. Reduced-motion preferences remove the animation.
 
+### Scrollbars
+- **Style:** Thin. The track stays transparent so the surface shows through. The thumb is Ledger Gold at low opacity, with a pill shape.
+- **Hover:** The thumb lightens toward Illuminated Gold. It does not become a solid bar.
+- **Scope:** Every scrolling region uses this treatment, including the page, ledgers, sheets, and dialogs. Light materials such as the map and paper keep the same thumb, because the transparent track lets their ground show.
+
 ## Do's and Don'ts
 
 ### Do:
@@ -220,9 +231,12 @@ The underlying form language is disciplined and contextual. Content partitions a
 - **Do** communicate hierarchy with fine rules, tonal layers, typography, and restrained gold states.
 - **Do** keep focus visible, preserve semantic controls, and disable optional motion for reduced-motion preferences.
 - **Do** let real map tiles, paper outputs, and other meaningful materials contrast with the dark application shell.
+- **Do** theme every scrollbar from Ledger Gold on a transparent track, so the thumb sits in the surface.
 
 ### Don't:
 - **Don't** use filled gold broadly; its rarity identifies selection and commitment.
 - **Don't** turn connected operating workflows into interchangeable card dashboards.
 - **Don't** use decorative elevation on surfaces that are not overlays or distinct materials.
 - **Don't** introduce additional display families, hard offset shadows, or ornamental glyph icons.
+- **Don't** put ivory or gold type on a white menu, option, or field.
+- **Don't** leave a browser-default gray or overlay scrollbar on any scroller.

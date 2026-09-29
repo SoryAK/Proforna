@@ -42,6 +42,13 @@ export function openDatabase(path: string): DatabaseSync {
     )
   `);
   db.exec(`
+    CREATE TABLE IF NOT EXISTS job_source_settings (
+      occupant_id TEXT PRIMARY KEY REFERENCES occupants(id),
+      settings_json TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )
+  `);
+  db.exec(`
     CREATE TABLE IF NOT EXISTS map_settings (
       occupant_id TEXT PRIMARY KEY REFERENCES occupants(id),
       provider TEXT NOT NULL,
@@ -208,6 +215,19 @@ export function openDatabase(path: string): DatabaseSync {
     )
   `);
   relaxResidenceCoordinates(db);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS life_anchors (
+      id TEXT PRIMARY KEY,
+      occupant_id TEXT NOT NULL REFERENCES occupants(id),
+      label TEXT NOT NULL,
+      icon TEXT NOT NULL,
+      address TEXT NOT NULL,
+      latitude REAL NOT NULL,
+      longitude REAL NOT NULL,
+      weight INTEGER NOT NULL,
+      created_at TEXT NOT NULL
+    )
+  `);
   db.exec(`
     CREATE TABLE IF NOT EXISTS work_history_locations (
       id TEXT PRIMARY KEY,

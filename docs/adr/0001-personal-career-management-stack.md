@@ -26,8 +26,10 @@ logic into route files and React, which is expensive to move later.
   not own it.
 
 Later shells (hosted Hono, Tauri, mobile) change `server/` or `web/` only.
-The desktop window shell is `web/src-tauri`. It opens the Vite app and owns
-no management logic. Installer packaging stays off until that work is picked up.
+The desktop window shell is `web/src-tauri`. It owns no management logic.
+`pnpm dev:app` opens the Vite app while the dev server is already running.
+The packaged launch starts the Node server from that shell, serves the Vite
+build, and keeps the vault in the app data directory.
 
 ## Consequences
 

@@ -5,6 +5,8 @@ import {
   type ModelConnectionInput,
   type ModelHosting,
 } from "../core/model-connection";
+import { isSealed, openSecret, sealSecret } from "./vault-seal";
+import { vaultKey } from "./vault-key";
 
 export type PublicModelConnection = {
   id: string;
@@ -43,7 +45,7 @@ export function saveModelConnection(
     prepared.value.hosting,
     prepared.value.baseUrl,
     prepared.value.model,
-    prepared.value.apiKey,
+    storedModelKey(prepared.value.apiKey),
     now,
   );
   return {
@@ -76,7 +78,8 @@ export function loadLatestModelConnection(
        LIMIT 1`,
     )
     .get(occupantId) as PrivateModelConnection | undefined;
-  return row ?? null;
+  if (!row) return null;
+  return { ...row, apiKey: revealModelKey(db, row.id, row.apiKey) };
 }
 
 export function listModelConnections(
@@ -97,11 +100,40 @@ export function listModelConnections(
     model: string;
     apiKey: string | null;
   }>;
-  return rows.map((row) => ({
-    id: row.id,
-    hosting: row.hosting,
-    baseUrl: row.baseUrl,
-    model: row.model,
-    hasKey: Boolean(row.apiKey),
-  }));
+  return rows.map((row) => {
+    if (row.apiKey && !isSealed(row.apiKey)) {
+      db.prepare("UPDATE model_connections SET api_key = ? WHERE id = ?").run(
+        sealSecret(row.apiKey, vaultKey(true)),
+        row.id,
+      );
+    }
+    return {
+      id: row.id,
+      hosting: row.hosting,
+      baseUrl: row.baseUrl,
+      model: row.model,
+      hasKey: Boolean(row.apiKey),
+    };
+  });
+}
+
+function storedModelKey(plain: string | null): string | null {
+  if (!plain) return plain;
+  return sealSecret(plain, vaultKey(true));
+}
+
+function revealModelKey(
+  db: DatabaseSync,
+  id: string,
+  stored: string | null,
+): string | null {
+  if (!stored) return stored;
+  if (!isSealed(stored)) {
+    db.prepare("UPDATE model_connections SET api_key = ? WHERE id = ?").run(
+      sealSecret(stored, vaultKey(true)),
+      id,
+    );
+    return stored;
+  }
+  return openSecret(stored, vaultKey(false));
 }

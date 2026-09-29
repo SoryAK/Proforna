@@ -9,9 +9,13 @@ import {
   planWorkMapRoleFactSync,
   prepareWorkMapLocation,
   prepareWorkMapRoleCreate,
+  nominatimAddressLine,
   presentWorkMapPlace,
   publicationAllowsSnapshot,
   publicationNeedsAudienceConfirm,
+  previewRoleMark,
+  recruiterWorkMapSnapshot,
+  workSitePublicationNote,
   type WorkMapPublicationSettings,
   type WorkMapRole,
 } from "./work-map";
@@ -123,6 +127,138 @@ describe("Work Map publication snapshots", () => {
     expect(published).not.toContain("SECRET_GROWTH_NOTE");
     expect(published).not.toContain("SECRET_DEPARTURE");
     expect(published).not.toContain("SECRET_TOOL");
+  });
+
+  it("marks a role from whether its work sites would be sent", () => {
+    expect(previewRoleMark([])).toBe("Included");
+    expect(previewRoleMark([{ isPublic: true }])).toBe("Included");
+    expect(previewRoleMark([{ isPublic: false }])).toBe("Only on this preview");
+  });
+
+  it("shows a recruiter only the work sites a publication would send", () => {
+    const snapshot = {
+      roles: [
+        {
+          locations: [
+            {
+              id: "private-site",
+              label: "",
+              address: "Allentown, PA",
+              latitude: 39.95258,
+              longitude: -75.16522,
+              kind: "primary" as const,
+              isPublic: false,
+            },
+            {
+              id: "public-site",
+              label: "",
+              address: "Philadelphia, PA",
+              latitude: 39.95258,
+              longitude: -75.16522,
+              kind: "primary" as const,
+              isPublic: true,
+            },
+          ],
+        },
+      ],
+    };
+    const recruiter = recruiterWorkMapSnapshot(snapshot, false);
+    expect(recruiter.roles[0]?.locations).toEqual([
+      expect.objectContaining({
+        id: "public-site",
+        latitude: 40,
+        longitude: -75.2,
+      }),
+    ]);
+    const exact = recruiterWorkMapSnapshot(snapshot, true);
+    expect(exact.roles[0]?.locations[0]?.latitude).toBe(39.95258);
+  });
+
+  it("names whether a work site would be sent in a publication", () => {
+    expect(
+      workSitePublicationNote({ isPublic: false, exactLocations: false }),
+    ).toBe("Only on this preview");
+    expect(
+      workSitePublicationNote({ isPublic: true, exactLocations: false }),
+    ).toBe("Included. A publication uses a coarser pin.");
+    expect(
+      workSitePublicationNote({ isPublic: true, exactLocations: true }),
+    ).toBe("Included");
+  });
+
+  it("shows a private work site on a local preview without its street", () => {
+    const role = sampleRole();
+    role.locations = [
+      {
+        ...role.locations[0],
+        isPublic: false,
+        address: "88 Hidden Plant Road, Allentown, PA",
+      },
+    ];
+    const snapshot = buildWorkMapSnapshot({
+      id: "snapshot-preview",
+      occupantId: "local",
+      profile: {
+        fullName: "Sory Kaba",
+        headline: "",
+        city: "Philadelphia",
+        state: "PA",
+        bio: "",
+        linkedinUrl: "",
+        githubUrl: "",
+        portfolioUrl: "",
+      },
+      roles: [role],
+      skills: [],
+      settings: {
+        slug: "sory-map",
+        targetRole: "",
+        theme: "dark",
+        visibility: "unlisted",
+        sections: ["history", "map"],
+        hideCurrentEmployer: false,
+        showExactLocations: false,
+        expiresAt: null,
+      },
+      sourceFingerprint: "abc",
+      createdAt: "2026-09-19T20:00:00.000Z",
+      previewLocations: true,
+    });
+    expect(snapshot.roles[0].locations).toHaveLength(1);
+    expect(snapshot.roles[0].locations[0].address).toBe("Allentown, PA");
+    expect(snapshot.roles[0].place).toBe("Allentown, PA");
+    expect(snapshot.roles[0].locations[0].latitude).toBe(39.95258);
+    expect(snapshot.roles[0].locations[0].longitude).toBe(-75.16522);
+    expect(JSON.stringify(snapshot)).not.toContain("88 Hidden Plant Road");
+    const published = buildWorkMapSnapshot({
+      id: "snapshot-published",
+      occupantId: "local",
+      profile: {
+        fullName: "Sory Kaba",
+        headline: "",
+        city: "",
+        state: "",
+        bio: "",
+        linkedinUrl: "",
+        githubUrl: "",
+        portfolioUrl: "",
+      },
+      roles: [role],
+      skills: [],
+      settings: {
+        slug: "sory-map",
+        targetRole: "",
+        theme: "dark",
+        visibility: "unlisted",
+        sections: ["history", "map"],
+        hideCurrentEmployer: false,
+        showExactLocations: false,
+        expiresAt: null,
+      },
+      sourceFingerprint: "abc",
+      createdAt: "2026-09-19T20:00:00.000Z",
+    });
+    expect(published.roles[0].locations).toHaveLength(0);
   });
 
   it("includes working conditions only when the occupant approves each field for publishing", () => {
@@ -467,6 +603,33 @@ describe("Work Map sites", () => {
         isPublic: false,
       },
     });
+  });
+
+  it("turns an OpenStreetMap house into the same street, city, and state a click can keep", () => {
+    expect(
+      nominatimAddressLine(
+        {
+          house_number: "67",
+          road: "East Broadway Avenue",
+          village: "Clifton Heights",
+          county: "Delaware County",
+          state: "Pennsylvania",
+          "ISO3166-2-lvl4": "US-PA",
+          postcode: "19018",
+          country: "United States",
+        },
+        "67, East Broadway Avenue, Clifton Heights, Delaware County, Pennsylvania, 19018, United States",
+      ),
+    ).toBe("67 East Broadway Avenue, Clifton Heights, PA");
+  });
+
+  it("keeps the raw place name when OpenStreetMap has no street", () => {
+    expect(
+      nominatimAddressLine(
+        { village: "Clifton Heights", state: "Pennsylvania" },
+        "Clifton Heights, Pennsylvania, United States",
+      ),
+    ).toBe("Clifton Heights, Pennsylvania, United States");
   });
 
   it("turns a looked-up place into a work site pin", () => {

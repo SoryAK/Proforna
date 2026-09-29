@@ -1,15 +1,19 @@
 import { useEffect, useRef, useState } from "react";
-import { roleCoverPhoto, type WorkMapRole } from "@core/work-map";
+import { searchRadiusFrame, type SearchRadius } from "@core/job-search";
+import { roleCoverPhoto, workSitePublicationNote, type WorkMapRole } from "@core/work-map";
 import type { MapPinIcons, MapPinTheme } from "@core/map-settings";
-import { pinFill, pinIcon, rolePinHtml } from "./work-map-pin";
-import type { WorkMapHome } from "./WorkMapCanvas";
+import { anchorPinHtml, pinFill, pinIcon, rolePinHtml, searchPinHtml } from "./work-map-pin";
+import type { MapAnchorPin, MapSearchPin, WorkMapHome } from "./WorkMapCanvas";
 import { loadGoogleMaps } from "./google-maps";
+import { readMapCamera, writeMapCamera } from "./map-camera";
 
 type MapPoint = {
   role: WorkMapRole;
   latitude: number;
   longitude: number;
   label: string;
+  withheld: boolean;
+  publicationNote: string;
 };
 
 export function GoogleWorkMap({
@@ -23,6 +27,16 @@ export function GoogleWorkMap({
   suppressEmpty = false,
   pinTheme,
   pinIcons,
+  overlays = [],
+  selectedOverlayId = null,
+  onSelectOverlay,
+  anchors = [],
+  searchRadius = null,
+  viewKey,
+  fitKey = "",
+  zoomCorner = "start",
+  publicationMarks = false,
+  exactLocations = false,
 }: {
   apiKey: string;
   roles: WorkMapRole[];
@@ -34,9 +48,22 @@ export function GoogleWorkMap({
   suppressEmpty?: boolean;
   pinTheme: MapPinTheme;
   pinIcons: MapPinIcons;
+  overlays?: MapSearchPin[];
+  selectedOverlayId?: string | null;
+  onSelectOverlay?: (id: string) => void;
+  anchors?: MapAnchorPin[];
+  searchRadius?: SearchRadius | null;
+  viewKey?: string;
+  fitKey?: string;
+  zoomCorner?: "start" | "end";
+  publicationMarks?: boolean;
+  exactLocations?: boolean;
 }) {
   const node = useRef<HTMLDivElement>(null);
   const mapRef = useRef<GoogleMapHandle | null>(null);
+  const cameraBoot = useRef<"pending" | "ready">("pending");
+  const fitSeen = useRef<string | null>(null);
+  const cameraListener = useRef<{ remove: () => void } | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const points = roles.flatMap((role) =>
     role.locations.map((location) => ({
@@ -44,6 +71,13 @@ export function GoogleWorkMap({
       latitude: location.latitude,
       longitude: location.longitude,
       label: location.label,
+      withheld: publicationMarks && !location.isPublic,
+      publicationNote: publicationMarks
+        ? workSitePublicationNote({
+            isPublic: location.isPublic,
+            exactLocations,
+          })
+        : "",
     })),
   );
 
@@ -63,8 +97,10 @@ export function GoogleWorkMap({
 
   const onSelectRef = useRef(onSelect);
   const onMapClickRef = useRef(onMapClick);
+  const onSelectOverlayRef = useRef(onSelectOverlay);
   onSelectRef.current = onSelect;
   onMapClickRef.current = onMapClick;
+  onSelectOverlayRef.current = onSelectOverlay;
   const layout = JSON.stringify({
     holdView,
     selectedId,
@@ -81,28 +117,68 @@ export function GoogleWorkMap({
       point.role.startDate,
       point.role.endDate,
       roleCoverPhoto(point.role.media)?.url ?? "",
+      point.withheld,
+      point.publicationNote,
     ]),
     pins: {
       theme: pinTheme,
       icons: pinIcons,
     },
+    overlays: overlays.map((pin) => [
+      pin.id,
+      pin.latitude,
+      pin.longitude,
+      pin.title,
+      pin.detail,
+      pin.pay ?? "",
+      pin.summary ?? "",
+    ]),
+    selectedOverlayId,
+    anchors: anchors.map((anchor) => [
+      anchor.id,
+      anchor.latitude,
+      anchor.longitude,
+      anchor.label,
+      anchor.icon,
+    ]),
+    searchRadius,
+    fitKey,
+    viewKey,
   });
 
   useEffect(() => {
     const host = node.current;
     const maps = window.google?.maps;
     if (status !== "ready" || !host || !maps) return;
-    const center = points[0] ?? home ?? { latitude: 39.9526, longitude: -75.1652 };
+    const savedCamera = viewKey ? readMapCamera(viewKey) : null;
+    const center = points[0] ?? anchors[0] ?? home ?? { latitude: 39.9526, longitude: -75.1652 };
     const map =
       mapRef.current ??
       new maps.Map(host, {
-        center: { lat: center.latitude, lng: center.longitude },
-        zoom: points.length ? 8 : 6,
+        center: savedCamera
+          ? { lat: savedCamera.latitude, lng: savedCamera.longitude }
+          : { lat: center.latitude, lng: center.longitude },
+        zoom: savedCamera?.zoom ?? (points.length ? 8 : 6),
         mapTypeControl: false,
         streetViewControl: false,
         fullscreenControl: false,
+        ...(zoomCorner === "end" && maps.ControlPosition
+          ? { zoomControlOptions: { position: maps.ControlPosition.RIGHT_BOTTOM } }
+          : {}),
       });
     mapRef.current = map;
+    if (viewKey && !cameraListener.current) {
+      cameraListener.current = map.addListener("idle", () => {
+        const next = map.getCenter?.();
+        const zoom = map.getZoom?.();
+        if (!next || zoom == null) return;
+        writeMapCamera(viewKey, {
+          latitude: next.lat(),
+          longitude: next.lng(),
+          zoom,
+        });
+      });
+    }
     const drawn = drawMarkers(
       map,
       maps,
@@ -112,7 +188,24 @@ export function GoogleWorkMap({
       pinTheme,
       pinIcons,
       (id) => onSelectRef.current(id),
+      overlays,
+      selectedOverlayId,
+      (id) => onSelectOverlayRef.current?.(id),
+      anchors,
     );
+    const circle = searchRadius
+      ? new maps.Circle({
+          map,
+          center: { lat: searchRadius.latitude, lng: searchRadius.longitude },
+          radius: searchRadius.miles * 1609.34,
+          strokeColor: "#c27b2b",
+          strokeWeight: 1.5,
+          strokeOpacity: 0.7,
+          fillColor: "#c27b2b",
+          fillOpacity: 0.06,
+          clickable: false,
+        })
+      : null;
     const click = onMapClickRef.current
       ? map.addListener("click", (event: { latLng?: { lat: () => number; lng: () => number } }) => {
           const latLng = event.latLng;
@@ -121,8 +214,49 @@ export function GoogleWorkMap({
           place(latLng.lat(), latLng.lng());
         })
       : null;
-    if (!holdView) fitMap(map, maps, points, home ?? null, selectedId);
+    const hasFrame = Boolean(
+      points.length || overlays.length || anchors.length || home || searchRadius,
+    );
+    if (!holdView) {
+      const fitChanged = fitSeen.current !== null && fitKey !== fitSeen.current;
+      if (cameraBoot.current === "pending") {
+        if (savedCamera) {
+          map.panTo({ lat: savedCamera.latitude, lng: savedCamera.longitude });
+          map.setZoom(savedCamera.zoom);
+          cameraBoot.current = "ready";
+          fitSeen.current = fitKey;
+        } else if (hasFrame) {
+          fitMap(
+            map,
+            maps,
+            points,
+            home ?? null,
+            selectedId,
+            overlays,
+            selectedOverlayId,
+            anchors,
+            searchRadius,
+          );
+          cameraBoot.current = "ready";
+          fitSeen.current = fitKey;
+        }
+      } else if (fitChanged) {
+        fitMap(
+          map,
+          maps,
+          points,
+          home ?? null,
+          selectedId,
+          overlays,
+          selectedOverlayId,
+          anchors,
+          searchRadius,
+        );
+        fitSeen.current = fitKey;
+      }
+    }
     return () => {
+      circle?.setMap(null);
       click?.remove();
       drawn.hideTip();
       for (const marker of drawn.markers) marker.setMap(null);
@@ -138,7 +272,11 @@ export function GoogleWorkMap({
           <span>Check the key in Settings. The Maps JavaScript API has to be enabled.</span>
         </div>
       ) : null}
-      {status === "ready" && points.length === 0 && !suppressEmpty ? (
+      {status === "ready" &&
+      points.length === 0 &&
+      overlays.length === 0 &&
+      anchors.length === 0 &&
+      !suppressEmpty ? (
         <div className="work-map-unmapped">
           <strong>Your history is ready to map.</strong>
           <span>Select a role and add its first work site.</span>
@@ -152,6 +290,8 @@ type GoogleMapHandle = {
   fitBounds: (bounds: object, padding?: number) => void;
   panTo: (position: { lat: number; lng: number }) => void;
   setZoom: (zoom: number) => void;
+  getCenter?: () => { lat: () => number; lng: () => number };
+  getZoom?: () => number;
   addListener: (
     name: string,
     handler: (event: { latLng?: { lat: () => number; lng: () => number } }) => void,
@@ -172,10 +312,12 @@ type GoogleMapsApi = {
     close: () => void;
   };
   OverlayView: new () => GoogleOverlay;
+  Circle: new (options: object) => { setMap: (map: GoogleMapHandle | null) => void };
   LatLngBounds: new () => { extend: (position: { lat: number; lng: number }) => void };
   Size: new (width: number, height: number) => object;
   Point: new (x: number, y: number) => object;
   SymbolPath: { CIRCLE: number };
+  ControlPosition?: { RIGHT_BOTTOM: number };
 };
 
 declare global {
@@ -207,10 +349,16 @@ function drawMarkers(
   pinTheme: MapPinTheme,
   pinIcons: MapPinIcons,
   onSelect: (id: string) => void,
+  overlays: MapSearchPin[],
+  selectedOverlayId: string | null,
+  onSelectOverlay: (id: string) => void,
+  anchors: MapAnchorPin[],
 ) {
   const markers: GoogleMarker[] = [];
   const tip = mountTip(map, maps);
   const pins = mountRolePins(map, maps, points, selectedId, pinTheme, pinIcons, onSelect, tip);
+  const searchPins = mountSearchPins(map, maps, overlays, selectedOverlayId, onSelectOverlay, tip);
+  const anchorPins = mountAnchorPins(map, maps, anchors, tip);
   if (home) {
     const marker = new maps.Marker({
       map,
@@ -230,7 +378,15 @@ function drawMarkers(
     marker.addListener("mouseout", () => tip.hide());
     markers.push(marker);
   }
-  return { markers, hideTip: () => { tip.destroy(); pins.destroy(); } };
+  return {
+    markers,
+    hideTip: () => {
+      tip.destroy();
+      pins.destroy();
+      searchPins.destroy();
+      anchorPins.destroy();
+    },
+  };
 }
 
 function fitMap(
@@ -239,12 +395,43 @@ function fitMap(
   points: MapPoint[],
   home: WorkMapHome | null,
   selectedId: string | null,
+  overlays: MapSearchPin[],
+  selectedOverlayId: string | null,
+  anchors: MapAnchorPin[],
+  searchRadius: SearchRadius | null,
 ) {
+  const selectedOverlay = overlays.find((pin) => pin.id === selectedOverlayId);
+  if (selectedOverlay) {
+    map.panTo({ lat: selectedOverlay.latitude, lng: selectedOverlay.longitude });
+    map.setZoom(12);
+    return;
+  }
+  if (overlays.length > 0 && !selectedId) {
+    const positions = [
+      ...overlays.map((pin) => ({ lat: pin.latitude, lng: pin.longitude })),
+      ...anchors.map((anchor) => ({ lat: anchor.latitude, lng: anchor.longitude })),
+      ...(home ? [{ lat: home.latitude, lng: home.longitude }] : []),
+      ...radiusPositions(searchRadius),
+    ];
+    if (positions.length === 1) {
+      map.panTo(positions[0]);
+      map.setZoom(12);
+      return;
+    }
+    const bounds = new maps.LatLngBounds();
+    for (const position of positions) bounds.extend(position);
+    map.fitBounds(bounds, 48);
+    return;
+  }
   const focus = selectedId ? points.filter((point) => point.role.id === selectedId) : [];
   const shown = focus.length ? focus : points;
   const positions = [
     ...shown.map((point) => ({ lat: point.latitude, lng: point.longitude })),
+    ...(!selectedId
+      ? anchors.map((anchor) => ({ lat: anchor.latitude, lng: anchor.longitude }))
+      : []),
     ...(home && !selectedId ? [{ lat: home.latitude, lng: home.longitude }] : []),
+    ...(!selectedId ? radiusPositions(searchRadius) : []),
   ];
   if (positions.length === 0) return;
   if (positions.length === 1) {
@@ -257,12 +444,21 @@ function fitMap(
   map.fitBounds(bounds, 48);
 }
 
+function radiusPositions(radius: SearchRadius | null): Array<{ lat: number; lng: number }> {
+  if (!radius) return [];
+  return searchRadiusFrame(radius).map((point) => ({
+    lat: point.latitude,
+    lng: point.longitude,
+  }));
+}
+
 function tipHtml(point: MapPoint, coverUrl?: string) {
   const title = point.role.organization && point.role.title ? point.role.title : "";
   return `${coverUrl ? `<img src="${escapeHtml(coverUrl)}" alt="" />` : ""}
     <strong>${escapeHtml(point.role.organization || point.role.title)}</strong>
     ${title ? `<span>${escapeHtml(title)}</span>` : ""}
-    ${point.label ? `<span>${escapeHtml(point.label)}</span>` : ""}`;
+    ${point.label ? `<span>${escapeHtml(point.label)}</span>` : ""}
+    ${point.publicationNote ? `<span>${escapeHtml(point.publicationNote)}</span>` : ""}`;
 }
 
 function homeTip(home: WorkMapHome) {
@@ -341,6 +537,7 @@ function mountRolePins(
       endDate: point.role.endDate,
       ring: pinTheme.ring,
       currentRing: pinTheme.currentRing,
+      withheld: point.withheld,
     });
     const node = document.createElement("div");
     node.style.position = "absolute";
@@ -349,7 +546,9 @@ function mountRolePins(
     node.style.transform = "translate(-50%, -50%)";
     node.style.zIndex = focused ? "3" : "1";
     node.style.cursor = "pointer";
-    node.title = point.role.organization || point.role.title;
+    node.title = [point.role.organization || point.role.title, point.publicationNote]
+      .filter(Boolean)
+      .join(". ");
     node.innerHTML = pin.html;
     const cover = roleCoverPhoto(point.role.media);
     const html = tipHtml(point, cover?.url);
@@ -372,6 +571,115 @@ function mountRolePins(
       const pixel = projection.fromLatLngToDivPixel({
         lat: item.point.latitude,
         lng: item.point.longitude,
+      });
+      if (!pixel) continue;
+      item.node.style.left = `${pixel.x}px`;
+      item.node.style.top = `${pixel.y}px`;
+    }
+  };
+  overlay.onRemove = () => {
+    for (const item of nodes) item.node.remove();
+  };
+  overlay.setMap(map);
+  return { destroy: () => overlay.setMap(null) };
+}
+
+function mountSearchPins(
+  map: GoogleMapHandle,
+  maps: GoogleMapsApi,
+  overlays: MapSearchPin[],
+  selectedOverlayId: string | null,
+  onSelect: (id: string) => void,
+  tip: { show: (position: { lat: number; lng: number }, html: string) => void; hide: () => void },
+) {
+  const overlay = new maps.OverlayView();
+  const nodes = overlays.map((pin) => {
+    const focused = selectedOverlayId === pin.id;
+    const drawn = searchPinHtml(focused);
+    const node = document.createElement("div");
+    node.style.position = "absolute";
+    node.style.width = `${drawn.size}px`;
+    node.style.height = `${drawn.size}px`;
+    node.style.transform = "translate(-50%, -50%)";
+    node.style.zIndex = focused ? "5" : "4";
+    node.style.cursor = "pointer";
+    node.title = pin.title;
+    node.innerHTML = drawn.html;
+    const html = `<strong>${escapeHtml(pin.title)}</strong>${
+      pin.detail ? `<span>${escapeHtml(pin.detail)}</span>` : ""
+    }${pin.pay ? `<span>${escapeHtml(pin.pay)}</span>` : ""}${
+      pin.summary ? `<span>${escapeHtml(pin.summary)}</span>` : ""
+    }`;
+    node.addEventListener("mouseenter", () =>
+      tip.show({ lat: pin.latitude, lng: pin.longitude }, html),
+    );
+    node.addEventListener("mouseleave", () => tip.hide());
+    node.addEventListener("click", () => onSelect(pin.id));
+    return { node, pin };
+  });
+  overlay.onAdd = () => {
+    const pane = overlay.getPanes()?.overlayMouseTarget;
+    if (!pane) return;
+    for (const item of nodes) pane.appendChild(item.node);
+  };
+  overlay.draw = () => {
+    const projection = overlay.getProjection();
+    if (!projection) return;
+    for (const item of nodes) {
+      const pixel = projection.fromLatLngToDivPixel({
+        lat: item.pin.latitude,
+        lng: item.pin.longitude,
+      });
+      if (!pixel) continue;
+      item.node.style.left = `${pixel.x}px`;
+      item.node.style.top = `${pixel.y}px`;
+    }
+  };
+  overlay.onRemove = () => {
+    for (const item of nodes) item.node.remove();
+  };
+  overlay.setMap(map);
+  return { destroy: () => overlay.setMap(null) };
+}
+
+function mountAnchorPins(
+  map: GoogleMapHandle,
+  maps: GoogleMapsApi,
+  anchors: MapAnchorPin[],
+  tip: { show: (position: { lat: number; lng: number }, html: string) => void; hide: () => void },
+) {
+  const overlay = new maps.OverlayView();
+  const nodes = anchors.map((anchor) => {
+    const drawn = anchorPinHtml(anchor.icon);
+    const node = document.createElement("div");
+    node.style.position = "absolute";
+    node.style.width = `${drawn.size}px`;
+    node.style.height = `${drawn.size}px`;
+    node.style.transform = "translate(-50%, -50%)";
+    node.style.zIndex = "4";
+    node.title = anchor.label;
+    node.innerHTML = drawn.html;
+    const html = `<strong>${escapeHtml(anchor.label)}</strong>${
+      anchor.detail ? `<span>${escapeHtml(anchor.detail)}</span>` : ""
+    }`;
+    node.addEventListener("mouseenter", () =>
+      tip.show({ lat: anchor.latitude, lng: anchor.longitude }, html),
+    );
+    node.addEventListener("mouseleave", () => tip.hide());
+    return { node, anchor };
+  });
+  overlay.onAdd = () => {
+    const pane = overlay.getPanes()?.overlayMouseTarget;
+    if (!pane) return;
+    for (const item of nodes) pane.appendChild(item.node);
+  };
+  overlay.draw = () => {
+    const projection = overlay.getProjection();
+    if (!projection) return;
+    for (const item of nodes) {
+      const pixel = projection.fromLatLngToDivPixel({
+        lat: item.anchor.latitude,
+        lng: item.anchor.longitude,
       });
       if (!pixel) continue;
       item.node.style.left = `${pixel.x}px`;

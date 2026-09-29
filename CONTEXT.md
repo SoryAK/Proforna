@@ -37,9 +37,21 @@ proposed career facts.
 _Avoid_: Note, journal entry
 
 **Opportunity**:
-An external possibility that may advance a career goal, including a role,
-project, speaking event, or connection.
-_Avoid_: Job lead, application
+An external possibility that may advance a career goal, including a job the
+occupant has not taken, a project, a speaking event, or a connection. The
+occupant finds and pursues them on one surface. A listing they keep is an
+Opportunity.
+_Avoid_: Job lead, application, job search page
+
+**Job Source**:
+A named place the occupant asks Proforna to read listings from. When that
+place requires an application id or an API key, those stay in the Career Vault.
+_Avoid_: Job board, integration
+
+**Life Anchor**:
+A named place the occupant weights when judging whether a possibility fits
+their life.
+_Avoid_: Commute, home pin
 
 **Contact**:
 A person the occupant keeps a relationship with. Occupant-facing chrome names
@@ -61,20 +73,20 @@ _Avoid_: Resume file, template
 An immutable rendering source pinned to exact career-fact versions.
 _Avoid_: Draft, version
 
-**Work Map Role**:
-The enriched record of one job, internship, or school, including locations,
-milestones, media, work conditions, equipment, growth, departure reflection,
-and linked career evidence. Career Facts about that role use it as their
-subject.
-_Avoid_: Resume entry, job card
+**Role**:
+A job, internship, or school in the career, and the subject of the locations,
+achievements, events, and Career Facts about that work. It can enter from a
+resume, from the occupant, or from other vault records; the Work Map shows
+and enriches it and is not where it originates.
+_Avoid_: Work Map Role, resume entry, job card, job profile
 
 **Work Map**:
-The occupant's private authoring surface for exploring and enriching career
-history across time and geography. Occupant-facing chrome names this Career
-History. Current roles are marked on that list rather than given their own
-navigation item. Work sites on a role can be added, edited, removed, looked
-up from an address, or placed on the map. It is the source of interactive
-publications, not a publication itself.
+The occupant's private surface for showing and enriching Roles across time
+and geography. Occupant-facing chrome names this Career History. Current
+roles are marked on that list rather than given their own navigation item.
+Work sites on a role can be added, edited, removed, looked up from an
+address, or placed on the map. It is the source of interactive publications,
+not a publication itself.
 _Avoid_: Interactive resume, public profile
 
 **Interactive Projection**:
@@ -86,7 +98,11 @@ _Avoid_: Public profile, portfolio
 
 **Publication**:
 A relay-hosted instance of an interactive projection with a slug, access
-policy, and revocation state.
+policy, and revocation state. A person opens the page, which is shaped so
+they can take the career in. An agent, through MCP, reads the same approved
+snapshot that page is drawn from, including the story and the rest a
+recruiter can read. What the agent then pulls out for a role is still to
+be worked out.
 _Avoid_: Sync, deployment
 
 **Change Set**:

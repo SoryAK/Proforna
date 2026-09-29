@@ -1,4 +1,20 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import type { FitJudgment } from "@core/fit-judgment";
+import {
+  SEARCH_RADIUS_MILES,
+  listingPay,
+  mappableJobListings,
+  searchRadiusMiles,
+  type JobListing,
+  type SearchRadius,
+} from "@core/job-search";
+import { lifeScore, type LifeAnchor } from "@core/life-anchor";
+import type { MapSettings } from "@core/map-settings";
+import { residenceForMap, type Residence } from "@core/residence";
+import type { WorkMapRole } from "@core/work-map";
+import { CareerMap } from "./CareerMap";
+import { searchPlaces } from "./place-search";
+import { LifeAnchors } from "./LifeAnchors";
 import type { HomePage } from "./HomeNav";
 import "./career-workspace.css";
 
@@ -222,8 +238,123 @@ type CareerManagement = {
   actions: Array<{ id: string; kind: string; status: string; destination: string }>;
 };
 
+type ListingCard = JobListing & { fit?: FitJudgment };
+
+type OpportunitySearchMemory = {
+  query: string;
+  where: string;
+  radius: string;
+  listings: ListingCard[];
+  selectedListingId: string | null;
+  searchArea: SearchRadius | null;
+  searchNote: string;
+};
+
+const opportunitySearchMemory: OpportunitySearchMemory = {
+  query: "",
+  where: "",
+  radius: "25",
+  listings: [],
+  selectedListingId: null,
+  searchArea: null,
+  searchNote: "",
+};
+
+function ListingFocus({
+  listing,
+  saved,
+  life,
+  onBack,
+  onSave,
+}: {
+  listing: ListingCard;
+  saved: boolean;
+  life: number | null;
+  onBack: () => void;
+  onSave: () => void;
+}) {
+  const pay = listingPay(listing);
+  const facts = [pay, listing.contract, listing.category, postedLabel(listing.postedOn)].filter(
+    Boolean,
+  );
+  return (
+    <article className="listing-focus">
+      <button type="button" onClick={onBack}>
+        Back to results
+      </button>
+      <h2>{listing.title}</h2>
+      <h3>{listing.organization}</h3>
+      {listing.location ? <p>{listing.location}</p> : null}
+      {facts.length > 0 ? (
+        <ul>
+          {facts.map((fact) => (
+            <li key={fact}>{fact}</li>
+          ))}
+        </ul>
+      ) : null}
+      {listing.fit ? <p className="opportunity-fit">{listing.fit.summary}</p> : null}
+      {life != null ? <p>Life score {life}</p> : null}
+      {listing.description ? <p className="listing-body">{listing.description}</p> : null}
+      <div className="opportunity-actions">
+        {listing.url ? (
+          <a href={listing.url} rel="noreferrer" target="_blank">
+            Open posting
+          </a>
+        ) : null}
+        <button disabled={saved} type="button" onClick={onSave}>
+          {saved ? "Saved" : "Save opportunity"}
+        </button>
+      </div>
+    </article>
+  );
+}
+
+function postedLabel(value: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return "";
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return "";
+  return `Posted ${date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  })}`;
+}
+
+function AnchorMark() {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+      <circle cx="12" cy="5.2" r="2" fill="none" stroke="currentColor" strokeWidth="1.6" />
+      <path
+        d="M12 7.2v12.2M8.2 11.2h7.6M7 16.2a5 5 0 0 0 10 0"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 function OpportunitiesPage() {
   const [data, setData] = useState<CareerManagement | null>(null);
+  const [roles, setRoles] = useState<WorkMapRole[]>([]);
+  const [home, setHome] = useState<Residence | null>(null);
+  const [mapSettings, setMapSettings] = useState<MapSettings | null>(null);
+  const [query, setQuery] = useState(opportunitySearchMemory.query);
+  const [where, setWhere] = useState(opportunitySearchMemory.where);
+  const [radius, setRadius] = useState(opportunitySearchMemory.radius);
+  const [radiusOpen, setRadiusOpen] = useState(false);
+  const [searchArea, setSearchArea] = useState<SearchRadius | null>(
+    opportunitySearchMemory.searchArea,
+  );
+  const [listings, setListings] = useState<ListingCard[]>(opportunitySearchMemory.listings);
+  const [selectedListingId, setSelectedListingId] = useState<string | null>(
+    opportunitySearchMemory.selectedListingId,
+  );
+  const [searching, setSearching] = useState(false);
+  const [searchNote, setSearchNote] = useState(opportunitySearchMemory.searchNote);
+  const [anchorsOpen, setAnchorsOpen] = useState(false);
+  const [anchors, setAnchors] = useState<LifeAnchor[]>([]);
   const [title, setTitle] = useState("");
   const [organization, setOrganization] = useState("");
   const [fitSummary, setFitSummary] = useState("");
@@ -233,11 +364,113 @@ function OpportunitiesPage() {
 
   useEffect(() => {
     void load();
+    void loadMap();
   }, []);
+
+  useEffect(() => {
+    opportunitySearchMemory.query = query;
+    opportunitySearchMemory.where = where;
+    opportunitySearchMemory.radius = radius;
+    opportunitySearchMemory.listings = listings;
+    opportunitySearchMemory.selectedListingId = selectedListingId;
+    opportunitySearchMemory.searchArea = searchArea;
+    opportunitySearchMemory.searchNote = searchNote;
+  }, [query, where, radius, listings, selectedListingId, searchArea, searchNote]);
 
   async function load() {
     const response = await fetch("/api/career-management");
     setData((await response.json()) as CareerManagement);
+  }
+
+  async function loadMap() {
+    const [mapResponse, settingsResponse] = await Promise.all([
+      fetch("/api/work-map"),
+      fetch("/api/maps"),
+    ]);
+    if (mapResponse.ok) {
+      const body = (await mapResponse.json()) as {
+        roles?: WorkMapRole[];
+        residences?: Residence[];
+      };
+      setRoles(body.roles ?? []);
+      setHome(residenceForMap(body.residences ?? [], null));
+    }
+    if (settingsResponse.ok) {
+      const body = (await settingsResponse.json()) as { settings?: MapSettings };
+      setMapSettings(body.settings ?? null);
+    }
+  }
+
+  async function searchJobs(event: FormEvent) {
+    event.preventDefault();
+    setSearching(true);
+    setSearchNote("");
+    const place = where.trim();
+    const miles = searchRadiusMiles(radius);
+    const params = new URLSearchParams();
+    if (query.trim()) params.set("q", query.trim());
+    if (place) params.set("where", place);
+    params.set("distance", String(miles));
+    const [response, places] = await Promise.all([
+      fetch(`/api/job-search?${params}`),
+      place ? searchPlaces(place) : Promise.resolve(null),
+    ]);
+    const body = (await response.json()) as {
+      configured?: boolean;
+      listings?: Array<JobListing & { fit?: FitJudgment }>;
+      error?: string;
+    };
+    setSearching(false);
+    if (!response.ok) {
+      setSearchArea(null);
+      setSearchNote("Add a role or a place to search.");
+      return;
+    }
+    const hit = places?.place ?? places?.places[0] ?? null;
+    setSearchArea(
+      hit ? { latitude: hit.latitude, longitude: hit.longitude, miles } : null,
+    );
+    const found = body.listings ?? [];
+    setListings(found);
+    setSelectedListingId(null);
+    if (body.configured === false) {
+      setSearchNote(
+        "Listings are not connected yet. The map still shows your career and home.",
+      );
+      return;
+    }
+    const within = place ? ` within ${miles} miles` : "";
+    setSearchNote(
+      found.length
+        ? `${found.length} roles${within}. The ones with a place are on the map.`
+        : place
+          ? `No roles within ${miles} miles.`
+          : "No roles matched that search.",
+    );
+  }
+
+  function clearSearch() {
+    setListings([]);
+    setSelectedListingId(null);
+    setSearchArea(null);
+    setSearchNote("");
+  }
+
+  async function saveListing(listing: JobListing & { fit?: FitJudgment }) {
+    const response = await fetch("/api/opportunities", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        kind: "role",
+        title: listing.title,
+        organization: listing.organization,
+        location: listing.location,
+        sourceUrl: listing.url,
+        fitSummary: listing.fit?.summary ?? "",
+      }),
+    });
+    setMessage(response.ok ? "Opportunity saved." : "Could not save that role.");
+    if (response.ok) await load();
   }
 
   async function saveOpportunity(event: FormEvent) {
@@ -294,6 +527,22 @@ function OpportunitiesPage() {
     await load();
   }
 
+  async function removeOpportunity(opportunityId: string) {
+    const response = await fetch(`/api/opportunities/${opportunityId}`, {
+      method: "DELETE",
+    });
+    setMessage(response.ok ? "Removed." : "That role could not be removed.");
+    await load();
+  }
+
+  async function removeApplication(applicationId: string) {
+    const response = await fetch(`/api/applications/${applicationId}`, {
+      method: "DELETE",
+    });
+    setMessage(response.ok ? "Removed." : "That application could not be removed.");
+    await load();
+  }
+
   async function transition(applicationId: string, stage: string) {
     const response = await fetch(`/api/applications/${applicationId}/transition`, {
       method: "POST",
@@ -324,14 +573,113 @@ function OpportunitiesPage() {
     await load();
   }
 
+  const pins = mappableJobListings(listings).map((listing) => ({
+    id: listing.id,
+    latitude: listing.latitude,
+    longitude: listing.longitude,
+    title: listing.title,
+    detail: [listing.organization, listing.location].filter(Boolean).join(" · "),
+    pay: listingPay(listing),
+    summary: listing.summary,
+  }));
+  const focusedListing = listings.find((listing) => listing.id === selectedListingId) ?? null;
+  const homePin =
+    home && home.latitude != null && home.longitude != null
+      ? {
+          latitude: home.latitude,
+          longitude: home.longitude,
+          label: home.label,
+          detail: home.address,
+        }
+      : null;
+
   return (
     <section className="career-page opportunities-page">
       <h1>Opportunities</h1>
       <p className="career-lead">
-        Keep roles, inbound Work Map requests, applications, and career plans
-        in one governed operating loop.
+        Search for roles on your career map, then keep the ones you want to pursue.
       </p>
-      <div className="opportunity-grid">
+      <div className="opportunity-board">
+        <div className="opportunity-column">
+          {focusedListing ? (
+            <ListingFocus
+              listing={focusedListing}
+              saved={(data?.opportunities ?? []).some(
+                (opportunity) =>
+                  opportunity.title === focusedListing.title &&
+                  opportunity.organization === focusedListing.organization,
+              )}
+              life={
+                anchors.length > 0 &&
+                focusedListing.latitude != null &&
+                focusedListing.longitude != null
+                  ? lifeScore(
+                      {
+                        latitude: focusedListing.latitude,
+                        longitude: focusedListing.longitude,
+                      },
+                      anchors,
+                    )
+                  : null
+              }
+              onBack={() => setSelectedListingId(null)}
+              onSave={() => void saveListing(focusedListing)}
+            />
+          ) : null}
+          {focusedListing
+            ? null
+            : listings.map((listing) => {
+            const pay = listingPay(listing);
+            const saved = (data?.opportunities ?? []).some(
+              (opportunity) =>
+                opportunity.title === listing.title &&
+                opportunity.organization === listing.organization,
+            );
+            return (
+              <article
+                className={
+                  listing.id === selectedListingId
+                    ? "opportunity-card is-selected"
+                    : "opportunity-card"
+                }
+                key={listing.id}
+              >
+                <button
+                  className="opportunity-hit"
+                  type="button"
+                  onClick={() => setSelectedListingId(listing.id)}
+                >
+                  <span>Listing</span>
+                  <h2>{listing.title}</h2>
+                  <h3>{listing.organization}</h3>
+                  <p>{listing.location}</p>
+                  {pay ? <p>{pay}</p> : null}
+                  {listing.fit ? <p className="opportunity-fit">{listing.fit.summary}</p> : null}
+                  {anchors.length > 0 &&
+                  listing.latitude != null &&
+                  listing.longitude != null ? (
+                    <p>
+                      Life score{" "}
+                      {lifeScore(
+                        {
+                          latitude: listing.latitude,
+                          longitude: listing.longitude,
+                        },
+                        anchors,
+                      )}
+                    </p>
+                  ) : null}
+                </button>
+                <button
+                  disabled={saved}
+                  type="button"
+                  onClick={() => void saveListing(listing)}
+                >
+                  {saved ? "Saved" : "Save opportunity"}
+                </button>
+              </article>
+            );
+          })}
         <main>
           {(data?.opportunities ?? []).map((opportunity) => {
             const application = data?.applications.find(
@@ -382,6 +730,7 @@ function OpportunitiesPage() {
                   <div className="application-state">
                     <strong>{application.stage}</strong>
                     <select
+                      aria-label="Current stage"
                       value={application.stage}
                       onChange={(event) =>
                         void transition(application.id, event.target.value)
@@ -396,18 +745,34 @@ function OpportunitiesPage() {
                       <option value="rejected">Rejected</option>
                       <option value="withdrawn">Withdrawn</option>
                     </select>
+                    <button
+                      className="is-danger"
+                      type="button"
+                      onClick={() => void removeApplication(application.id)}
+                    >
+                      Remove
+                    </button>
                   </div>
                 ) : (
-                  <button onClick={() => void startApplication(opportunity.id)}>
-                    Start application
-                  </button>
+                  <div className="opportunity-actions">
+                    <button onClick={() => void startApplication(opportunity.id)}>
+                      Start application
+                    </button>
+                    <button
+                      className="is-danger"
+                      type="button"
+                      onClick={() => void removeOpportunity(opportunity.id)}
+                    >
+                      Remove
+                    </button>
+                  </div>
                 )}
               </article>
             );
           })}
           {!data?.opportunities.length ? (
             <p className="career-empty">
-              Save a role, or inbound Work Map requests will land here.
+              Search for a role, or inbound Work Map requests will land here.
             </p>
           ) : null}
         </main>
@@ -452,6 +817,120 @@ function OpportunitiesPage() {
             ))}
           </form>
         </aside>
+        </div>
+        <div className="opportunity-stage">
+            <form className="opportunity-search" onSubmit={(event) => void searchJobs(event)}>
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Role"
+                aria-label="Role"
+              />
+              <input
+                value={where}
+                onChange={(event) => setWhere(event.target.value)}
+                placeholder="Place"
+                aria-label="Place"
+              />
+              <div
+                className="opportunity-radius"
+                onBlur={(event) => {
+                  if (!event.currentTarget.contains(event.relatedTarget)) setRadiusOpen(false);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape") setRadiusOpen(false);
+                }}
+              >
+                <button
+                  type="button"
+                  aria-expanded={radiusOpen}
+                  aria-haspopup="listbox"
+                  aria-label="Radius"
+                  onClick={() => setRadiusOpen((open) => !open)}
+                >
+                  {radius} mi
+                </button>
+                {radiusOpen ? (
+                  <ul role="listbox" aria-label="Radius">
+                    {SEARCH_RADIUS_MILES.map((miles) => (
+                      <li key={miles}>
+                        <button
+                          type="button"
+                          role="option"
+                          aria-selected={radius === String(miles)}
+                          onClick={() => {
+                            setRadius(String(miles));
+                            setRadiusOpen(false);
+                          }}
+                        >
+                          {miles} mi
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
+              <button type="submit" disabled={searching}>
+                {searching ? "Searching" : "Search"}
+              </button>
+              {listings.length > 0 || searchArea || searchNote ? (
+                <button type="button" onClick={clearSearch}>
+                  Clear
+                </button>
+              ) : null}
+              {searchNote ? <p className="map-search-note">{searchNote}</p> : null}
+            </form>
+          <div className="opportunity-map">
+            <div
+              className="map-anchor"
+              onBlur={(event) => {
+                if (!event.currentTarget.contains(event.relatedTarget)) setAnchorsOpen(false);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") setAnchorsOpen(false);
+              }}
+            >
+              <button
+                type="button"
+                className="map-anchor-toggle"
+                aria-expanded={anchorsOpen}
+                aria-label="Life anchors"
+                onClick={() => setAnchorsOpen((open) => !open)}
+              >
+                <AnchorMark />
+              </button>
+              <div className="map-anchor-sheet" hidden={!anchorsOpen}>
+                <LifeAnchors onChange={setAnchors} />
+              </div>
+            </div>
+          <CareerMap
+            anchors={anchors.map((anchor) => ({
+              id: anchor.id,
+              latitude: anchor.latitude,
+              longitude: anchor.longitude,
+              label: anchor.label,
+              detail: anchor.address,
+              icon: anchor.icon,
+            }))}
+            fitKey={`${selectedListingId ?? ""}|${
+              searchArea
+                ? `${searchArea.latitude.toFixed(4)},${searchArea.longitude.toFixed(4)},${searchArea.miles}`
+                : ""
+            }`}
+            home={homePin}
+            onSelect={() => undefined}
+            onSelectOverlay={setSelectedListingId}
+            overlays={pins}
+            roles={roles}
+            selectedId={null}
+            searchRadius={searchArea}
+            selectedOverlayId={selectedListingId}
+            settings={mapSettings}
+            suppressEmpty
+            viewKey="opportunities"
+          />
+          </div>
+        </div>
       </div>
       {message ? <p className="career-message">{message}</p> : null}
     </section>

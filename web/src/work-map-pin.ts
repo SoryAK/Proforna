@@ -11,6 +11,7 @@ export type RolePinInput = {
   endDate: string;
   ring: string;
   currentRing: string;
+  withheld?: boolean;
 };
 
 export function rolePinPresentation(pin: RolePinInput): {
@@ -29,7 +30,9 @@ export function rolePinPresentation(pin: RolePinInput): {
     size,
     fill: pin.fill,
     icon: pin.icon,
-    border: pin.current ? `3px solid ${pin.currentRing}` : `2.5px solid ${pin.ring}`,
+    border: pin.current
+      ? `3px ${pin.withheld ? "dashed" : "solid"} ${pin.currentRing}`
+      : `2.5px ${pin.withheld ? "dashed" : "solid"} ${pin.ring}`,
     opacity: pin.secondary ? 0.45 : 1,
     fontSize: emojiSize,
   };
@@ -48,6 +51,31 @@ export function rolePinUrl(pin: RolePinInput): { url: string; size: number } {
   const weight = pin.current ? 3 : 2.5;
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${view.size}" height="${view.size}" viewBox="0 0 ${view.size} ${view.size}"><circle cx="${view.size / 2}" cy="${view.size / 2}" r="${radius}" fill="${view.fill}" stroke="${stroke}" stroke-width="${weight}" opacity="${view.opacity}"/><text x="50%" y="54%" text-anchor="middle" dominant-baseline="central" font-size="${view.fontSize}" opacity="${view.opacity}">${escapeHtml(view.icon)}</text></svg>`;
   return { url: `data:image/svg+xml,${encodeURIComponent(svg)}`, size: view.size };
+}
+
+const ANCHOR_MARKS: Record<string, string> = {
+  home: "🏠",
+  work: "💼",
+  school: "🎓",
+  family: "♥",
+  gym: "💪",
+  worship: "✝",
+  other: "⚓",
+};
+
+export function anchorPinHtml(icon: string): { html: string; size: number } {
+  const mark = ANCHOR_MARKS[icon] ?? ANCHOR_MARKS.other;
+  const size = 30;
+  const html = `<div style="box-sizing:border-box;display:flex;align-items:center;justify-content:center;width:${size}px;height:${size}px;border-radius:8px;background:#f4efe6;border:2px solid #c27b2b;box-shadow:0 2px 6px rgba(0,0,0,0.28);font-size:15px;line-height:1">${mark}</div>`;
+  return { html, size };
+}
+
+export function searchPinHtml(focused: boolean): { html: string; size: number } {
+  const size = focused ? 28 : 22;
+  const fill = focused ? "#c27b2b" : "#f4efe6";
+  const mark = focused ? "#1a1510" : "#c27b2b";
+  const html = `<div style="box-sizing:border-box;display:flex;align-items:center;justify-content:center;width:${size}px;height:${size}px;border-radius:50%;background:${fill};border:2px solid #1a1510;box-shadow:0 2px 6px rgba(0,0,0,0.28)"><span style="width:8px;height:8px;border-radius:50%;background:${mark}"></span></div>`;
+  return { html, size };
 }
 
 export function pinFill(theme: MapPinTheme, _kind: string): string {

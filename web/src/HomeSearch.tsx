@@ -12,7 +12,7 @@ type Place = {
 const PLACES: Place[] = [
   { id: "home", label: "Home", detail: "Your career file" },
   { id: "profile", label: "Profile", detail: "Name, headline, links" },
-  { id: "settings", label: "Settings", detail: "Profile, models, and maps" },
+  { id: "settings", label: "Settings", detail: "Profile, models, maps, and jobs" },
 ];
 
 export function HomeSearch({

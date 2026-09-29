@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import type { CareerFile } from "@core/career-file";
 import {
   CAREER_HISTORY_SECTIONS,
@@ -36,9 +36,17 @@ import {
 import { CareerTimelineScrubber } from "./CareerTimelineScrubber";
 import { residenceForMap, type Residence } from "@core/residence";
 import { HomesPanel } from "./HomesPanel";
-import { WorkMapCanvas, type WorkMapHome } from "./WorkMapCanvas";
-import { GoogleWorkMap } from "./GoogleWorkMap";
-import { DEFAULT_MAP_ICONS, MAP_THEMES, type MapSettings } from "@core/map-settings";
+import { CareerMap } from "./CareerMap";
+import { WorkMapPreview, type PublicWorkMapSnapshot } from "./WorkMapPreview";
+import {
+  notifyPreviewRefresh,
+  previewWindowUrl,
+  readPreviewPlacement,
+  writePreviewPlacement,
+  type PreviewPlacement,
+} from "./preview-placement";
+import type { WorkMapHome } from "./WorkMapCanvas";
+import { type MapSettings } from "@core/map-settings";
 import { lookupNote, reversePlace } from "./place-search";
 import { RoleDetailPanel, type DetailTab } from "./RoleDetailPanel";
 import "./work-map.css";
@@ -119,6 +127,16 @@ export function WorkMap({
   const [mapSettings, setMapSettings] = useState<MapSettings | null>(null);
   const [message, setMessage] = useState("");
   const [publishing, setPublishing] = useState(false);
+  const [preview, setPreview] = useState<{
+    snapshot: PublicWorkMapSnapshot;
+    publishable: boolean;
+    exactLocations: boolean;
+  } | null>(null);
+  const previewRef = useRef(preview);
+  previewRef.current = preview;
+  const [previewAsk, setPreviewAsk] = useState(false);
+  const [rememberPreview, setRememberPreview] = useState(false);
+  const [placement, setPlacement] = useState<PreviewPlacement>(readPreviewPlacement);
   const [creatingKind, setCreatingKind] =
     useState<CareerHistorySectionKey | null>(null);
   const [detailTab, setDetailTab] = useState<DetailTab>("story");
@@ -184,6 +202,11 @@ export function WorkMap({
         projections: Publication[];
       };
       setPublications(body.projections);
+    }
+    notifyPreviewRefresh();
+    if (previewRef.current) {
+      const next = await fetchPreview();
+      if (next) setPreview(next);
     }
   }
 
@@ -299,6 +322,65 @@ export function WorkMap({
       return;
     }
     void publish();
+  }
+
+  async function requestPreview() {
+    const choice = readPreviewPlacement();
+    if (choice === "ask") {
+      setRememberPreview(false);
+      setPreviewAsk(true);
+      return;
+    }
+    await showPreview(choice);
+  }
+
+  async function choosePreview(where: "here" | "window") {
+    if (rememberPreview) {
+      writePreviewPlacement(where);
+      setPlacement(where);
+    }
+    setPreviewAsk(false);
+    setRememberPreview(false);
+    await showPreview(where);
+  }
+
+  async function showPreview(where: "here" | "window") {
+    setMessage("");
+    const next = await fetchPreview();
+    if (!next) return;
+    if (where === "here") {
+      setPreview(next);
+      return;
+    }
+    const opened = window.open(
+      previewWindowUrl(),
+      "proforna-public-preview",
+      "popup,width=1100,height=800",
+    );
+    if (!opened) {
+      setMessage("The browser blocked the preview window. Preview is staying in this window.");
+      setPreview(next);
+    }
+  }
+
+  async function fetchPreview() {
+    const response = await fetch("/api/work-map/preview");
+    if (!response.ok) {
+      const body = (await response.json()) as { error?: string };
+      setMessage(
+        body.error === "slug-required"
+          ? "Save a public slug in publication settings before previewing."
+          : body.error === "sections-required"
+            ? "Choose at least one section in publication settings before previewing."
+            : "Could not build the preview.",
+      );
+      return null;
+    }
+    return (await response.json()) as {
+      snapshot: PublicWorkMapSnapshot;
+      publishable: boolean;
+      exactLocations: boolean;
+    };
   }
 
   async function publish() {
@@ -419,11 +501,21 @@ export function WorkMap({
         </p>
       ) : null}
 
+      {preview ? (
+        <WorkMapPreview
+          exactLocations={preview.exactLocations}
+          mapSettings={mapSettings}
+          publishable={preview.publishable}
+          snapshot={preview.snapshot}
+          onClose={() => setPreview(null)}
+        />
+      ) : null}
       <div
         className={[
           "work-map-layout",
           mapVisible ? "is-map" : "is-record",
         ].join(" ")}
+        hidden={preview !== null}
       >
         <div className="work-map-float">
           <CareerBio profile={data.profile} onHome={onHome} />
@@ -484,6 +576,9 @@ export function WorkMap({
                 onClick={openSettings}
               >
                 <SettingsIcon />
+              </button>
+              <button type="button" onClick={() => void requestPreview()}>
+                Preview
               </button>
               <button
                 className="history-icon"
@@ -640,40 +735,22 @@ export function WorkMap({
               Timeline
             </button>
           </div>
-          {mapSettings?.provider === "google" && mapSettings.googleMapsApiKey ? (
-            <GoogleWorkMap
-              apiKey={mapSettings.googleMapsApiKey}
-              roles={mapRoles}
-              home={
-                timelineActive
-                  ? homePinForTimeline(data.residences, timelineReading.home)
-                  : homePin(data.residences, selected)
-              }
-              selectedId={timelineActive ? null : selectedId}
-              holdView={timelineActive}
-              suppressEmpty={timelineActive}
-              onSelect={selectFromMap}
-              onMapClick={placingForId ? dropPin : undefined}
-              pinIcons={mapSettings?.icons ?? DEFAULT_MAP_ICONS}
-              pinTheme={MAP_THEMES[mapSettings?.theme ?? "kind"]}
-            />
-          ) : (
-            <WorkMapCanvas
-              roles={mapRoles}
-              home={
-                timelineActive
-                  ? homePinForTimeline(data.residences, timelineReading.home)
-                  : homePin(data.residences, selected)
-              }
-              selectedId={timelineActive ? null : selectedId}
-              holdView={timelineActive}
-              suppressEmpty={timelineActive}
-              onSelect={selectFromMap}
-              onMapClick={placingForId ? dropPin : undefined}
-              pinIcons={mapSettings?.icons ?? DEFAULT_MAP_ICONS}
-              pinTheme={MAP_THEMES[mapSettings?.theme ?? "kind"]}
-            />
-          )}
+          <CareerMap
+            fitKey={timelineActive ? "timeline" : (selectedId ?? "")}
+            holdView={timelineActive}
+            home={
+              timelineActive
+                ? homePinForTimeline(data.residences, timelineReading.home)
+                : homePin(data.residences, selected)
+            }
+            onMapClick={placingForId ? dropPin : undefined}
+            onSelect={selectFromMap}
+            roles={mapRoles}
+            selectedId={timelineActive ? null : selectedId}
+            settings={mapSettings}
+            suppressEmpty={timelineActive}
+            viewKey="history"
+          />
           {timelineActive && timelineMonths.length > 0 ? (
             <CareerTimelineScrubber
               frame={timelineReading}
@@ -724,9 +801,14 @@ export function WorkMap({
               onClick={() => setSettingsOpen(false)}
             />
             <PublicationSettings
+              placement={placement}
               settings={settings}
               onChange={setSettings}
               onClose={() => setSettingsOpen(false)}
+              onPlacement={(value) => {
+                writePreviewPlacement(value);
+                setPlacement(value);
+              }}
               onSubmit={saveSettings}
             />
           </>
@@ -750,6 +832,14 @@ export function WorkMap({
               }}
             />
           </>
+        ) : null}
+        {previewAsk ? (
+          <PreviewAsk
+            remember={rememberPreview}
+            onRemember={setRememberPreview}
+            onChoose={(where) => void choosePreview(where)}
+            onClose={() => setPreviewAsk(false)}
+          />
         ) : null}
       </div>
     </section>
@@ -967,14 +1057,18 @@ function MediaSheet({ role }: { role: WorkMapRole }) {
 }
 
 function PublicationSettings({
+  placement,
   settings,
   onChange,
   onClose,
+  onPlacement,
   onSubmit,
 }: {
+  placement: PreviewPlacement;
   settings: WorkMapPublicationSettings;
   onChange: (settings: WorkMapPublicationSettings) => void;
   onClose: () => void;
+  onPlacement: (placement: PreviewPlacement) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
   const sections: Array<[WorkMapPublishSection, string]> = [
@@ -1006,6 +1100,19 @@ function PublicationSettings({
           Close
         </button>
       </header>
+      <label className="publication-preview-place">
+        Open preview
+        <select
+          value={placement}
+          onChange={(event) =>
+            onPlacement(event.target.value as PreviewPlacement)
+          }
+        >
+          <option value="ask">Ask each time</option>
+          <option value="here">In this window</option>
+          <option value="window">In a new window</option>
+        </select>
+      </label>
       <form onSubmit={onSubmit}>
         <div className="publication-fields">
           <label>
@@ -1104,6 +1211,52 @@ function PublicationSettings({
           Save settings
         </button>
       </form>
+    </aside>
+  );
+}
+
+function PreviewAsk({
+  remember,
+  onRemember,
+  onChoose,
+  onClose,
+}: {
+  remember: boolean;
+  onRemember: (remember: boolean) => void;
+  onChoose: (where: "here" | "window") => void;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <aside className="publication-confirm" role="dialog" aria-label="Open preview">
+      <h2>Open preview</h2>
+      <p>
+        The preview stays in this window unless you choose a new window, or set
+        that as the default.
+      </p>
+      <label className="publication-check">
+        <input
+          type="checkbox"
+          checked={remember}
+          onChange={(event) => onRemember(event.target.checked)}
+        />
+        Use this choice from now on
+      </label>
+      <div className="publication-confirm-actions">
+        <button type="button" onClick={() => onChoose("here")}>
+          This window
+        </button>
+        <button type="button" onClick={() => onChoose("window")}>
+          New window
+        </button>
+      </div>
     </aside>
   );
 }

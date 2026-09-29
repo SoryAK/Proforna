@@ -19,9 +19,11 @@ type JsonRow = Record<string, string | number | null>;
 const directTables = [
   "profiles",
   "residences",
+  "life_anchors",
   "resumes",
   "model_connections",
   "map_settings",
+  "job_source_settings",
   "work_history",
   "skills",
   "evidence",
@@ -56,9 +58,11 @@ const directTables = [
 const restoreOrder = [
   "profiles",
   "residences",
+  "life_anchors",
   "resumes",
   "model_connections",
   "map_settings",
+  "job_source_settings",
   "work_history",
   "skills",
   "evidence",

@@ -63,6 +63,9 @@ importers:
       concurrently:
         specifier: ^10.0.5
         version: 10.0.5
+      esbuild:
+        specifier: ^0.28.2
+        version: 0.28.2
       tsx:
         specifier: ^4.23.13
         version: 4.23.13

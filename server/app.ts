@@ -38,6 +38,7 @@ import {
 import type { WorkMapPlace } from "../core/work-map";
 import { lookupGooglePlaces, reverseGooglePlace } from "./google-geocode";
 import { MapSettingsError, readMapSettings, saveMapSettings } from "./map-settings";
+import { VaultKeyError } from "./vault-key";
 import { prepareProfile } from "../core/profile";
 import {
   ProfileError,
@@ -83,6 +84,7 @@ import {
   createProjection,
   createProjectionGrant,
   listProjections,
+  previewWorkMapProjection,
   publishProjection,
   recordProjectionEvent,
   resolveOpportunityAccess,
@@ -95,6 +97,8 @@ import {
   approveExternalAction,
   createApplication,
   createContact,
+  deleteApplication,
+  deleteOpportunity,
   createInterview,
   createOffer,
   createOpportunity,
@@ -105,6 +109,20 @@ import {
   transitionOwnedApplication,
   type ExternalActionAdapter,
 } from "./career-management";
+import { careerRecordForJudgment, judgeListings } from "./fit-judgment";
+import { searchJobListings } from "./job-search";
+import {
+  JobSourceSettingsStoreError,
+  readJobSourceSettings,
+  saveJobSourceSettings,
+} from "./job-sources";
+import {
+  LifeAnchorStoreError,
+  createLifeAnchor,
+  deleteLifeAnchor,
+  listLifeAnchors,
+  updateLifeAnchor,
+} from "./life-anchors";
 import {
   ConversationStoreError,
   commitSuggestedReply,
@@ -263,6 +281,19 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
     return found.places[0] ?? null;
   }
   const app = new Hono();
+
+  app.onError((err, c) => {
+    if (err instanceof VaultKeyError) {
+      return c.json(
+        {
+          error:
+            "The system keychain is unavailable, so that secret cannot be used.",
+        },
+        503,
+      );
+    }
+    return c.text("Internal Server Error", 500);
+  });
 
   app.get("/api/health", (c) =>
     c.json({ ok: true, product: PRODUCT.name, db: pingDatabase(db) }),
@@ -1119,6 +1150,17 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
     }
   });
 
+  app.get("/api/work-map/preview", (c) => {
+    const occupant = ensureOccupant(db);
+    const preview = previewWorkMapProjection(db, occupant.id);
+    if (!preview.ok) return c.json({ error: preview.error }, 400);
+    return c.json({
+      snapshot: preview.snapshot,
+      publishable: preview.publishable,
+      exactLocations: preview.exactLocations,
+    });
+  });
+
   app.post("/api/work-map/publish", async (c) => {
     const occupant = ensureOccupant(db);
     try {
@@ -1270,6 +1312,134 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
     return c.json(readCareerManagement(db, occupant.id));
   });
 
+  app.get("/api/life-anchors", (c) => {
+    const occupant = ensureOccupant(db);
+    return c.json({ anchors: listLifeAnchors(db, occupant.id) });
+  });
+
+  app.post("/api/life-anchors", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      const anchor = createLifeAnchor(
+        db,
+        occupant.id,
+        await withResidenceCoordinates(
+          (await c.req.json()) as Record<string, unknown>,
+          (query) => lookupPlace(occupant.id, query),
+        ),
+      );
+      return c.json({ anchor }, 201);
+    } catch (error) {
+      if (error instanceof LifeAnchorStoreError) {
+        return c.json({ error: error.code }, 400);
+      }
+      throw error;
+    }
+  });
+
+  app.patch("/api/life-anchors/:id", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      const anchor = updateLifeAnchor(
+        db,
+        occupant.id,
+        c.req.param("id"),
+        await withResidenceCoordinates(
+          (await c.req.json()) as Record<string, unknown>,
+          (query) => lookupPlace(occupant.id, query),
+        ),
+      );
+      return c.json({ anchor });
+    } catch (error) {
+      if (error instanceof LifeAnchorStoreError) {
+        const status = error.code === "anchor-missing" ? 404 : 400;
+        return c.json({ error: error.code }, status);
+      }
+      throw error;
+    }
+  });
+
+  app.delete("/api/life-anchors/:id", (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      deleteLifeAnchor(db, occupant.id, c.req.param("id"));
+      return c.json({ ok: true });
+    } catch (error) {
+      if (error instanceof LifeAnchorStoreError) {
+        return c.json({ error: error.code }, 404);
+      }
+      throw error;
+    }
+  });
+
+  app.get("/api/job-sources", (c) => {
+    const occupant = ensureOccupant(db);
+    return c.json({ settings: readJobSourceSettings(db, occupant.id) });
+  });
+
+  app.put("/api/job-sources", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      const settings = saveJobSourceSettings(
+        db,
+        occupant.id,
+        (await c.req.json()) as Record<string, unknown>,
+      );
+      return c.json({ settings });
+    } catch (error) {
+      if (error instanceof JobSourceSettingsStoreError) {
+        return c.json({ error: error.code }, 400);
+      }
+      throw error;
+    }
+  });
+
+  app.get("/api/job-search", async (c) => {
+    const occupant = ensureOccupant(db);
+    const sources = readJobSourceSettings(db, occupant.id);
+    const result = await searchJobListings(
+      {
+        q: c.req.query("q"),
+        where: c.req.query("where"),
+        distance: c.req.query("distance"),
+      },
+      { settings: sources },
+    );
+    if (!result.ok) {
+      return c.json(
+        { error: result.error },
+        result.error === "query-required" ? 400 : 502,
+      );
+    }
+    const listings = [];
+    for (const listing of result.listings) {
+      if (
+        listing.latitude != null ||
+        listing.longitude != null ||
+        !listing.location
+      ) {
+        listings.push(listing);
+        continue;
+      }
+      try {
+        const place = await lookupPlace(occupant.id, listing.location);
+        listings.push(
+          place
+            ? { ...listing, latitude: place.latitude, longitude: place.longitude }
+            : listing,
+        );
+      } catch {
+        listings.push(listing);
+      }
+    }
+    const record = careerRecordForJudgment(db, occupant.id, sources.judgment);
+    return c.json({
+      configured: result.configured,
+      listings: judgeListings(listings, record, sources.judgment),
+      total: result.total,
+    });
+  });
+
   app.post("/api/opportunities", async (c) => {
     const occupant = ensureOccupant(db);
     try {
@@ -1352,6 +1522,32 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
     } catch (error) {
       if (error instanceof CareerManagementStoreError) {
         return c.json({ error: error.code }, 400);
+      }
+      throw error;
+    }
+  });
+
+  app.delete("/api/opportunities/:id", (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      deleteOpportunity(db, occupant.id, c.req.param("id"));
+      return c.json({ ok: true });
+    } catch (error) {
+      if (error instanceof CareerManagementStoreError) {
+        return c.json({ error: error.code }, 404);
+      }
+      throw error;
+    }
+  });
+
+  app.delete("/api/applications/:id", (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      deleteApplication(db, occupant.id, c.req.param("id"));
+      return c.json({ ok: true });
+    } catch (error) {
+      if (error instanceof CareerManagementStoreError) {
+        return c.json({ error: error.code }, 404);
       }
       throw error;
     }

@@ -5,6 +5,8 @@ import { DevPrototypeScreen, readDevPrototype, readReviewOnboarding } from "./de
 import { Home } from "./Home";
 import { Onboarding } from "./Onboarding";
 import type { OnboardingProfileValue } from "./OnboardingProfile";
+import { isPreviewWindow } from "./preview-placement";
+import { WorkMapPreviewPage } from "./WorkMapPreview";
 
 type Me = {
   occupant: { id: string };
@@ -20,11 +22,13 @@ export function App() {
   const [careerError, setCareerError] = useState<string | null>(null);
   const [prototype, setPrototype] = useState(readDevPrototype);
   const [reviewOnboarding, setReviewOnboarding] = useState(readReviewOnboarding);
+  const [previewWindow, setPreviewWindow] = useState(isPreviewWindow);
 
   useEffect(() => {
     function onHash() {
       setPrototype(readDevPrototype());
       setReviewOnboarding(readReviewOnboarding());
+      setPreviewWindow(isPreviewWindow());
     }
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
@@ -61,6 +65,10 @@ export function App() {
 
   if (prototype) {
     return <DevPrototypeScreen kind={prototype} />;
+  }
+
+  if (previewWindow) {
+    return <WorkMapPreviewPage />;
   }
 
   if (error) {

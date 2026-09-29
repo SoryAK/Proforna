@@ -8,7 +8,6 @@
   padding: 0;
   background: var(--bg);
   color: var(--text);
-  scrollbar-color: rgba(167, 139, 113, 0.45) transparent;
 }
 
 .home .sr-only {
@@ -364,7 +363,6 @@ p.home-search-hit {
   overflow: auto;
   border-right: 1px solid rgba(167, 139, 113, 0.18);
   background: #070707;
-  scrollbar-color: rgba(167, 139, 113, 0.45) transparent;
 }
 
 .home-nav.is-open {
@@ -506,14 +504,16 @@ button.home-nav-item:focus-visible {
   background-size: 48px 48px;
 }
 
-.home-main:has(.work-map) {
+.home-main:has(.work-map),
+.home-main:has(.opportunities-page) {
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
 
 @media (max-width: 760px) {
-  .home-main:has(.work-map) {
+  .home-main:has(.work-map),
+  .home-main:has(.opportunities-page) {
     overflow: auto;
   }
 }
@@ -619,7 +619,6 @@ button.home-nav-item:focus-visible {
   border-radius: 16px;
   background: #111;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
-  scrollbar-color: rgba(167, 139, 113, 0.45) transparent;
 }
 
 .home-notice-heading {
@@ -1188,6 +1187,29 @@ button.home-nav-item:focus-visible {
   font-weight: 650;
 }
 
+.job-source-card,
+.job-source-row {
+  padding-bottom: 0.7rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--text) 16%, transparent);
+}
+
+.job-source-card {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.job-source-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.job-source-row > span {
+  flex: 1;
+  min-width: 0;
+  color: var(--text);
+}
+
 .map-theme-row,
 .map-icon-row {
   display: flex;
@@ -1390,7 +1412,6 @@ button.home-nav-item:focus-visible {
   min-height: 0;
   overflow: auto;
   padding: 0.35rem 1rem 1.15rem;
-  scrollbar-color: rgba(167, 139, 113, 0.45) transparent;
 }
 
 .home-proforna-history {
@@ -1602,7 +1623,6 @@ button.home-nav-item:focus-visible {
   border-radius: 16px;
   background: #13100d;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
-  scrollbar-color: rgba(167, 139, 113, 0.45) transparent;
 }
 
 .home-proforna-menu-heading {

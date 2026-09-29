@@ -404,4 +404,130 @@ describe("interactive projections HTTP seam", () => {
       db.close();
     }
   });
+
+  it("previews the redacted snapshot without publishing or storing it", async () => {
+    const publish = vi.fn(async (_projection: RelayProjection) => undefined);
+    const db = openDatabase(":memory:");
+    const app = createApp(db, { relay: { publish, revoke: vi.fn() } });
+    try {
+      await app.request("/api/profile", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          fullName: "Sory Kaba",
+          address: "12 Secret Street",
+          city: "Clifton Heights",
+          state: "PA",
+        }),
+      });
+      db.prepare(
+        `INSERT INTO residences
+          (id, occupant_id, label, address, latitude, longitude, start_date, end_date, created_at)
+         VALUES (?, 'local', 'Home', ?, 39.9, -75.3, NULL, NULL, ?)`,
+      ).run("home-1", "99 Hidden Home Lane", "2026-01-01T00:00:00.000Z");
+      await app.request("/api/history", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          experience: [{ company: "Acme", title: "Lead", isCurrent: true }],
+        }),
+      });
+      const workMap = (await (await app.request("/api/work-map")).json()) as {
+        roles: Array<{ id: string }>;
+      };
+      await app.request(`/api/work-map/roles/${workMap.roles[0].id}/locations`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          label: "Plant",
+          address: "123 Private Street",
+          latitude: 39.95,
+          longitude: -75.16,
+          isPublic: true,
+        }),
+      });
+      await app.request(`/api/work-map/roles/${workMap.roles[0].id}/locations`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          label: "Annex",
+          address: "88 Hidden Plant Road",
+          latitude: 40.01,
+          longitude: -75.2,
+          isPublic: false,
+        }),
+      });
+      await app.request(`/api/work-map/roles/${workMap.roles[0].id}/details`, {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ growth: "SECRET_GROWTH_NOTE" }),
+      });
+      await app.request("/api/work-map/settings", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          slug: "sory-systems",
+          visibility: "unlisted",
+          sections: ["profile", "history", "map"],
+          showExactLocations: false,
+        }),
+      });
+
+      const preview = await app.request("/api/work-map/preview");
+      expect(preview.status).toBe(200);
+      const body = (await preview.json()) as {
+        publishable: boolean;
+        exactLocations: boolean;
+        snapshot: {
+          profile: { city: string; state: string };
+          roles: Array<{ locations: Array<{ address: string; isPublic: boolean }> }>;
+        };
+      };
+      const packed = JSON.stringify(body);
+      expect(body.publishable).toBe(true);
+      expect(body.exactLocations).toBe(false);
+      expect(
+        body.snapshot.roles[0].locations.map((location) => location.isPublic).sort(),
+      ).toEqual([false, true]);
+      expect(body.snapshot.profile.city).toBe("");
+      expect(body.snapshot.profile.state).toBe("PA");
+      expect(body.snapshot.roles[0].locations).toHaveLength(2);
+      expect(body.snapshot.roles[0].locations.every((location) => location.address === "")).toBe(
+        true,
+      );
+      expect(packed).not.toContain("12 Secret Street");
+      expect(packed).not.toContain("99 Hidden Home Lane");
+      expect(packed).not.toContain("123 Private Street");
+      expect(packed).not.toContain("88 Hidden Plant Road");
+      expect(packed).not.toContain("SECRET_GROWTH_NOTE");
+      expect(packed).not.toContain("occupantId");
+      expect(publish).not.toHaveBeenCalled();
+      expect(db.prepare("SELECT COUNT(*) AS count FROM work_map_snapshots").get()).toEqual({
+        count: 0,
+      });
+      expect(
+        db.prepare("SELECT COUNT(*) AS count FROM interactive_projections").get(),
+      ).toEqual({ count: 0 });
+      expect(db.prepare("SELECT COUNT(*) AS count FROM publications").get()).toEqual({
+        count: 0,
+      });
+      expect((await app.request("/api/public/sory-systems")).status).toBe(404);
+
+      await app.request("/api/work-map/settings", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ visibility: "private" }),
+      });
+      const privatePreview = await app.request("/api/work-map/preview");
+      expect(privatePreview.status).toBe(200);
+      expect(((await privatePreview.json()) as { publishable: boolean }).publishable).toBe(
+        false,
+      );
+      expect(db.prepare("SELECT COUNT(*) AS count FROM work_map_snapshots").get()).toEqual({
+        count: 0,
+      });
+    } finally {
+      db.close();
+    }
+  });
 });
