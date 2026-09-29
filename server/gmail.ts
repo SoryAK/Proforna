@@ -293,8 +293,13 @@ function oauthPort(): number {
 }
 
 function writePage(response: ServerResponse, status: number, message: string): void {
+  const safe = message.replace(/[&<>]/g, (char) =>
+    char === "&" ? "&amp;" : char === "<" ? "&lt;" : "&gt;",
+  );
   response.writeHead(status, { "content-type": "text/html; charset=utf-8" });
-  response.end(`<!doctype html><title>Gmail</title><p>${message}</p>`);
+  response.end(
+    `<!doctype html><html><head><meta charset="utf-8"><title>Gmail</title></head><body><p>${safe}</p><script>window.close()</script></body></html>`,
+  );
 }
 
 function text(value: unknown): string {

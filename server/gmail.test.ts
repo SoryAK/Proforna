@@ -46,6 +46,7 @@ describe("gmail connection", () => {
       `${redirect.origin}${redirect.pathname}?code=code&state=${authorize.searchParams.get("state")}`,
     );
     expect(callback).toContain("Gmail is connected");
+    expect(callback).toContain("window.close()");
     const account = await app.request("/api/gmail");
     expect(await account.json()).toEqual({ connected: true, email: "ada@example.com" });
     const search = await app.request("/api/gmail/messages?q=offer");
