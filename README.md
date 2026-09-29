@@ -14,10 +14,11 @@ We are looking for **contributors and collaborators**. See [CONTRIBUTING.md](CON
 
 ## Status
 
-Scaffold. Stack is locked in [ADR-0001](docs/adr/0001-personal-career-management-stack.md):
-`core/` (domain), `server/` (Hono), `web/` (Vite + React), SQLite on disk.
+Personal career management on this machine. The stack is `core/` (domain),
+`server/` (Hono), `web/` (Vite + React), and SQLite on disk. The desktop
+window is `web/src-tauri`.
 
-[CI](docs/ci.md) is the merge gate. Deploy is a no-op until hosting exists.
+An occupant runs Proforna locally, or from the desktop package.
 
 ## Minimum to run
 
