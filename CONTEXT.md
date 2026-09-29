@@ -48,6 +48,14 @@ A named place the occupant asks Proforna to read listings from. When that
 place requires an application id or an API key, those stay in the Career Vault.
 _Avoid_: Job board, integration
 
+**Integration**:
+A connection the occupant configures in Settings → Integrations so Proforna
+can use that account when asked. Gmail is one connection. It is not a second
+sign-in. Proforna does not search a fixed window of that mail, and it does
+not file those messages into Opportunities, applications, interviews, offers,
+or contacts on its own.
+_Avoid_: Job mail, second sign-in, inbox
+
 **Life Anchor**:
 A named place the occupant weights when judging whether a possibility fits
 their life.

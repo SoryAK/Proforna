@@ -1125,6 +1125,7 @@ button.home-nav-item:focus-visible {
   gap: 0.2rem;
   padding: 0.85rem 0.7rem;
   border-right: 1px solid rgba(167, 139, 113, 0.16);
+  overflow: auto;
 }
 
 .home-settings-nav-item {
@@ -1170,6 +1171,10 @@ button.home-nav-item:focus-visible {
   margin: 0.85rem 0 0;
   color: var(--gold-hover);
   font-size: 0.88rem;
+}
+
+.integration-ask-answer {
+  white-space: pre-line;
 }
 
 .map-pin-settings {
@@ -1762,8 +1767,13 @@ button.home-nav-item:focus-visible {
 
   .home-settings-nav {
     flex-direction: row;
+    flex-wrap: wrap;
     border-right: 0;
     border-bottom: 1px solid rgba(167, 139, 113, 0.16);
+  }
+
+  .home-settings-nav-item {
+    flex: 0 0 auto;
   }
 }
 

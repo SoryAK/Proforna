@@ -241,9 +241,15 @@ export {
   type OccupantNoticeKind,
 } from "./notices";
 export {
+  GMAIL_OAUTH_CLIENT_ID_ENV,
+  GMAIL_OAUTH_CLIENT_SECRET_ENV,
+  gmailAskFromCommand,
   gmailAuthorizeUrl,
+  gmailOAuthClient,
   gmailRawMessage,
   gmailRedirectUri,
+  prepareGmailAsk,
+  presentGmailAsk,
   readGmailMessage,
   readGmailThreads,
   readGmailToken,

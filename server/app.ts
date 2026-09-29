@@ -112,6 +112,7 @@ import {
 import { careerRecordForJudgment, judgeListings } from "./fit-judgment";
 import { searchJobListings } from "./job-search";
 import {
+  answerGmailAsk,
   beginGmailSignIn,
   disconnectGmail,
   draftGmail,
@@ -1880,22 +1881,33 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
   app.delete("/api/gmail", (c) => {
     const occupant = ensureOccupant(db);
     disconnectGmail(db, occupant.id);
-    return c.json({ connected: false });
+    return c.json(readGmailAccount(db, occupant.id));
   });
 
   app.post("/api/gmail/connect", async (c) => {
     const occupant = ensureOccupant(db);
     try {
-      const signIn = await beginGmailSignIn(
-        db,
-        occupant.id,
-        (await c.req.json()) as { clientId?: unknown; clientSecret?: unknown },
-      );
+      const signIn = await beginGmailSignIn(db, occupant.id);
       return c.json(signIn);
     } catch (error) {
-      if (error instanceof GmailStoreError) return c.json({ error: error.code }, 400);
+      if (error instanceof GmailStoreError) {
+        return c.json(
+          {
+            error: error.code,
+            ...(error.missing.length ? { missing: error.missing } : {}),
+          },
+          400,
+        );
+      }
       throw error;
     }
+  });
+
+  app.post("/api/gmail/ask", async (c) => {
+    const occupant = ensureOccupant(db);
+    const body = (await c.req.json().catch(() => ({}))) as { query?: unknown };
+    const query = typeof body.query === "string" ? body.query : "";
+    return c.json(await answerGmailAsk(db, occupant.id, query));
   });
 
   app.get("/api/gmail/messages", async (c) => {

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import {
+  gmailAskFromCommand,
   prepareCommandMessage,
   prepareCommandSession,
   titleFromOccupantTurn,
@@ -9,6 +10,7 @@ import {
   type CommandSpeaker,
 } from "../core/index";
 import { runAgency, AgencyStoreError } from "./agency";
+import { answerGmailAsk } from "./gmail";
 import type { CompleteFn } from "./openai-compat";
 
 type JsonObject = Record<string, unknown>;
@@ -82,6 +84,12 @@ export async function sendCommandTurn(
   signal?: AbortSignal,
 ): Promise<{ session: CommandSession; messages: CommandMessage[] }> {
   const session = loadSession(db, occupantId, sessionId);
+  const commandBody = typeof input.body === "string" ? input.body : "";
+  const mail = gmailAskFromCommand(commandBody);
+  if (mail.asked) {
+    const answered = await answerGmailAsk(db, occupantId, mail.query);
+    return persistExchange(db, occupantId, session, commandBody, answered.answer, null);
+  }
   const prior = readCommandSession(db, occupantId, session.id).messages;
   const result = await runAgency(
     db,
@@ -89,7 +97,7 @@ export async function sendCommandTurn(
     {
       purpose: "command",
       scope: { type: "home" },
-      prompt: input.body,
+      prompt: commandBody,
       grant: input.grant,
       sessionId: session.id,
       history: prior.map((message) => ({
@@ -100,25 +108,36 @@ export async function sendCommandTurn(
     complete,
     signal,
   );
+  const answer = (result.run.answer ?? "").trim();
+  return persistExchange(db, occupantId, session, commandBody, answer, result.run.id);
+}
+
+function persistExchange(
+  db: DatabaseSync,
+  occupantId: string,
+  session: CommandSession,
+  occupantBody: string,
+  answer: string,
+  agentRunId: string | null,
+): { session: CommandSession; messages: CommandMessage[] } {
   const now = new Date().toISOString();
   const occupantTurn = persistMessage(db, occupantId, {
     id: randomUUID(),
     occupantId,
     sessionId: session.id,
     speaker: "occupant",
-    body: typeof input.body === "string" ? input.body : "",
-    agentRunId: result.run.id,
+    body: occupantBody,
+    agentRunId,
     createdAt: now,
   });
-  const answer = (result.run.answer ?? "").trim();
-  if (answer) {
+  if (answer.trim()) {
     persistMessage(db, occupantId, {
       id: randomUUID(),
       occupantId,
       sessionId: session.id,
       speaker: "proforna",
-      body: answer,
-      agentRunId: result.run.id,
+      body: answer.trim(),
+      agentRunId,
       createdAt: new Date().toISOString(),
     });
   }

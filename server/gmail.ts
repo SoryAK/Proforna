@@ -3,8 +3,11 @@ import { randomBytes } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import {
   gmailAuthorizeUrl,
+  gmailOAuthClient,
   gmailRawMessage,
   gmailRedirectUri,
+  prepareGmailAsk,
+  presentGmailAsk,
   readGmailAccessToken,
   readGmailMessage,
   readGmailProfile,
@@ -33,10 +36,21 @@ type StoredGmail = {
 };
 
 export class GmailStoreError extends Error {
-  constructor(readonly code: string) {
+  constructor(
+    readonly code: string,
+    readonly missing: string[] = [],
+  ) {
     super(code);
   }
 }
+
+export type GmailAccountView = {
+  connected: boolean;
+  email: string | null;
+  oauthClient: boolean;
+  missing: string[];
+  redirectUri: string;
+};
 
 const pending = new Map<string, PendingSignIn>();
 let signInServer: ReturnType<typeof createServer> | null = null;
@@ -45,10 +59,17 @@ let signInPort = 0;
 export function readGmailAccount(
   db: DatabaseSync,
   occupantId: string,
-): { connected: true; email: string } | { connected: false } {
+): GmailAccountView {
+  const client = gmailOAuthClient(process.env);
   const row = stored(db, occupantId);
-  if (!row) return { connected: false };
-  return { connected: true, email: row.email };
+  const port = oauthPort();
+  return {
+    connected: Boolean(row),
+    email: row?.email ?? null,
+    oauthClient: client.ok,
+    missing: client.ok ? [] : client.missing,
+    redirectUri: gmailRedirectUri(port === 0 ? 42813 : port),
+  };
 }
 
 export function disconnectGmail(db: DatabaseSync, occupantId: string): void {
@@ -58,18 +79,16 @@ export function disconnectGmail(db: DatabaseSync, occupantId: string): void {
 export async function beginGmailSignIn(
   db: DatabaseSync,
   occupantId: string,
-  input: { clientId?: unknown; clientSecret?: unknown },
   fetchImpl: typeof fetch = fetch,
 ): Promise<{ authorizeUrl: string }> {
-  const clientId = text(input.clientId);
-  const clientSecret = text(input.clientSecret);
-  if (!clientId || !clientSecret) throw new GmailStoreError("client-required");
+  const client = gmailOAuthClient(process.env);
+  if (!client.ok) throw new GmailStoreError("oauth-client-missing", client.missing);
   const port = await listenForGmail(db, fetchImpl);
   const state = randomBytes(16).toString("hex");
-  pending.set(state, { occupantId, clientId, clientSecret });
+  pending.set(state, { occupantId, clientId: client.clientId, clientSecret: client.clientSecret });
   return {
     authorizeUrl: gmailAuthorizeUrl({
-      clientId,
+      clientId: client.clientId,
       redirectUri: gmailRedirectUri(port),
       state,
     }),
@@ -82,10 +101,12 @@ export async function searchGmail(
   query: string,
   fetchImpl: typeof fetch = fetch,
 ): Promise<GmailThread[]> {
+  const prepared = prepareGmailAsk({ query });
+  if (!prepared.ok) throw new GmailStoreError(prepared.error);
   const accessToken = await accessTokenFor(db, occupantId, fetchImpl);
   const url = new URL(`${GMAIL_API}/threads`);
   url.searchParams.set("maxResults", "10");
-  url.searchParams.set("q", query.trim() || "in:inbox");
+  url.searchParams.set("q", prepared.query);
   const response = await fetchImpl(url, {
     headers: { authorization: `Bearer ${accessToken}` },
   });
@@ -133,6 +154,38 @@ export async function draftGmail(
   const id = text(saved.id);
   if (!id) throw new GmailStoreError("gmail-unread");
   return { id };
+}
+
+export async function answerGmailAsk(
+  db: DatabaseSync,
+  occupantId: string,
+  query: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<{ answer: string; threads: GmailThread[] }> {
+  const client = gmailOAuthClient(process.env);
+  if (!client.ok) {
+    return {
+      answer: presentGmailAsk({ status: "oauth-missing", missing: client.missing }),
+      threads: [],
+    };
+  }
+  if (!stored(db, occupantId)) {
+    return { answer: presentGmailAsk({ status: "not-connected" }), threads: [] };
+  }
+  const prepared = prepareGmailAsk({ query });
+  if (!prepared.ok) {
+    return { answer: presentGmailAsk({ status: "query-required" }), threads: [] };
+  }
+  try {
+    const threads = await searchGmail(db, occupantId, prepared.query, fetchImpl);
+    if (!threads.length) return { answer: presentGmailAsk({ status: "empty" }), threads };
+    return { answer: presentGmailAsk({ status: "found", threads }), threads };
+  } catch (error) {
+    if (error instanceof GmailStoreError && error.code === "query-required") {
+      return { answer: presentGmailAsk({ status: "query-required" }), threads: [] };
+    }
+    return { answer: presentGmailAsk({ status: "unread" }), threads: [] };
+  }
 }
 
 export async function closeGmailSignIn(): Promise<void> {

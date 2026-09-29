@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  gmailAskFromCommand,
   gmailAuthorizeUrl,
+  gmailOAuthClient,
   gmailRawMessage,
   gmailRedirectUri,
+  prepareGmailAsk,
+  presentGmailAsk,
   readGmailMessage,
   readGmailThreads,
   readGmailToken,
@@ -54,5 +58,43 @@ describe("gmail connection", () => {
       subject: "Hi",
     });
     expect(message?.body).toContain("There");
+  });
+
+  it("names a missing oauth client and refuses a fixed mailbox window", () => {
+    expect(gmailOAuthClient({})).toEqual({
+      ok: false,
+      missing: ["GMAIL_OAUTH_CLIENT_ID", "GMAIL_OAUTH_CLIENT_SECRET"],
+    });
+    expect(
+      gmailOAuthClient({
+        GMAIL_OAUTH_CLIENT_ID: "client",
+        GMAIL_OAUTH_CLIENT_SECRET: "secret",
+      }),
+    ).toEqual({ ok: true, clientId: "client", clientSecret: "secret" });
+    expect(prepareGmailAsk({ query: "in:inbox" })).toEqual({
+      ok: false,
+      error: "query-required",
+    });
+    expect(prepareGmailAsk({ query: "newer_than:2y" })).toEqual({
+      ok: false,
+      error: "query-required",
+    });
+    expect(prepareGmailAsk({ query: "Northstar offer" })).toEqual({
+      ok: true,
+      query: "Northstar offer",
+    });
+    expect(gmailAskFromCommand("What should I capture next?")).toEqual({ asked: false });
+    expect(gmailAskFromCommand("Search my Gmail for the Northstar offer")).toEqual({
+      asked: true,
+      query: "the Northstar offer",
+    });
+    expect(gmailAskFromCommand("Check inbox")).toEqual({ asked: true, query: "" });
+    expect(presentGmailAsk({ status: "query-required" })).toContain("does not search");
+    expect(
+      presentGmailAsk({
+        status: "found",
+        threads: [{ id: "t1", snippet: "Offer letter" }],
+      }),
+    ).toContain("Nothing was added");
   });
 });
