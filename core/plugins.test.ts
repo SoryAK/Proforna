@@ -3,6 +3,8 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   defaultThirdPartyPlugins,
+  prepareIntegrationValues,
+  presentIntegrationCatalog,
   readThirdPartyPlugin,
   thirdPartyBlock,
   type ThirdPartyPlugin,
@@ -37,7 +39,7 @@ describe("third-party plugins", () => {
     ]);
   });
 
-  it("leaves Google's preview Gmail server and Cursor-hosted gateways off", () => {
+  it("leaves preview mail servers and foreign gateways off the default list", () => {
     const byName = new Map(catalog.map((plugin) => [plugin.name, plugin]));
     expect(thirdPartyBlock(byName.get("gmail")!)).toBe("preview");
     expect(thirdPartyBlock(byName.get("google-calendar")!)).toBe("preview");
@@ -53,8 +55,42 @@ describe("third-party plugins", () => {
       displayName: "Calendly",
       description: "Check availability and book, cancel, or reschedule.",
       endpoint: "https://gmailmcp.googleapis.com/mcp/v1",
+      fields: [],
     };
     expect(thirdPartyBlock(preview)).toBe("preview");
     expect(defaultThirdPartyPlugins([preview])).toEqual([]);
+  });
+
+  it("lists every other connection, with the career accounts first", () => {
+    const listed = presentIntegrationCatalog(catalog);
+    expect(listed.some((plugin) => plugin.name === "gmail")).toBe(false);
+    expect(listed.slice(0, 5).map((plugin) => plugin.name)).toEqual([
+      "calendly",
+      "docusign",
+      "github",
+      "todoist",
+      "zoom",
+    ]);
+    const zoom = listed.find((plugin) => plugin.name === "zoom");
+    expect(zoom?.available).toBe(true);
+    expect(zoom?.fields.map((field) => field.key)).toEqual(["CLIENT_ID", "CLIENT_SECRET"]);
+    expect(listed.find((plugin) => plugin.name === "google-drive")?.available).toBe(false);
+  });
+
+  it("keeps a saved connection to the same fields used to add it", () => {
+    const zoom = catalog.find((plugin) => plugin.name === "zoom");
+    expect(zoom).toBeTruthy();
+    expect(
+      prepareIntegrationValues(zoom!, { CLIENT_ID: "id", CLIENT_SECRET: "secret" }),
+    ).toEqual({ ok: true, values: { CLIENT_ID: "id", CLIENT_SECRET: "secret" } });
+    expect(prepareIntegrationValues(zoom!, { CLIENT_ID: "id" })).toEqual({
+      ok: false,
+      error: "integration-incomplete",
+    });
+    const drive = catalog.find((plugin) => plugin.name === "google-drive");
+    expect(prepareIntegrationValues(drive!, {})).toEqual({
+      ok: false,
+      error: "integration-unavailable",
+    });
   });
 });

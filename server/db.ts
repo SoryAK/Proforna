@@ -495,6 +495,15 @@ export function openDatabase(path: string): DatabaseSync {
       updated_at TEXT NOT NULL
     )
   `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS integration_accounts (
+      occupant_id TEXT NOT NULL REFERENCES occupants(id),
+      name TEXT NOT NULL,
+      secrets_json TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY (occupant_id, name)
+    )
+  `);
   addColumnIfMissing(db, "profiles", "headline", "TEXT NOT NULL DEFAULT ''");
   addColumnIfMissing(db, "profiles", "address", "TEXT NOT NULL DEFAULT ''");
   addColumnIfMissing(db, "profiles", "address_latitude", "REAL");

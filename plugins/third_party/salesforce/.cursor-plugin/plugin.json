@@ -3,40 +3,18 @@
   "displayName": "Salesforce",
   "version": "1.0.0",
   "description": "Query, create, and update records in your org.",
-  "author": {
-    "name": "Cursor",
-    "email": "plugins@cursor.com"
-  },
-  "homepage": "https://developer.salesforce.com/docs/platform/hosted-mcp-servers/guide/cursor.html",
-  "repository": "https://github.com/cursor/plugins",
-  "license": "MIT",
-  "logo": "assets/logo.svg",
-  "keywords": [
-    "salesforce",
-    "crm",
-    "mcp",
-    "sales",
-    "soql",
-    "sobject"
-  ],
-  "category": "integrations",
-  "tags": [
-    "mcp",
-    "crm",
-    "sales"
-  ],
   "variables": {
     "type": "object",
     "properties": {
       "SALESFORCE_MCP_URL": {
         "type": "string",
         "title": "Salesforce MCP server URL",
-        "description": "Server URL from Setup → MCP Servers. Production: https://api.salesforce.com/platform/mcp/v1/platform/sobject-all. Sandbox or scratch: https://api.salesforce.com/platform/mcp/v1/sandbox/platform/sobject-all. For custom servers, replace platform/ with custom/."
+        "description": "Server URL from Setup \u2192 MCP Servers. Production: https://api.salesforce.com/platform/mcp/v1/platform/sobject-all. Sandbox or scratch: https://api.salesforce.com/platform/mcp/v1/sandbox/platform/sobject-all. For custom servers, replace platform/ with custom/."
       },
       "CLIENT_ID": {
         "type": "string",
         "title": "Salesforce Consumer Key",
-        "description": "Consumer Key of the External Client App you created for this integration (Setup → External Client App Manager → your app → Settings → Consumer Key and Secret)."
+        "description": "Consumer Key of the External Client App you created for this integration (Setup \u2192 External Client App Manager \u2192 your app \u2192 Settings \u2192 Consumer Key and Secret)."
       }
     },
     "required": [

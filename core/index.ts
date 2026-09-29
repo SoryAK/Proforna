@@ -252,8 +252,12 @@ export {
 } from "./gmail";
 export {
   defaultThirdPartyPlugins,
+  prepareIntegrationValues,
+  presentIntegrationCatalog,
   readThirdPartyPlugin,
   thirdPartyBlock,
+  type IntegrationField,
+  type IntegrationListing,
   type ThirdPartyBlock,
   type ThirdPartyPlugin,
 } from "./plugins";

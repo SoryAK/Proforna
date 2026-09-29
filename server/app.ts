@@ -121,6 +121,13 @@ import {
   searchGmail,
 } from "./gmail";
 import {
+  IntegrationCatalogError,
+  listIntegrationCatalog,
+  loadPluginCatalog,
+  removeIntegrationCatalog,
+  saveIntegrationCatalog,
+} from "./integration-catalog";
+import {
   JobSourceSettingsStoreError,
   readJobSourceSettings,
   saveJobSourceSettings,
@@ -1931,6 +1938,40 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
       return c.json({ draft }, 201);
     } catch (error) {
       if (error instanceof GmailStoreError) return c.json({ error: error.code }, 400);
+      throw error;
+    }
+  });
+
+  app.get("/api/integration-catalog", (c) => {
+    const occupant = ensureOccupant(db);
+    return c.json({ integrations: listIntegrationCatalog(db, occupant.id, loadPluginCatalog()) });
+  });
+
+  app.put("/api/integration-catalog/:name", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      const body = (await c.req.json()) as { values?: unknown };
+      saveIntegrationCatalog(
+        db,
+        occupant.id,
+        c.req.param("name"),
+        body.values,
+        loadPluginCatalog(),
+      );
+      return c.json({ configured: true });
+    } catch (error) {
+      if (error instanceof IntegrationCatalogError) return c.json({ error: error.code }, 400);
+      throw error;
+    }
+  });
+
+  app.delete("/api/integration-catalog/:name", (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      removeIntegrationCatalog(db, occupant.id, c.req.param("name"), loadPluginCatalog());
+      return c.json({ configured: false });
+    } catch (error) {
+      if (error instanceof IntegrationCatalogError) return c.json({ error: error.code }, 400);
       throw error;
     }
   });

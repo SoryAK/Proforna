@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-09-19T22:29:14Z",
+  "generatedAt": "2026-09-29T22:10:00Z",
   "title": "Design System: Proforna",
   "extensions": {
     "colorMeta": {
@@ -80,7 +80,7 @@
     "typographyMeta": {
       "display": {
         "displayName": "Display",
-        "purpose": "Page-level identity and spacious editorial headings."
+        "purpose": "Page-level identity."
       },
       "headline": {
         "displayName": "Headline",
@@ -92,11 +92,11 @@
       },
       "body": {
         "displayName": "Body",
-        "purpose": "Explanations and longer record content."
+        "purpose": "Explanations and longer record content, generally held near 66–68 characters."
       },
       "label": {
         "displayName": "Label",
-        "purpose": "Navigation labels, status, metadata, and controls."
+        "purpose": "Navigation labels, status, metadata, and controls. Uppercase tracking is limited to genuine category labels."
       }
     },
     "shadows": [
@@ -164,7 +164,7 @@
       "refersTo": "button-primary",
       "description": "The general-surface commitment action.",
       "html": "<button class=\"ds-btn-primary\">Save changes</button>",
-      "css": ".ds-btn-primary { padding: 10px 16px; border: 1px solid var(--gold, #a78b71); border-radius: 999px; background: var(--gold, #a78b71); color: #080706; font: 600 0.7rem/1.25 Inter, system-ui, sans-serif; cursor: pointer; transition: background 160ms cubic-bezier(0.4, 0, 0.2, 1); } .ds-btn-primary:hover { background: var(--gold-hover, #e8d5b7); } .ds-btn-primary:focus-visible { outline: 2px solid var(--gold-hover, #e8d5b7); outline-offset: 3px; } .ds-btn-primary:active { transform: translateY(1px); }"
+      "css": ".ds-btn-primary { padding: 10px 16px; border: 1px solid var(--gold, #a78b71); border-radius: 999px; background: var(--gold, #a78b71); color: #080706; font: 600 0.7rem/1.25 \"Geist Variable\", system-ui, sans-serif; cursor: pointer; transition: background 160ms cubic-bezier(0.4, 0, 0.2, 1); } .ds-btn-primary:hover { background: var(--gold-hover, #e8d5b7); } .ds-btn-primary:focus-visible { outline: 2px solid var(--gold-hover, #e8d5b7); outline-offset: 3px; } .ds-btn-primary:active { transform: translateY(1px); }"
     },
     {
       "name": "Operating Primary Button",
@@ -172,7 +172,7 @@
       "refersTo": "button-operating-primary",
       "description": "A compact commitment action for dense ledgers and editor sheets.",
       "html": "<button class=\"ds-btn-operating\">Save overview</button>",
-      "css": ".ds-btn-operating { min-height: 35px; padding: 8px 13px; border: 1px solid var(--gold, #a78b71); border-radius: 4px; background: var(--gold, #a78b71); color: #090806; font: 650 0.7rem/1.25 Inter, system-ui, sans-serif; cursor: pointer; } .ds-btn-operating:hover { border-color: var(--gold-hover, #e8d5b7); background: var(--gold-hover, #e8d5b7); } .ds-btn-operating:focus-visible { outline: 2px solid var(--gold-hover, #e8d5b7); outline-offset: 2px; } .ds-btn-operating:active { transform: translateY(1px); }"
+      "css": ".ds-btn-operating { min-height: 35px; padding: 8px 13px; border: 1px solid var(--gold, #a78b71); border-radius: 4px; background: var(--gold, #a78b71); color: #090806; font: 650 0.7rem/1.25 \"Geist Variable\", system-ui, sans-serif; cursor: pointer; } .ds-btn-operating:hover { border-color: var(--gold-hover, #e8d5b7); background: var(--gold-hover, #e8d5b7); } .ds-btn-operating:focus-visible { outline: 2px solid var(--gold-hover, #e8d5b7); outline-offset: 2px; } .ds-btn-operating:active { transform: translateY(1px); }"
     },
     {
       "name": "Secondary Button",
@@ -180,7 +180,7 @@
       "refersTo": "button-secondary",
       "description": "A quiet global action that leaves the gold fill to primary commitments.",
       "html": "<button class=\"ds-btn-secondary\">Publication settings</button>",
-      "css": ".ds-btn-secondary { padding: 8px 13px; border: 1px solid rgba(167, 139, 113, 0.4); border-radius: 999px; background: transparent; color: var(--gold-hover, #e8d5b7); font: 600 0.7rem/1.25 Inter, system-ui, sans-serif; cursor: pointer; } .ds-btn-secondary:hover { border-color: var(--gold-hover, #e8d5b7); color: var(--gold-light, #c9b8a0); } .ds-btn-secondary:focus-visible { outline: 2px solid var(--gold-hover, #e8d5b7); outline-offset: 3px; } .ds-btn-secondary:active { background: rgba(167, 139, 113, 0.12); }"
+      "css": ".ds-btn-secondary { padding: 8px 13px; border: 1px solid rgba(167, 139, 113, 0.4); border-radius: 999px; background: transparent; color: var(--gold-hover, #e8d5b7); font: 600 0.7rem/1.25 \"Geist Variable\", system-ui, sans-serif; cursor: pointer; } .ds-btn-secondary:hover { border-color: var(--gold-hover, #e8d5b7); color: var(--gold-light, #c9b8a0); } .ds-btn-secondary:focus-visible { outline: 2px solid var(--gold-hover, #e8d5b7); outline-offset: 3px; } .ds-btn-secondary:active { background: rgba(167, 139, 113, 0.12); }"
     },
     {
       "name": "Underline Field",
@@ -188,21 +188,21 @@
       "refersTo": "input-underline",
       "description": "The transparent field used across career capture and detail editing.",
       "html": "<label class=\"ds-field\"><span>Organization</span><input placeholder=\"Organization name\" /></label>",
-      "css": ".ds-field { display: grid; gap: 6px; color: var(--gold-hover, #e8d5b7); font: 400 0.72rem/1.45 Inter, system-ui, sans-serif; } .ds-field input { box-sizing: border-box; width: 100%; padding: 9px 0; border: 0; border-bottom: 1px solid rgba(167, 139, 113, 0.35); border-radius: 0; outline: 0; background: transparent; color: var(--text, #f5f2ee); font: 400 1rem/1.45 Inter, system-ui, sans-serif; caret-color: var(--gold-hover, #e8d5b7); } .ds-field input:hover { border-bottom-color: rgba(232, 213, 183, 0.65); } .ds-field input:focus-visible { border-bottom-color: var(--gold-hover, #e8d5b7); outline: 2px solid var(--gold-hover, #e8d5b7); outline-offset: 2px; }"
+      "css": ".ds-field { display: grid; gap: 6px; color: var(--gold-hover, #e8d5b7); font: 400 0.72rem/1.45 \"Geist Variable\", system-ui, sans-serif; } .ds-field input { box-sizing: border-box; width: 100%; padding: 9px 0; border: 0; border-bottom: 1px solid rgba(167, 139, 113, 0.35); border-radius: 0; outline: 0; background: transparent; color: var(--text, #f5f2ee); font: 400 1rem/1.45 \"Geist Variable\", system-ui, sans-serif; caret-color: var(--gold-hover, #e8d5b7); } .ds-field input:hover { border-bottom-color: rgba(232, 213, 183, 0.65); } .ds-field input:focus-visible { border-bottom-color: var(--gold-hover, #e8d5b7); outline: 2px solid var(--gold-hover, #e8d5b7); outline-offset: 2px; }"
     },
     {
       "name": "Navigation Item",
       "kind": "nav",
       "description": "Persistent navigation with a quiet tonal selected state.",
-      "html": "<nav class=\"ds-nav\"><button class=\"ds-nav-item ds-is-current\">Work Map</button><button class=\"ds-nav-item\">Resume Studio</button></nav>",
-      "css": ".ds-nav { display: grid; gap: 3px; width: 220px; padding: 10px; background: #070707; } .ds-nav-item { min-height: 40px; padding: 7px 11px; border: 0; border-radius: 10px; background: transparent; color: var(--gold-light, #c9b8a0); font: 500 0.95rem/1.25 Inter, system-ui, sans-serif; text-align: left; cursor: pointer; } .ds-nav-item:hover, .ds-nav-item:focus-visible { background: rgba(167, 139, 113, 0.12); color: var(--gold-hover, #e8d5b7); } .ds-nav-item:focus-visible { outline: 2px solid var(--gold-hover, #e8d5b7); outline-offset: 2px; } .ds-nav-item.ds-is-current { background: rgba(167, 139, 113, 0.18); color: var(--gold-hover, #e8d5b7); }"
+      "html": "<nav class=\"ds-nav\"><button class=\"ds-nav-item ds-is-current\">Career History</button><button class=\"ds-nav-item\">Opportunities</button></nav>",
+      "css": ".ds-nav { display: grid; gap: 3px; width: 220px; padding: 10px; background: #070707; } .ds-nav-item { min-height: 40px; padding: 7px 11px; border: 0; border-radius: 10px; background: transparent; color: var(--gold-light, #c9b8a0); font: 500 0.95rem/1.25 \"Geist Variable\", system-ui, sans-serif; text-align: left; cursor: pointer; } .ds-nav-item:hover, .ds-nav-item:focus-visible { background: rgba(167, 139, 113, 0.12); color: var(--gold-hover, #e8d5b7); } .ds-nav-item:focus-visible { outline: 2px solid var(--gold-hover, #e8d5b7); outline-offset: 2px; } .ds-nav-item.ds-is-current { background: rgba(167, 139, 113, 0.18); color: var(--gold-hover, #e8d5b7); }"
     },
     {
       "name": "Career Ledger Row",
       "kind": "custom",
       "description": "A selected career record that keeps role, organization, time, and place in one line of context.",
       "html": "<button class=\"ds-ledger-row ds-is-selected\"><span class=\"ds-ledger-dot\"></span><span><strong>Acme Manufacturing</strong><b>Controls Engineer</b><small>2022-04 – Present · Philadelphia, PA</small></span><em>2 sites · Edit</em></button>",
-      "css": ".ds-ledger-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; width: 300px; gap: 10px; align-items: start; padding: 13px; border: 0; border-bottom: 1px solid rgba(199, 164, 123, 0.12); background: transparent; color: var(--text, #f5f2ee); font-family: Inter, system-ui, sans-serif; text-align: left; cursor: pointer; } .ds-ledger-row:hover, .ds-ledger-row.ds-is-selected { background: rgba(199, 164, 123, 0.09); } .ds-ledger-row:focus-visible { outline: 2px solid var(--gold-hover, #e8d5b7); outline-offset: -2px; } .ds-ledger-row.ds-is-selected { box-shadow: inset 1px 0 0 var(--gold-hover, #e8d5b7); } .ds-ledger-row strong, .ds-ledger-row b, .ds-ledger-row small { display: block; } .ds-ledger-row strong { font-size: 0.78rem; } .ds-ledger-row b { margin-top: 3px; color: var(--gold-light, #c9b8a0); font-size: 0.69rem; font-weight: 450; } .ds-ledger-row small, .ds-ledger-row em { margin-top: 4px; color: #b9aa97; font-size: 0.67rem; font-style: normal; } .ds-ledger-dot { width: 9px; height: 9px; margin-top: 3px; border: 2px solid #080706; border-radius: 50%; background: var(--gold, #a78b71); box-shadow: 0 2px 8px rgba(194, 123, 43, 0.32); }"
+      "css": ".ds-ledger-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; width: 300px; gap: 10px; align-items: start; padding: 13px; border: 0; border-bottom: 1px solid rgba(199, 164, 123, 0.12); background: transparent; color: var(--text, #f5f2ee); font-family: \"Geist Variable\", system-ui, sans-serif; text-align: left; cursor: pointer; } .ds-ledger-row:hover, .ds-ledger-row.ds-is-selected { background: rgba(199, 164, 123, 0.09); } .ds-ledger-row:focus-visible { outline: 2px solid var(--gold-hover, #e8d5b7); outline-offset: -2px; } .ds-ledger-row.ds-is-selected { box-shadow: inset 1px 0 0 var(--gold-hover, #e8d5b7); } .ds-ledger-row strong, .ds-ledger-row b, .ds-ledger-row small { display: block; } .ds-ledger-row strong { font-size: 0.78rem; } .ds-ledger-row b { margin-top: 3px; color: var(--gold-light, #c9b8a0); font-size: 0.69rem; font-weight: 450; } .ds-ledger-row small, .ds-ledger-row em { margin-top: 4px; color: #b9aa97; font-size: 0.67rem; font-style: normal; } .ds-ledger-dot { width: 9px; height: 9px; margin-top: 3px; border: 2px solid #080706; border-radius: 50%; background: var(--gold, #a78b71); box-shadow: 0 2px 8px rgba(194, 123, 43, 0.32); }"
     },
     {
       "name": "Side Sheet",
@@ -210,15 +210,15 @@
       "refersTo": "panel-dark",
       "description": "The attached editor surface used for focused role and publication work.",
       "html": "<aside class=\"ds-side-sheet\"><header><div><h2>Controls Engineer</h2><p>Acme Manufacturing</p></div><button>Close</button></header><div class=\"ds-side-sheet-body\">Focused career detail belongs here.</div></aside>",
-      "css": ".ds-side-sheet { width: 360px; border-left: 1px solid rgba(199, 164, 123, 0.38); background: #0b0908; color: var(--text, #f5f2ee); box-shadow: -18px 0 45px rgba(0, 0, 0, 0.42); font-family: Inter, system-ui, sans-serif; } .ds-side-sheet header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 16px 18px; border-bottom: 1px solid rgba(199, 164, 123, 0.2); } .ds-side-sheet h2 { margin: 4px 0 0; font: italic 400 1.45rem/1.15 \"Playfair Display\", Georgia, serif; } .ds-side-sheet p { margin: 3px 0 0; color: #b9aa97; font-size: 0.68rem; } .ds-side-sheet button { padding: 8px 12px; border: 1px solid rgba(199, 164, 123, 0.32); border-radius: 4px; background: transparent; color: var(--gold-light, #c9b8a0); cursor: pointer; } .ds-side-sheet button:hover { border-color: var(--gold-hover, #e8d5b7); color: var(--gold-hover, #e8d5b7); } .ds-side-sheet button:focus-visible { outline: 2px solid var(--gold-hover, #e8d5b7); outline-offset: 2px; } .ds-side-sheet-body { min-height: 150px; padding: 16px 18px 48px; color: #b9aa97; font-size: 0.8rem; line-height: 1.6; }"
+      "css": ".ds-side-sheet { width: 360px; border-left: 1px solid rgba(199, 164, 123, 0.38); background: #0b0908; color: var(--text, #f5f2ee); box-shadow: -18px 0 45px rgba(0, 0, 0, 0.42); font-family: \"Geist Variable\", system-ui, sans-serif; } .ds-side-sheet header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 16px 18px; border-bottom: 1px solid rgba(199, 164, 123, 0.2); } .ds-side-sheet h2 { margin: 4px 0 0; font: 600 1.15rem/1.25 \"Geist Variable\", system-ui, sans-serif; letter-spacing: -0.02em; } .ds-side-sheet p { margin: 3px 0 0; color: #b9aa97; font-size: 0.68rem; } .ds-side-sheet button { padding: 8px 12px; border: 1px solid rgba(199, 164, 123, 0.32); border-radius: 4px; background: transparent; color: var(--gold-light, #c9b8a0); cursor: pointer; } .ds-side-sheet button:hover { border-color: var(--gold-hover, #e8d5b7); color: var(--gold-hover, #e8d5b7); } .ds-side-sheet button:focus-visible { outline: 2px solid var(--gold-hover, #e8d5b7); outline-offset: 2px; } .ds-side-sheet-body { min-height: 150px; padding: 16px 18px 48px; color: #b9aa97; font-size: 0.8rem; line-height: 1.6; }"
     }
   ],
   "narrative": {
     "northStar": "The Private Career Ledger",
-    "overview": "Proforna is a restrained, near-black career workspace with the gravity of a private ledger and the clarity of an operating instrument. Warm gold rules and text establish hierarchy without turning the interface ornamental; italic serif type marks identity, reflection, and important headings, while compact sans-serif controls carry the work.\n\nThe system supports two related densities. Profile and reading surfaces use generous editorial spacing and soft or pill-shaped controls. Data-rich operating surfaces tighten the rhythm, use square-edged divisions, and allow compact rectangular controls so records remain connected rather than becoming a dashboard of interchangeable cards.",
+    "overview": "Proforna is a restrained, near-black career workspace with the gravity of a private ledger and the clarity of an operating instrument. Warm gold rules and text establish hierarchy without turning the interface ornamental. One sans-serif, Geist, carries identity and controls; weight and size mark headings.\n\nThe system supports two related densities. Profile and reading surfaces use generous editorial spacing and soft or pill-shaped controls. Data-rich operating surfaces tighten the rhythm, use square-edged divisions, and allow compact rectangular controls so records remain connected rather than becoming a dashboard of interchangeable cards.",
     "keyCharacteristics": [
       "Near-black layered surfaces with warm gold hierarchy.",
-      "Italic Playfair Display for identity and section voice; Inter for operation.",
+      "Geist for identity, headings, and controls. Headings are semibold and upright.",
       "Fine rules, transparent fields, and tonal selection states instead of card grids.",
       "Filled gold reserved for selected states and explicit primary actions.",
       "Responsive workspaces preserve context until narrow screens require stacking."
@@ -230,13 +230,18 @@
         "section": "colors"
       },
       {
+        "name": "The Readable Ground Rule",
+        "body": "Ivory and gold type sit on near-black. A menu, option, or field that paints a white or paper ground uses operating-black type. Light type never sits on a light ground, including options that are not the current selection.",
+        "section": "colors"
+      },
+      {
         "name": "The Material Exception Rule",
         "body": "Light grounds belong to real output or geographic material, not to generic application containers.",
         "section": "colors"
       },
       {
-        "name": "The Two Voices Rule",
-        "body": "Serif type gives identity and reflective hierarchy; sans-serif type carries actions, fields, metadata, and dense records.",
+        "name": "The One Voice Rule",
+        "body": "Geist carries headings, actions, fields, and records. Do not introduce a slanted display face.",
         "section": "typography"
       },
       {
@@ -259,13 +264,16 @@
       "Do use inherited palette and type tokens before introducing surface-local values.",
       "Do communicate hierarchy with fine rules, tonal layers, typography, and restrained gold states.",
       "Do keep focus visible, preserve semantic controls, and disable optional motion for reduced-motion preferences.",
-      "Do let real map tiles, paper outputs, and other meaningful materials contrast with the dark application shell."
+      "Do let real map tiles, paper outputs, and other meaningful materials contrast with the dark application shell.",
+      "Do theme every scrollbar from Ledger Gold on a transparent track, so the thumb sits in the surface."
     ],
     "donts": [
       "Don't use filled gold broadly; its rarity identifies selection and commitment.",
       "Don't turn connected operating workflows into interchangeable card dashboards.",
       "Don't use decorative elevation on surfaces that are not overlays or distinct materials.",
-      "Don't introduce additional display families, hard offset shadows, or ornamental glyph icons."
+      "Don't introduce additional display families, hard offset shadows, or ornamental glyph icons.",
+      "Don't put ivory or gold type on a white menu, option, or field.",
+      "Don't leave a browser-default gray or overlay scrollbar on any scroller."
     ]
   }
 }

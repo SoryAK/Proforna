@@ -1,0 +1,12 @@
+---
+description: Do not name another product, project, or repository in commits or docs unless asked
+alwaysApply: true
+---
+
+# Outside names
+
+Do not name another product, project, or repository in a commit message or in documentation unless that mention was explicitly requested or approved.
+
+- This covers commit subjects, commit bodies, READMEs, ADRs, glossary entries, and comments that ship as documentation.
+- A connection's own product name, such as the account the occupant is configuring, is the name of that connection. That is not a citation of where the idea came from.
+- If a mention is requested, keep it to the place that was asked for.

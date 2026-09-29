@@ -13,6 +13,8 @@ Governed agency (one Proforna, Agent Runs as purposes): [docs/agent-authority.md
 
 Anything an occupant can add must also be readable, changeable, and removable. Create, read, update, and delete stay together. The fields used to add a record are the fields used to change it.
 
+Do not name another product, project, or repository in a commit message or in documentation unless that mention was explicitly requested or approved.
+
 ## Agent skills
 
 ### Issue tracker

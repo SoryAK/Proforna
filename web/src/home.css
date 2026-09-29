@@ -1172,6 +1172,63 @@ button.home-nav-item:focus-visible {
   font-size: 0.88rem;
 }
 
+.integration-list {
+  margin: 1.25rem 0 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid rgba(167, 139, 113, 0.22);
+}
+
+.integration-list button {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  width: 100%;
+  padding: 0.85rem 0;
+  border: 0;
+  border-bottom: 1px solid rgba(167, 139, 113, 0.22);
+  background: transparent;
+  color: #f5f2ee;
+  font: inherit;
+  text-align: left;
+}
+
+.integration-list button:hover,
+.integration-list button:focus-visible {
+  color: var(--gold-hover);
+}
+
+.integration-state {
+  color: var(--gold);
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+.integration-back {
+  margin: 1rem 0 0.4rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--gold-hover);
+  font: inherit;
+  font-size: 0.9rem;
+}
+
+.integration-detail h2 {
+  margin: 0.8rem 0 0;
+  color: #fff;
+  font-size: 1.15rem;
+  font-weight: 600;
+}
+
+.integration-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 0.9rem;
+}
+
 .map-pin-settings {
   display: grid;
   gap: 0.55rem;
