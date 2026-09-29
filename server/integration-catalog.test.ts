@@ -15,7 +15,7 @@ describe("integration catalog", () => {
     expect(names[0]).toBe("gmail");
     expect(names).toContain("zoom");
     expect(names).not.toContain("secret");
-    expect(body.integrations.find((item) => item.name === "google-drive")?.available).toBe(false);
+    expect(names).not.toContain("google-drive");
 
     const saved = await app.request("/api/integration-catalog/zoom", {
       method: "PUT",
@@ -39,6 +39,29 @@ describe("integration catalog", () => {
       body: JSON.stringify({ values: { CLIENT_ID: "next-id", CLIENT_SECRET: "next-secret" } }),
     });
     expect(changed.status).toBe(200);
+    expect(readIntegrationSecrets(db, occupant.id, "zoom")?.CLIENT_SECRET).toBe("next-secret");
+
+    const off = await app.request("/api/integration-catalog/zoom", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ enabled: false }),
+    });
+    expect(await off.json()).toEqual({ enabled: false });
+    expect(readIntegrationSecrets(db, occupant.id, "zoom")).toBeNull();
+    const listedOff = await app.request("/api/integration-catalog");
+    const offBody = (await listedOff.json()) as {
+      integrations: Array<{ name: string; configured: boolean; enabled: boolean }>;
+    };
+    expect(offBody.integrations.find((item) => item.name === "zoom")).toMatchObject({
+      configured: true,
+      enabled: false,
+    });
+    const on = await app.request("/api/integration-catalog/zoom", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ enabled: true }),
+    });
+    expect(await on.json()).toEqual({ enabled: true });
     expect(readIntegrationSecrets(db, occupant.id, "zoom")?.CLIENT_SECRET).toBe("next-secret");
 
     const removed = await app.request("/api/integration-catalog/zoom", { method: "DELETE" });

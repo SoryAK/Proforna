@@ -1,10 +1,18 @@
 import { useEffect, useState, type FormEvent } from "react";
 
-type GmailAccount = { connected: false } | { connected: true; email: string };
+type GmailAccount = { connected: false } | { connected: true; email: string; enabled: boolean };
 
 type GmailThread = { id: string; snippet: string };
 
-export function GmailSettingsForm() {
+export function GmailSettingsForm({
+  nested = false,
+  listedEnabled,
+  onAccountChange,
+}: {
+  nested?: boolean;
+  listedEnabled?: boolean;
+  onAccountChange?: () => void;
+}) {
   const [account, setAccount] = useState<GmailAccount | null>(null);
   const [clientId, setClientId] = useState("");
   const [clientSecret, setClientSecret] = useState("");
@@ -29,9 +37,18 @@ export function GmailSettingsForm() {
 
   async function connect(event: FormEvent) {
     event.preventDefault();
-    setBusy(true);
     setError("");
     setMessage("");
+    if (!clientId.trim() || !clientSecret.trim()) {
+      setError("Gmail needs a client id and a client secret.");
+      return;
+    }
+    const popup = openSignInWindow();
+    if (!popup) {
+      setError("The sign-in window was blocked. Allow popups for Proforna, then try Connect again.");
+      return;
+    }
+    setBusy(true);
     try {
       const response = await fetch("/api/gmail/connect", {
         method: "POST",
@@ -40,6 +57,7 @@ export function GmailSettingsForm() {
       });
       const payload = (await response.json()) as { authorizeUrl?: string; error?: string };
       if (!response.ok || !payload.authorizeUrl) {
+        popup.close();
         setError(
           payload.error === "client-required"
             ? "Gmail needs a client id and a client secret."
@@ -47,16 +65,19 @@ export function GmailSettingsForm() {
         );
         return;
       }
-      window.open(payload.authorizeUrl, "_blank", "noopener");
+      popup.location.href = payload.authorizeUrl;
       const connected = await waitForGmail();
       if (!connected) {
-        setError("Gmail could not be connected. Finish the Google sign-in, then try again.");
+        setError("Finish signing in in the Google window, then try Connect again.");
         return;
       }
+      popup.close();
       setAccount(connected);
       setClientSecret("");
       setMessage(`Connected ${connected.email}. Search reads that mailbox, and a draft stays in Gmail until you send it.`);
+      onAccountChange?.();
     } catch {
+      popup.close();
       setError("Gmail could not be connected.");
     } finally {
       setBusy(false);
@@ -128,22 +149,29 @@ export function GmailSettingsForm() {
       setAccount({ connected: false });
       setThreads([]);
       setMessage("Gmail is disconnected.");
+      onAccountChange?.();
     } finally {
       setBusy(false);
     }
   }
 
+  const gmailOn = account?.connected ? (listedEnabled ?? account.enabled) : false;
+
   return (
     <>
-      <h1>Gmail</h1>
-      <p className="onboarding-lead">
-        Sign in to the Gmail account you want Proforna to read. Search finds mail, and a draft is saved in Gmail. Proforna does not send it.
-      </p>
+      {nested ? null : (
+        <>
+          <h1>Gmail</h1>
+          <p className="onboarding-lead">
+            Sign in to the Gmail account you want Proforna to read. Search finds mail, and a draft is saved in Gmail. Proforna does not send it.
+          </p>
+        </>
+      )}
       {account?.connected ? (
         <>
-          <p>
-            {account.email}
-          </p>
+          <p>{account.email}</p>
+          {gmailOn ? (
+            <>
           <form onSubmit={(event) => void search(event)}>
             <label className="onboarding-field">
               <span>Search</span>
@@ -179,6 +207,10 @@ export function GmailSettingsForm() {
               Save draft
             </button>
           </form>
+            </>
+          ) : (
+            <p className="home-settings-note">Gmail is off. Turn it on to search or save a draft.</p>
+          )}
           <button type="button" disabled={busy} onClick={() => void disconnect()}>
             Disconnect
           </button>
@@ -186,7 +218,7 @@ export function GmailSettingsForm() {
       ) : (
         <form onSubmit={(event) => void connect(event)}>
           <p className="onboarding-lead">
-            In Google Cloud, create a desktop OAuth client and add http://127.0.0.1:42813/oauth2callback as a redirect. Paste that client here, then sign in.
+            Connect opens a Google sign-in window. After you allow access, this window closes and Gmail is connected.
           </p>
           <label className="onboarding-field">
             <span>Client id</span>
@@ -204,6 +236,9 @@ export function GmailSettingsForm() {
           <button type="submit" disabled={busy}>
             {busy ? "Waiting for Google" : "Connect"}
           </button>
+          <p className="home-settings-note">
+            The first time, create a desktop client in Google Cloud and add http://127.0.0.1:42813/oauth2callback as a redirect. Paste that client here.
+          </p>
         </form>
       )}
       {message ? <p className="home-settings-note">{message}</p> : null}
@@ -213,6 +248,18 @@ export function GmailSettingsForm() {
         </p>
       ) : null}
     </>
+  );
+}
+
+function openSignInWindow(): Window | null {
+  const width = 520;
+  const height = 720;
+  const left = window.screenX + Math.max(0, (window.outerWidth - width) / 2);
+  const top = window.screenY + Math.max(0, (window.outerHeight - height) / 2);
+  return window.open(
+    "about:blank",
+    "proforna-gmail-sign-in",
+    `popup=yes,width=${width},height=${height},left=${Math.round(left)},top=${Math.round(top)}`,
   );
 }
 

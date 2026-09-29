@@ -504,6 +504,8 @@ export function openDatabase(path: string): DatabaseSync {
       PRIMARY KEY (occupant_id, name)
     )
   `);
+  addColumnIfMissing(db, "gmail_accounts", "enabled", "INTEGER NOT NULL DEFAULT 1");
+  addColumnIfMissing(db, "integration_accounts", "enabled", "INTEGER NOT NULL DEFAULT 1");
   addColumnIfMissing(db, "profiles", "headline", "TEXT NOT NULL DEFAULT ''");
   addColumnIfMissing(db, "profiles", "address", "TEXT NOT NULL DEFAULT ''");
   addColumnIfMissing(db, "profiles", "address_latitude", "REAL");

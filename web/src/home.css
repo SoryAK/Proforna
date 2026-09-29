@@ -1173,36 +1173,104 @@ button.home-nav-item:focus-visible {
 }
 
 .integration-list {
-  margin: 1.25rem 0 0;
+  margin: 1.1rem 0 0;
   padding: 0;
   list-style: none;
   border-top: 1px solid rgba(167, 139, 113, 0.22);
 }
 
-.integration-list button {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 1rem;
-  width: 100%;
-  padding: 0.85rem 0;
-  border: 0;
+.integration-row {
+  padding: 0.85rem 0 0.95rem;
   border-bottom: 1px solid rgba(167, 139, 113, 0.22);
+}
+
+.integration-row-main {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+}
+
+.integration-open {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
   background: transparent;
-  color: #f5f2ee;
+  color: inherit;
   font: inherit;
   text-align: left;
 }
 
-.integration-list button:hover,
-.integration-list button:focus-visible {
+.integration-name {
+  display: block;
+  color: #f5f2ee;
+  font-weight: 600;
+}
+
+.integration-summary {
+  display: block;
+  margin-top: 0.2rem;
+  color: var(--gold-hover);
+  font-size: 0.88rem;
+  font-weight: 400;
+  line-height: 1.35;
+}
+
+.integration-open:hover .integration-name,
+.integration-open:focus-visible .integration-name {
   color: var(--gold-hover);
 }
 
 .integration-state {
+  flex: 0 0 auto;
   color: var(--gold);
   font-size: 0.82rem;
   white-space: nowrap;
+}
+
+.integration-switch {
+  position: relative;
+  flex: 0 0 auto;
+  width: 2.25rem;
+  height: 1.25rem;
+  padding: 0;
+  border: 1px solid rgba(167, 139, 113, 0.45);
+  border-radius: 999px;
+  background: transparent;
+}
+
+.integration-switch::after {
+  content: "";
+  position: absolute;
+  top: 0.15rem;
+  left: 0.15rem;
+  width: 0.85rem;
+  height: 0.85rem;
+  border-radius: 999px;
+  background: var(--gold);
+  transition: transform 160ms ease;
+}
+
+.integration-switch[aria-checked="true"] {
+  border-color: var(--gold-hover);
+  background: rgba(167, 139, 113, 0.35);
+}
+
+.integration-switch[aria-checked="true"]::after {
+  transform: translateX(0.95rem);
+}
+
+.integration-switch:focus-visible {
+  outline: 1px solid var(--gold-hover);
+  outline-offset: 3px;
+}
+
+.integration-switch:disabled {
+  opacity: 0.55;
+}
+
+.integration-panel {
+  padding: 0.35rem 0 0.15rem;
 }
 
 .integration-back {

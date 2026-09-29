@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import {
+  prepareConnectionEnabled,
   prepareIntegrationValues,
   presentIntegrationCatalog,
   readThirdPartyPlugin,
@@ -19,11 +20,17 @@ export type ListedIntegration = {
   available: boolean;
   fields: IntegrationField[];
   configured: boolean;
+  enabled: boolean;
 };
 
 export class IntegrationCatalogError extends Error {
   constructor(
-    readonly code: "integration-unavailable" | "integration-incomplete" | "integration-unknown",
+    readonly code:
+      | "integration-unavailable"
+      | "integration-incomplete"
+      | "integration-unknown"
+      | "integration-not-configured"
+      | "integration-enabled-invalid",
   ) {
     super(code);
   }
@@ -48,7 +55,7 @@ export function listIntegrationCatalog(
   occupantId: string,
   plugins: readonly ThirdPartyPlugin[],
 ): ListedIntegration[] {
-  const saved = savedNames(db, occupantId);
+  const saved = savedAccounts(db, occupantId);
   const gmail = readGmailAccount(db, occupantId);
   return [
     {
@@ -58,11 +65,18 @@ export function listIntegrationCatalog(
       available: true,
       fields: [],
       configured: gmail.connected,
+      enabled: gmail.connected && gmail.enabled,
     },
-    ...presentIntegrationCatalog(plugins).map((plugin) => ({
-      ...plugin,
-      configured: saved.has(plugin.name),
-    })),
+    ...presentIntegrationCatalog(plugins)
+      .filter((plugin) => plugin.available)
+      .map((plugin) => {
+      const account = saved.get(plugin.name);
+      return {
+        ...plugin,
+        configured: Boolean(account),
+        enabled: account?.enabled ?? false,
+      };
+    }),
   ];
 }
 
@@ -87,6 +101,30 @@ export function saveIntegrationCatalog(
   ).run(occupantId, name, sealed, new Date().toISOString());
 }
 
+export function setIntegrationEnabled(
+  db: DatabaseSync,
+  occupantId: string,
+  name: string,
+  input: unknown,
+  plugins: readonly ThirdPartyPlugin[],
+): boolean {
+  if (!plugins.some((plugin) => plugin.name === name)) {
+    throw new IntegrationCatalogError("integration-unknown");
+  }
+  const prepared = prepareConnectionEnabled(input);
+  if (!prepared.ok) throw new IntegrationCatalogError(prepared.error);
+  const existing = db
+    .prepare(
+      "SELECT 1 AS present FROM integration_accounts WHERE occupant_id = ? AND name = ?",
+    )
+    .get(occupantId, name) as { present: number } | undefined;
+  if (!existing) throw new IntegrationCatalogError("integration-not-configured");
+  db.prepare(
+    "UPDATE integration_accounts SET enabled = ?, updated_at = ? WHERE occupant_id = ? AND name = ?",
+  ).run(prepared.enabled ? 1 : 0, new Date().toISOString(), occupantId, name);
+  return prepared.enabled;
+}
+
 export function removeIntegrationCatalog(
   db: DatabaseSync,
   occupantId: string,
@@ -109,19 +147,22 @@ export function readIntegrationSecrets(
 ): Record<string, string> | null {
   const row = db
     .prepare(
-      "SELECT secrets_json FROM integration_accounts WHERE occupant_id = ? AND name = ?",
+      "SELECT secrets_json, enabled FROM integration_accounts WHERE occupant_id = ? AND name = ?",
     )
-    .get(occupantId, name) as { secrets_json: string } | undefined;
-  if (!row) return null;
+    .get(occupantId, name) as { secrets_json: string; enabled: number } | undefined;
+  if (!row || row.enabled !== 1) return null;
   const opened = openSecret(row.secrets_json, vaultKey(true));
   const parsed = JSON.parse(opened) as unknown;
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
   return parsed as Record<string, string>;
 }
 
-function savedNames(db: DatabaseSync, occupantId: string): Set<string> {
+function savedAccounts(
+  db: DatabaseSync,
+  occupantId: string,
+): Map<string, { enabled: boolean }> {
   const rows = db
-    .prepare("SELECT name FROM integration_accounts WHERE occupant_id = ?")
-    .all(occupantId) as { name: string }[];
-  return new Set(rows.map((row) => row.name));
+    .prepare("SELECT name, enabled FROM integration_accounts WHERE occupant_id = ?")
+    .all(occupantId) as { name: string; enabled: number }[];
+  return new Map(rows.map((row) => [row.name, { enabled: row.enabled === 1 }]));
 }
