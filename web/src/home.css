@@ -1228,6 +1228,23 @@ button.home-nav-item:focus-visible {
   white-space: nowrap;
 }
 
+.integration-connect {
+  flex: 0 0 auto;
+  padding: 0.35rem 0.85rem;
+  border: 1px solid rgba(167, 139, 113, 0.45);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--gold-hover);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.integration-connect:hover,
+.integration-connect:focus-visible {
+  border-color: var(--gold-hover);
+  color: var(--gold-light);
+}
+
 .integration-switch {
   position: relative;
   flex: 0 0 auto;
