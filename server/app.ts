@@ -119,6 +119,7 @@ import {
   readGmail,
   readGmailAccount,
   searchGmail,
+  setGmailEnabled,
 } from "./gmail";
 import {
   IntegrationCatalogError,
@@ -126,6 +127,7 @@ import {
   loadPluginCatalog,
   removeIntegrationCatalog,
   saveIntegrationCatalog,
+  setIntegrationEnabled,
 } from "./integration-catalog";
 import {
   JobSourceSettingsStoreError,
@@ -1884,6 +1886,18 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
     return c.json(readGmailAccount(db, occupant.id));
   });
 
+  app.patch("/api/gmail", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      const body = (await c.req.json()) as { enabled?: unknown };
+      const enabled = setGmailEnabled(db, occupant.id, body.enabled);
+      return c.json({ enabled });
+    } catch (error) {
+      if (error instanceof GmailStoreError) return c.json({ error: error.code }, 400);
+      throw error;
+    }
+  });
+
   app.delete("/api/gmail", (c) => {
     const occupant = ensureOccupant(db);
     disconnectGmail(db, occupant.id);
@@ -1959,6 +1973,24 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
         loadPluginCatalog(),
       );
       return c.json({ configured: true });
+    } catch (error) {
+      if (error instanceof IntegrationCatalogError) return c.json({ error: error.code }, 400);
+      throw error;
+    }
+  });
+
+  app.patch("/api/integration-catalog/:name", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      const body = (await c.req.json()) as { enabled?: unknown };
+      const enabled = setIntegrationEnabled(
+        db,
+        occupant.id,
+        c.req.param("name"),
+        body.enabled,
+        loadPluginCatalog(),
+      );
+      return c.json({ enabled });
     } catch (error) {
       if (error instanceof IntegrationCatalogError) return c.json({ error: error.code }, 400);
       throw error;

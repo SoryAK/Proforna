@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   defaultThirdPartyPlugins,
+  prepareConnectionEnabled,
   prepareIntegrationValues,
   presentIntegrationCatalog,
   readThirdPartyPlugin,
@@ -91,6 +92,15 @@ describe("third-party plugins", () => {
     expect(prepareIntegrationValues(drive!, {})).toEqual({
       ok: false,
       error: "integration-unavailable",
+    });
+  });
+
+  it("accepts only an on or off flag", () => {
+    expect(prepareConnectionEnabled(true)).toEqual({ ok: true, enabled: true });
+    expect(prepareConnectionEnabled(false)).toEqual({ ok: true, enabled: false });
+    expect(prepareConnectionEnabled("true")).toEqual({
+      ok: false,
+      error: "integration-enabled-invalid",
     });
   });
 });

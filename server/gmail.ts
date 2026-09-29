@@ -13,6 +13,7 @@ import {
   type GmailMessage,
   type GmailThread,
 } from "../core/gmail";
+import { prepareConnectionEnabled } from "../core/plugins";
 import { openSecret, sealSecret } from "./vault-seal";
 import { vaultKey } from "./vault-key";
 
@@ -30,6 +31,7 @@ type StoredGmail = {
   clientId: string;
   clientSecret: string;
   refreshToken: string;
+  enabled: boolean;
 };
 
 export class GmailStoreError extends Error {
@@ -45,10 +47,24 @@ let signInPort = 0;
 export function readGmailAccount(
   db: DatabaseSync,
   occupantId: string,
-): { connected: true; email: string } | { connected: false } {
+): { connected: true; email: string; enabled: boolean } | { connected: false } {
   const row = stored(db, occupantId);
   if (!row) return { connected: false };
-  return { connected: true, email: row.email };
+  return { connected: true, email: row.email, enabled: row.enabled };
+}
+
+export function setGmailEnabled(
+  db: DatabaseSync,
+  occupantId: string,
+  input: unknown,
+): boolean {
+  const prepared = prepareConnectionEnabled(input);
+  if (!prepared.ok) throw new GmailStoreError(prepared.error);
+  if (!stored(db, occupantId)) throw new GmailStoreError("gmail-not-connected");
+  db.prepare(
+    "UPDATE gmail_accounts SET enabled = ?, updated_at = ? WHERE occupant_id = ?",
+  ).run(prepared.enabled ? 1 : 0, new Date().toISOString(), occupantId);
+  return prepared.enabled;
 }
 
 export function disconnectGmail(db: DatabaseSync, occupantId: string): void {
@@ -224,6 +240,7 @@ async function finishGmailSignIn(
        client_id = excluded.client_id,
        client_secret = excluded.client_secret,
        refresh_token = excluded.refresh_token,
+       enabled = 1,
        updated_at = excluded.updated_at`,
   ).run(
     signIn.occupantId,
@@ -242,6 +259,7 @@ async function accessTokenFor(
 ): Promise<string> {
   const row = stored(db, occupantId);
   if (!row) throw new GmailStoreError("gmail-not-connected");
+  if (!row.enabled) throw new GmailStoreError("gmail-off");
   const key = vaultKey(true);
   const accessToken = readGmailAccessToken(
     await tokenRequest(
@@ -261,11 +279,17 @@ async function accessTokenFor(
 function stored(db: DatabaseSync, occupantId: string): StoredGmail | null {
   const row = db
     .prepare(
-      `SELECT email, client_id, client_secret, refresh_token
+      `SELECT email, client_id, client_secret, refresh_token, enabled
        FROM gmail_accounts WHERE occupant_id = ?`,
     )
     .get(occupantId) as
-    | { email: string; client_id: string; client_secret: string; refresh_token: string }
+    | {
+        email: string;
+        client_id: string;
+        client_secret: string;
+        refresh_token: string;
+        enabled: number;
+      }
     | undefined;
   if (!row) return null;
   return {
@@ -273,6 +297,7 @@ function stored(db: DatabaseSync, occupantId: string): StoredGmail | null {
     clientId: row.client_id,
     clientSecret: row.client_secret,
     refreshToken: row.refresh_token,
+    enabled: row.enabled === 1,
   };
 }
 

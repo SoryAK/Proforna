@@ -93,6 +93,13 @@ export function presentIntegrationCatalog(
     });
 }
 
+export function prepareConnectionEnabled(
+  input: unknown,
+): { ok: true; enabled: boolean } | { ok: false; error: "integration-enabled-invalid" } {
+  if (typeof input !== "boolean") return { ok: false, error: "integration-enabled-invalid" };
+  return { ok: true, enabled: input };
+}
+
 export function prepareIntegrationValues(
   plugin: ThirdPartyPlugin,
   input: unknown,

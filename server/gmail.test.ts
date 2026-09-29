@@ -48,7 +48,7 @@ describe("gmail connection", () => {
     expect(callback).toContain("Gmail is connected");
     expect(callback).toContain("window.close()");
     const account = await app.request("/api/gmail");
-    expect(await account.json()).toEqual({ connected: true, email: "ada@example.com" });
+    expect(await account.json()).toEqual({ connected: true, email: "ada@example.com", enabled: true });
     const search = await app.request("/api/gmail/messages?q=offer");
     expect(await search.json()).toEqual({ threads: [{ id: "t1", snippet: "Offer letter" }] });
     const draft = await app.request("/api/gmail/drafts", {

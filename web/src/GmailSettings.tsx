@@ -1,10 +1,18 @@
 import { useEffect, useState, type FormEvent } from "react";
 
-type GmailAccount = { connected: false } | { connected: true; email: string };
+type GmailAccount = { connected: false } | { connected: true; email: string; enabled: boolean };
 
 type GmailThread = { id: string; snippet: string };
 
-export function GmailSettingsForm() {
+export function GmailSettingsForm({
+  nested = false,
+  listedEnabled,
+  onAccountChange,
+}: {
+  nested?: boolean;
+  listedEnabled?: boolean;
+  onAccountChange?: () => void;
+}) {
   const [account, setAccount] = useState<GmailAccount | null>(null);
   const [clientId, setClientId] = useState("");
   const [clientSecret, setClientSecret] = useState("");
@@ -67,6 +75,7 @@ export function GmailSettingsForm() {
       setAccount(connected);
       setClientSecret("");
       setMessage(`Connected ${connected.email}. Search reads that mailbox, and a draft stays in Gmail until you send it.`);
+      onAccountChange?.();
     } catch {
       popup.close();
       setError("Gmail could not be connected.");
@@ -140,22 +149,29 @@ export function GmailSettingsForm() {
       setAccount({ connected: false });
       setThreads([]);
       setMessage("Gmail is disconnected.");
+      onAccountChange?.();
     } finally {
       setBusy(false);
     }
   }
 
+  const gmailOn = account?.connected ? (listedEnabled ?? account.enabled) : false;
+
   return (
     <>
-      <h1>Gmail</h1>
-      <p className="onboarding-lead">
-        Sign in to the Gmail account you want Proforna to read. Search finds mail, and a draft is saved in Gmail. Proforna does not send it.
-      </p>
+      {nested ? null : (
+        <>
+          <h1>Gmail</h1>
+          <p className="onboarding-lead">
+            Sign in to the Gmail account you want Proforna to read. Search finds mail, and a draft is saved in Gmail. Proforna does not send it.
+          </p>
+        </>
+      )}
       {account?.connected ? (
         <>
-          <p>
-            {account.email}
-          </p>
+          <p>{account.email}</p>
+          {gmailOn ? (
+            <>
           <form onSubmit={(event) => void search(event)}>
             <label className="onboarding-field">
               <span>Search</span>
@@ -191,6 +207,10 @@ export function GmailSettingsForm() {
               Save draft
             </button>
           </form>
+            </>
+          ) : (
+            <p className="home-settings-note">Gmail is off. Turn it on to search or save a draft.</p>
+          )}
           <button type="button" disabled={busy} onClick={() => void disconnect()}>
             Disconnect
           </button>

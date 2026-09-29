@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { GmailSettingsForm } from "./GmailSettings";
 
 type IntegrationField = {
@@ -15,11 +15,13 @@ type ListedIntegration = {
   available: boolean;
   fields: IntegrationField[];
   configured: boolean;
+  enabled: boolean;
 };
 
 export function IntegrationSettings() {
   const [rows, setRows] = useState<ListedIntegration[] | null>(null);
-  const [selected, setSelected] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [openName, setOpenName] = useState<string | null>(null);
   const [values, setValues] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -39,21 +41,20 @@ export function IntegrationSettings() {
     setRows(body.integrations ?? []);
   }
 
-  function open(row: ListedIntegration) {
-    setSelected(row.name);
+  function toggleOpen(row: ListedIntegration) {
+    setOpenName((current) => (current === row.name ? null : row.name));
     setValues({});
     setMessage("");
     setError("");
   }
 
-  async function save(event: FormEvent) {
+  async function save(event: FormEvent, name: string) {
     event.preventDefault();
-    if (!selected) return;
     setBusy(true);
     setMessage("");
     setError("");
     try {
-      const response = await fetch(`/api/integration-catalog/${encodeURIComponent(selected)}`, {
+      const response = await fetch(`/api/integration-catalog/${encodeURIComponent(name)}`, {
         method: "PUT",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ values }),
@@ -77,13 +78,12 @@ export function IntegrationSettings() {
     }
   }
 
-  async function remove() {
-    if (!selected) return;
+  async function remove(name: string) {
     setBusy(true);
     setMessage("");
     setError("");
     try {
-      const response = await fetch(`/api/integration-catalog/${encodeURIComponent(selected)}`, {
+      const response = await fetch(`/api/integration-catalog/${encodeURIComponent(name)}`, {
         method: "DELETE",
       });
       if (!response.ok) {
@@ -100,83 +100,149 @@ export function IntegrationSettings() {
     }
   }
 
-  const current = rows?.find((row) => row.name === selected) ?? null;
+  async function setEnabled(row: ListedIntegration, enabled: boolean) {
+    setBusy(true);
+    setMessage("");
+    setError("");
+    const path =
+      row.name === "gmail"
+        ? "/api/gmail"
+        : `/api/integration-catalog/${encodeURIComponent(row.name)}`;
+    try {
+      const response = await fetch(path, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ enabled }),
+      });
+      if (!response.ok) {
+        setError(enabled ? "Could not turn that connection on." : "Could not turn that connection off.");
+        return;
+      }
+      setMessage(
+        enabled
+          ? `${row.displayName} is on. Proforna can use it when you ask.`
+          : `${row.displayName} is off. The saved sign-in stays until you remove it.`,
+      );
+      await load();
+    } catch {
+      setError(enabled ? "Could not turn that connection on." : "Could not turn that connection off.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const visible = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    return (rows ?? [])
+      .filter((row) => {
+        if (!row.available) return false;
+        if (!needle) return true;
+        return (
+          row.displayName.toLowerCase().includes(needle) ||
+          row.description.toLowerCase().includes(needle)
+        );
+      })
+      .slice()
+      .sort((a, b) => {
+        const rank = integrationRank(a) - integrationRank(b);
+        if (rank !== 0) return rank;
+        if (a.name === "gmail") return -1;
+        if (b.name === "gmail") return 1;
+        return a.displayName.localeCompare(b.displayName);
+      });
+  }, [query, rows]);
 
   return (
     <>
       <h1>Integrations</h1>
       <p className="onboarding-lead">
-        Connect an account here. Proforna can use it when you ask. It does not file mail into Opportunities on its own.
+        Turn a connection on when you want Proforna to use it. It does not file mail into Opportunities on its own.
       </p>
-      {current ? (
-        <div className="integration-detail">
-          <button type="button" className="integration-back" onClick={() => setSelected(null)}>
-            All integrations
-          </button>
-          {current.name === "gmail" ? (
-            <GmailSettingsForm />
-          ) : (
-            <>
-              <h2>{current.displayName}</h2>
-              <p className="onboarding-lead">{current.description}</p>
-              {current.available ? (
-                <form onSubmit={(event) => void save(event)}>
-                  {current.fields.map((field) => (
-                    <label className="onboarding-field" key={field.key}>
-                      <span>{field.label}</span>
-                      <input
-                        type={field.secret ? "password" : "text"}
-                        value={values[field.key] ?? ""}
-                        autoComplete="off"
-                        onChange={(event) =>
-                          setValues((currentValues) => ({
-                            ...currentValues,
-                            [field.key]: event.target.value,
-                          }))
-                        }
-                      />
-                    </label>
-                  ))}
-                  {current.configured ? (
-                    <p className="home-settings-note">Saved. Enter the values again to change them.</p>
-                  ) : null}
-                  <div className="integration-actions">
-                    <button type="submit" disabled={busy}>
-                      {current.configured ? "Save changes" : "Save"}
-                    </button>
-                    {current.configured ? (
-                      <button type="button" disabled={busy} onClick={() => void remove()}>
-                        Remove
-                      </button>
-                    ) : null}
-                  </div>
-                </form>
-              ) : (
-                <p className="home-settings-note" role="status">
-                  This connection is not available yet.
-                </p>
-              )}
-            </>
-          )}
-        </div>
+      <label className="onboarding-field">
+        <span>Search</span>
+        <input
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Name or what it does"
+        />
+      </label>
+      {rows && visible.length === 0 ? (
+        <p className="home-settings-note">No integration matches that search.</p>
       ) : (
         <ul className="integration-list">
-          {(rows ?? []).map((row) => (
-            <li key={row.name}>
-              <button type="button" onClick={() => open(row)}>
-                <span>{row.displayName}</span>
-                <span className="integration-state">
-                  {row.configured
-                    ? row.name === "gmail"
-                      ? "Connected"
-                      : "Saved"
-                    : row.available
-                      ? "Not connected"
-                      : "Unavailable"}
-                </span>
-              </button>
-            </li>
-          ))}
+          {visible.map((row) => {
+            const open = openName === row.name;
+            return (
+              <li key={row.name} className="integration-row">
+                <div className="integration-row-main">
+                  <button
+                    type="button"
+                    className="integration-open"
+                    aria-expanded={open}
+                    onClick={() => toggleOpen(row)}
+                  >
+                    <span className="integration-name">{row.displayName}</span>
+                    <span className="integration-summary">{row.description}</span>
+                  </button>
+                  <span className="integration-state">{integrationStatus(row)}</span>
+                  {row.configured ? (
+                    <button
+                      type="button"
+                      className="integration-switch"
+                      role="switch"
+                      aria-checked={row.enabled}
+                      aria-label={`${row.displayName} ${row.enabled ? "on" : "off"}`}
+                      disabled={busy}
+                      onClick={() => void setEnabled(row, !row.enabled)}
+                    />
+                  ) : null}
+                </div>
+                {open ? (
+                  <div className="integration-panel">
+                    {row.name === "gmail" ? (
+                      <GmailSettingsForm
+                        nested
+                        listedEnabled={row.enabled}
+                        onAccountChange={() => void load()}
+                      />
+                    ) : (
+                      <form onSubmit={(event) => void save(event, row.name)}>
+                        {row.fields.map((field) => (
+                          <label className="onboarding-field" key={field.key}>
+                            <span>{field.label}</span>
+                            <input
+                              type={field.secret ? "password" : "text"}
+                              value={values[field.key] ?? ""}
+                              autoComplete="off"
+                              onChange={(event) =>
+                                setValues((currentValues) => ({
+                                  ...currentValues,
+                                  [field.key]: event.target.value,
+                                }))
+                              }
+                            />
+                          </label>
+                        ))}
+                        {row.configured ? (
+                          <p className="home-settings-note">Saved. Enter the values again to change them.</p>
+                        ) : null}
+                        <div className="integration-actions">
+                          <button type="submit" disabled={busy}>
+                            {row.configured ? "Save changes" : "Save"}
+                          </button>
+                          {row.configured ? (
+                            <button type="button" disabled={busy} onClick={() => void remove(row.name)}>
+                              Remove
+                            </button>
+                          ) : null}
+                        </div>
+                      </form>
+                    )}
+                  </div>
+                ) : null}
+              </li>
+            );
+          })}
         </ul>
       )}
       {message ? <p className="home-settings-note">{message}</p> : null}
@@ -187,4 +253,16 @@ export function IntegrationSettings() {
       ) : null}
     </>
   );
+}
+
+function integrationRank(row: ListedIntegration): number {
+  if (row.configured && row.enabled) return 0;
+  if (row.configured) return 1;
+  if (row.available) return 2;
+  return 3;
+}
+
+function integrationStatus(row: ListedIntegration): string {
+  if (!row.configured) return "Not connected";
+  return row.enabled ? "On" : "Off";
 }

@@ -252,6 +252,7 @@ export {
 } from "./gmail";
 export {
   defaultThirdPartyPlugins,
+  prepareConnectionEnabled,
   prepareIntegrationValues,
   presentIntegrationCatalog,
   readThirdPartyPlugin,
