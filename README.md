@@ -4,40 +4,54 @@
 [![license](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 [![stars](https://img.shields.io/github/stars/SoryAK/Proforna)](https://github.com/SoryAK/Proforna/stargazers)
 
-Personal career management: resumes, work history, worklog, documents, and job
-search. You own the data and you act on it — this is not a log-only tracker.
+> **The Private Career Operating System for Principal Professionals.**
 
-This repository is being rebuilt from a small base. The previous codebase is
-kept locally as a backup, not in this tree.
+Where traditional job platforms treat you as a candidate profile in someone else's cloud database, Proforna gives you local sovereignty over your data—turning your work history into an asset you own, control, and deploy with complete authority.
 
-We are looking for **contributors and collaborators**. See [CONTRIBUTING.md](CONTRIBUTING.md).
+---
 
-## Status
+### What is a Career Operating System?
 
-Personal career management on this machine. The stack is `core/` (domain),
-`server/` (Hono), `web/` (Vite + React), and SQLite on disk. The desktop
-window is `web/src-tauri`.
+Proforna isn't a simple resume builder, a task template, or a cloud application tracker. It is a local-first system of record and execution engine built around four core principles:
 
-An occupant runs Proforna locally, or from the desktop package.
+- **Evidence-Backed Career Memory:** Immutable raw material (resumes, worklogs, artifacts) links directly to verified career facts.
+- **Local Sovereignty & Local AI:** Your Career Vault stays on your machine. Runs default to local LLMs (Ollama, llama.cpp), ensuring personal data never leaves without explicit authorization.
+- **Governed Agent Agency:** AI agents operate under atomic **Change Sets** and strict **Approvals**. No hallucinated facts, untracked mutations, or unauthorized outbound messages.
+- **Dynamic Projections & MCP:** Render tailored resume variants and publish redacted, access-controlled interactive projections for humans and AI agents (via Model Context Protocol) without exposing raw private vault records.
 
-## Minimum to run
+---
 
-- Node 22
-- pnpm 10 (`corepack enable` then `corepack prepare pnpm@10.17.1 --activate`)
+## Repository Status
+
+This repository is actively being rebuilt from a small, solid base. The legacy codebase is kept locally as a backup, not in this tree.
+
+We are actively looking for **contributors and collaborators**. See [CONTRIBUTING.md](CONTRIBUTING.md) to get involved.
+
+---
+
+## Architecture & Stack
+
+Proforna runs entirely on your local machine or via desktop packaging for a **single Principal on this machine** (no cloud accounts or tracking).
+
+- **Domain Core (`core/`):** Pure domain logic, career memory schemas, and governance rules.
+- **API Server (`server/`):** Lightweight HTTP server built with Hono.
+- **Web UI (`web/`):** Frontend interface built with React and Vite.
+- **Desktop Shell (`web/src-tauri`):** Native desktop window powered by Tauri.
+- **Storage:** SQLite database on local disk.
+
+First run moves through Welcome → Profile → Resume (resume upload optional). A call to `GET /api/me` automatically bootstraps the `local` vault if needed.
+
+---
+
+## Minimum to Run
+
+- **Node.js:** v22+
+- **pnpm:** v10 (`corepack enable` then `corepack prepare pnpm@10.17.1 --activate`)
+
+### Quickstart
 
 ```bash
 cp .env.example .env
 pnpm install
 pnpm test
 pnpm dev
-```
-
-UI: [http://localhost:5173](http://localhost:5173). API: [http://localhost:3000/api/health](http://localhost:3000/api/health).
-
-Default install is **one occupant on this machine** — no Create Account. First
-run is Welcome → Profile → Resume (resume is optional). `GET /api/me` creates
-`local` if needed.
-
-## License
-
-[Apache-2.0](LICENSE) © 2026 SoryAK
