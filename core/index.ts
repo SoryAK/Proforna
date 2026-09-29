@@ -174,6 +174,7 @@ export {
   resolveInboundAccessRequest,
   prepareExternalAction,
   prepareOpportunity,
+  stagesToward,
   transitionApplication,
   type Application,
   type ApplicationStage,
@@ -186,6 +187,19 @@ export {
   type Opportunity,
   type OpportunityKind,
 } from "./career-management";
+export {
+  JOB_MAIL_SEARCH,
+  parseMailFrom,
+  planJobMail,
+  prepareMailboxConnection,
+  pursuitsMatch,
+  scheduledAtFromMail,
+  MAILBOX_PROVIDERS,
+  type InboundMail,
+  type JobMailCategory,
+  type JobMailPlan,
+  type MailboxProviderId,
+} from "./mailbox";
 export {
   judgeListingFit,
   type FitJudgment,

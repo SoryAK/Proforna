@@ -53,6 +53,8 @@ const directTables = [
   "external_actions",
   "documents",
   "integration_connections",
+  "mailbox_connections",
+  "mailbox_findings",
 ] as const;
 
 const restoreOrder = [
@@ -97,6 +99,8 @@ const restoreOrder = [
   "external_actions",
   "documents",
   "integration_connections",
+  "mailbox_connections",
+  "mailbox_findings",
 ] as const;
 
 export function createPortableArchive(

@@ -13,6 +13,7 @@ import type { MapSettings } from "@core/map-settings";
 import { residenceForMap, type Residence } from "@core/residence";
 import type { WorkMapRole } from "@core/work-map";
 import { CareerMap } from "./CareerMap";
+import { JobMail } from "./JobMail";
 import { searchPlaces } from "./place-search";
 import { LifeAnchors } from "./LifeAnchors";
 import type { HomePage } from "./HomeNav";
@@ -210,6 +211,8 @@ type CareerManagement = {
     kind: string;
     title: string;
     organization: string;
+    source_url: string;
+    location: string;
     fit_summary: string;
     status: string;
     pending_access_request_id: string | null;
@@ -219,6 +222,22 @@ type CareerManagement = {
     opportunity_id: string;
     stage: string;
     next_step: string;
+    deadline: string | null;
+    resume_revision_id: string | null;
+  }>;
+  interviews: Array<{
+    id: string;
+    application_id: string;
+    kind: string;
+    scheduled_at: string;
+    notes: string;
+  }>;
+  offers: Array<{
+    id: string;
+    application_id: string;
+    summary: string;
+    decision_due_at: string | null;
+    status: string;
   }>;
   contacts: Array<{
     id: string;
@@ -226,6 +245,7 @@ type CareerManagement = {
     organization: string;
     role: string;
     email: string;
+    notes: string;
     unread_inbound?: number;
   }>;
   plans: Array<{
@@ -335,6 +355,160 @@ function AnchorMark() {
   );
 }
 
+function OpportunityFields({
+  opportunity,
+  onCancel,
+  onSaved,
+}: {
+  opportunity: CareerManagement["opportunities"][number];
+  onCancel: () => void;
+  onSaved: (saved: boolean) => Promise<void>;
+}) {
+  const [kind, setKind] = useState(opportunity.kind);
+  const [title, setTitle] = useState(opportunity.title);
+  const [organization, setOrganization] = useState(opportunity.organization);
+  const [sourceUrl, setSourceUrl] = useState(opportunity.source_url);
+  const [location, setLocation] = useState(opportunity.location);
+  const [fitSummary, setFitSummary] = useState(opportunity.fit_summary);
+
+  async function save(event: FormEvent) {
+    event.preventDefault();
+    const response = await fetch(`/api/opportunities/${opportunity.id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ kind, title, organization, sourceUrl, location, fitSummary }),
+    });
+    await onSaved(response.ok);
+  }
+
+  return (
+    <form className="compact-career-form" onSubmit={(event) => void save(event)}>
+      <select aria-label="Kind" value={kind} onChange={(event) => setKind(event.target.value)}>
+        <option value="role">Role</option>
+        <option value="project">Project</option>
+        <option value="speaking">Speaking</option>
+        <option value="connection">Connection</option>
+      </select>
+      <input required aria-label="Role title" placeholder="Role title" value={title} onChange={(event) => setTitle(event.target.value)} />
+      <input required aria-label="Organization" placeholder="Organization" value={organization} onChange={(event) => setOrganization(event.target.value)} />
+      <input aria-label="Source link" placeholder="Source link" value={sourceUrl} onChange={(event) => setSourceUrl(event.target.value)} />
+      <input aria-label="Location" placeholder="Location" value={location} onChange={(event) => setLocation(event.target.value)} />
+      <textarea aria-label="Why this fits" placeholder="Why this fits" value={fitSummary} onChange={(event) => setFitSummary(event.target.value)} />
+      <div className="opportunity-actions">
+        <button type="submit">Save changes</button>
+        <button type="button" onClick={onCancel}>Cancel</button>
+      </div>
+    </form>
+  );
+}
+
+function ApplicationFields({
+  application,
+  onSaved,
+}: {
+  application: CareerManagement["applications"][number];
+  onSaved: (saved: boolean) => Promise<void>;
+}) {
+  const [nextStep, setNextStep] = useState(application.next_step);
+  const [deadline, setDeadline] = useState(application.deadline ?? "");
+
+  async function save(event: FormEvent) {
+    event.preventDefault();
+    const response = await fetch(`/api/applications/${application.id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        nextStep,
+        deadline,
+        resumeRevisionId: application.resume_revision_id ?? "",
+      }),
+    });
+    await onSaved(response.ok);
+  }
+
+  return (
+    <form className="compact-career-form" onSubmit={(event) => void save(event)}>
+      <input aria-label="Next step" value={nextStep} onChange={(event) => setNextStep(event.target.value)} placeholder="Next step" />
+      <input aria-label="Deadline" value={deadline} onChange={(event) => setDeadline(event.target.value)} placeholder="Deadline" />
+      <button type="submit">Save application</button>
+    </form>
+  );
+}
+
+function InterviewFields({
+  interview,
+  onSaved,
+  onRemove,
+}: {
+  interview: CareerManagement["interviews"][number];
+  onSaved: (saved: boolean) => Promise<void>;
+  onRemove: () => Promise<void>;
+}) {
+  const [kind, setKind] = useState(interview.kind);
+  const [scheduledAt, setScheduledAt] = useState(interview.scheduled_at);
+  const [notes, setNotes] = useState(interview.notes);
+
+  async function save(event: FormEvent) {
+    event.preventDefault();
+    const response = await fetch(`/api/interviews/${interview.id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ kind, scheduledAt, notes }),
+    });
+    await onSaved(response.ok);
+  }
+
+  return (
+    <form className="compact-career-form" onSubmit={(event) => void save(event)}>
+      <input aria-label="Interview kind" placeholder="Interview kind" value={kind} onChange={(event) => setKind(event.target.value)} />
+      <input aria-label="Interview time" placeholder="Interview time" value={scheduledAt} onChange={(event) => setScheduledAt(event.target.value)} />
+      <textarea aria-label="Interview notes" placeholder="Interview notes" value={notes} onChange={(event) => setNotes(event.target.value)} />
+      <div className="opportunity-actions">
+        <button type="submit">Save interview</button>
+        <button className="is-danger" type="button" onClick={() => void onRemove()}>
+          Remove interview
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function OfferFields({
+  offer,
+  onSaved,
+  onRemove,
+}: {
+  offer: CareerManagement["offers"][number];
+  onSaved: (saved: boolean) => Promise<void>;
+  onRemove: () => Promise<void>;
+}) {
+  const [summary, setSummary] = useState(offer.summary);
+  const [decisionDueAt, setDecisionDueAt] = useState(offer.decision_due_at ?? "");
+
+  async function save(event: FormEvent) {
+    event.preventDefault();
+    const response = await fetch(`/api/offers/${offer.id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ summary, decisionDueAt }),
+    });
+    await onSaved(response.ok);
+  }
+
+  return (
+    <form className="compact-career-form" onSubmit={(event) => void save(event)}>
+      <textarea aria-label="Offer summary" placeholder="Offer summary" value={summary} onChange={(event) => setSummary(event.target.value)} />
+      <input aria-label="Decision due" value={decisionDueAt} onChange={(event) => setDecisionDueAt(event.target.value)} placeholder="Decision due" />
+      <div className="opportunity-actions">
+        <button type="submit">Save offer</button>
+        <button className="is-danger" type="button" onClick={() => void onRemove()}>
+          Remove offer
+        </button>
+      </div>
+    </form>
+  );
+}
+
 function OpportunitiesPage() {
   const [data, setData] = useState<CareerManagement | null>(null);
   const [roles, setRoles] = useState<WorkMapRole[]>([]);
@@ -361,6 +535,7 @@ function OpportunitiesPage() {
   const [planTitle, setPlanTitle] = useState("");
   const [planOutcome, setPlanOutcome] = useState("");
   const [message, setMessage] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   useEffect(() => {
     void load();
@@ -599,6 +774,7 @@ function OpportunitiesPage() {
       <p className="career-lead">
         Search for roles on your career map, then keep the ones you want to pursue.
       </p>
+      <JobMail onRecorded={load} />
       <div className="opportunity-board">
         <div className="opportunity-column">
           {focusedListing ? (
@@ -696,7 +872,22 @@ function OpportunitiesPage() {
                 </span>
                 <h2>{opportunity.title}</h2>
                 <h3>{opportunity.organization}</h3>
+                {opportunity.location ? <p>{opportunity.location}</p> : null}
                 <p>{opportunity.fit_summary}</p>
+                {opportunity.source_url.startsWith("https://") ? (
+                  <a href={opportunity.source_url}>Open mail</a>
+                ) : null}
+                {editingId === opportunity.id ? (
+                  <OpportunityFields
+                    opportunity={opportunity}
+                    onCancel={() => setEditingId(null)}
+                    onSaved={async (saved) => {
+                      setMessage(saved ? "Opportunity updated." : "Check the role and organization.");
+                      setEditingId(null);
+                      await load();
+                    }}
+                  />
+                ) : null}
                 {opportunity.kind === "connection" ? (
                   <div className="opportunity-actions">
                     {opportunity.pending_access_request_id ? (
@@ -725,38 +916,101 @@ function OpportunitiesPage() {
                         Keep in My Network
                       </button>
                     ) : null}
-                  </div>
-                ) : application ? (
-                  <div className="application-state">
-                    <strong>{application.stage}</strong>
-                    <select
-                      aria-label="Current stage"
-                      value={application.stage}
-                      onChange={(event) =>
-                        void transition(application.id, event.target.value)
-                      }
-                    >
-                      <option value={application.stage}>Current stage</option>
-                      <option value="submitted">Submitted</option>
-                      <option value="screen">Screen</option>
-                      <option value="interview">Interview</option>
-                      <option value="offer">Offer</option>
-                      <option value="accepted">Accepted</option>
-                      <option value="rejected">Rejected</option>
-                      <option value="withdrawn">Withdrawn</option>
-                    </select>
+                    <button type="button" onClick={() => setEditingId(opportunity.id)}>
+                      Change
+                    </button>
                     <button
                       className="is-danger"
                       type="button"
-                      onClick={() => void removeApplication(application.id)}
+                      onClick={() => void removeOpportunity(opportunity.id)}
                     >
                       Remove
                     </button>
                   </div>
+                ) : application ? (
+                  <>
+                    <div className="application-state">
+                      <strong>{application.stage}</strong>
+                      <select
+                        aria-label="Current stage"
+                        value={application.stage}
+                        onChange={(event) =>
+                          void transition(application.id, event.target.value)
+                        }
+                      >
+                        <option value={application.stage}>Current stage</option>
+                        <option value="submitted">Submitted</option>
+                        <option value="screen">Screen</option>
+                        <option value="interview">Interview</option>
+                        <option value="offer">Offer</option>
+                        <option value="accepted">Accepted</option>
+                        <option value="rejected">Rejected</option>
+                        <option value="withdrawn">Withdrawn</option>
+                      </select>
+                      <button type="button" onClick={() => setEditingId(opportunity.id)}>
+                        Change
+                      </button>
+                      <button
+                        className="is-danger"
+                        type="button"
+                        onClick={() => void removeApplication(application.id)}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                    <ApplicationFields
+                      application={application}
+                      onSaved={async (saved) => {
+                        setMessage(saved ? "Application updated." : "Could not update that application.");
+                        await load();
+                      }}
+                    />
+                    {(data?.interviews ?? [])
+                      .filter((item) => item.application_id === application.id)
+                      .map((interview) => (
+                        <InterviewFields
+                          interview={interview}
+                          key={interview.id}
+                          onRemove={async () => {
+                            const response = await fetch(`/api/interviews/${interview.id}`, {
+                              method: "DELETE",
+                            });
+                            setMessage(response.ok ? "Interview removed." : "Could not remove that interview.");
+                            await load();
+                          }}
+                          onSaved={async (saved) => {
+                            setMessage(saved ? "Interview updated." : "An interview needs a time.");
+                            await load();
+                          }}
+                        />
+                      ))}
+                    {(data?.offers ?? [])
+                      .filter((item) => item.application_id === application.id)
+                      .map((offer) => (
+                        <OfferFields
+                          key={offer.id}
+                          offer={offer}
+                          onRemove={async () => {
+                            const response = await fetch(`/api/offers/${offer.id}`, {
+                              method: "DELETE",
+                            });
+                            setMessage(response.ok ? "Offer removed." : "Could not remove that offer.");
+                            await load();
+                          }}
+                          onSaved={async (saved) => {
+                            setMessage(saved ? "Offer updated." : "An offer needs a summary.");
+                            await load();
+                          }}
+                        />
+                      ))}
+                  </>
                 ) : (
                   <div className="opportunity-actions">
                     <button onClick={() => void startApplication(opportunity.id)}>
                       Start application
+                    </button>
+                    <button type="button" onClick={() => setEditingId(opportunity.id)}>
+                      Change
                     </button>
                     <button
                       className="is-danger"
@@ -772,7 +1026,7 @@ function OpportunitiesPage() {
           })}
           {!data?.opportunities.length ? (
             <p className="career-empty">
-              Search for a role, or inbound Work Map requests will land here.
+              Search for a role, scan job mail, or inbound Work Map requests will land here.
             </p>
           ) : null}
         </main>
@@ -943,6 +1197,12 @@ function NetworkPage() {
   const [organization, setOrganization] = useState("");
   const [role, setRole] = useState("");
   const [email, setEmail] = useState("");
+  const [notes, setNotes] = useState("");
+  const [editName, setEditName] = useState("");
+  const [editOrganization, setEditOrganization] = useState("");
+  const [editRole, setEditRole] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editNotes, setEditNotes] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [messages, setMessages] = useState<
     Array<{ id: string; direction: string; body: string; createdAt: string }>
@@ -996,12 +1256,50 @@ function NetworkPage() {
     await fetch("/api/contacts", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ name, organization, role, email }),
+      body: JSON.stringify({ name, organization, role, email, notes }),
     });
     setName("");
     setOrganization("");
     setRole("");
     setEmail("");
+    setNotes("");
+    await load();
+  }
+
+  function selectContact(contact: CareerManagement["contacts"][number]) {
+    setEditName(contact.name);
+    setEditOrganization(contact.organization);
+    setEditRole(contact.role);
+    setEditEmail(contact.email);
+    setEditNotes(contact.notes ?? "");
+    void openThread(contact.id);
+  }
+
+  async function saveContactChanges(event: FormEvent) {
+    event.preventDefault();
+    if (!selectedId) return;
+    const response = await fetch(`/api/contacts/${selectedId}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        name: editName,
+        organization: editOrganization,
+        role: editRole,
+        email: editEmail,
+        notes: editNotes,
+      }),
+    });
+    setStatus(response.ok ? "Contact updated." : "A contact needs a name.");
+    if (response.ok) await load();
+  }
+
+  async function removeContact() {
+    if (!selectedId) return;
+    const response = await fetch(`/api/contacts/${selectedId}`, { method: "DELETE" });
+    setStatus(response.ok ? "Contact removed." : "Could not remove that contact.");
+    if (!response.ok) return;
+    setSelectedId(null);
+    setMessages([]);
     await load();
   }
 
@@ -1088,6 +1386,7 @@ function NetworkPage() {
         <input value={organization} onChange={(event) => setOrganization(event.target.value)} placeholder="Organization" />
         <input value={role} onChange={(event) => setRole(event.target.value)} placeholder="Role" />
         <input value={email} onChange={(event) => setEmail(event.target.value)} placeholder="Email" />
+        <textarea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Notes" />
         <button type="submit">Add contact</button>
       </form>
       <div className="network-layout">
@@ -1101,7 +1400,7 @@ function NetworkPage() {
                   : "contact-card"
               }
               key={contact.id}
-              onClick={() => void openThread(contact.id)}
+              onClick={() => selectContact(contact)}
             >
               <h2>{contact.name}</h2>
               <p>{[contact.role, contact.organization].filter(Boolean).join(" · ")}</p>
@@ -1116,6 +1415,19 @@ function NetworkPage() {
           {selected ? (
             <>
               <h2>{selected.name}</h2>
+              <form className="compact-career-form" onSubmit={(event) => void saveContactChanges(event)}>
+                <input required aria-label="Name" value={editName} onChange={(event) => setEditName(event.target.value)} />
+                <input aria-label="Organization" value={editOrganization} onChange={(event) => setEditOrganization(event.target.value)} />
+                <input aria-label="Role" value={editRole} onChange={(event) => setEditRole(event.target.value)} />
+                <input aria-label="Email" value={editEmail} onChange={(event) => setEditEmail(event.target.value)} />
+                <textarea aria-label="Notes" value={editNotes} onChange={(event) => setEditNotes(event.target.value)} />
+                <div className="opportunity-actions">
+                  <button type="submit">Save contact</button>
+                  <button className="is-danger" type="button" onClick={() => void removeContact()}>
+                    Remove contact
+                  </button>
+                </div>
+              </form>
               <ol>
                 {messages.map((message) => (
                   <li

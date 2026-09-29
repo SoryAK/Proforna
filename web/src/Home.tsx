@@ -555,7 +555,7 @@ export function Home({
 }
 
 function readPage(): HomePage {
-  const value = window.location.hash.replace(/^#\/?/, "");
+  const value = window.location.hash.replace(/^#\/?/, "").split("?")[0];
   return value === "worklog" ||
     value === "history" ||
     value === "resumes" ||

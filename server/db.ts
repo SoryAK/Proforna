@@ -475,6 +475,41 @@ export function openDatabase(path: string): DatabaseSync {
     )
   `);
   db.exec(`
+    CREATE TABLE IF NOT EXISTS mailbox_connections (
+      id TEXT PRIMARY KEY,
+      occupant_id TEXT NOT NULL UNIQUE REFERENCES occupants(id),
+      provider TEXT NOT NULL,
+      label TEXT NOT NULL,
+      account_email TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL,
+      access_token TEXT NOT NULL DEFAULT '',
+      refresh_token TEXT NOT NULL DEFAULT '',
+      token_expires_at TEXT,
+      scopes TEXT NOT NULL DEFAULT '',
+      oauth_state TEXT NOT NULL DEFAULT '',
+      last_error TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )
+  `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS mailbox_findings (
+      id TEXT PRIMARY KEY,
+      occupant_id TEXT NOT NULL REFERENCES occupants(id),
+      connection_id TEXT,
+      provider_message_id TEXT NOT NULL,
+      category TEXT NOT NULL,
+      contact_id TEXT,
+      opportunity_id TEXT,
+      application_id TEXT,
+      interview_id TEXT,
+      offer_id TEXT,
+      message_id TEXT,
+      created_at TEXT NOT NULL,
+      UNIQUE(occupant_id, provider_message_id)
+    )
+  `);
+  db.exec(`
     CREATE TABLE IF NOT EXISTS integration_connections (
       id TEXT PRIMARY KEY,
       occupant_id TEXT NOT NULL REFERENCES occupants(id),

@@ -102,6 +102,31 @@ const transitions: Record<ApplicationStage, ApplicationStage[]> = {
   rejected: [],
 };
 
+/** Legal stage steps from `current` to `target`. Empty when already there or unreachable. */
+export function stagesToward(
+  current: ApplicationStage,
+  target: ApplicationStage,
+): ApplicationStage[] {
+  if (current === target) return [];
+  const queue: Array<{ stage: ApplicationStage; path: ApplicationStage[] }> = [
+    { stage: current, path: [] },
+  ];
+  const seen = new Set<ApplicationStage>([current]);
+  while (queue.length > 0) {
+    const item = queue.shift();
+    if (!item) break;
+    for (const next of transitions[item.stage]) {
+      const path = [...item.path, next];
+      if (next === target) return path;
+      if (!seen.has(next)) {
+        seen.add(next);
+        queue.push({ stage: next, path });
+      }
+    }
+  }
+  return [];
+}
+
 export function resolveInboundAccessRequest(input: {
   decision: string;
 }):

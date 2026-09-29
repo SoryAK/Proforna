@@ -98,10 +98,18 @@ import {
   createApplication,
   createContact,
   deleteApplication,
+  deleteContact,
+  deleteInterview,
+  deleteOffer,
   deleteOpportunity,
   createInterview,
   createOffer,
   createOpportunity,
+  updateApplicationDetails,
+  updateContact,
+  updateInterview,
+  updateOffer,
+  updateOpportunity,
   createPlan,
   promoteOpportunityToNetwork,
   proposeExternalAction,
@@ -147,6 +155,16 @@ import {
   listIntegrations,
   saveIntegration,
 } from "./integrations";
+import {
+  MailboxStoreError,
+  beginMailboxConnect,
+  completeGmailCallback,
+  deleteMailbox,
+  mailboxReturnUrl,
+  readMailbox,
+  scanMailbox,
+  updateMailbox,
+} from "./mailbox";
 import {
   ResidenceStoreError,
   adoptProfileHome,
@@ -1457,6 +1475,27 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
     }
   });
 
+  app.patch("/api/opportunities/:id", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      const opportunity = updateOpportunity(
+        db,
+        occupant.id,
+        c.req.param("id"),
+        (await c.req.json()) as Record<string, unknown>,
+      );
+      return c.json({ opportunity });
+    } catch (error) {
+      if (error instanceof CareerManagementStoreError) {
+        return c.json(
+          { error: error.code },
+          error.code === "opportunity-missing" ? 404 : 400,
+        );
+      }
+      throw error;
+    }
+  });
+
   app.post("/api/opportunities/:id/access", async (c) => {
     const occupant = ensureOccupant(db);
     const body = (await c.req.json()) as {
@@ -1535,6 +1574,27 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
     } catch (error) {
       if (error instanceof CareerManagementStoreError) {
         return c.json({ error: error.code }, 404);
+      }
+      throw error;
+    }
+  });
+
+  app.patch("/api/applications/:id", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      const application = updateApplicationDetails(
+        db,
+        occupant.id,
+        c.req.param("id"),
+        (await c.req.json()) as Record<string, unknown>,
+      );
+      return c.json({ application });
+    } catch (error) {
+      if (error instanceof CareerManagementStoreError) {
+        return c.json(
+          { error: error.code },
+          error.code === "application-missing" ? 404 : 400,
+        );
       }
       throw error;
     }
@@ -1625,6 +1685,74 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
     }
   });
 
+  app.patch("/api/interviews/:id", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      const interview = updateInterview(
+        db,
+        occupant.id,
+        c.req.param("id"),
+        (await c.req.json()) as Record<string, unknown>,
+      );
+      return c.json({ interview });
+    } catch (error) {
+      if (error instanceof CareerManagementStoreError) {
+        return c.json(
+          { error: error.code },
+          error.code === "interview-missing" ? 404 : 400,
+        );
+      }
+      throw error;
+    }
+  });
+
+  app.delete("/api/interviews/:id", (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      deleteInterview(db, occupant.id, c.req.param("id"));
+      return c.json({ ok: true });
+    } catch (error) {
+      if (error instanceof CareerManagementStoreError) {
+        return c.json({ error: error.code }, 404);
+      }
+      throw error;
+    }
+  });
+
+  app.patch("/api/offers/:id", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      const offer = updateOffer(
+        db,
+        occupant.id,
+        c.req.param("id"),
+        (await c.req.json()) as Record<string, unknown>,
+      );
+      return c.json({ offer });
+    } catch (error) {
+      if (error instanceof CareerManagementStoreError) {
+        return c.json(
+          { error: error.code },
+          error.code === "offer-missing" ? 404 : 400,
+        );
+      }
+      throw error;
+    }
+  });
+
+  app.delete("/api/offers/:id", (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      deleteOffer(db, occupant.id, c.req.param("id"));
+      return c.json({ ok: true });
+    } catch (error) {
+      if (error instanceof CareerManagementStoreError) {
+        return c.json({ error: error.code }, 404);
+      }
+      throw error;
+    }
+  });
+
   app.post("/api/contacts", async (c) => {
     const occupant = ensureOccupant(db);
     try {
@@ -1641,6 +1769,41 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
     } catch (error) {
       if (error instanceof CareerManagementStoreError) {
         return c.json({ error: error.code }, 400);
+      }
+      throw error;
+    }
+  });
+
+  app.patch("/api/contacts/:id", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      return c.json({
+        contact: updateContact(
+          db,
+          occupant.id,
+          c.req.param("id"),
+          (await c.req.json()) as Record<string, unknown>,
+        ),
+      });
+    } catch (error) {
+      if (error instanceof CareerManagementStoreError) {
+        return c.json(
+          { error: error.code },
+          error.code === "contact-missing" ? 404 : 400,
+        );
+      }
+      throw error;
+    }
+  });
+
+  app.delete("/api/contacts/:id", (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      deleteContact(db, occupant.id, c.req.param("id"));
+      return c.json({ ok: true });
+    } catch (error) {
+      if (error instanceof CareerManagementStoreError) {
+        return c.json({ error: error.code }, 404);
       }
       throw error;
     }
@@ -1885,7 +2048,100 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
     }
   });
 
+  app.get("/api/mailbox", (c) => {
+    const occupant = ensureOccupant(db);
+    return c.json(readMailbox(db, occupant.id));
+  });
+
+  app.post("/api/mailbox", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      const started = beginMailboxConnect(
+        db,
+        occupant.id,
+        (await c.req.json()) as Record<string, unknown>,
+      );
+      return c.json(started, 201);
+    } catch (error) {
+      if (error instanceof MailboxStoreError) return mailboxError(c, error);
+      throw error;
+    }
+  });
+
+  app.patch("/api/mailbox", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      const mailbox = updateMailbox(
+        db,
+        occupant.id,
+        (await c.req.json()) as Record<string, unknown>,
+      );
+      return c.json({ mailbox });
+    } catch (error) {
+      if (error instanceof MailboxStoreError) return mailboxError(c, error);
+      throw error;
+    }
+  });
+
+  app.delete("/api/mailbox", (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      deleteMailbox(db, occupant.id);
+      return c.json({ ok: true });
+    } catch (error) {
+      if (error instanceof MailboxStoreError) return mailboxError(c, error);
+      throw error;
+    }
+  });
+
+  app.post("/api/mailbox/scan", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      return c.json(await scanMailbox(db, occupant.id));
+    } catch (error) {
+      if (error instanceof MailboxStoreError) return mailboxError(c, error);
+      throw error;
+    }
+  });
+
+  app.get("/api/mailbox/gmail/callback", async (c) => {
+    ensureOccupant(db);
+    const result = await completeGmailCallback(db, {
+      code: c.req.query("code"),
+      state: c.req.query("state"),
+      error: c.req.query("error"),
+    });
+    const target = mailboxReturnUrl(result.ok ? "connected" : "error");
+    const accept = c.req.header("accept") ?? "";
+    if (accept.includes("text/html")) {
+      return c.html(
+        `<!doctype html><title>Proforna</title><meta http-equiv="refresh" content="0;url=${target}"><p><a href="${target}">Return to Opportunities</a></p>`,
+      );
+    }
+    return c.json(
+      result.ok ? { ok: true } : { ok: false, error: result.error },
+      result.ok ? 200 : 400,
+    );
+  });
+
   return app;
+}
+
+function mailboxError(c: { json: (body: unknown, status?: number) => Response }, error: MailboxStoreError) {
+  const status =
+    error.code === "mailbox-missing"
+      ? 404
+      : error.code === "mailbox-exists" || error.code === "mailbox-not-connected"
+        ? 409
+        : error.code === "oauth-not-configured"
+          ? 503
+          : error.code === "scan-failed"
+            ? 502
+            : 400;
+  return c.json(
+    error.detail ? { error: error.code, message: error.detail } : { error: error.code },
+    status,
+  );
 }
 
 async function withResidenceCoordinates(

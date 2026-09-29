@@ -48,6 +48,13 @@ A named place the occupant asks Proforna to read listings from. When that
 place requires an application id or an API key, those stay in the Career Vault.
 _Avoid_: Job board, integration
 
+**Job mail**:
+Mail from one connected account that Proforna reads for applications,
+interviews, recruiter outreach, and offers, then keeps on Opportunities and
+My Network. Gmail is the first provider. The connection can be read, renamed,
+and removed. A later provider uses the same connection.
+_Avoid_: Inbox, mailbox, email client
+
 **Life Anchor**:
 A named place the occupant weights when judging whether a possibility fits
 their life.

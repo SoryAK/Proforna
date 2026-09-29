@@ -57,6 +57,27 @@ pnpm dev
 
 UI: [http://localhost:5173](http://localhost:5173). API: [http://localhost:3000/api/health](http://localhost:3000/api/health).
 
+## Job mail
+
+Opportunities can read one Gmail account for applications, interviews, recruiter
+outreach, and offers. Those messages become Opportunities, applications, and
+contacts in My Network. Another provider can be added later; this cut connects
+Gmail only.
+
+Create an OAuth client (Web application) in Google Cloud. Set the redirect URI
+to `http://localhost:3000/api/mailbox/gmail/callback`. Proforna requests
+`https://www.googleapis.com/auth/gmail.readonly` and does not send mail.
+
+```
+GMAIL_OAUTH_CLIENT_ID=
+GMAIL_OAUTH_CLIENT_SECRET=
+```
+
+Optional: `GMAIL_OAUTH_REDIRECT_URI` (default
+`http://localhost:3000/api/mailbox/gmail/callback`) and `PROFORNA_APP_ORIGIN`
+(default `http://localhost:5173`). See `.env.example`. Without those two
+client values, Connect explains what is missing and does not call Google.
+
 ## License
 
 [Apache-2.0](LICENSE) © 2026 SoryAK

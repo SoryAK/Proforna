@@ -97,6 +97,43 @@ export function createOpportunity(
   return opportunity;
 }
 
+export function updateOpportunity(
+  db: DatabaseSync,
+  occupantId: string,
+  opportunityId: string,
+  input: JsonObject,
+): Opportunity {
+  const current = readOpportunity(db, occupantId, opportunityId);
+  if (!current) throw new CareerManagementStoreError("opportunity-missing");
+  const opportunity: Opportunity = {
+    ...current,
+    kind: parseOpportunityKind(input.kind),
+    title: text(input.title),
+    organization: text(input.organization),
+    sourceUrl: text(input.sourceUrl),
+    location: text(input.location),
+    fitSummary: text(input.fitSummary),
+  };
+  const prepared = prepareOpportunity(opportunity);
+  if (!prepared.ok) throw new CareerManagementStoreError(prepared.error);
+  db.prepare(
+    `UPDATE opportunities
+        SET kind = ?, title = ?, organization = ?, source_url = ?, location = ?,
+            fit_summary = ?
+      WHERE id = ? AND occupant_id = ?`,
+  ).run(
+    prepared.value.kind,
+    prepared.value.title,
+    prepared.value.organization,
+    prepared.value.sourceUrl,
+    prepared.value.location,
+    prepared.value.fitSummary,
+    opportunityId,
+    occupantId,
+  );
+  return prepared.value;
+}
+
 export function promoteOpportunityToNetwork(
   db: DatabaseSync,
   occupantId: string,
@@ -187,6 +224,36 @@ export function createApplication(
   db.prepare(
     "UPDATE opportunities SET status = 'pursuing' WHERE id = ?",
   ).run(opportunityId);
+  return application;
+}
+
+export function updateApplicationDetails(
+  db: DatabaseSync,
+  occupantId: string,
+  applicationId: string,
+  input: JsonObject,
+): Application {
+  const current = readApplication(db, occupantId, applicationId);
+  if (!current) throw new CareerManagementStoreError("application-missing");
+  const application: Application = {
+    ...current,
+    resumeRevisionId: text(input.resumeRevisionId) || null,
+    nextStep: text(input.nextStep),
+    deadline: text(input.deadline) || null,
+    updatedAt: new Date().toISOString(),
+  };
+  db.prepare(
+    `UPDATE applications
+        SET resume_revision_id = ?, next_step = ?, deadline = ?, updated_at = ?
+      WHERE id = ? AND occupant_id = ?`,
+  ).run(
+    application.resumeRevisionId,
+    application.nextStep,
+    application.deadline,
+    application.updatedAt,
+    applicationId,
+    occupantId,
+  );
   return application;
 }
 
@@ -364,6 +431,70 @@ export function createContact(
   return contact;
 }
 
+export function updateContact(
+  db: DatabaseSync,
+  occupantId: string,
+  contactId: string,
+  input: JsonObject,
+) {
+  const existing = db
+    .prepare("SELECT id FROM contacts WHERE id = ? AND occupant_id = ?")
+    .get(contactId, occupantId);
+  if (!existing) throw new CareerManagementStoreError("contact-missing");
+  const name = text(input.name);
+  if (!name) throw new CareerManagementStoreError("name-required");
+  const contact = {
+    id: contactId,
+    name,
+    organization: text(input.organization),
+    role: text(input.role),
+    email: text(input.email),
+    notes: text(input.notes),
+  };
+  db.prepare(
+    `UPDATE contacts
+        SET name = ?, organization = ?, role = ?, email = ?, notes = ?
+      WHERE id = ? AND occupant_id = ?`,
+  ).run(
+    contact.name,
+    contact.organization,
+    contact.role,
+    contact.email,
+    contact.notes,
+    contactId,
+    occupantId,
+  );
+  return contact;
+}
+
+export function deleteContact(
+  db: DatabaseSync,
+  occupantId: string,
+  contactId: string,
+): void {
+  const existing = db
+    .prepare("SELECT id FROM contacts WHERE id = ? AND occupant_id = ?")
+    .get(contactId, occupantId);
+  if (!existing) throw new CareerManagementStoreError("contact-missing");
+  db.exec("BEGIN");
+  try {
+    db.prepare(
+      "DELETE FROM contact_messages WHERE contact_id = ? AND occupant_id = ?",
+    ).run(contactId, occupantId);
+    db.prepare(
+      "UPDATE opportunities SET contact_id = NULL WHERE contact_id = ? AND occupant_id = ?",
+    ).run(contactId, occupantId);
+    db.prepare("DELETE FROM contacts WHERE id = ? AND occupant_id = ?").run(
+      contactId,
+      occupantId,
+    );
+    db.exec("COMMIT");
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
+}
+
 export function createPlan(
   db: DatabaseSync,
   occupantId: string,
@@ -438,6 +569,48 @@ export function createInterview(
   return interview;
 }
 
+export function updateInterview(
+  db: DatabaseSync,
+  occupantId: string,
+  interviewId: string,
+  input: JsonObject,
+) {
+  const existing = db
+    .prepare(
+      "SELECT id FROM interviews WHERE id = ? AND occupant_id = ?",
+    )
+    .get(interviewId, occupantId);
+  if (!existing) throw new CareerManagementStoreError("interview-missing");
+  const interview = {
+    kind: text(input.kind) || "interview",
+    scheduledAt: text(input.scheduledAt),
+    notes: text(input.notes),
+  };
+  if (!interview.scheduledAt) {
+    throw new CareerManagementStoreError("schedule-required");
+  }
+  db.prepare(
+    `UPDATE interviews
+        SET kind = ?, scheduled_at = ?, notes = ?
+      WHERE id = ? AND occupant_id = ?`,
+  ).run(interview.kind, interview.scheduledAt, interview.notes, interviewId, occupantId);
+  return { id: interviewId, ...interview };
+}
+
+export function deleteInterview(
+  db: DatabaseSync,
+  occupantId: string,
+  interviewId: string,
+): void {
+  const existing = db
+    .prepare("SELECT id FROM interviews WHERE id = ? AND occupant_id = ?")
+    .get(interviewId, occupantId);
+  if (!existing) throw new CareerManagementStoreError("interview-missing");
+  db.prepare(
+    "DELETE FROM interviews WHERE id = ? AND occupant_id = ?",
+  ).run(interviewId, occupantId);
+}
+
 export function createOffer(
   db: DatabaseSync,
   occupantId: string,
@@ -470,6 +643,46 @@ export function createOffer(
     offer.createdAt,
   );
   return offer;
+}
+
+export function updateOffer(
+  db: DatabaseSync,
+  occupantId: string,
+  offerId: string,
+  input: JsonObject,
+) {
+  const existing = db
+    .prepare("SELECT status FROM offers WHERE id = ? AND occupant_id = ?")
+    .get(offerId, occupantId) as { status: string } | undefined;
+  if (!existing) throw new CareerManagementStoreError("offer-missing");
+  const summary = text(input.summary);
+  if (!summary) throw new CareerManagementStoreError("summary-required");
+  const offer = {
+    summary,
+    decisionDueAt: text(input.decisionDueAt) || null,
+    status: existing.status,
+  };
+  db.prepare(
+    `UPDATE offers
+        SET summary = ?, decision_due_at = ?
+      WHERE id = ? AND occupant_id = ?`,
+  ).run(offer.summary, offer.decisionDueAt, offerId, occupantId);
+  return { id: offerId, ...offer };
+}
+
+export function deleteOffer(
+  db: DatabaseSync,
+  occupantId: string,
+  offerId: string,
+): void {
+  const existing = db
+    .prepare("SELECT id FROM offers WHERE id = ? AND occupant_id = ?")
+    .get(offerId, occupantId);
+  if (!existing) throw new CareerManagementStoreError("offer-missing");
+  db.prepare("DELETE FROM offers WHERE id = ? AND occupant_id = ?").run(
+    offerId,
+    occupantId,
+  );
 }
 
 export async function proposeExternalAction(
@@ -599,6 +812,29 @@ function rows(db: DatabaseSync, table: string, occupantId: string): JsonObject[]
   return db
     .prepare(`SELECT * FROM ${table} WHERE occupant_id = ? ORDER BY rowid DESC`)
     .all(occupantId) as JsonObject[];
+}
+
+function readOpportunity(
+  db: DatabaseSync,
+  occupantId: string,
+  id: string,
+): Opportunity | null {
+  const row = db
+    .prepare("SELECT * FROM opportunities WHERE id = ? AND occupant_id = ?")
+    .get(id, occupantId) as JsonObject | undefined;
+  if (!row) return null;
+  return {
+    id: String(row.id),
+    occupantId: String(row.occupant_id),
+    kind: parseOpportunityKind(row.kind),
+    title: String(row.title),
+    organization: String(row.organization),
+    sourceUrl: String(row.source_url ?? ""),
+    location: String(row.location ?? ""),
+    fitSummary: String(row.fit_summary ?? ""),
+    status: row.status as Opportunity["status"],
+    createdAt: String(row.created_at),
+  };
 }
 
 function readApplication(

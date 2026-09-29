@@ -746,6 +746,15 @@
   line-height: 1.6;
 }
 
+.opportunity-card > a {
+  color: var(--gold-hover);
+}
+
+.contact-thread button.is-danger {
+  color: var(--danger);
+  border-color: rgba(230, 161, 150, 0.42);
+}
+
 .opportunity-fit {
   color: var(--text);
 }
@@ -850,6 +859,33 @@
   color: var(--text);
 }
 
+.job-mail p {
+  margin: 0;
+  color: var(--gold-light);
+  line-height: 1.5;
+}
+
+.job-mail form {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.job-mail label {
+  display: grid;
+  gap: 0.25rem;
+  color: var(--gold-hover);
+  font-size: 0.75rem;
+}
+
+.job-mail-error {
+  color: var(--danger);
+}
+
+.job-mail button.is-danger {
+  color: var(--danger);
+  border-color: rgba(230, 161, 150, 0.42);
+}
+
 .compact-career-form {
   display: grid;
   gap: 0.65rem;
@@ -891,6 +927,7 @@
   margin-top: 2rem;
 }
 
+.network-form textarea,
 .network-form button {
   grid-column: 1 / -1;
 }
