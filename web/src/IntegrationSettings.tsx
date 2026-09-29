@@ -48,6 +48,15 @@ export function IntegrationSettings() {
     setError("");
   }
 
+  function connectRow(row: ListedIntegration) {
+    setOpenName(row.name);
+    if (openName !== row.name) {
+      setValues({});
+      setMessage("");
+      setError("");
+    }
+  }
+
   async function save(event: FormEvent, name: string) {
     event.preventDefault();
     setBusy(true);
@@ -184,18 +193,28 @@ export function IntegrationSettings() {
                     <span className="integration-name">{row.displayName}</span>
                     <span className="integration-summary">{row.description}</span>
                   </button>
-                  <span className="integration-state">{integrationStatus(row)}</span>
                   {row.configured ? (
+                    <>
+                      <span className="integration-state">{integrationStatus(row)}</span>
+                      <button
+                        type="button"
+                        className="integration-switch"
+                        role="switch"
+                        aria-checked={row.enabled}
+                        aria-label={`${row.displayName} ${row.enabled ? "on" : "off"}`}
+                        disabled={busy}
+                        onClick={() => void setEnabled(row, !row.enabled)}
+                      />
+                    </>
+                  ) : (
                     <button
                       type="button"
-                      className="integration-switch"
-                      role="switch"
-                      aria-checked={row.enabled}
-                      aria-label={`${row.displayName} ${row.enabled ? "on" : "off"}`}
-                      disabled={busy}
-                      onClick={() => void setEnabled(row, !row.enabled)}
-                    />
-                  ) : null}
+                      className="integration-connect"
+                      onClick={() => connectRow(row)}
+                    >
+                      Connect
+                    </button>
+                  )}
                 </div>
                 {open ? (
                   <div className="integration-panel">
@@ -228,7 +247,7 @@ export function IntegrationSettings() {
                         ) : null}
                         <div className="integration-actions">
                           <button type="submit" disabled={busy}>
-                            {row.configured ? "Save changes" : "Save"}
+                            {row.configured ? "Save changes" : "Connect"}
                           </button>
                           {row.configured ? (
                             <button type="button" disabled={busy} onClick={() => void remove(row.name)}>
