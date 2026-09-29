@@ -82,7 +82,7 @@ _Avoid_: Work Map Role, resume entry, job card, job profile
 
 **Work Map**:
 The occupant's private surface for showing and enriching Roles across time
-and geography. Occupant-facing chrome names this Career History. Current
+and geography. Occupant-facing chrome names Career History. Current
 roles are marked on that list rather than given their own navigation item.
 Work sites on a role can be added, edited, removed, looked up from an
 address, or placed on the map. It is the source of interactive publications,
@@ -98,11 +98,10 @@ _Avoid_: Public profile, portfolio
 
 **Publication**:
 A relay-hosted instance of an interactive projection with a slug, access
-policy, and revocation state. A person opens the page, which is shaped so
-they can take the career in. An agent, through MCP, reads the same approved
-snapshot that page is drawn from, including the story and the rest a
-recruiter can read. What the agent then pulls out for a role is still to
-be worked out.
+policy, and revocation state. Human readers view an interactive layout shaped
+for reading. External agents reading via MCP receive the exact same approved,
+redacted snapshot—governed by the publication's access policy and decoupled
+from the raw local vault.
 _Avoid_: Sync, deployment
 
 **Change Set**:
@@ -118,9 +117,10 @@ machine.
 _Avoid_: Agent, assistant, chatbot
 
 **Verify**:
-The occupant's pass over jobs and schools extracted from a resume, compared
-with that file, before they enter Career History. A record can be corrected,
-set aside, or added when the extract missed it.
+The occupant's pass over jobs and schools extracted from a resume by an
+`extract-facts` agent run, compared with that file, before they enter Career
+History. A record can be corrected, set aside, or added when the extract missed
+it.
 _Avoid_: Check, import wizard
 
 **Approval**:
@@ -131,9 +131,10 @@ _Avoid_: Confirmation, consent
 
 **Notice**:
 A pending item that needs the occupant's attention: an inbound access
-request, a proposed change set, or the first unread message from a Contact.
-Opening it goes to the destination that can review that item.
-_Avoid_: Alert, toast, reminder, notification center
+request, a proposed change set awaiting approval, or the first unread message
+from a Contact. Opening it goes directly to the surface that can review that
+item.
+_Avoid_: Alert, toast, reminder, notification center, inbox
 
 **Agent Run**:
 A recorded execution with declared purpose, inputs, capabilities, and
