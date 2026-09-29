@@ -241,6 +241,23 @@ export {
   type OccupantNoticeKind,
 } from "./notices";
 export {
+  gmailAuthorizeUrl,
+  gmailRawMessage,
+  gmailRedirectUri,
+  readGmailMessage,
+  readGmailThreads,
+  readGmailToken,
+  type GmailMessage,
+  type GmailThread,
+} from "./gmail";
+export {
+  defaultThirdPartyPlugins,
+  readThirdPartyPlugin,
+  thirdPartyBlock,
+  type ThirdPartyBlock,
+  type ThirdPartyPlugin,
+} from "./plugins";
+export {
   CURATED_CAPABILITIES,
   PORTABLE_FORMAT_VERSION,
   validatePortableManifest,

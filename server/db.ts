@@ -485,6 +485,16 @@ export function openDatabase(path: string): DatabaseSync {
       created_at TEXT NOT NULL
     )
   `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS gmail_accounts (
+      occupant_id TEXT PRIMARY KEY REFERENCES occupants(id),
+      email TEXT NOT NULL,
+      client_id TEXT NOT NULL,
+      client_secret TEXT NOT NULL,
+      refresh_token TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )
+  `);
   addColumnIfMissing(db, "profiles", "headline", "TEXT NOT NULL DEFAULT ''");
   addColumnIfMissing(db, "profiles", "address", "TEXT NOT NULL DEFAULT ''");
   addColumnIfMissing(db, "profiles", "address_latitude", "REAL");

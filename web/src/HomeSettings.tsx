@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import type { ModelHosting } from "@core/model-connection";
 import { HomeProfileEdit } from "./HomeProfileEdit";
+import { GmailSettingsForm } from "./GmailSettings";
 import { JobSourceSettingsForm } from "./JobSourceSettings";
 import { MapSettingsForm } from "./MapSettings";
 import { OnboardingModelSetup } from "./OnboardingModels";
 import type { OnboardingProfileValue } from "./OnboardingProfile";
 import "./onboarding.css";
 
-type Section = "profile" | "models" | "maps" | "jobs";
+type Section = "profile" | "models" | "maps" | "jobs" | "gmail";
 
 type PublicConnection = {
   hosting: ModelHosting;
@@ -144,6 +145,14 @@ export function HomeSettings({
           >
             Jobs
           </button>
+          <button
+            type="button"
+            className="home-settings-nav-item"
+            data-active={section === "gmail"}
+            onClick={() => setSection("gmail")}
+          >
+            Gmail
+          </button>
         </nav>
         <div className="home-settings-pane">
           {section === "profile" ? (
@@ -178,8 +187,10 @@ export function HomeSettings({
             </>
           ) : section === "maps" ? (
             <MapSettingsForm key={session} onSaved={onMapsSaved} />
-          ) : (
+          ) : section === "jobs" ? (
             <JobSourceSettingsForm key={session} />
+          ) : (
+            <GmailSettingsForm key={session} />
           )}
         </div>
       </div>

@@ -112,6 +112,15 @@ import {
 import { careerRecordForJudgment, judgeListings } from "./fit-judgment";
 import { searchJobListings } from "./job-search";
 import {
+  beginGmailSignIn,
+  disconnectGmail,
+  draftGmail,
+  GmailStoreError,
+  readGmail,
+  readGmailAccount,
+  searchGmail,
+} from "./gmail";
+import {
   JobSourceSettingsStoreError,
   readJobSourceSettings,
   saveJobSourceSettings,
@@ -1859,6 +1868,69 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
       if (error instanceof PortabilityError) {
         return c.json({ error: error.code }, 400);
       }
+      throw error;
+    }
+  });
+
+  app.get("/api/gmail", (c) => {
+    const occupant = ensureOccupant(db);
+    return c.json(readGmailAccount(db, occupant.id));
+  });
+
+  app.delete("/api/gmail", (c) => {
+    const occupant = ensureOccupant(db);
+    disconnectGmail(db, occupant.id);
+    return c.json({ connected: false });
+  });
+
+  app.post("/api/gmail/connect", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      const signIn = await beginGmailSignIn(
+        db,
+        occupant.id,
+        (await c.req.json()) as { clientId?: unknown; clientSecret?: unknown },
+      );
+      return c.json(signIn);
+    } catch (error) {
+      if (error instanceof GmailStoreError) return c.json({ error: error.code }, 400);
+      throw error;
+    }
+  });
+
+  app.get("/api/gmail/messages", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      const threads = await searchGmail(db, occupant.id, c.req.query("q") ?? "");
+      return c.json({ threads });
+    } catch (error) {
+      if (error instanceof GmailStoreError) return c.json({ error: error.code }, 400);
+      throw error;
+    }
+  });
+
+  app.get("/api/gmail/messages/:id", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      const message = await readGmail(db, occupant.id, c.req.param("id"));
+      return c.json({ message });
+    } catch (error) {
+      if (error instanceof GmailStoreError) return c.json({ error: error.code }, 400);
+      throw error;
+    }
+  });
+
+  app.post("/api/gmail/drafts", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      const draft = await draftGmail(
+        db,
+        occupant.id,
+        (await c.req.json()) as { to?: unknown; subject?: unknown; body?: unknown },
+      );
+      return c.json({ draft }, 201);
+    } catch (error) {
+      if (error instanceof GmailStoreError) return c.json({ error: error.code }, 400);
       throw error;
     }
   });
