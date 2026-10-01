@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { parseExtractedWorklogFacts, parseSuggestedReply, planAgentRun } from "./agency";
+import {
+  gmailSearchQuery,
+  mailAsk,
+  mailSnippetsLine,
+  parseMailDraft,
+  parseExtractedWorklogFacts,
+  parseSuggestedReply,
+  planAgentRun,
+} from "./agency";
 
 describe("Agency.run", () => {
   const now = "2026-09-21T14:00:00.000Z";
@@ -191,5 +199,24 @@ describe("Agency.run", () => {
         now,
       }),
     ).toEqual({ ok: false, error: "grant-expired" });
+  });
+
+  it("treats a mail command as a search or a draft", () => {
+    expect(mailAsk("What should I capture next?")).toBeNull();
+    expect(mailAsk("find a role in robotics")).toBeNull();
+    expect(mailAsk("I got an email yesterday")).toBeNull();
+    expect(mailAsk("find mail about the offer")).toBe("search");
+    expect(mailAsk("read the email from Ada")).toBe("search");
+    expect(mailAsk("draft an email to ada@example.com about the offer")).toBe("draft");
+    expect(gmailSearchQuery("find mail about the offer")).toBe("the offer");
+    expect(gmailSearchQuery("read the email from Ada")).toBe("Ada");
+    expect(gmailSearchQuery("find my mail")).toBe("in:inbox");
+    expect(parseMailDraft('{"to":"ada@example.com","subject":"Hello","body":"Thanks"}')).toEqual({
+      to: "ada@example.com",
+      subject: "Hello",
+      body: "Thanks",
+    });
+    expect(parseMailDraft('{"to":"ada@example.com","subject":"Hello"}')).toBeNull();
+    expect(mailSnippetsLine(["Offer letter"])).toBe("Mail:\n- Offer letter");
   });
 });

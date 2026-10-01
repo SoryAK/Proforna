@@ -14,6 +14,7 @@ import {
   type GmailThread,
 } from "../core/gmail";
 import { prepareConnectionEnabled } from "../core/plugins";
+import { nangoProxy, nangoRuntime, type NangoLink } from "./nango";
 import { openSecret, sealSecret } from "./vault-seal";
 import { vaultKey } from "./vault-key";
 
@@ -32,6 +33,8 @@ type StoredGmail = {
   clientSecret: string;
   refreshToken: string;
   enabled: boolean;
+  nangoConnectionId: string | null;
+  nangoProviderKey: string | null;
 };
 
 export class GmailStoreError extends Error {
@@ -71,6 +74,50 @@ export function disconnectGmail(db: DatabaseSync, occupantId: string): void {
   db.prepare("DELETE FROM gmail_accounts WHERE occupant_id = ?").run(occupantId);
 }
 
+export function readGmailNangoLink(db: DatabaseSync, occupantId: string): NangoLink | null {
+  const row = stored(db, occupantId);
+  if (!row?.nangoConnectionId || !row.nangoProviderKey) return null;
+  return { connectionId: row.nangoConnectionId, providerKey: row.nangoProviderKey };
+}
+
+export async function connectNangoGmail(
+  db: DatabaseSync,
+  occupantId: string,
+  link: NangoLink,
+  fetchImpl: typeof fetch = fetch,
+): Promise<string> {
+  const runtime = nangoRuntime();
+  if (!runtime) throw new GmailStoreError("gmail-connect-failed");
+  const response = await nangoProxy(
+    runtime,
+    {
+      method: "GET",
+      path: "gmail/v1/users/me/profile",
+      providerConfigKey: link.providerKey,
+      connectionId: link.connectionId,
+    },
+    fetchImpl,
+  );
+  if (!response.ok) throw new GmailStoreError("gmail-connect-failed");
+  const email = readGmailProfile(await response.json());
+  if (!email) throw new GmailStoreError("gmail-connect-failed");
+  db.prepare(
+    `INSERT INTO gmail_accounts
+      (occupant_id, email, client_id, client_secret, refresh_token, updated_at, enabled, nango_connection_id, nango_provider_key)
+     VALUES (?, ?, '', '', '', ?, 1, ?, ?)
+     ON CONFLICT(occupant_id) DO UPDATE SET
+       email = excluded.email,
+       client_id = '',
+       client_secret = '',
+       refresh_token = '',
+       enabled = 1,
+       nango_connection_id = excluded.nango_connection_id,
+       nango_provider_key = excluded.nango_provider_key,
+       updated_at = excluded.updated_at`,
+  ).run(occupantId, email, new Date().toISOString(), link.connectionId, link.providerKey);
+  return email;
+}
+
 export async function beginGmailSignIn(
   db: DatabaseSync,
   occupantId: string,
@@ -98,13 +145,16 @@ export async function searchGmail(
   query: string,
   fetchImpl: typeof fetch = fetch,
 ): Promise<GmailThread[]> {
-  const accessToken = await accessTokenFor(db, occupantId, fetchImpl);
   const url = new URL(`${GMAIL_API}/threads`);
   url.searchParams.set("maxResults", "10");
   url.searchParams.set("q", query.trim() || "in:inbox");
-  const response = await fetchImpl(url, {
-    headers: { authorization: `Bearer ${accessToken}` },
-  });
+  const response = await gmailRequest(
+    db,
+    occupantId,
+    `threads?${url.searchParams}`,
+    {},
+    fetchImpl,
+  );
   if (!response.ok) throw new GmailStoreError("gmail-unread");
   return readGmailThreads(await response.json());
 }
@@ -115,10 +165,13 @@ export async function readGmail(
   id: string,
   fetchImpl: typeof fetch = fetch,
 ): Promise<GmailMessage> {
-  const accessToken = await accessTokenFor(db, occupantId, fetchImpl);
-  const response = await fetchImpl(`${GMAIL_API}/messages/${encodeURIComponent(id)}?format=full`, {
-    headers: { authorization: `Bearer ${accessToken}` },
-  });
+  const response = await gmailRequest(
+    db,
+    occupantId,
+    `messages/${encodeURIComponent(id)}?format=full`,
+    {},
+    fetchImpl,
+  );
   if (!response.ok) throw new GmailStoreError("gmail-unread");
   const message = readGmailMessage(await response.json());
   if (!message) throw new GmailStoreError("gmail-unread");
@@ -135,15 +188,16 @@ export async function draftGmail(
   const subject = text(input.subject);
   const body = text(input.body);
   if (!to || !subject || !body) throw new GmailStoreError("draft-required");
-  const accessToken = await accessTokenFor(db, occupantId, fetchImpl);
-  const response = await fetchImpl(`${GMAIL_API}/drafts`, {
-    method: "POST",
-    headers: {
-      authorization: `Bearer ${accessToken}`,
-      "content-type": "application/json",
+  const response = await gmailRequest(
+    db,
+    occupantId,
+    "drafts",
+    {
+      method: "POST",
+      body: JSON.stringify({ message: { raw: gmailRawMessage({ to, subject, body }) } }),
     },
-    body: JSON.stringify({ message: { raw: gmailRawMessage({ to, subject, body }) } }),
-  });
+    fetchImpl,
+  );
   if (!response.ok) throw new GmailStoreError("gmail-unread");
   const saved = (await response.json()) as { id?: unknown };
   const id = text(saved.id);
@@ -241,6 +295,8 @@ async function finishGmailSignIn(
        client_secret = excluded.client_secret,
        refresh_token = excluded.refresh_token,
        enabled = 1,
+       nango_connection_id = NULL,
+       nango_provider_key = NULL,
        updated_at = excluded.updated_at`,
   ).run(
     signIn.occupantId,
@@ -250,6 +306,42 @@ async function finishGmailSignIn(
     sealSecret(token.refreshToken, key),
     new Date().toISOString(),
   );
+}
+
+async function gmailRequest(
+  db: DatabaseSync,
+  occupantId: string,
+  path: string,
+  init: { method?: string; body?: string },
+  fetchImpl: typeof fetch,
+): Promise<Response> {
+  const row = stored(db, occupantId);
+  if (!row) throw new GmailStoreError("gmail-not-connected");
+  if (!row.enabled) throw new GmailStoreError("gmail-off");
+  if (row.nangoConnectionId && row.nangoProviderKey) {
+    const runtime = nangoRuntime();
+    if (!runtime) throw new GmailStoreError("gmail-unread");
+    return nangoProxy(
+      runtime,
+      {
+        method: init.method ?? "GET",
+        path: `gmail/v1/users/me/${path}`,
+        providerConfigKey: row.nangoProviderKey,
+        connectionId: row.nangoConnectionId,
+        body: init.body,
+      },
+      fetchImpl,
+    );
+  }
+  const accessToken = await accessTokenFor(db, occupantId, fetchImpl);
+  return fetchImpl(`${GMAIL_API}/${path}`, {
+    method: init.method ?? "GET",
+    headers: {
+      authorization: `Bearer ${accessToken}`,
+      ...(init.body ? { "content-type": "application/json" } : {}),
+    },
+    body: init.body,
+  });
 }
 
 async function accessTokenFor(
@@ -279,7 +371,8 @@ async function accessTokenFor(
 function stored(db: DatabaseSync, occupantId: string): StoredGmail | null {
   const row = db
     .prepare(
-      `SELECT email, client_id, client_secret, refresh_token, enabled
+      `SELECT email, client_id, client_secret, refresh_token, enabled,
+              nango_connection_id, nango_provider_key
        FROM gmail_accounts WHERE occupant_id = ?`,
     )
     .get(occupantId) as
@@ -289,6 +382,8 @@ function stored(db: DatabaseSync, occupantId: string): StoredGmail | null {
         client_secret: string;
         refresh_token: string;
         enabled: number;
+        nango_connection_id: string | null;
+        nango_provider_key: string | null;
       }
     | undefined;
   if (!row) return null;
@@ -298,6 +393,8 @@ function stored(db: DatabaseSync, occupantId: string): StoredGmail | null {
     clientSecret: row.client_secret,
     refreshToken: row.refresh_token,
     enabled: row.enabled === 1,
+    nangoConnectionId: row.nango_connection_id,
+    nangoProviderKey: row.nango_provider_key,
   };
 }
 

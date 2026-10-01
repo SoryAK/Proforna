@@ -877,31 +877,6 @@ button.home-nav-item:focus-visible {
   white-space: nowrap;
 }
 
-.home-links {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.55rem 1rem;
-  margin: 0.75rem 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-.home-links a {
-  color: var(--gold-hover);
-  font-size: 0.88rem;
-  text-decoration: underline;
-  text-underline-offset: 0.18em;
-}
-
-.home-links a:hover {
-  color: var(--text);
-}
-
-.home-links a:focus-visible {
-  outline: 2px solid var(--gold-hover);
-  outline-offset: 3px;
-}
-
 .home-file-edit {
   margin: 0.85rem 0 0;
   padding: 0;
@@ -1179,6 +1154,24 @@ button.home-nav-item:focus-visible {
   border-top: 1px solid rgba(167, 139, 113, 0.22);
 }
 
+.integration-list-scroll {
+  max-height: 22rem;
+  overflow: auto;
+  margin-top: 0.9rem;
+  border: 1px solid rgba(255, 255, 255, 0.34);
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.28);
+}
+
+.integration-list-scroll .integration-row {
+  padding: 0.75rem 0.9rem 0.8rem;
+  border-bottom-color: rgba(255, 255, 255, 0.14);
+}
+
+.integration-list-scroll .integration-row:last-child {
+  border-bottom: 0;
+}
+
 .integration-row {
   padding: 0.85rem 0 0.95rem;
   border-bottom: 1px solid rgba(167, 139, 113, 0.22);
@@ -1312,6 +1305,58 @@ button.home-nav-item:focus-visible {
   flex-wrap: wrap;
   gap: 0.6rem;
   margin-top: 0.9rem;
+}
+
+.integration-actions button {
+  padding: 0.7rem 1.25rem;
+  border: 0;
+  border-radius: 999px;
+  background: #fff;
+  color: #0a0a0a;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+.integration-actions button[type="button"] {
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: transparent;
+  color: var(--gold-light);
+}
+
+.integration-actions button:hover:not(:disabled) {
+  background: var(--gold-hover);
+  color: #0a0a0a;
+}
+
+.integration-actions button[type="button"]:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.34);
+  background: transparent;
+  color: #fff;
+}
+
+.integration-actions button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.integration-actions button:focus-visible {
+  outline: 1px solid var(--gold-hover);
+  outline-offset: 3px;
+}
+
+.integration-setup {
+  color: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+
+.integration-setup:hover,
+.integration-setup:focus-visible {
+  color: var(--gold-light);
 }
 
 .map-pin-settings {

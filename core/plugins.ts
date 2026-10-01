@@ -3,6 +3,7 @@ export type IntegrationField = {
   label: string;
   secret: boolean;
   required: boolean;
+  setupUrl: string | null;
 };
 
 export type ThirdPartyPlugin = {
@@ -36,6 +37,7 @@ const CAREER_DEFAULTS = new Set([
   "calendly",
   "docusign",
   "github",
+  "linkedin",
   "todoist",
   "zoom",
 ]);
@@ -166,13 +168,15 @@ function readFields(pluginJson: unknown): IntegrationField[] {
   if (!properties || typeof properties !== "object") return [];
   return Object.entries(properties as Record<string, unknown>).flatMap(([key, spec]) => {
     if (!key.trim()) return [];
-    const row = spec && typeof spec === "object" ? (spec as { title?: unknown }) : {};
+    const row =
+      spec && typeof spec === "object" ? (spec as { title?: unknown; setupUrl?: unknown }) : {};
     return [
       {
         key,
         label: text(row.title) || key,
         secret: /secret|token|key|password/i.test(key),
         required: required.has(key),
+        setupUrl: httpsUrl(row.setupUrl),
       },
     ];
   });
@@ -200,4 +204,16 @@ function hostOf(endpoint: string): string | null {
 
 function text(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function httpsUrl(value: unknown): string | null {
+  const raw = text(value);
+  if (!raw) return null;
+  try {
+    const url = new URL(raw);
+    if (url.protocol !== "https:") return null;
+    return url.toString();
+  } catch {
+    return null;
+  }
 }

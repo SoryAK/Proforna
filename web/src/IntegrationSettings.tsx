@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { GmailSettingsForm } from "./GmailSettings";
+import "./home.css";
 
 type IntegrationField = {
   key: string;
   label: string;
   secret: boolean;
   required: boolean;
+  setupUrl: string | null;
 };
 
 type ListedIntegration = {
@@ -16,9 +18,10 @@ type ListedIntegration = {
   fields: IntegrationField[];
   configured: boolean;
   enabled: boolean;
+  signIn: boolean;
 };
 
-export function IntegrationSettings() {
+export function IntegrationSettings({ nested = false }: { nested?: boolean }) {
   const [rows, setRows] = useState<ListedIntegration[] | null>(null);
   const [query, setQuery] = useState("");
   const [openName, setOpenName] = useState<string | null>(null);
@@ -49,11 +52,51 @@ export function IntegrationSettings() {
   }
 
   function connectRow(row: ListedIntegration) {
+    if (row.signIn) {
+      void startSignIn(row);
+      return;
+    }
+    const url = setupHref(row);
+    if (url) window.open(url, "_blank", "noopener,noreferrer");
     setOpenName(row.name);
     if (openName !== row.name) {
       setValues({});
       setMessage("");
       setError("");
+    }
+  }
+
+  async function startSignIn(row: ListedIntegration) {
+    const popup = openSignInWindow();
+    if (!popup) {
+      setError("The sign-in window was blocked. Allow popups for Proforna, then try Connect again.");
+      return;
+    }
+    setBusy(true);
+    setMessage("");
+    setError("");
+    try {
+      const response = await fetch(`/api/sign-in/${encodeURIComponent(row.name)}`, { method: "POST" });
+      const payload = (await response.json()) as { connectLink?: string; error?: string };
+      if (!response.ok || !payload.connectLink) {
+        popup.close();
+        setError(signInError(row.displayName, payload.error));
+        return;
+      }
+      popup.location.href = payload.connectLink;
+      const connected = await waitForSignIn(row.name);
+      if (!connected) {
+        setError(`Finish signing in in the ${row.displayName} window, then try Connect again.`);
+        return;
+      }
+      popup.close();
+      setMessage(`${row.displayName} is connected. Proforna can use it when you ask.`);
+      await load();
+    } catch {
+      popup.close();
+      setError(`${row.displayName} could not be connected.`);
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -144,7 +187,7 @@ export function IntegrationSettings() {
     const needle = query.trim().toLowerCase();
     return (rows ?? [])
       .filter((row) => {
-        if (!row.available) return false;
+        if (!row.available || !row.signIn) return false;
         if (!needle) return true;
         return (
           row.displayName.toLowerCase().includes(needle) ||
@@ -163,10 +206,14 @@ export function IntegrationSettings() {
 
   return (
     <>
-      <h1>Integrations</h1>
-      <p className="onboarding-lead">
-        Turn a connection on when you want Proforna to use it. It does not file mail into Opportunities on its own.
-      </p>
+      {nested ? null : (
+        <>
+          <h1>Integrations</h1>
+          <p className="onboarding-lead">
+            Turn a connection on when you want Proforna to use it. It does not file mail into Opportunities on its own.
+          </p>
+        </>
+      )}
       <label className="onboarding-field">
         <span>Search</span>
         <input
@@ -176,9 +223,11 @@ export function IntegrationSettings() {
         />
       </label>
       {rows && visible.length === 0 ? (
-        <p className="home-settings-note">No integration matches that search.</p>
+        <p className="home-settings-note">
+          {query.trim() ? "No integration matches that search." : "No connections are ready yet."}
+        </p>
       ) : (
-        <ul className="integration-list">
+        <ul className={nested ? "integration-list integration-list-scroll" : "integration-list"}>
           {visible.map((row) => {
             const open = openName === row.name;
             return (
@@ -210,6 +259,7 @@ export function IntegrationSettings() {
                     <button
                       type="button"
                       className="integration-connect"
+                      disabled={busy}
                       onClick={() => connectRow(row)}
                     >
                       Connect
@@ -221,11 +271,38 @@ export function IntegrationSettings() {
                     {row.name === "gmail" ? (
                       <GmailSettingsForm
                         nested
+                        signIn={row.signIn}
                         listedEnabled={row.enabled}
                         onAccountChange={() => void load()}
                       />
+                    ) : row.signIn ? (
+                      <div>
+                        <p className="home-settings-note">
+                          Connect opens a sign-in window. You allow access once. Proforna does not ask for a client id.
+                        </p>
+                        {row.configured ? (
+                          <div className="integration-actions">
+                            <button type="button" disabled={busy} onClick={() => void remove(row.name)}>
+                              Remove
+                            </button>
+                          </div>
+                        ) : null}
+                      </div>
                     ) : (
                       <form onSubmit={(event) => void save(event, row.name)}>
+                        {setupHref(row) ? (
+                          <p className="home-settings-note">
+                            <a
+                              className="integration-setup"
+                              href={setupHref(row) ?? undefined}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              {setupLead(row)}
+                            </a>
+                            , then paste it here.
+                          </p>
+                        ) : null}
                         {row.fields.map((field) => (
                           <label className="onboarding-field" key={field.key}>
                             <span>{field.label}</span>
@@ -284,4 +361,54 @@ function integrationRank(row: ListedIntegration): number {
 function integrationStatus(row: ListedIntegration): string {
   if (!row.configured) return "Not connected";
   return row.enabled ? "On" : "Off";
+}
+
+function setupHref(row: ListedIntegration): string | null {
+  const href = row.fields.find((field) => field.setupUrl)?.setupUrl ?? null;
+  if (!href) return null;
+  try {
+    const url = new URL(href);
+    if (url.protocol !== "https:") return null;
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
+function signInError(displayName: string, code: string | undefined): string {
+  if (code === "sign-in-unavailable") return `${displayName} is not ready to sign in yet.`;
+  return `${displayName} could not be connected.`;
+}
+
+function openSignInWindow(): Window | null {
+  const width = 520;
+  const height = 720;
+  const left = window.screenX + Math.max(0, (window.outerWidth - width) / 2);
+  const top = window.screenY + Math.max(0, (window.outerHeight - height) / 2);
+  return window.open(
+    "about:blank",
+    "proforna-sign-in",
+    `popup=yes,width=${width},height=${height},left=${Math.round(left)},top=${Math.round(top)}`,
+  );
+}
+
+async function waitForSignIn(name: string): Promise<boolean> {
+  const started = Date.now();
+  while (Date.now() - started < 120_000) {
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    const response = await fetch(`/api/sign-in/${encodeURIComponent(name)}/ready`, { method: "POST" });
+    if (!response.ok) continue;
+    const body = (await response.json()) as { connected?: boolean };
+    if (body.connected) return true;
+  }
+  return false;
+}
+
+function setupLead(row: ListedIntegration): string {
+  const href = setupHref(row);
+  if (!href) return `Open ${row.displayName}`;
+  const host = new URL(href).hostname;
+  if (host === "github.com") return "Create a token on GitHub";
+  if (host === "www.linkedin.com" || host === "linkedin.com") return "Create an app on LinkedIn";
+  return `Open ${row.displayName}`;
 }

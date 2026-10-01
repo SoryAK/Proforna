@@ -429,6 +429,20 @@
   border-color: var(--gold);
 }
 
+.onboarding-field select.onboarding-model-select {
+  appearance: none;
+  border-radius: 999px;
+  min-height: 2.75rem;
+  padding: 0.45rem 2.4rem 0.45rem 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background-color: rgba(255, 255, 255, 0.03);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.2 6 6.2 11 1.2' fill='none' stroke='%23f5f2ee' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 1rem center;
+  background-size: 12px 8px;
+  cursor: pointer;
+}
+
 .onboarding-field-row {
   display: grid;
   gap: 0.65rem;
@@ -1006,7 +1020,7 @@
   flex-wrap: wrap;
   justify-content: center;
   gap: 0.7rem 1rem;
-  width: min(32rem, 100%);
+  width: min(40rem, 100%);
   margin: 0 0 1rem;
   padding: 0;
   list-style: none;
@@ -1090,6 +1104,46 @@
   display: grid;
   gap: 0.35rem;
   padding: 0 0.7rem 0.75rem;
+}
+
+.onboarding-scan-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: 0.65rem;
+  align-items: end;
+  margin-top: 0.7rem;
+}
+
+.onboarding-scan-row .onboarding-field {
+  margin-top: 0;
+}
+
+.onboarding-scan-row .onboarding-btn {
+  min-height: 2.75rem;
+}
+
+.onboarding-detect-address {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.onboarding-detect-address .onboarding-field {
+  margin-top: 0.35rem;
+}
+
+.onboarding-detect-address-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0.55rem 0 0;
+  color: #fff;
+  font-size: 0.85rem;
+}
+
+.onboarding-detect-address-head span:last-child {
+  color: var(--muted);
+  font-size: 0.8rem;
 }
 
 .onboarding-detect-models {

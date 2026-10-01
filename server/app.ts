@@ -5,13 +5,13 @@ import {
   isHttpUrl,
   normalizeBaseUrl,
 } from "../core/model-connection";
-import { LOCAL_ONBOARDING_ENDPOINTS } from "../core/model-onboarding";
+import { preparePortRange } from "../core/model-onboarding";
+import { localScanPorts, scanLocalModels } from "./local-scan";
 import {
   parseExtractedResume,
   parseHistoryResumeId,
 } from "../core/resume-extract";
 import {
-  LOCAL_MODEL_PROBE_MS,
   listOpenAiCompatModels,
   type CompleteFn,
 } from "./openai-compat";
@@ -113,11 +113,13 @@ import { careerRecordForJudgment, judgeListings } from "./fit-judgment";
 import { searchJobListings } from "./job-search";
 import {
   beginGmailSignIn,
+  connectNangoGmail,
   disconnectGmail,
   draftGmail,
   GmailStoreError,
   readGmail,
   readGmailAccount,
+  readGmailNangoLink,
   searchGmail,
   setGmailEnabled,
 } from "./gmail";
@@ -125,10 +127,22 @@ import {
   IntegrationCatalogError,
   listIntegrationCatalog,
   loadPluginCatalog,
+  readIntegrationNangoLink,
   removeIntegrationCatalog,
   saveIntegrationCatalog,
+  saveNangoIntegration,
   setIntegrationEnabled,
 } from "./integration-catalog";
+import { matchNangoIntegration } from "../core/nango";
+import { thirdPartyBlock, type ThirdPartyPlugin } from "../core/plugins";
+import {
+  createNangoConnectLink,
+  deleteNangoConnection,
+  findNangoConnection,
+  loadNangoIntegrations,
+  nangoRuntime,
+  NangoRequestError,
+} from "./nango";
 import {
   JobSourceSettingsStoreError,
   readJobSourceSettings,
@@ -209,6 +223,8 @@ export type AppOptions = {
       longitude: number;
     } | null>;
   };
+  localScanPorts?: number[];
+  localScanConnect?: (port: number, signal?: AbortSignal) => Promise<boolean>;
 };
 
 type PlaceSearch = {
@@ -502,19 +518,26 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
   });
 
   app.get("/api/models/probe", async (c) => {
-    const locals = await Promise.all(
-      LOCAL_ONBOARDING_ENDPOINTS.map(async (endpoint) => {
-        const result = await listOpenAiCompatModels({
-          baseUrl: endpoint.baseUrl,
-          timeoutMs: LOCAL_MODEL_PROBE_MS,
-        });
-        if (!result.ok) {
-          return { id: endpoint.id, reachable: false, models: [] as string[] };
-        }
-        return { id: endpoint.id, reachable: true, models: result.models };
-      }),
-    );
-    return c.json({ locals });
+    const from = c.req.query("from");
+    const to = c.req.query("to");
+    let ports = options.localScanPorts;
+    if (from !== undefined || to !== undefined) {
+      const prepared = preparePortRange(from, to);
+      if (!prepared.ok) {
+        const error =
+          prepared.error === "range-backwards"
+            ? "The first port comes before the second."
+            : "Use a port from 1 to 65535.";
+        return c.json({ error }, 400);
+      }
+      ports = localScanPorts(prepared.from, prepared.to);
+    }
+    const hits = await scanLocalModels({
+      ports,
+      connect: options.localScanConnect,
+      signal: c.req.raw.signal,
+    });
+    return c.json({ hits });
   });
 
   app.post("/api/models/discover", async (c) => {
@@ -1898,8 +1921,9 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
     }
   });
 
-  app.delete("/api/gmail", (c) => {
+  app.delete("/api/gmail", async (c) => {
     const occupant = ensureOccupant(db);
+    await forgetNangoLink(readGmailNangoLink(db, occupant.id));
     disconnectGmail(db, occupant.id);
     return c.json({ connected: false });
   });
@@ -1956,9 +1980,56 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
     }
   });
 
-  app.get("/api/integration-catalog", (c) => {
+  app.get("/api/integration-catalog", async (c) => {
     const occupant = ensureOccupant(db);
-    return c.json({ integrations: listIntegrationCatalog(db, occupant.id, loadPluginCatalog()) });
+    const plugins = loadPluginCatalog();
+    const listed = listIntegrationCatalog(
+      db,
+      occupant.id,
+      plugins,
+      await signInNames(plugins),
+    );
+    return c.json({
+      integrations: listed.filter((item) => item.signIn),
+    });
+  });
+
+  app.post("/api/sign-in/:name", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      const ready = await readySignIn(c.req.param("name"));
+      const connectLink = await createNangoConnectLink(
+        ready.runtime,
+        occupant.id,
+        ready.match.uniqueKey,
+      );
+      return c.json({ connectLink });
+    } catch (error) {
+      const failure = signInFailure(error);
+      if (failure) return c.json({ error: failure.error }, failure.status);
+      throw error;
+    }
+  });
+
+  app.post("/api/sign-in/:name/ready", async (c) => {
+    const occupant = ensureOccupant(db);
+    const name = c.req.param("name");
+    try {
+      const ready = await readySignIn(name);
+      const found = await findNangoConnection(ready.runtime, occupant.id, ready.match.uniqueKey);
+      if (!found) return c.json({ connected: false });
+      const link = { connectionId: found.connectionId, providerKey: ready.match.uniqueKey };
+      if (name === "gmail") {
+        const email = await connectNangoGmail(db, occupant.id, link);
+        return c.json({ connected: true, email });
+      }
+      saveNangoIntegration(db, occupant.id, name, link, loadPluginCatalog());
+      return c.json({ connected: true });
+    } catch (error) {
+      const failure = signInFailure(error);
+      if (failure) return c.json({ error: failure.error }, failure.status);
+      throw error;
+    }
   });
 
   app.put("/api/integration-catalog/:name", async (c) => {
@@ -1997,10 +2068,12 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
     }
   });
 
-  app.delete("/api/integration-catalog/:name", (c) => {
+  app.delete("/api/integration-catalog/:name", async (c) => {
     const occupant = ensureOccupant(db);
+    const name = c.req.param("name");
     try {
-      removeIntegrationCatalog(db, occupant.id, c.req.param("name"), loadPluginCatalog());
+      await forgetNangoLink(readIntegrationNangoLink(db, occupant.id, name));
+      removeIntegrationCatalog(db, occupant.id, name, loadPluginCatalog());
       return c.json({ configured: false });
     } catch (error) {
       if (error instanceof IntegrationCatalogError) return c.json({ error: error.code }, 400);
@@ -2031,6 +2104,73 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
   });
 
   return app;
+}
+
+async function signInNames(
+  plugins: ReturnType<typeof loadPluginCatalog>,
+): Promise<Set<string>> {
+  const names = new Set<string>();
+  const runtime = nangoRuntime();
+  if (!runtime) return names;
+  try {
+    const integrations = await loadNangoIntegrations(runtime);
+    if (matchNangoIntegration("gmail", integrations)) names.add("gmail");
+    for (const plugin of plugins) {
+      if (offeredPlugin(plugin) && matchNangoIntegration(plugin.name, integrations)) {
+        names.add(plugin.name);
+      }
+    }
+  } catch {
+    return names;
+  }
+  return names;
+}
+
+async function readySignIn(name: string) {
+  const plugins = loadPluginCatalog();
+  if (name !== "gmail") {
+    const plugin = plugins.find((item) => item.name === name);
+    if (!plugin) throw new IntegrationCatalogError("integration-unknown");
+    if (!offeredPlugin(plugin)) throw new IntegrationCatalogError("integration-unavailable");
+  }
+  const runtime = nangoRuntime();
+  if (!runtime) throw new NangoRequestError("sign-in-unavailable");
+  let integrations;
+  try {
+    integrations = await loadNangoIntegrations(runtime);
+  } catch {
+    throw new NangoRequestError("sign-in-unavailable");
+  }
+  const match = matchNangoIntegration(name, integrations);
+  if (!match) throw new NangoRequestError("sign-in-unavailable");
+  return { runtime, match };
+}
+
+function signInFailure(error: unknown): { error: string; status: 400 | 502 } | null {
+  if (error instanceof IntegrationCatalogError || error instanceof GmailStoreError) {
+    return { error: error.code, status: 400 };
+  }
+  if (error instanceof NangoRequestError) {
+    return { error: error.code, status: error.code === "sign-in-failed" ? 502 : 400 };
+  }
+  return null;
+}
+
+function offeredPlugin(plugin: ThirdPartyPlugin): boolean {
+  const block = thirdPartyBlock(plugin);
+  return block === null || block === "outside-career";
+}
+
+async function forgetNangoLink(
+  link: { connectionId: string; providerKey: string } | null,
+): Promise<void> {
+  const runtime = nangoRuntime();
+  if (!link || !runtime) return;
+  try {
+    await deleteNangoConnection(runtime, link);
+  } catch {
+    // Remove still finishes in Proforna when the helper cannot be reached.
+  }
 }
 
 async function withResidenceCoordinates(

@@ -55,6 +55,67 @@ export function suggestChatModel(models: string[]): string {
   return models.find((id) => !/embed/i.test(id)) ?? models[0] ?? "";
 }
 
+export const LOCAL_SCAN_PORT_MIN = 800;
+export const LOCAL_SCAN_PORT_MAX = 11434;
+
+export type LocalScanHit = {
+  baseUrl: string;
+  models: string[];
+};
+
+export function presentScanAddress(baseUrl: string): string {
+  try {
+    const url = new URL(baseUrl);
+    return url.port ? `${url.hostname}:${url.port}` : url.host;
+  } catch {
+    return baseUrl;
+  }
+}
+
+export function modelCountLabel(count: number): string {
+  return count === 1 ? "1 model" : `${count} models`;
+}
+
+export function presentRangeHits(
+  hits: readonly { baseUrl: string; models: readonly string[] }[],
+): LocalScanHit[] {
+  const kept = hits.flatMap((hit) => {
+    const baseUrl = hit.baseUrl.trim();
+    const models = hit.models.map((id) => id.trim()).filter(Boolean);
+    if (!baseUrl || models.length === 0) return [];
+    return [{ baseUrl, models }];
+  });
+  return kept.sort((a, b) => scanPort(a.baseUrl) - scanPort(b.baseUrl));
+}
+
+export function preparePortRange(
+  from: unknown,
+  to: unknown,
+): { ok: true; from: number; to: number } | { ok: false; error: "port-invalid" | "range-backwards" } {
+  const start = parsePort(from);
+  const end = parsePort(to);
+  if (start === null || end === null) return { ok: false, error: "port-invalid" };
+  if (start > end) return { ok: false, error: "range-backwards" };
+  return { ok: true, from: start, to: end };
+}
+
+function parsePort(value: unknown): number | null {
+  const text = typeof value === "number" ? String(value) : typeof value === "string" ? value.trim() : "";
+  if (!/^\d+$/.test(text)) return null;
+  const port = Number(text);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) return null;
+  return port;
+}
+
+function scanPort(baseUrl: string): number {
+  try {
+    const port = Number(new URL(baseUrl).port);
+    return Number.isFinite(port) ? port : 0;
+  } catch {
+    return 0;
+  }
+}
+
 export function presentModelId(id: string): string {
   const base = id.split(/[/\\]/).pop()?.trim() ?? "";
   return base || id;

@@ -6,10 +6,12 @@ type GmailThread = { id: string; snippet: string };
 
 export function GmailSettingsForm({
   nested = false,
+  signIn = false,
   listedEnabled,
   onAccountChange,
 }: {
   nested?: boolean;
+  signIn?: boolean;
   listedEnabled?: boolean;
   onAccountChange?: () => void;
 }) {
@@ -39,6 +41,43 @@ export function GmailSettingsForm({
     event.preventDefault();
     setError("");
     setMessage("");
+    if (signIn) {
+      const popup = openSignInWindow();
+      if (!popup) {
+        setError("The sign-in window was blocked. Allow popups for Proforna, then try Connect again.");
+        return;
+      }
+      setBusy(true);
+      try {
+        const response = await fetch("/api/sign-in/gmail", { method: "POST" });
+        const payload = (await response.json()) as { connectLink?: string; error?: string };
+        if (!response.ok || !payload.connectLink) {
+          popup.close();
+          setError(
+            payload.error === "sign-in-unavailable"
+              ? "Gmail is not ready to sign in yet."
+              : "Gmail could not be connected.",
+          );
+          return;
+        }
+        popup.location.href = payload.connectLink;
+        const connected = await waitForSignIn();
+        if (!connected) {
+          setError("Finish signing in in the Google window, then try Connect again.");
+          return;
+        }
+        popup.close();
+        setAccount(connected);
+        setMessage(`Connected ${connected.email}. Search reads that mailbox, and a draft stays in Gmail until you send it.`);
+        onAccountChange?.();
+      } catch {
+        popup.close();
+        setError("Gmail could not be connected.");
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
     if (!clientId.trim() || !clientSecret.trim()) {
       setError("Gmail needs a client id and a client secret.");
       return;
@@ -181,9 +220,11 @@ export function GmailSettingsForm({
                 placeholder="from:recruiter offer"
               />
             </label>
-            <button type="submit" disabled={busy}>
-              Search
-            </button>
+            <div className="integration-actions">
+              <button type="submit" disabled={busy}>
+                Search
+              </button>
+            </div>
           </form>
           <ul>
             {threads.map((thread) => (
@@ -203,18 +244,33 @@ export function GmailSettingsForm({
               <span>Message</span>
               <textarea value={body} onChange={(event) => setBody(event.target.value)} rows={4} />
             </label>
-            <button type="submit" disabled={busy}>
-              Save draft
-            </button>
+            <div className="integration-actions">
+              <button type="submit" disabled={busy}>
+                Save draft
+              </button>
+            </div>
           </form>
             </>
           ) : (
             <p className="home-settings-note">Gmail is off. Turn it on to search or save a draft.</p>
           )}
-          <button type="button" disabled={busy} onClick={() => void disconnect()}>
-            Disconnect
-          </button>
+          <div className="integration-actions">
+            <button type="button" disabled={busy} onClick={() => void disconnect()}>
+              Disconnect
+            </button>
+          </div>
         </>
+      ) : signIn ? (
+        <form onSubmit={(event) => void connect(event)}>
+          <p className="onboarding-lead">
+            Connect opens a sign-in window. After you allow access, Gmail is connected.
+          </p>
+          <div className="integration-actions">
+            <button type="submit" disabled={busy}>
+              {busy ? "Waiting for Google" : "Connect"}
+            </button>
+          </div>
+        </form>
       ) : (
         <form onSubmit={(event) => void connect(event)}>
           <p className="onboarding-lead">
@@ -233,9 +289,11 @@ export function GmailSettingsForm({
               autoComplete="off"
             />
           </label>
-          <button type="submit" disabled={busy}>
-            {busy ? "Waiting for Google" : "Connect"}
-          </button>
+          <div className="integration-actions">
+            <button type="submit" disabled={busy}>
+              {busy ? "Waiting for Google" : "Connect"}
+            </button>
+          </div>
           <p className="home-settings-note">
             The first time, create a desktop client in Google Cloud and add http://127.0.0.1:42813/oauth2callback as a redirect. Paste that client here.
           </p>
@@ -261,6 +319,18 @@ function openSignInWindow(): Window | null {
     "proforna-gmail-sign-in",
     `popup=yes,width=${width},height=${height},left=${Math.round(left)},top=${Math.round(top)}`,
   );
+}
+
+async function waitForSignIn(): Promise<{ connected: true; email: string } | null> {
+  const started = Date.now();
+  while (Date.now() - started < 120_000) {
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    const response = await fetch("/api/sign-in/gmail/ready", { method: "POST" });
+    if (!response.ok) continue;
+    const body = (await response.json()) as { connected?: boolean; email?: string };
+    if (body.connected && body.email) return { connected: true, email: body.email };
+  }
+  return null;
 }
 
 async function waitForGmail(): Promise<{ connected: true; email: string } | null> {

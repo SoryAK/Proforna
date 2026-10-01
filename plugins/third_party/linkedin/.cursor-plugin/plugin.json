@@ -1,0 +1,27 @@
+{
+  "name": "linkedin",
+  "displayName": "LinkedIn",
+  "version": "1.0.0",
+  "description": "Read your LinkedIn name, headline, and email.",
+  "variables": {
+    "type": "object",
+    "properties": {
+      "LINKEDIN_CLIENT_ID": {
+        "type": "string",
+        "title": "LinkedIn client id",
+        "description": "Client ID from the app you create at https://www.linkedin.com/developers/apps.",
+        "setupUrl": "https://www.linkedin.com/developers/apps"
+      },
+      "LINKEDIN_CLIENT_SECRET": {
+        "type": "string",
+        "title": "LinkedIn client secret",
+        "description": "Client Secret from the same LinkedIn app."
+      }
+    },
+    "required": [
+      "LINKEDIN_CLIENT_ID",
+      "LINKEDIN_CLIENT_SECRET"
+    ]
+  },
+  "mcpServers": "./mcp.json"
+}
