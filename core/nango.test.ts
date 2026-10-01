@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   connectSessionBody,
   matchNangoIntegration,
+  presentAccessToken,
   presentConnectLink,
   presentNangoConnection,
   presentNangoIntegrations,
@@ -38,6 +39,13 @@ describe("sign-in helper", () => {
         },
       },
     });
+  });
+
+  it("reads an access token and ignores a refresh token", () => {
+    expect(presentAccessToken({ credentials: { refresh_token: "refresh", raw: { access_token: "access" } } })).toBe(
+      "access",
+    );
+    expect(presentAccessToken({ credentials: { refresh_token: "refresh" } })).toBeNull();
   });
 
   it("keeps the connect link on this machine", () => {

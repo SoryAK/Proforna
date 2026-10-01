@@ -389,6 +389,68 @@ describe("Agency HTTP seam", () => {
     }
   });
 
+  it("reads a connected account from its own tools without giving the model the token", async () => {
+    process.env.NANGO_SECRET_KEY = "test-secret-key";
+    process.env.NANGO_HOST = "http://127.0.0.1:3003";
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const body = JSON.parse(String(init?.body ?? "{}")) as { method?: string };
+      if (url.includes("/connections/conn-zoom")) {
+        return Response.json({ credentials: { access_token: "zoom-token" } });
+      }
+      if (body.method === "initialize") {
+        return new Response(JSON.stringify({ result: { protocolVersion: "2024-11-05" } }), {
+          headers: { "content-type": "application/json", "mcp-session-id": "sess" },
+        });
+      }
+      if (body.method === "notifications/initialized") return new Response(null, { status: 202 });
+      if (body.method === "tools/list") {
+        return Response.json({
+          result: {
+            tools: [{ name: "list_meetings", description: "List meetings", inputSchema: { type: "object" } }],
+          },
+        });
+      }
+      if (body.method === "tools/call") {
+        expect(new Headers(init?.headers).get("authorization")).toBe("Bearer zoom-token");
+        return Response.json({ result: { content: [{ type: "text", text: "Standup at 9" }] } });
+      }
+      return new Response("no", { status: 404 });
+    });
+    vi.stubGlobal("fetch", fetchImpl);
+    const complete = vi.fn(async (input: { messages: Array<{ content: string }> }) => {
+      const content = input.messages[1]?.content ?? "";
+      if (content.includes("Command: What should I capture next?")) {
+        expect(content).toContain("Connected accounts:");
+        expect(content).toContain("Zoom");
+        expect(content).not.toContain("Standup at 9");
+        return { text: "Capture a measured outcome.", model: "local-test" };
+      }
+      expect(content).toContain("Standup at 9");
+      expect(content).not.toContain("zoom-token");
+      return { text: "You have a standup at 9.", model: "local-test" };
+    });
+    const db = openDatabase(":memory:");
+    const app = createApp(db, { complete });
+    try {
+      await saveLocalModel(app);
+      saveZoom(db);
+      const quiet = await command(app, "What should I capture next?");
+      expect(quiet.status).toBe(201);
+      expect(fetchImpl).not.toHaveBeenCalled();
+      const ran = await command(app, "what zoom meetings do I have");
+      expect(ran.status).toBe(201);
+      expect(await ran.json()).toMatchObject({
+        run: { answer: "You have a standup at 9.", changeSet: null },
+      });
+    } finally {
+      delete process.env.NANGO_SECRET_KEY;
+      delete process.env.NANGO_HOST;
+      vi.unstubAllGlobals();
+      db.close();
+    }
+  });
+
   it("answers a mail search from Gmail snippets and does not call Gmail when it is off", async () => {
     const fetchImpl = gmailFetch();
     vi.stubGlobal("fetch", fetchImpl);
@@ -494,6 +556,15 @@ function command(app: ReturnType<typeof createApp>, prompt: string) {
       grant: { remoteModel: false },
     }),
   });
+}
+
+function saveZoom(db: DatabaseSync) {
+  const occupant = db.prepare("SELECT id FROM occupants").get() as { id: string };
+  db.prepare(
+    `INSERT INTO integration_accounts
+      (occupant_id, name, secrets_json, updated_at, enabled, nango_connection_id, nango_provider_key)
+     VALUES (?, 'zoom', '{}', ?, 1, 'conn-zoom', 'zoom')`,
+  ).run(occupant.id, "2026-09-30T00:00:00.000Z");
 }
 
 function saveGithub(db: DatabaseSync) {

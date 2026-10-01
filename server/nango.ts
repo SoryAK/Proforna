@@ -1,5 +1,6 @@
 import {
   connectSessionBody,
+  presentAccessToken,
   presentConnectLink,
   presentNangoConnection,
   presentNangoIntegrations,
@@ -71,6 +72,21 @@ export async function findNangoConnection(
   const params = new URLSearchParams({ "tags[end_user_id]": occupantId });
   const payload = await readJson(runtime, `/connections?${params}`, { method: "GET" }, fetchImpl);
   return presentNangoConnection(payload, occupantId, uniqueKey);
+}
+
+export async function nangoAccessToken(
+  runtime: NangoRuntime,
+  link: NangoLink,
+  fetchImpl: typeof fetch = fetch,
+): Promise<string | null> {
+  const params = new URLSearchParams({ provider_config_key: link.providerKey });
+  const payload = await readJson(
+    runtime,
+    `/connections/${encodeURIComponent(link.connectionId)}?${params}`,
+    { method: "GET" },
+    fetchImpl,
+  );
+  return presentAccessToken(payload);
 }
 
 export async function deleteNangoConnection(
