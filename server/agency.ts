@@ -25,9 +25,20 @@ import {
   type ChangeSet,
   type CommandSpeaker,
 } from "../core/index";
+import {
+  connectedAccountsLine,
+  connectionToolLine,
+  connectionToolsLine,
+  connectionUnreadLine,
+  dedicatedConnection,
+  mentionsConnection,
+  pickReadTool,
+} from "../core/connection-access";
+import { thirdPartyBlock, type ThirdPartyPlugin } from "../core/plugins";
 import { draftGmail, GmailStoreError, readGmailAccount, searchGmail } from "./gmail";
-import { readIntegrationNangoLink } from "./integration-catalog";
-import { nangoProxy, nangoRuntime } from "./nango";
+import { loadPluginCatalog, readIntegrationNangoLink } from "./integration-catalog";
+import { readConnectedTool } from "./mcp-read";
+import { nangoAccessToken, nangoProxy, nangoRuntime } from "./nango";
 import { loadLatestModelConnection } from "./models";
 import {
   completeOpenAiChat,
@@ -88,6 +99,7 @@ export async function runAgency(
   const history = parseCommandHistory(input.history);
   const mail = await commandMail(db, occupantId, planned.value, occupantPrompt);
   const github = await commandGithub(db, occupantId, planned.value, occupantPrompt);
+  const connections = await commandConnections(db, occupantId, planned.value, occupantPrompt);
   const context = loadRunContext(
     db,
     occupantId,
@@ -96,6 +108,7 @@ export async function runAgency(
     history,
     mail,
     github,
+    connections,
   );
   if (!context.ok) throw new AgencyStoreError(context.error);
 
@@ -330,6 +343,99 @@ function readEnabledGithubLink(
   return readIntegrationNangoLink(db, occupantId, "github");
 }
 
+async function commandConnections(
+  db: DatabaseSync,
+  occupantId: string,
+  run: AgentRun,
+  prompt: string,
+): Promise<string> {
+  if (run.purpose !== "command" || run.scope.type !== "home") return "";
+  const accounts = enabledAccounts(db, occupantId);
+  const lines = [connectedAccountsLine(accounts)];
+  const runtime = nangoRuntime();
+  for (const account of accounts) {
+    if (dedicatedConnection(account.name) || !mentionsConnection(prompt, account)) continue;
+    if (!account.endpoint || !account.link || !runtime || !offeredEndpoint(account.plugin)) {
+      lines.push(connectionUnreadLine(account.displayName));
+      continue;
+    }
+    try {
+      const token = await nangoAccessToken(runtime, account.link);
+      if (!token) {
+        lines.push(connectionUnreadLine(account.displayName));
+        continue;
+      }
+      const read = await readConnectedTool(account.endpoint, token, (tools) => pickReadTool(prompt, tools));
+      lines.push(
+        read.tool
+          ? connectionToolLine(account.displayName, read.tool, read.text)
+          : connectionToolsLine(account.displayName, read.tools),
+      );
+    } catch {
+      lines.push(connectionUnreadLine(account.displayName));
+    }
+  }
+  return lines.filter(Boolean).join("\n");
+}
+
+type EnabledAccount = {
+  name: string;
+  displayName: string;
+  description: string;
+  endpoint: string | null;
+  link: { connectionId: string; providerKey: string } | null;
+  plugin: ThirdPartyPlugin | null;
+};
+
+function enabledAccounts(db: DatabaseSync, occupantId: string): EnabledAccount[] {
+  const plugins = loadPluginCatalog();
+  const accounts: EnabledAccount[] = [];
+  const gmail = readGmailAccount(db, occupantId);
+  if (gmail.connected && gmail.enabled) {
+    accounts.push({
+      name: "gmail",
+      displayName: "Gmail",
+      description: "Search mail and save a draft. Proforna does not send mail.",
+      endpoint: null,
+      link: null,
+      plugin: null,
+    });
+  }
+  const saved = db
+    .prepare(
+      `SELECT name, enabled, nango_connection_id, nango_provider_key
+       FROM integration_accounts WHERE occupant_id = ? AND enabled = 1`,
+    )
+    .all(occupantId) as Array<{
+    name: string;
+    enabled: number;
+    nango_connection_id: string | null;
+    nango_provider_key: string | null;
+  }>;
+  for (const row of saved) {
+    const plugin = plugins.find((item) => item.name === row.name);
+    if (!plugin) continue;
+    accounts.push({
+      name: plugin.name,
+      displayName: plugin.displayName,
+      description: plugin.description,
+      endpoint: plugin.endpoint,
+      link:
+        row.nango_connection_id && row.nango_provider_key
+          ? { connectionId: row.nango_connection_id, providerKey: row.nango_provider_key }
+          : null,
+      plugin,
+    });
+  }
+  return accounts;
+}
+
+function offeredEndpoint(plugin: ThirdPartyPlugin | null): boolean {
+  if (!plugin) return false;
+  const block = thirdPartyBlock(plugin);
+  return block === null || block === "outside-career";
+}
+
 async function commandAnswer(
   db: DatabaseSync,
   occupantId: string,
@@ -356,6 +462,7 @@ function loadRunContext(
   history: Array<{ speaker: CommandSpeaker; body: string }>,
   mail: CommandMail,
   github: string,
+  connections: string,
 ):
   | { ok: true; prompt: string; userContent: string; jsonObject: boolean }
   | { ok: false; error: string } {
@@ -370,7 +477,7 @@ function loadRunContext(
         occupantId,
         occupantPrompt,
         history,
-        [mail.section, github].filter(Boolean).join("\n"),
+        [mail.section, github, connections].filter(Boolean).join("\n"),
       ),
     };
   }

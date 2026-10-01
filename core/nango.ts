@@ -39,6 +39,24 @@ export function connectSessionBody(occupantId: string, uniqueKey: string) {
   };
 }
 
+export function presentAccessToken(payload: unknown): string | null {
+  const root = objectOf(payload);
+  const credentials = objectOf(root?.credentials) ?? root;
+  const raw = objectOf(credentials?.raw);
+  return (
+    accessToken(credentials?.access_token) ||
+    accessToken(credentials?.oauth_token) ||
+    accessToken(raw?.access_token) ||
+    accessToken(raw?.oauth_token)
+  );
+}
+
+function accessToken(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed || null;
+}
+
 export function presentNangoIntegrations(payload: unknown): NangoIntegration[] {
   return rowsOf(payload, ["configs", "integrations", "data"]).flatMap((row) => {
     const integration = integrationFrom(row);

@@ -98,7 +98,7 @@ export function parseExtractedWorklogFacts(
 }
 
 export const COMMAND_SYSTEM_PROMPT =
-  "You are Proforna. Continue this conversation using only the vault gist and the messages. If a Mail section is present, use only that mail. If a GitHub section is present, use only that GitHub account. Do not claim you changed Career Memory, a repo, an issue, or a pull request. Do not send messages. Do not invent facts.";
+  "You are Proforna. Continue this conversation using only the vault gist and the messages. If a Mail section is present, use only that mail. If a GitHub section is present, use only that GitHub account. If a Connected accounts section is present, those are the accounts the occupant turned on. If an account section includes a tool result, use only that result. Do not claim you changed Career Memory, a repo, an issue, a pull request, or an outside account. Do not send messages. Do not invent facts.";
 
 export const MAIL_DRAFT_SYSTEM_PROMPT =
   "You are Proforna. Draft one email the occupant asked for. Use only the vault gist and the command. Do not invent facts. Do not claim you sent it. Return ONLY JSON: {\"to\":\"string\",\"subject\":\"string\",\"body\":\"string\"}.";
