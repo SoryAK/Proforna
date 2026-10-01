@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  githubAccountLine,
+  githubAsk,
   gmailSearchQuery,
   mailAsk,
   mailSnippetsLine,
   parseMailDraft,
+  presentGithubAccount,
   parseExtractedWorklogFacts,
   parseSuggestedReply,
   planAgentRun,
@@ -208,7 +211,19 @@ describe("Agency.run", () => {
     expect(mailAsk("find mail about the offer")).toBe("search");
     expect(mailAsk("read the email from Ada")).toBe("search");
     expect(mailAsk("draft an email to ada@example.com about the offer")).toBe("draft");
+    expect(mailAsk("can tell me what me latest email said")).toBe("search");
+    expect(githubAsk("What should I capture next?")).toBe(false);
+    expect(githubAsk("what repos do I have on GitHub")).toBe(true);
+    expect(
+      githubAccountLine(
+        presentGithubAccount(
+          { login: "octocat" },
+          [{ full_name: "octocat/hello", description: "A repo" }],
+        ),
+      ),
+    ).toBe("GitHub:\nLogin: octocat\nRepos, recently updated:\n- octocat/hello — A repo");
     expect(gmailSearchQuery("find mail about the offer")).toBe("the offer");
+    expect(gmailSearchQuery("can tell me what me latest email said")).toBe("in:inbox");
     expect(gmailSearchQuery("read the email from Ada")).toBe("Ada");
     expect(gmailSearchQuery("find my mail")).toBe("in:inbox");
     expect(parseMailDraft('{"to":"ada@example.com","subject":"Hello","body":"Thanks"}')).toEqual({
@@ -217,6 +232,6 @@ describe("Agency.run", () => {
       body: "Thanks",
     });
     expect(parseMailDraft('{"to":"ada@example.com","subject":"Hello"}')).toBeNull();
-    expect(mailSnippetsLine(["Offer letter"])).toBe("Mail:\n- Offer letter");
+    expect(mailSnippetsLine(["Offer letter"])).toBe("Mail, newest first:\n- Offer letter");
   });
 });

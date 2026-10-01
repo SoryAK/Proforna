@@ -6,8 +6,13 @@ import {
   INSPECT_SYSTEM_PROMPT,
   MAIL_DRAFT_SYSTEM_PROMPT,
   SUGGEST_REPLY_SYSTEM_PROMPT,
+  githubAccountLine,
+  githubAsk,
+  githubUnavailableLine,
+  githubUnreadLine,
   gmailSearchQuery,
   mailAsk,
+  presentGithubAccount,
   mailSnippetsLine,
   mailUnavailableLine,
   mailUnreadLine,
@@ -21,6 +26,8 @@ import {
   type CommandSpeaker,
 } from "../core/index";
 import { draftGmail, GmailStoreError, readGmailAccount, searchGmail } from "./gmail";
+import { readIntegrationNangoLink } from "./integration-catalog";
+import { nangoProxy, nangoRuntime } from "./nango";
 import { loadLatestModelConnection } from "./models";
 import {
   completeOpenAiChat,
@@ -80,6 +87,7 @@ export async function runAgency(
   }
   const history = parseCommandHistory(input.history);
   const mail = await commandMail(db, occupantId, planned.value, occupantPrompt);
+  const github = await commandGithub(db, occupantId, planned.value, occupantPrompt);
   const context = loadRunContext(
     db,
     occupantId,
@@ -87,6 +95,7 @@ export async function runAgency(
     occupantPrompt,
     history,
     mail,
+    github,
   );
   if (!context.ok) throw new AgencyStoreError(context.error);
 
@@ -277,6 +286,50 @@ async function commandMail(
   }
 }
 
+async function commandGithub(
+  db: DatabaseSync,
+  occupantId: string,
+  run: AgentRun,
+  prompt: string,
+): Promise<string> {
+  if (run.purpose !== "command" || run.scope.type !== "home") return "";
+  if (!githubAsk(prompt)) return "";
+  const link = readEnabledGithubLink(db, occupantId);
+  const runtime = nangoRuntime();
+  if (!link || !runtime) return githubUnavailableLine();
+  try {
+    const user = await nangoProxy(runtime, {
+      method: "GET",
+      path: "user",
+      providerConfigKey: link.providerKey,
+      connectionId: link.connectionId,
+    });
+    const repos = await nangoProxy(runtime, {
+      method: "GET",
+      path: "user/repos?sort=updated&per_page=8",
+      providerConfigKey: link.providerKey,
+      connectionId: link.connectionId,
+    });
+    if (!user.ok || !repos.ok) return githubUnreadLine();
+    return githubAccountLine(presentGithubAccount(await user.json(), await repos.json()));
+  } catch {
+    return githubUnreadLine();
+  }
+}
+
+function readEnabledGithubLink(
+  db: DatabaseSync,
+  occupantId: string,
+): { connectionId: string; providerKey: string } | null {
+  const row = db
+    .prepare(
+      `SELECT enabled FROM integration_accounts WHERE occupant_id = ? AND name = 'github'`,
+    )
+    .get(occupantId) as { enabled: number } | undefined;
+  if (!row || row.enabled !== 1) return null;
+  return readIntegrationNangoLink(db, occupantId, "github");
+}
+
 async function commandAnswer(
   db: DatabaseSync,
   occupantId: string,
@@ -302,6 +355,7 @@ function loadRunContext(
   occupantPrompt: string,
   history: Array<{ speaker: CommandSpeaker; body: string }>,
   mail: CommandMail,
+  github: string,
 ):
   | { ok: true; prompt: string; userContent: string; jsonObject: boolean }
   | { ok: false; error: string } {
@@ -311,7 +365,13 @@ function loadRunContext(
       ok: true,
       prompt: mail.draft ? MAIL_DRAFT_SYSTEM_PROMPT : COMMAND_SYSTEM_PROMPT,
       jsonObject: mail.draft,
-      userContent: homeVaultGist(db, occupantId, occupantPrompt, history, mail.section),
+      userContent: homeVaultGist(
+        db,
+        occupantId,
+        occupantPrompt,
+        history,
+        [mail.section, github].filter(Boolean).join("\n"),
+      ),
     };
   }
   if (scope.type === "contact") {
