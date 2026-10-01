@@ -33,7 +33,11 @@ export function presentNangoIntegrations(payload: unknown): NangoIntegration[] {
   });
 }
 
-export function presentConnectLink(payload: unknown, connectOrigin: string): string | null {
+export function presentConnectLink(
+  payload: unknown,
+  connectOrigin: string,
+  apiOrigin?: string,
+): string | null {
   let origin: URL;
   try {
     origin = new URL(connectOrigin);
@@ -50,7 +54,7 @@ export function presentConnectLink(payload: unknown, connectOrigin: string): str
       if (url.protocol === "http:" || url.protocol === "https:") {
         url.protocol = origin.protocol;
         url.host = origin.host;
-        return url.toString();
+        return withApiOrigin(url, apiOrigin);
       }
     } catch {
       // A token on this machine's connect page is the fallback.
@@ -59,7 +63,7 @@ export function presentConnectLink(payload: unknown, connectOrigin: string): str
   if (!token) return null;
   const url = new URL(origin.origin);
   url.searchParams.set("session_token", token);
-  return url.toString();
+  return withApiOrigin(url, apiOrigin);
 }
 
 export function presentNangoConnection(
@@ -80,6 +84,19 @@ export function presentNangoConnection(
   matches.sort((a, b) => b.created.localeCompare(a.created));
   const match = matches[0];
   return match ? { connectionId: match.connectionId } : null;
+}
+
+function withApiOrigin(url: URL, apiOrigin: string | undefined): string {
+  if (!apiOrigin) return url.toString();
+  try {
+    const api = new URL(apiOrigin);
+    if (api.protocol === "http:" || api.protocol === "https:") {
+      url.searchParams.set("apiURL", api.origin);
+    }
+  } catch {
+    // Keep the link. The page still has its session token.
+  }
+  return url.toString();
 }
 
 function integrationFrom(row: unknown): NangoIntegration | null {

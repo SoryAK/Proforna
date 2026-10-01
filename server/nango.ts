@@ -57,7 +57,7 @@ export async function createNangoConnectLink(
     },
     fetchImpl,
   );
-  const link = presentConnectLink(payload, runtime.connectOrigin);
+  const link = presentConnectLink(payload, runtime.connectOrigin, runtime.host);
   if (!link) throw new NangoRequestError("sign-in-failed");
   return link;
 }

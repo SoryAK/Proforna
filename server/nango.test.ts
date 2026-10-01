@@ -81,7 +81,8 @@ describe("sign-in helper", () => {
     const started = await app.request("/api/sign-in/github", { method: "POST" });
     expect(started.status).toBe(200);
     expect(await started.json()).toEqual({
-      connectLink: "http://127.0.0.1:3009/link?session_token=sess&integration=github",
+      connectLink:
+        "http://127.0.0.1:3009/link?session_token=sess&integration=github&apiURL=http%3A%2F%2F127.0.0.1%3A3003",
     });
 
     const waiting = await app.request("/api/sign-in/github/ready", { method: "POST" });
@@ -148,6 +149,10 @@ describe("sign-in helper", () => {
     const app = createApp(openDatabase(":memory:"));
     const started = await app.request("/api/sign-in/gmail", { method: "POST" });
     expect(started.status).toBe(200);
+    expect(await started.json()).toEqual({
+      connectLink:
+        "http://127.0.0.1:3009/?session_token=sess&apiURL=http%3A%2F%2F127.0.0.1%3A3003",
+    });
     const ready = await app.request("/api/sign-in/gmail/ready", { method: "POST" });
     expect(await ready.json()).toEqual({ connected: true, email: "ada@example.com" });
     const account = await app.request("/api/gmail");

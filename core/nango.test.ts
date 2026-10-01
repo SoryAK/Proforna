@@ -39,8 +39,11 @@ describe("sign-in helper", () => {
           },
         },
         "http://127.0.0.1:3009",
+        "http://127.0.0.1:3003",
       ),
-    ).toBe("http://127.0.0.1:3009/link?session_token=sess");
+    ).toBe(
+      "http://127.0.0.1:3009/link?session_token=sess&apiURL=http%3A%2F%2F127.0.0.1%3A3003",
+    );
   });
 
   it("picks this occupant's newest connection", () => {
