@@ -98,14 +98,16 @@ export function parseExtractedWorklogFacts(
 }
 
 export const COMMAND_SYSTEM_PROMPT =
-  "You are Proforna. Continue this conversation using only the vault gist and the messages. If a Mail section is present, use only that mail. Do not claim you changed Career Memory. Do not send messages. Do not invent facts.";
+  "You are Proforna. Continue this conversation using only the vault gist and the messages. If a Mail section is present, use only that mail. If a GitHub section is present, use only that GitHub account. Do not claim you changed Career Memory, a repo, an issue, or a pull request. Do not send messages. Do not invent facts.";
 
 export const MAIL_DRAFT_SYSTEM_PROMPT =
   "You are Proforna. Draft one email the occupant asked for. Use only the vault gist and the command. Do not invent facts. Do not claim you sent it. Return ONLY JSON: {\"to\":\"string\",\"subject\":\"string\",\"body\":\"string\"}.";
 
 const MAIL_WORD = /\b(?:e-?mails?|gmail|inbox|mailbox|mail)\b/i;
 const DRAFT_WORD = /\b(?:draft|write|compose)\b/i;
-const SEARCH_WORD = /\b(?:find|search|read|show|check|look)\b/i;
+const SEARCH_WORD = /\b(?:find|search|read|show|check|look|what|who|latest|last|recent|newest|tell|said|says)\b/i;
+const LEADING_SEARCH =
+  /^(?:please\s+)?(?:can you\s+)?(?:find|search|read|show|check|look(?:\s+through|\s+for)?)\s+(?:my\s+|the\s+)?(?:e-?mails?|gmail|inbox|mailbox|mail)\s*(?:about|from|for|on|regarding)?\s*/i;
 
 export function mailAsk(prompt: string): "search" | "draft" | null {
   const text = prompt.trim();
@@ -116,13 +118,17 @@ export function mailAsk(prompt: string): "search" | "draft" | null {
 }
 
 export function gmailSearchQuery(prompt: string): string {
-  const stripped = prompt
+  const stripped = prompt.replace(LEADING_SEARCH, "").trim();
+  if (stripped !== prompt.trim()) return stripped || "in:inbox";
+  const topic = prompt
     .replace(
-      /^(?:please\s+)?(?:can you\s+)?(?:find|search|read|show|check|look(?:\s+through|\s+for)?)\s+(?:my\s+|the\s+)?(?:e-?mails?|gmail|inbox|mailbox|mail)\s*(?:about|from|for|on|regarding)?\s*/i,
-      "",
+      /\b(?:please|can|you|tell|me|what|whats|what's|did|does|do|is|was|my|the|a|an|latest|last|recent|newest|just|said|say|says|about|of|e-?mails?|gmail|inbox|mailbox|mail)\b/gi,
+      " ",
     )
+    .replace(/[?]/g, " ")
+    .replace(/\s+/g, " ")
     .trim();
-  return stripped || "in:inbox";
+  return topic || "in:inbox";
 }
 
 export function parseMailDraft(
@@ -151,10 +157,59 @@ export function mailUnreadLine(): string {
   return "Mail: Gmail could not be read.";
 }
 
+const GITHUB_WORD = /\b(?:github|repos?|repositories|repository|pull requests?)\b/i;
+
+export function githubAsk(prompt: string): boolean {
+  return GITHUB_WORD.test(prompt.trim());
+}
+
+export function presentGithubAccount(
+  user: unknown,
+  repos: unknown,
+): { login: string; repos: Array<{ name: string; description: string }> } {
+  const record = user && typeof user === "object" ? (user as { login?: unknown }) : null;
+  const login = typeof record?.login === "string" ? record.login.trim() : "";
+  const rows = Array.isArray(repos) ? repos : [];
+  return {
+    login,
+    repos: rows.flatMap((item) => {
+      if (!item || typeof item !== "object") return [];
+      const row = item as { full_name?: unknown; name?: unknown; description?: unknown };
+      const name = text(row.full_name) || text(row.name);
+      if (!name) return [];
+      return [{ name, description: text(row.description).slice(0, 120) }];
+    }).slice(0, 8),
+  };
+}
+
+export function githubAccountLine(account: {
+  login: string;
+  repos: ReadonlyArray<{ name: string; description: string }>;
+}): string {
+  const repos = account.repos.length
+    ? account.repos
+        .map((repo) => (repo.description ? `- ${repo.name} — ${repo.description}` : `- ${repo.name}`))
+        .join("\n")
+    : "none";
+  return `GitHub:\nLogin: ${account.login || "unknown"}\nRepos, recently updated:\n${repos}`;
+}
+
+export function githubUnavailableLine(): string {
+  return "GitHub: GitHub is not available.";
+}
+
+export function githubUnreadLine(): string {
+  return "GitHub: GitHub could not be read.";
+}
+
+function text(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
 export function mailSnippetsLine(snippets: readonly string[]): string {
   const lines = snippets.map((snippet) => snippet.trim()).filter(Boolean);
   if (lines.length === 0) return "Mail: no messages matched.";
-  return `Mail:\n${lines.map((snippet) => `- ${snippet}`).join("\n")}`;
+  return `Mail, newest first:\n${lines.map((snippet) => `- ${snippet}`).join("\n")}`;
 }
 
 export const SUGGEST_REPLY_SYSTEM_PROMPT =

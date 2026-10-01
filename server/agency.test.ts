@@ -332,6 +332,63 @@ describe("Agency HTTP seam", () => {
     }
   });
 
+  it("answers a GitHub question from the connected account and does not read it when GitHub is off", async () => {
+    process.env.NANGO_SECRET_KEY = "test-secret-key";
+    process.env.NANGO_HOST = "http://127.0.0.1:3003";
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith("/proxy/user")) return Response.json({ login: "octocat" });
+      if (url.includes("/proxy/user/repos")) {
+        return Response.json([{ full_name: "octocat/hello", description: "A repo" }]);
+      }
+      return new Response("no", { status: 404 });
+    });
+    vi.stubGlobal("fetch", fetchImpl);
+    const complete = vi.fn(async (input: { messages: Array<{ content: string }> }) => {
+      const content = input.messages[1]?.content ?? "";
+      if (content.includes("Command: what repos do I have on GitHub") && content.includes("octocat/hello")) {
+        expect(content).not.toContain("test-secret-key");
+        return { text: "You have octocat/hello.", model: "local-test" };
+      }
+      return { text: "Capture a measured outcome.", model: "local-test" };
+    });
+    const db = openDatabase(":memory:");
+    const app = createApp(db, { complete });
+    try {
+      await saveLocalModel(app);
+      saveGithub(db);
+      const quiet = await command(app, "What should I capture next?");
+      expect(quiet.status).toBe(201);
+      expect(fetchImpl).not.toHaveBeenCalled();
+      const ran = await command(app, "what repos do I have on GitHub");
+      expect(ran.status).toBe(201);
+      expect(await ran.json()).toMatchObject({
+        run: { answer: "You have octocat/hello.", changeSet: null },
+      });
+      const called = fetchImpl.mock.calls.map((call) => String(call[0]));
+      expect(called.some((url) => url.endsWith("/proxy/user"))).toBe(true);
+      expect(called.some((url) => url.includes("/proxy/user/repos"))).toBe(true);
+
+      db.prepare("UPDATE integration_accounts SET enabled = 0 WHERE name = 'github'").run();
+      fetchImpl.mockClear();
+      const off = await command(app, "what repos do I have on GitHub");
+      expect(off.status).toBe(201);
+      expect(fetchImpl).not.toHaveBeenCalled();
+      expect(complete).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          messages: expect.arrayContaining([
+            expect.objectContaining({ content: expect.stringContaining("GitHub is not available.") }),
+          ]),
+        }),
+      );
+    } finally {
+      delete process.env.NANGO_SECRET_KEY;
+      delete process.env.NANGO_HOST;
+      vi.unstubAllGlobals();
+      db.close();
+    }
+  });
+
   it("answers a mail search from Gmail snippets and does not call Gmail when it is off", async () => {
     const fetchImpl = gmailFetch();
     vi.stubGlobal("fetch", fetchImpl);
@@ -437,6 +494,15 @@ function command(app: ReturnType<typeof createApp>, prompt: string) {
       grant: { remoteModel: false },
     }),
   });
+}
+
+function saveGithub(db: DatabaseSync) {
+  const occupant = db.prepare("SELECT id FROM occupants").get() as { id: string };
+  db.prepare(
+    `INSERT INTO integration_accounts
+      (occupant_id, name, secrets_json, updated_at, enabled, nango_connection_id, nango_provider_key)
+     VALUES (?, 'github', '{}', ?, 1, 'conn-github', 'github')`,
+  ).run(occupant.id, "2026-09-30T00:00:00.000Z");
 }
 
 function saveGmail(db: DatabaseSync, enabled = 1) {

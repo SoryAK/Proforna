@@ -7,6 +7,11 @@ const PROVIDER_ALIASES: Record<string, readonly string[]> = {
   gmail: ["google-mail"],
 };
 
+const SIGN_IN_SCOPES: Record<string, string> = {
+  "google-mail":
+    "https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.compose",
+};
+
 export function matchNangoIntegration(
   name: string,
   integrations: readonly NangoIntegration[],
@@ -20,9 +25,17 @@ export function matchNangoIntegration(
 }
 
 export function connectSessionBody(occupantId: string, uniqueKey: string) {
+  const scope = SIGN_IN_SCOPES[uniqueKey];
   return {
     tags: { end_user_id: occupantId },
     allowed_integrations: [uniqueKey],
+    ...(scope
+      ? {
+          integrations_config_defaults: {
+            [uniqueKey]: { authorization_params: { scope } },
+          },
+        }
+      : {}),
   };
 }
 

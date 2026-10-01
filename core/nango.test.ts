@@ -26,6 +26,18 @@ describe("sign-in helper", () => {
       tags: { end_user_id: "local" },
       allowed_integrations: ["github"],
     });
+    expect(connectSessionBody("local", "google-mail")).toEqual({
+      tags: { end_user_id: "local" },
+      allowed_integrations: ["google-mail"],
+      integrations_config_defaults: {
+        "google-mail": {
+          authorization_params: {
+            scope:
+              "https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.compose",
+          },
+        },
+      },
+    });
   });
 
   it("keeps the connect link on this machine", () => {
