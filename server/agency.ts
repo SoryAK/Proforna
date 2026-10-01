@@ -4,8 +4,15 @@ import {
   COMMAND_SYSTEM_PROMPT,
   EXTRACT_FACTS_SYSTEM_PROMPT,
   INSPECT_SYSTEM_PROMPT,
+  MAIL_DRAFT_SYSTEM_PROMPT,
   SUGGEST_REPLY_SYSTEM_PROMPT,
+  gmailSearchQuery,
+  mailAsk,
+  mailSnippetsLine,
+  mailUnavailableLine,
+  mailUnreadLine,
   parseExtractedWorklogFacts,
+  parseMailDraft,
   parseSuggestedReply,
   planAgentRun,
   presentCommandHistory,
@@ -13,6 +20,7 @@ import {
   type ChangeSet,
   type CommandSpeaker,
 } from "../core/index";
+import { draftGmail, GmailStoreError, readGmailAccount, searchGmail } from "./gmail";
 import { loadLatestModelConnection } from "./models";
 import {
   completeOpenAiChat,
@@ -71,12 +79,14 @@ export async function runAgency(
     throw new AgencyStoreError("prompt-required");
   }
   const history = parseCommandHistory(input.history);
+  const mail = await commandMail(db, occupantId, planned.value, occupantPrompt);
   const context = loadRunContext(
     db,
     occupantId,
     planned.value,
     occupantPrompt,
     history,
+    mail,
   );
   if (!context.ok) throw new AgencyStoreError(context.error);
 
@@ -221,19 +231,68 @@ export async function runAgency(
     };
   }
 
+  const answer = await commandAnswer(db, occupantId, mail, reply.text);
   finishRun(db, completed, {
     kind: "answer",
-    text: reply.text,
+    text: answer,
     model: reply.model,
   });
   return {
     run: {
       ...completed,
-      answer: reply.text,
+      answer,
       model: reply.model,
       changeSet: null,
     },
   };
+}
+
+type CommandMail = {
+  draft: boolean;
+  section: string;
+};
+
+async function commandMail(
+  db: DatabaseSync,
+  occupantId: string,
+  run: AgentRun,
+  prompt: string,
+): Promise<CommandMail> {
+  if (run.purpose !== "command" || run.scope.type !== "home") {
+    return { draft: false, section: "" };
+  }
+  const ask = mailAsk(prompt);
+  if (!ask) return { draft: false, section: "" };
+  const account = readGmailAccount(db, occupantId);
+  if (!account.connected || !account.enabled) {
+    return { draft: false, section: mailUnavailableLine() };
+  }
+  if (ask === "draft") return { draft: true, section: "" };
+  try {
+    const threads = await searchGmail(db, occupantId, gmailSearchQuery(prompt));
+    return { draft: false, section: mailSnippetsLine(threads.map((thread) => thread.snippet)) };
+  } catch (error) {
+    if (error instanceof GmailStoreError) return { draft: false, section: mailUnreadLine() };
+    throw error;
+  }
+}
+
+async function commandAnswer(
+  db: DatabaseSync,
+  occupantId: string,
+  mail: CommandMail,
+  text: string,
+): Promise<string> {
+  if (!mail.draft) return text;
+  const draft = parseMailDraft(text);
+  if (!draft) return "A draft needs a recipient, a subject, and a message.";
+  try {
+    await draftGmail(db, occupantId, draft);
+  } catch (error) {
+    if (error instanceof GmailStoreError) return "Could not save that draft.";
+    throw error;
+  }
+  return "Draft saved in Gmail. It is not sent.";
 }
 
 function loadRunContext(
@@ -242,6 +301,7 @@ function loadRunContext(
   run: AgentRun,
   occupantPrompt: string,
   history: Array<{ speaker: CommandSpeaker; body: string }>,
+  mail: CommandMail,
 ):
   | { ok: true; prompt: string; userContent: string; jsonObject: boolean }
   | { ok: false; error: string } {
@@ -249,9 +309,9 @@ function loadRunContext(
   if (scope.type === "home") {
     return {
       ok: true,
-      prompt: COMMAND_SYSTEM_PROMPT,
-      jsonObject: false,
-      userContent: homeVaultGist(db, occupantId, occupantPrompt, history),
+      prompt: mail.draft ? MAIL_DRAFT_SYSTEM_PROMPT : COMMAND_SYSTEM_PROMPT,
+      jsonObject: mail.draft,
+      userContent: homeVaultGist(db, occupantId, occupantPrompt, history, mail.section),
     };
   }
   if (scope.type === "contact") {
@@ -307,6 +367,7 @@ function homeVaultGist(
   occupantId: string,
   prompt: string,
   history: Array<{ speaker: CommandSpeaker; body: string }>,
+  mailSection: string,
 ): string {
   const profile = readProfile(db, occupantId);
   const worklog = listWorklog(db, occupantId).slice(0, 5);
@@ -326,6 +387,7 @@ function homeVaultGist(
       ? `My Network: ${contacts.map((contact) => contact.name).join("; ")}`
       : "My Network: none",
     conversation ? `Conversation:\n${conversation}` : "",
+    mailSection,
     `Command: ${prompt}`,
   ]
     .filter(Boolean)

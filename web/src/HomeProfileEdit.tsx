@@ -18,9 +18,6 @@ export function HomeProfileEdit({
   const [city, setCity] = useState(initial.city);
   const [state, setState] = useState(initial.state);
   const [bio, setBio] = useState(initial.bio);
-  const [linkedinUrl, setLinkedinUrl] = useState(initial.linkedinUrl);
-  const [githubUrl, setGithubUrl] = useState(initial.githubUrl);
-  const [portfolioUrl, setPortfolioUrl] = useState(initial.portfolioUrl);
   const [photo, setPhoto] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(initial.avatarUrl);
   const [busy, setBusy] = useState(false);
@@ -96,9 +93,9 @@ export function HomeProfileEdit({
             city,
             state,
             bio,
-            linkedinUrl,
-            githubUrl,
-            portfolioUrl,
+            linkedinUrl: initial.linkedinUrl,
+            githubUrl: initial.githubUrl,
+            portfolioUrl: initial.portfolioUrl,
           },
           photo,
         );
@@ -180,42 +177,6 @@ export function HomeProfileEdit({
           value={bio}
           onChange={(e) => setBio(e.target.value)}
           rows={3}
-        />
-      </label>
-
-      <label className="onboarding-field">
-        <span>LinkedIn URL</span>
-        <input
-          name="linkedinUrl"
-          type="url"
-          value={linkedinUrl}
-          onChange={(e) => setLinkedinUrl(e.target.value)}
-          placeholder="https://linkedin.com/in/yourname"
-          autoComplete="url"
-        />
-      </label>
-
-      <label className="onboarding-field">
-        <span>GitHub URL</span>
-        <input
-          name="githubUrl"
-          type="url"
-          value={githubUrl}
-          onChange={(e) => setGithubUrl(e.target.value)}
-          placeholder="https://github.com/yourname"
-          autoComplete="url"
-        />
-      </label>
-
-      <label className="onboarding-field">
-        <span>Portfolio URL</span>
-        <input
-          name="portfolioUrl"
-          type="url"
-          value={portfolioUrl}
-          onChange={(e) => setPortfolioUrl(e.target.value)}
-          placeholder="https://yoursite.com"
-          autoComplete="url"
         />
       </label>
 

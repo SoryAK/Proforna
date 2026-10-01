@@ -5,7 +5,14 @@ import {
   OPENAI_BASE_URL,
   OPENROUTER_BASE_URL,
 } from "./model-connection";
-import { planModelOnboarding, presentModelId } from "./model-onboarding";
+import {
+  modelCountLabel,
+  planModelOnboarding,
+  presentModelId,
+  preparePortRange,
+  presentRangeHits,
+  presentScanAddress,
+} from "./model-onboarding";
 
 const idleOllama = {
   id: "ollama" as const,
@@ -159,6 +166,30 @@ describe("planModelOnboarding", () => {
         "/home/skaba/.local/share/mba/model_hub/adapters/qwen/qwen3.8-27b/Qwen3.8-27B-Q6_K.gguf",
       ),
     ).toBe("Qwen3.8-27B-Q6_K.gguf");
+  });
+
+  it("keeps addresses that listed models and orders them by port", () => {
+    expect(
+      presentRangeHits([
+        { baseUrl: DEFAULT_LOCAL_BASE_URL, models: ["llama3.2", "mistral"] },
+        { baseUrl: LLAMA_CPP_BASE_URL, models: [" "] },
+        { baseUrl: "http://127.0.0.1:8080/v1", models: ["qwen2.5"] },
+      ]),
+    ).toEqual([
+      { baseUrl: "http://127.0.0.1:8080/v1", models: ["qwen2.5"] },
+      { baseUrl: DEFAULT_LOCAL_BASE_URL, models: ["llama3.2", "mistral"] },
+    ]);
+    expect(presentScanAddress(DEFAULT_LOCAL_BASE_URL)).toBe("127.0.0.1:11434");
+    expect(presentScanAddress(LLAMA_CPP_BASE_URL)).toBe("127.0.0.1:8080");
+    expect(modelCountLabel(1)).toBe("1 model");
+    expect(modelCountLabel(2)).toBe("2 models");
+  });
+
+  it("accepts a port range the occupant set", () => {
+    expect(preparePortRange("800", "11434")).toEqual({ ok: true, from: 800, to: 11434 });
+    expect(preparePortRange("11434", "800")).toEqual({ ok: false, error: "range-backwards" });
+    expect(preparePortRange("0", "80")).toEqual({ ok: false, error: "port-invalid" });
+    expect(preparePortRange("", "80")).toEqual({ ok: false, error: "port-invalid" });
   });
 
   it("suggests a chat model ahead of an embedding model", () => {

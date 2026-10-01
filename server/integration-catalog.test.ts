@@ -12,8 +12,8 @@ describe("integration catalog", () => {
       integrations: Array<{ name: string; configured: boolean; available: boolean }>;
     };
     const names = body.integrations.map((item) => item.name);
-    expect(names[0]).toBe("gmail");
-    expect(names).toContain("zoom");
+    expect(names).not.toContain("zoom");
+    expect(names).not.toContain("linkedin");
     expect(names).not.toContain("secret");
     expect(names).not.toContain("google-drive");
 
@@ -26,7 +26,7 @@ describe("integration catalog", () => {
     const after = await app.request("/api/integration-catalog");
     const afterBody = await after.text();
     expect(afterBody).not.toContain("zoom-secret");
-    expect(afterBody).toContain('"name":"zoom"');
+    expect(afterBody).not.toContain('"name":"zoom"');
     const occupant = db.prepare("SELECT id FROM occupants").get() as { id: string };
     expect(readIntegrationSecrets(db, occupant.id, "zoom")).toEqual({
       CLIENT_ID: "zoom-id",
@@ -50,12 +50,9 @@ describe("integration catalog", () => {
     expect(readIntegrationSecrets(db, occupant.id, "zoom")).toBeNull();
     const listedOff = await app.request("/api/integration-catalog");
     const offBody = (await listedOff.json()) as {
-      integrations: Array<{ name: string; configured: boolean; enabled: boolean }>;
+      integrations: Array<{ name: string }>;
     };
-    expect(offBody.integrations.find((item) => item.name === "zoom")).toMatchObject({
-      configured: true,
-      enabled: false,
-    });
+    expect(offBody.integrations.find((item) => item.name === "zoom")).toBeUndefined();
     const on = await app.request("/api/integration-catalog/zoom", {
       method: "PATCH",
       headers: { "content-type": "application/json" },

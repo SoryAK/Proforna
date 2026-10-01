@@ -6,6 +6,7 @@ import {
   prepareIntegrationValues,
   presentIntegrationCatalog,
   readThirdPartyPlugin,
+  thirdPartyBlock,
   type IntegrationField,
   type ThirdPartyPlugin,
 } from "../core/plugins";
@@ -21,6 +22,7 @@ export type ListedIntegration = {
   fields: IntegrationField[];
   configured: boolean;
   enabled: boolean;
+  signIn: boolean;
 };
 
 export class IntegrationCatalogError extends Error {
@@ -54,6 +56,7 @@ export function listIntegrationCatalog(
   db: DatabaseSync,
   occupantId: string,
   plugins: readonly ThirdPartyPlugin[],
+  signInNames: ReadonlySet<string> = new Set(),
 ): ListedIntegration[] {
   const saved = savedAccounts(db, occupantId);
   const gmail = readGmailAccount(db, occupantId);
@@ -66,6 +69,7 @@ export function listIntegrationCatalog(
       fields: [],
       configured: gmail.connected,
       enabled: gmail.connected && gmail.enabled,
+      signIn: signInNames.has("gmail"),
     },
     ...presentIntegrationCatalog(plugins)
       .filter((plugin) => plugin.available)
@@ -75,6 +79,7 @@ export function listIntegrationCatalog(
         ...plugin,
         configured: Boolean(account),
         enabled: account?.enabled ?? false,
+        signIn: signInNames.has(plugin.name),
       };
     }),
   ];
@@ -97,6 +102,8 @@ export function saveIntegrationCatalog(
      VALUES (?, ?, ?, ?)
      ON CONFLICT(occupant_id, name) DO UPDATE SET
        secrets_json = excluded.secrets_json,
+       nango_connection_id = NULL,
+       nango_provider_key = NULL,
        updated_at = excluded.updated_at`,
   ).run(occupantId, name, sealed, new Date().toISOString());
 }
@@ -123,6 +130,50 @@ export function setIntegrationEnabled(
     "UPDATE integration_accounts SET enabled = ?, updated_at = ? WHERE occupant_id = ? AND name = ?",
   ).run(prepared.enabled ? 1 : 0, new Date().toISOString(), occupantId, name);
   return prepared.enabled;
+}
+
+export function saveNangoIntegration(
+  db: DatabaseSync,
+  occupantId: string,
+  name: string,
+  link: { connectionId: string; providerKey: string },
+  plugins: readonly ThirdPartyPlugin[],
+): void {
+  const plugin = plugins.find((item) => item.name === name);
+  if (!plugin) throw new IntegrationCatalogError("integration-unknown");
+  const block = thirdPartyBlock(plugin);
+  if (block !== null && block !== "outside-career") {
+    throw new IntegrationCatalogError("integration-unavailable");
+  }
+  const sealed = sealSecret("{}", vaultKey(true));
+  db.prepare(
+    `INSERT INTO integration_accounts
+      (occupant_id, name, secrets_json, updated_at, enabled, nango_connection_id, nango_provider_key)
+     VALUES (?, ?, ?, ?, 1, ?, ?)
+     ON CONFLICT(occupant_id, name) DO UPDATE SET
+       secrets_json = excluded.secrets_json,
+       updated_at = excluded.updated_at,
+       enabled = 1,
+       nango_connection_id = excluded.nango_connection_id,
+       nango_provider_key = excluded.nango_provider_key`,
+  ).run(occupantId, name, sealed, new Date().toISOString(), link.connectionId, link.providerKey);
+}
+
+export function readIntegrationNangoLink(
+  db: DatabaseSync,
+  occupantId: string,
+  name: string,
+): { connectionId: string; providerKey: string } | null {
+  const row = db
+    .prepare(
+      `SELECT nango_connection_id, nango_provider_key
+       FROM integration_accounts WHERE occupant_id = ? AND name = ?`,
+    )
+    .get(occupantId, name) as
+    | { nango_connection_id: string | null; nango_provider_key: string | null }
+    | undefined;
+  if (!row?.nango_connection_id || !row.nango_provider_key) return null;
+  return { connectionId: row.nango_connection_id, providerKey: row.nango_provider_key };
 }
 
 export function removeIntegrationCatalog(

@@ -98,7 +98,64 @@ export function parseExtractedWorklogFacts(
 }
 
 export const COMMAND_SYSTEM_PROMPT =
-  "You are Proforna. Continue this conversation using only the vault gist and the messages. Do not claim you changed Career Memory. Do not send messages. Do not invent facts.";
+  "You are Proforna. Continue this conversation using only the vault gist and the messages. If a Mail section is present, use only that mail. Do not claim you changed Career Memory. Do not send messages. Do not invent facts.";
+
+export const MAIL_DRAFT_SYSTEM_PROMPT =
+  "You are Proforna. Draft one email the occupant asked for. Use only the vault gist and the command. Do not invent facts. Do not claim you sent it. Return ONLY JSON: {\"to\":\"string\",\"subject\":\"string\",\"body\":\"string\"}.";
+
+const MAIL_WORD = /\b(?:e-?mails?|gmail|inbox|mailbox|mail)\b/i;
+const DRAFT_WORD = /\b(?:draft|write|compose)\b/i;
+const SEARCH_WORD = /\b(?:find|search|read|show|check|look)\b/i;
+
+export function mailAsk(prompt: string): "search" | "draft" | null {
+  const text = prompt.trim();
+  if (!MAIL_WORD.test(text)) return null;
+  if (DRAFT_WORD.test(text)) return "draft";
+  if (SEARCH_WORD.test(text)) return "search";
+  return null;
+}
+
+export function gmailSearchQuery(prompt: string): string {
+  const stripped = prompt
+    .replace(
+      /^(?:please\s+)?(?:can you\s+)?(?:find|search|read|show|check|look(?:\s+through|\s+for)?)\s+(?:my\s+|the\s+)?(?:e-?mails?|gmail|inbox|mailbox|mail)\s*(?:about|from|for|on|regarding)?\s*/i,
+      "",
+    )
+    .trim();
+  return stripped || "in:inbox";
+}
+
+export function parseMailDraft(
+  text: string,
+): { to: string; subject: string; body: string } | null {
+  let raw: unknown;
+  try {
+    raw = JSON.parse(stripJsonFence(text));
+  } catch {
+    return null;
+  }
+  if (!raw || typeof raw !== "object") return null;
+  const record = raw as Record<string, unknown>;
+  const to = typeof record.to === "string" ? record.to.trim() : "";
+  const subject = typeof record.subject === "string" ? record.subject.trim() : "";
+  const body = typeof record.body === "string" ? record.body.trim() : "";
+  if (!to || !subject || !body) return null;
+  return { to, subject, body };
+}
+
+export function mailUnavailableLine(): string {
+  return "Mail: Gmail is not available.";
+}
+
+export function mailUnreadLine(): string {
+  return "Mail: Gmail could not be read.";
+}
+
+export function mailSnippetsLine(snippets: readonly string[]): string {
+  const lines = snippets.map((snippet) => snippet.trim()).filter(Boolean);
+  if (lines.length === 0) return "Mail: no messages matched.";
+  return `Mail:\n${lines.map((snippet) => `- ${snippet}`).join("\n")}`;
+}
 
 export const SUGGEST_REPLY_SYSTEM_PROMPT =
   "You are Proforna. Draft one reply the occupant could send on this Contact thread. Use only the thread. Do not invent facts. Do not claim you sent it. Return ONLY JSON: {\"body\":\"string\"}.";

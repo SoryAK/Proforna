@@ -505,7 +505,11 @@ export function openDatabase(path: string): DatabaseSync {
     )
   `);
   addColumnIfMissing(db, "gmail_accounts", "enabled", "INTEGER NOT NULL DEFAULT 1");
+  addColumnIfMissing(db, "gmail_accounts", "nango_connection_id", "TEXT");
+  addColumnIfMissing(db, "gmail_accounts", "nango_provider_key", "TEXT");
   addColumnIfMissing(db, "integration_accounts", "enabled", "INTEGER NOT NULL DEFAULT 1");
+  addColumnIfMissing(db, "integration_accounts", "nango_connection_id", "TEXT");
+  addColumnIfMissing(db, "integration_accounts", "nango_provider_key", "TEXT");
   addColumnIfMissing(db, "profiles", "headline", "TEXT NOT NULL DEFAULT ''");
   addColumnIfMissing(db, "profiles", "address", "TEXT NOT NULL DEFAULT ''");
   addColumnIfMissing(db, "profiles", "address_latitude", "REAL");

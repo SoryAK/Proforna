@@ -138,14 +138,17 @@ export async function listOpenAiCompatModels(input: {
   baseUrl: string;
   apiKey?: string | null;
   timeoutMs?: number;
+  signal?: AbortSignal;
 }): Promise<{ ok: true; models: string[] } | { ok: false; error: string }> {
   const base = input.baseUrl.replace(/\/+$/, "");
   const headers: Record<string, string> = {};
   if (input.apiKey) headers.authorization = `Bearer ${input.apiKey}`;
+  const timeout = AbortSignal.timeout(input.timeoutMs ?? 20_000);
+  const signal = input.signal ? AbortSignal.any([input.signal, timeout]) : timeout;
   try {
     const res = await fetch(`${base}/models`, {
       headers,
-      signal: AbortSignal.timeout(input.timeoutMs ?? 20_000),
+      signal,
     });
     if (!res.ok) {
       const text = await res.text().catch(() => res.statusText);

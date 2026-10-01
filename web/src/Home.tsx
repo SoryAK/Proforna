@@ -96,11 +96,6 @@ export function Home({
     .filter(Boolean)
     .join(", ");
   const company = role?.company ?? "";
-  const links = [
-    profile.linkedinUrl,
-    profile.githubUrl,
-    profile.portfolioUrl,
-  ].filter((href): href is string => Boolean(href));
   const photoSrc = profile.avatarUrl
     ? `${profile.avatarUrl}?v=${photoTick}`
     : null;
@@ -381,17 +376,6 @@ export function Home({
                   {place && company ? " · " : null}
                   {company ? <span className="home-span">{company}</span> : null}
                 </p>
-              ) : null}
-              {links.length > 0 ? (
-                <ul className="home-links">
-                  {links.map((href) => (
-                    <li key={href}>
-                      <a href={href} rel="noreferrer" target="_blank">
-                        {displayHref(href)}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
               ) : null}
               <button
                 type="button"
@@ -691,13 +675,4 @@ function initials(name: string): string {
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase() ?? "")
     .join("");
-}
-
-function displayHref(href: string): string {
-  try {
-    const url = new URL(href);
-    return `${url.host}${url.pathname}`.replace(/\/$/, "");
-  } catch {
-    return href;
-  }
 }

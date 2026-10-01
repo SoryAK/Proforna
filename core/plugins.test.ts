@@ -35,6 +35,7 @@ describe("third-party plugins", () => {
       "calendly",
       "docusign",
       "github",
+      "linkedin",
       "todoist",
       "zoom",
     ]);
@@ -65,16 +66,46 @@ describe("third-party plugins", () => {
   it("lists every other connection, with the career accounts first", () => {
     const listed = presentIntegrationCatalog(catalog);
     expect(listed.some((plugin) => plugin.name === "gmail")).toBe(false);
-    expect(listed.slice(0, 5).map((plugin) => plugin.name)).toEqual([
+    expect(listed.slice(0, 6).map((plugin) => plugin.name)).toEqual([
       "calendly",
       "docusign",
       "github",
+      "linkedin",
       "todoist",
       "zoom",
     ]);
     const zoom = listed.find((plugin) => plugin.name === "zoom");
     expect(zoom?.available).toBe(true);
     expect(zoom?.fields.map((field) => field.key)).toEqual(["CLIENT_ID", "CLIENT_SECRET"]);
+    expect(zoom?.fields.every((field) => field.setupUrl === null)).toBe(true);
+    const github = listed.find((plugin) => plugin.name === "github");
+    expect(github?.fields).toEqual([
+      {
+        key: "GITHUB_PERSONAL_ACCESS_TOKEN",
+        label: "GitHub personal access token",
+        secret: true,
+        required: true,
+        setupUrl: "https://github.com/settings/tokens",
+      },
+    ]);
+    const linkedin = listed.find((plugin) => plugin.name === "linkedin");
+    expect(linkedin?.available).toBe(true);
+    expect(linkedin?.fields).toEqual([
+      {
+        key: "LINKEDIN_CLIENT_ID",
+        label: "LinkedIn client id",
+        secret: false,
+        required: true,
+        setupUrl: "https://www.linkedin.com/developers/apps",
+      },
+      {
+        key: "LINKEDIN_CLIENT_SECRET",
+        label: "LinkedIn client secret",
+        secret: true,
+        required: true,
+        setupUrl: null,
+      },
+    ]);
     expect(listed.find((plugin) => plugin.name === "google-drive")?.available).toBe(false);
   });
 
