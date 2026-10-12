@@ -89,6 +89,9 @@ export async function saveExtractedResume(
       school.field,
       now,
     );
+    if (school.site) {
+      persistExtractedSite(db, occupantId, schoolId, school.site);
+    }
     roles.push({
       id: schoolId,
       kind: "school",

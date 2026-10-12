@@ -67,14 +67,14 @@ export function onboardingCheckItems(data: ExtractedResume): OnboardingCheckItem
       org: school.institution || "Untitled school",
       title: school.degree,
       field: school.field,
-      place: school.location || ONBOARDING_NO_PLACE,
+      place: school.site?.label || school.location || ONBOARDING_NO_PLACE,
       startDate: school.startDate,
       endDate: school.endDate,
       isCurrent: false,
       description: school.description,
       achievements: [],
-      lat: null,
-      lng: null,
+      lat: school.site?.latitude ?? null,
+      lng: school.site?.longitude ?? null,
     }),
   );
   return [...jobs, ...schools];
@@ -223,6 +223,10 @@ function keptSchool(
   const base = item.sourceIndex >= 0 ? extracted.education[item.sourceIndex] : undefined;
   if (item.sourceIndex >= 0 && !base) return null;
   const place = item.place === ONBOARDING_NO_PLACE ? (base?.location ?? "") : item.place;
+  const site =
+    item.lat != null && item.lng != null
+      ? { label: place, address: place, latitude: item.lat, longitude: item.lng }
+      : (base?.site ?? null);
   return {
     institution: "",
     degree: "",
@@ -231,6 +235,7 @@ function keptSchool(
     startDate: "",
     endDate: "",
     description: "",
+    site: null,
     ...base,
     institution: item.org.trim() || "Untitled school",
     degree: item.title.trim(),
@@ -239,6 +244,7 @@ function keptSchool(
     startDate: item.startDate,
     endDate: item.endDate,
     description: item.description.trim(),
+    site,
   };
 }
 
