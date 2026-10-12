@@ -1,11 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
+  calendarAsk,
+  calendarEventsLine,
+  calendarEventsQuery,
   githubAccountLine,
   githubAsk,
   gmailSearchQuery,
   mailAsk,
   mailSnippetsLine,
   parseMailDraft,
+  presentCalendarEvents,
   presentGithubAccount,
   parseExtractedWorklogFacts,
   parseSuggestedReply,
@@ -214,6 +218,22 @@ describe("Agency.run", () => {
     expect(mailAsk("can tell me what me latest email said")).toBe("search");
     expect(githubAsk("What should I capture next?")).toBe(false);
     expect(githubAsk("what repos do I have on GitHub")).toBe(true);
+    expect(calendarAsk("What should I capture next?")).toBe(false);
+    expect(calendarAsk("what interviews are on my calendar")).toBe(true);
+    const query = calendarEventsQuery(new Date("2026-10-01T12:00:00.000Z"));
+    expect(query).toContain("calendar/v3/calendars/primary/events?");
+    expect(query).toContain("singleEvents=true");
+    expect(query).toContain("timeMin=2026-10-01T12%3A00%3A00.000Z");
+    expect(
+      calendarEventsLine(
+        presentCalendarEvents({
+          items: [
+            { status: "cancelled", summary: "Gone", start: { dateTime: "2026-10-02T13:00:00.000Z" } },
+            { summary: "Screen", start: { dateTime: "2026-10-02T17:00:00.000Z" } },
+          ],
+        }),
+      ),
+    ).toBe("Calendar, upcoming:\n- 2026-10-02T17:00:00.000Z — Screen");
     expect(
       githubAccountLine(
         presentGithubAccount(

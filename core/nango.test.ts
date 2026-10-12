@@ -27,6 +27,17 @@ describe("sign-in helper", () => {
       tags: { end_user_id: "local" },
       allowed_integrations: ["github"],
     });
+    expect(connectSessionBody("local", "google-calendar")).toEqual({
+      tags: { end_user_id: "local" },
+      allowed_integrations: ["google-calendar"],
+      integrations_config_defaults: {
+        "google-calendar": {
+          authorization_params: {
+            scope: "https://www.googleapis.com/auth/calendar.readonly",
+          },
+        },
+      },
+    });
     expect(connectSessionBody("local", "google-mail")).toEqual({
       tags: { end_user_id: "local" },
       allowed_integrations: ["google-mail"],

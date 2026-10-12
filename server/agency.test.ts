@@ -389,6 +389,64 @@ describe("Agency HTTP seam", () => {
     }
   });
 
+  it("answers a calendar question from upcoming events and does not read them when the calendar is off", async () => {
+    process.env.NANGO_SECRET_KEY = "test-secret-key";
+    process.env.NANGO_HOST = "http://127.0.0.1:3003";
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("/proxy/calendar/v3/calendars/primary/events")) {
+        return Response.json({
+          items: [{ summary: "Screen", start: { dateTime: "2026-10-02T17:00:00.000Z" } }],
+        });
+      }
+      return new Response("no", { status: 404 });
+    });
+    vi.stubGlobal("fetch", fetchImpl);
+    const complete = vi.fn(async (input: { messages: Array<{ content: string }> }) => {
+      const content = input.messages[1]?.content ?? "";
+      if (content.includes("Command: what interviews are on my calendar") && content.includes("Screen")) {
+        expect(content).not.toContain("test-secret-key");
+        return { text: "You have a screen on October 2.", model: "local-test" };
+      }
+      return { text: "Capture a measured outcome.", model: "local-test" };
+    });
+    const db = openDatabase(":memory:");
+    const app = createApp(db, { complete });
+    try {
+      await saveLocalModel(app);
+      saveCalendar(db);
+      const quiet = await command(app, "What should I capture next?");
+      expect(quiet.status).toBe(201);
+      expect(fetchImpl).not.toHaveBeenCalled();
+      const ran = await command(app, "what interviews are on my calendar");
+      expect(ran.status).toBe(201);
+      expect(await ran.json()).toMatchObject({
+        run: { answer: "You have a screen on October 2.", changeSet: null },
+      });
+      expect(fetchImpl.mock.calls.some((call) => String(call[0]).includes("calendarmcp.googleapis.com"))).toBe(
+        false,
+      );
+
+      db.prepare("UPDATE integration_accounts SET enabled = 0 WHERE name = 'google-calendar'").run();
+      fetchImpl.mockClear();
+      const off = await command(app, "what interviews are on my calendar");
+      expect(off.status).toBe(201);
+      expect(fetchImpl).not.toHaveBeenCalled();
+      expect(complete).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          messages: expect.arrayContaining([
+            expect.objectContaining({ content: expect.stringContaining("Google Calendar is not available.") }),
+          ]),
+        }),
+      );
+    } finally {
+      delete process.env.NANGO_SECRET_KEY;
+      delete process.env.NANGO_HOST;
+      vi.unstubAllGlobals();
+      db.close();
+    }
+  });
+
   it("reads a connected account from its own tools without giving the model the token", async () => {
     process.env.NANGO_SECRET_KEY = "test-secret-key";
     process.env.NANGO_HOST = "http://127.0.0.1:3003";
@@ -564,6 +622,15 @@ function saveZoom(db: DatabaseSync) {
     `INSERT INTO integration_accounts
       (occupant_id, name, secrets_json, updated_at, enabled, nango_connection_id, nango_provider_key)
      VALUES (?, 'zoom', '{}', ?, 1, 'conn-zoom', 'zoom')`,
+  ).run(occupant.id, "2026-09-30T00:00:00.000Z");
+}
+
+function saveCalendar(db: DatabaseSync) {
+  const occupant = db.prepare("SELECT id FROM occupants").get() as { id: string };
+  db.prepare(
+    `INSERT INTO integration_accounts
+      (occupant_id, name, secrets_json, updated_at, enabled, nango_connection_id, nango_provider_key)
+     VALUES (?, 'google-calendar', '{}', ?, 1, 'conn-calendar', 'google-calendar')`,
   ).run(occupant.id, "2026-09-30T00:00:00.000Z");
 }
 
