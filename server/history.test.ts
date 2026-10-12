@@ -101,6 +101,47 @@ describe("GET /api/history", () => {
     }
   });
 
+  it("pins a validated school site onto the Work Map", async () => {
+    const ctx = setup();
+    try {
+      await ctx.app.request("/api/history", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          experience: [],
+          education: [
+            {
+              institution: "City College",
+              degree: "AAS",
+              location: "Philadelphia, PA",
+              site: {
+                label: "City College",
+                address: "Philadelphia, Pennsylvania, United States",
+                latitude: 39.9526,
+                longitude: -75.1652,
+              },
+            },
+          ],
+          skills: [],
+        }),
+      });
+      const map = await ctx.app.request("/api/work-map");
+      const body = (await map.json()) as {
+        roles: Array<{
+          kind: string;
+          locations: Array<{ label: string; latitude: number }>;
+        }>;
+      };
+      expect(body.roles[0]).toMatchObject({ kind: "school" });
+      expect(body.roles[0]?.locations[0]).toMatchObject({
+        label: "City College",
+        latitude: 39.9526,
+      });
+    } finally {
+      ctx.close();
+    }
+  });
+
   it("pins a validated job site onto the Work Map", async () => {
     const ctx = setup();
     try {

@@ -89,6 +89,7 @@ export function Onboarding({
   const abortRef = useRef<AbortController | null>(null);
   const scanAbort = useRef<AbortController | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const previewDialogRef = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
     if (!photo) return;
@@ -96,6 +97,16 @@ export function Onboarding({
     setPhotoPreview(url);
     return () => URL.revokeObjectURL(url);
   }, [photo]);
+
+  useEffect(() => {
+    const node = previewDialogRef.current;
+    if (!node) return;
+    if (previewOpen) {
+      if (!node.open) node.showModal();
+      return;
+    }
+    if (node.open) node.close();
+  }, [previewOpen, file]);
 
   useEffect(() => {
     let cancel = false;
@@ -644,9 +655,9 @@ export function Onboarding({
                         <button
                           type="button"
                           className="onboarding-btn onboarding-btn-ghost onboarding-file-preview"
-                          onClick={() => setPreviewOpen((open) => !open)}
+                          onClick={() => setPreviewOpen(true)}
                         >
-                          {previewOpen ? "Hide preview" : "Preview"}
+                          Preview
                         </button>
                       </span>
                     </div>
@@ -664,7 +675,31 @@ export function Onboarding({
                       />
                     </label>
                   )}
-                  {file && previewOpen ? <ResumePreview file={file} /> : null}
+                  {file ? (
+                    <dialog
+                      ref={previewDialogRef}
+                      className="onboarding-review onboarding-file-dialog"
+                      aria-labelledby="onboarding-file-preview-title"
+                      onClose={() => setPreviewOpen(false)}
+                    >
+                      <div className="onboarding-review-head">
+                        <p className="onboarding-kicker">Resume</p>
+                        <button
+                          type="button"
+                          className="onboarding-btn onboarding-btn-ghost"
+                          onClick={() => setPreviewOpen(false)}
+                        >
+                          Close
+                        </button>
+                      </div>
+                      <h2 id="onboarding-file-preview-title">
+                        <em>{file.name}</em>
+                      </h2>
+                      <div className="onboarding-file-dialog-body">
+                        {previewOpen ? <ResumePreview file={file} /> : null}
+                      </div>
+                    </dialog>
+                  ) : null}
                   {file ? (
                     <input
                       ref={fileInputRef}

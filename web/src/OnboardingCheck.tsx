@@ -84,14 +84,23 @@ export function CheckOverview({
       </h1>
       {summary ? <p className="onboarding-meta">{summary}</p> : null}
       <ul className="onboarding-roster">
-        {items.map((item) => (
+        {items.map((item, index) => (
           <li key={`${item.source}-${item.sourceIndex}`}>
-            <div className="onboarding-place">
+            <button
+              type="button"
+              className="onboarding-place"
+              onClick={() => {
+                setReviewIndex(index);
+                setReviewOpen(true);
+              }}
+            >
+              <span className="onboarding-pin" data-set={item.lat != null && item.lng != null ? "true" : "false"} aria-hidden="true" />
               <div>
                 <strong>{headerTitle(item)}</strong>
                 <span>{headerDetail(item)}</span>
+                <span>{placeLine(item)}</span>
               </div>
-            </div>
+            </button>
           </li>
         ))}
       </ul>
@@ -102,7 +111,15 @@ export function CheckOverview({
         <button type="button" className="onboarding-verify-btn" onClick={() => add("School")}>
           Add a school
         </button>
-        <button type="button" className="onboarding-verify-btn" onClick={() => setReviewOpen(true)}>
+        <button
+          type="button"
+          className="onboarding-verify-btn"
+          disabled={items.length === 0}
+          onClick={() => {
+            setReviewIndex(0);
+            setReviewOpen(true);
+          }}
+        >
           Review each one
         </button>
       </div>
@@ -217,6 +234,7 @@ function ReviewSlide({
     setStreetOpen(false);
   }, [index, item.org]);
   const placed = item.lat != null && item.lng != null;
+  const prompt = placePrompt(item.kind);
   const last = index + 1 >= total;
   return (
     <>
@@ -286,44 +304,33 @@ function ReviewSlide({
             Current role
           </label>
         ) : null}
-        {item.kind === "Job" ? (
-          <>
-            <div className="onboarding-place">
-              <span className="onboarding-pin" data-set={placed ? "true" : "false"} aria-hidden="true" />
-              <div>
-                <strong>{item.place}</strong>
-                <span>{placed ? "On the map" : "No pin yet"}</span>
-              </div>
-              <button
-                type="button"
-                className="onboarding-place-action"
-                onClick={() => setStreetOpen((open) => !open)}
-              >
-                {streetOpen ? "Close" : placed ? "Change" : "Add a street"}
-              </button>
-            </div>
-            {streetOpen || placed ? (
-              <RolePlacePicker
-                key={`${index}-${item.sourceIndex}`}
-                seed={item.place}
-                searching={streetOpen || !placed}
-                pinned={placed ? [item.lat as number, item.lng as number] : null}
-                onChoose={(place, lat, lng) => {
-                  onChange({ ...item, place, lat, lng });
-                  setStreetOpen(false);
-                }}
-              />
-            ) : null}
-          </>
-        ) : (
-          <label className="onboarding-field">
-            <span>Place</span>
-            <input
-              value={item.place === ONBOARDING_NO_PLACE ? "" : item.place}
-              onChange={(event) => onChange({ ...item, place: event.target.value })}
-            />
-          </label>
-        )}
+        <div className="onboarding-place">
+          <span className="onboarding-pin" data-set={placed ? "true" : "false"} aria-hidden="true" />
+          <div>
+            <strong>{item.place}</strong>
+            <span>{placed ? "On the map" : "No pin yet"}</span>
+          </div>
+          <button
+            type="button"
+            className="onboarding-place-action"
+            onClick={() => setStreetOpen((open) => !open)}
+          >
+            {streetOpen ? "Close" : placed ? "Change" : prompt.add}
+          </button>
+        </div>
+        {streetOpen ? (
+          <RolePlacePicker
+            key={`${index}-${item.source}-${item.sourceIndex}`}
+            seed={item.place}
+            searching={streetOpen}
+            pinned={placed ? [item.lat as number, item.lng as number] : null}
+            prompt={prompt}
+            onChoose={(place, lat, lng) => {
+              onChange({ ...item, place, lat, lng });
+              setStreetOpen(false);
+            }}
+          />
+        ) : null}
         <label className="onboarding-field">
           <span>Description</span>
           <textarea
@@ -382,6 +389,34 @@ function headerDetail(item: OnboardingCheckItem): string {
   return [item.kind, item.org.trim(), item.span.trim()].filter(Boolean).join(" · ");
 }
 
+function placeLine(item: OnboardingCheckItem): string {
+  const place = item.place === ONBOARDING_NO_PLACE ? "No place yet" : item.place;
+  const pin = item.lat != null && item.lng != null ? "On the map" : "No pin yet";
+  return `${place} · ${pin}`;
+}
+
+function placePrompt(kind: OnboardingCheckItem["kind"]): {
+  add: string;
+  label: string;
+  empty: string;
+  hint: string;
+} {
+  if (kind === "School") {
+    return {
+      add: "Add a place",
+      label: "Campus or city",
+      empty: "Campus or city",
+      hint: "Type a campus or city, or click the map.",
+    };
+  }
+  return {
+    add: "Add a street",
+    label: "Street or place",
+    empty: "Street, city",
+    hint: "Type a street, or click the map.",
+  };
+}
+
 function stamped(item: OnboardingCheckItem): OnboardingCheckItem {
   return {
     ...item,
@@ -438,11 +473,13 @@ function RolePlacePicker({
   seed,
   searching,
   pinned,
+  prompt,
   onChoose,
 }: {
   seed: string;
   searching: boolean;
   pinned: [number, number] | null;
+  prompt: { label: string; empty: string; hint: string };
   onChoose: (place: string, lat: number, lng: number) => void;
 }) {
   const [query, setQuery] = useState("");
@@ -485,11 +522,11 @@ function RolePlacePicker({
       {searching ? (
         <>
           <label className="onboarding-field">
-            <span>Street or place</span>
+            <span>{prompt.label}</span>
             <input
               value={query}
               autoComplete="off"
-              placeholder={seed === ONBOARDING_NO_PLACE ? "Street, city" : seed}
+              placeholder={seed === ONBOARDING_NO_PLACE ? prompt.empty : seed}
               role="combobox"
               aria-expanded={hits.length > 0}
               aria-autocomplete="list"
@@ -507,19 +544,19 @@ function RolePlacePicker({
               ))}
             </ul>
           ) : null}
-          <p className="onboarding-quiet">Type a street, or click the map.</p>
+          <p className="onboarding-quiet">{prompt.hint}</p>
         </>
       ) : (
-        <p className="onboarding-quiet">Click the map to move it.</p>
+        <p className="onboarding-quiet">{pinned ? "Click the map to move it." : "Click the map to pin it."}</p>
       )}
       <div className="onboarding-role-map">
         <MapContainer center={center ?? [39.8283, -98.5795]} zoom={center ? 12 : 4} scrollWheelZoom={false}>
           <TileLayer attribution="&copy; OpenStreetMap" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
           <MapFrame center={center} />
           <MapDrop onDrop={(lat, lng) => void drop(lat, lng)} />
-          {center ? (
+          {pinned ? (
             <CircleMarker
-              center={center}
+              center={pinned}
               radius={8}
               pathOptions={{ color: "#f2d19b", fillColor: "#c4a574", fillOpacity: 1, weight: 2 }}
             />

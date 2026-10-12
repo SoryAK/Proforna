@@ -1269,7 +1269,22 @@
 }
 
 .onboarding-roster .onboarding-place {
+  width: 100%;
   margin-top: 0;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.onboarding-roster .onboarding-place:hover,
+.onboarding-roster .onboarding-place:focus-visible {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.onboarding-roster .onboarding-place > div span {
+  display: block;
 }
 
 .onboarding-place {
@@ -1350,6 +1365,33 @@
 .onboarding-review[data-compare="true"] {
   width: min(72rem, calc(100vw - 2rem));
   height: min(85vh, 44rem);
+}
+
+.onboarding-file-dialog {
+  box-sizing: border-box;
+  width: min(80rem, calc(100% - 2rem));
+  max-width: calc(100% - 2rem);
+  height: min(92vh, 52rem);
+  max-height: min(92vh, calc(100% - 2rem));
+}
+
+.onboarding-file-dialog-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  margin-top: 0.85rem;
+}
+
+.onboarding-file-dialog-body .onboarding-preview {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+}
+
+.onboarding-file-dialog-body .onboarding-preview-frame,
+.onboarding-file-dialog-body .onboarding-preview-text {
+  height: 100%;
+  max-height: none;
 }
 
 .onboarding-review[open] {

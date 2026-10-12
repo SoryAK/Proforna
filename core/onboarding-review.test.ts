@@ -66,6 +66,7 @@ function resume(): ExtractedResume {
       startDate: "2021-05-01",
       endDate: "2021-08-01",
       description: "",
+      site: null,
     },
   ];
   return data;
@@ -164,6 +165,9 @@ describe("keptOnboardingHistory", () => {
       org: "State",
       title: "AS",
       field: "Math",
+      place: "Philadelphia, PA",
+      lat: 39.95,
+      lng: -75.16,
     };
     expect(isBlankOnboardingCheckItem(blankOnboardingCheckItem("Job", -1))).toBe(true);
     expect(isBlankOnboardingCheckItem(job)).toBe(false);
@@ -186,6 +190,13 @@ describe("keptOnboardingHistory", () => {
       institution: "State",
       degree: "AS",
       field: "Math",
+      location: "Philadelphia, PA",
+    });
+    expect(kept.education[0]?.site).toEqual({
+      label: "Philadelphia, PA",
+      address: "Philadelphia, PA",
+      latitude: 39.95,
+      longitude: -75.16,
     });
     expect(kept.skills).toEqual(["PLC"]);
   });

@@ -83,6 +83,7 @@ export type ExtractedSchool = {
   startDate: string;
   endDate: string;
   description: string;
+  site: ExtractedSite | null;
 };
 
 export type ExtractedResume = {
@@ -378,5 +379,6 @@ function asSchool(value: unknown): ExtractedSchool | null {
     startDate: asText(row.startDate),
     endDate: asText(row.endDate),
     description: asText(row.description),
+    site: parseSite(row.site),
   };
 }
