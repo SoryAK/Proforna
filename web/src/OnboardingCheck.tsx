@@ -32,6 +32,8 @@ export function CheckOverview({
 }) {
   const [reviewOpen, setReviewOpen] = useState(false);
   const [reviewIndex, setReviewIndex] = useState(0);
+  const [openedKeys, setOpenedKeys] = useState<string[]>([]);
+  const [pointOutUnopened, setPointOutUnopened] = useState(false);
   const jobs = items.filter((item) => item.kind === "Job").length;
   const schools = items.filter((item) => item.kind === "School").length;
   const summary = [
@@ -70,11 +72,29 @@ export function CheckOverview({
     setReviewOpen(false);
   }
 
+  useEffect(() => {
+    if (!reviewOpen) return;
+    const item = items[reviewIndex];
+    if (!item) return;
+    const key = checkItemKey(item);
+    setOpenedKeys((current) => (current.includes(key) ? current : [...current, key]));
+  }, [reviewOpen, reviewIndex, items]);
+
   function continueOn() {
     const next = items.filter((item) => !isBlankOnboardingCheckItem(item));
+    const unopened = next.some((item) => !openedKeys.includes(checkItemKey(item)));
+    if (unopened && !pointOutUnopened) {
+      if (next.length !== items.length) onChange(next);
+      setPointOutUnopened(true);
+      return;
+    }
     if (next.length !== items.length) onChange(next);
     onContinue(next);
   }
+
+  const unopenedCount = items.filter(
+    (item) => !isBlankOnboardingCheckItem(item) && !openedKeys.includes(checkItemKey(item)),
+  ).length;
 
   return (
     <>
@@ -84,25 +104,33 @@ export function CheckOverview({
       </h1>
       {summary ? <p className="onboarding-meta">{summary}</p> : null}
       <ul className="onboarding-roster">
-        {items.map((item, index) => (
-          <li key={`${item.source}-${item.sourceIndex}`}>
-            <button
-              type="button"
-              className="onboarding-place"
-              onClick={() => {
-                setReviewIndex(index);
-                setReviewOpen(true);
-              }}
-            >
-              <span className="onboarding-pin" data-set={item.lat != null && item.lng != null ? "true" : "false"} aria-hidden="true" />
-              <div>
-                <strong>{headerTitle(item)}</strong>
-                <span>{headerDetail(item)}</span>
-                <span>{placeLine(item)}</span>
-              </div>
-            </button>
-          </li>
-        ))}
+        {items.map((item, index) => {
+          const opened = openedKeys.includes(checkItemKey(item));
+          return (
+            <li key={`${item.source}-${item.sourceIndex}`}>
+              <button
+                type="button"
+                className="onboarding-place"
+                data-opened={opened ? "true" : "false"}
+                data-pending={pointOutUnopened && !opened ? "true" : undefined}
+                onClick={() => {
+                  setReviewIndex(index);
+                  setReviewOpen(true);
+                }}
+              >
+                <span className="onboarding-pin" data-set={item.lat != null && item.lng != null ? "true" : "false"} aria-hidden="true" />
+                <div>
+                  <strong>{headerTitle(item)}</strong>
+                  <span>{headerDetail(item)}</span>
+                  <span>{placeLine(item)}</span>
+                  <span className="onboarding-roster-state" data-opened={opened ? "true" : "false"}>
+                    {opened ? "Opened" : "Not opened"}
+                  </span>
+                </div>
+              </button>
+            </li>
+          );
+        })}
       </ul>
       <div className="onboarding-verify-actions">
         <button type="button" className="onboarding-verify-btn" onClick={() => add("Job")}>
@@ -126,6 +154,11 @@ export function CheckOverview({
       {error ? (
         <p className="onboarding-alert" role="alert">
           {error}
+        </p>
+      ) : null}
+      {pointOutUnopened && unopenedCount > 0 ? (
+        <p className="onboarding-alert" role="status">
+          {unopenedCount === 1 ? "1 has not been opened." : `${unopenedCount} have not been opened.`} Open them, or continue again to keep them.
         </p>
       ) : null}
       <div className="onboarding-actions" data-split="true">
@@ -372,6 +405,10 @@ function ReviewSlide({
       </div>
     </>
   );
+}
+
+function checkItemKey(item: OnboardingCheckItem): string {
+  return `${item.source}-${item.sourceIndex}`;
 }
 
 function headerTitle(item: OnboardingCheckItem): string {

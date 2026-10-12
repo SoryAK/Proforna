@@ -284,4 +284,127 @@ describe("GET /api/history", () => {
       ctx.close();
     }
   });
+
+  it("points a duty from a second resume at that resume", async () => {
+    const ctx = setupUploads();
+    try {
+      async function upload(name: string, bytes: string) {
+        const form = new FormData();
+        form.append("file", new File([bytes], name, { type: "application/pdf" }));
+        const uploaded = await ctx.app.request("/api/resumes", { method: "POST", body: form });
+        expect(uploaded.status).toBe(201);
+        return ((await uploaded.json()) as { resume: { id: string } }).resume.id;
+      }
+      const first = await upload("first.pdf", "%PDF-1.4 first");
+      const second = await upload("second.pdf", "%PDF-1.4 second");
+      const saved = await ctx.app.request("/api/history", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          resumeId: first,
+          experience: [
+            {
+              company: "Acme",
+              title: "Lead",
+              achievements: ["Kept duty", "Added duty"],
+            },
+          ],
+          education: [],
+          skills: [],
+          evidence: {
+            experience: [
+              {
+                resumeIds: [first, second],
+                achievements: [first, second],
+              },
+            ],
+            education: [],
+            skills: [],
+          },
+        }),
+      });
+      expect(saved.status).toBe(201);
+      const memory = await ctx.app.request("/api/memory");
+      const body = (await memory.json()) as {
+        evidence: Array<{ id: string; sourceRef: string }>;
+        facts: Array<{ factType: string; evidenceIds: string[]; value: Record<string, unknown> }>;
+      };
+      const firstEvidence = body.evidence.find((item) => item.sourceRef === first);
+      const secondEvidence = body.evidence.find((item) => item.sourceRef === second);
+      const role = body.facts.find((fact) => fact.factType === "role");
+      const added = body.facts.find(
+        (fact) => fact.factType === "achievement" && fact.value.statement === "Added duty",
+      );
+      expect(role?.evidenceIds).toEqual([firstEvidence?.id, secondEvidence?.id]);
+      expect(added?.evidenceIds).toEqual([secondEvidence?.id]);
+    } finally {
+      ctx.close();
+    }
+  });
+
+  it("updates a kept role from a later resume and remembers a set-aside", async () => {
+    const ctx = setupUploads();
+    try {
+      const form = new FormData();
+      form.append("file", new File(["%PDF-1.4 first"], "first.pdf", { type: "application/pdf" }));
+      const uploaded = await ctx.app.request("/api/resumes", { method: "POST", body: form });
+      const first = ((await uploaded.json()) as { resume: { id: string } }).resume.id;
+      const saved = await ctx.app.request("/api/history", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          resumeId: first,
+          experience: [{ company: "Acme", title: "Engineer", achievements: ["Kept duty"] }],
+          education: [],
+          skills: [],
+        }),
+      });
+      expect(saved.status).toBe(201);
+      const history = await ctx.app.request("/api/history");
+      const career = (await history.json()) as { jobs: Array<{ id: string }> };
+      const secondForm = new FormData();
+      secondForm.append("file", new File(["%PDF-1.4 second"], "second.pdf", { type: "application/pdf" }));
+      const secondUpload = await ctx.app.request("/api/resumes", { method: "POST", body: secondForm });
+      const second = ((await secondUpload.json()) as { resume: { id: string } }).resume.id;
+      const applied = await ctx.app.request("/api/resumes/apply", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          resumeId: second,
+          updates: [
+            {
+              id: career.jobs[0]?.id,
+              kind: "job",
+              title: "Engineer",
+              organization: "Acme",
+              location: "",
+              startDate: "2018-01-01",
+              endDate: "2020-01-01",
+              isCurrent: false,
+              description: "",
+              achievements: ["Kept duty", "Added duty"],
+            },
+          ],
+          created: { experience: [], education: [], skills: [] },
+          asides: [{ kind: "job", title: "Analyst", organization: "Northwind", startDate: "2014-01-01", endDate: "2016-01-01" }],
+        }),
+      });
+      expect(applied.status).toBe(201);
+      const memory = await ctx.app.request("/api/memory");
+      const body = (await memory.json()) as {
+        evidence: Array<{ id: string; sourceRef: string }>;
+        facts: Array<{ factType: string; evidenceIds: string[]; value: Record<string, unknown> }>;
+      };
+      const secondEvidence = body.evidence.find((item) => item.sourceRef === second);
+      const added = body.facts.find(
+        (fact) => fact.factType === "achievement" && fact.value.statement === "Added duty",
+      );
+      expect(added?.evidenceIds).toEqual([secondEvidence?.id]);
+      const asides = await ctx.app.request("/api/resume-asides");
+      const asideBody = (await asides.json()) as { asides: Array<{ title: string }> };
+      expect(asideBody.asides.map((aside) => aside.title)).toEqual(["Analyst"]);
+    } finally {
+      ctx.close();
+    }
+  });
 });

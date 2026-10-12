@@ -11,7 +11,6 @@ import {
   type LocalScanHit,
 } from "@core/model-onboarding";
 import {
-  keptOnboardingHistory,
   onboardingCheckItems,
   profileAfterOnboarding,
   type OnboardingCheckItem,
@@ -19,9 +18,23 @@ import {
   type OnboardingPlaceAnswer,
 } from "@core/onboarding-review";
 import { isAvatarType, prepareProfile, PROFILE_AVATAR_MAX_BYTES, type ProfileFields } from "@core/profile";
-import type { ExtractedResume } from "@core/resume-extract";
+import type { ExtractedProfile, ExtractedResume } from "@core/resume-extract";
+import {
+  dropSetAside,
+  historyFromHeld,
+  holdVerifiedRoles,
+  queuedResumeDuplicate,
+  rememberSetAside,
+  rememberSkills,
+  type HeldRole,
+  type HeldSkill,
+  type SetAsideRole,
+} from "@core/resume-compare";
 import { AddressFields } from "./OnboardingAddress";
 import { CheckOverview, ResumePreview } from "./OnboardingCheck";
+import { ResumeCompare } from "./OnboardingCompare";
+import { ResumeReview } from "./ResumeReview";
+import { clearOnboardingDraft, loadOnboardingDraft, saveOnboardingDraft } from "./onboarding-session";
 import type { OnboardingProfileValue } from "./OnboardingProfile";
 import { YesNo } from "./onboarding-offer";
 import { IntegrationSettings } from "./IntegrationSettings";
@@ -33,6 +46,11 @@ type Me = {
 };
 
 type OnboardingStep = "name" | "model" | "integrations" | "file" | "check";
+
+type QueuedResume = {
+  file: File;
+  digest: string;
+};
 
 const STEP_INDEX: Record<OnboardingStep, number> = {
   name: 0,
@@ -49,7 +67,7 @@ export function Onboarding({
   onFinished,
 }: {
   initialProfile: OnboardingProfileValue;
-  onFinished: (me: Me) => void;
+  onFinished: (me: Me, keptHistory: boolean) => void;
 }) {
   const split = splitName(initialProfile.fullName);
   const [firstName, setFirstName] = useState(split.first);
@@ -77,14 +95,24 @@ export function Onboarding({
   const [hosting, setHosting] = useState<ModelHosting | null>(null);
   const [cloudKey, setCloudKey] = useState("");
   const [selected, setSelected] = useState("");
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<QueuedResume[]>([]);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
+  const [held, setHeld] = useState<HeldRole[]>([]);
+  const [heldSkills, setHeldSkills] = useState<HeldSkill[]>([]);
+  const [cursor, setCursor] = useState(0);
+  const [pass, setPass] = useState<"verify" | "compare" | "review">("verify");
+  const [setAsides, setSetAsides] = useState<SetAsideRole[]>([]);
+  const [draftReady, setDraftReady] = useState(false);
+  const [profileExtract, setProfileExtract] = useState<ExtractedProfile | null>(null);
   const [step, setStep] = useState<OnboardingStep>("name");
   const [items, setItems] = useState<OnboardingCheckItem[]>([]);
   const [extracted, setExtracted] = useState<ExtractedResume | null>(null);
   const [extracting, setExtracting] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [readDigests, setReadDigests] = useState<string[]>([]);
+  const extractsRef = useRef<Map<string, ExtractedResume>>(new Map());
   const profileRef = useRef<ProfileFields>(initialProfile);
   const abortRef = useRef<AbortController | null>(null);
   const scanAbort = useRef<AbortController | null>(null);
@@ -106,7 +134,75 @@ export function Onboarding({
       return;
     }
     if (node.open) node.close();
-  }, [previewOpen, file]);
+  }, [previewOpen, previewIndex, files]);
+
+  useEffect(() => {
+    let cancel = false;
+    void loadOnboardingDraft()
+      .then((draft) => {
+        if (cancel || !draft) return;
+        extractsRef.current = new Map(draft.extracts.map((row) => [row.digest, row.data]));
+        setFiles(
+          draft.files.map((row) => ({
+            file: new File([row.bytes], row.name, { type: row.type }),
+            digest: row.digest,
+          })),
+        );
+        setReadDigests(draft.readDigests);
+        setHeld(draft.held);
+        setHeldSkills(draft.heldSkills);
+        setSetAsides(draft.asides);
+        setCursor(draft.cursor);
+        setPass(draft.pass);
+        setItems(draft.items);
+        setProfileExtract(draft.profileExtract);
+        setExtracted(draft.extracts.find((row) => row.digest === draft.files[draft.cursor]?.digest)?.data ?? null);
+        setStep(draft.step);
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (!cancel) setDraftReady(true);
+      });
+    return () => {
+      cancel = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!draftReady || (files.length === 0 && held.length === 0)) return;
+    let cancel = false;
+    void (async () => {
+      const stored = await Promise.all(
+        files.map(async (row) => ({
+          digest: row.digest,
+          name: row.file.name,
+          type: row.file.type,
+          bytes: await row.file.arrayBuffer(),
+        })),
+      );
+      if (cancel) return;
+      try {
+      await saveOnboardingDraft({
+        files: stored,
+        extracts: [...extractsRef.current.entries()].map(([digest, data]) => ({ digest, data })),
+        readDigests,
+        held,
+        heldSkills,
+        asides: setAsides,
+        cursor,
+        pass,
+        step: step === "check" || step === "file" ? step : "file",
+        items,
+        profileExtract,
+      });
+      } catch {
+        /* the questions still continue in this page */
+      }
+    })();
+    return () => {
+      cancel = true;
+    };
+  }, [draftReady, files, readDigests, held, heldSkills, setAsides, cursor, pass, step, items, profileExtract]);
 
   useEffect(() => {
     let cancel = false;
@@ -200,26 +296,47 @@ export function Onboarding({
     setPhoto(next);
   }
 
-  function pickFile(next: File) {
+  async function addResume(next: File) {
+    const digest = await digestFile(next);
+    let duplicate = false;
+    setFiles((current) => {
+      if (queuedResumeDuplicate(current.map((row) => row.digest), digest)) {
+        duplicate = true;
+        return current;
+      }
+      return [...current, { file: next, digest }];
+    });
+    setError(duplicate ? "That resume is already in the list." : null);
+  }
+
+  function removeResume(index: number) {
+    if (extracting) return;
+    if (held.length > 0 && index < cursor) return;
+    const digest = files[index]?.digest;
+    if (digest) {
+      extractsRef.current.delete(digest);
+      setReadDigests((current) => current.filter((row) => row !== digest));
+    }
+    setFiles((current) => current.filter((_, row) => row !== index));
+    if (previewIndex === index) {
+      setPreviewOpen(false);
+      setPreviewIndex(null);
+    }
+  }
+
+  function leaveCheck() {
     abortRef.current?.abort();
-    setPreviewOpen(false);
-    setFile(next);
-    setItems([]);
-    setExtracted(null);
-    setError(null);
     setExtracting(false);
-    if (step === "check") setStep("file");
+    setStep("file");
   }
 
   function continueWithoutRead() {
-    setItems([]);
-    setExtracted(null);
     setError(null);
-    void finish([], false);
+    void finishSession(held, heldSkills, false);
   }
 
-  async function readFile() {
-    if (!file || extracting || wantsModel !== true || !selected) return;
+  async function readAll() {
+    if (extracting || wantsModel !== true || !selected || files.length === 0) return;
     abortRef.current?.abort();
     const abort = new AbortController();
     abortRef.current = abort;
@@ -244,23 +361,28 @@ export function Onboarding({
         }
         setSavedModel(selected);
       }
-      const form = new FormData();
-      form.append("file", file);
-      const res = await fetch("/api/resumes/extract", { method: "POST", body: form, signal: abort.signal });
-      const body = (await res.json()) as { error?: string; data?: ExtractedResume };
+      for (let index = 0; index < files.length; index += 1) {
+        const row = files[index];
+        if (extractsRef.current.has(row.digest)) continue;
+        setCursor(index);
+        const form = new FormData();
+        form.append("file", row.file);
+        const res = await fetch("/api/resumes/extract", { method: "POST", body: form, signal: abort.signal });
+        const body = (await res.json()) as { error?: string; data?: ExtractedResume };
+        if (abort.signal.aborted) return;
+        if (!res.ok || !body.data) {
+          setError(body.error ?? `Could not read ${row.file.name}.`);
+          return;
+        }
+        if (onboardingCheckItems(body.data).length === 0) {
+          setError(`The model did not find roles or schools in ${row.file.name}.`);
+          return;
+        }
+        extractsRef.current.set(row.digest, body.data);
+        setReadDigests((current) => (current.includes(row.digest) ? current : [...current, row.digest]));
+      }
       if (abort.signal.aborted) return;
-      if (!res.ok || !body.data) {
-        setError(body.error ?? "Could not read the resume.");
-        return;
-      }
-      const next = onboardingCheckItems(body.data);
-      if (next.length === 0) {
-        setError("The model did not find roles or schools in that file.");
-        return;
-      }
-      setExtracted(body.data);
-      setItems(next);
-      setStep("check");
+      startQuestions();
     } catch (err) {
       if (abort.signal.aborted) return;
       setError(err instanceof Error ? err.message : "Could not read the resume.");
@@ -272,13 +394,82 @@ export function Onboarding({
     }
   }
 
-  async function finish(kept: OnboardingCheckItem[] = items, includeHistory = true) {
+  function openAt(index: number) {
+    const row = files[index];
+    const data = row ? extractsRef.current.get(row.digest) : undefined;
+    if (!row || !data) return;
+    if (index === 0) setProfileExtract(data.profile);
+    setExtracted(data);
+    setItems(onboardingCheckItems(data));
+    setCursor(index);
+    setPass(index === 0 ? "verify" : "compare");
+    setStep("check");
+  }
+
+  function startQuestions() {
+    if (held.length === 0) {
+      openAt(0);
+      return;
+    }
+    const index = cursor > 0 ? Math.min(cursor, files.length - 1) : 1;
+    if (index >= files.length) {
+      void finishSession(held, heldSkills, true);
+      return;
+    }
+    openAt(index);
+  }
+
+  function acceptVerified(kept: OnboardingCheckItem[]) {
+    const nextHeld = holdVerifiedRoles(kept, cursor);
+    const jobsKept = kept.some((item) => item.source === "job");
+    const skills = rememberSkills([], extracted?.skills ?? [], cursor, jobsKept);
+    advance(nextHeld, skills);
+  }
+
+  function acceptCompared(nextHeld: HeldRole[], acceptSkills: boolean) {
+    const skills = rememberSkills(heldSkills, extracted?.skills ?? [], cursor, acceptSkills);
+    advance(nextHeld, skills);
+  }
+
+  function changeVerified(next: OnboardingCheckItem[]) {
+    const nextKeys = new Set(next.map((item) => `${item.source}-${item.sourceIndex}`));
+    const removed = items.filter(
+      (item) => item.org.trim() && !nextKeys.has(`${item.source}-${item.sourceIndex}`),
+    );
+    if (removed.length > 0) {
+      setSetAsides((current) => removed.reduce((list, item) => rememberSetAside(list, item), current));
+    }
+    setItems(next);
+  }
+
+  function advance(nextHeld: HeldRole[], skills: HeldSkill[]) {
+    for (let index = cursor + 1; index < files.length; index += 1) {
+      if (!extractsRef.current.has(files[index].digest)) continue;
+      setHeld(nextHeld);
+      setHeldSkills(skills);
+      openAt(index);
+      return;
+    }
+    setHeld(nextHeld);
+    setHeldSkills(skills);
+    setPass("review");
+    setStep("check");
+  }
+
+  function removeHeld(id: string) {
+    const role = held.find((row) => row.id === id);
+    if (!role) return;
+    setHeld((current) => current.filter((row) => row.id !== id));
+    setSetAsides((current) => rememberSetAside(current, role.item));
+  }
+
+  async function finishSession(roles: HeldRole[], skills: HeldSkill[], includeHistory: boolean) {
     setBusy(true);
     setError(null);
     try {
       const draft = profileAfterOnboarding({
         current: profileRef.current,
-        extracted: extracted?.profile ?? null,
+        extracted: profileExtract,
         fullName: `${firstName} ${lastName}`.replace(/\s+/g, " ").trim(),
         place,
         links,
@@ -313,30 +504,68 @@ export function Onboarding({
           return;
         }
       }
-      let resumeId: string | undefined;
-      if (file) {
+      const resumeIds: string[] = [];
+      for (const row of files) {
         const form = new FormData();
-        form.append("file", file);
+        form.append("file", row.file);
         const uploaded = await fetch("/api/resumes", { method: "POST", body: form });
         if (!uploaded.ok) {
           setError("Could not store the resume.");
           return;
         }
         const stored = (await uploaded.json()) as { resume?: { id?: string } };
-        resumeId = stored.resume?.id;
+        if (!stored.resume?.id) {
+          setError("Could not store the resume.");
+          return;
+        }
+        resumeIds.push(stored.resume.id);
       }
-      if (includeHistory && extracted) {
-        const history = keptOnboardingHistory(extracted, kept);
+      const asideResponse = await fetch("/api/resume-asides", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          asides: setAsides.map((aside) => ({
+            kind: aside.item.source,
+            title: aside.item.title,
+            organization: aside.item.org,
+            startDate: aside.item.startDate,
+            endDate: aside.item.endDate,
+          })),
+        }),
+      });
+      if (!asideResponse.ok) {
+        setError("Could not save the roles you set aside.");
+        return;
+      }
+      let keptHistory = false;
+      if (includeHistory) {
+        const history = historyFromHeld(roles, skills);
         if (history.experience.length > 0 || history.education.length > 0) {
           const saved = await fetch("/api/history", {
             method: "POST",
             headers: { "content-type": "application/json" },
-            body: JSON.stringify({ ...history, resumeId }),
+            body: JSON.stringify({
+              experience: history.experience,
+              education: history.education,
+              skills: history.skills,
+              resumeId: resumeIds[0],
+              evidence: {
+                experience: history.experienceEvidence.map((source) => ({
+                  resumeIds: source.files.map((index) => resumeIds[index]),
+                  achievements: source.achievements.map((index) => resumeIds[index]),
+                })),
+                education: history.educationEvidence.map((source) => ({
+                  resumeIds: source.files.map((index) => resumeIds[index]),
+                })),
+                skills: history.skillFiles.map((index) => resumeIds[index]),
+              },
+            }),
           });
           if (!saved.ok) {
             setError("Could not save jobs and schools.");
             return;
           }
+          keptHistory = true;
         }
       }
       const res = await fetch("/api/onboarding/complete", { method: "POST" });
@@ -345,7 +574,8 @@ export function Onboarding({
         setError(body.error ?? "Could not finish onboarding.");
         return;
       }
-      onFinished(body);
+      await clearOnboardingDraft();
+      onFinished(body, keptHistory);
     } finally {
       setBusy(false);
     }
@@ -373,14 +603,19 @@ export function Onboarding({
     }
     if (step === "file" && !extracting) {
       return [
-        "We'll extract the career details from your resume. It can be done later if now is not the right time.",
+        "One resume is enough. Add another if you have it. Every file is read before the questions start, and nothing is saved until the last continue.",
+        "It can be done later if now is not the right time.",
       ];
     }
     if (step === "check") {
-      return [
+      const lines = [
         "We advise going through each one. A model can hallucinate, and the read can produce incorrect information or miss things.",
         "These details can be revised later as well.",
       ];
+      if (pass === "compare") {
+        lines.push("A role this file never mentions stays. A duty you skip stays off the role and on the file.");
+      }
+      return lines;
     }
     return [];
   }
@@ -627,55 +862,103 @@ export function Onboarding({
               <h1>
                 {extracting ? (
                   <>
-                    Reading the <em>resume.</em>
+                    Reading <em>{files[cursor]?.file.name ?? "the resume"}.</em>
                   </>
                 ) : (
                   <>
-                    Import your most up-to-date <em>resume.</em>
+                    Import your <em>resumes.</em>
                   </>
                 )}
               </h1>
               {extracting ? (
-                <ReadProgress model={presentModelId(selected)} />
+                <p className="onboarding-meta">
+                  {cursor + 1} of {files.length}. The questions start after every file is read.
+                </p>
+              ) : null}
+              {extracting ? <ReadProgress model={presentModelId(selected)} /> : null}
+              {files.length === 0 ? (
+                <label className="onboarding-file">
+                  Drop a PDF here, or click to choose
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="application/pdf,text/plain,.pdf,.txt,.md"
+                    onChange={(event) => {
+                      const next = event.target.files?.[0];
+                      event.target.value = "";
+                      if (next) void addResume(next);
+                    }}
+                  />
+                </label>
               ) : (
                 <>
-                  {file ? (
-                    <div className="onboarding-file onboarding-file-picked">
-                      <span className="onboarding-file-name" title={file.name}>
-                        {file.name}
-                      </span>
-                      <span className="onboarding-file-actions">
-                        <button
-                          type="button"
-                          className="onboarding-btn onboarding-btn-ghost onboarding-file-preview"
-                          onClick={() => fileInputRef.current?.click()}
-                        >
-                          Replace
-                        </button>
-                        <button
-                          type="button"
-                          className="onboarding-btn onboarding-btn-ghost onboarding-file-preview"
-                          onClick={() => setPreviewOpen(true)}
-                        >
-                          Preview
-                        </button>
-                      </span>
-                    </div>
-                  ) : (
-                    <label className="onboarding-file">
-                      Drop a PDF here, or click to choose
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept="application/pdf,text/plain,.pdf,.txt,.md"
-                        onChange={(event) => {
-                          const next = event.target.files?.[0];
-                          if (next) pickFile(next);
-                        }}
-                      />
-                    </label>
-                  )}
-                  {file ? (
+                  <ul className="onboarding-file-list">
+                    {files.map((row, index) => {
+                      const read = readDigests.includes(row.digest);
+                      const reading = extracting && index === cursor && !read;
+                      return (
+                        <li key={row.digest}>
+                          <div
+                            className="onboarding-file onboarding-file-picked"
+                            data-reading={reading ? "true" : undefined}
+                          >
+                            <span className="onboarding-file-name" title={row.file.name}>
+                              {row.file.name}
+                            </span>
+                            <span className="onboarding-file-actions">
+                              {held.length > 0 && index < cursor ? (
+                                <span className="onboarding-file-state">Checked</span>
+                              ) : read ? (
+                                <span className="onboarding-file-state">Read</span>
+                              ) : reading ? (
+                                <span className="onboarding-file-state">Reading</span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  className="onboarding-btn onboarding-btn-ghost onboarding-file-preview"
+                                  onClick={() => removeResume(index)}
+                                >
+                                  Remove
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                className="onboarding-btn onboarding-btn-ghost onboarding-file-preview"
+                                onClick={() => {
+                                  setPreviewIndex(index);
+                                  setPreviewOpen(true);
+                                }}
+                              >
+                                Preview
+                              </button>
+                            </span>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                  <button
+                    type="button"
+                    className="onboarding-btn onboarding-btn-ghost onboarding-file-add"
+                    disabled={extracting}
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    Add another resume
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    hidden
+                    accept="application/pdf,text/plain,.pdf,.txt,.md"
+                    onChange={(event) => {
+                      const next = event.target.files?.[0];
+                      event.target.value = "";
+                      if (next) void addResume(next);
+                    }}
+                  />
+                </>
+              )}
+                  {previewIndex != null && files[previewIndex] ? (
                     <dialog
                       ref={previewDialogRef}
                       className="onboarding-review onboarding-file-dialog"
@@ -693,25 +976,12 @@ export function Onboarding({
                         </button>
                       </div>
                       <h2 id="onboarding-file-preview-title">
-                        <em>{file.name}</em>
+                        <em>{files[previewIndex].file.name}</em>
                       </h2>
                       <div className="onboarding-file-dialog-body">
-                        {previewOpen ? <ResumePreview file={file} /> : null}
+                        {previewOpen ? <ResumePreview file={files[previewIndex].file} /> : null}
                       </div>
                     </dialog>
-                  ) : null}
-                  {file ? (
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      hidden
-                      accept="application/pdf,text/plain,.pdf,.txt,.md"
-                      onChange={(event) => {
-                        const next = event.target.files?.[0];
-                        event.target.value = "";
-                        if (next) pickFile(next);
-                      }}
-                    />
                   ) : null}
                   {error ? (
                     <p className="onboarding-alert" role="alert">
@@ -723,45 +993,85 @@ export function Onboarding({
                       type="button"
                       className="onboarding-btn onboarding-btn-ghost"
                       onClick={() => setStep("integrations")}
+                      disabled={held.length > 0 || extracting}
                     >
                       Back
                     </button>
                     <div className="onboarding-action-pair">
-                      {wantsModel === true && file ? (
+                      {wantsModel === true && files.length > 0 ? (
                         <button
                           type="button"
                           className="onboarding-btn onboarding-btn-solid"
                           disabled={!selected || extracting}
-                          onClick={() => void readFile()}
+                          onClick={() => void readAll()}
                         >
-                          Extract job data
+                          {files.some((row) => !readDigests.includes(row.digest))
+                            ? files.length > 1
+                              ? "Read the resumes"
+                              : "Extract job data"
+                            : held.length > 0
+                              ? "Continue"
+                              : "Check what we read"}
                         </button>
                       ) : (
                         <button
                           type="button"
                           className="onboarding-btn onboarding-btn-solid"
                           disabled={busy}
-                          onClick={continueWithoutRead}
+                          onClick={() => {
+                            if (files.length > 0 && cursor >= files.length) {
+                              void finishSession(held, heldSkills, true);
+                              return;
+                            }
+                            continueWithoutRead();
+                          }}
                         >
                           {busy ? "Saving…" : "Continue"}
                         </button>
                       )}
                     </div>
                   </div>
-                </>
-              )}
             </>
           ) : null}
 
-          {step === "check" ? (
+          {step === "check" && pass === "verify" ? (
             <CheckOverview
               items={items}
-              file={file}
+              file={files[cursor]?.file ?? null}
               busy={busy}
               error={error}
-              onChange={setItems}
+              onChange={changeVerified}
+              onBack={leaveCheck}
+              onContinue={acceptVerified}
+            />
+          ) : null}
+          {step === "check" && pass === "compare" ? (
+            <ResumeCompare
+              key={files[cursor]?.digest ?? cursor}
+              items={items}
+              file={files[cursor]?.file ?? null}
+              fileName={files[cursor]?.file.name ?? "Resume"}
+              fileIndex={cursor}
+              held={held}
+              asides={setAsides}
+              busy={busy}
+              error={error}
+              onBack={leaveCheck}
+              onSetAside={(item) => setSetAsides((current) => rememberSetAside(current, item))}
+              onForgetAside={(id) => setSetAsides((current) => dropSetAside(current, id))}
+              onDone={acceptCompared}
+            />
+          ) : null}
+          {step === "check" && pass === "review" ? (
+            <ResumeReview
+              held={held}
+              fileNames={files.map((row) => row.file.name)}
+              asides={setAsides}
+              busy={busy}
+              error={error}
+              onRemove={removeHeld}
               onBack={() => setStep("file")}
-              onContinue={(kept) => void finish(kept)}
+              onContinue={() => void finishSession(held, heldSkills, true)}
             />
           ) : null}
         </section>
@@ -1042,6 +1352,12 @@ function ProfileStep({
       </div>
     </>
   );
+}
+
+async function digestFile(file: File): Promise<string> {
+  const bytes = await file.arrayBuffer();
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 function splitName(fullName: string): { first: string; last: string } {

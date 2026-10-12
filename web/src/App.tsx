@@ -93,10 +93,10 @@ export function App() {
     return (
       <Onboarding
         initialProfile={me.profile}
-        onFinished={(next) => {
+        onFinished={(next, keptHistory) => {
           setMe(next);
           setReviewOnboarding(false);
-          if (readReviewOnboarding()) window.location.hash = "#/history";
+          window.location.hash = keptHistory ? "#/history" : "#/";
           void loadCareer();
         }}
       />

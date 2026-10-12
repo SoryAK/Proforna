@@ -166,16 +166,23 @@ export type ResumeImportRole = {
   isCurrent: boolean;
   description: string;
   achievements: string[];
+  /** When set, these evidence rows back the role. Otherwise the shared resume evidence is used. */
+  evidenceIds?: string[];
+  /** Parallel to achievements. A blank entry uses the role's evidence. */
+  achievementEvidenceIds?: string[];
 };
 
 export function planResumeImportFacts(input: {
   evidenceId: string;
   roles: ResumeImportRole[];
   skills: string[];
+  /** Parallel to skills. A blank entry uses the shared resume evidence. */
+  skillEvidenceIds?: string[];
 }): ChangeOperation[] {
-  if (!input.evidenceId.trim()) return [];
   const operations: ChangeOperation[] = [];
   for (const role of input.roles) {
+    const roleEvidence = evidenceList(role.evidenceIds, input.evidenceId);
+    if (roleEvidence.length === 0) continue;
     const factType = role.kind === "school" ? "education" : "role";
     operations.push({
       action: "create",
@@ -193,12 +200,19 @@ export function planResumeImportFacts(input: {
           isCurrent: role.isCurrent,
           description: role.description,
         },
-        evidenceIds: [input.evidenceId],
+        evidenceIds: roleEvidence,
       },
     });
-    for (const raw of role.achievements) {
+    role.achievements.forEach((raw, index) => {
       const statement = raw.trim();
-      if (!statement) continue;
+      if (!statement) return;
+      const achievementEvidence = evidenceList(
+        role.achievementEvidenceIds?.[index]
+          ? [role.achievementEvidenceIds[index]]
+          : undefined,
+        roleEvidence[0] ?? "",
+      );
+      if (achievementEvidence.length === 0) return;
       operations.push({
         action: "create",
         entityType: "career-fact",
@@ -206,14 +220,19 @@ export function planResumeImportFacts(input: {
           factType: "achievement",
           subjectId: role.id,
           value: { statement },
-          evidenceIds: [input.evidenceId],
+          evidenceIds: achievementEvidence,
         },
       });
-    }
+    });
   }
-  for (const name of input.skills) {
+  input.skills.forEach((name, index) => {
     const skill = name.trim();
-    if (!skill) continue;
+    if (!skill) return;
+    const skillEvidence = evidenceList(
+      input.skillEvidenceIds?.[index] ? [input.skillEvidenceIds[index]] : undefined,
+      input.evidenceId,
+    );
+    if (skillEvidence.length === 0) return;
     operations.push({
       action: "create",
       entityType: "career-fact",
@@ -221,9 +240,16 @@ export function planResumeImportFacts(input: {
         factType: "skill",
         subjectId: skill.toLowerCase(),
         value: { name: skill },
-        evidenceIds: [input.evidenceId],
+        evidenceIds: skillEvidence,
       },
     });
-  }
+  });
   return operations;
+}
+
+function evidenceList(preferred: string[] | undefined, fallback: string): string[] {
+  const own = (preferred ?? []).map((id) => id.trim()).filter(Boolean);
+  if (own.length > 0) return [...new Set(own)];
+  const shared = fallback.trim();
+  return shared ? [shared] : [];
 }
