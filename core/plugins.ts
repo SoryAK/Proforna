@@ -142,9 +142,16 @@ export function defaultThirdPartyPlugins(
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
-function integrationAvailable(plugin: ThirdPartyPlugin): boolean {
+/** Preview hosts this app reads through sign-in instead of the plugin URL. */
+const PROXY_SIGN_IN = new Set(["google-calendar"]);
+
+export function signInOffered(plugin: ThirdPartyPlugin): boolean {
   const block = thirdPartyBlock(plugin);
-  return block === null || block === "outside-career";
+  return block === null || block === "outside-career" || (block === "preview" && PROXY_SIGN_IN.has(plugin.name));
+}
+
+function integrationAvailable(plugin: ThirdPartyPlugin): boolean {
+  return signInOffered(plugin);
 }
 
 function integrationRank(plugin: IntegrationListing): number {

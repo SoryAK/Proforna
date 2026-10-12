@@ -134,7 +134,7 @@ import {
   setIntegrationEnabled,
 } from "./integration-catalog";
 import { matchNangoIntegration } from "../core/nango";
-import { thirdPartyBlock, type ThirdPartyPlugin } from "../core/plugins";
+import { signInOffered, type ThirdPartyPlugin } from "../core/plugins";
 import {
   createNangoConnectLink,
   deleteNangoConnection,
@@ -2157,8 +2157,7 @@ function signInFailure(error: unknown): { error: string; status: 400 | 502 } | n
 }
 
 function offeredPlugin(plugin: ThirdPartyPlugin): boolean {
-  const block = thirdPartyBlock(plugin);
-  return block === null || block === "outside-career";
+  return signInOffered(plugin);
 }
 
 async function forgetNangoLink(

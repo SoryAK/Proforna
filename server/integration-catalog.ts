@@ -6,7 +6,7 @@ import {
   prepareIntegrationValues,
   presentIntegrationCatalog,
   readThirdPartyPlugin,
-  thirdPartyBlock,
+  signInOffered,
   type IntegrationField,
   type ThirdPartyPlugin,
 } from "../core/plugins";
@@ -141,10 +141,7 @@ export function saveNangoIntegration(
 ): void {
   const plugin = plugins.find((item) => item.name === name);
   if (!plugin) throw new IntegrationCatalogError("integration-unknown");
-  const block = thirdPartyBlock(plugin);
-  if (block !== null && block !== "outside-career") {
-    throw new IntegrationCatalogError("integration-unavailable");
-  }
+  if (!signInOffered(plugin)) throw new IntegrationCatalogError("integration-unavailable");
   const sealed = sealSecret("{}", vaultKey(true));
   db.prepare(
     `INSERT INTO integration_accounts

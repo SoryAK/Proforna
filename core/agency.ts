@@ -98,7 +98,7 @@ export function parseExtractedWorklogFacts(
 }
 
 export const COMMAND_SYSTEM_PROMPT =
-  "You are Proforna. Continue this conversation using only the vault gist and the messages. If a Mail section is present, use only that mail. If a GitHub section is present, use only that GitHub account. If a Connected accounts section is present, those are the accounts the occupant turned on. If an account section includes a tool result, use only that result. Do not claim you changed Career Memory, a repo, an issue, a pull request, or an outside account. Do not send messages. Do not invent facts.";
+  "You are Proforna. Continue this conversation using only the vault gist and the messages. If a Mail section is present, use only that mail. If a GitHub section is present, use only that GitHub account. If a Calendar section is present, use only that calendar. If a Connected accounts section is present, those are the accounts the occupant turned on. If an account section includes a tool result, use only that result. Do not claim you changed Career Memory, a repo, an issue, a pull request, a calendar event, or an outside account. Do not send messages. Do not invent facts.";
 
 export const MAIL_DRAFT_SYSTEM_PROMPT =
   "You are Proforna. Draft one email the occupant asked for. Use only the vault gist and the command. Do not invent facts. Do not claim you sent it. Return ONLY JSON: {\"to\":\"string\",\"subject\":\"string\",\"body\":\"string\"}.";
@@ -200,6 +200,55 @@ export function githubUnavailableLine(): string {
 
 export function githubUnreadLine(): string {
   return "GitHub: GitHub could not be read.";
+}
+
+const CALENDAR_WORD = /\b(?:calendar|schedule|schedules|appointment|appointments|interview|interviews)\b/i;
+
+export function calendarAsk(prompt: string): boolean {
+  return CALENDAR_WORD.test(prompt.trim());
+}
+
+export function calendarEventsQuery(now: Date): string {
+  const params = new URLSearchParams({
+    maxResults: "8",
+    singleEvents: "true",
+    orderBy: "startTime",
+    timeMin: now.toISOString(),
+  });
+  return `calendar/v3/calendars/primary/events?${params}`;
+}
+
+export function presentCalendarEvents(payload: unknown): Array<{ when: string; title: string }> {
+  const root = payload && typeof payload === "object" ? (payload as { items?: unknown }) : null;
+  const items = Array.isArray(root?.items) ? root.items : [];
+  return items
+    .flatMap((item) => {
+      if (!item || typeof item !== "object") return [];
+      const row = item as {
+        status?: unknown;
+        summary?: unknown;
+        start?: { dateTime?: unknown; date?: unknown };
+      };
+      if (row.status === "cancelled") return [];
+      const when = text(row.start?.dateTime) || text(row.start?.date);
+      const title = text(row.summary).slice(0, 120);
+      if (!when || !title) return [];
+      return [{ when, title }];
+    })
+    .slice(0, 8);
+}
+
+export function calendarEventsLine(events: ReadonlyArray<{ when: string; title: string }>): string {
+  if (events.length === 0) return "Calendar: no upcoming events.";
+  return `Calendar, upcoming:\n${events.map((event) => `- ${event.when} — ${event.title}`).join("\n")}`;
+}
+
+export function calendarUnavailableLine(): string {
+  return "Calendar: Google Calendar is not available.";
+}
+
+export function calendarUnreadLine(): string {
+  return "Calendar: Google Calendar could not be read.";
 }
 
 function text(value: unknown): string {

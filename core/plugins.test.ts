@@ -7,6 +7,7 @@ import {
   prepareIntegrationValues,
   presentIntegrationCatalog,
   readThirdPartyPlugin,
+  signInOffered,
   thirdPartyBlock,
   type ThirdPartyPlugin,
 } from "./plugins";
@@ -45,6 +46,8 @@ describe("third-party plugins", () => {
     const byName = new Map(catalog.map((plugin) => [plugin.name, plugin]));
     expect(thirdPartyBlock(byName.get("gmail")!)).toBe("preview");
     expect(thirdPartyBlock(byName.get("google-calendar")!)).toBe("preview");
+    expect(signInOffered(byName.get("google-calendar")!)).toBe(true);
+    expect(signInOffered(byName.get("gmail")!)).toBe(false);
     expect(thirdPartyBlock(byName.get("google-drive")!)).toBe("foreign-host");
     expect(thirdPartyBlock(byName.get("outlook")!)).toBe("foreign-host");
     expect(thirdPartyBlock(byName.get("ashby")!)).toBe("outside-career");

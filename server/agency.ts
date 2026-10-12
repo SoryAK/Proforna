@@ -6,10 +6,16 @@ import {
   INSPECT_SYSTEM_PROMPT,
   MAIL_DRAFT_SYSTEM_PROMPT,
   SUGGEST_REPLY_SYSTEM_PROMPT,
+  calendarAsk,
+  calendarEventsLine,
+  calendarEventsQuery,
+  calendarUnavailableLine,
+  calendarUnreadLine,
   githubAccountLine,
   githubAsk,
   githubUnavailableLine,
   githubUnreadLine,
+  presentCalendarEvents,
   gmailSearchQuery,
   mailAsk,
   presentGithubAccount,
@@ -99,6 +105,7 @@ export async function runAgency(
   const history = parseCommandHistory(input.history);
   const mail = await commandMail(db, occupantId, planned.value, occupantPrompt);
   const github = await commandGithub(db, occupantId, planned.value, occupantPrompt);
+  const calendar = await commandCalendar(db, occupantId, planned.value, occupantPrompt);
   const connections = await commandConnections(db, occupantId, planned.value, occupantPrompt);
   const context = loadRunContext(
     db,
@@ -108,6 +115,7 @@ export async function runAgency(
     history,
     mail,
     github,
+    calendar,
     connections,
   );
   if (!context.ok) throw new AgencyStoreError(context.error);
@@ -343,6 +351,44 @@ function readEnabledGithubLink(
   return readIntegrationNangoLink(db, occupantId, "github");
 }
 
+async function commandCalendar(
+  db: DatabaseSync,
+  occupantId: string,
+  run: AgentRun,
+  prompt: string,
+): Promise<string> {
+  if (run.purpose !== "command" || run.scope.type !== "home") return "";
+  if (!calendarAsk(prompt)) return "";
+  const link = readEnabledCalendarLink(db, occupantId);
+  const runtime = nangoRuntime();
+  if (!link || !runtime) return calendarUnavailableLine();
+  try {
+    const response = await nangoProxy(runtime, {
+      method: "GET",
+      path: calendarEventsQuery(new Date()),
+      providerConfigKey: link.providerKey,
+      connectionId: link.connectionId,
+    });
+    if (!response.ok) return calendarUnreadLine();
+    return calendarEventsLine(presentCalendarEvents(await response.json()));
+  } catch {
+    return calendarUnreadLine();
+  }
+}
+
+function readEnabledCalendarLink(
+  db: DatabaseSync,
+  occupantId: string,
+): { connectionId: string; providerKey: string } | null {
+  const row = db
+    .prepare(
+      `SELECT enabled FROM integration_accounts WHERE occupant_id = ? AND name = 'google-calendar'`,
+    )
+    .get(occupantId) as { enabled: number } | undefined;
+  if (!row || row.enabled !== 1) return null;
+  return readIntegrationNangoLink(db, occupantId, "google-calendar");
+}
+
 async function commandConnections(
   db: DatabaseSync,
   occupantId: string,
@@ -462,6 +508,7 @@ function loadRunContext(
   history: Array<{ speaker: CommandSpeaker; body: string }>,
   mail: CommandMail,
   github: string,
+  calendar: string,
   connections: string,
 ):
   | { ok: true; prompt: string; userContent: string; jsonObject: boolean }
@@ -477,7 +524,7 @@ function loadRunContext(
         occupantId,
         occupantPrompt,
         history,
-        [mail.section, github, connections].filter(Boolean).join("\n"),
+        [mail.section, github, calendar, connections].filter(Boolean).join("\n"),
       ),
     };
   }

@@ -10,7 +10,7 @@ export type ConnectionTool = {
   required: string[];
 };
 
-const DEDICATED = new Set(["gmail", "github"]);
+const DEDICATED = new Set(["gmail", "github", "google-calendar"]);
 
 const STOP = new Set([
   "search",

@@ -10,6 +10,7 @@ const PROVIDER_ALIASES: Record<string, readonly string[]> = {
 const SIGN_IN_SCOPES: Record<string, string> = {
   "google-mail":
     "https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.compose",
+  "google-calendar": "https://www.googleapis.com/auth/calendar.readonly",
 };
 
 export function matchNangoIntegration(

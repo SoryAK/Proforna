@@ -2,6 +2,6 @@
   "name": "google-calendar",
   "displayName": "Google Calendar",
   "version": "1.0.0",
-  "description": "Search events and schedule meetings.",
+  "description": "Read upcoming events. Proforna does not create or move them.",
   "mcpServers": "./mcp.json"
 }
