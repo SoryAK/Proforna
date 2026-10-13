@@ -74,20 +74,26 @@ function resume(): ExtractedResume {
 }
 
 describe("onboardingExtractSummary", () => {
-  it("states how many jobs, schools, and internships were extracted", () => {
-    expect(onboardingExtractSummary(onboardingCheckItems(resume()))).toBe(
-      "2 jobs, 1 school, and 0 internships were extracted.",
+  it("states how many resumes, jobs, schools, and internships were extracted", () => {
+    expect(onboardingExtractSummary(onboardingCheckItems(resume()), 1)).toBe(
+      "1 resume, 2 jobs, 1 school, and 0 internships were extracted.",
+    );
+  });
+
+  it("uses the plural when more than one resume was read", () => {
+    expect(onboardingExtractSummary(onboardingCheckItems(resume()), 2)).toBe(
+      "2 resumes, 2 jobs, 1 school, and 0 internships were extracted.",
     );
   });
 
   it("uses the singular for one job and one school", () => {
     const items = onboardingCheckItems(resume()).filter((item) => item.org !== "Dropped Co");
-    expect(onboardingExtractSummary(items)).toBe("1 job, 1 school, and 0 internships were extracted.");
+    expect(onboardingExtractSummary(items, 1)).toBe("1 resume, 1 job, 1 school, and 0 internships were extracted.");
   });
 
   it("leaves out a role the occupant added", () => {
     const items = [...onboardingCheckItems(resume()), blankOnboardingCheckItem("Job", -1)];
-    expect(onboardingExtractSummary(items)).toBe("2 jobs, 1 school, and 0 internships were extracted.");
+    expect(onboardingExtractSummary(items, 1)).toBe("1 resume, 2 jobs, 1 school, and 0 internships were extracted.");
   });
 });
 

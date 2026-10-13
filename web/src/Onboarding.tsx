@@ -22,8 +22,7 @@ import type { ExtractedProfile, ExtractedResume } from "@core/resume-extract";
 import {
   dropSetAside,
   historyFromHeld,
-  holdVerifiedRoles,
-  queuedResumeDuplicate,
+  resumesToQueue,
   rememberSetAside,
   rememberSkills,
   type HeldRole,
@@ -31,10 +30,10 @@ import {
   type SetAsideRole,
 } from "@core/resume-compare";
 import { AddressFields } from "./OnboardingAddress";
-import { CheckOverview, ResumePreview } from "./OnboardingCheck";
-import { ResumeCompare } from "./OnboardingCompare";
+import { ResumePreview } from "./OnboardingCheck";
+import { AllResumesVerify, ResumeCompare, type ResumeBundle } from "./OnboardingCompare";
 import { ResumeReview } from "./ResumeReview";
-import { clearOnboardingDraft, loadOnboardingDraft, saveOnboardingDraft } from "./onboarding-session";
+import { clearOnboardingDraft, loadOnboardingDraft, saveOnboardingDraft, type OnboardingTimelineRow } from "./onboarding-session";
 import type { OnboardingProfileValue } from "./OnboardingProfile";
 import { YesNo } from "./onboarding-offer";
 import { IntegrationSettings } from "./IntegrationSettings";
@@ -112,11 +111,16 @@ export function Onboarding({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [readDigests, setReadDigests] = useState<string[]>([]);
+  const [timeline, setTimeline] = useState<OnboardingTimelineRow[] | null>(null);
+  const [declinedPairs, setDeclinedPairs] = useState<string[]>([]);
   const extractsRef = useRef<Map<string, ExtractedResume>>(new Map());
   const profileRef = useRef<ProfileFields>(initialProfile);
   const abortRef = useRef<AbortController | null>(null);
   const scanAbort = useRef<AbortController | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const filesRef = useRef(files);
+  const addChain = useRef(Promise.resolve());
+  filesRef.current = files;
   const previewDialogRef = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
@@ -155,6 +159,8 @@ export function Onboarding({
         setCursor(draft.cursor);
         setPass(draft.pass);
         setItems(draft.items);
+        setTimeline(draft.timeline ?? null);
+        setDeclinedPairs(draft.declinedPairs ?? []);
         setProfileExtract(draft.profileExtract);
         setExtracted(draft.extracts.find((row) => row.digest === draft.files[draft.cursor]?.digest)?.data ?? null);
         setStep(draft.step);
@@ -193,6 +199,8 @@ export function Onboarding({
         pass,
         step: step === "check" || step === "file" ? step : "file",
         items,
+        timeline,
+        declinedPairs,
         profileExtract,
       });
       } catch {
@@ -202,7 +210,7 @@ export function Onboarding({
     return () => {
       cancel = true;
     };
-  }, [draftReady, files, readDigests, held, heldSkills, setAsides, cursor, pass, step, items, profileExtract]);
+  }, [draftReady, files, readDigests, held, heldSkills, setAsides, cursor, pass, step, items, timeline, declinedPairs, profileExtract]);
 
   useEffect(() => {
     let cancel = false;
@@ -296,22 +304,41 @@ export function Onboarding({
     setPhoto(next);
   }
 
-  async function addResume(next: File) {
-    const digest = await digestFile(next);
-    let duplicate = false;
-    setFiles((current) => {
-      if (queuedResumeDuplicate(current.map((row) => row.digest), digest)) {
-        duplicate = true;
-        return current;
-      }
-      return [...current, { file: next, digest }];
+  function addResumes(picked: File[]) {
+    if (extracting || picked.length === 0) return;
+    const batch = picked;
+    const run = addChain.current.then(() => appendResumes(batch));
+    addChain.current = run.then(
+      () => undefined,
+      () => undefined,
+    );
+  }
+
+  async function appendResumes(batch: File[]) {
+    if (extracting || batch.length === 0) return;
+    const incoming = await Promise.all(batch.map(async (file) => ({ file, digest: await digestFile(file) })));
+    const queued = resumesToQueue(
+      filesRef.current.map((row) => row.digest),
+      incoming.map((row) => row.digest),
+    );
+    const added = queued.indexes.flatMap((index) => {
+      const row = incoming[index];
+      return row ? [row] : [];
     });
-    setError(duplicate ? "That resume is already in the list." : null);
+    if (added.length > 0) {
+      const next = [...filesRef.current, ...added];
+      filesRef.current = next;
+      setFiles(next);
+    }
+    setError(
+      queued.skipped === 0 ? null : queued.skipped === 1 ? "That resume is already in the list." : "Those resumes are already in the list.",
+    );
   }
 
   function removeResume(index: number) {
     if (extracting) return;
     if (held.length > 0 && index < cursor) return;
+    setError(null);
     const digest = files[index]?.digest;
     if (digest) {
       extractsRef.current.delete(digest);
@@ -407,39 +434,33 @@ export function Onboarding({
   }
 
   function startQuestions() {
-    if (held.length === 0) {
-      openAt(0);
+    if (held.length > 0) {
+      const index = cursor > 0 ? Math.min(cursor, files.length - 1) : 1;
+      if (index >= files.length) {
+        void finishSession(held, heldSkills, true);
+        return;
+      }
+      openAt(index);
       return;
     }
-    const index = cursor > 0 ? Math.min(cursor, files.length - 1) : 1;
-    if (index >= files.length) {
-      void finishSession(held, heldSkills, true);
-      return;
-    }
-    openAt(index);
+    const first = files[0] ? extractsRef.current.get(files[0].digest) : undefined;
+    if (first) setProfileExtract(first.profile);
+    setTimeline(null);
+    setDeclinedPairs([]);
+    setItems([]);
+    setPass("verify");
+    setStep("check");
   }
 
-  function acceptVerified(kept: OnboardingCheckItem[]) {
-    const nextHeld = holdVerifiedRoles(kept, cursor);
-    const jobsKept = kept.some((item) => item.source === "job");
-    const skills = rememberSkills([], extracted?.skills ?? [], cursor, jobsKept);
-    advance(nextHeld, skills);
+  function acceptTimeline(nextHeld: HeldRole[], skills: HeldSkill[]) {
+    setHeld(nextHeld);
+    setHeldSkills(skills);
+    void finishSession(nextHeld, skills, nextHeld.length > 0);
   }
 
   function acceptCompared(nextHeld: HeldRole[], acceptSkills: boolean) {
     const skills = rememberSkills(heldSkills, extracted?.skills ?? [], cursor, acceptSkills);
     advance(nextHeld, skills);
-  }
-
-  function changeVerified(next: OnboardingCheckItem[]) {
-    const nextKeys = new Set(next.map((item) => `${item.source}-${item.sourceIndex}`));
-    const removed = items.filter(
-      (item) => item.org.trim() && !nextKeys.has(`${item.source}-${item.sourceIndex}`),
-    );
-    if (removed.length > 0) {
-      setSetAsides((current) => removed.reduce((list, item) => rememberSetAside(list, item), current));
-    }
-    setItems(next);
   }
 
   function advance(nextHeld: HeldRole[], skills: HeldSkill[]) {
@@ -878,15 +899,16 @@ export function Onboarding({
               {extracting ? <ReadProgress model={presentModelId(selected)} /> : null}
               {files.length === 0 ? (
                 <label className="onboarding-file">
-                  Drop a PDF here, or click to choose
+                  Drop resumes here, or click to choose
                   <input
                     ref={fileInputRef}
                     type="file"
+                    multiple
                     accept="application/pdf,text/plain,.pdf,.txt,.md"
                     onChange={(event) => {
-                      const next = event.target.files?.[0];
+                      const picked = event.target.files ? [...event.target.files] : [];
                       event.target.value = "";
-                      if (next) void addResume(next);
+                      addResumes(picked);
                     }}
                   />
                 </label>
@@ -943,17 +965,18 @@ export function Onboarding({
                     disabled={extracting}
                     onClick={() => fileInputRef.current?.click()}
                   >
-                    Add another resume
+                    Add resumes
                   </button>
                   <input
                     ref={fileInputRef}
                     type="file"
+                    multiple
                     hidden
                     accept="application/pdf,text/plain,.pdf,.txt,.md"
                     onChange={(event) => {
-                      const next = event.target.files?.[0];
+                      const picked = event.target.files ? [...event.target.files] : [];
                       event.target.value = "";
-                      if (next) void addResume(next);
+                      addResumes(picked);
                     }}
                   />
                 </>
@@ -1035,14 +1058,23 @@ export function Onboarding({
           ) : null}
 
           {step === "check" && pass === "verify" ? (
-            <CheckOverview
-              items={items}
-              file={files[cursor]?.file ?? null}
+            <AllResumesVerify
+              bundles={resumeBundles(files, extractsRef.current)}
+              initialRows={timeline}
+              initialDeclined={declinedPairs}
+              editedItems={timeline ? [] : items}
+              editedFileIndex={cursor}
+              asides={setAsides}
               busy={busy}
               error={error}
-              onChange={changeVerified}
               onBack={leaveCheck}
-              onContinue={acceptVerified}
+              onSetAside={(item) => setSetAsides((current) => rememberSetAside(current, item))}
+              onForgetAside={(id) => setSetAsides((current) => dropSetAside(current, id))}
+              onRows={(rows, declined) => {
+                setTimeline(rows);
+                setDeclinedPairs(declined);
+              }}
+              onDone={acceptTimeline}
             />
           ) : null}
           {step === "check" && pass === "compare" ? (
@@ -1086,6 +1118,22 @@ export function Onboarding({
       </div>
     </div>
   );
+}
+
+function resumeBundles(queued: QueuedResume[], extracts: Map<string, ExtractedResume>): ResumeBundle[] {
+  return queued.flatMap((row, fileIndex) => {
+    const data = extracts.get(row.digest);
+    if (!data) return [];
+    return [
+      {
+        file: row.file,
+        fileIndex,
+        name: row.file.name,
+        skills: data.skills ?? [],
+        items: onboardingCheckItems(data),
+      },
+    ];
+  });
 }
 
 function WashProgress({ step }: { step: OnboardingStep }) {

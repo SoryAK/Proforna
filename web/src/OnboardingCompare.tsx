@@ -5,14 +5,25 @@ import {
   applySameRole,
   hintHeldRoles,
   hintSetAside,
+  rememberSkills,
   roleFieldDiffs,
+  roleTookFile,
   type HeldRole,
+  type HeldSkill,
   type ResumeFieldDiff,
   type ResumeFieldTake,
   type ResumeMatchReason,
   type SetAsideRole,
 } from "@core/resume-compare";
-import { isBlankOnboardingCheckItem, ONBOARDING_NO_PLACE, type OnboardingCheckItem } from "@core/onboarding-review";
+import {
+  blankOnboardingCheckItem,
+  isBlankOnboardingCheckItem,
+  nextOnboardingSourceIndex,
+  onboardingExtractSummary,
+  ONBOARDING_NO_PLACE,
+  type OnboardingCheckItem,
+} from "@core/onboarding-review";
+import type { OnboardingTimelineRow } from "./onboarding-session";
 import { CheckReview, VerifyBoard, WorkList, cardMeta, cardTitle, workLines, yearLabel, type VerifyCard } from "./OnboardingCheck";
 
 export function ResumeCompare({
@@ -444,4 +455,389 @@ function hintCopy(reason: ResumeMatchReason, kept: OnboardingCheckItem): string 
   if (reason === "promotion") return `May be a later role than ${label}.`;
   if (reason === "employer") return `Same employer as ${label}.`;
   return `Might be the same as ${label}.`;
+}
+
+export type ResumeBundle = {
+  file: File;
+  fileIndex: number;
+  name: string;
+  skills: string[];
+  items: OnboardingCheckItem[];
+};
+
+export function AllResumesVerify({
+  bundles,
+  initialRows,
+  initialDeclined,
+  editedItems,
+  editedFileIndex,
+  asides,
+  busy,
+  error,
+  onBack,
+  onSetAside,
+  onForgetAside,
+  onRows,
+  onDone,
+}: {
+  bundles: ResumeBundle[];
+  initialRows: OnboardingTimelineRow[] | null;
+  initialDeclined: string[];
+  editedItems: OnboardingCheckItem[];
+  editedFileIndex: number;
+  asides: SetAsideRole[];
+  busy: boolean;
+  error: string | null;
+  onBack: () => void;
+  onSetAside: (item: OnboardingCheckItem) => void;
+  onForgetAside: (id: string) => void;
+  onRows: (rows: OnboardingTimelineRow[], declined: string[]) => void;
+  onDone: (held: HeldRole[], skills: HeldSkill[]) => void;
+}) {
+  const [rows, setRows] = useState<OnboardingTimelineRow[]>(
+    () => initialRows ?? overlayFileEdits(buildTimeline(bundles), editedItems, editedFileIndex),
+  );
+  const [declined, setDeclined] = useState(initialDeclined);
+  const [opened, setOpened] = useState<string[]>([]);
+  const [pointOut, setPointOut] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [compareId, setCompareId] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState(false);
+  const [picks, setPicks] = useState<Record<string, "kept" | "incoming">>({});
+  const visible = rows.filter((row) => !row.removed);
+  const summary = onboardingExtractSummary(
+    bundles.flatMap((bundle) => bundle.items),
+    bundles.length,
+  );
+  const pair = comparePair(rows, compareId);
+  const choices = pair ? identityChoices(pair.earlier.item, pair.later.item) : [];
+
+  useEffect(() => {
+    onRows(rows, declined);
+  }, [rows, declined, onRows]);
+
+  function markOpened(id: string) {
+    setOpened((current) => (current.includes(id) ? current : [...current, id]));
+  }
+
+  function patch(id: string, item: OnboardingCheckItem) {
+    setRows((current) =>
+      current.map((row) =>
+        row.id === id ? { ...row, item, role: row.role ? { ...row.role, item } : null } : row,
+      ),
+    );
+  }
+
+  function removeRow(id: string) {
+    const row = rows.find((item) => item.id === id);
+    if (!row || isBlankOnboardingCheckItem(row.item)) {
+      setRows((current) => current.filter((item) => item.id !== id));
+    } else {
+      onSetAside(row.item);
+      setRows((current) => current.map((item) => (item.id === id ? { ...item, removed: true } : item)));
+    }
+    setEditId(null);
+    setCompareId(null);
+  }
+
+  function keepDifferent(laterId: string) {
+    const match = comparePair(rows, laterId);
+    if (!match) return;
+    const aside = hintSetAside(asides, match.later.item);
+    if (aside) onForgetAside(aside.id);
+    setDeclined((current) => {
+      const key = pairKey(match.earlier.id, match.later.id);
+      return current.includes(key) ? current : [...current, key];
+    });
+    setRows((current) =>
+      current.map((row) => (row.id === match.later.id ? { ...row, adopted: true } : row)),
+    );
+    setCompareId(null);
+    setConfirming(false);
+    setPicks({});
+  }
+
+  function adopt(id: string) {
+    const row = rows.find((item) => item.id === id);
+    if (!row) return;
+    const aside = hintSetAside(asides, row.item);
+    if (aside) onForgetAside(aside.id);
+    setRows((current) => current.map((item) => (item.id === id ? { ...item, adopted: true } : item)));
+  }
+
+  function merge() {
+    if (!pair) return;
+    if (!confirming && choices.length > 0) {
+      setConfirming(true);
+      return;
+    }
+    if (choices.some((choice) => !picks[choice.key])) return;
+    const takes = [
+      ...lineTakes(pair.earlier.item, pair.later.item),
+      ...choices.filter((choice) => picks[choice.key] === "incoming").flatMap((choice) => choice.takes),
+    ];
+    const base = pair.earlier.role ?? addHeldRole([], pair.earlier.item, pair.earlier.fileIndex)[0];
+    if (!base) return;
+    const nextRole = applySameRole(base, pair.later.item, pair.later.fileIndex, takes);
+    const aside = hintSetAside(asides, pair.later.item);
+    if (aside) onForgetAside(aside.id);
+    setRows((current) =>
+      current.map((row) => {
+        if (row.id === pair.earlier.id) return { ...row, item: nextRole.item, role: nextRole, adopted: true };
+        if (row.id === pair.later.id) return { ...row, removed: true, adopted: true };
+        return row;
+      }),
+    );
+    setCompareId(null);
+    setConfirming(false);
+    setPicks({});
+    setEditId(null);
+  }
+
+  function finish() {
+    const next = rows.filter((row) => !isBlankOnboardingCheckItem(row.item));
+    const unopened = next.filter((row) => !row.removed && !opened.includes(row.id));
+    if (unopened.length > 0 && !pointOut) {
+      setRows(next);
+      setPointOut(true);
+      return;
+    }
+    let held: HeldRole[] = [];
+    for (const row of next) {
+      if (row.removed) continue;
+      if (!row.adopted && hintSetAside(asides, row.item)) continue;
+      const role = row.role ?? addHeldRole([], row.item, row.fileIndex)[0];
+      if (role) held = [...held, { ...role, item: row.item }];
+    }
+    let skills: HeldSkill[] = [];
+    for (const bundle of bundles) {
+      const tookJob = held.some((role) => role.item.source === "job" && roleTookFile(role, bundle.fileIndex));
+      skills = rememberSkills(skills, bundle.skills, bundle.fileIndex, tookJob);
+    }
+    onDone(held, skills);
+  }
+
+  function add(kind: OnboardingCheckItem["kind"]) {
+    const item = blankOnboardingCheckItem(kind, nextOnboardingSourceIndex(rows.map((row) => row.item), kind));
+    const fileIndex = bundles[0]?.fileIndex ?? 0;
+    const row: OnboardingTimelineRow = {
+      id: `file-${fileIndex}-${item.source}-${item.sourceIndex}`,
+      fileIndex,
+      item,
+      removed: false,
+      adopted: true,
+      role: null,
+    };
+    setRows((current) => [...current, row]);
+    markOpened(row.id);
+    setEditId(row.id);
+  }
+
+  const cards = (section: "job" | "school"): VerifyCard[] =>
+    visible
+      .filter((row) => row.item.source === section)
+      .map((row) => {
+        const fileName = bundles.find((bundle) => bundle.fileIndex === row.fileIndex)?.name ?? null;
+        const match = matchFor(rows, row, declined);
+        const asideHit = !match && hintSetAside(asides, row.item);
+        return {
+          key: row.id,
+          title: cardTitle(row.item),
+          meta: cardMeta(row.item, fileName),
+          year: yearLabel(row.item),
+          start: row.item.startDate,
+          opened: opened.includes(row.id),
+          pending: pointOut && !opened.includes(row.id) && !isBlankOnboardingCheckItem(row.item),
+          hint: match
+            ? hintCopy(match.hint.reason, match.earlier.item)
+            : asideHit && !row.adopted
+              ? "You set this aside before."
+              : undefined,
+          keepLabel: asideHit && !row.adopted && !match ? "Add this role" : undefined,
+          onOpen: () => {
+            markOpened(row.id);
+            setCompareId(null);
+            setEditId(row.id);
+          },
+          onCompare: match
+            ? () => {
+                markOpened(row.id);
+                setEditId(null);
+                setCompareId(row.id);
+                setConfirming(false);
+                setPicks({});
+              }
+            : undefined,
+          onKeep: asideHit && !row.adopted && !match ? () => adopt(row.id) : undefined,
+        };
+      });
+
+  const editIndex = visible.findIndex((row) => row.id === editId);
+  const unopenedCount = visible.filter(
+    (row) => !isBlankOnboardingCheckItem(row.item) && !opened.includes(row.id),
+  ).length;
+
+  return (
+    <>
+      <p className="onboarding-kicker">Verify</p>
+      <h1>
+        Here's what was <em>extracted.</em>
+      </h1>
+      <p className="onboarding-meta">{summary}</p>
+      <p className="onboarding-meta">
+        {bundles.length > 1
+          ? "Open a job or a school to review it. Compare a role when it might be the same as another."
+          : "Open a job or a school to review it against the resume."}
+      </p>
+      <VerifyBoard jobs={cards("job")} schools={cards("school")} />
+      <div className="onboarding-verify-actions">
+        <button type="button" className="onboarding-verify-btn" onClick={() => add("Job")}>
+          Add a job
+        </button>
+        <button type="button" className="onboarding-verify-btn" onClick={() => add("School")}>
+          Add a school
+        </button>
+        <button
+          type="button"
+          className="onboarding-verify-btn"
+          disabled={visible.length === 0}
+          onClick={() => {
+            const first = visible[0];
+            if (!first) return;
+            markOpened(first.id);
+            setEditId(first.id);
+          }}
+        >
+          Review each one
+        </button>
+      </div>
+      {error ? (
+        <p className="onboarding-alert" role="alert">
+          {error}
+        </p>
+      ) : null}
+      {pointOut && unopenedCount > 0 ? (
+        <p className="onboarding-alert" role="status">
+          {unopenedCount === 1 ? "1 has not been opened." : `${unopenedCount} have not been opened.`} Open them, or continue again to keep them.
+        </p>
+      ) : null}
+      <div className="onboarding-actions" data-split="true">
+        <button type="button" className="onboarding-btn onboarding-btn-ghost" disabled={busy} onClick={onBack}>
+          Back
+        </button>
+        <button type="button" className="onboarding-btn onboarding-btn-solid" disabled={busy} onClick={finish}>
+          {busy ? "Saving…" : "Continue"}
+        </button>
+      </div>
+      {editIndex >= 0 ? (
+        <CheckReview
+          open
+          items={visible.map((row) => row.item)}
+          file={null}
+          files={visible.map((row) => bundles.find((bundle) => bundle.fileIndex === row.fileIndex)?.file ?? null)}
+          index={editIndex}
+          onIndex={(index) => {
+            const row = visible[index];
+            if (!row) return;
+            markOpened(row.id);
+            setEditId(row.id);
+          }}
+          onChange={(index, item) => {
+            const row = visible[index];
+            if (row) patch(row.id, item);
+          }}
+          onRemove={(index) => {
+            const row = visible[index];
+            if (row) removeRow(row.id);
+          }}
+          onClose={() => {
+            setRows((current) => current.filter((row) => !isBlankOnboardingCheckItem(row.item)));
+            setEditId(null);
+          }}
+        />
+      ) : null}
+      {pair ? (
+        <CompareDialog
+          fileName={bundles.find((bundle) => bundle.fileIndex === pair.later.fileIndex)?.name ?? "Resume"}
+          kept={pair.earlier.item}
+          incoming={pair.later.item}
+          confirming={confirming}
+          choices={choices}
+          picks={picks}
+          busy={busy}
+          onPick={(key, side) => setPicks((current) => ({ ...current, [key]: side }))}
+          onClose={() => {
+            setCompareId(null);
+            setConfirming(false);
+            setPicks({});
+          }}
+          onBack={() => setConfirming(false)}
+          onKeep={() => keepDifferent(pair.later.id)}
+          onMerge={merge}
+        />
+      ) : null}
+    </>
+  );
+}
+
+function overlayFileEdits(
+  rows: OnboardingTimelineRow[],
+  edited: OnboardingCheckItem[],
+  fileIndex: number,
+): OnboardingTimelineRow[] {
+  if (edited.length === 0) return rows;
+  return rows.map((row) => {
+    if (row.fileIndex !== fileIndex) return row;
+    const next = edited.find((item) => item.source === row.item.source && item.sourceIndex === row.item.sourceIndex);
+    return next ? { ...row, item: next } : row;
+  });
+}
+
+function buildTimeline(bundles: ResumeBundle[]): OnboardingTimelineRow[] {
+  const rows: OnboardingTimelineRow[] = [];
+  for (const bundle of bundles) {
+    for (const item of bundle.items) {
+      if (isBlankOnboardingCheckItem(item)) continue;
+      rows.push({
+        id: `file-${bundle.fileIndex}-${item.source}-${item.sourceIndex}`,
+        fileIndex: bundle.fileIndex,
+        item,
+        removed: false,
+        adopted: false,
+        role: null,
+      });
+    }
+  }
+  return rows;
+}
+
+function pairKey(earlierId: string, laterId: string): string {
+  return `${earlierId}|${laterId}`;
+}
+
+function matchFor(
+  rows: readonly OnboardingTimelineRow[],
+  row: OnboardingTimelineRow,
+  declined: readonly string[],
+): { earlier: OnboardingTimelineRow; hint: { reason: ResumeMatchReason } } | null {
+  const index = rows.findIndex((item) => item.id === row.id);
+  const earlier = rows.filter((item, itemIndex) => itemIndex < index && !item.removed && item.fileIndex < row.fileIndex);
+  const held = earlier.flatMap((item) => {
+    const role = item.role ?? addHeldRole([], item.item, item.fileIndex)[0];
+    return role ? [{ ...role, id: item.id }] : [];
+  });
+  const hint = hintHeldRoles(held, row.item)[0];
+  if (!hint) return null;
+  const match = earlier.find((item) => item.id === hint.roleId);
+  if (!match || declined.includes(pairKey(match.id, row.id))) return null;
+  return { earlier: match, hint };
+}
+
+function comparePair(rows: readonly OnboardingTimelineRow[], laterId: string | null) {
+  if (!laterId) return null;
+  const later = rows.find((row) => row.id === laterId && !row.removed);
+  if (!later) return null;
+  const match = matchFor(rows, later, []);
+  if (!match) return null;
+  return { earlier: match.earlier, later };
 }

@@ -71,6 +71,22 @@ export function queuedResumeDuplicate(digests: readonly string[], digest: string
   return digests.some((row) => row.trim().toLowerCase() === next);
 }
 
+/** Indexes from one selection that are not already queued. A repeat inside the selection counts once. */
+export function resumesToQueue(existing: readonly string[], incoming: readonly string[]): { indexes: number[]; skipped: number } {
+  const seen = [...existing];
+  const indexes: number[] = [];
+  let skipped = 0;
+  for (let index = 0; index < incoming.length; index += 1) {
+    if (queuedResumeDuplicate(seen, incoming[index] ?? "")) {
+      skipped += 1;
+      continue;
+    }
+    seen.push(incoming[index] ?? "");
+    indexes.push(index);
+  }
+  return { indexes, skipped };
+}
+
 /** Roles that survived Verify, attributed to the file they came from. */
 export function holdVerifiedRoles(items: OnboardingCheckItem[], fileIndex: number): HeldRole[] {
   return items.filter((item) => !isBlankOnboardingCheckItem(item)).map((item) => holdRole(item, fileIndex));

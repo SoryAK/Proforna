@@ -34,6 +34,7 @@ export {
   holdVerifiedRoles,
   parseHistoryEvidence,
   queuedResumeDuplicate,
+  resumesToQueue,
   rememberSetAside,
   rememberSkills,
   roleFieldDiffs,

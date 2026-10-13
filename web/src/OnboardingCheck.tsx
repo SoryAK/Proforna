@@ -39,7 +39,7 @@ export function CheckOverview({
   const [reviewIndex, setReviewIndex] = useState(0);
   const [openedKeys, setOpenedKeys] = useState<string[]>([]);
   const [pointOutUnopened, setPointOutUnopened] = useState(false);
-  const summary = onboardingExtractSummary(items);
+  const summary = onboardingExtractSummary(items, 1);
 
   function updateAt(index: number, next: OnboardingCheckItem) {
     onChange(items.map((row, rowIndex) => (rowIndex === index ? stamped(next) : row)));
@@ -167,6 +167,7 @@ function ReviewCarousel({
   open,
   items,
   file,
+  files,
   index,
   onIndex,
   onChange,
@@ -176,6 +177,7 @@ function ReviewCarousel({
   open: boolean;
   items: OnboardingCheckItem[];
   file: File | null;
+  files?: Array<File | null>;
   index: number;
   onIndex: (index: number) => void;
   onChange: (index: number, item: OnboardingCheckItem) => void;
@@ -184,6 +186,7 @@ function ReviewCarousel({
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const item = items[index];
+  const slideFile = files?.[index] ?? file;
   const [shown, setShown] = useState(false);
   useEffect(() => {
     const node = dialog.current;
@@ -200,14 +203,14 @@ function ReviewCarousel({
     <dialog
       ref={dialog}
       className="onboarding-review"
-      data-compare={file ? "true" : undefined}
+      data-compare={slideFile ? "true" : undefined}
       onClose={onClose}
       aria-labelledby="onboarding-review-title"
     >
       {shown && item ? (
         <ReviewSlide
           item={item}
-          file={file}
+          file={slideFile}
           index={index}
           total={items.length}
           onChange={(next) => onChange(index, next)}
@@ -542,6 +545,7 @@ export function CheckReview(props: {
   open: boolean;
   items: OnboardingCheckItem[];
   file: File | null;
+  files?: Array<File | null>;
   index: number;
   onIndex: (index: number) => void;
   onChange: (index: number, item: OnboardingCheckItem) => void;

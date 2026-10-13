@@ -39,14 +39,14 @@ export type OnboardingLinkAnswer = {
   portfolioUrl: string;
 };
 
-/** How many jobs, schools, and internships the file yielded. Added records are not part of the extract. */
-export function onboardingExtractSummary(items: OnboardingCheckItem[]): string {
+/** How many resumes, jobs, schools, and internships the read yielded. Added records are not part of the extract. */
+export function onboardingExtractSummary(items: OnboardingCheckItem[], resumes: number): string {
   const extracted = items.filter((item) => item.sourceIndex >= 0);
   const jobs = extracted.filter((item) => item.kind === "Job").length;
   const schools = extracted.filter((item) => item.kind === "School").length;
   // An internship is kept as a job until the role records that kind.
   const internships = 0;
-  return `${countLabel(jobs, "job", "jobs")}, ${countLabel(schools, "school", "schools")}, and ${countLabel(internships, "internship", "internships")} were extracted.`;
+  return `${countLabel(resumes, "resume", "resumes")}, ${countLabel(jobs, "job", "jobs")}, ${countLabel(schools, "school", "schools")}, and ${countLabel(internships, "internship", "internships")} were extracted.`;
 }
 
 function countLabel(count: number, singular: string, plural: string): string {

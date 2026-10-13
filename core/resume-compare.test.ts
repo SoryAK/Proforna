@@ -12,6 +12,7 @@ import {
   holdVerifiedRoles,
   parseHistoryEvidence,
   queuedResumeDuplicate,
+  resumesToQueue,
   rememberSetAside,
   rememberSkills,
   roleFieldDiffs,
@@ -44,6 +45,14 @@ describe("queued resumes", () => {
   it("recognizes identical bytes already in the list", () => {
     expect(queuedResumeDuplicate(["abc", "def"], "ABC")).toBe(true);
     expect(queuedResumeDuplicate(["abc"], "xyz")).toBe(false);
+  });
+
+  it("keeps a selection of new files and skips ones already queued", () => {
+    expect(resumesToQueue(["abc"], ["abc", "def", "ghi", "def"])).toEqual({ indexes: [1, 2], skipped: 2 });
+  });
+
+  it("keeps every file when none are queued yet", () => {
+    expect(resumesToQueue([], ["abc", "def"])).toEqual({ indexes: [0, 1], skipped: 0 });
   });
 });
 
