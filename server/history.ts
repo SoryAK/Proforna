@@ -9,14 +9,29 @@ import {
   type ResumeImportRole,
 } from "../core/career-memory";
 import type { ExtractedResume } from "../core/resume-extract";
-import { prepareWorkMapLocation } from "../core/work-map";
-import { commitOccupantFactOperations } from "./career-memory";
+import type { HistoryEvidenceLinks } from "../core/resume-compare";
+import {
+  EMPTY_WORK_MAP_DETAILS,
+  planWorkMapRoleFactSync,
+  prepareWorkMapLocation,
+  type WorkMapRole,
+} from "../core/work-map";
+import { commitOccupantFactOperations, readCareerMemory } from "./career-memory";
+import { evidenceIdForResume } from "./profile";
+import { replaceResumeAsides, type ResumeAside } from "./resume-asides";
+
+export type ImportEvidence = {
+  experience: Array<{ evidenceIds: string[]; achievementEvidenceIds: string[] }>;
+  education: Array<{ evidenceIds: string[] }>;
+  skillEvidenceIds: string[];
+};
 
 export async function saveExtractedResume(
   db: DatabaseSync,
   occupantId: string,
   extracted: ExtractedResume,
   evidenceId?: string | null,
+  imports?: ImportEvidence | null,
 ): Promise<{ jobs: number; schools: number; skills: number }> {
   const now = new Date().toISOString();
   let jobs = 0;
@@ -34,9 +49,14 @@ export async function saveExtractedResume(
 
   for (const job of extracted.experience) {
     const jobId = randomUUID();
-    const achievements = job.achievements
-      .map((line) => line.trim())
-      .filter(Boolean);
+    const jobEvidence = imports?.experience[jobs];
+    const paired = job.achievements
+      .map((line, index) => ({
+        line: line.trim(),
+        evidence: jobEvidence?.achievementEvidenceIds[index] ?? "",
+      }))
+      .filter((row) => row.line);
+    const achievements = paired.map((row) => row.line);
     insertHistory.run(
       jobId,
       occupantId,
@@ -67,6 +87,8 @@ export async function saveExtractedResume(
       isCurrent: job.isCurrent,
       description: job.description,
       achievements,
+      evidenceIds: jobEvidence?.evidenceIds,
+      achievementEvidenceIds: jobEvidence ? paired.map((row) => row.evidence) : undefined,
     });
     jobs += 1;
   }
@@ -92,6 +114,7 @@ export async function saveExtractedResume(
     if (school.site) {
       persistExtractedSite(db, occupantId, schoolId, school.site);
     }
+    const schoolEvidence = imports?.education[schools];
     roles.push({
       id: schoolId,
       kind: "school",
@@ -103,6 +126,7 @@ export async function saveExtractedResume(
       isCurrent: false,
       description: school.description,
       achievements: [],
+      evidenceIds: schoolEvidence?.evidenceIds,
     });
     schools += 1;
   }
@@ -123,20 +147,64 @@ export async function saveExtractedResume(
     skills += 1;
   }
 
-  if (evidenceId) {
+  const skillEvidenceIds = imports
+    ? newSkills.map((name) => {
+        const index = extracted.skills.findIndex((skill) => skill.toLowerCase() === name.toLowerCase());
+        return index >= 0 ? (imports.skillEvidenceIds[index] ?? "") : "";
+      })
+    : undefined;
+  if (evidenceId || imports) {
     await commitOccupantFactOperations(
       db,
       occupantId,
       "Record resume extract",
       planResumeImportFacts({
-        evidenceId,
+        evidenceId: evidenceId ?? "",
         roles,
         skills: newSkills,
+        skillEvidenceIds,
       }),
     );
   }
 
   return { jobs, schools, skills };
+}
+
+export function resolveImportEvidence(
+  db: DatabaseSync,
+  occupantId: string,
+  links: HistoryEvidenceLinks,
+): ImportEvidence | null {
+  const experience: ImportEvidence["experience"] = [];
+  for (const link of links.experience) {
+    const evidenceIds = resolveResumeEvidence(db, occupantId, link.resumeIds);
+    const achievementEvidenceIds = resolveResumeEvidence(db, occupantId, link.achievementResumeIds);
+    if (!evidenceIds || !achievementEvidenceIds) return null;
+    experience.push({ evidenceIds, achievementEvidenceIds });
+  }
+  const education: ImportEvidence["education"] = [];
+  for (const link of links.education) {
+    const evidenceIds = resolveResumeEvidence(db, occupantId, link.resumeIds);
+    if (!evidenceIds) return null;
+    education.push({ evidenceIds });
+  }
+  const skillEvidenceIds = resolveResumeEvidence(db, occupantId, links.skills);
+  if (!skillEvidenceIds) return null;
+  return { experience, education, skillEvidenceIds };
+}
+
+function resolveResumeEvidence(
+  db: DatabaseSync,
+  occupantId: string,
+  resumeIds: string[],
+): string[] | null {
+  const evidenceIds: string[] = [];
+  for (const resumeId of resumeIds) {
+    const evidenceId = evidenceIdForResume(db, occupantId, resumeId);
+    if (!evidenceId) return null;
+    evidenceIds.push(evidenceId);
+  }
+  return evidenceIds;
 }
 
 export function loadCareerFile(
@@ -230,6 +298,92 @@ function persistExtractedSite(
     Number(prepared.value.isPublic),
     new Date().toISOString(),
   );
+}
+
+export type ComparedRoleUpdate = {
+  id: string;
+  kind: "job" | "school";
+  title: string;
+  organization: string;
+  location: string;
+  startDate: string;
+  endDate: string;
+  isCurrent: boolean;
+  description: string;
+  achievements: string[];
+};
+
+export async function applyComparedResume(
+  db: DatabaseSync,
+  occupantId: string,
+  input: {
+    evidenceId: string;
+    updates: ComparedRoleUpdate[];
+    created: ExtractedResume;
+    asides: ResumeAside[];
+  },
+): Promise<{ updated: number; created: { jobs: number; schools: number; skills: number } }> {
+  let updated = 0;
+  for (const role of input.updates) {
+    const existing = db
+      .prepare("SELECT id, kind FROM work_history WHERE id = ? AND occupant_id = ?")
+      .get(role.id, occupantId) as { id: string; kind: string } | undefined;
+    if (!existing) continue;
+    db.prepare(
+      `UPDATE work_history SET title = ?, company = ?, location = ?, start_date = ?,
+         end_date = ?, is_current = ?, description = ?, achievements_json = ?
+       WHERE id = ? AND occupant_id = ?`,
+    ).run(
+      role.title,
+      role.organization,
+      role.location,
+      role.startDate,
+      role.isCurrent ? "" : role.endDate,
+      role.isCurrent ? 1 : 0,
+      role.description,
+      JSON.stringify(role.achievements),
+      role.id,
+      occupantId,
+    );
+    const kind = existing.kind === "school" ? "school" : existing.kind === "internship" ? "internship" : "job";
+    const facts = readCareerMemory(db, occupantId).facts;
+    await commitOccupantFactOperations(
+      db,
+      occupantId,
+      "Record a later resume",
+      planWorkMapRoleFactSync({
+        role: factRole(role, kind),
+        facts,
+        evidenceId: input.evidenceId,
+      }),
+    );
+    updated += 1;
+  }
+  const created = await saveExtractedResume(db, occupantId, input.created, input.evidenceId);
+  replaceResumeAsides(db, occupantId, input.asides);
+  return { updated, created };
+}
+
+function factRole(role: ComparedRoleUpdate, kind: WorkMapRole["kind"]): WorkMapRole {
+  return {
+    id: role.id,
+    kind,
+    title: role.title,
+    organization: role.organization,
+    locationLabel: role.location,
+    startDate: role.startDate,
+    endDate: role.isCurrent ? "" : role.endDate,
+    isCurrent: role.isCurrent,
+    description: role.description,
+    achievements: role.achievements,
+    factId: null,
+    factVersion: null,
+    evidenceIds: [],
+    claims: [],
+    locations: [],
+    media: [],
+    details: structuredClone(EMPTY_WORK_MAP_DETAILS),
+  };
 }
 
 function parseAchievements(raw: string): string[] {

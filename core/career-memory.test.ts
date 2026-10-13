@@ -175,6 +175,42 @@ describe("planResumeImportFacts", () => {
     ]);
   });
 
+  it("points a duty taken from a later resume at that resume", () => {
+    const facts = planResumeImportFacts({
+      evidenceId: "",
+      roles: [
+        {
+          id: "job-1",
+          kind: "job",
+          title: "Lead",
+          organization: "Acme",
+          location: "",
+          startDate: "2020-01-01",
+          endDate: "",
+          isCurrent: true,
+          description: "",
+          achievements: ["Kept duty", "Added duty"],
+          evidenceIds: ["ev-first", "ev-second"],
+          achievementEvidenceIds: ["ev-first", "ev-second"],
+        },
+      ],
+      skills: [],
+    });
+    expect(facts[0]?.values).toMatchObject({
+      factType: "role",
+      evidenceIds: ["ev-first", "ev-second"],
+    });
+    expect(facts[2]?.values).toMatchObject({
+      factType: "achievement",
+      evidenceIds: ["ev-second"],
+      value: { statement: "Added duty" },
+    });
+    expect(facts[1]?.values).toMatchObject({
+      evidenceIds: ["ev-first"],
+      value: { statement: "Kept duty" },
+    });
+  });
+
   it("plans nothing without resume evidence", () => {
     expect(
       planResumeImportFacts({

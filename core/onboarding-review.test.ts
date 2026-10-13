@@ -5,6 +5,7 @@ import {
   keptOnboardingHistory,
   nextOnboardingSourceIndex,
   onboardingCheckItems,
+  onboardingExtractSummary,
   profileAfterOnboarding,
 } from "./onboarding-review";
 import type { ProfileFields } from "./profile";
@@ -71,6 +72,24 @@ function resume(): ExtractedResume {
   ];
   return data;
 }
+
+describe("onboardingExtractSummary", () => {
+  it("states how many jobs, schools, and internships were extracted", () => {
+    expect(onboardingExtractSummary(onboardingCheckItems(resume()))).toBe(
+      "2 jobs, 1 school, and 0 internships were extracted.",
+    );
+  });
+
+  it("uses the singular for one job and one school", () => {
+    const items = onboardingCheckItems(resume()).filter((item) => item.org !== "Dropped Co");
+    expect(onboardingExtractSummary(items)).toBe("1 job, 1 school, and 0 internships were extracted.");
+  });
+
+  it("leaves out a role the occupant added", () => {
+    const items = [...onboardingCheckItems(resume()), blankOnboardingCheckItem("Job", -1)];
+    expect(onboardingExtractSummary(items)).toBe("2 jobs, 1 school, and 0 internships were extracted.");
+  });
+});
 
 describe("onboardingCheckItems", () => {
   it("lists roles and schools and leaves a city unpinned", () => {

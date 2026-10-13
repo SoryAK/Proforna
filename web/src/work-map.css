@@ -463,6 +463,18 @@
   font-size: 0.92rem;
 }
 
+.work-map-import {
+  border: 1px solid rgba(167, 139, 113, 0.45);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--gold-hover);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 0.45rem 0.8rem;
+  cursor: pointer;
+}
+
 .work-map-tools {
   display: flex;
   gap: 0.45rem;

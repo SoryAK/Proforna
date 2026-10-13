@@ -5,13 +5,18 @@ import {
   blankOnboardingCheckItem,
   isBlankOnboardingCheckItem,
   nextOnboardingSourceIndex,
+  onboardingExtractSummary,
   ONBOARDING_NO_PLACE,
   type OnboardingCheckItem,
 } from "@core/onboarding-review";
 import { classifyResumePreview } from "@core/resume-preview";
+import { getDocument, GlobalWorkerOptions } from "pdfjs-dist";
+import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import { reversePlace, searchPlaces, splitPlaceAddress, type PlaceHit } from "./place-search";
 import { usePlaceSuggestions } from "./use-place-suggestions";
 import "leaflet/dist/leaflet.css";
+
+GlobalWorkerOptions.workerSrc = workerUrl;
 
 export function CheckOverview({
   items,
@@ -32,14 +37,9 @@ export function CheckOverview({
 }) {
   const [reviewOpen, setReviewOpen] = useState(false);
   const [reviewIndex, setReviewIndex] = useState(0);
-  const jobs = items.filter((item) => item.kind === "Job").length;
-  const schools = items.filter((item) => item.kind === "School").length;
-  const summary = [
-    jobs > 0 ? `${jobs} ${jobs === 1 ? "job" : "jobs"}` : "",
-    schools > 0 ? `${schools} ${schools === 1 ? "school" : "schools"}` : "",
-  ]
-    .filter(Boolean)
-    .join(" · ");
+  const [openedKeys, setOpenedKeys] = useState<string[]>([]);
+  const [pointOutUnopened, setPointOutUnopened] = useState(false);
+  const summary = onboardingExtractSummary(items);
 
   function updateAt(index: number, next: OnboardingCheckItem) {
     onChange(items.map((row, rowIndex) => (rowIndex === index ? stamped(next) : row)));
@@ -70,11 +70,29 @@ export function CheckOverview({
     setReviewOpen(false);
   }
 
+  useEffect(() => {
+    if (!reviewOpen) return;
+    const item = items[reviewIndex];
+    if (!item) return;
+    const key = checkItemKey(item);
+    setOpenedKeys((current) => (current.includes(key) ? current : [...current, key]));
+  }, [reviewOpen, reviewIndex, items]);
+
   function continueOn() {
     const next = items.filter((item) => !isBlankOnboardingCheckItem(item));
+    const unopened = next.some((item) => !openedKeys.includes(checkItemKey(item)));
+    if (unopened && !pointOutUnopened) {
+      if (next.length !== items.length) onChange(next);
+      setPointOutUnopened(true);
+      return;
+    }
     if (next.length !== items.length) onChange(next);
     onContinue(next);
   }
+
+  const unopenedCount = items.filter(
+    (item) => !isBlankOnboardingCheckItem(item) && !openedKeys.includes(checkItemKey(item)),
+  ).length;
 
   return (
     <>
@@ -82,28 +100,18 @@ export function CheckOverview({
       <h1>
         Here's what was <em>extracted.</em>
       </h1>
-      {summary ? <p className="onboarding-meta">{summary}</p> : null}
-      <ul className="onboarding-roster">
-        {items.map((item, index) => (
-          <li key={`${item.source}-${item.sourceIndex}`}>
-            <button
-              type="button"
-              className="onboarding-place"
-              onClick={() => {
-                setReviewIndex(index);
-                setReviewOpen(true);
-              }}
-            >
-              <span className="onboarding-pin" data-set={item.lat != null && item.lng != null ? "true" : "false"} aria-hidden="true" />
-              <div>
-                <strong>{headerTitle(item)}</strong>
-                <span>{headerDetail(item)}</span>
-                <span>{placeLine(item)}</span>
-              </div>
-            </button>
-          </li>
-        ))}
-      </ul>
+      <p className="onboarding-meta">{summary}</p>
+      <p className="onboarding-meta">Open a job or a school to review it against the resume.</p>
+      <VerifyBoard
+        jobs={sectionCards(items, "Job", openedKeys, pointOutUnopened, file?.name ?? null, (index) => {
+          setReviewIndex(index);
+          setReviewOpen(true);
+        })}
+        schools={sectionCards(items, "School", openedKeys, pointOutUnopened, file?.name ?? null, (index) => {
+          setReviewIndex(index);
+          setReviewOpen(true);
+        })}
+      />
       <div className="onboarding-verify-actions">
         <button type="button" className="onboarding-verify-btn" onClick={() => add("Job")}>
           Add a job
@@ -126,6 +134,11 @@ export function CheckOverview({
       {error ? (
         <p className="onboarding-alert" role="alert">
           {error}
+        </p>
+      ) : null}
+      {pointOutUnopened && unopenedCount > 0 ? (
+        <p className="onboarding-alert" role="status">
+          {unopenedCount === 1 ? "1 has not been opened." : `${unopenedCount} have not been opened.`} Open them, or continue again to keep them.
         </p>
       ) : null}
       <div className="onboarding-actions" data-split="true">
@@ -171,13 +184,16 @@ function ReviewCarousel({
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const item = items[index];
+  const [shown, setShown] = useState(false);
   useEffect(() => {
     const node = dialog.current;
     if (!node) return;
     if (open) {
       if (!node.open) node.showModal();
+      setShown(true);
       return;
     }
+    setShown(false);
     if (node.open) node.close();
   }, [open]);
   return (
@@ -188,7 +204,7 @@ function ReviewCarousel({
       onClose={onClose}
       aria-labelledby="onboarding-review-title"
     >
-      {item ? (
+      {shown && item ? (
         <ReviewSlide
           item={item}
           file={file}
@@ -230,10 +246,13 @@ function ReviewSlide({
   onClose: () => void;
 }) {
   const [streetOpen, setStreetOpen] = useState(false);
+  const [workFull, setWorkFull] = useState(false);
   useEffect(() => {
     setStreetOpen(false);
+    setWorkFull(false);
   }, [index, item.org]);
   const placed = item.lat != null && item.lng != null;
+  const job = item.kind === "Job";
   const prompt = placePrompt(item.kind);
   const last = index + 1 >= total;
   return (
@@ -256,8 +275,10 @@ function ReviewSlide({
             <ResumePreview file={file} />
           </section>
         ) : null}
-        <div className="onboarding-review-body">
+        <div className="onboarding-review-body" data-work={workFull ? "full" : "split"}>
           <p className="onboarding-kicker">{item.sourceIndex < 0 ? "Added" : "Extracted"}</p>
+        {workFull ? null : (
+        <>
         <label className="onboarding-field">
           <span>{item.kind === "School" ? "Degree" : "Title"}</span>
           <input
@@ -331,25 +352,24 @@ function ReviewSlide({
             }}
           />
         ) : null}
-        <label className="onboarding-field">
-          <span>Description</span>
-          <textarea
-            value={item.description}
-            onChange={(event) => onChange({ ...item, description: event.target.value })}
+        </>
+        )}
+        {job ? (
+          <WorkList
+            lines={workLines(item)}
+            expanded={workFull}
+            onToggle={() => setWorkFull((value) => !value)}
+            onChange={(lines) => onChange(withWorkLines(item, lines))}
           />
-        </label>
-        {item.kind === "Job" ? (
+        ) : (
           <label className="onboarding-field">
-            <span>Achievements</span>
+            <span>Description</span>
             <textarea
-              value={item.achievements.join("\n")}
-              placeholder="One on each line"
-              onChange={(event) =>
-                onChange({ ...item, achievements: event.target.value.split("\n") })
-              }
+              value={item.description}
+              onChange={(event) => onChange({ ...item, description: event.target.value })}
             />
           </label>
-        ) : null}
+        )}
         </div>
       </div>
       <div className="onboarding-actions" data-split="true">
@@ -374,6 +394,229 @@ function ReviewSlide({
   );
 }
 
+export type VerifyCard = {
+  key: string;
+  title: string;
+  meta: string;
+  year: string;
+  start: string;
+  opened: boolean;
+  stateLabel?: string;
+  pending?: boolean;
+  hint?: string;
+  keepLabel?: string;
+  onOpen?: () => void;
+  onCompare?: () => void;
+  onKeep?: () => void;
+  onAside?: () => void;
+};
+
+export function VerifyBoard({ jobs, schools }: { jobs: VerifyCard[]; schools: VerifyCard[] }) {
+  return (
+    <div className="onboarding-verify">
+      <VerifySection heading="Jobs" cards={jobs} />
+      <VerifySection heading="Schools" cards={schools} />
+    </div>
+  );
+}
+
+function VerifySection({ heading, cards }: { heading: string; cards: VerifyCard[] }) {
+  const ordered = [...cards].sort((left, right) => left.start.localeCompare(right.start) || left.title.localeCompare(right.title));
+  const years = [...new Set(ordered.map((card) => card.year))];
+  return (
+    <section className="onboarding-verify-section" aria-label={heading}>
+      <h2>{heading}</h2>
+      <div className="onboarding-verify-box" tabIndex={0}>
+        {cards.length === 0 ? <p className="onboarding-meta">None extracted.</p> : null}
+        <ol className="onboarding-verify-rail">
+          {years.map((year) => (
+            <li key={year}>
+              <span className="onboarding-verify-year">{year}</span>
+              {ordered
+                .filter((card) => card.year === year)
+                .map((card) => (
+                  <div key={card.key}>
+                    {card.onOpen ? (
+                      <button
+                        type="button"
+                        className="onboarding-verify-row"
+                        data-opened={card.opened ? "true" : "false"}
+                        data-pending={card.pending ? "true" : undefined}
+                        onClick={card.onOpen}
+                      >
+                        <VerifyRowText card={card} />
+                      </button>
+                    ) : (
+                      <div className="onboarding-verify-row" data-opened={card.opened ? "true" : "false"}>
+                        <VerifyRowText card={card} />
+                      </div>
+                    )}
+                    {card.hint || card.onCompare || card.onKeep || card.onAside ? (
+                      <div className="onboarding-verify-hint">
+                        {card.hint ? <p>{card.hint}</p> : null}
+                        <div className="onboarding-verify-hint-actions">
+                          {card.onCompare ? (
+                            <button type="button" className="onboarding-btn onboarding-btn-solid" onClick={card.onCompare}>
+                              Compare
+                            </button>
+                          ) : null}
+                          {card.onKeep ? (
+                            <button type="button" className="onboarding-btn onboarding-btn-ghost" onClick={card.onKeep}>
+                              {card.keepLabel ?? "Keep as its own role"}
+                            </button>
+                          ) : null}
+                          {card.onAside ? (
+                            <button type="button" className="onboarding-btn onboarding-btn-ghost" onClick={card.onAside}>
+                              Not this one
+                            </button>
+                          ) : null}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                ))}
+            </li>
+          ))}
+        </ol>
+      </div>
+    </section>
+  );
+}
+
+function VerifyRowText({ card }: { card: VerifyCard }) {
+  return (
+    <>
+      <strong>{card.title}</strong>
+      <span className="onboarding-verify-meta">{card.meta}</span>
+      <span className="onboarding-roster-state" data-opened={card.opened ? "true" : "false"}>
+        {card.stateLabel ?? (card.opened ? "Opened" : "Not opened")}
+      </span>
+    </>
+  );
+}
+
+export function WorkList({
+  lines,
+  expanded,
+  onToggle,
+  onChange,
+}: {
+  lines: string[];
+  expanded: boolean;
+  onToggle: () => void;
+  onChange?: (lines: string[]) => void;
+}) {
+  return (
+    <div className="onboarding-field onboarding-did">
+      <div className="onboarding-field-head">
+        <span>What you did</span>
+        <button type="button" className="onboarding-field-toggle" aria-expanded={expanded} onClick={onToggle}>
+          {expanded ? "Collapse" : "Expand"}
+        </button>
+      </div>
+      <ul className="onboarding-did-lines">
+        {lines.map((line, index) => (
+          <li key={index}>
+            {onChange ? (
+              <textarea
+                rows={1}
+                value={line}
+                aria-label={`What you did, line ${index + 1}`}
+                onChange={(event) => {
+                  const next = [...lines];
+                  next[index] = event.target.value;
+                  onChange(next);
+                }}
+              />
+            ) : (
+              line
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+export function CheckReview(props: {
+  open: boolean;
+  items: OnboardingCheckItem[];
+  file: File | null;
+  index: number;
+  onIndex: (index: number) => void;
+  onChange: (index: number, item: OnboardingCheckItem) => void;
+  onRemove: (index: number) => void;
+  onClose: () => void;
+}) {
+  return <ReviewCarousel {...props} />;
+}
+
+function sectionCards(
+  items: OnboardingCheckItem[],
+  kind: OnboardingCheckItem["kind"],
+  openedKeys: string[],
+  pointOut: boolean,
+  fileName: string | null,
+  onOpen: (index: number) => void,
+): VerifyCard[] {
+  return items.flatMap((item, index) => {
+    if (item.kind !== kind) return [];
+    const opened = openedKeys.includes(checkItemKey(item));
+    return [
+      {
+        key: checkItemKey(item),
+        title: cardTitle(item),
+        meta: cardMeta(item, fileName),
+        year: yearLabel(item),
+        start: item.startDate,
+        opened,
+        pending: pointOut && !opened && !isBlankOnboardingCheckItem(item),
+        onOpen: () => onOpen(index),
+      },
+    ];
+  });
+}
+
+export function cardTitle(item: OnboardingCheckItem): string {
+  if (item.kind === "School") return item.org.trim() || (item.sourceIndex < 0 ? "New school" : "School");
+  return item.title.trim() || (item.sourceIndex < 0 ? "New job" : "Role");
+}
+
+export function cardMeta(item: OnboardingCheckItem, fileName?: string | null): string {
+  const detail = item.kind === "School" ? [item.title, item.field].filter((part) => part.trim()).join(", ") : item.org.trim();
+  return [detail, item.span.trim(), fileName?.trim()].filter(Boolean).join(" · ");
+}
+
+export function yearLabel(item: OnboardingCheckItem): string {
+  const start = item.startDate.slice(0, 4);
+  if (item.isCurrent) return start ? `${start} – Present` : "Present";
+  const end = item.endDate.slice(0, 4);
+  if (start && end && start !== end) return `${start} – ${end}`;
+  return start || item.span.trim() || "Undated";
+}
+
+export function workLines(item: OnboardingCheckItem): string[] {
+  return [item.description, ...item.achievements]
+    .flatMap((line) => line.split("\n"))
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function withWorkLines(item: OnboardingCheckItem, lines: string[]): OnboardingCheckItem {
+  const description = (lines[0] ?? "").trim();
+  const achievements = lines.slice(1);
+  return {
+    ...item,
+    description,
+    achievements,
+    lines: [description, ...achievements.map((line) => line.trim())].filter(Boolean),
+  };
+}
+
+function checkItemKey(item: OnboardingCheckItem): string {
+  return `${item.source}-${item.sourceIndex}`;
+}
+
 function headerTitle(item: OnboardingCheckItem): string {
   if (item.kind === "School") {
     const name = [item.title, item.field]
@@ -383,16 +626,6 @@ function headerTitle(item: OnboardingCheckItem): string {
     return name || (item.sourceIndex < 0 ? "New school" : "School");
   }
   return item.title.trim() || (item.sourceIndex < 0 ? "New job" : "Role");
-}
-
-function headerDetail(item: OnboardingCheckItem): string {
-  return [item.kind, item.org.trim(), item.span.trim()].filter(Boolean).join(" · ");
-}
-
-function placeLine(item: OnboardingCheckItem): string {
-  const place = item.place === ONBOARDING_NO_PLACE ? "No place yet" : item.place;
-  const pin = item.lat != null && item.lng != null ? "On the map" : "No pin yet";
-  return `${place} · ${pin}`;
 }
 
 function placePrompt(kind: OnboardingCheckItem["kind"]): {
@@ -427,43 +660,73 @@ function stamped(item: OnboardingCheckItem): OnboardingCheckItem {
 }
 
 export function ResumePreview({ file }: { file: File }) {
+  const host = useRef<HTMLDivElement>(null);
   const [textPreview, setTextPreview] = useState<string | null>(null);
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [pdfNote, setPdfNote] = useState<string | null>(null);
   const kind = classifyResumePreview(file);
 
   useEffect(() => {
-    if (kind === "pdf") {
-      const url = URL.createObjectURL(file);
-      setPdfUrl(url);
-      setTextPreview(null);
-      return () => URL.revokeObjectURL(url);
-    }
-    if (kind === "text") {
-      setPdfUrl(null);
-      let cancel = false;
-      void file.text().then((text) => {
-        if (!cancel) setTextPreview(text);
+    if (kind !== "pdf") return;
+    const target = host.current;
+    if (!target) return;
+    let cancel = false;
+    setPdfNote("Reading the resume…");
+    const taskPromise = file.arrayBuffer().then((buffer) => getDocument({ data: new Uint8Array(buffer) }));
+    void taskPromise
+      .then(async (task) => {
+        try {
+          const doc = await task.promise;
+          if (cancel) return;
+          target.replaceChildren();
+          for (let number = 1; number <= doc.numPages; number += 1) {
+            if (cancel) break;
+            const page = await doc.getPage(number);
+            const unscaled = page.getViewport({ scale: 1 });
+            const width = target.clientWidth || unscaled.width;
+            const scale = Math.min(2, ((width - 2) / unscaled.width) * (window.devicePixelRatio || 1));
+            const viewport = page.getViewport({ scale });
+            const canvas = document.createElement("canvas");
+            canvas.width = Math.floor(viewport.width);
+            canvas.height = Math.floor(viewport.height);
+            await page.render({ canvas, viewport }).promise;
+            if (!cancel) target.appendChild(canvas);
+          }
+          if (!cancel) setPdfNote(null);
+        } catch {
+          if (!cancel) setPdfNote("The resume could not be shown here.");
+        }
+      })
+      .catch(() => {
+        if (!cancel) setPdfNote("The resume could not be shown here.");
       });
-      return () => {
-        cancel = true;
-      };
-    }
-    setPdfUrl(null);
-    setTextPreview(null);
+    return () => {
+      cancel = true;
+      void taskPromise.then((task) => task.destroy()).catch(() => undefined);
+    };
+  }, [file, kind]);
+
+  useEffect(() => {
+    if (kind !== "text") return;
+    let cancel = false;
+    void file.text().then((text) => {
+      if (!cancel) setTextPreview(text);
+    });
+    return () => {
+      cancel = true;
+    };
   }, [file, kind]);
 
   return (
     <div className="onboarding-preview">
-      {kind === "pdf" && pdfUrl ? (
-        <iframe className="onboarding-preview-frame" title="Resume preview" src={pdfUrl} />
+      {kind === "pdf" ? (
+        <>
+          <div className="onboarding-preview-pages" ref={host} />
+          {pdfNote ? <p className="onboarding-preview-fallback">{pdfNote}</p> : null}
+        </>
       ) : null}
-      {kind === "text" ? (
-        <pre className="onboarding-preview-text">{textPreview ?? "Reading…"}</pre>
-      ) : null}
+      {kind === "text" ? <pre className="onboarding-preview-text">{textPreview ?? "Reading…"}</pre> : null}
       {kind === "other" ? (
-        <p className="onboarding-preview-fallback">
-          {file.name} cannot be shown here. You can still continue.
-        </p>
+        <p className="onboarding-preview-fallback">{file.name} cannot be shown here. You can still continue.</p>
       ) : null}
     </div>
   );

@@ -165,13 +165,15 @@ export function storeResume(
   uploadsDir: string,
   file: { name: string; bytes: Uint8Array },
 ): StoredResume {
+  const checksum = createHash("sha256").update(file.bytes).digest("hex");
+  const existing = resumeForChecksum(db, occupantId, checksum);
+  if (existing) return existing;
   mkdirSync(uploadsDir, { recursive: true });
   const id = randomUUID();
   const storedName = `${id}.bin`;
   const fullPath = join(uploadsDir, storedName);
   writeFileSync(fullPath, file.bytes);
   const now = new Date().toISOString();
-  const checksum = createHash("sha256").update(file.bytes).digest("hex");
   try {
     db.prepare(
       "INSERT INTO resumes (id, occupant_id, original_name, stored_name, created_at) VALUES (?, ?, ?, ?, ?)",
@@ -192,6 +194,38 @@ export function storeResume(
     throw error;
   }
   return { id, originalName: file.name };
+}
+
+function resumeForChecksum(
+  db: DatabaseSync,
+  occupantId: string,
+  checksum: string,
+): StoredResume | null {
+  const rows = db
+    .prepare(
+      `SELECT source_ref AS sourceRef, content_json AS contentJson
+       FROM evidence
+       WHERE occupant_id = ? AND source_type = 'resume'`,
+    )
+    .all(occupantId) as Array<{ sourceRef: string; contentJson: string }>;
+  for (const row of rows) {
+    let content: { checksum?: unknown; resumeId?: unknown };
+    try {
+      content = JSON.parse(row.contentJson) as { checksum?: unknown; resumeId?: unknown };
+    } catch {
+      continue;
+    }
+    if (content.checksum !== checksum) continue;
+    const resumeId =
+      typeof content.resumeId === "string" && content.resumeId ? content.resumeId : row.sourceRef;
+    const stored = db
+      .prepare(
+        "SELECT id, original_name AS originalName FROM resumes WHERE id = ? AND occupant_id = ?",
+      )
+      .get(resumeId, occupantId) as { id: string; originalName: string } | undefined;
+    if (stored) return stored;
+  }
+  return null;
 }
 
 export function evidenceIdForResume(

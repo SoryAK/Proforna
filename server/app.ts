@@ -10,13 +10,22 @@ import { localScanPorts, scanLocalModels } from "./local-scan";
 import {
   parseExtractedResume,
   parseHistoryResumeId,
+  type ExtractedResume,
 } from "../core/resume-extract";
+import { evidenceLinksFit, parseHistoryEvidence } from "../core/resume-compare";
 import {
   listOpenAiCompatModels,
   type CompleteFn,
 } from "./openai-compat";
 import { pingDatabase } from "./db";
-import { loadCareerFile, saveExtractedResume } from "./history";
+import {
+  applyComparedResume,
+  loadCareerFile,
+  resolveImportEvidence,
+  saveExtractedResume,
+  type ComparedRoleUpdate,
+} from "./history";
+import { listResumeAsides, replaceResumeAsides, type ResumeAside } from "./resume-asides";
 import { listOccupantNotices } from "./notices";
 import {
   AgencyStoreError,
@@ -667,12 +676,45 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
     return c.json(loadCareerFile(db, occupant.id));
   });
 
+  app.get("/api/resume-asides", (c) => {
+    const occupant = ensureOccupant(db);
+    return c.json({ asides: listResumeAsides(db, occupant.id) });
+  });
+
+  app.put("/api/resume-asides", async (c) => {
+    const occupant = ensureOccupant(db);
+    const body: unknown = await c.req.json();
+    const asides = parseResumeAsides(body);
+    if (!asides) return c.json({ error: "Could not read those roles." }, 400);
+    return c.json({ asides: replaceResumeAsides(db, occupant.id, asides) });
+  });
+
+  app.post("/api/resumes/apply", async (c) => {
+    const occupant = ensureOccupant(db);
+    const body: unknown = await c.req.json();
+    const parsed = parseResumeApply(body);
+    if (!parsed) return c.json({ error: "Could not read that resume." }, 400);
+    const evidenceId = evidenceIdForResume(db, occupant.id, parsed.resumeId);
+    if (!evidenceId) return c.json({ error: "Could not find that resume." }, 400);
+    const result = await applyComparedResume(db, occupant.id, {
+      evidenceId,
+      updates: parsed.updates,
+      created: parsed.created,
+      asides: parsed.asides,
+    });
+    return c.json({ ok: true, ...result }, 201);
+  });
+
   app.post("/api/history", async (c) => {
     const occupant = ensureOccupant(db);
     const body: unknown = await c.req.json();
     const extracted = parseExtractedResume(body);
     const resumeLink = parseHistoryResumeId(body);
-    if (!extracted || !resumeLink.ok) {
+    const evidenceParse = parseHistoryEvidence(body);
+    if (!extracted || !resumeLink.ok || !evidenceParse.ok) {
+      return c.json({ error: "Could not read that extract." }, 400);
+    }
+    if (evidenceParse.links && !evidenceLinksFit(extracted, evidenceParse.links)) {
       return c.json({ error: "Could not read that extract." }, 400);
     }
     let evidenceId: string | null = null;
@@ -682,11 +724,18 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
         return c.json({ error: "Could not find that resume." }, 400);
       }
     }
+    const imports = evidenceParse.links
+      ? resolveImportEvidence(db, occupant.id, evidenceParse.links)
+      : null;
+    if (evidenceParse.links && !imports) {
+      return c.json({ error: "Could not find that resume." }, 400);
+    }
     const saved = await saveExtractedResume(
       db,
       occupant.id,
       extracted,
       evidenceId,
+      imports,
     );
     return c.json({ ok: true, ...saved }, 201);
   });
@@ -2238,6 +2287,62 @@ async function locateProfileAddress(
   } catch {
     return { latitude: null, longitude: null };
   }
+}
+
+function parseResumeAsides(raw: unknown): ResumeAside[] | null {
+  if (!raw || typeof raw !== "object") return null;
+  const asides = (raw as { asides?: unknown }).asides;
+  if (!Array.isArray(asides)) return null;
+  const parsed: ResumeAside[] = [];
+  for (const entry of asides) {
+    if (!entry || typeof entry !== "object") return null;
+    const row = entry as Record<string, unknown>;
+    const kind = row.kind === "school" ? "school" : row.kind === "job" ? "job" : null;
+    if (!kind || typeof row.title !== "string" || typeof row.organization !== "string") return null;
+    parsed.push({
+      kind,
+      title: row.title,
+      organization: row.organization,
+      startDate: typeof row.startDate === "string" ? row.startDate : "",
+      endDate: typeof row.endDate === "string" ? row.endDate : "",
+    });
+  }
+  return parsed;
+}
+
+function parseResumeApply(raw: unknown): {
+  resumeId: string;
+  updates: ComparedRoleUpdate[];
+  created: ExtractedResume;
+  asides: ResumeAside[];
+} | null {
+  if (!raw || typeof raw !== "object") return null;
+  const body = raw as Record<string, unknown>;
+  if (typeof body.resumeId !== "string" || !body.resumeId.trim() || !Array.isArray(body.updates)) return null;
+  const updates: ComparedRoleUpdate[] = [];
+  for (const entry of body.updates) {
+    if (!entry || typeof entry !== "object") return null;
+    const row = entry as Record<string, unknown>;
+    if (typeof row.id !== "string" || !row.id.trim()) return null;
+    updates.push({
+      id: row.id.trim(),
+      kind: row.kind === "school" ? "school" : "job",
+      title: typeof row.title === "string" ? row.title : "",
+      organization: typeof row.organization === "string" ? row.organization : "",
+      location: typeof row.location === "string" ? row.location : "",
+      startDate: typeof row.startDate === "string" ? row.startDate : "",
+      endDate: typeof row.endDate === "string" ? row.endDate : "",
+      isCurrent: row.isCurrent === true,
+      description: typeof row.description === "string" ? row.description : "",
+      achievements: Array.isArray(row.achievements)
+        ? row.achievements.filter((line): line is string => typeof line === "string")
+        : [],
+    });
+  }
+  const created = parseExtractedResume(body.created ?? {});
+  const asides = parseResumeAsides({ asides: body.asides ?? [] });
+  if (!created || !asides) return null;
+  return { resumeId: body.resumeId.trim(), updates, created, asides };
 }
 
 function profilePlace(profile: {

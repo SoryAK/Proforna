@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { ResumeImport } from "./ResumeImport";
 import type { CareerFile } from "@core/career-file";
 import {
   CAREER_HISTORY_SECTIONS,
@@ -141,6 +142,7 @@ export function WorkMap({
     useState<CareerHistorySectionKey | null>(null);
   const [detailTab, setDetailTab] = useState<DetailTab>("story");
   const [homesOpen, setHomesOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [mapOverride, setMapOverride] = useState<"auto" | "show" | "hide">(
     "auto",
   );
@@ -622,6 +624,9 @@ export function WorkMap({
               placeholder="Search…"
               aria-label="Search career history"
             />
+            <button type="button" className="work-map-import" onClick={() => setImportOpen(true)}>
+              Import a resume
+            </button>
             <label className="work-map-sort">
               <span>Sort</span>
               <select
@@ -839,6 +844,15 @@ export function WorkMap({
             onRemember={setRememberPreview}
             onChoose={(where) => void choosePreview(where)}
             onClose={() => setPreviewAsk(false)}
+          />
+        ) : null}
+        {importOpen ? (
+          <ResumeImport
+            onClose={() => setImportOpen(false)}
+            onDone={() => {
+              setImportOpen(false);
+              void load();
+            }}
           />
         ) : null}
       </div>

@@ -105,6 +105,19 @@ describe("onboarding HTTP", () => {
       };
       expect(body.resume.originalName).toBe("cv.pdf");
 
+      const again = new FormData();
+      again.append(
+        "file",
+        new File(["%PDF-1.4 resume"], "copy.pdf", { type: "application/pdf" }),
+      );
+      const duplicate = await ctx.app.request("/api/resumes", {
+        method: "POST",
+        body: again,
+      });
+      expect(duplicate.status).toBe(201);
+      const opened = (await duplicate.json()) as { resume: { id: string } };
+      expect(opened.resume.id).toBe(body.resume.id);
+
       const memory = await ctx.app.request("/api/memory");
       const stored = (await memory.json()) as {
         evidence: Array<{
