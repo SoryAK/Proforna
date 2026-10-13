@@ -15,6 +15,7 @@ export {
   keptOnboardingHistory,
   nextOnboardingSourceIndex,
   onboardingCheckItems,
+  onboardingExtractSummary,
   profileAfterOnboarding,
   ONBOARDING_NO_PLACE,
   type OnboardingCheckItem,
