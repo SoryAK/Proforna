@@ -210,6 +210,7 @@ import {
   readWorkMap,
   readWorkMapSettings,
   removeWorkMapLocation,
+  removeWorkMapRole,
   removeWorkMapMedia,
   setWorkMapMediaPublic,
   saveWorkMapDetails,
@@ -1021,6 +1022,19 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
     } catch (error) {
       if (error instanceof WorkMapStoreError) {
         return c.json({ error: error.code }, 400);
+      }
+      throw error;
+    }
+  });
+
+  app.delete("/api/work-map/roles/:id", (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      removeWorkMapRole(db, occupant.id, c.req.param("id"), uploadsDir);
+      return c.json({ ok: true });
+    } catch (error) {
+      if (error instanceof WorkMapStoreError) {
+        return c.json({ error: error.code }, error.code === "role-missing" ? 404 : 400);
       }
       throw error;
     }

@@ -1,17 +1,23 @@
 import { describe, expect, it } from "vitest";
 import {
+  careerHistoryCopyKey,
+  careerHistoryIdentityKey,
   classifyCareerHistorySection,
+  clusterCareerHistory,
+  flagIdenticalRoles,
   formatHistoryGist,
+  formatHistoryPlace,
   groupCareerHistory,
   presentCareerHistoryStats,
   searchCareerHistory,
   sortCareerHistory,
+  type CareerHistoryIdentity,
   type CareerHistoryItem,
 } from "./career-history";
 
 function item(
-  overrides: Partial<CareerHistoryItem> & Pick<CareerHistoryItem, "id">,
-): CareerHistoryItem {
+  overrides: Partial<CareerHistoryIdentity> & Pick<CareerHistoryIdentity, "id">,
+): CareerHistoryIdentity {
   return {
     kind: "job",
     title: "Lead",
@@ -137,6 +143,120 @@ describe("formatHistoryGist", () => {
       ),
     ).toBe("Jun 2024 – Present (2y 3m)");
   });
+
+  it("keeps the city when the street uses an abbreviation and the state carries a zip", () => {
+    expect(
+      formatHistoryPlace({
+        organization: "Giants Direct",
+        locationLabel: "67",
+        locations: [
+          {
+            address: "235 N Reservoir St, Lancaster, PA 17602, USA",
+          },
+        ],
+      }),
+    ).toBe("Lancaster, PA");
+    expect(
+      formatHistoryPlace({
+        organization: "Giants Direct",
+        locationLabel: "235 N Reservoir St, Lancaster, PA 17602",
+      }),
+    ).toBe("Lancaster, PA");
+  });
+});
+
+describe("clusterCareerHistory", () => {
+  it("keeps one lead for copies that share organization, title, and start month", () => {
+    const clusters = clusterCareerHistory([
+      item({
+        id: "copy-b",
+        organization: "Giants Direct",
+        title: "Technician",
+        startDate: "2024-06-15",
+        locationLabel: "67",
+      }),
+      item({
+        id: "copy-a",
+        organization: "giants  direct",
+        title: "Technician",
+        startDate: "2024-06-01",
+        locationLabel: "Lancaster, PA",
+        locations: [
+          {
+            address: "235 N Reservoir St, Lancaster, PA 17602, USA",
+            latitude: 40.04,
+            longitude: -76.3,
+          },
+        ],
+      }),
+      item({
+        id: "other",
+        organization: "Sharp Packaging",
+        title: "Technician",
+        startDate: "2024-06-01",
+      }),
+    ]);
+    expect(clusters.map((cluster) => [cluster.lead.id, cluster.copies.length])).toEqual([
+      ["copy-a", 2],
+      ["other", 1],
+    ]);
+    expect(careerHistoryCopyKey(clusters[0].lead)).toBe(
+      careerHistoryCopyKey(clusters[0].copies[1]),
+    );
+  });
+});
+
+describe("flagIdenticalRoles", () => {
+  it("flags records that match in dates, text, and places, and keeps the first", () => {
+    const shared = {
+      organization: "Giants Direct",
+      title: "Technician",
+      startDate: "2024-06-01",
+      description: "Maintained the robotic line.",
+      achievements: ["Replaced relays", "Tuned belts"],
+      locationLabel: "Lancaster",
+      locations: [
+        {
+          address: "235 N Reservoir St, Lancaster, PA",
+          latitude: 40,
+          longitude: -76,
+        },
+      ],
+    };
+    const flags = flagIdenticalRoles([
+      item({ id: "keep", ...shared }),
+      item({
+        id: "same",
+        ...shared,
+        achievements: ["Tuned belts", "Replaced relays"],
+        startDate: "2024-06-20",
+      }),
+      item({
+        id: "other-place",
+        ...shared,
+        locationLabel: "Philadelphia",
+        locations: [
+          {
+            address: "Philadelphia, PA",
+            latitude: 39.9,
+            longitude: -75.1,
+          },
+        ],
+      }),
+    ]);
+    expect(flags.get("keep")).toEqual({ count: 2, keeper: true });
+    expect(flags.get("same")).toEqual({ count: 2, keeper: false });
+    expect(flags.get("other-place")).toEqual({ count: 1, keeper: true });
+    expect(careerHistoryIdentityKey(item({ id: "keep", ...shared }))).toBe(
+      careerHistoryIdentityKey(
+        item({
+          id: "same",
+          ...shared,
+          description: "  Maintained   the robotic line. ",
+        }),
+      ),
+    );
+  });
 });
 
 describe("presentCareerHistoryStats", () => {
@@ -180,9 +300,95 @@ describe("presentCareerHistoryStats", () => {
       new Date(2026, 8, 1),
     );
     expect(stats.roles).toBe(2);
+    expect(
+      presentCareerHistoryStats(
+        [
+          item({
+            id: "a",
+            organization: "Giants Direct",
+            title: "Technician",
+            description: "Same work",
+          }),
+          item({
+            id: "b",
+            organization: "Giants Direct",
+            title: "Technician",
+            description: "Same work",
+          }),
+          item({
+            id: "c",
+            organization: "Giants Direct",
+            title: "Technician",
+            description: "Different work",
+          }),
+        ],
+        new Date(2026, 8, 1),
+      ).roles,
+    ).toBe(2);
     expect(stats.cities).toBe(2);
-    expect(stats.tenure).toBe("10y 1m");
+    expect(stats.tenure).toBe("8y 5m");
     expect(stats.miles).toBeGreaterThan(60);
+    expect(
+      presentCareerHistoryStats(
+        [
+          item({
+            id: "open-ended",
+            isCurrent: false,
+            startDate: "2010-01-01",
+            endDate: "",
+            locationLabel: "Dayton, OH",
+          }),
+        ],
+        new Date(2026, 8, 1),
+      ).tenure,
+    ).toBe("");
+    const overlapping = presentCareerHistoryStats(
+      [
+        item({
+          id: "media",
+          startDate: "2016-03-01",
+          locationLabel: "Media, PA",
+          locations: [
+            { address: "Media, PA", latitude: 39.916, longitude: -75.388 },
+          ],
+        }),
+        item({
+          id: "allentown",
+          organization: "Sharp",
+          startDate: "2023-01-01",
+          locationLabel: "Allentown, PA",
+          locations: [
+            {
+              address: "Allentown, PA",
+              latitude: 40.608,
+              longitude: -75.49,
+            },
+          ],
+        }),
+      ],
+      new Date(2026, 8, 1),
+    );
+    expect(overlapping.miles).toBe(0);
+    expect(overlapping.tenure).toBe("10y 6m");
+    expect(
+      presentCareerHistoryStats(
+        [
+          item({
+            id: "giants",
+            organization: "Giants Direct",
+            locationLabel: "67",
+            locations: [
+              {
+                address: "235 N Reservoir St, Lancaster, PA 17602, USA",
+                latitude: 40.04,
+                longitude: -76.3,
+              },
+            ],
+          }),
+        ],
+        new Date(2026, 8, 1),
+      ).cities,
+    ).toBe(1);
   });
 });
 
@@ -195,6 +401,44 @@ describe("searchCareerHistory", () => {
     expect(searchCareerHistory(items, "county").map((row) => row.id)).toEqual([
       "trades",
     ]);
+    expect(
+      searchCareerHistory(
+        [
+          item({
+            id: "giants",
+            organization: "Giants Direct",
+            locationLabel: "67",
+            locations: [
+              {
+                address: "235 N Reservoir St, Lancaster, PA 17602, USA",
+                latitude: 40.04,
+                longitude: -76.3,
+              },
+            ],
+          }),
+        ],
+        "lancaster",
+      ).map((row) => row.id),
+    ).toEqual(["giants"]);
+    expect(
+      searchCareerHistory(
+        [
+          item({
+            id: "giants",
+            organization: "Giants Direct",
+            locationLabel: "67",
+            locations: [
+              {
+                address: "235 N Reservoir St, Lancaster, PA 17602, USA",
+                latitude: 40.04,
+                longitude: -76.3,
+              },
+            ],
+          }),
+        ],
+        "reservoir",
+      ).map((row) => row.id),
+    ).toEqual(["giants"]);
   });
 });
 

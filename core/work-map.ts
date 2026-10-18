@@ -330,6 +330,16 @@ export function publicationNeedsAudienceConfirm(input: {
   );
 }
 
+export function prepareWorkMapRoleDelete(input: {
+  id?: unknown;
+}):
+  | { ok: true; value: { id: string } }
+  | { ok: false; error: "role-missing" } {
+  const id = typeof input.id === "string" ? input.id.trim() : "";
+  if (!id) return { ok: false, error: "role-missing" };
+  return { ok: true, value: { id } };
+}
+
 export function prepareWorkMapRoleCreate(input: {
   kind?: unknown;
 }):

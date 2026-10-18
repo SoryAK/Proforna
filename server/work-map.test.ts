@@ -553,6 +553,54 @@ describe("Work Map role create HTTP seam", () => {
     }
   });
 
+  it("removes one role and leaves its copies", async () => {
+    const db = openDatabase(":memory:");
+    const app = createApp(db);
+    try {
+      const first = await app.request("/api/work-map/roles", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ kind: "job", title: "Technician", organization: "Giants Direct" }),
+      });
+      const second = await app.request("/api/work-map/roles", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ kind: "job", title: "Technician", organization: "Giants Direct" }),
+      });
+      const removedId = ((await first.json()) as { role: { id: string } }).role.id;
+      const keptId = ((await second.json()) as { role: { id: string } }).role.id;
+      const located = await app.request(`/api/work-map/roles/${removedId}/locations`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          label: "Plant",
+          address: "Lancaster, PA",
+          latitude: 40.04,
+          longitude: -76.3,
+          kind: "primary",
+        }),
+      });
+      expect(located.status).toBe(201);
+
+      const removed = await app.request(`/api/work-map/roles/${removedId}`, {
+        method: "DELETE",
+      });
+      expect(removed.status).toBe(200);
+      const map = (await (await app.request("/api/work-map")).json()) as {
+        roles: Array<{ id: string; locations: unknown[] }>;
+      };
+      expect(map.roles.map((role) => role.id)).toEqual([keptId]);
+
+      const missing = await app.request(`/api/work-map/roles/${removedId}`, {
+        method: "DELETE",
+      });
+      expect(missing.status).toBe(404);
+      await expect(missing.json()).resolves.toEqual({ error: "role-missing" });
+    } finally {
+      db.close();
+    }
+  });
+
   it("stores a role photo privately and serves it for the map", async () => {
     const db = openDatabase(":memory:");
     const uploadsDir = mkdtempSync(join(tmpdir(), "proforna-role-photo-"));
