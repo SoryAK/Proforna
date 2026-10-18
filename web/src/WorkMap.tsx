@@ -987,7 +987,32 @@ function RoleSheet({
       {tab === "story" ? <StorySheet role={role} /> : null}
       {tab === "conditions" ? <ConditionsSheet role={role} /> : null}
       {tab === "media" ? <MediaSheet role={role} /> : null}
+      {tab === "evidence" ? <EvidenceSheet role={role} /> : null}
     </article>
+  );
+}
+
+function EvidenceSheet({ role }: { role: WorkMapRole }) {
+  return (
+    <>
+      <h3 className="role-sheet-kicker">Linked evidence</h3>
+      {role.linkedEvidence.length > 0 ? (
+        <ul>
+          {role.linkedEvidence.map((item) => (
+            <li key={item.id}>
+              <a href={item.url} target="_blank" rel="noreferrer">
+                {item.title}
+              </a>
+              {item.outlet ? ` — ${item.outlet}` : ""}
+              {item.credit === "names-me" ? " · names me" : " · about my work"}
+              {item.contribution ? <p>{item.contribution}</p> : null}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="role-sheet-empty">No evidence linked to this role yet.</p>
+      )}
+    </>
   );
 }
 
@@ -1091,6 +1116,7 @@ function PublicationSettings({
     ["map", "Approved locations"],
     ["milestones", "Milestones and events"],
     ["media", "Approved galleries"],
+    ["evidence", "Linked evidence"],
     ["skills", "Skills"],
     ["contact", "Contact and inbound opportunities"],
   ];

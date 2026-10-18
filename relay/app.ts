@@ -1,6 +1,7 @@
 import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import { Hono } from "hono";
+import { groupLinkedEvidence, type PublishedLinkedEvidence } from "../core/index";
 import { handleMcp, type PublicationRead, type PublicationSnapshot } from "./mcp";
 
 type RelayProjection = PublicationSnapshot;
@@ -300,18 +301,36 @@ function parseProjection(value: unknown): RelayProjection | null {
   return projection as RelayProjection;
 }
 
+function renderLinkedEvidence(item: PublishedLinkedEvidence): string {
+  const title = escapeHtml(item.title);
+  const link = /^https?:\/\//i.test(item.url)
+    ? `<a href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer nofollow">${title}</a>`
+    : title;
+  const meta = [
+    item.outlet,
+    item.publishedOn,
+    item.credit === "names-me" ? "Credited by name" : "Covers work they contributed to",
+  ]
+    .filter(Boolean)
+    .map(escapeHtml)
+    .join(" · ");
+  return `<li>${link}<span>${meta}</span>${item.quote ? `<q>${escapeHtml(item.quote)}</q>${item.timestamp ? ` <span>at ${escapeHtml(item.timestamp)}</span>` : ""}` : item.timestamp ? `<span>at ${escapeHtml(item.timestamp)}</span>` : ""}${item.contribution ? `<p>${escapeHtml(item.contribution)}</p>` : ""}</li>`;
+}
+
 function renderProjectionHtml(
   projection: RelayProjection,
   view: "list" | "journey",
 ): string {
   const experience = projection.roles
-    .map(
-      (role) => `<article class="role" data-role="${escapeHtml(role.id)}">
+    .map((role) => {
+      const evidence = groupLinkedEvidence(role.achievements, role.linkedEvidence);
+      return `<article class="role" data-role="${escapeHtml(role.id)}">
         <p class="span">${escapeHtml(role.span)}</p>
         <h2>${escapeHtml(role.title)}</h2>
         <p>${escapeHtml(role.organization)}</p>
         ${role.description ? `<p>${escapeHtml(role.description)}</p>` : ""}
-        <ul>${role.achievements.map((claim) => `<li>${escapeHtml(claim)}</li>`).join("")}</ul>
+        <ul>${evidence.achievements.map((claim) => `<li>${escapeHtml(claim.statement)}${claim.evidence.length ? `<ul class="evidence">${claim.evidence.map(renderLinkedEvidence).join("")}</ul>` : ""}</li>`).join("")}</ul>
+        ${evidence.other.length ? `<h3 class="evidence-title">Evidence</h3><ul class="evidence">${evidence.other.map(renderLinkedEvidence).join("")}</ul>` : ""}
         ${role.techStack.length ? `<p class="skills">${role.techStack.map(escapeHtml).join(" · ")}</p>` : ""}
         ${role.growth ? `<p>${escapeHtml(role.growth)}</p>` : ""}
         ${role.departure ? `<p>${escapeHtml(role.departure)}</p>` : ""}
@@ -325,8 +344,8 @@ function renderProjectionHtml(
         ${role.compensation?.amount != null ? `<p class="skills">${escapeHtml(String(role.compensation.amount))} ${escapeHtml(role.compensation.currency)} / ${escapeHtml(role.compensation.period)}</p>` : ""}
         ${role.milestones.map((moment) => `<div class="moment"><b>${escapeHtml(moment.title)}</b><span>${escapeHtml(moment.date)}</span><p>${escapeHtml(moment.detail)}</p></div>`).join("")}
         ${role.media.map((item) => item.kind === "photo" ? `<figure><img src="${escapeHtml(item.url)}" alt="${escapeHtml(item.title)}"><figcaption>${escapeHtml(item.caption || item.title)}</figcaption></figure>` : "").join("")}
-      </article>`,
-    )
+      </article>`;
+    })
     .join("");
   const mapPoints = projection.roles.flatMap((role) =>
     role.locations.map((location) => ({
@@ -351,6 +370,9 @@ nav{display:flex;gap:1rem;align-items:end}a{color:#d8b68c}.shell{display:grid;gr
 .journey .role{border-left:1px solid #b89772;border-top:0;padding:0 0 2.5rem 1.5rem}
 h2{font:italic 1.6rem Georgia,serif;margin:.3rem 0}p,li{line-height:1.65;color:#c9bdad}.skills{color:#d8b68c}
 .moment{border-left:2px solid #6f563c;padding-left:.8rem;margin:.8rem 0}.moment span{margin-left:.6rem;color:#87735f;font-size:.75rem}
+.evidence{list-style:none;padding:0;margin:.4rem 0 .8rem}.evidence li{border-left:2px solid #6f563c;padding-left:.8rem;margin:.5rem 0}
+.evidence span{display:block;color:#87735f;font-size:.75rem}.evidence q{display:block;font-style:italic;color:#c9bdad}.evidence p{margin:.2rem 0}
+.evidence-title{font:600 .75rem system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#b89772;margin:1rem 0 0}
 figure{margin:1rem 0}figure img{width:100%;max-height:18rem;object-fit:cover}figcaption{color:#87735f;font-size:.75rem}
 @media(max-width:800px){header{display:block}.shell{display:flex;flex-direction:column;height:auto}.map{order:-1;height:48vh}.history{overflow:visible}}
 </style></head><body><main class="${view}">

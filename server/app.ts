@@ -216,7 +216,12 @@ import {
   saveWorkMapSettings,
   updateWorkMapLocation,
   updateWorkMapRole,
+  addLinkedEvidence,
+  lookupLinkedPage,
+  removeLinkedEvidence,
+  updateLinkedEvidence,
 } from "./work-map";
+import { fetchPublicPage, type PageFetch } from "./page-capture";
 
 export type AppOptions = {
   uploadsDir?: string;
@@ -234,6 +239,7 @@ export type AppOptions = {
   };
   localScanPorts?: number[];
   localScanConnect?: (port: number, signal?: AbortSignal) => Promise<boolean>;
+  pages?: { fetch?: PageFetch };
 };
 
 type PlaceSearch = {
@@ -248,6 +254,7 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
   const relay = options.relay;
   const externalActions = options.externalActions;
   const complete = options.complete;
+  const fetchPage = options.pages?.fetch ?? fetchPublicPage;
   async function fallbackPlaces(query: string) {
     if (options.places?.lookup) {
       const found = await options.places.lookup(query);
@@ -1208,6 +1215,88 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
         c.req.param("id"),
         c.req.param("mediaId"),
         uploadsDir,
+      );
+      return c.json({ ok: true });
+    } catch (error) {
+      if (error instanceof WorkMapStoreError) {
+        return c.json({ error: error.code }, 404);
+      }
+      throw error;
+    }
+  });
+
+  app.post("/api/work-map/linked-evidence/lookup", async (c) => {
+    const body = (await c.req.json()) as { url?: unknown };
+    try {
+      const fields = await lookupLinkedPage(
+        typeof body.url === "string" ? body.url.trim() : "",
+        fetchPage,
+      );
+      return c.json({ fields });
+    } catch (error) {
+      if (error instanceof WorkMapStoreError) {
+        return c.json(
+          { error: error.code },
+          error.code === "page-unreachable" ? 502 : 400,
+        );
+      }
+      throw error;
+    }
+  });
+
+  app.post("/api/work-map/roles/:id/linked-evidence", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      const linkedEvidence = await addLinkedEvidence(
+        db,
+        occupant.id,
+        c.req.param("id"),
+        (await c.req.json()) as Record<string, unknown>,
+        fetchPage,
+      );
+      return c.json({ linkedEvidence }, 201);
+    } catch (error) {
+      if (error instanceof WorkMapStoreError) {
+        return c.json(
+          { error: error.code },
+          error.code.endsWith("-missing") && error.code !== "pin-missing" ? 404 : 400,
+        );
+      }
+      throw error;
+    }
+  });
+
+  app.put("/api/work-map/roles/:id/linked-evidence/:linkedId", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      const linkedEvidence = await updateLinkedEvidence(
+        db,
+        occupant.id,
+        c.req.param("id"),
+        c.req.param("linkedId"),
+        (await c.req.json()) as Record<string, unknown>,
+        fetchPage,
+      );
+      return c.json({ linkedEvidence });
+    } catch (error) {
+      if (error instanceof WorkMapStoreError) {
+        return c.json(
+          { error: error.code },
+          error.code.endsWith("-missing") && error.code !== "pin-missing" ? 404 : 400,
+        );
+      }
+      throw error;
+    }
+  });
+
+  app.delete("/api/work-map/roles/:id/linked-evidence/:linkedId", async (c) => {
+    const occupant = ensureOccupant(db);
+    try {
+      await removeLinkedEvidence(
+        db,
+        occupant.id,
+        c.req.param("id"),
+        c.req.param("linkedId"),
       );
       return c.json({ ok: true });
     } catch (error) {

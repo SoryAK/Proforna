@@ -347,12 +347,20 @@ export {
 } from "./map-settings";
 export {
   EMPTY_WORK_MAP_DETAILS,
+  LINKED_EVIDENCE_CREDITS,
+  LINKED_EVIDENCE_KINDS,
   attachFactsToWorkMapRole,
   buildWorkMapSnapshot,
+  groupLinkedEvidence,
+  isLinkedEvidenceUrl,
+  linkedEvidenceFromPage,
   normalizeSlug,
   normalizeWorkMapDetails,
+  planLinkedEvidenceFacts,
   planWorkMapPublicationSettings,
   planWorkMapRoleFactSync,
+  prepareLinkedEvidence,
+  prepareLinkedEvidenceDelete,
   prepareWorkMapLocation,
   prepareWorkMapRoleCreate,
   nominatimAddressLine,
@@ -360,6 +368,10 @@ export {
   roleCoverPhoto,
   publicationAllowsSnapshot,
   publicationNeedsAudienceConfirm,
+  type LinkedEvidence,
+  type LinkedEvidenceError,
+  type PreparedLinkedEvidence,
+  type PublishedLinkedEvidence,
   type PreparedWorkMapLocation,
   type WorkMapClaim,
   type WorkMapLocation,
@@ -373,6 +385,12 @@ export {
   type WorkMapShare,
   type WorkMapSnapshot,
 } from "./work-map";
+export {
+  LINKED_PAGE_TEXT_LIMIT,
+  isPublicAddress,
+  readLinkedPage,
+  type LinkedPage,
+} from "./linked-page";
 export {
   careerFrame,
   careerMoments,

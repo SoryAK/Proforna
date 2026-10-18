@@ -157,6 +157,199 @@ describe("Work Map career-fact HTTP seam", () => {
   });
 });
 
+describe("Linked Evidence HTTP seam", () => {
+  const reviewHtml = `<html><head>
+    <title>Fold review</title>
+    <meta property="og:title" content="The crease is finally gone">
+    <meta property="og:site_name" content="Reviews Weekly">
+    <meta property="article:published_time" content="2026-08-14T09:00:00Z">
+  </head><body><p>You cannot feel the fold anymore.</p></body></html>`;
+
+  it("adds, reads, edits, publishes, and removes evidence linked to a role", async () => {
+    const db = openDatabase(":memory:");
+    const fetched: string[] = [];
+    const app = createApp(db, {
+      pages: {
+        fetch: async (url) => {
+          fetched.push(url);
+          if (url.includes("offline")) throw new Error("unreachable");
+          return { url, contentType: "text/html", html: reviewHtml };
+        },
+      },
+    });
+    const json = (method: string, body: unknown) => ({
+      method,
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const readMemory = async () =>
+      (await (await app.request("/api/memory")).json()) as {
+        evidence: Array<{ id: string; sourceType: string; content: { text?: string } }>;
+        facts: Array<{
+          factType: string;
+          status: string;
+          evidenceIds: string[];
+          value: { statement?: string };
+        }>;
+      };
+    const achievementEvidence = async () =>
+      (await readMemory()).facts.find(
+        (fact) =>
+          fact.factType === "achievement" &&
+          fact.status === "canonical" &&
+          fact.value.statement === "Solved the hinge crease.",
+      )?.evidenceIds ?? [];
+    try {
+      await app.request(
+        "/api/history",
+        json("POST", {
+          experience: [
+            {
+              company: "Acme",
+              title: "Product Engineer",
+              isCurrent: true,
+              achievements: ["Solved the hinge crease."],
+            },
+          ],
+        }),
+      );
+      const roleId = (
+        (await (await app.request("/api/work-map")).json()) as {
+          roles: Array<{ id: string }>;
+        }
+      ).roles[0].id;
+
+      const lookedUp = await app.request(
+        "/api/work-map/linked-evidence/lookup",
+        json("POST", { url: "https://reviews.example/fold" }),
+      );
+      expect(lookedUp.status).toBe(200);
+      await expect(lookedUp.json()).resolves.toEqual({
+        fields: {
+          title: "The crease is finally gone",
+          outlet: "Reviews Weekly",
+          publishedOn: "2026-08-14",
+          kind: "article",
+        },
+      });
+      const refused = await app.request(
+        "/api/work-map/linked-evidence/lookup",
+        json("POST", { url: "file:///etc/passwd" }),
+      );
+      expect(refused.status).toBe(400);
+
+      const created = await app.request(
+        `/api/work-map/roles/${roleId}/linked-evidence`,
+        json("POST", {
+          url: "https://reviews.example/fold",
+          title: "The crease is finally gone",
+          outlet: "Reviews Weekly",
+          publishedOn: "2026-08-14",
+          kind: "review",
+          contribution: "Designed the hinge fix.",
+          credit: "about-my-work",
+          pin: { kind: "achievement", statement: "Solved the hinge crease." },
+          isPublic: true,
+        }),
+      );
+      expect(created.status).toBe(201);
+      const { linkedEvidence } = (await created.json()) as {
+        linkedEvidence: { id: string; evidenceId: string | null };
+      };
+      expect(linkedEvidence.evidenceId).toEqual(expect.any(String));
+      const capture = (await readMemory()).evidence.find(
+        (item) => item.id === linkedEvidence.evidenceId,
+      );
+      expect(capture).toMatchObject({ sourceType: "link" });
+      expect(capture?.content.text).toContain("You cannot feel the fold anymore.");
+      expect(await achievementEvidence()).toContain(linkedEvidence.evidenceId);
+
+      const invalid = await app.request(
+        `/api/work-map/roles/${roleId}/linked-evidence`,
+        json("POST", { url: "https://reviews.example/x", title: "x", kind: "review", credit: "maybe" }),
+      );
+      expect(invalid.status).toBe(400);
+      await expect(invalid.json()).resolves.toEqual({ error: "credit-invalid" });
+
+      await app.request(
+        "/api/work-map/settings",
+        json("PUT", { slug: "linked", visibility: "unlisted", sections: ["history", "evidence"] }),
+      );
+      const preview = (await (await app.request("/api/work-map/preview")).json()) as {
+        snapshot: { roles: Array<{ linkedEvidence: Array<{ title: string }> }> };
+      };
+      expect(preview.snapshot.roles[0].linkedEvidence).toEqual([
+        expect.objectContaining({ title: "The crease is finally gone" }),
+      ]);
+      expect(JSON.stringify(preview.snapshot)).not.toContain(String(linkedEvidence.evidenceId));
+
+      const fetchesBeforeEdit = fetched.length;
+      const edited = await app.request(
+        `/api/work-map/roles/${roleId}/linked-evidence/${linkedEvidence.id}`,
+        json("PUT", {
+          url: "https://reviews.example/fold",
+          title: "Hands on: the crease is gone",
+          kind: "review",
+          credit: "about-my-work",
+          pin: null,
+          isPublic: false,
+        }),
+      );
+      expect(edited.status).toBe(200);
+      expect(fetched.length).toBe(fetchesBeforeEdit);
+      await expect(edited.json()).resolves.toMatchObject({
+        linkedEvidence: {
+          title: "Hands on: the crease is gone",
+          evidenceId: linkedEvidence.evidenceId,
+          pin: null,
+        },
+      });
+      expect(await achievementEvidence()).not.toContain(linkedEvidence.evidenceId);
+
+      const offline = await app.request(
+        `/api/work-map/roles/${roleId}/linked-evidence`,
+        json("POST", {
+          url: "https://offline.example/talk",
+          title: "Demo day",
+          kind: "talk",
+          credit: "names-me",
+        }),
+      );
+      expect(offline.status).toBe(201);
+      await expect(offline.json()).resolves.toMatchObject({
+        linkedEvidence: { evidenceId: null },
+      });
+
+      const afterEdit = (await (await app.request("/api/work-map")).json()) as {
+        roles: Array<{ linkedEvidence: Array<{ id: string; title: string }> }>;
+      };
+      expect(afterEdit.roles[0].linkedEvidence.map((item) => item.title)).toEqual([
+        "Hands on: the crease is gone",
+        "Demo day",
+      ]);
+
+      const removed = await app.request(
+        `/api/work-map/roles/${roleId}/linked-evidence/${linkedEvidence.id}`,
+        { method: "DELETE" },
+      );
+      expect(removed.status).toBe(200);
+      const missing = await app.request(
+        `/api/work-map/roles/${roleId}/linked-evidence/${linkedEvidence.id}`,
+        { method: "DELETE" },
+      );
+      expect(missing.status).toBe(404);
+      const afterRemove = (await (await app.request("/api/work-map")).json()) as {
+        roles: Array<{ linkedEvidence: Array<{ title: string }> }>;
+      };
+      expect(afterRemove.roles[0].linkedEvidence.map((item) => item.title)).toEqual([
+        "Demo day",
+      ]);
+    } finally {
+      db.close();
+    }
+  });
+});
+
 describe("Work Map sites HTTP seam", () => {
   it("lets the occupant add, update, and remove a work site", async () => {
     const db = openDatabase(":memory:");

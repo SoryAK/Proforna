@@ -2038,3 +2038,44 @@
   font: inherit;
   font-size: 1rem;
 }
+
+.role-evidence-list {
+  list-style: none;
+  margin: 0.4rem 0 0.6rem;
+  padding: 0;
+}
+
+.role-evidence-list li {
+  border-left: 2px solid var(--wm-line);
+  margin: 0.45rem 0;
+  padding-left: 0.75rem;
+}
+
+.role-evidence-list a {
+  color: var(--gold-light);
+  font-size: 0.9rem;
+  text-decoration-color: var(--wm-line);
+  text-underline-offset: 0.2em;
+}
+
+.role-evidence-list a:hover {
+  color: var(--gold-hover);
+}
+
+.role-evidence-list span {
+  display: block;
+  color: var(--wm-muted);
+  font-size: 0.75rem;
+}
+
+.role-evidence-list q {
+  display: block;
+  font-size: 0.85rem;
+  font-style: italic;
+}
+
+.role-evidence-list p {
+  margin: 0.2rem 0 0;
+  color: var(--wm-muted);
+  font-size: 0.85rem;
+}

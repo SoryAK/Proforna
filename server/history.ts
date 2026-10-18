@@ -382,6 +382,7 @@ function factRole(role: ComparedRoleUpdate, kind: WorkMapRole["kind"]): WorkMapR
     claims: [],
     locations: [],
     media: [],
+    linkedEvidence: [],
     details: structuredClone(EMPTY_WORK_MAP_DETAILS),
   };
 }

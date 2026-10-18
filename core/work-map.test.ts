@@ -4,9 +4,14 @@ import {
   EMPTY_WORK_MAP_DETAILS,
   attachFactsToWorkMapRole,
   buildWorkMapSnapshot,
+  groupLinkedEvidence,
+  linkedEvidenceFromPage,
   roleCoverPhoto,
+  planLinkedEvidenceFacts,
   planWorkMapPublicationSettings,
   planWorkMapRoleFactSync,
+  prepareLinkedEvidence,
+  prepareLinkedEvidenceDelete,
   prepareWorkMapLocation,
   prepareWorkMapRoleCreate,
   nominatimAddressLine,
@@ -514,6 +519,401 @@ describe("Work Map role create", () => {
   });
 });
 
+describe("Linked Evidence", () => {
+  it("accepts a review that credits work on the role", () => {
+    expect(
+      prepareLinkedEvidence(
+        {
+          url: " https://reviews.example/fold-hands-on ",
+          title: " The crease is finally gone ",
+          outlet: " Reviews Weekly ",
+          publishedOn: "2026-08-14",
+          kind: "review",
+          contribution: " Designed the hinge fix the review praises. ",
+          credit: "about-my-work",
+          quote: " You cannot feel the fold anymore. ",
+          timestamp: "",
+          pin: { kind: "achievement", statement: "Reduced recovery time." },
+          isPublic: true,
+        },
+        sampleRole(),
+      ),
+    ).toEqual({
+      ok: true,
+      value: {
+        url: "https://reviews.example/fold-hands-on",
+        title: "The crease is finally gone",
+        outlet: "Reviews Weekly",
+        publishedOn: "2026-08-14",
+        kind: "review",
+        contribution: "Designed the hinge fix the review praises.",
+        credit: "about-my-work",
+        quote: "You cannot feel the fold anymore.",
+        timestamp: "",
+        pin: { kind: "achievement", statement: "Reduced recovery time." },
+        isPublic: true,
+      },
+    });
+  });
+
+  it("only links to a web page without credentials", () => {
+    for (const url of [
+      "",
+      "reviews.example/fold",
+      "javascript:alert(1)",
+      "file:///etc/passwd",
+      "https://me:secret@reviews.example/fold",
+    ]) {
+      expect(prepareLinkedEvidence(linkedInput({ url }), sampleRole())).toEqual({
+        ok: false,
+        error: "url-invalid",
+      });
+    }
+  });
+
+  it("needs a title, a known kind, and an honest credit", () => {
+    const role = sampleRole();
+    expect(prepareLinkedEvidence(linkedInput({ title: "  " }), role)).toEqual({
+      ok: false,
+      error: "title-required",
+    });
+    expect(prepareLinkedEvidence(linkedInput({ kind: "rumor" }), role)).toEqual({
+      ok: false,
+      error: "kind-invalid",
+    });
+    expect(prepareLinkedEvidence(linkedInput({ credit: "" }), role)).toEqual({
+      ok: false,
+      error: "credit-invalid",
+    });
+    expect(
+      prepareLinkedEvidence(linkedInput({ kind: "talk", credit: "names-me" }), role),
+    ).toMatchObject({ ok: true, value: { kind: "talk", credit: "names-me" } });
+  });
+
+  it("pins only to an achievement or event on the same role", () => {
+    const role = sampleRole({
+      details: {
+        ...structuredClone(EMPTY_WORK_MAP_DETAILS),
+        events: [
+          {
+            id: "demo-day",
+            date: "2026-05-02",
+            title: "Demo day",
+            detail: "",
+            isPublic: true,
+          },
+        ],
+      },
+    });
+    expect(
+      prepareLinkedEvidence(linkedInput({ pin: { kind: "event", id: "demo-day" } }), role),
+    ).toMatchObject({ ok: true, value: { pin: { kind: "event", id: "demo-day" } } });
+    expect(
+      prepareLinkedEvidence(
+        linkedInput({
+          pin: { kind: "achievement", statement: " reduced recovery time. " },
+        }),
+        role,
+      ),
+    ).toMatchObject({
+      ok: true,
+      value: { pin: { kind: "achievement", statement: "Reduced recovery time." } },
+    });
+    for (const pin of [
+      { kind: "event", id: "other-role-event" },
+      { kind: "achievement", statement: "Won an award I never mentioned." },
+      { kind: "milestone", id: "demo-day" },
+    ]) {
+      expect(prepareLinkedEvidence(linkedInput({ pin }), role)).toEqual({
+        ok: false,
+        error: "pin-missing",
+      });
+    }
+    expect(prepareLinkedEvidence(linkedInput({ pin: null }), role)).toMatchObject({
+      ok: true,
+      value: { pin: null },
+    });
+  });
+
+  it("keeps the publish date and video moment readable", () => {
+    const role = sampleRole();
+    for (const publishedOn of ["", "2026-08-14"]) {
+      expect(prepareLinkedEvidence(linkedInput({ publishedOn }), role)).toMatchObject({
+        ok: true,
+      });
+    }
+    for (const publishedOn of ["August 2026", "2026-13-01", "2026-02-30"]) {
+      expect(prepareLinkedEvidence(linkedInput({ publishedOn }), role)).toEqual({
+        ok: false,
+        error: "date-invalid",
+      });
+    }
+    for (const timestamp of ["", "14:32", "1:02:03"]) {
+      expect(prepareLinkedEvidence(linkedInput({ timestamp }), role)).toMatchObject({
+        ok: true,
+        value: { timestamp },
+      });
+    }
+    for (const timestamp of ["soon", "14:75", "1:2:3"]) {
+      expect(prepareLinkedEvidence(linkedInput({ timestamp }), role)).toEqual({
+        ok: false,
+        error: "timestamp-invalid",
+      });
+    }
+  });
+
+  it("removes by id", () => {
+    expect(prepareLinkedEvidenceDelete({ id: " linked-1 " })).toEqual({
+      ok: true,
+      value: { id: "linked-1" },
+    });
+    expect(prepareLinkedEvidenceDelete({ id: "" })).toEqual({
+      ok: false,
+      error: "linked-evidence-missing",
+    });
+  });
+
+  it("fills the form from the page's own tags", () => {
+    expect(
+      linkedEvidenceFromPage({
+        url: "https://www.reviews.example/fold-hands-on",
+        title: "Fold review | Reviews Weekly",
+        meta: {
+          "og:title": "The crease is finally gone",
+          "og:site_name": "Reviews Weekly",
+          "og:type": "article",
+          "article:published_time": "2026-08-14T09:30:00-04:00",
+        },
+      }),
+    ).toEqual({
+      title: "The crease is finally gone",
+      outlet: "Reviews Weekly",
+      publishedOn: "2026-08-14",
+      kind: "article",
+    });
+  });
+
+  it("falls back to the page title and host, and reads videos as talks", () => {
+    expect(
+      linkedEvidenceFromPage({
+        url: "https://www.video.example/watch?v=demo",
+        title: " Demo day keynote ",
+        meta: { "og:type": "video.other", "article:published_time": "soon" },
+      }),
+    ).toEqual({
+      title: "Demo day keynote",
+      outlet: "video.example",
+      publishedOn: "",
+      kind: "talk",
+    });
+  });
+
+  it("backs the pinned achievement with the captured copy and lets go when unpinned", () => {
+    const facts = [
+      sampleFact({
+        id: "fact-recovery",
+        factType: "achievement",
+        value: { statement: "Reduced recovery time." },
+        evidenceIds: ["resume"],
+      }),
+      sampleFact({
+        id: "fact-award",
+        factType: "achievement",
+        value: { statement: "Won the design award." },
+        evidenceIds: ["capture-1"],
+      }),
+    ];
+    const pinned = (statement: string, evidenceId: string) => ({
+      evidenceId,
+      pin: { kind: "achievement" as const, statement },
+    });
+
+    expect(
+      planLinkedEvidenceFacts({
+        roleId: "role-1",
+        facts,
+        before: null,
+        after: pinned("Reduced recovery time.", "capture-1"),
+      }),
+    ).toEqual([
+      {
+        action: "supersede",
+        entityType: "career-fact",
+        entityId: "fact-recovery",
+        values: {
+          factType: "achievement",
+          subjectId: "role-1",
+          value: { statement: "Reduced recovery time." },
+          evidenceIds: ["resume", "capture-1"],
+        },
+      },
+    ]);
+
+    expect(
+      planLinkedEvidenceFacts({
+        roleId: "role-1",
+        facts: [
+          sampleFact({
+            id: "fact-recovery",
+            factType: "achievement",
+            value: { statement: "Reduced recovery time." },
+            evidenceIds: ["resume", "capture-1"],
+          }),
+        ],
+        before: pinned("Reduced recovery time.", "capture-1"),
+        after: null,
+      }),
+    ).toEqual([
+      expect.objectContaining({
+        entityId: "fact-recovery",
+        values: expect.objectContaining({ evidenceIds: ["resume"] }),
+      }),
+    ]);
+
+    expect(
+      planLinkedEvidenceFacts({
+        roleId: "role-1",
+        facts,
+        before: pinned("Won the design award.", "capture-1"),
+        after: null,
+      }),
+    ).toEqual([]);
+
+    expect(
+      planLinkedEvidenceFacts({
+        roleId: "role-1",
+        facts,
+        before: { evidenceId: "capture-1", pin: { kind: "event", id: "demo-day" } },
+        after: { evidenceId: null, pin: { kind: "achievement", statement: "Reduced recovery time." } },
+      }),
+    ).toEqual([]);
+  });
+
+  it("groups evidence under the achievement it supports for readers", () => {
+    const review = { id: "review", pin: { kind: "achievement" as const, statement: "Solved the crease." } };
+    const talk = { id: "talk", pin: { kind: "event" as const, id: "demo-day" } };
+    const press = { id: "press", pin: null };
+    const stale = { id: "stale", pin: { kind: "achievement" as const, statement: "Old wording." } };
+    expect(
+      groupLinkedEvidence(["Solved the crease.", "Mentored interns."], [review, talk, press, stale]),
+    ).toEqual({
+      achievements: [
+        { statement: "Solved the crease.", evidence: [review] },
+        { statement: "Mentored interns.", evidence: [] },
+      ],
+      other: [talk, press, stale],
+    });
+    expect(groupLinkedEvidence(["Solved the crease."], undefined)).toEqual({
+      achievements: [{ statement: "Solved the crease.", evidence: [] }],
+      other: [],
+    });
+  });
+
+  it("publishes only public Linked Evidence when the evidence section is on", () => {
+    const role = sampleRole({
+      linkedEvidence: [
+        {
+          id: "shout-out",
+          evidenceId: "SECRET_CAPTURE",
+          url: "https://video.example/demo-day",
+          title: "Demo day keynote",
+          outlet: "video.example",
+          publishedOn: "2026-05-02",
+          kind: "talk",
+          contribution: "Built the live demo.",
+          credit: "names-me",
+          quote: "Huge thanks to the engineer who fixed the fold.",
+          timestamp: "14:32",
+          pin: { kind: "event", id: "private-event" },
+          isPublic: true,
+        },
+        {
+          id: "draft",
+          evidenceId: null,
+          url: "https://SECRET_LINK.example/",
+          title: "SECRET_TITLE",
+          outlet: "",
+          publishedOn: "",
+          kind: "article",
+          contribution: "",
+          credit: "about-my-work",
+          quote: "",
+          timestamp: "",
+          pin: null,
+          isPublic: false,
+        },
+      ],
+      details: {
+        ...structuredClone(EMPTY_WORK_MAP_DETAILS),
+        events: [
+          {
+            id: "private-event",
+            date: "2026-05-02",
+            title: "Demo day",
+            detail: "",
+            isPublic: false,
+          },
+        ],
+      },
+    });
+    const publish = (
+      sections: WorkMapPublicationSettings["sections"],
+      visibility: WorkMapPublicationSettings["visibility"] = "public",
+    ) =>
+      buildWorkMapSnapshot({
+        id: "snapshot-1",
+        occupantId: "local",
+        profile: {
+          fullName: "Sory Kaba",
+          headline: "",
+          city: "",
+          state: "",
+          bio: "",
+          linkedinUrl: "",
+          githubUrl: "",
+          portfolioUrl: "",
+        },
+        roles: [role],
+        skills: [],
+        settings: {
+          slug: "sory",
+          targetRole: "",
+          theme: "dark",
+          visibility,
+          sections,
+          hideCurrentEmployer: false,
+          showExactLocations: false,
+          expiresAt: null,
+        },
+        sourceFingerprint: "abc",
+        createdAt: "2026-10-17T20:00:00.000Z",
+      });
+
+    const published = publish(["history", "milestones", "evidence"]);
+    expect(published.roles[0].linkedEvidence).toEqual([
+      {
+        id: "shout-out",
+        url: "https://video.example/demo-day",
+        title: "Demo day keynote",
+        outlet: "video.example",
+        publishedOn: "2026-05-02",
+        kind: "talk",
+        contribution: "Built the live demo.",
+        credit: "names-me",
+        quote: "Huge thanks to the engineer who fixed the fold.",
+        timestamp: "14:32",
+        pin: null,
+        isPublic: true,
+      },
+    ]);
+    expect(JSON.stringify(published)).not.toContain("SECRET_");
+    expect(publish(["history"]).roles[0].linkedEvidence).toEqual([]);
+    expect(
+      publish(["history", "evidence"], "anonymous").roles[0].linkedEvidence,
+    ).toEqual([]);
+  });
+});
+
 describe("Work Map publication settings", () => {
   const current: WorkMapPublicationSettings = {
     slug: "career-map",
@@ -694,6 +1094,7 @@ function sampleRole(overrides: Partial<WorkMapRole> = {}): WorkMapRole {
         isPublic: false,
       },
     ],
+    linkedEvidence: [],
     details: {
       ...structuredClone(EMPTY_WORK_MAP_DETAILS),
       compensation: {
@@ -715,6 +1116,25 @@ function sampleRole(overrides: Partial<WorkMapRole> = {}): WorkMapRole {
       workplaceRating: 4,
       equipment: ["SECRET_TOOL"],
     },
+    ...overrides,
+  };
+}
+
+function linkedInput(
+  overrides: Record<string, unknown> = {},
+): Record<string, unknown> {
+  return {
+    url: "https://reviews.example/fold-hands-on",
+    title: "The crease is finally gone",
+    outlet: "Reviews Weekly",
+    publishedOn: "2026-08-14",
+    kind: "review",
+    contribution: "",
+    credit: "about-my-work",
+    quote: "",
+    timestamp: "",
+    pin: null,
+    isPublic: false,
     ...overrides,
   };
 }

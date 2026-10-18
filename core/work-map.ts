@@ -36,6 +36,187 @@ export function roleCoverPhoto(media: WorkMapMedia[]): WorkMapMedia | null {
   return null;
 }
 
+export const LINKED_EVIDENCE_KINDS = [
+  "review",
+  "article",
+  "talk",
+  "press-release",
+  "social-post",
+  "award",
+] as const;
+
+export const LINKED_EVIDENCE_CREDITS = ["names-me", "about-my-work"] as const;
+
+export type LinkedEvidence = {
+  id: string;
+  evidenceId: string | null;
+  url: string;
+  title: string;
+  outlet: string;
+  publishedOn: string;
+  kind: (typeof LINKED_EVIDENCE_KINDS)[number];
+  contribution: string;
+  credit: (typeof LINKED_EVIDENCE_CREDITS)[number];
+  quote: string;
+  timestamp: string;
+  pin:
+    | { kind: "achievement"; statement: string }
+    | { kind: "event"; id: string }
+    | null;
+  isPublic: boolean;
+};
+
+export type PreparedLinkedEvidence = Omit<LinkedEvidence, "id" | "evidenceId">;
+
+export type PublishedLinkedEvidence = Omit<LinkedEvidence, "evidenceId">;
+
+export type LinkedEvidenceError =
+  | "url-invalid"
+  | "title-required"
+  | "kind-invalid"
+  | "credit-invalid"
+  | "pin-missing"
+  | "date-invalid"
+  | "timestamp-invalid";
+
+export function prepareLinkedEvidence(
+  input: Record<string, unknown>,
+  role: Pick<WorkMapRole, "achievements" | "details">,
+):
+  | { ok: true; value: PreparedLinkedEvidence }
+  | { ok: false; error: LinkedEvidenceError } {
+  const url = text(input.url);
+  if (!isLinkedEvidenceUrl(url)) return { ok: false, error: "url-invalid" };
+  const title = text(input.title);
+  if (!title) return { ok: false, error: "title-required" };
+  const kind = oneOf(LINKED_EVIDENCE_KINDS, input.kind);
+  if (!kind) return { ok: false, error: "kind-invalid" };
+  const credit = oneOf(LINKED_EVIDENCE_CREDITS, input.credit);
+  if (!credit) return { ok: false, error: "credit-invalid" };
+  const pin = linkedEvidencePin(input.pin, role);
+  if (pin === undefined) return { ok: false, error: "pin-missing" };
+  const publishedOn = text(input.publishedOn);
+  if (publishedOn && !isCalendarDate(publishedOn)) {
+    return { ok: false, error: "date-invalid" };
+  }
+  const timestamp = text(input.timestamp);
+  if (timestamp && !/^(?:\d+:[0-5]\d:[0-5]\d|\d{1,3}:[0-5]\d)$/.test(timestamp)) {
+    return { ok: false, error: "timestamp-invalid" };
+  }
+  return {
+    ok: true,
+    value: {
+      url,
+      title,
+      outlet: text(input.outlet),
+      publishedOn,
+      kind,
+      contribution: text(input.contribution),
+      credit,
+      quote: text(input.quote),
+      timestamp,
+      pin,
+      isPublic: input.isPublic === true,
+    },
+  };
+}
+
+export function groupLinkedEvidence<T extends Pick<LinkedEvidence, "pin">>(
+  achievements: string[],
+  items: T[] | undefined,
+): { achievements: Array<{ statement: string; evidence: T[] }>; other: T[] } {
+  const grouped = achievements.map((statement) => ({ statement, evidence: [] as T[] }));
+  const other: T[] = [];
+  for (const item of items ?? []) {
+    const wanted =
+      item.pin?.kind === "achievement" ? item.pin.statement.trim().toLowerCase() : null;
+    const home = wanted
+      ? grouped.find((entry) => entry.statement.trim().toLowerCase() === wanted)
+      : undefined;
+    if (home) home.evidence.push(item);
+    else other.push(item);
+  }
+  return { achievements: grouped, other };
+}
+
+export function prepareLinkedEvidenceDelete(input: {
+  id?: unknown;
+}):
+  | { ok: true; value: { id: string } }
+  | { ok: false; error: "linked-evidence-missing" } {
+  const id = text(input.id);
+  if (!id) return { ok: false, error: "linked-evidence-missing" };
+  return { ok: true, value: { id } };
+}
+
+export function linkedEvidenceFromPage(page: {
+  url: string;
+  title: string;
+  meta: Record<string, string>;
+}): Pick<LinkedEvidence, "title" | "outlet" | "publishedOn" | "kind"> {
+  const published = text(page.meta["article:published_time"]).slice(0, 10);
+  return {
+    title: text(page.meta["og:title"]) || text(page.title),
+    outlet: text(page.meta["og:site_name"]) || pageHost(page.url),
+    publishedOn: isCalendarDate(published) ? published : "",
+    kind: text(page.meta["og:type"]).startsWith("video") ? "talk" : "article",
+  };
+}
+
+function pageHost(value: string): string {
+  try {
+    return new URL(value).hostname.replace(/^www\./, "");
+  } catch {
+    return "";
+  }
+}
+
+function linkedEvidencePin(
+  value: unknown,
+  role: Pick<WorkMapRole, "achievements" | "details">,
+): LinkedEvidence["pin"] | undefined {
+  if (value == null) return null;
+  if (typeof value !== "object") return undefined;
+  const pin = value as Record<string, unknown>;
+  if (pin.kind === "event") {
+    const id = text(pin.id);
+    return role.details.events.some((event) => event.id === id)
+      ? { kind: "event", id }
+      : undefined;
+  }
+  if (pin.kind === "achievement") {
+    const wanted = text(pin.statement).toLowerCase();
+    const statement = role.achievements.find(
+      (achievement) => achievement.trim().toLowerCase() === wanted,
+    );
+    return statement ? { kind: "achievement", statement: statement.trim() } : undefined;
+  }
+  return undefined;
+}
+
+function isCalendarDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+
+function oneOf<T extends string>(allowed: readonly T[], value: unknown): T | null {
+  return (allowed as readonly unknown[]).includes(value) ? (value as T) : null;
+}
+
+export function isLinkedEvidenceUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return (
+      (url.protocol === "http:" || url.protocol === "https:") &&
+      !url.username &&
+      !url.password
+    );
+  } catch {
+    return false;
+  }
+}
+
 export type WorkMapMoment = {
   id: string;
   date: string;
@@ -108,6 +289,7 @@ export type WorkMapRole = {
   claims: WorkMapClaim[];
   locations: WorkMapLocation[];
   media: WorkMapMedia[];
+  linkedEvidence: LinkedEvidence[];
   details: WorkMapRoleDetails;
 };
 
@@ -117,6 +299,7 @@ export type WorkMapPublishSection =
   | "map"
   | "milestones"
   | "media"
+  | "evidence"
   | "skills"
   | "contact";
 
@@ -188,6 +371,7 @@ export type WorkMapSnapshot = {
     achievements: string[];
     locations: WorkMapLocation[];
     media: WorkMapMedia[];
+    linkedEvidence: PublishedLinkedEvidence[];
     milestones: WorkMapMoment[];
     events: WorkMapMoment[];
     techStack: string[];
@@ -323,6 +507,10 @@ export function buildWorkMapSnapshot(input: {
         media: sections.has("media")
           ? role.media.filter((item) => item.isPublic)
           : [],
+        linkedEvidence:
+          sections.has("evidence") && !anonymous
+            ? publishedLinkedEvidence(role, sections.has("milestones"))
+            : [],
         milestones: sections.has("milestones")
           ? role.details.milestones.filter((item) => item.isPublic)
           : [],
@@ -364,6 +552,24 @@ export function buildWorkMapSnapshot(input: {
     sourceFingerprint: input.sourceFingerprint,
     createdAt: input.createdAt,
   };
+}
+
+function publishedLinkedEvidence(
+  role: WorkMapRole,
+  eventsPublished: boolean,
+): PublishedLinkedEvidence[] {
+  const publicEvents = new Set(
+    eventsPublished
+      ? role.details.events.filter((event) => event.isPublic).map((event) => event.id)
+      : [],
+  );
+  return role.linkedEvidence
+    .filter((item) => item.isPublic)
+    .map(({ evidenceId: _private, ...item }) =>
+      item.pin?.kind === "event" && !publicEvents.has(item.pin.id)
+        ? { ...item, pin: null }
+        : item,
+    );
 }
 
 function publishedRoleConditions(details: WorkMapRoleDetails) {
@@ -526,6 +732,57 @@ export function planWorkMapRoleFactSync(input: {
       },
     });
     existingStatements.add(statement.toLowerCase());
+  }
+  return operations;
+}
+
+type LinkedEvidenceBacking = {
+  evidenceId: string | null;
+  pin: LinkedEvidence["pin"];
+};
+
+export function planLinkedEvidenceFacts(input: {
+  roleId: string;
+  facts: CareerFactVersion[];
+  before: LinkedEvidenceBacking | null;
+  after: LinkedEvidenceBacking | null;
+}): ChangeOperation[] {
+  const achievements = canonicalFacts(input.facts).filter(
+    (fact) => fact.factType === "achievement" && fact.subjectId === input.roleId,
+  );
+  const backedFact = (backing: LinkedEvidenceBacking | null) => {
+    if (!backing?.evidenceId || backing.pin?.kind !== "achievement") return null;
+    const wanted = backing.pin.statement.toLowerCase();
+    return achievements.find((fact) => factStatement(fact).toLowerCase() === wanted) ?? null;
+  };
+  const next = new Map<string, string[]>();
+  const from = backedFact(input.before);
+  if (from && input.before?.evidenceId) {
+    next.set(
+      from.id,
+      from.evidenceIds.filter((id) => id !== input.before?.evidenceId),
+    );
+  }
+  const to = backedFact(input.after);
+  if (to && input.after?.evidenceId) {
+    next.set(to.id, unique([...(next.get(to.id) ?? to.evidenceIds), input.after.evidenceId]));
+  }
+  const operations: ChangeOperation[] = [];
+  for (const [factId, evidenceIds] of next) {
+    const fact = achievements.find((item) => item.id === factId);
+    if (!fact || evidenceIds.length === 0) continue;
+    if (stableStringify(evidenceIds) === stableStringify(fact.evidenceIds)) continue;
+    operations.push({
+      action: "supersede",
+      entityType: "career-fact",
+      entityId: fact.id,
+      values: {
+        factType: "achievement",
+        subjectId: input.roleId,
+        value: fact.value,
+        evidenceIds,
+      },
+    });
   }
   return operations;
 }

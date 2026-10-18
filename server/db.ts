@@ -256,6 +256,26 @@ export function openDatabase(path: string): DatabaseSync {
     )
   `);
   db.exec(`
+    CREATE TABLE IF NOT EXISTS work_history_linked_evidence (
+      id TEXT PRIMARY KEY,
+      work_history_id TEXT NOT NULL REFERENCES work_history(id),
+      occupant_id TEXT NOT NULL REFERENCES occupants(id),
+      evidence_id TEXT REFERENCES evidence(id),
+      url TEXT NOT NULL,
+      title TEXT NOT NULL,
+      outlet TEXT NOT NULL DEFAULT '',
+      published_on TEXT NOT NULL DEFAULT '',
+      kind TEXT NOT NULL,
+      contribution TEXT NOT NULL DEFAULT '',
+      credit TEXT NOT NULL,
+      quote TEXT NOT NULL DEFAULT '',
+      timestamp TEXT NOT NULL DEFAULT '',
+      pin_json TEXT NOT NULL DEFAULT 'null',
+      is_public INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL
+    )
+  `);
+  db.exec(`
     CREATE TABLE IF NOT EXISTS work_map_publication_settings (
       occupant_id TEXT PRIMARY KEY REFERENCES occupants(id),
       settings_json TEXT NOT NULL,

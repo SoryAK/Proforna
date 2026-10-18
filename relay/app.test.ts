@@ -50,6 +50,76 @@ const projection = {
   createdAt: "2026-09-19T20:00:00.000Z",
 };
 
+describe("Linked Evidence on a publication", () => {
+  it("shows sources under the achievement they support and keeps links safe", async () => {
+    const db = openRelayDatabase(":memory:");
+    const app = createRelayApp(db, "owner-secret");
+    const publish = (slug: string, roles: unknown[]) =>
+      app.request(`/relay/publications/${slug}`, {
+        method: "PUT",
+        headers: {
+          authorization: "Bearer owner-secret",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ projection: { ...projection, slug, roles } }),
+      });
+    try {
+      await publish("evidence", [
+        {
+          ...projection.roles[0],
+          linkedEvidence: [
+            {
+              id: "review",
+              url: "https://reviews.example/fold",
+              title: "The crease is gone",
+              outlet: "Reviews Weekly",
+              publishedOn: "2026-08-14",
+              kind: "review",
+              contribution: "Designed the hinge fix.",
+              credit: "names-me",
+              quote: "",
+              timestamp: "",
+              pin: { kind: "achievement", statement: "Cut recovery from 42 to 11 minutes." },
+              isPublic: true,
+            },
+            {
+              id: "odd",
+              url: "javascript:alert(1)",
+              title: "<script>bad()</script>",
+              outlet: "",
+              publishedOn: "",
+              kind: "talk",
+              contribution: "",
+              credit: "about-my-work",
+              quote: "Thanks to the team.",
+              timestamp: "14:32",
+              pin: null,
+              isPublic: true,
+            },
+          ],
+        },
+      ]);
+      const html = await (await app.request("/r/evidence")).text();
+      const achievement = html.indexOf("Cut recovery from 42 to 11 minutes.");
+      const review = html.indexOf('href="https://reviews.example/fold"');
+      expect(achievement).toBeGreaterThan(-1);
+      expect(review).toBeGreaterThan(achievement);
+      expect(html).toContain("Credited by name");
+      expect(html).toContain("Covers work they contributed to");
+      expect(html).toContain("at 14:32");
+      expect(html).not.toContain("javascript:alert");
+      expect(html).not.toContain("<script>bad()");
+
+      await publish("older", [projection.roles[0]]);
+      const older = await app.request("/r/older");
+      expect(older.status).toBe(200);
+      expect(await older.text()).toContain("Cut recovery from 42 to 11 minutes.");
+    } finally {
+      db.close();
+    }
+  });
+});
+
 describe("publishing relay", () => {
   it("lets an agent read the same snapshot a person opens", async () => {
     const db = openRelayDatabase(":memory:");

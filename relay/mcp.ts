@@ -7,7 +7,7 @@ const SUPPORTED_PROTOCOLS = [MODERN_PROTOCOL, ...LEGACY_PROTOCOLS];
 const SERVER_INFO = { name: "Proforna relay", version: "0.0.1" };
 
 const INSTRUCTIONS =
-  "Read one approved publication by its slug. The result is the same snapshot a person sees on the page, including the story and the rest a recruiter can read. Pass token when the publication requires one. A revoked or expired publication is not available.";
+  "Read one approved publication by its slug. The result is the same snapshot a person sees on the page, including the story and the rest a recruiter can read. Each role's linkedEvidence lists public sources about that work: credit \"names-me\" means the source names the person, and \"about-my-work\" means it covers work they say they contributed to without naming them. Pass token when the publication requires one. A revoked or expired publication is not available.";
 
 export type PublicationSnapshot = Omit<WorkMapSnapshot, "occupantId">;
 

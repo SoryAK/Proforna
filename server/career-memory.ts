@@ -597,7 +597,8 @@ function parseSourceType(value: unknown): Evidence["sourceType"] {
     value === "work-map" ||
     value === "document" ||
     value === "import" ||
-    value === "message"
+    value === "message" ||
+    value === "link"
     ? value
     : "user";
 }
