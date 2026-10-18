@@ -123,6 +123,22 @@ export function hintHeldRoles(held: readonly HeldRole[], incoming: OnboardingChe
   return hints.map(({ roleId, reason }) => ({ roleId, reason }));
 }
 
+/**
+ * A kept role is asked before a role from an earlier file in this same import.
+ * A declined pair is skipped. The hint does not change either role.
+ */
+export function hintNextResume(
+  kept: readonly HeldRole[],
+  earlier: readonly HeldRole[],
+  incoming: OnboardingCheckItem,
+  declined: readonly string[],
+  laterId: string,
+): ResumeMatchHint | null {
+  const career = hintHeldRoles(kept, incoming).find((hint) => !declined.includes(`${hint.roleId}|${laterId}`));
+  if (career) return career;
+  return hintHeldRoles(earlier, incoming).find((hint) => !declined.includes(`${hint.roleId}|${laterId}`)) ?? null;
+}
+
 export function rememberSetAside(
   current: readonly SetAsideRole[],
   item: OnboardingCheckItem,

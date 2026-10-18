@@ -35,6 +35,7 @@ export {
   historyFromHeld,
   holdVerifiedRoles,
   parseHistoryEvidence,
+  hintNextResume,
   queuedResumeDuplicate,
   resumesToQueue,
   rememberSetAside,
