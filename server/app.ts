@@ -240,6 +240,7 @@ export type AppOptions = {
   };
   localScanPorts?: number[];
   localScanConnect?: (port: number, signal?: AbortSignal) => Promise<boolean>;
+  relayPublicOrigin?: string | null;
   pages?: { fetch?: PageFetch };
 };
 
@@ -929,6 +930,7 @@ export function createApp(db: DatabaseSync, options: AppOptions = {}): Hono {
     return c.json({
       ...readWorkMap(db, occupant.id),
       residences: listResidences(db, occupant.id),
+      relayOrigin: options.relayPublicOrigin ?? null,
     });
   });
 

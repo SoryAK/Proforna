@@ -1787,8 +1787,55 @@
 
 .publication-sections legend,
 .publication-warning,
+.publication-embed,
 .publication-settings form > button {
   grid-column: 1 / -1;
+}
+
+.publication-embed {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.publication-embed > span {
+  color: var(--wm-muted);
+  font-size: 0.72rem;
+}
+
+.publication-embed textarea {
+  width: 100%;
+  min-height: 4.5rem;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--wm-line);
+  border-radius: 0.25rem;
+  background: #0b0908;
+  color: var(--text);
+  font: 0.75rem/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
+  resize: vertical;
+}
+
+.publication-embed-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.publication-embed-actions button {
+  flex: none;
+  min-height: 2.2rem;
+  padding: 0.45rem 0.75rem;
+  border: 1px solid var(--gold);
+  border-radius: 0.25rem;
+  background: transparent;
+  color: var(--gold-light);
+}
+
+.publication-embed p,
+.publication-embed-actions p {
+  margin: 0;
+  color: var(--wm-muted);
+  font-size: 0.75rem;
+  line-height: 1.45;
 }
 
 .publication-options,
