@@ -5,6 +5,7 @@ import {
   keptOnboardingHistory,
   nextOnboardingSourceIndex,
   onboardingCheckItems,
+  onboardingDone,
   onboardingExtractSummary,
   profileAfterOnboarding,
 } from "./onboarding-review";
@@ -266,5 +267,49 @@ describe("profileAfterOnboarding", () => {
     expect(next.state).toBe("England");
     expect(next.linkedinUrl).toBe("https://www.linkedin.com/in/ada");
     expect(next.portfolioUrl).toBe("https://ada.example");
+  });
+
+  it("keeps links and a place read from the resume when the answers are blank", () => {
+    const blank: ProfileFields = {
+      ...current,
+      address: "",
+      city: "",
+      state: "",
+      linkedinUrl: "",
+      githubUrl: "",
+      portfolioUrl: "",
+    };
+    const next = profileAfterOnboarding({
+      current: blank,
+      extracted: resume().profile,
+      fullName: "Ada Lovelace",
+      place: { street: "", city: "", state: "" },
+      links: { linkedinUrl: "", githubUrl: "https://github.com/typed", portfolioUrl: "" },
+    });
+    expect(next.city).toBe("Allentown");
+    expect(next.state).toBe("PA");
+    expect(next.linkedinUrl).toBe("https://www.linkedin.com/in/other");
+    expect(next.githubUrl).toBe("https://github.com/typed");
+    expect(next.portfolioUrl).toBe("https://other.example");
+  });
+});
+
+describe("onboardingDone", () => {
+  it("counts what was saved and how many roles were set aside", () => {
+    expect(onboardingDone({ jobs: 6, schools: 1, skills: 14, resumes: 2, setAside: 3 })).toEqual({
+      tiles: [
+        { count: 6, label: "jobs" },
+        { count: 1, label: "school" },
+        { count: 14, label: "skills" },
+        { count: 2, label: "resumes kept as evidence" },
+      ],
+      setAside: "3 set aside. Import a resume from Career History to bring them back.",
+    });
+  });
+
+  it("leaves out the set-aside line when nothing was set aside", () => {
+    const done = onboardingDone({ jobs: 0, schools: 0, skills: 0, resumes: 1, setAside: 0 });
+    expect(done.setAside).toBeNull();
+    expect(done.tiles.at(-1)).toEqual({ count: 1, label: "resume kept as evidence" });
   });
 });

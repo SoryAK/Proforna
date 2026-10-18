@@ -302,6 +302,29 @@ export function rememberSkills(
   return next;
 }
 
+/** A typed skill not found in any file is credited to `fileIndex`. */
+export function reviseSkills(
+  found: readonly HeldSkill[],
+  lines: readonly string[],
+  fileIndex: number,
+): HeldSkill[] {
+  const seen = new Set<string>();
+  const next: HeldSkill[] = [];
+  for (const line of lines) {
+    const name = line.trim();
+    const key = name.toLowerCase();
+    if (!name || seen.has(key)) continue;
+    seen.add(key);
+    const match = found.find((skill) => skill.name.trim().toLowerCase() === key);
+    next.push({ name, sourceFile: match?.sourceFile ?? fileIndex });
+  }
+  return next;
+}
+
+export function skillLines(skills: readonly HeldSkill[]): string {
+  return skills.map((skill) => skill.name).join("\n");
+}
+
 /** One history write for the whole session. Each field still names the file it came from. */
 export function historyFromHeld(roles: readonly HeldRole[], skills: readonly HeldSkill[]): HeldHistory {
   const experience: ExtractedJob[] = [];

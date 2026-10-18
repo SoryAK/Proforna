@@ -23,6 +23,7 @@ export function App() {
   const [prototype, setPrototype] = useState(readDevPrototype);
   const [reviewOnboarding, setReviewOnboarding] = useState(readReviewOnboarding);
   const [previewWindow, setPreviewWindow] = useState(isPreviewWindow);
+  const [focusJobId, setFocusJobId] = useState<string | null>(null);
 
   useEffect(() => {
     function onHash() {
@@ -93,10 +94,11 @@ export function App() {
     return (
       <Onboarding
         initialProfile={me.profile}
-        onFinished={(next, keptHistory) => {
+        onFinished={(next, exit) => {
           setMe(next);
           setReviewOnboarding(false);
-          window.location.hash = keptHistory ? "#/history" : "#/";
+          setFocusJobId(exit.page === "history" ? (exit.focusJobId ?? null) : null);
+          window.location.hash = exit.page === "history" ? "#/history" : "#/";
           void loadCareer();
         }}
       />
@@ -105,6 +107,8 @@ export function App() {
 
   return (
     <Home
+      initialFocusJobId={focusJobId}
+      initialFocusTab={focusJobId ? "evidence" : undefined}
       profile={me.profile}
       career={career}
       careerError={careerError}

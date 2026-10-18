@@ -168,6 +168,18 @@ describe("planModelOnboarding", () => {
     ).toBe("Qwen3.8-27B-Q6_K.gguf");
   });
 
+  it("leaves out embedding and reranking models, which cannot read a resume", () => {
+    expect(
+      presentRangeHits([
+        {
+          baseUrl: DEFAULT_LOCAL_BASE_URL,
+          models: ["nomic-embed-text:latest", "qwen3.8:27b", "mxbai-embed-large", "bge-m3", "all-MiniLM-L6-v2"],
+        },
+        { baseUrl: LLAMA_CPP_BASE_URL, models: ["bge-reranker-v2-m3.gguf", "text-embedding-3-small"] },
+      ]),
+    ).toEqual([{ baseUrl: DEFAULT_LOCAL_BASE_URL, models: ["qwen3.8:27b"] }]);
+  });
+
   it("keeps addresses that listed models and orders them by port", () => {
     expect(
       presentRangeHits([

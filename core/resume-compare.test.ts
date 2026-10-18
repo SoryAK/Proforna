@@ -15,7 +15,9 @@ import {
   resumesToQueue,
   rememberSetAside,
   rememberSkills,
+  reviseSkills,
   roleFieldDiffs,
+  skillLines,
   roleTookFile,
   type HeldRole,
 } from "./resume-compare";
@@ -237,6 +239,18 @@ describe("historyFromHeld", () => {
     expect(rememberSkills([{ name: "Machining", sourceFile: 0 }], ["Welding"], 1, false)).toEqual([
       { name: "Machining", sourceFile: 0 },
     ]);
+  });
+  it("revises found skills from one line each", () => {
+    const found = [
+      { name: "Machining", sourceFile: 1 },
+      { name: "Welding", sourceFile: 0 },
+    ];
+    expect(reviseSkills(found, ["  machining ", "", "PLC", "plc", "CAD"], 0)).toEqual([
+      { name: "machining", sourceFile: 1 },
+      { name: "PLC", sourceFile: 0 },
+      { name: "CAD", sourceFile: 0 },
+    ]);
+    expect(skillLines(found)).toBe("Machining\nWelding");
   });
 });
 

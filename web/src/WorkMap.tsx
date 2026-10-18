@@ -88,12 +88,14 @@ export function WorkMap({
   fallbackCareer: _fallbackCareer,
   error,
   focusRoleId,
+  focusTab,
   onHome,
   mapRevision = 0,
 }: {
   fallbackCareer: CareerFile;
   error: string | null;
   focusRoleId?: string | null;
+  focusTab?: DetailTab;
   onHome: () => void;
   mapRevision?: number;
 }) {
@@ -164,8 +166,11 @@ export function WorkMap({
     if (focusRoleId) setSelectedId(focusRoleId);
   }, [focusRoleId]);
 
+  const focusTabUsed = useRef(false);
   useEffect(() => {
-    setDetailTab("story");
+    const opensFocus = Boolean(focusTab) && selectedId === focusRoleId && !focusTabUsed.current;
+    if (opensFocus) focusTabUsed.current = true;
+    setDetailTab(opensFocus && focusTab ? focusTab : "story");
     setMapOverride("auto");
   }, [selectedId]);
 

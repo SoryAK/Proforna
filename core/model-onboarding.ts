@@ -76,12 +76,15 @@ export function modelCountLabel(count: number): string {
   return count === 1 ? "1 model" : `${count} models`;
 }
 
+/** A model list gives names only, so embedding and reranking models are told apart by name. */
+const NON_READER = /embed|rerank|minilm|(^|[^a-z])bge([^a-z]|$)/i;
+
 export function presentRangeHits(
   hits: readonly { baseUrl: string; models: readonly string[] }[],
 ): LocalScanHit[] {
   const kept = hits.flatMap((hit) => {
     const baseUrl = hit.baseUrl.trim();
-    const models = hit.models.map((id) => id.trim()).filter(Boolean);
+    const models = hit.models.map((id) => id.trim()).filter((id) => id && !NON_READER.test(presentModelId(id)));
     if (!baseUrl || models.length === 0) return [];
     return [{ baseUrl, models }];
   });

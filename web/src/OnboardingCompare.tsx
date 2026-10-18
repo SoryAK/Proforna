@@ -6,7 +6,9 @@ import {
   hintHeldRoles,
   hintSetAside,
   rememberSkills,
+  reviseSkills,
   roleFieldDiffs,
+  skillLines,
   roleTookFile,
   type HeldRole,
   type HeldSkill,
@@ -504,6 +506,7 @@ export function AllResumesVerify({
   const [compareId, setCompareId] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [picks, setPicks] = useState<Record<string, "kept" | "incoming">>({});
+  const [skillText, setSkillText] = useState<string | null>(null);
   const visible = rows.filter((row) => !row.removed);
   const summary = onboardingExtractSummary(
     bundles.flatMap((bundle) => bundle.items),
@@ -594,6 +597,26 @@ export function AllResumesVerify({
     setEditId(null);
   }
 
+  function keptRoles(): HeldRole[] {
+    let held: HeldRole[] = [];
+    for (const row of rows) {
+      if (row.removed || isBlankOnboardingCheckItem(row.item)) continue;
+      if (!row.adopted && hintSetAside(asides, row.item)) continue;
+      const role = row.role ?? addHeldRole([], row.item, row.fileIndex)[0];
+      if (role) held = [...held, { ...role, item: row.item }];
+    }
+    return held;
+  }
+
+  function foundSkills(held: HeldRole[]): HeldSkill[] {
+    let skills: HeldSkill[] = [];
+    for (const bundle of bundles) {
+      const tookJob = held.some((role) => role.item.source === "job" && roleTookFile(role, bundle.fileIndex));
+      skills = rememberSkills(skills, bundle.skills, bundle.fileIndex, tookJob);
+    }
+    return skills;
+  }
+
   function finish() {
     const next = rows.filter((row) => !isBlankOnboardingCheckItem(row.item));
     const unopened = next.filter((row) => !row.removed && !opened.includes(row.id));
@@ -602,19 +625,12 @@ export function AllResumesVerify({
       setPointOut(true);
       return;
     }
-    let held: HeldRole[] = [];
-    for (const row of next) {
-      if (row.removed) continue;
-      if (!row.adopted && hintSetAside(asides, row.item)) continue;
-      const role = row.role ?? addHeldRole([], row.item, row.fileIndex)[0];
-      if (role) held = [...held, { ...role, item: row.item }];
-    }
-    let skills: HeldSkill[] = [];
-    for (const bundle of bundles) {
-      const tookJob = held.some((role) => role.item.source === "job" && roleTookFile(role, bundle.fileIndex));
-      skills = rememberSkills(skills, bundle.skills, bundle.fileIndex, tookJob);
-    }
-    onDone(held, skills);
+    const held = keptRoles();
+    const found = foundSkills(held);
+    onDone(
+      held,
+      skillText == null ? found : reviseSkills(found, skillText.split("\n"), bundles[0]?.fileIndex ?? 0),
+    );
   }
 
   function add(kind: OnboardingCheckItem["kind"]) {
@@ -690,6 +706,15 @@ export function AllResumesVerify({
           : "Open a job or a school to review it against the resume."}
       </p>
       <VerifyBoard jobs={cards("job")} schools={cards("school")} />
+      <label className="onboarding-field">
+        <span>Skills, one per line</span>
+        <textarea
+          rows={4}
+          value={skillText ?? skillLines(foundSkills(keptRoles()))}
+          placeholder="Skills from a kept job show here."
+          onChange={(event) => setSkillText(event.target.value)}
+        />
+      </label>
       <div className="onboarding-verify-actions">
         <button type="button" className="onboarding-verify-btn" onClick={() => add("Job")}>
           Add a job

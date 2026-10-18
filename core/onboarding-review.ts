@@ -53,6 +53,37 @@ function countLabel(count: number, singular: string, plural: string): string {
   return `${count} ${count === 1 ? singular : plural}`;
 }
 
+export type OnboardingDone = {
+  tiles: Array<{ count: number; label: string }>;
+  setAside: string | null;
+};
+
+/** What the last step reports once the session is saved. */
+export function onboardingDone(saved: {
+  jobs: number;
+  schools: number;
+  skills: number;
+  resumes: number;
+  setAside: number;
+}): OnboardingDone {
+  const word = (count: number, singular: string, plural: string) => (count === 1 ? singular : plural);
+  return {
+    tiles: [
+      { count: saved.jobs, label: word(saved.jobs, "job", "jobs") },
+      { count: saved.schools, label: word(saved.schools, "school", "schools") },
+      { count: saved.skills, label: word(saved.skills, "skill", "skills") },
+      {
+        count: saved.resumes,
+        label: word(saved.resumes, "resume kept as evidence", "resumes kept as evidence"),
+      },
+    ],
+    setAside:
+      saved.setAside > 0
+        ? `${saved.setAside} set aside. Import a resume from Career History to bring them back.`
+        : null,
+  };
+}
+
 /** Roles and schools the screen can confirm. */
 export function onboardingCheckItems(data: ExtractedResume): OnboardingCheckItem[] {
   const jobs = data.experience.map((job, sourceIndex) =>
@@ -208,15 +239,6 @@ function keptJob(
       ? { label: place, address: place, latitude: item.lat, longitude: item.lng }
       : (base?.site ?? null);
   return {
-    company: "",
-    title: "",
-    location: "",
-    startDate: "",
-    endDate: "",
-    isCurrent: false,
-    description: "",
-    achievements: [],
-    site: null,
     ...base,
     company: item.org.trim() || "Untitled role",
     title: item.title.trim() || "Role",
@@ -242,14 +264,6 @@ function keptSchool(
       ? { label: place, address: place, latitude: item.lat, longitude: item.lng }
       : (base?.site ?? null);
   return {
-    institution: "",
-    degree: "",
-    field: "",
-    location: "",
-    startDate: "",
-    endDate: "",
-    description: "",
-    site: null,
     ...base,
     institution: item.org.trim() || "Untitled school",
     degree: item.title.trim(),
@@ -263,8 +277,8 @@ function keptSchool(
 }
 
 /**
- * Profile to store after onboarding. A skipped place or links answer leaves
- * those fields as they already are. A blank field in a given answer does too.
+ * Profile to store after onboarding. A skipped place or links answer, or a
+ * blank field in one, keeps the saved value, or the resume's when none is saved.
  */
 export function profileAfterOnboarding(input: {
   current: ProfileFields;
@@ -281,22 +295,14 @@ export function profileAfterOnboarding(input: {
     fullName: input.fullName.trim().replace(/\s+/g, " "),
   };
   if (input.place) {
-    next.address = input.place.street.trim() || input.current.address;
-    next.city = input.place.city.trim() || input.current.city;
-    next.state = input.place.state.trim() || input.current.state;
-  } else {
-    next.address = input.current.address;
-    next.city = input.current.city;
-    next.state = input.current.state;
+    next.address = input.place.street.trim() || base.address;
+    next.city = input.place.city.trim() || base.city;
+    next.state = input.place.state.trim() || base.state;
   }
   if (input.links) {
-    next.linkedinUrl = input.links.linkedinUrl.trim() || input.current.linkedinUrl;
-    next.githubUrl = input.links.githubUrl.trim() || input.current.githubUrl;
-    next.portfolioUrl = input.links.portfolioUrl.trim() || input.current.portfolioUrl;
-  } else {
-    next.linkedinUrl = input.current.linkedinUrl;
-    next.githubUrl = input.current.githubUrl;
-    next.portfolioUrl = input.current.portfolioUrl;
+    next.linkedinUrl = input.links.linkedinUrl.trim() || base.linkedinUrl;
+    next.githubUrl = input.links.githubUrl.trim() || base.githubUrl;
+    next.portfolioUrl = input.links.portfolioUrl.trim() || base.portfolioUrl;
   }
   return next;
 }
